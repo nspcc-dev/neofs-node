@@ -19,7 +19,8 @@ DIRS = $(BIN) $(RELEASE)
 CMDS = $(notdir $(basename $(wildcard cmd/*)))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
-.PHONY: help all images dep clean fmts fmt imports test lint docker/lint prepare-release
+.PHONY: help all images dep clean fmts fmt imports test lint docker/lint 
+		prepare-release debpackage
 
 # To build a specific binary, use it's name prefix with bin/ as a target
 # For example `make bin/neofs-node` will build only storage node binary
@@ -142,3 +143,16 @@ clean:
 	rm -rf .cache
 	rm -rf $(BIN)
 	rm -rf $(RELEASE)
+
+# Package for Debian
+debpackage: DEBVERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
+			sed -E "s/(.*)-(g[a-fA-F0-9]{6,8})(.*)/\1\3~\2/" | \
+			sed "s/-/~/")-$(shell grep -o "^VERSION_CODENAME=.*" /etc/os-release | \
+			cut -d= -f2-)
+debpackage:
+	cat debian/changelog.ex | sed "s/\(.*>\)$$/\1  $$(date -R)\n/" |\
+	sed "s/0.0.0/$(DEBVERSION)/" > debian/changelog
+	dpkg-buildpackage --no-sign -b
+
+debclean:
+	dh clean	

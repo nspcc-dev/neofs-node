@@ -1,2 +1,4 @@
 /etc/neofs/ir
 /etc/neofs/storage
+/var/lib/neofs/ir
+/var/lib/neofs/storage

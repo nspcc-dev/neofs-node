@@ -17,9 +17,19 @@ set -e
 # for details, see https://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
-
 case "$1" in
     configure)
+        useradd -s /usr/sbin/nologin --system -M -U -c "NeoFS InnerRing node" neofs-ir
+        useradd -s /usr/sbin/nologin --system -M -U -c "NeoFS Storage node" neofs-storage
+        for USERPART in ir storage
+        do
+            for DIRPART in /var/lib/neofs /etc/neofs
+                if ! dpkg-statoverride --list $DIRPART/$NAMEPART >/dev/null; then
+                    chown neofs-$USERPART: $DIRPART/$NAMEPART
+                    chmod 0750 $DIRPART/$NAMEPART
+                    chmod u=rwX,g=rX,o= $DIRPART/$NAMEPART/*
+                fi
+        done    
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
