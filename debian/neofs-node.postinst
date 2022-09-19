@@ -24,7 +24,7 @@ case "$1" in
         for USERNAME in ir storage
         do
             if ! dpkg-statoverride --list /etc/neofs/$USERNAME >/dev/null; then
-                chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME
+                chown -f -R root:neofs-$USERNAME /etc/neofs/$USERNAME
                 chmod -f 0750 /etc/neofs/$USERNAME
                 chmod -f u=rwX,g=rX,o= /etc/neofs/$USERNAME/* || true
             fi
