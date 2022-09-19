@@ -107,14 +107,29 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 
 	var err error
 
+	if ev.Maintenance() {
+		err = np.nodeStateSettings.MaintenanceModeAllowed()
+		if err != nil {
+			np.log.Info("prevent switching node to maintenance state",
+				zap.Error(err),
+			)
+
+			return
+		}
+	}
+
 	if nr := ev.NotaryRequest(); nr != nil {
 		err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 	} else {
 		prm := netmapclient.UpdatePeerPrm{}
 
-		if ev.Online() {
+		switch {
+		case ev.Online():
 			prm.SetOnline()
+		case ev.Maintenance():
+			prm.SetMaintenance()
 		}
+
 		prm.SetKey(ev.PublicKey().Bytes())
 
 		err = np.netmapClient.UpdatePeerState(prm)

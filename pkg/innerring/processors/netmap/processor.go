@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -74,6 +75,8 @@ type (
 		nodeValidator NodeValidator
 
 		notaryDisabled bool
+
+		nodeStateSettings state.NetworkSettings
 	}
 
 	// Params of the processor constructor.
@@ -97,6 +100,8 @@ type (
 		NodeValidator NodeValidator
 
 		NotaryDisabled bool
+
+		NodeStateSettings state.NetworkSettings
 	}
 )
 
@@ -132,6 +137,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: node validator is not set")
 	case p.SubnetContract == nil:
 		return nil, errors.New("ir/netmap: subnet contract script hash is not set")
+	case p.NodeStateSettings == nil:
+		return nil, errors.New("ir/netmap: node state settings is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -162,6 +169,8 @@ func New(p *Params) (*Processor, error) {
 		nodeValidator: p.NodeValidator,
 
 		notaryDisabled: p.NotaryDisabled,
+
+		nodeStateSettings: p.NodeStateSettings,
 	}, nil
 }
 
