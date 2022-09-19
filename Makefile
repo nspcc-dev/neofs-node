@@ -150,8 +150,8 @@ debpackage: DEBVERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
 			sed "s/-/~/")-$(shell grep -o "^VERSION_CODENAME=.*" /etc/os-release | \
 			cut -d= -f2-)
 debpackage:
-	cat debian/changelog.ex | sed "s/\(.*>\)$$/\1  $$(date -R)\n/" |\
-	sed "s/0.0.0/$(DEBVERSION)/" > debian/changelog
+	sed "s/0.0.0/$(DEBVERSION)/" debian/changelog.ex > debian/changelog
+	echo " -- "$$(git config user.name)" <"$$(git config user.email)">  "$$(date -R) >> debian/changelog
 	dpkg-buildpackage --no-sign -b
 
 debclean:
