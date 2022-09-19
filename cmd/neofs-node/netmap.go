@@ -321,8 +321,12 @@ var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay 
 var errNodeMaintenance = errors.New("node is in maintenance mode")
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
-	if st == control.NetmapStatus_MAINTENANCE {
+	switch st {
+	default:
+		return fmt.Errorf("unsupported status %v", st)
+	case control.NetmapStatus_MAINTENANCE:
 		return c.cfgObject.cfgLocalStorage.localStorage.BlockExecution(errNodeMaintenance)
+	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
 	}
 
 	err := c.cfgObject.cfgLocalStorage.localStorage.ResumeExecution()
