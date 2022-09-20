@@ -21,15 +21,19 @@ storage:
   shard:
     0:
       metabase:
-        path: <storage-path>/metabase
+        path: /storage/path/metabase
         perm: 0600
       blobstor:
-        path: <storage-path>/blobstor
-        perm: 0600
-        blobovnicza:
+        - path: /storage/path/blobovnicza
+          type: blobovnicza
+          perm: 0600
           opened_cache_capacity: 32
           depth: 1
           width: 1
+        - path: /storage/path/fstree
+          type: fstree
+          perm: 0600
+          depth: 4
       writecache:
         enabled: false
       gc:
