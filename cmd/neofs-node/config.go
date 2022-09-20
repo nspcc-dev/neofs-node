@@ -409,7 +409,7 @@ func initShardOptions(c *cfg) {
 
 	require := !nodeconfig.Relay(c.appCfg) // relay node does not require shards
 
-	engineconfig.IterateShards(c.appCfg, require, func(sc *shardconfig.Config) {
+	err := engineconfig.IterateShards(c.appCfg, require, func(sc *shardconfig.Config) error {
 		var writeCacheOpts []writecache.Option
 
 		writeCacheCfg := sc.WriteCache()
@@ -474,7 +474,7 @@ func initShardOptions(c *cfg) {
 					},
 				})
 			default:
-				panic(fmt.Errorf("invalid storage type: %s", storages[i].Type()))
+				return fmt.Errorf("invalid storage type: %s", storages[i].Type())
 			}
 		}
 
@@ -521,7 +521,11 @@ func initShardOptions(c *cfg) {
 			}),
 			shard.WithGCEventChannel(gcEventChannel),
 		})
+		return nil
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	c.cfgObject.cfgLocalStorage.shardOpts = opts
 }

@@ -1,6 +1,7 @@
 package engineconfig
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -15,13 +16,16 @@ const (
 	ShardPoolSizeDefault = 20
 )
 
+// ErrNoShardConfigured is returned when at least 1 shard is required but none are found.
+var ErrNoShardConfigured = errors.New("no shard configured")
+
 // IterateShards iterates over subsections of "shard" subsection of "storage" section of c,
 // wrap them into shardconfig.Config and passes to f.
 //
 // Section names are expected to be consecutive integer numbers, starting from 0.
 //
 // Panics if N is not a positive number while shards are required.
-func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config)) {
+func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config) error) error {
 	c = c.Sub(subsection)
 
 	c = c.Sub("shard")
@@ -44,11 +48,14 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config))
 		}
 		(*config.Config)(sc).SetDefault(def)
 
-		f(sc)
+		if err := f(sc); err != nil {
+			return err
+		}
 	}
 	if i == 0 && required {
-		panic("no shard configured")
+		return ErrNoShardConfigured
 	}
+	return nil
 }
 
 // ShardPoolSize returns the value of "shard_pool_size" config parameter from "storage" section.
