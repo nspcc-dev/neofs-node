@@ -446,7 +446,7 @@ func initShardOptions(c *cfg) {
 		var st []blobstor.SubStorage
 		for i := range storages {
 			switch storages[i].Type() {
-			case "blobovnicza":
+			case blobovniczatree.Type:
 				sub := blobovniczaconfig.From((*config.Config)(storages[i]))
 				lim := sc.SmallSizeLimit()
 				st = append(st, blobstor.SubStorage{
@@ -462,7 +462,7 @@ func initShardOptions(c *cfg) {
 						return uint64(len(data)) < lim
 					},
 				})
-			case "fstree":
+			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storages[i]))
 				st = append(st, blobstor.SubStorage{
 					Storage: fstree.New(

@@ -229,9 +229,12 @@ func u64FromHexString(str string) uint64 {
 	return v
 }
 
+// Type is blobovniczatree storage type used in logs and configuration.
+const Type = "blobovnicza"
+
 // Type implements common.Storage.
 func (b *Blobovniczas) Type() string {
-	return "blobovnicza"
+	return Type
 }
 
 // SetCompressor implements common.Storage.

@@ -5,6 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 )
 
 // Config is a wrapper over the config section
@@ -26,7 +28,7 @@ func (x *Config) Storages() []*storage.Config {
 		switch typ {
 		case "":
 			return ss
-		case "fstree", "blobovnicza":
+		case fstree.Type, blobovniczatree.Type:
 			sub := storage.From((*config.Config)(x).Sub(strconv.Itoa(i)))
 			ss = append(ss, sub)
 		default:

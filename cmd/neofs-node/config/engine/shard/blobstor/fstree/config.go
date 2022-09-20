@@ -19,7 +19,7 @@ func From(c *config.Config) *Config {
 
 // Type returns the storage type.
 func (x *Config) Type() string {
-	return "fstree"
+	return fstree.Type
 }
 
 // Depth returns the value of "depth" config parameter.
