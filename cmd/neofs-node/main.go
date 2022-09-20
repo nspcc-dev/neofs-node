@@ -37,6 +37,7 @@ func fatalOnErrDetails(details string, err error) {
 func main() {
 	configFile := flag.String("config", "", "path to config")
 	versionFlag := flag.Bool("version", false, "neofs node version")
+	dryRunFlag := flag.Bool("check", false, "validate configuration and exit")
 	flag.Parse()
 
 	if *versionFlag {
@@ -49,6 +50,10 @@ func main() {
 
 	err := validateConfig(appCfg)
 	fatalOnErr(err)
+
+	if *dryRunFlag {
+		return
+	}
 
 	c := initCfg(appCfg)
 

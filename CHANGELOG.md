@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 - Changelog updates CI step (#1808)
 - Validate storage node configuration before node startup (#1805)
+- `neofs-node -check` command to check the configuration file (#1805)
 
 ### Changed
 
