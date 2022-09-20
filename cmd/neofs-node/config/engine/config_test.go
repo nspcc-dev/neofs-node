@@ -20,17 +20,17 @@ func TestEngineSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
-		require.Panics(t, func() {
-			engineconfig.IterateShards(empty, true, nil)
-		})
+		require.ErrorIs(t,
+			engineconfig.IterateShards(empty, true, nil),
+			engineconfig.ErrNoShardConfigured)
 
 		handlerCalled := false
 
-		require.NotPanics(t, func() {
-			engineconfig.IterateShards(empty, false, func(_ *shardconfig.Config) {
+		require.NoError(t,
+			engineconfig.IterateShards(empty, false, func(_ *shardconfig.Config) error {
 				handlerCalled = true
-			})
-		})
+				return nil
+			}))
 
 		require.False(t, handlerCalled)
 
@@ -47,7 +47,7 @@ func TestEngineSection(t *testing.T) {
 		require.EqualValues(t, 100, engineconfig.ShardErrorThreshold(c))
 		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
 
-		engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) {
+		err := engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) error {
 			defer func() {
 				num++
 			}()
@@ -145,8 +145,9 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, true, sc.RefillMetabase())
 				require.Equal(t, mode.ReadWrite, sc.Mode())
 			}
+			return nil
 		})
-
+		require.NoError(t, err)
 		require.Equal(t, 2, num)
 	}
 
