@@ -240,13 +240,7 @@ type cfgReputation struct {
 
 var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
 
-func initCfg(path string) *cfg {
-	var p config.Prm
-
-	appCfg := config.New(p,
-		config.WithConfigFile(path),
-	)
-
+func initCfg(appCfg *config.Config) *cfg {
 	key := nodeconfig.Key(appCfg)
 
 	var logPrm logger.Prm

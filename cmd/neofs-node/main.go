@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"go.uber.org/zap"
@@ -44,7 +45,12 @@ func main() {
 		os.Exit(SuccessReturnCode)
 	}
 
-	c := initCfg(*configFile)
+	appCfg := config.New(config.Prm{}, config.WithConfigFile(*configFile))
+
+	err := validateConfig(appCfg)
+	fatalOnErr(err)
+
+	c := initCfg(appCfg)
 
 	initApp(c)
 
