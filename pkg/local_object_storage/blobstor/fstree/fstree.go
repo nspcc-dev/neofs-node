@@ -330,9 +330,12 @@ func (t *FSTree) NumberOfObjects() (uint64, error) {
 	return counter, nil
 }
 
+// Type is fstree storage type used in logs and configuration.
+const Type = "fstree"
+
 // Type implements common.Storage.
 func (*FSTree) Type() string {
-	return "fstree"
+	return Type
 }
 
 // SetCompressor implements common.Storage.

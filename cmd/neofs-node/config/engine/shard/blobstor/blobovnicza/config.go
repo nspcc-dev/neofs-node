@@ -3,6 +3,7 @@ package blobovniczaconfig
 import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	boltdbconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/boltdb"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 )
 
 // Config is a wrapper over the config section
@@ -31,7 +32,7 @@ func From(c *config.Config) *Config {
 
 // Type returns the storage type.
 func (x *Config) Type() string {
-	return "blobovnicza"
+	return blobovniczatree.Type
 }
 
 // Size returns the value of "size" config parameter.
