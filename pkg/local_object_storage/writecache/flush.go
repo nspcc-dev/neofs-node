@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	"errors"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -24,6 +25,10 @@ const (
 	// defaultFlushInterval is default time interval between successive flushes.
 	defaultFlushInterval = time.Second
 )
+
+// errMustBeReadOnly is returned when write-cache must be
+// in read-only mode to perform an operation.
+var errMustBeReadOnly = errors.New("write-cache must be in read-only mode")
 
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
@@ -223,4 +228,69 @@ func (c *cache) flushObject(obj *object.Object) error {
 
 	_, err = c.metabase.Put(pPrm)
 	return err
+}
+
+// Flush flushes all objects from the write-cache to the main storage.
+// Write-cache must be in readonly mode to ensure correctness of an operation and
+// to prevent interference with background flush workers.
+func (c *cache) Flush() error {
+	c.modeMtx.RLock()
+	defer c.modeMtx.RUnlock()
+
+	if !c.mode.ReadOnly() {
+		return errMustBeReadOnly
+	}
+
+	var prm common.IteratePrm
+	prm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
+		_, ok := c.flushed.Peek(addr.EncodeToString())
+		if ok {
+			return nil
+		}
+
+		data, err := f()
+		if err != nil {
+			return err
+		}
+
+		var obj object.Object
+		err = obj.Unmarshal(data)
+		if err != nil {
+			return err
+		}
+
+		return c.flushObject(&obj)
+	}
+
+	_, err := c.fsTree.Iterate(prm)
+	if err != nil {
+		return err
+	}
+
+	return c.db.View(func(tx *bbolt.Tx) error {
+		var addr oid.Address
+
+		b := tx.Bucket(defaultBucket)
+		cs := b.Cursor()
+		for k, data := cs.Seek(nil); k != nil; k, data = cs.Next() {
+			sa := string(k)
+			if _, ok := c.flushed.Peek(sa); ok {
+				continue
+			}
+
+			if err := addr.DecodeString(sa); err != nil {
+				return err
+			}
+
+			var obj object.Object
+			if err := obj.Unmarshal(data); err != nil {
+				return err
+			}
+
+			if err := c.flushObject(&obj); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
