@@ -28,6 +28,7 @@ type Cache interface {
 	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
 	DumpInfo() Info
+	Flush() error
 
 	Init() error
 	Open(readOnly bool) error
