@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Description of command `netmap nodeinfo` (#1821)
 - Proper status for object.Delete if session token is missing (#1697)
+- Fail startup if metabase has an old version (#1809)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
