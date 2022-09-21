@@ -51,5 +51,4 @@ func initControlEvacuateShardCmd() {
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")
 
 	_ = evacuateShardCmd.MarkFlagRequired(shardIDFlag)
-	_ = evacuateShardCmd.MarkFlagRequired(controlRPC)
 }
