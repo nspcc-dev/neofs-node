@@ -58,6 +58,8 @@ func (db *DB) Open(readOnly bool) error {
 
 // Init initializes metabase. It creates static (CID-independent) buckets in underlying BoltDB instance.
 //
+// Returns ErrOutdatedVersion if a database at the provided path is outdated.
+//
 // Does nothing if metabase has already been initialized and filled. To roll back the database to its initial state,
 // use Reset.
 func (db *DB) Init() error {

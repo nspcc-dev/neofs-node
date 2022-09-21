@@ -116,6 +116,10 @@ func (s *Shard) Init() error {
 	for _, component := range components {
 		if err := component.Init(); err != nil {
 			if component == s.metaBase {
+				if errors.Is(err, meta.ErrOutdatedVersion) {
+					return err
+				}
+
 				err = s.handleMetabaseFailure("init", err)
 				if err != nil {
 					return err

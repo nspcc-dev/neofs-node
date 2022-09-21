@@ -2,6 +2,7 @@ package meta
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"go.etcd.io/bbolt"
@@ -12,6 +13,11 @@ const version = 2
 
 var versionKey = []byte("version")
 
+// ErrOutdatedVersion is returned on initializing
+// an existing metabase that is not compatible with
+// the current code version.
+var ErrOutdatedVersion = errors.New("invalid version")
+
 func checkVersion(tx *bbolt.Tx, initialized bool) error {
 	b := tx.Bucket(shardInfoBucket)
 	if b != nil {
@@ -19,7 +25,7 @@ func checkVersion(tx *bbolt.Tx, initialized bool) error {
 		if len(data) == 8 {
 			stored := binary.LittleEndian.Uint64(data)
 			if stored != version {
-				return fmt.Errorf("invalid version: expected=%d, stored=%d", version, stored)
+				return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
 			}
 		}
 	}
