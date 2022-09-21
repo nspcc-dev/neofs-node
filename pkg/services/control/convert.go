@@ -182,3 +182,21 @@ func (w *evacuateShardResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	w.EvacuateShardResponse = r
 	return nil
 }
+
+type flushCacheResponseWrapper struct {
+	*FlushCacheResponse
+}
+
+func (w *flushCacheResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.FlushCacheResponse
+}
+
+func (w *flushCacheResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	r, ok := m.(*FlushCacheResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, (*FlushCacheResponse)(nil))
+	}
+
+	w.FlushCacheResponse = r
+	return nil
+}

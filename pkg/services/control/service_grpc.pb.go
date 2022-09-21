@@ -8,7 +8,6 @@ package control
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -41,6 +40,8 @@ type ControlServiceClient interface {
 	SynchronizeTree(ctx context.Context, in *SynchronizeTreeRequest, opts ...grpc.CallOption) (*SynchronizeTreeResponse, error)
 	// EvacuateShard moves all data from one shard to the others.
 	EvacuateShard(ctx context.Context, in *EvacuateShardRequest, opts ...grpc.CallOption) (*EvacuateShardResponse, error)
+	// FlushCache moves all data from one shard to the others.
+	FlushCache(ctx context.Context, in *FlushCacheRequest, opts ...grpc.CallOption) (*FlushCacheResponse, error)
 }
 
 type controlServiceClient struct {
@@ -132,6 +133,15 @@ func (c *controlServiceClient) EvacuateShard(ctx context.Context, in *EvacuateSh
 	return out, nil
 }
 
+func (c *controlServiceClient) FlushCache(ctx context.Context, in *FlushCacheRequest, opts ...grpc.CallOption) (*FlushCacheResponse, error) {
+	out := new(FlushCacheResponse)
+	err := c.cc.Invoke(ctx, "/control.ControlService/FlushCache", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations should embed UnimplementedControlServiceServer
 // for forward compatibility
@@ -154,6 +164,8 @@ type ControlServiceServer interface {
 	SynchronizeTree(context.Context, *SynchronizeTreeRequest) (*SynchronizeTreeResponse, error)
 	// EvacuateShard moves all data from one shard to the others.
 	EvacuateShard(context.Context, *EvacuateShardRequest) (*EvacuateShardResponse, error)
+	// FlushCache moves all data from one shard to the others.
+	FlushCache(context.Context, *FlushCacheRequest) (*FlushCacheResponse, error)
 }
 
 // UnimplementedControlServiceServer should be embedded to have forward compatible implementations.
@@ -186,6 +198,9 @@ func (UnimplementedControlServiceServer) SynchronizeTree(context.Context, *Synch
 }
 func (UnimplementedControlServiceServer) EvacuateShard(context.Context, *EvacuateShardRequest) (*EvacuateShardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EvacuateShard not implemented")
+}
+func (UnimplementedControlServiceServer) FlushCache(context.Context, *FlushCacheRequest) (*FlushCacheResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FlushCache not implemented")
 }
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -361,6 +376,24 @@ func _ControlService_EvacuateShard_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_FlushCache_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FlushCacheRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).FlushCache(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.ControlService/FlushCache",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).FlushCache(ctx, req.(*FlushCacheRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -403,6 +436,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EvacuateShard",
 			Handler:    _ControlService_EvacuateShard_Handler,
+		},
+		{
+			MethodName: "FlushCache",
+			Handler:    _ControlService_FlushCache_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
