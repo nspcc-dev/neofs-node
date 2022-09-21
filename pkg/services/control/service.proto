@@ -34,6 +34,9 @@ service ControlService {
 
     // EvacuateShard moves all data from one shard to the others.
     rpc EvacuateShard (EvacuateShardRequest) returns (EvacuateShardResponse);
+
+    // FlushCache moves all data from one shard to the others.
+    rpc FlushCache (FlushCacheRequest) returns (FlushCacheResponse);
 }
 
 // Health check request.
@@ -306,6 +309,28 @@ message EvacuateShardResponse {
     // Response body structure.
     message Body {
         uint32 count = 1;
+    }
+
+    Body body = 1;
+    Signature signature = 2;
+}
+
+// FlushCache request.
+message FlushCacheRequest {
+    // Request body structure.
+    message Body {
+        // ID of the shard.
+        bytes shard_ID = 1;
+    }
+
+    Body body = 1;
+    Signature signature = 2;
+}
+
+// FlushCache response.
+message FlushCacheResponse {
+    // Response body structure.
+    message Body {
     }
 
     Body body = 1;

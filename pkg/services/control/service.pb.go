@@ -7,11 +7,10 @@
 package control
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1061,6 +1060,118 @@ func (x *EvacuateShardResponse) GetSignature() *Signature {
 	return nil
 }
 
+// FlushCache request.
+type FlushCacheRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Body      *FlushCacheRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Signature *Signature              `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *FlushCacheRequest) Reset() {
+	*x = FlushCacheRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FlushCacheRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlushCacheRequest) ProtoMessage() {}
+
+func (x *FlushCacheRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlushCacheRequest.ProtoReflect.Descriptor instead.
+func (*FlushCacheRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FlushCacheRequest) GetBody() *FlushCacheRequest_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *FlushCacheRequest) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+// FlushCache response.
+type FlushCacheResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Body      *FlushCacheResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Signature *Signature               `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *FlushCacheResponse) Reset() {
+	*x = FlushCacheResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FlushCacheResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlushCacheResponse) ProtoMessage() {}
+
+func (x *FlushCacheResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[19]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlushCacheResponse.ProtoReflect.Descriptor instead.
+func (*FlushCacheResponse) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *FlushCacheResponse) GetBody() *FlushCacheResponse_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *FlushCacheResponse) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 // Health check request body.
 type HealthCheckRequest_Body struct {
 	state         protoimpl.MessageState
@@ -1071,7 +1182,7 @@ type HealthCheckRequest_Body struct {
 func (x *HealthCheckRequest_Body) Reset() {
 	*x = HealthCheckRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[18]
+		mi := &file_pkg_services_control_service_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1084,7 +1195,7 @@ func (x *HealthCheckRequest_Body) String() string {
 func (*HealthCheckRequest_Body) ProtoMessage() {}
 
 func (x *HealthCheckRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[18]
+	mi := &file_pkg_services_control_service_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1115,7 +1226,7 @@ type HealthCheckResponse_Body struct {
 func (x *HealthCheckResponse_Body) Reset() {
 	*x = HealthCheckResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[19]
+		mi := &file_pkg_services_control_service_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1128,7 +1239,7 @@ func (x *HealthCheckResponse_Body) String() string {
 func (*HealthCheckResponse_Body) ProtoMessage() {}
 
 func (x *HealthCheckResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[19]
+	mi := &file_pkg_services_control_service_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1171,7 +1282,7 @@ type SetNetmapStatusRequest_Body struct {
 func (x *SetNetmapStatusRequest_Body) Reset() {
 	*x = SetNetmapStatusRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[20]
+		mi := &file_pkg_services_control_service_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1184,7 +1295,7 @@ func (x *SetNetmapStatusRequest_Body) String() string {
 func (*SetNetmapStatusRequest_Body) ProtoMessage() {}
 
 func (x *SetNetmapStatusRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[20]
+	mi := &file_pkg_services_control_service_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1217,7 +1328,7 @@ type SetNetmapStatusResponse_Body struct {
 func (x *SetNetmapStatusResponse_Body) Reset() {
 	*x = SetNetmapStatusResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[21]
+		mi := &file_pkg_services_control_service_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1230,7 +1341,7 @@ func (x *SetNetmapStatusResponse_Body) String() string {
 func (*SetNetmapStatusResponse_Body) ProtoMessage() {}
 
 func (x *SetNetmapStatusResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[21]
+	mi := &file_pkg_services_control_service_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1371,7 @@ type DropObjectsRequest_Body struct {
 func (x *DropObjectsRequest_Body) Reset() {
 	*x = DropObjectsRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[22]
+		mi := &file_pkg_services_control_service_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1273,7 +1384,7 @@ func (x *DropObjectsRequest_Body) String() string {
 func (*DropObjectsRequest_Body) ProtoMessage() {}
 
 func (x *DropObjectsRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[22]
+	mi := &file_pkg_services_control_service_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1306,7 +1417,7 @@ type DropObjectsResponse_Body struct {
 func (x *DropObjectsResponse_Body) Reset() {
 	*x = DropObjectsResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[23]
+		mi := &file_pkg_services_control_service_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1319,7 +1430,7 @@ func (x *DropObjectsResponse_Body) String() string {
 func (*DropObjectsResponse_Body) ProtoMessage() {}
 
 func (x *DropObjectsResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[23]
+	mi := &file_pkg_services_control_service_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1345,7 +1456,7 @@ type ListShardsRequest_Body struct {
 func (x *ListShardsRequest_Body) Reset() {
 	*x = ListShardsRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[24]
+		mi := &file_pkg_services_control_service_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1358,7 +1469,7 @@ func (x *ListShardsRequest_Body) String() string {
 func (*ListShardsRequest_Body) ProtoMessage() {}
 
 func (x *ListShardsRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[24]
+	mi := &file_pkg_services_control_service_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1498,7 @@ type ListShardsResponse_Body struct {
 func (x *ListShardsResponse_Body) Reset() {
 	*x = ListShardsResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[25]
+		mi := &file_pkg_services_control_service_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1400,7 +1511,7 @@ func (x *ListShardsResponse_Body) String() string {
 func (*ListShardsResponse_Body) ProtoMessage() {}
 
 func (x *ListShardsResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[25]
+	mi := &file_pkg_services_control_service_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1440,7 +1551,7 @@ type SetShardModeRequest_Body struct {
 func (x *SetShardModeRequest_Body) Reset() {
 	*x = SetShardModeRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[26]
+		mi := &file_pkg_services_control_service_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1453,7 +1564,7 @@ func (x *SetShardModeRequest_Body) String() string {
 func (*SetShardModeRequest_Body) ProtoMessage() {}
 
 func (x *SetShardModeRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[26]
+	mi := &file_pkg_services_control_service_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1500,7 +1611,7 @@ type SetShardModeResponse_Body struct {
 func (x *SetShardModeResponse_Body) Reset() {
 	*x = SetShardModeResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[27]
+		mi := &file_pkg_services_control_service_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1513,7 +1624,7 @@ func (x *SetShardModeResponse_Body) String() string {
 func (*SetShardModeResponse_Body) ProtoMessage() {}
 
 func (x *SetShardModeResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[27]
+	mi := &file_pkg_services_control_service_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1546,7 +1657,7 @@ type DumpShardRequest_Body struct {
 func (x *DumpShardRequest_Body) Reset() {
 	*x = DumpShardRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[28]
+		mi := &file_pkg_services_control_service_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1559,7 +1670,7 @@ func (x *DumpShardRequest_Body) String() string {
 func (*DumpShardRequest_Body) ProtoMessage() {}
 
 func (x *DumpShardRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[28]
+	mi := &file_pkg_services_control_service_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1606,7 +1717,7 @@ type DumpShardResponse_Body struct {
 func (x *DumpShardResponse_Body) Reset() {
 	*x = DumpShardResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[29]
+		mi := &file_pkg_services_control_service_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1619,7 +1730,7 @@ func (x *DumpShardResponse_Body) String() string {
 func (*DumpShardResponse_Body) ProtoMessage() {}
 
 func (x *DumpShardResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[29]
+	mi := &file_pkg_services_control_service_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1652,7 +1763,7 @@ type RestoreShardRequest_Body struct {
 func (x *RestoreShardRequest_Body) Reset() {
 	*x = RestoreShardRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[30]
+		mi := &file_pkg_services_control_service_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1665,7 +1776,7 @@ func (x *RestoreShardRequest_Body) String() string {
 func (*RestoreShardRequest_Body) ProtoMessage() {}
 
 func (x *RestoreShardRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[30]
+	mi := &file_pkg_services_control_service_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1712,7 +1823,7 @@ type RestoreShardResponse_Body struct {
 func (x *RestoreShardResponse_Body) Reset() {
 	*x = RestoreShardResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[31]
+		mi := &file_pkg_services_control_service_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1725,7 +1836,7 @@ func (x *RestoreShardResponse_Body) String() string {
 func (*RestoreShardResponse_Body) ProtoMessage() {}
 
 func (x *RestoreShardResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[31]
+	mi := &file_pkg_services_control_service_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1756,7 +1867,7 @@ type SynchronizeTreeRequest_Body struct {
 func (x *SynchronizeTreeRequest_Body) Reset() {
 	*x = SynchronizeTreeRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[32]
+		mi := &file_pkg_services_control_service_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1769,7 +1880,7 @@ func (x *SynchronizeTreeRequest_Body) String() string {
 func (*SynchronizeTreeRequest_Body) ProtoMessage() {}
 
 func (x *SynchronizeTreeRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[32]
+	mi := &file_pkg_services_control_service_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1816,7 +1927,7 @@ type SynchronizeTreeResponse_Body struct {
 func (x *SynchronizeTreeResponse_Body) Reset() {
 	*x = SynchronizeTreeResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[33]
+		mi := &file_pkg_services_control_service_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1829,7 +1940,7 @@ func (x *SynchronizeTreeResponse_Body) String() string {
 func (*SynchronizeTreeResponse_Body) ProtoMessage() {}
 
 func (x *SynchronizeTreeResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[33]
+	mi := &file_pkg_services_control_service_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1860,7 +1971,7 @@ type EvacuateShardRequest_Body struct {
 func (x *EvacuateShardRequest_Body) Reset() {
 	*x = EvacuateShardRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[34]
+		mi := &file_pkg_services_control_service_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1873,7 +1984,7 @@ func (x *EvacuateShardRequest_Body) String() string {
 func (*EvacuateShardRequest_Body) ProtoMessage() {}
 
 func (x *EvacuateShardRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[34]
+	mi := &file_pkg_services_control_service_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1915,7 +2026,7 @@ type EvacuateShardResponse_Body struct {
 func (x *EvacuateShardResponse_Body) Reset() {
 	*x = EvacuateShardResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_service_proto_msgTypes[35]
+		mi := &file_pkg_services_control_service_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1928,7 +2039,7 @@ func (x *EvacuateShardResponse_Body) String() string {
 func (*EvacuateShardResponse_Body) ProtoMessage() {}
 
 func (x *EvacuateShardResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_service_proto_msgTypes[35]
+	mi := &file_pkg_services_control_service_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1949,6 +2060,94 @@ func (x *EvacuateShardResponse_Body) GetCount() uint32 {
 		return x.Count
 	}
 	return 0
+}
+
+// Request body structure.
+type FlushCacheRequest_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// ID of the shard.
+	Shard_ID []byte `protobuf:"bytes,1,opt,name=shard_ID,json=shardID,proto3" json:"shard_ID,omitempty"`
+}
+
+func (x *FlushCacheRequest_Body) Reset() {
+	*x = FlushCacheRequest_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[38]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FlushCacheRequest_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlushCacheRequest_Body) ProtoMessage() {}
+
+func (x *FlushCacheRequest_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[38]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlushCacheRequest_Body.ProtoReflect.Descriptor instead.
+func (*FlushCacheRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{18, 0}
+}
+
+func (x *FlushCacheRequest_Body) GetShard_ID() []byte {
+	if x != nil {
+		return x.Shard_ID
+	}
+	return nil
+}
+
+// Response body structure.
+type FlushCacheResponse_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *FlushCacheResponse_Body) Reset() {
+	*x = FlushCacheResponse_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_service_proto_msgTypes[39]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FlushCacheResponse_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlushCacheResponse_Body) ProtoMessage() {}
+
+func (x *FlushCacheResponse_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_service_proto_msgTypes[39]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlushCacheResponse_Body.ProtoReflect.Descriptor instead.
+func (*FlushCacheResponse_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_service_proto_rawDescGZIP(), []int{19, 0}
 }
 
 var File_pkg_services_control_service_proto protoreflect.FileDescriptor
@@ -2158,56 +2357,79 @@ var file_pkg_services_control_service_proto_rawDesc = []byte{
 	0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74,
 	0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x1c,
 	0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x32, 0xc5, 0x05, 0x0a,
-	0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
-	0x48, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1b,
-	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43,
-	0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63,
-	0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54, 0x0a, 0x0f, 0x53, 0x65, 0x74,
-	0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1f, 0x2e, 0x63,
-	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70,
-	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e,
-	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61,
-	0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x48, 0x0a, 0x0b, 0x44, 0x72, 0x6f, 0x70, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x12, 0x1b,
-	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x72, 0x6f, 0x70, 0x4f, 0x62, 0x6a,
-	0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x72, 0x6f, 0x70, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74,
-	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x45, 0x0a, 0x0a, 0x4c, 0x69, 0x73,
-	0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x73, 0x12, 0x1a, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x73, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4c, 0x69,
-	0x73, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x4b, 0x0a, 0x0c, 0x53, 0x65, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x64, 0x65,
-	0x12, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x53, 0x68,
-	0x61, 0x72, 0x64, 0x4d, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d,
-	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x74, 0x53, 0x68, 0x61, 0x72,
-	0x64, 0x4d, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x42, 0x0a,
-	0x09, 0x44, 0x75, 0x6d, 0x70, 0x53, 0x68, 0x61, 0x72, 0x64, 0x12, 0x19, 0x2e, 0x63, 0x6f, 0x6e,
-	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x75, 0x6d, 0x70, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
-	0x44, 0x75, 0x6d, 0x70, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x4b, 0x0a, 0x0c, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x53, 0x68, 0x61, 0x72,
-	0x64, 0x12, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x73, 0x74,
-	0x6f, 0x72, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72,
-	0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54,
-	0x0a, 0x0f, 0x53, 0x79, 0x6e, 0x63, 0x68, 0x72, 0x6f, 0x6e, 0x69, 0x7a, 0x65, 0x54, 0x72, 0x65,
-	0x65, 0x12, 0x1f, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x79, 0x6e, 0x63,
-	0x68, 0x72, 0x6f, 0x6e, 0x69, 0x7a, 0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x20, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x79, 0x6e,
-	0x63, 0x68, 0x72, 0x6f, 0x6e, 0x69, 0x7a, 0x65, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4e, 0x0a, 0x0d, 0x45, 0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65,
-	0x53, 0x68, 0x61, 0x72, 0x64, 0x12, 0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
-	0x45, 0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x45,
-	0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
-	0x6f, 0x6d, 0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f,
-	0x66, 0x73, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76,
-	0x69, 0x63, 0x65, 0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x9d, 0x01, 0x0a,
+	0x11, 0x46, 0x6c, 0x75, 0x73, 0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x33, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1f, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x46, 0x6c, 0x75, 0x73, 0x68,
+	0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64,
+	0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x30, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61,
+	0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09,
+	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x21, 0x0a, 0x04, 0x42, 0x6f, 0x64,
+	0x79, 0x12, 0x19, 0x0a, 0x08, 0x73, 0x68, 0x61, 0x72, 0x64, 0x5f, 0x49, 0x44, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0c, 0x52, 0x07, 0x73, 0x68, 0x61, 0x72, 0x64, 0x49, 0x44, 0x22, 0x84, 0x01, 0x0a,
+	0x12, 0x46, 0x6c, 0x75, 0x73, 0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x34, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x20, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x46, 0x6c, 0x75, 0x73,
+	0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42,
+	0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x30, 0x0a, 0x09, 0x73, 0x69, 0x67,
+	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
+	0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42,
+	0x6f, 0x64, 0x79, 0x32, 0x8c, 0x06, 0x0a, 0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x53,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x48, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68,
+	0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1b, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61,
+	0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x54, 0x0a, 0x0f, 0x53, 0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x12, 0x1f, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65,
+	0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53,
+	0x65, 0x74, 0x4e, 0x65, 0x74, 0x6d, 0x61, 0x70, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x48, 0x0a, 0x0b, 0x44, 0x72, 0x6f, 0x70, 0x4f, 0x62,
+	0x6a, 0x65, 0x63, 0x74, 0x73, 0x12, 0x1b, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x44, 0x72, 0x6f, 0x70, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x72, 0x6f,
+	0x70, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x45, 0x0a, 0x0a, 0x4c, 0x69, 0x73, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x73, 0x12, 0x1a,
+	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x53, 0x68, 0x61,
+	0x72, 0x64, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a, 0x0c, 0x53, 0x65, 0x74, 0x53, 0x68,
+	0x61, 0x72, 0x64, 0x4d, 0x6f, 0x64, 0x65, 0x12, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x53, 0x65, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x64, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x53, 0x65, 0x74, 0x53, 0x68, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x42, 0x0a, 0x09, 0x44, 0x75, 0x6d, 0x70, 0x53, 0x68, 0x61, 0x72,
+	0x64, 0x12, 0x19, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x75, 0x6d, 0x70,
+	0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x75, 0x6d, 0x70, 0x53, 0x68, 0x61, 0x72, 0x64,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a, 0x0c, 0x52, 0x65, 0x73, 0x74,
+	0x6f, 0x72, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x12, 0x1c, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72,
+	0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
+	0x2e, 0x52, 0x65, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x54, 0x0a, 0x0f, 0x53, 0x79, 0x6e, 0x63, 0x68, 0x72, 0x6f,
+	0x6e, 0x69, 0x7a, 0x65, 0x54, 0x72, 0x65, 0x65, 0x12, 0x1f, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72,
+	0x6f, 0x6c, 0x2e, 0x53, 0x79, 0x6e, 0x63, 0x68, 0x72, 0x6f, 0x6e, 0x69, 0x7a, 0x65, 0x54, 0x72,
+	0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x63, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x79, 0x6e, 0x63, 0x68, 0x72, 0x6f, 0x6e, 0x69, 0x7a, 0x65, 0x54,
+	0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4e, 0x0a, 0x0d, 0x45,
+	0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65, 0x53, 0x68, 0x61, 0x72, 0x64, 0x12, 0x1d, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x45, 0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65, 0x53,
+	0x68, 0x61, 0x72, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x63, 0x6f,
+	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x45, 0x76, 0x61, 0x63, 0x75, 0x61, 0x74, 0x65, 0x53, 0x68,
+	0x61, 0x72, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x45, 0x0a, 0x0a, 0x46,
+	0x6c, 0x75, 0x73, 0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x12, 0x1a, 0x2e, 0x63, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x2e, 0x46, 0x6c, 0x75, 0x73, 0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x46, 0x6c, 0x75, 0x73, 0x68, 0x43, 0x61, 0x63, 0x68, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
+	0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73,
+	0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63,
+	0x65, 0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
 var (
@@ -2222,7 +2444,7 @@ func file_pkg_services_control_service_proto_rawDescGZIP() []byte {
 	return file_pkg_services_control_service_proto_rawDescData
 }
 
-var file_pkg_services_control_service_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_pkg_services_control_service_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_pkg_services_control_service_proto_goTypes = []interface{}{
 	(*HealthCheckRequest)(nil),           // 0: control.HealthCheckRequest
 	(*HealthCheckResponse)(nil),          // 1: control.HealthCheckResponse
@@ -2242,95 +2464,105 @@ var file_pkg_services_control_service_proto_goTypes = []interface{}{
 	(*SynchronizeTreeResponse)(nil),      // 15: control.SynchronizeTreeResponse
 	(*EvacuateShardRequest)(nil),         // 16: control.EvacuateShardRequest
 	(*EvacuateShardResponse)(nil),        // 17: control.EvacuateShardResponse
-	(*HealthCheckRequest_Body)(nil),      // 18: control.HealthCheckRequest.Body
-	(*HealthCheckResponse_Body)(nil),     // 19: control.HealthCheckResponse.Body
-	(*SetNetmapStatusRequest_Body)(nil),  // 20: control.SetNetmapStatusRequest.Body
-	(*SetNetmapStatusResponse_Body)(nil), // 21: control.SetNetmapStatusResponse.Body
-	(*DropObjectsRequest_Body)(nil),      // 22: control.DropObjectsRequest.Body
-	(*DropObjectsResponse_Body)(nil),     // 23: control.DropObjectsResponse.Body
-	(*ListShardsRequest_Body)(nil),       // 24: control.ListShardsRequest.Body
-	(*ListShardsResponse_Body)(nil),      // 25: control.ListShardsResponse.Body
-	(*SetShardModeRequest_Body)(nil),     // 26: control.SetShardModeRequest.Body
-	(*SetShardModeResponse_Body)(nil),    // 27: control.SetShardModeResponse.Body
-	(*DumpShardRequest_Body)(nil),        // 28: control.DumpShardRequest.Body
-	(*DumpShardResponse_Body)(nil),       // 29: control.DumpShardResponse.Body
-	(*RestoreShardRequest_Body)(nil),     // 30: control.RestoreShardRequest.Body
-	(*RestoreShardResponse_Body)(nil),    // 31: control.RestoreShardResponse.Body
-	(*SynchronizeTreeRequest_Body)(nil),  // 32: control.SynchronizeTreeRequest.Body
-	(*SynchronizeTreeResponse_Body)(nil), // 33: control.SynchronizeTreeResponse.Body
-	(*EvacuateShardRequest_Body)(nil),    // 34: control.EvacuateShardRequest.Body
-	(*EvacuateShardResponse_Body)(nil),   // 35: control.EvacuateShardResponse.Body
-	(*Signature)(nil),                    // 36: control.Signature
-	(NetmapStatus)(0),                    // 37: control.NetmapStatus
-	(HealthStatus)(0),                    // 38: control.HealthStatus
-	(*ShardInfo)(nil),                    // 39: control.ShardInfo
-	(ShardMode)(0),                       // 40: control.ShardMode
+	(*FlushCacheRequest)(nil),            // 18: control.FlushCacheRequest
+	(*FlushCacheResponse)(nil),           // 19: control.FlushCacheResponse
+	(*HealthCheckRequest_Body)(nil),      // 20: control.HealthCheckRequest.Body
+	(*HealthCheckResponse_Body)(nil),     // 21: control.HealthCheckResponse.Body
+	(*SetNetmapStatusRequest_Body)(nil),  // 22: control.SetNetmapStatusRequest.Body
+	(*SetNetmapStatusResponse_Body)(nil), // 23: control.SetNetmapStatusResponse.Body
+	(*DropObjectsRequest_Body)(nil),      // 24: control.DropObjectsRequest.Body
+	(*DropObjectsResponse_Body)(nil),     // 25: control.DropObjectsResponse.Body
+	(*ListShardsRequest_Body)(nil),       // 26: control.ListShardsRequest.Body
+	(*ListShardsResponse_Body)(nil),      // 27: control.ListShardsResponse.Body
+	(*SetShardModeRequest_Body)(nil),     // 28: control.SetShardModeRequest.Body
+	(*SetShardModeResponse_Body)(nil),    // 29: control.SetShardModeResponse.Body
+	(*DumpShardRequest_Body)(nil),        // 30: control.DumpShardRequest.Body
+	(*DumpShardResponse_Body)(nil),       // 31: control.DumpShardResponse.Body
+	(*RestoreShardRequest_Body)(nil),     // 32: control.RestoreShardRequest.Body
+	(*RestoreShardResponse_Body)(nil),    // 33: control.RestoreShardResponse.Body
+	(*SynchronizeTreeRequest_Body)(nil),  // 34: control.SynchronizeTreeRequest.Body
+	(*SynchronizeTreeResponse_Body)(nil), // 35: control.SynchronizeTreeResponse.Body
+	(*EvacuateShardRequest_Body)(nil),    // 36: control.EvacuateShardRequest.Body
+	(*EvacuateShardResponse_Body)(nil),   // 37: control.EvacuateShardResponse.Body
+	(*FlushCacheRequest_Body)(nil),       // 38: control.FlushCacheRequest.Body
+	(*FlushCacheResponse_Body)(nil),      // 39: control.FlushCacheResponse.Body
+	(*Signature)(nil),                    // 40: control.Signature
+	(NetmapStatus)(0),                    // 41: control.NetmapStatus
+	(HealthStatus)(0),                    // 42: control.HealthStatus
+	(*ShardInfo)(nil),                    // 43: control.ShardInfo
+	(ShardMode)(0),                       // 44: control.ShardMode
 }
 var file_pkg_services_control_service_proto_depIdxs = []int32{
-	18, // 0: control.HealthCheckRequest.body:type_name -> control.HealthCheckRequest.Body
-	36, // 1: control.HealthCheckRequest.signature:type_name -> control.Signature
-	19, // 2: control.HealthCheckResponse.body:type_name -> control.HealthCheckResponse.Body
-	36, // 3: control.HealthCheckResponse.signature:type_name -> control.Signature
-	20, // 4: control.SetNetmapStatusRequest.body:type_name -> control.SetNetmapStatusRequest.Body
-	36, // 5: control.SetNetmapStatusRequest.signature:type_name -> control.Signature
-	21, // 6: control.SetNetmapStatusResponse.body:type_name -> control.SetNetmapStatusResponse.Body
-	36, // 7: control.SetNetmapStatusResponse.signature:type_name -> control.Signature
-	22, // 8: control.DropObjectsRequest.body:type_name -> control.DropObjectsRequest.Body
-	36, // 9: control.DropObjectsRequest.signature:type_name -> control.Signature
-	23, // 10: control.DropObjectsResponse.body:type_name -> control.DropObjectsResponse.Body
-	36, // 11: control.DropObjectsResponse.signature:type_name -> control.Signature
-	24, // 12: control.ListShardsRequest.body:type_name -> control.ListShardsRequest.Body
-	36, // 13: control.ListShardsRequest.signature:type_name -> control.Signature
-	25, // 14: control.ListShardsResponse.body:type_name -> control.ListShardsResponse.Body
-	36, // 15: control.ListShardsResponse.signature:type_name -> control.Signature
-	26, // 16: control.SetShardModeRequest.body:type_name -> control.SetShardModeRequest.Body
-	36, // 17: control.SetShardModeRequest.signature:type_name -> control.Signature
-	27, // 18: control.SetShardModeResponse.body:type_name -> control.SetShardModeResponse.Body
-	36, // 19: control.SetShardModeResponse.signature:type_name -> control.Signature
-	28, // 20: control.DumpShardRequest.body:type_name -> control.DumpShardRequest.Body
-	36, // 21: control.DumpShardRequest.signature:type_name -> control.Signature
-	29, // 22: control.DumpShardResponse.body:type_name -> control.DumpShardResponse.Body
-	36, // 23: control.DumpShardResponse.signature:type_name -> control.Signature
-	30, // 24: control.RestoreShardRequest.body:type_name -> control.RestoreShardRequest.Body
-	36, // 25: control.RestoreShardRequest.signature:type_name -> control.Signature
-	31, // 26: control.RestoreShardResponse.body:type_name -> control.RestoreShardResponse.Body
-	36, // 27: control.RestoreShardResponse.signature:type_name -> control.Signature
-	32, // 28: control.SynchronizeTreeRequest.body:type_name -> control.SynchronizeTreeRequest.Body
-	36, // 29: control.SynchronizeTreeRequest.signature:type_name -> control.Signature
-	33, // 30: control.SynchronizeTreeResponse.body:type_name -> control.SynchronizeTreeResponse.Body
-	36, // 31: control.SynchronizeTreeResponse.signature:type_name -> control.Signature
-	34, // 32: control.EvacuateShardRequest.body:type_name -> control.EvacuateShardRequest.Body
-	36, // 33: control.EvacuateShardRequest.signature:type_name -> control.Signature
-	35, // 34: control.EvacuateShardResponse.body:type_name -> control.EvacuateShardResponse.Body
-	36, // 35: control.EvacuateShardResponse.signature:type_name -> control.Signature
-	37, // 36: control.HealthCheckResponse.Body.netmap_status:type_name -> control.NetmapStatus
-	38, // 37: control.HealthCheckResponse.Body.health_status:type_name -> control.HealthStatus
-	37, // 38: control.SetNetmapStatusRequest.Body.status:type_name -> control.NetmapStatus
-	39, // 39: control.ListShardsResponse.Body.shards:type_name -> control.ShardInfo
-	40, // 40: control.SetShardModeRequest.Body.mode:type_name -> control.ShardMode
-	0,  // 41: control.ControlService.HealthCheck:input_type -> control.HealthCheckRequest
-	2,  // 42: control.ControlService.SetNetmapStatus:input_type -> control.SetNetmapStatusRequest
-	4,  // 43: control.ControlService.DropObjects:input_type -> control.DropObjectsRequest
-	6,  // 44: control.ControlService.ListShards:input_type -> control.ListShardsRequest
-	8,  // 45: control.ControlService.SetShardMode:input_type -> control.SetShardModeRequest
-	10, // 46: control.ControlService.DumpShard:input_type -> control.DumpShardRequest
-	12, // 47: control.ControlService.RestoreShard:input_type -> control.RestoreShardRequest
-	14, // 48: control.ControlService.SynchronizeTree:input_type -> control.SynchronizeTreeRequest
-	16, // 49: control.ControlService.EvacuateShard:input_type -> control.EvacuateShardRequest
-	1,  // 50: control.ControlService.HealthCheck:output_type -> control.HealthCheckResponse
-	3,  // 51: control.ControlService.SetNetmapStatus:output_type -> control.SetNetmapStatusResponse
-	5,  // 52: control.ControlService.DropObjects:output_type -> control.DropObjectsResponse
-	7,  // 53: control.ControlService.ListShards:output_type -> control.ListShardsResponse
-	9,  // 54: control.ControlService.SetShardMode:output_type -> control.SetShardModeResponse
-	11, // 55: control.ControlService.DumpShard:output_type -> control.DumpShardResponse
-	13, // 56: control.ControlService.RestoreShard:output_type -> control.RestoreShardResponse
-	15, // 57: control.ControlService.SynchronizeTree:output_type -> control.SynchronizeTreeResponse
-	17, // 58: control.ControlService.EvacuateShard:output_type -> control.EvacuateShardResponse
-	50, // [50:59] is the sub-list for method output_type
-	41, // [41:50] is the sub-list for method input_type
-	41, // [41:41] is the sub-list for extension type_name
-	41, // [41:41] is the sub-list for extension extendee
-	0,  // [0:41] is the sub-list for field type_name
+	20, // 0: control.HealthCheckRequest.body:type_name -> control.HealthCheckRequest.Body
+	40, // 1: control.HealthCheckRequest.signature:type_name -> control.Signature
+	21, // 2: control.HealthCheckResponse.body:type_name -> control.HealthCheckResponse.Body
+	40, // 3: control.HealthCheckResponse.signature:type_name -> control.Signature
+	22, // 4: control.SetNetmapStatusRequest.body:type_name -> control.SetNetmapStatusRequest.Body
+	40, // 5: control.SetNetmapStatusRequest.signature:type_name -> control.Signature
+	23, // 6: control.SetNetmapStatusResponse.body:type_name -> control.SetNetmapStatusResponse.Body
+	40, // 7: control.SetNetmapStatusResponse.signature:type_name -> control.Signature
+	24, // 8: control.DropObjectsRequest.body:type_name -> control.DropObjectsRequest.Body
+	40, // 9: control.DropObjectsRequest.signature:type_name -> control.Signature
+	25, // 10: control.DropObjectsResponse.body:type_name -> control.DropObjectsResponse.Body
+	40, // 11: control.DropObjectsResponse.signature:type_name -> control.Signature
+	26, // 12: control.ListShardsRequest.body:type_name -> control.ListShardsRequest.Body
+	40, // 13: control.ListShardsRequest.signature:type_name -> control.Signature
+	27, // 14: control.ListShardsResponse.body:type_name -> control.ListShardsResponse.Body
+	40, // 15: control.ListShardsResponse.signature:type_name -> control.Signature
+	28, // 16: control.SetShardModeRequest.body:type_name -> control.SetShardModeRequest.Body
+	40, // 17: control.SetShardModeRequest.signature:type_name -> control.Signature
+	29, // 18: control.SetShardModeResponse.body:type_name -> control.SetShardModeResponse.Body
+	40, // 19: control.SetShardModeResponse.signature:type_name -> control.Signature
+	30, // 20: control.DumpShardRequest.body:type_name -> control.DumpShardRequest.Body
+	40, // 21: control.DumpShardRequest.signature:type_name -> control.Signature
+	31, // 22: control.DumpShardResponse.body:type_name -> control.DumpShardResponse.Body
+	40, // 23: control.DumpShardResponse.signature:type_name -> control.Signature
+	32, // 24: control.RestoreShardRequest.body:type_name -> control.RestoreShardRequest.Body
+	40, // 25: control.RestoreShardRequest.signature:type_name -> control.Signature
+	33, // 26: control.RestoreShardResponse.body:type_name -> control.RestoreShardResponse.Body
+	40, // 27: control.RestoreShardResponse.signature:type_name -> control.Signature
+	34, // 28: control.SynchronizeTreeRequest.body:type_name -> control.SynchronizeTreeRequest.Body
+	40, // 29: control.SynchronizeTreeRequest.signature:type_name -> control.Signature
+	35, // 30: control.SynchronizeTreeResponse.body:type_name -> control.SynchronizeTreeResponse.Body
+	40, // 31: control.SynchronizeTreeResponse.signature:type_name -> control.Signature
+	36, // 32: control.EvacuateShardRequest.body:type_name -> control.EvacuateShardRequest.Body
+	40, // 33: control.EvacuateShardRequest.signature:type_name -> control.Signature
+	37, // 34: control.EvacuateShardResponse.body:type_name -> control.EvacuateShardResponse.Body
+	40, // 35: control.EvacuateShardResponse.signature:type_name -> control.Signature
+	38, // 36: control.FlushCacheRequest.body:type_name -> control.FlushCacheRequest.Body
+	40, // 37: control.FlushCacheRequest.signature:type_name -> control.Signature
+	39, // 38: control.FlushCacheResponse.body:type_name -> control.FlushCacheResponse.Body
+	40, // 39: control.FlushCacheResponse.signature:type_name -> control.Signature
+	41, // 40: control.HealthCheckResponse.Body.netmap_status:type_name -> control.NetmapStatus
+	42, // 41: control.HealthCheckResponse.Body.health_status:type_name -> control.HealthStatus
+	41, // 42: control.SetNetmapStatusRequest.Body.status:type_name -> control.NetmapStatus
+	43, // 43: control.ListShardsResponse.Body.shards:type_name -> control.ShardInfo
+	44, // 44: control.SetShardModeRequest.Body.mode:type_name -> control.ShardMode
+	0,  // 45: control.ControlService.HealthCheck:input_type -> control.HealthCheckRequest
+	2,  // 46: control.ControlService.SetNetmapStatus:input_type -> control.SetNetmapStatusRequest
+	4,  // 47: control.ControlService.DropObjects:input_type -> control.DropObjectsRequest
+	6,  // 48: control.ControlService.ListShards:input_type -> control.ListShardsRequest
+	8,  // 49: control.ControlService.SetShardMode:input_type -> control.SetShardModeRequest
+	10, // 50: control.ControlService.DumpShard:input_type -> control.DumpShardRequest
+	12, // 51: control.ControlService.RestoreShard:input_type -> control.RestoreShardRequest
+	14, // 52: control.ControlService.SynchronizeTree:input_type -> control.SynchronizeTreeRequest
+	16, // 53: control.ControlService.EvacuateShard:input_type -> control.EvacuateShardRequest
+	18, // 54: control.ControlService.FlushCache:input_type -> control.FlushCacheRequest
+	1,  // 55: control.ControlService.HealthCheck:output_type -> control.HealthCheckResponse
+	3,  // 56: control.ControlService.SetNetmapStatus:output_type -> control.SetNetmapStatusResponse
+	5,  // 57: control.ControlService.DropObjects:output_type -> control.DropObjectsResponse
+	7,  // 58: control.ControlService.ListShards:output_type -> control.ListShardsResponse
+	9,  // 59: control.ControlService.SetShardMode:output_type -> control.SetShardModeResponse
+	11, // 60: control.ControlService.DumpShard:output_type -> control.DumpShardResponse
+	13, // 61: control.ControlService.RestoreShard:output_type -> control.RestoreShardResponse
+	15, // 62: control.ControlService.SynchronizeTree:output_type -> control.SynchronizeTreeResponse
+	17, // 63: control.ControlService.EvacuateShard:output_type -> control.EvacuateShardResponse
+	19, // 64: control.ControlService.FlushCache:output_type -> control.FlushCacheResponse
+	55, // [55:65] is the sub-list for method output_type
+	45, // [45:55] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_pkg_services_control_service_proto_init() }
@@ -2557,7 +2789,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckRequest_Body); i {
+			switch v := v.(*FlushCacheRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2569,7 +2801,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckResponse_Body); i {
+			switch v := v.(*FlushCacheResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2581,7 +2813,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SetNetmapStatusRequest_Body); i {
+			switch v := v.(*HealthCheckRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2593,7 +2825,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SetNetmapStatusResponse_Body); i {
+			switch v := v.(*HealthCheckResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2605,7 +2837,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DropObjectsRequest_Body); i {
+			switch v := v.(*SetNetmapStatusRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2617,7 +2849,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DropObjectsResponse_Body); i {
+			switch v := v.(*SetNetmapStatusResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2629,7 +2861,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListShardsRequest_Body); i {
+			switch v := v.(*DropObjectsRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2641,7 +2873,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListShardsResponse_Body); i {
+			switch v := v.(*DropObjectsResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2653,7 +2885,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SetShardModeRequest_Body); i {
+			switch v := v.(*ListShardsRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2665,7 +2897,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SetShardModeResponse_Body); i {
+			switch v := v.(*ListShardsResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2677,7 +2909,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DumpShardRequest_Body); i {
+			switch v := v.(*SetShardModeRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2689,7 +2921,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DumpShardResponse_Body); i {
+			switch v := v.(*SetShardModeResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2701,7 +2933,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RestoreShardRequest_Body); i {
+			switch v := v.(*DumpShardRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2713,7 +2945,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RestoreShardResponse_Body); i {
+			switch v := v.(*DumpShardResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2725,7 +2957,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SynchronizeTreeRequest_Body); i {
+			switch v := v.(*RestoreShardRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2737,7 +2969,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SynchronizeTreeResponse_Body); i {
+			switch v := v.(*RestoreShardResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2749,7 +2981,7 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EvacuateShardRequest_Body); i {
+			switch v := v.(*SynchronizeTreeRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2761,7 +2993,55 @@ func file_pkg_services_control_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_service_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SynchronizeTreeResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EvacuateShardRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*EvacuateShardResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FlushCacheRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_service_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FlushCacheResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2779,7 +3059,7 @@ func file_pkg_services_control_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_services_control_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   36,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
