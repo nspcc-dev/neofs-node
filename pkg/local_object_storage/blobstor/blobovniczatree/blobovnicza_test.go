@@ -1,8 +1,11 @@
 package blobovniczatree
 
 import (
+	"math"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,6 +15,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestOpenedAndActive(t *testing.T) {
@@ -116,5 +120,45 @@ func TestBlobovniczas(t *testing.T) {
 		// save object in blobovnicza
 		_, err = b.Put(common.PutPrm{Address: addr, RawData: d})
 		require.NoError(t, err, i)
+	}
+}
+
+func TestFillOrder(t *testing.T) {
+	for _, depth := range []uint64{1, 2, 4} {
+		t.Run("depth="+strconv.FormatUint(depth, 10), func(t *testing.T) {
+			testFillOrder(t, depth)
+		})
+	}
+}
+
+func testFillOrder(t *testing.T, depth uint64) {
+	p, err := os.MkdirTemp("", "*")
+	require.NoError(t, err)
+	b := NewBlobovniczaTree(
+		WithLogger(zaptest.NewLogger(t)),
+		WithObjectSizeLimit(2048),
+		WithBlobovniczaShallowWidth(3),
+		WithBlobovniczaShallowDepth(depth),
+		WithRootPath(p),
+		WithBlobovniczaSize(1024*1024)) // big enough for some objects.
+	require.NoError(t, b.Open(false))
+	require.NoError(t, b.Init())
+	t.Cleanup(func() {
+		b.Close()
+	})
+
+	objCount := 10 /* ~ objects per blobovnicza */ *
+		int(math.Pow(3, float64(depth)-1)) /* blobovniczas on a previous to last level */
+
+	for i := 0; i < objCount; i++ {
+		obj := blobstortest.NewObject(1024)
+		addr := object.AddressOf(obj)
+
+		d, err := obj.Marshal()
+		require.NoError(t, err)
+
+		res, err := b.Put(common.PutPrm{Address: addr, RawData: d, DontCompress: true})
+		require.NoError(t, err, i)
+		require.True(t, strings.HasSuffix(string(res.StorageID), "/0"))
 	}
 }
