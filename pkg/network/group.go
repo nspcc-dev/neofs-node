@@ -75,6 +75,27 @@ type MultiAddressIterator interface {
 	NumberOfAddresses() int
 }
 
+// FromStringSlice forms AddressGroup from a string slice.
+//
+// Returns an error in the absence of addresses or if any of the addresses are incorrect.
+func (x *AddressGroup) FromStringSlice(addr []string) error {
+	if len(addr) == 0 {
+		return errors.New("missing network addresses")
+	}
+
+	res := make(AddressGroup, len(addr))
+	for i := range addr {
+		var a Address
+		if err := a.FromString(addr[i]); err != nil {
+			return err // invalid format, ignore the whole field
+		}
+		res[i] = a
+	}
+
+	*x = res
+	return nil
+}
+
 // FromIterator forms AddressGroup from MultiAddressIterator structure.
 // The result is sorted with sort.Sort.
 //

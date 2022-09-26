@@ -19,6 +19,9 @@ type ServerInfo interface {
 
 	// Returns number of server's network addresses.
 	NumberOfAddresses() int
+
+	// ExternalAddresses returns external node's addresses.
+	ExternalAddresses() []string
 }
 
 // Builder groups methods to route values in the network.

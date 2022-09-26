@@ -69,6 +69,10 @@ func (x nodeServer) NumberOfAddresses() int {
 	return (apiNetmap.NodeInfo)(x).NumberOfNetworkEndpoints()
 }
 
+func (x nodeServer) ExternalAddresses() []string {
+	return (apiNetmap.NodeInfo)(x).ExternalAddresses()
+}
+
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
 func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error) {

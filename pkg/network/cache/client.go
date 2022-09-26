@@ -13,9 +13,10 @@ type (
 	// ClientCache is a structure around neofs-sdk-go/client to reuse
 	// already created clients.
 	ClientCache struct {
-		mu      *sync.RWMutex
-		clients map[string]*multiClient
-		opts    ClientCacheOpts
+		mu            *sync.RWMutex
+		clients       map[string]*multiClient
+		opts          ClientCacheOpts
+		allowExternal bool
 	}
 
 	ClientCacheOpts struct {
@@ -23,6 +24,7 @@ type (
 		StreamTimeout    time.Duration
 		Key              *ecdsa.PrivateKey
 		ResponseCallback func(client.ResponseMetaInfo) error
+		AllowExternal    bool
 	}
 )
 
@@ -30,15 +32,19 @@ type (
 // `opts` are used for new client creation.
 func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 	return &ClientCache{
-		mu:      new(sync.RWMutex),
-		clients: make(map[string]*multiClient),
-		opts:    opts,
+		mu:            new(sync.RWMutex),
+		clients:       make(map[string]*multiClient),
+		opts:          opts,
+		allowExternal: opts.AllowExternal,
 	}
 }
 
 // Get function returns existing client or creates a new one.
 func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	netAddr := info.AddressGroup()
+	if c.allowExternal {
+		netAddr = append(netAddr, info.ExternalAddressGroup()...)
+	}
 	cacheKey := string(info.PublicKey())
 
 	c.mu.RLock()

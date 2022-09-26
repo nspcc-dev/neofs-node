@@ -537,6 +537,7 @@ func initCfg(appCfg *config.Config) *cfg {
 			DialTimeout:   apiclientconfig.DialTimeout(appCfg),
 			StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
 			Key:           &key.PrivateKey,
+			AllowExternal: apiclientconfig.AllowExternal(appCfg),
 		}),
 		persistate: persistate,
 	}

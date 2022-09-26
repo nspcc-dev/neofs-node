@@ -37,6 +37,8 @@ type (
 		Log *zap.Logger
 		Key *ecdsa.PrivateKey
 
+		AllowExternal bool
+
 		SGTimeout, HeadTimeout, RangeTimeout time.Duration
 	}
 )
@@ -44,7 +46,7 @@ type (
 func newClientCache(p *clientCacheParams) *ClientCache {
 	return &ClientCache{
 		log:          p.Log,
-		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{}),
+		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal}),
 		key:          p.Key,
 		sgTimeout:    p.SGTimeout,
 		headTimeout:  p.HeadTimeout,

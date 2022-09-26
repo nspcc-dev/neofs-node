@@ -17,12 +17,22 @@ func (x Node) PublicKey() []byte {
 // IterateAddresses iterates over all announced network addresses
 // and passes them into f. Handler MUST NOT be nil.
 func (x Node) IterateAddresses(f func(string) bool) {
+	for _, addr := range (netmap.NodeInfo)(x).ExternalAddresses() {
+		if f(addr) {
+			return
+		}
+	}
 	(netmap.NodeInfo)(x).IterateNetworkEndpoints(f)
 }
 
 // NumberOfAddresses returns number of announced network addresses.
 func (x Node) NumberOfAddresses() int {
 	return (netmap.NodeInfo)(x).NumberOfNetworkEndpoints()
+}
+
+// ExternalAddresses returns external addresses of a node.
+func (x Node) ExternalAddresses() []string {
+	return (netmap.NodeInfo)(x).ExternalAddresses()
 }
 
 // Nodes is a named type of []netmap.NodeInfo which provides interface needed
