@@ -6,7 +6,7 @@ import (
 
 type Option func(*FSTree)
 
-func WithDepth(d int) Option {
+func WithDepth(d uint64) Option {
 	return func(f *FSTree) {
 		f.Depth = d
 	}

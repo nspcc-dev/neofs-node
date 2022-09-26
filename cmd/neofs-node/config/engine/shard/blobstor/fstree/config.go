@@ -26,14 +26,14 @@ func (x *Config) Type() string {
 //
 // Returns DepthDefault if the value is out of
 // [1:fstree.MaxDepth] range.
-func (x *Config) Depth() int {
-	d := config.IntSafe(
+func (x *Config) Depth() uint64 {
+	d := config.UintSafe(
 		(*config.Config)(x),
 		"depth",
 	)
 
 	if d >= 1 && d <= fstree.MaxDepth {
-		return int(d)
+		return d
 	}
 
 	return DepthDefault
