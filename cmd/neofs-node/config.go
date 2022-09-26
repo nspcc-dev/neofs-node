@@ -356,8 +356,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.onShutdown(c.clientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
 
-	initLocalStorage(c)
-
 	return c
 }
 

@@ -79,6 +79,8 @@ func initAndLog(c *cfg, name string, initializer func(*cfg)) {
 }
 
 func initApp(c *cfg) {
+	initLocalStorage(c)
+
 	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	initAndLog(c, "storage engine", func(c *cfg) {
