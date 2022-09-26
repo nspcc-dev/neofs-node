@@ -134,6 +134,7 @@ func (s *Shard) Init() error {
 		gcCfg:       s.gcCfg,
 		remover:     s.removeGarbage,
 		stopChannel: make(chan struct{}),
+		eventChan:   make(chan Event),
 		mEventHandler: map[eventType]*eventHandlers{
 			eventNewEpoch: {
 				cancelFunc: func() {},

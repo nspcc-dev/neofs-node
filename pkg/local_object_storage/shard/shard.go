@@ -215,13 +215,6 @@ func WithGCWorkerPoolInitializer(wpInit func(int) util.WorkerPool) Option {
 	}
 }
 
-// WithGCEventChannel returns option to set a GC event channel.
-func WithGCEventChannel(eventChan <-chan Event) Option {
-	return func(c *cfg) {
-		c.gcCfg.eventChan = eventChan
-	}
-}
-
 // WithGCRemoverSleepInterval returns option to specify sleep
 // interval between object remover executions.
 func WithGCRemoverSleepInterval(dur time.Duration) Option {

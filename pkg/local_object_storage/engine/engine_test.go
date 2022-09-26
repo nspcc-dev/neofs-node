@@ -139,7 +139,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 	return s
 }
 
-func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.Option) *StorageEngine {
+func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *StorageEngine {
 	engine := New()
 	for i := 0; i < num; i++ {
 		_, err := engine.AddShard(append([]shard.Option{
@@ -155,7 +155,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts func(int) []shard.
 			),
 			shard.WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("pilorama%d", i)))),
-		}, extraOpts(i)...)...)
+		}, extraOpts...)...)
 		require.NoError(t, err)
 	}
 

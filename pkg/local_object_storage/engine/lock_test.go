@@ -38,12 +38,6 @@ func TestLockUserScenario(t *testing.T) {
 	//   4. saves tombstone for LOCK-object and receives error
 	//   5. waits for an epoch after the lock expiration one
 	//   6. tries to inhume the object and expects success
-	chEvents := make([]chan shard.Event, 2)
-
-	for i := range chEvents {
-		chEvents[i] = make(chan shard.Event, 1)
-	}
-
 	const lockerExpiresAfter = 13
 
 	cnr := cidtest.ID()
@@ -51,17 +45,14 @@ func TestLockUserScenario(t *testing.T) {
 	tombForLockID := oidtest.ID()
 	tombObj.SetID(tombForLockID)
 
-	e := testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
-		return []shard.Option{
-			shard.WithGCEventChannel(chEvents[i]),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				require.NoError(t, err)
+	e := testEngineFromShardOpts(t, 2, []shard.Option{
+		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+			pool, err := ants.NewPool(sz)
+			require.NoError(t, err)
 
-				return pool
-			}),
-			shard.WithTombstoneSource(tss{lockerExpiresAfter}),
-		}
+			return pool
+		}),
+		shard.WithTombstoneSource(tss{lockerExpiresAfter}),
 	})
 
 	t.Cleanup(func() {
@@ -137,9 +128,7 @@ func TestLockUserScenario(t *testing.T) {
 	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 
 	// 5.
-	for i := range chEvents {
-		chEvents[i] <- shard.EventNewEpoch(lockerExpiresAfter + 1)
-	}
+	e.HandleNewEpoch(lockerExpiresAfter + 1)
 
 	// delay for GC
 	time.Sleep(time.Second)
@@ -156,22 +145,14 @@ func TestLockExpiration(t *testing.T) {
 	//   2. lock object for it is stored, and the object is locked
 	//   3. lock expiration epoch is coming
 	//   4. after some delay the object is not locked anymore
-	chEvents := make([]chan shard.Event, 2)
 
-	for i := range chEvents {
-		chEvents[i] = make(chan shard.Event, 1)
-	}
+	e := testEngineFromShardOpts(t, 2, []shard.Option{
+		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+			pool, err := ants.NewPool(sz)
+			require.NoError(t, err)
 
-	e := testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
-		return []shard.Option{
-			shard.WithGCEventChannel(chEvents[i]),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				require.NoError(t, err)
-
-				return pool
-			}),
-		}
+			return pool
+		}),
 	})
 
 	t.Cleanup(func() {
@@ -215,9 +196,7 @@ func TestLockExpiration(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 3.
-	for i := range chEvents {
-		chEvents[i] <- shard.EventNewEpoch(lockerExpiresAfter + 1)
-	}
+	e.HandleNewEpoch(lockerExpiresAfter + 1)
 
 	// delay for GC processing. It can't be estimated, but making it bigger
 	// will slow down test
@@ -237,25 +216,16 @@ func TestLockForceRemoval(t *testing.T) {
 	//   3. try to remove lock object and get error
 	//   4. force lock object removal
 	//   5. the object is not locked anymore
-	chEvents := make([]chan shard.Event, 2)
-
-	for i := range chEvents {
-		chEvents[i] = make(chan shard.Event, 1)
-	}
-
 	var e *StorageEngine
 
-	e = testEngineFromShardOpts(t, 2, func(i int) []shard.Option {
-		return []shard.Option{
-			shard.WithGCEventChannel(chEvents[i]),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				require.NoError(t, err)
+	e = testEngineFromShardOpts(t, 2, []shard.Option{
+		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+			pool, err := ants.NewPool(sz)
+			require.NoError(t, err)
 
-				return pool
-			}),
-			shard.WithDeletedLockCallback(e.processDeletedLocks),
-		}
+			return pool
+		}),
+		shard.WithDeletedLockCallback(e.processDeletedLocks),
 	})
 
 	t.Cleanup(func() {

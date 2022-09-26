@@ -379,6 +379,10 @@ func initLocalStorage(c *cfg) {
 
 	ls := engine.New(engineOpts...)
 
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		ls.HandleNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
+	})
+
 	// allocate memory for the service;
 	// service will be created later
 	c.cfgObject.getSvc = new(getsvc.Service)
@@ -494,11 +498,6 @@ func initShardOptions(c *cfg) {
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.BoltDB().Perm()
 
-		gcEventChannel := make(chan shard.Event)
-		addNewEpochNotificationHandler(c, func(ev event.Event) {
-			gcEventChannel <- shard.EventNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
-		})
-
 		opts = append(opts, []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithRefillMetabase(sc.RefillMetabase()),
@@ -531,7 +530,6 @@ func initShardOptions(c *cfg) {
 
 				return pool
 			}),
-			shard.WithGCEventChannel(gcEventChannel),
 		})
 		return nil
 	})
