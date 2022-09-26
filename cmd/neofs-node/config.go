@@ -78,6 +78,10 @@ const notificationHandlerPoolSize = 10
 // structs).
 // It must not be used concurrently.
 type applicationConfiguration struct {
+	// _read indicated whether a config
+	// has already been read
+	_read bool
+
 	EngineCfg struct {
 		errorThreshold uint32
 		shardPoolSize  uint32
@@ -144,6 +148,14 @@ type subStorageCfg struct {
 // readConfig fills applicationConfiguration with raw configuration values
 // not modifying them.
 func (a *applicationConfiguration) readConfig(c *config.Config) error {
+	if a._read {
+		// clear if it is rereading
+		*a = applicationConfiguration{}
+	} else {
+		// update the status
+		a._read = true
+	}
+
 	a.EngineCfg.errorThreshold = engineconfig.ShardErrorThreshold(c)
 	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
 
