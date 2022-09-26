@@ -70,12 +70,11 @@ type gc struct {
 
 	remover func()
 
+	eventChan     chan Event
 	mEventHandler map[eventType]*eventHandlers
 }
 
 type gcCfg struct {
-	eventChan <-chan Event
-
 	removerInterval time.Duration
 
 	log *logger.Logger
@@ -84,11 +83,7 @@ type gcCfg struct {
 }
 
 func defaultGCCfg() *gcCfg {
-	ch := make(chan Event)
-	close(ch)
-
 	return &gcCfg{
-		eventChan:       ch,
 		removerInterval: 10 * time.Second,
 		log:             zap.L(),
 		workerPoolInit: func(int) util.WorkerPool {
@@ -161,6 +156,9 @@ func (gc *gc) tickRemover() {
 			if gc.workerPool != nil {
 				gc.workerPool.Release()
 			}
+
+			close(gc.eventChan)
+
 			gc.log.Debug("GC is stopped")
 			return
 		case <-timer.C:
@@ -413,4 +411,9 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 
 		return
 	}
+}
+
+// NotificationChannel returns channel for shard events.
+func (s *Shard) NotificationChannel() chan<- Event {
+	return s.gc.eventChan
 }

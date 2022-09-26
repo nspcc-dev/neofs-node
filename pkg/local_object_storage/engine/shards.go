@@ -176,6 +176,18 @@ func (e *StorageEngine) SetShardMode(id *shard.ID, m mode.Mode, resetErrorCounte
 	return errShardNotFound
 }
 
+// HandleNewEpoch notifies every shard about NewEpoch event.
+func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
+	ev := shard.EventNewEpoch(epoch)
+
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
+
+	for _, sh := range e.shards {
+		sh.NotificationChannel() <- ev
+	}
+}
+
 func (s hashedShard) Hash() uint64 {
 	return hrw.Hash(
 		[]byte(s.Shard.ID().String()),
