@@ -81,7 +81,7 @@ func initAndLog(c *cfg, name string, initializer func(*cfg)) {
 func initApp(c *cfg) {
 	initLocalStorage(c)
 
-	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	initAndLog(c, "storage engine", func(c *cfg) {
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
@@ -102,6 +102,8 @@ func initApp(c *cfg) {
 	initAndLog(c, "control", initControlService)
 
 	initAndLog(c, "morph notifications", listenMorphNotifications)
+
+	c.workers = append(c.workers, newWorkerFromFunc(c.configWatcher))
 }
 
 func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
