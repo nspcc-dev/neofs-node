@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"path/filepath"
 	"sync"
 	atomicstd "sync/atomic"
 	"time"
@@ -494,7 +493,6 @@ func initShardOptions(c *cfg) {
 
 		metaPath := metabaseCfg.Path()
 		metaPerm := metabaseCfg.BoltDB().Perm()
-		fatalOnErr(util.MkdirAllX(filepath.Dir(metaPath), metaPerm))
 
 		gcEventChannel := make(chan shard.Event)
 		addNewEpochNotificationHandler(c, func(ev event.Event) {
