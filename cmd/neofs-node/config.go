@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -137,8 +138,19 @@ type cfg struct {
 	netMap atomicstd.Value // type netmap.NetMap
 }
 
-func (c *cfg) ProcessCurrentNetMap(f func(netmap.NetMap)) {
-	f(c.netMap.Load().(netmap.NetMap))
+// ReadCurrentNetMap reads network map which has been cached at the
+// latest epoch. Returns an error if value has not been cached yet.
+//
+// Provides interface for NetmapService server.
+func (c *cfg) ReadCurrentNetMap(msg *netmapV2.NetMap) error {
+	val := c.netMap.Load()
+	if val == nil {
+		return errors.New("missing local network map")
+	}
+
+	val.(netmap.NetMap).WriteToV2(msg)
+
+	return nil
 }
 
 type cfgGRPC struct {

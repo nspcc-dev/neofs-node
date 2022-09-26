@@ -27,9 +27,10 @@ type NodeState interface {
 	// in NeoFS API v2 NodeInfo structure.
 	LocalNodeInfo() (*netmap.NodeInfo, error)
 
-	// ProcessCurrentNetMap passes current local network map of the storage node
-	// into the given handler.
-	ProcessCurrentNetMap(func(netmapSDK.NetMap))
+	// ReadCurrentNetMap reads current local network map of the storage node
+	// into the given parameter. Returns any error encountered which prevented
+	// the network map to be read.
+	ReadCurrentNetMap(*netmap.NetMap) error
 }
 
 // NetworkInfo encapsulates source of the
@@ -129,14 +130,15 @@ func (s *executorSvc) NetworkInfo(
 }
 
 func (s *executorSvc) Snapshot(_ context.Context, req *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
-	var nmV2 netmap.NetMap
+	var nm netmap.NetMap
 
-	s.state.ProcessCurrentNetMap(func(netMap netmapSDK.NetMap) {
-		netMap.WriteToV2(&nmV2)
-	})
+	err := s.state.ReadCurrentNetMap(&nm)
+	if err != nil {
+		return nil, fmt.Errorf("read current local network map: %w", err)
+	}
 
 	body := new(netmap.SnapshotResponseBody)
-	body.SetNetMap(&nmV2)
+	body.SetNetMap(&nm)
 
 	resp := new(netmap.SnapshotResponse)
 	resp.SetBody(body)
