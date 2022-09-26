@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
 	atomicstd "sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -562,8 +565,13 @@ func (c *cfg) engineOpts() []engine.Option {
 	return opts
 }
 
-func (c *cfg) shardOpts() [][]shard.Option {
-	oo := make([][]shard.Option, 0, len(c.EngineCfg.shards))
+type shardOptsWithMetaPath struct {
+	metaPath string
+	shOpts   []shard.Option
+}
+
+func (c *cfg) shardOpts() []shardOptsWithMetaPath {
+	shards := make([]shardOptsWithMetaPath, 0, len(c.EngineCfg.shards))
 
 	for _, shCfg := range c.EngineCfg.shards {
 		var writeCacheOpts []writecache.Option
@@ -626,7 +634,9 @@ func (c *cfg) shardOpts() [][]shard.Option {
 			}
 		}
 
-		oo = append(oo, []shard.Option{
+		var sh shardOptsWithMetaPath
+		sh.metaPath = shCfg.metaCfg.path
+		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithRefillMetabase(shCfg.refillMetabase),
 			shard.WithMode(shCfg.mode),
@@ -660,10 +670,12 @@ func (c *cfg) shardOpts() [][]shard.Option {
 
 				return pool
 			}),
-		})
+		}
+
+		shards = append(shards, sh)
 	}
 
-	return oo
+	return shards
 }
 
 func (c *cfg) LocalAddress() network.AddressGroup {
@@ -690,8 +702,8 @@ func initLocalStorage(c *cfg) {
 		tombstone.WithTombstoneSource(tombstoneSrc),
 	)
 
-	for _, opts := range c.shardOpts() {
-		id, err := ls.AddShard(append(opts, shard.WithTombstoneSource(tombstoneSource))...)
+	for _, optsWithMeta := range c.shardOpts() {
+		id, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithTombstoneSource(tombstoneSource))...)
 		fatalOnErr(err)
 
 		c.log.Info("shard attached to engine",
@@ -772,4 +784,37 @@ func (c *cfg) needBootstrap() bool {
 // Returns float value between 0.0 and 1.0.
 func (c *cfg) ObjectServiceLoad() float64 {
 	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemoteCapacity)
+}
+
+func (c *cfg) configWatcher(ctx context.Context) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGHUP)
+
+	for {
+		select {
+		case <-ch:
+			c.log.Info("SIGHUP has been received, rereading configuration...")
+
+			err := c.readConfig(c.appCfg)
+			if err != nil {
+				c.log.Error("configuration reading", zap.Error(err))
+				continue
+			}
+
+			var rcfg engine.ReConfiguration
+			for _, optsWithMeta := range c.shardOpts() {
+				rcfg.AddShard(optsWithMeta.metaPath, optsWithMeta.shOpts)
+			}
+
+			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
+			if err != nil {
+				c.log.Error("storage engine configuration update", zap.Error(err))
+				continue
+			}
+
+			c.log.Info("configuration has been reloaded successfully")
+		case <-ctx.Done():
+			return
+		}
+	}
 }
