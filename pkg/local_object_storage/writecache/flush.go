@@ -233,7 +233,7 @@ func (c *cache) flushObject(obj *object.Object) error {
 // Flush flushes all objects from the write-cache to the main storage.
 // Write-cache must be in readonly mode to ensure correctness of an operation and
 // to prevent interference with background flush workers.
-func (c *cache) Flush() error {
+func (c *cache) Flush(ignoreErrors bool) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 
@@ -242,6 +242,7 @@ func (c *cache) Flush() error {
 	}
 
 	var prm common.IteratePrm
+	prm.IgnoreErrors = ignoreErrors
 	prm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 		_, ok := c.flushed.Peek(addr.EncodeToString())
 		if ok {
@@ -250,12 +251,18 @@ func (c *cache) Flush() error {
 
 		data, err := f()
 		if err != nil {
+			if ignoreErrors {
+				return nil
+			}
 			return err
 		}
 
 		var obj object.Object
 		err = obj.Unmarshal(data)
 		if err != nil {
+			if ignoreErrors {
+				return nil
+			}
 			return err
 		}
 
@@ -279,11 +286,17 @@ func (c *cache) Flush() error {
 			}
 
 			if err := addr.DecodeString(sa); err != nil {
+				if ignoreErrors {
+					continue
+				}
 				return err
 			}
 
 			var obj object.Object
 			if err := obj.Unmarshal(data); err != nil {
+				if ignoreErrors {
+					continue
+				}
 				return err
 			}
 

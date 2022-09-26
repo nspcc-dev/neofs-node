@@ -6,7 +6,8 @@ import (
 
 // FlushWriteCachePrm groups the parameters of FlushWriteCache operation.
 type FlushWriteCachePrm struct {
-	shardID *shard.ID
+	shardID      *shard.ID
+	ignoreErrors bool
 }
 
 // SetShardID is an option to set shard ID.
@@ -14,6 +15,11 @@ type FlushWriteCachePrm struct {
 // Option is required.
 func (p *FlushWriteCachePrm) SetShardID(id *shard.ID) {
 	p.shardID = id
+}
+
+// SetIgnoreErrors sets errors ignore flag..
+func (p *FlushWriteCachePrm) SetIgnoreErrors(ignore bool) {
+	p.ignoreErrors = ignore
 }
 
 // FlushWriteCacheRes groups the resulting values of FlushWriteCache operation.
@@ -29,5 +35,8 @@ func (e *StorageEngine) FlushWriteCache(p FlushWriteCachePrm) (FlushWriteCacheRe
 		return FlushWriteCacheRes{}, errShardNotFound
 	}
 
-	return FlushWriteCacheRes{}, sh.FlushWriteCache()
+	var prm shard.FlushWriteCachePrm
+	prm.SetIgnoreErrors(p.ignoreErrors)
+
+	return FlushWriteCacheRes{}, sh.FlushWriteCache(prm)
 }
