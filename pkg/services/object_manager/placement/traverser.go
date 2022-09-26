@@ -126,12 +126,19 @@ func flatNodes(ns [][]netmap.NodeInfo) [][]netmap.NodeInfo {
 type Node struct {
 	addresses network.AddressGroup
 
+	externalAddresses network.AddressGroup
+
 	key []byte
 }
 
 // Addresses returns group of network addresses.
 func (x Node) Addresses() network.AddressGroup {
 	return x.addresses
+}
+
+// ExternalAddresses returns group of network addresses.
+func (x Node) ExternalAddresses() network.AddressGroup {
+	return x.externalAddresses
 }
 
 // PublicKey returns public key in a binary format. Should not be mutated.
@@ -165,6 +172,12 @@ func (t *Traverser) Next() []Node {
 		err := nodes[i].addresses.FromIterator(network.NodeEndpointsIterator(t.vectors[0][i]))
 		if err != nil {
 			return nil
+		}
+
+		ext := t.vectors[0][i].ExternalAddresses()
+		if len(ext) > 0 {
+			// Ignore the error if this field is incorrectly formed.
+			_ = nodes[i].externalAddresses.FromStringSlice(ext)
 		}
 
 		nodes[i].key = t.vectors[0][i].PublicKey()

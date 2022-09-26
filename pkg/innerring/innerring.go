@@ -553,11 +553,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	)
 
 	clientCache := newClientCache(&clientCacheParams{
-		Log:          log,
-		Key:          &server.key.PrivateKey,
-		SGTimeout:    cfg.GetDuration("audit.timeout.get"),
-		HeadTimeout:  cfg.GetDuration("audit.timeout.head"),
-		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
+		Log:           log,
+		Key:           &server.key.PrivateKey,
+		SGTimeout:     cfg.GetDuration("audit.timeout.get"),
+		HeadTimeout:   cfg.GetDuration("audit.timeout.head"),
+		RangeTimeout:  cfg.GetDuration("audit.timeout.rangehash"),
+		AllowExternal: cfg.GetBool("audit.allow_external"),
 	})
 
 	server.registerNoErrCloser(clientCache.cache.CloseAll)

@@ -507,6 +507,10 @@ func (c *cfg) NumberOfAddresses() int {
 	return c.addressNum()
 }
 
+func (c *cfg) ExternalAddresses() []string {
+	return c.cfgNodeInfo.localInfo.ExternalAddresses()
+}
+
 func (c *usedSpaceService) PublicKey() []byte {
 	return nodeKeyFromNetmap(c.cfg)
 }
@@ -517,6 +521,10 @@ func (c *usedSpaceService) IterateAddresses(f func(string) bool) {
 
 func (c *usedSpaceService) NumberOfAddresses() int {
 	return c.cfg.addressNum()
+}
+
+func (c *usedSpaceService) ExternalAddresses() []string {
+	return c.cfg.ExternalAddresses()
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *containerV2.AnnounceUsedSpaceRequest) (*containerV2.AnnounceUsedSpaceResponse, error) {
@@ -575,6 +583,10 @@ func (*containerOnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
 
 func (*containerOnlyKeyRemoteServerInfo) NumberOfAddresses() int {
 	return 0
+}
+
+func (*containerOnlyKeyRemoteServerInfo) ExternalAddresses() []string {
+	return nil
 }
 
 func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, key []byte) (bool, error) {

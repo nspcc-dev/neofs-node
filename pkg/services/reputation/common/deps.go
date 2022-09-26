@@ -77,4 +77,7 @@ type ServerInfo interface {
 
 	// Returns number of server's network addresses.
 	NumberOfAddresses() int
+
+	// ExternalAddresses returns external addresses of a node.
+	ExternalAddresses() []string
 }

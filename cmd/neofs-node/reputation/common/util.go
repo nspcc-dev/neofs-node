@@ -44,6 +44,10 @@ func (*OnlyKeyRemoteServerInfo) NumberOfAddresses() int {
 	return 0
 }
 
+func (*OnlyKeyRemoteServerInfo) ExternalAddresses() []string {
+	return nil
+}
+
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
 
 func PanicOnPrmValue(n string, v interface{}) {

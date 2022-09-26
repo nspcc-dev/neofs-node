@@ -6,7 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Serving `NetmapService.NetmapSnapshot` RPC (#1793)
 - `netmap snapshot` command of NeoFS CLI (#1793)
-
+- `apiclient.allow_external` config flag to fallback to node external addresses (#1817)
 - Changelog updates CI step (#1808)
 - Validate storage node configuration before node startup (#1805)
 - `neofs-node -check` command to check the configuration file (#1805)
@@ -31,6 +31,8 @@ Changelog for NeoFS Node
 
 ### Updating from v0.32.0
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
+Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
+other nodes external address, use `apiclient.allow_external` config setting.
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 
