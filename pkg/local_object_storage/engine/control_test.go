@@ -2,11 +2,16 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
@@ -77,4 +82,91 @@ func TestPersistentShardID(t *testing.T) {
 	require.Equal(t, id[0], newID[1])
 	require.NoError(t, e.Close())
 
+}
+
+func TestReload(t *testing.T) {
+	path := t.TempDir()
+
+	t.Run("add shards", func(t *testing.T) {
+		const shardNum = 4
+		addPath := filepath.Join(path, "add")
+
+		e, currShards := engineWithShards(t, addPath, shardNum)
+
+		var rcfg ReConfiguration
+		for _, p := range currShards {
+			rcfg.AddShard(p, nil)
+		}
+
+		rcfg.AddShard(currShards[0], nil) // same path
+		require.NoError(t, e.Reload(rcfg))
+
+		// no new paths => no new shards
+		require.Equal(t, shardNum, len(e.shards))
+		require.Equal(t, shardNum, len(e.shardPools))
+
+		newMeta := filepath.Join(addPath, fmt.Sprintf("%d.metabase", shardNum))
+
+		// add new shard
+		rcfg.AddShard(newMeta, []shard.Option{shard.WithMetaBaseOptions(
+			meta.WithPath(newMeta),
+			meta.WithEpochState(epochState{}),
+		)})
+		require.NoError(t, e.Reload(rcfg))
+
+		require.Equal(t, shardNum+1, len(e.shards))
+		require.Equal(t, shardNum+1, len(e.shardPools))
+	})
+
+	t.Run("remove shards", func(t *testing.T) {
+		const shardNum = 4
+		removePath := filepath.Join(path, "remove")
+
+		e, currShards := engineWithShards(t, removePath, shardNum)
+
+		var rcfg ReConfiguration
+		for i := 0; i < len(currShards)-1; i++ { // without one of the shards
+			rcfg.AddShard(currShards[i], nil)
+		}
+
+		require.NoError(t, e.Reload(rcfg))
+
+		// removed one
+		require.Equal(t, shardNum-1, len(e.shards))
+		require.Equal(t, shardNum-1, len(e.shardPools))
+	})
+}
+
+// engineWithShards creates engine with specified number of shards. Returns
+// slice of paths to their metabase and the engine.
+// TODO: #1776 unify engine construction in tests
+func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []string) {
+	addPath := filepath.Join(path, "add")
+
+	currShards := make([]string, 0, num)
+
+	e := New()
+	for i := 0; i < num; i++ {
+		metaPath := filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))
+		currShards = append(currShards, metaPath)
+
+		_, err := e.AddShard(
+			shard.WithBlobStorOptions(
+				blobstor.WithStorages(newStorages(filepath.Join(addPath, strconv.Itoa(i)), errSmallSize))),
+			shard.WithMetaBaseOptions(
+				meta.WithPath(metaPath),
+				meta.WithPermissions(0700),
+				meta.WithEpochState(epochState{}),
+			),
+		)
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, num, len(e.shards))
+	require.Equal(t, num, len(e.shardPools))
+
+	require.NoError(t, e.Open())
+	require.NoError(t, e.Init())
+
+	return e, currShards
 }

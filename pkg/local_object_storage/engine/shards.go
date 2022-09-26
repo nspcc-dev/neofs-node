@@ -11,6 +11,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 )
 
 var errShardNotFound = errors.New("shard not found")
@@ -46,6 +47,10 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
+	return e.addShard(opts...)
+}
+
+func (e *StorageEngine) addShard(opts ...shard.Option) (*shard.ID, error) {
 	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
 	if err != nil {
 		return nil, err
@@ -73,7 +78,7 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	)...)
 
 	if err := sh.UpdateID(); err != nil {
-		return nil, fmt.Errorf("could not open shard: %w", err)
+		return nil, fmt.Errorf("could not update shard ID: %w", err)
 	}
 
 	strID := sh.ID().String()
@@ -89,6 +94,38 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	e.shardPools[strID] = pool
 
 	return sh.ID(), nil
+}
+
+// removeShards removes specified shards. Skips non-existent shards.
+// Returns any error encountered that did not allow remove the shards.
+func (e *StorageEngine) removeShards(ids ...string) error {
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+
+	for _, id := range ids {
+		sh, found := e.shards[id]
+		if !found {
+			continue
+		}
+
+		err := sh.Close()
+		if err != nil {
+			return fmt.Errorf("could not close removed shard: %w", err)
+		}
+
+		delete(e.shards, id)
+
+		pool, ok := e.shardPools[id]
+		if ok {
+			pool.Release()
+			delete(e.shardPools, id)
+		}
+
+		e.log.Info("shard has been removed",
+			zap.String("id", id))
+	}
+
+	return nil
 }
 
 func generateShardID() (*shard.ID, error) {

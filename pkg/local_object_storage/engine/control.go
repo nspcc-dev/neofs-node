@@ -198,3 +198,102 @@ func (e *StorageEngine) BlockExecution(err error) error {
 func (e *StorageEngine) ResumeExecution() error {
 	return e.setBlockExecErr(nil)
 }
+
+type ReConfiguration struct {
+	errorsThreshold uint32
+	shardPoolSize   uint32
+
+	shards map[string][]shard.Option // meta path -> shard opts
+}
+
+// SetErrorsThreshold sets a size amount of errors after which
+// shard is moved to read-only mode.
+func (rCfg *ReConfiguration) SetErrorsThreshold(errorsThreshold uint32) {
+	rCfg.errorsThreshold = errorsThreshold
+}
+
+// SetShardPoolSize sets a size of worker pool for each shard
+func (rCfg *ReConfiguration) SetShardPoolSize(shardPoolSize uint32) {
+	rCfg.shardPoolSize = shardPoolSize
+}
+
+// AddShard adds a shard for the reconfiguration. Path to a metabase is used as
+// an identifier of the shard in configuration.
+func (rCfg *ReConfiguration) AddShard(metaPath string, opts []shard.Option) {
+	if rCfg.shards == nil {
+		rCfg.shards = make(map[string][]shard.Option)
+	}
+
+	if _, found := rCfg.shards[metaPath]; found {
+		return
+	}
+
+	rCfg.shards[metaPath] = opts
+}
+
+// Reload reloads StorageEngine's configuration in runtime.
+func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
+	e.mtx.RLock()
+
+	var shardsToRemove []string // shards IDs
+	var shardsToAdd []string    // meta paths
+
+	// mark removed shards for removal
+	for id, sh := range e.shards {
+		_, ok := rcfg.shards[sh.Shard.DumpInfo().MetaBaseInfo.Path]
+		if !ok {
+			shardsToRemove = append(shardsToRemove, id)
+		}
+	}
+
+	// mark new shards for addition
+	for newPath := range rcfg.shards {
+		addShard := true
+		for _, sh := range e.shards {
+			if newPath == sh.Shard.DumpInfo().MetaBaseInfo.Path {
+				addShard = false
+				break
+			}
+		}
+
+		if addShard {
+			shardsToAdd = append(shardsToAdd, newPath)
+		}
+	}
+
+	e.mtx.RUnlock()
+
+	err := e.removeShards(shardsToRemove...)
+	if err != nil {
+		return fmt.Errorf("could not remove shards: %w", err)
+	}
+
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+
+	for _, newPath := range shardsToAdd {
+		id, err := e.addShard(rcfg.shards[newPath]...)
+		if err != nil {
+			return fmt.Errorf("could not add new shard: %w", err)
+		}
+
+		idStr := id.String()
+		sh := e.shards[idStr]
+
+		err = sh.Open()
+		if err == nil {
+			err = sh.Init()
+		}
+		if err != nil {
+			delete(e.shards, idStr)
+			e.shardPools[idStr].Release()
+			delete(e.shardPools, idStr)
+
+			return fmt.Errorf("could not init %s shard: %w", idStr, err)
+		}
+
+		e.log.Info("added new shard", zap.String("id", idStr))
+	}
+
+	return nil
+}
