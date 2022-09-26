@@ -23,7 +23,7 @@ type FSTree struct {
 	Info
 
 	*compression.Config
-	Depth      int
+	Depth      uint64
 	DirNameLen int
 
 	readOnly bool
@@ -96,7 +96,7 @@ func (t *FSTree) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	return common.IterateRes{}, t.iterate(0, []string{t.RootPath}, prm)
 }
 
-func (t *FSTree) iterate(depth int, curPath []string, prm common.IteratePrm) error {
+func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) error {
 	curName := strings.Join(curPath[1:], "")
 	des, err := os.ReadDir(filepath.Join(curPath...))
 	if err != nil {
@@ -172,7 +172,7 @@ func (t *FSTree) treePath(addr oid.Address) string {
 	dirs := make([]string, 0, t.Depth+1+1) // 1 for root, 1 for file
 	dirs = append(dirs, t.RootPath)
 
-	for i := 0; i < t.Depth; i++ {
+	for i := 0; uint64(i) < t.Depth; i++ {
 		dirs = append(dirs, sAddr[:t.DirNameLen])
 		sAddr = sAddr[t.DirNameLen:]
 	}
