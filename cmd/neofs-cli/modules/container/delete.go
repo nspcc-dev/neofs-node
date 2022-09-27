@@ -13,8 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const forceFlag = "force"
-
 var deleteContainerCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete existing container",
@@ -34,7 +32,7 @@ Only owner of the container has a permission to remove container.`,
 		pk := key.Get(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
-		if force, _ := cmd.Flags().GetBool(forceFlag); !force {
+		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			fs := objectSDK.NewSearchFilters()
 			fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
 
@@ -52,7 +50,7 @@ Only owner of the container has a permission to remove container.`,
 			if len(res.IDList()) != 0 {
 				common.ExitOnErr(cmd, "",
 					fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
-						"Use --%s flag to remove anyway.", forceFlag))
+						"Use --%s flag to remove anyway.", commonflags.ForceFlag))
 			}
 		}
 
@@ -100,5 +98,5 @@ func initContainerDeleteCmd() {
 
 	flags.StringVar(&containerID, "cid", "", "container ID")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until container is removed")
-	flags.Bool(forceFlag, false, "do not check whether container contains locks and remove immediately")
+	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "do not check whether container contains locks and remove immediately")
 }

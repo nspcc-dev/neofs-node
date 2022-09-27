@@ -31,6 +31,9 @@ const (
 	Verbose          = "verbose"
 	VerboseShorthand = "v"
 	VerboseUsage     = "verbose output"
+
+	ForceFlag          = "force"
+	ForceFlagShorthand = "f"
 )
 
 // Init adds common flags to the command:
