@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `neofs-node -check` command to check the configuration file (#1805)
 - `flush-cache` control service command to flush write-cache (#1806)
 - `wallet-address` flag in `neofs-adm morph refill-gas` command (#1820)
+- Validate policy before container creation (#1704)
 
 ### Changed
 
@@ -35,6 +36,7 @@ Changelog for NeoFS Node
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
 other nodes external address, use `apiclient.allow_external` config setting.
+Add `--force` option to skip placement validity check for container creation.
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 

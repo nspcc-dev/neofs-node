@@ -28,6 +28,7 @@ var (
 	containerName        string
 	containerNoTimestamp bool
 	containerSubnet      string
+	force                bool
 )
 
 var createContainerCmd = &cobra.Command{
@@ -38,6 +39,22 @@ It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		common.ExitOnErr(cmd, "", err)
+
+		key := key.GetOrGenerate(cmd)
+		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+
+		if !force {
+			var prm internalclient.NetMapSnapshotPrm
+			prm.SetClient(cli)
+
+			resmap, err := internalclient.NetMapSnapshot(prm)
+			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
+				"use --force option to skip this check: %w", err)
+
+			_, err = resmap.NetMap().ContainerNodes(*placementPolicy, nil)
+			common.ExitOnErr(cmd, "could not build container nodes based on given placement policy, "+
+				"use --force option to skip this check: %w", err)
+		}
 
 		if containerSubnet != "" {
 			var subnetID subnetid.ID
@@ -57,8 +74,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		var basicACL acl.Basic
 		common.ExitOnErr(cmd, "decode basic ACL string: %w", basicACL.DecodeString(containerACL))
 
-		key := key.GetOrGenerate(cmd)
-
 		var tok *session.Container
 
 		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
@@ -77,8 +92,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 		cnr.SetPlacementPolicy(*placementPolicy)
 		cnr.SetBasicACL(basicACL)
-
-		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 		var syncContainerPrm internalclient.SyncContainerPrm
 		syncContainerPrm.SetClient(cli)
@@ -138,6 +151,8 @@ func initContainerCreateCmd() {
 	flags.StringVar(&containerName, "name", "", "container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
 	flags.StringVar(&containerSubnet, "subnet", "", "string representation of container subnetwork")
+	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
+		"skip placement validity check")
 }
 
 func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {
