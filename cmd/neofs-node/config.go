@@ -266,88 +266,38 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	})
 }
 
-type cfg struct {
-	applicationConfiguration
-
-	ctx context.Context
+// internals contains application-specific internals that are created
+// on application startup and are shared b/w the components during
+// the application life cycle.
+// It should not contain any read configuration values, component-specific
+// helpers and fields.
+type internals struct {
+	ctx         context.Context
+	ctxCancel   func()
+	internalErr chan error // channel for internal application errors at runtime
 
 	appCfg *config.Config
 
-	ctxCancel func()
-
-	internalErr chan error // channel for internal application errors at runtime
-
 	log *zap.Logger
 
-	wg *sync.WaitGroup
-
-	key *keys.PrivateKey
-
-	binPublicKey []byte
-
-	ownerIDFromKey user.ID // user ID calculated from key
-
-	apiVersion version.Version
-
-	cfgGRPC cfgGRPC
-
-	cfgMorph cfgMorph
-
-	cfgAccounting cfgAccounting
-
-	cfgContainer cfgContainer
-
-	cfgNetmap cfgNetmap
-
-	privateTokenStore sessionStorage
-
-	cfgNodeInfo cfgNodeInfo
-
-	localAddr network.AddressGroup
-
-	cfgObject cfgObject
-
-	cfgNotifications cfgNotifications
-
-	metricsCollector *metrics.NodeMetrics
-
+	wg      *sync.WaitGroup
 	workers []worker
-
-	respSvc *response.Service
-
-	replicator *replicator.Replicator
-
-	cfgControlService cfgControlService
-
-	treeService *tree.Service
-
-	healthStatus *atomic.Int32
-
 	closers []func()
 
-	cfgReputation cfgReputation
-
-	clientCache *cache.ClientCache
-
-	persistate *state.PersistentStorage
-
-	netMapSource netmapCore.Source
-
-	// current network map
-	netMap atomicstd.Value // type netmap.NetMap
-
+	apiVersion   version.Version
+	healthStatus *atomic.Int32
 	// is node under maintenance
 	isMaintenance atomic.Bool
 }
 
 // starts node's maintenance.
-func (c *cfg) startMaintenance() {
+func (c *internals) startMaintenance() {
 	c.isMaintenance.Store(true)
 	c.log.Info("started local node's maintenance")
 }
 
 // stops node's maintenance.
-func (c *cfg) stopMaintenance() {
+func (c *internals) stopMaintenance() {
 	c.isMaintenance.Store(false)
 	c.log.Info("stopped local node's maintenance")
 }
@@ -355,8 +305,53 @@ func (c *cfg) stopMaintenance() {
 // IsMaintenance checks if storage node is under maintenance.
 //
 // Provides util.NodeState to Object service.
-func (c *cfg) IsMaintenance() bool {
+func (c *internals) IsMaintenance() bool {
 	return c.isMaintenance.Load()
+}
+
+// shared contains component-specific structs/helpers that should
+// be shared during initialization of the application.
+type shared struct {
+	privateTokenStore sessionStorage
+	persistate        *state.PersistentStorage
+
+	clientCache *cache.ClientCache
+	localAddr   network.AddressGroup
+
+	key            *keys.PrivateKey
+	binPublicKey   []byte
+	ownerIDFromKey user.ID // user ID calculated from key
+
+	// current network map
+	netMap       atomicstd.Value // type netmap.NetMap
+	netMapSource netmapCore.Source
+
+	respSvc *response.Service
+
+	replicator *replicator.Replicator
+
+	treeService *tree.Service
+
+	metricsCollector *metrics.NodeMetrics
+}
+
+type cfg struct {
+	applicationConfiguration
+	internals
+	shared
+
+	// configuration of the internal
+	// services
+	cfgGRPC           cfgGRPC
+	cfgMorph          cfgMorph
+	cfgAccounting     cfgAccounting
+	cfgContainer      cfgContainer
+	cfgNodeInfo       cfgNodeInfo
+	cfgNetmap         cfgNetmap
+	cfgControlService cfgControlService
+	cfgReputation     cfgReputation
+	cfgObject         cfgObject
+	cfgNotifications  cfgNotifications
 }
 
 // ReadCurrentNetMap reads network map which has been cached at the
@@ -514,14 +509,28 @@ func initCfg(appCfg *config.Config) *cfg {
 	fatalOnErr(err)
 
 	c := &cfg{
-		ctx:          context.Background(),
-		appCfg:       appCfg,
-		internalErr:  make(chan error),
-		log:          log,
-		wg:           new(sync.WaitGroup),
-		key:          key,
-		binPublicKey: key.PublicKey().Bytes(),
-		apiVersion:   version.Current(),
+		internals: internals{
+			ctx:          context.Background(),
+			appCfg:       appCfg,
+			internalErr:  make(chan error),
+			log:          log,
+			wg:           new(sync.WaitGroup),
+			apiVersion:   version.Current(),
+			healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
+		},
+		shared: shared{
+			key:          key,
+			binPublicKey: key.PublicKey().Bytes(),
+			localAddr:    netAddr,
+			respSvc:      response.NewService(response.WithNetworkState(netState)),
+			clientCache: cache.NewSDKClientCache(cache.ClientCacheOpts{
+				DialTimeout:   apiclientconfig.DialTimeout(appCfg),
+				StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
+				Key:           &key.PrivateKey,
+				AllowExternal: apiclientconfig.AllowExternal(appCfg),
+			}),
+			persistate: persistate,
+		},
 		cfgAccounting: cfgAccounting{
 			scriptHash: contractsconfig.Balance(appCfg),
 		},
@@ -543,25 +552,13 @@ func initCfg(appCfg *config.Config) *cfg {
 		cfgMorph: cfgMorph{
 			proxyScriptHash: contractsconfig.Proxy(appCfg),
 		},
-		localAddr: netAddr,
-		respSvc: response.NewService(
-			response.WithNetworkState(netState),
-		),
 		cfgObject: cfgObject{
 			pool: initObjectPool(appCfg),
 		},
-		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 		cfgReputation: cfgReputation{
 			scriptHash: contractsconfig.Reputation(appCfg),
 			workerPool: reputationWorkerPool,
 		},
-		clientCache: cache.NewSDKClientCache(cache.ClientCacheOpts{
-			DialTimeout:   apiclientconfig.DialTimeout(appCfg),
-			StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
-			Key:           &key.PrivateKey,
-			AllowExternal: apiclientconfig.AllowExternal(appCfg),
-		}),
-		persistate: persistate,
 	}
 
 	// returned err must be nil during first time read
