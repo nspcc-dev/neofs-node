@@ -268,28 +268,27 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 		return fmt.Errorf("could not remove shards: %w", err)
 	}
 
-	e.mtx.Lock()
-	defer e.mtx.Unlock()
-
 	for _, newPath := range shardsToAdd {
-		id, err := e.addShard(rcfg.shards[newPath]...)
+		sh, err := e.createShard(rcfg.shards[newPath])
 		if err != nil {
-			return fmt.Errorf("could not add new shard: %w", err)
+			return fmt.Errorf("could not add new shard with '%s' metabase path: %w", newPath, err)
 		}
 
-		idStr := id.String()
-		sh := e.shards[idStr]
+		idStr := sh.ID().String()
 
 		err = sh.Open()
 		if err == nil {
 			err = sh.Init()
 		}
 		if err != nil {
-			delete(e.shards, idStr)
-			e.shardPools[idStr].Release()
-			delete(e.shardPools, idStr)
-
+			_ = sh.Close()
 			return fmt.Errorf("could not init %s shard: %w", idStr, err)
+		}
+
+		err = e.addShard(sh)
+		if err != nil {
+			_ = sh.Close()
+			return fmt.Errorf("could not add %s shard: %w", idStr, err)
 		}
 
 		e.log.Info("added new shard", zap.String("id", idStr))
