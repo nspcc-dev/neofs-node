@@ -255,7 +255,7 @@ func initObjectService(c *cfg) {
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
 		e:     ls,
-		state: c,
+		state: &c.internals,
 	}
 
 	if c.cfgNotifications.enabled {
@@ -291,7 +291,7 @@ func initObjectService(c *cfg) {
 
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
-		searchsvc.WithLocalStorageEngine(ls, c),
+		searchsvc.WithLocalStorageEngine(ls, &c.internals),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
@@ -318,7 +318,7 @@ func initObjectService(c *cfg) {
 		),
 		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
-		getsvc.WithNodeState(c),
+		getsvc.WithNodeState(&c.internals),
 	)
 
 	*c.cfgObject.getSvc = *sGet // need smth better
