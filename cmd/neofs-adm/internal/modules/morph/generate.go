@@ -8,10 +8,12 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -133,44 +135,55 @@ func generateStorageCreds(cmd *cobra.Command, _ []string) error {
 	return refillGas(cmd, storageGasConfigFlag, true)
 }
 
-func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
+func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) (err error) {
 	// storage wallet path is not part of the config
-	storageWalletPath, err := cmd.Flags().GetString(storageWalletFlag)
-	if err != nil {
-		return err
-	}
-	if storageWalletPath == "" {
-		return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
-	}
+	storageWalletPath, _ := cmd.Flags().GetString(storageWalletFlag)
+	// wallet address is not part of the config
+	walletAddress, _ := cmd.Flags().GetString(walletAddressFlag)
 
-	var w *wallet.Wallet
+	var gasReceiver util.Uint160
 
-	if createWallet {
-		w, err = wallet.NewWallet(storageWalletPath)
-	} else {
-		w, err = wallet.NewWalletFromFile(storageWalletPath)
-	}
-
-	if err != nil {
-		return fmt.Errorf("can't create wallet: %w", err)
-	}
-
-	if createWallet {
-		var password string
-
-		label, _ := cmd.Flags().GetString(storageWalletLabelFlag)
-		password, err := config.GetStoragePassword(viper.GetViper(), label)
+	if len(walletAddress) != 0 {
+		gasReceiver, err = address.StringToUint160(walletAddress)
 		if err != nil {
-			return fmt.Errorf("can't fetch password: %w", err)
+			return fmt.Errorf("invalid wallet address %s: %w", walletAddress, err)
+		}
+	} else {
+		if storageWalletPath == "" {
+			return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
 		}
 
-		if label == "" {
-			label = singleAccountName
+		var w *wallet.Wallet
+
+		if createWallet {
+			w, err = wallet.NewWallet(storageWalletPath)
+		} else {
+			w, err = wallet.NewWalletFromFile(storageWalletPath)
 		}
 
-		if err := w.CreateAccount(label, password); err != nil {
-			return fmt.Errorf("can't create account: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't create wallet: %w", err)
 		}
+
+		if createWallet {
+			var password string
+
+			label, _ := cmd.Flags().GetString(storageWalletLabelFlag)
+			password, err := config.GetStoragePassword(viper.GetViper(), label)
+			if err != nil {
+				return fmt.Errorf("can't fetch password: %w", err)
+			}
+
+			if label == "" {
+				label = singleAccountName
+			}
+
+			if err := w.CreateAccount(label, password); err != nil {
+				return fmt.Errorf("can't create account: %w", err)
+			}
+		}
+
+		gasReceiver = w.Accounts[0].Contract.ScriptHash()
 	}
 
 	gasStr := viper.GetString(gasFlag)
@@ -189,7 +202,7 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) error {
 
 	bw := io.NewBufBinWriter()
 	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
-		wCtx.CommitteeAcc.Contract.ScriptHash(), w.Accounts[0].Contract.ScriptHash(), int64(gasAmount), nil)
+		wCtx.CommitteeAcc.Contract.ScriptHash(), gasReceiver, int64(gasAmount), nil)
 	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	if bw.Err != nil {
 		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)

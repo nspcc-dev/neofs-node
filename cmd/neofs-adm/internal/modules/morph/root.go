@@ -40,6 +40,7 @@ const (
 	notaryDepositTillFlag           = "till"
 	localDumpFlag                   = "local-dump"
 	protoConfigPath                 = "protocol"
+	walletAddressFlag               = "wallet-address"
 )
 
 var (
@@ -296,7 +297,9 @@ func init() {
 	refillGasCmd.Flags().String(alphabetWalletsFlag, "", "path to alphabet wallets dir")
 	refillGasCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	refillGasCmd.Flags().String(storageWalletFlag, "", "path to storage node wallet")
+	refillGasCmd.Flags().String(walletAddressFlag, "", "address of wallet")
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "additional amount of GAS to transfer")
+	refillGasCmd.MarkFlagsMutuallyExclusive(walletAddressFlag, storageWalletFlag)
 
 	RootCmd.AddCommand(cmdSubnet)
 
