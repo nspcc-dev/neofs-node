@@ -40,7 +40,7 @@ func New(opts ...Option) *Replicator {
 		opts[i](c)
 	}
 
-	c.log = c.log.With(zap.String("component", "Object Replicator"))
+	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Replicator"))}
 
 	return &Replicator{
 		cfg: c,

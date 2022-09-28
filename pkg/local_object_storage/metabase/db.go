@@ -69,7 +69,7 @@ func defaultCfg() *cfg {
 		},
 		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
 		boltBatchSize:  bbolt.DefaultMaxBatchSize,
-		log:            zap.L(),
+		log:            &logger.Logger{Logger: zap.L()},
 	}
 }
 
@@ -288,7 +288,7 @@ func bucketKeyHelper(hdr string, val string) []byte {
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (db *DB) SetLogger(l *zap.Logger) {
+func (db *DB) SetLogger(l *logger.Logger) {
 	db.log = l
 }
 

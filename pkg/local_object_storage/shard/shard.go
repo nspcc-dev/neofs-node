@@ -98,7 +98,7 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		rmBatchSize: 100,
-		log:         zap.L(),
+		log:         &logger.Logger{Logger: zap.L()},
 		gcCfg:       defaultGCCfg(),
 	}
 }

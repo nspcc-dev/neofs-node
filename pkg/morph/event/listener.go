@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -84,7 +85,7 @@ type Listener interface {
 // ListenerParams is a group of parameters
 // for Listener constructor.
 type ListenerParams struct {
-	Logger *zap.Logger
+	Logger *logger.Logger
 
 	Subscriber subscriber.Subscriber
 
@@ -107,7 +108,7 @@ type listener struct {
 	notaryHandlers         map[notaryRequestTypes]Handler
 	notaryMainTXSigner     util.Uint160 // filter for notary subscription
 
-	log *zap.Logger
+	log *logger.Logger
 
 	subscriber subscriber.Subscriber
 

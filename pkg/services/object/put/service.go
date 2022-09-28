@@ -61,7 +61,7 @@ func defaultCfg() *cfg {
 	return &cfg{
 		remotePool: util.NewPseudoWorkerPool(),
 		localPool:  util.NewPseudoWorkerPool(),
-		log:        zap.L(),
+		log:        &logger.Logger{Logger: zap.L()},
 	}
 }
 

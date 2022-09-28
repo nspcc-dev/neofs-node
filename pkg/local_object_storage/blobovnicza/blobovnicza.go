@@ -51,7 +51,7 @@ func defaultCfg(с *cfg) {
 		},
 		fullSizeLimit: 1 << 30, // 1GB
 		objSizeLimit:  1 << 20, // 1MB
-		log:           zap.L(),
+		log:           &logger.Logger{Logger: zap.L()},
 	}
 }
 
@@ -102,7 +102,7 @@ func WithFullSizeLimit(lim uint64) Option {
 // WithLogger returns an option to specify Blobovnicza's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l.With(zap.String("component", "Blobovnicza"))
+		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Blobovnicza"))}
 	}
 }
 

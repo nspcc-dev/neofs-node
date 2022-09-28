@@ -75,9 +75,9 @@ func (c *Controller) acquireReport(epoch uint64) *reportContext {
 
 	c.mtx.Unlock()
 
-	log := c.opts.log.With(
+	log := &logger.Logger{Logger: c.opts.log.With(
 		zap.Uint64("epoch", epoch),
-	)
+	)}
 
 	if ctx == nil {
 		log.Debug("report is already started")
@@ -191,6 +191,6 @@ func (p *StopPrm) SetEpoch(e uint64) {
 func (c *Controller) Stop(prm StopPrm) {
 	c.freeReport(
 		prm.epoch,
-		c.opts.log.With(zap.Uint64("epoch", prm.epoch)),
+		&logger.Logger{Logger: c.opts.log.With(zap.Uint64("epoch", prm.epoch))},
 	)
 }

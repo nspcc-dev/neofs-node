@@ -7,11 +7,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 type cfg struct {
-	log        *zap.Logger
+	log        *logger.Logger
 	key        *ecdsa.PrivateKey
 	rawPub     []byte
 	nmSource   netmap.Source
@@ -61,7 +61,7 @@ func WithPrivateKey(key *ecdsa.PrivateKey) Option {
 }
 
 // WithLogger sets logger for a tree service.
-func WithLogger(log *zap.Logger) Option {
+func WithLogger(log *logger.Logger) Option {
 	return func(c *cfg) {
 		c.log = log
 	}

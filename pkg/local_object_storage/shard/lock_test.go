@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -24,7 +25,7 @@ func TestShard_Lock(t *testing.T) {
 
 	rootPath := t.TempDir()
 	opts := []shard.Option{
-		shard.WithLogger(zap.NewNop()),
+		shard.WithLogger(&logger.Logger{Logger: zap.NewNop()}),
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{

@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -32,7 +33,7 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 	}
 
 	e := New(
-		WithLogger(zaptest.NewLogger(t)),
+		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 		WithShardPoolSize(1),
 		WithErrorThreshold(errThreshold))
 
@@ -41,7 +42,7 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 
 	for i := range ids {
 		ids[i], err = e.AddShard(
-			shard.WithLogger(zaptest.NewLogger(t)),
+			shard.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(newStorages(filepath.Join(dir, strconv.Itoa(i)), errSmallSize))),
 			shard.WithMetaBaseOptions(

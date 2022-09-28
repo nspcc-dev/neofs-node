@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -32,7 +33,7 @@ type (
 
 	// Processor of events produced for alphabet contracts in the sidechain.
 	Processor struct {
-		log               *zap.Logger
+		log               *logger.Logger
 		pool              *ants.Pool
 		alphabetContracts Contracts
 		netmapClient      *nmClient.Client
@@ -43,7 +44,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log               *zap.Logger
+		Log               *logger.Logger
 		PoolSize          int
 		AlphabetContracts Contracts
 		NetmapClient      *nmClient.Client

@@ -97,7 +97,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:           zap.L(),
+		log:           &logger.Logger{Logger: zap.L()},
 		batchSize:     10,
 		cacheSize:     200_000, // should not allocate more than 200 MiB
 		rebalanceFreq: 1 * time.Second,
@@ -113,7 +113,7 @@ func New(opts ...Option) *Policer {
 		opts[i](c)
 	}
 
-	c.log = c.log.With(zap.String("component", "Object Policer"))
+	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Policer"))}
 
 	cache, err := lru.New(int(c.cacheSize))
 	if err != nil {

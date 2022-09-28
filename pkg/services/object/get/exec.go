@@ -73,14 +73,14 @@ func (exec *execCtx) setLogger(l *logger.Logger) {
 		req = "GET_RANGE"
 	}
 
-	exec.log = l.With(
+	exec.log = &logger.Logger{Logger: l.With(
 		zap.String("request", req),
 		zap.Stringer("address", exec.address()),
 		zap.Bool("raw", exec.isRaw()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)
+	)}
 }
 
 func (exec execCtx) context() context.Context {

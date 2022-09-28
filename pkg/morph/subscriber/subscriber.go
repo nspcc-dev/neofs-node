@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +28,7 @@ type (
 
 	subscriber struct {
 		*sync.RWMutex
-		log    *zap.Logger
+		log    *logger.Logger
 		client *client.Client
 
 		notifyChan chan *state.ContainedNotificationEvent
@@ -39,7 +40,7 @@ type (
 
 	// Params is a group of Subscriber constructor parameters.
 	Params struct {
-		Log            *zap.Logger
+		Log            *logger.Logger
 		StartFromBlock uint32
 		Client         *client.Client
 	}

@@ -14,6 +14,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -27,14 +28,14 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	e := New(
-		WithLogger(zaptest.NewLogger(t)),
+		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 		WithShardPoolSize(1))
 
 	ids := make([]*shard.ID, shardNum)
 
 	for i := range ids {
 		ids[i], err = e.AddShard(
-			shard.WithLogger(zaptest.NewLogger(t)),
+			shard.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages([]blobstor.SubStorage{{
 					Storage: fstree.New(

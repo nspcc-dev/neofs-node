@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -18,7 +19,7 @@ import (
 type TokenStore struct {
 	db *bbolt.DB
 
-	l *zap.Logger
+	l *logger.Logger
 
 	// optional AES-256 algorithm
 	// encryption in Galois/Counter

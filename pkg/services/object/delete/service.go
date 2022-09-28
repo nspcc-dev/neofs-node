@@ -62,7 +62,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 	}
 }
 
@@ -83,7 +83,7 @@ func New(opts ...Option) *Service {
 // WithLogger returns option to specify Delete service's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l.With(zap.String("component", "Object.Delete service"))
+		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Object.Delete service"))}
 	}
 }
 

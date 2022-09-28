@@ -92,7 +92,7 @@ func serveGRPC(c *cfg) {
 }
 
 func stopGRPC(name string, s *grpc.Server, l *logger.Logger) {
-	l = l.With(zap.String("name", name))
+	l = &logger.Logger{Logger: l.With(zap.String("name", name))}
 
 	l.Info("stopping gRPC server...")
 

@@ -118,7 +118,7 @@ type MngOption func(*mngOptions)
 
 func defaultMngOpts() *mngOptions {
 	return &mngOptions{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 	}
 }
 

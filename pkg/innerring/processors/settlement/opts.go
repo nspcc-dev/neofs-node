@@ -19,7 +19,7 @@ func defaultOptions() *options {
 
 	return &options{
 		poolSize: poolSize,
-		log:      zap.L(),
+		log:      &logger.Logger{Logger: zap.L()},
 	}
 }
 

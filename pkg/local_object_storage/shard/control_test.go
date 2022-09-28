@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -36,7 +37,7 @@ func TestShardOpen(t *testing.T) {
 
 	newShard := func() *Shard {
 		return New(
-			WithLogger(zaptest.NewLogger(t)),
+			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 			WithBlobStorOptions(
 				blobstor.WithStorages([]blobstor.SubStorage{
 					{

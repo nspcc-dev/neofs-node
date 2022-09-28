@@ -191,9 +191,9 @@ func (c *Context) init() {
 
 	c.headResponses = make(map[string]shortHeader)
 
-	c.log = c.log.With(
+	c.log = &logger.Logger{Logger: c.log.With(
 		zap.Stringer("container ID", c.task.ContainerID()),
-	)
+	)}
 }
 
 func (c *Context) expired() bool {
