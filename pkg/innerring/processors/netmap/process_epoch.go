@@ -37,7 +37,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	}
 
 	// get new netmap snapshot
-	networkMap, err := np.netmapClient.Snapshot()
+	networkMap, err := np.netmapClient.NetMap()
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to perform cleanup",
 			zap.String("error", err.Error()))

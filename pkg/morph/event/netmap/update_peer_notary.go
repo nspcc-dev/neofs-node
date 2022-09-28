@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -61,14 +60,9 @@ func ParseUpdatePeerNotary(ne event.NotaryEvent) (event.Event, error) {
 				return nil, err
 			}
 
-			switch state {
-			default:
-				return nil, fmt.Errorf("unsupported node state %d", err)
-			case int64(netmap.OfflineState):
-			case int64(netmap.OnlineState):
-				ev.state = stateOnline
-			case int64(netmap.OfflineState) + 1: // FIXME: use named constant after neofs-contract#269
-				ev.state = stateMaintenance
+			err = ev.decodeState(state)
+			if err != nil {
+				return nil, err
 			}
 
 			fieldNum++

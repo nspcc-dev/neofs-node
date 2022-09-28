@@ -169,14 +169,12 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 		return
 	}
 
-	candidateNodes := candidates.Nodes()
-
-	for i := range candidateNodes {
-		if !bytes.Equal(candidateNodes[i].PublicKey(), ev.Node()) {
+	for i := range candidates {
+		if !bytes.Equal(candidates[i].PublicKey(), ev.Node()) {
 			continue
 		}
 
-		err = candidateNodes[i].IterateSubnets(func(subNetID subnetid.ID) error {
+		err = candidates[i].IterateSubnets(func(subNetID subnetid.ID) error {
 			if subNetID.Equals(subnetToRemoveFrom) {
 				return netmap.ErrRemoveSubnet
 			}
@@ -198,7 +196,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 			}
 		} else {
 			prm := netmapclient.AddPeerPrm{}
-			prm.SetNodeInfo(candidateNodes[i])
+			prm.SetNodeInfo(candidates[i])
 			prm.SetHash(ev.TxHash())
 
 			err = np.netmapClient.AddPeer(prm)

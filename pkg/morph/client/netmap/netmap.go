@@ -4,19 +4,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	netmapcontract "github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-const (
-	nodeInfoFixedPrmNumber = 1
-
-	peerWithStateFixedPrmNumber = 2
-)
-
-// GetNetMapByEpoch receives information list about storage nodes
-// through the Netmap contract call, composes network map
-// from them and returns it. Returns snapshot of the specified epoch number.
+// GetNetMapByEpoch calls "snapshotByEpoch" method with the given epoch and
+// decodes netmap.NetMap from the response.
 func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(epochSnapshotMethod)
@@ -28,145 +22,126 @@ func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 			epochSnapshotMethod, err)
 	}
 
-	nm, err := unmarshalNetmap(res, epochSnapshotMethod)
-	if err == nil {
-		nm.SetEpoch(epoch)
+	nm, err := decodeNetMap(res)
+	if err != nil {
+		return nil, err
 	}
+
+	nm.SetEpoch(epoch)
 
 	return nm, err
 }
 
-// GetCandidates receives information list about candidates
-// for the next epoch network map through the Netmap contract
-// call, composes network map from them and returns it.
-func (c *Client) GetCandidates() (*netmap.NetMap, error) {
+// GetCandidates calls "netmapCandidates" method and decodes []netmap.NodeInfo
+// from the response.
+func (c *Client) GetCandidates() ([]netmap.NodeInfo, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(netMapCandidatesMethod)
 
-	prms, err := c.client.TestInvoke(invokePrm)
+	res, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", netMapCandidatesMethod, err)
 	}
 
-	candVals, err := nodeInfosFromStackItems(prms, netMapCandidatesMethod)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse contract response: %w", err)
+	if len(res) > 0 {
+		return decodeNodeList(res[0])
 	}
 
-	var nm netmap.NetMap
-	nm.SetNodes(candVals)
-
-	return &nm, nil
+	return nil, nil
 }
 
-// NetMap performs the test invoke of get network map
-// method of NeoFS Netmap contract.
-func (c *Client) NetMap() ([][]byte, error) {
+// NetMap calls "netmap" method and decode netmap.NetMap from the response.
+func (c *Client) NetMap() (*netmap.NetMap, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(netMapMethod)
 
-	prms, err := c.client.TestInvoke(invokePrm)
+	res, err := c.client.TestInvoke(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w",
 			netMapMethod, err)
 	}
 
-	return peersFromStackItems(prms, netMapMethod)
+	return decodeNetMap(res)
 }
 
-func nodeInfosFromStackItems(stack []stackitem.Item, method string) ([]netmap.NodeInfo, error) {
-	if ln := len(stack); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
-	}
+func decodeNetMap(resStack []stackitem.Item) (*netmap.NetMap, error) {
+	var nm netmap.NetMap
 
-	netmapNodes, err := client.ArrayFromStackItem(stack[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", method, err)
-	}
-
-	res := make([]netmap.NodeInfo, len(netmapNodes))
-	for i := range netmapNodes {
-		err := stackItemToNodeInfo(netmapNodes[i], &res[i])
+	if len(resStack) > 0 {
+		nodes, err := decodeNodeList(resStack[0])
 		if err != nil {
-			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
+			return nil, err
+		}
+
+		nm.SetNodes(nodes)
+	}
+
+	return &nm, nil
+}
+
+func decodeNodeList(itemNodes stackitem.Item) ([]netmap.NodeInfo, error) {
+	itemArrNodes, err := client.ArrayFromStackItem(itemNodes)
+	if err != nil {
+		return nil, fmt.Errorf("decode item array of nodes from the response item: %w", err)
+	}
+
+	var nodes []netmap.NodeInfo
+
+	if len(itemArrNodes) > 0 {
+		nodes = make([]netmap.NodeInfo, len(itemArrNodes))
+
+		for i := range itemArrNodes {
+			err = decodeNodeInfo(&nodes[i], itemArrNodes[i])
+			if err != nil {
+				return nil, fmt.Errorf("decode node #%d: %w", i+1, err)
+			}
 		}
 	}
 
-	return res, nil
+	return nodes, nil
 }
 
-func stackItemToNodeInfo(prm stackitem.Item, res *netmap.NodeInfo) error {
-	prms, err := client.ArrayFromStackItem(prm)
+func decodeNodeInfo(dst *netmap.NodeInfo, itemNode stackitem.Item) error {
+	nodeFields, err := client.ArrayFromStackItem(itemNode)
 	if err != nil {
-		return fmt.Errorf("could not get stack item array (PeerWithState): %w", err)
-	} else if ln := len(prms); ln != peerWithStateFixedPrmNumber {
-		return fmt.Errorf(
-			"unexpected stack item count (PeerWithState): expected %d, has %d",
-			peerWithStateFixedPrmNumber,
-			ln,
-		)
+		return fmt.Errorf("decode item array of node fields: %w", err)
 	}
 
-	peer, err := peerInfoFromStackItem(prms[0])
-	if err != nil {
-		return fmt.Errorf("could not get bytes from 'node' field of PeerWithState: %w", err)
-	} else if err = res.Unmarshal(peer); err != nil {
-		return fmt.Errorf("can't unmarshal peer info: %w", err)
+	var node netmapcontract.Node
+
+	if len(nodeFields) > 0 {
+		node.BLOB, err = client.BytesFromStackItem(nodeFields[0])
+		if err != nil {
+			return fmt.Errorf("decode node info BLOB: %w", err)
+		}
 	}
 
-	// state
-	state, err := client.IntFromStackItem(prms[1])
-	if err != nil {
-		return fmt.Errorf("could not get int from 'state' field of PeerWithState: %w", err)
+	node.State = netmapcontract.NodeStateOnline
+
+	if len(nodeFields) > 1 {
+		state, err := client.IntFromStackItem(nodeFields[1])
+		if err != nil {
+			return fmt.Errorf("decode integer from 2nd item: %w", err)
+		}
+
+		node.State = netmapcontract.NodeState(state)
 	}
 
-	switch state {
-	case 1:
-		res.SetOnline()
-	case 2:
-		res.SetOffline()
+	err = dst.Unmarshal(node.BLOB)
+	if err != nil {
+		return fmt.Errorf("decode node info: %w", err)
+	}
+
+	switch node.State {
+	default:
+		return fmt.Errorf("unsupported state %v", node.State)
+	case netmapcontract.NodeStateOnline:
+		dst.SetOnline()
+	case netmapcontract.NodeStateOffline:
+		dst.SetOffline()
+	case netmapcontract.NodeStateMaintenance:
+		dst.SetMaintenance()
 	}
 
 	return nil
-}
-
-func peersFromStackItems(stack []stackitem.Item, method string) ([][]byte, error) {
-	if ln := len(stack); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d",
-			method, ln)
-	}
-
-	peers, err := client.ArrayFromStackItem(stack[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w",
-			method, err)
-	}
-
-	res := make([][]byte, 0, len(peers))
-
-	for i := range peers {
-		peer, err := peerInfoFromStackItem(peers[i])
-		if err != nil {
-			return nil, fmt.Errorf("could not parse stack item (Peer #%d): %w", i, err)
-		}
-
-		res = append(res, peer)
-	}
-
-	return res, nil
-}
-
-func peerInfoFromStackItem(prm stackitem.Item) ([]byte, error) {
-	prms, err := client.ArrayFromStackItem(prm)
-	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array (PeerInfo): %w", err)
-	} else if ln := len(prms); ln != nodeInfoFixedPrmNumber {
-		return nil, fmt.Errorf(
-			"unexpected stack item count (PeerInfo): expected %d, has %d",
-			nodeInfoFixedPrmNumber,
-			ln,
-		)
-	}
-
-	return client.BytesFromStackItem(prms[0])
 }

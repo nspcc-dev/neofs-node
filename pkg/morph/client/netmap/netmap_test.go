@@ -19,10 +19,12 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 		rand.Read(pub)
 
 		switch i % 3 {
-		case int(netmapcontract.OfflineState):
+		default:
 			expected[i].SetOffline()
-		case int(netmapcontract.OnlineState):
+		case int(netmapcontract.NodeStateOnline):
 			expected[i].SetOnline()
+		case int(netmapcontract.NodeStateMaintenance):
+			expected[i].SetMaintenance()
 		}
 
 		expected[i].SetPublicKey(pub)
@@ -38,20 +40,20 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 
 		switch {
 		case expected[i].IsOnline():
-			state = int64(netmapcontract.OnlineState)
+			state = int64(netmapcontract.NodeStateOnline)
 		case expected[i].IsOffline():
-			state = int64(netmapcontract.OfflineState)
+			state = int64(netmapcontract.NodeStateOffline)
+		case expected[i].IsMaintenance():
+			state = int64(netmapcontract.NodeStateMaintenance)
 		}
 
 		items[i] = stackitem.NewStruct([]stackitem.Item{
-			stackitem.NewStruct([]stackitem.Item{
-				stackitem.NewByteArray(data),
-			}),
+			stackitem.NewByteArray(data),
 			stackitem.NewBigInteger(big.NewInt(state)),
 		})
 	}
 
-	actual, err := nodeInfosFromStackItems([]stackitem.Item{stackitem.NewArray(items)}, "")
+	actual, err := decodeNodeList(stackitem.NewArray(items))
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }
