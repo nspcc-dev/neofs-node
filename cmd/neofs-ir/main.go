@@ -54,7 +54,7 @@ func main() {
 	)
 	exitErr(err)
 
-	log, err := logger.NewLogger(logPrm)
+	log, err := logger.NewLogger(&logPrm)
 	exitErr(err)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
