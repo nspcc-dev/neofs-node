@@ -125,9 +125,9 @@ func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
 
 	c.announceMtx.Unlock()
 
-	log := c.opts.log.With(
+	log := &logger.Logger{Logger: c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
-	)
+	)}
 
 	if ctx == nil {
 		log.Debug("announcement is already started")
@@ -217,9 +217,9 @@ func (c *Controller) acquireReport(prm StopPrm) *stopContext {
 
 	c.reportMtx.Unlock()
 
-	log := c.opts.log.With(
+	log := &logger.Logger{Logger: c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
-	)
+	)}
 
 	if ctx == nil {
 		log.Debug("report is already started")

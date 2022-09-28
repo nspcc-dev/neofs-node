@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +29,7 @@ type (
 	newEpochHandler func()
 
 	epochTimerArgs struct {
-		l *zap.Logger
+		l *logger.Logger
 
 		newEpochHandlers []newEpochHandler
 

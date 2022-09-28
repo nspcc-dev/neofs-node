@@ -12,6 +12,9 @@ const sampling = 1000
 //
 // If debug, development logger is created.
 func NewLogger(debug bool) *logger.Logger {
+	var l logger.Logger
+	l.Logger = zap.L()
+
 	if debug {
 		cfg := zap.NewDevelopmentConfig()
 		cfg.Sampling = &zap.SamplingConfig{
@@ -26,8 +29,8 @@ func NewLogger(debug bool) *logger.Logger {
 			panic("could not prepare logger: " + err.Error())
 		}
 
-		return log
+		l.Logger = log
 	}
 
-	return zap.L()
+	return &l
 }

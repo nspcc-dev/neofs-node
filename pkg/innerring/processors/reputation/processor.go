@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ type (
 
 	// Processor of events produced by reputation contract.
 	Processor struct {
-		log  *zap.Logger
+		log  *logger.Logger
 		pool *ants.Pool
 
 		epochState    EpochState
@@ -41,7 +42,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log               *zap.Logger
+		Log               *logger.Logger
 		PoolSize          int
 		EpochState        EpochState
 		AlphabetState     AlphabetState

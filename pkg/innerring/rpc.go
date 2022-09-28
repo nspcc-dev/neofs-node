@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -23,7 +24,7 @@ import (
 
 type (
 	ClientCache struct {
-		log   *zap.Logger
+		log   *logger.Logger
 		cache interface {
 			Get(clientcore.NodeInfo) (clientcore.Client, error)
 			CloseAll()
@@ -34,7 +35,7 @@ type (
 	}
 
 	clientCacheParams struct {
-		Log *zap.Logger
+		Log *logger.Logger
 		Key *ecdsa.PrivateKey
 
 		AllowExternal bool

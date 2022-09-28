@@ -289,7 +289,7 @@ type internals struct {
 
 	appCfg *config.Config
 
-	log *zap.Logger
+	log *logger.Logger
 
 	wg      *sync.WaitGroup
 	workers []worker

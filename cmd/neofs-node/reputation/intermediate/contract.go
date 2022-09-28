@@ -133,7 +133,7 @@ type FinalWriterOption func(*finalWriterOptions)
 
 func defaultFinalWriterOptionsOpts() *finalWriterOptions {
 	return &finalWriterOptions{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 	}
 }
 

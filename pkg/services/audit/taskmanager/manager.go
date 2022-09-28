@@ -34,7 +34,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 	}
 }
 
@@ -54,7 +54,7 @@ func New(opts ...Option) *Manager {
 // WithLogger returns option to specify Manager's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l.With(zap.String("component", "Audit task manager"))
+		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Audit task manager"))}
 		c.ctxPrm.SetLogger(l)
 	}
 }

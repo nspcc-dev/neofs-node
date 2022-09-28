@@ -22,7 +22,7 @@ type options struct {
 
 func defaultOptions() *options {
 	return &options{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 	}
 }
 

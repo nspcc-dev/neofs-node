@@ -9,10 +9,10 @@ import (
 
 // Logger represents a component
 // for writing messages to log.
-//
-// It is a type alias of
-// go.uber.org/zap.Logger.
-type Logger = zap.Logger
+type Logger struct {
+	*zap.Logger
+	lvl zap.AtomicLevel
+}
 
 // Prm groups Logger's parameters.
 type Prm struct {
@@ -40,12 +40,19 @@ func (p *Prm) SetLevelString(s string) error {
 //
 // Logger records a stack trace for all messages at or above fatal level.
 func NewLogger(prm Prm) (*Logger, error) {
+	lvl := zap.NewAtomicLevelAt(prm.level)
+
 	c := zap.NewProductionConfig()
-	c.Level = zap.NewAtomicLevelAt(prm.level)
+	c.Level = lvl
 	c.Encoding = "console"
 	c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	return c.Build(
+	l, err := c.Build(
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Logger{Logger: l, lvl: lvl}, nil
 }

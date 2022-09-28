@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 type (
@@ -28,7 +28,7 @@ type (
 	IncomeSettlementContext struct {
 		mu sync.Mutex // lock to prevent collection and distribution in the same time
 
-		log   *zap.Logger
+		log   *logger.Logger
 		epoch uint64
 
 		rate        RateFetcher
@@ -46,7 +46,7 @@ type (
 	}
 
 	IncomeSettlementContextPrms struct {
-		Log         *zap.Logger
+		Log         *logger.Logger
 		Epoch       uint64
 		Rate        RateFetcher
 		Estimations EstimationFetcher

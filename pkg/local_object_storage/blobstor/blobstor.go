@@ -46,7 +46,7 @@ type cfg struct {
 }
 
 func initConfig(c *cfg) {
-	c.log = zap.L()
+	c.log = &logger.Logger{Logger: zap.L()}
 }
 
 // New creates, initializes and returns new BlobStor instance.
@@ -66,7 +66,7 @@ func New(opts ...Option) *BlobStor {
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (b *BlobStor) SetLogger(l *zap.Logger) {
+func (b *BlobStor) SetLogger(l *logger.Logger) {
 	b.log = l
 }
 
@@ -80,7 +80,7 @@ func WithStorages(st []SubStorage) Option {
 // WithLogger returns option to specify BlobStor's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l.With(zap.String("component", "BlobStor"))
+		c.log = &logger.Logger{Logger: l.With(zap.String("component", "BlobStor"))}
 	}
 }
 

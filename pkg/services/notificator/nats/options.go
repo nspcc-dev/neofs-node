@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func WithClientCert(certPath, keyPath string) Option {
@@ -31,7 +31,7 @@ func WithConnectionName(name string) Option {
 	}
 }
 
-func WithLogger(logger *zap.Logger) Option {
+func WithLogger(logger *logger.Logger) Option {
 	return func(o *opts) {
 		o.log = logger
 	}

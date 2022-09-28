@@ -14,6 +14,7 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -36,7 +37,7 @@ type (
 
 	// Processor of events produced by neofs contract in main net.
 	Processor struct {
-		log                 *zap.Logger
+		log                 *logger.Logger
 		pool                *ants.Pool
 		neofsContract       util.Uint160
 		balanceClient       *balance.Client
@@ -56,7 +57,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log                 *zap.Logger
+		Log                 *logger.Logger
 		PoolSize            int
 		NeoFSContract       util.Uint160
 		NeoFSIDClient       *neofsid.Client

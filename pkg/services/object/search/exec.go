@@ -42,13 +42,13 @@ func (exec *execCtx) prepare() {
 }
 
 func (exec *execCtx) setLogger(l *logger.Logger) {
-	exec.log = l.With(
+	exec.log = &logger.Logger{Logger: l.With(
 		zap.String("request", "SEARCH"),
 		zap.Stringer("container", exec.containerID()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)
+	)}
 }
 
 func (exec execCtx) context() context.Context {

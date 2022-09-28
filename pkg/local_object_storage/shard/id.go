@@ -2,6 +2,7 @@ package shard
 
 import (
 	"github.com/mr-tron/base58"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +45,7 @@ func (s *Shard) UpdateID() (err error) {
 		s.info.ID = NewIDFromBytes(id)
 	}
 
-	s.log = s.log.With(zap.String("shard_id", s.info.ID.String()))
+	s.log = &logger.Logger{Logger: s.log.With(zap.String("shard_id", s.info.ID.String()))}
 	s.metaBase.SetLogger(s.log)
 	s.blobStor.SetLogger(s.log)
 	if s.hasWriteCache() {

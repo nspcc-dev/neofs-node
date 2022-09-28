@@ -10,6 +10,7 @@ import (
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -22,7 +23,7 @@ type (
 
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
-		log            *zap.Logger
+		log            *logger.Logger
 		pool           *ants.Pool
 		alphabetState  AlphabetState
 		cnrClient      *container.Client // notary must be enabled
@@ -34,7 +35,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log             *zap.Logger
+		Log             *logger.Logger
 		PoolSize        int
 		AlphabetState   AlphabetState
 		ContainerClient *container.Client

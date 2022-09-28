@@ -60,8 +60,8 @@ func initReputationService(c *cfg) {
 		Storage: consumerStorage,
 	}
 
-	localTrustLogger := c.log.With(zap.String("trust_type", "local"))
-	intermediateTrustLogger := c.log.With(zap.String("trust_type", "intermediate"))
+	localTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "local"))}
+	intermediateTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "intermediate"))}
 
 	localTrustStorage := &localreputation.TrustStorage{
 		Log:      localTrustLogger,

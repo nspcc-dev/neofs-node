@@ -12,6 +12,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -121,7 +122,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 
 	s := shard.New(
 		shard.WithID(sid),
-		shard.WithLogger(zap.L()),
+		shard.WithLogger(&logger.Logger{Logger: zap.L()}),
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages(
 				newStorages(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id)),

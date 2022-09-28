@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -135,7 +136,7 @@ func testFillOrder(t *testing.T, depth uint64) {
 	p, err := os.MkdirTemp("", "*")
 	require.NoError(t, err)
 	b := NewBlobovniczaTree(
-		WithLogger(zaptest.NewLogger(t)),
+		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
 		WithObjectSizeLimit(2048),
 		WithBlobovniczaShallowWidth(3),
 		WithBlobovniczaShallowDepth(depth),

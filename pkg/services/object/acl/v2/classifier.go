@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -13,7 +14,7 @@ import (
 )
 
 type senderClassifier struct {
-	log       *zap.Logger
+	log       *logger.Logger
 	innerRing InnerRingFetcher
 	netmap    core.Source
 }

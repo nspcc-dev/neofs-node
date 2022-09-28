@@ -2,6 +2,7 @@ package settlement
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -12,9 +13,9 @@ func (p *Processor) HandleAuditEvent(e event.Event) {
 
 	epoch := ev.Epoch()
 
-	log := p.log.With(
+	log := &logger.Logger{Logger: p.log.With(
 		zap.Uint64("epoch", epoch),
-	)
+	)}
 
 	log.Info("new audit settlement event")
 

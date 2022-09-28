@@ -78,7 +78,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: zap.L(),
+		log: &logger.Logger{Logger: zap.L()},
 
 		shardPoolSize: 20,
 	}

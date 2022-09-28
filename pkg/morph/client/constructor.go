@@ -55,7 +55,7 @@ func defaultConfig() *cfg {
 	return &cfg{
 		ctx:          context.Background(),
 		dialTimeout:  defaultDialTimeout,
-		logger:       zap.L(),
+		logger:       &logger.Logger{Logger: zap.L()},
 		waitInterval: defaultWaitInterval,
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
@@ -75,7 +75,7 @@ func defaultConfig() *cfg {
 //   - blockchain network type: netmode.PrivNet;
 //   - signer with the global scope;
 //   - wait interval: 500ms;
-//   - logger: zap.L().
+//   - logger: &logger.Logger{Logger: zap.L()}.
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
@@ -238,7 +238,7 @@ func WithDialTimeout(dur time.Duration) Option {
 //
 // Ignores nil value.
 //
-// If option not provided, zap.L() is used.
+// If option not provided, &logger.Logger{Logger: zap.L()} is used.
 func WithLogger(logger *logger.Logger) Option {
 	return func(c *cfg) {
 		if logger != nil {

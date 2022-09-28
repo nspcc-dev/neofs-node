@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -39,7 +40,7 @@ func New(opts ...Option) *Service {
 	}
 
 	if s.log == nil {
-		s.log = zap.NewNop()
+		s.log = &logger.Logger{Logger: zap.NewNop()}
 	}
 
 	s.cache.init()
