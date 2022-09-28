@@ -492,7 +492,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	)
 	fatalOnErr(err)
 
-	log, err := logger.NewLogger(logPrm)
+	log, err := logger.NewLogger(&logPrm)
 	fatalOnErr(err)
 
 	var netAddr network.AddressGroup
