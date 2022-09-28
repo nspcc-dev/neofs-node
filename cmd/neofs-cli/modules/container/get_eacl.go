@@ -13,7 +13,7 @@ import (
 var getExtendedACLCmd = &cobra.Command{
 	Use:   "get-eacl",
 	Short: "Get extended ACL table of container",
-	Long:  `Get extended ACL talbe of container`,
+	Long:  `Get extended ACL table of container`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := parseContainerID(cmd)
 		pk := key.GetOrGenerate(cmd)
