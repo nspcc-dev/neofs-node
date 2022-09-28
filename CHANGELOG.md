@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Validate storage node configuration before node startup (#1805)
 - `neofs-node -check` command to check the configuration file (#1805)
 - `flush-cache` control service command to flush write-cache (#1806)
+- `wallet-address` flag in `neofs-adm morph refill-gas` command (#1820)
 
 ### Changed
 
