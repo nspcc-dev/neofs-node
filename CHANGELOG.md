@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
 
 ### Fixed
+- Description of command `netmap nodeinfo` (#1821)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)

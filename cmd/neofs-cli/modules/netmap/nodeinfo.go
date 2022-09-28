@@ -15,8 +15,8 @@ const nodeInfoJSONFlag = commonflags.JSON
 
 var nodeInfoCmd = &cobra.Command{
 	Use:   "nodeinfo",
-	Short: "Get local node info",
-	Long:  `Get local node info`,
+	Short: "Get target node info",
+	Long:  `Get target node info`,
 	Run: func(cmd *cobra.Command, args []string) {
 		p := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, p, commonflags.RPC)
