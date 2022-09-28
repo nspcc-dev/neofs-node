@@ -11,6 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
+// because of the policy.
+var ErrNoPlaceFound = errors.New("couldn't find a place to store an object")
+
 // Put saves the object in BLOB storage.
 //
 // If object is "big", BlobStor saves the object in shallow dir.
@@ -46,7 +50,7 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 		}
 	}
 
-	return common.PutRes{}, errors.New("couldn't find a place to store an object")
+	return common.PutRes{}, ErrNoPlaceFound
 }
 
 // NeedsCompression returns true if the object should be compressed.

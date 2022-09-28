@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -66,7 +68,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 		pool := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
 
-		putDone, exists := e.putToShard(sh.Shard, ind, pool, addr, prm.obj)
+		putDone, exists := e.putToShard(sh, ind, pool, addr, prm.obj)
 		finished = putDone || exists
 		return finished
 	})
@@ -81,7 +83,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) (bool, bool) {
+func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})
@@ -126,10 +128,15 @@ func (e *StorageEngine) putToShard(sh *shard.Shard, ind int, pool util.WorkerPoo
 
 		_, err = sh.Put(putPrm)
 		if err != nil {
-			e.log.Warn("could not put object in shard",
-				zap.Stringer("shard", sh.ID()),
-				zap.String("error", err.Error()))
+			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
+				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
+				e.log.Warn("could not put object to shard",
+					zap.Stringer("shard_id", sh.ID()),
+					zap.String("error", err.Error()))
+				return
+			}
 
+			e.reportShardError(sh, "could not put object to shard", err)
 			return
 		}
 
