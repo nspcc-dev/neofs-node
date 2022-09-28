@@ -5,6 +5,7 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -55,6 +56,8 @@ type cfg struct {
 	}
 
 	netInfo NetworkInfo
+
+	keyStorage *util.KeyStorage
 }
 
 func defaultCfg() *cfg {
@@ -110,5 +113,12 @@ func WithPutService(p *putsvc.Service) Option {
 func WithNetworkInfo(netInfo NetworkInfo) Option {
 	return func(c *cfg) {
 		c.netInfo = netInfo
+	}
+}
+
+// WithKeyStorage returns option to set local private key storage.
+func WithKeyStorage(ks *util.KeyStorage) Option {
+	return func(c *cfg) {
+		c.keyStorage = ks
 	}
 }
