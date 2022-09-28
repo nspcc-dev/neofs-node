@@ -7,13 +7,26 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // validateConfig validates storage node configuration.
 func validateConfig(c *config.Config) error {
+	// logger configuration validation
+
+	var loggerPrm logger.Prm
+
+	err := loggerPrm.SetLevelString(loggerconfig.Level(c))
+	if err != nil {
+		return fmt.Errorf("invalid logger level: %w", err)
+	}
+
+	// shard configuration validation
+
 	shardNum := 0
 	paths := make(map[string]pathDescription)
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
