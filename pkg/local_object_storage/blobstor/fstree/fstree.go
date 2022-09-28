@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -236,7 +237,15 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if !prm.DontCompress {
 		prm.RawData = t.Compress(prm.RawData)
 	}
-	return common.PutRes{StorageID: []byte{}}, os.WriteFile(p, prm.RawData, t.Permissions)
+
+	err := os.WriteFile(p, prm.RawData, t.Permissions)
+	if err != nil {
+		var pe *fs.PathError
+		if errors.As(err, &pe) && pe.Err == syscall.ENOSPC {
+			err = common.ErrNoSpace
+		}
+	}
+	return common.PutRes{StorageID: []byte{}}, err
 }
 
 // PutStream puts executes handler on a file opened for write.

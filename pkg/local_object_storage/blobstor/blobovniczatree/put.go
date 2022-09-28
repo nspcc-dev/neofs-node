@@ -26,8 +26,9 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	putPrm.SetMarshaledObject(prm.RawData)
 
 	var (
-		fn func(string) (bool, error)
-		id *blobovnicza.ID
+		fn      func(string) (bool, error)
+		id      *blobovnicza.ID
+		allFull = true
 	)
 
 	fn = func(p string) (bool, error) {
@@ -59,6 +60,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 				return fn(p)
 			}
 
+			allFull = false
 			b.log.Debug("could not put object to active blobovnicza",
 				zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
 				zap.String("error", err.Error()),
@@ -77,6 +79,9 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	if err := b.iterateDeepest(prm.Address, fn); err != nil {
 		return common.PutRes{}, err
 	} else if id == nil {
+		if allFull {
+			return common.PutRes{}, common.ErrNoSpace
+		}
 		return common.PutRes{}, errPutFailed
 	}
 
