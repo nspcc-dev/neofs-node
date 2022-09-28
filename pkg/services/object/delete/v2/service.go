@@ -5,7 +5,6 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
-	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 // Service implements Delete operation of Object service v2.
@@ -18,8 +17,6 @@ type Option func(*cfg)
 
 type cfg struct {
 	svc *deletesvc.Service
-
-	keyStorage *objutil.KeyStorage
 }
 
 // NewService constructs Service instance from provided options.
@@ -58,12 +55,5 @@ func (s *Service) Delete(ctx context.Context, req *objectV2.DeleteRequest) (*obj
 func WithInternalService(v *deletesvc.Service) Option {
 	return func(c *cfg) {
 		c.svc = v
-	}
-}
-
-// WithKeyStorage returns option to set local private key storage.
-func WithKeyStorage(ks *objutil.KeyStorage) Option {
-	return func(c *cfg) {
-		c.keyStorage = ks
 	}
 }

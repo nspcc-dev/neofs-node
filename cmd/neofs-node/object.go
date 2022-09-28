@@ -338,11 +338,11 @@ func initObjectService(c *cfg) {
 
 			cfg: c,
 		}),
+		deletesvc.WithKeyStorage(keyStorage),
 	)
 
 	sDeleteV2 := deletesvcV2.NewService(
 		deletesvcV2.WithInternalService(sDelete),
-		deletesvcV2.WithKeyStorage(keyStorage),
 	)
 
 	// build service pipeline
