@@ -42,10 +42,14 @@ func prettyPrintNetMap(cmd *cobra.Command, nm netmap.NetMap) {
 		var strState string
 
 		switch {
+		default:
+			strState = "STATE_UNSUPPORTED"
 		case nodes[i].IsOnline():
 			strState = "ONLINE"
 		case nodes[i].IsOffline():
 			strState = "OFFLINE"
+		case nodes[i].IsMaintenance():
+			strState = "MAINTENANCE"
 		}
 
 		cmd.Printf("Node %d: %s %s ", i+1, hex.EncodeToString(nodes[i].PublicKey()), strState)
