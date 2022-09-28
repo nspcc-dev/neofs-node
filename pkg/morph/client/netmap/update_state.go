@@ -7,18 +7,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// TODO: enum can become redundant after neofs-contract#270
-const (
-	stateOffline int8 = iota
-	stateOnline
-	stateMaintenance
-)
-
 // UpdatePeerPrm groups parameters of UpdatePeerState operation.
 type UpdatePeerPrm struct {
 	key []byte
 
-	state int8 // state enum value
+	state netmap.NodeState
 
 	client.InvokePrmOptional
 }
@@ -32,14 +25,14 @@ func (u *UpdatePeerPrm) SetKey(key []byte) {
 //
 // Zero UpdatePeerPrm marks node as "offline".
 func (u *UpdatePeerPrm) SetOnline() {
-	u.state = stateOnline
+	u.state = netmap.NodeStateOnline
 }
 
 // SetMaintenance marks node to be switched into "maintenance" state.
 //
 // Zero UpdatePeerPrm marks node as "offline".
 func (u *UpdatePeerPrm) SetMaintenance() {
-	u.state = stateMaintenance
+	u.state = netmap.NodeStateMaintenance
 }
 
 // UpdatePeerState changes peer status through Netmap contract call.
@@ -53,22 +46,9 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		method += "IR"
 	}
 
-	state := netmap.OfflineState // pre-assign since type of value is unexported
-
-	switch p.state {
-	default:
-		panic(fmt.Sprintf("unexpected node's state value %v", p.state))
-	case stateOffline:
-		// already set above
-	case stateOnline:
-		state = netmap.OnlineState
-	case stateMaintenance:
-		state = netmap.OfflineState + 1 // FIXME: use named constant after neofs-contract#269
-	}
-
 	prm := client.InvokePrm{}
 	prm.SetMethod(method)
-	prm.SetArgs(int64(state), p.key)
+	prm.SetArgs(int64(p.state), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {

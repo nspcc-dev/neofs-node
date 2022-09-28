@@ -45,7 +45,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 	bw := io.NewBufBinWriter()
 	for i := range nodeKeys {
 		emit.AppCall(bw.BinWriter, nmHash, "updateStateIR", callflag.All,
-			int64(netmapcontract.OfflineState), nodeKeys[i].Bytes())
+			int64(netmapcontract.NodeStateOffline), nodeKeys[i].Bytes())
 	}
 
 	if err := emitNewEpochCall(bw, wCtx, nmHash); err != nil {

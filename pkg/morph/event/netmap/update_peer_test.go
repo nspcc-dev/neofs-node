@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-contract/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
 )
@@ -43,15 +44,16 @@ func TestParseUpdatePeer(t *testing.T) {
 	})
 
 	t.Run("correct behavior", func(t *testing.T) {
+		const state = netmap.NodeStateMaintenance
 		ev, err := ParseUpdatePeer(createNotifyEventFromItems([]stackitem.Item{
-			stackitem.NewBigInteger(new(big.Int).SetInt64(1)),
+			stackitem.NewBigInteger(big.NewInt(int64(state))),
 			stackitem.NewByteArray(publicKey.Bytes()),
 		}))
 		require.NoError(t, err)
 
 		require.Equal(t, UpdatePeer{
 			publicKey: publicKey,
-			state:     stateOnline,
+			state:     state,
 		}, ev)
 	})
 }

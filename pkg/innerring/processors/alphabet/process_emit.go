@@ -40,7 +40,7 @@ func (ap *Processor) processEmit() {
 		return
 	}
 
-	networkMap, err := ap.netmapClient.Snapshot()
+	networkMap, err := ap.netmapClient.NetMap()
 	if err != nil {
 		ap.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
 			zap.String("error", err.Error()))

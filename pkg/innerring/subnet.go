@@ -301,10 +301,8 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 		return
 	}
 
-	candidateNodes := candidates.Nodes()
-
-	for i := range candidateNodes {
-		s.processCandidate(delEv.TxHash(), removedID, candidateNodes[i])
+	for i := range candidates {
+		s.processCandidate(delEv.TxHash(), removedID, candidates[i])
 	}
 }
 

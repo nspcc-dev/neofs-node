@@ -12,17 +12,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
-// TODO: enum can become redundant after neofs-contract#270
-const (
-	_ int8 = iota
-	stateOnline
-	stateMaintenance
-)
-
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
 
-	state int8 // state enum value
+	state netmap.NodeState
 
 	// For notary notifications only.
 	// Contains raw transactions of notary request.
@@ -35,13 +28,13 @@ func (UpdatePeer) MorphEvent() {}
 // Online returns true if node's state is requested to be switched
 // to "online".
 func (s UpdatePeer) Online() bool {
-	return s.state == stateOnline
+	return s.state == netmap.NodeStateOnline
 }
 
 // Maintenance returns true if node's state is requested to be switched
 // to "maintenance".
 func (s UpdatePeer) Maintenance() bool {
-	return s.state == stateMaintenance
+	return s.state == netmap.NodeStateMaintenance
 }
 
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
@@ -52,6 +45,18 @@ func (s UpdatePeer) PublicKey() *keys.PublicKey {
 // was received via notary service. Otherwise, returns nil.
 func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
 	return s.notaryRequest
+}
+
+func (s *UpdatePeer) decodeState(state int64) error {
+	switch s.state = netmap.NodeState(state); s.state {
+	default:
+		return fmt.Errorf("unsupported node state %d", state)
+	case
+		netmap.NodeStateOffline,
+		netmap.NodeStateOnline,
+		netmap.NodeStateMaintenance:
+		return nil
+	}
 }
 
 const expectedItemNumUpdatePeer = 2
@@ -88,14 +93,9 @@ func ParseUpdatePeer(e *state.ContainedNotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("could not get node status: %w", err)
 	}
 
-	switch st {
-	default:
-		return nil, fmt.Errorf("unsupported node state %d", st)
-	case int64(netmap.OfflineState):
-	case int64(netmap.OnlineState):
-		ev.state = stateOnline
-	case int64(netmap.OfflineState) + 1: // FIXME: use named constant after neofs-contract#269
-		ev.state = stateMaintenance
+	err = ev.decodeState(st)
+	if err != nil {
+		return nil, err
 	}
 
 	return ev, nil
