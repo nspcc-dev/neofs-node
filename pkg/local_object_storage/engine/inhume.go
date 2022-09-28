@@ -146,8 +146,6 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 
 		_, err := sh.Inhume(prm)
 		if err != nil {
-			e.reportShardError(sh, "could not inhume object in shard", err)
-
 			switch {
 			case errors.As(err, &errLocked):
 				status = 1
@@ -157,6 +155,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 				return true
 			}
 
+			e.reportShardError(sh, "could not inhume object in shard", err)
 			return false
 		}
 
