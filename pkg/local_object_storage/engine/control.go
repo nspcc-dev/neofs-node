@@ -263,10 +263,7 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 
 	e.mtx.RUnlock()
 
-	err := e.removeShards(shardsToRemove...)
-	if err != nil {
-		return fmt.Errorf("could not remove shards: %w", err)
-	}
+	e.removeShards(shardsToRemove...)
 
 	for _, newPath := range shardsToAdd {
 		sh, err := e.createShard(rcfg.shards[newPath])

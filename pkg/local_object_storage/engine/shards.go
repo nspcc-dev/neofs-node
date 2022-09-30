@@ -115,22 +115,22 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 }
 
 // removeShards removes specified shards. Skips non-existent shards.
-// Returns any error encountered that did not allow remove the shards.
-func (e *StorageEngine) removeShards(ids ...string) error {
-	e.mtx.Lock()
-	defer e.mtx.Unlock()
+// Logs errors about shards that it could not Close after the removal.
+func (e *StorageEngine) removeShards(ids ...string) {
+	if len(ids) == 0 {
+		return
+	}
 
+	ss := make([]shardWrapper, 0, len(ids))
+
+	e.mtx.Lock()
 	for _, id := range ids {
 		sh, found := e.shards[id]
 		if !found {
 			continue
 		}
 
-		err := sh.Close()
-		if err != nil {
-			return fmt.Errorf("could not close removed shard: %w", err)
-		}
-
+		ss = append(ss, sh)
 		delete(e.shards, id)
 
 		pool, ok := e.shardPools[id]
@@ -142,8 +142,17 @@ func (e *StorageEngine) removeShards(ids ...string) error {
 		e.log.Info("shard has been removed",
 			zap.String("id", id))
 	}
+	e.mtx.Unlock()
 
-	return nil
+	for _, sh := range ss {
+		err := sh.Close()
+		if err != nil {
+			e.log.Error("could not close removed shard",
+				zap.Stringer("id", sh.ID()),
+				zap.Error(err),
+			)
+		}
+	}
 }
 
 func generateShardID() (*shard.ID, error) {
