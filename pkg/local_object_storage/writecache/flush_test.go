@@ -109,10 +109,6 @@ func TestFlush(t *testing.T) {
 		wc, bs, mb := newCache(t)
 		objects := putObjects(t, wc)
 
-		t.Run("must be read-only", func(t *testing.T) {
-			require.ErrorIs(t, wc.Flush(false), errMustBeReadOnly)
-		})
-
 		require.NoError(t, wc.SetMode(mode.ReadOnly))
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
@@ -121,6 +117,36 @@ func TestFlush(t *testing.T) {
 		wc.(*cache).flushed.Add(objects[1].addr.EncodeToString(), false)
 
 		require.NoError(t, wc.Flush(false))
+
+		for i := 0; i < 2; i++ {
+			var mPrm meta.GetPrm
+			mPrm.SetAddress(objects[i].addr)
+			_, err := mb.Get(mPrm)
+			require.Error(t, err)
+
+			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
+			require.Error(t, err)
+		}
+
+		check(t, mb, bs, objects[2:])
+	})
+
+	t.Run("flush on moving to degraded mode", func(t *testing.T) {
+		wc, bs, mb := newCache(t)
+		objects := putObjects(t, wc)
+
+		// Blobstor is read-only, so we expect en error from `flush` here.
+		require.Error(t, wc.SetMode(mode.Degraded))
+
+		// First move to read-only mode to close background workers.
+		require.NoError(t, wc.SetMode(mode.ReadOnly))
+		require.NoError(t, bs.SetMode(mode.ReadWrite))
+		require.NoError(t, mb.SetMode(mode.ReadWrite))
+
+		wc.(*cache).flushed.Add(objects[0].addr.EncodeToString(), true)
+		wc.(*cache).flushed.Add(objects[1].addr.EncodeToString(), false)
+
+		require.NoError(t, wc.SetMode(mode.Degraded))
 
 		for i := 0; i < 2; i++ {
 			var mPrm meta.GetPrm

@@ -18,9 +18,11 @@ func (c *cache) SetMode(m mode.Mode) error {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 
-	if m.ReadOnly() == c.readOnly() {
-		c.mode = m
-		return nil
+	if m.NoMetabase() && !c.mode.NoMetabase() {
+		err := c.flush(true)
+		if err != nil {
+			return err
+		}
 	}
 
 	if c.db != nil {
@@ -35,6 +37,11 @@ func (c *cache) SetMode(m mode.Mode) error {
 	for len(c.flushCh) != 0 {
 		c.log.Info("waiting for channels to flush")
 		time.Sleep(time.Second)
+	}
+
+	if m.NoMetabase() {
+		c.mode = m
+		return nil
 	}
 
 	if err := c.openStore(m.ReadOnly()); err != nil {

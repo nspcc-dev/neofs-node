@@ -50,7 +50,7 @@ func (c *cache) runFlushLoop() {
 		for {
 			select {
 			case <-tt.C:
-				c.flush()
+				c.flushDB()
 				tt.Reset(defaultFlushInterval)
 			case <-c.closeCh:
 				return
@@ -59,7 +59,7 @@ func (c *cache) runFlushLoop() {
 	}()
 }
 
-func (c *cache) flush() {
+func (c *cache) flushDB() {
 	lastKey := []byte{}
 	var m []objectInfo
 	for {
@@ -241,6 +241,10 @@ func (c *cache) Flush(ignoreErrors bool) error {
 		return errMustBeReadOnly
 	}
 
+	return c.flush(ignoreErrors)
+}
+
+func (c *cache) flush(ignoreErrors bool) error {
 	var prm common.IteratePrm
 	prm.IgnoreErrors = ignoreErrors
 	prm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
