@@ -152,15 +152,22 @@ type subStorageCfg struct {
 // not modifying them.
 func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	if a._read {
-		// clear if it is rereading
-		*a = applicationConfiguration{}
-
 		err := c.Reload()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not reload configuration: %w", err)
 		}
+
+		err = validateConfig(c)
+		if err != nil {
+			return fmt.Errorf("configuration's validation: %w", err)
+		}
+
+		// clear if it is rereading
+		*a = applicationConfiguration{}
 	} else {
-		// update the status
+		// update the status.
+		// initial configuration validation is expected to be
+		// performed on the higher level
 		a._read = true
 	}
 
