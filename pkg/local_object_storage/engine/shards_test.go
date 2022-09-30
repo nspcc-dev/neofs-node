@@ -32,7 +32,7 @@ func TestRemoveShard(t *testing.T) {
 
 	for id, remove := range mSh {
 		if remove {
-			require.NoError(t, e.removeShards(id))
+			e.removeShards(id)
 		}
 	}
 
