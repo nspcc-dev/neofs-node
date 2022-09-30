@@ -17,6 +17,8 @@ import (
 type Config struct {
 	v *viper.Viper
 
+	opts opts
+
 	defaultPath []string
 	path        []string
 }
@@ -53,6 +55,20 @@ func New(_ Prm, opts ...Option) *Config {
 	}
 
 	return &Config{
-		v: v,
+		v:    v,
+		opts: *o,
 	}
+}
+
+// Reload reads configuration path if any was provided
+// to the New. Returns any
+func (x *Config) Reload() error {
+	if x.opts.path != "" {
+		err := x.v.ReadInConfig()
+		if err != nil {
+			return fmt.Errorf("rereading configuration file: %w", err)
+		}
+	}
+
+	return nil
 }

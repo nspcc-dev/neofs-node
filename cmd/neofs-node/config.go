@@ -154,6 +154,11 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	if a._read {
 		// clear if it is rereading
 		*a = applicationConfiguration{}
+
+		err := c.Reload()
+		if err != nil {
+			return err
+		}
 	} else {
 		// update the status
 		a._read = true
