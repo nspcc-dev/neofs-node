@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Serving `NetmapService.NetmapSnapshot` RPC (#1793)
 - `netmap snapshot` command of NeoFS CLI (#1793)
 - `apiclient.allow_external` config flag to fallback to node external addresses (#1817)
+- Support `MAINTENANCE` state of the storage nodes (#1680, #1681)
 - Changelog updates CI step (#1808)
 - Validate storage node configuration before node startup (#1805)
 - `neofs-node -check` command to check the configuration file (#1805)
@@ -14,7 +15,6 @@ Changelog for NeoFS Node
 - `wallet-address` flag in `neofs-adm morph refill-gas` command (#1820)
 
 ### Changed
-
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
 - Flush write-cache when moving shard to DEGRADED mode (#1825)
 
@@ -22,6 +22,8 @@ Changelog for NeoFS Node
 - Description of command `netmap nodeinfo` (#1821)
 - Proper status for object.Delete if session token is missing (#1697)
 - Fail startup if metabase has an old version (#1809)
+- Storage nodes could enter the network with any state (#1796)
+- Missing check of new state value in `ControlService.SetNetmapStatus` (#1797)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
@@ -35,6 +37,12 @@ Changelog for NeoFS Node
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
 other nodes external address, use `apiclient.allow_external` config setting.
+
+Pass `maintenance` state to `neofs-cli control set-status` to enter maintenance mode.
+If network allows maintenance state (*), it will be reflected in the network map.
+Storage nodes under maintenance are not excluded from the network map, but don't
+serve object operations. (*) can be fetched from network configuration via
+`neofs-cli netmap netinfo` command.    
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 
