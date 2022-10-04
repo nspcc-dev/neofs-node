@@ -253,17 +253,17 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, pol)
 
-	var os putsvc.ObjectStorage
+	var os putsvc.ObjectStorage = engineWithoutNotifications{
+		e:     ls,
+		state: c,
+	}
+
 	if c.cfgNotifications.enabled {
 		os = engineWithNotifications{
-			e:            ls,
+			base:         os,
 			nw:           c.cfgNotifications.nw,
 			ns:           c.cfgNetmap.state,
 			defaultTopic: c.cfgNotifications.defaultTopic,
-		}
-	} else {
-		os = engineWithoutNotifications{
-			e: ls,
 		}
 	}
 
@@ -291,7 +291,7 @@ func initObjectService(c *cfg) {
 
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
-		searchsvc.WithLocalStorageEngine(ls),
+		searchsvc.WithLocalStorageEngine(ls, c),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
@@ -318,6 +318,7 @@ func initObjectService(c *cfg) {
 		),
 		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
+		getsvc.WithNodeState(c),
 	)
 
 	*c.cfgObject.getSvc = *sGet // need smth better
@@ -552,15 +553,15 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 }
 
 type engineWithNotifications struct {
-	e  *engine.StorageEngine
-	nw notificationWriter
-	ns netmap.State
+	base putsvc.ObjectStorage
+	nw   notificationWriter
+	ns   netmap.State
 
 	defaultTopic string
 }
 
 func (e engineWithNotifications) Put(o *objectSDK.Object) error {
-	if err := engine.Put(e.e, o); err != nil {
+	if err := e.base.Put(o); err != nil {
 		return err
 	}
 
@@ -582,8 +583,16 @@ func (e engineWithNotifications) Put(o *objectSDK.Object) error {
 
 type engineWithoutNotifications struct {
 	e *engine.StorageEngine
+
+	state util.NodeState
 }
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
+	if e.state.IsMaintenance() {
+		var st apistatus.NodeUnderMaintenance
+
+		return st
+	}
+
 	return engine.Put(e.e, o)
 }

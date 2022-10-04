@@ -335,6 +335,28 @@ type cfg struct {
 
 	// current network map
 	netMap atomicstd.Value // type netmap.NetMap
+
+	// is node under maintenance
+	isMaintenance atomic.Bool
+}
+
+// starts node's maintenance.
+func (c *cfg) startMaintenance() {
+	c.isMaintenance.Store(true)
+	c.log.Info("started local node's maintenance")
+}
+
+// stops node's maintenance.
+func (c *cfg) stopMaintenance() {
+	c.isMaintenance.Store(false)
+	c.log.Info("stopped local node's maintenance")
+}
+
+// IsMaintenance checks if storage node is under maintenance.
+//
+// Provides util.NodeState to Object service.
+func (c *cfg) IsMaintenance() bool {
+	return c.isMaintenance.Load()
 }
 
 // ReadCurrentNetMap reads network map which has been cached at the
