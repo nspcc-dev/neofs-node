@@ -9,6 +9,7 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -29,7 +30,11 @@ type clientWrapper struct {
 	client client.MultiAddressClient
 }
 
-type storageEngineWrapper engine.StorageEngine
+type storageEngineWrapper struct {
+	state util.NodeState
+
+	storage *engine.StorageEngine
+}
 
 type traverseGeneratorWrapper util.TraverserGenerator
 
@@ -120,11 +125,16 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {
+	if e.state != nil && e.state.IsMaintenance() {
+		var st apistatus.NodeUnderMaintenance
+		return nil, st
+	}
+
 	var selectPrm engine.SelectPrm
 	selectPrm.WithFilters(exec.searchFilters())
 	selectPrm.WithContainerID(exec.containerID())
 
-	r, err := (*engine.StorageEngine)(e).Select(selectPrm)
+	r, err := e.storage.Select(selectPrm)
 	if err != nil {
 		return nil, err
 	}

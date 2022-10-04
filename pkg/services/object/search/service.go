@@ -81,9 +81,12 @@ func WithLogger(l *logger.Logger) Option {
 
 // WithLocalStorageEngine returns option to set local storage
 // instance.
-func WithLocalStorageEngine(e *engine.StorageEngine) Option {
+func WithLocalStorageEngine(e *engine.StorageEngine, state util.NodeState) Option {
 	return func(c *cfg) {
-		c.localStorage = (*storageEngineWrapper)(e)
+		c.localStorage = &storageEngineWrapper{
+			state:   state,
+			storage: e,
+		}
 	}
 }
 

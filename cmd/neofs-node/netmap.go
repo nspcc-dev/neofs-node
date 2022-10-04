@@ -16,7 +16,6 @@ import (
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -319,30 +318,17 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
 
-var errNodeMaintenance apistatus.NodeUnderMaintenance
-
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	switch st {
 	default:
 		return fmt.Errorf("unsupported status %v", st)
 	case control.NetmapStatus_MAINTENANCE:
-		err := c.cfgObject.cfgLocalStorage.localStorage.BlockExecution(errNodeMaintenance)
-		if err != nil {
-			return fmt.Errorf("block execution of local object storage: %w", err)
-		}
-
-		// TODO: #1691 think how to process two different actions which can fail both
-
+		c.startMaintenance()
 		return c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
 	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
 	}
 
-	err := c.cfgObject.cfgLocalStorage.localStorage.ResumeExecution()
-	if err != nil {
-		c.log.Error("failed to resume local object operations",
-			zap.String("error", err.Error()),
-		)
-	}
+	c.stopMaintenance()
 
 	if !c.needBootstrap() {
 		return errRelayBootstrap

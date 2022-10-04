@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internal "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -26,6 +28,8 @@ type clientWrapper struct {
 }
 
 type storageEngineWrapper struct {
+	state util.NodeState
+
 	engine *engine.StorageEngine
 }
 
@@ -170,6 +174,11 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 }
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
+	if e.state != nil && e.state.IsMaintenance() {
+		var st apistatus.NodeUnderMaintenance
+		return nil, st
+	}
+
 	if exec.headOnly() {
 		var headPrm engine.HeadPrm
 		headPrm.WithAddress(exec.address())
