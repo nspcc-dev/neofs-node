@@ -6,8 +6,8 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -56,7 +56,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if err != nil || !tryCache {
 		if err != nil {
 			s.log.Debug("can't put object to the write-cache, trying blobstor",
-				zap.String("err", err.Error()))
+				logger.FieldString("err", err.Error()))
 		}
 
 		res, err = s.blobStor.Put(putPrm)

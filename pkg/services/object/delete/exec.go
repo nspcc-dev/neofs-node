@@ -10,7 +10,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 type statusError struct {
@@ -42,13 +41,13 @@ const (
 )
 
 func (exec *execCtx) setLogger(l *logger.Logger) {
-	exec.log = &logger.Logger{Logger: l.With(
-		zap.String("request", "DELETE"),
-		zap.Stringer("address", exec.address()),
-		zap.Bool("local", exec.isLocal()),
-		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
-		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	exec.log = l.WithContext(
+		logger.FieldString("request", "DELETE"),
+		logger.FieldStringer("address", exec.address()),
+		logger.FieldBool("local", exec.isLocal()),
+		logger.FieldBool("with session", exec.prm.common.SessionToken() != nil),
+		logger.FieldBool("with bearer", exec.prm.common.BearerToken() != nil),
+	)
 }
 
 func (exec execCtx) context() context.Context {
@@ -90,7 +89,7 @@ func (exec *execCtx) formSplitInfo() bool {
 		exec.err = err
 
 		exec.log.Debug("could not compose split info",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	case err == nil:
 		exec.status = statusOK
@@ -138,8 +137,8 @@ func (exec *execCtx) collectChain() bool {
 			exec.err = err
 
 			exec.log.Debug("could not get previous split element",
-				zap.Stringer("id", prev),
-				zap.String("error", err.Error()),
+				logger.FieldStringer("id", prev),
+				logger.FieldError(err),
 			)
 
 			return false
@@ -170,7 +169,7 @@ func (exec *execCtx) collectChildren() bool {
 		exec.err = err
 
 		exec.log.Debug("could not collect object children",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false
@@ -197,7 +196,7 @@ func (exec *execCtx) supplementBySplitID() bool {
 		exec.err = err
 
 		exec.log.Debug("could not search for split chain members",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false
@@ -233,7 +232,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 		exec.err = err
 
 		exec.log.Debug("could not marshal tombstone structure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false
@@ -272,7 +271,7 @@ func (exec *execCtx) saveTombstone() bool {
 		exec.err = err
 
 		exec.log.Debug("could not save the tombstone",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false

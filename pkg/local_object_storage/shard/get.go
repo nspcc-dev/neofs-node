@@ -7,10 +7,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
@@ -103,7 +103,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		if IsErrNotFound(err) {
 			s.log.Debug("object is missing in write-cache")
 		} else {
-			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
+			s.log.Error("failed to fetch object from write-cache", logger.FieldError(err))
 		}
 	}
 

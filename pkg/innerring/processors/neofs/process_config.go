@@ -3,7 +3,7 @@ package neofs
 import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Process config event by setting configuration value from the mainchain in
@@ -23,6 +23,6 @@ func (np *Processor) processConfig(config *neofsEvent.Config) {
 
 	err := np.netmapClient.SetConfig(prm)
 	if err != nil {
-		np.log.Error("can't relay set config event", zap.Error(err))
+		np.log.Error("can't relay set config event", logger.FieldError(err))
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // ReportPrm groups the required parameters of the Controller.Report method.
@@ -75,9 +74,9 @@ func (c *Controller) acquireReport(epoch uint64) *reportContext {
 
 	c.mtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
-		zap.Uint64("epoch", epoch),
-	)}
+	log := c.opts.log.WithContext(
+		logger.FieldUint("epoch", epoch),
+	)
 
 	if ctx == nil {
 		log.Debug("report is already started")
@@ -102,7 +101,7 @@ func (c *reportContext) report() {
 	iterator, err := c.ctrl.prm.LocalTrustSource.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over local trust values",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -112,7 +111,7 @@ func (c *reportContext) report() {
 	targetWriter, err := c.ctrl.prm.LocalTrustTarget.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize local trust target",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -131,7 +130,7 @@ func (c *reportContext) report() {
 	)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		c.log.Debug("iterator over local trust failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -141,7 +140,7 @@ func (c *reportContext) report() {
 	err = targetWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing local trust values",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -191,6 +190,6 @@ func (p *StopPrm) SetEpoch(e uint64) {
 func (c *Controller) Stop(prm StopPrm) {
 	c.freeReport(
 		prm.epoch,
-		&logger.Logger{Logger: c.opts.log.With(zap.Uint64("epoch", prm.epoch))},
+		c.opts.log.WithContext(logger.FieldUint("epoch", prm.epoch)),
 	)
 }

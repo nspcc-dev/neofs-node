@@ -8,7 +8,6 @@ import (
 	nodeutil "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 type (
@@ -64,7 +63,7 @@ func New(prm Prm, opts ...Option) *Processor {
 	}
 
 	o.log.Debug("worker pool for settlement processor successfully initialized",
-		zap.Int("capacity", o.poolSize),
+		logger.FieldInt("capacity", int64(o.poolSize)),
 	)
 
 	return &Processor{

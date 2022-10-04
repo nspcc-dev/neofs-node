@@ -13,7 +13,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 type statusError struct {
@@ -73,14 +72,14 @@ func (exec *execCtx) setLogger(l *logger.Logger) {
 		req = "GET_RANGE"
 	}
 
-	exec.log = &logger.Logger{Logger: l.With(
-		zap.String("request", req),
-		zap.Stringer("address", exec.address()),
-		zap.Bool("raw", exec.isRaw()),
-		zap.Bool("local", exec.isLocal()),
-		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
-		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	exec.log = l.WithContext(
+		logger.FieldString("request", req),
+		logger.FieldStringer("address", exec.address()),
+		logger.FieldBool("raw", exec.isRaw()),
+		logger.FieldBool("local", exec.isLocal()),
+		logger.FieldBool("with session", exec.prm.common.SessionToken() != nil),
+		logger.FieldBool("with bearer", exec.prm.common.BearerToken() != nil),
+	)
 }
 
 func (exec execCtx) context() context.Context {
@@ -163,7 +162,7 @@ func (exec *execCtx) initEpoch() bool {
 		exec.err = err
 
 		exec.log.Debug("could not get current epoch number",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false
@@ -184,7 +183,7 @@ func (exec *execCtx) generateTraverser(addr oid.Address) (*placement.Traverser, 
 		exec.err = err
 
 		exec.log.Debug("could not generate container traverser",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return nil, false
@@ -240,8 +239,8 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 		exec.err = err
 
 		exec.log.Debug("could not get child object header",
-			zap.Stringer("child ID", id),
-			zap.String("error", err.Error()),
+			logger.FieldStringer("child ID", id),
+			logger.FieldError(err),
 		)
 
 		return nil, false
@@ -306,7 +305,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 		exec.err = err
 
 		exec.log.Debug("could not write header",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	case err == nil:
 		exec.status = statusOK
@@ -329,7 +328,7 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 		exec.err = err
 
 		exec.log.Debug("could not write payload chunk",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	case err == nil:
 		exec.status = statusOK

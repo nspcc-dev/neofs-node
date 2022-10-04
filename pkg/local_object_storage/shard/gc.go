@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // TombstoneSource is an interface that checks
@@ -85,7 +84,7 @@ type gcCfg struct {
 func defaultGCCfg() *gcCfg {
 	return &gcCfg{
 		removerInterval: 10 * time.Second,
-		log:             &logger.Logger{Logger: zap.L()},
+		log:             logger.Nop(),
 		workerPoolInit: func(int) util.WorkerPool {
 			return nil
 		},
@@ -137,7 +136,7 @@ func (gc *gc) listenEvents() {
 			})
 			if err != nil {
 				gc.log.Warn("could not submit GC job to worker pool",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				v.prevGroup.Done()
@@ -200,7 +199,7 @@ func (s *Shard) removeGarbage() {
 	err := s.metaBase.IterateOverGarbage(iterPrm)
 	if err != nil {
 		s.log.Warn("iterator over metabase graveyard failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -215,7 +214,7 @@ func (s *Shard) removeGarbage() {
 	_, err = s.Delete(deletePrm)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -228,7 +227,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			s.log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
+			s.log.Warn("iterator over expired objects failed", logger.FieldError(err))
 		}
 		return
 	}
@@ -242,7 +241,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	res, err := s.metaBase.Inhume(inhumePrm)
 	if err != nil {
 		s.log.Warn("could not inhume the objects",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -253,7 +252,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 
 func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	epoch := e.(newEpoch).epoch
-	log := s.log.With(zap.Uint64("epoch", epoch))
+	log := s.log.WithContext(logger.FieldUint("epoch", epoch))
 
 	log.Debug("started expired tombstones handling")
 
@@ -277,7 +276,7 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 
 		err := s.metaBase.IterateOverGraveyard(iterPrm)
 		if err != nil {
-			log.Error("iterator over graveyard failed", zap.Error(err))
+			log.Error("iterator over graveyard failed", logger.FieldError(err))
 			return
 		}
 
@@ -292,7 +291,9 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 			}
 		}
 
-		log.Debug("handling expired tombstones batch", zap.Int("number", len(tssExp)))
+		log.Debug("handling expired tombstones batch",
+			logger.FieldInt("number", int64(len(tssExp))),
+		)
 		s.expiredTombstonesCallback(ctx, tssExp)
 
 		iterPrm.SetOffset(tss[tssLen-1].Address())
@@ -309,7 +310,7 @@ func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			s.log.Warn("iterator over expired locks failed", zap.String("error", err.Error()))
+			s.log.Warn("iterator over expired locks failed", logger.FieldError(err))
 		}
 		return
 	}
@@ -357,7 +358,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 	res, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("could not mark tombstones as garbage",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -369,7 +370,7 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 	// from graveyard
 	err = s.metaBase.DropGraves(tss)
 	if err != nil {
-		s.log.Warn("could not drop expired grave records", zap.Error(err))
+		s.log.Warn("could not drop expired grave records", logger.FieldError(err))
 	}
 }
 
@@ -379,7 +380,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -392,7 +393,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	res, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -406,7 +407,7 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 	err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return

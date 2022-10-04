@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 // Service utility serving requests of Object.Get service.
@@ -62,7 +61,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 
@@ -83,7 +82,7 @@ func New(opts ...Option) *Service {
 // WithLogger returns option to specify Delete service's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Object.Delete service"))}
+		c.log = l
 	}
 }
 

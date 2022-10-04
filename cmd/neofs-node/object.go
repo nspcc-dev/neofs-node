@@ -45,7 +45,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 type objectSvc struct {
@@ -62,7 +61,7 @@ func (c *cfg) MaxObjectSize() uint64 {
 	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 
@@ -181,7 +180,7 @@ func initObjectService(c *cfg) {
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
 
 	clientConstructor := &reputationClientConstructor{
-		log:              c.log,
+		log:              &c.log,
 		nmSrc:            c.netMapSource,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
@@ -204,11 +203,11 @@ func initObjectService(c *cfg) {
 
 	objInhumer := &localObjectInhumer{
 		storage: ls,
-		log:     c.log,
+		log:     &c.log,
 	}
 
 	c.replicator = replicator.New(
-		replicator.WithLogger(c.log),
+		replicator.WithLogger(&c.log),
 		replicator.WithPutTimeout(
 			replicatorconfig.PutTimeout(c.appCfg),
 		),
@@ -219,7 +218,7 @@ func initObjectService(c *cfg) {
 	)
 
 	pol := policer.New(
-		policer.WithLogger(c.log),
+		policer.WithLogger(&c.log),
 		policer.WithLocalStorage(ls),
 		policer.WithContainerSource(c.cfgObject.cnrSource),
 		policer.WithPlacementBuilder(
@@ -240,7 +239,7 @@ func initObjectService(c *cfg) {
 			_, err := ls.Inhume(inhumePrm)
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 		}),
@@ -280,7 +279,7 @@ func initObjectService(c *cfg) {
 		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote),
-		putsvc.WithLogger(c.log),
+		putsvc.WithLogger(&c.log),
 	)
 
 	sPutV2 := putsvcV2.NewService(
@@ -289,7 +288,7 @@ func initObjectService(c *cfg) {
 	)
 
 	sSearch := searchsvc.New(
-		searchsvc.WithLogger(c.log),
+		searchsvc.WithLogger(&c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithTraverserGenerator(
@@ -307,7 +306,7 @@ func initObjectService(c *cfg) {
 	)
 
 	sGet := getsvc.New(
-		getsvc.WithLogger(c.log),
+		getsvc.WithLogger(&c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
 		getsvc.WithTraverserGenerator(
@@ -327,7 +326,7 @@ func initObjectService(c *cfg) {
 	)
 
 	sDelete := deletesvc.New(
-		deletesvc.WithLogger(c.log),
+		deletesvc.WithLogger(&c.log),
 		deletesvc.WithHeadService(sGet),
 		deletesvc.WithSearchService(sSearch),
 		deletesvc.WithPutService(sPut),
@@ -359,7 +358,7 @@ func initObjectService(c *cfg) {
 	)
 
 	aclSvc := v2.New(
-		v2.WithLogger(c.log),
+		v2.WithLogger(&c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapSource(c.netMapSource),
 		v2.WithContainerSource(
@@ -452,8 +451,8 @@ func (c *reputationClient) submitResult(err error) {
 
 	c.cons.log.Debug(
 		"writing local reputation values",
-		zap.Uint64("epoch", currEpoch),
-		zap.Bool("satisfactory", sat),
+		logger.FieldUint("epoch", currEpoch),
+		logger.FieldBool("satisfactory", sat),
 	)
 
 	prm := c.prm
@@ -546,7 +545,7 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 		}
 	} else {
 		c.log.Warn("could not get latest network map to overload the client",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 

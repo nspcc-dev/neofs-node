@@ -4,7 +4,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 const (
@@ -29,7 +29,9 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	// send transferX to a balance contract
 	err := np.balanceClient.Mint(prm)
 	if err != nil {
-		np.log.Error("can't transfer assets to balance contract", zap.Error(err))
+		np.log.Error("can't transfer assets to balance contract",
+			logger.FieldError(err),
+		)
 	}
 
 	curEpoch := np.epochState.EpochCounter()
@@ -44,9 +46,9 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	val, ok := np.mintEmitCache.Get(receiver.String())
 	if ok && val.(uint64)+np.mintEmitThreshold >= curEpoch {
 		np.log.Warn("double mint emission declined",
-			zap.String("receiver", receiver.String()),
-			zap.Uint64("last_emission", val.(uint64)),
-			zap.Uint64("current_epoch", curEpoch))
+			logger.FieldStringer("receiver", receiver),
+			logger.FieldUint("last_emission", val.(uint64)),
+			logger.FieldUint("current_epoch", curEpoch))
 
 		return
 	}
@@ -55,14 +57,17 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	// before gas transfer check if the balance is greater than the threshold
 	balance, err := np.morphClient.GasBalance()
 	if err != nil {
-		np.log.Error("can't get gas balance of the node", zap.Error(err))
+		np.log.Error("can't get gas balance of the node",
+			logger.FieldError(err),
+		)
 		return
 	}
 
 	if balance < np.gasBalanceThreshold {
 		np.log.Warn("gas balance threshold has been reached",
-			zap.Int64("balance", balance),
-			zap.Int64("threshold", np.gasBalanceThreshold))
+			logger.FieldInt("balance", balance),
+			logger.FieldInt("threshold", np.gasBalanceThreshold),
+		)
 
 		return
 	}
@@ -70,7 +75,8 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	err = np.morphClient.TransferGas(receiver, np.mintEmitValue)
 	if err != nil {
 		np.log.Error("can't transfer native gas to receiver",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -88,7 +94,9 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 	// create lock account
 	lock, err := util.Uint160DecodeBytesBE(withdraw.ID()[:util.Uint160Size])
 	if err != nil {
-		np.log.Error("can't create lock account", zap.Error(err))
+		np.log.Error("can't create lock account",
+			logger.FieldError(err),
+		)
 		return
 	}
 
@@ -104,7 +112,9 @@ func (np *Processor) processWithdraw(withdraw *neofsEvent.Withdraw) {
 
 	err = np.balanceClient.Lock(prm)
 	if err != nil {
-		np.log.Error("can't lock assets for withdraw", zap.Error(err))
+		np.log.Error("can't lock assets for withdraw",
+			logger.FieldError(err),
+		)
 	}
 }
 
@@ -124,6 +134,8 @@ func (np *Processor) processCheque(cheque *neofsEvent.Cheque) {
 
 	err := np.balanceClient.Burn(prm)
 	if err != nil {
-		np.log.Error("can't transfer assets to fed contract", zap.Error(err))
+		np.log.Error("can't transfer assets to fed contract",
+			logger.FieldError(err),
+		)
 	}
 }

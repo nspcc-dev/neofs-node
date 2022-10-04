@@ -3,7 +3,7 @@ package searchsvc
 import (
 	"context"
 
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Search serves a request to select the objects.
@@ -37,7 +37,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	switch exec.status {
 	default:
 		exec.log.Debug("operation finished with error",
-			zap.String("error", exec.err.Error()),
+			logger.FieldString("error", exec.err.Error()),
 		)
 	case statusOK:
 		exec.log.Debug("operation finished successfully")

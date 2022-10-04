@@ -19,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
-	"go.uber.org/zap"
 )
 
 type (
@@ -95,7 +94,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 		cli, err := c.getWrappedClient(info)
 		if err != nil {
 			c.log.Warn("can't setup remote connection",
-				zap.String("error", err.Error()))
+				logger.FieldError(err))
 
 			continue
 		}
@@ -111,7 +110,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 
 		if err != nil {
 			c.log.Warn("can't get storage group object",
-				zap.String("error", err.Error()))
+				logger.FieldError(err))
 
 			continue
 		}

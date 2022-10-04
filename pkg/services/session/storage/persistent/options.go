@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type cfg struct {
@@ -19,7 +18,7 @@ type Option func(*cfg)
 
 func defaultCfg() *cfg {
 	return &cfg{
-		l:       &logger.Logger{Logger: zap.L()},
+		l:       logger.Nop(),
 		timeout: 100 * time.Millisecond,
 	}
 }

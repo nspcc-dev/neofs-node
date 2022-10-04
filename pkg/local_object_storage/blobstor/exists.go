@@ -2,7 +2,7 @@ package blobstor
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Exists checks if the object is presented in BLOB storage.
@@ -35,8 +35,9 @@ func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 
 	for _, err := range errors[:len(errors)-1] {
 		b.log.Warn("error occurred during object existence checking",
-			zap.Stringer("address", prm.Address),
-			zap.String("error", err.Error()))
+			logger.FieldStringer("address", prm.Address),
+			logger.FieldError(err),
+		)
 	}
 
 	return common.ExistsRes{}, errors[len(errors)-1]

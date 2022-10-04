@@ -18,13 +18,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestDump(t *testing.T) {
@@ -53,7 +52,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			[]writecache.Option{
 				writecache.WithSmallObjectSize(wcSmallObjectSize),
 				writecache.WithMaxObjectSize(wcBigObjectSize),
-				writecache.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+				writecache.WithLogger(test.NewLogger(false)),
 			},
 			nil)
 	}

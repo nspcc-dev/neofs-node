@@ -8,9 +8,9 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // EvacuateShardPrm represents parameters for the EvacuateShard operation.
@@ -156,9 +156,9 @@ mainLoop:
 					if putDone || exists {
 						if putDone {
 							e.log.Debug("object is moved to another shard",
-								zap.String("from", sidList[n]),
-								zap.Stringer("to", shards[j].ID()),
-								zap.Stringer("addr", lst[i]))
+								logger.FieldString("from", sidList[n]),
+								logger.FieldStringer("to", shards[j].ID()),
+								logger.FieldStringer("addr", lst[i]))
 
 							res.count++
 						}

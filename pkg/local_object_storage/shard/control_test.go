@@ -13,7 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -22,7 +22,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 type epochState struct{}
@@ -37,7 +36,7 @@ func TestShardOpen(t *testing.T) {
 
 	newShard := func() *Shard {
 		return New(
-			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			WithLogger(test.NewLogger(false)),
 			WithBlobStorOptions(
 				blobstor.WithStorages([]blobstor.SubStorage{
 					{

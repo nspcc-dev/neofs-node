@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 const (
@@ -47,24 +46,36 @@ func main() {
 	cfg, err := newConfig(*configFile)
 	exitErr(err)
 
-	var logPrm logger.Prm
+	var logLvl logger.Level
 
-	err = logPrm.SetLevelString(
-		cfg.GetString("logger.level"),
-	)
-	exitErr(err)
+	switch strLvl := cfg.GetString("logger.level"); strLvl {
+	default:
+		exitErr(fmt.Errorf("unsupported logging severity level %s", strLvl))
+	case "debug":
+		logLvl = logger.LevelDebug
+	case "info":
+		logLvl = logger.LevelInfo
+	case "warn":
+		logLvl = logger.LevelWarn
+	case "error":
+		logLvl = logger.LevelError
+	}
 
-	log, err := logger.NewLogger(&logPrm)
-	exitErr(err)
+	var logCfg logger.Config
+	var log logger.Logger
+
+	log.Init(&logCfg)
+
+	logCfg.SetLevel(logLvl)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
 	intErr := make(chan error) // internal inner ring errors
 
-	httpServers := initHTTPServers(cfg, log)
+	httpServers := initHTTPServers(cfg, &log)
 
-	innerRing, err := innerring.New(ctx, log, cfg, intErr)
+	innerRing, err := innerring.New(ctx, &log, cfg, intErr)
 	exitErr(err)
 
 	// start HTTP servers
@@ -80,12 +91,12 @@ func main() {
 	exitErr(err)
 
 	log.Info("application started",
-		zap.String("version", misc.Version))
+		logger.FieldString("version", misc.Version))
 
 	select {
 	case <-ctx.Done():
 	case err := <-intErr:
-		log.Info("internal error", zap.String("msg", err.Error()))
+		log.Info("internal error", logger.FieldString("msg", err.Error()))
 	}
 
 	innerRing.Stop()
@@ -98,7 +109,7 @@ func main() {
 			err := srv.Shutdown()
 			if err != nil {
 				log.Debug("could not shutdown HTTP server",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 		}()

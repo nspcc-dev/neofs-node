@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"go.uber.org/zap"
 )
 
 type movePair struct {
@@ -59,12 +59,12 @@ func (s *Service) replicationWorker() {
 			if lastErr != nil {
 				if errors.Is(lastErr, errRecentlyFailed) {
 					s.log.Debug("do not send update to the node",
-						zap.String("last_error", lastErr.Error()))
+						logger.FieldString("last_error", lastErr.Error()))
 				} else {
 					s.log.Warn("failed to sent update to the node",
-						zap.String("last_error", lastErr.Error()),
-						zap.String("address", lastAddr),
-						zap.String("key", hex.EncodeToString(task.n.PublicKey())))
+						logger.FieldString("last_error", lastErr.Error()),
+						logger.FieldString("address", lastAddr),
+						logger.FieldString("key", hex.EncodeToString(task.n.PublicKey())))
 				}
 			}
 		}
@@ -91,9 +91,9 @@ func (s *Service) replicateLoop(ctx context.Context) {
 			err := s.replicate(op)
 			if err != nil {
 				s.log.Error("error during replication",
-					zap.String("err", err.Error()),
-					zap.Stringer("cid", op.cid),
-					zap.String("treeID", op.treeID))
+					logger.FieldString("err", err.Error()),
+					logger.FieldStringer("cid", op.cid),
+					logger.FieldString("treeID", op.treeID))
 			}
 		}
 	}

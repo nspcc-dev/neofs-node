@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // SubStorage represents single storage component with some storage policy.
@@ -46,7 +45,7 @@ type cfg struct {
 }
 
 func initConfig(c *cfg) {
-	c.log = &logger.Logger{Logger: zap.L()}
+	c.log = logger.Nop()
 }
 
 // New creates, initializes and returns new BlobStor instance.
@@ -80,7 +79,7 @@ func WithStorages(st []SubStorage) Option {
 // WithLogger returns option to specify BlobStor's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "BlobStor"))}
+		c.log = l
 	}
 }
 

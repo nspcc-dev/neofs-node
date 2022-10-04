@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestShard_Lock(t *testing.T) {
@@ -25,7 +24,7 @@ func TestShard_Lock(t *testing.T) {
 
 	rootPath := t.TempDir()
 	opts := []shard.Option{
-		shard.WithLogger(&logger.Logger{Logger: zap.NewNop()}),
+		shard.WithLogger(logger.Nop()),
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{

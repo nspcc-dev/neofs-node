@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Manager represents an entity performing data audit tasks.
@@ -34,7 +33,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 
@@ -54,7 +53,7 @@ func New(opts ...Option) *Manager {
 // WithLogger returns option to specify Manager's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Audit task manager"))}
+		c.log = l
 		c.ctxPrm.SetLogger(l)
 	}
 }

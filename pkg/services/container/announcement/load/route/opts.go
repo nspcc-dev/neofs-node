@@ -2,7 +2,6 @@ package loadroute
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Option sets an optional parameter of Router.
@@ -14,7 +13,7 @@ type options struct {
 
 func defaultOpts() *options {
 	return &options{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 

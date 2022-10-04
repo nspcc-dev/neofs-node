@@ -11,7 +11,6 @@ import (
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 // RemoteProviderPrm groups the required parameters of the RemoteProvider's constructor.
@@ -92,10 +91,10 @@ func (rtp *RemoteTrustWriter) Write(t reputation.Trust) error {
 	i := rtp.eiCtx.I()
 
 	rtp.log.Debug("announcing trust",
-		zap.Uint64("epoch", epoch),
-		zap.Uint32("iteration", i),
-		zap.Stringer("trusting_peer", t.TrustingPeer()),
-		zap.Stringer("trusted_peer", t.Peer()),
+		logger.FieldUint("epoch", epoch),
+		logger.FieldUint("iteration", uint64(i)),
+		logger.FieldStringer("trusting_peer", t.TrustingPeer()),
+		logger.FieldStringer("trusted_peer", t.Peer()),
 	)
 
 	var apiTrust reputationapi.Trust

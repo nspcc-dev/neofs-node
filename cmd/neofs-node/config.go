@@ -25,7 +25,6 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
@@ -67,7 +66,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -89,7 +87,7 @@ type applicationConfiguration struct {
 	_read bool
 
 	LoggerCfg struct {
-		level string
+		level logger.Level
 	}
 
 	EngineCfg struct {
@@ -187,8 +185,10 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a._read = true
 
 	// Logger
-
-	a.LoggerCfg.level = loggerconfig.Level(c)
+	err := readConfigLogLevel(&a.LoggerCfg.level, c)
+	if err != nil {
+		return fmt.Errorf("logger section: %w", err)
+	}
 
 	// Storage Engine
 
@@ -299,7 +299,7 @@ type internals struct {
 
 	appCfg *config.Config
 
-	log *logger.Logger
+	log logger.Logger
 
 	wg      *sync.WaitGroup
 	workers []worker
@@ -313,6 +313,16 @@ type internals struct {
 	healthStatus *atomic.Int32
 	// is node under maintenance
 	isMaintenance atomic.Bool
+}
+
+// init initializes the internals instance.
+func (c *internals) init(appCfg *config.Config) {
+	c.ctx = context.Background()
+	c.appCfg = appCfg
+	c.internalErr = make(chan error)
+	c.wg = new(sync.WaitGroup)
+	c.apiVersion = version.Current()
+	c.healthStatus = atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 }
 
 // starts node's maintenance.
@@ -365,7 +375,7 @@ type shared struct {
 // dynamicConfiguration stores parameters of the
 // components that supports runtime reconfigurations.
 type dynamicConfiguration struct {
-	logger *logger.Prm
+	logger logger.Config
 }
 
 type cfg struct {
@@ -507,6 +517,9 @@ var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
 
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
+	c.internals.init(appCfg)
+
+	c.internals.log.Init(&c.dynamicConfiguration.logger)
 
 	err := c.readConfig(appCfg)
 	if err != nil {
@@ -514,12 +527,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 
 	key := nodeconfig.Key(appCfg)
-
-	logPrm, err := c.loggerPrm()
-	fatalOnErr(err)
-
-	log, err := logger.NewLogger(logPrm)
-	fatalOnErr(err)
 
 	var netAddr network.AddressGroup
 
@@ -545,15 +552,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	reputationWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
 	fatalOnErr(err)
 
-	c.internals = internals{
-		ctx:          context.Background(),
-		appCfg:       appCfg,
-		internalErr:  make(chan error),
-		log:          log,
-		wg:           new(sync.WaitGroup),
-		apiVersion:   version.Current(),
-		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
-	}
 	c.shared = shared{
 		key:          key,
 		binPublicKey: key.PublicKey().Bytes(),
@@ -616,7 +614,7 @@ func (c *cfg) engineOpts() []engine.Option {
 		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
 		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
 
-		engine.WithLogger(c.log),
+		engine.WithLogger(&c.log),
 	)
 
 	if c.metricsCollector != nil {
@@ -646,7 +644,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				writecache.WithFlushWorkersCount(wcRead.flushWorkerCount),
 				writecache.WithMaxCacheSize(wcRead.sizeLimit),
 
-				writecache.WithLogger(c.log),
+				writecache.WithLogger(&c.log),
 			)
 		}
 
@@ -674,7 +672,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 						blobovniczatree.WithBlobovniczaShallowWidth(sRead.width),
 						blobovniczatree.WithOpenedCacheSize(sRead.openedCacheSize),
 
-						blobovniczatree.WithLogger(c.log)),
+						blobovniczatree.WithLogger(&c.log)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return uint64(len(data)) < shCfg.smallSizeObjectLimit
 					},
@@ -698,7 +696,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		var sh shardOptsWithID
 		sh.configID = shCfg.id()
 		sh.shOpts = []shard.Option{
-			shard.WithLogger(c.log),
+			shard.WithLogger(&c.log),
 			shard.WithRefillMetabase(shCfg.refillMetabase),
 			shard.WithMode(shCfg.mode),
 			shard.WithBlobStorOptions(
@@ -706,7 +704,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				blobstor.WithUncompressableContentTypes(shCfg.uncompressableContentType),
 				blobstor.WithStorages(ss),
 
-				blobstor.WithLogger(c.log),
+				blobstor.WithLogger(&c.log),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(shCfg.metaCfg.path),
@@ -717,7 +715,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 					Timeout: 100 * time.Millisecond,
 				}),
 
-				meta.WithLogger(c.log),
+				meta.WithLogger(&c.log),
 				meta.WithEpochState(c.cfgNetmap.state),
 			),
 			shard.WithPiloramaOptions(piloramaOpts...),
@@ -737,22 +735,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 	}
 
 	return shards
-}
-
-func (c *cfg) loggerPrm() (*logger.Prm, error) {
-	// check if it has been inited before
-	if c.dynamicConfiguration.logger == nil {
-		c.dynamicConfiguration.logger = new(logger.Prm)
-	}
-
-	// (re)init read configuration
-	err := c.dynamicConfiguration.logger.SetLevelString(c.LoggerCfg.level)
-	if err != nil {
-		// not expected since validation should be performed before
-		panic(fmt.Sprintf("incorrect log level format: %s", c.LoggerCfg.level))
-	}
-
-	return c.dynamicConfiguration.logger, nil
 }
 
 func (c *cfg) LocalAddress() network.AddressGroup {
@@ -775,7 +757,7 @@ func initLocalStorage(c *cfg) {
 	tombstoneSrc := tsourse.NewSource(tssPrm)
 
 	tombstoneSource := tombstone.NewChecker(
-		tombstone.WithLogger(c.log),
+		tombstone.WithLogger(&c.log),
 		tombstone.WithTombstoneSource(tombstoneSrc),
 	)
 
@@ -784,7 +766,7 @@ func initLocalStorage(c *cfg) {
 		fatalOnErr(err)
 
 		c.log.Info("shard attached to engine",
-			zap.Stringer("id", id),
+			logger.FieldStringer("id", id),
 		)
 	}
 
@@ -796,7 +778,7 @@ func initLocalStorage(c *cfg) {
 		err := ls.Close()
 		if err != nil {
 			c.log.Info("storage engine closing failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		} else {
 			c.log.Info("all components of the storage engine closed successfully")
@@ -858,13 +840,13 @@ func (c *cfg) bootstrap(manual bool) error {
 		ni.SetMaintenance()
 
 		c.log.Info("bootstrap with untouched node state",
-			zap.Stringer("state", st),
+			logger.FieldStringer("state", st),
 		)
 	} else {
 		ni.SetOnline()
 
 		c.log.Info("bootstrapping with online state",
-			zap.Stringer("previous", st),
+			logger.FieldStringer("previous", st),
 		)
 	}
 
@@ -886,13 +868,6 @@ func (c *cfg) ObjectServiceLoad() float64 {
 	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemoteCapacity)
 }
 
-type dCfg struct {
-	name string
-	cfg  interface {
-		Reload() error
-	}
-}
-
 func (c *cfg) configWatcher(ctx context.Context) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)
@@ -902,51 +877,51 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
-			err := c.readConfig(c.appCfg)
+			err := c.applicationConfiguration.readConfig(c.appCfg)
 			if err != nil {
-				c.log.Error("configuration reading", zap.Error(err))
+				c.log.Error("configuration reading", logger.FieldError(err))
 				continue
 			}
 
-			// all the components are expected to support
-			// Logger's dynamic reconfiguration approach
-			var components []dCfg
-
-			// Logger
-
-			logPrm, err := c.loggerPrm()
-			if err != nil {
-				c.log.Error("logger configuration preparation", zap.Error(err))
-				continue
-			}
-
-			components = append(components, dCfg{name: "logger", cfg: logPrm})
-
-			// Storage Engine
-
-			var rcfg engine.ReConfiguration
-			for _, optsWithID := range c.shardOpts() {
-				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
-			}
-
-			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
-			if err != nil {
-				c.log.Error("storage engine configuration update", zap.Error(err))
-				continue
-			}
-
-			for _, component := range components {
-				err = component.cfg.Reload()
-				if err != nil {
-					c.log.Error("updated configuration applying",
-						zap.String("component", component.name),
-						zap.Error(err))
-				}
-			}
-
-			c.log.Info("configuration has been reloaded successfully")
+			c.applyConfig(false)
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func (c *cfg) applyConfig(exitOnErr bool) {
+	c.log.Warn("applying configuration...")
+
+	// Storage Engine
+
+	var rcfg engine.ReConfiguration
+	for _, optsWithID := range c.shardOpts() {
+		rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
+	}
+
+	err := c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
+	c.exitOnFailedConfigApply("storage engine", err, exitOnErr)
+
+	// Logger
+	c.dynamicConfiguration.logger.SetLevel(c.applicationConfiguration.LoggerCfg.level)
+	c.log.Debug("apply logger config",
+		logger.FieldStringer("level", c.applicationConfiguration.LoggerCfg.level),
+	)
+
+	c.log.Warn("config application completed")
+}
+
+func (c *cfg) exitOnFailedConfigApply(component string, err error, exitOnErr bool) {
+	if err != nil {
+		c.log.Error("failed to apply configuration",
+			logger.FieldString("component", component),
+			logger.FieldError(err),
+			logger.FieldBool("ignore", !exitOnErr),
+		)
+
+		if exitOnErr {
+			fatalOnErr(errors.New("exit due to configuration application issue"))
 		}
 	}
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 // NodeLoader provides application load statistics.
@@ -97,7 +96,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:           &logger.Logger{Logger: zap.L()},
+		log:           logger.Nop(),
 		batchSize:     10,
 		cacheSize:     200_000, // should not allocate more than 200 MiB
 		rebalanceFreq: 1 * time.Second,
@@ -112,8 +111,6 @@ func New(opts ...Option) *Policer {
 	for i := range opts {
 		opts[i](c)
 	}
-
-	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Policer"))}
 
 	cache, err := lru.New(int(c.cacheSize))
 	if err != nil {

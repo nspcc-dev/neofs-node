@@ -12,8 +12,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Blobovniczas represents the storage of the "small" objects.
@@ -101,12 +101,12 @@ func NewBlobovniczaTree(opts ...Option) (blz *Blobovniczas) {
 			return
 		} else if err := value.(*blobovnicza.Blobovnicza).Close(); err != nil {
 			blz.log.Error("could not close Blobovnicza",
-				zap.String("id", key.(string)),
-				zap.String("error", err.Error()),
+				logger.FieldString("id", key.(string)),
+				logger.FieldError(err),
 			)
 		} else {
 			blz.log.Debug("blobovnicza successfully closed on evict",
-				zap.String("id", key.(string)),
+				logger.FieldString("id", key.(string)),
 			)
 		}
 	})
@@ -137,11 +137,11 @@ func (b *Blobovniczas) getActivated(p string) (blobovniczaWithIndex, error) {
 //
 // if current active blobovnicza's index is not old, it remains unchanged.
 func (b *Blobovniczas) updateActive(p string, old *uint64) error {
-	b.log.Debug("updating active blobovnicza...", zap.String("path", p))
+	b.log.Debug("updating active blobovnicza...", logger.FieldString("path", p))
 
 	_, err := b.updateAndGet(p, old)
 
-	b.log.Debug("active blobovnicza successfully updated", zap.String("path", p))
+	b.log.Debug("active blobovnicza successfully updated", logger.FieldString("path", p))
 
 	return err
 }
@@ -198,7 +198,7 @@ func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	b.lruMtx.Unlock()
 
 	b.log.Debug("blobovnicza successfully activated",
-		zap.String("path", activePath))
+		logger.FieldString("path", activePath))
 
 	return active, nil
 }

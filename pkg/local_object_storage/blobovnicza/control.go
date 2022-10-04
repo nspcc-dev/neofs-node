@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // Open opens an internal database at the configured path with the configured permissions.
@@ -15,8 +15,8 @@ import (
 // If the database file does not exist, it will be created automatically.
 func (b *Blobovnicza) Open() error {
 	b.log.Debug("creating directory for BoltDB",
-		zap.String("path", b.path),
-		zap.Bool("ro", b.boltOptions.ReadOnly),
+		logger.FieldString("path", b.path),
+		logger.FieldBool("ro", b.boltOptions.ReadOnly),
 	)
 
 	var err error
@@ -29,8 +29,8 @@ func (b *Blobovnicza) Open() error {
 	}
 
 	b.log.Debug("opening BoltDB",
-		zap.String("path", b.path),
-		zap.Stringer("permissions", b.perm),
+		logger.FieldString("path", b.path),
+		logger.FieldStringer("permissions", b.perm),
 	)
 
 	b.boltDB, err = bbolt.Open(b.path, b.perm, b.boltOptions)
@@ -45,12 +45,15 @@ func (b *Blobovnicza) Open() error {
 // Should not be called in read-only configuration.
 func (b *Blobovnicza) Init() error {
 	b.log.Debug("initializing...",
-		zap.Uint64("object size limit", b.objSizeLimit),
-		zap.Uint64("storage size limit", b.fullSizeLimit),
+		logger.FieldUint("object size limit", b.objSizeLimit),
+		logger.FieldUint("storage size limit", b.fullSizeLimit),
 	)
 
 	if size := b.filled.Load(); size != 0 {
-		b.log.Debug("already initialized", zap.Uint64("size", size))
+		b.log.Debug("already initialized",
+			logger.FieldUint("size", size),
+		)
+
 		return nil
 	}
 
@@ -60,7 +63,8 @@ func (b *Blobovnicza) Init() error {
 
 			rangeStr := stringifyBounds(lower, upper)
 			b.log.Debug("creating bucket for size range",
-				zap.String("range", rangeStr))
+				logger.FieldString("range", rangeStr),
+			)
 
 			_, err := tx.CreateBucketIfNotExists(key)
 			if err != nil {
@@ -87,7 +91,7 @@ func (b *Blobovnicza) Init() error {
 // Close releases all internal database resources.
 func (b *Blobovnicza) Close() error {
 	b.log.Debug("closing BoltDB",
-		zap.String("path", b.path),
+		logger.FieldString("path", b.path),
 	)
 
 	return b.boltDB.Close()

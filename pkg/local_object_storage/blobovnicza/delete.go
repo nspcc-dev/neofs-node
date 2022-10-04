@@ -1,10 +1,10 @@
 package blobovnicza
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -52,8 +52,8 @@ func (b *Blobovnicza) Delete(prm DeletePrm) (DeleteRes, error) {
 
 			if err == nil {
 				b.log.Debug("object was removed from bucket",
-					zap.String("binary size", stringifyByteSize(sz)),
-					zap.String("range", stringifyBounds(lower, upper)),
+					logger.FieldString("binary size", stringifyByteSize(sz)),
+					logger.FieldString("range", stringifyBounds(lower, upper)),
 				)
 			}
 

@@ -25,7 +25,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 type epochState struct{}
@@ -122,7 +121,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 
 	s := shard.New(
 		shard.WithID(sid),
-		shard.WithLogger(&logger.Logger{Logger: zap.L()}),
+		shard.WithLogger(logger.Nop()),
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages(
 				newStorages(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id)),

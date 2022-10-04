@@ -5,7 +5,6 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // DaughterStorageWriterProvider is an implementation of the reputation.WriterProvider
@@ -26,9 +25,9 @@ type DaughterTrustWriter struct {
 
 func (w *DaughterTrustWriter) Write(t reputation.Trust) error {
 	w.log.Debug("writing received daughter's trusts",
-		zap.Uint64("epoch", w.ctx.Epoch()),
-		zap.Stringer("trusting_peer", t.TrustingPeer()),
-		zap.Stringer("trusted_peer", t.Peer()),
+		logger.FieldUint("epoch", w.ctx.Epoch()),
+		logger.FieldStringer("trusting_peer", t.TrustingPeer()),
+		logger.FieldStringer("trusted_peer", t.Peer()),
 	)
 
 	w.storage.Put(w.ctx.Epoch(), t)

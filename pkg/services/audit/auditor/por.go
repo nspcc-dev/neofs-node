@@ -5,13 +5,13 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/tzhash/tz"
-	"go.uber.org/zap"
 )
 
 func (c *Context) executePoR() {
@@ -57,8 +57,8 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 		objectPlacement, err := c.buildPlacement(members[i])
 		if err != nil {
 			c.log.Info("can't build placement for storage group member",
-				zap.Stringer("sg", sgID),
-				zap.String("member_id", members[i].String()),
+				logger.FieldStringer("sg", sgID),
+				logger.FieldStringer("member_id", members[i]),
 			)
 
 			continue
@@ -83,8 +83,8 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 			hdr, err := c.cnrCom.GetHeader(getHeaderPrm)
 			if err != nil {
 				c.log.Debug("can't head object",
-					zap.String("remote_node", netmap.StringifyPublicKey(flat[j])),
-					zap.Stringer("oid", members[i]),
+					logger.FieldString("remote_node", netmap.StringifyPublicKey(flat[j])),
+					logger.FieldStringer("oid", members[i]),
 				)
 
 				continue
@@ -104,8 +104,9 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 					})
 					if err != nil {
 						c.log.Debug("can't concatenate tz hash",
-							zap.String("oid", members[i].String()),
-							zap.String("error", err.Error()))
+							logger.FieldStringer("oid", members[i]),
+							logger.FieldError(err),
+						)
 
 						break
 					}
@@ -130,8 +131,9 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 	} else {
 		if !sizeCheck {
 			c.log.Debug("storage group size check failed",
-				zap.Uint64("expected", sg.ValidationDataSize()),
-				zap.Uint64("got", totalSize))
+				logger.FieldUint("expected", sg.ValidationDataSize()),
+				logger.FieldUint("got", totalSize),
+			)
 		}
 
 		if !tzCheck {

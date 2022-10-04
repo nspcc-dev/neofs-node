@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 // Context represents container data audit execution context.
@@ -191,9 +190,9 @@ func (c *Context) init() {
 
 	c.headResponses = make(map[string]shortHeader)
 
-	c.log = &logger.Logger{Logger: c.log.With(
-		zap.Stringer("container ID", c.task.ContainerID()),
-	)}
+	c.log = c.log.WithContext(
+		logger.FieldStringer("container ID", c.task.ContainerID()),
+	)
 }
 
 func (c *Context) expired() bool {
@@ -202,7 +201,7 @@ func (c *Context) expired() bool {
 	select {
 	case <-ctx.Done():
 		c.log.Debug("audit context is done",
-			zap.String("error", ctx.Err().Error()),
+			logger.FieldError(ctx.Err()),
 		)
 
 		return true

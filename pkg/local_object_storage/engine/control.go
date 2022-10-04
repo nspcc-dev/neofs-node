@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 type shardInitError struct {
@@ -79,8 +79,8 @@ func (e *StorageEngine) Init() error {
 				delete(e.shards, res.id)
 
 				e.log.Error("shard initialization failure, skipping",
-					zap.String("id", res.id),
-					zap.Error(res.err))
+					logger.FieldString("id", res.id),
+					logger.FieldError(res.err))
 
 				continue
 			}
@@ -119,8 +119,8 @@ func (e *StorageEngine) close(releasePools bool) error {
 	for id, sh := range e.shards {
 		if err := sh.Close(); err != nil {
 			e.log.Debug("could not close shard",
-				zap.String("id", id),
-				zap.String("error", err.Error()),
+				logger.FieldString("id", id),
+				logger.FieldError(err),
 			)
 		}
 	}
@@ -292,7 +292,7 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 			return fmt.Errorf("could not add %s shard: %w", idStr, err)
 		}
 
-		e.log.Info("added new shard", zap.String("id", idStr))
+		e.log.Info("added new shard", logger.FieldString("id", idStr))
 	}
 
 	return nil

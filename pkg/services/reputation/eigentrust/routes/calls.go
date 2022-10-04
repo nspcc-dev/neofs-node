@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // NextStage builds Manager list for trusted node and returns it directly.
@@ -15,8 +15,8 @@ func (b *Builder) NextStage(epoch uint64, t reputation.Trust, passed []common.Se
 	passedLen := len(passed)
 
 	b.log.Debug("building next stage for trust route",
-		zap.Uint64("epoch", epoch),
-		zap.Int("passed_length", passedLen),
+		logger.FieldUint("epoch", epoch),
+		logger.FieldInt("passed_length", int64(passedLen)),
 	)
 
 	if passedLen > 1 {

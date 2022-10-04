@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Prm groups Notificator constructor's
@@ -72,13 +71,13 @@ func New(prm *Prm) *Notificator {
 // ProcessEpoch looks for all objects with defined epoch in the storage
 // and passes their addresses to the NotificationWriter.
 func (n *Notificator) ProcessEpoch(epoch uint64) {
-	logger := n.l.With(zap.Uint64("epoch", epoch))
-	logger.Debug("notificator: start processing object notifications")
+	log := n.l.WithContext(logger.FieldUint("epoch", epoch))
+	log.Debug("notificator: start processing object notifications")
 
 	n.ns.Iterate(epoch, func(topic string, addr oid.Address) {
 		n.l.Debug("notificator: processing object notification",
-			zap.String("topic", topic),
-			zap.Stringer("address", addr),
+			logger.FieldString("topic", topic),
+			logger.FieldStringer("address", addr),
 		)
 
 		n.w.Notify(topic, addr)

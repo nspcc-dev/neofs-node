@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // routeContext wraps context with additional passed
@@ -92,7 +92,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer provider",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				continue
@@ -102,7 +102,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 			remoteWriter, err = provider.InitWriter(w.routeCtx.Context)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				continue
@@ -114,7 +114,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 		err := remoteWriter.Write(t)
 		if err != nil {
 			w.router.log.Debug("could not write the value",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	}
@@ -127,8 +127,8 @@ func (w *trustWriter) Close() error {
 		err := wRemote.Close()
 		if err != nil {
 			w.router.log.Debug("could not close remote server writer",
-				zap.String("key", key),
-				zap.String("error", err.Error()),
+				logger.FieldString("key", key),
+				logger.FieldError(err),
 			)
 		}
 	}

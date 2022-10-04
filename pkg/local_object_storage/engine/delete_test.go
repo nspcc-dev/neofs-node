@@ -5,14 +5,12 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestDeleteBigObject(t *testing.T) {
@@ -53,7 +51,6 @@ func TestDeleteBigObject(t *testing.T) {
 	s3 := testNewShard(t, 3)
 
 	e := testNewEngineWithShards(s1, s2, s3)
-	e.log = &logger.Logger{Logger: zaptest.NewLogger(t)}
 	defer e.Close()
 
 	for i := range children {

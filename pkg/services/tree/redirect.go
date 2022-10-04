@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"go.uber.org/zap"
 )
 
 var errNoSuitableNode = errors.New("no node was found to execute the request")
@@ -29,7 +29,7 @@ func (s *Service) forEachNode(ctx context.Context, cntNodes []netmapSDK.NodeInfo
 				return false
 			}
 
-			s.log.Debug("redirecting tree service query", zap.String("endpoint", endpoint))
+			s.log.Debug("redirecting tree service query", logger.FieldString("endpoint", endpoint))
 			called = true
 			stop = f(c)
 			return true

@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 const emitMethod = "emit"
@@ -21,7 +21,8 @@ func (ap *Processor) processEmit() {
 	contract, ok := ap.alphabetContracts.GetByIndex(index)
 	if !ok {
 		ap.log.Debug("node is out of alphabet range, ignore gas emission event",
-			zap.Int("index", index))
+			logger.FieldInt("index", int64(index)),
+		)
 
 		return
 	}
@@ -29,7 +30,9 @@ func (ap *Processor) processEmit() {
 	// there is no signature collecting, so we don't need extra fee
 	err := ap.morphClient.Invoke(contract, 0, emitMethod)
 	if err != nil {
-		ap.log.Warn("can't invoke alphabet emit method", zap.String("error", err.Error()))
+		ap.log.Warn("can't invoke alphabet emit method",
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -43,7 +46,8 @@ func (ap *Processor) processEmit() {
 	networkMap, err := ap.netmapClient.NetMap()
 	if err != nil {
 		ap.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -65,7 +69,8 @@ func (ap *Processor) processEmit() {
 		key, err := keys.NewPublicKeyFromBytes(keyBytes, elliptic.P256())
 		if err != nil {
 			ap.log.Warn("can't parse node public key",
-				zap.String("error", err.Error()))
+				logger.FieldError(err),
+			)
 
 			continue
 		}
@@ -73,9 +78,9 @@ func (ap *Processor) processEmit() {
 		err = ap.morphClient.TransferGas(key.GetScriptHash(), gasPerNode)
 		if err != nil {
 			ap.log.Warn("can't transfer gas",
-				zap.String("receiver", key.Address()),
-				zap.Int64("amount", int64(gasPerNode)),
-				zap.String("error", err.Error()),
+				logger.FieldString("receiver", key.Address()),
+				logger.FieldInt("amount", int64(gasPerNode)),
+				logger.FieldError(err),
 			)
 		}
 	}

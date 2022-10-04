@@ -1,10 +1,10 @@
 package auditor
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
-	"go.uber.org/zap"
 )
 
 const (
@@ -61,8 +61,8 @@ func (c *Context) processObjectPlacement(id oid.ID, nodes []netmap.NodeInfo, rep
 		hdr, err := c.cnrCom.GetHeader(getHeaderPrm)
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
-				zap.Stringer("id", id),
-				zap.String("error", err.Error()),
+				logger.FieldStringer("id", id),
+				logger.FieldError(err),
 			)
 
 			continue
@@ -133,8 +133,8 @@ func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, []netmap.Nod
 		nn, err := c.buildPlacement(id)
 		if err != nil {
 			c.log.Debug("could not build placement for object",
-				zap.Stringer("id", id),
-				zap.String("error", err.Error()),
+				logger.FieldStringer("id", id),
+				logger.FieldError(err),
 			)
 
 			return false

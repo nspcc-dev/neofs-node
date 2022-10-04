@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Iterate traverses the storage over the stored objects and calls the handler
@@ -36,8 +36,8 @@ func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, d
 	prm.IgnoreErrors = true
 	prm.ErrorHandler = func(addr oid.Address, err error) error {
 		blz.log.Warn("error occurred during the iteration",
-			zap.Stringer("address", addr),
-			zap.String("err", err.Error()))
+			logger.FieldStringer("address", addr),
+			logger.FieldString("err", err.Error()))
 		return nil
 	}
 

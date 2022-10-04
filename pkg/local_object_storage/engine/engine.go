@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 // StorageEngine represents NeoFS local storage engine.
@@ -39,12 +38,12 @@ func (e *StorageEngine) reportShardError(
 	sh hashedShard,
 	msg string,
 	err error,
-	fields ...zap.Field) {
+	fields ...logger.Field) {
 	errCount := sh.errorCount.Inc()
-	e.log.Warn(msg, append([]zap.Field{
-		zap.Stringer("shard_id", sh.ID()),
-		zap.Uint32("error count", errCount),
-		zap.String("error", err.Error()),
+	e.log.Warn(msg, append([]logger.Field{
+		logger.FieldStringer("shard_id", sh.ID()),
+		logger.FieldUint("error count", uint64(errCount)),
+		logger.FieldError(err),
 	}, fields...)...)
 
 	if e.errorsThreshold == 0 || errCount < e.errorsThreshold {
@@ -54,12 +53,14 @@ func (e *StorageEngine) reportShardError(
 	err = sh.SetMode(mode.DegradedReadOnly)
 	if err != nil {
 		e.log.Error("failed to move shard in degraded mode",
-			zap.Uint32("error count", errCount),
-			zap.Error(err))
+			logger.FieldUint("error count", uint64(errCount)),
+			logger.FieldError(err),
+		)
 	} else {
 		e.log.Info("shard is moved in degraded mode due to error threshold",
-			zap.Stringer("shard_id", sh.ID()),
-			zap.Uint32("error count", errCount))
+			logger.FieldStringer("shard_id", sh.ID()),
+			logger.FieldUint("error count", uint64(errCount)),
+		)
 	}
 }
 
@@ -78,7 +79,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 
 		shardPoolSize: 20,
 	}

@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"go.uber.org/zap"
 )
 
 // TaskResult is a replication result interface.
@@ -21,7 +21,7 @@ type TaskResult interface {
 func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) {
 	defer func() {
 		p.log.Debug("finish work",
-			zap.Uint32("amount of unfinished replicas", task.quantity),
+			logger.FieldUint("amount of unfinished replicas", uint64(task.quantity)),
 		)
 	}()
 
@@ -30,8 +30,8 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		task.obj, err = engine.Get(p.localStorage, task.addr)
 		if err != nil {
 			p.log.Error("could not get object from local storage",
-				zap.Stringer("object", task.addr),
-				zap.Error(err))
+				logger.FieldStringer("object", task.addr),
+				logger.FieldError(err))
 
 			return
 		}
@@ -47,9 +47,9 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		default:
 		}
 
-		log := p.log.With(
-			zap.String("node", netmap.StringifyPublicKey(task.nodes[i])),
-			zap.Stringer("object", task.addr),
+		log := p.log.WithContext(
+			logger.FieldString("node", netmap.StringifyPublicKey(task.nodes[i])),
+			logger.FieldStringer("object", task.addr),
 		)
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
@@ -60,7 +60,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		if err != nil {
 			log.Error("could not replicate object",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		} else {
 			log.Debug("object successfully replicated")

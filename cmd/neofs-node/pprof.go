@@ -5,7 +5,7 @@ import (
 
 	profilerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/profiler"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func initProfiler(c *cfg) {
@@ -37,7 +37,7 @@ func initProfiler(c *cfg) {
 		err := srv.Shutdown()
 		if err != nil {
 			c.log.Debug("could not shutdown pprof server",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 

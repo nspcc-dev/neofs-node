@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (inc *IncomeSettlementContext) Distribute() {
@@ -17,7 +17,8 @@ func (inc *IncomeSettlementContext) Distribute() {
 	bankBalance, err := inc.balances.Balance(inc.bankOwner)
 	if err != nil {
 		inc.log.Error("can't fetch balance of banking account",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -28,8 +29,9 @@ func (inc *IncomeSettlementContext) Distribute() {
 		nodeOwner, err := inc.accounts.ResolveKey(nodeInfoWrapper(key))
 		if err != nil {
 			inc.log.Warn("can't transform public key to owner id",
-				zap.String("public_key", hex.EncodeToString(key)),
-				zap.String("error", err.Error()))
+				logger.FieldString("public_key", hex.EncodeToString(key)),
+				logger.FieldError(err),
+			)
 
 			return
 		}

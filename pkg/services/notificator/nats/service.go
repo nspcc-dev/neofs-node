@@ -9,7 +9,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Writer is a NATS object notification writer.
@@ -86,7 +85,7 @@ func New(oo ...Option) *Writer {
 		m:              &sync.RWMutex{},
 		createdStreams: make(map[string]struct{}),
 		opts: opts{
-			log:   &logger.Logger{Logger: zap.L()},
+			log:   logger.Nop(),
 			nOpts: make([]nats.Option, 0, len(oo)+3),
 		},
 	}
@@ -98,7 +97,7 @@ func New(oo ...Option) *Writer {
 	w.opts.nOpts = append(w.opts.nOpts,
 		nats.NoCallbacksAfterClientClose(), // do not call callbacks when it was planned writer stop
 		nats.DisconnectErrHandler(func(conn *nats.Conn, err error) {
-			w.log.Error("nats: connection was lost", zap.Error(err))
+			w.log.Error("nats: connection was lost", logger.FieldError(err))
 		}),
 		nats.ReconnectHandler(func(conn *nats.Conn) {
 			w.log.Warn("nats: reconnected to the server")

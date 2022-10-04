@@ -1,8 +1,6 @@
 package searchsvc
 
-import (
-	"go.uber.org/zap"
-)
+import "github.com/nspcc-dev/neofs-node/pkg/util/logger"
 
 func (exec *execCtx) executeLocal() {
 	ids, err := exec.svc.localStorage.search(exec)
@@ -12,7 +10,7 @@ func (exec *execCtx) executeLocal() {
 		exec.err = err
 
 		exec.log.Debug("local operation failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return

@@ -10,7 +10,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Service utility serving requests of Object.Get service.
@@ -52,7 +51,7 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		assembly:     true,
-		log:          &logger.Logger{Logger: zap.L()},
+		log:          logger.Nop(),
 		localStorage: new(storageEngineWrapper),
 		clientCache:  new(clientCacheWrapper),
 	}
@@ -75,7 +74,7 @@ func New(opts ...Option) *Service {
 // WithLogger returns option to specify Get service's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Object.Get service"))}
+		c.log = l
 	}
 }
 

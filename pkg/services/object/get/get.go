@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // Get serves a request to get an object by address, and returns Streamer instance.
@@ -106,7 +106,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		exec.log.Debug("requested range is out of object bounds")
 	default:
 		exec.log.Debug("operation finished with error",
-			zap.String("error", exec.err.Error()),
+			logger.FieldString("error", exec.err.Error()),
 		)
 
 		if execCnr {

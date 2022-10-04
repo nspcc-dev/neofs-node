@@ -8,9 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // PutPrm groups the parameters of Put operation.
@@ -114,8 +114,8 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 				_, err = sh.ToMoveIt(toMoveItPrm)
 				if err != nil {
 					e.log.Warn("could not mark object for shard relocation",
-						zap.Stringer("shard", sh.ID()),
-						zap.String("error", err.Error()),
+						logger.FieldStringer("shard", sh.ID()),
+						logger.FieldError(err),
 					)
 				}
 			}
@@ -131,8 +131,8 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
-					zap.Stringer("shard_id", sh.ID()),
-					zap.String("error", err.Error()))
+					logger.FieldStringer("shard_id", sh.ID()),
+					logger.FieldError(err))
 				return
 			}
 

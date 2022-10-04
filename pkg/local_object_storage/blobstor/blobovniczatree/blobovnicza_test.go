@@ -11,12 +11,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestOpenedAndActive(t *testing.T) {
@@ -136,7 +134,7 @@ func testFillOrder(t *testing.T, depth uint64) {
 	p, err := os.MkdirTemp("", "*")
 	require.NoError(t, err)
 	b := NewBlobovniczaTree(
-		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+		WithLogger(test.NewLogger(false)),
 		WithObjectSizeLimit(2048),
 		WithBlobovniczaShallowWidth(3),
 		WithBlobovniczaShallowDepth(depth),

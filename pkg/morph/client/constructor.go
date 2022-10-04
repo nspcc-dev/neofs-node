@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Option is a client configuration change function.
@@ -55,7 +54,7 @@ func defaultConfig() *cfg {
 	return &cfg{
 		ctx:          context.Background(),
 		dialTimeout:  defaultDialTimeout,
-		logger:       &logger.Logger{Logger: zap.L()},
+		logger:       logger.Nop(),
 		waitInterval: defaultWaitInterval,
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
@@ -75,7 +74,7 @@ func defaultConfig() *cfg {
 //   - blockchain network type: netmode.PrivNet;
 //   - signer with the global scope;
 //   - wait interval: 500ms;
-//   - logger: &logger.Logger{Logger: zap.L()}.
+//   - logger: logger.Nop().
 //
 // If desired option satisfies the default value, it can be omitted.
 // If multiple options of the same config value are supplied,
@@ -238,7 +237,7 @@ func WithDialTimeout(dur time.Duration) Option {
 //
 // Ignores nil value.
 //
-// If option not provided, &logger.Logger{Logger: zap.L()} is used.
+// If option not provided, logger.Nop() is used.
 func WithLogger(logger *logger.Logger) Option {
 	return func(c *cfg) {
 		if logger != nil {

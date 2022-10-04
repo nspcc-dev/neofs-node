@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 type matcher struct {
@@ -69,7 +68,7 @@ func defaultCfg() *cfg {
 		},
 		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
 		boltBatchSize:  bbolt.DefaultMaxBatchSize,
-		log:            &logger.Logger{Logger: zap.L()},
+		log:            logger.Nop(),
 	}
 }
 

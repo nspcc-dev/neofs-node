@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // InhumePrm encapsulates parameters for inhume operation.
@@ -95,7 +95,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 		}
 
 		s.log.Debug("could not mark object to delete in metabase",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return InhumeRes{}, fmt.Errorf("metabase inhume: %w", err)

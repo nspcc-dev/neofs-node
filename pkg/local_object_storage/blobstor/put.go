@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
@@ -43,8 +43,8 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 				storagelog.Write(b.log,
 					storagelog.AddressField(prm.Address),
 					storagelog.OpField("PUT"),
-					zap.String("type", b.storage[i].Storage.Type()),
-					zap.String("storage ID", string(res.StorageID)))
+					logger.FieldString("type", b.storage[i].Storage.Type()),
+					logger.FieldString("storage ID", string(res.StorageID)))
 			}
 			return res, err
 		}

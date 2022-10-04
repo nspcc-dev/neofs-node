@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type scriptHashValue struct {
@@ -90,7 +89,7 @@ func WorkerPoolHandler(w util2.WorkerPool, h Handler, log *logger.Logger) Handle
 
 		if err != nil {
 			log.Warn("could not Submit handler to worker pool",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	}

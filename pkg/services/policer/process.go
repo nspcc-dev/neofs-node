@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func (p *Policer) Run(ctx context.Context) {
@@ -39,7 +39,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit
 				continue
 			}
-			p.log.Warn("failure at object select for replication", zap.Error(err))
+			p.log.Warn("failure at object select for replication", logger.FieldError(err))
 		}
 
 		for i := range addrs {
@@ -68,7 +68,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 					p.objsInWork.remove(addr)
 				})
 				if err != nil {
-					p.log.Warn("pool submission", zap.Error(err))
+					p.log.Warn("pool submission", logger.FieldError(err))
 				}
 			}
 		}
@@ -92,8 +92,9 @@ func (p *Policer) poolCapacityWorker(ctx context.Context) {
 			if p.taskPool.Cap() != newCapacity {
 				p.taskPool.Tune(newCapacity)
 				p.log.Debug("tune replication capacity",
-					zap.Float64("system_load", neofsSysLoad),
-					zap.Int("new_capacity", newCapacity))
+					logger.FieldFloat("system_load", neofsSysLoad),
+					logger.FieldInt("new_capacity", int64(newCapacity)),
+				)
 			}
 		}
 	}

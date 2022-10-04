@@ -8,8 +8,8 @@ import (
 
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 var errWrongManager = errors.New("got manager that is incorrect for peer")
@@ -28,9 +28,10 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	currentEpoch := rp.epochState.EpochCounter()
 	if epoch >= currentEpoch {
 		rp.log.Info("ignore reputation value",
-			zap.String("reason", "invalid epoch number"),
-			zap.Uint64("trust_epoch", epoch),
-			zap.Uint64("local_epoch", currentEpoch))
+			logger.FieldString("reason", "invalid epoch number"),
+			logger.FieldUint("trust_epoch", epoch),
+			logger.FieldUint("local_epoch", currentEpoch),
+		)
 
 		return
 	}
@@ -38,7 +39,7 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	// check signature
 	if !value.VerifySignature() {
 		rp.log.Info("ignore reputation value",
-			zap.String("reason", "invalid signature"),
+			logger.FieldString("reason", "invalid signature"),
 		)
 
 		return
@@ -47,8 +48,9 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	// check if manager is correct
 	if err := rp.checkManagers(epoch, value.Manager(), id); err != nil {
 		rp.log.Info("ignore reputation value",
-			zap.String("reason", "wrong manager"),
-			zap.String("error", err.Error()))
+			logger.FieldString("reason", "wrong manager"),
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -92,7 +94,8 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 	if err != nil {
 		// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
 		rp.log.Warn("can't send approval tx for reputation value",
-			zap.String("peer_id", hex.EncodeToString(id.PublicKey())),
-			zap.String("error", err.Error()))
+			logger.FieldString("peer_id", hex.EncodeToString(id.PublicKey())),
+			logger.FieldError(err),
+		)
 	}
 }

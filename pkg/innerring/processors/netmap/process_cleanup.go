@@ -4,7 +4,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
@@ -18,12 +18,12 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 		key, err := keys.NewPublicKeyFromString(s)
 		if err != nil {
 			np.log.Warn("can't decode public key of netmap node",
-				zap.String("key", s))
+				logger.FieldString("key", s))
 
 			return nil
 		}
 
-		np.log.Info("vote to remove node from netmap", zap.String("key", s))
+		np.log.Info("vote to remove node from netmap", logger.FieldString("key", s))
 
 		// In notary environments we call UpdateStateIR method instead of UpdateState.
 		// It differs from UpdateState only by name, so we can do this in the same form.
@@ -48,13 +48,13 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 			)
 		}
 		if err != nil {
-			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
+			np.log.Error("can't invoke netmap.UpdateState", logger.FieldError(err))
 		}
 
 		return nil
 	})
 	if err != nil {
 		np.log.Warn("can't iterate on netmap cleaner cache",
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	}
 }

@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"go.uber.org/zap"
 )
 
 var ErrInvalidIRNode = errors.New("node is not in the inner ring list")
@@ -21,7 +21,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]cid.ID, error) {
 	// consider getting extra information about container complexity from
 	// audit contract there
 	ap.log.Debug("container listing finished",
-		zap.Int("total amount", len(containers)),
+		logger.FieldInt("total amount", int64(len(containers))),
 	)
 
 	sort.Slice(containers, func(i, j int) bool {

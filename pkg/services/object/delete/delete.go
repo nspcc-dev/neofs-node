@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Delete serves requests to remote the objects.
@@ -50,7 +50,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		exec.log.Debug("operation finished successfully")
 	default:
 		exec.log.Debug("operation finished with error",
-			zap.String("error", exec.err.Error()),
+			logger.FieldString("error", exec.err.Error()),
 		)
 
 		if execCnr {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Listen starts the process of processing tasks from the queue.
@@ -13,7 +13,7 @@ import (
 // The listener is terminated by context.
 func (m *Manager) Listen(ctx context.Context) {
 	m.log.Info("process routine",
-		zap.Uint32("queue_capacity", m.queueCap),
+		logger.FieldUint("queue_capacity", uint64(m.queueCap)),
 	)
 
 	m.ch = make(chan *audit.Task, m.queueCap)
@@ -22,7 +22,7 @@ func (m *Manager) Listen(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			m.log.Warn("stop listener by context",
-				zap.String("error", ctx.Err().Error()),
+				logger.FieldError(ctx.Err()),
 			)
 			m.workerPool.Release()
 
@@ -42,7 +42,7 @@ func (m *Manager) handleTask(task *audit.Task) {
 	pdpPool, err := m.pdpPoolGenerator()
 	if err != nil {
 		m.log.Error("could not generate PDP worker pool",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -51,7 +51,7 @@ func (m *Manager) handleTask(task *audit.Task) {
 	porPool, err := m.pdpPoolGenerator()
 	if err != nil {
 		m.log.Error("could not generate PoR worker pool",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return

@@ -3,7 +3,7 @@ package client
 import (
 	"sort"
 
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Endpoint represents morph endpoint together with its priority.
@@ -39,8 +39,8 @@ func (c *Client) switchRPC() bool {
 		cli, act, gas, err := c.newCli(newEndpoint)
 		if err != nil {
 			c.logger.Warn("could not establish connection to the switched RPC node",
-				zap.String("endpoint", newEndpoint),
-				zap.Error(err),
+				logger.FieldString("endpoint", newEndpoint),
+				logger.FieldError(err),
 			)
 
 			continue
@@ -52,7 +52,8 @@ func (c *Client) switchRPC() bool {
 		c.gasToken = gas
 
 		c.logger.Info("connection to the new RPC node has been established",
-			zap.String("endpoint", newEndpoint))
+			logger.FieldString("endpoint", newEndpoint),
+		)
 
 		if !c.restoreSubscriptions(newEndpoint) {
 			// new WS client does not allow
@@ -96,7 +97,7 @@ func (c *Client) notificationLoop() {
 				}
 
 				c.logger.Warn("switching to the next RPC node",
-					zap.String("reason", closeReason),
+					logger.FieldString("reason", closeReason),
 				)
 
 				if !c.switchRPC() {

@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 type preparedObjectTarget interface {
@@ -226,7 +225,7 @@ loop:
 		_, err = t.iteratePlacement(f)
 		if err != nil {
 			t.log.Error("additional container broadcast failure",
-				zap.Error(err),
+				logger.FieldError(err),
 			)
 
 			// we don't fail primary operation because of broadcast failure

@@ -8,7 +8,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 type statusError struct {
@@ -42,13 +41,13 @@ func (exec *execCtx) prepare() {
 }
 
 func (exec *execCtx) setLogger(l *logger.Logger) {
-	exec.log = &logger.Logger{Logger: l.With(
-		zap.String("request", "SEARCH"),
-		zap.Stringer("container", exec.containerID()),
-		zap.Bool("local", exec.isLocal()),
-		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
-		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	exec.log = l.WithContext(
+		logger.FieldString("request", "SEARCH"),
+		logger.FieldStringer("container", exec.containerID()),
+		logger.FieldBool("local", exec.isLocal()),
+		logger.FieldBool("with session", exec.prm.common.SessionToken() != nil),
+		logger.FieldBool("with bearer", exec.prm.common.BearerToken() != nil),
+	)
 }
 
 func (exec execCtx) context() context.Context {
@@ -89,7 +88,7 @@ func (exec *execCtx) initEpoch() bool {
 		exec.err = err
 
 		exec.log.Debug("could not get current epoch number",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false
@@ -108,7 +107,7 @@ func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) 
 		exec.err = err
 
 		exec.log.Debug("could not generate container traverser",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return nil, false
@@ -126,7 +125,7 @@ func (exec *execCtx) writeIDList(ids []oid.ID) {
 		exec.err = err
 
 		exec.log.Debug("could not write object identifiers",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	case err == nil:
 		exec.status = statusOK

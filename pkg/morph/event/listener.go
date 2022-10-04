@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 // Listener is an interface of smart contract notification event listener.
@@ -134,7 +133,7 @@ func (l *listener) Listen(ctx context.Context) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx, nil); err != nil {
 			l.log.Error("could not start listen to events",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	})
@@ -150,7 +149,7 @@ func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx, intError); err != nil {
 			l.log.Error("could not start listen to events",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 			intError <- err
 		}
@@ -206,7 +205,7 @@ func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *state.Contain
 				intErr <- fmt.Errorf("could not open block notifications channel: %w", err)
 			} else {
 				l.log.Debug("could not open block notifications channel",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 
@@ -222,7 +221,7 @@ func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *state.Contain
 				intErr <- fmt.Errorf("could not open notary notifications channel: %w", err)
 			} else {
 				l.log.Debug("could not open notary notifications channel",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 
@@ -235,7 +234,7 @@ loop:
 		select {
 		case <-ctx.Done():
 			l.log.Info("stop event listener by context",
-				zap.String("reason", ctx.Err().Error()),
+				logger.FieldError(ctx.Err()),
 			)
 			break loop
 		case notifyEvent, ok := <-chEvent:
@@ -255,7 +254,7 @@ loop:
 				l.parseAndHandleNotification(notifyEvent)
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
+					logger.FieldInt("capacity", int64(l.pool.Cap())))
 			}
 		case notaryEvent, ok := <-notaryChan:
 			if !ok {
@@ -274,7 +273,7 @@ loop:
 				l.parseAndHandleNotary(notaryEvent)
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
+					logger.FieldInt("capacity", int64(l.pool.Cap())))
 			}
 		case b, ok := <-blockChan:
 			if !ok {
@@ -295,22 +294,22 @@ loop:
 				}
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
+					logger.FieldInt("capacity", int64(l.pool.Cap())))
 			}
 		}
 	}
 }
 
 func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotificationEvent) {
-	log := l.log.With(
-		zap.String("script hash LE", notifyEvent.ScriptHash.StringLE()),
+	log := l.log.WithContext(
+		logger.FieldString("script hash LE", notifyEvent.ScriptHash.StringLE()),
 	)
 
 	// calculate event type from bytes
 	typEvent := TypeFromString(notifyEvent.Name)
 
-	log = log.With(
-		zap.String("event type", notifyEvent.Name),
+	log = log.WithContext(
+		logger.FieldString("event type", notifyEvent.Name),
 	)
 
 	// get the event parser
@@ -332,7 +331,7 @@ func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotifi
 	event, err := parser(notifyEvent)
 	if err != nil {
 		log.Warn("could not parse notification event",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -344,9 +343,7 @@ func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotifi
 	l.mtx.RUnlock()
 
 	if len(handlers) == 0 {
-		log.Info("notification handlers for parsed notification event were not registered",
-			zap.Any("event", event),
-		)
+		log.Info("notification handlers for parsed notification event were not registered")
 
 		return
 	}
@@ -364,20 +361,20 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 		case errors.Is(err, ErrTXAlreadyHandled):
 		case errors.Is(err, ErrMainTXExpired):
 			l.log.Warn("skip expired main TX notary event",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		default:
 			l.log.Warn("could not prepare and validate notary event",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 
 		return
 	}
 
-	log := l.log.With(
-		zap.String("contract", notaryEvent.ScriptHash().StringLE()),
-		zap.Stringer("method", notaryEvent.Type()),
+	log := l.log.WithContext(
+		logger.FieldString("contract", notaryEvent.ScriptHash().StringLE()),
+		logger.FieldStringer("method", notaryEvent.Type()),
 	)
 
 	notaryKey := notaryRequestTypes{}
@@ -400,7 +397,7 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	event, err := parser(notaryEvent)
 	if err != nil {
 		log.Warn("could not parse notary event",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -412,9 +409,7 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	l.mtx.RUnlock()
 
 	if !ok {
-		log.Info("notary handlers for parsed notification event were not registered",
-			zap.Any("event", event),
-		)
+		log.Info("notary handlers for parsed notification event were not registered")
 
 		return
 	}
@@ -427,9 +422,9 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 // Ignores nil and already set parsers.
 // Ignores the parser if listener is started.
 func (l *listener) SetNotificationParser(pi NotificationParserInfo) {
-	log := l.log.With(
-		zap.String("contract", pi.ScriptHash().StringLE()),
-		zap.Stringer("event_type", pi.getType()),
+	log := l.log.WithContext(
+		logger.FieldString("contract", pi.ScriptHash().StringLE()),
+		logger.FieldStringer("event_type", pi.getType()),
 	)
 
 	parser := pi.parser()
@@ -460,9 +455,9 @@ func (l *listener) SetNotificationParser(pi NotificationParserInfo) {
 // Ignores nil handlers.
 // Ignores handlers of event without parser.
 func (l *listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
-	log := l.log.With(
-		zap.String("contract", hi.ScriptHash().StringLE()),
-		zap.Stringer("event_type", hi.GetType()),
+	log := l.log.WithContext(
+		logger.FieldString("contract", hi.ScriptHash().StringLE()),
+		logger.FieldStringer("event_type", hi.GetType()),
 	)
 
 	handler := hi.Handler()
@@ -522,10 +517,10 @@ func (l *listener) SetNotaryParser(pi NotaryParserInfo) {
 		return
 	}
 
-	log := l.log.With(
-		zap.Stringer("mempool_type", pi.GetMempoolType()),
-		zap.String("contract", pi.ScriptHash().StringLE()),
-		zap.Stringer("notary_type", pi.RequestType()),
+	log := l.log.WithContext(
+		logger.FieldStringer("mempool_type", pi.GetMempoolType()),
+		logger.FieldString("contract", pi.ScriptHash().StringLE()),
+		logger.FieldStringer("notary_type", pi.RequestType()),
 	)
 
 	parser := pi.parser()
@@ -560,10 +555,10 @@ func (l *listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 		return
 	}
 
-	log := l.log.With(
-		zap.Stringer("mempool_type", hi.GetMempoolType()),
-		zap.String("contract", hi.ScriptHash().StringLE()),
-		zap.Stringer("notary type", hi.RequestType()),
+	log := l.log.WithContext(
+		logger.FieldStringer("mempool_type", hi.GetMempoolType()),
+		logger.FieldString("contract", hi.ScriptHash().StringLE()),
+		logger.FieldStringer("notary type", hi.RequestType()),
 	)
 
 	handler := hi.Handler()

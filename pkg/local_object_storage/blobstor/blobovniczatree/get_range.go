@@ -6,9 +6,9 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // GetRange reads range of object payload data from blobovnicza tree.
@@ -39,8 +39,8 @@ func (b *Blobovniczas) GetRange(prm common.GetRangePrm) (res common.GetRangeRes,
 			outOfBounds := isErrOutOfRange(err)
 			if !outOfBounds && !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not get object from level",
-					zap.String("level", p),
-					zap.String("error", err.Error()),
+					logger.FieldString("level", p),
+					logger.FieldError(err),
 				)
 			}
 			if outOfBounds {
@@ -85,8 +85,8 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not read payload range from opened blobovnicza",
-					zap.String("path", blzPath),
-					zap.String("error", err.Error()),
+					logger.FieldString("path", blzPath),
+					logger.FieldError(err),
 				)
 			}
 		}
@@ -110,8 +110,8 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 		default:
 			if !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not read payload range from active blobovnicza",
-					zap.String("path", blzPath),
-					zap.String("error", err.Error()),
+					logger.FieldString("path", blzPath),
+					logger.FieldError(err),
 				)
 			}
 		}
@@ -123,7 +123,7 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 	// (Blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
-		b.log.Debug("index is too big", zap.String("path", blzPath))
+		b.log.Debug("index is too big", logger.FieldString("path", blzPath))
 
 		var errNotFound apistatus.ObjectNotFound
 

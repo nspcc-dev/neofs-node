@@ -9,9 +9,9 @@ import (
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 const voteMethod = "vote"
@@ -61,7 +61,7 @@ func (s *Server) IsAlphabet() bool {
 func (s *Server) InnerRingIndex() int {
 	index, err := s.statusIndex.InnerRingIndex()
 	if err != nil {
-		s.log.Error("can't get inner ring index", zap.String("error", err.Error()))
+		s.log.Error("can't get inner ring index", logger.FieldError(err))
 		return -1
 	}
 
@@ -73,7 +73,7 @@ func (s *Server) InnerRingIndex() int {
 func (s *Server) InnerRingSize() int {
 	size, err := s.statusIndex.InnerRingSize()
 	if err != nil {
-		s.log.Error("can't get inner ring size", zap.String("error", err.Error()))
+		s.log.Error("can't get inner ring size", logger.FieldError(err))
 		return 0
 	}
 
@@ -85,7 +85,7 @@ func (s *Server) InnerRingSize() int {
 func (s *Server) AlphabetIndex() int {
 	index, err := s.statusIndex.AlphabetIndex()
 	if err != nil {
-		s.log.Error("can't get alphabet index", zap.String("error", err.Error()))
+		s.log.Error("can't get alphabet index", logger.FieldError(err))
 		return -1
 	}
 
@@ -129,9 +129,10 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
-				zap.Int8("alphabet_index", int8(letter)),
-				zap.Uint64("epoch", epoch),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("alphabet_index", letter),
+				logger.FieldUint("epoch", epoch),
+				logger.FieldError(err),
+			)
 		}
 	})
 

@@ -7,9 +7,9 @@ import (
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	subnetEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
-	"go.uber.org/zap"
 )
 
 // Process add peer notification by sanity check of new node
@@ -26,9 +26,9 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
 		if err != nil || !ok {
 			np.log.Warn("non-halt notary transaction",
-				zap.String("method", "netmap.AddPeer"),
-				zap.String("hash", tx.Hash().StringLE()),
-				zap.Error(err))
+				logger.FieldString("method", "netmap.AddPeer"),
+				logger.FieldString("hash", tx.Hash().StringLE()),
+				logger.FieldError(err))
 			return
 		}
 	}
@@ -45,7 +45,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	err := np.nodeValidator.VerifyAndUpdate(&nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -63,7 +63,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 
 	if updated {
 		np.log.Info("approving network map candidate",
-			zap.String("key", keyString))
+			logger.FieldString("key", keyString))
 
 		prm := netmapclient.AddPeerPrm{}
 		prm.SetNodeInfo(nodeInfo)
@@ -89,7 +89,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		}
 
 		if err != nil {
-			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
+			np.log.Error("can't invoke netmap.AddPeer", logger.FieldError(err))
 		}
 	}
 }
@@ -111,7 +111,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		err = np.nodeStateSettings.MaintenanceModeAllowed()
 		if err != nil {
 			np.log.Info("prevent switching node to maintenance state",
-				zap.Error(err),
+				logger.FieldError(err),
 			)
 
 			return
@@ -135,7 +135,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		err = np.netmapClient.UpdatePeerState(prm)
 	}
 	if err != nil {
-		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
+		np.log.Error("can't invoke netmap.UpdatePeer", logger.FieldError(err))
 	}
 }
 
@@ -148,7 +148,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 	candidates, err := np.netmapClient.GetCandidates()
 	if err != nil {
 		np.log.Warn("could not get network map candidates",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 		return
 	}
@@ -159,7 +159,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 	err = subnetToRemoveFrom.Unmarshal(rawSubnet)
 	if err != nil {
 		np.log.Warn("could not unmarshal subnet id",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 		return
 	}
@@ -182,8 +182,8 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 			return nil
 		})
 		if err != nil {
-			np.log.Warn("could not iterate over subnetworks of the node", zap.Error(err))
-			np.log.Info("vote to remove node from netmap", zap.String("key", hex.EncodeToString(ev.Node())))
+			np.log.Warn("could not iterate over subnetworks of the node", logger.FieldError(err))
+			np.log.Info("vote to remove node from netmap", logger.FieldString("key", hex.EncodeToString(ev.Node())))
 
 			prm := netmapclient.UpdatePeerPrm{}
 			prm.SetKey(ev.Node())
@@ -191,7 +191,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 
 			err = np.netmapClient.UpdatePeerState(prm)
 			if err != nil {
-				np.log.Error("could not invoke netmap.UpdateState", zap.Error(err))
+				np.log.Error("could not invoke netmap.UpdateState", logger.FieldError(err))
 				return
 			}
 		} else {
@@ -201,7 +201,7 @@ func (np *Processor) processRemoveSubnetNode(ev subnetEvent.RemoveNode) {
 
 			err = np.netmapClient.AddPeer(prm)
 			if err != nil {
-				np.log.Error("could not invoke netmap.AddPeer", zap.Error(err))
+				np.log.Error("could not invoke netmap.AddPeer", logger.FieldError(err))
 				return
 			}
 		}

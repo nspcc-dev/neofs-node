@@ -15,7 +15,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 // Service checks basic ACL rules.
@@ -73,7 +72,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 

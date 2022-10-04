@@ -3,9 +3,9 @@ package getsvc
 import (
 	"errors"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 func (exec *execCtx) executeLocal() {
@@ -23,7 +23,7 @@ func (exec *execCtx) executeLocal() {
 		exec.err = err
 
 		exec.log.Debug("local get failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	case err == nil:
 		exec.status = statusOK

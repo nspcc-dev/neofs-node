@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (rp *Processor) handlePutReputation(ev event.Event) {
@@ -14,8 +14,8 @@ func (rp *Processor) handlePutReputation(ev event.Event) {
 
 	// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
 	rp.log.Info("notification",
-		zap.String("type", "reputation put"),
-		zap.String("peer_id", hex.EncodeToString(peerID.PublicKey())))
+		logger.FieldString("type", "reputation put"),
+		logger.FieldString("peer_id", hex.EncodeToString(peerID.PublicKey())))
 
 	// send event to the worker pool
 
@@ -23,6 +23,7 @@ func (rp *Processor) handlePutReputation(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		rp.log.Warn("reputation worker pool drained",
-			zap.Int("capacity", rp.pool.Cap()))
+			logger.FieldInt("capacity", int64(rp.pool.Cap())),
+		)
 	}
 }

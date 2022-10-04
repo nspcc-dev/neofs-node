@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 // Blobovnicza represents the implementation of NeoFS Blobovnicza.
@@ -51,7 +50,7 @@ func defaultCfg(с *cfg) {
 		},
 		fullSizeLimit: 1 << 30, // 1GB
 		objSizeLimit:  1 << 20, // 1MB
-		log:           &logger.Logger{Logger: zap.L()},
+		log:           logger.Nop(),
 	}
 }
 
@@ -102,7 +101,7 @@ func WithFullSizeLimit(lim uint64) Option {
 // WithLogger returns an option to specify Blobovnicza's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Blobovnicza"))}
+		c.log = l
 	}
 }
 

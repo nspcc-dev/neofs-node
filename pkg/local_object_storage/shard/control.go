@@ -8,16 +8,16 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 	s.log.Error("metabase failure, switching mode",
-		zap.String("stage", stage),
-		zap.Stringer("mode", mode.ReadOnly),
-		zap.Error(err))
+		logger.FieldString("stage", stage),
+		logger.FieldStringer("mode", mode.ReadOnly),
+		logger.FieldError(err))
 
 	err = s.SetMode(mode.ReadOnly)
 	if err == nil {
@@ -25,9 +25,9 @@ func (s *Shard) handleMetabaseFailure(stage string, err error) error {
 	}
 
 	s.log.Error("can't move shard to readonly, switch mode",
-		zap.String("stage", stage),
-		zap.Stringer("mode", mode.DegradedReadOnly),
-		zap.Error(err))
+		logger.FieldString("stage", stage),
+		logger.FieldStringer("mode", mode.DegradedReadOnly),
+		logger.FieldError(err))
 
 	err = s.SetMode(mode.DegradedReadOnly)
 	if err != nil {
@@ -167,8 +167,8 @@ func (s *Shard) refillMetabase() error {
 	err = blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
 		if err := obj.Unmarshal(data); err != nil {
 			s.log.Warn("could not unmarshal object",
-				zap.Stringer("address", addr),
-				zap.String("err", err.Error()))
+				logger.FieldStringer("address", addr),
+				logger.FieldString("err", err.Error()))
 			return nil
 		}
 

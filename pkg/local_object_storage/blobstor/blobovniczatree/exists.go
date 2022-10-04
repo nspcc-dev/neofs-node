@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Exists implements common.Storage.
@@ -25,8 +25,8 @@ func (b *Blobovniczas) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 		if err != nil {
 			if !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not get object from level",
-					zap.String("level", p),
-					zap.String("error", err.Error()))
+					logger.FieldString("level", p),
+					logger.FieldError(err))
 			}
 		}
 

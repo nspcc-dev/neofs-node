@@ -2,8 +2,8 @@ package engine
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"go.uber.org/zap"
 )
 
 // ContainerSizePrm groups parameters of ContainerSize operation.
@@ -77,7 +77,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRe
 		csRes, err := sh.Shard.ContainerSize(csPrm)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
-				zap.Stringer("container_id", prm.cnr),
+				logger.FieldStringer("container_id", prm.cnr),
 			)
 			return false
 		}

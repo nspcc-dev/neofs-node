@@ -1,9 +1,9 @@
 package deletesvc
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func (exec *execCtx) executeLocal() {
@@ -26,7 +26,7 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		exec.err = err
 
 		exec.log.Debug("could not read tombstone lifetime config",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return false

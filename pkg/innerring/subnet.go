@@ -15,12 +15,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 // IR server's component to handle Subnet contract notifications.
@@ -174,7 +174,7 @@ func (s *Server) catchSubnetCreation(e event.Event) {
 	})
 	if err != nil {
 		s.log.Error("subnet creation queue failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }
@@ -226,7 +226,7 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 	})
 	if err != nil {
 		s.log.Info("discard subnet creation",
-			zap.String("reason", err.Error()),
+			logger.FieldString("reason", err.Error()),
 		)
 
 		return
@@ -252,8 +252,8 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 
 	if err != nil {
 		s.log.Error("approve subnet creation",
-			zap.Bool("notary", isNotary),
-			zap.String("error", err.Error()),
+			logger.FieldBool("notary", isNotary),
+			logger.FieldError(err),
 		)
 
 		return
@@ -267,7 +267,7 @@ func (s *Server) catchSubnetRemoval(e event.Event) {
 	})
 	if err != nil {
 		s.log.Error("subnet removal handling failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }
@@ -281,7 +281,7 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 	candidates, err := s.netmapClient.GetCandidates()
 	if err != nil {
 		s.log.Error("getting netmap candidates",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 
 		return
@@ -291,7 +291,7 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 	err = removedID.Unmarshal(delEv.ID())
 	if err != nil {
 		s.log.Error("unmarshalling removed subnet ID",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -304,9 +304,9 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 
 func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.ID, c netmap.NodeInfo) {
 	removeSubnet := false
-	log := s.log.With(
-		zap.String("public_key", netmap.StringifyPublicKey(c)),
-		zap.String("removed_subnet", removedID.String()),
+	log := s.log.WithContext(
+		logger.FieldString("public_key", netmap.StringifyPublicKey(c)),
+		logger.FieldStringer("removed_subnet", removedID),
 	)
 
 	err := c.IterateSubnets(func(id subnetid.ID) error {
@@ -318,7 +318,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 		return nil
 	})
 	if err != nil {
-		log.Error("iterating node's subnets", zap.Error(err))
+		log.Error("iterating node's subnets", logger.FieldError(err))
 		log.Debug("removing node from netmap candidates")
 
 		var updateStatePrm netmapclient.UpdatePeerPrm
@@ -328,7 +328,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 		err = s.netmapClient.UpdatePeerState(updateStatePrm)
 		if err != nil {
 			log.Error("removing node from candidates",
-				zap.Error(err),
+				logger.FieldError(err),
 			)
 		}
 
@@ -347,7 +347,7 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 		err = s.netmapClient.AddPeer(addPeerPrm)
 		if err != nil {
 			log.Error("updating subnet info",
-				zap.Error(err),
+				logger.FieldError(err),
 			)
 		}
 	}

@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 type CalculatePrm struct {
@@ -28,7 +28,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 	if err != nil {
 		c.opts.log.Debug(
 			"failed to get alpha param",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 		return
 	}
@@ -43,9 +43,9 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 
 	iter := ctx.I()
 
-	log := c.opts.log.With(
-		zap.Uint64("epoch", ctx.Epoch()),
-		zap.Uint32("iteration", iter),
+	log := c.opts.log.WithContext(
+		logger.FieldUint("epoch", ctx.Epoch()),
+		logger.FieldUint("iteration", uint64(iter)),
 	)
 
 	if iter == 0 {
@@ -60,7 +60,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 	consumersIter, err := c.prm.DaughterTrustSource.InitConsumersIterator(ctx)
 	if err != nil {
 		log.Debug("consumers trust iterator's init failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -80,7 +80,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 		})
 		if err != nil {
 			log.Debug("worker pool submit failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 
@@ -89,7 +89,7 @@ func (c *Calculator) Calculate(prm CalculatePrm) {
 	})
 	if err != nil {
 		log.Debug("iterate daughter's consumers failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }
@@ -108,8 +108,8 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	initTrust, err := c.prm.InitialTrustSource.InitialTrust(p.id)
 	if err != nil {
 		c.opts.log.Debug("get initial trust failure",
-			zap.Stringer("daughter", p.id),
-			zap.String("error", err.Error()),
+			logger.FieldStringer("daughter", p.id),
+			logger.FieldError(err),
 		)
 
 		return
@@ -118,7 +118,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	daughterIter, err := c.prm.DaughterTrustSource.InitDaughterIterator(p.ctx, p.id)
 	if err != nil {
 		c.opts.log.Debug("daughter trust iterator's init failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -140,7 +140,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 	})
 	if err != nil {
 		c.opts.log.Debug("iterate over daughter's trusts failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -162,7 +162,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		finalWriter, err := c.prm.FinalResultTarget.InitIntermediateWriter(p.ctx)
 		if err != nil {
 			c.opts.log.Debug("init writer failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 
 			return
@@ -173,7 +173,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		err = finalWriter.WriteIntermediateTrust(intermediateTrust)
 		if err != nil {
 			c.opts.log.Debug("write final result failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 
 			return
@@ -182,7 +182,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(p.ctx)
 		if err != nil {
 			c.opts.log.Debug("init writer failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 
 			return
@@ -203,7 +203,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 			err := intermediateWriter.Write(trust)
 			if err != nil {
 				c.opts.log.Debug("write value failure",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 
@@ -211,7 +211,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		})
 		if err != nil {
 			c.opts.log.Debug("iterate daughter trusts failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 
@@ -219,7 +219,7 @@ func (c *Calculator) iterateDaughter(p iterDaughterPrm) {
 		if err != nil {
 			c.opts.log.Error(
 				"could not close writer",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	}
@@ -229,7 +229,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 	daughterIter, err := c.prm.DaughterTrustSource.InitAllDaughtersIterator(ctx)
 	if err != nil {
 		c.opts.log.Debug("all daughters trust iterator's init failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -238,7 +238,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 	intermediateWriter, err := c.prm.IntermediateValueTarget.InitWriter(ctx)
 	if err != nil {
 		c.opts.log.Debug("init writer failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -251,8 +251,8 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 			initTrust, err := c.prm.InitialTrustSource.InitialTrust(trusted)
 			if err != nil {
 				c.opts.log.Debug("get initial trust failure",
-					zap.Stringer("peer", trusted),
-					zap.String("error", err.Error()),
+					logger.FieldStringer("peer", trusted),
+					logger.FieldError(err),
 				)
 
 				// don't stop on single failure
@@ -265,7 +265,7 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 			err = intermediateWriter.Write(trust)
 			if err != nil {
 				c.opts.log.Debug("write value failure",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				// don't stop on single failure
@@ -276,14 +276,14 @@ func (c *Calculator) sendInitialValues(ctx Context) {
 	})
 	if err != nil {
 		c.opts.log.Debug("iterate over all daughters failure",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 
 	err = intermediateWriter.Close()
 	if err != nil {
 		c.opts.log.Debug("could not close writer",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }

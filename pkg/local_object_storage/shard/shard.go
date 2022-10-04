@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Shard represents single shard of NeoFS Local Storage Engine.
@@ -101,7 +100,7 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		rmBatchSize: 100,
-		log:         &logger.Logger{Logger: zap.L()},
+		log:         logger.Nop(),
 		gcCfg:       defaultGCCfg(),
 	}
 }
@@ -310,7 +309,7 @@ func (s *Shard) updateObjectCounter() {
 		cc, err := s.metaBase.ObjectCounters()
 		if err != nil {
 			s.log.Warn("meta: object counter read",
-				zap.Error(err),
+				logger.FieldError(err),
 			)
 
 			return

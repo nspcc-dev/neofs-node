@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 func initTreeService(c *cfg) {
@@ -27,7 +26,7 @@ func initTreeService(c *cfg) {
 		tree.WithEACLSource(c.cfgObject.eaclSource),
 		tree.WithNetmapSource(c.netMapSource),
 		tree.WithPrivateKey(&c.key.PrivateKey),
-		tree.WithLogger(c.log),
+		tree.WithLogger(&c.log),
 		tree.WithStorage(c.cfgObject.cfgLocalStorage.localStorage),
 		tree.WithContainerCacheSize(treeConfig.CacheSize()),
 		tree.WithReplicationChannelCapacity(treeConfig.ReplicationChannelCapacity()),
@@ -42,7 +41,7 @@ func initTreeService(c *cfg) {
 	}))
 
 	syncTreeFunc := func(ctx context.Context) {
-		syncTrees(ctx, c.treeService, c.shared.cnrClient, c.log)
+		syncTrees(ctx, c.treeService, c.shared.cnrClient, &c.log)
 	}
 
 	if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_ONLINE {
@@ -59,8 +58,8 @@ func initTreeService(c *cfg) {
 		if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
 			// Ignore pilorama.ErrTreeNotFound but other errors, including shard.ErrReadOnly, should be logged.
 			c.log.Error("container removal event received, but trees weren't removed",
-				zap.Stringer("cid", ev.ID),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("cid", ev.ID),
+				logger.FieldError(err))
 		}
 	})
 
@@ -72,7 +71,10 @@ func syncTrees(ctx context.Context, treeSvc *tree.Service, cnrCli *containerClie
 
 	ids, err := cnrCli.List(nil)
 	if err != nil {
-		log.Error("trees are not synchronized", zap.Error(err))
+		log.Error("trees are not synchronized",
+			logger.FieldError(err),
+		)
+
 		return
 	}
 
@@ -83,11 +85,10 @@ func syncTrees(ctx context.Context, treeSvc *tree.Service, cnrCli *containerClie
 		for _, tID := range wellKnownTrees {
 			err = treeSvc.Synchronize(ctx, id, tID)
 			if err != nil && !errors.Is(err, tree.ErrNotInContainer) {
-				log.Warn(
-					"tree synchronization failed",
-					zap.Stringer("cid", id),
-					zap.String("tree_id", tID),
-					zap.Error(err),
+				log.Warn("tree synchronization failed",
+					logger.FieldStringer("cid", id),
+					logger.FieldString("tree_id", tID),
+					logger.FieldError(err),
 				)
 			}
 		}

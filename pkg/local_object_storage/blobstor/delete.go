@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"go.uber.org/zap"
 )
 
 func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
@@ -18,8 +18,8 @@ func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 					storagelog.Write(b.log,
 						storagelog.AddressField(prm.Address),
 						storagelog.OpField("DELETE"),
-						zap.String("type", b.storage[i].Storage.Type()),
-						zap.String("storage ID", string(prm.StorageID)))
+						logger.FieldString("type", b.storage[i].Storage.Type()),
+						logger.FieldString("storage ID", string(prm.StorageID)))
 				}
 				return res, err
 			}

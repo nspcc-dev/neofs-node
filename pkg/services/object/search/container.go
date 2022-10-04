@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (exec *execCtx) executeOnContainer() {
@@ -18,7 +18,7 @@ func (exec *execCtx) executeOnContainer() {
 	lookupDepth := exec.netmapLookupDepth()
 
 	exec.log.Debug("trying to execute in container...",
-		zap.Uint64("netmap lookup depth", lookupDepth),
+		logger.FieldUint("netmap lookup depth", lookupDepth),
 	)
 
 	// initialize epoch number
@@ -49,7 +49,7 @@ func (exec *execCtx) executeOnContainer() {
 
 func (exec *execCtx) processCurrentEpoch() bool {
 	exec.log.Debug("process epoch",
-		zap.Uint64("number", exec.curProcEpoch),
+		logger.FieldUint("number", exec.curProcEpoch),
 	)
 
 	traverser, ok := exec.generateTraverser(exec.containerID())
@@ -77,7 +77,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 				select {
 				case <-ctx.Done():
 					exec.log.Debug("interrupt placement iteration by context",
-						zap.String("error", ctx.Err().Error()))
+						logger.FieldString("error", ctx.Err().Error()))
 					return
 				default:
 				}
@@ -86,7 +86,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 
 				client.NodeInfoFromNetmapElement(&info, addrs[i])
 
-				exec.log.Debug("processing node...", zap.String("key", hex.EncodeToString(addrs[i].PublicKey())))
+				exec.log.Debug("processing node...", logger.FieldString("key", hex.EncodeToString(addrs[i].PublicKey())))
 
 				c, err := exec.svc.clientConstructor.get(info)
 				if err != nil {
@@ -102,7 +102,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 				ids, err := c.searchObjects(exec, info)
 				if err != nil {
 					exec.log.Debug("remote operation failed",
-						zap.String("error", err.Error()))
+						logger.FieldError(err))
 
 					return
 				}

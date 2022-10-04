@@ -3,8 +3,8 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -40,7 +40,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(prm.addr[i])
 			if err != nil && !IsErrNotFound(err) {
-				s.log.Error("can't delete object from write cache", zap.String("error", err.Error()))
+				s.log.Error("can't delete object from write cache", logger.FieldError(err))
 			}
 		}
 
@@ -50,8 +50,8 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		res, err := s.metaBase.StorageID(sPrm)
 		if err != nil {
 			s.log.Debug("can't get blobovniczaID from metabase",
-				zap.Stringer("object", prm.addr[i]),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("object", prm.addr[i]),
+				logger.FieldError(err))
 
 			continue
 		}
@@ -81,8 +81,8 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		_, err = s.blobStor.Delete(delPrm)
 		if err != nil {
 			s.log.Debug("can't remove small object from blobStor",
-				zap.Stringer("object_address", prm.addr[i]),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("object_address", prm.addr[i]),
+				logger.FieldError(err))
 		}
 	}
 

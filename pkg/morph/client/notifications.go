@@ -2,7 +2,7 @@ package client
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Close closes connection to the remote side making
@@ -215,8 +215,8 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 		_, err = c.client.SubscribeForNewBlocks(nil)
 		if err != nil {
 			c.logger.Error("could not restore block subscription after RPC switch",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
+				logger.FieldString("endpoint", endpoint),
+				logger.FieldError(err),
 			)
 
 			return false
@@ -228,8 +228,8 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 		id, err = c.client.SubscribeForExecutionNotifications(&contract, nil)
 		if err != nil {
 			c.logger.Error("could not restore notification subscription after RPC switch",
-				zap.String("endpoint", endpoint),
-				zap.Error(err),
+				logger.FieldString("endpoint", endpoint),
+				logger.FieldError(err),
 			)
 
 			return false
@@ -244,8 +244,8 @@ func (c *Client) restoreSubscriptions(endpoint string) bool {
 			id, err = c.client.SubscribeForNotaryRequests(nil, &signer)
 			if err != nil {
 				c.logger.Error("could not restore notary notification subscription after RPC switch",
-					zap.String("endpoint", endpoint),
-					zap.Error(err),
+					logger.FieldString("endpoint", endpoint),
+					logger.FieldError(err),
 				)
 
 				return false

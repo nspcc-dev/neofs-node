@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	"go.uber.org/zap"
 )
 
 // StartPrm groups the required parameters of the Controller.Start method.
@@ -64,7 +63,7 @@ func (c *announceContext) announce() {
 	metricsIterator, err = c.ctrl.prm.LocalMetrics.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over locally collected metrics",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -74,7 +73,7 @@ func (c *announceContext) announce() {
 	targetWriter, err := c.ctrl.prm.LocalAnnouncementTarget.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize announcement accumulator",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -92,7 +91,7 @@ func (c *announceContext) announce() {
 	)
 	if err != nil {
 		c.log.Debug("iterator over locally collected metrics aborted",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -102,7 +101,7 @@ func (c *announceContext) announce() {
 	err = targetWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing local announcements",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -125,9 +124,9 @@ func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
 
 	c.announceMtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
-		zap.Uint64("epoch", prm.Epoch),
-	)}
+	log := c.opts.log.WithContext(
+		logger.FieldUint("epoch", prm.Epoch),
+	)
 
 	if ctx == nil {
 		log.Debug("announcement is already started")
@@ -217,9 +216,9 @@ func (c *Controller) acquireReport(prm StopPrm) *stopContext {
 
 	c.reportMtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
-		zap.Uint64("epoch", prm.Epoch),
-	)}
+	log := c.opts.log.WithContext(
+		logger.FieldUint("epoch", prm.Epoch),
+	)
 
 	if ctx == nil {
 		log.Debug("report is already started")
@@ -270,7 +269,7 @@ func (c *stopContext) report() {
 	localIterator, err = c.ctrl.prm.AnnouncementAccumulator.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over locally accumulated announcements",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -280,7 +279,7 @@ func (c *stopContext) report() {
 	resultWriter, err := c.ctrl.prm.ResultReceiver.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize result target",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -293,7 +292,7 @@ func (c *stopContext) report() {
 	)
 	if err != nil {
 		c.log.Debug("iterator over local announcements aborted",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -303,7 +302,7 @@ func (c *stopContext) report() {
 	err = resultWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing load estimations",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }

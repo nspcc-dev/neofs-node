@@ -16,11 +16,11 @@ import (
 	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 // primary solution of local network state dump.
@@ -181,7 +181,7 @@ func initNetmapService(c *cfg) {
 		if (n-c.cfgNetmap.startEpoch)%reBootstrapInterval == 0 {
 			err := c.bootstrap(false)
 			if err != nil {
-				c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
+				c.log.Warn("can't send re-bootstrap tx", logger.FieldError(err))
 			}
 		}
 	})
@@ -192,8 +192,8 @@ func initNetmapService(c *cfg) {
 		ni, err := c.netmapLocalNodeState(e)
 		if err != nil {
 			c.log.Error("could not update node state on new epoch",
-				zap.Uint64("epoch", e),
-				zap.String("error", err.Error()),
+				logger.FieldUint("epoch", e),
+				logger.FieldError(err),
 			)
 
 			return
@@ -207,7 +207,7 @@ func initNetmapService(c *cfg) {
 			_, err := makeNotaryDeposit(c)
 			if err != nil {
 				c.log.Error("could not make notary deposit",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 		})
@@ -287,8 +287,8 @@ func initNetmapState(c *cfg) {
 	}
 
 	c.log.Info("initial network state",
-		zap.Uint64("epoch", epoch),
-		zap.String("state", stateWord),
+		logger.FieldUint("epoch", epoch),
+		logger.FieldString("state", stateWord),
 	)
 
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
@@ -328,7 +328,7 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 		event.WorkerPoolHandler(
 			c.cfgNetmap.workerPool,
 			h,
-			c.log,
+			&c.log,
 		),
 	)
 }

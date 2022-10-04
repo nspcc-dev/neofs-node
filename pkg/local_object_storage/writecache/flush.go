@@ -9,10 +9,10 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 const (
@@ -119,8 +119,8 @@ func (c *cache) flushDB() {
 		c.modeMtx.RUnlock()
 
 		c.log.Debug("tried to flush items from write-cache",
-			zap.Int("count", len(m)),
-			zap.String("start", base58.Encode(lastKey)))
+			logger.FieldInt("count", int64(len(m))),
+			logger.FieldString("start", base58.Encode(lastKey)))
 	}
 }
 
@@ -149,7 +149,7 @@ func (c *cache) flushBigObjects() {
 
 				data, err := f()
 				if err != nil {
-					c.log.Error("can't read a file", zap.Stringer("address", addr))
+					c.log.Error("can't read a file", logger.FieldStringer("address", addr))
 					return nil
 				}
 
@@ -163,7 +163,7 @@ func (c *cache) flushBigObjects() {
 				prm.DontCompress = !compress
 
 				if _, err := c.blobstor.Put(prm); err != nil {
-					c.log.Error("cant flush object to blobstor", zap.Error(err))
+					c.log.Error("cant flush object to blobstor", logger.FieldError(err))
 					return nil
 				}
 
@@ -205,7 +205,7 @@ func (c *cache) flushWorker(_ int) {
 
 		err := c.flushObject(obj)
 		if err != nil {
-			c.log.Error("can't flush object to the main storage", zap.Error(err))
+			c.log.Error("can't flush object to the main storage", logger.FieldError(err))
 		} else {
 			c.flushed.Add(objectCore.AddressOf(obj).EncodeToString(), true)
 		}

@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 // FinalWriterProviderPrm groups the required parameters of the FinalWriterProvider's constructor.
@@ -95,7 +94,7 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 	if err != nil {
 		fw.l.Debug(
 			"failed to sign global trust",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 		return fmt.Errorf("failed to sign global trust: %w", err)
 	}
@@ -110,16 +109,16 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 	if err != nil {
 		fw.l.Debug(
 			"failed to write global trust to contract",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 		return fmt.Errorf("failed to write global trust to contract: %w", err)
 	}
 
 	fw.l.Debug(
 		"sent global trust to contract",
-		zap.Uint64("epoch", t.Epoch()),
-		zap.Float64("value", t.Value().Float64()),
-		zap.Stringer("peer", t.Peer()),
+		logger.FieldUint("epoch", t.Epoch()),
+		logger.FieldFloat("value", t.Value().Float64()),
+		logger.FieldStringer("peer", t.Peer()),
 	)
 
 	return nil
@@ -133,7 +132,7 @@ type FinalWriterOption func(*finalWriterOptions)
 
 func defaultFinalWriterOptionsOpts() *finalWriterOptions {
 	return &finalWriterOptions{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 

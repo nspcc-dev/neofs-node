@@ -3,7 +3,6 @@ package settlement
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // HandleAuditEvent catches a new AuditEvent and
@@ -13,9 +12,9 @@ func (p *Processor) HandleAuditEvent(e event.Event) {
 
 	epoch := ev.Epoch()
 
-	log := &logger.Logger{Logger: p.log.With(
-		zap.Uint64("epoch", epoch),
-	)}
+	log := p.log.WithContext(
+		logger.FieldUint("epoch", epoch),
+	)
 
 	log.Info("new audit settlement event")
 
@@ -33,7 +32,7 @@ func (p *Processor) HandleAuditEvent(e event.Event) {
 	err := p.pool.Submit(handler.handle)
 	if err != nil {
 		log.Warn("could not add handler of AuditEvent to queue",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -53,14 +52,16 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	}
 
 	p.log.Info("start basic income collection",
-		zap.Uint64("epoch", epoch))
+		logger.FieldUint("epoch", epoch),
+	)
 
 	p.contextMu.Lock()
 	defer p.contextMu.Unlock()
 
 	if _, ok := p.incomeContexts[epoch]; ok {
 		p.log.Error("income context already exists",
-			zap.Uint64("epoch", epoch))
+			logger.FieldUint("epoch", epoch),
+		)
 
 		return
 	}
@@ -68,7 +69,8 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	incomeCtx, err := p.basicIncome.CreateContext(epoch)
 	if err != nil {
 		p.log.Error("can't create income context",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -80,7 +82,7 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	})
 	if err != nil {
 		p.log.Warn("could not add handler of basic income collection to queue",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -98,7 +100,8 @@ func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
 	}
 
 	p.log.Info("start basic income distribution",
-		zap.Uint64("epoch", epoch))
+		logger.FieldUint("epoch", epoch),
+	)
 
 	p.contextMu.Lock()
 	defer p.contextMu.Unlock()
@@ -108,7 +111,8 @@ func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
 
 	if !ok {
 		p.log.Warn("income context distribution does not exists",
-			zap.Uint64("epoch", epoch))
+			logger.FieldUint("epoch", epoch),
+		)
 
 		return
 	}
@@ -118,7 +122,7 @@ func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
 	})
 	if err != nil {
 		p.log.Warn("could not add handler of basic income distribution to queue",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return

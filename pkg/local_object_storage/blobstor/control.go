@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Open opens BlobStor.
@@ -52,7 +52,7 @@ func (b *BlobStor) Close() error {
 	for i := range b.storage {
 		err := b.storage[i].Storage.Close()
 		if err != nil {
-			b.log.Info("couldn't close storage", zap.String("error", err.Error()))
+			b.log.Info("couldn't close storage", logger.FieldError(err))
 			if firstErr == nil {
 				firstErr = err
 			}

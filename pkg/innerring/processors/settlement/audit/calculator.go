@@ -2,7 +2,6 @@ package audit
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Calculator represents a component for calculating payments
@@ -22,7 +21,7 @@ type options struct {
 
 func defaultOptions() *options {
 	return &options{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 

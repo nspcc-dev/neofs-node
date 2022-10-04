@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type (
@@ -83,7 +82,8 @@ func (s *subscriber) UnsubscribeForNotification() {
 	err := s.client.UnsubscribeAll()
 	if err != nil {
 		s.log.Error("unsubscribe for notification",
-			zap.Error(err))
+			logger.FieldError(err),
+		)
 	}
 }
 
@@ -129,13 +129,13 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 				notifyEvent, ok := notification.Value.(*state.ContainedNotificationEvent)
 				if !ok {
 					s.log.Error("can't cast notify event value to the notify struct",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+						logger.FieldString("received type", fmt.Sprintf("%T", notification.Value)),
 					)
 					continue
 				}
 
 				s.log.Debug("new notification event from sidechain",
-					zap.String("name", notifyEvent.Name),
+					logger.FieldString("name", notifyEvent.Name),
 				)
 
 				s.notifyChan <- notifyEvent
@@ -143,7 +143,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 				b, ok := notification.Value.(*block.Block)
 				if !ok {
 					s.log.Error("can't cast block event value to block",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+						logger.FieldString("received type", fmt.Sprintf("%T", notification.Value)),
 					)
 					continue
 				}
@@ -153,7 +153,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 				notaryRequest, ok := notification.Value.(*result.NotaryRequestEvent)
 				if !ok {
 					s.log.Error("can't cast notify event value to the notary request struct",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
+						logger.FieldString("received type", fmt.Sprintf("%T", notification.Value)),
 					)
 					continue
 				}
@@ -161,7 +161,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 				s.notaryChan <- notaryRequest
 			default:
 				s.log.Debug("unsupported notification from the chain",
-					zap.Uint8("type", uint8(notification.Type)),
+					logger.FieldUint("type", uint64(notification.Type)),
 				)
 			}
 		}

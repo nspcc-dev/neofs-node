@@ -7,7 +7,6 @@ import (
 	eigencalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	consumerstorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/consumers"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 var ErrIncorrectContextPanicMsg = "could not write intermediate trust: passed context incorrect"
@@ -30,10 +29,10 @@ type ConsumerTrustWriter struct {
 
 func (w *ConsumerTrustWriter) Write(t reputation.Trust) error {
 	w.log.Debug("writing received consumer's trusts",
-		zap.Uint64("epoch", w.eiCtx.Epoch()),
-		zap.Uint32("iteration", w.eiCtx.I()),
-		zap.Stringer("trusting_peer", t.TrustingPeer()),
-		zap.Stringer("trusted_peer", t.Peer()),
+		logger.FieldUint("epoch", w.eiCtx.Epoch()),
+		logger.FieldUint("iteration", uint64(w.eiCtx.I())),
+		logger.FieldStringer("trusting_peer", t.TrustingPeer()),
+		logger.FieldStringer("trusted_peer", t.Peer()),
 	)
 
 	trust := eigentrust.IterationTrust{Trust: t}

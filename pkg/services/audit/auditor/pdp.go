@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
-	"go.uber.org/zap"
 )
 
 func (c *Context) executePDP() {
@@ -131,7 +131,7 @@ func (c *Context) collectHashes(p *gamePair) {
 			}
 
 			c.log.Debug("sleep before get range hash",
-				zap.Stringer("interval", sleepDur),
+				logger.FieldStringer("interval", sleepDur),
 			)
 
 			time.Sleep(sleepDur)
@@ -141,9 +141,9 @@ func (c *Context) collectHashes(p *gamePair) {
 			h, err := c.cnrCom.GetRangeHash(getRangeHashPrm)
 			if err != nil {
 				c.log.Debug("could not get payload range hash",
-					zap.Stringer("id", p.id),
-					zap.String("node", netmap.StringifyPublicKey(n)),
-					zap.String("error", err.Error()),
+					logger.FieldStringer("id", p.id),
+					logger.FieldString("node", netmap.StringifyPublicKey(n)),
+					logger.FieldError(err),
 				)
 				return res
 			}

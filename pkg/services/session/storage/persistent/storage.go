@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // TokenStore is a wrapper around persistent K:V db that
@@ -109,9 +108,9 @@ func (s *TokenStore) Get(ownerID user.ID, tokenID []byte) (t *storage.PrivateTok
 	})
 	if err != nil {
 		s.l.Error("could not get session from persistent storage",
-			zap.Error(err),
-			zap.Stringer("ownerID", ownerID),
-			zap.String("tokenID", hex.EncodeToString(tokenID)),
+			logger.FieldError(err),
+			logger.FieldStringer("ownerID", ownerID),
+			logger.FieldString("tokenID", hex.EncodeToString(tokenID)),
 		)
 	}
 
@@ -134,7 +133,7 @@ func (s *TokenStore) RemoveOld(epoch uint64) {
 					err = c.Delete()
 					if err != nil {
 						s.l.Error("could not delete %s token",
-							zap.String("token_id", hex.EncodeToString(k)),
+							logger.FieldString("token_id", hex.EncodeToString(k)),
 						)
 					}
 				}
@@ -145,7 +144,7 @@ func (s *TokenStore) RemoveOld(epoch uint64) {
 	})
 	if err != nil {
 		s.l.Error("could not clean up expired tokens",
-			zap.Uint64("epoch", epoch),
+			logger.FieldUint("epoch", epoch),
 		)
 	}
 }

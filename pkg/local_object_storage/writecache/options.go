@@ -8,7 +8,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"go.uber.org/zap"
 )
 
 // Option represents write-cache configuration option.
@@ -55,7 +54,7 @@ type options struct {
 // WithLogger sets logger.
 func WithLogger(log *logger.Logger) Option {
 	return func(o *options) {
-		o.log = &logger.Logger{Logger: log.With(zap.String("component", "WriteCache"))}
+		o.log = log
 	}
 }
 

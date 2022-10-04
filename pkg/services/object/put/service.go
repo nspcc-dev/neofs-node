@@ -10,7 +10,6 @@ import (
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type MaxSizeSource interface {
@@ -61,7 +60,7 @@ func defaultCfg() *cfg {
 	return &cfg{
 		remotePool: util.NewPseudoWorkerPool(),
 		localPool:  util.NewPseudoWorkerPool(),
-		log:        &logger.Logger{Logger: zap.L()},
+		log:        logger.Nop(),
 	}
 }
 

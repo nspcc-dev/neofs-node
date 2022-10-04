@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // Info groups the information about write-cache.
@@ -85,7 +84,7 @@ func New(opts ...Option) Cache {
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
-			log:             &logger.Logger{Logger: zap.NewNop()},
+			log:             logger.Nop(),
 			maxObjectSize:   defaultMaxObjectSize,
 			smallObjectSize: defaultSmallObjectSize,
 			workersCount:    defaultFlushWorkersCount,

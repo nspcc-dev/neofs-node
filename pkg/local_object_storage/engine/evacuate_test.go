@@ -14,12 +14,11 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEngine, []*shard.ID, []*objectSDK.Object) {
@@ -28,14 +27,14 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	e := New(
-		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+		WithLogger(test.NewLogger(false)),
 		WithShardPoolSize(1))
 
 	ids := make([]*shard.ID, shardNum)
 
 	for i := range ids {
 		ids[i], err = e.AddShard(
-			shard.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			shard.WithLogger(test.NewLogger(false)),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages([]blobstor.SubStorage{{
 					Storage: fstree.New(

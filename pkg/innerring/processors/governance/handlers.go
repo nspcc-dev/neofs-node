@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (gp *Processor) HandleAlphabetSync(e event.Event) {
@@ -30,7 +30,9 @@ func (gp *Processor) HandleAlphabetSync(e event.Event) {
 		return
 	}
 
-	gp.log.Info("new event", zap.String("type", typ))
+	gp.log.Info("new event",
+		logger.FieldString("type", typ),
+	)
 
 	// send event to the worker pool
 
@@ -38,6 +40,7 @@ func (gp *Processor) HandleAlphabetSync(e event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		gp.log.Warn("governance worker pool drained",
-			zap.Int("capacity", gp.pool.Cap()))
+			logger.FieldInt("capacity", int64(gp.pool.Cap())),
+		)
 	}
 }

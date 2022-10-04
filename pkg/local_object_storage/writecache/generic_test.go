@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestGeneric(t *testing.T) {
@@ -21,7 +20,7 @@ func TestGeneric(t *testing.T) {
 		dir := filepath.Join(t.Name(), strconv.Itoa(n))
 		require.NoError(t, os.MkdirAll(dir, os.ModePerm))
 		return New(
-			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			WithLogger(test.NewLogger(false)),
 			WithFlushWorkersCount(2),
 			WithPath(dir))
 	}

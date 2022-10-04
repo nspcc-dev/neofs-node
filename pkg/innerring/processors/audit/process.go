@@ -10,38 +10,45 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func (ap *Processor) processStartAudit(epoch uint64) {
-	log := ap.log.With(zap.Uint64("epoch", epoch))
+	log := ap.log.WithContext(
+		logger.FieldUint("epoch", epoch),
+	)
 
 	ap.prevAuditCanceler()
 
 	skipped := ap.taskManager.Reset()
 	if skipped > 0 {
 		ap.log.Info("some tasks from previous epoch are skipped",
-			zap.Int("amount", skipped),
+			logger.FieldInt("amount", int64(skipped)),
 		)
 	}
 
 	containers, err := ap.selectContainersToAudit(epoch)
 	if err != nil {
-		log.Error("container selection failure", zap.String("error", err.Error()))
+		log.Error("container selection failure",
+			logger.FieldError(err),
+		)
 
 		return
 	}
 
-	log.Info("select containers for audit", zap.Int("amount", len(containers)))
+	log.Info("select containers for audit",
+		logger.FieldInt("amount", int64(len(containers))),
+	)
 
 	nm, err := ap.netmapClient.GetNetMap(0)
 	if err != nil {
 		ap.log.Error("can't fetch network map",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -55,8 +62,9 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		cnr, err := cntClient.Get(ap.containerClient, containers[i]) // get container structure
 		if err != nil {
 			log.Error("can't get container info, ignore",
-				zap.Stringer("cid", containers[i]),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("cid", containers[i]),
+				logger.FieldError(err),
+			)
 
 			continue
 		}
@@ -67,8 +75,9 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		nodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), pivot)
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
-				zap.Stringer("cid", containers[i]),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("cid", containers[i]),
+				logger.FieldError(err),
+			)
 
 			continue
 		}
@@ -83,14 +92,16 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		// search storage groups
 		storageGroupsIDs := ap.findStorageGroups(containers[i], n)
 		log.Info("select storage groups for audit",
-			zap.Stringer("cid", containers[i]),
-			zap.Int("amount", len(storageGroupsIDs)))
+			logger.FieldStringer("cid", containers[i]),
+			logger.FieldInt("amount", int64(len(storageGroupsIDs))),
+		)
 
 		// filter expired storage groups
 		storageGroups := ap.filterExpiredSG(containers[i], storageGroupsIDs, nodes, *nm)
 		log.Info("filter expired storage groups for audit",
-			zap.Stringer("cid", containers[i]),
-			zap.Int("amount", len(storageGroups)))
+			logger.FieldStringer("cid", containers[i]),
+			logger.FieldInt("amount", int64(len(storageGroups))),
+		)
 
 		// skip audit for containers without
 		// non-expired storage groups
@@ -112,7 +123,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 
 		if err := ap.taskManager.PushTask(auditTask); err != nil {
 			ap.log.Error("could not push audit task",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	}
@@ -131,16 +142,18 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 	prm.Container = cnr
 
 	for i := range shuffled { // consider iterating over some part of container
-		log := ap.log.With(
-			zap.Stringer("cid", cnr),
-			zap.String("key", netmap.StringifyPublicKey(shuffled[0])),
-			zap.Int("try", i),
-			zap.Int("total_tries", ln),
+		log := ap.log.WithContext(
+			logger.FieldStringer("cid", cnr),
+			logger.FieldString("key", netmap.StringifyPublicKey(shuffled[0])),
+			logger.FieldInt("try", int64(i)),
+			logger.FieldInt("total_tries", int64(ln)),
 		)
 
 		err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(shuffled[i]))
 		if err != nil {
-			log.Warn("parse client node info", zap.String("error", err.Error()))
+			log.Warn("parse client node info",
+				logger.FieldError(err),
+			)
 
 			continue
 		}
@@ -157,7 +170,9 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 		cancel()
 
 		if err != nil {
-			log.Warn("error in storage group search", zap.String("error", err.Error()))
+			log.Warn("error in storage group search",
+				logger.FieldError(err),
+			)
 			continue
 		}
 
@@ -192,9 +207,9 @@ func (ap *Processor) filterExpiredSG(cid cid.ID, sgIDs []oid.ID,
 		if err != nil {
 			ap.log.Error(
 				"could not get storage group object for audit, skipping",
-				zap.Stringer("cid", cid),
-				zap.Stringer("oid", sgID),
-				zap.Error(err),
+				logger.FieldStringer("cid", cid),
+				logger.FieldStringer("oid", sgID),
+				logger.FieldError(err),
 			)
 			continue
 		}

@@ -10,7 +10,6 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 // RemoteProviderPrm groups the required parameters of the RemoteProvider's constructor.
@@ -96,7 +95,7 @@ func (rtp *RemoteTrustWriter) Close() error {
 	epoch := rtp.ctx.Epoch()
 
 	rtp.log.Debug("announcing trusts",
-		zap.Uint64("epoch", epoch),
+		logger.FieldUint("epoch", epoch),
 	)
 
 	var prm internalclient.AnnounceLocalPrm

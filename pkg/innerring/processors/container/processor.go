@@ -12,7 +12,6 @@ import (
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 type (
@@ -88,7 +87,9 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: subnet client is not set")
 	}
 
-	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
+	p.Log.Debug("container worker pool",
+		logger.FieldInt("size", int64(p.PoolSize)),
+	)
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {

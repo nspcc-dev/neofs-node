@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 type (
@@ -65,7 +64,9 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/alphabet: global state is not set")
 	}
 
-	p.Log.Debug("alphabet worker pool", zap.Int("size", p.PoolSize))
+	p.Log.Debug("alphabet worker pool",
+		logger.FieldInt("size", int64(p.PoolSize)),
+	)
 
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {

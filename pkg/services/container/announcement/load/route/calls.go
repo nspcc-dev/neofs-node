@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
-	"go.uber.org/zap"
 )
 
 type routeContext struct {
@@ -122,7 +122,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer provider",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				continue // best effort
@@ -131,7 +131,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 			remoteWriter, err = provider.InitWriter(w.ctx)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				continue // best effort
@@ -143,7 +143,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 		err := remoteWriter.Put(a)
 		if err != nil {
 			w.router.log.Debug("could not put the value",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 
@@ -158,8 +158,8 @@ func (w *loadWriter) Close() error {
 		err := wRemote.Close()
 		if err != nil {
 			w.router.log.Debug("could not close remote server writer",
-				zap.String("key", key),
-				zap.String("error", err.Error()),
+				logger.FieldString("key", key),
+				logger.FieldError(err),
 			)
 		}
 	}

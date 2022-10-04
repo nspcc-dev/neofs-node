@@ -6,9 +6,9 @@ import (
 
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	"go.uber.org/zap"
 )
 
 func (cp *Processor) processSetEACL(e container.SetEACL) {
@@ -20,7 +20,7 @@ func (cp *Processor) processSetEACL(e container.SetEACL) {
 	err := cp.checkSetEACL(e)
 	if err != nil {
 		cp.log.Error("set EACL check failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -92,7 +92,7 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	}
 	if err != nil {
 		cp.log.Error("could not approve set EACL",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }

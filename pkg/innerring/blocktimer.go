@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type (
@@ -102,8 +101,8 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 			err := args.cnrWrapper.StopEstimation(prm)
 			if err != nil {
 				args.l.Warn("can't stop epoch estimation",
-					zap.Uint64("epoch", epochN),
-					zap.String("error", err.Error()))
+					logger.FieldUint("epoch", epochN),
+					logger.FieldError(err))
 			}
 		})
 

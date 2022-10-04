@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 type (
@@ -263,7 +263,9 @@ func (db *DB) selectFromFKBT(
 ) { //
 	matchFunc, ok := db.matchers[f.Operation()]
 	if !ok {
-		db.log.Debug("missing matcher", zap.Uint32("operation", uint32(f.Operation())))
+		db.log.Debug("missing matcher",
+			logger.FieldStringer("operation", f.Operation()),
+		)
 
 		return
 	}
@@ -286,7 +288,7 @@ func (db *DB) selectFromFKBT(
 		})
 	})
 	if err != nil {
-		db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
+		db.log.Debug("error in FKBT selection", logger.FieldError(err))
 	}
 }
 
@@ -356,13 +358,15 @@ func (db *DB) selectFromList(
 	case object.MatchStringEqual:
 		lst, err = decodeList(bkt.Get(bucketKeyHelper(f.Header(), f.Value())))
 		if err != nil {
-			db.log.Debug("can't decode list bucket leaf", zap.String("error", err.Error()))
+			db.log.Debug("can't decode list bucket leaf", logger.FieldError(err))
 			return
 		}
 	default:
 		fMatch, ok := db.matchers[op]
 		if !ok {
-			db.log.Debug("unknown operation", zap.Uint32("operation", uint32(op)))
+			db.log.Debug("unknown operation",
+				logger.FieldStringer("operation", op),
+			)
 
 			return
 		}
@@ -371,7 +375,7 @@ func (db *DB) selectFromList(
 			l, err := decodeList(val)
 			if err != nil {
 				db.log.Debug("can't decode list bucket leaf",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 
 				return err
@@ -382,7 +386,7 @@ func (db *DB) selectFromList(
 			return nil
 		}); err != nil {
 			db.log.Debug("can't iterate over the bucket",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 
 			return
@@ -426,7 +430,7 @@ func (db *DB) selectObjectID(
 		fMatch, ok := db.matchers[op]
 		if !ok {
 			db.log.Debug("unknown operation",
-				zap.Uint32("operation", uint32(f.Operation())),
+				logger.FieldStringer("operation", f.Operation()),
 			)
 
 			return
@@ -448,7 +452,7 @@ func (db *DB) selectObjectID(
 			})
 			if err != nil {
 				db.log.Debug("could not iterate over the buckets",
-					zap.String("error", err.Error()),
+					logger.FieldError(err),
 				)
 			}
 		}

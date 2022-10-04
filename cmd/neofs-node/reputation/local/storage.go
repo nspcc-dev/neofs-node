@@ -11,7 +11,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 type TrustStorage struct {
@@ -28,7 +27,7 @@ func (s *TrustStorage) InitIterator(ctx reputationcommon.Context) (trustcontroll
 	epoch := ctx.Epoch()
 
 	s.Log.Debug("initializing iterator over trusts",
-		zap.Uint64("epoch", epoch),
+		logger.FieldUint("epoch", epoch),
 	)
 
 	epochStorage, err := s.Storage.DataForEpoch(epoch)

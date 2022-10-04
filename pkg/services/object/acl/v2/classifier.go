@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"go.uber.org/zap"
 )
 
 type senderClassifier struct {
@@ -49,7 +48,7 @@ func (c senderClassifier) classify(
 	if err != nil {
 		// do not throw error, try best case matching
 		c.log.Debug("can't check if request from inner ring",
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	} else if isInnerRingNode {
 		return &classifyResult{
 			role: acl.RoleInnerRing,
@@ -66,7 +65,7 @@ func (c senderClassifier) classify(
 		// is not possible for previous epoch, so
 		// do not throw error, try best case matching
 		c.log.Debug("can't check if request from container node",
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	} else if isContainerNode {
 		return &classifyResult{
 			role: acl.RoleContainer,

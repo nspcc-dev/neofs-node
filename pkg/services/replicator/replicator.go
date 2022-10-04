@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Replicator represents the utility that replicates
@@ -39,8 +38,6 @@ func New(opts ...Option) *Replicator {
 	for i := range opts {
 		opts[i](c)
 	}
-
-	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Replicator"))}
 
 	return &Replicator{
 		cfg: c,

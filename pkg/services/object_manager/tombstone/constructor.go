@@ -5,7 +5,6 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 const defaultLRUCacheSize = 100
@@ -23,7 +22,7 @@ type Option func(*cfg)
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:       &logger.Logger{Logger: zap.NewNop()},
+		log:       logger.Nop(),
 		cacheSize: defaultLRUCacheSize,
 	}
 }

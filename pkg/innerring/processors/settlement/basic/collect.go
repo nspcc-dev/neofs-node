@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 var (
@@ -21,7 +21,8 @@ func (inc *IncomeSettlementContext) Collect() {
 	cachedRate, err := inc.rate.BasicRate()
 	if err != nil {
 		inc.log.Error("can't get basic income rate",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -29,8 +30,9 @@ func (inc *IncomeSettlementContext) Collect() {
 	cnrEstimations, err := inc.estimations.Estimations(inc.epoch)
 	if err != nil {
 		inc.log.Error("can't fetch container size estimations",
-			zap.Uint64("epoch", inc.epoch),
-			zap.String("error", err.Error()))
+			logger.FieldUint("epoch", inc.epoch),
+			logger.FieldError(err),
+		)
 
 		return
 	}
@@ -41,9 +43,10 @@ func (inc *IncomeSettlementContext) Collect() {
 		owner, err := inc.container.ContainerInfo(cnrEstimations[i].ContainerID)
 		if err != nil {
 			inc.log.Warn("can't fetch container info",
-				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
-				zap.String("error", err.Error()))
+				logger.FieldUint("epoch", inc.epoch),
+				logger.FieldStringer("container_id", cnrEstimations[i].ContainerID),
+				logger.FieldError(err),
+			)
 
 			continue
 		}
@@ -51,9 +54,10 @@ func (inc *IncomeSettlementContext) Collect() {
 		cnrNodes, err := inc.placement.ContainerNodes(inc.epoch, cnrEstimations[i].ContainerID)
 		if err != nil {
 			inc.log.Debug("can't fetch container info",
-				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
-				zap.String("error", err.Error()))
+				logger.FieldUint("epoch", inc.epoch),
+				logger.FieldStringer("container_id", cnrEstimations[i].ContainerID),
+				logger.FieldError(err),
+			)
 
 			continue
 		}

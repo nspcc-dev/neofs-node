@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // Open boltDB instance for metabase.
@@ -16,7 +16,7 @@ func (db *DB) Open(readOnly bool) error {
 		return fmt.Errorf("can't create dir %s for metabase: %w", db.info.Path, err)
 	}
 
-	db.log.Debug("created directory for Metabase", zap.String("path", db.info.Path))
+	db.log.Debug("created directory for Metabase", logger.FieldString("path", db.info.Path))
 
 	if db.boltOptions == nil {
 		opts := *bbolt.DefaultOptions

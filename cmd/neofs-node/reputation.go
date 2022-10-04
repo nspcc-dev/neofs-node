@@ -30,7 +30,6 @@ import (
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 func initReputationService(c *cfg) {
@@ -51,17 +50,17 @@ func initReputationService(c *cfg) {
 
 	// storing received daughter(of current node) trusts as a manager
 	daughterStorageWriterProvider := &intermediatereputation.DaughterStorageWriterProvider{
-		Log:     c.log,
+		Log:     &c.log,
 		Storage: daughterStorage,
 	}
 
 	consumerStorageWriterProvider := &intermediatereputation.ConsumerStorageWriterProvider{
-		Log:     c.log,
+		Log:     &c.log,
 		Storage: consumerStorage,
 	}
 
-	localTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "local"))}
-	intermediateTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "intermediate"))}
+	localTrustLogger := c.log.WithContext(logger.FieldString("trust_type", "local"))
+	intermediateTrustLogger := c.log.WithContext(logger.FieldString("trust_type", "intermediate"))
 
 	localTrustStorage := &localreputation.TrustStorage{
 		Log:      localTrustLogger,
@@ -74,7 +73,7 @@ func initReputationService(c *cfg) {
 		reputationcommon.ManagersPrm{
 			NetMapSource: nmSrc,
 		},
-		reputationcommon.WithLogger(c.log),
+		reputationcommon.WithLogger(&c.log),
 	)
 
 	localRouteBuilder := localroutes.New(
@@ -152,14 +151,14 @@ func initReputationService(c *cfg) {
 					PubKey:    localKey,
 					Client:    wrap,
 				},
-				intermediatereputation.FinalWriterWithLogger(c.log),
+				intermediatereputation.FinalWriterWithLogger(&c.log),
 			),
 			DaughterTrustSource: &intermediatereputation.DaughterTrustIteratorProvider{
 				DaughterStorage: daughterStorage,
 				ConsumerStorage: consumerStorage,
 			},
 		},
-		eigentrustcalc.WithLogger(c.log),
+		eigentrustcalc.WithLogger(&c.log),
 	)
 
 	eigenTrustController := eigentrustctrl.New(
@@ -170,7 +169,7 @@ func initReputationService(c *cfg) {
 			IterationsProvider: c.cfgNetmap.wrapper,
 			WorkerPool:         c.cfgReputation.workerPool,
 		},
-		eigentrustctrl.WithLogger(c.log),
+		eigentrustctrl.WithLogger(&c.log),
 	)
 
 	c.cfgReputation.localTrustCtrl = localtrustcontroller.New(
@@ -178,7 +177,7 @@ func initReputationService(c *cfg) {
 			LocalTrustSource: localTrustStorage,
 			LocalTrustTarget: localTrustRouter,
 		},
-		localtrustcontroller.WithLogger(c.log),
+		localtrustcontroller.WithLogger(&c.log),
 	)
 
 	addNewEpochAsyncNotificationHandler(
@@ -201,7 +200,7 @@ func initReputationService(c *cfg) {
 			reputationrpc.NewResponseService(
 				&reputationServer{
 					cfg:                c,
-					log:                c.log,
+					log:                &c.log,
 					localRouter:        localTrustRouter,
 					intermediateRouter: intermediateTrustRouter,
 					routeBuilder:       localRouteBuilder,
@@ -223,17 +222,17 @@ func initReputationService(c *cfg) {
 		func(e event.Event) {
 			epoch := e.(netmap.NewEpoch).EpochNumber()
 
-			log := c.log.With(zap.Uint64("epoch", epoch))
+			log := c.log.WithContext(logger.FieldUint("epoch", epoch))
 
 			duration, err := c.cfgNetmap.wrapper.EpochDuration()
 			if err != nil {
-				log.Debug("could not fetch epoch duration", zap.Error(err))
+				log.Debug("could not fetch epoch duration", logger.FieldError(err))
 				return
 			}
 
 			iterations, err := c.cfgNetmap.wrapper.EigenTrustIterations()
 			if err != nil {
-				log.Debug("could not fetch iteration number", zap.Error(err))
+				log.Debug("could not fetch iteration number", logger.FieldError(err))
 				return
 			}
 
@@ -245,7 +244,7 @@ func initReputationService(c *cfg) {
 				)
 			})
 			if err != nil {
-				log.Debug("could not create fixed epoch timer", zap.Error(err))
+				log.Debug("could not create fixed epoch timer", logger.FieldError(err))
 				return
 			}
 

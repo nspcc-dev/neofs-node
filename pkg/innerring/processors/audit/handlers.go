@@ -2,7 +2,7 @@ package audit
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (ap *Processor) handleNewAuditRound(ev event.Event) {
@@ -10,7 +10,9 @@ func (ap *Processor) handleNewAuditRound(ev event.Event) {
 
 	epoch := auditEvent.Epoch()
 
-	ap.log.Info("new round of audit", zap.Uint64("epoch", epoch))
+	ap.log.Info("new round of audit",
+		logger.FieldUint("epoch", epoch),
+	)
 
 	// send an event to the worker pool
 

@@ -16,8 +16,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	"go.uber.org/zap"
 )
 
 const (
@@ -46,7 +46,7 @@ func initMorphComponents(c *cfg) {
 
 	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
-		client.WithLogger(c.log),
+		client.WithLogger(&c.log),
 		client.WithEndpoints(addresses...),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
@@ -54,15 +54,15 @@ func initMorphComponents(c *cfg) {
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",
-			zap.Any("endpoints", addresses),
-			zap.String("error", err.Error()),
+			logger.FieldSlice("endpoints", addresses),
+			logger.FieldError(err),
 		)
 
 		fatalOnErr(err)
 	}
 
 	if err := cli.SetGroupSignerScope(); err != nil {
-		c.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+		c.log.Info("failed to set group signer scope, continue with Global", logger.FieldError(err))
 	}
 
 	c.cfgMorph.client = cli
@@ -80,7 +80,7 @@ func initMorphComponents(c *cfg) {
 	}
 
 	c.log.Debug("notary support",
-		zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
+		logger.FieldBool("sidechain_enabled", c.cfgMorph.notaryEnabled),
 	)
 
 	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0, nmClient.TryNotary())
@@ -94,7 +94,9 @@ func initMorphComponents(c *cfg) {
 		msPerBlock, err := c.cfgMorph.client.MsPerBlock()
 		fatalOnErr(err)
 		c.cfgMorph.cacheTTL = time.Duration(msPerBlock) * time.Millisecond
-		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", c.cfgMorph.cacheTTL))
+		c.log.Debug("morph.cache_ttl fetched from network",
+			logger.FieldDuration("value", c.cfgMorph.cacheTTL),
+		)
 	}
 
 	if c.cfgMorph.cacheTTL < 0 {
@@ -197,18 +199,18 @@ func listenMorphNotifications(c *cfg) {
 	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
 		fromSideChainBlock = 0
-		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+		c.log.Warn("can't get last processed side chain block number", logger.FieldError(err))
 	}
 
 	subs, err = subscriber.New(c.ctx, &subscriber.Params{
-		Log:            c.log,
+		Log:            &c.log,
 		StartFromBlock: fromSideChainBlock,
 		Client:         c.cfgMorph.client,
 	})
 	fatalOnErr(err)
 
 	lis, err := event.NewListener(event.ListenerParams{
-		Logger:             c.log,
+		Logger:             &c.log,
 		Subscriber:         subs,
 		WorkerPoolCapacity: listenerPoolCap,
 	})
@@ -224,7 +226,7 @@ func listenMorphNotifications(c *cfg) {
 		res, err := netmapEvent.ParseNewEpoch(src)
 		if err == nil {
 			c.log.Info("new epoch event from sidechain",
-				zap.Uint64("number", res.(netmapEvent.NewEpoch).EpochNumber()),
+				logger.FieldUint("number", res.(netmapEvent.NewEpoch).EpochNumber()),
 			)
 		}
 
@@ -234,13 +236,16 @@ func listenMorphNotifications(c *cfg) {
 	registerNotificationHandlers(c.cfgContainer.scriptHash, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 
 	registerBlockHandler(lis, func(block *block.Block) {
-		c.log.Debug("new block", zap.Uint32("index", block.Index))
+		c.log.Debug("new block",
+			logger.FieldUint("index", uint64(block.Index)),
+		)
 
 		err = c.persistate.SetUInt32(persistateSideChainLastBlockKey, block.Index)
 		if err != nil {
 			c.log.Warn("can't update persistent state",
-				zap.String("chain", "side"),
-				zap.Uint32("block_index", block.Index))
+				logger.FieldString("chain", "side"),
+				logger.FieldUint("block_index", uint64(block.Index)),
+			)
 		}
 
 		tickBlockTimers(c)

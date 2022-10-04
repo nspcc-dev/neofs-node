@@ -8,11 +8,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // tracks Policer's check progress.
@@ -70,8 +70,8 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 	cnr, err := p.cnrSrc.Get(idCnr)
 	if err != nil {
 		p.log.Error("could not get container",
-			zap.Stringer("cid", idCnr),
-			zap.String("error", err.Error()),
+			logger.FieldStringer("cid", idCnr),
+			logger.FieldError(err),
 		)
 		if container.IsErrNotFound(err) {
 			var prm engine.InhumePrm
@@ -81,9 +81,9 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
-					zap.Stringer("cid", idCnr),
-					zap.Stringer("oid", addr.Object()),
-					zap.String("error", err.Error()))
+					logger.FieldStringer("cid", idCnr),
+					logger.FieldStringer("oid", addr.Object()),
+					logger.FieldError(err))
 			}
 		}
 
@@ -96,8 +96,8 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, policy)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
-			zap.Stringer("cid", idCnr),
-			zap.String("error", err.Error()),
+			logger.FieldStringer("cid", idCnr),
+			logger.FieldError(err),
 		)
 
 		return
@@ -127,7 +127,7 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 
 	if !c.needLocalCopy {
 		p.log.Info("redundant local object copy detected",
-			zap.Stringer("object", addr),
+			logger.FieldStringer("object", addr),
 		)
 
 		p.cbRedundantCopy(addr)
@@ -152,7 +152,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 		shortage--
 
 		p.log.Debug("consider node under maintenance as OK",
-			zap.String("node", netmap.StringifyPublicKey(node)),
+			logger.FieldString("node", netmap.StringifyPublicKey(node)),
 		)
 	}
 
@@ -196,8 +196,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 				handleMaintenance(nodes[i])
 			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
-					zap.Stringer("object", addr),
-					zap.String("error", err.Error()),
+					logger.FieldStringer("object", addr),
+					logger.FieldError(err),
 				)
 			} else {
 				shortage--
@@ -211,8 +211,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 
 	if shortage > 0 {
 		p.log.Debug("shortage of object copies detected",
-			zap.Stringer("object", addr),
-			zap.Uint32("shortage", shortage),
+			logger.FieldStringer("object", addr),
+			logger.FieldUint("shortage", uint64(shortage)),
 		)
 
 		var task replicator.Task

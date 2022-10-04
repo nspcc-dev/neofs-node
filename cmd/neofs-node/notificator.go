@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 type notificationSource struct {
@@ -23,11 +22,11 @@ type notificationSource struct {
 }
 
 func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, addr oid.Address)) {
-	log := n.l.With(zap.Uint64("epoch", epoch))
+	log := n.l.WithContext(logger.FieldUint("epoch", epoch))
 
 	listRes, err := n.e.ListContainers(engine.ListContainersPrm{})
 	if err != nil {
-		log.Error("notificator: could not list containers", zap.Error(err))
+		log.Error("notificator: could not list containers", logger.FieldError(err))
 		return
 	}
 
@@ -43,8 +42,8 @@ func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, ad
 		selectRes, err := n.e.Select(selectPrm)
 		if err != nil {
 			log.Error("notificator: could not select objects from container",
-				zap.Stringer("cid", c),
-				zap.Error(err),
+				logger.FieldStringer("cid", c),
+				logger.FieldError(err),
 			)
 			continue
 		}
@@ -53,8 +52,8 @@ func (n *notificationSource) Iterate(epoch uint64, handler func(topic string, ad
 			err = n.processAddress(a, handler)
 			if err != nil {
 				log.Error("notificator: could not process object",
-					zap.Stringer("address", a),
-					zap.Error(err),
+					logger.FieldStringer("address", a),
+					logger.FieldError(err),
 				)
 				continue
 			}
@@ -100,9 +99,9 @@ type notificationWriter struct {
 func (n notificationWriter) Notify(topic string, address oid.Address) {
 	if err := n.w.Notify(topic, address); err != nil {
 		n.l.Warn("could not write object notification",
-			zap.Stringer("address", address),
-			zap.String("topic", topic),
-			zap.Error(err),
+			logger.FieldStringer("address", address),
+			logger.FieldString("topic", topic),
+			logger.FieldError(err),
 		)
 	}
 }
@@ -124,24 +123,24 @@ func initNotifications(c *cfg) {
 				nodeconfig.Notification(c.appCfg).KeyPath(),
 			),
 			nats.WithRootCA(nodeconfig.Notification(c.appCfg).CAPath()),
-			nats.WithLogger(c.log),
+			nats.WithLogger(&c.log),
 		)
 
 		c.cfgNotifications = cfgNotifications{
 			enabled: true,
 			nw: notificationWriter{
-				l: c.log,
+				l: &c.log,
 				w: natsSvc,
 			},
 			defaultTopic: topic,
 		}
 
 		n := notificator.New(new(notificator.Prm).
-			SetLogger(c.log).
+			SetLogger(&c.log).
 			SetNotificationSource(
 				&notificationSource{
 					e:            c.cfgObject.cfgLocalStorage.localStorage,
-					l:            c.log,
+					l:            &c.log,
 					defaultTopic: topic,
 				}).
 			SetWriter(c.cfgNotifications.nw),

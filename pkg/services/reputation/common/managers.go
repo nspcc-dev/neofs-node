@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
-	"go.uber.org/zap"
 )
 
 // managerBuilder is implementation of reputation ManagerBuilder interface.
@@ -77,8 +76,8 @@ func (x nodeServer) ExternalAddresses() []string {
 // takes the next node after the current one as the only manager.
 func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error) {
 	mb.log.Debug("start building managers",
-		zap.Uint64("epoch", epoch),
-		zap.Stringer("peer", p),
+		logger.FieldUint("epoch", epoch),
+		logger.FieldStringer("peer", p),
 	)
 
 	nm, err := mb.nmSrc.GetNetMapByEpoch(epoch)
@@ -118,7 +117,7 @@ type MngOption func(*mngOptions)
 
 func defaultMngOpts() *mngOptions {
 	return &mngOptions{
-		log: &logger.Logger{Logger: zap.L()},
+		log: logger.Nop(),
 	}
 }
 

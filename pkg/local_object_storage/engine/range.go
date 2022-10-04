@@ -5,10 +5,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // RngPrm groups the parameters of GetRange operation.
@@ -175,7 +175,7 @@ func (e *StorageEngine) getRange(prm RngPrm) (RngRes, error) {
 		if shardWithMeta.Shard != nil {
 			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
 				metaError,
-				zap.Stringer("address", prm.addr))
+				logger.FieldStringer("address", prm.addr))
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -18,7 +19,6 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 type message interface {
@@ -77,8 +77,8 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 	if len(rawBearer) != 0 {
 		if !basicACL.AllowedBearerRules(op) {
 			s.log.Debug("bearer presented but not allowed by ACL",
-				zap.String("cid", cid.EncodeToString()),
-				zap.String("op", op.String()),
+				logger.FieldString("cid", cid.EncodeToString()),
+				logger.FieldString("op", op.String()),
 			)
 		} else {
 			tableFromBearer = true

@@ -1,10 +1,10 @@
 package getsvc
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 func (exec *execCtx) assemble() {
@@ -65,7 +65,7 @@ func (exec *execCtx) assemble() {
 }
 
 func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID) {
-	log := exec.log.With(zap.Stringer("child ID", obj))
+	log := exec.log.WithContext(logger.FieldStringer("child ID", obj))
 
 	log.Debug("starting assembling from child")
 

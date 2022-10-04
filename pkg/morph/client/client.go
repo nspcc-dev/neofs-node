@@ -24,7 +24,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Client is a wrapper over web socket neo-go client
@@ -185,9 +184,10 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 	}
 
 	c.logger.Debug("neo client invoke",
-		zap.String("method", method),
-		zap.Uint32("vub", vub),
-		zap.Stringer("tx_hash", txHash.Reverse()))
+		logger.FieldString("method", method),
+		logger.FieldUint("vub", uint64(vub)),
+		logger.FieldStringer("tx_hash", txHash.Reverse()),
+	)
 
 	return nil
 }
@@ -229,9 +229,10 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 	}
 
 	c.logger.Debug("native gas transfer invoke",
-		zap.String("to", receiver.StringLE()),
-		zap.Stringer("tx_hash", txHash.Reverse()),
-		zap.Uint32("vub", vub))
+		logger.FieldString("to", receiver.StringLE()),
+		logger.FieldStringer("tx_hash", txHash.Reverse()),
+		logger.FieldUint("vub", uint64(vub)),
+	)
 
 	return nil
 }
@@ -256,7 +257,8 @@ func (c *Client) Wait(ctx context.Context, n uint32) error {
 	height, err = c.rpcActor.GetBlockCount()
 	if err != nil {
 		c.logger.Error("can't get blockchain height",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 		return nil
 	}
 
@@ -270,7 +272,8 @@ func (c *Client) Wait(ctx context.Context, n uint32) error {
 		newHeight, err = c.rpcActor.GetBlockCount()
 		if err != nil {
 			c.logger.Error("can't get blockchain height",
-				zap.String("error", err.Error()))
+				logger.FieldError(err),
+			)
 			return nil
 		}
 

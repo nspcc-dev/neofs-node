@@ -11,7 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 const (
@@ -27,21 +27,24 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	mainnetAlphabet, err := gp.mainnetClient.NeoFSAlphabetList()
 	if err != nil {
 		gp.log.Error("can't fetch alphabet list from main net",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 		return
 	}
 
 	sidechainAlphabet, err := gp.morphClient.Committee()
 	if err != nil {
 		gp.log.Error("can't fetch alphabet list from side chain",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 		return
 	}
 
 	newAlphabet, err := newAlphabetList(sidechainAlphabet, mainnetAlphabet)
 	if err != nil {
 		gp.log.Error("can't merge alphabet lists from main net and side chain",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 		return
 	}
 
@@ -51,8 +54,8 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	gp.log.Info("alphabet list has been changed, starting update",
-		zap.String("side_chain_alphabet", prettyKeys(sidechainAlphabet)),
-		zap.String("new_alphabet", prettyKeys(newAlphabet)),
+		logger.FieldString("side_chain_alphabet", prettyKeys(sidechainAlphabet)),
+		logger.FieldString("new_alphabet", prettyKeys(newAlphabet)),
 	)
 
 	votePrm := VoteValidatorPrm{
@@ -64,25 +67,28 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	err = gp.voter.VoteForSidechainValidator(votePrm)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 	}
 
 	// 2. Update NeoFSAlphabet role in the sidechain.
 	innerRing, err := gp.irFetcher.InnerRingKeys()
 	if err != nil {
 		gp.log.Error("can't fetch inner ring list from side chain",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
 	} else {
 		newInnerRing, err := updateInnerRing(innerRing, sidechainAlphabet, newAlphabet)
 		if err != nil {
 			gp.log.Error("can't create new inner ring list with new alphabet keys",
-				zap.String("error", err.Error()))
+				logger.FieldError(err),
+			)
 		} else {
 			sort.Sort(newInnerRing)
 
 			gp.log.Info("update of the inner ring list",
-				zap.String("before", prettyKeys(innerRing)),
-				zap.String("after", prettyKeys(newInnerRing)),
+				logger.FieldString("before", prettyKeys(innerRing)),
+				logger.FieldString("after", prettyKeys(newInnerRing)),
 			)
 
 			if gp.notaryDisabled {
@@ -103,7 +109,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",
-					zap.String("error", err.Error()))
+					logger.FieldError(err))
 			}
 		}
 	}
@@ -119,7 +125,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		err = gp.morphClient.UpdateNotaryList(updPrm)
 		if err != nil {
 			gp.log.Error("can't update list of notary nodes in side chain",
-				zap.String("error", err.Error()))
+				logger.FieldError(err))
 		}
 	}
 
@@ -139,7 +145,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	err = gp.neofsClient.AlphabetUpdate(prm)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	}
 
 	gp.log.Info("finished alphabet list update")

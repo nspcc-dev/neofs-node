@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 type cfg struct {
@@ -32,7 +31,7 @@ const (
 
 func initConfig(c *cfg) {
 	*c = cfg{
-		log:             &logger.Logger{Logger: zap.L()},
+		log:             logger.Nop(),
 		perm:            defaultPerm,
 		openedCacheSize: defaultOpenedCacheSize,
 		blzShallowDepth: defaultBlzShallowDepth,

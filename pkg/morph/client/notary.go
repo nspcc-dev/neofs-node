@@ -18,8 +18,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	"go.uber.org/zap"
 )
 
 type (
@@ -179,10 +179,11 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 	}
 
 	c.logger.Debug("notary deposit invoke",
-		zap.Int64("amount", int64(amount)),
-		zap.Int64("expire_at", till),
-		zap.Uint32("vub", vub),
-		zap.Stringer("tx_hash", txHash.Reverse()))
+		logger.FieldInt("amount", int64(amount)),
+		logger.FieldInt("expire_at", till),
+		logger.FieldUint("vub", uint64(vub)),
+		logger.FieldStringer("tx_hash", txHash.Reverse()),
+	)
 
 	return txHash, nil
 }
@@ -402,8 +403,9 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	}
 
 	c.logger.Debug("notary request with prepared main TX invoked",
-		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
-		zap.Stringer("tx_hash", resp.Hash().Reverse()))
+		logger.FieldUint("fallback_valid_for", uint64(c.notary.fallbackTime)),
+		logger.FieldStringer("tx_hash", resp.Hash().Reverse()),
+	)
 
 	return nil
 }
@@ -520,10 +522,11 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	}
 
 	c.logger.Debug("notary request invoked",
-		zap.String("method", method),
-		zap.Uint32("valid_until_block", until),
-		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
-		zap.Stringer("tx_hash", resp.Hash().Reverse()))
+		logger.FieldString("method", method),
+		logger.FieldUint("valid_until_block", uint64(until)),
+		logger.FieldUint("fallback_valid_for", uint64(c.notary.fallbackTime)),
+		logger.FieldStringer("tx_hash", resp.Hash().Reverse()),
+	)
 
 	return nil
 }

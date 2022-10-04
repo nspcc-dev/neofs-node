@@ -8,10 +8,10 @@ import (
 	"github.com/nspcc-dev/hrw"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 )
 
 var errShardNotFound = errors.New("shard not found")
@@ -146,7 +146,7 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		}
 
 		e.log.Info("shard has been removed",
-			zap.String("id", id))
+			logger.FieldString("id", id))
 	}
 	e.mtx.Unlock()
 
@@ -154,8 +154,8 @@ func (e *StorageEngine) removeShards(ids ...string) {
 		err := sh.Close()
 		if err != nil {
 			e.log.Error("could not close removed shard",
-				zap.Stringer("id", sh.ID()),
-				zap.Error(err),
+				logger.FieldStringer("id", sh.ID()),
+				logger.FieldError(err),
 			)
 		}
 	}

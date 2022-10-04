@@ -7,12 +7,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (np *Processor) HandleNewEpochTick(ev event.Event) {
 	_ = ev.(timerEvent.NewEpochTick)
-	np.log.Info("tick", zap.String("type", "epoch"))
+	np.log.Info("tick", logger.FieldString("type", "epoch"))
 
 	// send an event to the worker pool
 
@@ -20,15 +20,16 @@ func (np *Processor) HandleNewEpochTick(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }
 
 func (np *Processor) handleNewEpoch(ev event.Event) {
 	epochEvent := ev.(netmapEvent.NewEpoch)
 	np.log.Info("notification",
-		zap.String("type", "new epoch"),
-		zap.Uint64("value", epochEvent.EpochNumber()))
+		logger.FieldString("type", "new epoch"),
+		logger.FieldUint("value", epochEvent.EpochNumber()))
 
 	// send an event to the worker pool
 
@@ -38,7 +39,8 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }
 
@@ -46,7 +48,7 @@ func (np *Processor) handleAddPeer(ev event.Event) {
 	newPeer := ev.(netmapEvent.AddPeer)
 
 	np.log.Info("notification",
-		zap.String("type", "add peer"),
+		logger.FieldString("type", "add peer"),
 	)
 
 	// send an event to the worker pool
@@ -57,15 +59,16 @@ func (np *Processor) handleAddPeer(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }
 
 func (np *Processor) handleUpdateState(ev event.Event) {
 	updPeer := ev.(netmapEvent.UpdatePeer)
 	np.log.Info("notification",
-		zap.String("type", "update peer state"),
-		zap.String("key", hex.EncodeToString(updPeer.PublicKey().Bytes())))
+		logger.FieldString("type", "update peer state"),
+		logger.FieldString("key", hex.EncodeToString(updPeer.PublicKey().Bytes())))
 
 	// send event to the worker pool
 
@@ -75,7 +78,8 @@ func (np *Processor) handleUpdateState(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }
 
@@ -88,7 +92,7 @@ func (np *Processor) handleCleanupTick(ev event.Event) {
 
 	cleanup := ev.(netmapCleanupTick)
 
-	np.log.Info("tick", zap.String("type", "netmap cleaner"))
+	np.log.Info("tick", logger.FieldString("type", "netmap cleaner"))
 
 	// send event to the worker pool
 	err := np.pool.Submit(func() {
@@ -97,7 +101,8 @@ func (np *Processor) handleCleanupTick(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }
 
@@ -105,9 +110,9 @@ func (np *Processor) handleRemoveNode(ev event.Event) {
 	removeNode := ev.(subnetevents.RemoveNode)
 
 	np.log.Info("notification",
-		zap.String("type", "remove node from subnet"),
-		zap.String("subnetID", hex.EncodeToString(removeNode.SubnetworkID())),
-		zap.String("key", hex.EncodeToString(removeNode.Node())),
+		logger.FieldString("type", "remove node from subnet"),
+		logger.FieldString("subnetID", hex.EncodeToString(removeNode.SubnetworkID())),
+		logger.FieldString("key", hex.EncodeToString(removeNode.Node())),
 	)
 
 	err := np.pool.Submit(func() {
@@ -116,6 +121,7 @@ func (np *Processor) handleRemoveNode(ev event.Event) {
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
+			logger.FieldInt("capacity", int64(np.pool.Cap())),
+		)
 	}
 }

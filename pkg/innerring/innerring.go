@@ -53,7 +53,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -205,7 +204,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	}
 
 	// tick initial epoch
@@ -233,14 +232,15 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 
 	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
 		s.log.Debug("new block",
-			zap.Uint32("index", b.Index),
+			logger.FieldUint("index", uint64(b.Index)),
 		)
 
 		err = s.persistate.SetUInt32(persistateSideChainLastBlockKey, b.Index)
 		if err != nil {
 			s.log.Warn("can't update persistent state",
-				zap.String("chain", "side"),
-				zap.Uint32("block_index", b.Index))
+				logger.FieldString("chain", "side"),
+				logger.FieldUint("block_index", uint64(b.Index)),
+			)
 		}
 
 		s.tickTimers(b.Index)
@@ -251,8 +251,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			err = s.persistate.SetUInt32(persistateMainChainLastBlockKey, b.Index)
 			if err != nil {
 				s.log.Warn("can't update persistent state",
-					zap.String("chain", "main"),
-					zap.Uint32("block_index", b.Index))
+					logger.FieldString("chain", "main"),
+					logger.FieldUint("block_index", uint64(b.Index)),
+				)
 			}
 		})
 	}
@@ -291,7 +292,7 @@ func (s *Server) Stop() {
 	for _, c := range s.closers {
 		if err := c(); err != nil {
 			s.log.Warn("closer error",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 	}
@@ -346,7 +347,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	fromSideChainBlock, err := server.persistate.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
 		fromSideChainBlock = 0
-		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+		log.Warn("can't get last processed side chain block number", logger.FieldError(err))
 	}
 
 	morphChain := &chainParams{
@@ -369,7 +370,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 	if err := server.morphClient.SetGroupSignerScope(); err != nil {
-		morphChain.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+		morphChain.log.Info("failed to set group signer scope, continue with Global", logger.FieldError(err))
 	}
 
 	server.withoutMainNet = cfg.GetBool("without_mainnet")
@@ -388,7 +389,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
 			fromMainChainBlock = 0
-			log.Warn("can't get last processed main chain block number", zap.String("error", err.Error()))
+			log.Warn("can't get last processed main chain block number", logger.FieldError(err))
 		}
 		mainnetChain.from = fromMainChainBlock
 
@@ -412,8 +413,8 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	)
 
 	log.Debug("notary support",
-		zap.Bool("sidechain_enabled", !server.sideNotaryConfig.disabled),
-		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
+		logger.FieldBool("sidechain_enabled", !server.sideNotaryConfig.disabled),
+		logger.FieldBool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
 
 	// get all script hashes of contracts
@@ -957,7 +958,7 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	}
 
 	listener, err := event.NewListener(event.ListenerParams{
-		Logger:             &logger.Logger{Logger: p.log.With(zap.String("chain", p.name))},
+		Logger:             p.log.WithContext(logger.FieldString("chain", p.name)),
 		Subscriber:         sub,
 		WorkerPoolCapacity: listenerPoolCap,
 	})
@@ -1063,11 +1064,11 @@ func (s *Server) initConfigFromBlockchain() error {
 	}
 
 	s.log.Debug("read config from blockchain",
-		zap.Bool("active", s.IsActive()),
-		zap.Bool("alphabet", s.IsAlphabet()),
-		zap.Uint64("epoch", epoch),
-		zap.Uint32("precision", balancePrecision),
-		zap.Uint32("init_epoch_tick_delta", s.initialEpochTickDelta),
+		logger.FieldBool("active", s.IsActive()),
+		logger.FieldBool("alphabet", s.IsAlphabet()),
+		logger.FieldUint("epoch", epoch),
+		logger.FieldUint("precision", uint64(balancePrecision)),
+		logger.FieldUint("init_epoch_tick_delta", uint64(s.initialEpochTickDelta)),
 	)
 
 	return nil

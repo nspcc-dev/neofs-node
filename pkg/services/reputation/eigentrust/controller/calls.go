@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // ContinuePrm groups the required parameters of Continue operation.
@@ -47,7 +47,7 @@ func (c *Controller) Continue(prm ContinuePrm) {
 			iterations, err := c.prm.IterationsProvider.EigenTrustIterations()
 			if err != nil {
 				c.opts.log.Error("could not get EigenTrust iteration number",
-					zap.Error(err),
+					logger.FieldError(err),
 				)
 			} else {
 				iterCtx.iterationNumber = uint32(iterations)
@@ -66,7 +66,7 @@ func (c *Controller) Continue(prm ContinuePrm) {
 		})
 		if err != nil {
 			c.opts.log.Debug("iteration submit failure",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 

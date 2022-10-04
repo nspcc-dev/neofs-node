@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger/test"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -23,8 +24,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 )
 
 type epochState struct{}
@@ -48,11 +47,11 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 
 	if bsOpts == nil {
 		bsOpts = []blobstor.Option{
-			blobstor.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			blobstor.WithLogger(test.NewLogger(false)),
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
 					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+						blobovniczatree.WithLogger(test.NewLogger(false)),
 						blobovniczatree.WithRootPath(filepath.Join(rootPath, "blob", "blobovnicza")),
 						blobovniczatree.WithBlobovniczaShallowDepth(1),
 						blobovniczatree.WithBlobovniczaShallowWidth(1)),
@@ -69,7 +68,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 	}
 
 	opts := []shard.Option{
-		shard.WithLogger(&logger.Logger{Logger: zap.L()}),
+		shard.WithLogger(logger.Nop()),
 		shard.WithBlobStorOptions(bsOpts...),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),

@@ -6,7 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Put saves object in the maximum weight blobobnicza.
@@ -35,7 +35,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 		active, err := b.getActivated(p)
 		if err != nil {
 			b.log.Debug("could not get active blobovnicza",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 
 			return false, nil
@@ -45,13 +45,13 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 			// check if blobovnicza is full
 			if errors.Is(err, blobovnicza.ErrFull) {
 				b.log.Debug("blobovnicza overflowed",
-					zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
+					logger.FieldString("path", filepath.Join(p, u64ToHexString(active.ind))),
 				)
 
 				if err := b.updateActive(p, &active.ind); err != nil {
 					b.log.Debug("could not update active blobovnicza",
-						zap.String("level", p),
-						zap.String("error", err.Error()),
+						logger.FieldString("level", p),
+						logger.FieldError(err),
 					)
 
 					return false, nil
@@ -62,8 +62,8 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 
 			allFull = false
 			b.log.Debug("could not put object to active blobovnicza",
-				zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
-				zap.String("error", err.Error()),
+				logger.FieldString("path", filepath.Join(p, u64ToHexString(active.ind))),
+				logger.FieldError(err),
 			)
 
 			return false, nil

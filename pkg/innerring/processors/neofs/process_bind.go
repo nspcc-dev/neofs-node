@@ -8,8 +8,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 type bindCommon interface {
@@ -33,8 +33,8 @@ func (np *Processor) processBind(e bindCommon) {
 	err := np.checkBindCommon(c)
 	if err != nil {
 		np.log.Error("invalid manage key event",
-			zap.Bool("bind", c.bind),
-			zap.String("error", err.Error()),
+			logger.FieldBool("bind", c.bind),
+			logger.FieldError(err),
 		)
 
 		return
@@ -78,7 +78,7 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 	u160, err := util.Uint160DecodeBytesBE(scriptHash)
 	if err != nil {
 		np.log.Error("could not decode script hash from bytes",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -103,6 +103,6 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 
 	if err != nil {
 		np.log.Error(fmt.Sprintf("could not approve %s", typ),
-			zap.String("error", err.Error()))
+			logger.FieldError(err))
 	}
 }

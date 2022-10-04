@@ -5,8 +5,8 @@ import (
 
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 )
 
 func initMetrics(c *cfg) {
@@ -38,7 +38,7 @@ func initMetrics(c *cfg) {
 		err := srv.Shutdown()
 		if err != nil {
 			c.log.Debug("could not shutdown metrics server",
-				zap.String("error", err.Error()),
+				logger.FieldError(err),
 			)
 		}
 

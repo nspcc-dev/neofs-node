@@ -4,10 +4,10 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -99,8 +99,9 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 		if err != nil {
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode) {
 				e.log.Warn("could not inhume object in shard",
-					zap.Stringer("shard_id", sh.ID()),
-					zap.String("error", err.Error()))
+					logger.FieldStringer("shard_id", sh.ID()),
+					logger.FieldError(err),
+				)
 			} else {
 				e.reportShardError(sh, "could not inhume object in shard", err)
 			}
@@ -142,8 +143,8 @@ func (e *StorageEngine) deleteChildren(addr oid.Address, force bool, splitID *ob
 		res, err := sh.Select(selectPrm)
 		if err != nil {
 			e.log.Warn("error during searching for object children",
-				zap.Stringer("addr", addr),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("addr", addr),
+				logger.FieldError(err))
 			return false
 		}
 
@@ -153,8 +154,8 @@ func (e *StorageEngine) deleteChildren(addr oid.Address, force bool, splitID *ob
 			_, err = sh.Inhume(inhumePrm)
 			if err != nil {
 				e.log.Debug("could not inhume object in shard",
-					zap.Stringer("addr", addr),
-					zap.String("err", err.Error()))
+					logger.FieldStringer("addr", addr),
+					logger.FieldString("err", err.Error()))
 				continue
 			}
 		}

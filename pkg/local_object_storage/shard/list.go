@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Cursor is a type for continuous object listing.
@@ -80,8 +80,8 @@ func (s *Shard) List() (res SelectRes, err error) {
 		sRes, err := s.metaBase.Select(sPrm) // consider making List in metabase
 		if err != nil {
 			s.log.Debug("can't select all objects",
-				zap.Stringer("cid", lst[i]),
-				zap.String("error", err.Error()))
+				logger.FieldStringer("cid", lst[i]),
+				logger.FieldError(err))
 
 			continue
 		}

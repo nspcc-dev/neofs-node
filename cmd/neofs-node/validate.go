@@ -17,12 +17,9 @@ import (
 // validateConfig validates storage node configuration.
 func validateConfig(c *config.Config) error {
 	// logger configuration validation
-
-	var loggerPrm logger.Prm
-
-	err := loggerPrm.SetLevelString(loggerconfig.Level(c))
+	err := readConfigLogLevel(nil, c)
 	if err != nil {
-		return fmt.Errorf("invalid logger level: %w", err)
+		return fmt.Errorf("logger section: %w", err)
 	}
 
 	// shard configuration validation
@@ -100,5 +97,30 @@ func addPath(paths map[string]pathDescription, component string, shard int, path
 	}
 
 	paths[path] = pathDescription{shard: shard, component: component}
+	return nil
+}
+
+func readConfigLogLevel(dst *logger.Level, c *config.Config) error {
+	switch strLvl := loggerconfig.Level(c); strLvl {
+	default:
+		return fmt.Errorf("unsupported logging severity %s", strLvl)
+	case "debug":
+		if dst != nil {
+			*dst = logger.LevelDebug
+		}
+	case "info":
+		if dst != nil {
+			*dst = logger.LevelInfo
+		}
+	case "warn":
+		if dst != nil {
+			*dst = logger.LevelWarn
+		}
+	case "error":
+		if dst != nil {
+			*dst = logger.LevelError
+		}
+	}
+
 	return nil
 }

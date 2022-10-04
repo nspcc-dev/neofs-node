@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 // Open opens blobovnicza tree.
@@ -36,7 +36,7 @@ func (b *Blobovniczas) Init() error {
 			return true, fmt.Errorf("could not initialize blobovnicza structure %s: %w", p, err)
 		}
 
-		b.log.Debug("blobovnicza successfully initialized, closing...", zap.String("id", p))
+		b.log.Debug("blobovnicza successfully initialized, closing...", logger.FieldString("id", p))
 		return false, nil
 	})
 }
@@ -50,8 +50,8 @@ func (b *Blobovniczas) Close() error {
 	for p, v := range b.active {
 		if err := v.blz.Close(); err != nil {
 			b.log.Debug("could not close active blobovnicza",
-				zap.String("path", p),
-				zap.String("error", err.Error()),
+				logger.FieldString("path", p),
+				logger.FieldError(err),
 			)
 		}
 		b.opened.Remove(p)
@@ -61,8 +61,8 @@ func (b *Blobovniczas) Close() error {
 		blz := v.(*blobovnicza.Blobovnicza)
 		if err := blz.Close(); err != nil {
 			b.log.Debug("could not close active blobovnicza",
-				zap.String("path", k.(string)),
-				zap.String("error", err.Error()),
+				logger.FieldString("path", k.(string)),
+				logger.FieldError(err),
 			)
 		}
 		b.opened.Remove(k)

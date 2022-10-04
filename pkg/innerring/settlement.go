@@ -27,7 +27,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 const (
@@ -215,11 +214,11 @@ func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, det
 		panic("unknown settlement deps context")
 	}
 
-	log := s.log.With(
-		zap.Stringer("sender", sender),
-		zap.Stringer("recipient", recipient),
-		zap.Stringer("amount (GASe-12)", amount),
-		zap.String("details", hex.EncodeToString(details)),
+	log := s.log.WithContext(
+		logger.FieldStringer("sender", sender),
+		logger.FieldStringer("recipient", recipient),
+		logger.FieldStringer("amount (GASe-12)", amount),
+		logger.FieldString("details", hex.EncodeToString(details)),
 	)
 
 	if !amount.IsInt64() {
@@ -238,7 +237,7 @@ func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, det
 	err := s.balanceClient.TransferX(params)
 	if err != nil {
 		log.Error(fmt.Sprintf("%s: could not send transfer", s.settlementCtx),
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -263,8 +262,8 @@ func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient
 		estimation, err := b.cnrClient.GetUsedSpaceEstimations(estimationIDs[i])
 		if err != nil {
 			b.log.Warn("can't get used space estimation",
-				zap.String("estimation_id", hex.EncodeToString(estimationIDs[i])),
-				zap.String("error", err.Error()))
+				logger.FieldString("estimation_id", hex.EncodeToString(estimationIDs[i])),
+				logger.FieldError(err))
 
 			continue
 		}

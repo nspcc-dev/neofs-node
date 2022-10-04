@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 func (exec *execCtx) executeOnContainer() {
@@ -16,7 +16,7 @@ func (exec *execCtx) executeOnContainer() {
 	lookupDepth := exec.netmapLookupDepth()
 
 	exec.log.Debug("trying to execute in container...",
-		zap.Uint64("netmap lookup depth", lookupDepth),
+		logger.FieldUint("netmap lookup depth", lookupDepth),
 	)
 
 	// initialize epoch number
@@ -44,7 +44,7 @@ func (exec *execCtx) executeOnContainer() {
 
 func (exec *execCtx) processCurrentEpoch() bool {
 	exec.log.Debug("process epoch",
-		zap.Uint64("number", exec.curProcEpoch),
+		logger.FieldUint("number", exec.curProcEpoch),
 	)
 
 	traverser, ok := exec.generateTraverser(exec.address())
@@ -69,7 +69,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			select {
 			case <-ctx.Done():
 				exec.log.Debug("interrupt placement iteration by context",
-					zap.String("error", ctx.Err().Error()),
+					logger.FieldString("error", ctx.Err().Error()),
 				)
 
 				return true

@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"go.uber.org/zap"
 )
 
 // Service represents tree-service capable of working with multiple
@@ -40,7 +39,7 @@ func New(opts ...Option) *Service {
 	}
 
 	if s.log == nil {
-		s.log = &logger.Logger{Logger: zap.NewNop()}
+		s.log = logger.Nop()
 	}
 
 	s.cache.init()

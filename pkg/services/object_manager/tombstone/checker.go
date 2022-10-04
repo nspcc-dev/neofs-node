@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Source is a tombstone source interface.
@@ -47,7 +46,7 @@ type ExpirationChecker struct {
 // it is cached in the LRU cache.
 func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Address, epoch uint64) bool {
 	addrStr := a.EncodeToString()
-	log := g.log.With(zap.String("address", addrStr))
+	log := g.log.WithContext(logger.FieldString("address", addrStr))
 
 	expEpoch, ok := g.cache.Get(addrStr)
 	if ok {
@@ -58,7 +57,7 @@ func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Addr
 	if err != nil {
 		log.Warn(
 			"tombstone getter: could not get the tombstone the source",
-			zap.Error(err),
+			logger.FieldError(err),
 		)
 	} else {
 		if ts != nil {
@@ -78,7 +77,7 @@ func (g *ExpirationChecker) handleTS(addr string, ts *object.Object, reqEpoch ui
 			if err != nil {
 				g.log.Warn(
 					"tombstone getter: could not parse tombstone expiration epoch",
-					zap.Error(err),
+					logger.FieldError(err),
 				)
 
 				return false

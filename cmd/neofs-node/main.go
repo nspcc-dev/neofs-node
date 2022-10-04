@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 )
 
 const (
@@ -116,6 +116,8 @@ func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
 }
 
 func bootUp(c *cfg) {
+	c.applyConfig(true)
+
 	runAndLog(c, "NATS", true, connectNats)
 	runAndLog(c, "gRPC", false, serveGRPC)
 	runAndLog(c, "notary", true, makeAndWaitNotaryDeposit)
@@ -126,7 +128,7 @@ func bootUp(c *cfg) {
 
 func wait(c *cfg) {
 	c.log.Info("application started",
-		zap.String("version", misc.Version))
+		logger.FieldString("version", misc.Version))
 
 	select {
 	case <-c.ctx.Done(): // graceful shutdown
@@ -135,7 +137,7 @@ func wait(c *cfg) {
 		c.ctxCancel()
 
 		c.log.Warn("internal application error",
-			zap.String("message", err.Error()))
+			logger.FieldString("message", err.Error()))
 	}
 }
 

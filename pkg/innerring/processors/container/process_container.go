@@ -8,11 +8,11 @@ import (
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
-	"go.uber.org/zap"
 )
 
 // putEvent is a common interface of Put and PutNamed event.
@@ -46,7 +46,7 @@ func (cp *Processor) processContainerPut(put putEvent) {
 	err := cp.checkPutContainer(ctx)
 	if err != nil {
 		cp.log.Error("put container check failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -120,7 +120,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	}
 	if err != nil {
 		cp.log.Error("could not approve put container",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }
@@ -136,7 +136,7 @@ func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
 	err := cp.checkDeleteContainer(e)
 	if err != nil {
 		cp.log.Error("delete container check failed",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 
 		return
@@ -195,7 +195,7 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	}
 	if err != nil {
 		cp.log.Error("could not approve delete container",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 }

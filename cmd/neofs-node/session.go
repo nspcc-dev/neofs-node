@@ -29,7 +29,7 @@ type sessionStorage interface {
 func initSessionService(c *cfg) {
 	if persistentSessionPath := nodeconfig.PersistentSessions(c.appCfg).Path(); persistentSessionPath != "" {
 		persisessions, err := persistent.NewTokenStore(persistentSessionPath,
-			persistent.WithLogger(c.log),
+			persistent.WithLogger(&c.log),
 			persistent.WithTimeout(100*time.Millisecond),
 			persistent.WithEncryptionKey(&c.key.PrivateKey),
 		)

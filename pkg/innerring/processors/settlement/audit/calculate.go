@@ -14,7 +14,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 // CalculatePrm groups the required parameters of
@@ -53,9 +52,9 @@ var (
 // Calculate calculates payments for audit results in a specific epoch of the network.
 // Wraps the results in a money transfer transaction and sends it to the network.
 func (c *Calculator) Calculate(p *CalculatePrm) {
-	log := &logger.Logger{Logger: c.opts.log.With(
-		zap.Uint64("current epoch", p.Epoch),
-	)}
+	log := c.opts.log.WithContext(
+		logger.FieldUint("current epoch", p.Epoch),
+	)
 
 	if p.Epoch == 0 {
 		log.Info("settlements are ignored for zero epoch")
@@ -69,7 +68,10 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 
 	auditResults, err := c.prm.ResultStorage.AuditResultsForEpoch(prevEpoch)
 	if err != nil {
-		log.Error("could not collect audit results")
+		log.Error("could not collect audit results",
+			logger.FieldError(err),
+		)
+
 		return
 	} else if len(auditResults) == 0 {
 		log.Debug("no audit results in previous epoch")
@@ -79,12 +81,14 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 	auditFee, err := c.prm.AuditFeeFetcher.AuditFee()
 	if err != nil {
 		log.Warn("can't fetch audit fee from network config",
-			zap.String("error", err.Error()))
+			logger.FieldError(err),
+		)
+
 		auditFee = 0
 	}
 
 	log.Debug("processing audit results",
-		zap.Int("number", len(auditResults)),
+		logger.FieldInt("number", int64(len(auditResults))),
 	)
 
 	table := common.NewTransferTable()
@@ -104,10 +108,10 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 }
 
 func (c *Calculator) processResult(ctx *singleResultCtx) {
-	ctx.log = &logger.Logger{Logger: ctx.log.With(
-		zap.Stringer("cid", ctx.containerID()),
-		zap.Uint64("audit epoch", ctx.auditResult.Epoch()),
-	)}
+	ctx.log = ctx.log.WithContext(
+		logger.FieldStringer("cid", ctx.containerID()),
+		logger.FieldUint("audit epoch", ctx.auditResult.Epoch()),
+	)
 
 	ctx.log.Debug("reading information about the container")
 
@@ -154,7 +158,7 @@ func (c *Calculator) readContainerInfo(ctx *singleResultCtx) bool {
 	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(cnr)
 	if err != nil {
 		ctx.log.Error("could not get container info",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 
@@ -167,7 +171,7 @@ func (c *Calculator) buildPlacement(ctx *singleResultCtx) bool {
 	ctx.cnrNodes, err = c.prm.PlacementCalculator.ContainerNodes(ctx.auditEpoch(), ctx.containerID())
 	if err != nil {
 		ctx.log.Error("could not get container nodes",
-			zap.String("error", err.Error()),
+			logger.FieldError(err),
 		)
 	}
 
@@ -225,8 +229,8 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
 		if err != nil {
 			ctx.log.Error("could not get SG info",
-				zap.String("id", id.String()),
-				zap.String("error", err.Error()),
+				logger.FieldStringer("id", id),
+				logger.FieldError(err),
 			)
 
 			fail = true
@@ -261,8 +265,8 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		ownerID, err := c.prm.AccountStorage.ResolveKey(info)
 		if err != nil {
 			ctx.log.Error("could not resolve public key of the storage node",
-				zap.String("error", err.Error()),
-				zap.String("key", k),
+				logger.FieldError(err),
+				logger.FieldString("key", k),
 			)
 
 			return false // we also can continue and calculate at least some part
@@ -271,8 +275,8 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		price := info.Price()
 
 		ctx.log.Debug("calculating storage node salary for audit (GASe-12)",
-			zap.Stringer("sum SG size", ctx.sumSGSize),
-			zap.Stringer("price", price),
+			logger.FieldStringer("sum SG size", ctx.sumSGSize),
+			logger.FieldStringer("price", price),
 		)
 
 		fee := big.NewInt(0).Mul(price, ctx.sumSGSize)
@@ -293,8 +297,8 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	auditIR, err := ownerFromKey(ctx.auditResult.AuditorKey())
 	if err != nil {
 		ctx.log.Error("could not parse public key of the inner ring node",
-			zap.String("error", err.Error()),
-			zap.String("key", hex.EncodeToString(ctx.auditResult.AuditorKey())),
+			logger.FieldError(err),
+			logger.FieldString("key", hex.EncodeToString(ctx.auditResult.AuditorKey())),
 		)
 
 		return false

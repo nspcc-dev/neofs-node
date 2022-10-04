@@ -31,7 +31,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"go.uber.org/zap"
 )
 
 const (
@@ -90,13 +89,13 @@ func initContainerService(c *cfg) {
 				// unlike removal, we expect successful receive of the container
 				// after successful creation, so logging can be useful
 				c.log.Error("read newly created container after the notification",
-					zap.Stringer("id", ev.ID),
-					zap.Error(err),
+					logger.FieldStringer("id", ev.ID),
+					logger.FieldError(err),
 				)
 			}
 
 			c.log.Debug("container creation event's receipt",
-				zap.Stringer("id", ev.ID),
+				logger.FieldStringer("id", ev.ID),
 			)
 		})
 
@@ -115,7 +114,7 @@ func initContainerService(c *cfg) {
 			cachedContainerStorage.handleRemoval(ev.ID)
 
 			c.log.Debug("container removal event's receipt",
-				zap.Stringer("id", ev.ID),
+				logger.FieldStringer("id", ev.ID),
 			)
 		})
 
@@ -132,14 +131,14 @@ func initContainerService(c *cfg) {
 	}
 
 	localMetrics := &localStorageLoad{
-		log:    c.log,
+		log:    &c.log,
 		engine: c.cfgObject.cfgLocalStorage.localStorage,
 	}
 
 	pubKey := c.key.PublicKey().Bytes()
 
 	resultWriter := &morphLoadWriter{
-		log:            c.log,
+		log:            &c.log,
 		cnrMorphClient: wrapperNoNotary,
 		key:            pubKey,
 	}
@@ -147,7 +146,7 @@ func initContainerService(c *cfg) {
 	loadAccumulator := loadstorage.New(loadstorage.Prm{})
 
 	loadPlacementBuilder := &loadPlacementBuilder{
-		log:    c.log,
+		log:    &c.log,
 		nmSrc:  c.netMapSource,
 		cnrSrc: cnrSrc,
 	}
@@ -167,7 +166,7 @@ func initContainerService(c *cfg) {
 			},
 			Builder: routeBuilder,
 		},
-		loadroute.WithLogger(c.log),
+		loadroute.WithLogger(&c.log),
 	)
 
 	ctrl := loadcontroller.New(
@@ -177,7 +176,7 @@ func initContainerService(c *cfg) {
 			LocalAnnouncementTarget: loadRouter,
 			ResultReceiver:          loadcontroller.SimpleWriterProvider(resultWriter),
 		},
-		loadcontroller.WithLogger(c.log),
+		loadcontroller.WithLogger(&c.log),
 	)
 
 	setContainerNotificationParser(c, startEstimationNotifyEvent, containerEvent.ParseStartEstimation)
@@ -234,7 +233,7 @@ func addContainerAsyncNotificationHandler(c *cfg, sTyp string, h event.Handler) 
 		event.WorkerPoolHandler(
 			c.cfgContainer.workerPool,
 			h,
-			c.log,
+			&c.log,
 		),
 	)
 }
@@ -287,9 +286,9 @@ type morphLoadWriter struct {
 
 func (w *morphLoadWriter) Put(a containerSDK.SizeEstimation) error {
 	w.log.Debug("save used space announcement in contract",
-		zap.Uint64("epoch", a.Epoch()),
-		zap.Stringer("cid", a.Container()),
-		zap.Uint64("size", a.Value()),
+		logger.FieldUint("epoch", a.Epoch()),
+		logger.FieldStringer("cid", a.Container()),
+		logger.FieldUint("size", a.Value()),
 	)
 
 	prm := cntClient.AnnounceLoadPrm{}
@@ -453,16 +452,16 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 		sz, err := engine.ContainerSize(d.engine, idList[i])
 		if err != nil {
 			d.log.Debug("failed to calculate container size in storage engine",
-				zap.Stringer("cid", idList[i]),
-				zap.String("error", err.Error()),
+				logger.FieldStringer("cid", idList[i]),
+				logger.FieldError(err),
 			)
 
 			continue
 		}
 
 		d.log.Debug("container size in storage engine calculated successfully",
-			zap.Uint64("size", sz),
-			zap.Stringer("cid", idList[i]),
+			logger.FieldUint("size", sz),
+			logger.FieldStringer("cid", idList[i]),
 		)
 
 		var a containerSDK.SizeEstimation

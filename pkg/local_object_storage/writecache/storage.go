@@ -11,10 +11,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"go.uber.org/zap"
 )
 
 // store represents persistent storage with in-memory LRU cache
@@ -111,7 +111,7 @@ func (c *cache) deleteFromDB(keys []string) []string {
 		storagelog.Write(c.log, storagelog.AddressField(keys[i]), storagelog.OpField("db DELETE"))
 	}
 	if err != nil {
-		c.log.Error("can't remove objects from the database", zap.Error(err))
+		c.log.Error("can't remove objects from the database", logger.FieldError(err))
 	}
 
 	copy(keys, keys[errorIndex:])
@@ -128,13 +128,13 @@ func (c *cache) deleteFromDisk(keys []string) []string {
 
 	for i := range keys {
 		if err := addr.DecodeString(keys[i]); err != nil {
-			c.log.Error("can't parse address", zap.String("address", keys[i]))
+			c.log.Error("can't parse address", logger.FieldString("address", keys[i]))
 			continue
 		}
 
 		_, err := c.fsTree.Delete(common.DeletePrm{Address: addr})
 		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
-			c.log.Error("can't remove object from write-cache", zap.Error(err))
+			c.log.Error("can't remove object from write-cache", logger.FieldError(err))
 
 			// Save the key for the next iteration.
 			keys[copyIndex] = keys[i]

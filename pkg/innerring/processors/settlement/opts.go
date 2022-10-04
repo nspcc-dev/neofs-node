@@ -2,7 +2,6 @@ package settlement
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"go.uber.org/zap"
 )
 
 // Option is a Processor constructor's option.
@@ -19,7 +18,7 @@ func defaultOptions() *options {
 
 	return &options{
 		poolSize: poolSize,
-		log:      &logger.Logger{Logger: zap.L()},
+		log:      logger.Nop(),
 	}
 }
 
