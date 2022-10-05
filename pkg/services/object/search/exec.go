@@ -3,7 +3,6 @@ package searchsvc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -116,21 +115,6 @@ func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) 
 	case err == nil:
 		return t, true
 	}
-}
-
-func (exec execCtx) remoteClient(info client.NodeInfo) (searchClient, bool) {
-	c, err := exec.svc.clientConstructor.get(info)
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not construct remote node client")
-	case err == nil:
-		return c, true
-	}
-
-	return nil, false
 }
 
 func (exec *execCtx) writeIDList(ids []oid.ID) {

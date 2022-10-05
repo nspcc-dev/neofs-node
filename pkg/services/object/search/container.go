@@ -2,6 +2,8 @@ package searchsvc
 
 import (
 	"context"
+	"encoding/hex"
+	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"go.uber.org/zap"
@@ -65,24 +67,53 @@ func (exec *execCtx) processCurrentEpoch() bool {
 			break
 		}
 
+		var wg sync.WaitGroup
+		var mtx sync.Mutex
+
 		for i := range addrs {
-			select {
-			case <-ctx.Done():
-				exec.log.Debug("interrupt placement iteration by context",
-					zap.String("error", ctx.Err().Error()),
-				)
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				select {
+				case <-ctx.Done():
+					exec.log.Debug("interrupt placement iteration by context",
+						zap.String("error", ctx.Err().Error()))
+					return
+				default:
+				}
 
-				return true
-			default:
-			}
+				var info client.NodeInfo
 
-			// TODO: #1142 consider parallel execution
-			var info client.NodeInfo
+				client.NodeInfoFromNetmapElement(&info, addrs[i])
 
-			client.NodeInfoFromNetmapElement(&info, addrs[i])
+				exec.log.Debug("processing node...", zap.String("key", hex.EncodeToString(addrs[i].PublicKey())))
 
-			exec.processNode(ctx, info)
+				c, err := exec.svc.clientConstructor.get(info)
+				if err != nil {
+					mtx.Lock()
+					exec.status = statusUndefined
+					exec.err = err
+					mtx.Unlock()
+
+					exec.log.Debug("could not construct remote node client")
+					return
+				}
+
+				ids, err := c.searchObjects(exec, info)
+				if err != nil {
+					exec.log.Debug("remote operation failed",
+						zap.String("error", err.Error()))
+
+					return
+				}
+
+				mtx.Lock()
+				exec.writeIDList(ids)
+				mtx.Unlock()
+			}(i)
 		}
+
+		wg.Wait()
 	}
 
 	return false
