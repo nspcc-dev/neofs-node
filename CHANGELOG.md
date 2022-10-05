@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Validate policy before container creation (#1704)
 - `--timeout` flag in `neofs-cli` subcommands (#1837)
 - `container nodes` command to output list of nodes for container, grouped by replica (#1704)
+- Configuration flag to ignore shard in `neofs-node` (#1840)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
@@ -40,7 +41,7 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.32.0
+### Updating from v0.32.0 
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
 other nodes external address, use `apiclient.allow_external` config setting.
@@ -55,6 +56,10 @@ serve object operations. (*) can be fetched from network configuration via
 When issuing an object session token for root (virtual, "big") objects,
 additionally include all members of the split-chain. If session context
 includes root object only, it is not spread to physical ("small") objects.
+
+`neofs-node` configuration now supports `mode: disabled` flag for a shard.
+This can be used to temporarily ignore shards without completely removing them
+from the config file.
 
 ## [0.32.0] - 2022-09-14 - Pungdo (풍도, 楓島)
 

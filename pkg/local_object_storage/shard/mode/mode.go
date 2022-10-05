@@ -1,5 +1,7 @@
 package mode
 
+import "math"
+
 // Mode represents enumeration of Shard work modes.
 type Mode uint32
 
@@ -12,6 +14,11 @@ const (
 	// after a certain number of errors is encountered. It is the same as
 	// `mode.Degraded` but also is read-only.
 	DegradedReadOnly = Degraded | ReadOnly
+
+	// Disabled mode is a mode where a shard is disabled.
+	// An existing shard can't have this mode, but it can be used in
+	// the configuration or control service commands.
+	Disabled = math.MaxUint32
 )
 
 const (
@@ -36,6 +43,8 @@ func (m Mode) String() string {
 		return "DEGRADED_READ_WRITE"
 	case DegradedReadOnly:
 		return "DEGRADED_READ_ONLY"
+	case Disabled:
+		return "DISABLED"
 	}
 }
 
