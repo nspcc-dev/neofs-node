@@ -22,6 +22,8 @@ type Service struct {
 type Option func(*cfg)
 
 type searchClient interface {
+	// searchObjects searches objects on the specified node.
+	// MUST NOT modify execCtx as it can be accessed concurrently.
 	searchObjects(*execCtx, client.NodeInfo) ([]oid.ID, error)
 }
 
