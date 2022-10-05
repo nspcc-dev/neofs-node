@@ -43,6 +43,12 @@ func TestAll(t *testing.T, cons Constructor, min, max uint64) {
 	})
 }
 
+func TestInfo(t *testing.T, cons Constructor, expectedType string, expectedPath string) {
+	s := cons(t)
+	require.Equal(t, expectedType, s.Type())
+	require.Equal(t, expectedPath, s.Path())
+}
+
 func prepare(t *testing.T, count int, s common.Storage, min, max uint64) []objectDesc {
 	objects := make([]objectDesc, count)
 
