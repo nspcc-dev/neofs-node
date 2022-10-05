@@ -75,7 +75,7 @@ func New(opts ...Option) *Service {
 // WithLogger returns option to specify Get service's logger.
 func WithLogger(l *logger.Logger) Option {
 	return func(c *cfg) {
-		c.log = l.With(zap.String("component", "Object.Get service"))
+		c.log = l.With(zap.String("component", "Object.Search service"))
 	}
 }
 

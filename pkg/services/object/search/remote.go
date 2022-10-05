@@ -18,7 +18,7 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) {
 	ids, err := client.searchObjects(exec, info)
 
 	if err != nil {
-		exec.log.Debug("local operation failed",
+		exec.log.Debug("remote operation failed",
 			zap.String("error", err.Error()),
 		)
 
