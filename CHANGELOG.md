@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - `flush-cache` control service command to flush write-cache (#1806)
 - `wallet-address` flag in `neofs-adm morph refill-gas` command (#1820)
 - Validate policy before container creation (#1704)
+- `--timeout` flag in `neofs-cli` subcommands (#1837)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)

@@ -1,6 +1,8 @@
 package commonflags
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,6 +30,11 @@ const (
 	RPCDefault   = ""
 	RPCUsage     = "remote node address (as 'multiaddr' or '<host>:<port>')"
 
+	Timeout          = "timeout"
+	TimeoutShorthand = "t"
+	TimeoutDefault   = 15 * time.Second
+	TimeoutUsage     = "timeout for an operation"
+
 	Verbose          = "verbose"
 	VerboseShorthand = "v"
 	VerboseUsage     = "verbose output"
@@ -41,11 +48,13 @@ const (
 // - WalletPath
 // - Account
 // - RPC
+// - Timeout
 func Init(cmd *cobra.Command) {
 	InitWithoutRPC(cmd)
 
 	ff := cmd.Flags()
 	ff.StringP(RPC, RPCShorthand, RPCDefault, RPCUsage)
+	ff.DurationP(Timeout, TimeoutShorthand, TimeoutDefault, TimeoutUsage)
 }
 
 // InitWithoutRPC is similar to Init but doesn't create the RPC flag.
@@ -65,4 +74,5 @@ func Bind(cmd *cobra.Command) {
 	_ = viper.BindPFlag(WalletPath, ff.Lookup(WalletPath))
 	_ = viper.BindPFlag(Account, ff.Lookup(Account))
 	_ = viper.BindPFlag(RPC, ff.Lookup(RPC))
+	_ = viper.BindPFlag(Timeout, ff.Lookup(Timeout))
 }

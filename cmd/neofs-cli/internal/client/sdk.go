@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/cobra"
@@ -48,6 +49,13 @@ func GetSDKClient(key *ecdsa.PrivateKey, addr network.Address) (*client.Client, 
 	prmInit.SetDefaultPrivateKey(*key)
 	prmInit.ResolveNeoFSFailures()
 	prmDial.SetServerURI(addr.URIAddr())
+	if timeout := viper.GetDuration(commonflags.Timeout); timeout > 0 {
+		// In CLI we can only set a timeout for the whole operation.
+		// By also setting stream timeout we ensure that no operation hands
+		// for too long.
+		prmDial.SetTimeout(timeout)
+		prmDial.SetStreamTimeout(timeout)
+	}
 
 	c.Init(prmInit)
 
