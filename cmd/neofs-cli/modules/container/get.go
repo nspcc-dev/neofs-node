@@ -2,6 +2,7 @@ package container
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
 	"os"
 
@@ -13,6 +14,14 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
+)
+
+const (
+	cidFlag      = "cid"
+	cidFlagUsage = "container ID"
+
+	fromFlag      = "from"
+	fromFlagUsage = "path to file with encoded container"
 )
 
 var (
@@ -27,28 +36,7 @@ var getContainerInfoCmd = &cobra.Command{
 	Short: "Get container field info",
 	Long:  `Get container field info`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cnr container.Container
-
-		if containerPathFrom != "" {
-			data, err := os.ReadFile(containerPathFrom)
-			common.ExitOnErr(cmd, "can't read file: %w", err)
-
-			err = cnr.Unmarshal(data)
-			common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
-		} else {
-			id := parseContainerID(cmd)
-			pk := key.GetOrGenerate(cmd)
-			cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
-
-			var prm internalclient.GetContainerPrm
-			prm.SetClient(cli)
-			prm.SetContainer(id)
-
-			res, err := internalclient.GetContainer(prm)
-			common.ExitOnErr(cmd, "rpc error: %w", err)
-
-			cnr = res.Container()
-		}
+		cnr, _ := getContainer(cmd)
 
 		prettyPrintContainer(cmd, cnr, containerJSON)
 
@@ -76,9 +64,9 @@ func initContainerInfoCmd() {
 
 	flags := getContainerInfoCmd.Flags()
 
-	flags.StringVar(&containerID, "cid", "", "container ID")
+	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
 	flags.StringVar(&containerPathTo, "to", "", "path to dump encoded container")
-	flags.StringVar(&containerPathFrom, "from", "", "path to file with encoded container")
+	flags.StringVar(&containerPathFrom, fromFlag, "", fromFlagUsage)
 	flags.BoolVar(&containerJSON, commonflags.JSON, false, "print or dump container in JSON format")
 }
 
@@ -156,4 +144,30 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	}
 
 	cmd.Println()
+}
+
+func getContainer(cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {
+	var cnr container.Container
+	var pk *ecdsa.PrivateKey
+	if containerPathFrom != "" {
+		data, err := os.ReadFile(containerPathFrom)
+		common.ExitOnErr(cmd, "can't read file: %w", err)
+
+		err = cnr.Unmarshal(data)
+		common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
+	} else {
+		id := parseContainerID(cmd)
+		pk = key.GetOrGenerate(cmd)
+		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
+		var prm internalclient.GetContainerPrm
+		prm.SetClient(cli)
+		prm.SetContainer(id)
+
+		res, err := internalclient.GetContainer(prm)
+		common.ExitOnErr(cmd, "rpc error: %w", err)
+
+		cnr = res.Container()
+	}
+	return cnr, pk
 }
