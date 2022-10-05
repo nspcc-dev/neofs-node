@@ -27,6 +27,7 @@ func init() {
 		getContainerInfoCmd,
 		getExtendedACLCmd,
 		setExtendedACLCmd,
+		containerNodesCmd,
 	}
 
 	Cmd.AddCommand(containerChildCommand...)
@@ -38,6 +39,7 @@ func init() {
 	initContainerInfoCmd()
 	initContainerGetEACLCmd()
 	initContainerSetEACLCmd()
+	initContainerNodesCmd()
 
 	for _, containerCommand := range containerChildCommand {
 		commonflags.InitAPI(containerCommand)

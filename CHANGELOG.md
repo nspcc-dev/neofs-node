@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - `wallet-address` flag in `neofs-adm morph refill-gas` command (#1820)
 - Validate policy before container creation (#1704)
 - `--timeout` flag in `neofs-cli` subcommands (#1837)
+- `container nodes` command to output list of nodes for container, grouped by replica (#1704)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
