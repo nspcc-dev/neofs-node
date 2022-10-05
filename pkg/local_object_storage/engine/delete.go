@@ -7,6 +7,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -88,7 +89,13 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 
 		_, err = sh.Inhume(shPrm)
 		if err != nil {
-			e.reportShardError(sh, "could not inhume object in shard", err)
+			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode) {
+				e.log.Warn("could not inhume object in shard",
+					zap.Stringer("shard_id", sh.ID()),
+					zap.String("error", err.Error()))
+			} else {
+				e.reportShardError(sh, "could not inhume object in shard", err)
+			}
 
 			locked.is = errors.As(err, &locked.err)
 

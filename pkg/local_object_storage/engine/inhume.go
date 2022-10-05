@@ -85,16 +85,15 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
 
-		switch e.inhumeAddr(prm.addrs[i], shPrm, true) {
-		case 2:
-			return InhumeRes{}, meta.ErrLockObjectRemoval
-		case 1:
-			return InhumeRes{}, apistatus.ObjectLocked{}
-		case 0:
-			switch e.inhumeAddr(prm.addrs[i], shPrm, false) {
-			case 1:
-				return InhumeRes{}, apistatus.ObjectLocked{}
-			case 0:
+		ok, err := e.inhumeAddr(prm.addrs[i], shPrm, true)
+		if err != nil {
+			return InhumeRes{}, err
+		}
+		if !ok {
+			ok, err := e.inhumeAddr(prm.addrs[i], shPrm, false)
+			if err != nil {
+				return InhumeRes{}, err
+			} else if !ok {
 				return InhumeRes{}, errInhumeFailure
 			}
 		}
@@ -103,15 +102,13 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 	return InhumeRes{}, nil
 }
 
-// Returns:
-//   - 0: fail
-//   - 1: object locked
-//   - 2: lock object removal
-//   - 3: ok
-func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (status uint8) {
+// Returns ok if object was inhumed during this invocation or before.
+func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (bool, error) {
 	root := false
 	var errLocked apistatus.ObjectLocked
 	var existPrm shard.ExistsPrm
+	var retErr error
+	var ok bool
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
@@ -128,7 +125,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			if err != nil {
 				if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 					// inhumed once - no need to be inhumed again
-					status = 3
+					ok = true
 					return true
 				}
 
@@ -148,10 +145,13 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 		if err != nil {
 			switch {
 			case errors.As(err, &errLocked):
-				status = 1
+				retErr = apistatus.ObjectLocked{}
 				return true
 			case errors.Is(err, shard.ErrLockObjectRemoval):
-				status = 2
+				retErr = meta.ErrLockObjectRemoval
+				return true
+			case errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode):
+				retErr = err
 				return true
 			}
 
@@ -159,12 +159,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 			return false
 		}
 
-		status = 3
-
+		ok = true
 		return true
 	})
 
-	return
+	return ok, retErr
 }
 
 func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []meta.TombstonedObject) {
