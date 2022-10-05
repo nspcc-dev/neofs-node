@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Storage nodes could enter the network with any state (#1796)
 - Missing check of new state value in `ControlService.SetNetmapStatus` (#1797)
 - Correlation of object session to request (#1420)
+- Do not increase error counter in `engine.Inhume` if shard is read-only (#1839)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
