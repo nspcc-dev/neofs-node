@@ -147,19 +147,18 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 
 	e := New()
 	for i := 0; i < num; i++ {
-		metaPath := filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))
-		currShards = append(currShards, metaPath)
-
-		_, err := e.AddShard(
+		id, err := e.AddShard(
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(newStorages(filepath.Join(addPath, strconv.Itoa(i)), errSmallSize))),
 			shard.WithMetaBaseOptions(
-				meta.WithPath(metaPath),
+				meta.WithPath(filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
 			),
 		)
 		require.NoError(t, err)
+
+		currShards = append(currShards, calculateShardID(e.shards[id.String()].DumpInfo()))
 	}
 
 	require.Equal(t, num, len(e.shards))
