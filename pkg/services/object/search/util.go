@@ -17,7 +17,7 @@ import (
 type uniqueIDWriter struct {
 	mtx sync.Mutex
 
-	written map[string]struct{}
+	written map[oid.ID]struct{}
 
 	writer IDListWriter
 }
@@ -44,7 +44,7 @@ type nmSrcWrapper struct {
 
 func newUniqueAddressWriter(w IDListWriter) IDListWriter {
 	return &uniqueIDWriter{
-		written: make(map[string]struct{}),
+		written: make(map[oid.ID]struct{}),
 		writer:  w,
 	}
 }
@@ -53,13 +53,9 @@ func (w *uniqueIDWriter) WriteIDs(list []oid.ID) error {
 	w.mtx.Lock()
 
 	for i := 0; i < len(list); i++ { // don't use range, slice mutates in body
-		s := list[i].EncodeToString()
-		// standard stringer is quite costly, it is better
-		// to facilitate the calculation of the key
-
-		if _, ok := w.written[s]; !ok {
+		if _, ok := w.written[list[i]]; !ok {
 			// mark address as processed
-			w.written[s] = struct{}{}
+			w.written[list[i]] = struct{}{}
 			continue
 		}
 
