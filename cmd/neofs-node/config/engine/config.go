@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
 const (
@@ -31,6 +32,7 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config) 
 	c = c.Sub("shard")
 	def := c.Sub("default")
 
+	alive := 0
 	i := uint64(0)
 	for ; ; i++ {
 		si := strconv.FormatUint(i, 10)
@@ -48,11 +50,16 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config) 
 		}
 		(*config.Config)(sc).SetDefault(def)
 
+		if sc.Mode() == mode.Disabled {
+			continue
+		}
+
 		if err := f(sc); err != nil {
 			return err
 		}
+		alive++
 	}
-	if i == 0 && required {
+	if alive == 0 && required {
 		return ErrNoShardConfigured
 	}
 	return nil
