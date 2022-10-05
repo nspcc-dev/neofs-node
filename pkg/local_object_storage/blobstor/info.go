@@ -1,13 +1,14 @@
 package blobstor
 
-import "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-
 // DumpInfo returns information about blob stor.
-func (b *BlobStor) DumpInfo() fstree.Info {
+func (b *BlobStor) DumpInfo() Info {
+	sub := make([]SubStorageInfo, len(b.storage))
 	for i := range b.storage {
-		if b.storage[i].Storage.Type() == "fstree" {
-			return b.storage[i].Storage.(*fstree.FSTree).Info
-		}
+		sub[i].Path = b.storage[i].Storage.Path()
+		sub[i].Type = b.storage[i].Storage.Type()
 	}
-	return fstree.Info{}
+
+	return Info{
+		SubStorages: sub,
+	}
 }

@@ -77,18 +77,21 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 
 	for i := range b1.Shards {
 		if b1.Shards[i].GetMetabasePath() != b2.Shards[i].GetMetabasePath() ||
-			b1.Shards[i].GetBlobstorPath() != b2.Shards[i].GetBlobstorPath() ||
 			b1.Shards[i].GetWritecachePath() != b2.Shards[i].GetWritecachePath() ||
 			b1.Shards[i].GetPiloramaPath() != b2.Shards[i].GetPiloramaPath() ||
 			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) {
 			return false
 		}
+
+		info1 := b1.Shards[i].GetBlobstor()
+		info2 := b2.Shards[i].GetBlobstor()
+		return compareBlobstorInfo(info1, info2)
 	}
 
 	for i := range b1.Shards {
 		for j := i + 1; j < len(b1.Shards); j++ {
 			if b1.Shards[i].GetMetabasePath() == b2.Shards[j].GetMetabasePath() ||
-				b1.Shards[i].GetBlobstorPath() == b2.Shards[j].GetBlobstorPath() ||
+				!compareBlobstorInfo(b1.Shards[i].Blobstor, b2.Shards[i].Blobstor) ||
 				b1.Shards[i].GetWritecachePath() == b2.Shards[j].GetWritecachePath() ||
 				bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[j].GetShard_ID()) {
 				return false
@@ -96,6 +99,18 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 		}
 	}
 
+	return true
+}
+func compareBlobstorInfo(a, b []*control.BlobstorInfo) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Type != b[i].Type ||
+			a[i].Path != b[i].Path {
+			return false
+		}
+	}
 	return true
 }
 

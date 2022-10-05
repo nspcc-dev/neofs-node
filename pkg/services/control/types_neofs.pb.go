@@ -144,7 +144,9 @@ func (x *Netmap) StableMarshal(buf []byte) []byte {
 func (x *ShardInfo) StableSize() (size int) {
 	size += proto.BytesSize(1, x.Shard_ID)
 	size += proto.StringSize(2, x.MetabasePath)
-	size += proto.StringSize(3, x.BlobstorPath)
+	for i := range x.Blobstor {
+		size += proto.NestedStructureSize(3, x.Blobstor[i])
+	}
 	size += proto.StringSize(4, x.WritecachePath)
 	size += proto.EnumSize(5, int32(x.Mode))
 	size += proto.UInt32Size(6, x.ErrorCount)
@@ -170,10 +172,42 @@ func (x *ShardInfo) StableMarshal(buf []byte) []byte {
 	var offset int
 	offset += proto.BytesMarshal(1, buf[offset:], x.Shard_ID)
 	offset += proto.StringMarshal(2, buf[offset:], x.MetabasePath)
-	offset += proto.StringMarshal(3, buf[offset:], x.BlobstorPath)
+	for i := range x.Blobstor {
+		offset += proto.NestedStructureMarshal(3, buf[offset:], x.Blobstor[i])
+	}
 	offset += proto.StringMarshal(4, buf[offset:], x.WritecachePath)
 	offset += proto.EnumMarshal(5, buf[offset:], int32(x.Mode))
 	offset += proto.UInt32Marshal(6, buf[offset:], x.ErrorCount)
 	offset += proto.StringMarshal(7, buf[offset:], x.PiloramaPath)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *BlobstorInfo) StableSize() (size int) {
+	size += proto.StringSize(1, x.Path)
+	size += proto.StringSize(2, x.Type)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *BlobstorInfo) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.Path)
+	offset += proto.StringMarshal(2, buf[offset:], x.Type)
 	return buf
 }
