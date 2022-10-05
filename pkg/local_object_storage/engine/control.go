@@ -3,6 +3,8 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -217,18 +219,18 @@ func (rCfg *ReConfiguration) SetShardPoolSize(shardPoolSize uint32) {
 	rCfg.shardPoolSize = shardPoolSize
 }
 
-// AddShard adds a shard for the reconfiguration. Path to a metabase is used as
-// an identifier of the shard in configuration.
-func (rCfg *ReConfiguration) AddShard(metaPath string, opts []shard.Option) {
+// AddShard adds a shard for the reconfiguration.
+// Shard identifier is calculated from paths used in blobstor.
+func (rCfg *ReConfiguration) AddShard(id string, opts []shard.Option) {
 	if rCfg.shards == nil {
 		rCfg.shards = make(map[string][]shard.Option)
 	}
 
-	if _, found := rCfg.shards[metaPath]; found {
+	if _, found := rCfg.shards[id]; found {
 		return
 	}
 
-	rCfg.shards[metaPath] = opts
+	rCfg.shards[id] = opts
 }
 
 // Reload reloads StorageEngine's configuration in runtime.
@@ -240,24 +242,26 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 
 	// mark removed shards for removal
 	for id, sh := range e.shards {
-		_, ok := rcfg.shards[sh.Shard.DumpInfo().MetaBaseInfo.Path]
+		_, ok := rcfg.shards[calculateShardID(sh.DumpInfo())]
 		if !ok {
 			shardsToRemove = append(shardsToRemove, id)
 		}
 	}
 
 	// mark new shards for addition
-	for newPath := range rcfg.shards {
+	for newID := range rcfg.shards {
 		addShard := true
 		for _, sh := range e.shards {
-			if newPath == sh.Shard.DumpInfo().MetaBaseInfo.Path {
+			// This calculation should be kept in sync with node
+			// configuration parsing during SIGHUP.
+			if newID == calculateShardID(sh.DumpInfo()) {
 				addShard = false
 				break
 			}
 		}
 
 		if addShard {
-			shardsToAdd = append(shardsToAdd, newPath)
+			shardsToAdd = append(shardsToAdd, newID)
 		}
 	}
 
@@ -265,10 +269,10 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 
 	e.removeShards(shardsToRemove...)
 
-	for _, newPath := range shardsToAdd {
-		sh, err := e.createShard(rcfg.shards[newPath])
+	for _, newID := range shardsToAdd {
+		sh, err := e.createShard(rcfg.shards[newID])
 		if err != nil {
-			return fmt.Errorf("could not add new shard with '%s' metabase path: %w", newPath, err)
+			return fmt.Errorf("could not add new shard with '%s' metabase path: %w", newID, err)
 		}
 
 		idStr := sh.ID().String()
@@ -292,4 +296,14 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 	}
 
 	return nil
+}
+
+func calculateShardID(info shard.Info) string {
+	// This calculation should be kept in sync with node
+	// configuration parsing during SIGHUP.
+	var sb strings.Builder
+	for _, sub := range info.BlobStorInfo.SubStorages {
+		sb.WriteString(filepath.Clean(sub.Path))
+	}
+	return sb.String()
 }

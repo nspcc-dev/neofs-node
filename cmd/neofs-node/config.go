@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"sync"
 	atomicstd "sync/atomic"
 	"syscall"
@@ -133,6 +135,18 @@ type shardCfg struct {
 		maxBatchSize  int
 		maxBatchDelay time.Duration
 	}
+}
+
+// id returns persistent id of a shard. It is different from the ID used in runtime
+// and is primarily used to identify shards in the configuration.
+func (c *shardCfg) id() string {
+	// This calculation should be kept in sync with
+	// pkg/local_object_storage/engine/control.go file.
+	var sb strings.Builder
+	for i := range c.subStorages {
+		sb.WriteString(filepath.Clean(c.subStorages[i].path))
+	}
+	return sb.String()
 }
 
 type subStorageCfg struct {
@@ -597,13 +611,13 @@ func (c *cfg) engineOpts() []engine.Option {
 	return opts
 }
 
-type shardOptsWithMetaPath struct {
-	metaPath string
+type shardOptsWithID struct {
+	configID string
 	shOpts   []shard.Option
 }
 
-func (c *cfg) shardOpts() []shardOptsWithMetaPath {
-	shards := make([]shardOptsWithMetaPath, 0, len(c.EngineCfg.shards))
+func (c *cfg) shardOpts() []shardOptsWithID {
+	shards := make([]shardOptsWithID, 0, len(c.EngineCfg.shards))
 
 	for _, shCfg := range c.EngineCfg.shards {
 		var writeCacheOpts []writecache.Option
@@ -666,8 +680,8 @@ func (c *cfg) shardOpts() []shardOptsWithMetaPath {
 			}
 		}
 
-		var sh shardOptsWithMetaPath
-		sh.metaPath = shCfg.metaCfg.path
+		var sh shardOptsWithID
+		sh.configID = shCfg.id()
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
 			shard.WithRefillMetabase(shCfg.refillMetabase),
@@ -834,8 +848,8 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			}
 
 			var rcfg engine.ReConfiguration
-			for _, optsWithMeta := range c.shardOpts() {
-				rcfg.AddShard(optsWithMeta.metaPath, optsWithMeta.shOpts)
+			for _, optsWithID := range c.shardOpts() {
+				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}
 
 			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
