@@ -10,6 +10,7 @@ type Storage interface {
 	Close() error
 
 	Type() string
+	Path() string
 	SetCompressor(cc *compression.Config)
 
 	Get(GetPrm) (GetRes, error)

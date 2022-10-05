@@ -237,6 +237,11 @@ func (b *Blobovniczas) Type() string {
 	return Type
 }
 
+// Path implements common.Storage.
+func (b *Blobovniczas) Path() string {
+	return b.rootPath
+}
+
 // SetCompressor implements common.Storage.
 func (b *Blobovniczas) SetCompressor(cc *compression.Config) {
 	b.compression = cc

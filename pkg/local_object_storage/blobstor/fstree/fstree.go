@@ -347,6 +347,11 @@ func (*FSTree) Type() string {
 	return Type
 }
 
+// Path implements common.Storage.
+func (t *FSTree) Path() string {
+	return t.RootPath
+}
+
 // SetCompressor implements common.Storage.
 func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
