@@ -97,11 +97,6 @@ func (x *ShardInfo) SetMetabasePath(v string) {
 	x.MetabasePath = v
 }
 
-// SetBlobstorPath sets path to shard's blobstor.
-func (x *ShardInfo) SetBlobstorPath(v string) {
-	x.BlobstorPath = v
-}
-
 // SetWriteCachePath sets path to shard's write-cache.
 func (x *ShardInfo) SetWriteCachePath(v string) {
 	x.WritecachePath = v

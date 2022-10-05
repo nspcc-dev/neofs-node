@@ -82,13 +82,14 @@ func TestShardOpen(t *testing.T) {
 func TestRefillMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()
 
+	fsTree := fstree.New(
+		fstree.WithDirNameLen(2),
+		fstree.WithPath(filepath.Join(dir, "blob")),
+		fstree.WithDepth(1))
 	blobOpts := []blobstor.Option{
 		blobstor.WithStorages([]blobstor.SubStorage{
 			{
-				Storage: fstree.New(
-					fstree.WithDirNameLen(2),
-					fstree.WithPath(filepath.Join(dir, "blob")),
-					fstree.WithDepth(1)),
+				Storage: fsTree,
 			},
 		}),
 	}
@@ -111,12 +112,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Close())
 
 	addr := object.AddressOf(obj)
-	fs := fstree.FSTree{
-		DirNameLen: 2,
-		Depth:      1,
-		Info:       sh.blobStor.DumpInfo(),
-	}
-	_, err = fs.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
+	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
 	require.NoError(t, err)
 
 	sh = New(

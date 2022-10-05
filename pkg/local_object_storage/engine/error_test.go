@@ -167,8 +167,8 @@ func TestBlobstorFailback(t *testing.T) {
 	checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	require.NoError(t, e.Close())
 
-	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.RootPath
-	p2 := e.shards[id[1].String()].Shard.DumpInfo().BlobStorInfo.RootPath
+	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.SubStorages[1].Path
+	p2 := e.shards[id[1].String()].Shard.DumpInfo().BlobStorInfo.SubStorages[1].Path
 	tmp := filepath.Join(dir, "tmp")
 	require.NoError(t, os.Rename(p1, tmp))
 	require.NoError(t, os.Rename(p2, p1))

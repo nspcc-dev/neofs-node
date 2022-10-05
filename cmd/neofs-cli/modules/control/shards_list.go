@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mr-tron/base58"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
@@ -65,7 +66,7 @@ func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) {
 			"shard_id":    base58.Encode(i.Shard_ID),
 			"mode":        shardModeToString(i.GetMode()),
 			"metabase":    i.GetMetabasePath(),
-			"blobstor":    i.GetBlobstorPath(),
+			"blobstor":    i.GetBlobstor(),
 			"writecache":  i.GetWritecachePath(),
 			"error_count": i.GetErrorCount(),
 		})
@@ -89,9 +90,16 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 			return fmt.Sprintf("%s: %s\n", name, path)
 		}
 
+		var sb strings.Builder
+		sb.WriteString("Blobstor:\n")
+		for j, info := range i.GetBlobstor() {
+			sb.WriteString(fmt.Sprintf("\tPath %d: %s\n\tType %d: %s\n",
+				j, info.GetPath(), j, info.GetType()))
+		}
+
 		cmd.Printf("Shard %s:\nMode: %s\n"+
 			pathPrinter("Metabase", i.GetMetabasePath())+
-			pathPrinter("Blobstor", i.GetBlobstorPath())+
+			sb.String()+
 			pathPrinter("Write-cache", i.GetWritecachePath())+
 			pathPrinter("Pilorama", i.GetPiloramaPath())+
 			fmt.Sprintf("Error count: %d\n", i.GetErrorCount()),

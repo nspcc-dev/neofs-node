@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -26,7 +25,16 @@ type BlobStor struct {
 	mode    mode.Mode
 }
 
-type Info = fstree.Info
+// Info contains information about blobstor.
+type Info struct {
+	SubStorages []SubStorageInfo
+}
+
+// SubStorageInfo contains information about blobstor storage component.
+type SubStorageInfo struct {
+	Type string
+	Path string
+}
 
 // Option represents BlobStor's constructor option.
 type Option func(*cfg)
