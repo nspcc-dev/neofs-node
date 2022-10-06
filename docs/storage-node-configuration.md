@@ -139,11 +139,11 @@ morph:
       priority: 2
  ```
 
-| Parameter      | Type                                                      | Default value | Description                                                                                                                                                         |
-|----------------|-----------------------------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout` | `duration`                                                | `5s`          | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
-| `cache_ttl`    | `duration`                                                | `30s`         | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
-| `rpc_endpoint` | list of [endpoint descriptions](#rpc_endpoint-subsection) |               | Array of endpoint descriptions.                                                                                                                                     |
+| Parameter      | Type                                                      | Default value    | Description                                                                                                                                                         |
+|----------------|-----------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout` | `duration`                                                | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `cache_ttl`    | `duration`                                                | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
+| `rpc_endpoint` | list of [endpoint descriptions](#rpc_endpoint-subsection) |                  | Array of endpoint descriptions.                                                                                                                                     |
 
 ## `rpc_endpoint` subsection
 | Parameter  | Type     | Default value | Description                                                                                                                                                                                                              |
