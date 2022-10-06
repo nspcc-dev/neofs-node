@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -89,7 +90,14 @@ func initMorphComponents(c *cfg) {
 
 	c.cfgMorph.cacheTTL = morphconfig.CacheTTL(c.appCfg)
 
-	if c.cfgMorph.cacheTTL <= 0 {
+	if c.cfgMorph.cacheTTL == 0 {
+		msPerBlock, err := c.cfgMorph.client.MsPerBlock()
+		fatalOnErr(err)
+		c.cfgMorph.cacheTTL = time.Duration(msPerBlock) * time.Millisecond
+		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", c.cfgMorph.cacheTTL))
+	}
+
+	if c.cfgMorph.cacheTTL < 0 {
 		netmapSource = wrap
 	} else {
 		// use RPC node as source of netmap (with caching)

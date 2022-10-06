@@ -28,7 +28,9 @@ const (
 	// PriorityDefault is a default endpoint priority for the morph client.
 	PriorityDefault = 1
 
-	CacheTTLDefault = 30 * time.Second
+	// CacheTTLDefault is a default value for cached values TTL.
+	// It is 0, because actual default depends on block time.
+	CacheTTLDefault = time.Duration(0)
 )
 
 // RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
