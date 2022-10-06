@@ -46,6 +46,10 @@ func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 		method += "IR"
 	}
 
+	if p.state == 0 {
+		p.state = netmap.NodeStateOffline
+	}
+
 	prm := client.InvokePrm{}
 	prm.SetMethod(method)
 	prm.SetArgs(int64(p.state), p.key)
