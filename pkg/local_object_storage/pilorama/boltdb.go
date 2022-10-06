@@ -154,6 +154,19 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 	})
 }
 
+// TreeExists implements the Forest interface.
+func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	var exists bool
+
+	err := t.db.View(func(tx *bbolt.Tx) error {
+		treeRoot := tx.Bucket(bucketName(cid, treeID))
+		exists = treeRoot != nil
+		return nil
+	})
+
+	return exists, err
+}
+
 // TreeAddByPath implements the Forest interface.
 func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error) {
 	if !d.checkValid() {

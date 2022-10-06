@@ -91,3 +91,11 @@ func (s *Shard) TreeList(cid cidSDK.ID) ([]string, error) {
 	}
 	return s.pilorama.TreeList(cid)
 }
+
+// TreeExists implements the pilorama.Forest interface.
+func (s *Shard) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	if s.pilorama == nil {
+		return false, ErrPiloramaDisabled
+	}
+	return s.pilorama.TreeExists(cid, treeID)
+}

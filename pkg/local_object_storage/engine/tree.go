@@ -13,62 +13,60 @@ var _ pilorama.Forest = (*StorageEngine)(nil)
 
 // TreeMove implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
-	var err error
-	var lm *pilorama.LogMove
-	for _, sh := range e.sortShardsByWeight(d.CID) {
-		lm, err = sh.TreeMove(d, treeID, m)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
-				return nil, err
-			}
-			e.reportShardError(sh, "can't perform `TreeMove`", err,
+	index, lst, err := e.getTreeShard(d.CID, treeID)
+	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
+		return nil, err
+	}
+
+	lm, err := lst[index].TreeMove(d, treeID, m)
+	if err != nil {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+			e.reportShardError(lst[index], "can't perform `TreeMove`", err,
 				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID))
-			continue
 		}
-		return lm, nil
+
+		return nil, err
 	}
-	return nil, err
+	return lm, nil
 }
 
 // TreeAddByPath implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr string, path []string, m []pilorama.KeyValue) ([]pilorama.LogMove, error) {
-	var err error
-	var lm []pilorama.LogMove
-	for _, sh := range e.sortShardsByWeight(d.CID) {
-		lm, err = sh.TreeAddByPath(d, treeID, attr, path, m)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
-				return nil, err
-			}
-			e.reportShardError(sh, "can't perform `TreeAddByPath`", err,
+	index, lst, err := e.getTreeShard(d.CID, treeID)
+	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
+		return nil, err
+	}
+
+	lm, err := lst[index].TreeAddByPath(d, treeID, attr, path, m)
+	if err != nil {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+			e.reportShardError(lst[index], "can't perform `TreeAddByPath`", err,
 				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID))
-			continue
 		}
-		return lm, nil
+		return nil, err
 	}
-	return nil, err
+	return lm, nil
 }
 
 // TreeApply implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) error {
-	var err error
-	for _, sh := range e.sortShardsByWeight(d.CID) {
-		err = sh.TreeApply(d, treeID, m)
-		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || err == shard.ErrPiloramaDisabled {
-				return err
-			}
-			e.reportShardError(sh, "can't perform `TreeApply`", err,
-				zap.Stringer("cid", d.CID),
-				zap.String("tree", treeID))
-			continue
-		}
-		return nil
+	index, lst, err := e.getTreeShard(d.CID, treeID)
+	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
+		return err
 	}
 
-	return err
+	err = lst[index].TreeApply(d, treeID, m)
+	if err != nil {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+			e.reportShardError(lst[index], "can't perform `TreeApply`", err,
+				zap.Stringer("cid", d.CID),
+				zap.String("tree", treeID))
+		}
+		return err
+	}
+	return nil
 }
 
 // TreeGetByPath implements the pilorama.Forest interface.
@@ -204,4 +202,28 @@ func (e *StorageEngine) TreeList(cid cidSDK.ID) ([]string, error) {
 	}
 
 	return resIDs, nil
+}
+
+// TreeExists implements the pilorama.Forest interface.
+func (e *StorageEngine) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	_, _, err := e.getTreeShard(cid, treeID)
+	if errors.Is(err, pilorama.ErrTreeNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (e *StorageEngine) getTreeShard(cid cidSDK.ID, treeID string) (int, []hashedShard, error) {
+	lst := e.sortShardsByWeight(cid)
+	for i, sh := range lst {
+		exists, err := sh.TreeExists(cid, treeID)
+		if err != nil {
+			return 0, nil, err
+		}
+		if exists {
+			return i, lst, err
+		}
+	}
+
+	return 0, lst, pilorama.ErrTreeNotFound
 }
