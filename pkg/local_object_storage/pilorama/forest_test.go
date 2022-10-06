@@ -478,6 +478,42 @@ func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest)
 	})
 }
 
+func TestForest_TreeExists(t *testing.T) {
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			testForestTreeExists(t, providers[i].construct)
+		})
+	}
+}
+
+func testForestTreeExists(t *testing.T, constructor func(t testing.TB) Forest) {
+	s := constructor(t)
+
+	checkExists := func(t *testing.T, expected bool, cid cidSDK.ID, treeID string) {
+		actual, err := s.TreeExists(cid, treeID)
+		require.NoError(t, err)
+		require.Equal(t, expected, actual)
+	}
+
+	cid := cidtest.ID()
+	treeID := "version"
+	d := CIDDescriptor{cid, 0, 1}
+
+	t.Run("empty state, no panic", func(t *testing.T) {
+		checkExists(t, false, cid, treeID)
+	})
+
+	require.NoError(t, s.TreeApply(d, treeID, &Move{Parent: 0, Child: 1}))
+	checkExists(t, true, cid, treeID)
+	checkExists(t, false, cidtest.ID(), treeID) // different CID, same tree
+	checkExists(t, false, cid, "another tree")  // same CID, different tree
+
+	t.Run("can be removed", func(t *testing.T) {
+		require.NoError(t, s.TreeDrop(cid, treeID))
+		checkExists(t, false, cid, treeID)
+	})
+}
+
 func TestForest_ApplyRandom(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {

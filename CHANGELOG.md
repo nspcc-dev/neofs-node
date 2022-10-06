@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Open FSTree in sync mode by default (#1992)
 - `neofs-cli container nodes`'s output (#1991)
 - Do not panic with bad inputs for `GET_RANGE` (#2007)
+- Correctly select the shard for applying tree service operations (#1996)
 
 ### Removed
 ### Updated

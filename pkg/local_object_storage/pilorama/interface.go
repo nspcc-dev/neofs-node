@@ -39,6 +39,9 @@ type Forest interface {
 	// TreeList returns all the tree IDs that have been added to the
 	// passed container ID. Nil slice should be returned if no tree found.
 	TreeList(cid cidSDK.ID) ([]string, error)
+	// TreeExists checks if a tree exists locally.
+	// If the tree is not found, false and a nil error should be returned.
+	TreeExists(cid cidSDK.ID, treeID string) (bool, error)
 }
 
 type ForestStorage interface {
