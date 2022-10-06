@@ -209,3 +209,10 @@ func (f *memoryForest) TreeList(cid cidSDK.ID) ([]string, error) {
 
 	return res, nil
 }
+
+// TreeExists implements the pilorama.Forest interface.
+func (f *memoryForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	fullID := cid.EncodeToString() + "/" + treeID
+	_, ok := f.treeMap[fullID]
+	return ok, nil
+}
