@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - List of shards and logger level runtime reconfiguration (#1770)
 - `neofs-adm morph set-config` now supports well-known `MaintenanceModeAllowed` key (#1892)
 - `add`, `get-by-path` and `add-by-path` tree service CLI commands (#1332)
+- Tree synchronisation on startup (#1329)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
