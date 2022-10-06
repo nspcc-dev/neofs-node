@@ -14,11 +14,19 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// ErrNotInContainer is returned when operation could not be performed
+// because the node is not included in the container.
+var ErrNotInContainer = errors.New("node is not in container")
+
 // Synchronize tries to synchronize log starting from the last stored height.
 func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) error {
-	nodes, _, err := s.getContainerNodes(cid)
+	nodes, pos, err := s.getContainerNodes(cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
+	}
+
+	if pos < 0 {
+		return ErrNotInContainer
 	}
 
 	lm, err := s.forest.TreeGetOpLog(cid, treeID, 0)
