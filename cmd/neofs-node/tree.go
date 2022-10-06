@@ -6,9 +6,12 @@ import (
 
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +41,16 @@ func initTreeService(c *cfg) {
 		c.treeService.Start(ctx)
 	}))
 
+	syncTreeFunc := func(ctx context.Context) {
+		syncTrees(ctx, c.treeService, c.shared.cnrClient, c.log)
+	}
+
+	if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_ONLINE {
+		c.workers = append(c.workers, newWorkerFromFunc(syncTreeFunc))
+	}
+
+	c.addOnlineStateHandler(syncTreeFunc)
+
 	subscribeToContainerRemoval(c, func(e event.Event) {
 		ev := e.(containerEvent.DeleteSuccess)
 
@@ -52,4 +65,33 @@ func initTreeService(c *cfg) {
 	})
 
 	c.onShutdown(c.treeService.Shutdown)
+}
+
+func syncTrees(ctx context.Context, treeSvc *tree.Service, cnrCli *containerClient.Client, log *logger.Logger) {
+	log.Info("synchronizing trees...")
+
+	ids, err := cnrCli.List(nil)
+	if err != nil {
+		log.Error("trees are not synchronized", zap.Error(err))
+		return
+	}
+
+	// TODO: #1902 fetch all the trees via a new tree RPC
+	wellKnownTrees := [...]string{"version", "system"}
+
+	for _, id := range ids {
+		for _, tID := range wellKnownTrees {
+			err = treeSvc.Synchronize(ctx, id, tID)
+			if err != nil && !errors.Is(err, tree.ErrNotInContainer) {
+				log.Warn(
+					"tree synchronization failed",
+					zap.Stringer("cid", id),
+					zap.String("tree_id", tID),
+					zap.Error(err),
+				)
+			}
+		}
+	}
+
+	log.Info("trees have been synchronized")
 }

@@ -45,6 +45,8 @@ func initContainerService(c *cfg) {
 	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, cntClient.TryNotary())
 	fatalOnErr(err)
 
+	c.shared.cnrClient = wrap
+
 	// container wrapper that always sends non-notary
 	// requests
 	wrapperNoNotary, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
