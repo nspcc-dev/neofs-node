@@ -164,12 +164,9 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 		// clear if it is rereading
 		*a = applicationConfiguration{}
-	} else {
-		// update the status.
-		// initial configuration validation is expected to be
-		// performed on the higher level
-		a._read = true
 	}
+
+	a._read = true
 
 	a.EngineCfg.errorThreshold = engineconfig.ShardErrorThreshold(c)
 	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
