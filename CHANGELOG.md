@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
 - Flush write-cache when moving shard to DEGRADED mode (#1825)
 - Make `morph.cache_ttl` default value equal to morph block time (#1846)
+- Policer marks nodes under maintenance as OK without requests (#1680)
 
 ### Fixed
 - Description of command `netmap nodeinfo` (#1821)
