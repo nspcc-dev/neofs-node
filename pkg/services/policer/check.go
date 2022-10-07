@@ -21,15 +21,19 @@ func newNodeCache() *nodeCache {
 	return (*nodeCache)(&m)
 }
 
+func (n *nodeCache) set(node netmap.NodeInfo, val bool) {
+	(*n)[node.Hash()] = val
+}
+
 // submits storage node as a candidate to store the object replica in case of
 // shortage.
 func (n *nodeCache) submitReplicaCandidate(node netmap.NodeInfo) {
-	(*n)[node.Hash()] = false
+	n.set(node, false)
 }
 
 // submits storage node as a current object replica holder.
 func (n *nodeCache) submitReplicaHolder(node netmap.NodeInfo) {
-	(*n)[node.Hash()] = true
+	n.set(node, true)
 }
 
 // processStatus returns current processing status of the storage node
@@ -50,8 +54,12 @@ func (n *nodeCache) processStatus(node netmap.NodeInfo) int8 {
 	return 1
 }
 
-func (n *nodeCache) SubmitSuccessfulReplication(id uint64) {
-	(*n)[id] = true
+// SubmitSuccessfulReplication marks given storage node as a current object
+// replica holder.
+//
+// SubmitSuccessfulReplication implements replicator.TaskResult.
+func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
+	n.submitReplicaHolder(node)
 }
 
 func (p *Policer) processObject(ctx context.Context, addr oid.Address) {

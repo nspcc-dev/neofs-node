@@ -6,15 +6,15 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
 // TaskResult is a replication result interface.
 type TaskResult interface {
-	// SubmitSuccessfulReplication must save successful
-	// replication result. ID is a netmap identification
-	// of a node that accepted the replica.
-	SubmitSuccessfulReplication(id uint64)
+	// SubmitSuccessfulReplication submits the successful object replication
+	// to the given node.
+	SubmitSuccessfulReplication(netmap.NodeInfo)
 }
 
 // HandleTask executes replication task inside invoking goroutine.
@@ -68,7 +68,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 			task.quantity--
 
-			res.SubmitSuccessfulReplication(task.nodes[i].Hash())
+			res.SubmitSuccessfulReplication(task.nodes[i])
 		}
 	}
 }

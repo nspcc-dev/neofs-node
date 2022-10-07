@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"google.golang.org/grpc/codes"
@@ -104,6 +105,6 @@ type replicatorResult struct {
 }
 
 // SubmitSuccessfulReplication implements the replicator.TaskResult interface.
-func (r *replicatorResult) SubmitSuccessfulReplication(_ uint64) {
+func (r *replicatorResult) SubmitSuccessfulReplication(_ netmap.NodeInfo) {
 	r.count++
 }

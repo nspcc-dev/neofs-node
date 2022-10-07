@@ -13,7 +13,7 @@ func TestNodeCache(t *testing.T) {
 
 	require.Negative(t, cache.processStatus(node))
 
-	cache.SubmitSuccessfulReplication(node.Hash())
+	cache.SubmitSuccessfulReplication(node)
 	require.Zero(t, cache.processStatus(node))
 
 	cache.submitReplicaCandidate(node)
