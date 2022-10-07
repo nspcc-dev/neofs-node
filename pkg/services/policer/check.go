@@ -2,6 +2,7 @@ package policer
 
 import (
 	"context"
+	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -142,6 +143,18 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 	nodes []netmap.NodeInfo, shortage uint32, checkedNodes *nodeCache) {
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
+	handleMaintenance := func(node netmap.NodeInfo) {
+		// consider remote nodes under maintenance as problem OK. Such
+		// nodes MAY not respond with object, however, this is how we
+		// prevent spam with new replicas.
+		checkedNodes.submitReplicaHolder(node)
+		shortage--
+
+		p.log.Debug("consider node under maintenance as OK",
+			zap.String("node", hex.EncodeToString(node.PublicKey())),
+		)
+	}
+
 	for i := 0; shortage > 0 && i < len(nodes); i++ {
 		select {
 		case <-ctx.Done():
@@ -153,6 +166,8 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 			ctx.needLocalCopy = true
 
 			shortage--
+		} else if nodes[i].IsMaintenance() {
+			handleMaintenance(nodes[i])
 		} else {
 			if status := checkedNodes.processStatus(nodes[i]); status >= 0 {
 				if status == 0 {
