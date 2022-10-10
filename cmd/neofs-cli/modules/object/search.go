@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -55,9 +54,12 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
 	var prm internalclient.SearchObjectsPrm
-	sessionCli.Prepare(cmd, cnr, nil, pk, &prm)
+	prm.SetClient(cli)
 	Prepare(cmd, &prm)
+	readSessionGlobal(cmd, &prm, pk, cnr)
 	prm.SetContainerID(cnr)
 	prm.SetFilters(sf)
 

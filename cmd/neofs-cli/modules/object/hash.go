@@ -95,9 +95,12 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		return
 	}
 
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
 	var hashPrm internalclient.HashPayloadRangesPrm
-	sessionCli.Prepare(cmd, cnr, &obj, pk, &hashPrm)
+	hashPrm.SetClient(cli)
 	Prepare(cmd, &hashPrm)
+	readSession(cmd, &hashPrm, pk, cnr, obj)
 	hashPrm.SetAddress(objAddr)
 	hashPrm.SetSalt(salt)
 	hashPrm.SetRanges(ranges)
