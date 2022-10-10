@@ -71,7 +71,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	req.SetBody(body)
 
 	body.SetMode(mode)
-	body.SetShardID(getShardID(cmd))
+	body.SetShardIDList([][]byte{getShardID(cmd)})
 
 	reset, _ := cmd.Flags().GetBool(shardClearErrorsFlag)
 	body.ClearErrorCounter(reset)

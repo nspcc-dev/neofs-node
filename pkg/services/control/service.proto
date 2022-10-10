@@ -160,7 +160,7 @@ message SetShardModeRequest {
     // Request body structure.
     message Body {
         // ID of the shard.
-        bytes shard_ID = 1;
+        repeated bytes shard_ID = 1;
 
         // Mode that requested to be set.
         ShardMode mode = 2;
@@ -294,7 +294,7 @@ message EvacuateShardRequest {
     // Request body structure.
     message Body {
         // ID of the shard.
-        bytes shard_ID = 1;
+        repeated bytes shard_ID = 1;
 
         // Flag indicating whether object read errors should be ignored.
         bool ignore_errors = 2;
@@ -320,7 +320,7 @@ message FlushCacheRequest {
     // Request body structure.
     message Body {
         // ID of the shard.
-        bytes shard_ID = 1;
+        repeated bytes shard_ID = 1;
     }
 
     Body body = 1;

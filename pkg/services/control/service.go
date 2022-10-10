@@ -91,8 +91,8 @@ func (x *ListShardsResponse) SetBody(v *ListShardsResponse_Body) {
 	}
 }
 
-// SetShardID sets shard ID whose mode is requested to be set.
-func (x *SetShardModeRequest_Body) SetShardID(v []byte) {
+// SetShardIDList sets shard ID whose mode is requested to be set.
+func (x *SetShardModeRequest_Body) SetShardIDList(v [][]byte) {
 	if v != nil {
 		x.Shard_ID = v
 	}

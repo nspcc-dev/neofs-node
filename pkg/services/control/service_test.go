@@ -139,15 +139,21 @@ func TestSetShardModeRequest_Body_StableMarshal(t *testing.T) {
 
 func generateSetShardModeRequestBody() *control.SetShardModeRequest_Body {
 	body := new(control.SetShardModeRequest_Body)
-	body.SetShardID([]byte{0, 1, 2, 3, 4})
+	body.SetShardIDList([][]byte{{0, 1, 2, 3, 4}})
 	body.SetMode(control.ShardMode_READ_WRITE)
 
 	return body
 }
 
 func equalSetShardModeRequestBodies(b1, b2 *control.SetShardModeRequest_Body) bool {
-	if b1.GetMode() != b2.GetMode() || !bytes.Equal(b1.Shard_ID, b2.Shard_ID) {
+	if b1.GetMode() != b2.GetMode() || len(b1.Shard_ID) != len(b2.Shard_ID) {
 		return false
+	}
+
+	for i := range b1.Shard_ID {
+		if !bytes.Equal(b1.Shard_ID[i], b2.Shard_ID[i]) {
+			return false
+		}
 	}
 
 	return true

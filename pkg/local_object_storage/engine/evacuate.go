@@ -15,7 +15,7 @@ import (
 
 // EvacuateShardPrm represents parameters for the EvacuateShard operation.
 type EvacuateShardPrm struct {
-	shardID      *shard.ID
+	shardID      []*shard.ID
 	handler      func(oid.Address, *objectSDK.Object) error
 	ignoreErrors bool
 }
@@ -25,8 +25,8 @@ type EvacuateShardRes struct {
 	count int
 }
 
-// WithShardID sets shard ID.
-func (p *EvacuateShardPrm) WithShardID(id *shard.ID) {
+// WithShardIDList sets shard ID.
+func (p *EvacuateShardPrm) WithShardIDList(id []*shard.ID) {
 	p.shardID = id
 }
 
@@ -53,28 +53,33 @@ type pooledShard struct {
 	pool util.WorkerPool
 }
 
-var errMustHaveTwoShards = errors.New("amount of shards must be > 2")
+var errMustHaveTwoShards = errors.New("must have at least 1 spare shard")
 
 // Evacuate moves data from one shard to the others.
 // The shard being moved must be in read-only mode.
 func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error) {
-	sid := prm.shardID.String()
+	sidList := make([]string, len(prm.shardID))
+	for i := range prm.shardID {
+		sidList[i] = prm.shardID[i].String()
+	}
 
 	e.mtx.RLock()
-	sh, ok := e.shards[sid]
-	if !ok {
-		e.mtx.RUnlock()
-		return EvacuateShardRes{}, errShardNotFound
+	for i := range sidList {
+		sh, ok := e.shards[sidList[i]]
+		if !ok {
+			e.mtx.RUnlock()
+			return EvacuateShardRes{}, errShardNotFound
+		}
+
+		if !sh.GetMode().ReadOnly() {
+			e.mtx.RUnlock()
+			return EvacuateShardRes{}, shard.ErrMustBeReadOnly
+		}
 	}
 
-	if len(e.shards) < 2 && prm.handler == nil {
+	if len(e.shards)-len(sidList) < 1 && prm.handler == nil {
 		e.mtx.RUnlock()
 		return EvacuateShardRes{}, errMustHaveTwoShards
-	}
-
-	if !sh.GetMode().ReadOnly() {
-		e.mtx.RUnlock()
-		return EvacuateShardRes{}, shard.ErrMustBeReadOnly
 	}
 
 	// We must have all shards, to have correct information about their
@@ -94,72 +99,89 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 		weights = append(weights, e.shardWeight(shards[i].Shard))
 	}
 
+	shardMap := make(map[string]*shard.Shard)
+	for i := range sidList {
+		for j := range shards {
+			if shards[j].ID().String() == sidList[i] {
+				shardMap[sidList[i]] = shards[j].Shard
+			}
+		}
+	}
+
 	var listPrm shard.ListWithCursorPrm
 	listPrm.WithCount(defaultEvacuateBatchSize)
 
-	var c *meta.Cursor
 	var res EvacuateShardRes
-	for {
-		listPrm.WithCursor(c)
 
-		// TODO (@fyrchik): #1731 this approach doesn't work in degraded modes
-		//  because ListWithCursor works only with the metabase.
-		listRes, err := sh.Shard.ListWithCursor(listPrm)
-		if err != nil {
-			if errors.Is(err, meta.ErrEndOfListing) {
-				return res, nil
-			}
-			return res, err
-		}
+mainLoop:
+	for n := range sidList {
+		sh := shardMap[sidList[n]]
 
-		// TODO (@fyrchik): #1731 parallelize the loop
-		lst := listRes.AddressList()
+		var c *meta.Cursor
+		for {
+			listPrm.WithCursor(c)
 
-	loop:
-		for i := range lst {
-			var getPrm shard.GetPrm
-			getPrm.SetAddress(lst[i])
-
-			getRes, err := sh.Get(getPrm)
+			// TODO (@fyrchik): #1731 this approach doesn't work in degraded modes
+			//  because ListWithCursor works only with the metabase.
+			listRes, err := sh.ListWithCursor(listPrm)
 			if err != nil {
-				if prm.ignoreErrors {
-					continue
+				if errors.Is(err, meta.ErrEndOfListing) {
+					continue mainLoop
 				}
 				return res, err
 			}
 
-			hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(lst[i].EncodeToString())))
-			for j := range shards {
-				if shards[j].ID().String() == sid {
-					continue
-				}
-				putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, lst[i], getRes.Object())
-				if putDone || exists {
-					if putDone {
-						e.log.Debug("object is moved to another shard",
-							zap.String("from", sid),
-							zap.Stringer("to", shards[j].ID()),
-							zap.Stringer("addr", lst[i]))
+			// TODO (@fyrchik): #1731 parallelize the loop
+			lst := listRes.AddressList()
 
-						res.count++
+		loop:
+			for i := range lst {
+				var getPrm shard.GetPrm
+				getPrm.SetAddress(lst[i])
+
+				getRes, err := sh.Get(getPrm)
+				if err != nil {
+					if prm.ignoreErrors {
+						continue
 					}
-					continue loop
+					return res, err
 				}
+
+				hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(lst[i].EncodeToString())))
+				for j := range shards {
+					if _, ok := shardMap[shards[j].ID().String()]; ok {
+						continue
+					}
+					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, lst[i], getRes.Object())
+					if putDone || exists {
+						if putDone {
+							e.log.Debug("object is moved to another shard",
+								zap.String("from", sidList[n]),
+								zap.Stringer("to", shards[j].ID()),
+								zap.Stringer("addr", lst[i]))
+
+							res.count++
+						}
+						continue loop
+					}
+				}
+
+				if prm.handler == nil {
+					// Do not check ignoreErrors flag here because
+					// ignoring errors on put make this command kinda useless.
+					return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
+				}
+
+				err = prm.handler(lst[i], getRes.Object())
+				if err != nil {
+					return res, err
+				}
+				res.count++
 			}
 
-			if prm.handler == nil {
-				// Do not check ignoreErrors flag here because
-				// ignoring errors on put make this command kinda useless.
-				return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
-			}
-
-			err = prm.handler(lst[i], getRes.Object())
-			if err != nil {
-				return res, err
-			}
-			res.count++
+			c = listRes.Cursor()
 		}
-
-		c = listRes.Cursor()
 	}
+
+	return res, nil
 }

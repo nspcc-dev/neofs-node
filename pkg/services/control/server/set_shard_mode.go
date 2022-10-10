@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
@@ -21,8 +20,7 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 	var (
 		m mode.Mode
 
-		requestedMode  = req.GetBody().GetMode()
-		requestedShard = shard.NewIDFromBytes(req.Body.GetShard_ID())
+		requestedMode = req.GetBody().GetMode()
 	)
 
 	switch requestedMode {
@@ -38,9 +36,11 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown shard mode: %s", requestedMode))
 	}
 
-	err = s.s.SetShardMode(requestedShard, m, false)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	for _, shardID := range getShardIDList(req.Body.GetShard_ID()) {
+		err = s.s.SetShardMode(shardID, m, false)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 
 	// create and fill response
