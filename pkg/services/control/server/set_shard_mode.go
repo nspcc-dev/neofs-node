@@ -31,7 +31,7 @@ func (s *Server) SetShardMode(_ context.Context, req *control.SetShardModeReques
 	case control.ShardMode_DEGRADED:
 		m = mode.Degraded
 	case control.ShardMode_DEGRADED_READ_ONLY:
-		m = mode.ReadOnly
+		m = mode.DegradedReadOnly
 	default:
 		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown shard mode: %s", requestedMode))
 	}
