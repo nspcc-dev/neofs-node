@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -75,9 +74,12 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
 	var prm internalclient.PayloadRangePrm
-	sessionCli.Prepare(cmd, cnr, &obj, pk, &prm)
+	prm.SetClient(cli)
 	Prepare(cmd, &prm)
+	readSession(cmd, &prm, pk, cnr, obj)
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	prm.SetRawFlag(raw)
