@@ -1,6 +1,7 @@
 package control
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/mr-tron/base58"
@@ -36,7 +37,7 @@ func initControlSetShardModeCmd() {
 	flags := setShardModeCmd.Flags()
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
-	flags.String(shardIDFlag, "", "ID of the shard in base58 encoding")
+	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	flags.String(shardModeFlag, "",
 		fmt.Sprintf("New shard mode keyword ('%s', '%s', '%s')",
 			shardModeReadWrite,
@@ -71,7 +72,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	req.SetBody(body)
 
 	body.SetMode(mode)
-	body.SetShardIDList([][]byte{getShardID(cmd)})
+	body.SetShardIDList(getShardIDList(cmd))
 
 	reset, _ := cmd.Flags().GetBool(shardClearErrorsFlag)
 	body.ClearErrorCounter(reset)
@@ -98,4 +99,32 @@ func getShardID(cmd *cobra.Command) []byte {
 	raw, err := base58.Decode(sid)
 	common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
 	return raw
+}
+
+func getShardIDList(cmd *cobra.Command) [][]byte {
+	sidList, _ := cmd.Flags().GetStringSlice(shardIDFlag)
+	if len(sidList) == 0 {
+		common.ExitOnErr(cmd, "", errors.New("no shard IDs were provided"))
+	}
+
+	// We can sort the ID list and perform this check without additional allocations,
+	// but preserving the user order is a nice thing to have.
+	// Also, this is a CLI, we don't care too much about this.
+	seen := make(map[string]struct{})
+	for i := range sidList {
+		if _, ok := seen[sidList[i]]; ok {
+			common.ExitOnErr(cmd, "", fmt.Errorf("duplicated shard IDs: %s", sidList[i]))
+		}
+		seen[sidList[i]] = struct{}{}
+	}
+
+	res := make([][]byte, 0, len(sidList))
+	for i := range sidList {
+		raw, err := base58.Decode(sidList[i])
+		common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
+
+		res = append(res, raw)
+	}
+
+	return res
 }

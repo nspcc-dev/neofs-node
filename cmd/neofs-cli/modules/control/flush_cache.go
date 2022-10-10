@@ -20,7 +20,7 @@ func flushCache(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
 	req := &control.FlushCacheRequest{Body: new(control.FlushCacheRequest_Body)}
-	req.Body.Shard_ID = [][]byte{getShardID(cmd)}
+	req.Body.Shard_ID = getShardIDList(cmd)
 
 	signRequest(cmd, pk, req)
 
@@ -44,7 +44,7 @@ func initControlFlushCacheCmd() {
 
 	ff := flushCacheCmd.Flags()
 	ff.String(controlRPC, controlRPCDefault, controlRPCUsage)
-	ff.String(shardIDFlag, "", "Shard ID in base58 encoding")
+	ff.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 
 	_ = flushCacheCmd.MarkFlagRequired(shardIDFlag)
 }

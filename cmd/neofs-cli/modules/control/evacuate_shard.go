@@ -20,7 +20,7 @@ func evacuateShard(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
 	req := &control.EvacuateShardRequest{Body: new(control.EvacuateShardRequest_Body)}
-	req.Body.Shard_ID = [][]byte{getShardID(cmd)}
+	req.Body.Shard_ID = getShardIDList(cmd)
 	req.Body.IgnoreErrors, _ = cmd.Flags().GetBool(dumpIgnoreErrorsFlag)
 
 	signRequest(cmd, pk, req)
@@ -47,7 +47,7 @@ func initControlEvacuateShardCmd() {
 
 	flags := evacuateShardCmd.Flags()
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
-	flags.String(shardIDFlag, "", "Shard ID in base58 encoding")
+	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")
 
 	_ = evacuateShardCmd.MarkFlagRequired(shardIDFlag)
