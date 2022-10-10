@@ -137,9 +137,9 @@ func TestFlush(t *testing.T) {
 
 		// Blobstor is read-only, so we expect en error from `flush` here.
 		require.Error(t, wc.SetMode(mode.Degraded))
+		require.Equal(t, mode.ReadOnly, wc.(*cache).mode)
 
 		// First move to read-only mode to close background workers.
-		require.NoError(t, wc.SetMode(mode.ReadOnly))
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 

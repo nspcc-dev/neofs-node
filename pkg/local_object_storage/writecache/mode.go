@@ -18,10 +18,12 @@ func (c *cache) SetMode(m mode.Mode) error {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 
+	var oldErr error
 	if m.NoMetabase() && !c.mode.NoMetabase() {
 		err := c.flush(true)
 		if err != nil {
-			return err
+			oldErr = err
+			m = mode.ReadOnly
 		}
 	}
 
@@ -49,7 +51,7 @@ func (c *cache) SetMode(m mode.Mode) error {
 	}
 
 	c.mode = m
-	return nil
+	return oldErr
 }
 
 // readOnly returns true if current mode is read-only.
