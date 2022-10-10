@@ -29,6 +29,11 @@ func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) er
 		return ErrNotInContainer
 	}
 
+	var d pilorama.CIDDescriptor
+	d.CID = cid
+	d.Position = pos
+	d.Size = len(nodes)
+
 	lm, err := s.forest.TreeGetOpLog(cid, treeID, 0)
 	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
 		return err
@@ -50,7 +55,7 @@ func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) er
 
 			treeClient := NewTreeServiceClient(cc)
 			for {
-				h, err := s.synchronizeSingle(ctx, cid, treeID, height, treeClient)
+				h, err := s.synchronizeSingle(ctx, d, treeID, height, treeClient)
 				if height < h {
 					height = h
 				}
@@ -64,9 +69,9 @@ func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) er
 	return nil
 }
 
-func (s *Service) synchronizeSingle(ctx context.Context, cid cid.ID, treeID string, height uint64, treeClient TreeServiceClient) (uint64, error) {
+func (s *Service) synchronizeSingle(ctx context.Context, d pilorama.CIDDescriptor, treeID string, height uint64, treeClient TreeServiceClient) (uint64, error) {
 	rawCID := make([]byte, sha256.Size)
-	cid.Encode(rawCID)
+	d.CID.Encode(rawCID)
 
 	for {
 		newHeight := height
@@ -96,7 +101,6 @@ func (s *Service) synchronizeSingle(ctx context.Context, cid cid.ID, treeID stri
 			if err := m.Meta.FromBytes(lm.Meta); err != nil {
 				return newHeight, err
 			}
-			d := pilorama.CIDDescriptor{CID: cid}
 			if err := s.forest.TreeApply(d, treeID, m); err != nil {
 				return newHeight, err
 			}
