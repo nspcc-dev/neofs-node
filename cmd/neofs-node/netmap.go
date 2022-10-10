@@ -35,8 +35,12 @@ type networkState struct {
 }
 
 func newNetworkState() *networkState {
+	var nmStatus atomic.Value
+	nmStatus.Store(control.NetmapStatus_STATUS_UNDEFINED)
+
 	return &networkState{
-		epoch: atomic.NewUint64(0),
+		epoch:            atomic.NewUint64(0),
+		controlNetStatus: nmStatus,
 	}
 }
 
@@ -83,7 +87,7 @@ func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
 	s.controlNetStatus.Store(ctrlNetSt)
 }
 
-func (s *networkState) controlNetmapStatus() control.NetmapStatus {
+func (s *networkState) controlNetmapStatus() (res control.NetmapStatus) {
 	return s.controlNetStatus.Load().(control.NetmapStatus)
 }
 
