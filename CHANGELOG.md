@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Correlation of object session to request (#1420)
 - Do not increase error counter in `engine.Inhume` if shard is read-only (#1839)
 - `control drop-objects` can remove split objects (#1830)
+- Node's status in `neofs-cli netmap nodeinfo` command (#1833)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
