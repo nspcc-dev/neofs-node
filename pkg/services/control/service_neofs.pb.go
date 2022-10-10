@@ -618,7 +618,7 @@ func (x *ListShardsResponse) SetSignature(sig *Signature) {
 //
 // Structures with the same field values have the same binary size.
 func (x *SetShardModeRequest_Body) StableSize() (size int) {
-	size += proto.BytesSize(1, x.Shard_ID)
+	size += proto.RepeatedBytesSize(1, x.Shard_ID)
 	size += proto.EnumSize(2, int32(x.Mode))
 	size += proto.BoolSize(3, x.ResetErrorCounter)
 	return size
@@ -640,7 +640,7 @@ func (x *SetShardModeRequest_Body) StableMarshal(buf []byte) []byte {
 		buf = make([]byte, x.StableSize())
 	}
 	var offset int
-	offset += proto.BytesMarshal(1, buf[offset:], x.Shard_ID)
+	offset += proto.RepeatedBytesMarshal(1, buf[offset:], x.Shard_ID)
 	offset += proto.EnumMarshal(2, buf[offset:], int32(x.Mode))
 	offset += proto.BoolMarshal(3, buf[offset:], x.ResetErrorCounter)
 	return buf
@@ -1238,7 +1238,7 @@ func (x *SynchronizeTreeResponse) SetSignature(sig *Signature) {
 //
 // Structures with the same field values have the same binary size.
 func (x *EvacuateShardRequest_Body) StableSize() (size int) {
-	size += proto.BytesSize(1, x.Shard_ID)
+	size += proto.RepeatedBytesSize(1, x.Shard_ID)
 	size += proto.BoolSize(2, x.IgnoreErrors)
 	return size
 }
@@ -1259,7 +1259,7 @@ func (x *EvacuateShardRequest_Body) StableMarshal(buf []byte) []byte {
 		buf = make([]byte, x.StableSize())
 	}
 	var offset int
-	offset += proto.BytesMarshal(1, buf[offset:], x.Shard_ID)
+	offset += proto.RepeatedBytesMarshal(1, buf[offset:], x.Shard_ID)
 	offset += proto.BoolMarshal(2, buf[offset:], x.IgnoreErrors)
 	return buf
 }
@@ -1400,7 +1400,7 @@ func (x *EvacuateShardResponse) SetSignature(sig *Signature) {
 //
 // Structures with the same field values have the same binary size.
 func (x *FlushCacheRequest_Body) StableSize() (size int) {
-	size += proto.BytesSize(1, x.Shard_ID)
+	size += proto.RepeatedBytesSize(1, x.Shard_ID)
 	return size
 }
 
@@ -1420,7 +1420,7 @@ func (x *FlushCacheRequest_Body) StableMarshal(buf []byte) []byte {
 		buf = make([]byte, x.StableSize())
 	}
 	var offset int
-	offset += proto.BytesMarshal(1, buf[offset:], x.Shard_ID)
+	offset += proto.RepeatedBytesMarshal(1, buf[offset:], x.Shard_ID)
 	return buf
 }
 

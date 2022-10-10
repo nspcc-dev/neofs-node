@@ -20,7 +20,7 @@ func evacuateShard(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
 	req := &control.EvacuateShardRequest{Body: new(control.EvacuateShardRequest_Body)}
-	req.Body.Shard_ID = getShardID(cmd)
+	req.Body.Shard_ID = [][]byte{getShardID(cmd)}
 	req.Body.IgnoreErrors, _ = cmd.Flags().GetBool(dumpIgnoreErrorsFlag)
 
 	signRequest(cmd, pk, req)

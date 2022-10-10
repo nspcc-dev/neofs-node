@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -26,10 +25,8 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
-
 	var prm engine.EvacuateShardPrm
-	prm.WithShardID(shardID)
+	prm.WithShardIDList(getShardIDList(req.GetBody().GetShard_ID()))
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 	prm.WithFaultHandler(s.replicate)
 

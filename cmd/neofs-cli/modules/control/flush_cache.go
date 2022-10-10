@@ -20,7 +20,7 @@ func flushCache(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
 	req := &control.FlushCacheRequest{Body: new(control.FlushCacheRequest_Body)}
-	req.Body.Shard_ID = getShardID(cmd)
+	req.Body.Shard_ID = [][]byte{getShardID(cmd)}
 
 	signRequest(cmd, pk, req)
 

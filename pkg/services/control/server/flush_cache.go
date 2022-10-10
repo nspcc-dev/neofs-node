@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,14 +15,14 @@ func (s *Server) FlushCache(_ context.Context, req *control.FlushCacheRequest) (
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
+	for _, shardID := range getShardIDList(req.GetBody().GetShard_ID()) {
+		var prm engine.FlushWriteCachePrm
+		prm.SetShardID(shardID)
 
-	var prm engine.FlushWriteCachePrm
-	prm.SetShardID(shardID)
-
-	_, err = s.s.FlushWriteCache(prm)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		_, err = s.s.FlushWriteCache(prm)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 
 	resp := &control.FlushCacheResponse{Body: &control.FlushCacheResponse_Body{}}

@@ -90,7 +90,7 @@ func TestEvacuateShard(t *testing.T) {
 	checkHasObjects(t)
 
 	var prm EvacuateShardPrm
-	prm.WithShardID(ids[2])
+	prm.WithShardIDList(ids[2:3])
 
 	t.Run("must be read-only", func(t *testing.T) {
 		res, err := e.Evacuate(prm)
@@ -154,7 +154,7 @@ func TestEvacuateNetwork(t *testing.T) {
 		require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
 
 		var prm EvacuateShardPrm
-		prm.shardID = ids[0]
+		prm.shardID = ids[0:1]
 
 		res, err := e.Evacuate(prm)
 		require.ErrorIs(t, err, errMustHaveTwoShards)
@@ -166,14 +166,14 @@ func TestEvacuateNetwork(t *testing.T) {
 		require.ErrorIs(t, err, errReplication)
 		require.Equal(t, 2, res.Count())
 	})
-	t.Run("multiple shards", func(t *testing.T) {
+	t.Run("multiple shards, evacuate one", func(t *testing.T) {
 		e, ids, objects := newEngineEvacuate(t, 2, 3)
 
 		require.NoError(t, e.shards[ids[0].String()].SetMode(mode.ReadOnly))
 		require.NoError(t, e.shards[ids[1].String()].SetMode(mode.ReadOnly))
 
 		var prm EvacuateShardPrm
-		prm.shardID = ids[1]
+		prm.shardID = ids[1:2]
 		prm.handler = acceptOneOf(objects, 2)
 
 		res, err := e.Evacuate(prm)
@@ -186,6 +186,38 @@ func TestEvacuateNetwork(t *testing.T) {
 			res, err := e.Evacuate(prm)
 			require.NoError(t, err)
 			require.Equal(t, 3, res.Count())
+		})
+	})
+	t.Run("multiple shards, evacuate many", func(t *testing.T) {
+		e, ids, objects := newEngineEvacuate(t, 4, 5)
+		evacuateIDs := ids[0:3]
+
+		var totalCount int
+		for i := range evacuateIDs {
+			res, err := e.shards[ids[i].String()].List()
+			require.NoError(t, err)
+
+			totalCount += len(res.AddressList())
+		}
+
+		for i := range ids {
+			require.NoError(t, e.shards[ids[i].String()].SetMode(mode.ReadOnly))
+		}
+
+		var prm EvacuateShardPrm
+		prm.shardID = evacuateIDs
+		prm.handler = acceptOneOf(objects, totalCount-1)
+
+		res, err := e.Evacuate(prm)
+		require.ErrorIs(t, err, errReplication)
+		require.Equal(t, totalCount-1, res.Count())
+
+		t.Run("no errors", func(t *testing.T) {
+			prm.handler = acceptOneOf(objects, totalCount)
+
+			res, err := e.Evacuate(prm)
+			require.NoError(t, err)
+			require.Equal(t, totalCount, res.Count())
 		})
 	})
 }
