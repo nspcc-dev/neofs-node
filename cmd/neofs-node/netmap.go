@@ -65,6 +65,17 @@ func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
 		}
 	} else {
 		ctrlNetSt = control.NetmapStatus_OFFLINE
+
+		niRaw := s.nodeInfo.Load()
+		if niRaw != nil {
+			niOld := niRaw.(netmapSDK.NodeInfo)
+
+			// nil ni means that the node is not included
+			// in the netmap
+			niOld.SetOffline()
+
+			s.nodeInfo.Store(niOld)
+		}
 	}
 
 	s.controlNetStatus.Store(ctrlNetSt)
