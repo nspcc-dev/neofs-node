@@ -15,7 +15,7 @@ func (s *Server) FlushCache(_ context.Context, req *control.FlushCacheRequest) (
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	for _, shardID := range getShardIDList(req.GetBody().GetShard_ID()) {
+	for _, shardID := range s.getShardIDList(req.GetBody().GetShard_ID()) {
 		var prm engine.FlushWriteCachePrm
 		prm.SetShardID(shardID)
 

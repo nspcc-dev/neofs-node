@@ -26,7 +26,7 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 	}
 
 	var prm engine.EvacuateShardPrm
-	prm.WithShardIDList(getShardIDList(req.GetBody().GetShard_ID()))
+	prm.WithShardIDList(s.getShardIDList(req.GetBody().GetShard_ID()))
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 	prm.WithFaultHandler(s.replicate)
 

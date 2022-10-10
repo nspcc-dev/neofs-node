@@ -48,7 +48,8 @@ func initControlEvacuateShardCmd() {
 	flags := evacuateShardCmd.Flags()
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
+	flags.Bool(shardAllFlag, false, "Process all shards")
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")
 
-	_ = evacuateShardCmd.MarkFlagRequired(shardIDFlag)
+	evacuateShardCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
 }

@@ -45,6 +45,7 @@ func initControlFlushCacheCmd() {
 	ff := flushCacheCmd.Flags()
 	ff.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	ff.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
+	ff.Bool(shardAllFlag, false, "Process all shards")
 
-	_ = flushCacheCmd.MarkFlagRequired(shardIDFlag)
+	flushCacheCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
 }

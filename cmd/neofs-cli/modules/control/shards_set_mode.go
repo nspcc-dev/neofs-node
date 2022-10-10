@@ -1,7 +1,6 @@
 package control
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/mr-tron/base58"
@@ -16,6 +15,7 @@ import (
 const (
 	shardModeFlag        = "mode"
 	shardIDFlag          = "id"
+	shardAllFlag         = "all"
 	shardClearErrorsFlag = "clear-errors"
 
 	shardModeReadOnly         = "read-only"
@@ -38,6 +38,7 @@ func initControlSetShardModeCmd() {
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
+	flags.Bool(shardAllFlag, false, "Process all shards")
 	flags.String(shardModeFlag, "",
 		fmt.Sprintf("New shard mode keyword ('%s', '%s', '%s')",
 			shardModeReadWrite,
@@ -46,6 +47,8 @@ func initControlSetShardModeCmd() {
 		),
 	)
 	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
+
+	setShardModeCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
 }
 
 func setShardMode(cmd *cobra.Command, _ []string) {
@@ -102,9 +105,14 @@ func getShardID(cmd *cobra.Command) []byte {
 }
 
 func getShardIDList(cmd *cobra.Command) [][]byte {
+	all, _ := cmd.Flags().GetBool(shardAllFlag)
+	if all {
+		return nil
+	}
+
 	sidList, _ := cmd.Flags().GetStringSlice(shardIDFlag)
 	if len(sidList) == 0 {
-		common.ExitOnErr(cmd, "", errors.New("no shard IDs were provided"))
+		common.ExitOnErr(cmd, "", fmt.Errorf("either --%s or --%s flag must be provided", shardIDFlag, shardAllFlag))
 	}
 
 	// We can sort the ID list and perform this check without additional allocations,
