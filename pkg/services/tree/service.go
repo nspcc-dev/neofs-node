@@ -558,3 +558,7 @@ func (s *Service) getContainerInfo(cid cidSDK.ID, pub []byte) ([]netmapSDK.NodeI
 	}
 	return cntNodes, -1, len(cntNodes), nil
 }
+
+func (s *Service) Healthcheck(context.Context, *HealthcheckRequest) (*HealthcheckResponse, error) {
+	return new(HealthcheckResponse), nil
+}

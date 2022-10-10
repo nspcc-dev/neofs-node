@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - `--timeout` flag in `neofs-cli` subcommands (#1837)
 - `container nodes` command to output list of nodes for container, grouped by replica (#1704)
 - Configuration flag to ignore shard in `neofs-node` (#1840)
+- Add new RPC `TreeService.Healthcheck`
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)

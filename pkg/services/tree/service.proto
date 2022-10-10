@@ -47,6 +47,8 @@ service TreeService {
   rpc Apply (ApplyRequest) returns (ApplyResponse);
   // GetOpLog returns a stream of logged operations starting from some height.
   rpc GetOpLog(GetOpLogRequest) returns (stream GetOpLogResponse);
+  // Healthcheck is a dummy rpc to check service availability
+  rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse);
 }
 
 message AddRequest {
@@ -328,3 +330,23 @@ message GetOpLogResponse {
   // Response signature.
   Signature signature = 2;
 };
+
+message HealthcheckResponse {
+  message Body {
+  }
+
+  // Response body.
+  Body body = 1;
+  // Response signature.
+  Signature signature = 2;
+};
+
+message HealthcheckRequest {
+  message Body {
+  }
+
+  // Request body.
+  Body body = 1;
+  // Request signature.
+  Signature signature = 2;
+}

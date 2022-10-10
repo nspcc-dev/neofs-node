@@ -8,7 +8,6 @@ package tree
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -40,6 +39,8 @@ type TreeServiceClient interface {
 	Apply(ctx context.Context, in *ApplyRequest, opts ...grpc.CallOption) (*ApplyResponse, error)
 	// GetOpLog returns a stream of logged operations starting from some height.
 	GetOpLog(ctx context.Context, in *GetOpLogRequest, opts ...grpc.CallOption) (TreeService_GetOpLogClient, error)
+	// Healthcheck is a dummy rpc to check service availability
+	Healthcheck(ctx context.Context, in *HealthcheckRequest, opts ...grpc.CallOption) (*HealthcheckResponse, error)
 }
 
 type treeServiceClient struct {
@@ -168,6 +169,15 @@ func (x *treeServiceGetOpLogClient) Recv() (*GetOpLogResponse, error) {
 	return m, nil
 }
 
+func (c *treeServiceClient) Healthcheck(ctx context.Context, in *HealthcheckRequest, opts ...grpc.CallOption) (*HealthcheckResponse, error) {
+	out := new(HealthcheckResponse)
+	err := c.cc.Invoke(ctx, "/tree.TreeService/Healthcheck", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TreeServiceServer is the server API for TreeService service.
 // All implementations should embed UnimplementedTreeServiceServer
 // for forward compatibility
@@ -189,6 +199,8 @@ type TreeServiceServer interface {
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
 	// GetOpLog returns a stream of logged operations starting from some height.
 	GetOpLog(*GetOpLogRequest, TreeService_GetOpLogServer) error
+	// Healthcheck is a dummy rpc to check service availability
+	Healthcheck(context.Context, *HealthcheckRequest) (*HealthcheckResponse, error)
 }
 
 // UnimplementedTreeServiceServer should be embedded to have forward compatible implementations.
@@ -218,6 +230,9 @@ func (UnimplementedTreeServiceServer) Apply(context.Context, *ApplyRequest) (*Ap
 }
 func (UnimplementedTreeServiceServer) GetOpLog(*GetOpLogRequest, TreeService_GetOpLogServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetOpLog not implemented")
+}
+func (UnimplementedTreeServiceServer) Healthcheck(context.Context, *HealthcheckRequest) (*HealthcheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Healthcheck not implemented")
 }
 
 // UnsafeTreeServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -381,6 +396,24 @@ func (x *treeServiceGetOpLogServer) Send(m *GetOpLogResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _TreeService_Healthcheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HealthcheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TreeServiceServer).Healthcheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tree.TreeService/Healthcheck",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TreeServiceServer).Healthcheck(ctx, req.(*HealthcheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TreeService_ServiceDesc is the grpc.ServiceDesc for TreeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -411,6 +444,10 @@ var TreeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Apply",
 			Handler:    _TreeService_Apply_Handler,
+		},
+		{
+			MethodName: "Healthcheck",
+			Handler:    _TreeService_Healthcheck_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
