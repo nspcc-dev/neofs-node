@@ -3,12 +3,14 @@ package policer
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -191,7 +193,9 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 				continue
 			}
 
-			if err != nil {
+			if isClientErrMaintenance(err) {
+				handleMaintenance(nodes[i])
+			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
 					zap.Stringer("object", addr),
 					zap.String("error", err.Error()),
@@ -219,4 +223,29 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 
 		p.replicator.HandleTask(ctx, task, checkedNodes)
 	}
+}
+
+// isClientErrMaintenance checks if err corresponds to NeoFS status return
+// which tells that node is currently under maintenance. Supports wrapped
+// errors.
+//
+// Similar to client.IsErr___ errors, consider replacing to NeoFS SDK.
+func isClientErrMaintenance(err error) bool {
+	switch unwrapErr(err).(type) {
+	default:
+		return false
+	case
+		apistatus.NodeUnderMaintenance,
+		*apistatus.NodeUnderMaintenance:
+		return true
+	}
+}
+
+// unwrapErr unwraps error using errors.Unwrap.
+func unwrapErr(err error) error {
+	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(err) {
+		err = e
+	}
+
+	return err
 }
