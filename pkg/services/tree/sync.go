@@ -69,7 +69,7 @@ func (s *Service) synchronizeSingle(ctx context.Context, cid cid.ID, treeID stri
 				Height:      newHeight,
 			},
 		}
-		if err := signMessage(req, s.key); err != nil {
+		if err := SignMessage(req, s.key); err != nil {
 			return newHeight, err
 		}
 

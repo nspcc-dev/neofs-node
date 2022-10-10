@@ -143,7 +143,10 @@ func verifyMessage(m message) error {
 	return nil
 }
 
-func signMessage(m message, key *ecdsa.PrivateKey) error {
+// SignMessage uses the provided key and signs any protobuf
+// message that was generated for the TreeService by the
+// protoc-gen-go-neofs generator. Returns any errors directly.
+func SignMessage(m message, key *ecdsa.PrivateKey) error {
 	binBody, err := m.ReadSignedData(nil)
 	if err != nil {
 		return err
