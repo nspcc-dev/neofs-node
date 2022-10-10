@@ -11,8 +11,10 @@ var Cmd = &cobra.Command{
 
 func init() {
 	Cmd.AddCommand(addCmd)
+	Cmd.AddCommand(getByPathCmd)
 
 	initAddCmd()
+	initGetByPathCmd()
 }
 
 const (
@@ -21,6 +23,11 @@ const (
 	parentIDFlagKey    = "pid"
 
 	metaFlagKey = "meta"
+
+	pathFlagKey          = "path"
+	pathAttributeFlagKey = "pattr"
+
+	latestOnlyFlagKey = "latest"
 )
 
 func initCTID(cmd *cobra.Command) {
