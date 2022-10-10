@@ -101,7 +101,7 @@ func TestMessageSign(t *testing.T) {
 		require.Error(t, s.verifyClient(req, cid2, nil, op))
 	})
 
-	require.NoError(t, signMessage(req, &privs[0].PrivateKey))
+	require.NoError(t, SignMessage(req, &privs[0].PrivateKey))
 	require.NoError(t, s.verifyClient(req, cid1, nil, op))
 
 	t.Run("invalid CID", func(t *testing.T) {
@@ -111,12 +111,12 @@ func TestMessageSign(t *testing.T) {
 	cnr.Value.SetBasicACL(acl.Private)
 
 	t.Run("extension disabled", func(t *testing.T) {
-		require.NoError(t, signMessage(req, &privs[0].PrivateKey))
+		require.NoError(t, SignMessage(req, &privs[0].PrivateKey))
 		require.Error(t, s.verifyClient(req, cid2, nil, op))
 	})
 
 	t.Run("invalid key", func(t *testing.T) {
-		require.NoError(t, signMessage(req, &privs[1].PrivateKey))
+		require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 		require.Error(t, s.verifyClient(req, cid1, nil, op))
 	})
 
@@ -129,7 +129,7 @@ func TestMessageSign(t *testing.T) {
 
 		t.Run("invalid bearer", func(t *testing.T) {
 			req.Body.BearerToken = []byte{0xFF}
-			require.NoError(t, signMessage(req, &privs[0].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[0].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 		})
 
@@ -138,7 +138,7 @@ func TestMessageSign(t *testing.T) {
 			require.NoError(t, bt.Sign(privs[0].PrivateKey))
 			req.Body.BearerToken = bt.Marshal()
 
-			require.NoError(t, signMessage(req, &privs[1].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 		})
 		t.Run("invalid bearer owner", func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestMessageSign(t *testing.T) {
 			require.NoError(t, bt.Sign(privs[1].PrivateKey))
 			req.Body.BearerToken = bt.Marshal()
 
-			require.NoError(t, signMessage(req, &privs[1].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 		})
 		t.Run("invalid bearer signature", func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestMessageSign(t *testing.T) {
 			bv2.GetSignature().SetSign([]byte{1, 2, 3})
 			req.Body.BearerToken = bv2.StableMarshal(nil)
 
-			require.NoError(t, signMessage(req, &privs[1].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 		})
 
@@ -168,17 +168,17 @@ func TestMessageSign(t *testing.T) {
 		cnr.Value.SetBasicACL(acl.PublicRWExtended)
 
 		t.Run("put and get", func(t *testing.T) {
-			require.NoError(t, signMessage(req, &privs[1].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 			require.NoError(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 			require.NoError(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectGet))
 		})
 		t.Run("only get", func(t *testing.T) {
-			require.NoError(t, signMessage(req, &privs[2].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[2].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 			require.NoError(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectGet))
 		})
 		t.Run("none", func(t *testing.T) {
-			require.NoError(t, signMessage(req, &privs[3].PrivateKey))
+			require.NoError(t, SignMessage(req, &privs[3].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectGet))
 		})

@@ -101,7 +101,7 @@ func (s *Service) replicateLoop(ctx context.Context) {
 
 func (s *Service) replicate(op movePair) error {
 	req := newApplyRequest(&op)
-	err := signMessage(req, s.key)
+	err := SignMessage(req, s.key)
 	if err != nil {
 		return fmt.Errorf("can't sign data: %w", err)
 	}
