@@ -488,7 +488,15 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 				return fmt.Errorf("invalid session token: %w", err)
 			}
 
-			err = assertSessionRelation(*sTok, cnr, obj)
+			if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
+				// if session relates to object's removal, we don't check
+				// relation of the tombstone to the session here since user
+				// can't predict tomb's ID.
+				err = assertSessionRelation(*sTok, cnr, nil)
+			} else {
+				err = assertSessionRelation(*sTok, cnr, obj)
+			}
+
 			if err != nil {
 				return err
 			}
