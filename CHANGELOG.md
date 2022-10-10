@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Make `morph.cache_ttl` default value equal to morph block time (#1846)
 - Policer marks nodes under maintenance as OK without requests (#1680)
 - Unify help messages in CLI (#1854)
+- `evacuate`, `set-mode` and `flush-cache` control subcommands now accept a list of shard ids (#1867)
 
 ### Fixed
 - Description of command `netmap nodeinfo` (#1821)
