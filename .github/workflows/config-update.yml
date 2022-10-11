@@ -1,0 +1,36 @@
+name: Configuration check
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: config-check
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get changed config-related files
+        id: config-diff
+        uses: tj-actions/changed-files@v29
+        with:
+          files: |
+            config/**
+            cmd/neofs-node/config/**
+
+      - name: Get changed doc files
+        id: docs-diff
+        uses: tj-actions/changed-files@v29
+        with:
+          files: docs/**
+
+      - name: Fail if config files are changed but the documentation is not updated
+        if: steps.config-diff.outputs.any_changed == 'true' && steps.docs-diff.outputs.any_changed == 'false'
+        uses: actions/github-script@v3
+        with:
+          script: |
+            core.setFailed('Documentation has not been updated')
