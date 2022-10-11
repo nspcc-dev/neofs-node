@@ -2,7 +2,6 @@ package replicator
 
 import (
 	"context"
-	"encoding/hex"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
@@ -49,7 +48,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		}
 
 		log := p.log.With(
-			zap.String("node", hex.EncodeToString(task.nodes[i].PublicKey())),
+			zap.String("node", netmap.StringifyPublicKey(task.nodes[i])),
 			zap.Stringer("object", task.addr),
 		)
 

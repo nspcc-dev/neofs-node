@@ -1,7 +1,6 @@
 package netmap
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -30,7 +29,7 @@ func TestCleanupTable(t *testing.T) {
 	for i := range infos {
 		binNodeInfo := infos[i].Marshal()
 
-		mapInfos[hex.EncodeToString(infos[i].PublicKey())] = binNodeInfo
+		mapInfos[netmap.StringifyPublicKey(infos[i])] = binNodeInfo
 	}
 
 	t.Run("update", func(t *testing.T) {
@@ -47,7 +46,7 @@ func TestCleanupTable(t *testing.T) {
 		}
 
 		t.Run("update with flagged", func(t *testing.T) {
-			key := hex.EncodeToString(infos[0].PublicKey())
+			key := netmap.StringifyPublicKey(infos[0])
 			c.flag(key)
 
 			c.update(networkMap, 2)
@@ -60,7 +59,7 @@ func TestCleanupTable(t *testing.T) {
 		c := newCleanupTable(true, 1)
 		c.update(networkMap, 1)
 
-		key := hex.EncodeToString(infos[1].PublicKey())
+		key := netmap.StringifyPublicKey(infos[1])
 		require.False(t, c.touch(key, 11, mapInfos[key]))
 		require.EqualValues(t, 11, c.lastAccess[key].epoch)
 
@@ -77,7 +76,7 @@ func TestCleanupTable(t *testing.T) {
 		c := newCleanupTable(true, 1)
 		c.update(networkMap, 1)
 
-		key := hex.EncodeToString(infos[1].PublicKey())
+		key := netmap.StringifyPublicKey(infos[1])
 		c.flag(key)
 		require.True(t, c.lastAccess[key].removeFlag)
 
@@ -113,7 +112,7 @@ func TestCleanupTable(t *testing.T) {
 
 		t.Run("some nodes to remove", func(t *testing.T) {
 			cnt := 0
-			key := hex.EncodeToString(infos[1].PublicKey())
+			key := netmap.StringifyPublicKey(infos[1])
 
 			require.True(t, c.touch(key, 4, mapInfos[key])) // one node was updated
 

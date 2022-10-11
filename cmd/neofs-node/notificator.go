@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 
-	"github.com/mr-tron/base58"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -110,7 +110,7 @@ func (n notificationWriter) Notify(topic string, address oid.Address) {
 func initNotifications(c *cfg) {
 	if nodeconfig.Notification(c.appCfg).Enabled() {
 		topic := nodeconfig.Notification(c.appCfg).DefaultTopic()
-		pubKey := base58.Encode(c.cfgNodeInfo.localInfo.PublicKey())
+		pubKey := hex.EncodeToString(c.cfgNodeInfo.localInfo.PublicKey())
 
 		if topic == "" {
 			topic = pubKey

@@ -2,7 +2,6 @@ package policer
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -153,7 +152,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 		shortage--
 
 		p.log.Debug("consider node under maintenance as OK",
-			zap.String("node", hex.EncodeToString(node.PublicKey())),
+			zap.String("node", netmap.StringifyPublicKey(node)),
 		)
 	}
 

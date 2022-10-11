@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - Unify help messages in CLI (#1854)
 - `evacuate`, `set-mode` and `flush-cache` control subcommands now accept a list of shard ids (#1867)
 - Reading `object` commands of NeoFS CLI don't open remote sessions (#1865) 
+- Use hex format to print storage node ID (#1765)
 
 ### Fixed
 - Description of command `netmap nodeinfo` (#1821)

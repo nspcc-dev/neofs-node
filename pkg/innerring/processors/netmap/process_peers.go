@@ -57,7 +57,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	// marshal updated node info structure
 	nodeInfoBinary := nodeInfo.Marshal()
 
-	keyString := hex.EncodeToString(nodeInfo.PublicKey())
+	keyString := netmap.StringifyPublicKey(nodeInfo)
 
 	updated := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter(), nodeInfoBinary)
 

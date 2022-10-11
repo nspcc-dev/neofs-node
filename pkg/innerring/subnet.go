@@ -3,7 +3,6 @@ package innerring
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -309,7 +308,7 @@ func (s *Server) handleSubnetRemoval(e event.Event) {
 func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.ID, c netmap.NodeInfo) {
 	removeSubnet := false
 	log := s.log.With(
-		zap.String("public_key", hex.EncodeToString(c.PublicKey())),
+		zap.String("public_key", netmap.StringifyPublicKey(c)),
 		zap.String("removed_subnet", removedID.String()),
 	)
 

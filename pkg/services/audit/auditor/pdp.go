@@ -2,7 +2,6 @@ package auditor
 
 import (
 	"bytes"
-	"encoding/hex"
 	"sync"
 	"time"
 
@@ -143,7 +142,7 @@ func (c *Context) collectHashes(p *gamePair) {
 			if err != nil {
 				c.log.Debug("could not get payload range hash",
 					zap.Stringer("id", p.id),
-					zap.String("node", hex.EncodeToString(n.PublicKey())),
+					zap.String("node", netmap.StringifyPublicKey(n)),
 					zap.String("error", err.Error()),
 				)
 				return res

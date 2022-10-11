@@ -2,12 +2,12 @@ package auditor
 
 import (
 	"bytes"
-	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -83,7 +83,7 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 			hdr, err := c.cnrCom.GetHeader(getHeaderPrm)
 			if err != nil {
 				c.log.Debug("can't head object",
-					zap.String("remote_node", hex.EncodeToString(flat[j].PublicKey())),
+					zap.String("remote_node", netmap.StringifyPublicKey(flat[j])),
 					zap.Stringer("oid", members[i]),
 				)
 
