@@ -97,6 +97,6 @@ func initContainerDeleteCmd() {
 	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
-	flags.BoolVar(&containerAwait, "await", false, "block execution until container is removed")
-	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "do not check whether container contains locks and remove immediately")
+	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is removed")
+	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Do not check whether container contains locks and remove immediately")
 }

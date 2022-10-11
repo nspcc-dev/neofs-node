@@ -142,17 +142,17 @@ func initContainerCreateCmd() {
 
 	flags := createContainerCmd.Flags()
 
-	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("hex encoded basic ACL value or keywords like '%s', '%s', '%s'",
+	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("HEX encoded basic ACL value or keywords like '%s', '%s', '%s'",
 		acl.NamePublicRW, acl.NamePrivate, acl.NamePublicROExtended,
 	))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
-	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
-	flags.BoolVar(&containerAwait, "await", false, "block execution until container is persisted")
-	flags.StringVar(&containerName, "name", "", "container name attribute")
-	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "disable timestamp container attribute")
-	flags.StringVar(&containerSubnet, "subnet", "", "string representation of container subnetwork")
+	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
+	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is persisted")
+	flags.StringVar(&containerName, "name", "", "Container name attribute")
+	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
+	flags.StringVar(&containerSubnet, "subnet", "", "String representation of container subnetwork")
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
-		"skip placement validity check")
+		"Skip placement validity check")
 }
 
 func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {

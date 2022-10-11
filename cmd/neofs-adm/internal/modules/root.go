@@ -34,8 +34,8 @@ func init() {
 	// use stdout as default output for cmd.Print()
 	rootCmd.SetOut(os.Stdout)
 
-	rootCmd.PersistentFlags().StringP(configFlag, "c", "", "config file")
-	rootCmd.Flags().Bool("version", false, "application version")
+	rootCmd.PersistentFlags().StringP(configFlag, "c", "", "Config file")
+	rootCmd.Flags().Bool("version", false, "Application version")
 
 	rootCmd.AddCommand(config.RootCmd)
 	rootCmd.AddCommand(morph.RootCmd)

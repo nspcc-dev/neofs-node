@@ -54,8 +54,8 @@ var RootCmd = &cobra.Command{
 func init() {
 	fs := RootCmd.Flags()
 
-	fs.StringP(walletFlag, "w", "", "path to wallet")
-	fs.StringP(accountFlag, "a", "", "wallet account")
+	fs.StringP(walletFlag, "w", "", "Path to wallet")
+	fs.StringP(accountFlag, "a", "", "Wallet account")
 }
 
 type config struct {

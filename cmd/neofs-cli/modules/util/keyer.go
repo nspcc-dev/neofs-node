@@ -20,10 +20,10 @@ var keyerCmd = &cobra.Command{
 var errKeyerSingleArgument = errors.New("pass only one argument at a time")
 
 func initKeyerCmd() {
-	keyerCmd.Flags().BoolP("generate", "g", false, "generate new private key")
-	keyerCmd.Flags().Bool("hex", false, "print all values in hex encoding")
-	keyerCmd.Flags().BoolP("uncompressed", "u", false, "use uncompressed public key format")
-	keyerCmd.Flags().BoolP("multisig", "m", false, "calculate multisig address from public keys")
+	keyerCmd.Flags().BoolP("generate", "g", false, "Generate new private key")
+	keyerCmd.Flags().Bool("hex", false, "Print all values in hex encoding")
+	keyerCmd.Flags().BoolP("uncompressed", "u", false, "Use uncompressed public key format")
+	keyerCmd.Flags().BoolP("multisig", "m", false, "Calculate multisig address from public keys")
 }
 
 func processKeyer(cmd *cobra.Command, args []string) {

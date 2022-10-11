@@ -32,7 +32,7 @@ func initSGGetCmd() {
 	flags.String(cidFlag, "", "Container ID")
 	_ = sgGetCmd.MarkFlagRequired(cidFlag)
 
-	flags.StringVarP(&sgID, sgIDFlag, "", "", "storage group identifier")
+	flags.StringVarP(&sgID, sgIDFlag, "", "", "Storage group identifier")
 	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)
 
 	flags.Bool(sgRawFlag, false, "Set raw request option")

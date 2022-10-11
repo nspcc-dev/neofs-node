@@ -22,7 +22,7 @@ var Cmd = &cobra.Command{
 const (
 	controlRPC        = "endpoint"
 	controlRPCDefault = ""
-	controlRPCUsage   = "remote node control address (as 'multiaddr' or '<host>:<port>')"
+	controlRPCUsage   = "Remote node control address (as 'multiaddr' or '<host>:<port>')"
 )
 
 func init() {

@@ -25,5 +25,5 @@ neofs-adm config init --path .config/neofs-adm.yml`,
 func init() {
 	RootCmd.AddCommand(initCmd)
 
-	initCmd.Flags().String(configPathFlag, "", "path to config (default ~/.neofs/adm/config.yml)")
+	initCmd.Flags().String(configPathFlag, "", "Path to config (default ~/.neofs/adm/config.yml)")
 }

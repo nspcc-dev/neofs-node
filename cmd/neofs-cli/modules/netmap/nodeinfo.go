@@ -34,7 +34,7 @@ var nodeInfoCmd = &cobra.Command{
 func initNodeInfoCmd() {
 	commonflags.Init(nodeInfoCmd)
 	commonflags.InitAPI(nodeInfoCmd)
-	nodeInfoCmd.Flags().Bool(nodeInfoJSONFlag, false, "print node info in JSON format")
+	nodeInfoCmd.Flags().Bool(nodeInfoJSONFlag, false, "Print node info in JSON format")
 }
 
 func prettyPrintNodeInfo(cmd *cobra.Command, i netmap.NodeInfo) {

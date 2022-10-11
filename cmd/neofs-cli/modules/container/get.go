@@ -18,10 +18,10 @@ import (
 
 const (
 	cidFlag      = "cid"
-	cidFlagUsage = "container ID"
+	cidFlagUsage = "Container ID"
 
 	fromFlag      = "from"
-	fromFlagUsage = "path to file with encoded container"
+	fromFlagUsage = "Path to file with encoded container"
 )
 
 var (
@@ -65,9 +65,9 @@ func initContainerInfoCmd() {
 	flags := getContainerInfoCmd.Flags()
 
 	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
-	flags.StringVar(&containerPathTo, "to", "", "path to dump encoded container")
+	flags.StringVar(&containerPathTo, "to", "", "Path to dump encoded container")
 	flags.StringVar(&containerPathFrom, fromFlag, "", fromFlagUsage)
-	flags.BoolVar(&containerJSON, commonflags.JSON, false, "print or dump container in JSON format")
+	flags.BoolVar(&containerJSON, commonflags.JSON, false, "Print or dump container in JSON format")
 }
 
 type stringWriter cobra.Command
