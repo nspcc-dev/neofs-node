@@ -99,9 +99,13 @@ func (exec execCtx) address() oid.Address {
 	return exec.prm.addr
 }
 
+// isChild checks if reading object is a parent of the given object.
+// Object without reference to the parent (only children with the parent header
+// have it) is automatically considered as child: this should be guaranteed by
+// upper level logic.
 func (exec execCtx) isChild(obj *objectSDK.Object) bool {
 	par := obj.Parent()
-	return par != nil && equalAddresses(exec.address(), object.AddressOf(par))
+	return par == nil || equalAddresses(exec.address(), object.AddressOf(par))
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
@@ -244,7 +248,7 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 	case err == nil:
 		child := w.Object()
 
-		if _, ok := child.ParentID(); ok && !exec.isChild(child) {
+		if !exec.isChild(child) {
 			exec.status = statusUndefined
 
 			exec.log.Debug("parent address in child object differs")
