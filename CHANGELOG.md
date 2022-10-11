@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Configuration flag to ignore shard in `neofs-node` (#1840)
 - Add new RPC `TreeService.Healthcheck`
 - Fallback to `GET` if `GET_RANGE` from one storage nodes to another is denied by basic ACL (#1884)
+- List of shards and logger level runtime reconfiguration (#1770)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
