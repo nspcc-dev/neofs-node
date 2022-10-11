@@ -1,82 +1,69 @@
 package alphabet
 
 import (
-	"crypto/elliptic"
+	"errors"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/models"
 	"go.uber.org/zap"
 )
 
-const emitMethod = "emit"
+func (x *Processor) ProcessAlphabetGASEmissionTick(_ models.AlphabetGASEmissionTick) {
+	x.log.Debug("sidechain GAS emission tick received, processing...")
 
-func (ap *Processor) processEmit() {
-	index := ap.irList.AlphabetIndex()
-	if index < 0 {
-		ap.log.Info("non alphabet mode, ignore gas emission event")
-
-		return
-	}
-
-	contract, ok := ap.alphabetContracts.GetByIndex(index)
-	if !ok {
-		ap.log.Debug("node is out of alphabet range, ignore gas emission event",
-			zap.Int("index", index))
-
-		return
-	}
-
-	// there is no signature collecting, so we don't need extra fee
-	err := ap.morphClient.Invoke(contract, 0, emitMethod)
+	err := x.node.EmitSidechainGAS()
 	if err != nil {
-		ap.log.Warn("can't invoke alphabet emit method", zap.String("error", err.Error()))
-
-		return
-	}
-
-	if ap.storageEmission == 0 {
-		ap.log.Info("storage node emission is off")
-
-		return
-	}
-
-	networkMap, err := ap.netmapClient.NetMap()
-	if err != nil {
-		ap.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
-			zap.String("error", err.Error()))
-
-		return
-	}
-
-	nmNodes := networkMap.Nodes()
-
-	ln := len(nmNodes)
-	if ln == 0 {
-		ap.log.Debug("empty network map, do not emit gas")
-
-		return
-	}
-
-	gasPerNode := fixedn.Fixed8(ap.storageEmission / uint64(ln))
-
-	for i := range nmNodes {
-		keyBytes := nmNodes[i].PublicKey()
-
-		key, err := keys.NewPublicKeyFromBytes(keyBytes, elliptic.P256())
-		if err != nil {
-			ap.log.Warn("can't parse node public key",
-				zap.String("error", err.Error()))
-
-			continue
+		if errors.Is(err, models.ErrNonAlphabet) {
+			x.log.Debug("skip emission for non-alphabet node")
+		} else {
+			x.log.Error("failed to trigger sidechain GAS emission", zap.Error(err))
 		}
 
-		err = ap.morphClient.TransferGas(key.GetScriptHash(), gasPerNode)
+		return
+	}
+
+	storageEmitAmount, err := x.neoFS.StorageEmissionAmount()
+	if err != nil {
+		if errors.Is(err, models.ErrStorageEmissionDisabled) {
+			x.log.Debug("storage GAS emission is disabled in the network")
+		} else {
+			x.log.Error("failed to get storage emission GAS amount configuration", zap.Error(err))
+		}
+
+		return
+	}
+
+	storageAccs, err := x.neoFS.StorageNodes()
+	if err != nil {
+		x.log.Error("failed to list storage nodes in the network", zap.Error(err))
+		return
+	}
+
+	n := uint64(len(storageAccs)) // positive according to StorageNodes docs
+	gasPerNode := storageEmitAmount / n
+
+	x.log.Debug("storage GAS amount calculated",
+		zap.Uint64("per node", gasPerNode),
+		zap.Uint64("full", storageEmitAmount),
+		zap.Uint64("members", n),
+	)
+
+	if gasPerNode <= 0 {
+		x.log.Debug("no GAS to distribute, skipping...")
+		return
+	}
+
+	for i := range storageAccs {
+		x.log.Debug("transferring GAS to the storage node",
+			zap.Stringer("account", storageAccs[i]),
+		)
+
+		err = x.node.TransferGAS(gasPerNode, storageAccs[i])
 		if err != nil {
-			ap.log.Warn("can't transfer gas",
-				zap.String("receiver", key.Address()),
-				zap.Int64("amount", int64(gasPerNode)),
-				zap.String("error", err.Error()),
+			x.log.Warn("failed to transfer GAS to the storage node",
+				zap.Error(err),
 			)
 		}
 	}
+
+	x.log.Debug("sidechain GAS emission/distribution is done")
 }

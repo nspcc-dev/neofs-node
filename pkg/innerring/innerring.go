@@ -13,10 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
@@ -63,6 +60,8 @@ type (
 	Server struct {
 		log *logger.Logger
 
+		node *node
+
 		// event producers
 		morphListener   event.Listener
 		mainnetListener event.Listener
@@ -93,7 +92,6 @@ type (
 		// internal variables
 		key                   *keys.PrivateKey
 		pubKey                []byte
-		contracts             *contracts
 		predefinedValidators  keys.PublicKeys
 		initialEpochTickDelta uint32
 		withoutMainNet        bool
@@ -295,6 +293,8 @@ func (s *Server) Stop() {
 			)
 		}
 	}
+
+	s.node.stop()
 }
 
 func (s *Server) registerNoErrCloser(c func()) {
@@ -317,9 +317,8 @@ func (s *Server) registerStarter(f func() error) {
 }
 
 // New creates instance of inner ring sever structure.
-func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
-	var err error
-	server := &Server{log: log}
+func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan<- error) (server *Server, err error) {
+	server = &Server{log: log}
 
 	server.setHealthStatus(control.HealthStatus_HEALTH_STATUS_UNDEFINED)
 
@@ -349,6 +348,64 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
 	}
 
+	server.withoutMainNet = cfg.GetBool("without_mainnet")
+
+	if !server.withoutMainNet {
+		mainnetChain := &chainParams{
+			log:  log,
+			cfg:  cfg,
+			key:  server.key,
+			name: mainnetPrefix,
+			sgn:  &transaction.Signer{Scopes: transaction.CalledByEntry},
+			from: 0,
+		}
+
+		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
+		if err != nil {
+			fromMainChainBlock = 0
+			log.Warn("can't get last processed main chain block number", zap.String("error", err.Error()))
+		}
+		mainnetChain.from = fromMainChainBlock
+
+		// create mainnet client
+		server.mainnetClient, err = createClient(ctx, mainnetChain, errChan)
+		if err != nil {
+			return nil, fmt.Errorf("create main net client: %w", err)
+		}
+
+		// create mainnet listener
+		server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	server.node, err = newNode(cfg, acc, log, errChan, mainChainStatus{
+		separated:            !server.withoutMainNet,
+		notaryServiceEnabled: !server.withoutMainNet && server.mainnetClient.ProbeNotary(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: temp hack area (dont' move within current function)
+	{
+		// we run node here instead of Server.Start because some Server components are
+		// still implemented though RPC: they connect on initialization step (code below)
+		// and almost definitely fail. When whole application will be implemented using
+		// core Neo Go blockchain components this step should be moved.
+		err = server.node.run(ctx.Done())
+		if err != nil {
+			return nil, fmt.Errorf("run node: %w", err)
+		}
+
+		defer func() {
+			if err != nil {
+				server.node.stop()
+			}
+		}()
+	}
+
 	morphChain := &chainParams{
 		log:  log,
 		cfg:  cfg,
@@ -372,37 +429,12 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		morphChain.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
 	}
 
-	server.withoutMainNet = cfg.GetBool("without_mainnet")
-
 	if server.withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
 		// otherwise Server.Start will run two similar routines.
 		// This behavior most likely will not change.
 		server.mainnetListener = server.morphListener
 		server.mainnetClient = server.morphClient
-	} else {
-		mainnetChain := morphChain
-		mainnetChain.name = mainnetPrefix
-		mainnetChain.sgn = &transaction.Signer{Scopes: transaction.CalledByEntry}
-
-		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
-		if err != nil {
-			fromMainChainBlock = 0
-			log.Warn("can't get last processed main chain block number", zap.String("error", err.Error()))
-		}
-		mainnetChain.from = fromMainChainBlock
-
-		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain, errChan)
-		if err != nil {
-			return nil, err
-		}
-
-		// create mainnet listener
-		server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(
@@ -416,34 +448,22 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
 
-	// get all script hashes of contracts
-	server.contracts, err = parseContracts(
-		cfg,
-		server.morphClient,
-		server.withoutMainNet,
-		server.mainNotaryConfig.disabled,
-		server.sideNotaryConfig.disabled,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	if !server.sideNotaryConfig.disabled {
 		// enable notary support in the side client
 		err = server.morphClient.EnableNotarySupport(
-			client.WithProxyContract(server.contracts.proxy),
+			client.WithProxyContract(server.node.contracts.get(contractProxy)),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
 		}
 
-		server.morphListener.EnableNotarySupport(server.contracts.proxy, server.morphClient.Committee, server.morphClient)
+		server.morphListener.EnableNotarySupport(server.node.contracts.get(contractProxy), server.morphClient.Committee, server.morphClient)
 	}
 
 	if !server.mainNotaryConfig.disabled {
 		// enable notary support in the main client
 		err = server.mainnetClient.EnableNotarySupport(
-			client.WithProxyContract(server.contracts.processing),
+			client.WithProxyContract(server.node.contracts.get(contractProcessing)),
 			client.WithAlphabetSource(server.morphClient.Committee),
 		)
 		if err != nil {
@@ -468,7 +488,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 
 	// do not use TryNotary() in audit wrapper
 	// audit operations do not require multisignatures
-	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.contracts.audit, fee)
+	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.node.contracts.get(contractAudit), fee)
 	if err != nil {
 		return nil, err
 	}
@@ -488,35 +508,39 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		)
 	}
 
-	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, fee, morphCnrOpts...)
+	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.node.contracts.get(contractContainer), fee, morphCnrOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, fee, nmClient.TryNotary(), nmClient.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.node.contracts.get(contractNetmap), fee, nmClient.TryNotary(), nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceClient.TryNotary(), balanceClient.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.node.contracts.get(contractBalance), fee, balanceClient.TryNotary(), balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, fee, repClient.TryNotary(), repClient.AsAlphabet())
+	repClient, err := repClient.NewFromMorph(server.morphClient, server.node.contracts.get(contractReputation), fee, repClient.TryNotary(), repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsid.TryNotary(), neofsid.AsAlphabet())
+	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.node.contracts.get(contractNeoFSID), fee, neofsid.TryNotary(), neofsid.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
+	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.node.contracts.get(contractNeoFS),
 		server.feeConfig.MainChainFee(), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
 		return nil, err
+	}
+
+	if !server.withoutMainNet {
+		server.node.mainChain.neoFSClient = neofsCli
 	}
 
 	// initialize morph client of Subnet contract
@@ -528,7 +552,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 
 	subnetInitPrm := morphsubnet.InitPrm{}
 	subnetInitPrm.SetBaseClient(server.morphClient)
-	subnetInitPrm.SetContractAddress(server.contracts.subnet)
+	subnetInitPrm.SetContractAddress(server.node.contracts.get(contractSubnet))
 	subnetInitPrm.SetMode(clientMode)
 
 	subnetClient := &morphsubnet.Client{}
@@ -696,6 +720,8 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
 	netMapCandidateStateValidator.SetNetworkSettings(netSettings)
 
+	subnetContract := server.node.contracts.get(contractSubnet)
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -724,7 +750,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 			subnetValidator,
 		),
 		NotaryDisabled: server.sideNotaryConfig.disabled,
-		SubnetContract: &server.contracts.subnet,
+		SubnetContract: &subnetContract,
 
 		NodeStateSettings: netSettings,
 	})
@@ -737,50 +763,12 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	// container processor
-	containerProcessor, err := container.New(&container.Params{
-		Log:             log,
-		PoolSize:        cfg.GetInt("workers.container"),
-		AlphabetState:   server,
-		ContainerClient: cnrClient,
-		NeoFSIDClient:   neofsIDClient,
-		NetworkState:    server.netmapClient,
-		NotaryDisabled:  server.sideNotaryConfig.disabled,
-		SubnetClient:    subnetClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = bindMorphProcessor(containerProcessor, server)
-	if err != nil {
-		return nil, err
-	}
-
-	// create balance processor
-	balanceProcessor, err := balance.New(&balance.Params{
-		Log:           log,
-		PoolSize:      cfg.GetInt("workers.balance"),
-		NeoFSClient:   neofsCli,
-		BalanceSC:     server.contracts.balance,
-		AlphabetState: server,
-		Converter:     &server.precision,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = bindMorphProcessor(balanceProcessor, server)
-	if err != nil {
-		return nil, err
-	}
-
 	if !server.withoutMainNet {
 		// create mainnnet neofs processor
 		neofsProcessor, err := neofs.New(&neofs.Params{
 			Log:                 log,
 			PoolSize:            cfg.GetInt("workers.neofs"),
-			NeoFSContract:       server.contracts.neofs,
+			NeoFSContract:       server.node.contracts.get(contractNeoFS),
 			NeoFSIDClient:       neofsIDClient,
 			BalanceClient:       server.balanceClient,
 			NetmapClient:        server.netmapClient,
@@ -801,25 +789,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	// create alphabet processor
-	alphabetProcessor, err := alphabet.New(&alphabet.Params{
-		Log:               log,
-		PoolSize:          cfg.GetInt("workers.alphabet"),
-		AlphabetContracts: server.contracts.alphabet,
-		NetmapClient:      server.netmapClient,
-		MorphClient:       server.morphClient,
-		IRList:            server,
-		StorageEmission:   cfg.GetUint64("emit.storage.amount"),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = bindMorphProcessor(alphabetProcessor, server)
-	if err != nil {
-		return nil, err
 	}
 
 	// create reputation processor
@@ -869,7 +838,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 
 	// initialize emission timer
 	emissionTimer := newEmissionTimer(&emitTimerArgs{
-		ap:           alphabetProcessor,
+		ap:           server.node.processors.alphabet,
 		emitDuration: cfg.GetUint32("timers.emit"),
 	})
 

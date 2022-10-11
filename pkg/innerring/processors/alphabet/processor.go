@@ -1,109 +1,69 @@
 package alphabet
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
-type (
-	// Indexer is a callback interface for inner ring global state.
-	Indexer interface {
-		AlphabetIndex() int
-	}
+// NeoFS represents virtual connection to the NeoFS network.
+type NeoFS interface {
+	// StorageNodes lists accounts of all storage nodes presented in the network.
+	// Returns an error in case of storage nodes' absence.
+	StorageNodes() ([]util.Uint160, error)
 
-	// Contracts is an interface of the storage
-	// of the alphabet contract addresses.
-	Contracts interface {
-		// GetByIndex must return the address of the
-		// alphabet contract by index of the glagolitic
-		// letter (e.g 0 for Az, 40 for Izhitsa).
-		//
-		// Must return false if the index does not
-		// match any alphabet contract.
-		GetByIndex(int) (util.Uint160, bool)
-	}
+	// StorageEmissionAmount returns amount of the sidechain GAS emitted to all
+	// storage nodes once per GAS emission cycle. Returns models.ErrStorageEmissionDisabled
+	// if storage emission is disabled in the network.
+	StorageEmissionAmount() (uint64, error)
+}
 
-	// Processor of events produced for alphabet contracts in the sidechain.
-	Processor struct {
-		log               *logger.Logger
-		pool              *ants.Pool
-		alphabetContracts Contracts
-		netmapClient      *nmClient.Client
-		morphClient       *client.Client
-		irList            Indexer
-		storageEmission   uint64
-	}
+// helper type which is defined to separate the local node interface from NeoFS
+// in the Processor type.
+type node interface {
+	// EmitSidechainGAS triggers production of the sidechain GAS and its
+	// distribution among Inner Ring nodes and Proxy contract. Returns
+	// models.ErrNonAlphabet if the node is not an Alphabet one.
+	EmitSidechainGAS() error
 
-	// Params of the processor constructor.
-	Params struct {
-		Log               *logger.Logger
-		PoolSize          int
-		AlphabetContracts Contracts
-		NetmapClient      *nmClient.Client
-		MorphClient       *client.Client
-		IRList            Indexer
-		StorageEmission   uint64
-	}
-)
+	// TransferGAS sends request to transfer specified amount of GAS from the
+	// node account to the given receiver. Final transfer is not guaranteed.
+	//
+	// Amount is always positive.
+	TransferGAS(amount uint64, to util.Uint160) error
+}
 
-// New creates a neofs mainnet contract processor instance.
-func New(p *Params) (*Processor, error) {
-	switch {
-	case p.Log == nil:
-		return nil, errors.New("ir/alphabet: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/alphabet: neo:morph client is not set")
-	case p.IRList == nil:
-		return nil, errors.New("ir/alphabet: global state is not set")
-	}
+// LocalNode provides functionality of the local Inner Ring node which is expected
+// by the Processor to work.
+type LocalNode interface {
+	node
 
-	p.Log.Debug("alphabet worker pool", zap.Int("size", p.PoolSize))
+	// NeoFS functionality is also provided by the node: it is highlighted to
+	// differentiate between global system services and local node services.
+	NeoFS
+}
 
-	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
-	if err != nil {
-		return nil, fmt.Errorf("ir/neofs: can't create worker pool: %w", err)
+// Processor handles events spawned by the Alphabet contracts deployed
+// in the NeoFS sidechain.
+type Processor struct {
+	log *logger.Logger
+
+	node node
+
+	neoFS NeoFS
+}
+
+// New creates and initializes new Processor instance using the provided parameters.
+// All parameters are required.
+func New(log *logger.Logger, node LocalNode) *Processor {
+	if log == nil {
+		panic("missing logger")
+	} else if node == nil {
+		panic("missing node interface")
 	}
 
 	return &Processor{
-		log:               p.Log,
-		pool:              pool,
-		alphabetContracts: p.AlphabetContracts,
-		netmapClient:      p.NetmapClient,
-		morphClient:       p.MorphClient,
-		irList:            p.IRList,
-		storageEmission:   p.StorageEmission,
-	}, nil
-}
-
-// ListenerNotificationParsers for the 'event.Listener' event producer.
-func (ap *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	return nil
-}
-
-// ListenerNotificationHandlers for the 'event.Listener' event producer.
-func (ap *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	return nil
-}
-
-// ListenerNotaryParsers for the 'event.Listener' event producer.
-func (ap *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
-	return nil
-}
-
-// ListenerNotaryHandlers for the 'event.Listener' event producer.
-func (ap *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
-	return nil
-}
-
-// TimersHandlers for the 'Timers' event producer.
-func (ap *Processor) TimersHandlers() []event.NotificationHandlerInfo {
-	return nil
+		log:   log,
+		node:  node,
+		neoFS: node,
+	}
 }

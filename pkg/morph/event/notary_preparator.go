@@ -96,6 +96,10 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 	}
 }
 
+func NewNotaryPreparer(prm PreparatorPrm) NotaryPreparator {
+	return notaryPreparator(prm)
+}
+
 // Prepare converts raw notary requests to NotaryEvent.
 //
 // Returns ErrTXAlreadyHandled if transaction shouldn't be

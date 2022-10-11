@@ -1,131 +1,132 @@
 package innerring
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 )
 
+// contractName is an enumeration of names of the smart contracts deployed in
+// the NeoFS blockchain network.
+type contractName string
+
+// contractSuffix is a common name suffix of the smart contract deployed in the
+// NeoFS Sidechain. Names are registered in the NeoFS blockchain network using
+// NNS.
+const contractSuffix = ".neofs"
+
+// Named NeoFS contracts.
+const (
+	contractNeoFS      contractName = "NeoFS"
+	contractProcessing contractName = "Processing"
+	contractContainer  contractName = "container" + contractSuffix
+	contractAudit      contractName = "audit" + contractSuffix
+	contractNetmap     contractName = "netmap" + contractSuffix
+	contractBalance    contractName = "balance" + contractSuffix
+	contractNeoFSID    contractName = "neofsid" + contractSuffix
+	contractProxy      contractName = "proxy" + contractSuffix
+	contractReputation contractName = "reputation" + contractSuffix
+	contractSubnet     contractName = "subnet" + contractSuffix
+)
+
+func (x contractName) String() string {
+	return string(x)
+}
+
+// alphabetContractNamePrefix is a name prefix of the NeoFS Alphabet contracts
+// deployed in the NeoFS Sidechain. Names are registered in the NeoFS blockchain
+// network using NNS.
+const alphabetContractNamePrefix = "alphabet"
+
+// alphabetContractName returns contractName for the NeoFS Alphabet contract
+// associated with the given GlagoliticLetter. Name format is 'alphabetI.neofs' where
+// 'I' is an index of the GlagoliticLetter in the Glagolitsa alphabet.
+func alphabetContractName(l GlagoliticLetter) contractName {
+	if l < az || l >= lastLetterNum {
+		panic(fmt.Sprintf("invalid glagolitic letter enum value %v", l))
+	}
+
+	return contractName(alphabetContractNamePrefix + strconv.Itoa(int(l)) + contractSuffix)
+}
+
+// contracts represents table of the smart contracts deployed in the NeoFS
+// blockchain network.
 type contracts struct {
-	neofs      util.Uint160 // in mainnet
-	netmap     util.Uint160 // in morph
-	balance    util.Uint160 // in morph
-	container  util.Uint160 // in morph
-	audit      util.Uint160 // in morph
-	proxy      util.Uint160 // in morph
-	processing util.Uint160 // in mainnet
-	reputation util.Uint160 // in morph
-	subnet     util.Uint160 // in morph
-	neofsID    util.Uint160 // in morph
-
-	alphabet alphabetContracts // in morph
+	m map[contractName]util.Uint160
 }
 
-func parseContracts(cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary, withoutSideNotary bool) (*contracts, error) {
-	var (
-		result = new(contracts)
-		err    error
-	)
+// newContracts creates new contracts instance and fills it with pre-configured
+// values stored in the provided viper.Viper container. Mapping between NeoFS
+// contract names and configuration paths is controlled by the related
+// parameter. The newContracts returns an error if any of the contracts
+// mentioned in the map is missing or is not a little-endian hex-encoded string.
+func newContracts(cfg *viper.Viper, m map[contractName]string) (*contracts, error) {
+	var c contracts
+	c.m = make(map[contractName]util.Uint160, 10)
 
-	if !withoutMainNet {
-		result.neofs, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.neofs"))
-		if err != nil {
-			return nil, fmt.Errorf("can't get neofs script hash: %w", err)
+	for name, cfgPath := range m {
+		if !cfg.IsSet(cfgPath) {
+			return nil, fmt.Errorf("contract '%s' address is not configured in path '%s'", name, cfgPath)
 		}
 
-		if !withoutMainNotary {
-			result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
+		contract, err := util.Uint160DecodeStringLE(cfg.GetString(cfgPath))
+		if err != nil {
+			return nil, fmt.Errorf("invalid contract '%s' little-endian hex string '%s': %w", name, cfgPath, err)
+		}
+
+		c.set(name, contract)
+	}
+
+	return &c, nil
+}
+
+// set writes address of the NeoFS smart contract by its name to the contracts' table.
+func (x *contracts) set(name contractName, addr util.Uint160) {
+	x.m[name] = addr
+}
+
+// get reads address of the NeoFS smart contract by its contractName from the
+// contracts' table. Return zero value if there is no table record for the
+// requested contractName.
+func (x *contracts) get(name contractName) util.Uint160 {
+	return x.m[name]
+}
+
+// resolve attempts to resolve NeoFS contractName from its address. Returns
+// false if there is no table record with the requested address.
+func (x *contracts) resolve(contract util.Uint160) (contractName, bool) {
+	for k, v := range x.m {
+		if v.Equals(contract) {
+			return k, true
+		}
+	}
+
+	return "", false
+}
+
+// getAlphabetContract is a wrapper over contracts.get which simplifies reading
+// address of the NeoFS Alphabet contract by given GlagoliticLetter.
+func getAlphabetContract(c *contracts, l GlagoliticLetter) util.Uint160 {
+	return c.get(alphabetContractName(l))
+}
+
+// iterateAlphabet iterates over all NeoFS Alphabet contract-related records and
+// passes corresponding GlagoliticLetter and address to the given handler.
+func (x *contracts) iterateAlphabet(f func(letter GlagoliticLetter, contract util.Uint160)) {
+	var letter GlagoliticLetter
+
+	for k, v := range x.m {
+		s := strings.TrimPrefix(string(k), alphabetContractNamePrefix)
+		if s != string(k) {
+			_, err := fmt.Sscan(s, &letter)
 			if err != nil {
-				return nil, fmt.Errorf("can't get processing script hash: %w", err)
-			}
-		}
-	}
-
-	if !withoutSideNotary {
-		result.proxy, err = parseContract(cfg, morph, "contracts.proxy", client.NNSProxyContractName)
-		if err != nil {
-			return nil, fmt.Errorf("can't get proxy script hash: %w", err)
-		}
-	}
-
-	targets := [...]struct {
-		cfgName string
-		nnsName string
-		dest    *util.Uint160
-	}{
-		{"contracts.netmap", client.NNSNetmapContractName, &result.netmap},
-		{"contracts.balance", client.NNSBalanceContractName, &result.balance},
-		{"contracts.container", client.NNSContainerContractName, &result.container},
-		{"contracts.audit", client.NNSAuditContractName, &result.audit},
-		{"contracts.reputation", client.NNSReputationContractName, &result.reputation},
-		{"contracts.subnet", client.NNSSubnetworkContractName, &result.subnet},
-		{"contracts.neofsid", client.NNSNeoFSIDContractName, &result.neofsID},
-	}
-
-	for _, t := range targets {
-		*t.dest, err = parseContract(cfg, morph, t.cfgName, t.nnsName)
-		if err != nil {
-			name := strings.TrimPrefix(t.cfgName, "contracts.")
-			return nil, fmt.Errorf("can't get %s script hash: %w", name, err)
-		}
-	}
-
-	result.alphabet, err = parseAlphabetContracts(cfg, morph)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func parseAlphabetContracts(cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
-	num := GlagoliticLetter(cfg.GetUint("contracts.alphabet.amount"))
-	alpha := newAlphabetContracts()
-
-	if num > lastLetterNum {
-		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
-	}
-
-	thresholdIsSet := num != 0
-
-	if !thresholdIsSet {
-		// try to read maximum alphabet contracts
-		// if threshold has not been set manually
-		num = lastLetterNum
-	}
-
-	for letter := az; letter < num; letter++ {
-		contractHash, err := parseContract(cfg, morph,
-			"contracts.alphabet."+letter.String(),
-			client.NNSAlphabetContractName(int(letter)),
-		)
-		if err != nil {
-			if errors.Is(err, client.ErrNNSRecordNotFound) {
-				break
+				panic(fmt.Sprintf("decode Alphabet contract name string: %v", err))
 			}
 
-			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
+			f(letter, v)
 		}
-
-		alpha.set(letter, contractHash)
 	}
-
-	if thresholdIsSet && len(alpha) != int(num) {
-		return nil, fmt.Errorf("could not read all contracts: required %d, read %d", num, len(alpha))
-	}
-
-	return alpha, nil
-}
-
-func parseContract(cfg *viper.Viper, morph *client.Client, cfgName, nnsName string) (res util.Uint160, err error) {
-	contractStr := cfg.GetString(cfgName)
-	if len(contractStr) == 0 {
-		return morph.NNSContractAddress(nnsName)
-	}
-
-	return util.Uint160DecodeStringLE(contractStr)
 }

@@ -1,121 +1,61 @@
 package balance
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
-	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
-type (
-	// AlphabetState is a callback interface for inner ring global state.
-	AlphabetState interface {
-		IsAlphabet() bool
-	}
+// NeoFS represents virtual connection to the NeoFS network.
+type NeoFS interface {
+	// BalanceSystemPrecision returns precision of the system balances.
+	BalanceSystemPrecision() (uint64, error)
+}
 
-	// PrecisionConverter converts balance amount values.
-	PrecisionConverter interface {
-		ToFixed8(int64) int64
-	}
+// helper type which is defined to separate the local node interface from NeoFS
+// in the Processor type.
+type node interface {
+	common.NodeStatus
 
-	// Processor of events produced by balance contract in the morphchain.
-	Processor struct {
-		log           *logger.Logger
-		pool          *ants.Pool
-		neofsClient   *neofscontract.Client
-		balanceSC     util.Uint160
-		alphabetState AlphabetState
-		converter     PrecisionConverter
-	}
+	// ApproveWithdrawal sends local node's approval to transfer specified amount
+	// of GAS back from NeoFS system to the user account in the Neo Main Net.
+	// Assets are expected to be preliminarily locked in the system by the
+	// given withdrawal transaction.
+	ApproveWithdrawal(userAcc util.Uint160, amount uint64, withdrawTx util.Uint256) error
+}
 
-	// Params of the processor constructor.
-	Params struct {
-		Log           *logger.Logger
-		PoolSize      int
-		NeoFSClient   *neofscontract.Client
-		BalanceSC     util.Uint160
-		AlphabetState AlphabetState
-		Converter     PrecisionConverter
-	}
-)
+// LocalNode provides functionality of the local Inner Ring node which is expected
+// by the Processor to work.
+type LocalNode interface {
+	node
 
-const (
-	lockNotification = "Lock"
-)
+	// NeoFS functionality is also provided by the node: it is highlighted to
+	// differentiate between global system services and local node services.
+	NeoFS
+}
 
-// New creates a balance contract processor instance.
-func New(p *Params) (*Processor, error) {
-	switch {
-	case p.Log == nil:
-		return nil, errors.New("ir/balance: logger is not set")
-	case p.AlphabetState == nil:
-		return nil, errors.New("ir/balance: global state is not set")
-	case p.Converter == nil:
-		return nil, errors.New("ir/balance: balance precision converter is not set")
-	}
+// Processor handles events spawned by the Balance contract deployed
+// in the NeoFS sidechain.
+type Processor struct {
+	log *logger.Logger
 
-	p.Log.Debug("balance worker pool", zap.Int("size", p.PoolSize))
+	node node
 
-	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
-	if err != nil {
-		return nil, fmt.Errorf("ir/balance: can't create worker pool: %w", err)
+	neoFS NeoFS
+}
+
+// New creates and initializes new Processor instance using the provided parameters.
+// All parameters are required.
+func New(log *logger.Logger, node LocalNode) *Processor {
+	if log == nil {
+		panic("missing logger")
+	} else if node == nil {
+		panic("missing node interface")
 	}
 
 	return &Processor{
-		log:           p.Log,
-		pool:          pool,
-		neofsClient:   p.NeoFSClient,
-		balanceSC:     p.BalanceSC,
-		alphabetState: p.AlphabetState,
-		converter:     p.Converter,
-	}, nil
-}
-
-// ListenerNotificationParsers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	var parsers []event.NotificationParserInfo
-
-	// new lock event
-	lock := event.NotificationParserInfo{}
-	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.balanceSC)
-	lock.SetParser(balanceEvent.ParseLock)
-	parsers = append(parsers, lock)
-
-	return parsers
-}
-
-// ListenerNotificationHandlers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	var handlers []event.NotificationHandlerInfo
-
-	// lock handler
-	lock := event.NotificationHandlerInfo{}
-	lock.SetType(lockNotification)
-	lock.SetScriptHash(bp.balanceSC)
-	lock.SetHandler(bp.handleLock)
-	handlers = append(handlers, lock)
-
-	return handlers
-}
-
-// ListenerNotaryParsers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
-	return nil
-}
-
-// ListenerNotaryHandlers for the 'event.Listener' event producer.
-func (bp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
-	return nil
-}
-
-// TimersHandlers for the 'Timers' event producer.
-func (bp *Processor) TimersHandlers() []event.NotificationHandlerInfo {
-	return nil
+		log:   log,
+		node:  node,
+		neoFS: node,
+	}
 }

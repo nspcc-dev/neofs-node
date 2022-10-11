@@ -93,18 +93,16 @@ func (s *Server) AlphabetIndex() int {
 }
 
 func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) error {
-	validators := prm.Validators
-
-	index := s.InnerRingIndex()
-	if s.contracts.alphabet.indexOutOfRange(index) {
+	isAlphabet, err := s.node.IsAlphabet()
+	if err != nil {
+		return fmt.Errorf("check Alphabet status of the local node: %w", err)
+	} else if !isAlphabet {
 		s.log.Info("ignore validator vote: node not in alphabet range")
-
 		return nil
 	}
 
-	if len(validators) == 0 {
+	if len(prm.Validators) == 0 {
 		s.log.Info("ignore validator vote: empty validators list")
-
 		return nil
 	}
 
@@ -114,7 +112,6 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		nonce uint32 = 1
 		vub   uint32
 		vubP  *uint32
-		err   error
 	)
 
 	if prm.Hash != nil {
@@ -125,8 +122,8 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		vubP = &vub
 	}
 
-	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
-		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, epoch, validators)
+	s.node.contracts.iterateAlphabet(func(letter GlagoliticLetter, contract util.Uint160) {
+		err := s.morphClient.NotaryInvoke(contract, s.feeConfig.SideChainFee(), nonce, vubP, voteMethod, epoch, prm.Validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int8("alphabet_index", int8(letter)),

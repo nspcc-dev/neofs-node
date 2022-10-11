@@ -59,7 +59,7 @@ func (s *Server) initSubnet(cfg subnetConfig) {
 		var initPrm morphsubnet.InitPrm
 
 		initPrm.SetBaseClient(s.morphClient)
-		initPrm.SetContractAddress(s.contracts.subnet)
+		initPrm.SetContractAddress(s.node.contracts.get(contractSubnet))
 		initPrm.SetMode(clientMode)
 
 		err = s.subnetHandler.morphClient.Init(initPrm)
@@ -114,8 +114,8 @@ func (s *Server) listenSubnet() {
 		handlerInfo event.NotaryHandlerInfo
 	)
 
-	parserInfo.SetScriptHash(s.contracts.subnet)
-	handlerInfo.SetScriptHash(s.contracts.subnet)
+	parserInfo.SetScriptHash(s.node.contracts.get(contractSubnet))
+	handlerInfo.SetScriptHash(s.node.contracts.get(contractSubnet))
 
 	listenNotaryEvent := func(notifyName string, parser event.NotaryParser, handler event.Handler) {
 		notifyTyp := event.NotaryTypeFromString(notifyName)
@@ -152,8 +152,8 @@ func listenNotifySubnetEvent(s *Server, notifyName string, parser event.Notifica
 		handlerInfo event.NotificationHandlerInfo
 	)
 
-	parserInfo.SetScriptHash(s.contracts.subnet)
-	handlerInfo.SetScriptHash(s.contracts.subnet)
+	parserInfo.SetScriptHash(s.node.contracts.get(contractSubnet))
+	handlerInfo.SetScriptHash(s.node.contracts.get(contractSubnet))
 
 	notifyTyp := event.TypeFromString(notifyName)
 
