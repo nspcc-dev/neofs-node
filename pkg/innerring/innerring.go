@@ -741,7 +741,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
 		PoolSize:        cfg.GetInt("workers.container"),
-		AlphabetState:   server,
+		NodeState:       server,
 		ContainerClient: cnrClient,
 		NeoFSIDClient:   neofsIDClient,
 		NetworkState:    server.netmapClient,

@@ -15,17 +15,20 @@ import (
 	"go.uber.org/zap"
 )
 
-type (
-	// AlphabetState is a callback interface for inner ring global state.
-	AlphabetState interface {
-		IsAlphabet() bool
-	}
+// NodeState provides current state of the Inner Ring member in the NeoFS
+// network.
+type NodeState interface {
+	// IsAlphabet checks if the node belongs to the Alphabet set. IsAlphabet
+	// MUST return false if the assertion cannot be verified for some reason.
+	IsAlphabet() bool
+}
 
+type (
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
 		log            *logger.Logger
 		pool           *ants.Pool
-		alphabetState  AlphabetState
+		nodeState      NodeState
 		cnrClient      *container.Client // notary must be enabled
 		idClient       *neofsid.Client
 		subnetClient   *morphsubnet.Client
@@ -37,7 +40,7 @@ type (
 	Params struct {
 		Log             *logger.Logger
 		PoolSize        int
-		AlphabetState   AlphabetState
+		NodeState       NodeState
 		ContainerClient *container.Client
 		NeoFSIDClient   *neofsid.Client
 		SubnetClient    *morphsubnet.Client
@@ -76,7 +79,7 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/container: logger is not set")
-	case p.AlphabetState == nil:
+	case p.NodeState == nil:
 		return nil, errors.New("ir/container: global state is not set")
 	case p.ContainerClient == nil:
 		return nil, errors.New("ir/container: Container client is not set")
@@ -98,7 +101,7 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:            p.Log,
 		pool:           pool,
-		alphabetState:  p.AlphabetState,
+		nodeState:      p.NodeState,
 		cnrClient:      p.ContainerClient,
 		idClient:       p.NeoFSIDClient,
 		netState:       p.NetworkState,

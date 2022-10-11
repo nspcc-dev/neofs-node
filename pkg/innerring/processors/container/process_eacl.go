@@ -12,7 +12,7 @@ import (
 )
 
 func (cp *Processor) processSetEACL(e container.SetEACL) {
-	if !cp.alphabetState.IsAlphabet() {
+	if !cp.nodeState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore set EACL")
 		return
 	}
