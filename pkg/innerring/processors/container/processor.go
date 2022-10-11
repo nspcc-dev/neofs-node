@@ -49,21 +49,15 @@ type (
 	}
 )
 
-// NetworkState is an interface of a component
-// that provides access to network state.
+// NetworkState provides current state of the NeoFS network.
 type NetworkState interface {
-	// Epoch must return the number of the current epoch.
-	//
-	// Must return any error encountered
-	// which did not allow reading the value.
+	// Epoch returns the number of the current epoch. Returns any error encountered
+	// which did not allow to determine the epoch.
 	Epoch() (uint64, error)
 
-	// HomomorphicHashDisabled must return boolean that
-	// represents homomorphic network state:
-	// 	* true if hashing is disabled;
-	// 	* false if hashing is enabled.
-	//
-	// which did not allow reading the value.
+	// HomomorphicHashDisabled checks if homomorphic hashing of the object data
+	// is disabled. Returns any error encountered which did not allow to determine
+	// the property.
 	HomomorphicHashDisabled() (bool, error)
 }
 
