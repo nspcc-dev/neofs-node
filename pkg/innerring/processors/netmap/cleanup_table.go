@@ -2,7 +2,6 @@ package netmap
 
 import (
 	"bytes"
-	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -50,7 +49,7 @@ func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) {
 	for i := range nmNodes {
 		binNodeInfo := nmNodes[i].Marshal()
 
-		keyString := hex.EncodeToString(nmNodes[i].PublicKey())
+		keyString := netmap.StringifyPublicKey(nmNodes[i])
 
 		access, ok := c.lastAccess[keyString]
 		if ok {

@@ -3,7 +3,6 @@ package audit
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -134,7 +133,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
 			zap.Stringer("cid", cnr),
-			zap.String("key", hex.EncodeToString(shuffled[0].PublicKey())),
+			zap.String("key", netmap.StringifyPublicKey(shuffled[0])),
 			zap.Int("try", i),
 			zap.Int("total_tries", ln),
 		)
