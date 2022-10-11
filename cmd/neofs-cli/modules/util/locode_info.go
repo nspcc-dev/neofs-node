@@ -18,7 +18,7 @@ var (
 
 	locodeInfoCmd = &cobra.Command{
 		Use:   "info",
-		Short: "print information about UN/LOCODE from NeoFS database",
+		Short: "Print information about UN/LOCODE from NeoFS database",
 		Run: func(cmd *cobra.Command, _ []string) {
 			targetDB := locodebolt.New(locodebolt.Prm{
 				Path: locodeInfoDBPath,

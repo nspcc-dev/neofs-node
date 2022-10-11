@@ -33,7 +33,7 @@ func entryPoint(cmd *cobra.Command, _ []string) error {
 func init() {
 	// use stdout as default output for cmd.Print()
 	command.SetOut(os.Stdout)
-	command.Flags().Bool("version", false, "application version")
+	command.Flags().Bool("version", false, "Application version")
 	command.AddCommand(
 		blobovnicza.Root,
 		meta.Root,

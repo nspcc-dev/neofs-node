@@ -9,6 +9,6 @@ func InitSession(cmd *cobra.Command) {
 	cmd.Flags().String(
 		SessionToken,
 		"",
-		"path to a JSON-encoded container session token",
+		"Path to a JSON-encoded container session token",
 	)
 }

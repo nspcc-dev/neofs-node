@@ -77,9 +77,9 @@ In this case there is a number of helper functions which can be used:
 	}
 
 	ff := gendocCmd.Flags()
-	ff.StringP(gendocTypeFlag, "t", gendocMarkdown, "type for the documentation ('md' or 'man')")
-	ff.Int(depthFlag, 1, "if template is specified, unify all commands starting from depth in a single file. Default: 1.")
-	ff.StringP(extensionFlag, "e", "", "if the template is specified, string to append to the output file names")
+	ff.StringP(gendocTypeFlag, "t", gendocMarkdown, "Type for the documentation ('md' or 'man')")
+	ff.Int(depthFlag, 1, "If template is specified, unify all commands starting from depth in a single file. Default: 1.")
+	ff.StringP(extensionFlag, "e", "", "If the template is specified, string to append to the output file names")
 	return gendocCmd
 }
 

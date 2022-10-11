@@ -13,31 +13,31 @@ const (
 	GenerateKey          = "generate-key"
 	generateKeyShorthand = "g"
 	generateKeyDefault   = false
-	generateKeyUsage     = "generate new private key"
+	generateKeyUsage     = "Generate new private key"
 
 	WalletPath          = "wallet"
 	WalletPathShorthand = "w"
 	WalletPathDefault   = ""
-	WalletPathUsage     = "path to the wallet or binary key"
+	WalletPathUsage     = "Path to the wallet or binary key"
 
 	Account          = "address"
 	AccountShorthand = ""
 	AccountDefault   = ""
-	AccountUsage     = "address of wallet account"
+	AccountUsage     = "Address of wallet account"
 
 	RPC          = "rpc-endpoint"
 	RPCShorthand = "r"
 	RPCDefault   = ""
-	RPCUsage     = "remote node address (as 'multiaddr' or '<host>:<port>')"
+	RPCUsage     = "Remote node address (as 'multiaddr' or '<host>:<port>')"
 
 	Timeout          = "timeout"
 	TimeoutShorthand = "t"
 	TimeoutDefault   = 15 * time.Second
-	TimeoutUsage     = "timeout for an operation"
+	TimeoutUsage     = "Timeout for an operation"
 
 	Verbose          = "verbose"
 	VerboseShorthand = "v"
-	VerboseUsage     = "verbose output"
+	VerboseUsage     = "Verbose output"
 
 	ForceFlag          = "force"
 	ForceFlagShorthand = "f"

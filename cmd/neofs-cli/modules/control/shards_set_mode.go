@@ -38,7 +38,7 @@ func initControlSetShardModeCmd() {
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.String(shardIDFlag, "", "ID of the shard in base58 encoding")
 	flags.String(shardModeFlag, "",
-		fmt.Sprintf("new shard mode keyword ('%s', '%s', '%s')",
+		fmt.Sprintf("New shard mode keyword ('%s', '%s', '%s')",
 			shardModeReadWrite,
 			shardModeReadOnly,
 			shardModeDegraded,

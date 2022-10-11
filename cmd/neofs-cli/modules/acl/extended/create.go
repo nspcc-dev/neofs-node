@@ -50,10 +50,10 @@ neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk 
 }
 
 func init() {
-	createCmd.Flags().StringArrayP("rule", "r", nil, "extended ACL table record to apply")
-	createCmd.Flags().StringP("file", "f", "", "read list of extended ACL table records from from text file")
-	createCmd.Flags().StringP("out", "o", "", "save JSON formatted extended ACL table in file")
-	createCmd.Flags().StringP("cid", "", "", "container ID")
+	createCmd.Flags().StringArrayP("rule", "r", nil, "Extended ACL table record to apply")
+	createCmd.Flags().StringP("file", "f", "", "Read list of extended ACL table records from from text file")
+	createCmd.Flags().StringP("out", "o", "", "Save JSON formatted extended ACL table in file")
+	createCmd.Flags().StringP("cid", "", "", "Container ID")
 
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), "file")
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), "out")

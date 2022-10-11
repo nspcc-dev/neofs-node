@@ -33,7 +33,7 @@ func initControlSetNetmapStatusCmd() {
 
 	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.String(netmapStatusFlag, "",
-		fmt.Sprintf("new netmap status keyword ('%s', '%s', '%s')",
+		fmt.Sprintf("New netmap status keyword ('%s', '%s', '%s')",
 			netmapStatusOnline,
 			netmapStatusOffline,
 			netmapStatusMaintenance,

@@ -91,6 +91,6 @@ func initContainerListObjectsCmd() {
 
 	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
 	flags.BoolVar(&flagVarListObjectsPrintAttr, flagListObjectPrintAttr, false,
-		"request and print user attributes of each object",
+		"Request and print user attributes of each object",
 	)
 }

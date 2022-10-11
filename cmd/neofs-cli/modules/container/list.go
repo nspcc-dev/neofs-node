@@ -81,9 +81,9 @@ func initContainerListContainersCmd() {
 	flags := listContainersCmd.Flags()
 
 	flags.StringVar(&flagVarListContainerOwner, flagListContainerOwner, "",
-		"owner of containers (omit to use owner from private key)",
+		"Owner of containers (omit to use owner from private key)",
 	)
 	flags.BoolVar(&flagVarListPrintAttr, flagListPrintAttr, false,
-		"request and print attributes of each container",
+		"Request and print attributes of each container",
 	)
 }

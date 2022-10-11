@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Flush write-cache when moving shard to DEGRADED mode (#1825)
 - Make `morph.cache_ttl` default value equal to morph block time (#1846)
 - Policer marks nodes under maintenance as OK without requests (#1680)
+- Unify help messages in CLI (#1854)
 
 ### Fixed
 - Description of command `netmap nodeinfo` (#1821)
