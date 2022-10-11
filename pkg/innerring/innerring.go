@@ -737,13 +737,16 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
+	var authSys authSystem
+	authSys.init((*neoFSIDContractCore)(neofsIDClient))
+
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
 		PoolSize:        cfg.GetInt("workers.container"),
 		NodeState:       server,
 		ContainerClient: cnrClient,
-		NeoFSIDClient:   neofsIDClient,
+		AuthSystem:      &authSys,
 		NetworkState:    server.netmapClient,
 		NotaryDisabled:  server.sideNotaryConfig.disabled,
 		SubnetClient:    subnetClient,

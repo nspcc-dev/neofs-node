@@ -1,11 +1,9 @@
 package container
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -48,10 +46,12 @@ type signatureVerificationData struct {
 //   - session is "alive"
 func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	var err error
-	var key neofsecdsa.PublicKeyRFC6979
+	var key *neofsecdsa.PublicKeyRFC6979
 	keyProvided := v.binPublicKey != nil
 
 	if keyProvided {
+		key = new(neofsecdsa.PublicKeyRFC6979)
+
 		err = key.Decode(v.binPublicKey)
 		if err != nil {
 			return fmt.Errorf("decode public key: %w", err)
@@ -72,7 +72,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 		// FIXME(@cthulhu-rider): #1387 check token is signed by container owner, see neofs-sdk-go#233
 
-		if keyProvided && !tok.AssertAuthKey(&key) {
+		if keyProvided && !tok.AssertAuthKey(key) {
 			return errors.New("signed with a non-session key")
 		}
 
@@ -100,35 +100,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		return nil
 	}
 
-	if keyProvided {
-		// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-		var idFromKey user.ID
-		user.IDFromKey(&idFromKey, (ecdsa.PublicKey)(key))
-
-		if v.ownerContainer.Equals(idFromKey) {
-			if key.Verify(v.signedData, v.signature) {
-				return nil
-			}
-
-			return errors.New("invalid signature calculated by container owner's key")
-		}
-	} else {
-		var prm neofsid.AccountKeysPrm
-		prm.SetID(v.ownerContainer)
-
-		ownerKeys, err := cp.idClient.AccountKeys(prm)
-		if err != nil {
-			return fmt.Errorf("receive owner keys %s: %w", v.ownerContainer, err)
-		}
-
-		for i := range ownerKeys {
-			if (*neofsecdsa.PublicKeyRFC6979)(ownerKeys[i]).Verify(v.signedData, v.signature) {
-				return nil
-			}
-		}
-	}
-
-	return errors.New("signature is invalid or calculated with the key not bound to the container owner")
+	return cp.authSystem.VerifySignature(v.ownerContainer, v.signedData, v.signature, key)
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {

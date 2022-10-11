@@ -6,11 +6,12 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -23,6 +24,16 @@ type NodeState interface {
 	IsAlphabet() bool
 }
 
+// AuthSystem is an authentication/authorization system in the NeoFS network.
+type AuthSystem interface {
+	// VerifySignature performs user authorization by checking the signature
+	// of the given data. The user is authenticated using the optional
+	// neofsecdsa.PublicKeyRFC6979 parameter. If key is not provided,
+	// VerifySignature authenticates the user internally. VerifySignature
+	// returns no error if and only if authorization is passed successfully.
+	VerifySignature(usr user.ID, data []byte, signature []byte, key *neofsecdsa.PublicKeyRFC6979) error
+}
+
 type (
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
@@ -30,7 +41,7 @@ type (
 		pool           *ants.Pool
 		nodeState      NodeState
 		cnrClient      *container.Client // notary must be enabled
-		idClient       *neofsid.Client
+		authSystem     AuthSystem
 		subnetClient   *morphsubnet.Client
 		netState       NetworkState
 		notaryDisabled bool
@@ -42,7 +53,7 @@ type (
 		PoolSize        int
 		NodeState       NodeState
 		ContainerClient *container.Client
-		NeoFSIDClient   *neofsid.Client
+		AuthSystem      AuthSystem
 		SubnetClient    *morphsubnet.Client
 		NetworkState    NetworkState
 		NotaryDisabled  bool
@@ -77,8 +88,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: global state is not set")
 	case p.ContainerClient == nil:
 		return nil, errors.New("ir/container: Container client is not set")
-	case p.NeoFSIDClient == nil:
-		return nil, errors.New("ir/container: NeoFS ID client is not set")
+	case p.AuthSystem == nil:
+		return nil, errors.New("ir/container: auth system is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
 	case p.SubnetClient == nil:
@@ -97,7 +108,7 @@ func New(p *Params) (*Processor, error) {
 		pool:           pool,
 		nodeState:      p.NodeState,
 		cnrClient:      p.ContainerClient,
-		idClient:       p.NeoFSIDClient,
+		authSystem:     p.AuthSystem,
 		netState:       p.NetworkState,
 		notaryDisabled: p.NotaryDisabled,
 		subnetClient:   p.SubnetClient,
