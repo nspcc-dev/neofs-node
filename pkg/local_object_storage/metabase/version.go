@@ -19,20 +19,34 @@ var versionKey = []byte("version")
 var ErrOutdatedVersion = errors.New("invalid version")
 
 func checkVersion(tx *bbolt.Tx, initialized bool) error {
+	var knownVersion bool
+
 	b := tx.Bucket(shardInfoBucket)
 	if b != nil {
 		data := b.Get(versionKey)
 		if len(data) == 8 {
+			knownVersion = true
+
 			stored := binary.LittleEndian.Uint64(data)
 			if stored != version {
 				return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
 			}
 		}
 	}
-	if !initialized { // new database, write version
+
+	if !initialized {
+		// new database, write version
 		return updateVersion(tx, version)
+	} else if !knownVersion {
+		// db is initialized but no version
+		// has been found; that could happen
+		// if the db is corrupted or the version
+		// is <2 (is outdated and requires resync
+		// anyway)
+		return ErrOutdatedVersion
 	}
-	return nil // return error here after the first version increase
+
+	return nil
 }
 
 func updateVersion(tx *bbolt.Tx, version uint64) error {
