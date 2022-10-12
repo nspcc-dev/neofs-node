@@ -59,6 +59,9 @@ type MetricsWriter interface {
 	// DecObjectCounter must decrement shard's object counter taking into account
 	// object type.
 	DecObjectCounter(objectType string)
+	// SetShardID must set (update) the shard identifier that will be used in
+	// metrics.
+	SetShardID(id string)
 }
 
 type cfg struct {
