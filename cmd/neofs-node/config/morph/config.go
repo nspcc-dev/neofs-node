@@ -16,15 +16,6 @@ const (
 	// DialTimeoutDefault is a default dial timeout of morph chain client connection.
 	DialTimeoutDefault = 5 * time.Second
 
-	// NotaryDepositAmountDefault is a default deposit amount to notary contract.
-	NotaryDepositAmountDefault = 5000_0000 // 0.5 Fixed8
-
-	// NotaryDepositDurationDefault is a default deposit duration.
-	NotaryDepositDurationDefault uint32 = 1000
-
-	// MaxConnPerHostDefault is a default maximum of connections per host of the morph client.
-	MaxConnPerHostDefault = 10
-
 	// PriorityDefault is a default endpoint priority for the morph client.
 	PriorityDefault = 1
 
