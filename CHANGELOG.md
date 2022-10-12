@@ -45,6 +45,7 @@ Changelog for NeoFS Node
 - Node's status in `neofs-cli netmap nodeinfo` command (#1833)
 - Child check in object assembly process of `ObjectService.Get` handler (#1878)
 - Shard ID in the object counter metrics (#1863)
+- Metabase migration from the first version (#1860)
 
 ### Removed
 - Remove WIF and NEP2 support in `neofs-cli`'s --wallet flag (#1128)
