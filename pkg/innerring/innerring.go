@@ -1007,6 +1007,7 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
+		client.WithSwitchInterval(p.cfg.GetDuration(p.name+".switch_interval")),
 	)
 }
 
