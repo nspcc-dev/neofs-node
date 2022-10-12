@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - `container nodes` command to output list of nodes for container, grouped by replica (#1704)
 - Configuration flag to ignore shard in `neofs-node` (#1840)
 - Add new RPC `TreeService.Healthcheck`
+- Fallback to `GET` if `GET_RANGE` from one storage nodes to another is denied by basic ACL (#1884)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
