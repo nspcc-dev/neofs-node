@@ -1,6 +1,8 @@
 package getsvc
 
 import (
+	"crypto/ecdsa"
+	"errors"
 	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -143,12 +145,35 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 		res, err := internalclient.PayloadRange(prm)
 		if err != nil {
+			var errAccessDenied *apistatus.ObjectAccessDenied
+			if errors.As(err, &errAccessDenied) {
+				// Current spec allows other storage node to deny access,
+				// fallback to GET_RANGE here.
+				obj, err := c.get(exec, key)
+				if err != nil {
+					return nil, err
+				}
+
+				payload := obj.Payload()
+				from := rng.GetOffset()
+				to := from + rng.GetLength()
+
+				if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+					return nil, apistatus.ObjectOutOfRange{}
+				}
+
+				return payloadOnlyObject(payload[from:to]), nil
+			}
 			return nil, err
 		}
 
 		return payloadOnlyObject(res.PayloadRange()), nil
 	}
 
+	return c.get(exec, key)
+}
+
+func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Object, error) {
 	var prm internalclient.GetObjectPrm
 
 	prm.SetContext(exec.context())
