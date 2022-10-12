@@ -133,9 +133,7 @@ func (c *Client) notificationLoop() {
 }
 
 func (c *Client) switchToMostPrioritized() {
-	const period = 2 * time.Minute
-
-	t := time.NewTicker(period)
+	t := time.NewTicker(c.cfg.switchInterval)
 	defer t.Stop()
 	defer c.switchIsActive.Store(false)
 
