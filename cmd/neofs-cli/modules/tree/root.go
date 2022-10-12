@@ -12,9 +12,11 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(addCmd)
 	Cmd.AddCommand(getByPathCmd)
+	Cmd.AddCommand(addByPathCmd)
 
 	initAddCmd()
 	initGetByPathCmd()
+	initAddByPathCmd()
 }
 
 const (
