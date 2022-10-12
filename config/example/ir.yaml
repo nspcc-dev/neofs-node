@@ -18,9 +18,11 @@ morph:
       - address: wss://sidechain2.fs.neo.org:30333/ws
   validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
+  switch_interval: 2m # interval b/w RPC switch attempts if the node is not connected to the highest priority node
 
 mainnet:
   dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
+  switch_interval: 2m # interval b/w RPC switch attempts if the node is not connected to the highest priority node
   endpoint:
     client: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled
       - address: wss://mainchain1.fs.neo.org:30333/ws
