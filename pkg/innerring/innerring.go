@@ -740,6 +740,9 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	var authSys authSystem
 	authSys.init((*neoFSIDContractCore)(neofsIDClient))
 
+	var cSubnet subnetContract
+	cSubnet.init(subnetClient, log)
+
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
@@ -747,9 +750,10 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		NodeState:       server,
 		ContainerClient: cnrClient,
 		AuthSystem:      &authSys,
+		Subnets:         &cSubnet,
 		NetworkState:    server.netmapClient,
 		NotaryDisabled:  server.sideNotaryConfig.disabled,
-		SubnetClient:    subnetClient,
+		Subnets:         &cSubnet,
 	})
 	if err != nil {
 		return nil, err

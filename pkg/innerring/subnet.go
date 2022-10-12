@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
@@ -351,4 +352,46 @@ func (s *Server) processCandidate(txHash neogoutil.Uint256, removedID subnetid.I
 			)
 		}
 	}
+}
+
+// subnetContract encapsulates Subnet contract's interface of the NeoFS Sidechain
+// and provides interface needed by the Inner Ring application.
+type subnetContract struct {
+	cli *morphsubnet.Client
+
+	log *logger.Logger
+}
+
+// init initializes the subnetContract instance.
+func (x *subnetContract) init(c *morphsubnet.Client, l *logger.Logger) {
+	x.cli = c
+	x.log = l
+}
+
+// ContainerOwnerAllowed encodes given subnet and user references and calls "userAllowed"
+// method of the Subnet contract with them. If contract call fails, ContainerOwnerAllowed
+// logs an error and returns false.
+//
+// Implements container.Subnets.
+func (x *subnetContract) ContainerOwnerAllowed(sub subnetid.ID, usr user.ID) bool {
+	if subnetid.IsZero(sub) {
+		return true
+	}
+
+	var prm morphsubnet.UserAllowedPrm
+	prm.SetID(sub.Marshal())
+	prm.SetClient(usr.WalletBytes())
+
+	res, err := x.cli.UserAllowed(prm)
+	if err != nil {
+		x.log.Error("check user allowance to enter the subnet using Subnet contract client",
+			zap.Stringer("subnet", sub),
+			zap.Stringer("user", usr),
+			zap.Error(err),
+		)
+
+		return false
+	}
+
+	return res.Allowed()
 }

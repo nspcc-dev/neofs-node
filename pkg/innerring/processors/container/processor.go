@@ -6,11 +6,11 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -34,6 +34,15 @@ type AuthSystem interface {
 	VerifySignature(usr user.ID, data []byte, signature []byte, key *neofsecdsa.PublicKeyRFC6979) error
 }
 
+// Subnets represents mechanism of organization of NeoFS network parties
+// in a subnet.
+type Subnets interface {
+	// ContainerOwnerAllowed checks if container creator is allowed to bind
+	// containers to the given subnet. ContainerOwnerAllowed MUST return false
+	// allowance cannot be verified for any reason.
+	ContainerOwnerAllowed(subnetid.ID, user.ID) bool
+}
+
 type (
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
@@ -42,7 +51,7 @@ type (
 		nodeState      NodeState
 		cnrClient      *container.Client // notary must be enabled
 		authSystem     AuthSystem
-		subnetClient   *morphsubnet.Client
+		subnets        Subnets
 		netState       NetworkState
 		notaryDisabled bool
 	}
@@ -54,7 +63,7 @@ type (
 		NodeState       NodeState
 		ContainerClient *container.Client
 		AuthSystem      AuthSystem
-		SubnetClient    *morphsubnet.Client
+		Subnets         Subnets
 		NetworkState    NetworkState
 		NotaryDisabled  bool
 	}
@@ -92,8 +101,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: auth system is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
-	case p.SubnetClient == nil:
-		return nil, errors.New("ir/container: subnet client is not set")
+	case p.Subnets == nil:
+		return nil, errors.New("ir/container: subnets mechanism is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -111,7 +120,7 @@ func New(p *Params) (*Processor, error) {
 		authSystem:     p.AuthSystem,
 		netState:       p.NetworkState,
 		notaryDisabled: p.NotaryDisabled,
-		subnetClient:   p.SubnetClient,
+		subnets:        p.Subnets,
 	}, nil
 }
 

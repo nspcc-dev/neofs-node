@@ -1,17 +1,16 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
-	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"go.uber.org/zap"
 )
 
@@ -64,8 +63,10 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("invalid binary container: %w", err)
 	}
 
+	owner := cnr.Owner()
+
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Owner(),
+		ownerContainer:  owner,
 		verb:            session.VerbContainerPut,
 		binTokenSession: ctx.e.SessionToken(),
 		binPublicKey:    ctx.e.PublicKey(),
@@ -77,9 +78,8 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	}
 
 	// check owner allowance in the subnetwork
-	err = checkSubnet(cp.subnetClient, cnr)
-	if err != nil {
-		return fmt.Errorf("incorrect subnetwork: %w", err)
+	if !cp.subnets.ContainerOwnerAllowed(cnr.PlacementPolicy().Subnet(), owner) {
+		return errors.New("subnet access check failed")
 	}
 
 	// check homomorphic hashing setting
@@ -216,29 +216,6 @@ func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
 		if zone := named.Zone(); zone != ctx.d.Zone() {
 			return fmt.Errorf("zones differ %s/%s", zone, ctx.d.Zone())
 		}
-	}
-
-	return nil
-}
-
-func checkSubnet(subCli *morphsubnet.Client, cnr containerSDK.Container) error {
-	prm := morphsubnet.UserAllowedPrm{}
-
-	subID := cnr.PlacementPolicy().Subnet()
-	if subnetid.IsZero(subID) {
-		return nil
-	}
-
-	prm.SetID(subID.Marshal())
-	prm.SetClient(cnr.Owner().WalletBytes())
-
-	res, err := subCli.UserAllowed(prm)
-	if err != nil {
-		return fmt.Errorf("could not check user in contract: %w", err)
-	}
-
-	if !res.Allowed() {
-		return fmt.Errorf("user is not allowed to create containers in %v subnetwork", subID)
 	}
 
 	return nil
