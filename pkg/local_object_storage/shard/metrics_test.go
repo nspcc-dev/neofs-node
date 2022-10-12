@@ -19,6 +19,8 @@ type metricsStore struct {
 	s map[string]uint64
 }
 
+func (m metricsStore) SetShardID(_ string) {}
+
 func (m metricsStore) SetObjectCounter(objectType string, v uint64) {
 	m.s[objectType] = v
 }

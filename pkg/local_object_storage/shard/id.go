@@ -43,6 +43,10 @@ func (s *Shard) UpdateID() (err error) {
 	}
 	if len(id) != 0 {
 		s.info.ID = NewIDFromBytes(id)
+
+		if s.cfg.metricsWriter != nil {
+			s.cfg.metricsWriter.SetShardID(s.info.ID.String())
+		}
 	}
 
 	s.log = &logger.Logger{Logger: s.log.With(zap.String("shard_id", s.info.ID.String()))}
