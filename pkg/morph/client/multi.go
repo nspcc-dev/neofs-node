@@ -65,7 +65,7 @@ func (c *Client) switchRPC() bool {
 		c.rpcActor = act
 		c.gasToken = gas
 
-		if !c.switchIsActive.Load() &&
+		if c.cfg.switchInterval != 0 && !c.switchIsActive.Load() &&
 			c.endpoints.list[c.endpoints.curr].Priority != c.endpoints.list[0].Priority {
 			c.switchIsActive.Store(true)
 			go c.switchToMostPrioritized()
