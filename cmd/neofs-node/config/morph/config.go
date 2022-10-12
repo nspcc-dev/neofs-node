@@ -22,6 +22,9 @@ const (
 	// CacheTTLDefault is a default value for cached values TTL.
 	// It is 0, because actual default depends on block time.
 	CacheTTLDefault = time.Duration(0)
+
+	// SwitchIntervalDefault is a default Neo RPCs switch interval.
+	SwitchIntervalDefault = 2 * time.Minute
 )
 
 // RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
@@ -80,4 +83,17 @@ func CacheTTL(c *config.Config) time.Duration {
 	}
 
 	return CacheTTLDefault
+}
+
+// SwitchInterval returns the value of "switch_interval" config parameter
+// from "morph" section.
+//
+// Returns SwitchIntervalDefault if value is not positive duration.
+func SwitchInterval(c *config.Config) time.Duration {
+	res := config.DurationSafe(c.Sub(subsection), "switch_interval")
+	if res != 0 {
+		return res
+	}
+
+	return SwitchIntervalDefault
 }

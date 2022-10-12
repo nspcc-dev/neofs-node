@@ -49,9 +49,8 @@ type cfg struct {
 }
 
 const (
-	defaultDialTimeout    = 5 * time.Second
-	defaultWaitInterval   = 500 * time.Millisecond
-	defaultSwitchInterval = 2 * time.Minute
+	defaultDialTimeout  = 5 * time.Second
+	defaultWaitInterval = 500 * time.Millisecond
 )
 
 func defaultConfig() *cfg {
@@ -63,7 +62,6 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
 		},
-		switchInterval: defaultSwitchInterval,
 	}
 }
 
