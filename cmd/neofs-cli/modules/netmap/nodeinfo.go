@@ -54,6 +54,8 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i netmap.NodeInfo) {
 		stateWord = "online"
 	case i.IsOffline():
 		stateWord = "offline"
+	case i.IsMaintenance():
+		stateWord = "maintenance"
 	}
 
 	cmd.Println("state:", stateWord)
