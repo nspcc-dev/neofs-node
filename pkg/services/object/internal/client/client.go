@@ -96,6 +96,8 @@ type GetObjectPrm struct {
 	readPrmCommon
 
 	cliPrm client.PrmObjectGet
+
+	obj oid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -109,8 +111,9 @@ func (x *GetObjectPrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *GetObjectPrm) SetAddress(addr oid.Address) {
+	x.obj = addr.Object()
 	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(addr.Object())
+	x.cliPrm.ByID(x.obj)
 }
 
 // GetObjectRes groups the resulting values of GetObject operation.
@@ -131,8 +134,13 @@ func (x GetObjectRes) Object() *object.Object {
 // Returns:
 //   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
 //   - error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//
+// GetObject ignores the provided session if it is not related to the requested object.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
-	if prm.tokenSession != nil {
+	// here we ignore session if it is opened for other object since such
+	// request will almost definitely fail. The case can occur, for example,
+	// when session is bound to the parent object and child object is requested.
+	if prm.tokenSession != nil && prm.tokenSession.AssertObject(prm.obj) {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
 	}
 
@@ -185,6 +193,8 @@ type HeadObjectPrm struct {
 	readPrmCommon
 
 	cliPrm client.PrmObjectHead
+
+	obj oid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -198,8 +208,9 @@ func (x *HeadObjectPrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *HeadObjectPrm) SetAddress(addr oid.Address) {
+	x.obj = addr.Object()
 	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(addr.Object())
+	x.cliPrm.ByID(x.obj)
 }
 
 // HeadObjectRes groups the resulting values of GetObject operation.
@@ -221,12 +232,15 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 //	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
 //	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//
+// HeadObject ignores the provided session if it is not related to the requested object.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
 	}
 
-	if prm.tokenSession != nil {
+	// see details in same statement of GetObject
+	if prm.tokenSession != nil && prm.tokenSession.AssertObject(prm.obj) {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
 	}
 
@@ -264,6 +278,8 @@ type PayloadRangePrm struct {
 	ln uint64
 
 	cliPrm client.PrmObjectRange
+
+	obj oid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -277,8 +293,9 @@ func (x *PayloadRangePrm) SetRawFlag() {
 //
 // Required parameter.
 func (x *PayloadRangePrm) SetAddress(addr oid.Address) {
+	x.obj = addr.Object()
 	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(addr.Object())
+	x.cliPrm.ByID(x.obj)
 }
 
 // SetRange range of the object payload to be read.
@@ -308,12 +325,15 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 //
 //	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
 //	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//
+// PayloadRange ignores the provided session if it is not related to the requested object.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	if prm.local {
 		prm.cliPrm.MarkLocal()
 	}
 
-	if prm.tokenSession != nil {
+	// see details in same statement of GetObject
+	if prm.tokenSession != nil && prm.tokenSession.AssertObject(prm.obj) {
 		prm.cliPrm.WithinSession(*prm.tokenSession)
 	}
 
