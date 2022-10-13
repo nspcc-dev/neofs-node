@@ -60,6 +60,7 @@ const (
 	netmapInnerRingCandidateFeeKey   = "InnerRingCandidateFee"
 	netmapWithdrawFeeKey             = "WithdrawFee"
 	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
+	netmapMaintenanceAllowedKey      = "MaintenanceModeAllowed"
 
 	defaultEigenTrustIterations = 4
 	defaultEigenTrustAlpha      = "0.1"
@@ -550,6 +551,7 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []in
 			netmapInnerRingCandidateFeeKey, viper.GetInt64(candidateFeeInitFlag),
 			netmapWithdrawFeeKey, viper.GetInt64(withdrawFeeInitFlag),
 			netmapHomomorphicHashDisabledKey, viper.GetBool(homomorphicHashDisabledInitFlag),
+			netmapMaintenanceAllowedKey, viper.GetBool(maintenanceModeAllowedInitFlag),
 		}
 		items = append(items,
 			c.Contracts[balanceContract].Hash,
