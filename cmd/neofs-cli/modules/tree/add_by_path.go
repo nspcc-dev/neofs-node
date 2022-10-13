@@ -83,7 +83,7 @@ func addByPath(cmd *cobra.Command, _ []string) {
 
 	nn := resp.GetBody().GetNodes()
 	if len(nn) == 0 {
-		cmd.Println("No new nodes were created")
+		common.PrintVerbose("No new nodes were created")
 		return
 	}
 

@@ -80,7 +80,7 @@ func getByPath(cmd *cobra.Command, _ []string) {
 
 	nn := resp.GetBody().GetNodes()
 	if len(nn) == 0 {
-		cmd.Println("The node is not found")
+		common.PrintVerbose("The node is not found")
 		return
 	}
 
