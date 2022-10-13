@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Add new RPC `TreeService.Healthcheck`
 - Fallback to `GET` if `GET_RANGE` from one storage nodes to another is denied by basic ACL (#1884)
 - List of shards and logger level runtime reconfiguration (#1770)
+- `neofs-adm morph set-config` now supports well-known `MaintenanceModeAllowed` key (#1892)
 
 ### Changed
 - Allow to evacuate shard data with `EvacuateShard` control RPC (#1800)
@@ -63,6 +64,9 @@ If network allows maintenance state (*), it will be reflected in the network map
 Storage nodes under maintenance are not excluded from the network map, but don't
 serve object operations. (*) can be fetched from network configuration via
 `neofs-cli netmap netinfo` command.    
+
+To allow maintenance mode during neofs-adm deployments, set
+`network.maintenance_mode_allowed` parameter in config.
 
 When issuing an object session token for root (virtual, "big") objects,
 additionally include all members of the split-chain. If session context
