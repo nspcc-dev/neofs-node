@@ -254,8 +254,7 @@ func initObjectService(c *cfg) {
 	c.workers = append(c.workers, pol)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
-		e:     ls,
-		state: &c.internals,
+		e: ls,
 	}
 
 	if c.cfgNotifications.enabled {
@@ -291,7 +290,7 @@ func initObjectService(c *cfg) {
 
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
-		searchsvc.WithLocalStorageEngine(ls, &c.internals),
+		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithTraverserGenerator(
 			traverseGen.WithTraverseOptions(
@@ -318,7 +317,6 @@ func initObjectService(c *cfg) {
 		),
 		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
-		getsvc.WithNodeState(&c.internals),
 	)
 
 	*c.cfgObject.getSvc = *sGet // need smth better
@@ -378,8 +376,11 @@ func initObjectService(c *cfg) {
 		),
 	)
 
+	var commonSvc objectService.Common
+	commonSvc.Init(&c.internals, aclSvc)
+
 	respSvc := objectService.NewResponseService(
-		aclSvc,
+		&commonSvc,
 		c.respSvc,
 	)
 
@@ -583,16 +584,8 @@ func (e engineWithNotifications) Put(o *objectSDK.Object) error {
 
 type engineWithoutNotifications struct {
 	e *engine.StorageEngine
-
-	state util.NodeState
 }
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
-	if e.state.IsMaintenance() {
-		var st apistatus.NodeUnderMaintenance
-
-		return st
-	}
-
 	return engine.Put(e.e, o)
 }
