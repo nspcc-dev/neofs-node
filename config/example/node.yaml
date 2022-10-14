@@ -147,7 +147,12 @@ storage:
         remover_sleep_interval: 5m  # frequency of the garbage collector invocation
 
     0:
-      mode: "read-only"  # mode of the shard, must be one of the: "read-write" (default), "read-only"
+      mode: read-only  # mode of the shard, must be one of the:
+        # read-write (default)
+        # read-only
+        # degraded
+        # degraded-read-only
+        # disabled (do not work with the shard, allows to not remove it from the config)
       resync_metabase: false  # sync metabase with blobstor on start, expensive, leave false until complete understanding
 
       writecache:
