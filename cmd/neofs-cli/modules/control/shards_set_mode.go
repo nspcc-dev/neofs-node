@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mr-tron/base58"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
@@ -16,12 +17,16 @@ const (
 	shardIDFlag          = "id"
 	shardAllFlag         = "all"
 	shardClearErrorsFlag = "clear-errors"
-
-	shardModeReadOnly         = "read-only"
-	shardModeReadWrite        = "read-write"
-	shardModeDegraded         = "degraded-read-write"
-	shardModeDegradedReadOnly = "degraded-read-only"
 )
+
+// maps string command input to control.ShardMode. To support new mode, it's
+// enough to add the map entry.
+var mShardModes = map[string]control.ShardMode{
+	"read-only":           control.ShardMode_READ_ONLY,
+	"read-write":          control.ShardMode_READ_WRITE,
+	"degraded-read-write": control.ShardMode_DEGRADED,
+	"degraded-read-only":  control.ShardMode_DEGRADED_READ_ONLY,
+}
 
 var setShardModeCmd = &cobra.Command{
 	Use:   "set-mode",
@@ -36,12 +41,14 @@ func initControlSetShardModeCmd() {
 	flags := setShardModeCmd.Flags()
 	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	flags.Bool(shardAllFlag, false, "Process all shards")
+
+	modes := make([]string, 0, len(mShardModes))
+	for strMode := range mShardModes {
+		modes = append(modes, "'"+strMode+"'")
+	}
+
 	flags.String(shardModeFlag, "",
-		fmt.Sprintf("New shard mode keyword ('%s', '%s', '%s')",
-			shardModeReadWrite,
-			shardModeReadOnly,
-			shardModeDegraded,
-		),
+		fmt.Sprintf("New shard mode keyword (%s)", strings.Join(modes, ",")),
 	)
 	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
 
@@ -51,19 +58,11 @@ func initControlSetShardModeCmd() {
 func setShardMode(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
-	var mode control.ShardMode
+	strMode, _ := cmd.Flags().GetString(shardModeFlag)
 
-	switch shardMode, _ := cmd.Flags().GetString(shardModeFlag); shardMode {
-	default:
-		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported mode %s", shardMode))
-	case shardModeReadWrite:
-		mode = control.ShardMode_READ_WRITE
-	case shardModeReadOnly:
-		mode = control.ShardMode_READ_ONLY
-	case shardModeDegraded:
-		mode = control.ShardMode_DEGRADED
-	case shardModeDegradedReadOnly:
-		mode = control.ShardMode_DEGRADED_READ_ONLY
+	mode, ok := mShardModes[strMode]
+	if !ok {
+		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported mode %s", strMode))
 	}
 
 	req := new(control.SetShardModeRequest)
