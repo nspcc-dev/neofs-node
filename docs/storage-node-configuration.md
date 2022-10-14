@@ -167,13 +167,14 @@ Contains configuration for each shard. Keys must be consecutive numbers starting
 `default` subsection has the same format and specifies defaults for missing values.
 The following table describes configuration for each shard.
 
-| Parameter         | Type                                        | Default value | Description                              |
-|-------------------|---------------------------------------------|---------------|------------------------------------------|
-| `resync_metabase` | `bool`                                      | `false`       | Flag to enable metabase resync on start. |
-| `writecache`      | [Writecache config](#writecache-subsection) |               | Write-cache configuration.               |
-| `metabase`        | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                  |
-| `blobstor`        | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                  |
-| `gc`              | [GC config](#gc-subsection)                 |               | GC configuration.                        |
+| Parameter         | Type                                        | Default value | Description                                                                                               |
+|-------------------|---------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------|
+| `mode`            | `string`                                    | `read-write`  | Shard Mode.<br/>Possible values:  `read-write`, `read-only`, `degraded`, `degraded-read-only`, `disabled` |
+| `resync_metabase` | `bool`                                      | `false`       | Flag to enable metabase resync on start.                                                                  |
+| `writecache`      | [Writecache config](#writecache-subsection) |               | Write-cache configuration.                                                                                |
+| `metabase`        | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                                                                                   |
+| `blobstor`        | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                                                                                   |
+| `gc`              | [GC config](#gc-subsection)                 |               | GC configuration.                                                                                         |
 
 ### `blobstor` subsection
 
