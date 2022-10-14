@@ -62,6 +62,8 @@ func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
 			ctrlNetSt = control.NetmapStatus_ONLINE
 		case ni.IsOffline():
 			ctrlNetSt = control.NetmapStatus_OFFLINE
+		case ni.IsMaintenance():
+			ctrlNetSt = control.NetmapStatus_MAINTENANCE
 		}
 	} else {
 		ctrlNetSt = control.NetmapStatus_OFFLINE
