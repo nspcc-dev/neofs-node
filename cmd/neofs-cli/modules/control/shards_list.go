@@ -108,16 +108,11 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 }
 
 func shardModeToString(m control.ShardMode) string {
-	switch m {
-	case control.ShardMode_READ_WRITE:
-		return "read-write"
-	case control.ShardMode_READ_ONLY:
-		return "read-only"
-	case control.ShardMode_DEGRADED:
-		return "degraded-read-write"
-	case control.ShardMode_DEGRADED_READ_ONLY:
-		return "degraded-read-only"
-	default:
-		return "unknown"
+	for strMode, mode := range mShardModes {
+		if mode == m {
+			return strMode
+		}
 	}
+
+	return "unknown"
 }
