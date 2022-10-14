@@ -156,13 +156,15 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	}
 
 	// receive owner of the related container
-	cnr, err := cp.cnrClient.Get(binCnr)
+	var info Info
+
+	err = cp.containers.ReadInfo(&info, idCnr)
 	if err != nil {
-		return fmt.Errorf("could not receive the container: %w", err)
+		return fmt.Errorf("read container info: %w", err)
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Value.Owner(),
+		ownerContainer:  info.Owner,
 		verb:            session.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,

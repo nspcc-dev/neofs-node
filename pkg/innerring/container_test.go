@@ -9,6 +9,12 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -101,4 +107,82 @@ func TestAuthSystem_VerifySignature(t *testing.T) {
 	// contract key, bound, correct signature
 	require.NoError(t, a.VerifySignature(usr, data, sgn, nil))
 	require.NoError(t, a.VerifySignature(usr, data, sgn, nil))
+}
+
+type testContainerContract struct {
+	m map[cid.ID][]byte
+}
+
+func (x *testContainerContract) init() {
+	x.m = make(map[cid.ID][]byte)
+}
+
+func (x *testContainerContract) store(id cid.ID, cnr containerSDK.Container) {
+	x.m[id] = cnr.Marshal()
+}
+
+func (x *testContainerContract) makeBroken(id cid.ID) {
+	x.m[id] = []byte("not a binary container")
+}
+
+var errContainerNotFound = errors.New("container not found")
+
+var errInvalidBinFormat = errors.New("invalid bin format")
+
+func (x *testContainerContract) readContainer(cnr *containerSDK.Container, id cid.ID) error {
+	bin, ok := x.m[id]
+	if !ok {
+		return errContainerNotFound
+	}
+
+	err := cnr.Unmarshal(bin)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errInvalidBinFormat, err)
+	}
+
+	return nil
+}
+
+func TestContainers_ReadInfo(t *testing.T) {
+	var err error
+	var info container.Info
+	var ctr testContainerContract
+	var cnrs containers
+	id := cidtest.ID()
+	cnr := containertest.Container()
+
+	ctr.init()
+	cnrs.init(&ctr)
+
+	// missing container
+	err = cnrs.ReadInfo(&info, id)
+	require.ErrorIs(t, err, errContainerNotFound)
+
+	// existing container
+	ctr.store(id, cnr)
+
+	err = cnrs.ReadInfo(&info, id)
+	require.NoError(t, err)
+	require.Equal(t, cnr.Owner(), info.Owner)
+
+	// read with ACL
+	var basicACL acl.Basic
+	require.True(t, basicACL.Extendable())
+
+	cnr.SetBasicACL(basicACL)
+
+	ctr.store(id, cnr)
+
+	info.IsExtendableACL = new(bool)
+
+	err = cnrs.ReadInfo(&info, id)
+	require.NoError(t, err)
+	require.Equal(t, cnr.Owner(), info.Owner)
+	require.True(t, *info.IsExtendableACL)
+
+	// decode failure
+	ctr.makeBroken(id)
+
+	err = cnrs.ReadInfo(&info, id)
+	require.ErrorIs(t, err, errInvalidBinFormat)
 }

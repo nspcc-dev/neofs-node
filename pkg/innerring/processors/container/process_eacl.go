@@ -45,19 +45,22 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return errors.New("missing container ID in eACL table")
 	}
 
-	// receive owner of the related container
-	cnr, err := cntClient.Get(cp.cnrClient, idCnr)
+	// receive information about the related container
+	var info Info
+	info.IsExtendableACL = new(bool)
+
+	err = cp.containers.ReadInfo(&info, idCnr)
 	if err != nil {
-		return fmt.Errorf("could not receive the container: %w", err)
+		return fmt.Errorf("read container info: %w", err)
 	}
 
-	// ACL extensions can be disabled by basic ACL, check it
-	if !cnr.Value.BasicACL().Extendable() {
-		return errors.New("ACL extension disabled by container basic ACL")
+	// ACL extensions can be disabled, check it
+	if !*info.IsExtendableACL {
+		return errors.New("container ACL is immutable")
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Value.Owner(),
+		ownerContainer:  info.Owner,
 		verb:            session.VerbContainerSetEACL,
 		idContainerSet:  true,
 		idContainer:     idCnr,

@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/container"
+	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -55,6 +59,70 @@ func (x *authSystem) VerifySignature(usr user.ID, data []byte, signature []byte,
 
 	if !valid {
 		return errIncorrectSignature
+	}
+
+	return nil
+}
+
+// containerContract is an interface of Container contract of the NeoFS Sidechain
+// used by Inner Ring application. It shows how Inner Ring uses the contract.
+// The type is used for test purposes only and should not be used (exist)
+// otherwise.
+type containerContract interface {
+	// readContainer reads the container by cid.ID. Returns any error
+	// encountered which prevented the container to be read completely.
+	readContainer(*containerSDK.Container, cid.ID) error
+}
+
+// containerContract is a production containerContract provider.
+type containerContractCore struct {
+	cli *containerClient.Client
+}
+
+// init initializes the containerContract instance.
+func (x *containerContractCore) init(c *containerClient.Client) {
+	x.cli = c
+}
+
+func (x *containerContractCore) readContainer(cnr *containerSDK.Container, id cid.ID) error {
+	res, err := containerClient.Get(x.cli, id)
+	if err != nil {
+		return fmt.Errorf("read container using Sidechain rpc client: %w", err)
+	}
+
+	*cnr = res.Value
+
+	return nil
+}
+
+// containers encapsulates Container contract's interface of the NeoFS Sidechain
+// and provides interface needed by the Inner Ring application.
+//
+// Implements container.Containers.
+type containers struct {
+	contract containerContract
+}
+
+// init initializes the containers instance.
+func (x *containers) init(contract containerContract) {
+	x.contract = contract
+}
+
+// ReadInfo reads container from the Container contract by the given cid.ID
+// and writes container.Info. If the call fails or response is invalid,
+// ReadInfo returns an error.
+func (x *containers) ReadInfo(info *container.Info, id cid.ID) error {
+	var cnr containerSDK.Container
+
+	err := x.contract.readContainer(&cnr, id)
+	if err != nil {
+		return fmt.Errorf("read container from Container contract: %w", err)
+	}
+
+	info.Owner = cnr.Owner()
+
+	if info.IsExtendableACL != nil {
+		*info.IsExtendableACL = cnr.BasicACL().Extendable()
 	}
 
 	return nil

@@ -743,6 +743,12 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	var cSubnet subnetContract
 	cSubnet.init(subnetClient, log)
 
+	var cContainer containerContractCore
+	cContainer.init(cnrClient)
+
+	var cnrs containers
+	cnrs.init(&cContainer)
+
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
@@ -753,7 +759,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		Subnets:         &cSubnet,
 		NetworkState:    server.netmapClient,
 		NotaryDisabled:  server.sideNotaryConfig.disabled,
-		Subnets:         &cSubnet,
+		Containers:      &cnrs,
 	})
 	if err != nil {
 		return nil, err

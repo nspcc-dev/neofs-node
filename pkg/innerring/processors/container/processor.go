@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -43,6 +44,23 @@ type Subnets interface {
 	ContainerOwnerAllowed(subnetid.ID, user.ID) bool
 }
 
+// Info groups information about the NeoFS container requested by the Processor.
+type Info struct {
+	// Owner of the container.
+	Owner user.ID
+
+	// Mutability flag of the container ACL.
+	IsExtendableACL *bool
+}
+
+// Containers is a NeoFS container interface required for the Processor to work.
+type Containers interface {
+	// ReadInfo information about the container referenced by the given cid.ID.
+	// If pointer to a field is nil, it SHOULD NOT be read. ReadInfo returns any
+	// error encountered which prevented information to be completely read.
+	ReadInfo(*Info, cid.ID) error
+}
+
 type (
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
@@ -54,6 +72,7 @@ type (
 		subnets        Subnets
 		netState       NetworkState
 		notaryDisabled bool
+		containers     Containers
 	}
 
 	// Params of the processor constructor.
@@ -66,6 +85,7 @@ type (
 		Subnets         Subnets
 		NetworkState    NetworkState
 		NotaryDisabled  bool
+		Containers      Containers
 	}
 )
 
@@ -103,6 +123,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: network state is not set")
 	case p.Subnets == nil:
 		return nil, errors.New("ir/container: subnets mechanism is not set")
+	case p.Containers == nil:
+		return nil, errors.New("ir/container: containers are not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -121,6 +143,7 @@ func New(p *Params) (*Processor, error) {
 		netState:       p.NetworkState,
 		notaryDisabled: p.NotaryDisabled,
 		subnets:        p.Subnets,
+		containers:     p.Containers,
 	}, nil
 }
 
