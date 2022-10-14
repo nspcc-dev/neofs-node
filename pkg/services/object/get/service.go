@@ -130,10 +130,3 @@ func WithKeyStorage(store *util.KeyStorage) Option {
 		c.keyStore = store
 	}
 }
-
-// WithNodeState provides util.NodeState to Service.
-func WithNodeState(v util.NodeState) Option {
-	return func(c *cfg) {
-		c.localStorage.(*storageEngineWrapper).state = v
-	}
-}
