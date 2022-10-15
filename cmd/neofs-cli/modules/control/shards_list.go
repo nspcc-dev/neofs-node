@@ -108,10 +108,9 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 }
 
 func shardModeToString(m control.ShardMode) string {
-	for strMode, mode := range mShardModes {
-		if mode == m {
-			return strMode
-		}
+	strMode, ok := lookUpShardModeString(m)
+	if ok {
+		return strMode
 	}
 
 	return "unknown"

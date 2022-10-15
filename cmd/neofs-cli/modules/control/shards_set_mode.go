@@ -20,12 +20,54 @@ const (
 )
 
 // maps string command input to control.ShardMode. To support new mode, it's
-// enough to add the map entry.
-var mShardModes = map[string]control.ShardMode{
-	"read-only":           control.ShardMode_READ_ONLY,
-	"read-write":          control.ShardMode_READ_WRITE,
-	"degraded-read-write": control.ShardMode_DEGRADED,
-	"degraded-read-only":  control.ShardMode_DEGRADED_READ_ONLY,
+// enough to add the map entry. Modes are automatically printed in command help
+// messages.
+var mShardModes = map[string]struct {
+	val control.ShardMode
+
+	// flag to support shard mode implicitly without help message. The flag is set
+	// for values which are not expected to be set by users but still supported
+	// for developers.
+	unsafe bool
+}{
+	"read-only":           {val: control.ShardMode_READ_ONLY},
+	"read-write":          {val: control.ShardMode_READ_WRITE},
+	"degraded-read-write": {val: control.ShardMode_DEGRADED, unsafe: true},
+	"degraded-read-only":  {val: control.ShardMode_DEGRADED_READ_ONLY},
+}
+
+// iterates over string representations of safe supported shard modes. Safe means
+// modes which are expected to be used by any user. All other supported modes
+// are for developers only.
+func iterateSafeShardModes(f func(string)) {
+	for strMode, mode := range mShardModes {
+		if !mode.unsafe {
+			f(strMode)
+		}
+	}
+}
+
+// looks up for supported control.ShardMode represented by the given string.
+// Returns false if no corresponding mode exists.
+func lookUpShardModeFromString(str string) (control.ShardMode, bool) {
+	mode, ok := mShardModes[str]
+	if !ok {
+		return control.ShardMode_SHARD_MODE_UNDEFINED, false
+	}
+
+	return mode.val, true
+}
+
+// looks up for string representation of supported shard mode. Returns false
+// if mode is not supported.
+func lookUpShardModeString(m control.ShardMode) (string, bool) {
+	for strMode, mode := range mShardModes {
+		if mode.val == m {
+			return strMode, true
+		}
+	}
+
+	return "", false
 }
 
 var setShardModeCmd = &cobra.Command{
@@ -42,13 +84,14 @@ func initControlSetShardModeCmd() {
 	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	flags.Bool(shardAllFlag, false, "Process all shards")
 
-	modes := make([]string, 0, len(mShardModes))
-	for strMode := range mShardModes {
+	modes := make([]string, 0)
+
+	iterateSafeShardModes(func(strMode string) {
 		modes = append(modes, "'"+strMode+"'")
-	}
+	})
 
 	flags.String(shardModeFlag, "",
-		fmt.Sprintf("New shard mode keyword (%s)", strings.Join(modes, ",")),
+		fmt.Sprintf("New shard mode (%s)", strings.Join(modes, ", ")),
 	)
 	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
 
@@ -60,7 +103,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 
 	strMode, _ := cmd.Flags().GetString(shardModeFlag)
 
-	mode, ok := mShardModes[strMode]
+	mode, ok := lookUpShardModeFromString(strMode)
 	if !ok {
 		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported mode %s", strMode))
 	}
