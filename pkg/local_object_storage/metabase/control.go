@@ -171,7 +171,7 @@ func (db *DB) Reload(opts ...Option) (bool, error) {
 	db.modeMtx.Lock()
 	defer db.modeMtx.Unlock()
 
-	if c.info.Path != "" && filepath.Clean(db.info.Path) != filepath.Clean(c.info.Path) {
+	if db.mode.NoMetabase() || c.info.Path != "" && filepath.Clean(db.info.Path) != filepath.Clean(c.info.Path) {
 		if err := db.Close(); err != nil {
 			return false, err
 		}
