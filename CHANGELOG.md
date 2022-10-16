@@ -11,6 +11,8 @@ Changelog for NeoFS Node
 - All trees synchronization on bootstrap (#1902)
 
 ### Changed
+- Path to a metabase can now be reloaded with a SIGHUP.
+
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
 - Correctly handle setting ONLINE netmap status after maintenance (#1922)

@@ -235,10 +235,16 @@ func (rCfg *ReConfiguration) AddShard(id string, opts []shard.Option) {
 
 // Reload reloads StorageEngine's configuration in runtime.
 func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
+	type reloadInfo struct {
+		sh   *shard.Shard
+		opts []shard.Option
+	}
+
 	e.mtx.RLock()
 
 	var shardsToRemove []string // shards IDs
-	var shardsToAdd []string    // meta paths
+	var shardsToAdd []string    // shard config identifiers (blobstor paths concatenation)
+	var shardsToReload []reloadInfo
 
 	// mark removed shards for removal
 	for id, sh := range e.shards {
@@ -248,26 +254,35 @@ func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
 		}
 	}
 
-	// mark new shards for addition
+loop:
 	for newID := range rcfg.shards {
-		addShard := true
 		for _, sh := range e.shards {
 			// This calculation should be kept in sync with node
 			// configuration parsing during SIGHUP.
 			if newID == calculateShardID(sh.DumpInfo()) {
-				addShard = false
-				break
+				shardsToReload = append(shardsToReload, reloadInfo{
+					sh:   sh.Shard,
+					opts: rcfg.shards[newID],
+				})
+				continue loop
 			}
 		}
 
-		if addShard {
-			shardsToAdd = append(shardsToAdd, newID)
-		}
+		shardsToAdd = append(shardsToAdd, newID)
 	}
 
 	e.mtx.RUnlock()
 
 	e.removeShards(shardsToRemove...)
+
+	for _, p := range shardsToReload {
+		err := p.sh.Reload(p.opts...)
+		if err != nil {
+			e.log.Error("could not reload a shard",
+				zap.Stringer("shard id", p.sh.ID()),
+				zap.Error(err))
+		}
+	}
 
 	for _, newID := range shardsToAdd {
 		sh, err := e.createShard(rcfg.shards[newID])
