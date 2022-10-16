@@ -135,7 +135,7 @@ func (s *Shard) Init() error {
 	s.updateObjectCounter()
 
 	s.gc = &gc{
-		gcCfg:       s.gcCfg,
+		gcCfg:       &s.gcCfg,
 		remover:     s.removeGarbage,
 		stopChannel: make(chan struct{}),
 		eventChan:   make(chan Event),

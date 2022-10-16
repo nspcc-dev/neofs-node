@@ -82,8 +82,8 @@ type gcCfg struct {
 	workerPoolInit func(int) util.WorkerPool
 }
 
-func defaultGCCfg() *gcCfg {
-	return &gcCfg{
+func defaultGCCfg() gcCfg {
+	return gcCfg{
 		removerInterval: 10 * time.Second,
 		log:             &logger.Logger{Logger: zap.L()},
 		workerPoolInit: func(int) util.WorkerPool {
