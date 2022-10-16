@@ -282,6 +282,7 @@ func (s *Shard) Reload(opts ...Option) error {
 	ok, err := s.metaBase.Reload(c.metaOpts...)
 	if err != nil {
 		if errors.Is(err, meta.ErrDegradedMode) {
+			s.log.Error("can't open metabase, move to a degraded mode", zap.Error(err))
 			_ = s.setMode(mode.DegradedReadOnly)
 		}
 		return err
@@ -297,10 +298,12 @@ func (s *Shard) Reload(opts ...Option) error {
 			err = s.metaBase.Init()
 		}
 		if err != nil {
+			s.log.Error("can't initialize metabase, move to a degraded-read-only mode", zap.Error(err))
 			_ = s.setMode(mode.DegradedReadOnly)
 			return err
 		}
 	}
 
+	s.log.Info("trying to restore read-write mode")
 	return s.setMode(mode.ReadWrite)
 }
