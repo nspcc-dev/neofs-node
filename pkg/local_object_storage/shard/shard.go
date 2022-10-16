@@ -85,7 +85,7 @@ type cfg struct {
 
 	log *logger.Logger
 
-	gcCfg *gcCfg
+	gcCfg gcCfg
 
 	expiredTombstonesCallback ExpiredTombstonesCallback
 
