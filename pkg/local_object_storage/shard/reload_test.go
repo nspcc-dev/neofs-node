@@ -113,6 +113,16 @@ func TestShardReload(t *testing.T) {
 
 			// Old objects are still accessible.
 			checkHasObjects(t, true)
+
+			// Successive reload produces no undesired effects.
+			require.NoError(t, os.RemoveAll(badPath))
+			require.NoError(t, sh.Reload(newOpts...))
+
+			obj = newObject()
+			require.NoError(t, putObject(sh, obj))
+
+			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
+			checkHasObjects(t, true)
 		})
 	})
 }

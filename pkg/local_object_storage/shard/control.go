@@ -287,12 +287,20 @@ func (s *Shard) Reload(opts ...Option) error {
 		return err
 	}
 	if ok {
+		var err error
 		if c.refillMetabase {
-			return s.refillMetabase()
+			// Here we refill metabase only if a new instance was opened. This is a feature,
+			// we don't want to hang for some time just because we forgot to change
+			// config after the node was updated.
+			err = s.refillMetabase()
 		} else {
-			return s.metaBase.Init()
+			err = s.metaBase.Init()
+		}
+		if err != nil {
+			_ = s.setMode(mode.DegradedReadOnly)
+			return err
 		}
 	}
 
-	return nil
+	return s.setMode(mode.ReadWrite)
 }
