@@ -21,6 +21,10 @@ func (s *Shard) SetMode(m mode.Mode) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
+	return s.setMode(m)
+}
+
+func (s *Shard) setMode(m mode.Mode) error {
 	components := []interface{ SetMode(mode.Mode) error }{
 		s.metaBase, s.blobStor,
 	}

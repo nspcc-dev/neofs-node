@@ -1,13 +1,18 @@
 package meta
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
+
+// ErrDegradedMode is returned when metabase is in a degraded mode.
+var ErrDegradedMode = errors.New("metabase is in a degraded mode")
 
 // Open boltDB instance for metabase.
 func (db *DB) Open(readOnly bool) error {
@@ -23,6 +28,12 @@ func (db *DB) Open(readOnly bool) error {
 		db.boltOptions = &opts
 	}
 	db.boltOptions.ReadOnly = readOnly
+
+	return db.openBolt()
+}
+
+func (db *DB) openBolt() error {
+	var err error
 
 	db.boltDB, err = bbolt.Open(db.info.Path, db.info.Permission, db.boltOptions)
 	if err != nil {
@@ -143,4 +154,37 @@ func (db *DB) Close() error {
 		return db.boltDB.Close()
 	}
 	return nil
+}
+
+// Reload reloads part of the configuration.
+// It returns true iff database was reopened.
+// If a config option is invalid, it logs an error and returns nil.
+// If there was a problem with applying new configuration, an error is returned.
+//
+// If a metabase was couldn't be reopened because of an error, ErrDegradedMode is returned.
+func (db *DB) Reload(opts ...Option) (bool, error) {
+	var c cfg
+	for i := range opts {
+		opts[i](&c)
+	}
+
+	db.modeMtx.Lock()
+	defer db.modeMtx.Unlock()
+
+	if c.info.Path != "" && filepath.Clean(db.info.Path) != filepath.Clean(c.info.Path) {
+		if err := db.Close(); err != nil {
+			return false, err
+		}
+
+		db.mode = mode.Degraded
+		db.info.Path = c.info.Path
+		if err := db.openBolt(); err != nil {
+			return false, fmt.Errorf("%w: %v", ErrDegradedMode, err)
+		}
+
+		db.mode = mode.ReadWrite
+		return true, nil
+	}
+
+	return false, nil
 }

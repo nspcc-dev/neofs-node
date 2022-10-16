@@ -12,6 +12,8 @@ Changelog for NeoFS Node
 - `--force` flag to `neofs-cli control set-status` command (#1916)
 
 ### Changed
+- Path to a metabase can now be reloaded with a SIGHUP.
+
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
 - Correctly handle setting ONLINE netmap status after maintenance (#1922)

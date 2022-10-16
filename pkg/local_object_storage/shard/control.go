@@ -265,3 +265,34 @@ func (s *Shard) Close() error {
 
 	return nil
 }
+
+// Reload reloads configuration portions that are necessary.
+// If a config option is invalid, it logs an error and returns nil.
+// If there was a problem with applying new configuration, an error is returned.
+func (s *Shard) Reload(opts ...Option) error {
+	// Do not use defaultCfg here missing options need not be reloaded.
+	var c cfg
+	for i := range opts {
+		opts[i](&c)
+	}
+
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	ok, err := s.metaBase.Reload(c.metaOpts...)
+	if err != nil {
+		if errors.Is(err, meta.ErrDegradedMode) {
+			_ = s.setMode(mode.DegradedReadOnly)
+		}
+		return err
+	}
+	if ok {
+		if c.refillMetabase {
+			return s.refillMetabase()
+		} else {
+			return s.metaBase.Init()
+		}
+	}
+
+	return nil
+}

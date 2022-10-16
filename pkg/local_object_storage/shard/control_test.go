@@ -31,6 +31,11 @@ func (s epochState) CurrentEpoch() uint64 {
 	return 0
 }
 
+type objAddr struct {
+	obj  *objectSDK.Object
+	addr oid.Address
+}
+
 func TestShardOpen(t *testing.T) {
 	dir := t.TempDir()
 	metaPath := filepath.Join(dir, "meta")
@@ -163,11 +168,6 @@ func TestRefillMetabase(t *testing.T) {
 	require.NoError(t, sh.Init())
 
 	const objNum = 5
-
-	type objAddr struct {
-		obj  *objectSDK.Object
-		addr oid.Address
-	}
 
 	mObjs := make(map[string]objAddr)
 	locked := make([]oid.ID, 1, 2)
