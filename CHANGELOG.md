@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 ### Updated
 ### Updating from v0.33.0
 
-## [v0.33.0] - Anmado (안마도, 鞍馬島)
+## [0.33.0] - 2022-10-17 - Anmado (안마도, 鞍馬島)
 
 ### Added
 - Serving `NetmapService.NetmapSnapshot` RPC (#1793)
