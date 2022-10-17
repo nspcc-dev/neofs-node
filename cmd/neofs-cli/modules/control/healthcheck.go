@@ -5,7 +5,6 @@ import (
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -26,11 +25,9 @@ var healthCheckCmd = &cobra.Command{
 }
 
 func initControlHealthCheckCmd() {
-	commonflags.InitWithoutRPC(healthCheckCmd)
+	initControlFlags(healthCheckCmd)
 
 	flags := healthCheckCmd.Flags()
-
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.Bool(healthcheckIRFlag, false, "Communicate with IR node")
 }
 

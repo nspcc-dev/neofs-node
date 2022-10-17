@@ -6,7 +6,6 @@ import (
 	"github.com/mr-tron/base58"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -32,11 +31,9 @@ var setShardModeCmd = &cobra.Command{
 }
 
 func initControlSetShardModeCmd() {
-	commonflags.InitWithoutRPC(setShardModeCmd)
+	initControlFlags(setShardModeCmd)
 
 	flags := setShardModeCmd.Flags()
-
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	flags.Bool(shardAllFlag, false, "Process all shards")
 	flags.String(shardModeFlag, "",

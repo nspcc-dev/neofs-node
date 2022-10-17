@@ -3,7 +3,6 @@ package control
 import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -40,10 +39,9 @@ func flushCache(cmd *cobra.Command, _ []string) {
 }
 
 func initControlFlushCacheCmd() {
-	commonflags.InitWithoutRPC(flushCacheCmd)
+	initControlFlags(flushCacheCmd)
 
 	ff := flushCacheCmd.Flags()
-	ff.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	ff.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	ff.Bool(shardAllFlag, false, "Process all shards")
 

@@ -3,7 +3,6 @@ package control
 import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -50,11 +49,9 @@ var dropObjectsCmd = &cobra.Command{
 }
 
 func initControlDropObjectsCmd() {
-	commonflags.InitWithoutRPC(dropObjectsCmd)
+	initControlFlags(dropObjectsCmd)
 
 	flags := dropObjectsCmd.Flags()
-
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.StringSliceP(dropObjectsFlag, "o", nil,
 		"List of object addresses to be removed in string format")
 

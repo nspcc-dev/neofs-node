@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `--timeout` flag in `neofs-cli control` commands (#1917)
+
 ### Changed
 ### Fixed
 ### Removed
