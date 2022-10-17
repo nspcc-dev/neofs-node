@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	// ErrorReturnCode returns when application crashed at initialization stage
+	// ErrorReturnCode returns when application crashed at initialization stage.
 	ErrorReturnCode = 1
 
-	// SuccessReturnCode returns when application closed without panic
+	// SuccessReturnCode returns when application closed without panic.
 	SuccessReturnCode = 0
 )
 

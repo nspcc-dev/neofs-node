@@ -66,7 +66,7 @@ func panicOnPrmValue(n string, v interface{}) {
 // Panics if at least one value of the parameters is invalid.
 //
 // The created Controller does not require additional
-// initialization and is completely ready for work
+// initialization and is completely ready for work.
 func New(prm Prm, opts ...Option) *Controller {
 	switch {
 	case prm.LocalMetrics == nil:

@@ -60,8 +60,7 @@ func New(_ Prm, opts ...Option) *Config {
 	}
 }
 
-// Reload reads configuration path if any was provided
-// to the New. Returns any
+// Reload reads configuration path if it was provided to New.
 func (x *Config) Reload() error {
 	if x.opts.path != "" {
 		err := x.v.ReadInConfig()

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Cmd represents the accounting command
+// Cmd represents the accounting command.
 var Cmd = &cobra.Command{
 	Use:   "accounting",
 	Short: "Operations with accounts and balances",

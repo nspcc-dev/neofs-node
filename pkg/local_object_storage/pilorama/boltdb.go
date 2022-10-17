@@ -43,11 +43,11 @@ var (
 // timestamp in big-endian -> log operation
 //
 // tree storage (dataBucket):
-// 't' + node (id) -> timestamp when the node first appeared
-// 'p' + node (id) -> parent (id)
-// 'm' + node (id) -> serialized meta
-// 'c' + parent (id) + child (id) -> 0/1
-// 'i' + 0 + attrKey + 0 + attrValue + 0 + parent (id) + node (id) -> 0/1 (1 for automatically created nodes)
+// - 't' + node (id) -> timestamp when the node first appeared,
+// - 'p' + node (id) -> parent (id),
+// - 'm' + node (id) -> serialized meta,
+// - 'c' + parent (id) + child (id) -> 0/1,
+// - 'i' + 0 + attrKey + 0 + attrValue + 0 + parent (id) + node (id) -> 0/1 (1 for automatically created nodes).
 func NewBoltForest(opts ...Option) ForestStorage {
 	b := boltForest{
 		cfg: cfg{
@@ -660,28 +660,28 @@ func bucketName(cid cidSDK.ID, treeID string) []byte {
 	return []byte(cid.String() + treeID)
 }
 
-// 't' + node (id) -> timestamp when the node first appeared
+// 't' + node (id) -> timestamp when the node first appeared.
 func timestampKey(key []byte, child Node) []byte {
 	key[0] = 't'
 	binary.LittleEndian.PutUint64(key[1:], child)
 	return key[:9]
 }
 
-// 'p' + node (id) -> parent (id)
+// 'p' + node (id) -> parent (id).
 func parentKey(key []byte, child Node) []byte {
 	key[0] = 'p'
 	binary.LittleEndian.PutUint64(key[1:], child)
 	return key[:9]
 }
 
-// 'm' + node (id) -> serialized meta
+// 'm' + node (id) -> serialized meta.
 func metaKey(key []byte, child Node) []byte {
 	key[0] = 'm'
 	binary.LittleEndian.PutUint64(key[1:], child)
 	return key[:9]
 }
 
-// 'c' + parent (id) + child (id) -> 0/1
+// 'c' + parent (id) + child (id) -> 0/1.
 func childrenKey(key []byte, child, parent Node) []byte {
 	key[0] = 'c'
 	binary.LittleEndian.PutUint64(key[1:], parent)
@@ -689,7 +689,7 @@ func childrenKey(key []byte, child, parent Node) []byte {
 	return key[:17]
 }
 
-// 'i' + attribute name (string) + attribute value (string) + parent (id) + node (id) -> 0/1
+// 'i' + attribute name (string) + attribute value (string) + parent (id) + node (id) -> 0/1.
 func internalKey(key []byte, k, v string, parent, node Node) []byte {
 	size := 1 /* prefix */ + 2*2 /* len */ + 2*8 /* nodes */ + len(k) + len(v)
 	if cap(key) < size {

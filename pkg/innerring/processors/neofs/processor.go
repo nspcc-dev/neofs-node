@@ -20,12 +20,12 @@ import (
 )
 
 type (
-	// EpochState is a callback interface for inner ring global state
+	// EpochState is a callback interface for inner ring global state.
 	EpochState interface {
 		EpochCounter() uint64
 	}
 
-	// AlphabetState is a callback interface for inner ring global state
+	// AlphabetState is a callback interface for inner ring global state.
 	AlphabetState interface {
 		IsAlphabet() bool
 	}

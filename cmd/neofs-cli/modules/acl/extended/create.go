@@ -146,6 +146,8 @@ func getRulesFromFile(filename string) ([]string, error) {
 //
 // Examples:
 // allow get req:X-Header=123 obj:Attr=value others:0xkey1,key2 system:key3 user:key4
+//
+//nolint:godot
 func parseTable(tb *eacl.Table, args []string) error {
 	if len(args) < 2 {
 		return errors.New("at least 2 arguments must be provided")

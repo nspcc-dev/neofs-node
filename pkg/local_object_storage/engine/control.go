@@ -214,7 +214,7 @@ func (rCfg *ReConfiguration) SetErrorsThreshold(errorsThreshold uint32) {
 	rCfg.errorsThreshold = errorsThreshold
 }
 
-// SetShardPoolSize sets a size of worker pool for each shard
+// SetShardPoolSize sets a size of worker pool for each shard.
 func (rCfg *ReConfiguration) SetShardPoolSize(shardPoolSize uint32) {
 	rCfg.shardPoolSize = shardPoolSize
 }

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// SuccessReturnCode returns when application closed without panic
+	// SuccessReturnCode returns when application closed without panic.
 	SuccessReturnCode = 0
 )
 

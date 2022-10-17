@@ -20,11 +20,11 @@ type (
 const (
 	// gasMultiplier defines how many times more the notary
 	// balance must be compared to the GAS balance of the IR:
-	//     notaryBalance = GASBalance * gasMultiplier
+	//     notaryBalance = GASBalance * gasMultiplier.
 	gasMultiplier = 3
 
 	// gasDivisor defines what part of GAS balance (1/gasDivisor)
-	// should be transferred to the notary service
+	// should be transferred to the notary service.
 	gasDivisor = 2
 )
 

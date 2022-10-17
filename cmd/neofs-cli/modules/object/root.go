@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Cmd represents the object command
+// Cmd represents the object command.
 var Cmd = &cobra.Command{
 	Use:   "object",
 	Short: "Operations with Objects",

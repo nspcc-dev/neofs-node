@@ -24,7 +24,7 @@ func (b *BurnPrm) SetAmount(amount int64) {
 	b.amount = amount
 }
 
-// SetID sets ID
+// SetID sets ID.
 func (b *BurnPrm) SetID(id []byte) {
 	b.id = id
 }

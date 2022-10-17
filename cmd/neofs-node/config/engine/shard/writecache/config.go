@@ -9,7 +9,6 @@ import (
 // which provides access to WriteCache configurations.
 type Config config.Config
 
-// config defaults
 const (
 	// SmallSizeDefault is a default size of small objects.
 	SmallSizeDefault = 32 << 10

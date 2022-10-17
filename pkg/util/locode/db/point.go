@@ -82,7 +82,7 @@ func toDecimal(intRaw, minutesRaw []byte) (float64, error) {
 	return integer + decimal, nil
 }
 
-// minutesToDegrees converts minutes to decimal part of a degree
+// minutesToDegrees converts minutes to decimal part of a degree.
 func minutesToDegrees(raw []byte) (float64, error) {
 	minutes, err := strconv.ParseFloat(string(raw), 64)
 	if err != nil {

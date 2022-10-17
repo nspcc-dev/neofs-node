@@ -315,12 +315,12 @@ func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
 	return nil, nil
 }
 
-// addNewEpochNotificationHandler adds handler that will be executed synchronously
+// addNewEpochNotificationHandler adds handler that will be executed synchronously.
 func addNewEpochNotificationHandler(c *cfg, h event.Handler) {
 	addNetmapNotificationHandler(c, newEpochNotification, h)
 }
 
-// addNewEpochAsyncNotificationHandler adds handler that will be executed asynchronously via netmap workerPool
+// addNewEpochAsyncNotificationHandler adds handler that will be executed asynchronously via netmap workerPool.
 func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 	addNetmapNotificationHandler(
 		c,

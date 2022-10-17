@@ -4,7 +4,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 )
 
-// config defaults
 const (
 	// LevelDefault is a default logger level.
 	LevelDefault = "info"

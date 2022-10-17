@@ -364,7 +364,7 @@ type shared struct {
 }
 
 // dynamicConfiguration stores parameters of the
-// components that supports runtime reconfigurations
+// components that supports runtime reconfigurations.
 type dynamicConfiguration struct {
 	logger *logger.Prm
 }

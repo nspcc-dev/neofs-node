@@ -8,7 +8,7 @@ import (
 
 const (
 	// maxProtocolsAmount is maximal amount of protocols
-	// in multiaddress after parsing with network.AddressFromString
+	// in multiaddress after parsing with network.AddressFromString.
 	maxProtocolsAmount = 3
 
 	// minProtocolsAmount is minimal amount of protocols
@@ -16,10 +16,10 @@ const (
 	// host(ip) and port.
 	minProtocolsAmount = 2
 
-	// network protocols
+	// network protocols.
 	dns, ip4, ip6 = "dns4", "ip4", "ip6"
 
-	// transport protocols
+	// transport protocols.
 	tcp = "tcp"
 )
 
