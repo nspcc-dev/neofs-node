@@ -837,7 +837,21 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 // bootstrap sets local node's netmap status to "online".
 func (c *cfg) bootstrap() error {
 	ni := c.cfgNodeInfo.localInfo
-	ni.SetOnline()
+
+	// switch to online except when under maintenance
+	if st := c.cfgNetmap.state.controlNetmapStatus(); st == control.NetmapStatus_MAINTENANCE {
+		ni.SetMaintenance()
+
+		c.log.Info("bootstrap with untouched node state",
+			zap.Stringer("state", st),
+		)
+	} else {
+		ni.SetOnline()
+
+		c.log.Info("bootstrapping with online state",
+			zap.Stringer("previous", st),
+		)
+	}
 
 	prm := nmClient.AddPeerPrm{}
 	prm.SetNodeInfo(ni)
