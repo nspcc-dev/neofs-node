@@ -37,13 +37,13 @@ linters:
     - ineffassign
     - staticcheck
     - typecheck
+    - unused
 
     # extra linters
     - exhaustive
     - gofmt
     - whitespace
     - goimports
-    - unused
   disable-all: true
   fast: false
 
