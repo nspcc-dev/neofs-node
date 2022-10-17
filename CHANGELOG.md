@@ -56,6 +56,7 @@ Changelog for NeoFS Node
 ### Updated
 
 - `neofs-contract` to `v0.16.0`
+- `neofs-api-go` to `v2.14.0`
 
 ### Updating from v0.32.0 
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
