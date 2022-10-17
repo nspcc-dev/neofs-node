@@ -23,11 +23,9 @@ var listShardsCmd = &cobra.Command{
 }
 
 func initControlShardsListCmd() {
-	commonflags.InitWithoutRPC(listShardsCmd)
+	initControlFlags(listShardsCmd)
 
 	flags := listShardsCmd.Flags()
-
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.Bool(commonflags.JSON, false, "Print shard info as a JSON array")
 }
 

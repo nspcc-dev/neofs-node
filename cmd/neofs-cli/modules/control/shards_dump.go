@@ -3,7 +3,6 @@ package control
 import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -54,10 +53,9 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 }
 
 func initControlDumpShardCmd() {
-	commonflags.InitWithoutRPC(dumpShardCmd)
+	initControlFlags(dumpShardCmd)
 
 	flags := dumpShardCmd.Flags()
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.String(shardIDFlag, "", "Shard ID in base58 encoding")
 	flags.String(dumpFilepathFlag, "", "File to write objects to")
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")

@@ -6,7 +6,6 @@ import (
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
@@ -27,10 +26,9 @@ var synchronizeTreeCmd = &cobra.Command{
 }
 
 func initControlSynchronizeTreeCmd() {
-	commonflags.InitWithoutRPC(synchronizeTreeCmd)
+	initControlFlags(synchronizeTreeCmd)
 
 	flags := synchronizeTreeCmd.Flags()
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.String("cid", "", "Container ID")
 	flags.String(synchronizeTreeIDFlag, "", "Tree ID")
 	flags.Uint64(synchronizeTreeHeightFlag, 0, "Starting height")

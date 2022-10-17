@@ -5,7 +5,6 @@ import (
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -27,11 +26,9 @@ var setNetmapStatusCmd = &cobra.Command{
 }
 
 func initControlSetNetmapStatusCmd() {
-	commonflags.InitWithoutRPC(setNetmapStatusCmd)
+	initControlFlags(setNetmapStatusCmd)
 
 	flags := setNetmapStatusCmd.Flags()
-
-	flags.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	flags.String(netmapStatusFlag, "",
 		fmt.Sprintf("New netmap status keyword ('%s', '%s', '%s')",
 			netmapStatusOnline,

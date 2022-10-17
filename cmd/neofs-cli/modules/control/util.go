@@ -7,11 +7,20 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/spf13/cobra"
 )
+
+func initControlFlags(cmd *cobra.Command) {
+	commonflags.InitWithoutRPC(cmd)
+
+	ff := cmd.Flags()
+	ff.String(controlRPC, controlRPCDefault, controlRPCUsage)
+	ff.DurationP(commonflags.Timeout, commonflags.TimeoutShorthand, commonflags.TimeoutDefault, commonflags.TimeoutUsage)
+}
 
 func signRequest(cmd *cobra.Command, pk *ecdsa.PrivateKey, req controlSvc.SignedMessage) {
 	err := controlSvc.SignMessage(pk, req)
