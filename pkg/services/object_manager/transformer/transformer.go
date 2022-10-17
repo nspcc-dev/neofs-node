@@ -174,11 +174,11 @@ func payloadHashersForObject(obj *object.Object, withoutHomomorphicHash bool) []
 	return hashers
 }
 
-func (s *payloadSizeLimiter) release(close bool) (*AccessIdentifiers, error) {
-	// Arg close is true only from Close method.
+func (s *payloadSizeLimiter) release(finalize bool) (*AccessIdentifiers, error) {
+	// Arg finalize is true only when called from Close method.
 	// We finalize parent and generate linking objects only if it is more
 	// than 1 object in split-chain.
-	withParent := close && len(s.previous) > 0
+	withParent := finalize && len(s.previous) > 0
 
 	if withParent {
 		writeHashes(s.parentHashers)

@@ -127,13 +127,13 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 // Process delete container operation from the user by checking container sanity
 // and sending approve tx back to morph.
-func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
+func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container delete")
 		return
 	}
 
-	err := cp.checkDeleteContainer(delete)
+	err := cp.checkDeleteContainer(e)
 	if err != nil {
 		cp.log.Error("delete container check failed",
 			zap.String("error", err.Error()),
@@ -142,7 +142,7 @@ func (cp *Processor) processContainerDelete(delete *containerEvent.Delete) {
 		return
 	}
 
-	cp.approveDeleteContainer(delete)
+	cp.approveDeleteContainer(e)
 }
 
 func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
