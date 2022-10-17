@@ -20,7 +20,7 @@ type (
 		BasicRate() (uint64, error)
 	}
 
-	// BalanceFetcher uses NEP-17 compatible balance contract
+	// BalanceFetcher uses NEP-17 compatible balance contract.
 	BalanceFetcher interface {
 		Balance(id user.ID) (*big.Int, error)
 	}

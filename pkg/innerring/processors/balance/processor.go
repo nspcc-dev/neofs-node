@@ -14,7 +14,7 @@ import (
 )
 
 type (
-	// AlphabetState is a callback interface for inner ring global state
+	// AlphabetState is a callback interface for inner ring global state.
 	AlphabetState interface {
 		IsAlphabet() bool
 	}

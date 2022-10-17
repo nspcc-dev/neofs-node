@@ -52,7 +52,7 @@ const (
 	lastLetterNum
 )
 
-// returns string in config-compatible format
+// String returns l in config-compatible format.
 func (l GlagoliticLetter) String() string {
 	switch l {
 	default:

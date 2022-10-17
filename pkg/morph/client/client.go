@@ -214,7 +214,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interf
 	return val.Stack, nil
 }
 
-// TransferGas to the receiver from local wallet
+// TransferGas to the receiver from local wallet.
 func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()

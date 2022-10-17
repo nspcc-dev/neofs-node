@@ -49,14 +49,10 @@ var cmdSubnet = &cobra.Command{
 
 // shared flags of cmdSubnet sub-commands.
 const (
-	// subnet identifier
-	flagSubnet = "subnet"
-	// subnet client group ID
-	flagSubnetGroup = "group"
-	// filepath to wallet
-	flagSubnetWallet = "wallet"
-	// address in the wallet, optional
-	flagSubnetAddress = "address"
+	flagSubnet        = "subnet"  // subnet identifier
+	flagSubnetGroup   = "group"   // subnet client group ID
+	flagSubnetWallet  = "wallet"  // filepath to wallet
+	flagSubnetAddress = "address" // address in the wallet, optional
 )
 
 // reads wallet from the filepath configured in flagSubnetWallet flag,
@@ -171,7 +167,7 @@ var cmdSubnetCreate = &cobra.Command{
 
 // cmdSubnetRemove flags.
 const (
-	// subnet ID to be removed
+	// subnet ID to be removed.
 	flagSubnetRemoveID = flagSubnet
 )
 
@@ -223,7 +219,7 @@ var cmdSubnetRemove = &cobra.Command{
 
 // cmdSubnetGet flags.
 const (
-	// subnet ID to be read
+	// subnet ID to be read.
 	flagSubnetGetID = flagSubnet
 )
 
@@ -286,12 +282,9 @@ var cmdSubnetGet = &cobra.Command{
 
 // cmdSubnetAdmin subnet flags.
 const (
-	// subnet ID to be managed
-	flagSubnetAdminSubnet = flagSubnet
-	// admin public key
-	flagSubnetAdminID = "admin"
-	// manage client admins instead of node ones
-	flagSubnetAdminClient = "client"
+	flagSubnetAdminSubnet = flagSubnet // subnet ID to be managed
+	flagSubnetAdminID     = "admin"    // admin public key
+	flagSubnetAdminClient = "client"   // manage client admins instead of node ones
 )
 
 // command to manage subnet admins.
@@ -310,8 +303,7 @@ var cmdSubnetAdmin = &cobra.Command{
 
 // cmdSubnetAdminAdd flags.
 const (
-	// client group ID
-	flagSubnetAdminAddGroup = flagSubnetGroup
+	flagSubnetAdminAddGroup = flagSubnetGroup // client group ID
 )
 
 // common executor cmdSubnetAdminAdd and cmdSubnetAdminRemove commands.
@@ -433,12 +425,9 @@ var cmdSubnetAdminRemove = &cobra.Command{
 
 // cmdSubnetClient flags.
 const (
-	// ID of the subnet to be managed
-	flagSubnetClientSubnet = flagSubnet
-	// client's NeoFS ID
-	flagSubnetClientID = flagSubnetAdminClient
-	// ID of the subnet client group
-	flagSubnetClientGroup = flagSubnetGroup
+	flagSubnetClientSubnet = flagSubnet            // ID of the subnet to be managed
+	flagSubnetClientID     = flagSubnetAdminClient // client's NeoFS ID
+	flagSubnetClientGroup  = flagSubnetGroup       // ID of the subnet client group
 )
 
 // command to manage subnet clients.
@@ -544,10 +533,8 @@ var cmdSubnetClientRemove = &cobra.Command{
 
 // cmdSubnetNode flags.
 const (
-	// node ID
-	flagSubnetNode = "node"
-	// ID of the subnet to be managed
-	flagSubnetNodeSubnet = flagSubnet
+	flagSubnetNode       = "node"     // node ID
+	flagSubnetNodeSubnet = flagSubnet // ID of the subnet to be managed
 )
 
 // common executor cmdSubnetNodeAdd and cmdSubnetNodeRemove commands.

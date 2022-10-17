@@ -5,7 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// a distinctive part of all messages
+// headMsg is a distinctive part of all messages.
 const headMsg = "local object storage operation"
 
 // Write writes message about storage engine's operation to logger.

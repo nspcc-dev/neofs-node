@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Cmd represents the storagegroup command
+// Cmd represents the storagegroup command.
 var Cmd = &cobra.Command{
 	Use:   "storagegroup",
 	Short: "Operations with Storage Groups",

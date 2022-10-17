@@ -15,12 +15,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// flags of list-object command
+// flags of list-object command.
 const (
 	flagListObjectPrintAttr = "with-attr"
 )
 
-// flag vars of list-objects command
+// flag vars of list-objects command.
 var (
 	flagVarListObjectsPrintAttr bool
 )

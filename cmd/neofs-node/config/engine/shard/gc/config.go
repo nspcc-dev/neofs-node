@@ -10,7 +10,6 @@ import (
 // which provides access to Shard's GC configurations.
 type Config config.Config
 
-// config defaults
 const (
 	// RemoverBatchSizeDefault is a default batch size for Shard GC's remover.
 	RemoverBatchSizeDefault = 100

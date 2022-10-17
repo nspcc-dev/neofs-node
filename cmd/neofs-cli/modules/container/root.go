@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Cmd represents the container command
+// Cmd represents the container command.
 var Cmd = &cobra.Command{
 	Use:   "container",
 	Short: "Operations with containers",

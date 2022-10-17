@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// flags of list command
+// flags of list command.
 const (
 	flagListPrintAttr      = "with-attr"
 	flagListContainerOwner = "owner"
 )
 
-// flag vars of list command
+// flag vars of list command.
 var (
 	flagVarListPrintAttr      bool
 	flagVarListContainerOwner string

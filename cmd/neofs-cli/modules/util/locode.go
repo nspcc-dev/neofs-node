@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// locode section
+// locode section.
 var locodeCmd = &cobra.Command{
 	Use:   "locode",
 	Short: "Working with NeoFS UN/LOCODE database",

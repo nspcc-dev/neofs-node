@@ -85,7 +85,7 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 
 // updateInnerRing function removes `before` keys from `innerRing` and adds
 // `after` keys in the list. If the length of `before` and `after` is not the same,
-// the function returns errNotEqualLen
+// the function returns errNotEqualLen.
 func updateInnerRing(innerRing, before, after keys.PublicKeys) (keys.PublicKeys, error) {
 	lnBefore := len(before)
 	if lnBefore != len(after) {

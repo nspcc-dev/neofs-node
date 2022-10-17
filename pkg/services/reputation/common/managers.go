@@ -54,7 +54,7 @@ func NewManagerBuilder(prm ManagersPrm, opts ...MngOption) ManagerBuilder {
 	}
 }
 
-// implements Server on apiNetmap.NodeInfo
+// implements Server on apiNetmap.NodeInfo.
 type nodeServer apiNetmap.NodeInfo
 
 func (x nodeServer) PublicKey() []byte {

@@ -45,8 +45,7 @@ type deltaCfg struct {
 	pulse bool
 }
 
-// WithPulse returns option to call delta-interval handler multiple
-// times
+// WithPulse returns option to call delta-interval handler multiple times.
 func WithPulse() DeltaOption {
 	return func(c *deltaCfg) {
 		c.pulse = true

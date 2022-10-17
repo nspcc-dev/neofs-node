@@ -28,6 +28,8 @@ var (
 
 // Prefix bytes for database keys. All ids and addresses are encoded in binary
 // unless specified otherwise.
+//
+//nolint:godot
 const (
 	// graveyardPrefix is used for the graveyard bucket.
 	// 	Key: object address

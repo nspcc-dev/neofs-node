@@ -11,7 +11,6 @@ import (
 // which provides access to boltdb specific parameters.
 type Config config.Config
 
-// config defaults
 const (
 	// PermDefault is a default permission bits for metabase file.
 	PermDefault = 0660

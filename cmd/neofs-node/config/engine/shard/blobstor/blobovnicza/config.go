@@ -10,7 +10,6 @@ import (
 // which provides access to Blobovnicza configurations.
 type Config config.Config
 
-// config defaults
 const (
 	// SizeDefault is a default limit of estimates of Blobovnicza size.
 	SizeDefault = 1 << 30

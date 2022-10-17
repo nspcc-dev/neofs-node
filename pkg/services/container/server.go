@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 )
 
-// Server is an interface of the NeoFS API Container service server
+// Server is an interface of the NeoFS API Container service server.
 type Server interface {
 	Put(context.Context, *container.PutRequest) (*container.PutResponse, error)
 	Get(context.Context, *container.GetRequest) (*container.GetResponse, error)

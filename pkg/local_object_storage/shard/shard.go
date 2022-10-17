@@ -296,12 +296,12 @@ func (s *Shard) fillInfo() {
 
 const (
 	// physical is a physically stored object
-	// counter type
+	// counter type.
 	physical = "phy"
 
 	// logical is a logically stored object
 	// counter type (excludes objects that are
-	// stored but unavailable)
+	// stored but unavailable).
 	logical = "logic"
 )
 

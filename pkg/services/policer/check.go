@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// tracks Policer's check progress
+// tracks Policer's check progress.
 type nodeCache map[uint64]bool
 
 func newNodeCache() *nodeCache {

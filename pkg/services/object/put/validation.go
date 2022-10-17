@@ -33,9 +33,10 @@ type validatingTarget struct {
 	writtenPayload uint64 // number of already written payload bytes
 }
 
-// errors related to invalid payload size
 var (
+	// ErrExceedingMaxSize is returned when chunk payload size is greater than the length declared in header.
 	ErrExceedingMaxSize = errors.New("payload size is greater than the limit")
+	// ErrWrongPayloadSize is returned when payload size is greater than the limit.
 	ErrWrongPayloadSize = errors.New("wrong payload size")
 )
 

@@ -121,7 +121,7 @@ func (c *Client) notificationLoop() {
 	}
 }
 
-// close closes notification channel and wrapped WS client
+// close closes notification channel and wrapped WS client.
 func (c *Client) close() {
 	close(c.notifications)
 	c.client.Close()

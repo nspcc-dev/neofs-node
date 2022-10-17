@@ -215,7 +215,7 @@ func initContainerService(c *cfg) {
 	}
 }
 
-// addContainerNotificationHandler adds handler that will be executed synchronously
+// addContainerNotificationHandler adds handler that will be executed synchronously.
 func addContainerNotificationHandler(c *cfg, sTyp string, h event.Handler) {
 	typ := event.TypeFromString(sTyp)
 
@@ -226,7 +226,7 @@ func addContainerNotificationHandler(c *cfg, sTyp string, h event.Handler) {
 	c.cfgContainer.subscribers[typ] = append(c.cfgContainer.subscribers[typ], h)
 }
 
-// addContainerAsyncNotificationHandler adds handler that will be executed asynchronously via container workerPool
+// addContainerAsyncNotificationHandler adds handler that will be executed asynchronously via container workerPool.
 func addContainerAsyncNotificationHandler(c *cfg, sTyp string, h event.Handler) {
 	addContainerNotificationHandler(
 		c,

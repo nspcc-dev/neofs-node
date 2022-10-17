@@ -44,11 +44,11 @@ const (
 )
 
 // Init adds common flags to the command:
-// - GenerateKey
-// - WalletPath
-// - Account
-// - RPC
-// - Timeout
+// - GenerateKey,
+// - WalletPath,
+// - Account,
+// - RPC,
+// - Timeout.
 func Init(cmd *cobra.Command) {
 	InitWithoutRPC(cmd)
 
