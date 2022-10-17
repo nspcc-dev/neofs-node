@@ -68,9 +68,9 @@ func WithWorkerPool(p util.WorkerPool) Option {
 }
 
 // WithQueueCapacity returns option to set task queue capacity.
-func WithQueueCapacity(cap uint32) Option {
+func WithQueueCapacity(capacity uint32) Option {
 	return func(c *cfg) {
-		c.queueCap = cap
+		c.queueCap = capacity
 	}
 }
 

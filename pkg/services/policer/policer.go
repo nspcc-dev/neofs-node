@@ -196,9 +196,9 @@ func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
 
 // WithMaxCapacity returns option to set max capacity
 // that can be set to the pool.
-func WithMaxCapacity(cap int) Option {
+func WithMaxCapacity(capacity int) Option {
 	return func(c *cfg) {
-		c.maxCapacity = cap
+		c.maxCapacity = capacity
 	}
 }
 
