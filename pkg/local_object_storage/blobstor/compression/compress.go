@@ -89,7 +89,7 @@ func (c *Config) Compress(data []byte) []byte {
 	return c.encoder.EncodeAll(data, make([]byte, 0, len(data)))
 }
 
-// Close closes encoder and decoder, returns any error occured.
+// Close closes encoder and decoder, returns any error occurred.
 func (c *Config) Close() error {
 	var err error
 	if c.encoder != nil {

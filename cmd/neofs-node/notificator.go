@@ -78,7 +78,7 @@ func (n *notificationSource) processAddress(
 
 	ni, err := res.Header().NotificationInfo()
 	if err != nil {
-		return fmt.Errorf("could not retreive notification topic from object: %w", err)
+		return fmt.Errorf("could not retrieve notification topic from object: %w", err)
 	}
 
 	topic := ni.Topic()

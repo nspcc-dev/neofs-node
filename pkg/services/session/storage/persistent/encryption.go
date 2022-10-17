@@ -20,7 +20,7 @@ func (s *TokenStore) decrypt(value []byte) ([]byte, error) {
 	nonceSize := s.gcm.NonceSize()
 	if len(value) < nonceSize {
 		return nil, fmt.Errorf(
-			"unexpected encrypted length: nonce length is %d, encrypted data lenght is %d",
+			"unexpected encrypted length: nonce length is %d, encrypted data length is %d",
 			nonceSize,
 			len(value),
 		)

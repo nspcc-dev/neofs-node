@@ -47,6 +47,7 @@ linters:
     - exportloopref
     - gofmt
     - goimports
+    - misspell
     - reassign
     - whitespace
   disable-all: true
