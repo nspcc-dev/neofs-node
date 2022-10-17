@@ -55,6 +55,8 @@ Changelog for NeoFS Node
 
 ### Updated
 
+- `neofs-contract` to `v0.16.0`
+
 ### Updating from v0.32.0 
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
