@@ -1,7 +1,16 @@
 # Changelog
 Changelog for NeoFS Node
 
-## [Unreleased] - Anmado (안마도, 鞍馬島)
+## [Unreleased]
+
+### Added
+### Changed
+### Fixed
+### Removed
+### Updated
+### Updating from v0.33.0
+
+## [v0.33.0] - Anmado (안마도, 鞍馬島)
 
 ### Added
 - Serving `NetmapService.NetmapSnapshot` RPC (#1793)
@@ -1366,7 +1375,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...master
+[0.33.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...v0.31.0
 [0.30.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.1...v0.30.2
