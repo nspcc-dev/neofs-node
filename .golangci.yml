@@ -41,10 +41,14 @@ linters:
     - unused
 
     # extra linters
+    - bidichk
+    - durationcheck
     - exhaustive
+    - exportloopref
     - gofmt
-    - whitespace
     - goimports
+    - reassign
+    - whitespace
   disable-all: true
   fast: false
 
