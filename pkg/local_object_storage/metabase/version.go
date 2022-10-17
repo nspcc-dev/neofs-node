@@ -55,7 +55,7 @@ func updateVersion(tx *bbolt.Tx, version uint64) error {
 
 	b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 	if err != nil {
-		return fmt.Errorf("can't create auxilliary bucket: %w", err)
+		return fmt.Errorf("can't create auxiliary bucket: %w", err)
 	}
 	return b.Put(versionKey, data)
 }

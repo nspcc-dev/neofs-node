@@ -109,7 +109,7 @@ func readSession(cmd *cobra.Command, dst sessionPrm, key *ecdsa.PrivateKey, cnr 
 //   - if session verb corresponds to given sessionPrm according to its type
 //   - relation to the given container
 //   - relation to the given object if non-nil
-//   - relation to the given private key used withing the command
+//   - relation to the given private key used within the command
 //   - session signature
 //
 // sessionPrm MUST be one of:
