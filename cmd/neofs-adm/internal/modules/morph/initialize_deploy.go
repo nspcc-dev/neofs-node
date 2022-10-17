@@ -241,7 +241,7 @@ func (c *initializeContext) updateContracts() error {
 		}
 
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
-		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params)
+		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params...)
 		if err != nil {
 			return fmt.Errorf("deploy contract: %w", err)
 		}
