@@ -29,6 +29,22 @@ type dummyNetmapSource struct {
 
 type dummyContainerSource map[string]*containercore.Container
 
+func (s dummyContainerSource) List() ([]cid.ID, error) {
+	res := make([]cid.ID, 0, len(s))
+	var cnr cid.ID
+
+	for cidStr := range s {
+		err := cnr.DecodeString(cidStr)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, cnr)
+	}
+
+	return res, nil
+}
+
 func (s dummyContainerSource) Get(id cid.ID) (*containercore.Container, error) {
 	cnt, ok := s[id.String()]
 	if !ok {
