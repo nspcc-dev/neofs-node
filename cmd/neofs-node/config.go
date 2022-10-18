@@ -128,7 +128,6 @@ type shardCfg struct {
 		smallObjectSize  uint64
 		maxObjSize       uint64
 		flushWorkerCount int
-		maxCacheSize     uint64
 		sizeLimit        uint64
 	}
 
@@ -215,7 +214,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			wc.path = writeCacheCfg.Path()
 			wc.maxBatchSize = writeCacheCfg.BoltDB().MaxBatchSize()
 			wc.maxBatchDelay = writeCacheCfg.BoltDB().MaxBatchDelay()
-			wc.maxCacheSize = writeCacheCfg.MaxObjectSize()
+			wc.maxObjSize = writeCacheCfg.MaxObjectSize()
 			wc.smallObjectSize = writeCacheCfg.SmallObjectSize()
 			wc.flushWorkerCount = writeCacheCfg.WorkersNumber()
 			wc.sizeLimit = writeCacheCfg.SizeLimit()
