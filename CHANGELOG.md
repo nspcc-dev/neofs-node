@@ -9,16 +9,22 @@ Changelog for NeoFS Node
 - `tree list` CLI command (#1332)
 - `TreeService.GetTrees` RPC (#1902)
 - All trees synchronization on bootstrap (#1902)
+- `--force` flag to `neofs-cli control set-status` command (#1916)
 
 ### Changed
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
 - Correctly handle setting ONLINE netmap status after maintenance (#1922)
 - Correctly reset shard errors in `ControlService.SetShardMode` RPC (#1931)
+- Setting node's network state to `MAINTENANCE` while network settings forbid it (#1916)
 
 ### Removed
 ### Updated
 ### Updating from v0.33.0
+Now storage node serves Control API `SetNemapStatus` request with `MAINTENANCE`
+status only if the mode is allowed in the network settings. To force starting the local
+maintenance on the node, provide `--force` flag to the `neofs-cli control set-status`
+command.
 
 ## [0.33.0] - 2022-10-17 - Anmado (안마도, 鞍馬島)
 
