@@ -32,8 +32,9 @@ $ neofs-adm morph set-config MaintenanceModeAllowed=true|false
 
 To switch the node to MM, exec:
 ```shell
-$ neofs-cli control set-status --status maintenance
+$ neofs-cli control set-status --status maintenance [--force|-f]
 ```
+`-f` flag allows to force local maintenance regardless of the network settings.
 
 To stop the maintenance, use the same command but with any other supported state.
 

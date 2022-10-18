@@ -340,8 +340,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	default:
 		return fmt.Errorf("unsupported status %v", st)
 	case control.NetmapStatus_MAINTENANCE:
-		c.startMaintenance()
-		return c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
+		return c.setMaintenanceStatus(false)
 	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
 	}
 
@@ -359,6 +358,33 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
 	return c.updateNetMapState(func(*nmClient.UpdatePeerPrm) {})
+}
+
+func (c *cfg) ForceMaintenance() error {
+	return c.setMaintenanceStatus(true)
+}
+
+func (c *cfg) setMaintenanceStatus(force bool) error {
+	netSettings, err := c.cfgNetmap.wrapper.ReadNetworkConfiguration()
+	if err != nil {
+		err = fmt.Errorf("read network settings to check maintenance allowance: %w", err)
+	} else if !netSettings.MaintenanceModeAllowed {
+		err = errors.New("maintenance mode is not allowed by the network")
+	}
+
+	if err == nil || force {
+		c.startMaintenance()
+
+		if err == nil {
+			err = c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
+		}
+
+		if err != nil {
+			return fmt.Errorf("local maintenance is started, but state is not updated in the network: %w", err)
+		}
+	}
+
+	return err
 }
 
 // calls UpdatePeerState operation of Netmap contract's client for the local node.

@@ -4,13 +4,11 @@ import (
 	"fmt"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -41,52 +39,39 @@ func initControlSetNetmapStatusCmd() {
 	)
 
 	_ = setNetmapStatusCmd.MarkFlagRequired(netmapStatusFlag)
+
+	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
+		"Force turning to local maintenance")
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
+	body := new(control.SetNetmapStatusRequest_Body)
+	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 
-	var status control.NetmapStatus
+	printIgnoreForce := func(st control.NetmapStatus) {
+		if force {
+			common.PrintVerbose("Ignore --%s flag for %s state.", commonflags.ForceFlag, st)
+		}
+	}
 
 	switch st, _ := cmd.Flags().GetString(netmapStatusFlag); st {
 	default:
 		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported status %s", st))
 	case netmapStatusOnline:
-		status = control.NetmapStatus_ONLINE
+		body.SetStatus(control.NetmapStatus_ONLINE)
+		printIgnoreForce(control.NetmapStatus_ONLINE)
 	case netmapStatusOffline:
-		status = control.NetmapStatus_OFFLINE
+		body.SetStatus(control.NetmapStatus_OFFLINE)
+		printIgnoreForce(control.NetmapStatus_OFFLINE)
 	case netmapStatusMaintenance:
-		status = control.NetmapStatus_MAINTENANCE
+		body.SetStatus(control.NetmapStatus_MAINTENANCE)
 
-		common.PrintVerbose("Reading network settings to check allowance of \"%s\" mode...", st)
-
-		if !viper.IsSet(commonflags.RPC) {
-			common.ExitOnErr(cmd, "",
-				fmt.Errorf("flag --%s (-%s) is not set, you must specify it for \"%s\" mode",
-					commonflags.RPC,
-					commonflags.RPCShorthand,
-					st,
-				),
-			)
+		if force {
+			body.SetForceMaintenance()
+			common.PrintVerbose("Local maintenance will be forced.")
 		}
-
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
-
-		var prm internalclient.NetworkInfoPrm
-		prm.SetClient(cli)
-
-		res, err := internalclient.NetworkInfo(prm)
-		common.ExitOnErr(cmd, "receive network info: %v", err)
-
-		if !res.NetworkInfo().MaintenanceModeAllowed() {
-			common.ExitOnErr(cmd, "", fmt.Errorf("\"%s\" mode is not allowed by the network", st))
-		}
-
-		common.PrintVerbose("\"%s\" mode is allowed, continue processing...", st)
 	}
-
-	body := new(control.SetNetmapStatusRequest_Body)
-	body.SetStatus(status)
 
 	req := new(control.SetNetmapStatusRequest)
 	req.SetBody(body)

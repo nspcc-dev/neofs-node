@@ -17,8 +17,23 @@ func (s *Server) SetNetmapStatus(ctx context.Context, req *control.SetNetmapStat
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	// set node status
-	if err := s.nodeState.SetNetmapStatus(req.GetBody().GetStatus()); err != nil {
+	var err error
+	bodyReq := req.GetBody()
+	st := bodyReq.GetStatus()
+	force := bodyReq.GetForceMaintenance()
+
+	if force {
+		if st != control.NetmapStatus_MAINTENANCE {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"force_maintenance MUST be set for %s status only", control.NetmapStatus_MAINTENANCE)
+		}
+
+		err = s.nodeState.ForceMaintenance()
+	} else {
+		err = s.nodeState.SetNetmapStatus(st)
+	}
+
+	if err != nil {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
 
