@@ -180,3 +180,9 @@ func (e *StorageEngine) TreeDrop(cid cidSDK.ID, treeID string) error {
 	}
 	return err
 }
+
+// TreeList implements the pilorama.Forest interface.
+func (e *StorageEngine) TreeList(cid cidSDK.ID) ([]string, error) {
+	//TODO implement me
+	panic("implement me")
+}

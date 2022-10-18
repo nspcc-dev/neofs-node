@@ -37,6 +37,9 @@ type Forest interface {
 	// TreeDrop drops a tree from the database.
 	// If the tree is not found, ErrTreeNotFound should be returned.
 	TreeDrop(cid cidSDK.ID, treeID string) error
+	// TreeList returns all the tree IDs that have been added to the
+	// passed container ID. Nil slice should be returned if no tree found.
+	TreeList(cid cidSDK.ID) ([]string, error)
 }
 
 type ForestStorage interface {

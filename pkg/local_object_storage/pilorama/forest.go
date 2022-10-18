@@ -2,6 +2,7 @@ package pilorama
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -190,4 +191,21 @@ func (f *memoryForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 
 	delete(f.treeMap, fullID)
 	return nil
+}
+
+// TreeGetTrees implements the pilorama.Forest interface.
+func (f *memoryForest) TreeList(cid cidSDK.ID) ([]string, error) {
+	var res []string
+	cidStr := cid.EncodeToString()
+
+	for k := range f.treeMap {
+		cidAndTree := strings.Split(k, "/")
+		if cidAndTree[0] != cidStr {
+			continue
+		}
+
+		res = append(res, cidAndTree[1])
+	}
+
+	return res, nil
 }
