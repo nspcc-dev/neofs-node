@@ -87,6 +87,8 @@ func (s *Shard) TreeDrop(cid cidSDK.ID, treeID string) error {
 
 // TreeList implements the pilorama.Forest interface.
 func (s *Shard) TreeList(cid cidSDK.ID) ([]string, error) {
-	//TODO implement me
-	panic("implement me")
+	if s.pilorama == nil {
+		return nil, ErrPiloramaDisabled
+	}
+	return s.pilorama.TreeList(cid)
 }

@@ -193,7 +193,7 @@ func (f *memoryForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 	return nil
 }
 
-// TreeGetTrees implements the pilorama.Forest interface.
+// TreeList implements the pilorama.Forest interface.
 func (f *memoryForest) TreeList(cid cidSDK.ID) ([]string, error) {
 	var res []string
 	cidStr := cid.EncodeToString()
