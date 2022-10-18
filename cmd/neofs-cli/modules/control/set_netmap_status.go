@@ -4,10 +4,13 @@ import (
 	"fmt"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -54,6 +57,32 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 		status = control.NetmapStatus_OFFLINE
 	case netmapStatusMaintenance:
 		status = control.NetmapStatus_MAINTENANCE
+
+		common.PrintVerbose("Reading network settings to check allowance of \"%s\" mode...", st)
+
+		if !viper.IsSet(commonflags.RPC) {
+			common.ExitOnErr(cmd, "",
+				fmt.Errorf("flag --%s (-%s) is not set, you must specify it for \"%s\" mode",
+					commonflags.RPC,
+					commonflags.RPCShorthand,
+					st,
+				),
+			)
+		}
+
+		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
+		var prm internalclient.NetworkInfoPrm
+		prm.SetClient(cli)
+
+		res, err := internalclient.NetworkInfo(prm)
+		common.ExitOnErr(cmd, "receive network info: %v", err)
+
+		if !res.NetworkInfo().MaintenanceModeAllowed() {
+			common.ExitOnErr(cmd, "", fmt.Errorf("\"%s\" mode is not allowed by the network", st))
+		}
+
+		common.PrintVerbose("\"%s\" mode is allowed, continue processing...", st)
 	}
 
 	body := new(control.SetNetmapStatusRequest_Body)
