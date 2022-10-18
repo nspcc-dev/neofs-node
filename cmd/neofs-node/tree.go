@@ -5,15 +5,33 @@ import (
 	"errors"
 
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
-	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
 )
+
+type cnrSource struct {
+	// cache of raw client.
+	src container.Source
+	// raw client; no need to cache request results
+	// since sync is performed once in epoch and is
+	// expected to receive different results every
+	// call.
+	cli *containerClient.Client
+}
+
+func (c cnrSource) Get(id cid.ID) (*container.Container, error) {
+	return c.src.Get(id)
+}
+
+func (c cnrSource) List() ([]cid.ID, error) {
+	return c.cli.List(nil)
+}
 
 func initTreeService(c *cfg) {
 	treeConfig := treeconfig.Tree(c.appCfg)
@@ -23,7 +41,10 @@ func initTreeService(c *cfg) {
 	}
 
 	c.treeService = tree.New(
-		tree.WithContainerSource(c.cfgObject.cnrSource),
+		tree.WithContainerSource(cnrSource{
+			src: c.cfgObject.cnrSource,
+			cli: c.shared.cnrClient,
+		}),
 		tree.WithEACLSource(c.cfgObject.eaclSource),
 		tree.WithNetmapSource(c.netMapSource),
 		tree.WithPrivateKey(&c.key.PrivateKey),
@@ -41,15 +62,12 @@ func initTreeService(c *cfg) {
 		c.treeService.Start(ctx)
 	}))
 
-	syncTreeFunc := func(ctx context.Context) {
-		syncTrees(ctx, c.treeService, c.shared.cnrClient, c.log)
-	}
-
-	if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_ONLINE {
-		c.workers = append(c.workers, newWorkerFromFunc(syncTreeFunc))
-	}
-
-	c.addOnlineStateHandler(syncTreeFunc)
+	addNewEpochNotificationHandler(c, func(_ event.Event) {
+		err := c.treeService.SynchronizeAll()
+		if err != nil {
+			c.log.Error("could not synchronize Tree Service", zap.Error(err))
+		}
+	})
 
 	subscribeToContainerRemoval(c, func(e event.Event) {
 		ev := e.(containerEvent.DeleteSuccess)
@@ -65,27 +83,4 @@ func initTreeService(c *cfg) {
 	})
 
 	c.onShutdown(c.treeService.Shutdown)
-}
-
-func syncTrees(ctx context.Context, treeSvc *tree.Service, cnrCli *containerClient.Client, log *logger.Logger) {
-	log.Info("synchronizing trees...")
-
-	ids, err := cnrCli.List(nil)
-	if err != nil {
-		log.Error("trees are not synchronized", zap.Error(err))
-		return
-	}
-
-	for _, id := range ids {
-		err = treeSvc.SynchronizeAllTrees(ctx, id)
-		if err != nil && !errors.Is(err, tree.ErrNotInContainer) {
-			log.Warn(
-				"tree synchronization failed",
-				zap.Stringer("cid", id),
-				zap.Error(err),
-			)
-		}
-	}
-
-	log.Info("trees have been synchronized")
 }

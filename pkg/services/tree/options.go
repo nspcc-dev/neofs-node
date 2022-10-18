@@ -8,14 +8,23 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
+
+type ContainerSource interface {
+	container.Source
+	// List must return list of all the containers in the NeoFS network
+	// at the moment of a call and any error that does not allow fetching
+	// container information.
+	List() ([]cid.ID, error)
+}
 
 type cfg struct {
 	log        *logger.Logger
 	key        *ecdsa.PrivateKey
 	rawPub     []byte
 	nmSource   netmap.Source
-	cnrSource  container.Source
+	cnrSource  ContainerSource
 	eaclSource container.EACLSource
 	forest     pilorama.Forest
 	// replication-related parameters
@@ -29,7 +38,7 @@ type Option func(*cfg)
 
 // WithContainerSource sets a container source for a tree service.
 // This option is required.
-func WithContainerSource(src container.Source) Option {
+func WithContainerSource(src ContainerSource) Option {
 	return func(c *cfg) {
 		c.cnrSource = src
 	}

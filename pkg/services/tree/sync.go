@@ -200,3 +200,113 @@ func (s *Service) synchronizeSingle(ctx context.Context, d pilorama.CIDDescripto
 		height = newHeight
 	}
 }
+
+// ErrAlreadySyncing is returned when a service synchronization has already
+// been started.
+var ErrAlreadySyncing = errors.New("service is being synchronized")
+
+// ErrShuttingDown is returned when the service is shitting down and could not
+// accept any calls.
+var ErrShuttingDown = errors.New("service is shutting down")
+
+// SynchronizeAll forces tree service to synchronize all the trees according to
+// netmap information. Must not be called before Service.Start.
+// Returns ErrAlreadySyncing if synchronization has been started and blocked
+// by another routine.
+// Note: non-blocking operation.
+func (s *Service) SynchronizeAll() error {
+	select {
+	case <-s.closeCh:
+		return ErrShuttingDown
+	default:
+	}
+
+	select {
+	case s.syncChan <- struct{}{}:
+		return nil
+	default:
+		return ErrAlreadySyncing
+	}
+}
+
+func (s *Service) syncLoop(ctx context.Context) {
+	for {
+		select {
+		case <-s.closeCh:
+			return
+		case <-ctx.Done():
+			return
+		case <-s.syncChan:
+			s.log.Debug("syncing trees...")
+
+			cnrs, err := s.cfg.cnrSource.List()
+			if err != nil {
+				s.log.Error("could not fetch containers", zap.Error(err))
+				continue
+			}
+
+			newMap := make(map[cid.ID]struct{}, len(s.cnrMap))
+			cnrsToSync := make([]cid.ID, 0, len(cnrs))
+
+			for _, cnr := range cnrs {
+				_, pos, err := s.getContainerNodes(cnr)
+				if err != nil {
+					s.log.Error("could not calculate container nodes",
+						zap.Stringer("cid", cnr),
+						zap.Error(err))
+					delete(s.cnrMap, cnr)
+
+					continue
+				}
+
+				if pos < 0 {
+					// node is not included in the container.
+					continue
+				}
+
+				_, ok := s.cnrMap[cnr]
+				if ok {
+					// known container; already in sync.
+					delete(s.cnrMap, cnr)
+					newMap[cnr] = struct{}{}
+				} else {
+					// unknown container; need to sync.
+					cnrsToSync = append(cnrsToSync, cnr)
+				}
+			}
+
+			// sync new containers
+			for _, cnr := range cnrsToSync {
+				s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))
+
+				err = s.SynchronizeAllTrees(ctx, cnr)
+				if err != nil {
+					s.log.Error("could not sync trees", zap.Stringer("cid", cnr), zap.Error(err))
+					continue
+				}
+
+				// mark as synced
+				newMap[cnr] = struct{}{}
+
+				s.log.Debug("container trees have been synced", zap.Stringer("cid", cnr))
+			}
+
+			// remove stored redundant trees
+			for cnr := range s.cnrMap {
+				s.log.Debug("removing redundant trees...", zap.Stringer("cid", cnr))
+
+				err = s.DropTree(ctx, cnr, "") // TODO: #1940 drop all the trees here
+				if err != nil {
+					s.log.Error("could not remove redundant tree",
+						zap.Stringer("cid", cnr),
+						zap.Error(err))
+					continue
+				}
+			}
+
+			s.cnrMap = newMap
+
+			s.log.Debug("trees have been synchronized")
+		}
+	}
+}

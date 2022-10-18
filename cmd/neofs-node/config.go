@@ -305,10 +305,6 @@ type internals struct {
 	workers []worker
 	closers []func()
 
-	// onlineStateHandlers are executed in a separate
-	// goroutine on every !ONLINE -> ONLINE state transition
-	onlineStateHandlers []func(context.Context)
-
 	apiVersion   version.Version
 	healthStatus *atomic.Int32
 	// is node under maintenance
@@ -837,13 +833,6 @@ func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 // Called with nil when storage node is outside the NeoFS network map
 // (before entering the network and after leaving it).
 func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
-	if c.cfgNetmap.state.controlNetmapStatus() != control.NetmapStatus_ONLINE &&
-		ni != nil && ni.IsOnline() {
-		for _, h := range c.onlineStateHandlers {
-			go h(c.ctx)
-		}
-	}
-
 	c.cfgNetmap.state.setNodeInfo(ni)
 }
 
@@ -949,8 +938,4 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (c *cfg) addOnlineStateHandler(h func(ctx context.Context)) {
-	c.onlineStateHandlers = append(c.onlineStateHandlers, h)
 }

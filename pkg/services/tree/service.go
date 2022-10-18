@@ -24,6 +24,9 @@ type Service struct {
 	replicationTasks chan replicationTask
 	closeCh          chan struct{}
 	containerCache   containerCache
+
+	syncChan chan struct{}
+	cnrMap   map[cidSDK.ID]struct{}
 }
 
 var _ TreeServiceServer = (*Service)(nil)
@@ -48,6 +51,8 @@ func New(opts ...Option) *Service {
 	s.replicateCh = make(chan movePair, s.replicatorChannelCapacity)
 	s.replicationTasks = make(chan replicationTask, s.replicatorWorkerCount)
 	s.containerCache.init(s.containerCacheSize)
+	s.cnrMap = make(map[cidSDK.ID]struct{})
+	s.syncChan = make(chan struct{})
 
 	return &s
 }
@@ -55,6 +60,15 @@ func New(opts ...Option) *Service {
 // Start starts the service.
 func (s *Service) Start(ctx context.Context) {
 	go s.replicateLoop(ctx)
+	go s.syncLoop(ctx)
+
+	select {
+	case <-s.closeCh:
+	case <-ctx.Done():
+	default:
+		// initial sync
+		s.syncChan <- struct{}{}
+	}
 }
 
 // Shutdown shutdowns the service.
