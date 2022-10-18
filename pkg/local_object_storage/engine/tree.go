@@ -183,6 +183,24 @@ func (e *StorageEngine) TreeDrop(cid cidSDK.ID, treeID string) error {
 
 // TreeList implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeList(cid cidSDK.ID) ([]string, error) {
-	//TODO implement me
-	panic("implement me")
+	var ids []string
+	var err error
+
+	for _, sh := range e.sortShardsByWeight(cid) {
+		ids, err = sh.TreeList(cid)
+		if err != nil {
+			if errors.Is(err, shard.ErrPiloramaDisabled) || errors.Is(err, shard.ErrReadOnlyMode) {
+				return nil, err
+			}
+
+			e.reportShardError(sh, "can't perform `TreeList`", err,
+				zap.Stringer("cid", cid))
+
+			continue
+		}
+
+		return ids, nil
+	}
+
+	return ids, err
 }
