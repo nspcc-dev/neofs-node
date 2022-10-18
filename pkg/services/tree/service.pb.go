@@ -707,6 +707,119 @@ func (x *GetSubTreeResponse) GetSignature() *Signature {
 	return nil
 }
 
+type TreeListRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Request body.
+	Body *TreeListRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	// Request signature.
+	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *TreeListRequest) Reset() {
+	*x = TreeListRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_tree_service_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TreeListRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TreeListRequest) ProtoMessage() {}
+
+func (x *TreeListRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_tree_service_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TreeListRequest.ProtoReflect.Descriptor instead.
+func (*TreeListRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *TreeListRequest) GetBody() *TreeListRequest_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *TreeListRequest) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+type TreeListResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Response body.
+	Body      *TreeListResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Signature *Signature             `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *TreeListResponse) Reset() {
+	*x = TreeListResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_tree_service_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TreeListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TreeListResponse) ProtoMessage() {}
+
+func (x *TreeListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_tree_service_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TreeListResponse.ProtoReflect.Descriptor instead.
+func (*TreeListResponse) Descriptor() ([]byte, []int) {
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *TreeListResponse) GetBody() *TreeListResponse_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *TreeListResponse) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 type ApplyRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -721,7 +834,7 @@ type ApplyRequest struct {
 func (x *ApplyRequest) Reset() {
 	*x = ApplyRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[12]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -734,7 +847,7 @@ func (x *ApplyRequest) String() string {
 func (*ApplyRequest) ProtoMessage() {}
 
 func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[12]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +860,7 @@ func (x *ApplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{12}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ApplyRequest) GetBody() *ApplyRequest_Body {
@@ -778,7 +891,7 @@ type ApplyResponse struct {
 func (x *ApplyResponse) Reset() {
 	*x = ApplyResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[13]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -791,7 +904,7 @@ func (x *ApplyResponse) String() string {
 func (*ApplyResponse) ProtoMessage() {}
 
 func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[13]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -804,7 +917,7 @@ func (x *ApplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{13}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ApplyResponse) GetBody() *ApplyResponse_Body {
@@ -835,7 +948,7 @@ type GetOpLogRequest struct {
 func (x *GetOpLogRequest) Reset() {
 	*x = GetOpLogRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[14]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -848,7 +961,7 @@ func (x *GetOpLogRequest) String() string {
 func (*GetOpLogRequest) ProtoMessage() {}
 
 func (x *GetOpLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[14]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -861,7 +974,7 @@ func (x *GetOpLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpLogRequest.ProtoReflect.Descriptor instead.
 func (*GetOpLogRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{14}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetOpLogRequest) GetBody() *GetOpLogRequest_Body {
@@ -892,7 +1005,7 @@ type GetOpLogResponse struct {
 func (x *GetOpLogResponse) Reset() {
 	*x = GetOpLogResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[15]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -905,7 +1018,7 @@ func (x *GetOpLogResponse) String() string {
 func (*GetOpLogResponse) ProtoMessage() {}
 
 func (x *GetOpLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[15]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -918,7 +1031,7 @@ func (x *GetOpLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpLogResponse.ProtoReflect.Descriptor instead.
 func (*GetOpLogResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{15}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetOpLogResponse) GetBody() *GetOpLogResponse_Body {
@@ -949,7 +1062,7 @@ type HealthcheckResponse struct {
 func (x *HealthcheckResponse) Reset() {
 	*x = HealthcheckResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[16]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -962,7 +1075,7 @@ func (x *HealthcheckResponse) String() string {
 func (*HealthcheckResponse) ProtoMessage() {}
 
 func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[16]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1088,7 @@ func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthcheckResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{16}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *HealthcheckResponse) GetBody() *HealthcheckResponse_Body {
@@ -1006,7 +1119,7 @@ type HealthcheckRequest struct {
 func (x *HealthcheckRequest) Reset() {
 	*x = HealthcheckRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[17]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1019,7 +1132,7 @@ func (x *HealthcheckRequest) String() string {
 func (*HealthcheckRequest) ProtoMessage() {}
 
 func (x *HealthcheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[17]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1032,7 +1145,7 @@ func (x *HealthcheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthcheckRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{17}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *HealthcheckRequest) GetBody() *HealthcheckRequest_Body {
@@ -1069,7 +1182,7 @@ type AddRequest_Body struct {
 func (x *AddRequest_Body) Reset() {
 	*x = AddRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[18]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1082,7 +1195,7 @@ func (x *AddRequest_Body) String() string {
 func (*AddRequest_Body) ProtoMessage() {}
 
 func (x *AddRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[18]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1145,7 +1258,7 @@ type AddResponse_Body struct {
 func (x *AddResponse_Body) Reset() {
 	*x = AddResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[19]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1158,7 +1271,7 @@ func (x *AddResponse_Body) String() string {
 func (*AddResponse_Body) ProtoMessage() {}
 
 func (x *AddResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[19]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1203,7 +1316,7 @@ type AddByPathRequest_Body struct {
 func (x *AddByPathRequest_Body) Reset() {
 	*x = AddByPathRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[20]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1216,7 +1329,7 @@ func (x *AddByPathRequest_Body) String() string {
 func (*AddByPathRequest_Body) ProtoMessage() {}
 
 func (x *AddByPathRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[20]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1288,7 +1401,7 @@ type AddByPathResponse_Body struct {
 func (x *AddByPathResponse_Body) Reset() {
 	*x = AddByPathResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[21]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1301,7 +1414,7 @@ func (x *AddByPathResponse_Body) String() string {
 func (*AddByPathResponse_Body) ProtoMessage() {}
 
 func (x *AddByPathResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[21]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1349,7 +1462,7 @@ type RemoveRequest_Body struct {
 func (x *RemoveRequest_Body) Reset() {
 	*x = RemoveRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[22]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1362,7 +1475,7 @@ func (x *RemoveRequest_Body) String() string {
 func (*RemoveRequest_Body) ProtoMessage() {}
 
 func (x *RemoveRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[22]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1415,7 +1528,7 @@ type RemoveResponse_Body struct {
 func (x *RemoveResponse_Body) Reset() {
 	*x = RemoveResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[23]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1428,7 +1541,7 @@ func (x *RemoveResponse_Body) String() string {
 func (*RemoveResponse_Body) ProtoMessage() {}
 
 func (x *RemoveResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[23]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1467,7 +1580,7 @@ type MoveRequest_Body struct {
 func (x *MoveRequest_Body) Reset() {
 	*x = MoveRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[24]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1480,7 +1593,7 @@ func (x *MoveRequest_Body) String() string {
 func (*MoveRequest_Body) ProtoMessage() {}
 
 func (x *MoveRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[24]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1547,7 +1660,7 @@ type MoveResponse_Body struct {
 func (x *MoveResponse_Body) Reset() {
 	*x = MoveResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[25]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1560,7 +1673,7 @@ func (x *MoveResponse_Body) String() string {
 func (*MoveResponse_Body) ProtoMessage() {}
 
 func (x *MoveResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[25]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1602,7 +1715,7 @@ type GetNodeByPathRequest_Body struct {
 func (x *GetNodeByPathRequest_Body) Reset() {
 	*x = GetNodeByPathRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[26]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1615,7 +1728,7 @@ func (x *GetNodeByPathRequest_Body) String() string {
 func (*GetNodeByPathRequest_Body) ProtoMessage() {}
 
 func (x *GetNodeByPathRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[26]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1706,7 +1819,7 @@ type GetNodeByPathResponse_Info struct {
 func (x *GetNodeByPathResponse_Info) Reset() {
 	*x = GetNodeByPathResponse_Info{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[27]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1719,7 +1832,7 @@ func (x *GetNodeByPathResponse_Info) String() string {
 func (*GetNodeByPathResponse_Info) ProtoMessage() {}
 
 func (x *GetNodeByPathResponse_Info) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[27]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1775,7 +1888,7 @@ type GetNodeByPathResponse_Body struct {
 func (x *GetNodeByPathResponse_Body) Reset() {
 	*x = GetNodeByPathResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[28]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1788,7 +1901,7 @@ func (x *GetNodeByPathResponse_Body) String() string {
 func (*GetNodeByPathResponse_Body) ProtoMessage() {}
 
 func (x *GetNodeByPathResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[28]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +1945,7 @@ type GetSubTreeRequest_Body struct {
 func (x *GetSubTreeRequest_Body) Reset() {
 	*x = GetSubTreeRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[29]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1845,7 +1958,7 @@ func (x *GetSubTreeRequest_Body) String() string {
 func (*GetSubTreeRequest_Body) ProtoMessage() {}
 
 func (x *GetSubTreeRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[29]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1914,7 +2027,7 @@ type GetSubTreeResponse_Body struct {
 func (x *GetSubTreeResponse_Body) Reset() {
 	*x = GetSubTreeResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[30]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1927,7 +2040,7 @@ func (x *GetSubTreeResponse_Body) String() string {
 func (*GetSubTreeResponse_Body) ProtoMessage() {}
 
 func (x *GetSubTreeResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[30]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1971,6 +2084,102 @@ func (x *GetSubTreeResponse_Body) GetMeta() []*KeyValue {
 	return nil
 }
 
+type TreeListRequest_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Container ID in V2 format.
+	ContainerId []byte `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+}
+
+func (x *TreeListRequest_Body) Reset() {
+	*x = TreeListRequest_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_tree_service_proto_msgTypes[33]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TreeListRequest_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TreeListRequest_Body) ProtoMessage() {}
+
+func (x *TreeListRequest_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_tree_service_proto_msgTypes[33]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TreeListRequest_Body.ProtoReflect.Descriptor instead.
+func (*TreeListRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{12, 0}
+}
+
+func (x *TreeListRequest_Body) GetContainerId() []byte {
+	if x != nil {
+		return x.ContainerId
+	}
+	return nil
+}
+
+type TreeListResponse_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Tree IDs.
+	Ids []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+}
+
+func (x *TreeListResponse_Body) Reset() {
+	*x = TreeListResponse_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_tree_service_proto_msgTypes[34]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TreeListResponse_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TreeListResponse_Body) ProtoMessage() {}
+
+func (x *TreeListResponse_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_tree_service_proto_msgTypes[34]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TreeListResponse_Body.ProtoReflect.Descriptor instead.
+func (*TreeListResponse_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{13, 0}
+}
+
+func (x *TreeListResponse_Body) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
 type ApplyRequest_Body struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1987,7 +2196,7 @@ type ApplyRequest_Body struct {
 func (x *ApplyRequest_Body) Reset() {
 	*x = ApplyRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[31]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2000,7 +2209,7 @@ func (x *ApplyRequest_Body) String() string {
 func (*ApplyRequest_Body) ProtoMessage() {}
 
 func (x *ApplyRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[31]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2013,7 +2222,7 @@ func (x *ApplyRequest_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRequest_Body.ProtoReflect.Descriptor instead.
 func (*ApplyRequest_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{12, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{14, 0}
 }
 
 func (x *ApplyRequest_Body) GetContainerId() []byte {
@@ -2046,7 +2255,7 @@ type ApplyResponse_Body struct {
 func (x *ApplyResponse_Body) Reset() {
 	*x = ApplyResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[32]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2059,7 +2268,7 @@ func (x *ApplyResponse_Body) String() string {
 func (*ApplyResponse_Body) ProtoMessage() {}
 
 func (x *ApplyResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[32]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2072,7 +2281,7 @@ func (x *ApplyResponse_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyResponse_Body.ProtoReflect.Descriptor instead.
 func (*ApplyResponse_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{13, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{15, 0}
 }
 
 type GetOpLogRequest_Body struct {
@@ -2093,7 +2302,7 @@ type GetOpLogRequest_Body struct {
 func (x *GetOpLogRequest_Body) Reset() {
 	*x = GetOpLogRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[33]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2106,7 +2315,7 @@ func (x *GetOpLogRequest_Body) String() string {
 func (*GetOpLogRequest_Body) ProtoMessage() {}
 
 func (x *GetOpLogRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[33]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2119,7 +2328,7 @@ func (x *GetOpLogRequest_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpLogRequest_Body.ProtoReflect.Descriptor instead.
 func (*GetOpLogRequest_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{14, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{16, 0}
 }
 
 func (x *GetOpLogRequest_Body) GetContainerId() []byte {
@@ -2162,7 +2371,7 @@ type GetOpLogResponse_Body struct {
 func (x *GetOpLogResponse_Body) Reset() {
 	*x = GetOpLogResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[34]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2175,7 +2384,7 @@ func (x *GetOpLogResponse_Body) String() string {
 func (*GetOpLogResponse_Body) ProtoMessage() {}
 
 func (x *GetOpLogResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[34]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2188,7 +2397,7 @@ func (x *GetOpLogResponse_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpLogResponse_Body.ProtoReflect.Descriptor instead.
 func (*GetOpLogResponse_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{15, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{17, 0}
 }
 
 func (x *GetOpLogResponse_Body) GetOperation() *LogMove {
@@ -2207,7 +2416,7 @@ type HealthcheckResponse_Body struct {
 func (x *HealthcheckResponse_Body) Reset() {
 	*x = HealthcheckResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[35]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2220,7 +2429,7 @@ func (x *HealthcheckResponse_Body) String() string {
 func (*HealthcheckResponse_Body) ProtoMessage() {}
 
 func (x *HealthcheckResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[35]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2233,7 +2442,7 @@ func (x *HealthcheckResponse_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckResponse_Body.ProtoReflect.Descriptor instead.
 func (*HealthcheckResponse_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{16, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{18, 0}
 }
 
 type HealthcheckRequest_Body struct {
@@ -2245,7 +2454,7 @@ type HealthcheckRequest_Body struct {
 func (x *HealthcheckRequest_Body) Reset() {
 	*x = HealthcheckRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_tree_service_proto_msgTypes[36]
+		mi := &file_pkg_services_tree_service_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2258,7 +2467,7 @@ func (x *HealthcheckRequest_Body) String() string {
 func (*HealthcheckRequest_Body) ProtoMessage() {}
 
 func (x *HealthcheckRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_tree_service_proto_msgTypes[36]
+	mi := &file_pkg_services_tree_service_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2271,7 +2480,7 @@ func (x *HealthcheckRequest_Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckRequest_Body.ProtoReflect.Descriptor instead.
 func (*HealthcheckRequest_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{17, 0}
+	return file_pkg_services_tree_service_proto_rawDescGZIP(), []int{19, 0}
 }
 
 var File_pkg_services_tree_service_proto protoreflect.FileDescriptor
@@ -2463,107 +2672,130 @@ var file_pkg_services_tree_service_proto_rawDesc = []byte{
 	0x61, 0x6d, 0x70, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73,
 	0x74, 0x61, 0x6d, 0x70, 0x12, 0x22, 0x0a, 0x04, 0x6d, 0x65, 0x74, 0x61, 0x18, 0x04, 0x20, 0x03,
 	0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c,
-	0x75, 0x65, 0x52, 0x04, 0x6d, 0x65, 0x74, 0x61, 0x22, 0xdb, 0x01, 0x0a, 0x0c, 0x41, 0x70, 0x70,
-	0x6c, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2b, 0x0a, 0x04, 0x62, 0x6f, 0x64,
-	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41,
-	0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79,
-	0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
-	0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65,
-	0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e,
-	0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x6f, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x21, 0x0a,
-	0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x49, 0x64,
-	0x12, 0x17, 0x0a, 0x07, 0x74, 0x72, 0x65, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x06, 0x74, 0x72, 0x65, 0x65, 0x49, 0x64, 0x12, 0x2b, 0x0a, 0x09, 0x6f, 0x70, 0x65,
-	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x74,
-	0x72, 0x65, 0x65, 0x2e, 0x4c, 0x6f, 0x67, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x09, 0x6f, 0x70, 0x65,
-	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x74, 0x0a, 0x0d, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2c, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70, 0x70,
-	0x6c, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52,
-	0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
-	0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e,
-	0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61,
-	0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0xe2, 0x01, 0x0a,
-	0x0f, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x2e, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
-	0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79,
-	0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61,
-	0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a,
-	0x70, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x61,
-	0x69, 0x6e, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0b, 0x63,
-	0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x72,
-	0x65, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x72, 0x65,
-	0x65, 0x49, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x04, 0x52, 0x06, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x63,
-	0x6f, 0x75, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x22, 0xa7, 0x01, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f,
-	0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64,
-	0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61,
-	0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65,
-	0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67,
-	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x33, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x2b,
-	0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x0d, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4c, 0x6f, 0x67, 0x4d, 0x6f, 0x76, 0x65,
-	0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x80, 0x01, 0x0a, 0x13,
-	0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x32, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x1e, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63,
-	0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64,
-	0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61,
-	0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65,
-	0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67,
-	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0x7e,
-	0x0a, 0x12, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x12, 0x31, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68,
-	0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64,
-	0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61,
-	0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65,
-	0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67,
-	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x32, 0x9b,
-	0x04, 0x0a, 0x0b, 0x54, 0x72, 0x65, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x2a,
-	0x0a, 0x03, 0x41, 0x64, 0x64, 0x12, 0x10, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41,
-	0x64, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3c, 0x0a, 0x09, 0x41, 0x64,
-	0x64, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x12, 0x16, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41,
-	0x64, 0x64, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x17, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33, 0x0a, 0x06, 0x52, 0x65, 0x6d, 0x6f,
-	0x76, 0x65, 0x12, 0x13, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x52,
-	0x65, 0x6d, 0x6f, 0x76, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a,
-	0x04, 0x4d, 0x6f, 0x76, 0x65, 0x12, 0x11, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4d, 0x6f, 0x76,
-	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x12, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e,
-	0x4d, 0x6f, 0x76, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x48, 0x0a, 0x0d,
-	0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x12, 0x1a, 0x2e,
-	0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61,
-	0x74, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x74, 0x72, 0x65, 0x65,
-	0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x41, 0x0a, 0x0a, 0x47, 0x65, 0x74, 0x53, 0x75, 0x62,
-	0x54, 0x72, 0x65, 0x65, 0x12, 0x17, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x53,
-	0x75, 0x62, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e,
-	0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x53, 0x75, 0x62, 0x54, 0x72, 0x65, 0x65, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x30, 0x01, 0x12, 0x30, 0x0a, 0x05, 0x41, 0x70, 0x70,
-	0x6c, 0x79, 0x12, 0x12, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70,
-	0x70, 0x6c, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3b, 0x0a, 0x08, 0x47,
-	0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x12, 0x15, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47,
-	0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16,
-	0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x30, 0x01, 0x12, 0x42, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c,
-	0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x18, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48,
+	0x75, 0x65, 0x52, 0x04, 0x6d, 0x65, 0x74, 0x61, 0x22, 0x9b, 0x01, 0x0a, 0x0f, 0x54, 0x72, 0x65,
+	0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x04,
+	0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x74, 0x72, 0x65,
+	0x65, 0x2e, 0x54, 0x72, 0x65, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09,
+	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
+	0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x29, 0x0a, 0x04, 0x42,
+	0x6f, 0x64, 0x79, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72,
+	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74, 0x61,
+	0x69, 0x6e, 0x65, 0x72, 0x49, 0x64, 0x22, 0x8c, 0x01, 0x0a, 0x10, 0x54, 0x72, 0x65, 0x65, 0x4c,
+	0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x04, 0x62,
+	0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x74, 0x72, 0x65, 0x65,
+	0x2e, 0x54, 0x72, 0x65, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09,
+	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
+	0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x18, 0x0a, 0x04, 0x42,
+	0x6f, 0x64, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09,
+	0x52, 0x03, 0x69, 0x64, 0x73, 0x22, 0xdb, 0x01, 0x0a, 0x0c, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2b, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70, 0x70, 0x6c,
+	0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62,
+	0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69,
+	0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
+	0x72, 0x65, 0x1a, 0x6f, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6f,
+	0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x49, 0x64, 0x12, 0x17, 0x0a,
+	0x07, 0x74, 0x72, 0x65, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06,
+	0x74, 0x72, 0x65, 0x65, 0x49, 0x64, 0x12, 0x2b, 0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x74, 0x72, 0x65, 0x65,
+	0x2e, 0x4c, 0x6f, 0x67, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x22, 0x74, 0x0a, 0x0d, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2c, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x18, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f,
+	0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69, 0x67,
+	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0xe2, 0x01, 0x0a, 0x0f, 0x47, 0x65,
+	0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e, 0x0a,
+	0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x74, 0x72,
+	0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a,
+	0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x70, 0x0a, 0x04,
+	0x42, 0x6f, 0x64, 0x79, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65,
+	0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74,
+	0x61, 0x69, 0x6e, 0x65, 0x72, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x72, 0x65, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x72, 0x65, 0x65, 0x49, 0x64,
+	0x12, 0x16, 0x0a, 0x06, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04,
+	0x52, 0x06, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e,
+	0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0xa7,
+	0x01, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x1b, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f,
+	0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04,
+	0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x1a, 0x33, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x2b, 0x0a, 0x09, 0x6f,
+	0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d,
+	0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4c, 0x6f, 0x67, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x09, 0x6f,
+	0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x80, 0x01, 0x0a, 0x13, 0x48, 0x65, 0x61,
+	0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x32, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e,
+	0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63,
+	0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04,
+	0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0x7e, 0x0a, 0x12, 0x48,
 	0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x19, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63,
-	0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x33, 0x5a, 0x31,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63,
-	0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f,
-	0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x74, 0x72, 0x65,
-	0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x12, 0x31, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x1d, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65,
+	0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04,
+	0x62, 0x6f, 0x64, 0x79, 0x12, 0x2d, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x53,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x32, 0xd6, 0x04, 0x0a, 0x0b,
+	0x54, 0x72, 0x65, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x2a, 0x0a, 0x03, 0x41,
+	0x64, 0x64, 0x12, 0x10, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3c, 0x0a, 0x09, 0x41, 0x64, 0x64, 0x42, 0x79,
+	0x50, 0x61, 0x74, 0x68, 0x12, 0x16, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64, 0x42,
+	0x79, 0x50, 0x61, 0x74, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x74,
+	0x72, 0x65, 0x65, 0x2e, 0x41, 0x64, 0x64, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x33, 0x0a, 0x06, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x12,
+	0x13, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x52, 0x65, 0x6d, 0x6f,
+	0x76, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x04, 0x4d, 0x6f,
+	0x76, 0x65, 0x12, 0x11, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x12, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x4d, 0x6f, 0x76,
+	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x48, 0x0a, 0x0d, 0x47, 0x65, 0x74,
+	0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x12, 0x1a, 0x2e, 0x74, 0x72, 0x65,
+	0x65, 0x2e, 0x47, 0x65, 0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65,
+	0x74, 0x4e, 0x6f, 0x64, 0x65, 0x42, 0x79, 0x50, 0x61, 0x74, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x41, 0x0a, 0x0a, 0x47, 0x65, 0x74, 0x53, 0x75, 0x62, 0x54, 0x72, 0x65,
+	0x65, 0x12, 0x17, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x53, 0x75, 0x62, 0x54,
+	0x72, 0x65, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x74, 0x72, 0x65,
+	0x65, 0x2e, 0x47, 0x65, 0x74, 0x53, 0x75, 0x62, 0x54, 0x72, 0x65, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x30, 0x01, 0x12, 0x39, 0x0a, 0x08, 0x54, 0x72, 0x65, 0x65, 0x4c, 0x69,
+	0x73, 0x74, 0x12, 0x15, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x54, 0x72, 0x65, 0x65, 0x4c, 0x69,
+	0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x74, 0x72, 0x65, 0x65,
+	0x2e, 0x54, 0x72, 0x65, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x30, 0x0a, 0x05, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x12, 0x12, 0x2e, 0x74, 0x72, 0x65,
+	0x65, 0x2e, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13,
+	0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x41, 0x70, 0x70, 0x6c, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x12,
+	0x15, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x47, 0x65,
+	0x74, 0x4f, 0x70, 0x4c, 0x6f, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x30, 0x01,
+	0x12, 0x42, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x12,
+	0x18, 0x2e, 0x74, 0x72, 0x65, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65,
+	0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x74, 0x72, 0x65, 0x65,
+	0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x42, 0x33, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f,
+	0x66, 0x73, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76,
+	0x69, 0x63, 0x65, 0x73, 0x2f, 0x74, 0x72, 0x65, 0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -2578,7 +2810,7 @@ func file_pkg_services_tree_service_proto_rawDescGZIP() []byte {
 	return file_pkg_services_tree_service_proto_rawDescData
 }
 
-var file_pkg_services_tree_service_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_pkg_services_tree_service_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_pkg_services_tree_service_proto_goTypes = []interface{}{
 	(*AddRequest)(nil),                 // 0: tree.AddRequest
 	(*AddResponse)(nil),                // 1: tree.AddResponse
@@ -2592,103 +2824,113 @@ var file_pkg_services_tree_service_proto_goTypes = []interface{}{
 	(*GetNodeByPathResponse)(nil),      // 9: tree.GetNodeByPathResponse
 	(*GetSubTreeRequest)(nil),          // 10: tree.GetSubTreeRequest
 	(*GetSubTreeResponse)(nil),         // 11: tree.GetSubTreeResponse
-	(*ApplyRequest)(nil),               // 12: tree.ApplyRequest
-	(*ApplyResponse)(nil),              // 13: tree.ApplyResponse
-	(*GetOpLogRequest)(nil),            // 14: tree.GetOpLogRequest
-	(*GetOpLogResponse)(nil),           // 15: tree.GetOpLogResponse
-	(*HealthcheckResponse)(nil),        // 16: tree.HealthcheckResponse
-	(*HealthcheckRequest)(nil),         // 17: tree.HealthcheckRequest
-	(*AddRequest_Body)(nil),            // 18: tree.AddRequest.Body
-	(*AddResponse_Body)(nil),           // 19: tree.AddResponse.Body
-	(*AddByPathRequest_Body)(nil),      // 20: tree.AddByPathRequest.Body
-	(*AddByPathResponse_Body)(nil),     // 21: tree.AddByPathResponse.Body
-	(*RemoveRequest_Body)(nil),         // 22: tree.RemoveRequest.Body
-	(*RemoveResponse_Body)(nil),        // 23: tree.RemoveResponse.Body
-	(*MoveRequest_Body)(nil),           // 24: tree.MoveRequest.Body
-	(*MoveResponse_Body)(nil),          // 25: tree.MoveResponse.Body
-	(*GetNodeByPathRequest_Body)(nil),  // 26: tree.GetNodeByPathRequest.Body
-	(*GetNodeByPathResponse_Info)(nil), // 27: tree.GetNodeByPathResponse.Info
-	(*GetNodeByPathResponse_Body)(nil), // 28: tree.GetNodeByPathResponse.Body
-	(*GetSubTreeRequest_Body)(nil),     // 29: tree.GetSubTreeRequest.Body
-	(*GetSubTreeResponse_Body)(nil),    // 30: tree.GetSubTreeResponse.Body
-	(*ApplyRequest_Body)(nil),          // 31: tree.ApplyRequest.Body
-	(*ApplyResponse_Body)(nil),         // 32: tree.ApplyResponse.Body
-	(*GetOpLogRequest_Body)(nil),       // 33: tree.GetOpLogRequest.Body
-	(*GetOpLogResponse_Body)(nil),      // 34: tree.GetOpLogResponse.Body
-	(*HealthcheckResponse_Body)(nil),   // 35: tree.HealthcheckResponse.Body
-	(*HealthcheckRequest_Body)(nil),    // 36: tree.HealthcheckRequest.Body
-	(*Signature)(nil),                  // 37: tree.Signature
-	(*KeyValue)(nil),                   // 38: tree.KeyValue
-	(*LogMove)(nil),                    // 39: tree.LogMove
+	(*TreeListRequest)(nil),            // 12: tree.TreeListRequest
+	(*TreeListResponse)(nil),           // 13: tree.TreeListResponse
+	(*ApplyRequest)(nil),               // 14: tree.ApplyRequest
+	(*ApplyResponse)(nil),              // 15: tree.ApplyResponse
+	(*GetOpLogRequest)(nil),            // 16: tree.GetOpLogRequest
+	(*GetOpLogResponse)(nil),           // 17: tree.GetOpLogResponse
+	(*HealthcheckResponse)(nil),        // 18: tree.HealthcheckResponse
+	(*HealthcheckRequest)(nil),         // 19: tree.HealthcheckRequest
+	(*AddRequest_Body)(nil),            // 20: tree.AddRequest.Body
+	(*AddResponse_Body)(nil),           // 21: tree.AddResponse.Body
+	(*AddByPathRequest_Body)(nil),      // 22: tree.AddByPathRequest.Body
+	(*AddByPathResponse_Body)(nil),     // 23: tree.AddByPathResponse.Body
+	(*RemoveRequest_Body)(nil),         // 24: tree.RemoveRequest.Body
+	(*RemoveResponse_Body)(nil),        // 25: tree.RemoveResponse.Body
+	(*MoveRequest_Body)(nil),           // 26: tree.MoveRequest.Body
+	(*MoveResponse_Body)(nil),          // 27: tree.MoveResponse.Body
+	(*GetNodeByPathRequest_Body)(nil),  // 28: tree.GetNodeByPathRequest.Body
+	(*GetNodeByPathResponse_Info)(nil), // 29: tree.GetNodeByPathResponse.Info
+	(*GetNodeByPathResponse_Body)(nil), // 30: tree.GetNodeByPathResponse.Body
+	(*GetSubTreeRequest_Body)(nil),     // 31: tree.GetSubTreeRequest.Body
+	(*GetSubTreeResponse_Body)(nil),    // 32: tree.GetSubTreeResponse.Body
+	(*TreeListRequest_Body)(nil),       // 33: tree.TreeListRequest.Body
+	(*TreeListResponse_Body)(nil),      // 34: tree.TreeListResponse.Body
+	(*ApplyRequest_Body)(nil),          // 35: tree.ApplyRequest.Body
+	(*ApplyResponse_Body)(nil),         // 36: tree.ApplyResponse.Body
+	(*GetOpLogRequest_Body)(nil),       // 37: tree.GetOpLogRequest.Body
+	(*GetOpLogResponse_Body)(nil),      // 38: tree.GetOpLogResponse.Body
+	(*HealthcheckResponse_Body)(nil),   // 39: tree.HealthcheckResponse.Body
+	(*HealthcheckRequest_Body)(nil),    // 40: tree.HealthcheckRequest.Body
+	(*Signature)(nil),                  // 41: tree.Signature
+	(*KeyValue)(nil),                   // 42: tree.KeyValue
+	(*LogMove)(nil),                    // 43: tree.LogMove
 }
 var file_pkg_services_tree_service_proto_depIdxs = []int32{
-	18, // 0: tree.AddRequest.body:type_name -> tree.AddRequest.Body
-	37, // 1: tree.AddRequest.signature:type_name -> tree.Signature
-	19, // 2: tree.AddResponse.body:type_name -> tree.AddResponse.Body
-	37, // 3: tree.AddResponse.signature:type_name -> tree.Signature
-	20, // 4: tree.AddByPathRequest.body:type_name -> tree.AddByPathRequest.Body
-	37, // 5: tree.AddByPathRequest.signature:type_name -> tree.Signature
-	21, // 6: tree.AddByPathResponse.body:type_name -> tree.AddByPathResponse.Body
-	37, // 7: tree.AddByPathResponse.signature:type_name -> tree.Signature
-	22, // 8: tree.RemoveRequest.body:type_name -> tree.RemoveRequest.Body
-	37, // 9: tree.RemoveRequest.signature:type_name -> tree.Signature
-	23, // 10: tree.RemoveResponse.body:type_name -> tree.RemoveResponse.Body
-	37, // 11: tree.RemoveResponse.signature:type_name -> tree.Signature
-	24, // 12: tree.MoveRequest.body:type_name -> tree.MoveRequest.Body
-	37, // 13: tree.MoveRequest.signature:type_name -> tree.Signature
-	25, // 14: tree.MoveResponse.body:type_name -> tree.MoveResponse.Body
-	37, // 15: tree.MoveResponse.signature:type_name -> tree.Signature
-	26, // 16: tree.GetNodeByPathRequest.body:type_name -> tree.GetNodeByPathRequest.Body
-	37, // 17: tree.GetNodeByPathRequest.signature:type_name -> tree.Signature
-	28, // 18: tree.GetNodeByPathResponse.body:type_name -> tree.GetNodeByPathResponse.Body
-	37, // 19: tree.GetNodeByPathResponse.signature:type_name -> tree.Signature
-	29, // 20: tree.GetSubTreeRequest.body:type_name -> tree.GetSubTreeRequest.Body
-	37, // 21: tree.GetSubTreeRequest.signature:type_name -> tree.Signature
-	30, // 22: tree.GetSubTreeResponse.body:type_name -> tree.GetSubTreeResponse.Body
-	37, // 23: tree.GetSubTreeResponse.signature:type_name -> tree.Signature
-	31, // 24: tree.ApplyRequest.body:type_name -> tree.ApplyRequest.Body
-	37, // 25: tree.ApplyRequest.signature:type_name -> tree.Signature
-	32, // 26: tree.ApplyResponse.body:type_name -> tree.ApplyResponse.Body
-	37, // 27: tree.ApplyResponse.signature:type_name -> tree.Signature
-	33, // 28: tree.GetOpLogRequest.body:type_name -> tree.GetOpLogRequest.Body
-	37, // 29: tree.GetOpLogRequest.signature:type_name -> tree.Signature
-	34, // 30: tree.GetOpLogResponse.body:type_name -> tree.GetOpLogResponse.Body
-	37, // 31: tree.GetOpLogResponse.signature:type_name -> tree.Signature
-	35, // 32: tree.HealthcheckResponse.body:type_name -> tree.HealthcheckResponse.Body
-	37, // 33: tree.HealthcheckResponse.signature:type_name -> tree.Signature
-	36, // 34: tree.HealthcheckRequest.body:type_name -> tree.HealthcheckRequest.Body
-	37, // 35: tree.HealthcheckRequest.signature:type_name -> tree.Signature
-	38, // 36: tree.AddRequest.Body.meta:type_name -> tree.KeyValue
-	38, // 37: tree.AddByPathRequest.Body.meta:type_name -> tree.KeyValue
-	38, // 38: tree.MoveRequest.Body.meta:type_name -> tree.KeyValue
-	38, // 39: tree.GetNodeByPathResponse.Info.meta:type_name -> tree.KeyValue
-	27, // 40: tree.GetNodeByPathResponse.Body.nodes:type_name -> tree.GetNodeByPathResponse.Info
-	38, // 41: tree.GetSubTreeResponse.Body.meta:type_name -> tree.KeyValue
-	39, // 42: tree.ApplyRequest.Body.operation:type_name -> tree.LogMove
-	39, // 43: tree.GetOpLogResponse.Body.operation:type_name -> tree.LogMove
-	0,  // 44: tree.TreeService.Add:input_type -> tree.AddRequest
-	2,  // 45: tree.TreeService.AddByPath:input_type -> tree.AddByPathRequest
-	4,  // 46: tree.TreeService.Remove:input_type -> tree.RemoveRequest
-	6,  // 47: tree.TreeService.Move:input_type -> tree.MoveRequest
-	8,  // 48: tree.TreeService.GetNodeByPath:input_type -> tree.GetNodeByPathRequest
-	10, // 49: tree.TreeService.GetSubTree:input_type -> tree.GetSubTreeRequest
-	12, // 50: tree.TreeService.Apply:input_type -> tree.ApplyRequest
-	14, // 51: tree.TreeService.GetOpLog:input_type -> tree.GetOpLogRequest
-	17, // 52: tree.TreeService.Healthcheck:input_type -> tree.HealthcheckRequest
-	1,  // 53: tree.TreeService.Add:output_type -> tree.AddResponse
-	3,  // 54: tree.TreeService.AddByPath:output_type -> tree.AddByPathResponse
-	5,  // 55: tree.TreeService.Remove:output_type -> tree.RemoveResponse
-	7,  // 56: tree.TreeService.Move:output_type -> tree.MoveResponse
-	9,  // 57: tree.TreeService.GetNodeByPath:output_type -> tree.GetNodeByPathResponse
-	11, // 58: tree.TreeService.GetSubTree:output_type -> tree.GetSubTreeResponse
-	13, // 59: tree.TreeService.Apply:output_type -> tree.ApplyResponse
-	15, // 60: tree.TreeService.GetOpLog:output_type -> tree.GetOpLogResponse
-	16, // 61: tree.TreeService.Healthcheck:output_type -> tree.HealthcheckResponse
-	53, // [53:62] is the sub-list for method output_type
-	44, // [44:53] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	20, // 0: tree.AddRequest.body:type_name -> tree.AddRequest.Body
+	41, // 1: tree.AddRequest.signature:type_name -> tree.Signature
+	21, // 2: tree.AddResponse.body:type_name -> tree.AddResponse.Body
+	41, // 3: tree.AddResponse.signature:type_name -> tree.Signature
+	22, // 4: tree.AddByPathRequest.body:type_name -> tree.AddByPathRequest.Body
+	41, // 5: tree.AddByPathRequest.signature:type_name -> tree.Signature
+	23, // 6: tree.AddByPathResponse.body:type_name -> tree.AddByPathResponse.Body
+	41, // 7: tree.AddByPathResponse.signature:type_name -> tree.Signature
+	24, // 8: tree.RemoveRequest.body:type_name -> tree.RemoveRequest.Body
+	41, // 9: tree.RemoveRequest.signature:type_name -> tree.Signature
+	25, // 10: tree.RemoveResponse.body:type_name -> tree.RemoveResponse.Body
+	41, // 11: tree.RemoveResponse.signature:type_name -> tree.Signature
+	26, // 12: tree.MoveRequest.body:type_name -> tree.MoveRequest.Body
+	41, // 13: tree.MoveRequest.signature:type_name -> tree.Signature
+	27, // 14: tree.MoveResponse.body:type_name -> tree.MoveResponse.Body
+	41, // 15: tree.MoveResponse.signature:type_name -> tree.Signature
+	28, // 16: tree.GetNodeByPathRequest.body:type_name -> tree.GetNodeByPathRequest.Body
+	41, // 17: tree.GetNodeByPathRequest.signature:type_name -> tree.Signature
+	30, // 18: tree.GetNodeByPathResponse.body:type_name -> tree.GetNodeByPathResponse.Body
+	41, // 19: tree.GetNodeByPathResponse.signature:type_name -> tree.Signature
+	31, // 20: tree.GetSubTreeRequest.body:type_name -> tree.GetSubTreeRequest.Body
+	41, // 21: tree.GetSubTreeRequest.signature:type_name -> tree.Signature
+	32, // 22: tree.GetSubTreeResponse.body:type_name -> tree.GetSubTreeResponse.Body
+	41, // 23: tree.GetSubTreeResponse.signature:type_name -> tree.Signature
+	33, // 24: tree.TreeListRequest.body:type_name -> tree.TreeListRequest.Body
+	41, // 25: tree.TreeListRequest.signature:type_name -> tree.Signature
+	34, // 26: tree.TreeListResponse.body:type_name -> tree.TreeListResponse.Body
+	41, // 27: tree.TreeListResponse.signature:type_name -> tree.Signature
+	35, // 28: tree.ApplyRequest.body:type_name -> tree.ApplyRequest.Body
+	41, // 29: tree.ApplyRequest.signature:type_name -> tree.Signature
+	36, // 30: tree.ApplyResponse.body:type_name -> tree.ApplyResponse.Body
+	41, // 31: tree.ApplyResponse.signature:type_name -> tree.Signature
+	37, // 32: tree.GetOpLogRequest.body:type_name -> tree.GetOpLogRequest.Body
+	41, // 33: tree.GetOpLogRequest.signature:type_name -> tree.Signature
+	38, // 34: tree.GetOpLogResponse.body:type_name -> tree.GetOpLogResponse.Body
+	41, // 35: tree.GetOpLogResponse.signature:type_name -> tree.Signature
+	39, // 36: tree.HealthcheckResponse.body:type_name -> tree.HealthcheckResponse.Body
+	41, // 37: tree.HealthcheckResponse.signature:type_name -> tree.Signature
+	40, // 38: tree.HealthcheckRequest.body:type_name -> tree.HealthcheckRequest.Body
+	41, // 39: tree.HealthcheckRequest.signature:type_name -> tree.Signature
+	42, // 40: tree.AddRequest.Body.meta:type_name -> tree.KeyValue
+	42, // 41: tree.AddByPathRequest.Body.meta:type_name -> tree.KeyValue
+	42, // 42: tree.MoveRequest.Body.meta:type_name -> tree.KeyValue
+	42, // 43: tree.GetNodeByPathResponse.Info.meta:type_name -> tree.KeyValue
+	29, // 44: tree.GetNodeByPathResponse.Body.nodes:type_name -> tree.GetNodeByPathResponse.Info
+	42, // 45: tree.GetSubTreeResponse.Body.meta:type_name -> tree.KeyValue
+	43, // 46: tree.ApplyRequest.Body.operation:type_name -> tree.LogMove
+	43, // 47: tree.GetOpLogResponse.Body.operation:type_name -> tree.LogMove
+	0,  // 48: tree.TreeService.Add:input_type -> tree.AddRequest
+	2,  // 49: tree.TreeService.AddByPath:input_type -> tree.AddByPathRequest
+	4,  // 50: tree.TreeService.Remove:input_type -> tree.RemoveRequest
+	6,  // 51: tree.TreeService.Move:input_type -> tree.MoveRequest
+	8,  // 52: tree.TreeService.GetNodeByPath:input_type -> tree.GetNodeByPathRequest
+	10, // 53: tree.TreeService.GetSubTree:input_type -> tree.GetSubTreeRequest
+	12, // 54: tree.TreeService.TreeList:input_type -> tree.TreeListRequest
+	14, // 55: tree.TreeService.Apply:input_type -> tree.ApplyRequest
+	16, // 56: tree.TreeService.GetOpLog:input_type -> tree.GetOpLogRequest
+	19, // 57: tree.TreeService.Healthcheck:input_type -> tree.HealthcheckRequest
+	1,  // 58: tree.TreeService.Add:output_type -> tree.AddResponse
+	3,  // 59: tree.TreeService.AddByPath:output_type -> tree.AddByPathResponse
+	5,  // 60: tree.TreeService.Remove:output_type -> tree.RemoveResponse
+	7,  // 61: tree.TreeService.Move:output_type -> tree.MoveResponse
+	9,  // 62: tree.TreeService.GetNodeByPath:output_type -> tree.GetNodeByPathResponse
+	11, // 63: tree.TreeService.GetSubTree:output_type -> tree.GetSubTreeResponse
+	13, // 64: tree.TreeService.TreeList:output_type -> tree.TreeListResponse
+	15, // 65: tree.TreeService.Apply:output_type -> tree.ApplyResponse
+	17, // 66: tree.TreeService.GetOpLog:output_type -> tree.GetOpLogResponse
+	18, // 67: tree.TreeService.Healthcheck:output_type -> tree.HealthcheckResponse
+	58, // [58:68] is the sub-list for method output_type
+	48, // [48:58] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_pkg_services_tree_service_proto_init() }
@@ -2843,7 +3085,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ApplyRequest); i {
+			switch v := v.(*TreeListRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2855,7 +3097,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ApplyResponse); i {
+			switch v := v.(*TreeListResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2867,7 +3109,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetOpLogRequest); i {
+			switch v := v.(*ApplyRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2879,7 +3121,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetOpLogResponse); i {
+			switch v := v.(*ApplyResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2891,7 +3133,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthcheckResponse); i {
+			switch v := v.(*GetOpLogRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2903,7 +3145,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthcheckRequest); i {
+			switch v := v.(*GetOpLogResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2915,7 +3157,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AddRequest_Body); i {
+			switch v := v.(*HealthcheckResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2927,7 +3169,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AddResponse_Body); i {
+			switch v := v.(*HealthcheckRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2939,7 +3181,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AddByPathRequest_Body); i {
+			switch v := v.(*AddRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2951,7 +3193,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AddByPathResponse_Body); i {
+			switch v := v.(*AddResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2963,7 +3205,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RemoveRequest_Body); i {
+			switch v := v.(*AddByPathRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2975,7 +3217,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RemoveResponse_Body); i {
+			switch v := v.(*AddByPathResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2987,7 +3229,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MoveRequest_Body); i {
+			switch v := v.(*RemoveRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2999,7 +3241,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MoveResponse_Body); i {
+			switch v := v.(*RemoveResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3011,7 +3253,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetNodeByPathRequest_Body); i {
+			switch v := v.(*MoveRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3023,7 +3265,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetNodeByPathResponse_Info); i {
+			switch v := v.(*MoveResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3035,7 +3277,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetNodeByPathResponse_Body); i {
+			switch v := v.(*GetNodeByPathRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3047,7 +3289,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetSubTreeRequest_Body); i {
+			switch v := v.(*GetNodeByPathResponse_Info); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3059,7 +3301,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetSubTreeResponse_Body); i {
+			switch v := v.(*GetNodeByPathResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3071,7 +3313,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ApplyRequest_Body); i {
+			switch v := v.(*GetSubTreeRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3083,7 +3325,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ApplyResponse_Body); i {
+			switch v := v.(*GetSubTreeResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3095,7 +3337,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetOpLogRequest_Body); i {
+			switch v := v.(*TreeListRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3107,7 +3349,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetOpLogResponse_Body); i {
+			switch v := v.(*TreeListResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3119,7 +3361,7 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthcheckResponse_Body); i {
+			switch v := v.(*ApplyRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -3131,6 +3373,54 @@ func file_pkg_services_tree_service_proto_init() {
 			}
 		}
 		file_pkg_services_tree_service_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ApplyResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_tree_service_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetOpLogRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_tree_service_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetOpLogResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_tree_service_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*HealthcheckResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_tree_service_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*HealthcheckRequest_Body); i {
 			case 0:
 				return &v.state
@@ -3149,7 +3439,7 @@ func file_pkg_services_tree_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_services_tree_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -522,6 +522,51 @@ func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer)
 	}
 }
 
+func (s *Service) TreeList(ctx context.Context, req *TreeListRequest) (*TreeListResponse, error) {
+	var cid cidSDK.ID
+
+	err := cid.Decode(req.GetBody().GetContainerId())
+	if err != nil {
+		return nil, err
+	}
+
+	// just verify the signature, not ACL checks
+	// since tree ID list is not protected like
+	// the containers list
+	err = verifyMessage(req)
+	if err != nil {
+		return nil, err
+	}
+
+	ns, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return nil, err
+	}
+	if pos < 0 {
+		var resp *TreeListResponse
+		var outErr error
+		err = s.forEachNode(ctx, ns, func(c TreeServiceClient) bool {
+			resp, outErr = c.TreeList(ctx, req)
+			return outErr == nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return resp, outErr
+	}
+
+	ids, err := s.forest.TreeList(cid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TreeListResponse{
+		Body: &TreeListResponse_Body{
+			Ids: ids,
+		},
+	}, nil
+}
+
 func protoToMeta(arr []*KeyValue) []pilorama.KeyValue {
 	meta := make([]pilorama.KeyValue, len(arr))
 	for i, kv := range arr {
