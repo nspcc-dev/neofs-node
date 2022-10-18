@@ -13,10 +13,12 @@ func init() {
 	Cmd.AddCommand(addCmd)
 	Cmd.AddCommand(getByPathCmd)
 	Cmd.AddCommand(addByPathCmd)
+	Cmd.AddCommand(listCmd)
 
 	initAddCmd()
 	initGetByPathCmd()
 	initAddByPathCmd()
+	initListCmd()
 }
 
 const (
