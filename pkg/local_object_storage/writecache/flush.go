@@ -137,8 +137,6 @@ func (c *cache) flushBigObjects() {
 				break
 			}
 
-			evictNum := 0
-
 			var prm common.IteratePrm
 			prm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 				sAddr := addr.EncodeToString()
@@ -175,8 +173,6 @@ func (c *cache) flushBigObjects() {
 
 				// mark object as flushed
 				c.flushed.Add(sAddr, false)
-
-				evictNum++
 
 				return nil
 			}
