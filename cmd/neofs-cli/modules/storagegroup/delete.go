@@ -23,8 +23,8 @@ func initSGDeleteCmd() {
 
 	flags := sgDelCmd.Flags()
 
-	flags.String(cidFlag, "", "Container ID")
-	_ = sgDelCmd.MarkFlagRequired(cidFlag)
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = sgDelCmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	flags.StringVarP(&sgID, sgIDFlag, "", "", "Storage group identifier")
 	_ = sgDelCmd.MarkFlagRequired(sgIDFlag)

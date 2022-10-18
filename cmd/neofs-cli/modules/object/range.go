@@ -32,14 +32,14 @@ func initObjectRangeCmd() {
 
 	flags := objectRangeCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectRangeCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectRangeCmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	flags.String("oid", "", "Object ID")
-	_ = objectRangeCmd.MarkFlagRequired("oid")
+	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
+	_ = objectRangeCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String("range", "", "Range to take data from in the form offset:length")
-	flags.String("file", "", "File to write object payload to. Default: stdout.")
+	flags.String(fileFlag, "", "File to write object payload to. Default: stdout.")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 }
 
@@ -58,7 +58,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	var out io.Writer
 
-	filename := cmd.Flag("file").Value.String()
+	filename := cmd.Flag(fileFlag).Value.String()
 	if filename == "" {
 		out = os.Stdout
 	} else {

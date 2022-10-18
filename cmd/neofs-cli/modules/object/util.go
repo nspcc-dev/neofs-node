@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -26,6 +27,8 @@ const (
 
 	rawFlag     = "raw"
 	rawFlagDesc = "Set raw request option"
+	fileFlag    = "file"
+	binaryFlag  = "binary"
 )
 
 type RPCParameters interface {
@@ -80,13 +83,27 @@ func readObjectAddress(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID) oid.Address
 	return addr
 }
 
+func readObjectAddressBin(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID, filename string) oid.Address {
+	buf, err := os.ReadFile(filename)
+	common.ExitOnErr(cmd, "unable to read given file: %w", err)
+	objTemp := object.New()
+	common.ExitOnErr(cmd, "can't unmarshal object from given file: %w", objTemp.Unmarshal(buf))
+
+	var addr oid.Address
+	*cnr, _ = objTemp.ContainerID()
+	*obj, _ = objTemp.ID()
+	addr.SetContainer(*cnr)
+	addr.SetObject(*obj)
+	return addr
+}
+
 func readCID(cmd *cobra.Command, id *cid.ID) {
-	err := id.DecodeString(cmd.Flag("cid").Value.String())
+	err := id.DecodeString(cmd.Flag(commonflags.CIDFlag).Value.String())
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
 }
 
 func readOID(cmd *cobra.Command, id *oid.ID) {
-	err := id.DecodeString(cmd.Flag("oid").Value.String())
+	err := id.DecodeString(cmd.Flag(commonflags.OIDFlag).Value.String())
 	common.ExitOnErr(cmd, "decode object ID string: %w", err)
 }
 

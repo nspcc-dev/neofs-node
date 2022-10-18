@@ -57,7 +57,7 @@ func initContainerGetEACLCmd() {
 
 	flags := getExtendedACLCmd.Flags()
 
-	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
+	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.StringVar(&containerPathTo, "to", "", "Path to dump encoded container (default: binary encoded)")
 	flags.BoolVar(&containerJSON, commonflags.JSON, false, "Encode EACL table in json format")
 }

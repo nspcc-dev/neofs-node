@@ -6,6 +6,7 @@ import (
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
@@ -29,7 +30,7 @@ func initControlSynchronizeTreeCmd() {
 	initControlFlags(synchronizeTreeCmd)
 
 	flags := synchronizeTreeCmd.Flags()
-	flags.String("cid", "", "Container ID")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.String(synchronizeTreeIDFlag, "", "Tree ID")
 	flags.Uint64(synchronizeTreeHeightFlag, 0, "Starting height")
 }
@@ -38,7 +39,7 @@ func synchronizeTree(cmd *cobra.Command, _ []string) {
 	pk := key.Get(cmd)
 
 	var cnr cid.ID
-	cidStr, _ := cmd.Flags().GetString("cid")
+	cidStr, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 	common.ExitOnErr(cmd, "can't decode container ID: %w", cnr.DecodeString(cidStr))
 
 	treeID, _ := cmd.Flags().GetString("tree-id")

@@ -24,15 +24,15 @@ func initListCmd() {
 	commonflags.Init(listCmd)
 
 	ff := listCmd.Flags()
-	ff.String(containerIDFlagKey, "", "Container ID")
-	_ = listCmd.MarkFlagRequired(containerIDFlagKey)
+	ff.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = listCmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	_ = cobra.MarkFlagRequired(ff, commonflags.RPC)
 }
 
 func list(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
-	cidString, _ := cmd.Flags().GetString(containerIDFlagKey)
+	cidString, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
 	err := cnr.DecodeString(cidString)

@@ -42,7 +42,7 @@ func initAddByPathCmd() {
 func addByPath(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
-	cidRaw, _ := cmd.Flags().GetString(containerIDFlagKey)
+	cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
 	err := cnr.DecodeString(cidRaw)

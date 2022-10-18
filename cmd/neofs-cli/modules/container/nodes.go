@@ -58,7 +58,7 @@ func initContainerNodesCmd() {
 	commonflags.Init(containerNodesCmd)
 
 	flags := containerNodesCmd.Flags()
-	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
+	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.StringVar(&containerPathFrom, fromFlag, "", fromFlagUsage)
 	flags.BoolVar(&short, "short", false, "Shortens output of node info")
 }

@@ -35,11 +35,11 @@ func initObjectHashCmd() {
 
 	flags := objectHashCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectHashCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectHashCmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	flags.String("oid", "", "Object ID")
-	_ = objectHashCmd.MarkFlagRequired("oid")
+	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
+	_ = objectHashCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String("range", "", "Range to take hash from in the form offset1:length1,...")
 	flags.String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")

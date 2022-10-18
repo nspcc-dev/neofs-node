@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `morph list-containers` in `neofs-adm` (#1689)
+- `--binary` flag in `neofs-cli object put/get/delete` commands (#1338)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)

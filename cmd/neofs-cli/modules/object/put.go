@@ -1,7 +1,9 @@
 package object
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,12 +42,11 @@ func initObjectPutCmd() {
 
 	flags := objectPutCmd.Flags()
 
-	flags.String("file", "", "File with object payload")
-	_ = objectPutCmd.MarkFlagFilename("file")
-	_ = objectPutCmd.MarkFlagRequired("file")
+	flags.String(fileFlag, "", "File with object payload")
+	_ = objectPutCmd.MarkFlagFilename(fileFlag)
+	_ = objectPutCmd.MarkFlagRequired(fileFlag)
 
-	flags.String("cid", "", "Container ID")
-	_ = objectPutCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 
 	flags.String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
 	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
@@ -54,21 +55,41 @@ func initObjectPutCmd() {
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
 	flags.String(notificationFlag, "", "Object notification in the form of *epoch*:*topic*; '-' topic means using default")
+	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
+	binary, _ := cmd.Flags().GetBool(binaryFlag)
+	cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
+
+	if !binary && cidVal == "" {
+		common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag))
+	}
 	pk := key.GetOrGenerate(cmd)
 
 	var ownerID user.ID
-	user.IDFromKey(&ownerID, pk.PublicKey)
-
 	var cnr cid.ID
-	readCID(cmd, &cnr)
 
-	filename := cmd.Flag("file").Value.String()
+	filename, _ := cmd.Flags().GetString(fileFlag)
 	f, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		common.ExitOnErr(cmd, "", fmt.Errorf("can't open file '%s': %w", filename, err))
+	}
+	var payloadReader io.Reader = f
+	obj := object.New()
+
+	if binary {
+		buf, err := os.ReadFile(filename)
+		common.ExitOnErr(cmd, "unable to read given file: %w", err)
+		objTemp := object.New()
+		//TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
+		common.ExitOnErr(cmd, "can't unmarshal object from given file: %w", objTemp.Unmarshal(buf))
+		payloadReader = bytes.NewReader(objTemp.Payload())
+		cnr, _ = objTemp.ContainerID()
+		ownerID = *objTemp.OwnerID()
+	} else {
+		readCID(cmd, &cnr)
+		user.IDFromKey(&ownerID, pk.PublicKey)
 	}
 
 	attrs, err := parseObjectAttrs(cmd)
@@ -95,7 +116,6 @@ func putObject(cmd *cobra.Command, _ []string) {
 		}
 	}
 
-	obj := object.New()
 	obj.SetContainerID(cnr)
 	obj.SetOwnerID(&ownerID)
 	obj.SetAttributes(attrs...)
@@ -116,19 +136,26 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
 	if noProgress {
-		prm.SetPayloadReader(f)
+		prm.SetPayloadReader(payloadReader)
 	} else {
-		fi, err := f.Stat()
-		if err != nil {
-			cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
-			prm.SetPayloadReader(f)
-		} else {
-			p = pb.New64(fi.Size())
+		if binary {
+			p = pb.New(len(obj.Payload()))
 			p.Output = cmd.OutOrStdout()
-			prm.SetPayloadReader(p.NewProxyReader(f))
-			prm.SetHeaderCallback(func(o *object.Object) {
-				p.Start()
-			})
+			prm.SetPayloadReader(p.NewProxyReader(payloadReader))
+			prm.SetHeaderCallback(func(o *object.Object) { p.Start() })
+		} else {
+			fi, err := f.Stat()
+			if err != nil {
+				cmd.PrintErrf("Failed to get file size, progress bar is disabled: %v\n", err)
+				prm.SetPayloadReader(f)
+			} else {
+				p = pb.New64(fi.Size())
+				p.Output = cmd.OutOrStdout()
+				prm.SetPayloadReader(p.NewProxyReader(f))
+				prm.SetHeaderCallback(func(o *object.Object) {
+					p.Start()
+				})
+			}
 		}
 	}
 
@@ -162,7 +189,7 @@ func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 
 	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
 	if !disableFilename {
-		filename := filepath.Base(cmd.Flag("file").Value.String())
+		filename := filepath.Base(cmd.Flag(fileFlag).Value.String())
 		index := len(attrs)
 		attrs = append(attrs, object.Attribute{})
 		attrs[index].SetKey(object.AttributeFileName)

@@ -41,6 +41,12 @@ const (
 
 	ForceFlag          = "force"
 	ForceFlagShorthand = "f"
+
+	CIDFlag      = "cid"
+	CIDFlagUsage = "Container ID."
+
+	OIDFlag      = "oid"
+	OIDFlagUsage = "Object ID."
 )
 
 // Init adds common flags to the command:
