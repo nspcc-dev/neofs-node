@@ -76,20 +76,14 @@ func syncTrees(ctx context.Context, treeSvc *tree.Service, cnrCli *containerClie
 		return
 	}
 
-	// TODO: #1902 fetch all the trees via a new tree RPC
-	wellKnownTrees := [...]string{"version", "system"}
-
 	for _, id := range ids {
-		for i := range wellKnownTrees {
-			err = treeSvc.SynchronizeTree(ctx, id, wellKnownTrees[i])
-			if err != nil && !errors.Is(err, tree.ErrNotInContainer) {
-				log.Warn(
-					"tree synchronization failed",
-					zap.Stringer("cid", id),
-					zap.String("tree_id", wellKnownTrees[i]),
-					zap.Error(err),
-				)
-			}
+		err = treeSvc.SynchronizeAllTrees(ctx, id)
+		if err != nil && !errors.Is(err, tree.ErrNotInContainer) {
+			log.Warn(
+				"tree synchronization failed",
+				zap.Stringer("cid", id),
+				zap.Error(err),
+			)
 		}
 	}
 
