@@ -96,7 +96,7 @@ func initContainerSetEACLCmd() {
 	commonflags.Init(setExtendedACLCmd)
 
 	flags := setExtendedACLCmd.Flags()
-	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
+	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.StringVar(&flagVarsSetEACL.srcPath, "table", "", "path to file with JSON or binary encoded EACL table")
 	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
 	flags.BoolVar(&flagVarsSetEACL.noPreCheck, "no-precheck", false, "do not pre-check the extensibility of the container ACL")

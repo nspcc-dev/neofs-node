@@ -31,13 +31,13 @@ func initObjectHeadCmd() {
 
 	flags := objectHeadCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectHeadCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectHeadCmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	flags.String("oid", "", "Object ID")
-	_ = objectHeadCmd.MarkFlagRequired("oid")
+	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
+	_ = objectHeadCmd.MarkFlagRequired(commonflags.OIDFlag)
 
-	flags.String("file", "", "File to write header to. Default: stdout.")
+	flags.String(fileFlag, "", "File to write header to. Default: stdout.")
 	flags.Bool("main-only", false, "Return only main fields")
 	flags.Bool(commonflags.JSON, false, "Marshal output in JSON")
 	flags.Bool("proto", false, "Marshal output in Protobuf")
@@ -73,7 +73,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 	}
 
-	err = saveAndPrintHeader(cmd, res.Header(), cmd.Flag("file").Value.String())
+	err = saveAndPrintHeader(cmd, res.Header(), cmd.Flag(fileFlag).Value.String())
 	common.ExitOnErr(cmd, "", err)
 }
 

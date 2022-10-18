@@ -89,7 +89,7 @@ func initContainerListObjectsCmd() {
 
 	flags := listContainerObjectsCmd.Flags()
 
-	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
+	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.BoolVar(&flagVarListObjectsPrintAttr, flagListObjectPrintAttr, false,
 		"Request and print user attributes of each object",
 	)

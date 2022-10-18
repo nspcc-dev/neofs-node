@@ -36,8 +36,8 @@ func initSGPutCmd() {
 
 	flags := sgPutCmd.Flags()
 
-	flags.String(cidFlag, "", "Container ID")
-	_ = sgPutCmd.MarkFlagRequired(cidFlag)
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = sgPutCmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	flags.StringSliceVarP(&sgMembers, sgMembersFlag, "m", nil, "ID list of storage group members")
 	_ = sgPutCmd.MarkFlagRequired(sgMembersFlag)

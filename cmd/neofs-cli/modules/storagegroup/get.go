@@ -28,8 +28,8 @@ func initSGGetCmd() {
 
 	flags := sgGetCmd.Flags()
 
-	flags.String(cidFlag, "", "Container ID")
-	_ = sgGetCmd.MarkFlagRequired(cidFlag)
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = sgGetCmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	flags.StringVarP(&sgID, sgIDFlag, "", "", "Storage group identifier")
 	_ = sgGetCmd.MarkFlagRequired(sgIDFlag)

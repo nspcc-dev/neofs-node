@@ -1,6 +1,7 @@
 package object
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -29,16 +30,17 @@ func initObjectGetCmd() {
 
 	flags := objectGetCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectGetCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectGetCmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	flags.String("oid", "", "Object ID")
-	_ = objectGetCmd.MarkFlagRequired("oid")
+	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
+	_ = objectGetCmd.MarkFlagRequired(commonflags.OIDFlag)
 
-	flags.String("file", "", "File to write object payload to. Default: stdout.")
+	flags.String(fileFlag, "", "File to write object payload to(with -b together with signature and header). Default: stdout.")
 	flags.String("header", "", "File to write header to. Default: stdout.")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
+	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
 }
 
 func getObject(cmd *cobra.Command, _ []string) {
@@ -48,7 +50,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 	objAddr := readObjectAddress(cmd, &cnr, &obj)
 
 	var out io.Writer
-	filename := cmd.Flag("file").Value.String()
+	filename := cmd.Flag(fileFlag).Value.String()
 	if filename == "" {
 		out = os.Stdout
 	} else {
@@ -78,12 +80,22 @@ func getObject(cmd *cobra.Command, _ []string) {
 	var p *pb.ProgressBar
 	noProgress, _ := cmd.Flags().GetBool(noProgressFlag)
 
+	var payloadWriter io.Writer
+	var payloadBuffer *bytes.Buffer
+	binary, _ := cmd.Flags().GetBool(binaryFlag)
+	if binary {
+		payloadBuffer = new(bytes.Buffer)
+		payloadWriter = payloadBuffer
+	} else {
+		payloadWriter = out
+	}
+
 	if filename == "" || noProgress {
-		prm.SetPayloadWriter(out)
+		prm.SetPayloadWriter(payloadWriter)
 	} else {
 		p = pb.New64(0)
 		p.Output = cmd.OutOrStdout()
-		prm.SetPayloadWriter(p.NewProxyWriter(out))
+		prm.SetPayloadWriter(p.NewProxyWriter(payloadWriter))
 		prm.SetHeaderCallback(func(o *object.Object) {
 			p.SetTotal64(int64(o.PayloadSize()))
 			p.Start()
@@ -100,6 +112,16 @@ func getObject(cmd *cobra.Command, _ []string) {
 		}
 
 		common.ExitOnErr(cmd, "rpc error: %w", err)
+	}
+
+	if binary {
+		objToStore := res.Header()
+		//TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
+		objToStore.SetPayload(payloadBuffer.Bytes())
+		objBytes, err := objToStore.Marshal()
+		common.ExitOnErr(cmd, "", err)
+		_, err = out.Write(objBytes)
+		common.ExitOnErr(cmd, "unable to write binary object in out: %w ", err)
 	}
 
 	hdrFile := cmd.Flag("header").Value.String()

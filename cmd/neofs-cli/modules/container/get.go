@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	cidFlag      = "cid"
-	cidFlagUsage = "Container ID"
-
 	fromFlag      = "from"
 	fromFlagUsage = "Path to file with encoded container"
 )
@@ -64,7 +61,7 @@ func initContainerInfoCmd() {
 
 	flags := getContainerInfoCmd.Flags()
 
-	flags.StringVar(&containerID, cidFlag, "", cidFlagUsage)
+	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.StringVar(&containerPathTo, "to", "", "Path to dump encoded container")
 	flags.StringVar(&containerPathFrom, fromFlag, "", fromFlagUsage)
 	flags.BoolVar(&containerJSON, commonflags.JSON, false, "Print or dump container in JSON format")

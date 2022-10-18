@@ -25,13 +25,13 @@ var objectLockCmd = &cobra.Command{
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
 	Run: func(cmd *cobra.Command, _ []string) {
-		cidRaw, _ := cmd.Flags().GetString("cid")
+		cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 		var cnr cid.ID
 		err := cnr.DecodeString(cidRaw)
 		common.ExitOnErr(cmd, "Incorrect container arg: %v", err)
 
-		oidsRaw, _ := cmd.Flags().GetStringSlice("oid")
+		oidsRaw, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)
 
 		lockList := make([]oid.ID, len(oidsRaw))
 
@@ -96,11 +96,11 @@ func initCommandObjectLock() {
 
 	ff := objectLockCmd.Flags()
 
-	ff.String("cid", "", "Container ID")
-	_ = objectLockCmd.MarkFlagRequired("cid")
+	ff.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectLockCmd.MarkFlagRequired(commonflags.CIDFlag)
 
-	ff.StringSlice("oid", nil, "Object ID")
-	_ = objectLockCmd.MarkFlagRequired("oid")
+	ff.StringSlice(commonflags.OIDFlag, nil, commonflags.OIDFlagUsage)
+	_ = objectLockCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	ff.Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
 

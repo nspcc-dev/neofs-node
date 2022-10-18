@@ -11,6 +11,7 @@ import (
 
 	"github.com/flynn-archive/go-shlex"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/spf13/cobra"
@@ -53,7 +54,7 @@ func init() {
 	createCmd.Flags().StringArrayP("rule", "r", nil, "Extended ACL table record to apply")
 	createCmd.Flags().StringP("file", "f", "", "Read list of extended ACL table records from from text file")
 	createCmd.Flags().StringP("out", "o", "", "Save JSON formatted extended ACL table in file")
-	createCmd.Flags().StringP("cid", "", "", "Container ID")
+	createCmd.Flags().StringP(commonflags.CIDFlag, "", "", commonflags.CIDFlagUsage)
 
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), "file")
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), "out")
@@ -63,7 +64,7 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	rules, _ := cmd.Flags().GetStringArray("rule")
 	fileArg, _ := cmd.Flags().GetString("file")
 	outArg, _ := cmd.Flags().GetString("out")
-	cidArg, _ := cmd.Flags().GetString("cid")
+	cidArg, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var containerID cid.ID
 	if cidArg != "" {

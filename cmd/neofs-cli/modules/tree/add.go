@@ -37,7 +37,7 @@ func add(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
 	var cnr cid.ID
-	err := cnr.DecodeString(cmd.Flag(containerIDFlagKey).Value.String())
+	err := cnr.DecodeString(cmd.Flag(commonflags.CIDFlag).Value.String())
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
 
 	tid, _ := cmd.Flags().GetString(treeIDFlagKey)

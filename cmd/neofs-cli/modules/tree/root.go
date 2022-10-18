@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/spf13/cobra"
 )
 
@@ -22,9 +23,8 @@ func init() {
 }
 
 const (
-	containerIDFlagKey = "cid"
-	treeIDFlagKey      = "tid"
-	parentIDFlagKey    = "pid"
+	treeIDFlagKey   = "tid"
+	parentIDFlagKey = "pid"
 
 	metaFlagKey = "meta"
 
@@ -37,8 +37,8 @@ const (
 func initCTID(cmd *cobra.Command) {
 	ff := cmd.Flags()
 
-	ff.String(containerIDFlagKey, "", "Container ID")
-	_ = cmd.MarkFlagRequired(containerIDFlagKey)
+	ff.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = cmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	ff.String(treeIDFlagKey, "", "Tree ID")
 	_ = cmd.MarkFlagRequired(treeIDFlagKey)

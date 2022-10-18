@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -20,9 +21,9 @@ func readObjectAddress(cmd *cobra.Command, cnr *cid.ID, obj *oid.ID) oid.Address
 }
 
 func readCID(cmd *cobra.Command, id *cid.ID) {
-	f := cmd.Flag(cidFlag)
+	f := cmd.Flag(commonflags.CIDFlag)
 	if f == nil {
-		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", cidFlag))
+		common.ExitOnErr(cmd, "", fmt.Errorf("missing container flag (%s)", commonflags.CIDFlag))
 		return
 	}
 

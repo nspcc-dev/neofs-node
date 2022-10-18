@@ -22,7 +22,6 @@ var Cmd = &cobra.Command{
 const (
 	sgIDFlag  = "id"
 	sgRawFlag = "raw"
-	cidFlag   = "cid"
 )
 
 func init() {

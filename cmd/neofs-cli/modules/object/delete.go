@@ -1,6 +1,8 @@
 package object
 
 import (
+	"fmt"
+
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -24,18 +26,38 @@ func initObjectDeleteCmd() {
 
 	flags := objectDelCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectDelCmd.MarkFlagRequired("cid")
-
-	flags.String("oid", "", "Object ID")
-	_ = objectDelCmd.MarkFlagRequired("oid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
+	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
+	flags.String(fileFlag, "", "File with object payload")
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
 	var cnr cid.ID
 	var obj oid.ID
+	var objAddr oid.Address
 
-	objAddr := readObjectAddress(cmd, &cnr, &obj)
+	binary, _ := cmd.Flags().GetBool(binaryFlag)
+	if binary {
+		filename, _ := cmd.Flags().GetString(fileFlag)
+		if filename == "" {
+			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", fileFlag))
+		}
+		objAddr = readObjectAddressBin(cmd, &cnr, &obj, filename)
+	} else {
+		cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
+		if cidVal == "" {
+			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag))
+		}
+
+		oidVal, _ := cmd.Flags().GetString(commonflags.OIDFlag)
+		if oidVal == "" {
+			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.OIDFlag))
+		}
+
+		objAddr = readObjectAddress(cmd, &cnr, &obj)
+	}
+
 	pk := key.GetOrGenerate(cmd)
 
 	var prm internalclient.DeleteObjectPrm

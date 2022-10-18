@@ -15,8 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const searchOIDFlag = "oid"
-
 var (
 	searchFilters []string
 
@@ -34,15 +32,15 @@ func initObjectSearchCmd() {
 
 	flags := objectSearchCmd.Flags()
 
-	flags.String("cid", "", "Container ID")
-	_ = objectSearchCmd.MarkFlagRequired("cid")
+	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
+	_ = objectSearchCmd.MarkFlagRequired(commonflags.CIDFlag)
 
 	flags.StringSliceVarP(&searchFilters, "filters", "f", nil,
 		"Repeated filter expressions or files with protobuf JSON")
 
 	flags.Bool("root", false, "Search for user objects")
 	flags.Bool("phy", false, "Search physically stored objects")
-	flags.String(searchOIDFlag, "", "Search object by identifier")
+	flags.String(commonflags.OIDFlag, "", "Search object by identifier")
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
@@ -133,7 +131,7 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		fs.AddPhyFilter()
 	}
 
-	oid, _ := cmd.Flags().GetString(searchOIDFlag)
+	oid, _ := cmd.Flags().GetString(commonflags.OIDFlag)
 	if oid != "" {
 		var id oidSDK.ID
 		if err := id.DecodeString(oid); err != nil {
