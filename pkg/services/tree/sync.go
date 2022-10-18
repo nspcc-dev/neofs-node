@@ -10,6 +10,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -17,9 +19,12 @@ import (
 // ErrNotInContainer is returned when operation could not be performed
 // because the node is not included in the container.
 var ErrNotInContainer = errors.New("node is not in container")
+var errNoOtherNodes = errors.New("no nodes to fetch trees from")
 
-// Synchronize tries to synchronize log starting from the last stored height.
-func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) error {
+// SynchronizeAllTrees synchronizes all the trees of the container. It fetches
+// tree IDs from the other container nodes. Returns ErrNotInContainer if the node
+// is not included in the container.
+func (s *Service) SynchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 	nodes, pos, err := s.getContainerNodes(cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
@@ -34,7 +39,86 @@ func (s *Service) Synchronize(ctx context.Context, cid cid.ID, treeID string) er
 	d.Position = pos
 	d.Size = len(nodes)
 
-	lm, err := s.forest.TreeGetOpLog(cid, treeID, 0)
+	nodes = append(nodes[:pos], nodes[pos+1:]...) // exclude that node
+	if len(nodes) == 0 {
+		return errNoOtherNodes
+	}
+
+	rawCID := make([]byte, sha256.Size)
+	cid.Encode(rawCID)
+
+	req := &TreeListRequest{
+		Body: &TreeListRequest_Body{
+			ContainerId: rawCID,
+		},
+	}
+
+	err = SignMessage(req, s.key)
+	if err != nil {
+		return fmt.Errorf("could not sign request: %w", err)
+	}
+
+	var resp *TreeListResponse
+	var treesToSync []string
+	var outErr error
+
+	err = s.forEachNode(ctx, nodes, func(c TreeServiceClient) bool {
+		resp, outErr = c.TreeList(ctx, req)
+		if outErr != nil {
+			return false
+		}
+
+		treesToSync = resp.GetBody().GetIds()
+
+		return true
+	})
+	if err != nil {
+		outErr = err
+	}
+
+	if outErr != nil {
+		return fmt.Errorf("could not fetch tree ID list: %w", outErr)
+	}
+
+	for _, tid := range treesToSync {
+		err = s.synchronizeTree(ctx, d, tid, nodes)
+		if err != nil {
+			s.log.Error("could not sync tree",
+				zap.Stringer("cid", cid),
+				zap.String("treeID", tid))
+		}
+	}
+
+	return nil
+}
+
+// SynchronizeTree tries to synchronize log starting from the last stored height.
+func (s *Service) SynchronizeTree(ctx context.Context, cid cid.ID, treeID string) error {
+	nodes, pos, err := s.getContainerNodes(cid)
+	if err != nil {
+		return fmt.Errorf("can't get container nodes: %w", err)
+	}
+
+	if pos < 0 {
+		return ErrNotInContainer
+	}
+
+	var d pilorama.CIDDescriptor
+	d.CID = cid
+	d.Position = pos
+	d.Size = len(nodes)
+
+	nodes = append(nodes[:pos], nodes[pos+1:]...) // exclude that node
+	if len(nodes) == 0 {
+		return errNoOtherNodes
+	}
+
+	return s.synchronizeTree(ctx, d, treeID, nodes)
+}
+
+func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
+	treeID string, nodes []netmapSDK.NodeInfo) error {
+	lm, err := s.forest.TreeGetOpLog(d.CID, treeID, 0)
 	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
 		return err
 	}
