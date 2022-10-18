@@ -84,3 +84,9 @@ func (s *Shard) TreeDrop(cid cidSDK.ID, treeID string) error {
 	}
 	return s.pilorama.TreeDrop(cid, treeID)
 }
+
+// TreeList implements the pilorama.Forest interface.
+func (s *Shard) TreeList(cid cidSDK.ID) ([]string, error) {
+	//TODO implement me
+	panic("implement me")
+}

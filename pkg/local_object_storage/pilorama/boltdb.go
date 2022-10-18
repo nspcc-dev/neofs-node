@@ -557,6 +557,31 @@ func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) 
 	return children, err
 }
 
+// TreeList implements the Forest interface.
+func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
+	var ids []string
+	cidRaw := []byte(cid.EncodeToString())
+	cidLen := len(cidRaw)
+
+	err := t.db.View(func(tx *bbolt.Tx) error {
+		c := tx.Cursor()
+		for k, _ := c.Seek(cidRaw); k != nil; k, _ = c.Next() {
+			if !bytes.HasPrefix(k, cidRaw) {
+				return nil
+			}
+
+			ids = append(ids, string(k[cidLen:]))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not list trees: %w", err)
+	}
+
+	return ids, nil
+}
+
 // TreeGetOpLog implements the pilorama.Forest interface.
 func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
 	key := make([]byte, 8)

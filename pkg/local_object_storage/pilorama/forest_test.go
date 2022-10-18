@@ -1,6 +1,7 @@
 package pilorama
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -719,4 +721,48 @@ func testMove(t *testing.T, s Forest, ts int, node, parent Node, d CIDDescriptor
 			Items: items,
 		},
 	}))
+}
+
+func TestGetTrees(t *testing.T) {
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			testTreeGetTrees(t, providers[i].construct(t))
+		})
+	}
+}
+
+func testTreeGetTrees(t *testing.T, s Forest) {
+	cids := []cidSDK.ID{cidtest.ID(), cidtest.ID()}
+	d := CIDDescriptor{Position: 0, Size: 1}
+
+	treeIDs := make(map[cidSDK.ID][]string, len(cids))
+	for i, cid := range cids {
+		treeIDs[cid] = []string{
+			fmt.Sprintf("test1_%d", i),
+			fmt.Sprintf("test2_%d", i),
+			fmt.Sprintf("test3_%d", i),
+			fmt.Sprintf("1test_%d", i),
+			fmt.Sprintf("2test_%d", i),
+			fmt.Sprintf("3test_%d", i),
+			"",
+		}
+	}
+
+	for _, cid := range cids {
+		d.CID = cid
+
+		for _, treeID := range treeIDs[cid] {
+			_, err := s.TreeAddByPath(d, treeID, objectSDK.AttributeFileName, []string{"path"}, nil)
+			require.NoError(t, err)
+		}
+	}
+
+	for _, cid := range cids {
+		d.CID = cid
+
+		trees, err := s.TreeList(cid)
+		require.NoError(t, err)
+
+		require.ElementsMatch(t, treeIDs[cid], trees)
+	}
 }
