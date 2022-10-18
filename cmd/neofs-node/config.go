@@ -848,11 +848,13 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 }
 
 // bootstrap sets local node's netmap status to "online".
-func (c *cfg) bootstrap() error {
+// If current netmap status is MAINTENANCE and this function wasn't called thorough a control service,
+// the status is untouched.
+func (c *cfg) bootstrap(manual bool) error {
 	ni := c.cfgNodeInfo.localInfo
 
 	// switch to online except when under maintenance
-	if st := c.cfgNetmap.state.controlNetmapStatus(); st == control.NetmapStatus_MAINTENANCE {
+	if st := c.cfgNetmap.state.controlNetmapStatus(); st == control.NetmapStatus_MAINTENANCE && !manual {
 		ni.SetMaintenance()
 
 		c.log.Info("bootstrap with untouched node state",

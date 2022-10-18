@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 ### Changed
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
+- Correctly handle setting ONLINE netmap status after maintenance (#1922)
 
 ### Removed
 ### Updated
