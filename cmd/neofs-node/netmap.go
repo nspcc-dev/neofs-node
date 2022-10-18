@@ -179,7 +179,7 @@ func initNetmapService(c *cfg) {
 		const reBootstrapInterval = 2
 
 		if (n-c.cfgNetmap.startEpoch)%reBootstrapInterval == 0 {
-			err := c.bootstrap()
+			err := c.bootstrap(false)
 			if err != nil {
 				c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
 			}
@@ -241,7 +241,7 @@ func readSubnetCfg(c *cfg) {
 // Must be called after initNetmapService.
 func bootstrapNode(c *cfg) {
 	if c.needBootstrap() {
-		err := c.bootstrap()
+		err := c.bootstrap(false)
 		fatalOnErrDetails("bootstrap error", err)
 	}
 }
@@ -353,7 +353,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 
 	if st == control.NetmapStatus_ONLINE {
 		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
-		return c.bootstrap()
+		return c.bootstrap(true)
 	}
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
