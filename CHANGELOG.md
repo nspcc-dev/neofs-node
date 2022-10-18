@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - `--timeout` flag in `neofs-cli control` commands (#1917)
+- Document shard modes of operation (#1909)
 
 ### Changed
 ### Fixed
