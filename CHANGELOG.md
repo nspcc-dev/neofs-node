@@ -8,6 +8,8 @@ Changelog for NeoFS Node
 
 ### Changed
 ### Fixed
+- `writecache.max_object_size` is now correctly handled (#1925)
+
 ### Removed
 ### Updated
 ### Updating from v0.33.0
