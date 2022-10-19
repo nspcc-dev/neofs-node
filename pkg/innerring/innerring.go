@@ -749,10 +749,18 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	var cnrs containers
 	cnrs.init(&cContainer)
 
+	workersNum := cfg.GetInt("workers.container")
+	if workersNum <= 0 {
+		return nil, fmt.Errorf("invalid number of workers %d", workersNum)
+	}
+
+	var cnrWorkers workers
+	cnrWorkers.init(uint(workersNum), log)
+
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
-		PoolSize:        cfg.GetInt("workers.container"),
+		Workers:         &cnrWorkers,
 		NodeState:       server,
 		ContainerClient: cnrClient,
 		AuthSystem:      &authSys,

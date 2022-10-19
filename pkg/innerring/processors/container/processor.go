@@ -2,7 +2,6 @@ package container
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -13,8 +12,6 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
 // NodeState provides current state of the Inner Ring member in the NeoFS
@@ -61,11 +58,17 @@ type Containers interface {
 	ReadInfo(*Info, cid.ID) error
 }
 
+// Workers represents group of workers which do assigned jobs.
+type Workers interface {
+	// Submit schedules given job to be asynchronously executed by some worker.
+	Submit(job func())
+}
+
 type (
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
 		log            *logger.Logger
-		pool           *ants.Pool
+		workers        Workers
 		nodeState      NodeState
 		cnrClient      *container.Client // notary must be enabled
 		authSystem     AuthSystem
@@ -78,7 +81,7 @@ type (
 	// Params of the processor constructor.
 	Params struct {
 		Log             *logger.Logger
-		PoolSize        int
+		Workers         Workers
 		NodeState       NodeState
 		ContainerClient *container.Client
 		AuthSystem      AuthSystem
@@ -125,18 +128,13 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: subnets mechanism is not set")
 	case p.Containers == nil:
 		return nil, errors.New("ir/container: containers are not set")
-	}
-
-	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
-
-	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
-	if err != nil {
-		return nil, fmt.Errorf("ir/container: can't create worker pool: %w", err)
+	case p.Workers == nil:
+		return nil, errors.New("ir/container: workers are not set")
 	}
 
 	return &Processor{
 		log:            p.Log,
-		pool:           pool,
+		workers:        p.Workers,
 		nodeState:      p.NodeState,
 		cnrClient:      p.ContainerClient,
 		authSystem:     p.AuthSystem,
