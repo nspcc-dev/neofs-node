@@ -10,7 +10,7 @@ import (
 var _ pilorama.Forest = (*Shard)(nil)
 
 // ErrPiloramaDisabled is returned when pilorama was disabled in the configuration.
-var ErrPiloramaDisabled = errors.New("plorama is disabled")
+var ErrPiloramaDisabled = errors.New("pilorama is disabled")
 
 // TreeMove implements the pilorama.Forest interface.
 func (s *Shard) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
