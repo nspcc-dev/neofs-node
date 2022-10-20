@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
 - `neofs-cli container nodes`'s output (#1991)
+- Increase error counter for write-cache flush errors (#1818)
 
 ### Removed
 ### Updated

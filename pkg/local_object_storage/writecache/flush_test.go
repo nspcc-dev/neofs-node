@@ -21,6 +21,7 @@ import (
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
+	"go.uber.org/atomic"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -35,7 +36,7 @@ func TestFlush(t *testing.T) {
 		obj  *object.Object
 	}
 
-	newCache := func(t *testing.T) (Cache, *blobstor.BlobStor, *meta.DB) {
+	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
 		dir := t.TempDir()
 		mb := meta.New(
 			meta.WithPath(filepath.Join(dir, "meta")),
@@ -54,11 +55,13 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, bs.Init())
 
 		wc := New(
-			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
-			WithPath(filepath.Join(dir, "writecache")),
-			WithSmallObjectSize(smallSize),
-			WithMetabase(mb),
-			WithBlobstor(bs))
+			append([]Option{
+				WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+				WithPath(filepath.Join(dir, "writecache")),
+				WithSmallObjectSize(smallSize),
+				WithMetabase(mb),
+				WithBlobstor(bs),
+			}, opts...)...)
 		require.NoError(t, wc.Open(false))
 		require.NoError(t, wc.Init())
 
@@ -164,7 +167,10 @@ func TestFlush(t *testing.T) {
 
 	t.Run("ignore errors", func(t *testing.T) {
 		testIgnoreErrors := func(t *testing.T, f func(*cache)) {
-			wc, bs, mb := newCache(t)
+			var errCount atomic.Uint32
+			wc, bs, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
+				errCount.Inc()
+			}))
 			objects := putObjects(t, wc)
 			f(wc.(*cache))
 
@@ -172,7 +178,9 @@ func TestFlush(t *testing.T) {
 			require.NoError(t, bs.SetMode(mode.ReadWrite))
 			require.NoError(t, mb.SetMode(mode.ReadWrite))
 
+			require.Equal(t, uint32(0), errCount.Load())
 			require.Error(t, wc.Flush(false))
+			require.True(t, errCount.Load() > 0)
 			require.NoError(t, wc.Flush(true))
 
 			check(t, mb, bs, objects)
