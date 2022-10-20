@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - `TreeService.GetTrees` RPC (#1902)
 - All trees synchronization on bootstrap (#1902)
 - `--force` flag to `neofs-cli control set-status` command (#1916)
+- Logging `SessionService.Create` RPC on the server for debug (#1930)
 
 ### Changed
 - Path to a metabase can now be reloaded with a SIGHUP.
