@@ -11,6 +11,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/spf13/viper"
@@ -70,9 +71,9 @@ func TestGenerateAlphabet(t *testing.T) {
 			require.NoError(t, err, "can't decrypt account")
 			switch a.Label {
 			case consensusAccountName:
-				require.Equal(t, size/2+1, len(a.Contract.Parameters))
+				require.Equal(t, smartcontract.GetDefaultHonestNodeCount(size), len(a.Contract.Parameters))
 			case committeeAccountName:
-				require.Equal(t, size*2/3+1, len(a.Contract.Parameters))
+				require.Equal(t, smartcontract.GetMajorityHonestNodeCount(size), len(a.Contract.Parameters))
 			default:
 				require.Equal(t, singleAccountName, a.Label)
 			}
