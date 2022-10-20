@@ -54,9 +54,7 @@ func initSessionService(c *cfg) {
 		sessionSvc.NewSignService(
 			&c.key.PrivateKey,
 			sessionSvc.NewResponseService(
-				sessionSvc.NewExecutionService(
-					c.privateTokenStore,
-				),
+				sessionSvc.NewExecutionService(c.privateTokenStore, c.log),
 				c.respSvc,
 			),
 		),
