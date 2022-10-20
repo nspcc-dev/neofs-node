@@ -52,6 +52,8 @@ type options struct {
 	maxBatchDelay time.Duration
 	// noSync is true iff FSTree allows unsynchronized writes.
 	noSync bool
+	// reportError is the function called when encountering disk errors in background workers.
+	reportError func(string, error)
 }
 
 // WithLogger sets logger.
@@ -140,5 +142,12 @@ func WithMaxBatchDelay(d time.Duration) Option {
 func WithNoSync(noSync bool) Option {
 	return func(o *options) {
 		o.noSync = noSync
+	}
+}
+
+// WithReportErrorFunc sets error reporting function.
+func WithReportErrorFunc(f func(string, error)) Option {
+	return func(o *options) {
+		o.reportError = f
 	}
 }
