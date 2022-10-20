@@ -52,3 +52,40 @@ func (db *DB) storageID(tx *bbolt.Tx, addr oid.Address) ([]byte, error) {
 
 	return slice.Copy(storageID), nil
 }
+
+// UpdateStorageIDPrm groups the parameters of UpdateStorageID operation.
+type UpdateStorageIDPrm struct {
+	addr oid.Address
+	id   []byte
+}
+
+// UpdateStorageIDRes groups the resulting values of UpdateStorageID operation.
+type UpdateStorageIDRes struct{}
+
+// SetAddress is an UpdateStorageID option to set the object address to check.
+func (p *UpdateStorageIDPrm) SetAddress(addr oid.Address) {
+	p.addr = addr
+}
+
+// SetStorageID is an UpdateStorageID option to set the storage ID.
+func (p *UpdateStorageIDPrm) SetStorageID(id []byte) {
+	p.id = id
+}
+
+// UpdateStorageID updates storage descriptor for objects from the blobstor.
+func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	currEpoch := db.epochState.CurrentEpoch()
+
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+		exists, err := db.exists(tx, prm.addr, currEpoch)
+		if !exists || err != nil {
+			return err
+		}
+		return updateStorageID(tx, prm.addr, prm.id)
+	})
+
+	return
+}
