@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDB_IsSmall(t *testing.T) {
+func TestDB_StorageID(t *testing.T) {
 	db := newDB(t)
 
 	raw1 := generateObject(t)
@@ -39,6 +39,23 @@ func TestDB_IsSmall(t *testing.T) {
 	fetchedStorageID, err = metaStorageID(db, object.AddressOf(raw1))
 	require.NoError(t, err)
 	require.Equal(t, storageID, fetchedStorageID)
+
+	t.Run("update", func(t *testing.T) {
+		require.NoError(t, metaUpdateStorageID(db, object.AddressOf(raw2), storageID))
+
+		fetchedStorageID, err = metaStorageID(db, object.AddressOf(raw2))
+		require.NoError(t, err)
+		require.Equal(t, storageID, fetchedStorageID)
+	})
+}
+
+func metaUpdateStorageID(db *meta.DB, addr oid.Address, id []byte) error {
+	var sidPrm meta.UpdateStorageIDPrm
+	sidPrm.SetAddress(addr)
+	sidPrm.SetStorageID(id)
+
+	_, err := db.UpdateStorageID(sidPrm)
+	return err
 }
 
 func metaStorageID(db *meta.DB, addr oid.Address) ([]byte, error) {
