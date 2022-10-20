@@ -25,7 +25,7 @@ var objectGetCmd = &cobra.Command{
 
 func initObjectGetCmd() {
 	commonflags.Init(objectGetCmd)
-	commonflags.InitSession(objectGetCmd)
+	initFlagSession(objectGetCmd, "GET")
 
 	flags := objectGetCmd.Flags()
 

@@ -28,7 +28,7 @@ var objectRangeCmd = &cobra.Command{
 
 func initObjectRangeCmd() {
 	commonflags.Init(objectRangeCmd)
-	commonflags.InitSession(objectRangeCmd)
+	initFlagSession(objectRangeCmd, "RANGE")
 
 	flags := objectRangeCmd.Flags()
 

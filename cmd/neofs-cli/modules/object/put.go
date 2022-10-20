@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -37,7 +36,7 @@ var objectPutCmd = &cobra.Command{
 
 func initObjectPutCmd() {
 	commonflags.Init(objectPutCmd)
-	commonflags.InitSession(objectPutCmd)
+	initFlagSession(objectPutCmd, "PUT")
 
 	flags := objectPutCmd.Flags()
 
@@ -109,7 +108,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	}
 
 	var prm internalclient.PutObjectPrm
-	sessionCli.Prepare(cmd, cnr, nil, pk, &prm)
+	ReadOrOpenSession(cmd, &prm, pk, cnr, nil)
 	Prepare(cmd, &prm)
 	prm.SetHeader(obj)
 

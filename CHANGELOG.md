@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - Setting node's network state to `MAINTENANCE` while network settings forbid it (#1916)
 - Do not panic during API client creation (#1936)
 - Correctly sign new epoch transaction in neofs-adm for a committee of more than 4 nodes (#1949)
+- Inability to provide session to NeoFS CLI in a NeoFS-binary format (#1933)
 
 ### Removed
 ### Updated

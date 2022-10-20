@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -35,16 +34,17 @@ var listContainerObjectsCmd = &cobra.Command{
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
 
-		pk := key.GetOrGenerate(cmd)
+		cli := internalclient.GetSDKClientByFlag(cmd, key.GetOrGenerate(cmd), commonflags.RPC)
 
 		var prmSearch internalclient.SearchObjectsPrm
 		var prmHead internalclient.HeadObjectPrm
 
+		prmSearch.SetClient(cli)
+
 		if flagVarListObjectsPrintAttr {
-			sessionCli.Prepare(cmd, id, nil, pk, &prmSearch, &prmHead)
+			prmHead.SetClient(cli)
 			objectCli.Prepare(cmd, &prmSearch, &prmHead)
 		} else {
-			sessionCli.Prepare(cmd, id, nil, pk, &prmSearch)
 			objectCli.Prepare(cmd, &prmSearch)
 		}
 

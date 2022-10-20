@@ -42,7 +42,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 
 	type iTokenSession interface {
 		json.Marshaler
-		json.Unmarshaler
+		common.BinaryOrJSON
 		Sign(ecdsa.PrivateKey) error
 	}
 	var errLast error
@@ -52,14 +52,14 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		new(session.Object),
 		new(session.Container),
 	} {
-		errLast = common.ReadSessionTokenErr(el, fPath)
+		errLast = common.ReadBinaryOrJSON(el, fPath)
 		if errLast == nil {
 			stok = el
 			break
 		}
 	}
 
-	common.ExitOnErr(cmd, "", errLast)
+	common.ExitOnErr(cmd, "decode session: %v", errLast)
 
 	pk := key.GetOrGenerate(cmd)
 

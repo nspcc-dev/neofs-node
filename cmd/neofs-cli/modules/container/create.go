@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -74,13 +73,9 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		var basicACL acl.Basic
 		common.ExitOnErr(cmd, "decode basic ACL string: %w", basicACL.DecodeString(containerACL))
 
-		var tok *session.Container
+		tok := getSession(cmd)
 
-		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
-		if sessionTokenPath != "" {
-			tok = new(session.Container)
-			common.ReadSessionToken(cmd, tok, sessionTokenPath)
-
+		if tok != nil {
 			issuer := tok.Issuer()
 			cnr.SetOwner(issuer)
 		} else {

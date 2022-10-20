@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -69,7 +68,6 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	fullHash := len(ranges) == 0
 	if fullHash {
 		var headPrm internalclient.HeadObjectPrm
-		sessionCli.Prepare(cmd, cnr, &obj, pk, &headPrm)
 		Prepare(cmd, &headPrm)
 		headPrm.SetAddress(objAddr)
 

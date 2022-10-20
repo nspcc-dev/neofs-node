@@ -45,11 +45,14 @@ func init() {
 		commonflags.InitAPI(containerCommand)
 	}
 
-	for _, cmd := range []*cobra.Command{
-		createContainerCmd,
-		deleteContainerCmd,
-		setExtendedACLCmd,
+	for _, el := range []struct {
+		cmd  *cobra.Command
+		verb string
+	}{
+		{createContainerCmd, "PUT"},
+		{deleteContainerCmd, "DELETE"},
+		{setExtendedACLCmd, "SETEACL"},
 	} {
-		commonflags.InitSession(cmd)
+		commonflags.InitSession(el.cmd, "container "+el.verb)
 	}
 }

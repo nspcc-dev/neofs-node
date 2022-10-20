@@ -30,7 +30,7 @@ var (
 
 func initObjectSearchCmd() {
 	commonflags.Init(objectSearchCmd)
-	commonflags.InitSession(objectSearchCmd)
+	initFlagSession(objectSearchCmd, "SEARCH")
 
 	flags := objectSearchCmd.Flags()
 

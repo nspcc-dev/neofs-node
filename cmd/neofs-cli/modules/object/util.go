@@ -9,7 +9,9 @@ import (
 	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -87,50 +89,67 @@ func readOID(cmd *cobra.Command, id *oid.ID) {
 	common.ExitOnErr(cmd, "decode object ID string: %w", err)
 }
 
-// common interface of object operation's input which supports sessions.
-// Implemented on types like internal.PutObjectPrm.
-type sessionPrm interface {
+// SessionPrm is a common interface of object operation's input which supports
+// sessions.
+type SessionPrm interface {
 	SetSessionToken(*session.Object)
+	SetClient(*client.Client)
 }
 
-// forwards all parameters to _readSession and object as nil.
-func readSessionGlobal(cmd *cobra.Command, dst sessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) {
-	_readSession(cmd, dst, key, cnr, nil)
+// forwards all parameters to _readVerifiedSession and object as nil.
+func readSessionGlobal(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID) {
+	_readVerifiedSession(cmd, dst, key, cnr, nil)
 }
 
-// forwards all parameters to _readSession.
-func readSession(cmd *cobra.Command, dst sessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj oid.ID) {
-	_readSession(cmd, dst, key, cnr, &obj)
+// forwards all parameters to _readVerifiedSession.
+func readSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj oid.ID) {
+	_readVerifiedSession(cmd, dst, key, cnr, &obj)
 }
 
-// decodes object session from JSON file from "session" command flag if it is provided,
-// and writes resulting session into the provided sessionPrm. Checks:
+// decodes session.Object from the file by path specified in the
+// commonflags.SessionToken flag. Returns nil if flag is not set.
+func getSession(cmd *cobra.Command) *session.Object {
+	common.PrintVerbose("Trying to read session from the file...")
+
+	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
+	if path == "" {
+		common.PrintVerbose("File with session token is not provided.")
+		return nil
+	}
+
+	common.PrintVerbose("Reading session from the file [%s]...", path)
+
+	var tok session.Object
+
+	err := common.ReadBinaryOrJSON(&tok, path)
+	common.ExitOnErr(cmd, "read session: %v", err)
+
+	return &tok
+}
+
+// decodes object session from JSON file from commonflags.SessionToken command
+// flag if it is provided, and writes resulting session into the provided SessionPrm.
+// Returns flag presence. Checks:
 //
-//   - if session verb corresponds to given sessionPrm according to its type
+//   - if session verb corresponds to given SessionPrm according to its type
 //   - relation to the given container
 //   - relation to the given object if non-nil
 //   - relation to the given private key used within the command
 //   - session signature
 //
-// sessionPrm MUST be one of:
+// SessionPrm MUST be one of:
 //
-//	*internal.PutObjectPrm
-//	*internal.DeleteObjectPrm
 //	*internal.GetObjectPrm
 //	*internal.HeadObjectPrm
 //	*internal.SearchObjectsPrm
 //	*internal.PayloadRangePrm
 //	*internal.HashPayloadRangesPrm
-func _readSession(cmd *cobra.Command, dst sessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
 	var cmdVerb session.ObjectVerb
 
 	switch dst.(type) {
 	default:
 		panic(fmt.Sprintf("unsupported op parameters %T", dst))
-	case *internal.PutObjectPrm:
-		cmdVerb = session.VerbObjectPut
-	case *internal.DeleteObjectPrm:
-		cmdVerb = session.VerbObjectDelete
 	case *internal.GetObjectPrm:
 		cmdVerb = session.VerbObjectGet
 	case *internal.HeadObjectPrm:
@@ -143,32 +162,125 @@ func _readSession(cmd *cobra.Command, dst sessionPrm, key *ecdsa.PrivateKey, cnr
 		cmdVerb = session.VerbObjectRangeHash
 	}
 
-	sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
-	if sessionTokenPath != "" {
-		common.PrintVerbose("Reading object session from the JSON file [%s]...", sessionTokenPath)
-
-		var tok session.Object
-		common.ReadSessionToken(cmd, &tok, sessionTokenPath)
-
-		common.PrintVerbose("Checking session correctness...")
-
-		switch false {
-		case tok.AssertContainer(cnr):
-			common.ExitOnErr(cmd, "", errors.New("unrelated container in the session"))
-		case obj == nil || tok.AssertObject(*obj):
-			common.ExitOnErr(cmd, "", errors.New("unrelated object in the session"))
-		case tok.AssertVerb(cmdVerb):
-			common.ExitOnErr(cmd, "", errors.New("wrong verb of the session"))
-		case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
-			common.ExitOnErr(cmd, "", errors.New("unrelated key in the session"))
-		case tok.VerifySignature():
-			common.ExitOnErr(cmd, "", errors.New("invalid signature of the session data"))
-		}
-
-		common.PrintVerbose("Session is correct.")
-
-		dst.SetSessionToken(&tok)
-	} else {
-		common.PrintVerbose("Session is not provided.")
+	tok := getSession(cmd)
+	if tok == nil {
+		return
 	}
+
+	common.PrintVerbose("Checking session correctness...")
+
+	switch false {
+	case tok.AssertContainer(cnr):
+		common.ExitOnErr(cmd, "", errors.New("unrelated container in the session"))
+	case obj == nil || tok.AssertObject(*obj):
+		common.ExitOnErr(cmd, "", errors.New("unrelated object in the session"))
+	case tok.AssertVerb(cmdVerb):
+		common.ExitOnErr(cmd, "", errors.New("wrong verb of the session"))
+	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
+		common.ExitOnErr(cmd, "", errors.New("unrelated key in the session"))
+	case tok.VerifySignature():
+		common.ExitOnErr(cmd, "", errors.New("invalid signature of the session data"))
+	}
+
+	common.PrintVerbose("Session is correct.")
+
+	dst.SetSessionToken(tok)
+}
+
+// ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
+func ReadOrOpenSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	cli := internal.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+	ReadOrOpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+}
+
+// ReadOrOpenSessionViaClient tries to read session from the file specified in
+// commonflags.SessionToken flag, finalizes structures of the decoded token
+// and write the result into provided SessionPrm. If file is missing,
+// ReadOrOpenSessionViaClient calls OpenSessionViaClient.
+func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	tok := getSession(cmd)
+	if tok == nil {
+		OpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+		return
+	}
+
+	finalizeSession(cmd, dst, tok, key, cnr, obj)
+	dst.SetClient(cli)
+}
+
+// OpenSession opens client connection and calls OpenSessionViaClient with it.
+func OpenSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	cli := internal.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+	OpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+}
+
+// OpenSessionViaClient opens object session with the remote node, finalizes
+// structure of the session token and writes the result into the provided
+// SessionPrm. Also writes provided client connection to the SessionPrm.
+//
+// SessionPrm MUST be one of:
+//
+//	*internal.PutObjectPrm
+//	*internal.DeleteObjectPrm
+func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	var tok session.Object
+
+	const sessionLifetime = 10 // in NeoFS epochs
+
+	common.PrintVerbose("Opening remote session with the node...")
+
+	err := sessionCli.CreateSession(&tok, cli, sessionLifetime)
+	common.ExitOnErr(cmd, "open remote session: %w", err)
+
+	common.PrintVerbose("Session successfully opened.")
+
+	finalizeSession(cmd, dst, &tok, key, cnr, obj)
+
+	dst.SetClient(cli)
+}
+
+// specifies session verb, binds the session to the given container and limits
+// the session by the given object (if specified). After all data is written,
+// signs session using provided private key and writes the session into the
+// given SessionPrm.
+//
+// SessionPrm MUST be one of:
+//
+//	*internal.PutObjectPrm
+//	*internal.DeleteObjectPrm
+func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	common.PrintVerbose("Finalizing session token...")
+
+	switch dst.(type) {
+	default:
+		panic(fmt.Sprintf("unsupported op parameters %T", dst))
+	case *internal.PutObjectPrm:
+		common.PrintVerbose("Binding session to object PUT...")
+		tok.ForVerb(session.VerbObjectPut)
+	case *internal.DeleteObjectPrm:
+		common.PrintVerbose("Binding session to object DELETE...")
+		tok.ForVerb(session.VerbObjectDelete)
+	}
+
+	common.PrintVerbose("Binding session to container %s...", cnr)
+
+	tok.BindContainer(cnr)
+	if obj != nil {
+		common.PrintVerbose("Limiting session by object %s...", obj)
+		tok.LimitByObjects(*obj)
+	}
+
+	common.PrintVerbose("Signing session...")
+
+	err := tok.Sign(*key)
+	common.ExitOnErr(cmd, "sign session: %w", err)
+
+	common.PrintVerbose("Session token successfully formed and attached to the request.")
+
+	dst.SetSessionToken(tok)
+}
+
+// calls commonflags.InitSession with "object <verb>" name.
+func initFlagSession(cmd *cobra.Command, verb string) {
+	commonflags.InitSession(cmd, "object "+verb)
 }

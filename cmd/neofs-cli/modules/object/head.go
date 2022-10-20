@@ -27,7 +27,7 @@ var objectHeadCmd = &cobra.Command{
 
 func initObjectHeadCmd() {
 	commonflags.Init(objectHeadCmd)
-	commonflags.InitSession(objectHeadCmd)
+	initFlagSession(objectHeadCmd, "HEAD")
 
 	flags := objectHeadCmd.Flags()
 
