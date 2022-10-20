@@ -96,13 +96,16 @@ type cfg struct {
 	tsSource TombstoneSource
 
 	metricsWriter MetricsWriter
+
+	reportErrorFunc func(selfID string, message string, err error)
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
-		rmBatchSize: 100,
-		log:         &logger.Logger{Logger: zap.L()},
-		gcCfg:       defaultGCCfg(),
+		rmBatchSize:     100,
+		log:             &logger.Logger{Logger: zap.L()},
+		gcCfg:           defaultGCCfg(),
+		reportErrorFunc: func(string, string, error) {},
 	}
 }
 
@@ -117,20 +120,21 @@ func New(opts ...Option) *Shard {
 	bs := blobstor.New(c.blobOpts...)
 	mb := meta.New(c.metaOpts...)
 
-	var writeCache writecache.Cache
-	if c.useWriteCache {
-		writeCache = writecache.New(
-			append(c.writeCacheOpts,
-				writecache.WithBlobstor(bs),
-				writecache.WithMetabase(mb))...)
+	s := &Shard{
+		cfg:      c,
+		blobStor: bs,
+		metaBase: mb,
+		tsSource: c.tsSource,
 	}
 
-	s := &Shard{
-		cfg:        c,
-		blobStor:   bs,
-		metaBase:   mb,
-		writeCache: writeCache,
-		tsSource:   c.tsSource,
+	if c.useWriteCache {
+		s.writeCache = writecache.New(
+			append(c.writeCacheOpts,
+				writecache.WithReportErrorFunc(func(msg string, err error) {
+					s.reportErrorFunc(s.ID().String(), msg, err)
+				}),
+				writecache.WithBlobstor(bs),
+				writecache.WithMetabase(mb))...)
 	}
 
 	if s.piloramaOpts != nil {
@@ -278,6 +282,14 @@ func WithDeletedLockCallback(v DeletedLockCallback) Option {
 func WithMetricsWriter(v MetricsWriter) Option {
 	return func(c *cfg) {
 		c.metricsWriter = v
+	}
+}
+
+// WithReportErrorFunc returns option to specify callback for handling storage-related errors
+// in the background workers.
+func WithReportErrorFunc(f func(selfID string, message string, err error)) Option {
+	return func(c *cfg) {
+		c.reportErrorFunc = f
 	}
 }
 

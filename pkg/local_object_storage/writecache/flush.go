@@ -7,6 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -146,6 +147,16 @@ func (c *cache) flushBigObjects() {
 	}
 }
 
+func (c *cache) reportFlushError(msg string, addr string, err error) {
+	if c.reportError != nil {
+		c.reportError(msg, err)
+	} else {
+		c.log.Error(msg,
+			zap.String("address", addr),
+			zap.Error(err))
+	}
+}
+
 func (c *cache) flushFSTree(ignoreErrors bool) error {
 	var prm common.IteratePrm
 	prm.IgnoreErrors = ignoreErrors
@@ -158,8 +169,8 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 
 		data, err := f()
 		if err != nil {
+			c.reportFlushError("can't read a file", sAddr, err)
 			if ignoreErrors {
-				c.log.Error("can't read a file", zap.Stringer("address", addr))
 				return nil
 			}
 			return err
@@ -168,35 +179,19 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 		var obj object.Object
 		err = obj.Unmarshal(data)
 		if err != nil {
+			c.reportFlushError("can't unmarshal an object", sAddr, err)
 			if ignoreErrors {
-				c.log.Error("can't unmarshal an object", zap.Stringer("address", addr))
 				return nil
 			}
 			return err
 		}
 
-		var prm common.PutPrm
-		prm.Address = addr
-		prm.Object = &obj
-		prm.RawData = data
-
-		res, err := c.blobstor.Put(prm)
+		err = c.flushObject(&obj, data)
 		if err != nil {
 			if ignoreErrors {
-				c.log.Error("cant flush object to blobstor", zap.Error(err))
 				return nil
 			}
 			return err
-		}
-
-		var updPrm meta.UpdateStorageIDPrm
-		updPrm.SetAddress(addr)
-		updPrm.SetStorageID(res.StorageID)
-
-		_, err = c.metabase.UpdateStorageID(updPrm)
-		if err != nil {
-			c.log.Error("failed to update storage ID in metabase", zap.Error(err))
-			return nil
 		}
 
 		// mark object as flushed
@@ -222,30 +217,40 @@ func (c *cache) flushWorker(_ int) {
 			return
 		}
 
-		err := c.flushObject(obj)
-		if err != nil {
-			c.log.Error("can't flush object to the main storage", zap.Error(err))
-		} else {
+		err := c.flushObject(obj, nil)
+		if err == nil {
 			c.flushed.Add(objectCore.AddressOf(obj).EncodeToString(), true)
 		}
 	}
 }
 
 // flushObject is used to write object directly to the main storage.
-func (c *cache) flushObject(obj *object.Object) error {
+func (c *cache) flushObject(obj *object.Object, data []byte) error {
+	addr := objectCore.AddressOf(obj)
+
 	var prm common.PutPrm
 	prm.Object = obj
+	prm.RawData = data
 
 	res, err := c.blobstor.Put(prm)
 	if err != nil {
+		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
+			!errors.Is(err, blobstor.ErrNoPlaceFound) {
+			c.reportFlushError("can't flush an object to blobstor",
+				addr.EncodeToString(), err)
+		}
 		return err
 	}
 
 	var updPrm meta.UpdateStorageIDPrm
-	updPrm.SetAddress(objectCore.AddressOf(obj))
+	updPrm.SetAddress(addr)
 	updPrm.SetStorageID(res.StorageID)
 
 	_, err = c.metabase.UpdateStorageID(updPrm)
+	if err != nil {
+		c.reportFlushError("can't update object storage ID",
+			addr.EncodeToString(), err)
+	}
 	return err
 }
 
@@ -280,6 +285,7 @@ func (c *cache) flush(ignoreErrors bool) error {
 			}
 
 			if err := addr.DecodeString(sa); err != nil {
+				c.reportFlushError("can't decode object address from the DB", sa, err)
 				if ignoreErrors {
 					continue
 				}
@@ -288,13 +294,14 @@ func (c *cache) flush(ignoreErrors bool) error {
 
 			var obj object.Object
 			if err := obj.Unmarshal(data); err != nil {
+				c.reportFlushError("can't unmarshal an object from the DB", sa, err)
 				if ignoreErrors {
 					continue
 				}
 				return err
 			}
 
-			if err := c.flushObject(&obj); err != nil {
+			if err := c.flushObject(&obj, data); err != nil {
 				return err
 			}
 		}

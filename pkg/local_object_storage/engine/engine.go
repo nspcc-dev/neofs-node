@@ -35,6 +35,25 @@ type shardWrapper struct {
 	*shard.Shard
 }
 
+// reportShardErrorBackground increases shard error counter and logs an error.
+// It is intended to be used from background workers and
+// doesn't change shard mode because of possible deadlocks.
+func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err error) {
+	e.mtx.RLock()
+	sh, ok := e.shards[id]
+	e.mtx.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	errCount := sh.errorCount.Inc()
+	e.log.Warn(msg,
+		zap.String("shard_id", id),
+		zap.Uint32("error count", errCount),
+		zap.String("error", err.Error()))
+}
+
 // reportShardError checks that the amount of errors doesn't exceed the configured threshold.
 // If it does, shard is set to read-only mode.
 func (e *StorageEngine) reportShardError(
