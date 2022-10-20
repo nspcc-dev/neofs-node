@@ -180,13 +180,23 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 		prm.Object = &obj
 		prm.RawData = data
 
-		_, err = c.blobstor.Put(prm)
+		res, err := c.blobstor.Put(prm)
 		if err != nil {
 			if ignoreErrors {
 				c.log.Error("cant flush object to blobstor", zap.Error(err))
 				return nil
 			}
 			return err
+		}
+
+		var updPrm meta.UpdateStorageIDPrm
+		updPrm.SetAddress(addr)
+		updPrm.SetStorageID(res.StorageID)
+
+		_, err = c.metabase.UpdateStorageID(updPrm)
+		if err != nil {
+			c.log.Error("failed to update storage ID in metabase", zap.Error(err))
+			return nil
 		}
 
 		// mark object as flushed
@@ -231,11 +241,11 @@ func (c *cache) flushObject(obj *object.Object) error {
 		return err
 	}
 
-	var pPrm meta.PutPrm
-	pPrm.SetObject(obj)
-	pPrm.SetStorageID(res.StorageID)
+	var updPrm meta.UpdateStorageIDPrm
+	updPrm.SetAddress(objectCore.AddressOf(obj))
+	updPrm.SetStorageID(res.StorageID)
 
-	_, err = c.metabase.Put(pPrm)
+	_, err = c.metabase.UpdateStorageID(updPrm)
 	return err
 }
 

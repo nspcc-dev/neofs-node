@@ -16,8 +16,8 @@ type Option func(*options)
 
 // meta is an interface for a metabase.
 type metabase interface {
-	Put(meta.PutPrm) (meta.PutRes, error)
 	Exists(meta.ExistsPrm) (meta.ExistsRes, error)
+	UpdateStorageID(meta.UpdateStorageIDPrm) (meta.UpdateStorageIDRes, error)
 }
 
 // blob is an interface for the blobstor.
