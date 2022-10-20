@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
 - Correctly handle setting ONLINE netmap status after maintenance (#1922)
+- Correctly reset shard errors in `ControlService.SetShardMode` RPC (#1931)
 
 ### Removed
 ### Updated
