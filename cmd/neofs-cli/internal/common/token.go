@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -18,39 +19,47 @@ func ReadBearerToken(cmd *cobra.Command, flagname string) *bearer.Token {
 		return nil
 	}
 
-	data, err := os.ReadFile(path)
-	ExitOnErr(cmd, "can't read bearer token file: %w", err)
+	PrintVerbose("Reading bearer token from file [%s]...", path)
 
 	var tok bearer.Token
-	if err := tok.UnmarshalJSON(data); err != nil {
-		err = tok.Unmarshal(data)
-		ExitOnErr(cmd, "can't decode bearer token: %w", err)
 
-		PrintVerbose("Using binary encoded bearer token")
-	} else {
-		PrintVerbose("Using JSON encoded bearer token")
-	}
+	err = ReadBinaryOrJSON(&tok, path)
+	ExitOnErr(cmd, "invalid bearer token: %v", err)
 
 	return &tok
 }
 
-// ReadSessionToken calls ReadSessionTokenErr and exists on error.
-func ReadSessionToken(cmd *cobra.Command, dst json.Unmarshaler, fPath string) {
-	ExitOnErr(cmd, "", ReadSessionTokenErr(dst, fPath))
+// BinaryOrJSON is an interface of entities which provide json.Unmarshaler
+// and NeoFS binary decoder.
+type BinaryOrJSON interface {
+	Unmarshal([]byte) error
+	json.Unmarshaler
 }
 
-// ReadSessionTokenErr reads session token as JSON file with session token
-// from path provided in a specified flag.
-func ReadSessionTokenErr(dst json.Unmarshaler, fPath string) error {
+// ReadBinaryOrJSON reads file data using provided path and decodes
+// BinaryOrJSON from the data.
+func ReadBinaryOrJSON(dst BinaryOrJSON, fPath string) error {
+	PrintVerbose("Reading file [%s]...", fPath)
+
 	// try to read session token from file
 	data, err := os.ReadFile(fPath)
 	if err != nil {
-		return fmt.Errorf("could not open file with session token <%s>: %w", fPath, err)
+		return fmt.Errorf("read file <%s>: %w", fPath, err)
 	}
 
-	err = dst.UnmarshalJSON(data)
+	PrintVerbose("Trying to decode binary...")
+
+	err = dst.Unmarshal(data)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal session token from file: %w", err)
+		PrintVerbose("Failed to decode binary: %v", err)
+
+		PrintVerbose("Trying to decode JSON...")
+
+		err = dst.UnmarshalJSON(data)
+		if err != nil {
+			PrintVerbose("Failed to decode JSON: %v", err)
+			return errors.New("invalid format")
+		}
 	}
 
 	return nil

@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -46,9 +45,11 @@ func getSG(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 	buf := bytes.NewBuffer(nil)
 
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
 	var prm internalclient.GetObjectPrm
-	sessionCli.Prepare(cmd, cnr, &obj, pk, &prm)
 	objectCli.Prepare(cmd, &prm)
+	prm.SetClient(cli)
 
 	raw, _ := cmd.Flags().GetBool(sgRawFlag)
 	prm.SetRawFlag(raw)

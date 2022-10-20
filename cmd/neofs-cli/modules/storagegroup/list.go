@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
@@ -32,9 +31,11 @@ func listSG(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+
 	var prm internalclient.SearchObjectsPrm
-	sessionCli.Prepare(cmd, cnr, nil, pk, &prm)
 	objectCli.Prepare(cmd, &prm)
+	prm.SetClient(cli)
 	prm.SetContainerID(cnr)
 	prm.SetFilters(storagegroup.SearchQuery())
 

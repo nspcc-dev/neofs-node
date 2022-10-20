@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -83,10 +82,11 @@ func putSG(cmd *cobra.Command, _ []string) {
 	resGetCnr, err := internalclient.GetContainer(getCnrPrm)
 	common.ExitOnErr(cmd, "get container RPC call: %w", err)
 
-	sessionCli.Prepare(cmd, cnr, nil, pk, &putPrm)
+	objectCli.OpenSessionViaClient(cmd, &putPrm, cli, pk, cnr, nil)
 	objectCli.Prepare(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
+	headPrm.SetClient(cli)
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		cmd:     cmd,
@@ -128,9 +128,6 @@ type sgHeadReceiver struct {
 }
 
 func (c sgHeadReceiver) Head(addr oid.Address) (interface{}, error) {
-	obj := addr.Object()
-
-	sessionCli.Prepare(c.cmd, addr.Container(), &obj, c.key, &c.prm)
 	c.prm.SetAddress(addr)
 
 	res, err := internalclient.HeadObject(c.prm)

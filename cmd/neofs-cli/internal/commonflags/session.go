@@ -1,14 +1,19 @@
 package commonflags
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
 
 const SessionToken = "session"
 
-// InitSession initializes session parameter for cmd.
-func InitSession(cmd *cobra.Command) {
+// InitSession registers SessionToken flag representing filepath to the token
+// of the session with the given name. Supports NeoFS-binary and JSON files.
+func InitSession(cmd *cobra.Command, name string) {
 	cmd.Flags().String(
 		SessionToken,
 		"",
-		"Path to a JSON-encoded container session token",
+		fmt.Sprintf("Filepath to a JSON- or binary-encoded token of the %s session", name),
 	)
 }

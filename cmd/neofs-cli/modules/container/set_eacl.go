@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
 )
 
@@ -28,13 +27,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		id := parseContainerID(cmd)
 		eaclTable := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
 
-		var tok *session.Container
-
-		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
-		if sessionTokenPath != "" {
-			tok = new(session.Container)
-			common.ReadSessionToken(cmd, tok, sessionTokenPath)
-		}
+		tok := getSession(cmd)
 
 		eaclTable.SetCID(id)
 

@@ -5,7 +5,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -21,7 +20,7 @@ var objectDelCmd = &cobra.Command{
 
 func initObjectDeleteCmd() {
 	commonflags.Init(objectDelCmd)
-	commonflags.InitSession(objectDelCmd)
+	initFlagSession(objectDelCmd, "DELETE")
 
 	flags := objectDelCmd.Flags()
 
@@ -40,7 +39,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
 	var prm internalclient.DeleteObjectPrm
-	sessionCli.Prepare(cmd, cnr, &obj, pk, &prm)
+	ReadOrOpenSession(cmd, &prm, pk, cnr, &obj)
 	Prepare(cmd, &prm)
 	prm.SetAddress(objAddr)
 

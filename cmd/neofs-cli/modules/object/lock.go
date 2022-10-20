@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -79,8 +78,7 @@ var objectLockCmd = &cobra.Command{
 		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
-
-		sessionCli.Prepare(cmd, cnr, nil, key, &prm)
+		ReadOrOpenSession(cmd, &prm, key, cnr, nil)
 		Prepare(cmd, &prm)
 		prm.SetHeader(obj)
 
@@ -94,7 +92,7 @@ var objectLockCmd = &cobra.Command{
 
 func initCommandObjectLock() {
 	commonflags.Init(objectLockCmd)
-	commonflags.InitSession(objectLockCmd)
+	initFlagSession(objectLockCmd, "PUT")
 
 	objectLockCmd.Flags().Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
 	objectLockCmd.Flags().Uint64(commonflags.Lifetime, 0, "Lock lifetime")

@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
 )
 
@@ -21,13 +20,7 @@ Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := parseContainerID(cmd)
 
-		var tok *session.Container
-
-		sessionTokenPath, _ := cmd.Flags().GetString(commonflags.SessionToken)
-		if sessionTokenPath != "" {
-			tok = new(session.Container)
-			common.ReadSessionToken(cmd, tok, sessionTokenPath)
-		}
+		tok := getSession(cmd)
 
 		pk := key.Get(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
