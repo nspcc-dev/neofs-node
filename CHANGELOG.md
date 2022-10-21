@@ -18,6 +18,8 @@ Changelog for NeoFS Node
 
 ### Removed
 ### Updated
+- `neo-go` to `v0.99.4`
+
 ### Updating from v0.33.0
 
 ## [0.33.0] - 2022-10-17 - Anmado (안마도, 鞍馬島)
