@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
@@ -29,8 +30,7 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 	}
 }
 
-// note: must be wrapped into mutex lock.
-func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
+func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client, error) {
 	var (
 		c       client.Client
 		prmInit client.PrmInit
@@ -58,13 +58,10 @@ func (x *multiClient) createForAddress(addr network.Address) clientcore.Client {
 	c.Init(prmInit)
 	err := c.Dial(prmDial)
 	if err != nil {
-		// client never returns an error
-		panic(err)
+		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
-	x.clients[addr.String()] = &c
-
-	return &c
+	return &c, nil
 }
 
 // updateGroup replaces current multiClient addresses with a new group.
@@ -106,9 +103,10 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 
 		var err error
 
-		c := x.client(addr)
-
-		err = f(c)
+		c, err := x.client(addr)
+		if err == nil {
+			err = f(c)
+		}
 
 		success := err == nil || errors.Is(err, context.Canceled)
 
@@ -231,25 +229,34 @@ func (x *multiClient) Close() error {
 }
 
 func (x *multiClient) RawForAddress(addr network.Address, f func(client *rawclient.Client) error) error {
-	return x.client(addr).ExecRaw(f)
+	c, err := x.client(addr)
+	if err != nil {
+		return err
+	}
+	return c.ExecRaw(f)
 }
 
-func (x *multiClient) client(addr network.Address) clientcore.Client {
+func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 	strAddr := addr.String()
 
 	x.mtx.RLock()
 	c, cached := x.clients[strAddr]
 	x.mtx.RUnlock()
 
-	if !cached {
-		x.mtx.Lock()
-
-		c, cached = x.clients[strAddr]
-		if !cached {
-			c = x.createForAddress(addr)
-		}
-		x.mtx.Unlock()
+	if cached {
+		return c, nil
 	}
 
-	return c
+	x.mtx.Lock()
+	defer x.mtx.Unlock()
+
+	c, cached = x.clients[strAddr]
+	if !cached {
+		c, err := x.createForAddress(addr)
+		if err != nil {
+			return nil, err
+		}
+		x.clients[strAddr] = c
+	}
+	return c, nil
 }

@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Correctly handle setting ONLINE netmap status after maintenance (#1922)
 - Correctly reset shard errors in `ControlService.SetShardMode` RPC (#1931)
 - Setting node's network state to `MAINTENANCE` while network settings forbid it (#1916)
+- Do not panic during API client creation (#1936)
 
 ### Removed
 ### Updated
