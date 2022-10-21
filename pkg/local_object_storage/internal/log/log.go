@@ -24,3 +24,13 @@ func AddressField(addr interface{}) zap.Field {
 func OpField(op string) zap.Field {
 	return zap.String("op", op)
 }
+
+// StorageTypeField returns logger's field for storage type.
+func StorageTypeField(typ string) zap.Field {
+	return zap.String("type", typ)
+}
+
+// StorageIDField returns logger's field for storage ID.
+func StorageIDField(id []byte) zap.Field {
+	return zap.String("storage_id", string(id))
+}
