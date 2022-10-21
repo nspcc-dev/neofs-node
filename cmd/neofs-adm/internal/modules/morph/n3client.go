@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -27,6 +26,8 @@ import (
 // Client represents N3 client interface capable of test-invoking scripts
 // and sending signed transactions to chain.
 type Client interface {
+	invoker.RPCInvoke
+
 	GetBlockCount() (uint32, error)
 	GetContractStateByID(int32) (*state.Contract, error)
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
@@ -36,9 +37,6 @@ type Client interface {
 	GetVersion() (*result.Version, error)
 	CreateTxFromScript([]byte, *wallet.Account, int64, int64, []rpcclient.SignerAccount) (*transaction.Transaction, error)
 	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
-	InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error)
-	InvokeFunction(contract util.Uint160, operation string, params []smartcontract.Parameter, signers []transaction.Signer) (*result.Invoke, error)
-	InvokeScript([]byte, []transaction.Signer) (*result.Invoke, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
 	GetCommittee() (keys.PublicKeys, error)
 	CalculateNotaryFee(uint8) (int64, error)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core"
@@ -34,6 +35,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/viper"
@@ -194,6 +196,16 @@ func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int
 	panic("unexpected call")
 }
 
+func (l *localClient) TerminateSession(_ uuid.UUID) (bool, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
+func (l *localClient) TraverseIterator(_, _ uuid.UUID, _ int) ([]stackitem.Item, error) {
+	// not used by `morph init` command
+	panic("unexpected call")
+}
+
 // GetVersion return default version.
 func (l *localClient) GetVersion() (*result.Version, error) {
 	return &result.Version{}, nil
@@ -333,12 +345,15 @@ func (l *localClient) InvokeScript(script []byte, signers []transaction.Signer) 
 	tx.Signers = signers
 	tx.ValidUntilBlock = l.bc.BlockHeight() + 2
 
-	ic := l.bc.GetTestVM(trigger.Application, tx, &block.Block{
+	ic, err := l.bc.GetTestVM(trigger.Application, tx, &block.Block{
 		Header: block.Header{
 			Index:     lastBlock.Index + 1,
 			Timestamp: lastBlock.Timestamp + 1,
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("get test VM: %w", err)
+	}
 
 	ic.VM.GasLimit = 100_0000_0000
 	ic.VM.LoadScriptWithFlags(script, callflag.All)
