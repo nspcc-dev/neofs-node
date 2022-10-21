@@ -117,7 +117,7 @@ func (s *Shard) Init() error {
 		if err := component.Init(); err != nil {
 			if component == s.metaBase {
 				if errors.Is(err, meta.ErrOutdatedVersion) {
-					return err
+					return fmt.Errorf("metabase initialization: %w", err)
 				}
 
 				err = s.handleMetabaseFailure("init", err)
