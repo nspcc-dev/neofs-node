@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Correctly reset shard errors in `ControlService.SetShardMode` RPC (#1931)
 - Setting node's network state to `MAINTENANCE` while network settings forbid it (#1916)
 - Do not panic during API client creation (#1936)
+- Correctly sign new epoch transaction in neofs-adm for a committee of more than 4 nodes (#1949)
 
 ### Removed
 ### Updated

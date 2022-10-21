@@ -125,7 +125,7 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 		}
 	}
 
-	w, err := pc.GetWitness(tx.Signers[0].Account)
+	w, err := pc.GetWitness(h)
 	if err != nil {
 		return fmt.Errorf("incomplete signature: %w", err)
 	}

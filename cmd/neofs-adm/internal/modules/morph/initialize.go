@@ -281,17 +281,17 @@ func (c *initializeContext) nnsContractState() (*state.Contract, error) {
 	return cs, nil
 }
 
-func (c *initializeContext) getSigner(tryGroup bool) transaction.Signer {
+func (c *initializeContext) getSigner(tryGroup bool, acc *wallet.Account) transaction.Signer {
 	if tryGroup && c.groupKey != nil {
 		return transaction.Signer{
-			Account:       c.CommitteeAcc.Contract.ScriptHash(),
+			Account:       acc.Contract.ScriptHash(),
 			Scopes:        transaction.CustomGroups,
 			AllowedGroups: keys.PublicKeys{c.groupKey},
 		}
 	}
 
 	signer := transaction.Signer{
-		Account: c.CommitteeAcc.Contract.ScriptHash(),
+		Account: acc.Contract.ScriptHash(),
 		Scopes:  transaction.Global, // Scope is important, as we have nested call to container contract.
 	}
 
@@ -388,15 +388,31 @@ loop:
 // If tryGroup is false, global scope is used for the signer (useful when
 // working with native contracts).
 func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error {
+	return c.sendMultiTx(script, tryGroup, false)
+}
+
+func (c *initializeContext) sendMultiTx(script []byte, tryGroup bool, withConsensus bool) error {
 	var act *actor.Actor
 	var err error
 
 	if tryGroup {
-		act, err = actor.New(c.Client, []actor.SignerAccount{{
-			Signer:  c.getSigner(tryGroup),
+		// Even for consensus signatures we need the committee to pay.
+		signers := make([]actor.SignerAccount, 1, 2)
+		signers[0] = actor.SignerAccount{
+			Signer:  c.getSigner(tryGroup, c.CommitteeAcc),
 			Account: c.CommitteeAcc,
-		}})
+		}
+		if withConsensus {
+			signers = append(signers, actor.SignerAccount{
+				Signer:  c.getSigner(tryGroup, c.ConsensusAcc),
+				Account: c.ConsensusAcc,
+			})
+		}
+		act, err = actor.New(c.Client, signers)
 	} else {
+		if withConsensus {
+			panic("BUG: should never happen")
+		}
 		act, err = c.CommitteeAct, nil
 	}
 	if err != nil {
@@ -408,7 +424,16 @@ func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error 
 		return fmt.Errorf("could not perform test invocation: %w", err)
 	}
 
-	return c.multiSignAndSend(tx, committeeAccountName)
+	if err := c.multiSign(tx, committeeAccountName); err != nil {
+		return err
+	}
+	if withConsensus {
+		if err := c.multiSign(tx, consensusAccountName); err != nil {
+			return err
+		}
+	}
+
+	return c.sendTx(tx, c.Command, false)
 }
 
 func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {

@@ -34,7 +34,7 @@ func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), true); err != nil {
+	if err := wCtx.sendMultiTx(bw.Bytes(), true, true); err != nil {
 		return err
 	}
 
