@@ -37,7 +37,6 @@ func Test_getOrGenerate(t *testing.T) {
 	acc2.Default = true
 	w.AddAccount(acc2)
 	require.NoError(t, w.Save())
-	w.Close()
 
 	keyPath := filepath.Join(dir, "binary.key")
 	rawKey, err := keys.NewPrivateKey()
