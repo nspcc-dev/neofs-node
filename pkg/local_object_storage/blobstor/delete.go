@@ -4,9 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"go.uber.org/zap"
 )
 
 func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
@@ -15,18 +13,25 @@ func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 			res, err := b.storage[i].Storage.Delete(prm)
 			if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
 				if err == nil {
-					storagelog.Write(b.log,
-						storagelog.AddressField(prm.Address),
-						storagelog.OpField("DELETE"),
-						zap.String("type", b.storage[i].Storage.Type()),
-						zap.String("storage ID", string(prm.StorageID)))
+					logOp(b.log, deleteOp, prm.Address, b.storage[i].Storage.Type(), prm.StorageID)
 				}
 				return res, err
 			}
 		}
 	}
+
+	var st common.Storage
+
 	if len(prm.StorageID) == 0 {
-		return b.storage[len(b.storage)-1].Storage.Delete(prm)
+		st = b.storage[len(b.storage)-1].Storage
+	} else {
+		st = b.storage[0].Storage
 	}
-	return b.storage[0].Storage.Delete(prm)
+
+	res, err := st.Delete(prm)
+	if err == nil {
+		logOp(b.log, deleteOp, prm.Address, st.Type(), prm.StorageID)
+	}
+
+	return res, err
 }
