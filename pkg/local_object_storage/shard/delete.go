@@ -49,7 +49,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 
 		res, err := s.metaBase.StorageID(sPrm)
 		if err != nil {
-			s.log.Debug("can't get blobovniczaID from metabase",
+			s.log.Debug("can't get storage ID from metabase",
 				zap.Stringer("object", prm.addr[i]),
 				zap.String("error", err.Error()))
 
@@ -72,7 +72,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 	s.decObjectCounterBy(physical, res.RawObjectsRemoved())
 	s.decObjectCounterBy(logical, res.AvailableObjectsRemoved())
 
-	for i := range prm.addr { // delete small object
+	for i := range prm.addr {
 		var delPrm common.DeletePrm
 		delPrm.Address = prm.addr[i]
 		id := smalls[prm.addr[i]]
@@ -80,7 +80,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 
 		_, err = s.blobStor.Delete(delPrm)
 		if err != nil {
-			s.log.Debug("can't remove small object from blobStor",
+			s.log.Debug("can't remove object from blobStor",
 				zap.Stringer("object_address", prm.addr[i]),
 				zap.String("error", err.Error()))
 		}
