@@ -16,7 +16,7 @@ var versionKey = []byte("version")
 // ErrOutdatedVersion is returned on initializing
 // an existing metabase that is not compatible with
 // the current code version.
-var ErrOutdatedVersion = errors.New("invalid version")
+var ErrOutdatedVersion = errors.New("invalid version, resynchronization is required")
 
 func checkVersion(tx *bbolt.Tx, initialized bool) error {
 	var knownVersion bool
