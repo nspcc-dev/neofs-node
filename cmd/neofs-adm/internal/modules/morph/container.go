@@ -114,6 +114,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer wCtx.close()
 
 	nnsCs, err := wCtx.Client.GetContractStateByID(1)
 	if err != nil {
@@ -179,7 +180,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 			panic(bw.Err)
 		}
 
-		if err := wCtx.sendCommitteeTx(bw.Bytes(), true); err != nil {
+		if err := wCtx.sendConsensusTx(bw.Bytes()); err != nil {
 			return err
 		}
 	}
