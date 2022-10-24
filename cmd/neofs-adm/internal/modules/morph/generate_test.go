@@ -112,7 +112,7 @@ func setupTestTerminal(t *testing.T) *bytes.Buffer {
 }
 
 func newTempDir(t *testing.T) string {
-	dir := filepath.Join(os.TempDir(), "neofs-adm.test."+strconv.FormatUint(rand.Uint64(), 10))
+	dir := filepath.Join(t.TempDir(), "neofs-adm.test."+strconv.FormatUint(rand.Uint64(), 10))
 	require.NoError(t, os.Mkdir(dir, os.ModePerm))
 	t.Cleanup(func() {
 		require.NoError(t, os.RemoveAll(dir))
