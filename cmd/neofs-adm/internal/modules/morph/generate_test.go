@@ -19,6 +19,8 @@ import (
 	"golang.org/x/term"
 )
 
+const testContractPassword = "grouppass"
+
 func TestGenerateAlphabet(t *testing.T) {
 	const size = 4
 
@@ -59,7 +61,15 @@ func TestGenerateAlphabet(t *testing.T) {
 		require.Error(t, generateAlphabetCreds(cmd, nil))
 	})
 
-	testGenerateAlphabet(t, buf, v, size, walletDir)
+	buf.Reset()
+	v.Set(alphabetWalletsFlag, walletDir)
+	require.NoError(t, generateAlphabetCmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
+	for i := uint64(0); i < size; i++ {
+		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
+	}
+
+	buf.WriteString(testContractPassword + "\r")
+	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
 	for i := uint64(0); i < size; i++ {
 		p := filepath.Join(walletDir, innerring.GlagoliticLetter(i).String()+".json")
@@ -108,18 +118,4 @@ func newTempDir(t *testing.T) string {
 		require.NoError(t, os.RemoveAll(dir))
 	})
 	return dir
-}
-
-const testContractPassword = "grouppass"
-
-func testGenerateAlphabet(t *testing.T, buf *bytes.Buffer, v *viper.Viper, size uint64, walletDir string) {
-	buf.Reset()
-	v.Set(alphabetWalletsFlag, walletDir)
-	require.NoError(t, generateAlphabetCmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
-	for i := uint64(0); i < size; i++ {
-		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
-	}
-
-	buf.WriteString(testContractPassword + "\r")
-	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 }
