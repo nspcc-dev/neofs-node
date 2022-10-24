@@ -35,7 +35,7 @@ func TestInitialize(t *testing.T) {
 }
 
 func testInitialize(t *testing.T, committeeSize int) {
-	testdataDir := newTempDir(t)
+	testdataDir := t.TempDir()
 	v := viper.GetViper()
 
 	generateTestData(t, testdataDir, committeeSize)
