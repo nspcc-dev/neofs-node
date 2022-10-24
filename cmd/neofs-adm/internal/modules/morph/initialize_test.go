@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/config"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -56,6 +57,16 @@ func testInitialize(t *testing.T, committeeSize int) {
 	})
 	t.Run("set-config", func(t *testing.T) {
 		require.NoError(t, setConfigCmd(setConfig, []string{"MaintenanceModeAllowed=true"}))
+	})
+	t.Run("set-policy", func(t *testing.T) {
+		require.NoError(t, setPolicyCmd(setPolicy, []string{"ExecFeeFactor=1"}))
+	})
+	t.Run("remove-node", func(t *testing.T) {
+		pk, err := keys.NewPrivateKey()
+		require.NoError(t, err)
+
+		pub := hex.EncodeToString(pk.PublicKey().Bytes())
+		require.NoError(t, removeNodesCmd(removeNodes, []string{pub}))
 	})
 }
 

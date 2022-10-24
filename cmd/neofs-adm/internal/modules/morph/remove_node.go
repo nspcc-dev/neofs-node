@@ -31,6 +31,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't initialize context: %w", err)
 	}
+	defer wCtx.close()
 
 	cs, err := wCtx.Client.GetContractStateByID(1)
 	if err != nil {
@@ -52,7 +53,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), true); err != nil {
+	if err := wCtx.sendConsensusTx(bw.Bytes()); err != nil {
 		return err
 	}
 
