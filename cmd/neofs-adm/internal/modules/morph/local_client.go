@@ -474,6 +474,6 @@ func (l *localClient) dump() (err error) {
 
 	w := io.NewBinWriterFromIO(f)
 	w.WriteU32LE(l.bc.BlockHeight() + 1)
-	err = chaindump.Dump(l.bc, w, 0, l.bc.BlockHeight())
+	err = chaindump.Dump(l.bc, w, 0, l.bc.BlockHeight()+1)
 	return
 }
