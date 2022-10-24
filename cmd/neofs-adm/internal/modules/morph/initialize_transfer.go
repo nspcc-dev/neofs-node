@@ -131,12 +131,17 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 	}
 
 	if len(tx.Scripts) == 0 {
-		tx.Scripts = append(tx.Scripts, *w)
-	} else {
-		tx.Scripts[0] = *w
+		tx.Scripts = make([]transaction.Witness, len(tx.Signers))
 	}
 
-	return nil
+	for i := range tx.Signers {
+		if tx.Signers[i].Account == h {
+			tx.Scripts[i] = *w
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%s account was not found among transaction signers", accType)
 }
 
 func (c *initializeContext) transferGASToProxy() error {
