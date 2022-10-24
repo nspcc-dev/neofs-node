@@ -40,9 +40,10 @@ func (e *StorageEngine) reportShardError(
 	msg string,
 	err error,
 	fields ...zap.Field) {
+	sid := sh.ID()
 	errCount := sh.errorCount.Inc()
 	e.log.Warn(msg, append([]zap.Field{
-		zap.Stringer("shard_id", sh.ID()),
+		zap.Stringer("shard_id", sid),
 		zap.Uint32("error count", errCount),
 		zap.String("error", err.Error()),
 	}, fields...)...)
@@ -53,12 +54,25 @@ func (e *StorageEngine) reportShardError(
 
 	err = sh.SetMode(mode.DegradedReadOnly)
 	if err != nil {
-		e.log.Error("failed to move shard in degraded mode",
+		e.log.Error("failed to move shard in degraded-read-only mode, moving to read-only",
+			zap.Stringer("shard_id", sid),
 			zap.Uint32("error count", errCount),
 			zap.Error(err))
+
+		err = sh.SetMode(mode.ReadOnly)
+		if err != nil {
+			e.log.Error("failed to move shard in read-only mode",
+				zap.Stringer("shard_id", sid),
+				zap.Uint32("error count", errCount),
+				zap.Error(err))
+		} else {
+			e.log.Info("shard is moved in read-only mode due to error threshold",
+				zap.Stringer("shard_id", sid),
+				zap.Uint32("error count", errCount))
+		}
 	} else {
 		e.log.Info("shard is moved in degraded mode due to error threshold",
-			zap.Stringer("shard_id", sh.ID()),
+			zap.Stringer("shard_id", sid),
 			zap.Uint32("error count", errCount))
 	}
 }
