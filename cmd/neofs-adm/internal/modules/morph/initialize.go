@@ -395,6 +395,7 @@ func (c *initializeContext) sendMultiTx(script []byte, tryGroup bool, withConsen
 	var act *actor.Actor
 	var err error
 
+	withConsensus = withConsensus && !c.ConsensusAcc.Contract.ScriptHash().Equals(c.CommitteeAcc.ScriptHash())
 	if tryGroup {
 		// Even for consensus signatures we need the committee to pay.
 		signers := make([]actor.SignerAccount, 1, 2)
