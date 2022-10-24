@@ -38,6 +38,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -50,7 +51,7 @@ type localClient struct {
 	maxGasInvoke int64
 }
 
-func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, error) {
+func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet) (*localClient, error) {
 	cfg, err := config.LoadFile(v.GetString(protoConfigPath))
 	if err != nil {
 		return nil, err
@@ -88,9 +89,30 @@ func newLocalClient(v *viper.Viper, wallets []*wallet.Wallet) (*localClient, err
 
 	go bc.Run()
 
+	dumpPath := v.GetString(localDumpFlag)
+	if cmd.Name() != "init" {
+		f, err := os.OpenFile(dumpPath, os.O_RDONLY, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("can't open local dump: %w", err)
+		}
+		defer f.Close()
+
+		r := io.NewBinReaderFromIO(f)
+
+		var skip uint32
+		if bc.BlockHeight() != 0 {
+			skip = bc.BlockHeight() + 1
+		}
+
+		count := r.ReadU32LE() - skip
+		if err := chaindump.Restore(bc, r, skip, count, nil); err != nil {
+			return nil, fmt.Errorf("can't restore local dump: %w", err)
+		}
+	}
+
 	return &localClient{
 		bc:           bc,
-		dumpPath:     v.GetString(localDumpFlag),
+		dumpPath:     dumpPath,
 		accounts:     accounts[:m],
 		maxGasInvoke: 15_0000_0000,
 	}, nil

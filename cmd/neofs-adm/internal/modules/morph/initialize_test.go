@@ -70,4 +70,5 @@ func TestInitialize(t *testing.T) {
 	v.Set(epochDurationInitFlag, 1)
 	v.Set(maxObjectSizeInitFlag, 1024)
 	require.NoError(t, initializeSideChainCmd(initCmd, nil))
+	require.NoError(t, forceNewEpochCmd(forceNewEpoch, nil))
 }

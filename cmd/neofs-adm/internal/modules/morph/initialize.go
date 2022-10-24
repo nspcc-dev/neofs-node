@@ -126,13 +126,10 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 
 	var c Client
 	if v.GetString(localDumpFlag) != "" {
-		if cmd.Name() != "init" {
-			return nil, errors.New("dump creation is only supported for `init` command")
-		}
 		if v.GetString(endpointFlag) != "" {
 			return nil, fmt.Errorf("`%s` and `%s` flags are mutually exclusive", endpointFlag, localDumpFlag)
 		}
-		c, err = newLocalClient(v, wallets)
+		c, err = newLocalClient(cmd, v, wallets)
 	} else {
 		c, err = getN3Client(v)
 	}
