@@ -252,7 +252,8 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 
 	c, cached = x.clients[strAddr]
 	if !cached {
-		c, err := x.createForAddress(addr)
+		var err error
+		c, err = x.createForAddress(addr)
 		if err != nil {
 			return nil, err
 		}
