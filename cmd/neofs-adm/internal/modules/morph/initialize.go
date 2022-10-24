@@ -381,11 +381,18 @@ loop:
 	return retErr
 }
 
-// sendCommitteeTx creates transaction from script and sends it to RPC.
+// sendCommitteeTx creates transaction from script, signs it by committee nodes and sends it to RPC.
 // If tryGroup is false, global scope is used for the signer (useful when
 // working with native contracts).
 func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error {
 	return c.sendMultiTx(script, tryGroup, false)
+}
+
+// sendConsensusTx creates transaction from script, signs it by alphabet nodes and sends it to RPC.
+// Not that because this is used only after the contracts were initialized and deployed,
+// we always try to have a group scope.
+func (c *initializeContext) sendConsensusTx(script []byte) error {
+	return c.sendMultiTx(script, true, true)
 }
 
 func (c *initializeContext) sendMultiTx(script []byte, tryGroup bool, withConsensus bool) error {

@@ -132,7 +132,7 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	err = wCtx.sendCommitteeTx(bw.Bytes(), true)
+	err = wCtx.sendConsensusTx(bw.Bytes())
 	if err != nil {
 		return err
 	}

@@ -82,5 +82,11 @@ func testInitialize(t *testing.T, committeeSize int) {
 	v.Set(epochDurationInitFlag, 1)
 	v.Set(maxObjectSizeInitFlag, 1024)
 	require.NoError(t, initializeSideChainCmd(initCmd, nil))
-	require.NoError(t, forceNewEpochCmd(forceNewEpoch, nil))
+
+	t.Run("force-new-epoch", func(t *testing.T) {
+		require.NoError(t, forceNewEpochCmd(forceNewEpoch, nil))
+	})
+	t.Run("set-config", func(t *testing.T) {
+		require.NoError(t, setConfigCmd(setConfig, []string{"MaintenanceModeAllowed=true"}))
+	})
 }
