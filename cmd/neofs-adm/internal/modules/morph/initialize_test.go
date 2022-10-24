@@ -21,7 +21,7 @@ func TestInitialize(t *testing.T) {
 	// It is here for performing local testing after the changes.
 	t.Skip()
 
-	const contractsPath = "../../../../../../neofs-contract/neofs-contract-v0.15.2.tar.gz"
+	const contractsPath = "../../../../../../neofs-contract/neofs-contract-v0.16.0.tar.gz"
 	const committeeSize = 7
 	const validatorCount = committeeSize
 
@@ -51,6 +51,7 @@ func TestInitialize(t *testing.T) {
 	cfg.ProtocolConfiguration.SecondsPerBlock = 1
 	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by glagolic letters
 	cfg.ProtocolConfiguration.P2PSigExtensions = true
+	cfg.ProtocolConfiguration.VerifyTransactions = true
 	data, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
 
