@@ -372,6 +372,13 @@ func (l *localClient) InvokeScript(script []byte, signers []transaction.Signer) 
 }
 
 func (l *localClient) SendRawTransaction(tx *transaction.Transaction) (util.Uint256, error) {
+	// We need to test that transaction was formed correctly to catch as many errors as we can.
+	bs := tx.Bytes()
+	_, err := transaction.NewTransactionFromBytes(bs)
+	if err != nil {
+		return tx.Hash(), fmt.Errorf("invalid transaction: %w", err)
+	}
+
 	l.transactions = append(l.transactions, tx)
 	return tx.Hash(), nil
 }
