@@ -16,20 +16,36 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const contractsPath = "../../../../../../neofs-contract/neofs-contract-v0.16.0.tar.gz"
+
 func TestInitialize(t *testing.T) {
 	// This test needs neofs-contract tarball, so it is skipped by default.
 	// It is here for performing local testing after the changes.
 	t.Skip()
+	t.Run("4 nodes", func(t *testing.T) {
+		testInitialize(t, 4)
+	})
+	t.Run("7 nodes", func(t *testing.T) {
+		testInitialize(t, 7)
+	})
+}
 
-	const contractsPath = "../../../../../../neofs-contract/neofs-contract-v0.16.0.tar.gz"
-	const committeeSize = 7
-	const validatorCount = committeeSize
+func testInitialize(t *testing.T, committeeSize int) {
+	validatorCount := committeeSize
 
 	walletDir := newTempDir(t)
-	buf := setupTestTerminal(t)
 	v := viper.GetViper()
 
-	testGenerateAlphabet(t, buf, v, committeeSize, walletDir)
+	v.Set(alphabetWalletsFlag, walletDir)
+
+	sizeStr := strconv.FormatUint(uint64(committeeSize), 10)
+	require.NoError(t, generateAlphabetCmd.Flags().Set(alphabetSizeFlag, sizeStr))
+
+	for i := 0; i < committeeSize; i++ {
+		v.Set("credentials."+innerring.GlagoliticLetter(i).String(), strconv.FormatUint(uint64(i), 10))
+	}
+	v.Set("credentials.contract", testContractPassword)
+	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
 	var pubs []string
 	for i := 0; i < committeeSize; i++ {
@@ -61,10 +77,6 @@ func TestInitialize(t *testing.T) {
 	v.Set(protoConfigPath, protoPath)
 	// Set to the path or remove the next statement to download from the network.
 	require.NoError(t, initCmd.Flags().Set(contractsInitFlag, contractsPath))
-	for i := 0; i < committeeSize; i++ {
-		v.Set("credentials."+innerring.GlagoliticLetter(i).String(), strconv.FormatUint(uint64(i), 10))
-	}
-	v.Set("credentials.contract", testContractPassword)
 	v.Set(localDumpFlag, filepath.Join(walletDir, "out"))
 	v.Set(alphabetWalletsFlag, walletDir)
 	v.Set(epochDurationInitFlag, 1)
