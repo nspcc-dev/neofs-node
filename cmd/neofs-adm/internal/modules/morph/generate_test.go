@@ -24,7 +24,7 @@ const testContractPassword = "grouppass"
 func TestGenerateAlphabet(t *testing.T) {
 	const size = 4
 
-	walletDir := newTempDir(t)
+	walletDir := t.TempDir()
 	buf := setupTestTerminal(t)
 
 	cmd := generateAlphabetCmd
@@ -109,13 +109,4 @@ func setupTestTerminal(t *testing.T) *bytes.Buffer {
 	t.Cleanup(func() { input.Terminal = nil })
 
 	return in
-}
-
-func newTempDir(t *testing.T) string {
-	dir := filepath.Join(t.TempDir(), "neofs-adm.test."+strconv.FormatUint(rand.Uint64(), 10))
-	require.NoError(t, os.Mkdir(dir, os.ModePerm))
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(dir))
-	})
-	return dir
 }
