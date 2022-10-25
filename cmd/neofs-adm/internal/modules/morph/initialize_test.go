@@ -101,6 +101,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by glagolic letters
 	cfg.ProtocolConfiguration.P2PSigExtensions = true
 	cfg.ProtocolConfiguration.VerifyTransactions = true
+	cfg.ProtocolConfiguration.VerifyBlocks = true
 	data, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
 

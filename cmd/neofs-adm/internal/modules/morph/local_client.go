@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -29,10 +30,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -248,41 +247,30 @@ func (l *localClient) CalculateNetworkFee(tx *transaction.Transaction) (int64, e
 	}
 
 	size := len(hashablePart) + io.GetVarSize(len(tx.Signers))
+	ef := l.bc.GetBaseExecFee()
 
 	var netFee int64
 	for i, signer := range tx.Signers {
-		w := tx.Scripts[i]
-		if len(w.InvocationScript) == 0 { // No invocation provided, try to infer one.
-			var paramz []manifest.Parameter
-
-			if vm.IsSignatureContract(w.VerificationScript) {
-				paramz = []manifest.Parameter{{Type: smartcontract.SignatureType}}
-			} else if nSigs, _, ok := vm.ParseMultiSigContract(w.VerificationScript); ok {
-				paramz = make([]manifest.Parameter, nSigs)
-				for j := 0; j < nSigs; j++ {
-					paramz[j] = manifest.Parameter{Type: smartcontract.SignatureType}
-				}
+		var verificationScript []byte
+		for _, w := range tx.Scripts {
+			if w.VerificationScript != nil && hash.Hash160(w.VerificationScript).Equals(signer.Account) {
+				verificationScript = w.VerificationScript
+				break
 			}
-
-			inv := io.NewBufBinWriter()
-			for _, p := range paramz {
-				p.Type.EncodeBinary(inv.BinWriter)
-			}
-			if inv.Err != nil {
-				return 0, fmt.Errorf("failed to create dummy invocation script (signer %d): %w", i, inv.Err)
-			}
-			w.InvocationScript = inv.Bytes()
 		}
-		gasConsumed, _ := l.bc.VerifyWitness(signer.Account, tx, &w, l.maxGasInvoke)
-		netFee += gasConsumed
-		size += io.GetVarSize(w.VerificationScript) + io.GetVarSize(w.InvocationScript)
-	}
+		if verificationScript == nil {
+			gasConsumed, err := l.bc.VerifyWitness(signer.Account, tx, &tx.Scripts[i], l.maxGasInvoke)
+			if err != nil {
+				return 0, fmt.Errorf("invalid signature: %w", err)
+			}
+			netFee += gasConsumed
+			size += io.GetVarSize([]byte{}) + io.GetVarSize(tx.Scripts[i].InvocationScript)
+			continue
+		}
 
-	// notary service is expected to be enabled
-	attrs := tx.GetAttributes(transaction.NotaryAssistedT)
-	if len(attrs) != 0 {
-		na := attrs[0].Value.(*transaction.NotaryAssisted)
-		netFee += (int64(na.NKeys) + 1) * l.bc.GetNotaryServiceFeePerKey()
+		fee, sizeDelta := fee.Calculate(ef, verificationScript)
+		netFee += fee
+		size += sizeDelta
 	}
 
 	fee := l.bc.FeePerByte()
