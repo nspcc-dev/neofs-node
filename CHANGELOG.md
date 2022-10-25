@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - `neofs-adm` now works correctly with a committee of more than 4 nodes (#1949, #1959)
 - Closing a shard now waits until GC background workers stop (#1964)
 - Make it possible to use `shard.ContainerSize` in read-only mode (#1975)
+- Storage node now starts if at least one gRPC enpoint is available (#1893)
 
 ### Removed
 ### Updated
