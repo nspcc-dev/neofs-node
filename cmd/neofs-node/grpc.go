@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -14,12 +15,8 @@ import (
 )
 
 func initGRPC(c *cfg) {
+	var successCount int
 	grpcconfig.IterateEndpoints(c.appCfg, func(sc *grpcconfig.Config) {
-		lis, err := net.Listen("tcp", sc.Endpoint())
-		fatalOnErr(err)
-
-		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
-
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
 		}
@@ -28,7 +25,10 @@ func initGRPC(c *cfg) {
 
 		if tlsCfg != nil {
 			cert, err := tls.LoadX509KeyPair(tlsCfg.CertificateFile(), tlsCfg.KeyFile())
-			fatalOnErrDetails("could not read certificate from file", err)
+			if err != nil {
+				c.log.Error("could not read certificate from file", zap.Error(err))
+				return
+			}
 
 			var cipherSuites []uint16
 			if !tlsCfg.UseInsecureCrypto() {
@@ -54,6 +54,14 @@ func initGRPC(c *cfg) {
 			serverOpts = append(serverOpts, grpc.Creds(creds))
 		}
 
+		lis, err := net.Listen("tcp", sc.Endpoint())
+		if err != nil {
+			c.log.Error("can't listen gRPC endpoint", zap.Error(err))
+			return
+		}
+
+		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
+
 		srv := grpc.NewServer(serverOpts...)
 
 		c.onShutdown(func() {
@@ -61,7 +69,12 @@ func initGRPC(c *cfg) {
 		})
 
 		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
+		successCount++
 	})
+
+	if successCount == 0 {
+		fatalOnErr(errors.New("could not listen to any gRPC endpoints"))
+	}
 }
 
 func serveGRPC(c *cfg) {

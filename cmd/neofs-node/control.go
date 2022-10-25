@@ -9,6 +9,7 @@ import (
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -50,7 +51,10 @@ func initControlService(c *cfg) {
 	)
 
 	lis, err := net.Listen("tcp", endpoint)
-	fatalOnErr(err)
+	if err != nil {
+		c.log.Error("can't listen gRPC endpoint (control)", zap.Error(err))
+		return
+	}
 
 	c.cfgControlService.server = grpc.NewServer()
 
