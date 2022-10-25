@@ -55,6 +55,8 @@ func GetSDKClient(key *ecdsa.PrivateKey, addr network.Address) (*client.Client, 
 		// for too long.
 		prmDial.SetTimeout(timeout)
 		prmDial.SetStreamTimeout(timeout)
+
+		common.PrintVerbose("Set request timeout to %s.", timeout)
 	}
 
 	c.Init(prmInit)
