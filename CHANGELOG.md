@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Correctly sign new epoch transaction in neofs-adm for a committee of more than 4 nodes (#1949)
 - Inability to provide session to NeoFS CLI in a NeoFS-binary format (#1933)
 - `neofs-adm` now works correctly with a committee of more than 4 nodes (#1949, #1959)
+- Closing a shard now waits until GC background workers stop (#1964)
 
 ### Removed
 ### Updated

@@ -65,6 +65,7 @@ type gc struct {
 
 	onceStop    sync.Once
 	stopChannel chan struct{}
+	wg          sync.WaitGroup
 
 	workerPool util.WorkerPool
 
@@ -103,11 +104,14 @@ func (gc *gc) init() {
 		gc.workerPool = gc.workerPoolInit(sz)
 	}
 
+	gc.wg.Add(2)
 	go gc.tickRemover()
 	go gc.listenEvents()
 }
 
 func (gc *gc) listenEvents() {
+	defer gc.wg.Done()
+
 	for {
 		event, ok := <-gc.eventChan
 		if !ok {
@@ -147,6 +151,8 @@ func (gc *gc) listenEvents() {
 }
 
 func (gc *gc) tickRemover() {
+	defer gc.wg.Done()
+
 	timer := time.NewTimer(gc.removerInterval)
 	defer timer.Stop()
 
@@ -172,6 +178,9 @@ func (gc *gc) stop() {
 	gc.onceStop.Do(func() {
 		gc.stopChannel <- struct{}{}
 	})
+
+	gc.log.Info("waiting for GC workers to stop...")
+	gc.wg.Wait()
 }
 
 // iterates over metabase and deletes objects
