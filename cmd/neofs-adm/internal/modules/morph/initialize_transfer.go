@@ -130,13 +130,15 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 		return fmt.Errorf("incomplete signature: %w", err)
 	}
 
-	if len(tx.Scripts) == 0 {
-		tx.Scripts = make([]transaction.Witness, len(tx.Signers))
-	}
-
 	for i := range tx.Signers {
 		if tx.Signers[i].Account == h {
-			tx.Scripts[i] = *w
+			if i < len(tx.Scripts) {
+				tx.Scripts[i] = *w
+			} else if i == len(tx.Scripts) {
+				tx.Scripts = append(tx.Scripts, *w)
+			} else {
+				panic("BUG: invalid signing order")
+			}
 			return nil
 		}
 	}
