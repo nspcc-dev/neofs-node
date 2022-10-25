@@ -40,7 +40,7 @@ func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(prm.addr[i])
 			if err != nil && !IsErrNotFound(err) {
-				s.log.Error("can't delete object from write cache", zap.String("error", err.Error()))
+				s.log.Warn("can't delete object from write cache", zap.String("error", err.Error()))
 			}
 		}
 
