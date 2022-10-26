@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20220927123257-24c107e3a262 // indirect
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.16.0
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.6.0.20221013072718-21eef1ae7f7d
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.7
 	github.com/nspcc-dev/tzhash v1.6.1
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
@@ -28,10 +28,10 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.8.0
 	go.etcd.io/bbolt v1.3.6
-	go.uber.org/atomic v1.9.0
-	go.uber.org/zap v1.21.0
+	go.uber.org/atomic v1.10.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
