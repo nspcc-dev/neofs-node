@@ -209,6 +209,15 @@ var (
 		RunE: restoreContainers,
 	}
 
+	listContainersCmd = &cobra.Command{
+		Use:   "list-containers",
+		Short: "List NeoFS containers",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: listContainers,
+	}
+
 	depositNotaryCmd = &cobra.Command{
 		Use:   "deposit-notary",
 		Short: "Deposit GAS for notary service",
@@ -293,6 +302,10 @@ func init() {
 	restoreContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	restoreContainersCmd.Flags().String(containerDumpFlag, "", "File to restore containers from")
 	restoreContainersCmd.Flags().StringSlice(containerIDsFlag, nil, "Containers to restore")
+
+	RootCmd.AddCommand(listContainersCmd)
+	listContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	listContainersCmd.Flags().String(containerContractFlag, "", "Container contract hash (for networks without NNS)")
 
 	RootCmd.AddCommand(refillGasCmd)
 	refillGasCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")

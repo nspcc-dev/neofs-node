@@ -90,6 +90,8 @@ info. These commands **do not migrate actual objects**.
 - `restore-containers` restores previously saved containers by their repeated registration in 
  the container contract.
 
+- `list-containers` output all containers ids.
+
 #### Network info
 
 - `dump-config` prints NeoFS network configuration.
