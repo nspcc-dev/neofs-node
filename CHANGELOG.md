@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Inability to provide session to NeoFS CLI in a NeoFS-binary format (#1933)
 - `neofs-adm` now works correctly with a committee of more than 4 nodes (#1949, #1959)
 - Closing a shard now waits until GC background workers stop (#1964)
+- Make it possible to use `shard.ContainerSize` in read-only mode (#1975)
 
 ### Removed
 ### Updated

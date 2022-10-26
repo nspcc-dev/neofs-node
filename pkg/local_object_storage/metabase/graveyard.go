@@ -164,10 +164,6 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *oid.Address) 
 		panic(fmt.Sprintf("metabase: unknown iteration object hadler: %T", t))
 	}
 
-	if bkt == nil {
-		return nil
-	}
-
 	c := bkt.Cursor()
 	var k, v []byte
 

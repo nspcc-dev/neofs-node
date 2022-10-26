@@ -125,9 +125,6 @@ func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.
 
 func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Address, h func(oid.Address) error) error {
 	bktGraveyard := tx.Bucket(graveyardBucketName)
-	if bktGraveyard == nil {
-		return nil
-	}
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
 		var addr oid.Address
