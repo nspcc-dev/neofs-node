@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - All trees synchronization on bootstrap (#1902)
 - `--force` flag to `neofs-cli control set-status` command (#1916)
 - Logging `SessionService.Create` RPC on the server for debug (#1930)
+- Debian packages can now be built with `make debpackage` (#1802)
 
 ### Changed
 - Path to a metabase can now be reloaded with a SIGHUP.
