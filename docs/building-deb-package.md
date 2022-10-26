@@ -32,14 +32,6 @@ or
 $ dh clean
 ```
 
-# Building in container
-
-Build dependencies will be added to Go container and package will be built.
-
-```shell
-$ sudo make docker/debpackage
-```
-
 # Package versioning
 
 By default, package version is based on product version and may also contain 
