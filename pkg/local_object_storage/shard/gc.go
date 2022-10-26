@@ -284,6 +284,11 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	for {
 		log.Debug("iterating tombstones")
 
+		if s.GetMode().NoMetabase() {
+			s.log.Debug("shard is in a degraded mode, skip collecting expired tombstones")
+			return
+		}
+
 		err := s.metaBase.IterateOverGraveyard(iterPrm)
 		if err != nil {
 			log.Error("iterator over graveyard failed", zap.Error(err))
@@ -327,6 +332,10 @@ func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
 }
 
 func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
+	if s.GetMode().NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	var expired []oid.Address
 
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
@@ -351,6 +360,10 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond fu
 //
 // Does not modify tss.
 func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
+	if s.GetMode().NoMetabase() {
+		return
+	}
+
 	// Mark tombstones as garbage.
 	var pInhume meta.InhumePrm
 
@@ -385,6 +398,10 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 // HandleExpiredLocks unlocks all objects which were locked by lockers.
 // If successful, marks lockers themselves as garbage.
 func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
+	if s.GetMode().NoMetabase() {
+		return
+	}
+
 	err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
@@ -412,6 +429,10 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.
 func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
+	if s.GetMode().NoMetabase() {
+		return
+	}
+
 	err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",

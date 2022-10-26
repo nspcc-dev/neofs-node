@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
@@ -75,7 +77,7 @@ func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRe
 		csPrm.SetContainerID(prm.cnr)
 
 		csRes, err := sh.Shard.ContainerSize(csPrm)
-		if err != nil {
+		if err != nil && !errors.Is(err, shard.ErrDegradedMode) {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", prm.cnr),
 			)
@@ -124,7 +126,9 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
 		if err != nil {
-			e.reportShardError(sh, "can't get list of containers", err)
+			if !errors.Is(err, shard.ErrDegradedMode) {
+				e.reportShardError(sh, "can't get list of containers", err)
+			}
 			return false
 		}
 

@@ -92,6 +92,10 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return InhumeRes{}, ErrDegradedMode
+	}
+
 	currEpoch := db.epochState.CurrentEpoch()
 	var inhumed uint64
 

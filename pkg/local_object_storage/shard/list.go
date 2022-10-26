@@ -64,6 +64,10 @@ func (r ListWithCursorRes) Cursor() *Cursor {
 
 // List returns all objects physically stored in the Shard.
 func (s *Shard) List() (res SelectRes, err error) {
+	if s.GetMode().NoMetabase() {
+		return SelectRes{}, ErrDegradedMode
+	}
+
 	lst, err := s.metaBase.Containers()
 	if err != nil {
 		return res, fmt.Errorf("can't list stored containers: %w", err)
@@ -93,6 +97,10 @@ func (s *Shard) List() (res SelectRes, err error) {
 }
 
 func (s *Shard) ListContainers(_ ListContainersPrm) (ListContainersRes, error) {
+	if s.GetMode().NoMetabase() {
+		return ListContainersRes{}, ErrDegradedMode
+	}
+
 	containers, err := s.metaBase.Containers()
 	if err != nil {
 		return ListContainersRes{}, fmt.Errorf("could not get list of containers: %w", err)
