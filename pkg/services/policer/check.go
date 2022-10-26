@@ -144,12 +144,18 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 	nodes []netmap.NodeInfo, shortage uint32, checkedNodes *nodeCache) {
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
+	// Number of copies that are stored on maintenance nodes.
+	var uncheckedCopies int
+
 	handleMaintenance := func(node netmap.NodeInfo) {
 		// consider remote nodes under maintenance as problem OK. Such
 		// nodes MAY not respond with object, however, this is how we
 		// prevent spam with new replicas.
+		// However, additional copies should not be removed in this case,
+		// because we can remove the only copy this way.
 		checkedNodes.submitReplicaHolder(node)
 		shortage--
+		uncheckedCopies++
 
 		p.log.Debug("consider node under maintenance as OK",
 			zap.String("node", netmap.StringifyPublicKey(node)),
@@ -221,6 +227,12 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 		task.SetCopiesNumber(shortage)
 
 		p.replicator.HandleTask(ctx, task, checkedNodes)
+	} else if uncheckedCopies > 0 {
+		// If we have more copies than needed, but some of them are from the maintenance nodes,
+		// save the local copy.
+		ctx.needLocalCopy = true
+		p.log.Debug("some of the copies are stored on nodes under maintenance, save local copy",
+			zap.Int("count", uncheckedCopies))
 	}
 }
 
