@@ -19,7 +19,7 @@ Description: NeoFS Storage node
 
 Package: neofs-ir
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, neofs-locode-db
 Description: NeoFS InnerRing node
  NeoFS is a decentralized distributed object storage integrated with the NEO Blockchain.
  NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and distributing user's data. 
