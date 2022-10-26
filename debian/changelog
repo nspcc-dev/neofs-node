@@ -1,0 +1,11 @@
+neofs-node (0.33.0~72~g6955fe82) jammy; urgency=medium
+
+  * Please see CHANGELOG.md for code changes for v0.33.0-72-g6955fe82
+
+ -- NeoSPCC <tech@nspcc.ru>  Wed, 26 Oct 2022 12:19:45 +0300
+
+neofs-node (0.33.0) stable; urgency=medium
+
+  * Initial change
+
+ -- NeoSPCC <tech@nspcc.ru>  Tue, 25 Oct 2022 21:10:49 +0300

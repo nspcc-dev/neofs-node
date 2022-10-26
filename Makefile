@@ -21,11 +21,11 @@ BINS = $(addprefix $(BIN)/, $(CMDS))
 
 # .deb package versioning
 OS_RELEASE = $(shell lsb_release -cs)
-PACK_VERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
+PKG_VERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
 			sed -E "s/(.*)-(g[a-fA-F0-9]{6,8})(.*)/\1\3~\2/" | \
-			sed "s/-/~/")-$(OS_RELEASE)
-			
-.PHONY: help all images dep clean fmts fmt imports test lint docker/lint 
+			sed "s/-/~/")
+
+.PHONY: help all images dep clean fmts fmt imports test lint docker/lint
 		prepare-release debpackage
 
 # To build a specific binary, use it's name prefix with bin/ as a target
@@ -152,11 +152,13 @@ clean:
 
 # Package for Debian
 debpackage:
-	rm -f debian/changelog
-	dch --create --package neofs-node -M -v $(PACK_VERSION) \
-		-D $(OS_RELEASE) \
-		"Please see CHANGELOG.md for code changes for "$(VERSION)
-	dpkg-buildpackage --no-sign -b	
+	dch --package neofs-node \
+			--controlmaint \
+			--newversion $(PKG_VERSION) \
+			--force-bad-version \
+			--distribution $(OS_RELEASE) \
+			"Please see CHANGELOG.md for code changes for $(VERSION)"
+	dpkg-buildpackage --no-sign -b
 
 docker/debpackage:
 	docker run --rm -t \
@@ -167,4 +169,4 @@ docker/debpackage:
 	golang:$(GO_VERSION) apt update && apt install debhelper-compat dh-sequence-bash-completion devscripts && make debpackage
 
 debclean:
-	dh clean	
+	dh clean

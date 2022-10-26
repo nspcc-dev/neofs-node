@@ -43,6 +43,11 @@ Write new revision number into the root `VERSION` file:
 $ echo ${NEOFS_TAG_PREFIX}${NEOFS_REVISION} > VERSION
 ```
 
+Update version in Debian package changelog file
+```
+$ cat debian/changelog
+```
+
 Update the supported version of `nspcc-dev/neofs-contract` module in root
 `README.md` if needed.
 
