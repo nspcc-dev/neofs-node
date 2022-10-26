@@ -223,17 +223,6 @@ func objectKey(obj oid.ID, key []byte) []byte {
 	return key[:objectKeySize]
 }
 
-// removes all bucket elements.
-func resetBucket(b *bbolt.Bucket) error {
-	return b.ForEach(func(k, v []byte) error {
-		if v != nil {
-			return b.Delete(k)
-		}
-
-		return b.DeleteBucket(k)
-	})
-}
-
 // if meets irregular object container in objs - returns its type, otherwise returns object.TypeRegular.
 //
 // firstIrregularObjectType(tx, cnr, obj) usage allows getting object type.

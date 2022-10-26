@@ -106,15 +106,17 @@ func (db *DB) init(reset bool) error {
 			}
 		}
 		for k := range mStaticBuckets {
-			b, err := tx.CreateBucketIfNotExists([]byte(k))
-			if err != nil {
-				return fmt.Errorf("could not create static bucket %s: %w", k, err)
+			name := []byte(k)
+			if reset {
+				err := tx.DeleteBucket(name)
+				if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+					return fmt.Errorf("could not delete static bucket %s: %w", k, err)
+				}
 			}
 
-			if reset {
-				if err = resetBucket(b); err != nil {
-					return fmt.Errorf("could not reset static bucket %s: %w", k, err)
-				}
+			_, err := tx.CreateBucketIfNotExists(name)
+			if err != nil {
+				return fmt.Errorf("could not create static bucket %s: %w", k, err)
 			}
 		}
 
