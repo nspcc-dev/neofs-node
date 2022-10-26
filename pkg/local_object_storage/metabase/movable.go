@@ -56,11 +56,7 @@ func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 	key = addressKey(prm.addr, key)
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		toMoveIt, err := tx.CreateBucketIfNotExists(toMoveItBucketName)
-		if err != nil {
-			return err
-		}
-
+		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Put(key, zeroValue)
 	})
 
@@ -77,10 +73,6 @@ func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
-		if toMoveIt == nil {
-			return nil
-		}
-
 		return toMoveIt.Delete(key)
 	})
 
@@ -96,10 +88,6 @@ func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
-		if toMoveIt == nil {
-			return nil
-		}
-
 		return toMoveIt.ForEach(func(k, v []byte) error {
 			strAddrs = append(strAddrs, string(k))
 

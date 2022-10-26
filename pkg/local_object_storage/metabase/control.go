@@ -94,6 +94,7 @@ func (db *DB) init(reset bool) error {
 		string(toMoveItBucketName):        {},
 		string(garbageBucketName):         {},
 		string(shardInfoBucket):           {},
+		string(bucketNameLocked):          {},
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

@@ -44,10 +44,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 			return apistatus.LockNonRegularObject{}
 		}
 
-		bucketLocked, err := tx.CreateBucketIfNotExists(bucketNameLocked)
-		if err != nil {
-			return fmt.Errorf("create global bucket for locked objects: %w", err)
-		}
+		bucketLocked := tx.Bucket(bucketNameLocked)
 
 		cnr.Encode(key)
 		bucketLockedContainer, err := bucketLocked.CreateBucketIfNotExists(key)

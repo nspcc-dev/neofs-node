@@ -38,7 +38,7 @@ func (db *DB) containers(tx *bbolt.Tx) ([]cid.ID, error) {
 }
 
 func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		size, err = db.containerSize(tx, id)
 
 		return err
@@ -48,11 +48,7 @@ func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
 }
 
 func (db *DB) containerSize(tx *bbolt.Tx, id cid.ID) (uint64, error) {
-	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
-	if err != nil {
-		return 0, err
-	}
-
+	containerVolume := tx.Bucket(containerVolumeBucketName)
 	key := make([]byte, cidSize)
 	id.Encode(key)
 
@@ -78,11 +74,7 @@ func parseContainerSize(v []byte) uint64 {
 }
 
 func changeContainerSize(tx *bbolt.Tx, id cid.ID, delta uint64, increase bool) error {
-	containerVolume, err := tx.CreateBucketIfNotExists(containerVolumeBucketName)
-	if err != nil {
-		return err
-	}
-
+	containerVolume := tx.Bucket(containerVolumeBucketName)
 	key := make([]byte, cidSize)
 	id.Encode(key)
 
