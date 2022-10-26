@@ -6,13 +6,14 @@ import (
 	"path/filepath"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
 // ErrDegradedMode is returned when metabase is in a degraded mode.
-var ErrDegradedMode = errors.New("metabase is in a degraded mode")
+var ErrDegradedMode = logicerr.Wrap(errors.New("metabase is in a degraded mode"))
 
 // Open boltDB instance for metabase.
 func (db *DB) Open(readOnly bool) error {

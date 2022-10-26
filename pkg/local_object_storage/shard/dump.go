@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 )
 
@@ -46,7 +47,7 @@ func (r DumpRes) Count() int {
 	return r.count
 }
 
-var ErrMustBeReadOnly = errors.New("shard must be in read-only mode")
+var ErrMustBeReadOnly = logicerr.Wrap(errors.New("shard must be in read-only mode"))
 
 // Dump dumps all objects from the shard to a file or stream.
 //

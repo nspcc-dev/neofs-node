@@ -97,12 +97,10 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 		_, err = testGet(t, sh, getPrm, hasWriteCache)
 
-		var expectedErr *objectSDK.SplitInfoError
-		require.True(t, errors.As(err, &expectedErr))
+		var si *objectSDK.SplitInfoError
+		require.True(t, errors.As(err, &si))
 
-		si, ok := err.(*objectSDK.SplitInfoError)
-		require.True(t, ok)
-		_, ok = si.SplitInfo().Link()
+		_, ok := si.SplitInfo().Link()
 		require.False(t, ok)
 		id1, _ := child.ID()
 		id2, _ := si.SplitInfo().LastPart()

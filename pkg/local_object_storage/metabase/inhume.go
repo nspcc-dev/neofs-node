@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -78,7 +79,7 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // ErrLockObjectRemoval is returned when inhume operation is being
 // performed on lock object, and it is not a forced object removal.
-var ErrLockObjectRemoval = errors.New("lock object removal")
+var ErrLockObjectRemoval = logicerr.Wrap(errors.New("lock object removal"))
 
 // Inhume marks objects as removed but not removes it from metabase.
 //

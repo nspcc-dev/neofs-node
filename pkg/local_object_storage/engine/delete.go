@@ -77,8 +77,8 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 				return true
 			}
 
-			splitErr, ok := err.(*objectSDK.SplitInfoError)
-			if !ok {
+			var splitErr *objectSDK.SplitInfoError
+			if !errors.As(err, &splitErr) {
 				if !shard.IsErrNotFound(err) {
 					e.reportShardError(sh, "could not check object existence", err)
 				}
@@ -97,13 +97,7 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 
 		_, err = sh.Inhume(shPrm)
 		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode) {
-				e.log.Warn("could not inhume object in shard",
-					zap.Stringer("shard_id", sh.ID()),
-					zap.String("error", err.Error()))
-			} else {
-				e.reportShardError(sh, "could not inhume object in shard", err)
-			}
+			e.reportShardError(sh, "could not inhume object in shard", err)
 
 			locked.is = errors.As(err, &locked.err)
 

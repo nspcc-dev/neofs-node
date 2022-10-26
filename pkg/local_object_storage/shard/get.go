@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -125,9 +126,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 	}
 
 	if !exists {
-		var errNotFound apistatus.ObjectNotFound
-
-		return nil, false, errNotFound
+		return nil, false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	var mPrm meta.StorageIDPrm

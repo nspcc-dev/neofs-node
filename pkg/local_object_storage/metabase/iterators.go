@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -34,7 +35,7 @@ type ExpiredObjectHandler func(*ExpiredObject) error
 
 // ErrInterruptIterator is returned by iteration handlers
 // as a "break" keyword.
-var ErrInterruptIterator = errors.New("iterator is interrupted")
+var ErrInterruptIterator = logicerr.Wrap(errors.New("iterator is interrupted"))
 
 // IterateExpired iterates over all objects in DB which are out of date
 // relative to epoch. Locked objects are not included (do not confuse

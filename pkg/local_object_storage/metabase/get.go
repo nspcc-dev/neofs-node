@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -66,13 +67,9 @@ func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw b
 	if checkStatus {
 		switch objectStatus(tx, addr, currEpoch) {
 		case 1:
-			var errNotFound apistatus.ObjectNotFound
-
-			return nil, errNotFound
+			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		case 2:
-			var errRemoved apistatus.ObjectAlreadyRemoved
-
-			return nil, errRemoved
+			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 		case 3:
 			return nil, object.ErrObjectIsExpired
 		}
@@ -128,9 +125,7 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	bucketName := make([]byte, bucketKeySize)
 	parentBucket := tx.Bucket(parentBucketName(cnr, bucketName))
 	if parentBucket == nil {
-		var errNotFound apistatus.ObjectNotFound
-
-		return nil, errNotFound
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	relativeLst, err := decodeList(parentBucket.Get(key))
@@ -139,9 +134,7 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	}
 
 	if len(relativeLst) == 0 { // this should never happen though
-		var errNotFound apistatus.ObjectNotFound
-
-		return nil, errNotFound
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	// pick last item, for now there is not difference which address to pick
@@ -160,9 +153,7 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	par := child.Parent()
 
 	if par == nil { // this should never happen though
-		var errNotFound apistatus.ObjectNotFound
-
-		return nil, errNotFound
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	return par, nil
@@ -171,10 +162,8 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
 	splitInfo, err := getSplitInfo(tx, cnr, key)
 	if err == nil {
-		return objectSDK.NewSplitInfoError(splitInfo)
+		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
-	var errNotFound apistatus.ObjectNotFound
-
-	return errNotFound
+	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }

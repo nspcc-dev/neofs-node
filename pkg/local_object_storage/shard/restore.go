@@ -7,11 +7,12 @@ import (
 	"io"
 	"os"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ErrInvalidMagic is returned when dump format is invalid.
-var ErrInvalidMagic = errors.New("invalid magic")
+var ErrInvalidMagic = logicerr.Wrap(errors.New("invalid magic"))
 
 // RestorePrm groups the parameters of Restore operation.
 type RestorePrm struct {

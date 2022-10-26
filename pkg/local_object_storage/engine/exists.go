@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -22,8 +24,8 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 				return true
 			}
 
-			_, ok := err.(*objectSDK.SplitInfoError)
-			if ok {
+			var siErr *objectSDK.SplitInfoError
+			if errors.As(err, &siErr) {
 				return true
 			}
 

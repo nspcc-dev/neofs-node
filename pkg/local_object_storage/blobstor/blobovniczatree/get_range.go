@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
@@ -58,9 +59,7 @@ func (b *Blobovniczas) GetRange(prm common.GetRangePrm) (res common.GetRangeRes,
 
 	if err == nil && !objectFound {
 		// not found in any blobovnicza
-		var errNotFound apistatus.ObjectNotFound
-
-		return common.GetRangeRes{}, errNotFound
+		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	return
@@ -125,9 +124,7 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		b.log.Debug("index is too big", zap.String("path", blzPath))
 
-		var errNotFound apistatus.ObjectNotFound
-
-		return common.GetRangeRes{}, errNotFound
+		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	// open blobovnicza (cached inside)
@@ -170,7 +167,7 @@ func (b *Blobovniczas) getObjectRange(blz *blobovnicza.Blobovnicza, prm common.G
 	payload := obj.Payload()
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-		return common.GetRangeRes{}, apistatus.ObjectOutOfRange{}
+		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 
 	return common.GetRangeRes{

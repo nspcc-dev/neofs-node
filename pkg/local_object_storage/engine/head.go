@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -86,8 +87,6 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 			case shard.IsErrNotFound(err):
 				return false // ignore, go to next shard
 			case errors.As(err, &siErr):
-				siErr = err.(*objectSDK.SplitInfoError)
-
 				if outSI == nil {
 					outSI = objectSDK.NewSplitInfo()
 				}
@@ -127,7 +126,7 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	})
 
 	if outSI != nil {
-		return HeadRes{}, objectSDK.NewSplitInfoError(outSI)
+		return HeadRes{}, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
 	}
 
 	if head == nil {

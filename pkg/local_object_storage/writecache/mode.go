@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
 
 // ErrReadOnly is returned when Put/Write is performed in a read-only mode.
-var ErrReadOnly = errors.New("write-cache is in read-only mode")
+var ErrReadOnly = logicerr.Wrap(errors.New("write-cache is in read-only mode"))
 
 // SetMode sets write-cache mode of operation.
 // When shard is put in read-only mode all objects in memory are flushed to disk

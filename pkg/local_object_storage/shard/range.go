@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -94,7 +95,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		from := prm.off
 		to := from + prm.ln
 		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-			return nil, apistatus.ObjectOutOfRange{}
+			return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 		}
 
 		obj := object.New()

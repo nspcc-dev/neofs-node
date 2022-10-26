@@ -128,9 +128,8 @@ func TestDB_Exists(t *testing.T) {
 			_, err = metaExists(db, object.AddressOf(parent))
 			require.Error(t, err)
 
-			si, ok := err.(*objectSDK.SplitInfoError)
-			require.True(t, ok)
-
+			var si *objectSDK.SplitInfoError
+			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
 			id1, _ := child.ID()
@@ -152,9 +151,8 @@ func TestDB_Exists(t *testing.T) {
 			_, err = metaExists(db, object.AddressOf(parent))
 			require.Error(t, err)
 
-			si, ok := err.(*objectSDK.SplitInfoError)
-			require.True(t, ok)
-
+			var si *objectSDK.SplitInfoError
+			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
 			id1, _ := child.ID()

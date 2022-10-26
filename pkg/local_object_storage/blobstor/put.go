@@ -6,12 +6,13 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 // ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
 // because of the policy.
-var ErrNoPlaceFound = errors.New("couldn't find a place to store an object")
+var ErrNoPlaceFound = logicerr.Wrap(errors.New("couldn't find a place to store an object"))
 
 // Put saves the object in BLOB storage.
 //

@@ -68,8 +68,8 @@ func TestHeadRaw(t *testing.T) {
 		_, err = e.Head(headPrm)
 		require.Error(t, err)
 
-		si, ok := err.(*object.SplitInfoError)
-		require.True(t, ok)
+		var si *object.SplitInfoError
+		require.ErrorAs(t, err, &si)
 
 		// SplitInfoError should contain info from both shards
 		require.Equal(t, splitID, si.SplitInfo().SplitID())

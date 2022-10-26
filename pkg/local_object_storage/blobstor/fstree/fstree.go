@@ -12,6 +12,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -192,15 +193,14 @@ func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 	p, err := t.getPath(prm.Address)
 	if err != nil {
 		if os.IsNotExist(err) {
-			var errNotFound apistatus.ObjectNotFound
-			err = errNotFound
+			err = logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 		return common.DeleteRes{}, err
 	}
 
 	err = os.Remove(p)
 	if err != nil && os.IsNotExist(err) {
-		err = apistatus.ObjectNotFound{}
+		err = logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 	return common.DeleteRes{}, err
 }
@@ -274,8 +274,7 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	p := t.treePath(prm.Address)
 
 	if _, err := os.Stat(p); os.IsNotExist(err) {
-		var errNotFound apistatus.ObjectNotFound
-		return common.GetRes{}, errNotFound
+		return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	data, err := os.ReadFile(p)
@@ -308,7 +307,7 @@ func (t *FSTree) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
 	to := from + prm.Range.GetLength()
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-		return common.GetRangeRes{}, apistatus.ObjectOutOfRange{}
+		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 
 	return common.GetRangeRes{
