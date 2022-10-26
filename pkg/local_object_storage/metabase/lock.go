@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -41,7 +42,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
-			return apistatus.LockNonRegularObject{}
+			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		}
 
 		bucketLocked := tx.Bucket(bucketNameLocked)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"go.etcd.io/bbolt"
 )
 
@@ -16,7 +17,7 @@ var versionKey = []byte("version")
 // ErrOutdatedVersion is returned on initializing
 // an existing metabase that is not compatible with
 // the current code version.
-var ErrOutdatedVersion = errors.New("invalid version, resynchronization is required")
+var ErrOutdatedVersion = logicerr.Wrap(errors.New("invalid version, resynchronization is required"))
 
 func checkVersion(tx *bbolt.Tx, initialized bool) error {
 	var knownVersion bool

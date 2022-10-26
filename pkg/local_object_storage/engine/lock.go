@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -28,13 +29,13 @@ func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 	for i := range locked {
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
 		case 1:
-			return apistatus.LockNonRegularObject{}
+			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		case 0:
 			switch e.lockSingle(idCnr, locker, locked[i], false) {
 			case 1:
-				return apistatus.LockNonRegularObject{}
+				return logicerr.Wrap(apistatus.LockNonRegularObject{})
 			case 0:
-				return errLockFailed
+				return logicerr.Wrap(errLockFailed)
 			}
 		}
 	}

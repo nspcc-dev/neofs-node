@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"go.uber.org/zap"
 )
@@ -62,9 +63,7 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 
 	if err == nil && !objectFound {
 		// not found in any blobovnicza
-		var errNotFound apistatus.ObjectNotFound
-
-		return common.DeleteRes{}, errNotFound
+		return common.DeleteRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	return
@@ -117,9 +116,7 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		b.log.Debug("index is too big", zap.String("path", blzPath))
-		var errNotFound apistatus.ObjectNotFound
-
-		return common.DeleteRes{}, errNotFound
+		return common.DeleteRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	// open blobovnicza (cached inside)

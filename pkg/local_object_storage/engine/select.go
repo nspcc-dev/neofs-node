@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -111,9 +109,7 @@ func (e *StorageEngine) list(limit uint64) (SelectRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.List() // consider limit result of shard iterator
 		if err != nil {
-			if !errors.Is(err, shard.ErrDegradedMode) {
-				e.reportShardError(sh, "could not select objects from shard", err)
-			}
+			e.reportShardError(sh, "could not select objects from shard", err)
 		} else {
 			for _, addr := range res.AddressList() { // save only unique values
 				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {

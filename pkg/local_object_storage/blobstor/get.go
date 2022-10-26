@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
@@ -19,8 +20,7 @@ func (b *BlobStor) Get(prm common.GetPrm) (common.GetRes, error) {
 			}
 		}
 
-		var errNotFound apistatus.ObjectNotFound
-		return common.GetRes{}, errNotFound
+		return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 	if len(prm.StorageID) == 0 {
 		return b.storage[len(b.storage)-1].Storage.Get(prm)

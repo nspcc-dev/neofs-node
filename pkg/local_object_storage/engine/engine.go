@@ -1,10 +1,12 @@
 package engine
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
@@ -40,6 +42,13 @@ func (e *StorageEngine) reportShardError(
 	msg string,
 	err error,
 	fields ...zap.Field) {
+	if isLogical(err) {
+		e.log.Warn(msg,
+			zap.Stringer("shard_id", sh.ID()),
+			zap.String("error", err.Error()))
+		return
+	}
+
 	sid := sh.ID()
 	errCount := sh.errorCount.Inc()
 	e.log.Warn(msg, append([]zap.Field{
@@ -75,6 +84,10 @@ func (e *StorageEngine) reportShardError(
 			zap.Stringer("shard_id", sid),
 			zap.Uint32("error count", errCount))
 	}
+}
+
+func isLogical(err error) bool {
+	return errors.As(err, &logicerr.Logical{})
 }
 
 // Option represents StorageEngine's constructor option.

@@ -95,16 +95,15 @@ func TestDB_Get(t *testing.T) {
 			_, err = metaGet(db, object.AddressOf(parent), true)
 			require.Error(t, err)
 
-			siErr, ok := err.(*objectSDK.SplitInfoError)
-			require.True(t, ok)
-
+			var siErr *objectSDK.SplitInfoError
+			require.ErrorAs(t, err, &siErr)
 			require.Equal(t, splitID, siErr.SplitInfo().SplitID())
 
 			id1, _ := child.ID()
 			id2, _ := siErr.SplitInfo().LastPart()
 			require.Equal(t, id1, id2)
 
-			_, ok = siErr.SplitInfo().Link()
+			_, ok := siErr.SplitInfo().Link()
 			require.False(t, ok)
 		})
 

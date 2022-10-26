@@ -7,6 +7,7 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -24,7 +25,7 @@ type ExistsRes struct {
 	exists bool
 }
 
-var ErrLackSplitInfo = errors.New("no split info on parent object")
+var ErrLackSplitInfo = logicerr.Wrap(errors.New("no split info on parent object"))
 
 // SetAddress is an Exists option to set object checked for existence.
 func (p *ExistsPrm) SetAddress(addr oid.Address) {
@@ -60,13 +61,9 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	// check graveyard and object expiration first
 	switch objectStatus(tx, addr, currEpoch) {
 	case 1:
-		var errNotFound apistatus.ObjectNotFound
-
-		return false, errNotFound
+		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	case 2:
-		var errRemoved apistatus.ObjectAlreadyRemoved
-
-		return false, errRemoved
+		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 	case 3:
 		return false, object.ErrObjectIsExpired
 	}
@@ -88,7 +85,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 			return false, err
 		}
 
-		return false, objectSDK.NewSplitInfoError(splitInfo)
+		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
 	// if parent bucket is empty, then check if object exists in typed buckets

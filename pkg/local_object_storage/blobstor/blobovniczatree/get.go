@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
@@ -54,9 +55,7 @@ func (b *Blobovniczas) Get(prm common.GetPrm) (res common.GetRes, err error) {
 
 	if err == nil && res.Object == nil {
 		// not found in any blobovnicza
-		var errNotFound apistatus.ObjectNotFound
-
-		return res, errNotFound
+		return res, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	return
@@ -110,9 +109,7 @@ func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
 		b.log.Debug("index is too big", zap.String("path", blzPath))
-		var errNotFound apistatus.ObjectNotFound
-
-		return common.GetRes{}, errNotFound
+		return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	// open blobovnicza (cached inside)
