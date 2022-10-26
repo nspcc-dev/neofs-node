@@ -22,6 +22,37 @@ import (
 
 var errInvalidContainerResponse = errors.New("invalid response from container contract")
 
+func getContainerContractHash(cmd *cobra.Command, inv *invoker.Invoker, c Client) (util.Uint160, error) {
+	s, err := cmd.Flags().GetString(containerContractFlag)
+	var ch util.Uint160
+	if err == nil {
+		ch, err = util.Uint160DecodeStringLE(s)
+	}
+	if err != nil {
+		nnsCs, err := c.GetContractStateByID(1)
+		if err != nil {
+			return util.Uint160{}, fmt.Errorf("can't get NNS contract state: %w", err)
+		}
+		ch, err = nnsResolveHash(inv, nnsCs.Hash, containerContract+".neofs")
+		if err != nil {
+			return util.Uint160{}, err
+		}
+	}
+	return ch, nil
+}
+
+func getContainersList(inv *invoker.Invoker, ch util.Uint160) ([][]byte, error) {
+	res, err := inv.Call(ch, "list", "")
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+	}
+	itm, err := unwrap.Item(res, err)
+	if _, ok := itm.(stackitem.Null); !ok {
+		return unwrap.ArrayOfBytes(res, err)
+	}
+	return nil, nil
+}
+
 func dumpContainers(cmd *cobra.Command, _ []string) error {
 	filename, err := cmd.Flags().GetString(containerDumpFlag)
 	if err != nil {
@@ -35,24 +66,12 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	nnsCs, err := c.GetContractStateByID(1)
+	ch, err := getContainerContractHash(cmd, inv, c)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract state: %w", err)
+		return fmt.Errorf("unable to get contaract hash: %w", err)
 	}
 
-	var ch util.Uint160
-	s, err := cmd.Flags().GetString(containerContractFlag)
-	if err == nil {
-		ch, err = util.Uint160DecodeStringLE(s)
-	}
-	if err != nil {
-		ch, err = nnsResolveHash(inv, nnsCs.Hash, containerContract+".neofs")
-		if err != nil {
-			return err
-		}
-	}
-
-	cids, err := unwrap.ArrayOfBytes(inv.Call(ch, "list", ""))
+	cids, err := getContainersList(inv, ch)
 	if err != nil {
 		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
 	}
@@ -102,6 +121,35 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	return os.WriteFile(filename, out, 0o660)
+}
+
+func listContainers(cmd *cobra.Command, _ []string) error {
+	c, err := getN3Client(viper.GetViper())
+	if err != nil {
+		return fmt.Errorf("can't create N3 client: %w", err)
+	}
+
+	inv := invoker.New(c, nil)
+
+	ch, err := getContainerContractHash(cmd, inv, c)
+	if err != nil {
+		return fmt.Errorf("unable to get contaract hash: %w", err)
+	}
+
+	cids, err := getContainersList(inv, ch)
+	if err != nil {
+		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+	}
+
+	for _, id := range cids {
+		var idCnr cid.ID
+		err = idCnr.Decode(id)
+		if err != nil {
+			return fmt.Errorf("unable to decode container id: %w", err)
+		}
+		cmd.Println(idCnr)
+	}
+	return nil
 }
 
 func restoreContainers(cmd *cobra.Command, _ []string) error {

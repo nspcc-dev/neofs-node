@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `morph list-containers` in `neofs-adm` (#1689)
+
 ### Changed
 ### Fixed
 ### Removed
