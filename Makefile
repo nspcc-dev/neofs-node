@@ -160,13 +160,5 @@ debpackage:
 			"Please see CHANGELOG.md for code changes for $(VERSION)"
 	dpkg-buildpackage --no-sign -b
 
-docker/debpackage:
-	docker run --rm -t \
-	-v `pwd`:/src \
-	-w /src \
-	-u "$$(id -u):$$(id -g)" \
-	--env HOME=/src \
-	golang:$(GO_VERSION) apt update && apt install debhelper-compat dh-sequence-bash-completion devscripts && make debpackage
-
 debclean:
 	dh clean
