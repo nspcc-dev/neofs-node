@@ -4,6 +4,15 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+### Changed
+### Fixed
+### Removed
+### Updated
+### Updating from v0.34.0
+
+## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
+
+### Added
 - `--timeout` flag in `neofs-cli control` commands (#1917)
 - Document shard modes of operation (#1909)
 - `tree list` CLI command (#1332)
@@ -11,10 +20,10 @@ Changelog for NeoFS Node
 - All trees synchronization on bootstrap (#1902)
 - `--force` flag to `neofs-cli control set-status` command (#1916)
 - Logging `SessionService.Create` RPC on the server for debug (#1930)
-- Debian packages can now be built with `make debpackage` (#1802)
+- Debian packages can now be built with `make debpackage` (#409)
 
 ### Changed
-- Path to a metabase can now be reloaded with a SIGHUP.
+- Path to a metabase can now be reloaded with a SIGHUP (#1869)
 
 ### Fixed
 - `writecache.max_object_size` is now correctly handled (#1925)
@@ -27,13 +36,16 @@ Changelog for NeoFS Node
 - `neofs-adm` now works correctly with a committee of more than 4 nodes (#1949, #1959)
 - Closing a shard now waits until GC background workers stop (#1964)
 - Make it possible to use `shard.ContainerSize` in read-only mode (#1975)
-- Storage node now starts if at least one gRPC enpoint is available (#1893)
+- Storage node now starts if at least one gRPC endpoint is available (#1893)
+- Panic in API multy client (#1961)
+- Blobstor object removal log messages (#1953)
 - Missing object relatives in object removal session opened by NeoFS CLI (#1978)
 - Bringing a node back online during maintenance (#1900)
 
-### Removed
 ### Updated
 - `neo-go` to `v0.99.4`
+- `protoc` to `v3.21.7`
+- `neofs-sdk` to `v1.0.0-rc.7`
 
 ### Updating from v0.33.0
 Now storage node serves Control API `SetNemapStatus` request with `MAINTENANCE`
@@ -1408,7 +1420,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...master
+[0.34.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.30.2...v0.31.0
