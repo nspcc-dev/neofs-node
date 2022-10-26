@@ -125,7 +125,7 @@ mainLoop:
 			//  because ListWithCursor works only with the metabase.
 			listRes, err := sh.ListWithCursor(listPrm)
 			if err != nil {
-				if errors.Is(err, meta.ErrEndOfListing) {
+				if errors.Is(err, meta.ErrEndOfListing) || errors.Is(err, shard.ErrDegradedMode) {
 					continue mainLoop
 				}
 				return res, err
