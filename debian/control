@@ -12,26 +12,35 @@ Package: neofs-storage
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: NeoFS Storage node
- NeoFS is a decentralized distributed object storage integrated with the NEO Blockchain.
- NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and distributing user's data. 
- Any Neo user may participate in the network and get paid for providing storage resources to other users or 
- store their data in NeoFS and pay a competitive price for it.
+ NeoFS is a decentralized distributed object storage integrated with the 
+ NEO Blockchain.
+ NeoFS Nodes are organized in a peer-to-peer network that takes care of storing
+ and distributing user's data. 
+ Any Neo user may participate in the network and get paid for providing storage
+ resources to other users or store their data in NeoFS and pay a competitive 
+ price for it.
 
 Package: neofs-ir
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, neofs-locode-db
 Description: NeoFS InnerRing node
- NeoFS is a decentralized distributed object storage integrated with the NEO Blockchain.
- NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and distributing user's data. 
- Any Neo user may participate in the network and get paid for providing storage resources to other users or 
- store their data in NeoFS and pay a competitive price for it.
+ NeoFS is a decentralized distributed object storage integrated with the 
+ NEO Blockchain.
+ NeoFS Nodes are organized in a peer-to-peer network that takes care of storing
+ and distributing user's data. 
+ Any Neo user may participate in the network and get paid for providing storage
+ resources to other users or store their data in NeoFS and pay a competitive 
+ price for it.
 
 Package: neofs-cli
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: CLI tools for NeoFS
- NeoFS is a decentralized distributed object storage integrated with the NEO Blockchain.
- NeoFS Nodes are organized in a peer-to-peer network that takes care of storing and distributing user's data. 
- Any Neo user may participate in the network and get paid for providing storage resources to other users or 
- store their data in NeoFS and pay a competitive price for it.
+ NeoFS is a decentralized distributed object storage integrated with the 
+ NEO Blockchain.
+ NeoFS Nodes are organized in a peer-to-peer network that takes care of storing
+ and distributing user's data. 
+ Any Neo user may participate in the network and get paid for providing storage
+ resources to other users or store their data in NeoFS and pay a competitive 
+ price for it.
 
