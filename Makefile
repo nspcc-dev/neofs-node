@@ -23,7 +23,7 @@ BINS = $(addprefix $(BIN)/, $(CMDS))
 OS_RELEASE = $(shell lsb_release -cs)
 PKG_VERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
 			sed -E "s/(.*)-(g[a-fA-F0-9]{6,8})(.*)/\1\3~\2/" | \
-			sed "s/-/~/")
+			sed "s/-/~/")-${OS_RELEASE}
 
 .PHONY: help all images dep clean fmts fmt imports test lint docker/lint
 		prepare-release debpackage
@@ -155,7 +155,6 @@ debpackage:
 	dch --package neofs-node \
 			--controlmaint \
 			--newversion $(PKG_VERSION) \
-			--force-bad-version \
 			--distribution $(OS_RELEASE) \
 			"Please see CHANGELOG.md for code changes for $(VERSION)"
 	dpkg-buildpackage --no-sign -b
