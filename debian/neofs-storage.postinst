@@ -21,13 +21,12 @@ case "$1" in
         USERNAME=storage
         id -u neofs-storage >/dev/null 2>&1 || useradd -s /usr/sbin/nologin -d /srv/neofs --system -M -U -c "NeoFS Storage node" neofs-storage
         if ! dpkg-statoverride --list /etc/neofs/$USERNAME >/dev/null; then
-            chown -f -R root:neofs-$USERNAME /etc/neofs/$USERNAME
+            chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME/*
             chmod -f 0750 /etc/neofs/$USERNAME
-            chmod -f u=rwX,g=rX,o= /etc/neofs/$USERNAME/* || true
         fi
         USERDIR=$(getent passwd "neofs-$USERNAME" | cut -d: -f6)
         if ! dpkg-statoverride --list neofs-$USERDIR >/dev/null; then
-            chown -f -R neofs-$USERNAME: $USERDIR
+            chown -f neofs-$USERNAME: $USERDIR
         fi
     ;;
 
