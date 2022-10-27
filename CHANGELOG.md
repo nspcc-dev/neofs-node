@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Closing a shard now waits until GC background workers stop (#1964)
 - Make it possible to use `shard.ContainerSize` in read-only mode (#1975)
 - Storage node now starts if at least one gRPC enpoint is available (#1893)
+- Missing object relatives in object removal session opened by NeoFS CLI (#1978)
 
 ### Removed
 ### Updated
