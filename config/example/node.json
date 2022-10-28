@@ -137,6 +137,7 @@
         "resync_metabase": false,
         "writecache": {
           "enabled": false,
+          "no_sync": true,
           "path": "tmp/0/cache",
           "small_object_size": 16384,
           "max_object_size": 134217728,

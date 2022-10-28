@@ -157,6 +157,7 @@ storage:
 
       writecache:
         enabled: false
+        no_sync: true
         path: tmp/0/cache  # write-cache root directory
         capacity: 3221225472  # approximate write-cache total size, bytes
 

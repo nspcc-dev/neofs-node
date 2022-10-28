@@ -129,6 +129,7 @@ type shardCfg struct {
 		maxObjSize       uint64
 		flushWorkerCount int
 		sizeLimit        uint64
+		noSync           bool
 	}
 
 	piloramaCfg struct {
@@ -219,6 +220,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			wc.smallObjectSize = writeCacheCfg.SmallObjectSize()
 			wc.flushWorkerCount = writeCacheCfg.WorkersNumber()
 			wc.sizeLimit = writeCacheCfg.SizeLimit()
+			wc.noSync = writeCacheCfg.NoSync()
 		}
 
 		// blobstor with substorages
@@ -644,7 +646,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				writecache.WithSmallObjectSize(wcRead.smallObjectSize),
 				writecache.WithFlushWorkersCount(wcRead.flushWorkerCount),
 				writecache.WithMaxCacheSize(wcRead.sizeLimit),
-
+				writecache.WithNoSync(wcRead.noSync),
 				writecache.WithLogger(c.log),
 			)
 		}
