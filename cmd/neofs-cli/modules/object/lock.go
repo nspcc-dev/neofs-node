@@ -21,22 +21,22 @@ import (
 
 // object lock command.
 var objectLockCmd = &cobra.Command{
-	Use:   "lock CONTAINER OBJECT...",
+	Use:   "lock",
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
-	Args:  cobra.MinimumNArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		var cnr cid.ID
+	Run: func(cmd *cobra.Command, _ []string) {
+		cidRaw, _ := cmd.Flags().GetString("cid")
 
-		err := cnr.DecodeString(args[0])
+		var cnr cid.ID
+		err := cnr.DecodeString(cidRaw)
 		common.ExitOnErr(cmd, "Incorrect container arg: %v", err)
 
-		argsList := args[1:]
+		oidsRaw, _ := cmd.Flags().GetStringSlice("oid")
 
-		lockList := make([]oid.ID, len(argsList))
+		lockList := make([]oid.ID, len(oidsRaw))
 
-		for i := range argsList {
-			err = lockList[i].DecodeString(argsList[i])
+		for i := range oidsRaw {
+			err = lockList[i].DecodeString(oidsRaw[i])
 			common.ExitOnErr(cmd, fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err)
 		}
 
@@ -94,7 +94,16 @@ func initCommandObjectLock() {
 	commonflags.Init(objectLockCmd)
 	initFlagSession(objectLockCmd, "PUT")
 
-	objectLockCmd.Flags().Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
-	objectLockCmd.Flags().Uint64(commonflags.Lifetime, 0, "Lock lifetime")
+	ff := objectLockCmd.Flags()
+
+	ff.String("cid", "", "Container ID")
+	_ = objectLockCmd.MarkFlagRequired("cid")
+
+	ff.StringSlice("oid", nil, "Object ID")
+	_ = objectLockCmd.MarkFlagRequired("oid")
+
+	ff.Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
+
+	ff.Uint64(commonflags.Lifetime, 0, "Lock lifetime")
 	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
