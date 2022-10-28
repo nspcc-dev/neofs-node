@@ -29,3 +29,9 @@ func WithPath(p string) Option {
 		f.RootPath = p
 	}
 }
+
+func WithNoSync(noSync bool) Option {
+	return func(f *FSTree) {
+		f.noSync = noSync
+	}
+}
