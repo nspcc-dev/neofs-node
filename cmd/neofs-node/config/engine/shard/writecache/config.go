@@ -115,6 +115,13 @@ func (x *Config) SizeLimit() uint64 {
 	return SizeLimitDefault
 }
 
+// NoSync returns the value of "no_sync" config parameter.
+//
+// Returns false if the value is not a boolean.
+func (x *Config) NoSync() bool {
+	return config.BoolSafe((*config.Config)(x), "no_sync")
+}
+
 // BoltDB returns config instance for querying bolt db specific parameters.
 func (x *Config) BoltDB() *boltdbconfig.Config {
 	return (*boltdbconfig.Config)(x)
