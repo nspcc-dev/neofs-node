@@ -23,6 +23,12 @@ type Info struct {
 type Cache interface {
 	Get(address oid.Address) (*object.Object, error)
 	Head(oid.Address) (*object.Object, error)
+	// Delete removes object referenced by the given oid.Address from the
+	// Cache. Returns any error encountered that prevented the object to be
+	// removed.
+	//
+	// Returns apistatus.ObjectNotFound if object is missing in the Cache.
+	// Returns ErrReadOnly if the Cache is currently in the read-only mode.
 	Delete(oid.Address) error
 	Iterate(IterationPrm) error
 	Put(common.PutPrm) (common.PutRes, error)
