@@ -38,3 +38,10 @@ func (x *Config) Depth() uint64 {
 
 	return DepthDefault
 }
+
+// NoSync returns the value of "no_sync" config parameter.
+//
+// Returns false if the value is not a boolean or is missing.
+func (x *Config) NoSync() bool {
+	return config.BoolSafe((*config.Config)(x), "no_sync")
+}

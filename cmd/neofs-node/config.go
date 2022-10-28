@@ -155,10 +155,11 @@ func (c *shardCfg) id() string {
 
 type subStorageCfg struct {
 	// common for all storages
-	typ   string
-	path  string
-	perm  fs.FileMode
-	depth uint64
+	typ    string
+	path   string
+	perm   fs.FileMode
+	depth  uint64
+	noSync bool
 
 	// blobovnicza-specific
 	size            uint64
@@ -258,6 +259,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.depth = sub.Depth()
+				sCfg.noSync = sub.NoSync()
 			default:
 				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
 			}
@@ -681,7 +683,8 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 					Storage: fstree.New(
 						fstree.WithPath(sRead.path),
 						fstree.WithPerm(sRead.perm),
-						fstree.WithDepth(sRead.depth)),
+						fstree.WithDepth(sRead.depth),
+						fstree.WithNoSync(sRead.noSync)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
 					},
