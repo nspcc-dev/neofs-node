@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 ### Changed
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
+- `neofs-cli container nodes`'s output (#1991)
 
 ### Removed
 ### Updated

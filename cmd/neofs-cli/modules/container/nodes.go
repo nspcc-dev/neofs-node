@@ -39,12 +39,14 @@ var containerNodesCmd = &cobra.Command{
 		binCnr := make([]byte, sha256.Size)
 		id.Encode(binCnr)
 
+		policy := cnr.PlacementPolicy()
+
 		var cnrNodes [][]netmap.NodeInfo
-		cnrNodes, err = resmap.NetMap().ContainerNodes(cnr.PlacementPolicy(), binCnr)
+		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, binCnr)
 		common.ExitOnErr(cmd, "could not build container nodes for given container: %w", err)
 
 		for i := range cnrNodes {
-			cmd.Printf("Rep %d\n", i+1)
+			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
 			for j := range cnrNodes[i] {
 				common.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
 			}
