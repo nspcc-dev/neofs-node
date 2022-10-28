@@ -84,7 +84,14 @@ func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
 		}
 	}
 
-	s.controlNetStatus.Store(ctrlNetSt)
+	s.setControlNetmapStatus(ctrlNetSt)
+}
+
+// sets the current node state to the given value. Subsequent cfg.bootstrap
+// calls will process this value to decide what status node should set in the
+// network.
+func (s *networkState) setControlNetmapStatus(st control.NetmapStatus) {
+	s.controlNetStatus.Store(st)
 }
 
 func (s *networkState) controlNetmapStatus() (res control.NetmapStatus) {
