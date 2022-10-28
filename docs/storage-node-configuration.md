@@ -169,52 +169,60 @@ Contains configuration for each shard. Keys must be consecutive numbers starting
 `default` subsection has the same format and specifies defaults for missing values.
 The following table describes configuration for each shard.
 
-| Parameter         | Type                                        | Default value | Description                                                                                               |
-|-------------------|---------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------|
-| `mode`            | `string`                                    | `read-write`  | Shard Mode.<br/>Possible values:  `read-write`, `read-only`, `degraded`, `degraded-read-only`, `disabled` |
-| `resync_metabase` | `bool`                                      | `false`       | Flag to enable metabase resync on start.                                                                  |
-| `writecache`      | [Writecache config](#writecache-subsection) |               | Write-cache configuration.                                                                                |
-| `metabase`        | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                                                                                   |
-| `blobstor`        | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                                                                                   |
-| `gc`              | [GC config](#gc-subsection)                 |               | GC configuration.                                                                                         |
+| Parameter                           | Type                                        | Default value | Description                                                                                                                                                                                                       |
+|-------------------------------------|---------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `compress`                          | `bool`                                      | `false`       | Flag to enable compression.                                                                                                                                                                                       |
+| `compression_exclude_content_types` | `[]string`                                  |               | List of content-types to disable compression for. Content-type is taken from `Content-Type` object attribute. Each element can contain a star `*` as a first (last) character, which matches any prefix (suffix). |
+| `mode`                              | `string`                                    | `read-write`  | Shard Mode.<br/>Possible values:  `read-write`, `read-only`, `degraded`, `degraded-read-only`, `disabled`                                                                                                         |
+| `resync_metabase`                   | `bool`                                      | `false`       | Flag to enable metabase resync on start.                                                                                                                                                                          |
+| `writecache`                        | [Writecache config](#writecache-subsection) |               | Write-cache configuration.                                                                                                                                                                                        |
+| `metabase`                          | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                                                                                                                                                                                           |
+| `blobstor`                          | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                                                                                                                                                                                           |
+| `small_object_size`                 | `size`                                      | `1M`          | Maximum size of an object stored in blobovnicza tree.                                                                                                                                                             |
+| `gc`                                | [GC config](#gc-subsection)                 |               | GC configuration.                                                                                                                                                                                                 |
 
 ### `blobstor` subsection
 
+Contains a list of substorages each with it's own type.
+Currently only 2 types are supported: `fstree` and `blobovnicza`.
+
 ```yaml
 blobstor:
-  path: /path/to/blobstor
-  perm: 0644
-  compress: true
-  compression_exclude_content_types:
-    - audio/*
-    - video/*
-  depth: 5
-  small_object_size: 102400
-    blobovnicza:
-      size: 4194304
-      depth: 1
-      width: 4
-      opened_cache_capacity: 50
+  - type: blobovnicza
+    path: /path/to/blobstor
+    depth: 1
+    width: 4
+  - type: fstree
+    path: /path/to/blobstor/blobovnicza
+    perm: 0644
+    size: 4194304
+    depth: 1
+    width: 4
+    opened_cache_capacity: 50
 ```
+
+#### Common options for sub-storages
 | Parameter                           | Type                                          | Default value | Description                                                                                                                                                                                                       |
 |-------------------------------------|-----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `path`                              | `string`                                      |               | Path to the root of the blobstor.                                                                                                                                                                                 |
 | `perm`                              | file mode                                     | `0660`        | Default permission for created files and directories.                                                                                                                                                             |
-| `compress`                          | `bool`                                        | `false`       | Flag to enable compression.                                                                                                                                                                                       |
-| `compression_exclude_content_types` | `[]string`                                    |               | List of content-types to disable compression for. Content-type is taken from `Content-Type` object attribute. Each element can contain a star `*` as a first (last) character, which matches any prefix (suffix). |
-| `depth`                             | `int`                                         | `4`           | Depth of the file-system tree for large objects. Must be in range 1..31.                                                                                                                                          |
-| `small_object_size`                 | `size`                                        | `1M`          | Maximum size of an object stored in blobovnicza tree.                                                                                                                                                             |
-| `blobovnicza`                       | [Blobovnicza config](#blobovnicza-subsection) |               | Blobovnicza tree configuration.                                                                                                                                                                                   |
 
-#### `blobovnicza` subsection
+#### `fstree` type options
+| Parameter           | Type      | Default value | Description                                           |
+|---------------------|-----------|---------------|-------------------------------------------------------|
+| `path`              | `string`  |               | Path to the root of the blobstor.                     |
+| `perm`              | file mode | `0660`        | Default permission for created files and directories. |
+| `depth`             | `int`     | `4`           | File-system tree depth.                               |
 
-| Parameter               | Type     | Default value | Description                                           |
-|-------------------------|----------|---------------|-------------------------------------------------------|
-| `path`                  | `string` |               | Path to the root of the blobovnicza tree.             |
-| `size`                  | `size`   | `1 G`         | Maximum size of a single blobovnicza                  |
-| `depth`                 | `int`    | `2`           | Blobovnicza tree depth.                               |
-| `width`                 | `int`    | `16`          | Blobovnicza tree width.                               |
-| `opened_cache_capacity` | `int`    | `16`          | Maximum number of simultaneously opened blobovniczas. |
+#### `blobovnicza` type options
+| Parameter               | Type      | Default value | Description                                           |
+|-------------------------|-----------|---------------|-------------------------------------------------------|
+| `path`                  | `string`  |               | Path to the root of the blobstor.                     |
+| `perm`                  | file mode | `0660`        | Default permission for created files and directories. |
+| `size`                  | `size`    | `1 G`         | Maximum size of a single blobovnicza                  |
+| `depth`                 | `int`     | `2`           | Blobovnicza tree depth.                               |
+| `width`                 | `int`     | `16`          | Blobovnicza tree width.                               |
+| `opened_cache_capacity` | `int`     | `16`          | Maximum number of simultaneously opened blobovniczas. |
 
 ### `gc` subsection
 
