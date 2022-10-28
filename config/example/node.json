@@ -214,6 +214,7 @@
           {
             "type": "fstree",
             "path": "tmp/1/blob",
+            "no_sync": true,
             "perm": "0644",
             "depth": 5
           }
