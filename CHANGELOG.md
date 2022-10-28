@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 ### Changed
+- `object lock` command reads CID and OID the same way other commands do (#1971)
+
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
 - `neofs-cli container nodes`'s output (#1991)
@@ -13,6 +15,7 @@ Changelog for NeoFS Node
 ### Removed
 ### Updated
 ### Updating from v0.34.0
+Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
 
 ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
