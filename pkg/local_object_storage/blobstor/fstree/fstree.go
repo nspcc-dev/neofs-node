@@ -28,6 +28,7 @@ type FSTree struct {
 	Depth      uint64
 	DirNameLen int
 
+	noSync   bool
 	readOnly bool
 }
 
@@ -238,14 +239,37 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 		prm.RawData = t.Compress(prm.RawData)
 	}
 
-	err := os.WriteFile(p, prm.RawData, t.Permissions)
+	err := t.writeFile(p, prm.RawData)
 	if err != nil {
 		var pe *fs.PathError
 		if errors.As(err, &pe) && pe.Err == syscall.ENOSPC {
 			err = common.ErrNoSpace
 		}
 	}
+
 	return common.PutRes{StorageID: []byte{}}, err
+}
+
+func (t *FSTree) writeFlags() int {
+	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	if t.noSync {
+		return flags
+	}
+	return flags | os.O_SYNC
+}
+
+// writeFile writes data to a file with path p.
+// The code is copied from `os.WriteFile` with minor corrections for flags.
+func (t *FSTree) writeFile(p string, data []byte) error {
+	f, err := os.OpenFile(p, t.writeFlags(), t.Permissions)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+	return err
 }
 
 // PutStream puts executes handler on a file opened for write.
@@ -260,7 +284,7 @@ func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error
 		return err
 	}
 
-	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, t.Permissions)
+	f, err := os.OpenFile(p, t.writeFlags(), t.Permissions)
 	if err != nil {
 		return err
 	}
