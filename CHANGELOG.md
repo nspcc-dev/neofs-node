@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - Make it possible to use `shard.ContainerSize` in read-only mode (#1975)
 - Storage node now starts if at least one gRPC enpoint is available (#1893)
 - Missing object relatives in object removal session opened by NeoFS CLI (#1978)
+- Bringing a node back online during maintenance (#1900)
 
 ### Removed
 ### Updated

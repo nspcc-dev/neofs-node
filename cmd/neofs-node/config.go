@@ -312,8 +312,9 @@ type internals struct {
 }
 
 // starts node's maintenance.
-func (c *internals) startMaintenance() {
+func (c *cfg) startMaintenance() {
 	c.isMaintenance.Store(true)
+	c.cfgNetmap.state.setControlNetmapStatus(control.NetmapStatus_MAINTENANCE)
 	c.log.Info("started local node's maintenance")
 }
 
