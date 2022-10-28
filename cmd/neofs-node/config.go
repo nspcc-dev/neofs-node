@@ -836,31 +836,40 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setNodeInfo(ni)
 }
 
-// bootstrap sets local node's netmap status to "online".
-// If current netmap status is MAINTENANCE and this function wasn't called thorough a control service,
-// the status is untouched.
-func (c *cfg) bootstrap(manual bool) error {
+// bootstrapWithState calls "addPeer" method of the Sidechain Netmap contract
+// with the binary-encoded information from the current node's configuration.
+// The state is set using the provided setter which MUST NOT be nil.
+func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
 	ni := c.cfgNodeInfo.localInfo
-
-	// switch to online except when under maintenance
-	if st := c.cfgNetmap.state.controlNetmapStatus(); st == control.NetmapStatus_MAINTENANCE && !manual {
-		ni.SetMaintenance()
-
-		c.log.Info("bootstrap with untouched node state",
-			zap.Stringer("state", st),
-		)
-	} else {
-		ni.SetOnline()
-
-		c.log.Info("bootstrapping with online state",
-			zap.Stringer("previous", st),
-		)
-	}
+	stateSetter(&ni)
 
 	prm := nmClient.AddPeerPrm{}
 	prm.SetNodeInfo(ni)
 
 	return c.cfgNetmap.wrapper.AddPeer(prm)
+}
+
+// bootstrapOnline calls cfg.bootstrapWithState with "online" state.
+func bootstrapOnline(c *cfg) error {
+	return c.bootstrapWithState((*netmap.NodeInfo).SetOnline)
+}
+
+// bootstrap calls bootstrapWithState with:
+//   - "maintenance" state if maintenance is in progress on the current node
+//   - "online", otherwise
+func (c *cfg) bootstrap() error {
+	// switch to online except when under maintenance
+	st := c.cfgNetmap.state.controlNetmapStatus()
+	if st == control.NetmapStatus_MAINTENANCE {
+		c.log.Info("bootstrapping with the maintenance state")
+		return c.bootstrapWithState((*netmap.NodeInfo).SetMaintenance)
+	}
+
+	c.log.Info("bootstrapping with online state",
+		zap.Stringer("previous", st),
+	)
+
+	return bootstrapOnline(c)
 }
 
 // needBootstrap checks if local node should be registered in network on bootup.
