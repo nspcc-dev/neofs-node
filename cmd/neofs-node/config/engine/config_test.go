@@ -95,7 +95,10 @@ func TestEngineSection(t *testing.T) {
 
 				require.Equal(t, "tmp/0/blob", ss[1].Path())
 				require.EqualValues(t, 0644, ss[1].Perm())
-				require.EqualValues(t, 5, fstreeconfig.From((*config.Config)(ss[1])).Depth())
+
+				fst := fstreeconfig.From((*config.Config)(ss[1]))
+				require.EqualValues(t, 5, fst.Depth())
+				require.Equal(t, false, fst.NoSync())
 
 				require.EqualValues(t, 150, gc.RemoverBatchSize())
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
@@ -137,7 +140,10 @@ func TestEngineSection(t *testing.T) {
 
 				require.Equal(t, "tmp/1/blob", ss[1].Path())
 				require.EqualValues(t, 0644, ss[1].Perm())
-				require.EqualValues(t, 5, fstreeconfig.From((*config.Config)(ss[1])).Depth())
+
+				fst := fstreeconfig.From((*config.Config)(ss[1]))
+				require.EqualValues(t, 5, fst.Depth())
+				require.Equal(t, true, fst.NoSync())
 
 				require.EqualValues(t, 200, gc.RemoverBatchSize())
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())

@@ -198,6 +198,7 @@ storage:
           path: tmp/1/blob/blobovnicza
         - type: fstree
           path: tmp/1/blob  # blobstor path
+          no_sync: true
 
       pilorama:
         path: tmp/1/blob/pilorama.db

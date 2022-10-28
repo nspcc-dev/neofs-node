@@ -6,6 +6,8 @@ Changelog for NeoFS Node
 ### Added
 ### Changed
 ### Fixed
+- Open FSTree in sync mode by default (#1992)
+
 ### Removed
 ### Updated
 ### Updating from v0.34.0
