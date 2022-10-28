@@ -68,6 +68,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, pl.MaxBatchSize(), 200)
 
 				require.Equal(t, false, wc.Enabled())
+				require.Equal(t, true, wc.NoSync())
 
 				require.Equal(t, "tmp/0/cache", wc.Path())
 				require.EqualValues(t, 16384, wc.SmallObjectSize())
@@ -113,6 +114,7 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, 100, pl.MaxBatchSize())
 
 				require.Equal(t, true, wc.Enabled())
+				require.Equal(t, false, wc.NoSync())
 
 				require.Equal(t, "tmp/1/cache", wc.Path())
 				require.EqualValues(t, 16384, wc.SmallObjectSize())

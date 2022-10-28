@@ -56,14 +56,12 @@ func (c *cache) openStore(readOnly bool) error {
 		}
 	}
 
-	c.fsTree = &fstree.FSTree{
-		Info: fstree.Info{
-			Permissions: os.ModePerm,
-			RootPath:    c.path,
-		},
-		Depth:      1,
-		DirNameLen: 1,
-	}
+	c.fsTree = fstree.New(
+		fstree.WithPath(c.path),
+		fstree.WithPerm(os.ModePerm),
+		fstree.WithDepth(1),
+		fstree.WithDirNameLen(1),
+		fstree.WithNoSync(c.noSync))
 
 	// Write-cache can be opened multiple times during `SetMode`.
 	// flushed map must not be re-created in this case.

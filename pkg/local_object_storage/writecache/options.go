@@ -50,6 +50,8 @@ type options struct {
 	maxBatchSize int
 	// maxBatchDelay is the maximum batch wait time for the small object database.
 	maxBatchDelay time.Duration
+	// noSync is true iff FSTree allows unsynchronized writes.
+	noSync bool
 }
 
 // WithLogger sets logger.
@@ -128,5 +130,15 @@ func WithMaxBatchDelay(d time.Duration) Option {
 		if d > 0 {
 			o.maxBatchDelay = d
 		}
+	}
+}
+
+// WithNoSync sets an option to allow returning to caller on PUT before write is persisted.
+// Note, that we use this flag for FSTree only and DO NOT use it for a bolt DB because
+// we cannot yet properly handle the corrupted database during the startup. This SHOULD NOT
+// be relied upon and may be changed in future.
+func WithNoSync(noSync bool) Option {
+	return func(o *options) {
+		o.noSync = noSync
 	}
 }
