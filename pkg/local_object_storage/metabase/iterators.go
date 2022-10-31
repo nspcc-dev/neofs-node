@@ -35,7 +35,7 @@ type ExpiredObjectHandler func(*ExpiredObject) error
 
 // ErrInterruptIterator is returned by iteration handlers
 // as a "break" keyword.
-var ErrInterruptIterator = logicerr.Wrap(errors.New("iterator is interrupted"))
+var ErrInterruptIterator = logicerr.New("iterator is interrupted")
 
 // IterateExpired iterates over all objects in DB which are out of date
 // relative to epoch. Locked objects are not included (do not confuse

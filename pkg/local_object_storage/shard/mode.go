@@ -1,18 +1,16 @@
 package shard
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
 
 // ErrReadOnlyMode is returned when it is impossible to apply operation
 // that changes shard's memory due to the "read-only" shard's mode.
-var ErrReadOnlyMode = logicerr.Wrap(errors.New("shard is in read-only mode"))
+var ErrReadOnlyMode = logicerr.New("shard is in read-only mode")
 
 // ErrDegradedMode is returned when operation requiring metabase is executed in degraded mode.
-var ErrDegradedMode = logicerr.Wrap(errors.New("shard is in degraded mode"))
+var ErrDegradedMode = logicerr.New("shard is in degraded mode")
 
 // SetMode sets mode of the shard.
 //

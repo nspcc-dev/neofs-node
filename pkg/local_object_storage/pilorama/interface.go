@@ -1,8 +1,6 @@
 package pilorama
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -68,7 +66,7 @@ type CIDDescriptor struct {
 
 // ErrInvalidCIDDescriptor is returned when info about tne node position
 // in the container is invalid.
-var ErrInvalidCIDDescriptor = logicerr.Wrap(errors.New("cid descriptor is invalid"))
+var ErrInvalidCIDDescriptor = logicerr.New("cid descriptor is invalid")
 
 func (d CIDDescriptor) checkValid() bool {
 	return 0 <= d.Position && d.Position < d.Size

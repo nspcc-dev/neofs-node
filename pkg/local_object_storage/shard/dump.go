@@ -2,7 +2,6 @@ package shard
 
 import (
 	"encoding/binary"
-	"errors"
 	"io"
 	"os"
 
@@ -47,7 +46,7 @@ func (r DumpRes) Count() int {
 	return r.count
 }
 
-var ErrMustBeReadOnly = logicerr.Wrap(errors.New("shard must be in read-only mode"))
+var ErrMustBeReadOnly = logicerr.New("shard must be in read-only mode")
 
 // Dump dumps all objects from the shard to a file or stream.
 //

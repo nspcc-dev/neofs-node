@@ -1,8 +1,6 @@
 package meta
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -12,7 +10,7 @@ import (
 // ErrEndOfListing is returned from object listing with cursor
 // when storage can't return any more objects after provided
 // cursor. Use nil cursor object to start listing again.
-var ErrEndOfListing = logicerr.Wrap(errors.New("end of object listing"))
+var ErrEndOfListing = logicerr.New("end of object listing")
 
 // Cursor is a type for continuous object listing.
 type Cursor struct {

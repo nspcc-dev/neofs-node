@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -15,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var errShardNotFound = logicerr.Wrap(errors.New("shard not found"))
+var errShardNotFound = logicerr.New("shard not found")
 
 type hashedShard shardWrapper
 

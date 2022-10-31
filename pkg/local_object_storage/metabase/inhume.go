@@ -79,7 +79,7 @@ var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // ErrLockObjectRemoval is returned when inhume operation is being
 // performed on lock object, and it is not a forced object removal.
-var ErrLockObjectRemoval = logicerr.Wrap(errors.New("lock object removal"))
+var ErrLockObjectRemoval = logicerr.New("lock object removal")
 
 // Inhume marks objects as removed but not removes it from metabase.
 //

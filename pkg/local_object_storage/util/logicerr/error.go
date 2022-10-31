@@ -1,8 +1,15 @@
 package logicerr
 
+import "errors"
+
 // Logical is a wrapper for logical errors.
 type Logical struct {
 	err error
+}
+
+// New returns simple error with a provided error message.
+func New(msg string) Logical {
+	return Wrap(errors.New(msg))
 }
 
 // Error implements the error interface.

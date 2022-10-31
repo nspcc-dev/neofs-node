@@ -1,8 +1,6 @@
 package shard
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -11,7 +9,7 @@ import (
 var _ pilorama.Forest = (*Shard)(nil)
 
 // ErrPiloramaDisabled is returned when pilorama was disabled in the configuration.
-var ErrPiloramaDisabled = logicerr.Wrap(errors.New("pilorama is disabled"))
+var ErrPiloramaDisabled = logicerr.New("pilorama is disabled")
 
 // TreeMove implements the pilorama.Forest interface.
 func (s *Shard) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {

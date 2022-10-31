@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -25,7 +24,7 @@ type ExistsRes struct {
 	exists bool
 }
 
-var ErrLackSplitInfo = logicerr.Wrap(errors.New("no split info on parent object"))
+var ErrLackSplitInfo = logicerr.New("no split info on parent object")
 
 // SetAddress is an Exists option to set object checked for existence.
 func (p *ExistsPrm) SetAddress(addr oid.Address) {
