@@ -3,7 +3,6 @@ package meta
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -71,7 +70,7 @@ func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw b
 		case 2:
 			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 		case 3:
-			return nil, object.ErrObjectIsExpired
+			return nil, ErrObjectIsExpired
 		}
 	}
 

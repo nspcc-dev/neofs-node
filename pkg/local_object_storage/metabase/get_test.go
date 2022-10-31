@@ -139,7 +139,7 @@ func TestDB_Get(t *testing.T) {
 		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
 			gotExp, err := metaGet(db, object.AddressOf(exp), false)
 			require.Nil(t, gotExp)
-			require.ErrorIs(t, err, object.ErrObjectIsExpired)
+			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
 			gotNonExp, err := metaGet(db, object.AddressOf(nonExp), false)
 			require.NoError(t, err)

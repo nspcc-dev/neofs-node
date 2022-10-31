@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -64,7 +63,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	case 2:
 		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
 	case 3:
-		return false, object.ErrObjectIsExpired
+		return false, ErrObjectIsExpired
 	}
 
 	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))

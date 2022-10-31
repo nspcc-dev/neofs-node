@@ -3,7 +3,7 @@ package shard
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
@@ -28,5 +28,5 @@ func IsErrOutOfRange(err error) bool {
 // IsErrObjectExpired checks if an error returned by Shard corresponds to
 // expired object.
 func IsErrObjectExpired(err error) bool {
-	return errors.Is(err, object.ErrObjectIsExpired)
+	return errors.Is(err, meta.ErrObjectIsExpired)
 }

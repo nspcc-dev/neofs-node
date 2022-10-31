@@ -3,7 +3,6 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -67,7 +66,7 @@ func (c *cache) isFlushed(addr oid.Address) bool {
 
 	mRes, err := c.metabase.Exists(existsPrm)
 	if err != nil {
-		return errors.Is(err, object.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
+		return errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
 	}
 
 	if !mRes.Exists() {
