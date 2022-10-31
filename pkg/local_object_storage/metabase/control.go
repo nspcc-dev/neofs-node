@@ -13,7 +13,7 @@ import (
 )
 
 // ErrDegradedMode is returned when metabase is in a degraded mode.
-var ErrDegradedMode = logicerr.Wrap(errors.New("metabase is in a degraded mode"))
+var ErrDegradedMode = logicerr.New("metabase is in a degraded mode")
 
 // Open boltDB instance for metabase.
 func (db *DB) Open(readOnly bool) error {

@@ -1,7 +1,6 @@
 package blobstor
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -12,7 +11,7 @@ import (
 
 // ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
 // because of the policy.
-var ErrNoPlaceFound = logicerr.Wrap(errors.New("couldn't find a place to store an object"))
+var ErrNoPlaceFound = logicerr.New("couldn't find a place to store an object")
 
 // Put saves the object in BLOB storage.
 //

@@ -12,7 +12,7 @@ import (
 )
 
 // ErrInvalidMagic is returned when dump format is invalid.
-var ErrInvalidMagic = logicerr.Wrap(errors.New("invalid magic"))
+var ErrInvalidMagic = logicerr.New("invalid magic")
 
 // RestorePrm groups the parameters of Restore operation.
 type RestorePrm struct {

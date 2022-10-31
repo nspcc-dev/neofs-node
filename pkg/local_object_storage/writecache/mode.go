@@ -1,7 +1,6 @@
 package writecache
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,7 +9,7 @@ import (
 )
 
 // ErrReadOnly is returned when Put/Write is performed in a read-only mode.
-var ErrReadOnly = logicerr.Wrap(errors.New("write-cache is in read-only mode"))
+var ErrReadOnly = logicerr.New("write-cache is in read-only mode")
 
 // SetMode sets write-cache mode of operation.
 // When shard is put in read-only mode all objects in memory are flushed to disk
