@@ -223,7 +223,7 @@ func (s *Shard) refillMetabase() error {
 		mPrm.SetStorageID(descriptor)
 
 		_, err := s.metaBase.Put(mPrm)
-		if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, object.ErrObjectIsExpired) {
+		if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
 			return err
 		}
 

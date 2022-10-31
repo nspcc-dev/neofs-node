@@ -177,7 +177,7 @@ func TestDB_Exists(t *testing.T) {
 		checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
 			gotObj, err := metaExists(db, object.AddressOf(exp))
 			require.False(t, gotObj)
-			require.ErrorIs(t, err, object.ErrObjectIsExpired)
+			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
 			gotObj, err = metaExists(db, object.AddressOf(nonExp))
 			require.True(t, gotObj)

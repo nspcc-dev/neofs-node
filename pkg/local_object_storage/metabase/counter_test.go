@@ -211,7 +211,7 @@ func TestCounters_Expired(t *testing.T) {
 
 	for _, o := range oo {
 		_, err := metaGet(db, o, true)
-		require.ErrorIs(t, err, objectcore.ErrObjectIsExpired)
+		require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 	}
 
 	// 3. inhuming an expired object with GCMark (like it would
