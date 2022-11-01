@@ -128,12 +128,6 @@ func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
 	}
 }
 
-func WithFormatValidatorOpts(v ...object.FormatValidatorOption) Option {
-	return func(c *cfg) {
-		c.fmtValidatorOpts = v
-	}
-}
-
 func WithNetworkState(v netmap.State) Option {
 	return func(c *cfg) {
 		c.networkState = v
