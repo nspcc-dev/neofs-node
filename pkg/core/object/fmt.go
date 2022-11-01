@@ -26,11 +26,7 @@ type FormatValidator struct {
 type FormatValidatorOption func(*cfg)
 
 type cfg struct {
-	deleteHandler DeleteHandler
-
 	netState netmap.State
-
-	locker Locker
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -173,130 +169,141 @@ func (v *FormatValidator) checkOwnerKey(id user.ID, key neofsecdsa.PublicKey) er
 	return nil
 }
 
+// ContentMeta describes NeoFS meta information that brings object's payload if the object
+// is one of:
+//   - object.TypeTombstone;
+//   - object.TypeStorageGroup;
+//   - object.TypeLock.
+type ContentMeta struct {
+	typ object.Type
+
+	objs []oid.ID
+}
+
+// Type returns object's type.
+func (i ContentMeta) Type() object.Type {
+	return i.typ
+}
+
+// Objects returns objects that the original object's payload affects:
+//   - inhumed objects, if the original object is a Tombstone;
+//   - locked objects, if the original object is a Lock;
+//   - members of a storage group, if the original object is a Storage group;
+//   - nil, if the original object is a Regular object.
+func (i ContentMeta) Objects() []oid.ID {
+	return i.objs
+}
+
 // ValidateContent validates payload content according to the object type.
-func (v *FormatValidator) ValidateContent(o *object.Object) error {
+func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error) {
+	meta := ContentMeta{
+		typ: o.Type(),
+	}
+
 	switch o.Type() {
 	case object.TypeRegular:
 		// ignore regular objects, they do not need payload formatting
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
-			return fmt.Errorf("(%T) empty payload in tombstone", v)
+			return ContentMeta{}, fmt.Errorf("(%T) empty payload in tombstone", v)
 		}
 
 		tombstone := object.NewTombstone()
 
 		if err := tombstone.Unmarshal(o.Payload()); err != nil {
-			return fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
 		}
 
 		// check if the tombstone has the same expiration in the body and the header
 		exp, err := expirationEpochAttribute(o)
 		if err != nil {
-			return err
+			return ContentMeta{}, err
 		}
 
 		if exp != tombstone.ExpirationEpoch() {
-			return errTombstoneExpiration
+			return ContentMeta{}, errTombstoneExpiration
 		}
 
 		// mark all objects from the tombstone body as removed in the storage engine
-		cnr, ok := o.ContainerID()
+		_, ok := o.ContainerID()
 		if !ok {
-			return errors.New("missing container ID")
+			return ContentMeta{}, errors.New("missing container ID")
 		}
 
 		idList := tombstone.Members()
-		addrList := make([]oid.Address, len(idList))
-
-		for i := range idList {
-			addrList[i].SetContainer(cnr)
-			addrList[i].SetObject(idList[i])
-		}
-
-		if v.deleteHandler != nil {
-			err = v.deleteHandler.DeleteObjects(AddressOf(o), addrList...)
-			if err != nil {
-				return fmt.Errorf("delete objects from %s object content: %w", o.Type(), err)
-			}
-		}
+		meta.objs = idList
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
-			return fmt.Errorf("(%T) empty payload in SG", v)
+			return ContentMeta{}, fmt.Errorf("(%T) empty payload in SG", v)
 		}
 
 		var sg storagegroup.StorageGroup
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
-			return fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
 		}
 
 		mm := sg.Members()
+		meta.objs = mm
+
 		lenMM := len(mm)
 		if lenMM == 0 {
-			return errEmptySGMembers
+			return ContentMeta{}, errEmptySGMembers
 		}
 
 		uniqueFilter := make(map[oid.ID]struct{}, lenMM)
 
 		for i := 0; i < lenMM; i++ {
 			if _, alreadySeen := uniqueFilter[mm[i]]; alreadySeen {
-				return fmt.Errorf("storage group contains non-unique member: %s", mm[i])
+				return ContentMeta{}, fmt.Errorf("storage group contains non-unique member: %s", mm[i])
 			}
 
 			uniqueFilter[mm[i]] = struct{}{}
 		}
 	case object.TypeLock:
 		if len(o.Payload()) == 0 {
-			return errors.New("empty payload in lock")
+			return ContentMeta{}, errors.New("empty payload in lock")
 		}
 
-		cnr, ok := o.ContainerID()
+		_, ok := o.ContainerID()
 		if !ok {
-			return errors.New("missing container")
+			return ContentMeta{}, errors.New("missing container")
 		}
 
-		id, ok := o.ID()
+		_, ok = o.ID()
 		if !ok {
-			return errors.New("missing ID")
+			return ContentMeta{}, errors.New("missing ID")
 		}
 
 		// check that LOCK object has correct expiration epoch
 		lockExp, err := expirationEpochAttribute(o)
 		if err != nil {
-			return fmt.Errorf("lock object expiration epoch: %w", err)
+			return ContentMeta{}, fmt.Errorf("lock object expiration epoch: %w", err)
 		}
 
 		if currEpoch := v.netState.CurrentEpoch(); lockExp < currEpoch {
-			return fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
+			return ContentMeta{}, fmt.Errorf("lock object expiration: %d; current: %d", lockExp, currEpoch)
 		}
 
 		var lock object.Lock
 
 		err = lock.Unmarshal(o.Payload())
 		if err != nil {
-			return fmt.Errorf("decode lock payload: %w", err)
+			return ContentMeta{}, fmt.Errorf("decode lock payload: %w", err)
 		}
 
-		if v.locker != nil {
-			num := lock.NumberOfMembers()
-			if num == 0 {
-				return errors.New("missing locked members")
-			}
-
-			// mark all objects from lock list as locked in the storage engine
-			locklist := make([]oid.ID, num)
-			lock.ReadMembers(locklist)
-
-			err = v.locker.Lock(cnr, id, locklist)
-			if err != nil {
-				return fmt.Errorf("lock objects from %s object content: %w", o.Type(), err)
-			}
+		num := lock.NumberOfMembers()
+		if num == 0 {
+			return ContentMeta{}, errors.New("missing locked members")
 		}
+
+		meta.objs = make([]oid.ID, num)
+		lock.ReadMembers(meta.objs)
 	default:
 		// ignore all other object types, they do not need payload formatting
 	}
 
-	return nil
+	return meta, nil
 }
 
 var errExpired = errors.New("object has expired")
@@ -371,19 +378,5 @@ func (v *FormatValidator) checkOwner(obj *object.Object) error {
 func WithNetState(netState netmap.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState
-	}
-}
-
-// WithDeleteHandler returns an option to set delete queue processor.
-func WithDeleteHandler(v DeleteHandler) FormatValidatorOption {
-	return func(c *cfg) {
-		c.deleteHandler = v
-	}
-}
-
-// WithLocker returns an option to set object lock storage.
-func WithLocker(v Locker) FormatValidatorOption {
-	return func(c *cfg) {
-		c.locker = v
 	}
 }

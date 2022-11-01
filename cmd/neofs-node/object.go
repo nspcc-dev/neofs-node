@@ -97,20 +97,6 @@ func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRe
 	return s.get.GetRangeHash(ctx, req)
 }
 
-type localObjectInhumer struct {
-	storage *engine.StorageEngine
-
-	log *logger.Logger
-}
-
-func (r *localObjectInhumer) DeleteObjects(ts oid.Address, addr ...oid.Address) error {
-	var prm engine.InhumePrm
-	prm.WithTarget(ts, addr...)
-
-	_, err := r.storage.Inhume(prm)
-	return err
-}
-
 type delNetInfo struct {
 	netmap.State
 	tsLifetime uint64
@@ -202,11 +188,6 @@ func initObjectService(c *cfg) {
 		}
 	}
 
-	objInhumer := &localObjectInhumer{
-		storage: ls,
-		log:     c.log,
-	}
-
 	c.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
@@ -254,7 +235,7 @@ func initObjectService(c *cfg) {
 	c.workers = append(c.workers, pol)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
-		e: ls,
+		engine: ls,
 	}
 
 	if c.cfgNotifications.enabled {
@@ -274,10 +255,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
 		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetmapKeys(c),
-		putsvc.WithFormatValidatorOpts(
-			objectCore.WithDeleteHandler(objInhumer),
-			objectCore.WithLocker(ls),
-		),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote),
 		putsvc.WithLogger(c.log),
@@ -561,6 +538,14 @@ type engineWithNotifications struct {
 	defaultTopic string
 }
 
+func (e engineWithNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {
+	return e.base.Delete(tombstone, toDelete)
+}
+
+func (e engineWithNotifications) Lock(locker oid.Address, toLock []oid.ID) error {
+	return e.base.Lock(locker, toLock)
+}
+
 func (e engineWithNotifications) Put(o *objectSDK.Object) error {
 	if err := e.base.Put(o); err != nil {
 		return err
@@ -583,9 +568,28 @@ func (e engineWithNotifications) Put(o *objectSDK.Object) error {
 }
 
 type engineWithoutNotifications struct {
-	e *engine.StorageEngine
+	engine *engine.StorageEngine
+}
+
+func (e engineWithoutNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {
+	var prm engine.InhumePrm
+
+	addrs := make([]oid.Address, len(toDelete))
+	for i := range addrs {
+		addrs[i].SetContainer(tombstone.Container())
+		addrs[i].SetObject(toDelete[i])
+	}
+
+	prm.WithTarget(tombstone, addrs...)
+
+	_, err := e.engine.Inhume(prm)
+	return err
+}
+
+func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) error {
+	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
-	return engine.Put(e.e, o)
+	return engine.Put(e.engine, o)
 }

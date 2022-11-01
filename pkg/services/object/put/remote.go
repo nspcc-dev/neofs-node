@@ -6,6 +6,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
@@ -42,7 +43,7 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteHeader(obj *object.Object) error {
+func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta) error {
 	t.obj = obj
 
 	return nil
@@ -126,7 +127,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteHeader(p.obj); err != nil {
+	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}); err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)

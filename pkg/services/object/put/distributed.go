@@ -16,7 +16,7 @@ import (
 )
 
 type preparedObjectTarget interface {
-	WriteHeader(*objectSDK.Object) error
+	WriteObject(*objectSDK.Object, object.ContentMeta) error
 	Close() (*transformer.AccessIdentifiers, error)
 }
 
@@ -25,7 +25,8 @@ type distributedTarget struct {
 
 	remotePool, localPool util.WorkerPool
 
-	obj *objectSDK.Object
+	obj     *objectSDK.Object
+	objMeta object.ContentMeta
 
 	payload []byte
 
@@ -120,7 +121,9 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	t.obj.SetPayload(t.payload)
 
-	if err := t.fmt.ValidateContent(t.obj); err != nil {
+	var err error
+
+	if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
 		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 
@@ -134,7 +137,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteHeader(t.obj); err != nil {
+	if err := target.WriteObject(t.obj, t.objMeta); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
 	} else if _, err := target.Close(); err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
