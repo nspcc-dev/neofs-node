@@ -17,6 +17,8 @@ Changelog for NeoFS Node
 - Correctly select the shard for applying tree service operations (#1996)
 - Do not panic with bad inputs for `GET_RANGE` (#2007)
 - Physical child object removal by GC (#1699)
+- Broadcasting helper objects (#1972)
+- `neofs-cli lock object`'s `lifetime` flag handling (#1972)
 
 ### Removed
 ### Updated
