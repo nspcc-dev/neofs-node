@@ -114,7 +114,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetType(object.TypeTombstone)
 		obj.SetContainerID(cidtest.ID())
 
-		require.Error(t, v.ValidateContent(obj)) // no tombstone content
+		_, err := v.ValidateContent(obj)
+		require.Error(t, err) // no tombstone content
 
 		content := object.NewTombstone()
 		content.SetMembers([]oid.ID{oidtest.ID()})
@@ -124,7 +125,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj)) // no members in tombstone
+		_, err = v.ValidateContent(obj)
+		require.Error(t, err) // no members in tombstone
 
 		content.SetMembers([]oid.ID{oidtest.ID()})
 
@@ -133,7 +135,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetPayload(data)
 
-		require.Error(t, v.ValidateContent(obj)) // no expiration epoch in tombstone
+		_, err = v.ValidateContent(obj)
+		require.Error(t, err) // no expiration epoch in tombstone
 
 		var expirationAttribute object.Attribute
 		expirationAttribute.SetKey(objectV2.SysAttributeExpEpoch)
@@ -141,15 +144,23 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj.SetAttributes(expirationAttribute)
 
-		require.Error(t, v.ValidateContent(obj)) // different expiration values
+		_, err = v.ValidateContent(obj)
+		require.Error(t, err) // different expiration values
+
+		id := oidtest.ID()
 
 		content.SetExpirationEpoch(10)
+		content.SetMembers([]oid.ID{id})
 		data, err = content.Marshal()
 		require.NoError(t, err)
 
 		obj.SetPayload(data)
 
-		require.NoError(t, v.ValidateContent(obj)) // all good
+		contentGot, err := v.ValidateContent(obj)
+		require.NoError(t, err) // all good
+
+		require.EqualValues(t, []oid.ID{id}, contentGot.Objects())
+		require.Equal(t, object.TypeTombstone, contentGot.Type())
 	})
 
 	t.Run("storage group content", func(t *testing.T) {
@@ -157,7 +168,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetType(object.TypeStorageGroup)
 
 		t.Run("empty payload", func(t *testing.T) {
-			require.Error(t, v.ValidateContent(obj))
+			_, err := v.ValidateContent(obj)
+			require.Error(t, err)
 		})
 
 		var content storagegroup.StorageGroup
@@ -168,7 +180,9 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 
 			obj.SetPayload(data)
-			require.ErrorIs(t, v.ValidateContent(obj), errEmptySGMembers)
+
+			_, err = v.ValidateContent(obj)
+			require.ErrorIs(t, err, errEmptySGMembers)
 		})
 
 		t.Run("non-unique members", func(t *testing.T) {
@@ -180,17 +194,25 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, err)
 
 			obj.SetPayload(data)
-			require.Error(t, v.ValidateContent(obj))
+
+			_, err = v.ValidateContent(obj)
+			require.Error(t, err)
 		})
 
 		t.Run("correct SG", func(t *testing.T) {
-			content.SetMembers([]oid.ID{oidtest.ID(), oidtest.ID()})
+			ids := []oid.ID{oidtest.ID(), oidtest.ID()}
+			content.SetMembers(ids)
 
 			data, err := content.Marshal()
 			require.NoError(t, err)
 
 			obj.SetPayload(data)
-			require.NoError(t, v.ValidateContent(obj))
+
+			content, err := v.ValidateContent(obj)
+			require.NoError(t, err)
+
+			require.EqualValues(t, ids, content.Objects())
+			require.Equal(t, object.TypeStorageGroup, content.Type())
 		})
 	})
 
