@@ -2,8 +2,6 @@ package object
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
 	"strconv"
 	"testing"
 
@@ -18,15 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
-
-func testSHA(t *testing.T) [sha256.Size]byte {
-	cs := [sha256.Size]byte{}
-
-	_, err := rand.Read(cs[:])
-	require.NoError(t, err)
-
-	return cs
-}
 
 func blankValidObject(key *ecdsa.PrivateKey) *object.Object {
 	var idOwner user.ID
@@ -89,7 +78,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 		user.IDFromKey(&idOwner, ownerKey.PrivateKey.PublicKey)
 
 		tok := sessiontest.Object()
-		tok.Sign(ownerKey.PrivateKey)
+		err := tok.Sign(ownerKey.PrivateKey)
+		require.NoError(t, err)
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())

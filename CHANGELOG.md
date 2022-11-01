@@ -14,6 +14,8 @@ Changelog for NeoFS Node
 - Correctly select the shard for applying tree service operations (#1996)
 - Physical child object removal by GC (#1699)
 - Increase error counter for write-cache flush errors (#1818)
+- Broadcasting helper objects (#1972)
+- `neofs-cli lock object`'s `lifetime` flag handling (#1972)
 
 ### Removed
 ### Updated
