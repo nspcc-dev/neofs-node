@@ -63,8 +63,10 @@ var objectLockCmd = &cobra.Command{
 			currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 			common.ExitOnErr(cmd, "Request current epoch: %w", err)
 
-			exp += currEpoch
+			exp = currEpoch + lifetime
 		}
+
+		common.PrintVerbose("Lock object will expire at %d epoch", exp)
 
 		var expirationAttr objectSDK.Attribute
 		expirationAttr.SetKey(objectV2.SysAttributeExpEpoch)
