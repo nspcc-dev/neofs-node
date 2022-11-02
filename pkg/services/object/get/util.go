@@ -145,7 +145,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 			var errAccessDenied *apistatus.ObjectAccessDenied
 			if errors.As(err, &errAccessDenied) {
 				// Current spec allows other storage node to deny access,
-				// fallback to GET_RANGE here.
+				// fallback to GET here.
 				obj, err := c.get(exec, key)
 				if err != nil {
 					return nil, err
