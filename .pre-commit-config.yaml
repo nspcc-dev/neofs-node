@@ -17,3 +17,8 @@ repos:
       args: [--markdown-linebreak-ext=md]
     - id: end-of-file-fixer
       exclude: ".key$"
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.50.1
+    hooks:
+      - id: golangci-lint
