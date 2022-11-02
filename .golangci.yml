@@ -53,4 +53,3 @@ linters:
     - whitespace
   disable-all: true
   fast: false
-
