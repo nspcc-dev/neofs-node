@@ -26,7 +26,7 @@ PKG_VERSION ?= $(shell echo $(VERSION) | sed "s/^v//" | \
 			sed "s/-/~/")-${OS_RELEASE}
 
 .PHONY: help all images dep clean fmts fmt imports test lint docker/lint
-		prepare-release debpackage
+		prepare-release debpackage pre-commit unpre-commit
 
 # To build a specific binary, use it's name prefix with bin/ as a target
 # For example `make bin/neofs-node` will build only storage node binary
@@ -131,6 +131,14 @@ test:
 # Run linters
 lint:
 	@golangci-lint --timeout=5m run
+
+# Activate pre-commit hooks
+pre-commit:
+	pre-commit install -t pre-commit -t commit-msg
+
+# Deactivate pre-commit hooks
+unpre-commit:
+	pre-commit uninstall -t pre-commit -t commit-msg
 
 # Run linters in Docker
 docker/lint:
