@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
 - `neofs-cli container nodes`'s output (#1991)
+- Do not panic with bad inputs for `GET_RANGE` (#2007)
 
 ### Removed
 ### Updated
