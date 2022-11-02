@@ -1,7 +1,7 @@
 # NeoFS subnetwork creation
 
-This is a short guide on how to create NeoFS subnetworks. This guide 
-considers that the sidechain and the inner ring (alphabet nodes) have already been 
+This is a short guide on how to create NeoFS subnetworks. This guide
+considers that the sidechain and the inner ring (alphabet nodes) have already been
 deployed and the sidechain contains a deployed `subnet` contract.
 
 ## Prerequisites

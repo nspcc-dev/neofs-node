@@ -45,8 +45,8 @@ control:
 grpc:
   - endpoint: localhost:8080
     tls:
-      enabled: true 
-      certificate: /path/to/cert.pem 
+      enabled: true
+      certificate: /path/to/cert.pem
       key: /path/to/key.pem
   - endpoint: internal.ip:8080
   - endpoint: external.ip:8080
@@ -237,7 +237,7 @@ gc:
 | Parameter                | Type       | Default value | Description                                  |
 |--------------------------|------------|---------------|----------------------------------------------|
 | `remover_batch_size`     | `int`      | `100`         | Amount of objects to grab in a single batch. |
-| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep between iterations.            | 
+| `remover_sleep_interval` | `duration` | `1m`          | Time to sleep between iterations.            |
 
 ### `metabase` subsection
 
@@ -271,7 +271,7 @@ writecache:
 | Parameter            | Type       | Default value | Description                                                                                                          |
 |----------------------|------------|---------------|----------------------------------------------------------------------------------------------------------------------|
 | `path`               | `string`   |               | Path to the metabase file.                                                                                           |
-| `capacity`           | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. | 
+| `capacity`           | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. |
 | `small_object_size`  | `size`     | `32K`         | Maximum object size for "small" objects. This objects are stored in a key-value database instead of a file-system.   |
 | `max_object_size`    | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
 | `workers_number`     | `int`      | `20`          | Amount of background workers that move data from the writecache to the blobstor.                                     |
