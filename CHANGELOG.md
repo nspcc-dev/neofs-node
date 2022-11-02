@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - `neofs-cli container nodes`'s output (#1991)
 - Increase error counter for write-cache flush errors (#1818)
 - Correctly select the shard for applying tree service operations (#1996)
+- Do not panic with bad inputs for `GET_RANGE` (#2007)
 
 ### Removed
 ### Updated
