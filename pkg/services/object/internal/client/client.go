@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -316,6 +317,11 @@ func (x PayloadRangeRes) PayloadRange() []byte {
 	return x.data
 }
 
+// maxInitialBufferSize is the maximum initial buffer size for PayloadRange result.
+// We don't want to allocate a lot of space in advance because a query can
+// fail with apistatus.ObjectOutOfRange status.
+const maxInitialBufferSize = 1024 * 1024 // 1 MiB
+
 // PayloadRange reads object payload range by address.
 //
 // Client, context and key must be set.
@@ -349,15 +355,26 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
 
-	data := make([]byte, prm.ln)
+	if int64(prm.ln) < 0 {
+		// `CopyN` expects `int64`, this check ensures that the result is positive.
+		// On practice this means that we can return incorrect results for objects
+		// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
+		return nil, apistatus.ObjectOutOfRange{}
+	}
 
-	_, err = io.ReadFull(rdr, data)
+	ln := prm.ln
+	if ln > maxInitialBufferSize {
+		ln = maxInitialBufferSize
+	}
+
+	w := bytes.NewBuffer(make([]byte, ln))
+	_, err = io.CopyN(w, rdr, int64(prm.ln))
 	if err != nil {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}
 
 	return &PayloadRangeRes{
-		data: data,
+		data: w.Bytes(),
 	}, nil
 }
 
