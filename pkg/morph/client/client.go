@@ -9,14 +9,15 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -50,13 +51,14 @@ type Client struct {
 	client   *rpcclient.WSClient // neo-go websocket client
 	rpcActor *actor.Actor        // neo-go RPC actor
 	gasToken *nep17.Token        // neo-go GAS token wrapper
+	rolemgmt *rolemgmt.Contract  // neo-go Designation contract wrapper
 
 	acc     *wallet.Account // neo account
 	accAddr util.Uint160    // account's address
 
 	signer *transaction.Signer
 
-	notary *notary
+	notary *notaryInfo
 
 	cfg cfg
 
@@ -366,15 +368,8 @@ func (c *Client) NeoFSAlphabetList() (res keys.PublicKeys, err error) {
 }
 
 // GetDesignateHash returns hash of the native `RoleManagement` contract.
-func (c *Client) GetDesignateHash() (res util.Uint160, err error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return util.Uint160{}, ErrConnectionLost
-	}
-
-	return c.client.GetNativeContractHash(nativenames.Designation)
+func (c *Client) GetDesignateHash() util.Uint160 {
+	return rolemgmt.Hash
 }
 
 func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
@@ -383,7 +378,7 @@ func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 		return nil, fmt.Errorf("can't get chain height: %w", err)
 	}
 
-	return c.client.GetDesignatedByRole(r, height)
+	return c.rolemgmt.GetDesignatedByRole(r, height)
 }
 
 // tries to resolve sc.Parameter from the arg.
@@ -523,4 +518,10 @@ func (c *Client) inactiveMode() {
 	if c.cfg.inactiveModeCb != nil {
 		c.cfg.inactiveModeCb()
 	}
+}
+
+func (c *Client) setActor(act *actor.Actor) {
+	c.rpcActor = act
+	c.gasToken = nep17.New(act, gas.Hash)
+	c.rolemgmt = rolemgmt.New(act)
 }

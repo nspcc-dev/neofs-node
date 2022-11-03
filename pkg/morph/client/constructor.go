@@ -8,12 +8,10 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -119,6 +117,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	cli.endpoints.init(cfg.endpoints)
 
 	var err error
+	var act *actor.Actor
 	if cfg.singleCli != nil {
 		// return client in single RPC node mode that uses
 		// predefined WS client
@@ -129,51 +128,42 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
 
-		cli.rpcActor, err = newActor(cfg.singleCli, acc, *cfg)
+		act, err = newActor(cfg.singleCli, acc, *cfg)
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC actor: %w", err)
 		}
-
-		cli.gasToken, err = newGasToken(cli.client, cli.rpcActor)
-		if err != nil {
-			return nil, fmt.Errorf("could not create gas token actor: %w", err)
-		}
 	} else {
-		cli.client, cli.rpcActor, cli.gasToken, err = cli.newCli(cli.endpoints.list[0].Address)
+		cli.client, act, err = cli.newCli(cli.endpoints.list[0].Address)
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC client: %w", err)
 		}
 	}
+	cli.setActor(act)
 
 	go cli.notificationLoop()
 
 	return cli, nil
 }
 
-func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, *nep17.Token, error) {
+func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, error) {
 	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.Options{
 		DialTimeout: c.cfg.dialTimeout,
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("WS client creation: %w", err)
+		return nil, nil, fmt.Errorf("WS client creation: %w", err)
 	}
 
 	err = cli.Init()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("WS client initialization: %w", err)
+		return nil, nil, fmt.Errorf("WS client initialization: %w", err)
 	}
 
 	act, err := newActor(cli, c.acc, c.cfg)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("RPC actor creation: %w", err)
+		return nil, nil, fmt.Errorf("RPC actor creation: %w", err)
 	}
 
-	gas, err := newGasToken(cli, act)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("gas token actor: %w", err)
-	}
-
-	return cli, act, gas, nil
+	return cli, act, nil
 }
 
 func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
@@ -186,15 +176,6 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 		},
 		Account: acc,
 	}})
-}
-
-func newGasToken(cli *rpcclient.WSClient, a *actor.Actor) (*nep17.Token, error) {
-	gasHash, err := cli.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		return nil, fmt.Errorf("gas contract hash: %w", err)
-	}
-
-	return nep17.New(a, gasHash), nil
 }
 
 func newClientCache() cache {
