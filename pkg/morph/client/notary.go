@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -24,7 +25,7 @@ import (
 )
 
 type (
-	notary struct {
+	notaryInfo struct {
 		txValidTime  uint32 // minimum amount of blocks when mainTx will be valid
 		roundTime    uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
 		fallbackTime uint32 // mainTx's ValidUntilBlock - fallbackTime + 1 is when fallbackTx is sent
@@ -97,19 +98,13 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		}
 	}
 
-	notaryCfg := &notary{
+	notaryCfg := &notaryInfo{
 		proxy:          cfg.proxy,
 		txValidTime:    cfg.txValidTime,
 		roundTime:      cfg.roundTime,
 		fallbackTime:   cfg.fallbackTime,
 		alphabetSource: cfg.alphabetSource,
-	}
-
-	var err error
-
-	notaryCfg.notary, err = c.client.GetNativeContractHash(nativenames.Notary)
-	if err != nil {
-		return fmt.Errorf("can't get notary contract script hash: %w", err)
+		notary:         notary.Hash,
 	}
 
 	c.notary = notaryCfg
@@ -132,7 +127,7 @@ func (c *Client) ProbeNotary() (res bool) {
 		return false
 	}
 
-	_, err := c.client.GetNativeContractHash(nativenames.Notary)
+	_, err := c.client.GetContractStateByAddressOrName(nativenames.Notary)
 	return err == nil
 }
 
@@ -421,11 +416,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 }
 
 func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...interface{}) error {
-	designate, err := c.GetDesignateHash()
-	if err != nil {
-		return err
-	}
-
+	designate := c.GetDesignateHash()
 	return c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
 }
 

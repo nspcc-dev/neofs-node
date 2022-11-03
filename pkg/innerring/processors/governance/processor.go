@@ -116,10 +116,7 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	// result is cached by neo-go, so we can pre-calc it
-	designate, err := p.MainnetClient.GetDesignateHash()
-	if err != nil {
-		return nil, fmt.Errorf("could not get designate hash: %w", err)
-	}
+	designate := p.MainnetClient.GetDesignateHash()
 
 	return &Processor{
 		log:            p.Log,

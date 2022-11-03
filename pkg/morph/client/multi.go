@@ -36,7 +36,7 @@ func (c *Client) switchRPC() bool {
 	// Iterate endpoints in the order of decreasing priority.
 	for c.endpoints.curr = range c.endpoints.list {
 		newEndpoint := c.endpoints.list[c.endpoints.curr].Address
-		cli, act, gas, err := c.newCli(newEndpoint)
+		cli, act, err := c.newCli(newEndpoint)
 		if err != nil {
 			c.logger.Warn("could not establish connection to the switched RPC node",
 				zap.String("endpoint", newEndpoint),
@@ -62,8 +62,7 @@ func (c *Client) switchRPC() bool {
 		}
 
 		c.client = cli
-		c.rpcActor = act
-		c.gasToken = gas
+		c.setActor(act)
 
 		if c.cfg.switchInterval != 0 && !c.switchIsActive.Load() &&
 			c.endpoints.list[c.endpoints.curr].Priority != c.endpoints.list[0].Priority {
@@ -165,7 +164,7 @@ mainLoop:
 
 				tryE := e.Address
 
-				cli, act, gas, err := c.newCli(tryE)
+				cli, act, err := c.newCli(tryE)
 				if err != nil {
 					c.logger.Warn("could not create client to the higher priority node",
 						zap.String("endpoint", tryE),
@@ -188,8 +187,7 @@ mainLoop:
 					c.client.Close()
 					c.cache.invalidate()
 					c.client = cli
-					c.rpcActor = act
-					c.gasToken = gas
+					c.setActor(act)
 					c.endpoints.curr = i
 
 					c.switchLock.Unlock()
