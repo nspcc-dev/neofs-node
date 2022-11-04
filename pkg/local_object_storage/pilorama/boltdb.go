@@ -324,6 +324,12 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 			return err
 		}
 	}
+
+	if key == nil {
+		// The operation is inserted in the beginning, reposition the cursor.
+		// Otherwise, `Next` call will return currently inserted operation.
+		c.First()
+	}
 	key, value = c.Next()
 
 	// 3. Re-apply all other operations.
