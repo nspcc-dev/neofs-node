@@ -514,6 +514,43 @@ func testForestTreeExists(t *testing.T, constructor func(t testing.TB) Forest) {
 	})
 }
 
+func TestApplyTricky1(t *testing.T) {
+	ops := []Move{
+		{
+			Parent: 1,
+			Meta:   Meta{Time: 100},
+			Child:  2,
+		},
+		{
+			Parent: 0,
+			Meta:   Meta{Time: 80},
+			Child:  1,
+		},
+	}
+
+	expected := []struct{ child, parent Node }{
+		{1, 0},
+		{2, 1},
+	}
+
+	treeID := "version"
+	d := CIDDescriptor{CID: cidtest.ID(), Position: 0, Size: 1}
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			s := providers[i].construct(t)
+			for i := range ops {
+				require.NoError(t, s.TreeApply(d, treeID, &ops[i]))
+			}
+
+			for i := range expected {
+				_, parent, err := s.TreeGetMeta(d.CID, treeID, expected[i].child)
+				require.NoError(t, err)
+				require.Equal(t, expected[i].parent, parent)
+			}
+		})
+	}
+}
+
 func TestForest_ApplyRandom(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {
