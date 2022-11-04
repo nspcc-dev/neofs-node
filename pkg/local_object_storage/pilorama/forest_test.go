@@ -551,6 +551,67 @@ func TestApplyTricky1(t *testing.T) {
 	}
 }
 
+func TestApplyTricky2(t *testing.T) {
+	// Apply operations in the reverse order and then insert an operation in the middle
+	// so that previous "old" parent becomes invalid.
+	ops := []Move{
+		{
+			Parent: 10000,
+			Meta:   Meta{Time: 100},
+			Child:  5,
+		},
+		{
+			Parent: 3,
+			Meta:   Meta{Time: 80},
+			Child:  5,
+		},
+		{
+			Parent: 5,
+			Meta:   Meta{Time: 40},
+			Child:  3,
+		},
+		{
+			Parent: 5,
+			Meta:   Meta{Time: 60},
+			Child:  1,
+		},
+		{
+			Parent: 1,
+			Meta:   Meta{Time: 90},
+			Child:  2,
+		},
+		{
+			Parent: 0,
+			Meta:   Meta{Time: 10},
+			Child:  5,
+		},
+	}
+
+	expected := []struct{ child, parent Node }{
+		{5, 10_000},
+		{3, 5},
+		{2, 1},
+		{1, 5},
+	}
+
+	treeID := "version"
+	d := CIDDescriptor{CID: cidtest.ID(), Position: 0, Size: 1}
+	for i := range providers {
+		t.Run(providers[i].name, func(t *testing.T) {
+			s := providers[i].construct(t)
+			for i := range ops {
+				require.NoError(t, s.TreeApply(d, treeID, &ops[i]))
+			}
+
+			for i := range expected {
+				_, parent, err := s.TreeGetMeta(d.CID, treeID, expected[i].child)
+				require.NoError(t, err)
+				require.Equal(t, expected[i].parent, parent)
+			}
+		})
+	}
+}
+
 func TestForest_ApplyRandom(t *testing.T) {
 	for i := range providers {
 		t.Run(providers[i].name, func(t *testing.T) {
