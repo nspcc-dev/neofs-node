@@ -351,8 +351,8 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 	shouldPut := !t.isAncestor(b, key, op.Child, op.Parent)
 
 	currParent := b.Get(parentKey(key, op.Child))
+	op.HasOld = currParent != nil
 	if currParent != nil { // node is already in tree
-		op.HasOld = true
 		op.Old.Parent = binary.LittleEndian.Uint64(currParent)
 		if err := op.Old.Meta.FromBytes(b.Get(metaKey(key, op.Child))); err != nil {
 			return err
