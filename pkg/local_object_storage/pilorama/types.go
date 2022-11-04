@@ -1,8 +1,9 @@
 package pilorama
 
 import (
-	"errors"
 	"math"
+
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
 
 // Timestamp is an alias for integer timestamp type.
@@ -50,10 +51,10 @@ const (
 
 var (
 	// ErrTreeNotFound is returned when the requested tree is not found.
-	ErrTreeNotFound = errors.New("tree not found")
+	ErrTreeNotFound = logicerr.New("tree not found")
 	// ErrNotPathAttribute is returned when the path is trying to be constructed with a non-internal
 	// attribute. Currently the only attribute allowed is AttributeFilename.
-	ErrNotPathAttribute = errors.New("attribute can't be used in path construction")
+	ErrNotPathAttribute = logicerr.New("attribute can't be used in path construction")
 )
 
 // isAttributeInternal returns true iff key can be used in `*ByPath` methods.
