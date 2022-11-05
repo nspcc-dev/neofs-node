@@ -19,12 +19,12 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -349,17 +349,12 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 	mainClient := initClient(n3config[network].RPC)
 	neofsHash, _ := util.Uint160DecodeStringLE(n3config[network].NeoFSContract)
 
-	gasHash, err := mainClient.GetNativeContractHash(nativenames.Gas)
-	if err != nil {
-		fatalOnErr(fmt.Errorf("gas contract hash: %w", err))
-	}
-
 	mainActor, err := actor.NewSimple(mainClient, acc)
 	if err != nil {
 		fatalOnErr(fmt.Errorf("creating actor over main chain client: %w", err))
 	}
 
-	mainGas := nep17.New(mainActor, gasHash)
+	mainGas := nep17.New(mainActor, gas.Hash)
 
 	txHash, _, err := mainGas.Transfer(accSH, neofsHash, amount, nil)
 	if err != nil {
