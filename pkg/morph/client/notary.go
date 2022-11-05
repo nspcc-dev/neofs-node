@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
@@ -426,8 +425,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		return err
 	}
 
-	_, n := mn(alphabetList, committee)
-	u8n := uint8(n)
+	u8n := uint8(len(alphabetList))
 
 	if !invokedByAlpha {
 		u8n++
@@ -541,7 +539,7 @@ func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, comm
 	})
 
 	// then we have inner ring multiaddress signature
-	m, _ := mn(ir, committee)
+	m := sigCount(ir, committee)
 
 	multisigScript, err := sc.CreateMultiSigRedeemScript(m, ir)
 	if err != nil {
@@ -675,10 +673,10 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 }
 
 func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedByAlpha bool) (*wallet.Account, error) {
-	m, _ := mn(ir, committee)
+	m := sigCount(ir, committee)
 
 	var multisigAccount *wallet.Account
-
+	var err error
 	if invokedByAlpha {
 		multisigAccount = wallet.NewAccountFromPrivateKey(c.acc.PrivateKey())
 		err := multisigAccount.ConvertMultisig(m, ir)
@@ -687,19 +685,13 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 			return nil, wrapNeoFSError(fmt.Errorf("can't convert account to inner ring multisig wallet: %w", err))
 		}
 	} else {
-		script, err := smartcontract.CreateMultiSigRedeemScript(m, ir)
-		if err != nil {
-			// wrap error as NeoFS-specific since the call is not related to any client
-			return nil, wrapNeoFSError(fmt.Errorf("can't make inner ring multisig wallet: %w", err))
-		}
-
 		// alphabet multisig redeem script is
 		// used as verification script for
 		// inner ring multiaddress witness
-		multisigAccount = &wallet.Account{
-			Contract: &wallet.Contract{
-				Script: script,
-			},
+		multisigAccount, err = notary.FakeMultisigAccount(m, ir)
+		if err != nil {
+			// wrap error as NeoFS-specific since the call is not related to any client
+			return nil, wrapNeoFSError(fmt.Errorf("can't make inner ring multisig wallet: %w", err))
 		}
 	}
 
@@ -751,19 +743,14 @@ func invocationParams(args ...interface{}) ([]sc.Parameter, error) {
 	return params, nil
 }
 
-// mn returns M and N multi signature numbers. For NeoFS N is a length of
-// inner ring list, and M is a 2/3+1 of it (like in dBFT). If committee is
-// true, returns M as N/2+1.
-func mn(ir []*keys.PublicKey, committee bool) (m int, n int) {
-	n = len(ir)
-
+// sigCount returns the number of required signature.
+// For NeoFS Alphabet M is a 2/3+1 of it (like in dBFT).
+// If committee is true, returns M as N/2+1.
+func sigCount(ir []*keys.PublicKey, committee bool) int {
 	if committee {
-		m = n/2 + 1
-	} else {
-		m = n*2/3 + 1
+		return sc.GetMajorityHonestNodeCount(len(ir))
 	}
-
-	return
+	return sc.GetDefaultHonestNodeCount(len(ir))
 }
 
 // WithTxValidTime returns a notary support option for client
