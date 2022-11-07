@@ -19,12 +19,20 @@ set -e
 case "$1" in
     configure)
         USERNAME=storage
-        id -u neofs-storage >/dev/null 2>&1 || useradd -s /usr/sbin/nologin -d /srv/neofs --system -M -U -c "NeoFS Storage node" neofs-storage
+        id -u neofs-$USERNAME >/dev/null 2>&1 || useradd -s /usr/sbin/nologin -d /var/lib/neofs/$USERNAME --system -M -U -c "NeoFS Storage node" neofs-$USERNAME
         if ! dpkg-statoverride --list /etc/neofs/$USERNAME >/dev/null; then
-            chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME/*
+            chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME
             chmod -f 0750 /etc/neofs/$USERNAME
+            chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME/config.yml
+            chown -f root:neofs-$USERNAME /etc/neofs/$USERNAME/control.yml
+            chmod -f 0640 /etc/neofs/$USERNAME/config.yml || true
+            chmod -f 0640 /etc/neofs/$USERNAME/control.yml || true
         fi
         USERDIR=$(getent passwd "neofs-$USERNAME" | cut -d: -f6)
+        if ! dpkg-statoverride --list neofs-$USERDIR >/dev/null; then
+            chown -f neofs-$USERNAME: $USERDIR
+        fi
+        USERDIR=/srv/neofs
         if ! dpkg-statoverride --list neofs-$USERDIR >/dev/null; then
             chown -f neofs-$USERNAME: $USERDIR
         fi
