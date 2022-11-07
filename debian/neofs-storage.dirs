@@ -1,2 +1,3 @@
 /etc/neofs/storage
 /srv/neofs
+/var/lib/neofs/storage
