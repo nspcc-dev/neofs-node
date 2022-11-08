@@ -113,7 +113,6 @@ func TestFlush(t *testing.T) {
 		wc, bs, mb := newCache(t)
 		objects := putObjects(t, wc)
 
-		require.NoError(t, wc.SetMode(mode.ReadOnly))
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
