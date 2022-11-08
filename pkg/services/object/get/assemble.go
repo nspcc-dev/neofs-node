@@ -88,11 +88,12 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 	var payload []byte
 
 	if rng := exec.ctxRange(); rng != nil {
-		seekLen := rng.GetLength()
 		seekOff := rng.GetOffset()
+		seekLen := rng.GetLength()
+		seekTo := seekOff + seekLen
 		parSize := par.PayloadSize()
 
-		if seekOff+seekLen > parSize {
+		if seekTo < seekOff || parSize < seekOff || parSize < seekTo {
 			var errOutOfRange apistatus.ObjectOutOfRange
 
 			exec.err = errOutOfRange
