@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Increase error counter for write-cache flush errors (#1818)
 - Broadcasting helper objects (#1972)
 - `neofs-cli lock object`'s `lifetime` flag handling (#1972)
+- Do not move write-cache in read-only mode for flushing (#1906)
 
 ### Removed
 ### Updated
