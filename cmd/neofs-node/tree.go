@@ -73,6 +73,7 @@ func initTreeService(c *cfg) {
 		ev := e.(containerEvent.DeleteSuccess)
 
 		// This is executed asynchronously, so we don't care about the operation taking some time.
+		c.log.Debug("removing all trees for container", zap.Stringer("cid", ev.ID))
 		err := c.treeService.DropTree(context.Background(), ev.ID, "")
 		if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
 			// Ignore pilorama.ErrTreeNotFound but other errors, including shard.ErrReadOnly, should be logged.

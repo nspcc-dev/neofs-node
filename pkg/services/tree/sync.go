@@ -295,7 +295,7 @@ func (s *Service) syncLoop(ctx context.Context) {
 			for cnr := range s.cnrMap {
 				s.log.Debug("removing redundant trees...", zap.Stringer("cid", cnr))
 
-				err = s.DropTree(ctx, cnr, "") // TODO: #1940 drop all the trees here
+				err = s.DropTree(ctx, cnr, "")
 				if err != nil {
 					s.log.Error("could not remove redundant tree",
 						zap.Stringer("cid", cnr),
