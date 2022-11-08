@@ -2,8 +2,6 @@ package shard
 
 import (
 	"errors"
-
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
 
 // FlushWriteCachePrm represents parameters of a `FlushWriteCache` operation.
@@ -20,8 +18,7 @@ func (p *FlushWriteCachePrm) SetIgnoreErrors(ignore bool) {
 // but write-cache is disabled.
 var errWriteCacheDisabled = errors.New("write-cache is disabled")
 
-// FlushWriteCache moves writecache in read-only mode and flushes all data from it.
-// After the operation writecache will remain read-only mode.
+// FlushWriteCache flushes all data from the write-cache.
 func (s *Shard) FlushWriteCache(p FlushWriteCachePrm) error {
 	if !s.hasWriteCache() {
 		return errWriteCacheDisabled
@@ -36,10 +33,6 @@ func (s *Shard) FlushWriteCache(p FlushWriteCachePrm) error {
 	}
 	if s.info.Mode.NoMetabase() {
 		return ErrDegradedMode
-	}
-
-	if err := s.writeCache.SetMode(mode.ReadOnly); err != nil {
-		return err
 	}
 
 	return s.writeCache.Flush(p.ignoreErrors)

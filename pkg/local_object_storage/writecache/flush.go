@@ -261,10 +261,6 @@ func (c *cache) Flush(ignoreErrors bool) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 
-	if !c.mode.ReadOnly() {
-		return errMustBeReadOnly
-	}
-
 	return c.flush(ignoreErrors)
 }
 
