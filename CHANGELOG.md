@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
 - `neofs-cli container nodes`'s output (#1991)
-- Do not panic with bad inputs for `GET_RANGE` (#2007)
+- Do not panic and return correct errors for bad inputs in `GET_RANGE` (#2007, #2024)
 - Correctly select the shard for applying tree service operations (#1996)
 - Physical child object removal by GC (#1699)
 - Increase error counter for write-cache flush errors (#1818)

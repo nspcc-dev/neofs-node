@@ -330,7 +330,8 @@ const maxInitialBufferSize = 1024 * 1024 // 1 MiB
 // Returns:
 //
 //	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed;
+//	error of type *apistatus.ObjectOutOfRange if the requested range is too big.
 //
 // PayloadRange ignores the provided session if it is not related to the requested object.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
@@ -359,7 +360,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 		// `CopyN` expects `int64`, this check ensures that the result is positive.
 		// On practice this means that we can return incorrect results for objects
 		// with size > 8_388 Petabytes, this will be fixed later with support for streaming.
-		return nil, apistatus.ObjectOutOfRange{}
+		return nil, new(apistatus.ObjectOutOfRange)
 	}
 
 	ln := prm.ln
