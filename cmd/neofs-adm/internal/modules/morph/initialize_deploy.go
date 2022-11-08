@@ -27,6 +27,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-contract/common"
 	"github.com/nspcc-dev/neofs-contract/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -106,7 +107,11 @@ func (c *initializeContext) deployNNS(method string) error {
 	nnsCs, err := c.nnsContractState()
 	if err == nil {
 		if nnsCs.NEF.Checksum == cs.NEF.Checksum {
-			c.Command.Println("NNS contract is already deployed.")
+			if method == deployMethodName {
+				c.Command.Println("NNS contract is already deployed.")
+			} else {
+				c.Command.Println("NNS contract is already updated.")
+			}
 			return nil
 		}
 		h = nnsCs.Hash
@@ -206,7 +211,10 @@ func (c *initializeContext) updateContracts() error {
 	}
 
 	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
-		return err
+		if !strings.Contains(err.Error(), common.ErrAlreadyUpdated) {
+			return err
+		}
+		c.Command.Println("Alphabet contracts are already updated.")
 	}
 
 	w.Reset()
@@ -243,7 +251,11 @@ func (c *initializeContext) updateContracts() error {
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
 		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params...)
 		if err != nil {
-			return fmt.Errorf("deploy contract: %w", err)
+			if method != updateMethodName || !strings.Contains(err.Error(), common.ErrAlreadyUpdated) {
+				return fmt.Errorf("deploy contract: %w", err)
+			}
+			c.Command.Printf("%s contract is already updated.\n", ctrName)
+			continue
 		}
 
 		w.WriteBytes(res.Script)
