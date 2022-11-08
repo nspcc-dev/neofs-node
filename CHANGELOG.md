@@ -32,6 +32,7 @@ Changelog for NeoFS Node
 - Losing meta information on request forwarding (#2040)
 - Assembly process triggered by a request with a bearer token (#2040)
 - Losing locking context after metabase resync (#1502)
+- Removing all trees by container ID if tree ID is empty in `pilorama.Forest.TreeDrop` (#1940)
 
 ### Removed
 ### Updated
