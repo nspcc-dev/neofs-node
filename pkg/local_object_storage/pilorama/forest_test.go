@@ -180,14 +180,26 @@ func TestForest_TreeDrop(t *testing.T) {
 }
 
 func testForestTreeDrop(t *testing.T, s Forest) {
-	cid := cidtest.ID()
+	const cidsSize = 3
+	var cids [cidsSize]cidSDK.ID
+
+	for i := range cids {
+		cids[i] = cidtest.ID()
+	}
+	cid := cids[0]
 
 	t.Run("return nil if not found", func(t *testing.T) {
 		require.ErrorIs(t, s.TreeDrop(cid, "123"), ErrTreeNotFound)
 	})
 
+	require.NoError(t, s.TreeDrop(cid, ""))
+
 	trees := []string{"tree1", "tree2"}
-	d := CIDDescriptor{cid, 0, 1}
+	var descs [cidsSize]CIDDescriptor
+	for i := range descs {
+		descs[i] = CIDDescriptor{cids[i], 0, 1}
+	}
+	d := descs[0]
 	for i := range trees {
 		_, err := s.TreeAddByPath(d, trees[i], AttributeFilename, []string{"path"},
 			[]KeyValue{{Key: "TreeName", Value: []byte(trees[i])}})
@@ -202,6 +214,28 @@ func testForestTreeDrop(t *testing.T, s Forest) {
 
 	_, err = s.TreeGetByPath(cid, trees[1], AttributeFilename, []string{"path"}, true)
 	require.NoError(t, err)
+
+	for j := range descs {
+		for i := range trees {
+			_, err := s.TreeAddByPath(descs[j], trees[i], AttributeFilename, []string{"path"},
+				[]KeyValue{{Key: "TreeName", Value: []byte(trees[i])}})
+			require.NoError(t, err)
+		}
+	}
+	list, err := s.TreeList(cid)
+	require.NotEmpty(t, list)
+
+	require.NoError(t, s.TreeDrop(cid, ""))
+
+	list, err = s.TreeList(cid)
+	require.NoError(t, err)
+	require.Empty(t, list)
+
+	for j := 1; j < len(cids); j++ {
+		list, err = s.TreeList(cids[j])
+		require.NoError(t, err)
+		require.Equal(t, len(list), len(trees))
+	}
 }
 
 func TestForest_TreeAdd(t *testing.T) {
