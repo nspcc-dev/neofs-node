@@ -35,6 +35,7 @@ type Forest interface {
 	TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error)
 	// TreeDrop drops a tree from the database.
 	// If the tree is not found, ErrTreeNotFound should be returned.
+	// In case of empty treeID drops all trees related to container.
 	TreeDrop(cid cidSDK.ID, treeID string) error
 	// TreeList returns all the tree IDs that have been added to the
 	// passed container ID. Nil slice should be returned if no tree found.
