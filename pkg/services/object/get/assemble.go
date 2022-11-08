@@ -96,7 +96,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 		if seekTo < seekOff || parSize < seekOff || parSize < seekTo {
 			var errOutOfRange apistatus.ObjectOutOfRange
 
-			exec.err = errOutOfRange
+			exec.err = &errOutOfRange
 			exec.status = statusOutOfRange
 
 			return

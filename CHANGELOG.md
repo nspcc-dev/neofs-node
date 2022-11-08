@@ -15,7 +15,7 @@ Changelog for NeoFS Node
 - `neofs-cli container nodes`'s output (#1991)
 - Increase error counter for write-cache flush errors (#1818)
 - Correctly select the shard for applying tree service operations (#1996)
-- Do not panic with bad inputs for `GET_RANGE` (#2007)
+- Do not panic and return correct errors for bad inputs in `GET_RANGE` (#2007, #2024)
 - Physical child object removal by GC (#1699)
 - Broadcasting helper objects (#1972)
 - `neofs-cli lock object`'s `lifetime` flag handling (#1972)
