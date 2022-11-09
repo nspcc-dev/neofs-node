@@ -19,6 +19,8 @@ type cfg struct {
 	blzShallowWidth uint64
 	compression     *compression.Config
 	blzOpts         []blobovnicza.Option
+	// reportError is the function called when encountering disk errors.
+	reportError func(string, error)
 }
 
 type Option func(*cfg)
@@ -37,6 +39,7 @@ func initConfig(c *cfg) {
 		openedCacheSize: defaultOpenedCacheSize,
 		blzShallowDepth: defaultBlzShallowDepth,
 		blzShallowWidth: defaultBlzShallowWidth,
+		reportError:     func(string, error) {},
 	}
 }
 
