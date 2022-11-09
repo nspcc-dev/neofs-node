@@ -328,6 +328,8 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 	prmHead.SetAddress(addrObj)
 	prmHead.SetRawFlag(true)
 
+	Prepare(cmd, &prmHead)
+
 	_, err := internal.HeadObject(prmHead)
 
 	var errSplit *object.SplitInfoError
