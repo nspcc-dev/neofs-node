@@ -208,6 +208,12 @@ func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.
 	var objs []oid.ID
 	if obj != nil {
 		objs = []oid.ID{*obj}
+
+		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
+			common.PrintVerbose("Collecting relatives of the removal object...")
+
+			objs = append(objs, collectObjectRelatives(cmd, cli, cnr, *obj)...)
+		}
 	}
 
 	finalizeSession(cmd, dst, tok, key, cnr, objs...)
