@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Broadcasting helper objects (#1972)
 - `neofs-cli lock object`'s `lifetime` flag handling (#1972)
 - Do not move write-cache in read-only mode for flushing (#1906)
+- Child object collection on CLI side with a bearer token (#2000)
 
 ### Removed
 ### Updated
