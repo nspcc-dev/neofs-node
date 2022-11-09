@@ -1,9 +1,9 @@
 package blobovnicza
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -21,7 +21,7 @@ type PutRes struct {
 
 // ErrFull is returned when trying to save an
 // object to a filled blobovnicza.
-var ErrFull = errors.New("blobovnicza is full")
+var ErrFull = logicerr.New("blobovnicza is full")
 
 // SetAddress sets the address of the saving object.
 func (p *PutPrm) SetAddress(addr oid.Address) {
@@ -62,7 +62,7 @@ func (b *Blobovnicza) Put(prm PutPrm) (PutRes, error) {
 			// expected to happen:
 			//  - before initialization step (incorrect usage by design)
 			//  - if DB is corrupted (in future this case should be handled)
-			return fmt.Errorf("(%T) bucket for size %d not created", b, sz)
+			return logicerr.Wrap(fmt.Errorf("(%T) bucket for size %d not created", b, sz))
 		}
 
 		// save the object in bucket
