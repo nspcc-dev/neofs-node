@@ -12,6 +12,9 @@ type Storage interface {
 	Type() string
 	Path() string
 	SetCompressor(cc *compression.Config)
+	// SetReportErrorFunc allows to provide a function to be called on disk errors.
+	// This function MUST be called before Open.
+	SetReportErrorFunc(f func(string, error))
 
 	Get(GetPrm) (GetRes, error)
 	GetRange(GetRangePrm) (GetRangeRes, error)

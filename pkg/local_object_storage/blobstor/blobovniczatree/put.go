@@ -34,9 +34,12 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	fn = func(p string) (bool, error) {
 		active, err := b.getActivated(p)
 		if err != nil {
-			b.log.Debug("could not get active blobovnicza",
-				zap.String("error", err.Error()),
-			)
+			if !isLogical(err) {
+				b.reportError("could not get active blobovnicza", err)
+			} else {
+				b.log.Debug("could not get active blobovnicza",
+					zap.String("error", err.Error()))
+			}
 
 			return false, nil
 		}
@@ -49,10 +52,13 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 				)
 
 				if err := b.updateActive(p, &active.ind); err != nil {
-					b.log.Debug("could not update active blobovnicza",
-						zap.String("level", p),
-						zap.String("error", err.Error()),
-					)
+					if !isLogical(err) {
+						b.reportError("could not update active blobovnicza", err)
+					} else {
+						b.log.Debug("could not update active blobovnicza",
+							zap.String("level", p),
+							zap.String("error", err.Error()))
+					}
 
 					return false, nil
 				}
@@ -61,10 +67,13 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 			}
 
 			allFull = false
-			b.log.Debug("could not put object to active blobovnicza",
-				zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
-				zap.String("error", err.Error()),
-			)
+			if !isLogical(err) {
+				b.reportError("could not put object to active blobovnicza", err)
+			} else {
+				b.log.Debug("could not put object to active blobovnicza",
+					zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
+					zap.String("error", err.Error()))
+			}
 
 			return false, nil
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -157,7 +158,7 @@ func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	if ok {
 		if old != nil {
 			if active.ind == b.blzShallowWidth-1 {
-				return active, errors.New("no more Blobovniczas")
+				return active, logicerr.New("no more Blobovniczas")
 			} else if active.ind != *old {
 				// sort of CAS in order to control concurrent
 				// updateActive calls
@@ -245,4 +246,9 @@ func (b *Blobovniczas) Path() string {
 // SetCompressor implements common.Storage.
 func (b *Blobovniczas) SetCompressor(cc *compression.Config) {
 	b.compression = cc
+}
+
+// SetReportErrorFunc implements common.Storage.
+func (b *Blobovniczas) SetReportErrorFunc(f func(string, error)) {
+	b.reportError = f
 }
