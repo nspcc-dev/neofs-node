@@ -127,12 +127,16 @@ func New(opts ...Option) *Shard {
 		tsSource: c.tsSource,
 	}
 
+	reportFunc := func(msg string, err error) {
+		s.reportErrorFunc(s.ID().String(), msg, err)
+	}
+
+	s.blobStor.SetReportErrorFunc(reportFunc)
+
 	if c.useWriteCache {
 		s.writeCache = writecache.New(
 			append(c.writeCacheOpts,
-				writecache.WithReportErrorFunc(func(msg string, err error) {
-					s.reportErrorFunc(s.ID().String(), msg, err)
-				}),
+				writecache.WithReportErrorFunc(reportFunc),
 				writecache.WithBlobstor(bs),
 				writecache.WithMetabase(mb))...)
 	}
