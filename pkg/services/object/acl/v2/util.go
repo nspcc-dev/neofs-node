@@ -114,7 +114,7 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refsV2.Address }) 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error) {
 	// 1. First check signature of session token.
 	if !token.VerifySignature() {
-		return nil, nil, fmt.Errorf("%w: invalid session token signature", ErrMalformedRequest)
+		return nil, nil, errInvalidSessionSig
 	}
 
 	// 2. Then check if session token owner issued the session token
@@ -131,7 +131,7 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, *keys.PublicKey, error)
 
 	if !isOwnerFromKey(tokenIssuer, tokenIssuerKey) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-		return nil, nil, fmt.Errorf("%w: invalid session token owner", ErrMalformedRequest)
+		return nil, nil, errInvalidSessionOwner
 	}
 
 	return &tokenIssuer, tokenIssuerKey, nil
