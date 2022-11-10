@@ -200,8 +200,8 @@ func checkShardState(t *testing.T, e *StorageEngine, id *shard.ID, errCount uint
 	sh := e.shards[id.String()]
 	e.mtx.RUnlock()
 
-	require.Equal(t, mode, sh.GetMode())
 	require.Equal(t, errCount, sh.errorCount.Load())
+	require.Equal(t, mode, sh.GetMode())
 }
 
 // corruptSubDir makes random directory except "blobovnicza" in blobstor FSTree unreadable.
