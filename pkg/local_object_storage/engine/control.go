@@ -92,6 +92,9 @@ func (e *StorageEngine) Init() error {
 		return errors.New("failed initialization on all shards")
 	}
 
+	e.wg.Add(1)
+	go e.setModeLoop()
+
 	return nil
 }
 
@@ -100,8 +103,10 @@ var errClosed = errors.New("storage engine is closed")
 // Close releases all StorageEngine's components. Waits for all data-related operations to complete.
 // After the call, all the next ones will fail.
 //
-// The method is supposed to be called when the application exits.
+// The method MUST only be called when the application exits.
 func (e *StorageEngine) Close() error {
+	close(e.closeCh)
+	defer e.wg.Wait()
 	return e.setBlockExecErr(errClosed)
 }
 
