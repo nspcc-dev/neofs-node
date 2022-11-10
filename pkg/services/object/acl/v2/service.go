@@ -445,7 +445,7 @@ func (b Service) GetRangeHash(
 func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 	body := request.GetBody()
 	if body == nil {
-		return ErrMalformedRequest
+		return errEmptyBody
 	}
 
 	part := body.GetObjectPart()
@@ -574,12 +574,12 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 			return info, errors.New("can't fetch current epoch")
 		}
 		if req.token.ExpiredAt(currentEpoch) {
-			return info, fmt.Errorf("%w: token has expired (current epoch: %d)",
-				ErrMalformedRequest, currentEpoch)
+			return info, fmt.Errorf("%s: token has expired (current epoch: %d)",
+				invalidRequestMessage, currentEpoch)
 		}
 
 		if !assertVerb(*req.token, op) {
-			return info, ErrInvalidVerb
+			return info, errInvalidVerb
 		}
 	}
 
