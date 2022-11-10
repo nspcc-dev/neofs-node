@@ -48,6 +48,9 @@ type traversal struct {
 	// need of additional broadcast after the object is saved
 	extraBroadcastEnabled bool
 
+	// mtx protects mExclude map.
+	mtx sync.RWMutex
+
 	// container nodes which was processed during the primary object placement
 	mExclude map[string]struct{}
 }
@@ -71,17 +74,23 @@ func (x *traversal) submitPrimaryPlacementFinish() bool {
 // marks the container node as processed during the primary object placement.
 func (x *traversal) submitProcessed(n placement.Node) {
 	if x.extraBroadcastEnabled {
+		key := string(n.PublicKey())
+
+		x.mtx.Lock()
 		if x.mExclude == nil {
 			x.mExclude = make(map[string]struct{}, 1)
 		}
 
-		x.mExclude[string(n.PublicKey())] = struct{}{}
+		x.mExclude[key] = struct{}{}
+		x.mtx.Unlock()
 	}
 }
 
 // checks if specified node was processed during the primary object placement.
-func (x traversal) processed(n placement.Node) bool {
+func (x *traversal) processed(n placement.Node) bool {
+	x.mtx.RLock()
 	_, ok := x.mExclude[string(n.PublicKey())]
+	x.mtx.RUnlock()
 	return ok
 }
 
