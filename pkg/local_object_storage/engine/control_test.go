@@ -20,7 +20,6 @@ import (
 func TestExecBlocks(t *testing.T) {
 	e := testNewEngineWithShardNum(t, 2) // number doesn't matter in this test, 2 is several but not many
 	t.Cleanup(func() {
-		e.Close()
 		os.RemoveAll(t.Name())
 	})
 
