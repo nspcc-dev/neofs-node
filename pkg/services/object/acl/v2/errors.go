@@ -1,18 +1,24 @@
 package v2
 
 import (
-	"errors"
 	"fmt"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
+const invalidRequestMessage = "malformed request"
+
+func malformedRequestError(reason string) error {
+	return fmt.Errorf("%s: %s", invalidRequestMessage, reason)
+}
+
 var (
-	// ErrMalformedRequest is returned when request contains
-	// invalid data.
-	ErrMalformedRequest = errors.New("malformed request")
-	// ErrInvalidVerb is returned when session token verb doesn't include necessary operation.
-	ErrInvalidVerb = errors.New("session token verb is invalid")
+	errEmptyBody               = malformedRequestError("empty body")
+	errEmptyVerificationHeader = malformedRequestError("empty verification header")
+	errEmptyBodySig            = malformedRequestError("empty at body signature")
+	errInvalidSessionSig       = malformedRequestError("invalid session token signature")
+	errInvalidSessionOwner     = malformedRequestError("invalid session token owner")
+	errInvalidVerb             = malformedRequestError("session token verb is invalid")
 )
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
