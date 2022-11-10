@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `session` flag support to `neofs-cli object hash` (#2029)
+
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
 
