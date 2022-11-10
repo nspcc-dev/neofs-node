@@ -110,7 +110,7 @@ type MetaWithToken struct {
 // according to internal meta information.
 func (r MetaWithToken) RequestOwner() (*user.ID, *keys.PublicKey, error) {
 	if r.vheader == nil {
-		return nil, nil, fmt.Errorf("%w: nil verification header", ErrMalformedRequest)
+		return nil, nil, errEmptyVerificationHeader
 	}
 
 	// if session token is presented, use it as truth source
@@ -122,7 +122,7 @@ func (r MetaWithToken) RequestOwner() (*user.ID, *keys.PublicKey, error) {
 	// otherwise get original body signature
 	bodySignature := originalBodySignature(r.vheader)
 	if bodySignature == nil {
-		return nil, nil, fmt.Errorf("%w: nil at body signature", ErrMalformedRequest)
+		return nil, nil, errEmptyBodySig
 	}
 
 	key, err := unmarshalPublicKey(bodySignature.GetKey())

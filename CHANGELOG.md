@@ -18,7 +18,8 @@ Changelog for NeoFS Node
 - `neofs-cli lock object`'s `lifetime` flag handling (#1972)
 - Do not move write-cache in read-only mode for flushing (#1906)
 - Child object collection on CLI side with a bearer token (#2000)
-- Fix concurrent map writes in `Object.Put` service
+- Fix concurrent map writes in `Object.Put` service (#2037)
+- Malformed request errors' reasons in the responses (#2028)
 
 ### Removed
 ### Updated
