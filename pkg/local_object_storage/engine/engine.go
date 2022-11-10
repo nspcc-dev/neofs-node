@@ -23,6 +23,10 @@ type StorageEngine struct {
 
 	shardPools map[string]util.WorkerPool
 
+	closeCh   chan struct{}
+	setModeCh chan setModeRequest
+	wg        sync.WaitGroup
+
 	blockExec struct {
 		mtx sync.RWMutex
 
@@ -35,52 +39,51 @@ type shardWrapper struct {
 	*shard.Shard
 }
 
-// reportShardErrorBackground increases shard error counter and logs an error.
-// It is intended to be used from background workers and
-// doesn't change shard mode because of possible deadlocks.
-func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err error) {
-	e.mtx.RLock()
-	sh, ok := e.shards[id]
-	e.mtx.RUnlock()
-
-	if !ok {
-		return
-	}
-
-	errCount := sh.errorCount.Inc()
-	e.log.Warn(msg,
-		zap.String("shard_id", id),
-		zap.Uint32("error count", errCount),
-		zap.String("error", err.Error()))
+type setModeRequest struct {
+	sh         *shard.Shard
+	errorCount uint32
 }
 
-// reportShardError checks that the amount of errors doesn't exceed the configured threshold.
-// If it does, shard is set to read-only mode.
-func (e *StorageEngine) reportShardError(
-	sh hashedShard,
-	msg string,
-	err error,
-	fields ...zap.Field) {
-	if isLogical(err) {
-		e.log.Warn(msg,
-			zap.Stringer("shard_id", sh.ID()),
-			zap.String("error", err.Error()))
-		return
+// setModeLoop listens setModeCh to perform degraded mode transition of a single shard.
+// Instead of creating a worker per single shard we use a single goroutine.
+func (e *StorageEngine) setModeLoop() {
+	defer e.wg.Done()
+
+	var (
+		mtx        sync.RWMutex // protects inProgress map
+		inProgress = make(map[string]struct{})
+	)
+
+	for {
+		select {
+		case <-e.closeCh:
+			return
+		case r := <-e.setModeCh:
+			sid := r.sh.ID().String()
+
+			mtx.Lock()
+			_, ok := inProgress[sid]
+			if !ok {
+				inProgress[sid] = struct{}{}
+				go func() {
+					e.moveToDegraded(r.sh, r.errorCount)
+
+					mtx.Lock()
+					delete(inProgress, sid)
+					mtx.Unlock()
+				}()
+			}
+			mtx.Unlock()
+		}
 	}
+}
+
+func (e *StorageEngine) moveToDegraded(sh *shard.Shard, errCount uint32) {
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
 
 	sid := sh.ID()
-	errCount := sh.errorCount.Inc()
-	e.log.Warn(msg, append([]zap.Field{
-		zap.Stringer("shard_id", sid),
-		zap.Uint32("error count", errCount),
-		zap.String("error", err.Error()),
-	}, fields...)...)
-
-	if e.errorsThreshold == 0 || errCount < e.errorsThreshold {
-		return
-	}
-
-	err = sh.SetMode(mode.DegradedReadOnly)
+	err := sh.SetMode(mode.DegradedReadOnly)
 	if err != nil {
 		e.log.Error("failed to move shard in degraded-read-only mode, moving to read-only",
 			zap.Stringer("shard_id", sid),
@@ -102,6 +105,78 @@ func (e *StorageEngine) reportShardError(
 		e.log.Info("shard is moved in degraded mode due to error threshold",
 			zap.Stringer("shard_id", sid),
 			zap.Uint32("error count", errCount))
+	}
+}
+
+// reportShardErrorBackground increases shard error counter and logs an error.
+// It is intended to be used from background workers and
+// doesn't change shard mode because of possible deadlocks.
+func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err error) {
+	e.mtx.RLock()
+	sh, ok := e.shards[id]
+	e.mtx.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	errCount := sh.errorCount.Inc()
+	e.reportShardErrorWithFlags(sh.Shard, errCount, false, msg, err)
+}
+
+// reportShardError checks that the amount of errors doesn't exceed the configured threshold.
+// If it does, shard is set to read-only mode.
+func (e *StorageEngine) reportShardError(
+	sh hashedShard,
+	msg string,
+	err error,
+	fields ...zap.Field) {
+	if isLogical(err) {
+		e.log.Warn(msg,
+			zap.Stringer("shard_id", sh.ID()),
+			zap.String("error", err.Error()))
+		return
+	}
+
+	errCount := sh.errorCount.Inc()
+	e.reportShardErrorWithFlags(sh.Shard, errCount, true, msg, err, fields...)
+}
+
+func (e *StorageEngine) reportShardErrorWithFlags(
+	sh *shard.Shard,
+	errCount uint32,
+	block bool,
+	msg string,
+	err error,
+	fields ...zap.Field) {
+	sid := sh.ID()
+	e.log.Warn(msg, append([]zap.Field{
+		zap.Stringer("shard_id", sid),
+		zap.Uint32("error count", errCount),
+		zap.String("error", err.Error()),
+	}, fields...)...)
+
+	if e.errorsThreshold == 0 || errCount < e.errorsThreshold {
+		return
+	}
+
+	if block {
+		e.moveToDegraded(sh, errCount)
+	} else {
+		req := setModeRequest{
+			errorCount: errCount,
+			sh:         sh,
+		}
+
+		select {
+		case e.setModeCh <- req:
+		default:
+			// For background workers we can have a lot of such errors,
+			// thus logging is done with DEBUG level.
+			e.log.Debug("mode change is in progress, ignoring set-mode request",
+				zap.Stringer("shard_id", sid),
+				zap.Uint32("error_count", errCount))
+		}
 	}
 }
 
@@ -143,6 +218,8 @@ func New(opts ...Option) *StorageEngine {
 		mtx:        new(sync.RWMutex),
 		shards:     make(map[string]shardWrapper),
 		shardPools: make(map[string]util.WorkerPool),
+		closeCh:    make(chan struct{}),
+		setModeCh:  make(chan setModeRequest),
 	}
 }
 
