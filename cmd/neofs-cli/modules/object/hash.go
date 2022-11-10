@@ -32,6 +32,7 @@ var objectHashCmd = &cobra.Command{
 
 func initObjectHashCmd() {
 	commonflags.Init(objectHashCmd)
+	initFlagSession(objectHeadCmd, "RANGEHASH")
 
 	flags := objectHashCmd.Flags()
 
