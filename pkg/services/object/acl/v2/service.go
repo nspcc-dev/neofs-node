@@ -573,8 +573,8 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 		if err != nil {
 			return info, errors.New("can't fetch current epoch")
 		}
-		if req.token.ExpiredAt(currentEpoch) {
-			return info, fmt.Errorf("%s: token has expired (current epoch: %d)",
+		if req.token.InvalidAt(currentEpoch) {
+			return info, fmt.Errorf("%s: token is invalid at %d epoch)",
 				invalidRequestMessage, currentEpoch)
 		}
 
