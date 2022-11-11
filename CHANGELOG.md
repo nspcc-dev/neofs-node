@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Fix concurrent map writes in `Object.Put` service (#2037)
 - Malformed request errors' reasons in the responses (#2028)
 - Session token's IAT and NBF checks in ACL service (#2028)
+- Losing meta information on request forwarding (#2040)
 
 ### Removed
 ### Updated

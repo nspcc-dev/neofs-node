@@ -102,6 +102,12 @@ func CommonPrmFromV2(req interface {
 	GetMetaHeader() *session.RequestMetaHeader
 }) (*CommonPrm, error) {
 	meta := req.GetMetaHeader()
+	ttl := meta.GetTTL()
+
+	// unwrap meta header to get original request meta information
+	for meta.GetOrigin() != nil {
+		meta = meta.GetOrigin()
+	}
 
 	var tokenSession *sessionsdk.Object
 	var err error
@@ -116,7 +122,6 @@ func CommonPrmFromV2(req interface {
 	}
 
 	xHdrs := meta.GetXHeaders()
-	ttl := meta.GetTTL()
 
 	prm := &CommonPrm{
 		local: ttl <= maxLocalTTL,
