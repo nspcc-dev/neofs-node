@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Malformed request errors' reasons in the responses (#2028)
 - Session token's IAT and NBF checks in ACL service (#2028)
 - Losing meta information on request forwarding (#2040)
+- Assembly process triggered by a request with a bearer token (#2040)
 
 ### Removed
 ### Updated
