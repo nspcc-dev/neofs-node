@@ -98,6 +98,15 @@ func (p *CommonPrm) SetNetmapLookupDepth(v uint64) {
 	}
 }
 
+// ForgetTokens forgets all the tokens read from the request's
+// meta information before.
+func (p *CommonPrm) ForgetTokens() {
+	if p != nil {
+		p.token = nil
+		p.bearer = nil
+	}
+}
+
 func CommonPrmFromV2(req interface {
 	GetMetaHeader() *session.RequestMetaHeader
 }) (*CommonPrm, error) {

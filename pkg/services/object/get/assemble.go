@@ -13,6 +13,19 @@ func (exec *execCtx) assemble() {
 		return
 	}
 
+	// Any access tokens are not expected to be used in the assembly process:
+	//  - there is no requirement to specify child objects in session/bearer
+	//    token for `GET`/`GETRANGE`/`RANGEHASH` requests in the API protocol,
+	//    and, therefore, their missing in the original request should not be
+	//    considered as error; on the other hand, without session for every child
+	//    object, it is impossible to attach bearer token in the new generated
+	//    requests correctly because the token has not been issued for that node's
+	//    key;
+	//  - the assembly process is expected to be handled on a container node
+	//    only since the requests forwarding mechanism presentation; such the
+	//    node should have enough rights for getting any child object by design.
+	exec.prm.common.ForgetTokens()
+
 	// Do not use forwarding during assembly stage.
 	// Request forwarding closure inherited in produced
 	// `execCtx` so it should be disabled there.
