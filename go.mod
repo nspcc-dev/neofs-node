@@ -21,6 +21,7 @@ require (
 	github.com/nspcc-dev/neofs-contract v0.16.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.7
 	github.com/nspcc-dev/tzhash v1.6.1
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
 	github.com/prometheus/client_golang v1.13.0
@@ -57,7 +58,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v0.1.1-0.20190913151208-6de447530771 // indirect

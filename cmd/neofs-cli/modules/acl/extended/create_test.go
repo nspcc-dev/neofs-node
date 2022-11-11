@@ -1,9 +1,9 @@
 package extended
 
 import (
-	"strings"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/stretchr/testify/require"
 )
@@ -63,8 +63,7 @@ func TestParseTable(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ss := strings.Split(test.rule, " ")
-			err := parseTable(eaclTable, ss)
+			err := util.ParseEACLRule(eaclTable, test.rule)
 			ok := len(test.jsonRecord) > 0
 			require.Equal(t, ok, err == nil, err)
 			if ok {

@@ -1,6 +1,8 @@
 package extended
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+)
 
 var Cmd = &cobra.Command{
 	Use:   "extended",
@@ -9,4 +11,5 @@ var Cmd = &cobra.Command{
 
 func init() {
 	Cmd.AddCommand(createCmd)
+	Cmd.AddCommand(printEACLCmd)
 }
