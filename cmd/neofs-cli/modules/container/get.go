@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -141,6 +142,7 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	}
 
 	cmd.Println()
+	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
 func getContainer(cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {

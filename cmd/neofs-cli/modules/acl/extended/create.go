@@ -2,16 +2,13 @@ package extended
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"strings"
 
-	"github.com/flynn-archive/go-shlex"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/spf13/cobra"
@@ -52,7 +49,7 @@ neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk 
 
 func init() {
 	createCmd.Flags().StringArrayP("rule", "r", nil, "Extended ACL table record to apply")
-	createCmd.Flags().StringP("file", "f", "", "Read list of extended ACL table records from from text file")
+	createCmd.Flags().StringP("file", "f", "", "Read list of extended ACL table records from text file")
 	createCmd.Flags().StringP("out", "o", "", "Save JSON formatted extended ACL table in file")
 	createCmd.Flags().StringP(commonflags.CIDFlag, "", "", commonflags.CIDFlagUsage)
 
@@ -87,20 +84,7 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	}
 
 	tb := eacl.NewTable()
-
-	for _, ruleStr := range rules {
-		r, err := shlex.Split(ruleStr)
-		if err != nil {
-			cmd.PrintErrf("can't parse rule '%s': %v\n", ruleStr, err)
-			os.Exit(1)
-		}
-
-		err = parseTable(tb, r)
-		if err != nil {
-			cmd.PrintErrf("can't create extended ACL record from rule '%s': %v\n", ruleStr, err)
-			os.Exit(1)
-		}
-	}
+	common.ExitOnErr(cmd, "unable to parse provided rules: %w", util.ParseEACLRules(tb, rules))
 
 	tb.SetCID(containerID)
 
@@ -140,145 +124,4 @@ func getRulesFromFile(filename string) ([]string, error) {
 	}
 
 	return strings.Split(strings.TrimSpace(string(data)), "\n"), nil
-}
-
-// parseTable parses eACL table from the following form:
-// <action> <operation> [<filter1> ...] [<target1> ...]
-//
-// Examples:
-// allow get req:X-Header=123 obj:Attr=value others:0xkey1,key2 system:key3 user:key4
-//
-//nolint:godot
-func parseTable(tb *eacl.Table, args []string) error {
-	if len(args) < 2 {
-		return errors.New("at least 2 arguments must be provided")
-	}
-
-	var action eacl.Action
-	if !action.FromString(strings.ToUpper(args[0])) {
-		return errors.New("invalid action (expected 'allow' or 'deny')")
-	}
-
-	ops, err := parseOperations(args[1])
-	if err != nil {
-		return err
-	}
-
-	r, err := parseRecord(args[2:])
-	if err != nil {
-		return err
-	}
-
-	r.SetAction(action)
-
-	for _, op := range ops {
-		r := *r
-		r.SetOperation(op)
-		tb.AddRecord(&r)
-	}
-
-	return nil
-}
-
-func parseRecord(args []string) (*eacl.Record, error) {
-	r := new(eacl.Record)
-	for i := range args {
-		ss := strings.SplitN(args[i], ":", 2)
-
-		switch prefix := strings.ToLower(ss[0]); prefix {
-		case "req", "obj": // filters
-			if len(ss) != 2 {
-				return nil, fmt.Errorf("invalid filter or target: %s", args[i])
-			}
-
-			i := strings.Index(ss[1], "=")
-			if i < 0 {
-				return nil, fmt.Errorf("invalid filter key-value pair: %s", ss[1])
-			}
-
-			var key, value string
-			var op eacl.Match
-
-			if 0 < i && ss[1][i-1] == '!' {
-				key = ss[1][:i-1]
-				op = eacl.MatchStringNotEqual
-			} else {
-				key = ss[1][:i]
-				op = eacl.MatchStringEqual
-			}
-
-			value = ss[1][i+1:]
-
-			typ := eacl.HeaderFromRequest
-			if ss[0] == "obj" {
-				typ = eacl.HeaderFromObject
-			}
-
-			r.AddFilter(typ, op, key, value)
-		case "others", "system", "user", "pubkey": // targets
-			var err error
-
-			var pubs []ecdsa.PublicKey
-			if len(ss) == 2 {
-				pubs, err = parseKeyList(ss[1])
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			var role eacl.Role
-			if prefix != "pubkey" {
-				role, err = roleFromString(prefix)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			eacl.AddFormedTarget(r, role, pubs...)
-
-		default:
-			return nil, fmt.Errorf("invalid prefix: %s", ss[0])
-		}
-	}
-
-	return r, nil
-}
-
-func roleFromString(s string) (eacl.Role, error) {
-	var r eacl.Role
-	if !r.FromString(strings.ToUpper(s)) {
-		return r, fmt.Errorf("unexpected role %s", s)
-	}
-
-	return r, nil
-}
-
-// parseKeyList parses list of hex-encoded public keys separated by comma.
-func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
-	ss := strings.Split(s, ",")
-	pubs := make([]ecdsa.PublicKey, len(ss))
-	for i := range ss {
-		st := strings.TrimPrefix(ss[i], "0x")
-		pub, err := keys.NewPublicKeyFromString(st)
-		if err != nil {
-			return nil, fmt.Errorf("invalid public key '%s': %w", ss[i], err)
-		}
-
-		pubs[i] = ecdsa.PublicKey(*pub)
-	}
-
-	return pubs, nil
-}
-
-func parseOperations(s string) ([]eacl.Operation, error) {
-	ss := strings.Split(s, ",")
-	ops := make([]eacl.Operation, len(ss))
-
-	for i := range ss {
-		if !ops[i].FromString(strings.ToUpper(ss[i])) {
-			return nil, fmt.Errorf("invalid operation: %s", ss[i])
-		}
-	}
-
-	return ops, nil
 }
