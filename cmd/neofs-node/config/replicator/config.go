@@ -25,3 +25,9 @@ func PutTimeout(c *config.Config) time.Duration {
 
 	return PutTimeoutDefault
 }
+
+// PoolSize returns the value of "pool_size" config parameter
+// from "replicator" section.
+func PoolSize(c *config.Config) int {
+	return int(config.IntSafe(c.Sub(subsection), "pool_size"))
+}

@@ -101,6 +101,7 @@ policer:
 
 replicator:
   put_timeout: 15s  # timeout for the Replicator PUT remote operation
+  pool_size: 10     # maximum amount of concurrent replications
 
 object:
   put:
