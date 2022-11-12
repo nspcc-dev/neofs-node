@@ -231,7 +231,7 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.cfgObject.pool.putRemoteCapacity),
+		policer.WithMaxCapacity(c.cfgObject.pool.replicatorPoolSize),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 	)

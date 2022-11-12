@@ -15,12 +15,14 @@ func TestReplicatorSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.Equal(t, replicatorconfig.PutTimeoutDefault, replicatorconfig.PutTimeout(empty))
+		require.Equal(t, 0, replicatorconfig.PoolSize(empty))
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 15*time.Second, replicatorconfig.PutTimeout(c))
+		require.Equal(t, 10, replicatorconfig.PoolSize(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

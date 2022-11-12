@@ -121,6 +121,7 @@
     "head_timeout": "15s"
   },
   "replicator": {
+    "pool_size": 10,
     "put_timeout": "15s"
   },
   "object": {
