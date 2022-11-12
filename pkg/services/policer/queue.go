@@ -3,15 +3,15 @@ package policer
 import (
 	"fmt"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type jobQueue struct {
 	localStorage *engine.StorageEngine
 }
 
-func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]oid.Address, *engine.Cursor, error) {
+func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]objectcore.AddressWithType, *engine.Cursor, error) {
 	var prm engine.ListWithCursorPrm
 	prm.WithCursor(cursor)
 	prm.WithCount(count)

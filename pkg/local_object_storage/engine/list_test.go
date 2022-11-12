@@ -8,7 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,8 +24,8 @@ func TestListWithCursor(t *testing.T) {
 
 	const total = 20
 
-	expected := make([]oid.Address, 0, total)
-	got := make([]oid.Address, 0, total)
+	expected := make([]object.AddressWithType, 0, total)
+	got := make([]object.AddressWithType, 0, total)
 
 	for i := 0; i < total; i++ {
 		containerID := cidtest.ID()
@@ -36,7 +36,7 @@ func TestListWithCursor(t *testing.T) {
 
 		_, err := e.Put(prm)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(obj))
+		expected = append(expected, object.AddressWithType{Type: objectSDK.TypeRegular, Address: object.AddressOf(obj)})
 	}
 
 	expected = sortAddresses(expected)
@@ -68,9 +68,9 @@ func TestListWithCursor(t *testing.T) {
 	require.Equal(t, expected, got)
 }
 
-func sortAddresses(addr []oid.Address) []oid.Address {
-	sort.Slice(addr, func(i, j int) bool {
-		return addr[i].EncodeToString() < addr[j].EncodeToString()
+func sortAddresses(addrWithType []object.AddressWithType) []object.AddressWithType {
+	sort.Slice(addrWithType, func(i, j int) bool {
+		return addrWithType[i].Address.EncodeToString() < addrWithType[j].Address.EncodeToString()
 	})
-	return addr
+	return addrWithType
 }

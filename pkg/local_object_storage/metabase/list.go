@@ -1,8 +1,10 @@
 package meta
 
 import (
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -38,12 +40,12 @@ func (l *ListPrm) SetCursor(cursor *Cursor) {
 
 // ListRes contains values returned from ListWithCursor operation.
 type ListRes struct {
-	addrList []oid.Address
+	addrList []objectcore.AddressWithType
 	cursor   *Cursor
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (l ListRes) AddressList() []oid.Address {
+func (l ListRes) AddressList() []objectcore.AddressWithType {
 	return l.addrList
 }
 
@@ -62,7 +64,7 @@ func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
-	result := make([]oid.Address, 0, prm.count)
+	result := make([]objectcore.AddressWithType, 0, prm.count)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.addrList, res.cursor, err = db.listWithCursor(tx, result, prm.count, prm.cursor)
@@ -72,7 +74,7 @@ func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 	return res, err
 }
 
-func (db *DB) listWithCursor(tx *bbolt.Tx, result []oid.Address, count int, cursor *Cursor) ([]oid.Address, *Cursor, error) {
+func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithType, count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
 	threshold := cursor == nil // threshold is a flag to ignore cursor
 	var bucketName []byte
 
@@ -97,12 +99,17 @@ loop:
 			continue
 		}
 
+		var objType object.Type
+
 		switch prefix {
-		case
-			primaryPrefix,
-			storageGroupPrefix,
-			lockersPrefix,
-			tombstonePrefix:
+		case primaryPrefix:
+			objType = object.TypeRegular
+		case storageGroupPrefix:
+			objType = object.TypeStorageGroup
+		case lockersPrefix:
+			objType = object.TypeLock
+		case tombstonePrefix:
+			objType = object.TypeTombstone
 		default:
 			continue
 		}
@@ -110,7 +117,7 @@ loop:
 		bkt := tx.Bucket(name)
 		if bkt != nil {
 			copy(rawAddr, cidRaw)
-			result, offset, cursor = selectNFromBucket(bkt, graveyardBkt, garbageBkt, rawAddr, containerID,
+			result, offset, cursor = selectNFromBucket(bkt, objType, graveyardBkt, garbageBkt, rawAddr, containerID,
 				result, count, cursor, threshold)
 		}
 		bucketName = name
@@ -145,14 +152,15 @@ loop:
 // selectNFromBucket similar to selectAllFromBucket but uses cursor to find
 // object to start selecting from. Ignores inhumed objects.
 func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
+	objType object.Type, // type of the objects stored in the main bucket
 	graveyardBkt, garbageBkt *bbolt.Bucket, // cached graveyard buckets
 	cidRaw []byte, // container ID prefix, optimization
 	cnt cid.ID, // container ID
-	to []oid.Address, // listing result
+	to []objectcore.AddressWithType, // listing result
 	limit int, // stop listing at `limit` items in result
 	cursor *Cursor, // start from cursor object
 	threshold bool, // ignore cursor and start immediately
-) ([]oid.Address, []byte, *Cursor) {
+) ([]objectcore.AddressWithType, []byte, *Cursor) {
 	if cursor == nil {
 		cursor = new(Cursor)
 	}
@@ -186,7 +194,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		var a oid.Address
 		a.SetContainer(cnt)
 		a.SetObject(obj)
-		to = append(to, a)
+		to = append(to, objectcore.AddressWithType{Address: a, Type: objType})
 		count++
 	}
 
