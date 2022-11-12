@@ -16,6 +16,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -138,5 +139,39 @@ func TestShard_Lock(t *testing.T) {
 		_, err = sh.Get(getPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
+}
 
+func TestShard_IsLocked(t *testing.T) {
+	sh := newShard(t, false)
+
+	cnr := cidtest.ID()
+	obj := generateObjectWithCID(t, cnr)
+	cnrID, _ := obj.ContainerID()
+	objID, _ := obj.ID()
+
+	lockID := oidtest.ID()
+
+	// put the object
+
+	var putPrm shard.PutPrm
+	putPrm.SetObject(obj)
+
+	_, err := sh.Put(putPrm)
+	require.NoError(t, err)
+
+	// not locked object is not locked
+
+	locked, err := sh.IsLocked(objectcore.AddressOf(obj))
+	require.NoError(t, err)
+
+	require.False(t, locked)
+
+	// locked object is locked
+
+	require.NoError(t, sh.Lock(cnrID, lockID, []oid.ID{objID}))
+
+	locked, err = sh.IsLocked(objectcore.AddressOf(obj))
+	require.NoError(t, err)
+
+	require.True(t, locked)
 }
