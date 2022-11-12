@@ -13,10 +13,9 @@ type (
 	// ClientCache is a structure around neofs-sdk-go/client to reuse
 	// already created clients.
 	ClientCache struct {
-		mu            *sync.RWMutex
-		clients       map[string]*multiClient
-		opts          ClientCacheOpts
-		allowExternal bool
+		mu      sync.RWMutex
+		clients map[string]*multiClient
+		opts    ClientCacheOpts
 	}
 
 	ClientCacheOpts struct {
@@ -32,17 +31,15 @@ type (
 // `opts` are used for new client creation.
 func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 	return &ClientCache{
-		mu:            new(sync.RWMutex),
-		clients:       make(map[string]*multiClient),
-		opts:          opts,
-		allowExternal: opts.AllowExternal,
+		clients: make(map[string]*multiClient),
+		opts:    opts,
 	}
 }
 
 // Get function returns existing client or creates a new one.
 func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	netAddr := info.AddressGroup()
-	if c.allowExternal {
+	if c.opts.AllowExternal {
 		netAddr = append(netAddr, info.ExternalAddressGroup()...)
 	}
 	cacheKey := string(info.PublicKey())
