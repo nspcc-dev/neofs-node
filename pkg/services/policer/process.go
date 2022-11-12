@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +21,7 @@ func (p *Policer) Run(ctx context.Context) {
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	var (
-		addrs  []oid.Address
+		addrs  []objectcore.AddressWithType
 		cursor *engine.Cursor
 		err    error
 	)
@@ -47,7 +47,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			default:
-				addr := addrs[i]
+				addr := addrs[i].Address
 				if p.objsInWork.inWork(addr) {
 					// do not process an object
 					// that is in work
@@ -62,7 +62,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 
 					p.objsInWork.add(addr)
 
-					p.processObject(ctx, addr)
+					p.processObject(ctx, addrs[i])
 
 					p.cache.Add(addr, time.Now())
 					p.objsInWork.remove(addr)

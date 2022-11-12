@@ -136,8 +136,10 @@ mainLoop:
 
 		loop:
 			for i := range lst {
+				addr := lst[i].Address
+
 				var getPrm shard.GetPrm
-				getPrm.SetAddress(lst[i])
+				getPrm.SetAddress(addr)
 
 				getRes, err := sh.Get(getPrm)
 				if err != nil {
@@ -147,18 +149,18 @@ mainLoop:
 					return res, err
 				}
 
-				hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(lst[i].EncodeToString())))
+				hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(addr.EncodeToString())))
 				for j := range shards {
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, lst[i], getRes.Object())
+					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, getRes.Object())
 					if putDone || exists {
 						if putDone {
 							e.log.Debug("object is moved to another shard",
 								zap.String("from", sidList[n]),
 								zap.Stringer("to", shards[j].ID()),
-								zap.Stringer("addr", lst[i]))
+								zap.Stringer("addr", addr))
 
 							res.count++
 						}
@@ -172,7 +174,7 @@ mainLoop:
 					return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
 				}
 
-				err = prm.handler(lst[i], getRes.Object())
+				err = prm.handler(addr, getRes.Object())
 				if err != nil {
 					return res, err
 				}

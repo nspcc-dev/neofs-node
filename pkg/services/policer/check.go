@@ -5,13 +5,14 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
@@ -64,8 +65,10 @@ func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	n.submitReplicaHolder(node)
 }
 
-func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
+func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.AddressWithType) {
+	addr := addrWithType.Address
 	idCnr := addr.Container()
+	idObj := addr.Object()
 
 	cnr, err := p.cnrSrc.Get(idCnr)
 	if err != nil {
@@ -75,14 +78,14 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		)
 		if container.IsErrNotFound(err) {
 			var prm engine.InhumePrm
-			prm.MarkAsGarbage(addr)
+			prm.MarkAsGarbage(addrWithType.Address)
 			prm.WithForceRemoval()
 
 			_, err := p.jobQueue.localStorage.Inhume(prm)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
-					zap.Stringer("oid", addr.Object()),
+					zap.Stringer("oid", idObj),
 					zap.String("error", err.Error()))
 			}
 		}
@@ -91,9 +94,8 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 	}
 
 	policy := cnr.Value.PlacementPolicy()
-	obj := addr.Object()
 
-	nn, err := p.placementBuilder.BuildPlacement(idCnr, &obj, policy)
+	nn, err := p.placementBuilder.BuildPlacement(idCnr, &idObj, policy)
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.Stringer("cid", idCnr),
@@ -122,7 +124,7 @@ func (p *Policer) processObject(ctx context.Context, addr oid.Address) {
 		default:
 		}
 
-		p.processNodes(c, addr, nn[i], policy.ReplicaNumberByIndex(i), checkedNodes)
+		p.processNodes(c, addrWithType, nn[i], policy.ReplicaNumberByIndex(i), checkedNodes)
 	}
 
 	if !c.needLocalCopy {
@@ -140,8 +142,10 @@ type processPlacementContext struct {
 	needLocalCopy bool
 }
 
-func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
+func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType objectcore.AddressWithType,
 	nodes []netmap.NodeInfo, shortage uint32, checkedNodes *nodeCache) {
+	addr := addrWithType.Address
+	typ := addrWithType.Type
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
 	// Number of copies that are stored on maintenance nodes.
@@ -160,6 +164,14 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addr oid.Address,
 		p.log.Debug("consider node under maintenance as OK",
 			zap.String("node", netmap.StringifyPublicKey(node)),
 		)
+	}
+
+	if typ == object.TypeLock {
+		// all nodes of a container must store the `LOCK` objects
+		// for correct object removal protection:
+		//   - `LOCK` objects are broadcast on their PUT requests;
+		//   - `LOCK` object removal is a prohibited action in the GC.
+		shortage = uint32(len(nodes))
 	}
 
 	for i := 0; shortage > 0 && i < len(nodes); i++ {

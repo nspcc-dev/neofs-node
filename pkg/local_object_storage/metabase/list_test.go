@@ -9,7 +9,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -73,7 +72,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		total      = containers * 5 // regular + ts + sg + child + lock
 	)
 
-	expected := make([]oid.Address, 0, total)
+	expected := make([]object.AddressWithType, 0, total)
 
 	// fill metabase with objects
 	for i := 0; i < containers; i++ {
@@ -84,28 +83,28 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		obj.SetType(objectSDK.TypeRegular)
 		err := putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(obj))
+		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeRegular})
 
 		// add one tombstone
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeTombstone)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(obj))
+		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeTombstone})
 
 		// add one storage group
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeStorageGroup)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(obj))
+		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeStorageGroup})
 
 		// add one lock
 		obj = generateObjectWithCID(t, containerID)
 		obj.SetType(objectSDK.TypeLock)
 		err = putBig(db, obj)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(obj))
+		expected = append(expected, object.AddressWithType{Address: object.AddressOf(obj), Type: objectSDK.TypeLock})
 
 		// add one inhumed (do not include into expected)
 		obj = generateObjectWithCID(t, containerID)
@@ -127,14 +126,14 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		child.SetSplitID(splitID)
 		err = putBig(db, child)
 		require.NoError(t, err)
-		expected = append(expected, object.AddressOf(child))
+		expected = append(expected, object.AddressWithType{Address: object.AddressOf(child), Type: objectSDK.TypeRegular})
 	}
 
 	expected = sortAddresses(expected)
 
 	t.Run("success with various count", func(t *testing.T) {
 		for countPerReq := 1; countPerReq <= total; countPerReq++ {
-			got := make([]oid.Address, 0, total)
+			got := make([]object.AddressWithType, 0, total)
 
 			res, cursor, err := metaListWithCursor(db, uint32(countPerReq), nil)
 			require.NoError(t, err, "count:%d", countPerReq)
@@ -184,8 +183,8 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	got, cursor, err := metaListWithCursor(db, total/2, nil)
 	require.NoError(t, err)
 	for _, obj := range got {
-		if _, ok := expected[obj.EncodeToString()]; ok {
-			expected[obj.EncodeToString()]++
+		if _, ok := expected[obj.Address.EncodeToString()]; ok {
+			expected[obj.Address.EncodeToString()]++
 		}
 	}
 
@@ -203,8 +202,8 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 			break
 		}
 		for _, obj := range got {
-			if _, ok := expected[obj.EncodeToString()]; ok {
-				expected[obj.EncodeToString()]++
+			if _, ok := expected[obj.Address.EncodeToString()]; ok {
+				expected[obj.Address.EncodeToString()]++
 			}
 		}
 	}
@@ -216,14 +215,14 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 
 }
 
-func sortAddresses(addr []oid.Address) []oid.Address {
-	sort.Slice(addr, func(i, j int) bool {
-		return addr[i].EncodeToString() < addr[j].EncodeToString()
+func sortAddresses(addrWithType []object.AddressWithType) []object.AddressWithType {
+	sort.Slice(addrWithType, func(i, j int) bool {
+		return addrWithType[i].Address.EncodeToString() < addrWithType[j].Address.EncodeToString()
 	})
-	return addr
+	return addrWithType
 }
 
-func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]oid.Address, *meta.Cursor, error) {
+func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]object.AddressWithType, *meta.Cursor, error) {
 	var listPrm meta.ListPrm
 	listPrm.SetCount(count)
 	listPrm.SetCursor(cursor)

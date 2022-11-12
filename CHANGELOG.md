@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
+- `LOCK` object are stored on every container node (#1502)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
@@ -28,6 +29,7 @@ Changelog for NeoFS Node
 - Session token's IAT and NBF checks in ACL service (#2028)
 - Losing meta information on request forwarding (#2040)
 - Assembly process triggered by a request with a bearer token (#2040)
+- Losing locking context after metabase resync (#1502)
 
 ### Removed
 ### Updated

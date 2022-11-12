@@ -3,10 +3,10 @@ package shard
 import (
 	"fmt"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +36,7 @@ type ListWithCursorPrm struct {
 
 // ListWithCursorRes contains values returned from ListWithCursor operation.
 type ListWithCursorRes struct {
-	addrList []oid.Address
+	addrList []objectcore.AddressWithType
 	cursor   *Cursor
 }
 
@@ -53,7 +53,7 @@ func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) {
 }
 
 // AddressList returns addresses selected by ListWithCursor operation.
-func (r ListWithCursorRes) AddressList() []oid.Address {
+func (r ListWithCursorRes) AddressList() []objectcore.AddressWithType {
 	return r.addrList
 }
 
