@@ -162,7 +162,7 @@ func initContainerService(c *cfg) {
 			RemoteWriterProvider: &remoteLoadAnnounceProvider{
 				key:             &c.key.PrivateKey,
 				netmapKeys:      c,
-				clientCache:     c.clientCache,
+				clientCache:     c.bgClientCache,
 				deadEndProvider: loadcontroller.SimpleWriterProvider(loadAccumulator),
 			},
 			Builder: routeBuilder,
