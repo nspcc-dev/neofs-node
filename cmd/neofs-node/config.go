@@ -341,8 +341,9 @@ type shared struct {
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
-	clientCache *cache.ClientCache
-	localAddr   network.AddressGroup
+	clientCache   *cache.ClientCache
+	bgClientCache *cache.ClientCache
+	localAddr     network.AddressGroup
 
 	key            *keys.PrivateKey
 	binPublicKey   []byte
@@ -555,18 +556,21 @@ func initCfg(appCfg *config.Config) *cfg {
 		apiVersion:   version.Current(),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 	}
+
+	cacheOpts := cache.ClientCacheOpts{
+		DialTimeout:   apiclientconfig.DialTimeout(appCfg),
+		StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
+		Key:           &key.PrivateKey,
+		AllowExternal: apiclientconfig.AllowExternal(appCfg),
+	}
 	c.shared = shared{
-		key:          key,
-		binPublicKey: key.PublicKey().Bytes(),
-		localAddr:    netAddr,
-		respSvc:      response.NewService(response.WithNetworkState(netState)),
-		clientCache: cache.NewSDKClientCache(cache.ClientCacheOpts{
-			DialTimeout:   apiclientconfig.DialTimeout(appCfg),
-			StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
-			Key:           &key.PrivateKey,
-			AllowExternal: apiclientconfig.AllowExternal(appCfg),
-		}),
-		persistate: persistate,
+		key:           key,
+		binPublicKey:  key.PublicKey().Bytes(),
+		localAddr:     netAddr,
+		respSvc:       response.NewService(response.WithNetworkState(netState)),
+		clientCache:   cache.NewSDKClientCache(cacheOpts),
+		bgClientCache: cache.NewSDKClientCache(cacheOpts),
+		persistate:    persistate,
 	}
 	c.cfgAccounting = cfgAccounting{
 		scriptHash: contractsconfig.Balance(appCfg),
@@ -604,7 +608,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		netState.metrics = c.metricsCollector
 	}
 
-	c.onShutdown(c.clientCache.CloseAll) // clean up connections
+	c.onShutdown(c.clientCache.CloseAll)   // clean up connections
+	c.onShutdown(c.bgClientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
 
 	return c

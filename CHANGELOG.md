@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - `session` flag support to `neofs-cli object hash` (#2029)
 - Shard can now change mode when encountering background disk errors (#2035)
+- Background workers and object service now use separate client caches (#2048)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
