@@ -29,6 +29,7 @@ import (
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -488,6 +489,8 @@ type cfgObjectRoutines struct {
 
 	putRemoteCapacity int
 
+	replicatorPoolSize int
+
 	replication *ants.Pool
 }
 
@@ -821,7 +824,12 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.putRemote, err = ants.NewPool(pool.putRemoteCapacity, optNonBlocking)
 	fatalOnErr(err)
 
-	pool.replication, err = ants.NewPool(pool.putRemoteCapacity)
+	pool.replicatorPoolSize = replicatorconfig.PoolSize(cfg)
+	if pool.replicatorPoolSize <= 0 {
+		pool.replicatorPoolSize = pool.putRemoteCapacity
+	}
+
+	pool.replication, err = ants.NewPool(pool.replicatorPoolSize)
 	fatalOnErr(err)
 
 	return pool

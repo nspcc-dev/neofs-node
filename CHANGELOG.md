@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - `session` flag support to `neofs-cli object hash` (#2029)
 - Shard can now change mode when encountering background disk errors (#2035)
 - Background workers and object service now use separate client caches (#2048)
+- `replicator.pool_size` config field to tune replicator pool size (#2049)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
@@ -30,6 +31,9 @@ Changelog for NeoFS Node
 ### Updated
 ### Updating from v0.34.0
 Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
+
+Replicator pool size can now be fine-tuned with `replicator.pool_size` config field.
+The default value is taken from `object.put.pool_size_remote` as in earlier versions.
 
 ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
