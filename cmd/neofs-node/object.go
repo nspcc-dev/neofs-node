@@ -171,10 +171,16 @@ func initObjectService(c *cfg) {
 		nmSrc:            c.netMapSource,
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
-		basicConstructor: c.clientCache,
+		basicConstructor: c.bgClientCache,
 	}
 
-	coreConstructor := (*coreClientConstructor)(clientConstructor)
+	coreConstructor := &coreClientConstructor{
+		log:              c.log,
+		nmSrc:            c.netMapSource,
+		netState:         c.cfgNetmap.state,
+		trustStorage:     c.cfgReputation.localTrustStorage,
+		basicConstructor: c.clientCache,
+	}
 
 	var irFetcher v2.InnerRingFetcher
 
