@@ -175,3 +175,35 @@ func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) error {
 
 	return nil
 }
+
+// IsLockedPrm groups the parameters of IsLocked operation.
+type IsLockedPrm struct {
+	addr oid.Address
+}
+
+// SetAddress sets object address that will be checked for lock relations.
+func (i *IsLockedPrm) SetAddress(addr oid.Address) {
+	i.addr = addr
+}
+
+// IsLockedRes groups the resulting values of IsLocked operation.
+type IsLockedRes struct {
+	locked bool
+}
+
+// Locked describes the requested object status according to the metabase
+// current state.
+func (i IsLockedRes) Locked() bool {
+	return i.locked
+}
+
+// IsLocked checks is the provided object is locked by any `LOCK`. Not found
+// object is considered as non-locked.
+//
+// Returns only non-logical errors related to underlying database.
+func (db *DB) IsLocked(prm IsLockedPrm) (res IsLockedRes, err error) {
+	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
+		res.locked = objectLocked(tx, prm.addr.Container(), prm.addr.Object())
+		return nil
+	})
+}
