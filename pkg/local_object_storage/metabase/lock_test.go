@@ -169,6 +169,50 @@ func TestDB_Lock(t *testing.T) {
 	})
 }
 
+func TestDB_IsLocked(t *testing.T) {
+	db := newDB(t)
+
+	// existing and locked objs
+
+	objs, _ := putAndLockObj(t, db, 5)
+	var prm meta.IsLockedPrm
+
+	for _, obj := range objs {
+		prm.SetAddress(objectcore.AddressOf(obj))
+
+		res, err := db.IsLocked(prm)
+		require.NoError(t, err)
+
+		require.True(t, res.Locked())
+	}
+
+	// some rand obj
+
+	prm.SetAddress(oidtest.Address())
+
+	res, err := db.IsLocked(prm)
+	require.NoError(t, err)
+
+	require.False(t, res.Locked())
+
+	// existing but not locked obj
+
+	obj := objecttest.Object()
+
+	var putPrm meta.PutPrm
+	putPrm.SetObject(obj)
+
+	_, err = db.Put(putPrm)
+	require.NoError(t, err)
+
+	prm.SetAddress(objectcore.AddressOf(obj))
+
+	res, err = db.IsLocked(prm)
+	require.NoError(t, err)
+
+	require.False(t, res.Locked())
+}
+
 // putAndLockObj puts object, returns it and its locker.
 func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Object, *object.Object) {
 	cnr := cidtest.ID()
