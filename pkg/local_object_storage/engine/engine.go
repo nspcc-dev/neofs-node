@@ -120,6 +120,13 @@ func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err er
 		return
 	}
 
+	if isLogical(err) {
+		e.log.Warn(msg,
+			zap.Stringer("shard_id", sh.ID()),
+			zap.String("error", err.Error()))
+		return
+	}
+
 	errCount := sh.errorCount.Inc()
 	e.reportShardErrorWithFlags(sh.Shard, errCount, false, msg, err)
 }
