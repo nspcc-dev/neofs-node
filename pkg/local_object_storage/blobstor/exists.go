@@ -10,6 +10,9 @@ import (
 // Returns any error encountered that did not allow
 // to completely check object existence.
 func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+	b.modeMtx.RLock()
+	defer b.modeMtx.RUnlock()
+
 	// If there was an error during existence check below,
 	// it will be returned unless object was found in blobovnicza.
 	// Otherwise, it is logged and the latest error is returned.
