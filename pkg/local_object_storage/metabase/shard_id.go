@@ -38,6 +38,8 @@ func (db *DB) WriteShardID(id []byte) error {
 
 	if db.mode.NoMetabase() {
 		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

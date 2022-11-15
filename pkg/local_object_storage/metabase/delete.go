@@ -59,6 +59,8 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 
 	if db.mode.NoMetabase() {
 		return DeleteRes{}, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return DeleteRes{}, ErrReadOnlyMode
 	}
 
 	var rawRemoved uint64
