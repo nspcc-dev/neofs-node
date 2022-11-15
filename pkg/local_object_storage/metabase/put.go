@@ -58,6 +58,8 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 
 	if db.mode.NoMetabase() {
 		return res, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return res, ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()

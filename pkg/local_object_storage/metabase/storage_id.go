@@ -86,6 +86,8 @@ func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, e
 
 	if db.mode.NoMetabase() {
 		return res, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return res, ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()

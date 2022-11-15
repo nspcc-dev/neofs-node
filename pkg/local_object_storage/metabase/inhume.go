@@ -95,6 +95,8 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 
 	if db.mode.NoMetabase() {
 		return InhumeRes{}, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return InhumeRes{}, ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
