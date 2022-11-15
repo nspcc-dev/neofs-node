@@ -31,6 +31,8 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 
 	if db.mode.NoMetabase() {
 		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	if len(locked) == 0 {

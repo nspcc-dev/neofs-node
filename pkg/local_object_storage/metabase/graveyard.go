@@ -237,6 +237,8 @@ func (db *DB) DropGraves(tss []TombstonedObject) error {
 
 	if db.mode.NoMetabase() {
 		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	buf := make([]byte, addressKeySize)
