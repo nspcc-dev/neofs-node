@@ -52,6 +52,10 @@ func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	key := make([]byte, addressKeySize)
 	key = addressKey(prm.addr, key)
 
@@ -68,6 +72,10 @@ func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	key := make([]byte, addressKeySize)
 	key = addressKey(prm.addr, key)
 
@@ -83,6 +91,10 @@ func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return MovableRes{}, ErrDegradedMode
+	}
 
 	var strAddrs []string
 

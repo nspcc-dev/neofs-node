@@ -15,5 +15,8 @@ type Info struct {
 
 // DumpInfo returns information about the DB.
 func (db *DB) DumpInfo() Info {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
 	return db.info
 }
