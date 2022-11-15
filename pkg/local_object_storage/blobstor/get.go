@@ -12,6 +12,9 @@ import (
 // If the descriptor is present, only one sub-storage is tried,
 // Otherwise, each sub-storage is tried in order.
 func (b *BlobStor) Get(prm common.GetPrm) (common.GetRes, error) {
+	b.modeMtx.RLock()
+	defer b.modeMtx.RUnlock()
+
 	if prm.StorageID == nil {
 		for i := range b.storage {
 			res, err := b.storage[i].Storage.Get(prm)

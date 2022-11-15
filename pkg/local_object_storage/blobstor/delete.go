@@ -8,6 +8,9 @@ import (
 )
 
 func (b *BlobStor) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+	b.modeMtx.RLock()
+	defer b.modeMtx.RUnlock()
+
 	if prm.StorageID == nil {
 		for i := range b.storage {
 			res, err := b.storage[i].Storage.Delete(prm)
