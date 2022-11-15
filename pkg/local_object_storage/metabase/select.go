@@ -59,6 +59,10 @@ func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	if blindlyProcess(prm.filters) {
 		return res, nil
 	}

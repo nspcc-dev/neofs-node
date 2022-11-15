@@ -57,6 +57,10 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return DeleteRes{}, ErrDegradedMode
+	}
+
 	var rawRemoved uint64
 	var availableRemoved uint64
 	var err error

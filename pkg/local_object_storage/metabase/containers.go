@@ -42,6 +42,13 @@ func (db *DB) containers(tx *bbolt.Tx) ([]cid.ID, error) {
 }
 
 func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return 0, ErrDegradedMode
+	}
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		size, err = db.containerSize(tx, id)
 
