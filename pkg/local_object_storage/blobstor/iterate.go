@@ -16,6 +16,9 @@ import (
 //
 // If handler returns an error, method wraps and returns it immediately.
 func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+	b.modeMtx.RLock()
+	defer b.modeMtx.RUnlock()
+
 	for i := range b.storage {
 		_, err := b.storage[i].Storage.Iterate(prm)
 		if err != nil && !prm.IgnoreErrors {

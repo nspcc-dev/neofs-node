@@ -22,6 +22,9 @@ var ErrNoPlaceFound = logicerr.New("couldn't find a place to store an object")
 // Returns any error encountered that
 // did not allow to completely save the object.
 func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
+	b.modeMtx.RLock()
+	defer b.modeMtx.RUnlock()
+
 	if prm.Object != nil {
 		prm.Address = object.AddressOf(prm.Object)
 	}
