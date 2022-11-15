@@ -15,6 +15,9 @@ import (
 // ErrDegradedMode is returned when metabase is in a degraded mode.
 var ErrDegradedMode = logicerr.New("metabase is in a degraded mode")
 
+// ErrReadOnlyMode is returned when metabase is in a read-only mode.
+var ErrReadOnlyMode = logicerr.New("metabase is in a read-only mode")
+
 // Open boltDB instance for metabase.
 func (db *DB) Open(readOnly bool) error {
 	err := util.MkdirAllX(filepath.Dir(db.info.Path), db.info.Permission)
@@ -159,6 +162,8 @@ func (db *DB) SyncCounters() error {
 
 	if db.mode.NoMetabase() {
 		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

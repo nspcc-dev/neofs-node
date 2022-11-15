@@ -54,6 +54,8 @@ func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 
 	if db.mode.NoMetabase() {
 		return res, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return res, ErrReadOnlyMode
 	}
 
 	key := make([]byte, addressKeySize)
@@ -74,6 +76,8 @@ func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
 
 	if db.mode.NoMetabase() {
 		return res, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return res, ErrReadOnlyMode
 	}
 
 	key := make([]byte, addressKeySize)
