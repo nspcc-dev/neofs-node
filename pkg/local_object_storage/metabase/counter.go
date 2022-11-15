@@ -43,6 +43,13 @@ func (o ObjectCounters) Phy() uint64 {
 // Returns only the errors that do not allow reading counter
 // in Bolt database.
 func (db *DB) ObjectCounters() (cc ObjectCounters, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ObjectCounters{}, ErrDegradedMode
+	}
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(shardInfoBucket)
 		if b != nil {

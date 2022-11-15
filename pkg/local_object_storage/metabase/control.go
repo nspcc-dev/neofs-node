@@ -81,6 +81,13 @@ func (db *DB) Init() error {
 // Reset resets metabase. Works similar to Init but cleans up all static buckets and
 // removes all dynamic (CID-dependent) ones in non-blank BoltDB instances.
 func (db *DB) Reset() error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.init(true)
 }
 
@@ -147,6 +154,13 @@ func (db *DB) init(reset bool) error {
 
 // SyncCounters forces to synchronize the object counters.
 func (db *DB) SyncCounters() error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		return syncCounter(tx, true)
 	})

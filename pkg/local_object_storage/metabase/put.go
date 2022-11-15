@@ -56,6 +56,10 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
