@@ -47,8 +47,12 @@ func (r GetRes) Header() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
-	db.modeMtx.Lock()
-	defer db.modeMtx.Unlock()
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
 
 	currEpoch := db.epochState.CurrentEpoch()
 
