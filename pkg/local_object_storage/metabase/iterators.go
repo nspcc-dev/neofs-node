@@ -44,6 +44,13 @@ var ErrInterruptIterator = logicerr.New("iterator is interrupted")
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
 func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateExpired(tx, epoch, h)
 	})
@@ -119,6 +126,13 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 //
 // Does not modify tss.
 func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.Address) error) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateCoveredByTombstones(tx, tss, h)
 	})

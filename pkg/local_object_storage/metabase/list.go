@@ -64,6 +64,10 @@ func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	result := make([]objectcore.AddressWithType, 0, prm.count)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

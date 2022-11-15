@@ -58,6 +58,13 @@ func (g *GarbageIterationPrm) SetOffset(offset oid.Address) {
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
 func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateDeletedObj(tx, gcHandler{p.h}, p.offset)
 	})
@@ -118,6 +125,13 @@ func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) {
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
 func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
 		return db.iterateDeletedObj(tx, graveyardHandler{p.h}, p.offset)
 	})
@@ -218,6 +232,13 @@ func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
 //
 // Returns any error appeared during deletion process.
 func (db *DB) DropGraves(tss []TombstonedObject) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	buf := make([]byte, addressKeySize)
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

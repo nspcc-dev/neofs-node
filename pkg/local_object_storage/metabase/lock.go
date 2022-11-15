@@ -29,6 +29,10 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	if len(locked) == 0 {
 		panic("empty locked list")
 	}
@@ -91,6 +95,13 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 
 // FreeLockedBy unlocks all objects in DB which are locked by lockers.
 func (db *DB) FreeLockedBy(lockers []oid.Address) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	}
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var err error
 
@@ -202,6 +213,13 @@ func (i IsLockedRes) Locked() bool {
 //
 // Returns only non-logical errors related to underlying database.
 func (db *DB) IsLocked(prm IsLockedPrm) (res IsLockedRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.locked = objectLocked(tx, prm.addr.Container(), prm.addr.Object())
 		return nil

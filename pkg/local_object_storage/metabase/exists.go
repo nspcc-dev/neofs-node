@@ -44,6 +44,10 @@ func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

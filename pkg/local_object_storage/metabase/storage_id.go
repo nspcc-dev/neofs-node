@@ -29,6 +29,13 @@ func (r StorageIDRes) StorageID() []byte {
 // StorageID returns storage descriptor for objects from the blobstor.
 // It is put together with the object can makes get/delete operation faster.
 func (db *DB) StorageID(prm StorageIDPrm) (res StorageIDRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.id, err = db.storageID(tx, prm.addr)
 
@@ -76,6 +83,10 @@ func (p *UpdateStorageIDPrm) SetStorageID(id []byte) {
 func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return res, ErrDegradedMode
+	}
 
 	currEpoch := db.epochState.CurrentEpoch()
 
