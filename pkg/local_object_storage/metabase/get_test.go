@@ -172,7 +172,7 @@ func BenchmarkGet(b *testing.B) {
 	}
 
 	for _, num := range numOfObjects {
-		b.Run(fmt.Sprintf("%d objects", num), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d_objects", num), func(b *testing.B) {
 			benchmarkGet(b, num)
 		})
 	}
@@ -196,23 +196,36 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 		_ = db.Close()
 		_ = os.RemoveAll(b.Name())
 	})
-	b.ReportAllocs()
-	b.ResetTimer()
 
+	var err error
 	var getPrm meta.GetPrm
 	getPrm.SetAddress(addrs[len(addrs)/2])
 
-	for i := 0; i < b.N; i++ {
-		for _, addr := range addrs {
-			getPrm.SetAddress(addr)
+	b.Run("parallel", func(b *testing.B) {
+		b.ReportAllocs()
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				_, err = db.Get(getPrm)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	})
 
-			res, err := db.Get(getPrm)
-			require.NoError(b, err)
+	b.Run("serial", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			for _, addr := range addrs {
+				getPrm.SetAddress(addr)
 
-			obj = res.Header()
+				_, err := db.Get(getPrm)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
 		}
-
-	}
+	})
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
