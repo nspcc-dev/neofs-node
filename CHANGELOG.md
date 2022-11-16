@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - Shard can now change mode when encountering background disk errors (#2035)
 - Background workers and object service now use separate client caches (#2048)
 - `replicator.pool_size` config field to tune replicator pool size (#2049)
+- Fix NNS hash parsing in morph client (#2063)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
