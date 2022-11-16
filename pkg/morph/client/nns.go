@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -149,7 +150,20 @@ func nnsResolve(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (uti
 	if err != nil {
 		return util.Uint160{}, fmt.Errorf("malformed response: %w", err)
 	}
-	return util.Uint160DecodeStringLE(string(bs))
+
+	// We support several formats for hash encoding, this logic should be maintained in sync
+	// with parseNNSResolveResult from cmd/neofs-adm/internal/modules/morph/initialize_nns.go
+	h, err := util.Uint160DecodeStringLE(string(bs))
+	if err == nil {
+		return h, nil
+	}
+
+	h, err = address.StringToUint160(string(bs))
+	if err == nil {
+		return h, nil
+	}
+
+	return util.Uint160{}, errors.New("no valid hashes are found")
 }
 
 func exists(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
