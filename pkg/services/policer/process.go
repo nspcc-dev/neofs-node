@@ -64,7 +64,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 
 					p.processObject(ctx, addr)
 
-					p.cache.Add(addr, time.Now())
+					p.cache.Add(addr.Address, time.Now())
 					p.objsInWork.remove(addr.Address)
 				})
 				if err != nil {
