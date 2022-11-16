@@ -261,6 +261,8 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 			continue
 		}
 
+		// We support several formats for hash encoding, this logic should be maintained in sync
+		// with nnsResolve from pkg/morph/client/nns.go
 		h, err := util.Uint160DecodeStringLE(string(bs))
 		if err == nil {
 			return h, nil
