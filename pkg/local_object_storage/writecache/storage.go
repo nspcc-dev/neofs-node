@@ -62,6 +62,9 @@ func (c *cache) openStore(readOnly bool) error {
 		fstree.WithDepth(1),
 		fstree.WithDirNameLen(1),
 		fstree.WithNoSync(c.noSync))
+	if err := c.fsTree.Open(readOnly); err != nil {
+		return fmt.Errorf("could not open FSTree: %w", err)
+	}
 
 	// Write-cache can be opened multiple times during `SetMode`.
 	// flushed map must not be re-created in this case.
