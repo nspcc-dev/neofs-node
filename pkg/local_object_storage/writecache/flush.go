@@ -27,10 +27,6 @@ const (
 	defaultFlushInterval = time.Second
 )
 
-// errMustBeReadOnly is returned when write-cache must be
-// in read-only mode to perform an operation.
-var errMustBeReadOnly = errors.New("write-cache must be in read-only mode")
-
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
 	for i := 0; i < c.workersCount; i++ {
@@ -71,7 +67,6 @@ func (c *cache) flushDB() {
 		}
 
 		m = m[:0]
-		sz := 0
 
 		c.modeMtx.RLock()
 		if c.readOnly() {
@@ -89,7 +84,6 @@ func (c *cache) flushDB() {
 					continue
 				}
 
-				sz += len(k) + len(v)
 				m = append(m, objectInfo{
 					addr: string(k),
 					data: slice.Copy(v),
