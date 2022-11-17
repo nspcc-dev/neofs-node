@@ -40,12 +40,16 @@ func TestBlobovnicza_Get(t *testing.T) {
 		addr := oidtest.Address()
 		obj := make([]byte, firstBucketBound+1)
 
+		exists, err := blz.Exists(addr)
+		require.NoError(t, err)
+		require.False(t, exists)
+
 		var prmPut PutPrm
 		prmPut.SetAddress(addr)
 		prmPut.SetMarshaledObject(obj)
 
 		// place object to [32K:64K] bucket
-		_, err := blz.Put(prmPut)
+		_, err = blz.Put(prmPut)
 		require.NoError(t, err)
 
 		var prmGet GetPrm
@@ -55,6 +59,10 @@ func TestBlobovnicza_Get(t *testing.T) {
 			res, err := blz.Get(prmGet)
 			require.NoError(t, err)
 			require.Equal(t, obj, res.Object())
+
+			exists, err := blz.Exists(addr)
+			require.NoError(t, err)
+			require.True(t, exists)
 		}
 
 		// object should be available
