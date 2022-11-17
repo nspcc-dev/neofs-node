@@ -17,6 +17,7 @@ type Option func(*options)
 // meta is an interface for a metabase.
 type metabase interface {
 	Exists(meta.ExistsPrm) (meta.ExistsRes, error)
+	StorageID(meta.StorageIDPrm) (meta.StorageIDRes, error)
 	UpdateStorageID(meta.UpdateStorageIDPrm) (meta.UpdateStorageIDRes, error)
 }
 
