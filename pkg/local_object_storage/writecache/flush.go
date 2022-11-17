@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	"bytes"
 	"errors"
 	"time"
 
@@ -57,7 +58,7 @@ func (c *cache) runFlushLoop() {
 }
 
 func (c *cache) flushDB() {
-	lastKey := []byte{}
+	var lastKey []byte
 	var m []objectInfo
 	for {
 		select {
@@ -79,7 +80,25 @@ func (c *cache) flushDB() {
 		_ = c.db.View(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(defaultBucket)
 			cs := b.Cursor()
-			for k, v := cs.Seek(lastKey); k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
+
+			var k, v []byte
+
+			if len(lastKey) == 0 {
+				k, v = cs.First()
+			} else {
+				k, v = cs.Seek(lastKey)
+				if bytes.Equal(k, lastKey) {
+					k, v = cs.Next()
+				}
+			}
+
+			for ; k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
+				if len(lastKey) == len(k) {
+					copy(lastKey, k)
+				} else {
+					lastKey = slice.Copy(k)
+				}
+
 				if _, ok := c.flushed.Peek(string(k)); ok {
 					continue
 				}
