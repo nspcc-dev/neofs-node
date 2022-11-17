@@ -25,7 +25,20 @@ func TestExists(t *testing.T, cons Constructor, min, max uint64) {
 
 	var prm common.ExistsPrm
 	prm.Address = objects[0].addr
-	res, err := s.Exists(prm)
-	require.NoError(t, err)
-	require.True(t, res.Exists)
+
+	t.Run("without storage ID", func(t *testing.T) {
+		prm.StorageID = nil
+
+		res, err := s.Exists(prm)
+		require.NoError(t, err)
+		require.True(t, res.Exists)
+	})
+
+	t.Run("with storage ID", func(t *testing.T) {
+		prm.StorageID = objects[0].storageID
+
+		res, err := s.Exists(prm)
+		require.NoError(t, err)
+		require.True(t, res.Exists)
+	})
 }
