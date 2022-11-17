@@ -10,6 +10,17 @@ import (
 
 // Exists implements common.Storage.
 func (b *Blobovniczas) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+	if prm.StorageID != nil {
+		id := blobovnicza.NewIDFromBytes(prm.StorageID)
+		blz, err := b.openBlobovnicza(id.String())
+		if err != nil {
+			return common.ExistsRes{}, err
+		}
+
+		exists, err := blz.Exists(prm.Address)
+		return common.ExistsRes{Exists: exists}, err
+	}
+
 	activeCache := make(map[string]struct{})
 
 	var gPrm blobovnicza.GetPrm

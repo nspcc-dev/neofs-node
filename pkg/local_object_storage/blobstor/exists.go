@@ -13,6 +13,13 @@ func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
+	if prm.StorageID != nil {
+		if len(prm.StorageID) == 0 {
+			return b.storage[len(b.storage)-1].Storage.Exists(prm)
+		}
+		return b.storage[0].Storage.Exists(prm)
+	}
+
 	// If there was an error during existence check below,
 	// it will be returned unless object was found in blobovnicza.
 	// Otherwise, it is logged and the latest error is returned.
