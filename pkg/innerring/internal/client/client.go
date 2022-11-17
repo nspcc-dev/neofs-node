@@ -202,6 +202,7 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
+	cliPrm.UseKey(*x.key)
 
 	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
 	if err == nil {
