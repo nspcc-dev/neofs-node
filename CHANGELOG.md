@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - Removing all trees by container ID if tree ID is empty in `pilorama.Forest.TreeDrop` (#1940)
 - Concurrent mode changes in the metabase and blobstor (#2057)
 - Panic in IR when performing HEAD requests (#2069)
+- Write-cache flush duplication (#2074)
 
 ### Removed
 ### Updated
