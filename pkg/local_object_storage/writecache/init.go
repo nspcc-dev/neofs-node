@@ -61,18 +61,14 @@ func (c *cache) initFlushMarks() {
 }
 
 func (c *cache) isFlushed(addr oid.Address) bool {
-	var existsPrm meta.ExistsPrm
-	existsPrm.SetAddress(addr)
+	var prm meta.StorageIDPrm
+	prm.SetAddress(addr)
 
-	mRes, err := c.metabase.Exists(existsPrm)
+	mRes, err := c.metabase.StorageID(prm)
 	if err != nil {
-		return errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
+		return errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved)) || errors.Is(err, apistatus.ObjectNotFound{})
 	}
 
-	if !mRes.Exists() {
-		return false
-	}
-
-	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr})
+	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: mRes.StorageID()})
 	return err == nil && res.Exists
 }
