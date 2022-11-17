@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -25,16 +26,16 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+type objectPair struct {
+	addr oid.Address
+	obj  *object.Object
+}
+
 func TestFlush(t *testing.T) {
 	const (
 		objCount  = 4
 		smallSize = 256
 	)
-
-	type objectPair struct {
-		addr oid.Address
-		obj  *object.Object
-	}
 
 	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
 		dir := t.TempDir()
@@ -75,18 +76,7 @@ func TestFlush(t *testing.T) {
 	putObjects := func(t *testing.T, c Cache) []objectPair {
 		objects := make([]objectPair, objCount)
 		for i := range objects {
-			obj, data := newObject(t, 1+(i%2)*smallSize)
-			addr := objectCore.AddressOf(obj)
-
-			var prm common.PutPrm
-			prm.Address = objectCore.AddressOf(obj)
-			prm.Object = obj
-			prm.RawData = data
-
-			_, err := c.Put(prm)
-			require.NoError(t, err)
-
-			objects[i] = objectPair{addr: addr, obj: obj}
+			objects[i] = putObject(t, c, 1+(i%2)*smallSize)
 		}
 		return objects
 	}
@@ -230,6 +220,82 @@ func TestFlush(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("on init", func(t *testing.T) {
+		wc, bs, mb := newCache(t)
+		objects := []objectPair{
+			// removed
+			putObject(t, wc, 1),
+			putObject(t, wc, smallSize+1),
+			// not found
+			putObject(t, wc, 1),
+			putObject(t, wc, smallSize+1),
+			// ok
+			putObject(t, wc, 1),
+			putObject(t, wc, smallSize+1),
+		}
+
+		require.NoError(t, wc.Close())
+		require.NoError(t, bs.SetMode(mode.ReadWrite))
+		require.NoError(t, mb.SetMode(mode.ReadWrite))
+
+		for i := range objects {
+			var prm meta.PutPrm
+			prm.SetObject(objects[i].obj)
+			_, err := mb.Put(prm)
+			require.NoError(t, err)
+		}
+
+		var inhumePrm meta.InhumePrm
+		inhumePrm.SetAddresses(objects[0].addr, objects[1].addr)
+		inhumePrm.SetTombstoneAddress(oidtest.Address())
+		_, err := mb.Inhume(inhumePrm)
+		require.NoError(t, err)
+
+		var deletePrm meta.DeletePrm
+		deletePrm.SetAddresses(objects[2].addr, objects[3].addr)
+		_, err = mb.Delete(deletePrm)
+		require.NoError(t, err)
+
+		require.NoError(t, bs.SetMode(mode.ReadOnly))
+		require.NoError(t, mb.SetMode(mode.ReadOnly))
+
+		// Open in read-only: no error, nothing is removed.
+		require.NoError(t, wc.Open(true))
+		require.NoError(t, wc.Init())
+		for i := range objects {
+			_, err := wc.Get(objects[i].addr)
+			require.NoError(t, err, i)
+		}
+		require.NoError(t, wc.Close())
+
+		// Open in read-write: no error, something is removed.
+		require.NoError(t, wc.Open(false))
+		require.NoError(t, wc.Init())
+		for i := range objects {
+			_, err := wc.Get(objects[i].addr)
+			if i < 2 {
+				require.ErrorAs(t, err, new(apistatus.ObjectNotFound), i)
+			} else {
+				require.NoError(t, err, i)
+			}
+		}
+	})
+}
+
+func putObject(t *testing.T, c Cache, size int) objectPair {
+	obj, data := newObject(t, size)
+
+	var prm common.PutPrm
+	prm.Address = objectCore.AddressOf(obj)
+	prm.Object = obj
+	prm.RawData = data
+
+	_, err := c.Put(prm)
+	require.NoError(t, err)
+
+	return objectPair{prm.Address, prm.Object}
+
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {

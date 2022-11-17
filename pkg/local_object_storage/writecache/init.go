@@ -4,10 +4,12 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 func (c *cache) initFlushMarks() {
@@ -15,8 +17,18 @@ func (c *cache) initFlushMarks() {
 
 	var prm common.IteratePrm
 	prm.LazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
-		if c.isFlushed(addr) {
+		flushed, needRemove := c.flushStatus(addr)
+		if flushed {
 			c.store.flushed.Add(addr.EncodeToString(), true)
+			if needRemove {
+				var prm common.DeletePrm
+				prm.Address = addr
+
+				_, err := c.fsTree.Delete(prm)
+				if err == nil {
+					storagelog.Write(c.log, storagelog.AddressField(addr), storagelog.OpField("fstree DELETE"))
+				}
+			}
 		}
 		return nil
 	}
@@ -25,6 +37,7 @@ func (c *cache) initFlushMarks() {
 	c.log.Info("filling flush marks for objects in database")
 
 	var m []string
+	var indices []int
 	var lastKey []byte
 	var batchSize = flushBatchSize
 	for {
@@ -46,13 +59,32 @@ func (c *cache) initFlushMarks() {
 				continue
 			}
 
-			if c.isFlushed(addr) {
+			flushed, needRemove := c.flushStatus(addr)
+			if flushed {
 				c.store.flushed.Add(addr.EncodeToString(), true)
+				if needRemove {
+					indices = append(indices, i)
+				}
 			}
 		}
 
 		if len(m) == 0 {
 			break
+		}
+
+		err := c.db.Batch(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(defaultBucket)
+			for _, j := range indices {
+				if err := b.Delete([]byte(m[j])); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err == nil {
+			for _, j := range indices {
+				storagelog.Write(c.log, zap.String("address", m[j]), storagelog.OpField("db DELETE"))
+			}
 		}
 		lastKey = append([]byte(m[len(m)-1]), 0)
 	}
@@ -60,15 +92,23 @@ func (c *cache) initFlushMarks() {
 	c.log.Info("finished updating flush marks")
 }
 
-func (c *cache) isFlushed(addr oid.Address) bool {
+// flushStatus returns info about the object state in the main storage.
+// First return value is true iff object exists.
+// Second return value is true iff object can be safely removed.
+func (c *cache) flushStatus(addr oid.Address) (bool, bool) {
+	var existsPrm meta.ExistsPrm
+	existsPrm.SetAddress(addr)
+
+	_, err := c.metabase.Exists(existsPrm)
+	if err != nil {
+		needRemove := errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
+		return needRemove, needRemove
+	}
+
 	var prm meta.StorageIDPrm
 	prm.SetAddress(addr)
 
-	mRes, err := c.metabase.StorageID(prm)
-	if err != nil {
-		return errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved)) || errors.Is(err, apistatus.ObjectNotFound{})
-	}
-
+	mRes, _ := c.metabase.StorageID(prm)
 	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: mRes.StorageID()})
-	return err == nil && res.Exists
+	return err == nil && res.Exists, false
 }
