@@ -51,6 +51,7 @@ Changelog for NeoFS Node
 - Notary requests on shutdown (#2075)
 - `neofs-cli container create ` check the sufficiency of the number of nodes in the selector for replicas (#2038)
 - Data duplication during request forwarding (#2047)
+- Use non-blocking pool for policer/replicator (#2073)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)

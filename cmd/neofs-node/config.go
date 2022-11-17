@@ -829,7 +829,7 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 		pool.replicatorPoolSize = pool.putRemoteCapacity
 	}
 
-	pool.replication, err = ants.NewPool(pool.replicatorPoolSize)
+	pool.replication, err = ants.NewPool(pool.replicatorPoolSize, ants.WithNonblocking(true))
 	fatalOnErr(err)
 
 	return pool

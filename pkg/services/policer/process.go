@@ -7,6 +7,7 @@ import (
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -54,21 +55,37 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 					continue
 				}
 
-				err = p.taskPool.Submit(func() {
-					v, ok := p.cache.Get(addr.Address)
-					if ok && time.Since(v.(time.Time)) < p.evictDuration {
+				for {
+					select {
+					case <-ctx.Done():
 						return
+					default:
 					}
 
-					p.objsInWork.add(addr.Address)
+					err = p.taskPool.Submit(func() {
+						v, ok := p.cache.Get(addr.Address)
+						if ok && time.Since(v.(time.Time)) < p.evictDuration {
+							return
+						}
 
-					p.processObject(ctx, addr)
+						p.objsInWork.add(addr.Address)
 
-					p.cache.Add(addr.Address, time.Now())
-					p.objsInWork.remove(addr.Address)
-				})
-				if err != nil {
-					p.log.Warn("pool submission", zap.Error(err))
+						p.processObject(ctx, addr)
+
+						p.cache.Add(addr.Address, time.Now())
+						p.objsInWork.remove(addr.Address)
+					})
+					if err != nil {
+						if errors.Is(err, ants.ErrPoolOverload) {
+							p.log.Warn("policer pool is full, sleep",
+								zap.Duration("duration", time.Second),
+								zap.Error(err))
+							time.Sleep(time.Second)
+							continue
+						}
+						p.log.Warn("pool submission", zap.Error(err))
+					}
+					break
 				}
 			}
 		}
