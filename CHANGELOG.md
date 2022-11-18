@@ -37,6 +37,7 @@ Changelog for NeoFS Node
 - Concurrent mode changes in the metabase and blobstor (#2057)
 - Panic in IR when performing HEAD requests (#2069)
 - Write-cache flush duplication (#2074)
+- Ignore error if a transaction already exists in a morph client (#2075)
 
 ### Removed
 ### Updated
