@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -175,7 +176,18 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		big.NewInt(int64(amount)),
 		[]interface{}{c.acc.PrivateKey().GetScriptHash(), till})
 	if err != nil {
-		return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
+		if !errors.Is(err, neorpc.ErrAlreadyExists) {
+			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
+		}
+
+		// Transaction is already in mempool waiting to be processed.
+		// This is an expected situation if we restart the service.
+		c.logger.Debug("notary deposit has already been made",
+			zap.Int64("amount", int64(amount)),
+			zap.Int64("expire_at", till),
+			zap.Uint32("vub", vub),
+			zap.Error(err))
+		return util.Uint256{}, nil
 	}
 
 	c.logger.Debug("notary deposit invoke",
