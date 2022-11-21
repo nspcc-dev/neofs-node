@@ -153,6 +153,12 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 		return nil, nil, fmt.Errorf("WS client creation: %w", err)
 	}
 
+	defer func() {
+		if err != nil {
+			cli.Close()
+		}
+	}()
+
 	err = cli.Init()
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client initialization: %w", err)
