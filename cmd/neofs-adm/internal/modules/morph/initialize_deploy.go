@@ -287,6 +287,8 @@ func (c *initializeContext) updateContracts() error {
 	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
 	emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
+	emit.Int(w.BinWriter, 1)
+	emit.Opcodes(w.BinWriter, opcode.PACK)
 	emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
 
 	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
