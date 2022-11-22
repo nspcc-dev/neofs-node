@@ -37,6 +37,7 @@ Changelog for NeoFS Node
 - Write-cache flush duplication (#2074)
 - Ignore error if a transaction already exists in a morph client (#2075)
 - Pack arguments of `setPrice` invocation during contract update (#2078)
+- `neofs-cli object hash` panic (#2079)
 
 ### Removed
 ### Updated
