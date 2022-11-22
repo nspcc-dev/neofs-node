@@ -161,7 +161,7 @@ func waitNotaryDeposit(c *cfg, tx util.Uint256) error {
 	for i := 0; i < notaryDepositRetriesAmount; i++ {
 		select {
 		case <-c.ctx.Done():
-			return nil
+			return c.ctx.Err()
 		default:
 		}
 
