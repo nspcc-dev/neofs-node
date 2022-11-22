@@ -64,11 +64,13 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "could not decode salt: %w", err)
 
 	pk := key.GetOrGenerate(cmd)
+	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 	tz := typ == hashTz
 	fullHash := len(ranges) == 0
 	if fullHash {
 		var headPrm internalclient.HeadObjectPrm
+		headPrm.SetClient(cli)
 		Prepare(cmd, &headPrm)
 		headPrm.SetAddress(objAddr)
 
@@ -93,8 +95,6 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 
 		return
 	}
-
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 	var hashPrm internalclient.HashPayloadRangesPrm
 	hashPrm.SetClient(cli)

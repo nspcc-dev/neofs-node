@@ -42,6 +42,7 @@ Changelog for NeoFS Node
 - Ignore error if a transaction already exists in a morph client (#2075)
 - ObjectID signature output in the CLI (#2104)
 - Pack arguments of `setPrice` invocation during contract update (#2078)
+- `neofs-cli object hash` panic (#2079)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
