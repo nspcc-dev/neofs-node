@@ -825,6 +825,10 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 		return 0, fmt.Errorf("could not get GAS balance: %w", err)
 	}
 
+	if gasBalance == 0 {
+		return 0, errors.New("zero gas balance, nothing to deposit")
+	}
+
 	var depositAmount int64
 
 	if gasBalance*gasMul > notaryBalance {

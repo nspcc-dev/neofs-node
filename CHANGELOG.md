@@ -44,6 +44,7 @@ Changelog for NeoFS Node
 - Pack arguments of `setPrice` invocation during contract update (#2078)
 - `neofs-cli object hash` panic (#2079)
 - Closing `neo-go` WS clients on shutdown and switch processes (#2080)
+- Making notary deposits with a zero GAS balance (#2080)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
