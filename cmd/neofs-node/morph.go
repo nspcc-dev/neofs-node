@@ -82,7 +82,7 @@ func initMorphComponents(c *cfg) {
 		fatalOnErr(err)
 	}
 
-	c.log.Debug("notary support",
+	c.log.Info("notary support",
 		zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
 	)
 

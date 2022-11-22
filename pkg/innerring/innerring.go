@@ -411,7 +411,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		!server.withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
 	)
 
-	log.Debug("notary support",
+	log.Info("notary support",
 		zap.Bool("sidechain_enabled", !server.sideNotaryConfig.disabled),
 		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
