@@ -45,6 +45,7 @@ Changelog for NeoFS Node
 - `neofs-cli object hash` panic (#2079)
 - Closing `neo-go` WS clients on shutdown and switch processes (#2080)
 - Making notary deposits with a zero GAS balance (#2080)
+- Notary requests on shutdown (#2075)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
