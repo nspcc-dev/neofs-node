@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -21,7 +21,7 @@ import (
 const initialAlphabetNEOAmount = native.NEOTotalSupply
 
 func (c *initializeContext) registerCandidates() error {
-	neoHash := c.nativeHash(nativenames.Neo)
+	neoHash := neo.Hash
 
 	cc, err := unwrap.Array(c.ReadOnlyInvoker.Call(neoHash, "getCandidates"))
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *initializeContext) registerCandidates() error {
 }
 
 func (c *initializeContext) transferNEOToAlphabetContracts() error {
-	neoHash := c.nativeHash(nativenames.Neo)
+	neoHash := neo.Hash
 
 	ok, err := c.transferNEOFinished(neoHash)
 	if ok || err != nil {
@@ -120,7 +120,7 @@ func (c *initializeContext) getCandidateRegisterPrice() (int64, error) {
 	case *rpcclient.Client:
 		return ct.GetCandidateRegisterPrice()
 	default:
-		neoHash := c.nativeHash(nativenames.Neo)
+		neoHash := neo.Hash
 		res, err := invokeFunction(c.Client, neoHash, "getRegisterPrice", nil, nil)
 		if err != nil {
 			return 0, err

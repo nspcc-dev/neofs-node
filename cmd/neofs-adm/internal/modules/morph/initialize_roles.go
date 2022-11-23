@@ -1,9 +1,9 @@
 package morph
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 )
@@ -16,17 +16,15 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 		return err
 	}
 
-	designateHash := c.nativeHash(nativenames.Designation)
-
 	var pubs []interface{}
 	for _, acc := range c.Accounts {
 		pubs = append(pubs, acc.PrivateKey().PublicKey().Bytes())
 	}
 
 	w := io.NewBufBinWriter()
-	emit.AppCall(w.BinWriter, designateHash, "designateAsRole",
+	emit.AppCall(w.BinWriter, rolemgmt.Hash, "designateAsRole",
 		callflag.States|callflag.AllowNotify, int64(noderoles.P2PNotary), pubs)
-	emit.AppCall(w.BinWriter, designateHash, "designateAsRole",
+	emit.AppCall(w.BinWriter, rolemgmt.Hash, "designateAsRole",
 		callflag.States|callflag.AllowNotify, int64(noderoles.NeoFSAlphabet), pubs)
 
 	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
@@ -42,7 +40,6 @@ func (c *initializeContext) setRolesFinished() (bool, error) {
 		return false, err
 	}
 
-	h := c.nativeHash(nativenames.Designation)
-	pubs, err := getDesignatedByRole(c.ReadOnlyInvoker, h, noderoles.NeoFSAlphabet, height)
+	pubs, err := getDesignatedByRole(c.ReadOnlyInvoker, rolemgmt.Hash, noderoles.NeoFSAlphabet, height)
 	return len(pubs) == len(c.Wallets), err
 }

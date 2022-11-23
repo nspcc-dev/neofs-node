@@ -6,12 +6,13 @@ import (
 	"strconv"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -84,18 +85,8 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	nhs, err := getNativeHashes(c)
-	if err != nil {
-		return fmt.Errorf("can't get native contract hashes: %w", err)
-	}
-
-	gasHash, ok := nhs[nativenames.Gas]
-	if !ok {
-		return fmt.Errorf("can't retrieve %s contract hash", nativenames.Gas)
-	}
-	notaryHash, ok := nhs[nativenames.Notary]
-	if !ok {
-		return fmt.Errorf("can't retrieve %s contract hash", nativenames.Notary)
+	if err := checkNotaryEnabled(c); err != nil {
+		return err
 	}
 
 	height, err := c.GetBlockCount()
@@ -114,11 +105,11 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not create actor: %w", err)
 	}
 
-	gas := nep17.New(act, gasHash)
+	gasActor := nep17.New(act, gas.Hash)
 
-	txHash, vub, err := gas.Transfer(
+	txHash, vub, err := gasActor.Transfer(
 		accHash,
-		notaryHash,
+		notary.Hash,
 		big.NewInt(int64(gasAmount)),
 		[]interface{}{nil, int64(height) + till},
 	)
