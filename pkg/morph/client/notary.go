@@ -581,11 +581,7 @@ func (c *Client) notaryAccounts(invokedByAlpha bool, multiaddr *wallet.Account) 
 	a := make([]*wallet.Account, 0, 4)
 
 	// first we have proxy account, as it will pay for the execution
-	a = append(a, &wallet.Account{
-		Contract: &wallet.Contract{
-			Deployed: true,
-		},
-	})
+	a = append(a, notary.FakeContractAccount(c.notary.proxy))
 
 	// then we have inner ring multiaddress account
 	a = append(a, multiaddr)
