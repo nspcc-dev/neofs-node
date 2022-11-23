@@ -1,7 +1,6 @@
 package morph
 
 import (
-	"bytes"
 	"crypto/elliptic"
 	"errors"
 	"fmt"
@@ -81,9 +80,7 @@ func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet
 		return indexMap[string(pi)] < indexMap[string(pj)]
 	})
 	sort.Slice(accounts[:cfg.ProtocolConfiguration.ValidatorsCount], func(i, j int) bool {
-		pi := accounts[i].PrivateKey().PublicKey().Bytes()
-		pj := accounts[j].PrivateKey().PublicKey().Bytes()
-		return bytes.Compare(pi, pj) == -1
+		return accounts[i].PublicKey().Cmp(accounts[j].PublicKey()) == -1
 	})
 
 	go bc.Run()
