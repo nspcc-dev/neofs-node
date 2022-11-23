@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -198,10 +198,8 @@ func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) (err error
 		return err
 	}
 
-	gasHash := wCtx.nativeHash(nativenames.Gas)
-
 	bw := io.NewBufBinWriter()
-	emit.AppCall(bw.BinWriter, gasHash, "transfer", callflag.All,
+	emit.AppCall(bw.BinWriter, gas.Hash, "transfer", callflag.All,
 		wCtx.CommitteeAcc.Contract.ScriptHash(), gasReceiver, int64(gasAmount), nil)
 	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	if bw.Err != nil {

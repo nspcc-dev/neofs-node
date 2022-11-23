@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -32,15 +33,12 @@ func (c *initializeContext) transferFunds() error {
 		return err
 	}
 
-	gasHash := c.nativeHash(nativenames.Gas)
-	neoHash := c.nativeHash(nativenames.Neo)
-
 	var transfers []rpcclient.TransferTarget
 	for _, acc := range c.Accounts {
 		to := acc.Contract.ScriptHash()
 		transfers = append(transfers,
 			rpcclient.TransferTarget{
-				Token:   gasHash,
+				Token:   gas.Hash,
 				Address: to,
 				Amount:  initialAlphabetGASAmount,
 			},
@@ -50,12 +48,12 @@ func (c *initializeContext) transferFunds() error {
 	// It is convenient to have all funds at the committee account.
 	transfers = append(transfers,
 		rpcclient.TransferTarget{
-			Token:   gasHash,
+			Token:   gas.Hash,
 			Address: c.CommitteeAcc.Contract.ScriptHash(),
 			Amount:  (gasInitialTotalSupply - initialAlphabetGASAmount*int64(len(c.Wallets))) / 2,
 		},
 		rpcclient.TransferTarget{
-			Token:   neoHash,
+			Token:   neo.Hash,
 			Address: c.CommitteeAcc.Contract.ScriptHash(),
 			Amount:  native.NEOTotalSupply,
 		},
@@ -80,10 +78,9 @@ func (c *initializeContext) transferFunds() error {
 }
 
 func (c *initializeContext) transferFundsFinished() (bool, error) {
-	gasHash := c.nativeHash(nativenames.Gas)
 	acc := c.Accounts[0]
 
-	res, err := c.Client.NEP17BalanceOf(gasHash, acc.Contract.ScriptHash())
+	res, err := c.Client.NEP17BalanceOf(gas.Hash, acc.Contract.ScriptHash())
 	return res > initialAlphabetGASAmount/2, err
 }
 
@@ -147,16 +144,15 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 }
 
 func (c *initializeContext) transferGASToProxy() error {
-	gasHash := c.nativeHash(nativenames.Gas)
 	proxyCs := c.getContract(proxyContract)
 
-	bal, err := c.Client.NEP17BalanceOf(gasHash, proxyCs.Hash)
+	bal, err := c.Client.NEP17BalanceOf(gas.Hash, proxyCs.Hash)
 	if err != nil || bal > 0 {
 		return err
 	}
 
 	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, 0, []rpcclient.TransferTarget{{
-		Token:   gasHash,
+		Token:   gas.Hash,
 		Address: proxyCs.Hash,
 		Amount:  initialProxyGASAmount,
 	}}, nil)

@@ -43,7 +43,6 @@ type initializeContext struct {
 	Contracts    map[string]*contractState
 	Command      *cobra.Command
 	ContractPath string
-	Natives      map[string]util.Uint160
 }
 
 func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
@@ -166,8 +165,7 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		}
 	}
 
-	nativeHashes, err := getNativeHashes(c)
-	if err != nil {
+	if err := checkNotaryEnabled(c); err != nil {
 		return nil, err
 	}
 
@@ -195,7 +193,6 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		Command:        cmd,
 		Contracts:      make(map[string]*contractState),
 		ContractPath:   ctrPath,
-		Natives:        nativeHashes,
 	}
 
 	if needContracts {
@@ -206,10 +203,6 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	}
 
 	return initCtx, nil
-}
-
-func (c *initializeContext) nativeHash(name string) util.Uint160 {
-	return c.Natives[name]
 }
 
 func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, error) {
@@ -450,10 +443,10 @@ func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 	return nil, fmt.Errorf("account for '%s' not found", typ)
 }
 
-func getNativeHashes(c Client) (map[string]util.Uint160, error) {
+func checkNotaryEnabled(c Client) error {
 	ns, err := c.GetNativeContracts()
 	if err != nil {
-		return nil, fmt.Errorf("can't get native contract hashes: %w", err)
+		return fmt.Errorf("can't get native contract hashes: %w", err)
 	}
 
 	notaryEnabled := false
@@ -465,7 +458,7 @@ func getNativeHashes(c Client) (map[string]util.Uint160, error) {
 		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
 	}
 	if !notaryEnabled {
-		return nil, errors.New("notary contract must be enabled")
+		return errors.New("notary contract must be enabled")
 	}
-	return nativeHashes, nil
+	return nil
 }

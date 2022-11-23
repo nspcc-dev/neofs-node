@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -59,21 +60,6 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	ns, err := getNativeHashes(c)
-	if err != nil {
-		return fmt.Errorf("can't fetch the list of native contracts: %w", err)
-	}
-
-	gasHash, ok := ns[nativenames.Gas]
-	if !ok {
-		return fmt.Errorf("can't find the %s native contract hash", nativenames.Gas)
-	}
-
-	desigHash, ok := ns[nativenames.Designation]
-	if !ok {
-		return fmt.Errorf("can't find the %s native contract hash", nativenames.Designation)
-	}
-
 	if !notaryEnabled || dumpStorage || dumpAlphabet || dumpProxy {
 		nnsCs, err = c.GetContractStateByID(1)
 		if err != nil {
@@ -86,12 +72,12 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	irList, err := fetchIRNodes(c, nmHash, desigHash)
+	irList, err := fetchIRNodes(c, nmHash, rolemgmt.Hash)
 	if err != nil {
 		return err
 	}
 
-	if err := fetchBalances(inv, gasHash, irList); err != nil {
+	if err := fetchBalances(inv, gas.Hash, irList); err != nil {
 		return err
 	}
 	printBalances(cmd, "Inner ring nodes balances:", irList)
@@ -123,7 +109,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			snList[i].scriptHash = pub.GetScriptHash()
 		}
 
-		if err := fetchBalances(inv, gasHash, snList); err != nil {
+		if err := fetchBalances(inv, gas.Hash, snList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nStorage node balances:", snList)
@@ -136,7 +122,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		}
 
 		proxyList := []accBalancePair{{scriptHash: h}}
-		if err := fetchBalances(inv, gasHash, proxyList); err != nil {
+		if err := fetchBalances(inv, gas.Hash, proxyList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nProxy contract balance:", proxyList)
@@ -168,7 +154,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			alphaList[i].scriptHash = h
 		}
 
-		if err := fetchBalances(inv, gasHash, alphaList); err != nil {
+		if err := fetchBalances(inv, gas.Hash, alphaList); err != nil {
 			return err
 		}
 		printBalances(cmd, "\nAlphabet contracts balances:", alphaList)

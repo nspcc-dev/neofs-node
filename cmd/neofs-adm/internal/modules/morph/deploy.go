@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/cli/cmdargs"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/services/rpcsrv/params"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -81,7 +81,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't fetch NNS contract state: %w", err)
 	}
 
-	callHash := c.nativeHash(nativenames.Management)
+	callHash := management.Hash
 	method := deployMethodName
 	zone, _ := cmd.Flags().GetString(customZoneFlag)
 	domain := ctrName + "." + zone

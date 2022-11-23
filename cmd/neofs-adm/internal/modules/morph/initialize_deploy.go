@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -128,7 +128,7 @@ func (c *initializeContext) deployNNS(method string) error {
 		Scopes:  transaction.CalledByEntry,
 	}
 
-	invokeHash := c.nativeHash(nativenames.Management)
+	invokeHash := management.Hash
 	if method == updateMethodName {
 		invokeHash = nnsCs.Hash
 	}
@@ -157,7 +157,6 @@ func (c *initializeContext) deployNNS(method string) error {
 }
 
 func (c *initializeContext) updateContracts() error {
-	mgmtHash := c.nativeHash(nativenames.Management)
 	alphaCs := c.getContract(alphabetContract)
 
 	nnsCs, err := c.nnsContractState()
@@ -243,7 +242,7 @@ func (c *initializeContext) updateContracts() error {
 			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
-		invokeHash := mgmtHash
+		invokeHash := management.Hash
 		if method == updateMethodName {
 			invokeHash = ctrHash
 		}
@@ -296,7 +295,6 @@ func (c *initializeContext) updateContracts() error {
 }
 
 func (c *initializeContext) deployContracts() error {
-	mgmtHash := c.nativeHash(nativenames.Management)
 	alphaCs := c.getContract(alphabetContract)
 
 	var keysParam []interface{}
@@ -325,7 +323,7 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("could not create actor: %w", err)
 		}
 
-		txHash, vub, err := act.SendCall(mgmtHash, deployMethodName, params...)
+		txHash, vub, err := act.SendCall(management.Hash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy alphabet #%d contract: %w", i, err)
 		}
@@ -348,7 +346,7 @@ func (c *initializeContext) deployContracts() error {
 		}
 
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
-		res, err := c.CommitteeAct.MakeCall(mgmtHash, deployMethodName, params...)
+		res, err := c.CommitteeAct.MakeCall(management.Hash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}

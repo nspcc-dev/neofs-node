@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/policy"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/spf13/cobra"
@@ -24,8 +24,6 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't to initialize context: %w", err)
 	}
-
-	policyHash := wCtx.nativeHash(nativenames.Policy)
 
 	bw := io.NewBufBinWriter()
 	for i := range args {
@@ -45,7 +43,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("can't parse parameter value '%s': %w", args[1], err)
 		}
 
-		emit.AppCall(bw.BinWriter, policyHash, "set"+kv[0], callflag.All, int64(value))
+		emit.AppCall(bw.BinWriter, policy.Hash, "set"+kv[0], callflag.All, int64(value))
 	}
 
 	if err := wCtx.sendCommitteeTx(bw.Bytes(), false); err != nil {
