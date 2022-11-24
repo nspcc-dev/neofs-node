@@ -45,7 +45,6 @@ import (
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
@@ -575,12 +574,8 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		audittask.WithLogger(log),
 		audittask.WithContainerCommunicator(clientCache),
 		audittask.WithMaxPDPSleepInterval(cfg.GetDuration("audit.pdp.max_sleep_interval")),
-		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
-			return ants.NewPool(pdpPoolSize)
-		}),
-		audittask.WithPoRWorkerPoolGenerator(func() (util2.WorkerPool, error) {
-			return ants.NewPool(porPoolSize)
-		}),
+		audittask.WithPDPWorkerPoolSize(pdpPoolSize),
+		audittask.WithPoRWorkerPoolSize(porPoolSize),
 	)
 
 	server.workers = append(server.workers, auditTaskManager.Listen)

@@ -7,10 +7,10 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -67,7 +67,7 @@ type gc struct {
 	stopChannel chan struct{}
 	wg          sync.WaitGroup
 
-	workerPool util.WorkerPool
+	workerPool *ants.Pool
 
 	remover func()
 
@@ -79,17 +79,12 @@ type gcCfg struct {
 	removerInterval time.Duration
 
 	log *logger.Logger
-
-	workerPoolInit func(int) util.WorkerPool
 }
 
 func defaultGCCfg() gcCfg {
 	return gcCfg{
 		removerInterval: 10 * time.Second,
 		log:             &logger.Logger{Logger: zap.L()},
-		workerPoolInit: func(int) util.WorkerPool {
-			return nil
-		},
 	}
 }
 
@@ -101,7 +96,8 @@ func (gc *gc) init() {
 	}
 
 	if sz > 0 {
-		gc.workerPool = gc.workerPoolInit(sz)
+		// Error is never non-nil for default option and positive size.
+		gc.workerPool, _ = ants.NewPool(sz)
 	}
 
 	gc.wg.Add(2)

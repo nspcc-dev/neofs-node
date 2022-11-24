@@ -8,8 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -42,7 +42,7 @@ type cfg struct {
 
 	netMapSrc netmap.Source
 
-	remotePool, localPool util.WorkerPool
+	remotePool, localPool *ants.Pool
 
 	netmapKeys netmap.AnnouncedKeys
 
@@ -58,9 +58,13 @@ type cfg struct {
 }
 
 func defaultCfg() *cfg {
+	// Error is never non-nil for default options, use infinite pools by default.
+	remotePool, _ := ants.NewPool(0)
+	localPool, _ := ants.NewPool(0)
+
 	return &cfg{
-		remotePool: util.NewPseudoWorkerPool(),
-		localPool:  util.NewPseudoWorkerPool(),
+		remotePool: remotePool,
+		localPool:  localPool,
 		log:        &logger.Logger{Logger: zap.L()},
 	}
 }
@@ -116,7 +120,7 @@ func WithNetworkMapSource(v netmap.Source) Option {
 	}
 }
 
-func WithWorkerPools(remote util.WorkerPool) Option {
+func WithWorkerPools(remote *ants.Pool) Option {
 	return func(c *cfg) {
 		c.remotePool = remote
 	}

@@ -5,8 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -27,9 +27,9 @@ type cfg struct {
 
 	ctxPrm auditor.ContextPrm
 
-	workerPool util.WorkerPool
+	workerPool *ants.Pool
 
-	pdpPoolGenerator, porPoolGenerator func() (util.WorkerPool, error)
+	pdpPoolSize, porPoolSize int
 }
 
 func defaultCfg() *cfg {
@@ -61,7 +61,7 @@ func WithLogger(l *logger.Logger) Option {
 
 // WithWorkerPool returns option to set worker pool
 // for task execution.
-func WithWorkerPool(p util.WorkerPool) Option {
+func WithWorkerPool(p *ants.Pool) Option {
 	return func(c *cfg) {
 		c.workerPool = p
 	}
@@ -90,18 +90,18 @@ func WithMaxPDPSleepInterval(dur time.Duration) Option {
 	}
 }
 
-// WithPDPWorkerPoolGenerator returns option to set worker pool for PDP pairs processing.
-// Callback caller owns returned pool and must release it appropriately.
-func WithPDPWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
+// WithPDPWorkerPoolSize returns option to set worker pool size for PDP pairs processing.
+// Non-positive value means infinite pool.
+func WithPDPWorkerPoolSize(sz int) Option {
 	return func(c *cfg) {
-		c.pdpPoolGenerator = f
+		c.pdpPoolSize = sz
 	}
 }
 
-// WithPoRWorkerPoolGenerator returns option to set worker pool for PoR SG processing.
-// Callback caller owns returned pool and must release it appropriately.
-func WithPoRWorkerPoolGenerator(f func() (util.WorkerPool, error)) Option {
+// WithPoRWorkerPoolSize returns option to set worker pool size for PoR SG processing.
+// Non-positive value means infinite pool.
+func WithPoRWorkerPoolSize(sz int) Option {
 	return func(c *cfg) {
-		c.porPoolGenerator = f
+		c.porPoolSize = sz
 	}
 }

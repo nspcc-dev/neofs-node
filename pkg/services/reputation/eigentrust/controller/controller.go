@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/panjf2000/ants/v2"
 )
 
 // Prm groups the required parameters of the Controller's constructor.
@@ -23,7 +23,7 @@ type Prm struct {
 	IterationsProvider IterationsProvider
 
 	// Routine execution pool for single epoch iteration.
-	WorkerPool util.WorkerPool
+	WorkerPool *ants.Pool
 }
 
 // Controller represents EigenTrust algorithm transient controller.

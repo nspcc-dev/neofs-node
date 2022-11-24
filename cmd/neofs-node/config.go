@@ -58,7 +58,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -438,7 +437,7 @@ type cfgContainer struct {
 
 	parsers     map[event.Type]event.NotificationParser
 	subscribers map[event.Type][]event.Handler
-	workerPool  util.WorkerPool // pool for asynchronous handlers
+	workerPool  *ants.Pool // pool for asynchronous handlers
 }
 
 type cfgNetmap struct {
@@ -448,7 +447,7 @@ type cfgNetmap struct {
 	parsers map[event.Type]event.NotificationParser
 
 	subscribers map[event.Type][]event.Handler
-	workerPool  util.WorkerPool // pool for asynchronous handlers
+	workerPool  *ants.Pool // pool for asynchronous handlers
 
 	state *networkState
 
@@ -499,7 +498,7 @@ type cfgControlService struct {
 }
 
 type cfgReputation struct {
-	workerPool util.WorkerPool // pool for EigenTrust algorithm's iterations
+	workerPool *ants.Pool // pool for EigenTrust algorithm's iterations
 
 	localTrustStorage *truststorage.Storage
 
@@ -735,12 +734,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(shCfg.gcCfg.removerBatchSize),
 			shard.WithGCRemoverSleepInterval(shCfg.gcCfg.removerSleepInterval),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				fatalOnErr(err)
-
-				return pool
-			}),
 		}
 
 		shards = append(shards, sh)

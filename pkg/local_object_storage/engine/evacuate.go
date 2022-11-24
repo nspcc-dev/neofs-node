@@ -7,9 +7,9 @@ import (
 	"github.com/nspcc-dev/hrw"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -50,7 +50,7 @@ const defaultEvacuateBatchSize = 100
 
 type pooledShard struct {
 	hashedShard
-	pool util.WorkerPool
+	pool *ants.Pool
 }
 
 var errMustHaveTwoShards = errors.New("must have at least 1 spare shard")

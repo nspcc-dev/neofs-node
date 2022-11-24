@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -215,14 +214,6 @@ func (s Shard) needRefillMetabase() bool {
 func WithRemoverBatchSize(sz int) Option {
 	return func(c *cfg) {
 		c.rmBatchSize = sz
-	}
-}
-
-// WithGCWorkerPoolInitializer returns option to set initializer of
-// worker pool with specified worker number.
-func WithGCWorkerPoolInitializer(wpInit func(int) util.WorkerPool) Option {
-	return func(c *cfg) {
-		c.gcCfg.workerPoolInit = wpInit
 	}
 }
 

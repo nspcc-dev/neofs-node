@@ -7,12 +7,12 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -78,7 +78,7 @@ type ContextPrm struct {
 
 	cnrCom ContainerCommunicator
 
-	pdpWorkerPool, porWorkerPool util.WorkerPool
+	pdpWorkerPool, porWorkerPool *ants.Pool
 }
 
 type commonCommunicatorPrm struct {
@@ -154,7 +154,7 @@ func (c *Context) WithTask(t *audit.Task) *Context {
 }
 
 // WithPDPWorkerPool sets worker pool for PDP pairs processing.
-func (c *Context) WithPDPWorkerPool(pool util.WorkerPool) *Context {
+func (c *Context) WithPDPWorkerPool(pool *ants.Pool) *Context {
 	if c != nil {
 		c.pdpWorkerPool = pool
 	}
@@ -163,7 +163,7 @@ func (c *Context) WithPDPWorkerPool(pool util.WorkerPool) *Context {
 }
 
 // WithPoRWorkerPool sets worker pool for PoR SG processing.
-func (c *Context) WithPoRWorkerPool(pool util.WorkerPool) *Context {
+func (c *Context) WithPoRWorkerPool(pool *ants.Pool) *Context {
 	if c != nil {
 		c.porWorkerPool = pool
 	}

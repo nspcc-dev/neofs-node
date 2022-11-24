@@ -9,9 +9,9 @@ import (
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +23,7 @@ type preparedObjectTarget interface {
 type distributedTarget struct {
 	traversal traversal
 
-	remotePool, localPool util.WorkerPool
+	remotePool, localPool *ants.Pool
 
 	obj     *objectSDK.Object
 	objMeta object.ContentMeta
@@ -187,7 +187,7 @@ loop:
 
 			isLocal := t.isLocalKey(addr.PublicKey())
 
-			var workerPool util.WorkerPool
+			var workerPool *ants.Pool
 
 			if isLocal {
 				workerPool = t.localPool

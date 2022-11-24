@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/panjf2000/ants/v2"
 )
 
 // Prm groups the required parameters of the Calculator's constructor.
@@ -31,7 +31,7 @@ type Prm struct {
 
 	FinalResultTarget IntermediateWriterProvider
 
-	WorkerPool util.WorkerPool
+	WorkerPool *ants.Pool
 }
 
 // Calculator is a processor of a single iteration of EigenTrust algorithm.

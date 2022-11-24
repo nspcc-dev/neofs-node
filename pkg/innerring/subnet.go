@@ -14,7 +14,6 @@ import (
 	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	subnetevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
@@ -25,7 +24,7 @@ import (
 
 // IR server's component to handle Subnet contract notifications.
 type subnetHandler struct {
-	workerPool util.WorkerPool
+	workerPool *ants.Pool
 
 	morphClient morphsubnet.Client
 

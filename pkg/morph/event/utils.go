@@ -9,8 +9,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -82,7 +82,7 @@ func (s typeValue) GetType() Type {
 }
 
 // WorkerPoolHandler sets closure over worker pool w with passed handler h.
-func WorkerPoolHandler(w util2.WorkerPool, h Handler, log *logger.Logger) Handler {
+func WorkerPoolHandler(w *ants.Pool, h Handler, log *logger.Logger) Handler {
 	return func(e Event) {
 		err := w.Submit(func() {
 			h(e)

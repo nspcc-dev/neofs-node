@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -39,23 +40,9 @@ func (m *Manager) Listen(ctx context.Context) {
 }
 
 func (m *Manager) handleTask(task *audit.Task) {
-	pdpPool, err := m.pdpPoolGenerator()
-	if err != nil {
-		m.log.Error("could not generate PDP worker pool",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
-	porPool, err := m.pdpPoolGenerator()
-	if err != nil {
-		m.log.Error("could not generate PoR worker pool",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
+	// Error is never non-nil.
+	pdpPool, _ := ants.NewPool(int(m.pdpPoolSize))
+	porPool, _ := ants.NewPool(int(m.porPoolSize))
 
 	auditContext := m.generateContext(task).
 		WithPDPWorkerPool(pdpPool).
