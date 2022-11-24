@@ -7,8 +7,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ type StorageEngine struct {
 
 	shards map[string]shardWrapper
 
-	shardPools map[string]util.WorkerPool
+	shardPools map[string]*ants.Pool
 
 	closeCh   chan struct{}
 	setModeCh chan setModeRequest
@@ -224,7 +224,7 @@ func New(opts ...Option) *StorageEngine {
 		cfg:        c,
 		mtx:        new(sync.RWMutex),
 		shards:     make(map[string]shardWrapper),
-		shardPools: make(map[string]util.WorkerPool),
+		shardPools: make(map[string]*ants.Pool),
 		closeCh:    make(chan struct{}),
 		setModeCh:  make(chan setModeRequest),
 	}
