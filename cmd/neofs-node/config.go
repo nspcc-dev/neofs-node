@@ -97,6 +97,10 @@ type applicationConfiguration struct {
 		shardPoolSize  uint32
 		shards         []shardCfg
 	}
+
+	ObjectCfg struct {
+		poolSizeRemote int
+	}
 }
 
 type shardCfg struct {
@@ -191,6 +195,10 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	// Logger
 
 	a.LoggerCfg.level = loggerconfig.Level(c)
+
+	// Object service
+
+	a.ObjectCfg.poolSizeRemote = objectconfig.Put(c).PoolSizeRemote()
 
 	// Storage Engine
 
@@ -471,6 +479,20 @@ type cfgObject struct {
 	pool cfgObjectRoutines
 
 	cfgLocalStorage cfgLocalStorage
+}
+
+func reloadObjectService(c *cfg) func() error {
+	return func() error {
+		oldSize := c.cfgObject.pool.putRemoteCapacity
+		newSize := c.ObjectCfg.poolSizeRemote
+
+		c.log.Info("updating object.put.pool_size_remote",
+			zap.Int("old", oldSize),
+			zap.Int("new", newSize))
+		c.cfgObject.pool.putRemote.Tune(newSize)
+		c.cfgObject.pool.putRemoteCapacity = newSize
+		return nil
+	}
 }
 
 type cfgNotifications struct {
@@ -897,10 +919,8 @@ func (c *cfg) ObjectServiceLoad() float64 {
 }
 
 type dCfg struct {
-	name string
-	cfg  interface {
-		Reload() error
-	}
+	name   string
+	reload func() error
 }
 
 func (c *cfg) configWatcher(ctx context.Context) {
@@ -930,7 +950,9 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				continue
 			}
 
-			components = append(components, dCfg{name: "logger", cfg: logPrm})
+			components = append(components,
+				dCfg{name: "logger", reload: logPrm.Reload},
+				dCfg{name: "Object service", reload: reloadObjectService(c)})
 
 			// Storage Engine
 
@@ -948,7 +970,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			}
 
 			for _, component := range components {
-				err = component.cfg.Reload()
+				err = component.reload()
 				if err != nil {
 					c.log.Error("updated configuration applying",
 						zap.String("component", component.name),
