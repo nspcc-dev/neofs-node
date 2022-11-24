@@ -203,7 +203,9 @@ func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Ran
 
 	// fill the chain end-to-start
 	for withPrev {
-		if exec.curOff < from {
+		// check that only for "range" requests,
+		// for `GET` it stops via the false `withPrev`
+		if seekRng != nil && exec.curOff <= from {
 			break
 		}
 
