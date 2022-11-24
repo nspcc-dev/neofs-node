@@ -1,47 +1,45 @@
 package main
 
 import (
-	"context"
-
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
-	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 )
 
-func initMetrics(c *cfg) {
-	if !metricsconfig.Enabled(c.appCfg) {
-		c.log.Info("prometheus is disabled")
-		return
+func metricsComponent(c *cfg) (*httpComponent, bool) {
+	var updated bool
+	// check if it has been inited before
+	if c.dynamicConfiguration.metrics == nil {
+		c.dynamicConfiguration.metrics = new(httpComponent)
+		c.dynamicConfiguration.metrics.cfg = c
+		c.dynamicConfiguration.metrics.name = "metrics"
+		c.dynamicConfiguration.metrics.handler = promhttp.Handler()
+		updated = true
 	}
 
-	var prm httputil.Prm
+	// (re)init read configuration
+	enabled := metricsconfig.Enabled(c.appCfg)
+	if enabled != c.dynamicConfiguration.metrics.enabled {
+		c.dynamicConfiguration.metrics.enabled = enabled
+		updated = true
+	}
+	address := metricsconfig.Address(c.appCfg)
+	if address != c.dynamicConfiguration.metrics.address {
+		c.dynamicConfiguration.metrics.address = address
+		updated = true
+	}
+	dur := metricsconfig.ShutdownTimeout(c.appCfg)
+	if dur != c.dynamicConfiguration.metrics.shutdownDur {
+		c.dynamicConfiguration.metrics.shutdownDur = dur
+		updated = true
+	}
 
-	prm.Address = metricsconfig.Address(c.appCfg)
-	prm.Handler = promhttp.Handler()
+	return c.dynamicConfiguration.metrics, updated
+}
 
-	srv := httputil.New(prm,
-		httputil.WithShutdownTimeout(
-			metricsconfig.ShutdownTimeout(c.appCfg),
-		),
-	)
+func enableMetricsSvc(c *cfg) {
+	c.shared.metricsSvc.Enable()
+}
 
-	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		runAndLog(c, "metrics", false, func(c *cfg) {
-			fatalOnErr(srv.Serve())
-		})
-	}))
-
-	c.closers = append(c.closers, func() {
-		c.log.Debug("shutting down metrics service")
-
-		err := srv.Shutdown()
-		if err != nil {
-			c.log.Debug("could not shutdown metrics server",
-				zap.String("error", err.Error()),
-			)
-		}
-
-		c.log.Debug("metrics service has been stopped")
-	})
+func disableMetricsSvc(c *cfg) {
+	c.shared.metricsSvc.Disable()
 }

@@ -1,46 +1,37 @@
 package main
 
 import (
-	"context"
-
 	profilerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/profiler"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
-	"go.uber.org/zap"
 )
 
-func initProfiler(c *cfg) {
-	if !profilerconfig.Enabled(c.appCfg) {
-		c.log.Info("pprof is disabled")
-		return
+func pprofComponent(c *cfg) (*httpComponent, bool) {
+	var updated bool
+	// check if it has been inited before
+	if c.dynamicConfiguration.pprof == nil {
+		c.dynamicConfiguration.pprof = new(httpComponent)
+		c.dynamicConfiguration.pprof.cfg = c
+		c.dynamicConfiguration.pprof.name = "pprof"
+		c.dynamicConfiguration.pprof.handler = httputil.Handler()
+		updated = true
 	}
 
-	var prm httputil.Prm
+	// (re)init read configuration
+	enabled := profilerconfig.Enabled(c.appCfg)
+	if enabled != c.dynamicConfiguration.pprof.enabled {
+		c.dynamicConfiguration.pprof.enabled = enabled
+		updated = true
+	}
+	address := profilerconfig.Address(c.appCfg)
+	if address != c.dynamicConfiguration.pprof.address {
+		c.dynamicConfiguration.pprof.address = address
+		updated = true
+	}
+	dur := profilerconfig.ShutdownTimeout(c.appCfg)
+	if dur != c.dynamicConfiguration.pprof.shutdownDur {
+		c.dynamicConfiguration.pprof.shutdownDur = dur
+		updated = true
+	}
 
-	prm.Address = profilerconfig.Address(c.appCfg)
-	prm.Handler = httputil.Handler()
-
-	srv := httputil.New(prm,
-		httputil.WithShutdownTimeout(
-			profilerconfig.ShutdownTimeout(c.appCfg),
-		),
-	)
-
-	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		runAndLog(c, "profiler", false, func(c *cfg) {
-			fatalOnErr(srv.Serve())
-		})
-	}))
-
-	c.closers = append(c.closers, func() {
-		c.log.Debug("shutting down profiling service")
-
-		err := srv.Shutdown()
-		if err != nil {
-			c.log.Debug("could not shutdown pprof server",
-				zap.String("error", err.Error()),
-			)
-		}
-
-		c.log.Debug("profiling service has been stopped")
-	})
+	return c.dynamicConfiguration.pprof, updated
 }

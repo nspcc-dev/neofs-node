@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -238,7 +239,11 @@ func initObjectService(c *cfg) {
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
-	c.workers = append(c.workers, pol)
+	c.workers = append(c.workers, worker{
+		fn: func(ctx context.Context) {
+			pol.Run(ctx)
+		},
+	})
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
 		engine: ls,
@@ -372,12 +377,9 @@ func initObjectService(c *cfg) {
 		respSvc,
 	)
 
-	var firstSvc objectService.ServiceServer = signSvc
-	if c.metricsCollector != nil {
-		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
-	}
-
-	server := objectTransportGRPC.New(firstSvc)
+	c.shared.metricsSvc = objectService.NewMetricCollector(
+		signSvc, c.metricsCollector, metricsconfig.Enabled(c.appCfg))
+	server := objectTransportGRPC.New(c.shared.metricsSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)

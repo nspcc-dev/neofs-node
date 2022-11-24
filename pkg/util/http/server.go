@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-// Prm groups the required parameters of the Server's constructor.
+// HTTPSrvPrm groups the required parameters of the Server's constructor.
 //
 // All values must comply with the requirements imposed on them.
 // Passing incorrect parameter values will result in constructor
 // failure (error or panic depending on the implementation).
-type Prm struct {
+type HTTPSrvPrm struct {
 	// TCP address for the server to listen on.
 	//
 	// Must be a valid TCP address.
@@ -49,6 +49,15 @@ func panicOnValue(t, n string, v interface{}) {
 	panic(fmt.Sprintf(invalidValFmt, t, n, v, v))
 }
 
+func checkSrvPrm(addr string, handler http.Handler) {
+	switch {
+	case addr == "":
+		panicOnPrmValue("Address", addr)
+	case handler == nil:
+		panicOnPrmValue("Handler", handler)
+	}
+}
+
 // New creates a new instance of the Server.
 //
 // Panics if at least one value of the parameters is invalid.
@@ -58,13 +67,8 @@ func panicOnValue(t, n string, v interface{}) {
 //
 // The created Server does not require additional
 // initialization and is completely ready for work.
-func New(prm Prm, opts ...Option) *Server {
-	switch {
-	case prm.Address == "":
-		panicOnPrmValue("Address", prm.Address)
-	case prm.Handler == nil:
-		panicOnPrmValue("Handler", prm.Handler)
-	}
+func New(prm HTTPSrvPrm, opts ...Option) *Server {
+	checkSrvPrm(prm.Address, prm.Handler)
 
 	c := defaultCfg()
 
@@ -83,5 +87,16 @@ func New(prm Prm, opts ...Option) *Server {
 			Addr:    prm.Address,
 			Handler: prm.Handler,
 		},
+	}
+}
+
+// NewHTTPSrvPrm creates a new instance of the HTTPSrvPrm.
+//
+// Panics if at least one value of the parameters is invalid.
+func NewHTTPSrvPrm(addr string, handler http.Handler) *HTTPSrvPrm {
+	checkSrvPrm(addr, handler)
+	return &HTTPSrvPrm{
+		Address: addr,
+		Handler: handler,
 	}
 }

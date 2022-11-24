@@ -12,6 +12,7 @@ type (
 	MetricCollector struct {
 		next    ServiceServer
 		metrics MetricRegister
+		enabled bool
 	}
 
 	getStreamMetric struct {
@@ -48,96 +49,125 @@ type (
 	}
 )
 
-func NewMetricCollector(next ServiceServer, register MetricRegister) *MetricCollector {
+func NewMetricCollector(next ServiceServer, register MetricRegister, enabled bool) *MetricCollector {
 	return &MetricCollector{
 		next:    next,
 		metrics: register,
+		enabled: enabled,
 	}
 }
 
 func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) (err error) {
-	t := time.Now()
-	defer func() {
-		m.metrics.IncGetReqCounter(err == nil)
-		m.metrics.AddGetReqDuration(time.Since(t))
-	}()
-
-	err = m.next.Get(req, &getStreamMetric{
-		ServerStream: stream,
-		stream:       stream,
-		metrics:      m.metrics,
-	})
+	if m.enabled {
+		t := time.Now()
+		defer func() {
+			m.metrics.IncGetReqCounter(err == nil)
+			m.metrics.AddGetReqDuration(time.Since(t))
+		}()
+		err = m.next.Get(req, &getStreamMetric{
+			ServerStream: stream,
+			stream:       stream,
+			metrics:      m.metrics,
+		})
+	} else {
+		err = m.next.Get(req, stream)
+	}
 	return
 }
 
 func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	stream, err := m.next.Put(ctx)
-	if err != nil {
-		return nil, err
+		stream, err := m.next.Put(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return &putStreamMetric{
+			stream:  stream,
+			metrics: m.metrics,
+			start:   t,
+		}, nil
 	}
-
-	return &putStreamMetric{
-		stream:  stream,
-		metrics: m.metrics,
-		start:   t,
-	}, nil
+	return m.next.Put(ctx)
 }
 
 func (m MetricCollector) Head(ctx context.Context, request *object.HeadRequest) (*object.HeadResponse, error) {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	res, err := m.next.Head(ctx, request)
+		res, err := m.next.Head(ctx, request)
 
-	m.metrics.IncHeadReqCounter(err == nil)
-	m.metrics.AddHeadReqDuration(time.Since(t))
+		m.metrics.IncHeadReqCounter(err == nil)
+		m.metrics.AddHeadReqDuration(time.Since(t))
 
-	return res, err
+		return res, err
+	}
+	return m.next.Head(ctx, request)
 }
 
 func (m MetricCollector) Search(req *object.SearchRequest, stream SearchStream) error {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	err := m.next.Search(req, stream)
+		err := m.next.Search(req, stream)
 
-	m.metrics.IncSearchReqCounter(err == nil)
-	m.metrics.AddSearchReqDuration(time.Since(t))
+		m.metrics.IncSearchReqCounter(err == nil)
+		m.metrics.AddSearchReqDuration(time.Since(t))
 
-	return err
+		return err
+	}
+	return m.next.Search(req, stream)
 }
 
 func (m MetricCollector) Delete(ctx context.Context, request *object.DeleteRequest) (*object.DeleteResponse, error) {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	res, err := m.next.Delete(ctx, request)
+		res, err := m.next.Delete(ctx, request)
 
-	m.metrics.IncDeleteReqCounter(err == nil)
-	m.metrics.AddDeleteReqDuration(time.Since(t))
-
-	return res, err
+		m.metrics.IncDeleteReqCounter(err == nil)
+		m.metrics.AddDeleteReqDuration(time.Since(t))
+		return res, err
+	}
+	return m.next.Delete(ctx, request)
 }
 
 func (m MetricCollector) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	err := m.next.GetRange(req, stream)
+		err := m.next.GetRange(req, stream)
 
-	m.metrics.IncRangeReqCounter(err == nil)
-	m.metrics.AddRangeReqDuration(time.Since(t))
+		m.metrics.IncRangeReqCounter(err == nil)
+		m.metrics.AddRangeReqDuration(time.Since(t))
 
-	return err
+		return err
+	}
+	return m.next.GetRange(req, stream)
 }
 
 func (m MetricCollector) GetRangeHash(ctx context.Context, request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	t := time.Now()
+	if m.enabled {
+		t := time.Now()
 
-	res, err := m.next.GetRangeHash(ctx, request)
+		res, err := m.next.GetRangeHash(ctx, request)
 
-	m.metrics.IncRangeHashReqCounter(err == nil)
-	m.metrics.AddRangeHashReqDuration(time.Since(t))
+		m.metrics.IncRangeHashReqCounter(err == nil)
+		m.metrics.AddRangeHashReqDuration(time.Since(t))
 
-	return res, err
+		return res, err
+	}
+	return m.next.GetRangeHash(ctx, request)
+}
+
+func (m *MetricCollector) Enable() {
+	m.enabled = true
+}
+
+func (m *MetricCollector) Disable() {
+	m.enabled = false
 }
 
 func (s getStreamMetric) Send(resp *object.GetResponse) error {

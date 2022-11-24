@@ -96,8 +96,12 @@ func initApp(c *cfg) {
 	initAndLog(c, "reputation", initReputationService)
 	initAndLog(c, "notification", initNotifications)
 	initAndLog(c, "object", initObjectService)
-	initAndLog(c, "pprof", initProfiler)
-	initAndLog(c, "prometheus", initMetrics)
+
+	pprof, _ := pprofComponent(c)
+	metrics, _ := metricsComponent(c)
+	initAndLog(c, pprof.name, pprof.init)
+	initAndLog(c, metrics.name, metrics.init)
+
 	initAndLog(c, "tree", initTreeService)
 	initAndLog(c, "control", initControlService)
 
@@ -113,6 +117,19 @@ func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
 	if logSuccess {
 		c.log.Info(fmt.Sprintf("%s service started successfully", name))
 	}
+}
+
+func stopAndLog(c *cfg, name string, stopper func() error) {
+	c.log.Debug(fmt.Sprintf("shutting down %s service", name))
+
+	err := stopper()
+	if err != nil {
+		c.log.Debug(fmt.Sprintf("could not shutdown %s server", name),
+			zap.String("error", err.Error()),
+		)
+	}
+
+	c.log.Debug(fmt.Sprintf("%s service has been stopped", name))
 }
 
 func bootUp(c *cfg) {
@@ -141,7 +158,7 @@ func wait(c *cfg) {
 
 func shutdown(c *cfg) {
 	for _, closer := range c.closers {
-		closer()
+		closer.fn()
 	}
 
 	c.log.Debug("waiting for all processes to stop")
@@ -150,5 +167,5 @@ func shutdown(c *cfg) {
 }
 
 func (c *cfg) onShutdown(f func()) {
-	c.closers = append(c.closers, f)
+	c.closers = append(c.closers, closer{"", f})
 }

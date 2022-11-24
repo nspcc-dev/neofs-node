@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Doc for extended headers (#2128)
+- Reload config for pprof and metrics on SIGHUP in `neofs-node` (#1868)
 
 ### Changed
 - `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)

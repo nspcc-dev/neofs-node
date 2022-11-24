@@ -126,7 +126,7 @@ func initHTTPServers(cfg *viper.Viper, log *logger.Logger) []*httputil.Server {
 
 		addr := cfg.GetString(item.cfgPrefix + ".address")
 
-		var prm httputil.Prm
+		var prm httputil.HTTPSrvPrm
 
 		prm.Address = addr
 		prm.Handler = item.handler()
