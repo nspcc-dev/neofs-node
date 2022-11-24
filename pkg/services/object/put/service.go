@@ -120,7 +120,7 @@ func WithNetworkMapSource(v netmap.Source) Option {
 	}
 }
 
-func WithWorkerPools(remote *ants.Pool) Option {
+func WithRemoteWorkerPool(remote *ants.Pool) Option {
 	return func(c *cfg) {
 		c.remotePool = remote
 	}
