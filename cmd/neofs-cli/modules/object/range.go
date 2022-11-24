@@ -161,12 +161,21 @@ func getRangeList(cmd *cobra.Command) ([]*object.Range, error) {
 
 		offset, err := strconv.ParseUint(r[0], 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid range specifier: %s", vs[i])
+			return nil, fmt.Errorf("invalid '%s' range offset specifier: %w", vs[i], err)
 		}
 		length, err := strconv.ParseUint(r[1], 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid range specifier: %s", vs[i])
+			return nil, fmt.Errorf("invalid '%s' range length specifier: %w", vs[i], err)
 		}
+
+		if length == 0 {
+			return nil, fmt.Errorf("invalid '%s' range: zero length", vs[i])
+		}
+
+		if offset+length <= offset {
+			return nil, fmt.Errorf("invalid '%s' range: uint64 overflow", vs[i])
+		}
+
 		rs[i] = object.NewRange()
 		rs[i].SetOffset(offset)
 		rs[i].SetLength(length)
