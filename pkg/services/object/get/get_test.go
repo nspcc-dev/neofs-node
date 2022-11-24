@@ -963,7 +963,7 @@ func TestGetRemoteSmall(t *testing.T) {
 				addr.SetObject(oidtest.ID())
 
 				srcObj := generateObject(addr, nil, nil)
-				srcObj.SetPayloadSize(10)
+				srcObj.SetPayloadSize(11)
 
 				ns, as := testNodeMatrix(t, []int{2})
 

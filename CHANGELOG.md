@@ -52,6 +52,8 @@ Changelog for NeoFS Node
 - `neofs-cli container create ` check the sufficiency of the number of nodes in the selector for replicas (#2038)
 - Data duplication during request forwarding (#2047)
 - Tree service panic on `TreeMove` operation (#2140)
+- Panic in `GETRANGE` with zero length (#2095)
+- Spawning useless `GETRANGE` with zero length for a big object (#2101)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
