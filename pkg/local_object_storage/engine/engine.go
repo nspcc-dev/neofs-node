@@ -15,9 +15,9 @@ import (
 
 // StorageEngine represents NeoFS local storage engine.
 type StorageEngine struct {
-	*cfg
+	cfg
 
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
 	shards map[string]shardWrapper
 
@@ -204,8 +204,8 @@ type cfg struct {
 	shardPoolSize uint32
 }
 
-func defaultCfg() *cfg {
-	return &cfg{
+func defaultCfg() cfg {
+	return cfg{
 		log: &logger.Logger{Logger: zap.L()},
 
 		shardPoolSize: 20,
@@ -214,20 +214,19 @@ func defaultCfg() *cfg {
 
 // New creates, initializes and returns new StorageEngine instance.
 func New(opts ...Option) *StorageEngine {
-	c := defaultCfg()
-
-	for i := range opts {
-		opts[i](c)
-	}
-
-	return &StorageEngine{
-		cfg:        c,
-		mtx:        new(sync.RWMutex),
+	e := &StorageEngine{
+		cfg:        defaultCfg(),
 		shards:     make(map[string]shardWrapper),
 		shardPools: make(map[string]*ants.Pool),
 		closeCh:    make(chan struct{}),
 		setModeCh:  make(chan setModeRequest),
 	}
+
+	for i := range opts {
+		opts[i](&e.cfg)
+	}
+
+	return e
 }
 
 // WithLogger returns option to set StorageEngine's logger.
