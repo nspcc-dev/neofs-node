@@ -101,7 +101,7 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
-	pool, err := ants.NewPool(int(e.shardPoolSize), ants.WithNonblocking(true))
+	pool, err := ants.NewPool(int(e.shardPoolSize.Load()), ants.WithNonblocking(true))
 	if err != nil {
 		return fmt.Errorf("could not create pool: %w", err)
 	}

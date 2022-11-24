@@ -201,26 +201,24 @@ type cfg struct {
 
 	metrics MetricRegister
 
-	shardPoolSize uint32
+	shardPoolSize atomic.Uint32
 }
 
-func defaultCfg() cfg {
-	return cfg{
-		log: &logger.Logger{Logger: zap.L()},
-
-		shardPoolSize: 20,
-	}
+func initDefaultCfg(c *cfg) {
+	c.log = &logger.Logger{Logger: zap.L()}
+	c.shardPoolSize.Store(20)
 }
 
 // New creates, initializes and returns new StorageEngine instance.
 func New(opts ...Option) *StorageEngine {
 	e := &StorageEngine{
-		cfg:        defaultCfg(),
 		shards:     make(map[string]shardWrapper),
 		shardPools: make(map[string]*ants.Pool),
 		closeCh:    make(chan struct{}),
 		setModeCh:  make(chan setModeRequest),
 	}
+
+	initDefaultCfg(&e.cfg)
 
 	for i := range opts {
 		opts[i](&e.cfg)
@@ -245,7 +243,7 @@ func WithMetrics(v MetricRegister) Option {
 // WithShardPoolSize returns option to specify size of worker pool for each shard.
 func WithShardPoolSize(sz uint32) Option {
 	return func(c *cfg) {
-		c.shardPoolSize = sz
+		c.shardPoolSize.Store(sz)
 	}
 }
 

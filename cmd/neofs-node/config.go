@@ -942,6 +942,8 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			// Storage Engine
 
 			var rcfg engine.ReConfiguration
+			rcfg.SetShardPoolSize(c.EngineCfg.shardPoolSize)
+
 			for _, optsWithID := range c.shardOpts() {
 				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}

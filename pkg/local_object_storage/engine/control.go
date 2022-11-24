@@ -276,6 +276,19 @@ loop:
 		shardsToAdd = append(shardsToAdd, newID)
 	}
 
+	if old := e.shardPoolSize.Load(); rcfg.shardPoolSize != 0 && old != rcfg.shardPoolSize {
+		e.log.Info("changing shard pool size",
+			zap.Uint32("old", old),
+			zap.Uint32("new", rcfg.shardPoolSize))
+
+		// Make newly added shards use new pool value.
+		e.shardPoolSize.Store(rcfg.shardPoolSize)
+
+		for _, pool := range e.shardPools {
+			pool.Tune(int(rcfg.shardPoolSize))
+		}
+	}
+
 	e.mtx.RUnlock()
 
 	e.removeShards(shardsToRemove...)
