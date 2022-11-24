@@ -229,6 +229,11 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 	p.SetChunkWriter(streamWrapper)
 	p.SetRange(object.NewRangeFromV2(body.GetRange()))
 
+	err = p.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("request params validation: %w", err)
+	}
+
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 		var globalProgress int
