@@ -37,7 +37,6 @@ func initObjectGetCmd() {
 	_ = objectGetCmd.MarkFlagRequired(commonflags.OIDFlag)
 
 	flags.String(fileFlag, "", "File to write object payload to(with -b together with signature and header). Default: stdout.")
-	flags.String("header", "", "File to write header to. Default: stdout.")
 	flags.Bool(rawFlag, false, rawFlagDesc)
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
@@ -124,16 +123,13 @@ func getObject(cmd *cobra.Command, _ []string) {
 		common.ExitOnErr(cmd, "unable to write binary object in out: %w ", err)
 	}
 
-	hdrFile := cmd.Flag("header").Value.String()
-	if filename != "" {
-		if hdrFile != "" || !strictOutput(cmd) {
-			cmd.Printf("[%s] Object successfully saved\n", filename)
-		}
+	if filename != "" && !strictOutput(cmd) {
+		cmd.Printf("[%s] Object successfully saved\n", filename)
 	}
 
 	// Print header only if file is not streamed to stdout.
-	if filename != "" || hdrFile != "" {
-		err = saveAndPrintHeader(cmd, res.Header(), hdrFile)
+	if filename != "" {
+		err = printHeader(cmd, res.Header())
 		common.ExitOnErr(cmd, "", err)
 	}
 }

@@ -41,7 +41,8 @@ Changelog for NeoFS Node
 - ObjectID signature output in the CLI (#2104)
 
 ### Removed
-- `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands
+- `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
+- `--header` from `neofs-cli object get` (#2090)
 
 ### Updated
 ### Updating from v0.34.0
