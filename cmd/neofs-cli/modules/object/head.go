@@ -160,6 +160,17 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 		cmd.Printf("  %s=%s\n", attr.Key(), attr.Value())
 	}
 
+	if signature := obj.Signature(); signature != nil {
+		cmd.Print("ID signature:\n")
+
+		// TODO(@carpawell): #1387 implement and use another approach to avoid conversion
+		var sigV2 refs.Signature
+		signature.WriteToV2(&sigV2)
+
+		cmd.Printf("  public key: %s\n", hex.EncodeToString(sigV2.GetKey()))
+		cmd.Printf("  signature: %s\n", hex.EncodeToString(sigV2.GetSign()))
+	}
+
 	return printSplitHeader(cmd, obj)
 }
 
@@ -178,17 +189,6 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	for _, child := range obj.Children() {
 		cmd.Printf("Split ChildID: %s\n", child.String())
-	}
-
-	if signature := obj.Signature(); signature != nil {
-		cmd.Print("Split Header Signature:\n")
-
-		// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-		var sigV2 refs.Signature
-		signature.WriteToV2(&sigV2)
-
-		cmd.Printf("  public key: %s\n", hex.EncodeToString(sigV2.GetKey()))
-		cmd.Printf("  signature: %s\n", hex.EncodeToString(sigV2.GetSign()))
 	}
 
 	parent := obj.Parent()
