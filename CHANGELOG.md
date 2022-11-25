@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - Panic in IR when performing HEAD requests (#2069)
 - Write-cache flush duplication (#2074)
 - Ignore error if a transaction already exists in a morph client (#2075)
+- ObjectID signature output in the CLI (#2104)
 
 ### Removed
 ### Updated
