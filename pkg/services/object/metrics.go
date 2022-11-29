@@ -71,9 +71,6 @@ func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) err
 
 func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncPutReqCounter()
-	}()
 
 	stream, err := m.next.Put(ctx)
 	if err != nil {
@@ -157,6 +154,7 @@ func (s putStreamMetric) Send(req *object.PutRequest) error {
 
 func (s putStreamMetric) CloseAndRecv() (*object.PutResponse, error) {
 	defer func() {
+		s.metrics.IncPutReqCounter()
 		s.metrics.AddPutReqDuration(time.Since(s.start))
 	}()
 
