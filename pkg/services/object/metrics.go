@@ -27,13 +27,13 @@ type (
 	}
 
 	MetricRegister interface {
-		IncGetReqCounter()
-		IncPutReqCounter()
-		IncHeadReqCounter()
-		IncSearchReqCounter()
-		IncDeleteReqCounter()
-		IncRangeReqCounter()
-		IncRangeHashReqCounter()
+		IncGetReqCounter(success bool)
+		IncPutReqCounter(success bool)
+		IncHeadReqCounter(success bool)
+		IncSearchReqCounter(success bool)
+		IncDeleteReqCounter(success bool)
+		IncRangeReqCounter(success bool)
+		IncRangeHashReqCounter(success bool)
 
 		AddGetReqDuration(time.Duration)
 		AddPutReqDuration(time.Duration)
@@ -55,18 +55,19 @@ func NewMetricCollector(next ServiceServer, register MetricRegister) *MetricColl
 	}
 }
 
-func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) error {
+func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) (err error) {
 	t := time.Now()
 	defer func() {
-		m.metrics.IncGetReqCounter()
+		m.metrics.IncGetReqCounter(err == nil)
 		m.metrics.AddGetReqDuration(time.Since(t))
 	}()
 
-	return m.next.Get(req, &getStreamMetric{
+	err = m.next.Get(req, &getStreamMetric{
 		ServerStream: stream,
 		stream:       stream,
 		metrics:      m.metrics,
 	})
+	return
 }
 
 func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
@@ -86,52 +87,57 @@ func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
 
 func (m MetricCollector) Head(ctx context.Context, request *object.HeadRequest) (*object.HeadResponse, error) {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncHeadReqCounter()
-		m.metrics.AddHeadReqDuration(time.Since(t))
-	}()
 
-	return m.next.Head(ctx, request)
+	res, err := m.next.Head(ctx, request)
+
+	m.metrics.IncHeadReqCounter(err == nil)
+	m.metrics.AddHeadReqDuration(time.Since(t))
+
+	return res, err
 }
 
 func (m MetricCollector) Search(req *object.SearchRequest, stream SearchStream) error {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncSearchReqCounter()
-		m.metrics.AddSearchReqDuration(time.Since(t))
-	}()
 
-	return m.next.Search(req, stream)
+	err := m.next.Search(req, stream)
+
+	m.metrics.IncSearchReqCounter(err == nil)
+	m.metrics.AddSearchReqDuration(time.Since(t))
+
+	return err
 }
 
 func (m MetricCollector) Delete(ctx context.Context, request *object.DeleteRequest) (*object.DeleteResponse, error) {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncDeleteReqCounter()
-		m.metrics.AddDeleteReqDuration(time.Since(t))
-	}()
 
-	return m.next.Delete(ctx, request)
+	res, err := m.next.Delete(ctx, request)
+
+	m.metrics.IncDeleteReqCounter(err == nil)
+	m.metrics.AddDeleteReqDuration(time.Since(t))
+
+	return res, err
 }
 
 func (m MetricCollector) GetRange(req *object.GetRangeRequest, stream GetObjectRangeStream) error {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncRangeReqCounter()
-		m.metrics.AddRangeReqDuration(time.Since(t))
-	}()
 
-	return m.next.GetRange(req, stream)
+	err := m.next.GetRange(req, stream)
+
+	m.metrics.IncRangeReqCounter(err == nil)
+	m.metrics.AddRangeReqDuration(time.Since(t))
+
+	return err
 }
 
 func (m MetricCollector) GetRangeHash(ctx context.Context, request *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
 	t := time.Now()
-	defer func() {
-		m.metrics.IncRangeHashReqCounter()
-		m.metrics.AddRangeHashReqDuration(time.Since(t))
-	}()
 
-	return m.next.GetRangeHash(ctx, request)
+	res, err := m.next.GetRangeHash(ctx, request)
+
+	m.metrics.IncRangeHashReqCounter(err == nil)
+	m.metrics.AddRangeHashReqDuration(time.Since(t))
+
+	return res, err
 }
 
 func (s getStreamMetric) Send(resp *object.GetResponse) error {
@@ -153,10 +159,10 @@ func (s putStreamMetric) Send(req *object.PutRequest) error {
 }
 
 func (s putStreamMetric) CloseAndRecv() (*object.PutResponse, error) {
-	defer func() {
-		s.metrics.IncPutReqCounter()
-		s.metrics.AddPutReqDuration(time.Since(s.start))
-	}()
+	res, err := s.stream.CloseAndRecv()
 
-	return s.stream.CloseAndRecv()
+	s.metrics.IncPutReqCounter(err == nil)
+	s.metrics.AddPutReqDuration(time.Since(s.start))
+
+	return res, err
 }

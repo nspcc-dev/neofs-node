@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,14 +10,19 @@ import (
 const objectSubsystem = "object"
 
 type (
+	methodCount struct {
+		success prometheus.Counter
+		total   prometheus.Counter
+	}
+
 	objectServiceMetrics struct {
-		getCounter       prometheus.Counter
-		putCounter       prometheus.Counter
-		headCounter      prometheus.Counter
-		searchCounter    prometheus.Counter
-		deleteCounter    prometheus.Counter
-		rangeCounter     prometheus.Counter
-		rangeHashCounter prometheus.Counter
+		getCounter       methodCount
+		putCounter       methodCount
+		headCounter      methodCount
+		searchCounter    methodCount
+		deleteCounter    methodCount
+		rangeCounter     methodCount
+		rangeHashCounter methodCount
 
 		getDuration       prometheus.Counter
 		putDuration       prometheus.Counter
@@ -38,56 +44,44 @@ const (
 	counterTypeLabelKey = "type"
 )
 
+func newMethodCallCounter(name string) methodCount {
+	return methodCount{
+		success: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: objectSubsystem,
+			Name:      fmt.Sprintf("%s_req_count", name),
+			Help:      fmt.Sprintf("The number of successful %s requests processed", name),
+		}),
+		total: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: objectSubsystem,
+			Name:      fmt.Sprintf("%s_req_count_success", name),
+			Help:      fmt.Sprintf("Total number of %s requests processed", name),
+		}),
+	}
+}
+
+func (m methodCount) mustRegister() {
+	prometheus.MustRegister(m.success)
+	prometheus.MustRegister(m.total)
+}
+
+func (m methodCount) Inc(success bool) {
+	m.total.Inc()
+	if success {
+		m.success.Inc()
+	}
+}
+
 func newObjectServiceMetrics() objectServiceMetrics {
 	var ( // Request counter metrics.
-		getCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "get_req_count",
-			Help:      "Number of get request processed",
-		})
-
-		putCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "put_req_count",
-			Help:      "Number of put request processed",
-		})
-
-		headCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "head_req_count",
-			Help:      "Number of head request processed",
-		})
-
-		searchCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "search_req_count",
-			Help:      "Number of search request processed",
-		})
-
-		deleteCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "delete_req_count",
-			Help:      "Number of delete request processed",
-		})
-
-		rangeCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "range_req_count",
-			Help:      "Number of range request processed",
-		})
-
-		rangeHashCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: objectSubsystem,
-			Name:      "range_hash_req_count",
-			Help:      "Number of range hash request processed",
-		})
+		getCounter       = newMethodCallCounter("get")
+		putCounter       = newMethodCallCounter("put")
+		headCounter      = newMethodCallCounter("head")
+		searchCounter    = newMethodCallCounter("search")
+		deleteCounter    = newMethodCallCounter("delete")
+		rangeCounter     = newMethodCallCounter("range")
+		rangeHashCounter = newMethodCallCounter("range_hash")
 	)
 
 	var ( // Request duration metrics.
@@ -188,13 +182,13 @@ func newObjectServiceMetrics() objectServiceMetrics {
 }
 
 func (m objectServiceMetrics) register() {
-	prometheus.MustRegister(m.getCounter)
-	prometheus.MustRegister(m.putCounter)
-	prometheus.MustRegister(m.headCounter)
-	prometheus.MustRegister(m.searchCounter)
-	prometheus.MustRegister(m.deleteCounter)
-	prometheus.MustRegister(m.rangeCounter)
-	prometheus.MustRegister(m.rangeHashCounter)
+	m.getCounter.mustRegister()
+	m.putCounter.mustRegister()
+	m.headCounter.mustRegister()
+	m.searchCounter.mustRegister()
+	m.deleteCounter.mustRegister()
+	m.rangeCounter.mustRegister()
+	m.rangeHashCounter.mustRegister()
 
 	prometheus.MustRegister(m.getDuration)
 	prometheus.MustRegister(m.putDuration)
@@ -210,32 +204,32 @@ func (m objectServiceMetrics) register() {
 	prometheus.MustRegister(m.shardMetrics)
 }
 
-func (m objectServiceMetrics) IncGetReqCounter() {
-	m.getCounter.Inc()
+func (m objectServiceMetrics) IncGetReqCounter(success bool) {
+	m.getCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncPutReqCounter() {
-	m.putCounter.Inc()
+func (m objectServiceMetrics) IncPutReqCounter(success bool) {
+	m.putCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncHeadReqCounter() {
-	m.headCounter.Inc()
+func (m objectServiceMetrics) IncHeadReqCounter(success bool) {
+	m.headCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncSearchReqCounter() {
-	m.searchCounter.Inc()
+func (m objectServiceMetrics) IncSearchReqCounter(success bool) {
+	m.searchCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncDeleteReqCounter() {
-	m.deleteCounter.Inc()
+func (m objectServiceMetrics) IncDeleteReqCounter(success bool) {
+	m.deleteCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncRangeReqCounter() {
-	m.rangeCounter.Inc()
+func (m objectServiceMetrics) IncRangeReqCounter(success bool) {
+	m.rangeCounter.Inc(success)
 }
 
-func (m objectServiceMetrics) IncRangeHashReqCounter() {
-	m.rangeHashCounter.Inc()
+func (m objectServiceMetrics) IncRangeHashReqCounter(success bool) {
+	m.rangeHashCounter.Inc(success)
 }
 
 func (m objectServiceMetrics) AddGetReqDuration(d time.Duration) {

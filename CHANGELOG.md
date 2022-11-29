@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - `replicator.pool_size` config field to tune replicator pool size (#2049)
 - Fix NNS hash parsing in morph client (#2063)
 - `neofs-cli neofs-cli acl basic/extended print` commands (#2012)
+- `neofs_node_object_*_req_count_success` prometheus metrics for tracking successfully executed requests (#1984)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
@@ -54,6 +55,8 @@ Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the comman
 
 Replicator pool size can now be fine-tuned with `replicator.pool_size` config field.
 The default value is taken from `object.put.pool_size_remote` as in earlier versions.
+
+Added `neofs_node_object_*_req_count_success` metrics for tracking successfully executed requests.
 
 ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
