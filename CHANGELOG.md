@@ -41,6 +41,8 @@ Changelog for NeoFS Node
 - ObjectID signature output in the CLI (#2104)
 
 ### Removed
+- `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands
+
 ### Updated
 ### Updating from v0.34.0
 Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
