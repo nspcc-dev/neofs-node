@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
@@ -139,9 +141,10 @@ func initContainerService(c *cfg) {
 	pubKey := c.key.PublicKey().Bytes()
 
 	resultWriter := &morphLoadWriter{
-		log:            c.log,
-		cnrMorphClient: wrapperNoNotary,
-		key:            pubKey,
+		log:               c.log,
+		cnrMorphClient:    wrapperNoNotary,
+		netmapMorphClient: c.cfgNetmap.wrapper,
+		key:               pubKey,
 	}
 
 	loadAccumulator := loadstorage.New(loadstorage.Prm{})
@@ -280,12 +283,40 @@ func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationPar
 type morphLoadWriter struct {
 	log *logger.Logger
 
-	cnrMorphClient *cntClient.Client
+	cnrMorphClient    *cntClient.Client
+	netmapMorphClient *nmClient.Client
 
 	key []byte
 }
 
 func (w *morphLoadWriter) Put(a containerSDK.SizeEstimation) error {
+	rawCnr := make([]byte, sha256.Size)
+	a.Container().Encode(rawCnr)
+
+	cnr, err := w.cnrMorphClient.Get(rawCnr)
+	if err != nil {
+		return fmt.Errorf("container fetching: %w", err)
+	}
+
+	nm, err := w.netmapMorphClient.NetMap()
+	if err != nil {
+		return fmt.Errorf("actual netmap fetching: %w", err)
+	}
+
+	policy := cnr.Value.PlacementPolicy()
+
+	nn, err := nm.ContainerNodes(policy, rawCnr)
+	if err != nil {
+		return fmt.Errorf("container nodes building: %w", err)
+	}
+
+	restoredSize, err := restoreContainerSize(a.Value(), policy, nn)
+	if err != nil {
+		return fmt.Errorf("original container size restoration: %w", err)
+	}
+
+	a.SetValue(restoredSize)
+
 	w.log.Debug("save used space announcement in contract",
 		zap.Uint64("epoch", a.Epoch()),
 		zap.Stringer("cid", a.Container()),
@@ -302,6 +333,39 @@ func (w *morphLoadWriter) Put(a containerSDK.SizeEstimation) error {
 
 func (*morphLoadWriter) Close() error {
 	return nil
+}
+
+func restoreContainerSize(reportedSize uint64, p netmap.PlacementPolicy, nn [][]netmap.NodeInfo) (uint64, error) {
+	// publicKey => container storage partition
+	nodes := make(map[string]float64)
+
+	for i, vector := range nn {
+		containerPartPerNode := float64(p.ReplicaNumberByIndex(i)) / float64(len(vector))
+		if containerPartPerNode >= 1 {
+			// not expected situation; a requested replication
+			// number is higher than the placement vector size,
+			// it is impossible to make any prediction about
+			// the size so just return the trivial estimation
+			return uint64(float64(reportedSize) / containerPartPerNode), nil
+		}
+
+		for _, node := range vector {
+			pk := hex.EncodeToString(node.PublicKey())
+
+			partition := nodes[pk]
+			nodes[pk] = partition + (1-partition)*containerPartPerNode
+		}
+	}
+
+	// find the average container partition
+	var sum float64
+	for _, partition := range nodes {
+		sum += partition
+	}
+
+	average := sum / float64(len(nodes))
+
+	return uint64(float64(reportedSize) / average), nil
 }
 
 type nopLoadWriter struct{}

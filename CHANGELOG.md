@@ -39,6 +39,7 @@ Changelog for NeoFS Node
 - Write-cache flush duplication (#2074)
 - Ignore error if a transaction already exists in a morph client (#2075)
 - ObjectID signature output in the CLI (#2104)
+- Container size estimation value (#2113)
 
 ### Removed
 ### Updated
