@@ -15,9 +15,9 @@ import (
 )
 
 func initControlFlags(cmd *cobra.Command) {
-	commonflags.InitWithoutRPC(cmd)
-
 	ff := cmd.Flags()
+	ff.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
+	ff.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
 	ff.String(controlRPC, controlRPCDefault, controlRPCUsage)
 	ff.DurationP(commonflags.Timeout, commonflags.TimeoutShorthand, commonflags.TimeoutDefault, commonflags.TimeoutUsage)
 }

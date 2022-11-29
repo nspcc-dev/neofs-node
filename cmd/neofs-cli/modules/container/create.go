@@ -39,7 +39,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		placementPolicy, err := parseContainerPolicy(containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
-		key := key.GetOrGenerate(cmd)
+		key := key.Get(cmd)
 		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
 
 		if !force {
@@ -133,9 +133,13 @@ It will be stored in sidechain when inner ring will accepts it.`,
 }
 
 func initContainerCreateCmd() {
-	commonflags.Init(createContainerCmd)
-
 	flags := createContainerCmd.Flags()
+
+	// Init common flags
+	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
+	flags.DurationP(commonflags.Timeout, commonflags.TimeoutShorthand, commonflags.TimeoutDefault, commonflags.TimeoutUsage)
+	flags.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
+	flags.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
 
 	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("HEX encoded basic ACL value or keywords like '%s', '%s', '%s'",
 		acl.NamePublicRW, acl.NamePrivate, acl.NamePublicROExtended,
