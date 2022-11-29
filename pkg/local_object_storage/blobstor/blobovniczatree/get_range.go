@@ -122,8 +122,6 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 	// (Blobovniczas "after" the active one are empty anyway,
 	// and it's pointless to open them).
 	if u64FromHexString(filepath.Base(blzPath)) > active.ind {
-		b.log.Debug("index is too big", zap.String("path", blzPath))
-
 		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
