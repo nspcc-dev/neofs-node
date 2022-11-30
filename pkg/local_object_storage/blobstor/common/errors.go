@@ -1,6 +1,8 @@
 package common
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
 
@@ -10,3 +12,7 @@ var ErrReadOnly = logicerr.New("opened as read-only")
 
 // ErrNoSpace MUST be returned when there is no space to put an object on the device.
 var ErrNoSpace = logicerr.New("no free space")
+
+// ErrFatal is returned in case any bbolt database routine panics.
+// This happens e.g. when SIGBUS is received in case db is opened but HDD is missing.
+var ErrFatal = errors.New("bbolt fatal error")

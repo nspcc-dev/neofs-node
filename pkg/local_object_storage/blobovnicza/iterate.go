@@ -2,7 +2,9 @@ package blobovnicza
 
 import (
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -117,10 +119,13 @@ type IterateRes struct {
 // Returns handler's errors directly. Returns nil after iterating finish.
 //
 // Handler should not retain object data. Handler must not be nil.
-func (b *Blobovnicza) Iterate(prm IteratePrm) (IterateRes, error) {
+func (b *Blobovnicza) Iterate(prm IteratePrm) (res IterateRes, err error) {
 	var elem IterationElement
 
-	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
+	if err = b.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return tx.ForEach(func(name []byte, buck *bbolt.Bucket) error {
 			return buck.ForEach(func(k, v []byte) error {
 				if prm.decodeAddresses {

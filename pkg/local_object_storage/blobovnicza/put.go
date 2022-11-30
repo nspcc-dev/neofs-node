@@ -2,7 +2,9 @@ package blobovnicza
 
 import (
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -47,12 +49,15 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 // Returns ErrFull if blobovnicza is filled.
 //
 // Should not be called in read-only configuration.
-func (b *Blobovnicza) Put(prm PutPrm) (PutRes, error) {
+func (b *Blobovnicza) Put(prm PutPrm) (res PutRes, err error) {
 	sz := uint64(len(prm.objData))
 	bucketName := bucketForSize(sz)
 	key := addressKey(prm.addr)
 
-	err := b.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = b.boltDB.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		if b.full() {
 			return ErrFull
 		}

@@ -1,6 +1,9 @@
 package blobovnicza
 
 import (
+	"runtime/debug"
+
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -29,12 +32,15 @@ func (p *DeletePrm) SetAddress(addr oid.Address) {
 // Returns an error of type apistatus.ObjectNotFound if the object to be deleted is not in blobovnicza.
 //
 // Should not be called in read-only configuration.
-func (b *Blobovnicza) Delete(prm DeletePrm) (DeleteRes, error) {
+func (b *Blobovnicza) Delete(prm DeletePrm) (res DeleteRes, err error) {
 	addrKey := addressKey(prm.addr)
 
 	removed := false
 
-	err := b.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = b.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return b.iterateBuckets(tx, func(lower, upper uint64, buck *bbolt.Bucket) (bool, error) {
 			objData := buck.Get(addrKey)
 			if objData == nil {

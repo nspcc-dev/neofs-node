@@ -2,8 +2,10 @@ package blobovnicza
 
 import (
 	"errors"
+	"runtime/debug"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -39,13 +41,16 @@ var errInterruptForEach = errors.New("interrupt for-each")
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is not
 // presented in Blobovnicza.
-func (b *Blobovnicza) Get(prm GetPrm) (GetRes, error) {
+func (b *Blobovnicza) Get(prm GetPrm) (res GetRes, err error) {
 	var (
 		data    []byte
 		addrKey = addressKey(prm.addr)
 	)
 
-	if err := b.boltDB.View(func(tx *bbolt.Tx) error {
+	if err = b.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return tx.ForEach(func(_ []byte, buck *bbolt.Bucket) error {
 			data = buck.Get(addrKey)
 			if data == nil {
