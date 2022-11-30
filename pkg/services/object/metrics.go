@@ -47,8 +47,8 @@ type (
 		AddRangeReqDuration(time.Duration)
 		AddRangeHashReqDuration(time.Duration)
 
-		AddPutPayload(int)
-		AddGetPayload(int)
+		AddPutPayload(string, int)
+		AddGetPayload(string, int)
 	}
 )
 
@@ -150,19 +150,27 @@ func (m MetricCollector) GetRangeHash(ctx context.Context, request *object.GetRa
 	return res, err
 }
 
-func (s getStreamMetric) Send(resp *object.GetResponse) error {
+func (s *getStreamMetric) Send(resp *object.GetResponse) error {
+	header, ok := resp.GetBody().GetObjectPart().(*object.GetObjectPartInit)
+	if ok {
+		s.cid = getCIDString(header.GetHeader().GetContainerID())
+	}
 	chunk, ok := resp.GetBody().GetObjectPart().(*object.GetObjectPartChunk)
 	if ok {
-		s.metrics.AddGetPayload(len(chunk.GetChunk()))
+		s.metrics.AddGetPayload(s.cid, len(chunk.GetChunk()))
 	}
 
 	return s.stream.Send(resp)
 }
 
-func (s putStreamMetric) Send(req *object.PutRequest) error {
+func (s *putStreamMetric) Send(req *object.PutRequest) error {
+	header, ok := req.GetBody().GetObjectPart().(*object.PutObjectPartInit)
+	if ok {
+		s.cid = getCIDString(header.GetHeader().GetContainerID())
+	}
 	chunk, ok := req.GetBody().GetObjectPart().(*object.PutObjectPartChunk)
 	if ok {
-		s.metrics.AddPutPayload(len(chunk.GetChunk()))
+		s.metrics.AddPutPayload(s.cid, len(chunk.GetChunk()))
 	}
 
 	return s.stream.Send(req)

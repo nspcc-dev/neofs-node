@@ -32,8 +32,8 @@ type (
 		rangeDuration     prometheus.Counter
 		rangeHashDuration prometheus.Counter
 
-		putPayload prometheus.Counter
-		getPayload prometheus.Counter
+		putPayload prometheus.CounterVec
+		getPayload prometheus.CounterVec
 
 		shardMetrics *prometheus.GaugeVec
 	}
@@ -138,19 +138,19 @@ func newObjectServiceMetrics() objectServiceMetrics {
 	)
 
 	var ( // Object payload metrics.
-		putPayload = prometheus.NewCounter(prometheus.CounterOpts{
+		putPayload = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
 			Name:      "put_payload",
 			Help:      "Accumulated payload size at object put method",
-		})
+		}, []string{containerIDLabelKey})
 
-		getPayload = prometheus.NewCounter(prometheus.CounterOpts{
+		getPayload = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
 			Name:      "get_payload",
 			Help:      "Accumulated payload size at object get method",
-		})
+		}, []string{containerIDLabelKey})
 
 		shardsMetrics = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -177,8 +177,8 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		deleteDuration:    deleteDuration,
 		rangeDuration:     rangeDuration,
 		rangeHashDuration: rangeHashDuration,
-		putPayload:        putPayload,
-		getPayload:        getPayload,
+		putPayload:        *putPayload,
+		getPayload:        *getPayload,
 		shardMetrics:      shardsMetrics,
 	}
 }
@@ -262,12 +262,12 @@ func (m objectServiceMetrics) AddRangeHashReqDuration(d time.Duration) {
 	m.rangeHashDuration.Add(float64(d))
 }
 
-func (m objectServiceMetrics) AddPutPayload(ln int) {
-	m.putPayload.Add(float64(ln))
+func (m objectServiceMetrics) AddPutPayload(cnrID string, ln int) {
+	m.putPayload.With(prometheus.Labels{containerIDLabelKey: cnrID}).Add(float64(ln))
 }
 
-func (m objectServiceMetrics) AddGetPayload(ln int) {
-	m.getPayload.Add(float64(ln))
+func (m objectServiceMetrics) AddGetPayload(cnrID string, ln int) {
+	m.getPayload.With(prometheus.Labels{containerIDLabelKey: cnrID}).Add(float64(ln))
 }
 
 func (m objectServiceMetrics) AddToObjectCounter(shardID, objectType string, delta int) {
