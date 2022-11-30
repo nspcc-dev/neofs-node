@@ -50,9 +50,20 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
 				"use --force option to skip this check: %w", err)
 
-			_, err = resmap.NetMap().ContainerNodes(*placementPolicy, nil)
+			nodesByRep, err := resmap.NetMap().ContainerNodes(*placementPolicy, nil)
 			common.ExitOnErr(cmd, "could not build container nodes based on given placement policy, "+
 				"use --force option to skip this check: %w", err)
+
+			for i, nodes := range nodesByRep {
+				if placementPolicy.ReplicaNumberByIndex(i) > uint32(len(nodes)) {
+					common.ExitOnErr(cmd, "", fmt.Errorf(
+						"the number of nodes '%d' in selector is not enough for the number of replicas '%d', "+
+							"use --force option to skip this check",
+						len(nodes),
+						placementPolicy.ReplicaNumberByIndex(i),
+					))
+				}
+			}
 		}
 
 		if containerSubnet != "" {
