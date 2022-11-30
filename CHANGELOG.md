@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - `object lock` command reads CID and OID the same way other commands do (#1971)
 - `LOCK` object are stored on every container node (#1502)
 - `neofs-cli container get-eacl` print ACL table in json format only with arg `--json' (#2012)
+- Side chain notary deposits use max uint32 as till parameter (#1486)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
