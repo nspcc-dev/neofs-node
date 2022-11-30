@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -164,6 +165,31 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 		till = currentTill
 	}
 
+	return c.depositNotary(amount, till)
+}
+
+// DepositEndlessNotary calls notary deposit method. Unlike `DepositNotary`,
+// this method sets notary deposit till parameter to a maximum possible value.
+// This allows to avoid ValidAfterDeposit failures.
+//
+// This function must be invoked with notary enabled otherwise it throws panic.
+func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) (res util.Uint256, err error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint256{}, ErrConnectionLost
+	}
+
+	if c.notary == nil {
+		panic(notaryNotEnabledPanicMsg)
+	}
+
+	// till value refers to a block height and it is uint32 value in neo-go
+	return c.depositNotary(amount, math.MaxUint32)
+}
+
+func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint256, err error) {
 	txHash, vub, err := c.gasToken.Transfer(
 		c.accAddr,
 		c.notary.notary,
