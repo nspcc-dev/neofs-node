@@ -46,10 +46,7 @@ func (s *Server) depositSideNotary() (tx util.Uint256, err error) {
 		return util.Uint256{}, fmt.Errorf("could not calculate side notary deposit amount: %w", err)
 	}
 
-	return s.morphClient.DepositNotary(
-		depositAmount,
-		uint32(s.epochDuration.Load())+notaryExtraBlocks,
-	)
+	return s.morphClient.DepositEndlessNotary(depositAmount)
 }
 
 func (s *Server) notaryHandler(_ event.Event) {
