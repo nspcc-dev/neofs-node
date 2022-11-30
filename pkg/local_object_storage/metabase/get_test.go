@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -171,6 +173,10 @@ func BenchmarkGet(b *testing.B) {
 		100,
 	}
 
+	defer func() {
+		_ = os.RemoveAll(b.Name())
+	}()
+
 	for _, num := range numOfObjects {
 		b.Run(fmt.Sprintf("%d_objects", num), func(b *testing.B) {
 			benchmarkGet(b, num)
@@ -181,31 +187,37 @@ func BenchmarkGet(b *testing.B) {
 var obj *objectSDK.Object
 
 func benchmarkGet(b *testing.B, numOfObj int) {
-	db := newDB(b)
-	addrs := make([]oid.Address, 0, numOfObj)
+	prepareDb := func(batchSize int) (*meta.DB, []oid.Address) {
+		db := newDB(b,
+			meta.WithMaxBatchSize(batchSize),
+			meta.WithMaxBatchDelay(10*time.Millisecond),
+		)
+		addrs := make([]oid.Address, 0, numOfObj)
 
-	for i := 0; i < numOfObj; i++ {
-		raw := generateObject(b)
-		addrs = append(addrs, object.AddressOf(raw))
+		for i := 0; i < numOfObj; i++ {
+			raw := generateObject(b)
+			addrs = append(addrs, object.AddressOf(raw))
 
-		err := putBig(db, raw)
-		require.NoError(b, err)
+			err := putBig(db, raw)
+			require.NoError(b, err)
+		}
+
+		return db, addrs
 	}
 
-	b.Cleanup(func() {
-		_ = db.Close()
-		_ = os.RemoveAll(b.Name())
-	})
-
-	var err error
-	var getPrm meta.GetPrm
-	getPrm.SetAddress(addrs[len(addrs)/2])
+	db, addrs := prepareDb(runtime.NumCPU())
 
 	b.Run("parallel", func(b *testing.B) {
 		b.ReportAllocs()
 		b.RunParallel(func(pb *testing.PB) {
+			var counter int
+
 			for pb.Next() {
-				_, err = db.Get(getPrm)
+				var getPrm meta.GetPrm
+				getPrm.SetAddress(addrs[counter%len(addrs)])
+				counter++
+
+				_, err := db.Get(getPrm)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -213,16 +225,20 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 		})
 	})
 
+	require.NoError(b, db.Close())
+	require.NoError(b, os.RemoveAll(b.Name()))
+
+	db, addrs = prepareDb(1)
+
 	b.Run("serial", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			for _, addr := range addrs {
-				getPrm.SetAddress(addr)
+			var getPrm meta.GetPrm
+			getPrm.SetAddress(addrs[i%len(addrs)])
 
-				_, err := db.Get(getPrm)
-				if err != nil {
-					b.Fatal(err)
-				}
+			_, err := db.Get(getPrm)
+			if err != nil {
+				b.Fatal(err)
 			}
 		}
 	})
