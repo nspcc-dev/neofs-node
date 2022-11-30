@@ -141,15 +141,7 @@ func makeNotaryDeposit(c *cfg) (util.Uint256, error) {
 		return util.Uint256{}, fmt.Errorf("could not calculate notary deposit: %w", err)
 	}
 
-	epochDur, err := c.cfgNetmap.wrapper.EpochDuration()
-	if err != nil {
-		return util.Uint256{}, fmt.Errorf("could not get current epoch duration: %w", err)
-	}
-
-	return c.cfgMorph.client.DepositNotary(
-		depositAmount,
-		uint32(epochDur)+notaryDepositExtraBlocks,
-	)
+	return c.cfgMorph.client.DepositEndlessNotary(depositAmount)
 }
 
 var (
