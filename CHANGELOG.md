@@ -48,6 +48,7 @@ Changelog for NeoFS Node
 - Making notary deposits with a zero GAS balance (#2080)
 - Notary requests on shutdown (#2075)
 - `neofs-cli container create ` check the sufficiency of the number of nodes in the selector for replicas (#2038)
+- Data duplication during request forwarding (#2047)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
