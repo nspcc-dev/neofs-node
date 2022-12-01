@@ -22,6 +22,7 @@ type DeletePrm struct {
 type DeleteRes struct {
 	rawRemoved       uint64
 	availableRemoved uint64
+	sizes            []uint64
 }
 
 // AvailableObjectsRemoved returns the number of removed available
@@ -33,6 +34,11 @@ func (d DeleteRes) AvailableObjectsRemoved() uint64 {
 // RawObjectsRemoved returns the number of removed raw objects.
 func (d DeleteRes) RawObjectsRemoved() uint64 {
 	return d.rawRemoved
+}
+
+// RemovedObjectSizes returns the sizes of removed objects.
+func (d DeleteRes) RemovedObjectSizes() []uint64 {
+	return d.sizes
 }
 
 // SetAddresses is a Delete option to set the addresses of the objects to delete.
@@ -66,9 +72,11 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	var rawRemoved uint64
 	var availableRemoved uint64
 	var err error
+	var sizes = make([]uint64, len(prm.addrs))
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		rawRemoved, availableRemoved, err = db.deleteGroup(tx, prm.addrs)
+		// We need to clear slice because tx can try to execute multiple times.
+		rawRemoved, availableRemoved, err = db.deleteGroup(tx, prm.addrs, sizes)
 		return err
 	})
 	if err == nil {
@@ -81,6 +89,7 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	return DeleteRes{
 		rawRemoved:       rawRemoved,
 		availableRemoved: availableRemoved,
+		sizes:            sizes,
 	}, err
 }
 
@@ -90,7 +99,7 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 // objects that were stored. The second return value is a logical objects
 // removed number: objects that were available (without Tombstones, GCMarks
 // non-expired, etc.)
-func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, error) {
+func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (uint64, uint64, error) {
 	refCounter := make(referenceCounter, len(addrs))
 	currEpoch := db.epochState.CurrentEpoch()
 
@@ -98,13 +107,14 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, er
 	var availableDeleted uint64
 
 	for i := range addrs {
-		removed, available, err := db.delete(tx, addrs[i], refCounter, currEpoch)
+		removed, available, size, err := db.delete(tx, addrs[i], refCounter, currEpoch)
 		if err != nil {
 			return 0, 0, err // maybe log and continue?
 		}
 
 		if removed {
 			rawDeleted++
+			sizes[i] = size
 		}
 
 		if available {
@@ -143,8 +153,8 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address) (uint64, uint64, er
 // The first return value indicates if an object has been removed. (removing a
 // non-exist object is error-free). The second return value indicates if an
 // object was available before the removal (for calculating the logical object
-// counter).
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, error) {
+// counter). The third return value is removed object payload size.
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
 	addrKey := addressKey(addr, key)
 	garbageBKT := tx.Bucket(garbageBucketName)
@@ -156,7 +166,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	if garbageBKT != nil {
 		err := garbageBKT.Delete(addrKey)
 		if err != nil {
-			return false, false, fmt.Errorf("could not remove from garbage bucket: %w", err)
+			return false, false, 0, fmt.Errorf("could not remove from garbage bucket: %w", err)
 		}
 	}
 
@@ -167,10 +177,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 		var notFoundErr apistatus.ObjectNotFound
 
 		if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
-			return false, false, nil
+			return false, false, 0, nil
 		}
 
-		return false, false, err
+		return false, false, 0, err
 	}
 
 	// if object is an only link to a parent, then remove parent
@@ -196,10 +206,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 	// remove object
 	err = db.deleteObject(tx, obj, false)
 	if err != nil {
-		return false, false, fmt.Errorf("could not remove object: %w", err)
+		return false, false, 0, fmt.Errorf("could not remove object: %w", err)
 	}
 
-	return true, removeAvailableObject, nil
+	return true, removeAvailableObject, obj.PayloadSize(), nil
 }
 
 func (db *DB) deleteObject(

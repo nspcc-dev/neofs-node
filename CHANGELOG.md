@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - `neofs_node_object_*_req_count_success` prometheus metrics for tracking successfully executed requests (#1984)
 - All request count metrics now have a label for container ID (#2118)
 - All request size metrics now have a label for container ID (#2117)
+- New `neofs_node_object_container_size` metric for tracking size of reqular objects in a container (#2116)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)

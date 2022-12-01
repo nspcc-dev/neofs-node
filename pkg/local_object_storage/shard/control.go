@@ -132,7 +132,7 @@ func (s *Shard) Init() error {
 		}
 	}
 
-	s.updateObjectCounter()
+	s.updateMetrics()
 
 	s.gc = &gc{
 		gcCfg:       &s.gcCfg,

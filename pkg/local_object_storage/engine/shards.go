@@ -45,6 +45,10 @@ func (m *metricsWithID) DecObjectCounter(objectType string) {
 	m.mw.AddToObjectCounter(m.id, objectType, -1)
 }
 
+func (m *metricsWithID) AddToContainerSize(cnr string, size int64) {
+	m.mw.AddToContainerSize(cnr, size)
+}
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.

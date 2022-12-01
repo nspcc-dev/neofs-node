@@ -19,6 +19,7 @@ type (
 		rangeDuration                 prometheus.Counter
 		searchDuration                prometheus.Counter
 		listObjectsDuration           prometheus.Counter
+		containerSize                 prometheus.GaugeVec
 	}
 )
 
@@ -102,6 +103,13 @@ func newEngineMetrics() engineMetrics {
 			Name:      "list_objects_duration",
 			Help:      "Accumulated duration of engine list objects operations",
 		})
+
+		containerSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: engineSubsystem,
+			Name:      "container_size",
+			Help:      "Accumulated size of all objects in a container",
+		}, []string{containerIDLabelKey})
 	)
 
 	return engineMetrics{
@@ -116,6 +124,7 @@ func newEngineMetrics() engineMetrics {
 		rangeDuration:                 rangeDuration,
 		searchDuration:                searchDuration,
 		listObjectsDuration:           listObjectsDuration,
+		containerSize:                 *containerSize,
 	}
 }
 
@@ -131,6 +140,7 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.rangeDuration)
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.listObjectsDuration)
+	prometheus.MustRegister(m.containerSize)
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
@@ -175,4 +185,8 @@ func (m engineMetrics) AddSearchDuration(d time.Duration) {
 
 func (m engineMetrics) AddListObjectsDuration(d time.Duration) {
 	m.listObjectsDuration.Add(float64(d))
+}
+
+func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {
+	m.containerSize.With(prometheus.Labels{containerIDLabelKey: cnrID}).Add(float64(size))
 }
