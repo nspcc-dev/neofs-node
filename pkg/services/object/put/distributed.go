@@ -115,6 +115,10 @@ func (x errIncompletePut) Error() string {
 	return commonMsg
 }
 
+func (x errIncompletePut) Unwrap() error {
+	return x.singleErr
+}
+
 func (t *distributedTarget) WriteHeader(obj *objectSDK.Object) error {
 	t.obj = obj
 
