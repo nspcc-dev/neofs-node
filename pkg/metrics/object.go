@@ -11,8 +11,8 @@ const objectSubsystem = "object"
 
 type (
 	methodCount struct {
-		success prometheus.Counter
-		total   prometheus.Counter
+		success prometheus.CounterVec
+		total   prometheus.CounterVec
 	}
 
 	objectServiceMetrics struct {
@@ -42,22 +42,23 @@ type (
 const (
 	shardIDLabelKey     = "shard"
 	counterTypeLabelKey = "type"
+	containerIDLabelKey = "cid"
 )
 
 func newMethodCallCounter(name string) methodCount {
 	return methodCount{
-		success: prometheus.NewCounter(prometheus.CounterOpts{
+		success: *prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
 			Name:      fmt.Sprintf("%s_req_count", name),
 			Help:      fmt.Sprintf("The number of successful %s requests processed", name),
-		}),
-		total: prometheus.NewCounter(prometheus.CounterOpts{
+		}, []string{containerIDLabelKey}),
+		total: *prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
 			Name:      fmt.Sprintf("%s_req_count_success", name),
 			Help:      fmt.Sprintf("Total number of %s requests processed", name),
-		}),
+		}, []string{containerIDLabelKey}),
 	}
 }
 
@@ -66,10 +67,11 @@ func (m methodCount) mustRegister() {
 	prometheus.MustRegister(m.total)
 }
 
-func (m methodCount) Inc(success bool) {
-	m.total.Inc()
+func (m methodCount) Inc(cnrID string, success bool) {
+	labels := prometheus.Labels{containerIDLabelKey: cnrID}
+	m.total.With(labels).Inc()
 	if success {
-		m.success.Inc()
+		m.success.With(labels).Inc()
 	}
 }
 
@@ -204,32 +206,32 @@ func (m objectServiceMetrics) register() {
 	prometheus.MustRegister(m.shardMetrics)
 }
 
-func (m objectServiceMetrics) IncGetReqCounter(success bool) {
-	m.getCounter.Inc(success)
+func (m objectServiceMetrics) IncGetReqCounter(cnrID string, success bool) {
+	m.getCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncPutReqCounter(success bool) {
-	m.putCounter.Inc(success)
+func (m objectServiceMetrics) IncPutReqCounter(cnrID string, success bool) {
+	m.putCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncHeadReqCounter(success bool) {
-	m.headCounter.Inc(success)
+func (m objectServiceMetrics) IncHeadReqCounter(cnrID string, success bool) {
+	m.headCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncSearchReqCounter(success bool) {
-	m.searchCounter.Inc(success)
+func (m objectServiceMetrics) IncSearchReqCounter(cnrID string, success bool) {
+	m.searchCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncDeleteReqCounter(success bool) {
-	m.deleteCounter.Inc(success)
+func (m objectServiceMetrics) IncDeleteReqCounter(cnrID string, success bool) {
+	m.deleteCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncRangeReqCounter(success bool) {
-	m.rangeCounter.Inc(success)
+func (m objectServiceMetrics) IncRangeReqCounter(cnrID string, success bool) {
+	m.rangeCounter.Inc(cnrID, success)
 }
 
-func (m objectServiceMetrics) IncRangeHashReqCounter(success bool) {
-	m.rangeHashCounter.Inc(success)
+func (m objectServiceMetrics) IncRangeHashReqCounter(cnrID string, success bool) {
+	m.rangeHashCounter.Inc(cnrID, success)
 }
 
 func (m objectServiceMetrics) AddGetReqDuration(d time.Duration) {
