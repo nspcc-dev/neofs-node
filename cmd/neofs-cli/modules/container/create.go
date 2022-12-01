@@ -33,7 +33,7 @@ var (
 var createContainerCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new container",
-	Long: `Create new container and register it in the NeoFS. 
+	Long: `Create new container and register it in the NeoFS.
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		placementPolicy, err := parseContainerPolicy(containerPolicy)

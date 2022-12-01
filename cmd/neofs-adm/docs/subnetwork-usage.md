@@ -88,11 +88,11 @@ has been added by the subnet owner).
 
 # Bootstrapping Storage Node
 
-After a subnetwork [is created](subnetwork-creation.md) and a node is included into it, the 
+After a subnetwork [is created](subnetwork-creation.md) and a node is included into it, the
 node could be bootstrapped and service subnetwork containers.
 
-For bootstrapping, you need to specify the ID of the subnetwork in the node's 
-configuration: 
+For bootstrapping, you need to specify the ID of the subnetwork in the node's
+configuration:
 
 ```yaml
 ...
@@ -106,7 +106,7 @@ node:
 ```
 
 **NOTE:** specifying subnetwork that is denied for the node is not an error:
-that configuration value would be ignored. You do not need to specify zero 
+that configuration value would be ignored. You do not need to specify zero
 (with 0 ID) subnetwork: its inclusion is implicit. On the contrary, to exclude
 a node from the default zero subnetwork, you need to specify it explicitly:
 
@@ -122,7 +122,7 @@ node:
 
 # Creating container in non-zero subnetwork
 
-Creating containers without using `--subnet` flag is equivalent to 
+Creating containers without using `--subnet` flag is equivalent to
 creating container in the zero subnetwork.
 
 To create a container in a private network, your wallet must be added to

@@ -1,0 +1,30 @@
+ci:
+  autofix_prs: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+    - id: check-added-large-files
+    - id: check-case-conflict
+    - id: check-executables-have-shebangs
+    - id: check-shebang-scripts-are-executable
+    - id: check-merge-conflict
+    - id: check-json
+    - id: check-xml
+    - id: check-yaml
+    - id: trailing-whitespace
+      args: [--markdown-linebreak-ext=md]
+    - id: end-of-file-fixer
+      exclude: ".key$"
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.50.1
+    hooks:
+      - id: golangci-lint
+
+  - repo: https://github.com/jorisroovers/gitlint
+    rev:  v0.17.0
+    hooks:
+      - id: gitlint
+        stages: [commit-msg]

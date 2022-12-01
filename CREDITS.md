@@ -8,7 +8,7 @@ In alphabetical order:
 - Alexey Vanin
 - Anastasia Prasolova
 - Anatoly Bogatyrev
-- Evgeny Kulikov 
+- Evgeny Kulikov
 - Evgeny Stratonikov
 - Leonard Liubich
 - Sergei Liubich

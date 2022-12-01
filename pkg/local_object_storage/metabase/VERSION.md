@@ -7,7 +7,7 @@ This file describes changes between the metabase versions.
 ### Primary buckets
 - Graveyard bucket
   - Name: `_Graveyard`
-  - Key: object address 
+  - Key: object address
   - Value: tombstone address
 - Garbage bucket
   - Name: `_Garbage`
@@ -23,7 +23,7 @@ This file describes changes between the metabase versions.
   - Key: container ID
   - Value: container size in bytes as little-endian uint64
 - Bucket for storing locked objects information
-  - Name: `_Locked` 
+  - Name: `_Locked`
   - Key: container ID
   - Value: bucket mapping objects locked to the list of corresponding LOCK objects
 - Bucket containing auxilliary information. All keys are custom and are not connected to the container

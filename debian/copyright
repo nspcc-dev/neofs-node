@@ -4,7 +4,7 @@ Upstream-Contact: tech@nspcc.ru
 Source: https://github.com/nspcc-dev/neofs-node
 
 Files: *
-Copyright: 2018-2022 NeoSPCC (@nspcc-dev), contributors of neofs-node project 
+Copyright: 2018-2022 NeoSPCC (@nspcc-dev), contributors of neofs-node project
            (https://github.com/nspcc-dev/neofs-node/blob/master/CREDITS.md)
 
 License: GPL-3
@@ -18,5 +18,5 @@ License: GPL-3
  General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with this program or at /usr/share/common-licenses/GPL-3 
- If not, see <http://www.gnu.org/licenses/>. 
+ along with this program or at /usr/share/common-licenses/GPL-3
+ If not, see <http://www.gnu.org/licenses/>.

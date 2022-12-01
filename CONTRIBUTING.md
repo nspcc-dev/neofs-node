@@ -63,6 +63,11 @@ After your code changes, make sure
   commits run `git rebase -i`. It's okay to force update your pull request.
 - To run `make test` and `make all` completes.
 
+We highly recommend using `pre-commit` hooks to simplify formal checks. You can
+enable them with `make pre-commit` command. The
+[pre-commit](https://pre-commit.com/) framework must be installed on your
+system.
+
 ### Commit changes
 After verification, commit your changes. This is a [great
 post](https://chris.beams.io/posts/git-commit/) on how to write useful commit
