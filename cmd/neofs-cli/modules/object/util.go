@@ -381,14 +381,18 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		// client is already set
 
 		res, err := internal.HeadObject(prmHead)
-		common.ExitOnErr(cmd, "failed to get linking object's header: %w", err)
+		if err == nil {
+			children := res.Header().Children()
 
-		children := res.Header().Children()
+			common.PrintVerbose("Received split members from the linking object: %v", children)
 
-		common.PrintVerbose("Received split members from the linking object: %v", children)
+			// include linking object
+			return append(children, idLinking)
+		}
 
-		// include linking object
-		return append(children, idLinking)
+		// linking object is not required for
+		// object collecting
+		common.PrintVerbose("failed to get linking object's header: %w", err)
 	}
 
 	if idSplit := splitInfo.SplitID(); idSplit != nil {
