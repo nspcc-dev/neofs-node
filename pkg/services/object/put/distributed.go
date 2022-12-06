@@ -128,6 +128,11 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 }
 
 func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
+	defer func() {
+		putPayload(t.payload)
+		t.payload = nil
+	}()
+
 	t.obj.SetPayload(t.payload)
 
 	var err error

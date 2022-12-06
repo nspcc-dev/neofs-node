@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - Policer cache size is now 1024 (#2158)
 - Tree service now synchronizes with container nodes in a random order (#2127)
 - Pilorama no longer tries to apply already applied operations (#2161)
+- Use `sync.Pool` in Object.PUT service (#2139)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
