@@ -102,7 +102,6 @@ func Test_getOrGenerate(t *testing.T) {
 	})
 
 	t.Run("generate", func(t *testing.T) {
-		viper.Set(commonflags.GenerateKey, true)
 		actual, err := getOrGenerate(testCmd)
 		require.NoError(t, err)
 		require.NotNil(t, actual)
