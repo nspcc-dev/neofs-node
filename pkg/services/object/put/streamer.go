@@ -215,6 +215,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
 
 			extraBroadcastEnabled: withBroadcast,
 		},
+		payload:    getPayload(),
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
 		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
