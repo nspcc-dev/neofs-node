@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -53,7 +55,7 @@ type referenceNumber struct {
 type referenceCounter map[string]*referenceNumber
 
 // Delete removed object records from metabase indexes.
-func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
+func (db *DB) Delete(prm DeletePrm) (res DeleteRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -65,9 +67,11 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 
 	var rawRemoved uint64
 	var availableRemoved uint64
-	var err error
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		rawRemoved, availableRemoved, err = db.deleteGroup(tx, prm.addrs)
 		return err
 	})

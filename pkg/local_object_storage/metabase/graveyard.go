@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -57,7 +59,7 @@ func (g *GarbageIterationPrm) SetOffset(offset oid.Address) {
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
+func (db *DB) IterateOverGarbage(p GarbageIterationPrm) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -65,7 +67,10 @@ func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
 		return ErrDegradedMode
 	}
 
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
+	return db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return db.iterateDeletedObj(tx, gcHandler{p.h}, p.offset)
 	})
 }
@@ -124,7 +129,7 @@ func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) {
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
+func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -132,7 +137,10 @@ func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
 		return ErrDegradedMode
 	}
 
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
+	return db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return db.iterateDeletedObj(tx, graveyardHandler{p.h}, p.offset)
 	})
 }
@@ -243,7 +251,10 @@ func (db *DB) DropGraves(tss []TombstonedObject) error {
 
 	buf := make([]byte, addressKeySize)
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		bkt := tx.Bucket(graveyardBucketName)
 		if bkt == nil {
 			return nil

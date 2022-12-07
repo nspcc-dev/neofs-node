@@ -1,7 +1,10 @@
 package meta
 
 import (
+	"runtime/debug"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -36,7 +39,10 @@ func (db *DB) StorageID(prm StorageIDPrm) (res StorageIDRes, err error) {
 		return res, ErrDegradedMode
 	}
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		res.id, err = db.storageID(tx, prm.addr)
 
 		return err
@@ -92,7 +98,10 @@ func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, e
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		exists, err := db.exists(tx, prm.addr, currEpoch)
 		if !exists || err != nil {
 			return err

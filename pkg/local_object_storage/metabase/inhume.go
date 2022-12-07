@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -102,7 +104,10 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	currEpoch := db.epochState.CurrentEpoch()
 	var inhumed uint64
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		garbageBKT := tx.Bucket(garbageBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 

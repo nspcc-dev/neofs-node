@@ -3,7 +3,9 @@ package meta
 import (
 	"encoding/binary"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -50,7 +52,10 @@ func (db *DB) ObjectCounters() (cc ObjectCounters, err error) {
 		return ObjectCounters{}, ErrDegradedMode
 	}
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(shardInfoBucket)
 		if b != nil {
 			data := b.Get(objectPhyCounterKey)

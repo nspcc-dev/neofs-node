@@ -2,7 +2,9 @@ package meta
 
 import (
 	"encoding/binary"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
 )
@@ -15,7 +17,10 @@ func (db *DB) Containers() (list []cid.ID, err error) {
 		return nil, ErrDegradedMode
 	}
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		list, err = db.containers(tx)
 
 		return err
@@ -49,7 +54,10 @@ func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
 		return 0, ErrDegradedMode
 	}
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		size, err = db.containerSize(tx, id)
 
 		return err

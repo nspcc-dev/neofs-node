@@ -1,7 +1,10 @@
 package meta
 
 import (
+	"runtime/debug"
+
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -70,7 +73,10 @@ func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
 
 	result := make([]objectcore.AddressWithType, 0, prm.count)
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		res.addrList, res.cursor, err = db.listWithCursor(tx, result, prm.count, prm.cursor)
 		return err
 	})

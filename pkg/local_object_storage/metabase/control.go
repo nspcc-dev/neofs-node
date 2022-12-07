@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -156,7 +158,7 @@ func (db *DB) init(reset bool) error {
 }
 
 // SyncCounters forces to synchronize the object counters.
-func (db *DB) SyncCounters() error {
+func (db *DB) SyncCounters() (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -166,7 +168,10 @@ func (db *DB) SyncCounters() error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return syncCounter(tx, true)
 	})
 }

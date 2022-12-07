@@ -2,7 +2,9 @@ package meta
 
 import (
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -61,7 +63,10 @@ func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
 	key := make([]byte, addressKeySize)
 	key = addressKey(prm.addr, key)
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Put(key, zeroValue)
 	})

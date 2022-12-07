@@ -2,9 +2,11 @@ package meta
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -50,7 +52,10 @@ func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		res.exists, err = db.exists(tx, prm.addr, currEpoch)
 
 		return err

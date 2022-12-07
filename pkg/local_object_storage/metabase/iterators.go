@@ -3,9 +3,11 @@ package meta
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -43,7 +45,7 @@ var ErrInterruptIterator = logicerr.New("iterator is interrupted")
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
+func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -51,7 +53,10 @@ func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
 		return ErrDegradedMode
 	}
 
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
+	return db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return db.iterateExpired(tx, epoch, h)
 	})
 }
@@ -125,7 +130,7 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 // Returns other errors of h directly.
 //
 // Does not modify tss.
-func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.Address) error) error {
+func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.Address) error) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -133,7 +138,10 @@ func (db *DB) IterateCoveredByTombstones(tss map[string]oid.Address, h func(oid.
 		return ErrDegradedMode
 	}
 
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
+	return db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return db.iterateCoveredByTombstones(tx, tss, h)
 	})
 }

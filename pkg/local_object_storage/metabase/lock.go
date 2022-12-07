@@ -3,7 +3,9 @@ package meta
 import (
 	"bytes"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -25,7 +27,7 @@ func bucketNameLockers(idCnr cid.ID, key []byte) []byte {
 // Allows locking regular objects only (otherwise returns apistatus.LockNonRegularObject).
 //
 // Locked list should be unique. Panics if it is empty.
-func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
+func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -46,7 +48,10 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	}
 	key := make([]byte, cidSize)
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
 			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		}
@@ -96,7 +101,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 }
 
 // FreeLockedBy unlocks all objects in DB which are locked by lockers.
-func (db *DB) FreeLockedBy(lockers []oid.Address) error {
+func (db *DB) FreeLockedBy(lockers []oid.Address) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -104,8 +109,9 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) error {
 		return ErrDegradedMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		var err error
+	return db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
 		for i := range lockers {
 			err = freePotentialLocks(tx, lockers[i].Container(), lockers[i].Object())

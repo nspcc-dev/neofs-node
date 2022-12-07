@@ -1,7 +1,10 @@
 package meta
 
 import (
+	"runtime/debug"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"go.etcd.io/bbolt"
 )
 
@@ -12,7 +15,7 @@ var (
 
 // ReadShardID reads shard id from db.
 // If id is missing, returns nil, nil.
-func (db *DB) ReadShardID() ([]byte, error) {
+func (db *DB) ReadShardID() (id []byte, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -20,8 +23,10 @@ func (db *DB) ReadShardID() ([]byte, error) {
 		return nil, ErrDegradedMode
 	}
 
-	var id []byte
-	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+	err = db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(shardInfoBucket)
 		if b != nil {
 			id = slice.Copy(b.Get(shardIDKey))
@@ -32,7 +37,7 @@ func (db *DB) ReadShardID() ([]byte, error) {
 }
 
 // WriteShardID writes shard it to db.
-func (db *DB) WriteShardID(id []byte) error {
+func (db *DB) WriteShardID(id []byte) (err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -42,7 +47,10 @@ func (db *DB) WriteShardID(id []byte) error {
 		return ErrReadOnlyMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 		if err != nil {
 			return err

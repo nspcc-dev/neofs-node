@@ -4,9 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -69,7 +71,10 @@ func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
+	return res, db.boltDB.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		res.addrList, err = db.selectObjects(tx, prm.cnr, prm.filters, currEpoch)
 
 		return err

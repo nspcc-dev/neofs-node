@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	gio "io"
+	"runtime/debug"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -64,7 +66,10 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.boltDB.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		return db.put(tx, prm.obj, prm.id, nil, currEpoch)
 	})
 	if err == nil {
