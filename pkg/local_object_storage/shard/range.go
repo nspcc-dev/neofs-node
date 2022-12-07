@@ -67,6 +67,9 @@ func (r RngRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
 	cb := func(stor *blobstor.BlobStor, id []byte) (*object.Object, error) {
 		var getRngPrm common.GetRangePrm
 		getRngPrm.Address = prm.addr
@@ -103,7 +106,7 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 		return obj, nil
 	}
 
-	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
+	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
 	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
 	return RngRes{

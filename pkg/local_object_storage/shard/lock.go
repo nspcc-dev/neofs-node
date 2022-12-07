@@ -15,7 +15,10 @@ import (
 //
 // Locked list should be unique. Panics if it is empty.
 func (s *Shard) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
-	m := s.GetMode()
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	m := s.info.Mode
 	if m.ReadOnly() {
 		return ErrReadOnlyMode
 	} else if m.NoMetabase() {

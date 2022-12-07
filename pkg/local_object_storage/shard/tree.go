@@ -16,7 +16,11 @@ func (s *Shard) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Mo
 	if s.pilorama == nil {
 		return nil, ErrPiloramaDisabled
 	}
-	if s.GetMode().ReadOnly() {
+
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.ReadOnly() {
 		return nil, ErrReadOnlyMode
 	}
 	return s.pilorama.TreeMove(d, treeID, m)
@@ -27,7 +31,11 @@ func (s *Shard) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr stri
 	if s.pilorama == nil {
 		return nil, ErrPiloramaDisabled
 	}
-	if s.GetMode().ReadOnly() {
+
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.ReadOnly() {
 		return nil, ErrReadOnlyMode
 	}
 	return s.pilorama.TreeAddByPath(d, treeID, attr, path, meta)
@@ -38,7 +46,11 @@ func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.M
 	if s.pilorama == nil {
 		return ErrPiloramaDisabled
 	}
-	if s.GetMode().ReadOnly() {
+
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.ReadOnly() {
 		return ErrReadOnlyMode
 	}
 	return s.pilorama.TreeApply(d, treeID, m)

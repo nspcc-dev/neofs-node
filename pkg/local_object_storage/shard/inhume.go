@@ -61,10 +61,13 @@ var ErrLockObjectRemoval = meta.ErrLockObjectRemoval
 //
 // Returns ErrReadOnlyMode error if shard is in "read-only" mode.
 func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
-	m := s.GetMode()
-	if m.ReadOnly() {
+	s.m.RLock()
+
+	if s.info.Mode.ReadOnly() {
+		s.m.RUnlock()
 		return InhumeRes{}, ErrReadOnlyMode
-	} else if m.NoMetabase() {
+	} else if s.info.Mode.NoMetabase() {
+		s.m.RUnlock()
 		return InhumeRes{}, ErrDegradedMode
 	}
 
@@ -91,6 +94,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	res, err := s.metaBase.Inhume(metaPrm)
 	if err != nil {
 		if errors.Is(err, meta.ErrLockObjectRemoval) {
+			s.m.RUnlock()
 			return InhumeRes{}, ErrLockObjectRemoval
 		}
 
@@ -98,8 +102,12 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 			zap.String("error", err.Error()),
 		)
 
+		s.m.RUnlock()
+
 		return InhumeRes{}, fmt.Errorf("metabase inhume: %w", err)
 	}
+
+	s.m.RUnlock()
 
 	s.decObjectCounterBy(logical, res.AvailableInhumed())
 

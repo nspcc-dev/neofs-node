@@ -40,7 +40,10 @@ func (r SelectRes) AddressList() []oid.Address {
 // Returns any error encountered that
 // did not allow to completely select the objects.
 func (s *Shard) Select(prm SelectPrm) (SelectRes, error) {
-	if s.GetMode().NoMetabase() {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.NoMetabase() {
 		return SelectRes{}, ErrDegradedMode
 	}
 

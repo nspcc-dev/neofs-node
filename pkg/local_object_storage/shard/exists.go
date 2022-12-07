@@ -37,7 +37,10 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	var exists bool
 	var err error
 
-	if s.GetMode().NoMetabase() {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.NoMetabase() {
 		var p common.ExistsPrm
 		p.Address = prm.addr
 
