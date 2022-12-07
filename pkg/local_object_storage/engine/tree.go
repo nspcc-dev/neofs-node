@@ -14,7 +14,7 @@ var _ pilorama.Forest = (*StorageEngine)(nil)
 // TreeMove implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) (*pilorama.LogMove, error) {
 	index, lst, err := e.getTreeShard(d.CID, treeID)
-	if err != nil || !errors.Is(err, pilorama.ErrTreeNotFound) {
+	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
 		return nil, err
 	}
 
