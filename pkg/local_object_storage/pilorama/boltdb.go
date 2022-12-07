@@ -8,10 +8,12 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -133,13 +135,16 @@ func (t *boltForest) Close() error {
 }
 
 // TreeMove implements the Forest interface.
-func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove, error) {
+func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (lm *LogMove, err error) {
 	if !d.checkValid() {
 		return nil, ErrInvalidCIDDescriptor
 	}
 
-	var lm LogMove
-	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
+	lm = new(LogMove)
+	return lm, t.db.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
@@ -150,15 +155,16 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 			m.Child = t.findSpareID(bTree)
 		}
 		lm.Move = *m
-		return t.applyOperation(bLog, bTree, &lm)
+		return t.applyOperation(bLog, bTree, lm)
 	})
 }
 
 // TreeExists implements the Forest interface.
-func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
-	var exists bool
+func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (exists bool, err error) {
+	err = t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
-	err := t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		exists = treeRoot != nil
 		return nil
@@ -168,7 +174,7 @@ func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
 }
 
 // TreeAddByPath implements the Forest interface.
-func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, meta []KeyValue) ([]LogMove, error) {
+func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, path []string, meta []KeyValue) (lm []LogMove, err error) {
 	if !d.checkValid() {
 		return nil, ErrInvalidCIDDescriptor
 	}
@@ -176,10 +182,12 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 		return nil, ErrNotPathAttribute
 	}
 
-	var lm []LogMove
 	var key [17]byte
 
-	err := t.db.Batch(func(tx *bbolt.Tx) error {
+	err = t.db.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
@@ -255,12 +263,15 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 }
 
 // TreeApply implements the Forest interface.
-func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) error {
+func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) (err error) {
 	if !d.checkValid() {
 		return ErrInvalidCIDDescriptor
 	}
 
-	return t.db.Batch(func(tx *bbolt.Tx) error {
+	return t.db.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
@@ -474,7 +485,7 @@ func (t *boltForest) isAncestor(b *bbolt.Bucket, key []byte, parent, child Node)
 }
 
 // TreeGetByPath implements the Forest interface.
-func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]Node, error) {
+func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) (nodes []Node, err error) {
 	if !isAttributeInternal(attr) {
 		return nil, ErrNotPathAttribute
 	}
@@ -483,9 +494,10 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 		return nil, nil
 	}
 
-	var nodes []Node
+	return nodes, t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
-	return nodes, t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		if treeRoot == nil {
 			return ErrTreeNotFound
@@ -529,13 +541,13 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 }
 
 // TreeGetMeta implements the forest interface.
-func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, Node, error) {
+func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (m Meta, parentID Node, err error) {
 	key := parentKey(make([]byte, 9), nodeID)
 
-	var m Meta
-	var parentID uint64
+	err = t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
-	err := t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		if treeRoot == nil {
 			return ErrTreeNotFound
@@ -552,14 +564,15 @@ func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Met
 }
 
 // TreeGetChildren implements the Forest interface.
-func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error) {
+func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) (children []uint64, err error) {
 	key := make([]byte, 9)
 	key[0] = 'c'
 	binary.LittleEndian.PutUint64(key[1:], nodeID)
 
-	var children []uint64
+	err = t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
-	err := t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		if treeRoot == nil {
 			return ErrTreeNotFound
@@ -577,12 +590,14 @@ func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) 
 }
 
 // TreeList implements the Forest interface.
-func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
-	var ids []string
+func (t *boltForest) TreeList(cid cidSDK.ID) (ids []string, err error) {
 	cidRaw := []byte(cid.EncodeToString())
 	cidLen := len(cidRaw)
 
-	err := t.db.View(func(tx *bbolt.Tx) error {
+	err = t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		c := tx.Cursor()
 		for k, _ := c.Seek(cidRaw); k != nil; k, _ = c.Next() {
 			if !bytes.HasPrefix(k, cidRaw) {
@@ -602,13 +617,14 @@ func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
 }
 
 // TreeGetOpLog implements the pilorama.Forest interface.
-func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
+func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (lm Move, err error) {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, height)
 
-	var lm Move
+	err = t.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
 
-	err := t.db.View(func(tx *bbolt.Tx) error {
 		treeRoot := tx.Bucket(bucketName(cid, treeID))
 		if treeRoot == nil {
 			return ErrTreeNotFound
@@ -625,8 +641,11 @@ func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (
 }
 
 // TreeDrop implements the pilorama.Forest interface.
-func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
-	return t.db.Batch(func(tx *bbolt.Tx) error {
+func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) (err error) {
+	return t.db.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		if treeID == "" {
 			c := tx.Cursor()
 			prefix := []byte(cid.EncodeToString())
@@ -638,7 +657,7 @@ func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 			}
 			return nil
 		}
-		err := tx.DeleteBucket(bucketName(cid, treeID))
+		err = tx.DeleteBucket(bucketName(cid, treeID))
 		if errors.Is(err, bbolt.ErrBucketNotFound) {
 			return ErrTreeNotFound
 		}
