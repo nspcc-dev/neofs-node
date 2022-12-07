@@ -2,6 +2,7 @@ package writecache
 
 import (
 	"errors"
+	"runtime/debug"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
@@ -42,13 +43,16 @@ func (c *cache) Put(prm common.PutPrm) (common.PutRes, error) {
 
 // putSmall persists small objects to the write-cache database and
 // pushes the to the flush workers queue.
-func (c *cache) putSmall(obj objectInfo) error {
+func (c *cache) putSmall(obj objectInfo) (err error) {
 	cacheSize := c.estimateCacheSize()
 	if c.maxCacheSize < c.incSizeDB(cacheSize) {
 		return ErrOutOfSpace
 	}
 
-	err := c.db.Batch(func(tx *bbolt.Tx) error {
+	err = c.db.Batch(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(defaultBucket)
 		return b.Put([]byte(obj.addr), obj.data)
 	})
@@ -56,7 +60,7 @@ func (c *cache) putSmall(obj objectInfo) error {
 		storagelog.Write(c.log, storagelog.AddressField(obj.addr), storagelog.OpField("db PUT"))
 		c.objCounters.IncDB()
 	}
-	return nil
+	return err
 }
 
 // putBig writes object to FSTree and pushes it to the flush workers queue.

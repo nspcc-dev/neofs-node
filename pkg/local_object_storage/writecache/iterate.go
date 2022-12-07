@@ -3,6 +3,7 @@ package writecache
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -31,14 +32,17 @@ func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
 // Iterate iterates over all objects present in write cache.
 // This is very difficult to do correctly unless write-cache is put in read-only mode.
 // Thus we silently fail if shard is not in read-only mode to avoid reporting misleading results.
-func (c *cache) Iterate(prm IterationPrm) error {
+func (c *cache) Iterate(prm IterationPrm) (err error) {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if !c.readOnly() {
 		return nil
 	}
 
-	err := c.db.View(func(tx *bbolt.Tx) error {
+	err = c.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(defaultBucket)
 		return b.ForEach(func(k, data []byte) error {
 			if _, ok := c.flushed.Peek(string(k)); ok {

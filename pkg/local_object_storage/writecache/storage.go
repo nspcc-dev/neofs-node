@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -32,8 +33,8 @@ type store struct {
 
 const dbName = "small.bolt"
 
-func (c *cache) openStore(readOnly bool) error {
-	err := util.MkdirAllX(c.path, os.ModePerm)
+func (c *cache) openStore(readOnly bool) (err error) {
+	err = util.MkdirAllX(c.path, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -47,8 +48,11 @@ func (c *cache) openStore(readOnly bool) error {
 	c.db.MaxBatchDelay = c.maxBatchDelay
 
 	if !readOnly {
-		err = c.db.Update(func(tx *bbolt.Tx) error {
-			_, err := tx.CreateBucketIfNotExists(defaultBucket)
+		err = c.db.Update(func(tx *bbolt.Tx) (err error) {
+			defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+			defer common.BboltFatalHandler(&err)
+
+			_, err = tx.CreateBucketIfNotExists(defaultBucket)
 			return err
 		})
 		if err != nil {

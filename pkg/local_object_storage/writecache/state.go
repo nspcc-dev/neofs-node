@@ -2,7 +2,9 @@ package writecache
 
 import (
 	"fmt"
+	"runtime/debug"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 )
@@ -47,9 +49,12 @@ func (x *counters) FS() uint64 {
 	return x.cFS.Load()
 }
 
-func (c *cache) initCounters() error {
+func (c *cache) initCounters() (err error) {
 	var inDB uint64
-	err := c.db.View(func(tx *bbolt.Tx) error {
+	err = c.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(defaultBucket)
 		if b != nil {
 			inDB = uint64(b.Stats().KeyN)

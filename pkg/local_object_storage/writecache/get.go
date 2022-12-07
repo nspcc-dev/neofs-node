@@ -1,6 +1,8 @@
 package writecache
 
 import (
+	"runtime/debug"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -48,9 +50,12 @@ func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 // Key should be a stringified address.
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in db.
-func Get(db *bbolt.DB, key []byte) ([]byte, error) {
+func Get(db *bbolt.DB, key []byte) (data []byte, err error) {
 	var value []byte
-	err := db.View(func(tx *bbolt.Tx) error {
+	err = db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		b := tx.Bucket(defaultBucket)
 		if b == nil {
 			return ErrNoDefaultBucket

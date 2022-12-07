@@ -3,6 +3,7 @@ package writecache
 import (
 	"bytes"
 	"errors"
+	"runtime/debug"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -76,40 +77,17 @@ func (c *cache) flushDB() {
 			continue
 		}
 
-		// We put objects in batches of fixed size to not interfere with main put cycle a lot.
-		_ = c.db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(defaultBucket)
-			cs := b.Cursor()
-
-			var k, v []byte
-
-			if len(lastKey) == 0 {
-				k, v = cs.First()
+		var err error
+		lastKey, m, err = c.selectLocalBatch(lastKey, m)
+		if err != nil {
+			if c.reportError != nil {
+				c.reportError("can't select local batch", err)
 			} else {
-				k, v = cs.Seek(lastKey)
-				if bytes.Equal(k, lastKey) {
-					k, v = cs.Next()
-				}
+				c.log.Error("can't select local batch", zap.Error(err))
 			}
-
-			for ; k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
-				if len(lastKey) == len(k) {
-					copy(lastKey, k)
-				} else {
-					lastKey = slice.Copy(k)
-				}
-
-				if _, ok := c.flushed.Peek(string(k)); ok {
-					continue
-				}
-
-				m = append(m, objectInfo{
-					addr: string(k),
-					data: slice.Copy(v),
-				})
-			}
-			return nil
-		})
+			time.Sleep(time.Second)
+			continue
+		}
 
 		for i := range m {
 			obj := object.New()
@@ -136,6 +114,48 @@ func (c *cache) flushDB() {
 			zap.Int("count", len(m)),
 			zap.String("start", base58.Encode(lastKey)))
 	}
+}
+
+func (c *cache) selectLocalBatch(lastKey []byte, m []objectInfo) (nextKey []byte, oi []objectInfo, err error) {
+	// We put objects in batches of fixed size to not interfere with main put cycle a lot.
+	_ = c.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
+		b := tx.Bucket(defaultBucket)
+		cs := b.Cursor()
+
+		var k, v []byte
+
+		if len(lastKey) == 0 {
+			k, v = cs.First()
+		} else {
+			k, v = cs.Seek(lastKey)
+			if bytes.Equal(k, lastKey) {
+				k, v = cs.Next()
+			}
+		}
+
+		for ; k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
+			if len(lastKey) == len(k) {
+				copy(lastKey, k)
+			} else {
+				lastKey = slice.Copy(k)
+			}
+
+			if _, ok := c.flushed.Peek(string(k)); ok {
+				continue
+			}
+
+			m = append(m, objectInfo{
+				addr: string(k),
+				data: slice.Copy(v),
+			})
+		}
+		return nil
+	})
+
+	return lastKey, m, err
 }
 
 func (c *cache) flushBigObjects() {
@@ -277,12 +297,15 @@ func (c *cache) Flush(ignoreErrors bool) error {
 	return c.flush(ignoreErrors)
 }
 
-func (c *cache) flush(ignoreErrors bool) error {
+func (c *cache) flush(ignoreErrors bool) (err error) {
 	if err := c.flushFSTree(ignoreErrors); err != nil {
 		return err
 	}
 
-	return c.db.View(func(tx *bbolt.Tx) error {
+	err = c.db.View(func(tx *bbolt.Tx) (err error) {
+		defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
+		defer common.BboltFatalHandler(&err)
+
 		var addr oid.Address
 
 		b := tx.Bucket(defaultBucket)
@@ -316,4 +339,5 @@ func (c *cache) flush(ignoreErrors bool) error {
 		}
 		return nil
 	})
+	return err
 }
