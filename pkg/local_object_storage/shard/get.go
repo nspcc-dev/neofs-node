@@ -62,6 +62,9 @@ func (r GetRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Get(prm GetPrm) (GetRes, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
 	cb := func(stor *blobstor.BlobStor, id []byte) (*objectSDK.Object, error) {
 		var getPrm common.GetPrm
 		getPrm.Address = prm.addr
@@ -79,7 +82,7 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 		return c.Get(prm.addr)
 	}
 
-	skipMeta := prm.skipMeta || s.GetMode().NoMetabase()
+	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
 	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
 	return GetRes{
@@ -114,7 +117,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		mPrm.SetAddress(addr)
 
 		mRes, err := s.metaBase.Exists(mPrm)
-		if err != nil && !s.GetMode().NoMetabase() {
+		if err != nil && !s.info.Mode.NoMetabase() {
 			return res, false, err
 		}
 		exists = mRes.Exists()

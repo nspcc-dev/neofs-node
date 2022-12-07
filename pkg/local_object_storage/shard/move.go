@@ -23,7 +23,10 @@ func (p *ToMoveItPrm) SetAddress(addr oid.Address) {
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
 func (s *Shard) ToMoveIt(prm ToMoveItPrm) (ToMoveItRes, error) {
-	m := s.GetMode()
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	m := s.info.Mode
 	if m.ReadOnly() {
 		return ToMoveItRes{}, ErrReadOnlyMode
 	} else if m.NoMetabase() {

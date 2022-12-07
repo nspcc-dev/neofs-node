@@ -28,10 +28,16 @@ func (p *DeletePrm) SetAddresses(addr ...oid.Address) {
 // Delete removes data from the shard's writeCache, metaBase and
 // blobStor.
 func (s *Shard) Delete(prm DeletePrm) (DeleteRes, error) {
-	m := s.GetMode()
-	if m.ReadOnly() {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	return s.delete(prm)
+}
+
+func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
+	if s.info.Mode.ReadOnly() {
 		return DeleteRes{}, ErrReadOnlyMode
-	} else if m.NoMetabase() {
+	} else if s.info.Mode.NoMetabase() {
 		return DeleteRes{}, ErrDegradedMode
 	}
 

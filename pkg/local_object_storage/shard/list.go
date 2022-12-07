@@ -64,7 +64,10 @@ func (r ListWithCursorRes) Cursor() *Cursor {
 
 // List returns all objects physically stored in the Shard.
 func (s *Shard) List() (res SelectRes, err error) {
-	if s.GetMode().NoMetabase() {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.NoMetabase() {
 		return SelectRes{}, ErrDegradedMode
 	}
 

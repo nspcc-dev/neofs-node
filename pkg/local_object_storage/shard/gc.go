@@ -187,7 +187,10 @@ func (gc *gc) stop() {
 // with GC-marked graves.
 // Does nothing if shard is in "read-only" mode.
 func (s *Shard) removeGarbage() {
-	if s.GetMode() != mode.ReadWrite {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode != mode.ReadWrite {
 		return
 	}
 
@@ -221,7 +224,7 @@ func (s *Shard) removeGarbage() {
 	deletePrm.SetAddresses(buf...)
 
 	// delete accumulated objects
-	_, err = s.Delete(deletePrm)
+	_, err = s.delete(deletePrm)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
 			zap.String("error", err.Error()),
@@ -239,6 +242,13 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 		if err != nil {
 			s.log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
 		}
+		return
+	}
+
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.NoMetabase() {
 		return
 	}
 
@@ -284,16 +294,24 @@ func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
 	for {
 		log.Debug("iterating tombstones")
 
-		if s.GetMode().NoMetabase() {
+		s.m.RLock()
+
+		if s.info.Mode.NoMetabase() {
 			s.log.Debug("shard is in a degraded mode, skip collecting expired tombstones")
+			s.m.RUnlock()
+
 			return
 		}
 
 		err := s.metaBase.IterateOverGraveyard(iterPrm)
 		if err != nil {
 			log.Error("iterator over graveyard failed", zap.Error(err))
+			s.m.RUnlock()
+
 			return
 		}
+
+		s.m.RUnlock()
 
 		tssLen := len(tss)
 		if tssLen == 0 {
@@ -332,7 +350,10 @@ func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
 }
 
 func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
-	if s.GetMode().NoMetabase() {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	if s.info.Mode.NoMetabase() {
 		return nil, ErrDegradedMode
 	}
 
