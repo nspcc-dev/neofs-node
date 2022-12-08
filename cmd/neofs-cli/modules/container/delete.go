@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,36 @@ Only owner of the container has a permission to remove container.`,
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
+			common.PrintVerbose("Reading the container to check ownership...")
+
+			var getPrm internalclient.GetContainerPrm
+			getPrm.SetClient(cli)
+			getPrm.SetContainer(id)
+
+			resGet, err := internalclient.GetContainer(getPrm)
+			common.ExitOnErr(cmd, "can't get the container: %w", err)
+
+			owner := resGet.Container().Owner()
+
+			if tok != nil {
+				common.PrintVerbose("Checking session issuer...")
+
+				if !tok.Issuer().Equals(owner) {
+					common.ExitOnErr(cmd, "", fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer()))
+				}
+			} else {
+				common.PrintVerbose("Checking provided account...")
+
+				var acc user.ID
+				user.IDFromKey(&acc, pk.PublicKey)
+
+				if !acc.Equals(owner) {
+					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))
+				}
+			}
+
+			common.PrintVerbose("Account matches the container owner.")
+
 			fs := objectSDK.NewSearchFilters()
 			fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
 
@@ -91,5 +122,5 @@ func initContainerDeleteCmd() {
 
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is removed")
-	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Do not check whether container contains locks and remove immediately")
+	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Skip validation checks (ownership, presence of LOCK objects)")
 }
