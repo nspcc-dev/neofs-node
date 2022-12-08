@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - `neofs-cli container get-eacl` print ACL table in json format only with arg `--json' (#2012)
 - Side chain notary deposits use max uint32 as till parameter (#1486)
 - Allow object removal without linking object (#2100)
+- `neofs-cli container delete` command pre-checks container ownership (#2106) 
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
@@ -68,6 +69,9 @@ Replicator pool size can now be fine-tuned with `replicator.pool_size` config fi
 The default value is taken from `object.put.pool_size_remote` as in earlier versions.
 
 Added `neofs_node_object_*_req_count_success` metrics for tracking successfully executed requests.
+
+`neofs-cli container delete` command now requires given account or session issuer
+to match the container owner. Use `--force` (`-f`) flag to bypass this requirement.
 
 ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
