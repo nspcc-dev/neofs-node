@@ -19,6 +19,8 @@ type MetricRegister interface {
 
 	SetObjectCounter(shardID, objectType string, v uint64)
 	AddToObjectCounter(shardID, objectType string, delta int)
+
+	SetReadonly(shardID string, readonly bool)
 }
 
 func elapsed(addFunc func(d time.Duration)) func() {

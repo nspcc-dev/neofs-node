@@ -10,6 +10,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
@@ -50,12 +51,26 @@ func (m metricsStore) DecObjectCounter(objectType string) {
 	m.AddToObjectCounter(objectType, -1)
 }
 
+func (m metricsStore) SetReadonly(r bool) {
+	if r {
+		m.s[readonly] = 1
+	} else {
+		m.s[readonly] = 0
+	}
+}
+
 const physical = "phy"
 const logical = "logic"
+const readonly = "readonly"
 
 func TestCounters(t *testing.T) {
 	dir := t.TempDir()
 	sh, mm := shardWithMetrics(t, dir)
+
+	sh.SetMode(mode.ReadOnly)
+	require.Equal(t, mm.s[readonly], uint64(1))
+	sh.SetMode(mode.ReadWrite)
+	require.Equal(t, mm.s[readonly], uint64(0))
 
 	const objNumber = 10
 	oo := make([]*object.Object, objNumber)
@@ -149,8 +164,9 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 
 	mm := &metricsStore{
 		s: map[string]uint64{
-			"phy":   0,
-			"logic": 0,
+			"phy":      0,
+			"logic":    0,
+			"readonly": 1,
 		},
 	}
 

@@ -45,6 +45,10 @@ func (m *metricsWithID) DecObjectCounter(objectType string) {
 	m.mw.AddToObjectCounter(m.id, objectType, -1)
 }
 
+func (m *metricsWithID) SetReadonly(readonly bool) {
+	m.mw.SetReadonly(m.id, readonly)
+}
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.
@@ -58,6 +62,10 @@ func (e *StorageEngine) AddShard(opts ...shard.Option) (*shard.ID, error) {
 	err = e.addShard(sh)
 	if err != nil {
 		return nil, fmt.Errorf("could not add %s shard: %w", sh.ID().String(), err)
+	}
+
+	if e.cfg.metrics != nil {
+		e.cfg.metrics.SetReadonly(sh.ID().String(), sh.GetMode() != mode.ReadWrite)
 	}
 
 	return sh.ID(), nil

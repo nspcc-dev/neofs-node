@@ -35,7 +35,8 @@ type (
 		putPayload prometheus.Counter
 		getPayload prometheus.Counter
 
-		shardMetrics *prometheus.GaugeVec
+		shardMetrics   *prometheus.GaugeVec
+		shardsReadonly *prometheus.GaugeVec
 	}
 )
 
@@ -158,6 +159,15 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		},
 			[]string{shardIDLabelKey, counterTypeLabelKey},
 		)
+
+		shardsReadonly = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: objectSubsystem,
+			Name:      "readonly",
+			Help:      "Shard state",
+		},
+			[]string{shardIDLabelKey},
+		)
 	)
 
 	return objectServiceMetrics{
@@ -178,6 +188,7 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		putPayload:        putPayload,
 		getPayload:        getPayload,
 		shardMetrics:      shardsMetrics,
+		shardsReadonly:    shardsReadonly,
 	}
 }
 
@@ -202,6 +213,7 @@ func (m objectServiceMetrics) register() {
 	prometheus.MustRegister(m.getPayload)
 
 	prometheus.MustRegister(m.shardMetrics)
+	prometheus.MustRegister(m.shardsReadonly)
 }
 
 func (m objectServiceMetrics) IncGetReqCounter(success bool) {
@@ -284,4 +296,16 @@ func (m objectServiceMetrics) SetObjectCounter(shardID, objectType string, v uin
 			counterTypeLabelKey: objectType,
 		},
 	).Set(float64(v))
+}
+
+func (m objectServiceMetrics) SetReadonly(shardID string, readonly bool) {
+	var flag float64
+	if readonly {
+		flag = 1
+	}
+	m.shardsReadonly.With(
+		prometheus.Labels{
+			shardIDLabelKey: shardID,
+		},
+	).Set(flag)
 }

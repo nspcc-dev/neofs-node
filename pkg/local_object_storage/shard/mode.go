@@ -57,6 +57,9 @@ func (s *Shard) setMode(m mode.Mode) error {
 	}
 
 	s.info.Mode = m
+	if s.metricsWriter != nil {
+		s.metricsWriter.SetReadonly(s.info.Mode != mode.ReadWrite)
+	}
 
 	return nil
 }
