@@ -62,6 +62,8 @@ type MetricsWriter interface {
 	// SetShardID must set (update) the shard identifier that will be used in
 	// metrics.
 	SetShardID(id string)
+	// SetReadonly must set shard readonly state.
+	SetReadonly(readonly bool)
 }
 
 type cfg struct {

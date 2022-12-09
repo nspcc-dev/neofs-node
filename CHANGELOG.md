@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Fix NNS hash parsing in morph client (#2063)
 - `neofs-cli neofs-cli acl basic/extended print` commands (#2012)
 - `neofs_node_object_*_req_count_success` prometheus metrics for tracking successfully executed requests (#1984)
+- Metric 'readonly' to get shards mode (#2022)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
