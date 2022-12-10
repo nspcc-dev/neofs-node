@@ -33,6 +33,7 @@ func TestTreeSection(t *testing.T) {
 		require.Equal(t, 32, treeSec.ReplicationChannelCapacity())
 		require.Equal(t, 32, treeSec.ReplicationWorkerCount())
 		require.Equal(t, 5*time.Second, treeSec.ReplicationTimeout())
+		require.Equal(t, time.Hour, treeSec.SyncInterval())
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
