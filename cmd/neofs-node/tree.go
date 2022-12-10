@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"time"
 
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -63,12 +64,29 @@ func initTreeService(c *cfg) {
 		c.treeService.Start(ctx)
 	}))
 
-	addNewEpochNotificationHandler(c, func(_ event.Event) {
-		err := c.treeService.SynchronizeAll()
-		if err != nil {
-			c.log.Error("could not synchronize Tree Service", zap.Error(err))
-		}
-	})
+	if d := treeConfig.SyncInterval(); d == 0 {
+		addNewEpochNotificationHandler(c, func(_ event.Event) {
+			err := c.treeService.SynchronizeAll()
+			if err != nil {
+				c.log.Error("could not synchronize Tree Service", zap.Error(err))
+			}
+		})
+	} else {
+		go func() {
+			tick := time.NewTicker(d)
+			defer tick.Stop()
+
+			for range tick.C {
+				err := c.treeService.SynchronizeAll()
+				if err != nil {
+					c.log.Error("could not synchronize Tree Service", zap.Error(err))
+					if errors.Is(err, tree.ErrShuttingDown) {
+						return
+					}
+				}
+			}
+		}()
+	}
 
 	subscribeToContainerRemoval(c, func(e event.Event) {
 		ev := e.(containerEvent.DeleteSuccess)

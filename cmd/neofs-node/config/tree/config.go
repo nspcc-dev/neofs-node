@@ -63,3 +63,11 @@ func (c TreeConfig) ReplicationChannelCapacity() int {
 func (c TreeConfig) ReplicationWorkerCount() int {
 	return int(config.IntSafe(c.cfg, "replication_worker_count"))
 }
+
+// SyncInterval returns the value of "sync_interval"
+// config parameter from the "tree" section.
+//
+// Returns 0 if config value is not specified.
+func (c TreeConfig) SyncInterval() time.Duration {
+	return config.DurationSafe(c.cfg, "sync_interval")
+}

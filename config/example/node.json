@@ -80,7 +80,8 @@
     "cache_size": 15,
     "replication_channel_capacity": 32,
     "replication_worker_count": 32,
-    "replication_timeout": "5s"
+    "replication_timeout": "5s",
+    "sync_interval": "1h"
   },
   "control": {
     "authorized_keys": [
