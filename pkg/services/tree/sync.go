@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -39,7 +41,7 @@ func (s *Service) SynchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 	d.Position = pos
 	d.Size = len(nodes)
 
-	nodes = append(nodes[:pos], nodes[pos+1:]...) // exclude that node
+	nodes = randomizeNodeOrder(nodes, pos)
 	if len(nodes) == 0 {
 		return errNoOtherNodes
 	}
@@ -108,7 +110,7 @@ func (s *Service) SynchronizeTree(ctx context.Context, cid cid.ID, treeID string
 	d.Position = pos
 	d.Size = len(nodes)
 
-	nodes = append(nodes[:pos], nodes[pos+1:]...) // exclude that node
+	nodes = randomizeNodeOrder(nodes, pos)
 	if len(nodes) == 0 {
 		return errNoOtherNodes
 	}
@@ -309,4 +311,21 @@ func (s *Service) syncLoop(ctx context.Context) {
 			s.log.Debug("trees have been synchronized")
 		}
 	}
+}
+
+// randomizeNodeOrder shuffles nodes and removes not a `pos` index.
+// It is assumed that 0 <= pos < len(nodes)
+func randomizeNodeOrder(cnrNodes []netmap.NodeInfo, pos int) []netmap.NodeInfo {
+	if len(cnrNodes) == 1 {
+		return nil
+	}
+
+	nodes := make([]netmap.NodeInfo, len(cnrNodes)-1)
+	n := copy(nodes, cnrNodes[:pos])
+	copy(nodes[n:], cnrNodes[pos+1:])
+
+	rand.Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
+	return nodes
 }

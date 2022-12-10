@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - Allow object removal without linking object (#2100)
 - `neofs-cli container delete` command pre-checks container ownership (#2106)
 - Policer cache size is now 1024 (#2158)
+- Tree service now synchronizes with container nodes in a random order (#2127)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
