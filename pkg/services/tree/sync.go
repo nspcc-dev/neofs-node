@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,6 +23,8 @@ import (
 // ErrNotInContainer is returned when operation could not be performed
 // because the node is not included in the container.
 var ErrNotInContainer = errors.New("node is not in container")
+
+const defaultSyncWorkerCount = 20
 
 // SynchronizeAllTrees synchronizes all the trees of the container. It fetches
 // tree IDs from the other container nodes. Returns ErrNotInContainer if the node
@@ -271,17 +275,33 @@ func (s *Service) syncLoop(ctx context.Context) {
 			}
 
 			// sync new containers
+			var wg sync.WaitGroup
 			for _, cnr := range cnrsToSync {
-				s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))
+				wg.Add(1)
+				cnr := cnr
+				err := s.syncPool.Submit(func() {
+					defer wg.Done()
+					s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))
 
-				err = s.SynchronizeAllTrees(ctx, cnr)
+					err := s.SynchronizeAllTrees(ctx, cnr)
+					if err != nil {
+						s.log.Error("could not sync trees", zap.Stringer("cid", cnr), zap.Error(err))
+						return
+					}
+
+					s.log.Debug("container trees have been synced", zap.Stringer("cid", cnr))
+				})
 				if err != nil {
-					s.log.Error("could not sync trees", zap.Stringer("cid", cnr), zap.Error(err))
-					continue
+					wg.Done()
+					s.log.Error("could not query trees for synchronization",
+						zap.Stringer("cid", cnr),
+						zap.Error(err))
+					if errors.Is(err, ants.ErrPoolClosed) {
+						return
+					}
 				}
-
-				s.log.Debug("container trees have been synced", zap.Stringer("cid", cnr))
 			}
+			wg.Wait()
 
 			// remove stored redundant trees
 			for cnr := range s.cnrMap {
