@@ -299,6 +299,12 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 	var tmp LogMove
 	var cKey [17]byte
 
+	var logKey [8]byte
+	binary.BigEndian.PutUint64(logKey[:], lm.Time)
+	if logBucket.Get(logKey[:]) != nil {
+		return nil
+	}
+
 	c := logBucket.Cursor()
 
 	key, value := c.Last()

@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - `neofs-cli container delete` command pre-checks container ownership (#2106)
 - Policer cache size is now 1024 (#2158)
 - Tree service now synchronizes with container nodes in a random order (#2127)
+- Pilorama no longer tries to apply already applied operations (#2161)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
