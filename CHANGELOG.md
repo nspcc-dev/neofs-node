@@ -54,6 +54,7 @@ Changelog for NeoFS Node
 - Tree service panic on `TreeMove` operation (#2140)
 - Panic in `GETRANGE` with zero length (#2095)
 - Spawning useless `GETRANGE` with zero length for a big object (#2101)
+- Incomplete object put errors do contain the deepest error's message (#2092)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
