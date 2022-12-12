@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -26,6 +27,7 @@ type Service struct {
 	containerCache   containerCache
 
 	syncChan chan struct{}
+	syncPool *ants.Pool
 	cnrMap   map[cidSDK.ID]struct{}
 }
 
@@ -54,6 +56,7 @@ func New(opts ...Option) *Service {
 	s.containerCache.init(s.containerCacheSize)
 	s.cnrMap = make(map[cidSDK.ID]struct{})
 	s.syncChan = make(chan struct{})
+	s.syncPool, _ = ants.NewPool(defaultSyncWorkerCount)
 
 	return &s
 }
@@ -75,6 +78,7 @@ func (s *Service) Start(ctx context.Context) {
 // Shutdown shutdowns the service.
 func (s *Service) Shutdown() {
 	close(s.closeCh)
+	s.syncPool.Release()
 }
 
 func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error) {
