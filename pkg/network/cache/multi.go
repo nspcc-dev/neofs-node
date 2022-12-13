@@ -17,7 +17,9 @@ type multiClient struct {
 
 	clients map[string]clientcore.Client
 
-	addr network.AddressGroup
+	// addrMtx protects addr field. Should not be taken before the mtx.
+	addrMtx sync.RWMutex
+	addr    network.AddressGroup
 
 	opts ClientCacheOpts
 }
@@ -74,6 +76,22 @@ func (x *multiClient) updateGroup(group network.AddressGroup) {
 		return false
 	})
 
+	x.addrMtx.RLock()
+	oldGroup := x.addr
+	x.addrMtx.RUnlock()
+	if len(oldGroup) == len(cache) {
+		needUpdate := false
+		for i := range oldGroup {
+			if cache[i] != oldGroup[i].String() {
+				needUpdate = true
+				break
+			}
+		}
+		if !needUpdate {
+			return
+		}
+	}
+
 	x.mtx.Lock()
 	defer x.mtx.Unlock()
 loop:
@@ -87,13 +105,19 @@ loop:
 	}
 
 	// Then add new clients.
+	x.addrMtx.Lock()
 	x.addr = group
+	x.addrMtx.Unlock()
 }
 
 func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Client) error) error {
 	var firstErr error
 
-	x.addr.IterateAddresses(func(addr network.Address) bool {
+	x.addrMtx.RLock()
+	group := x.addr
+	x.addrMtx.RUnlock()
+
+	group.IterateAddresses(func(addr network.Address) bool {
 		select {
 		case <-ctx.Done():
 			firstErr = context.Canceled
