@@ -266,15 +266,8 @@ func (s *Service) syncLoop(ctx context.Context) {
 					continue
 				}
 
-				_, ok := s.cnrMap[cnr]
-				if ok {
-					// known container; already in sync.
-					delete(s.cnrMap, cnr)
-					newMap[cnr] = struct{}{}
-				} else {
-					// unknown container; need to sync.
-					cnrsToSync = append(cnrsToSync, cnr)
-				}
+				newMap[cnr] = struct{}{}
+				cnrsToSync = append(cnrsToSync, cnr)
 			}
 
 			// sync new containers
@@ -287,14 +280,15 @@ func (s *Service) syncLoop(ctx context.Context) {
 					continue
 				}
 
-				// mark as synced
-				newMap[cnr] = struct{}{}
-
 				s.log.Debug("container trees have been synced", zap.Stringer("cid", cnr))
 			}
 
 			// remove stored redundant trees
 			for cnr := range s.cnrMap {
+				if _, ok := newMap[cnr]; ok {
+					continue
+				}
+
 				s.log.Debug("removing redundant trees...", zap.Stringer("cid", cnr))
 
 				err = s.DropTree(ctx, cnr, "")
