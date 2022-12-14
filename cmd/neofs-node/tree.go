@@ -51,6 +51,7 @@ func initTreeService(c *cfg) {
 		tree.WithLogger(c.log),
 		tree.WithStorage(c.cfgObject.cfgLocalStorage.localStorage),
 		tree.WithContainerCacheSize(treeConfig.CacheSize()),
+		tree.WithReplicationTimeout(treeConfig.ReplicationTimeout()),
 		tree.WithReplicationChannelCapacity(treeConfig.ReplicationChannelCapacity()),
 		tree.WithReplicationWorkerCount(treeConfig.ReplicationWorkerCount()))
 

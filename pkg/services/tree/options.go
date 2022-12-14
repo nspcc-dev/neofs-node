@@ -2,6 +2,7 @@ package tree
 
 import (
 	"crypto/ecdsa"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -30,6 +31,7 @@ type cfg struct {
 	// replication-related parameters
 	replicatorChannelCapacity int
 	replicatorWorkerCount     int
+	replicatorTimeout         time.Duration
 	containerCacheSize        int
 }
 
@@ -103,6 +105,14 @@ func WithContainerCacheSize(n int) Option {
 	return func(c *cfg) {
 		if n > 0 {
 			c.containerCacheSize = n
+		}
+	}
+}
+
+func WithReplicationTimeout(t time.Duration) Option {
+	return func(c *cfg) {
+		if t > 0 {
+			c.replicatorTimeout = t
 		}
 	}
 }

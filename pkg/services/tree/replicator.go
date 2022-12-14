@@ -49,7 +49,7 @@ func (s *Service) replicationWorker() {
 					return false
 				}
 
-				ctx, cancel := context.WithTimeout(context.Background(), defaultReplicatorSendTimeout)
+				ctx, cancel := context.WithTimeout(context.Background(), s.replicatorTimeout)
 				_, lastErr = c.Apply(ctx, task.req)
 				cancel()
 

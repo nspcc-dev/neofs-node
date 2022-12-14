@@ -64,6 +64,7 @@ tree:
   cache_size: 15
   replication_worker_count: 32
   replication_channel_capacity: 32
+  replication_timeout: 5s
 
 control:
   authorized_keys:  # list of hex-encoded public keys that have rights to use the Control Service

@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - `neofs-cli neofs-cli acl basic/extended print` commands (#2012)
 - `neofs_node_object_*_req_count_success` prometheus metrics for tracking successfully executed requests (#1984)
 - Metric 'readonly' to get shards mode (#2022)
+- Tree service replication timeout (#2159)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
@@ -79,6 +80,8 @@ Added `neofs_node_object_*_req_count_success` metrics for tracking successfully 
 
 `neofs-cli container delete` command now requires given account or session issuer
 to match the container owner. Use `--force` (`-f`) flag to bypass this requirement.
+
+Tree service network replication can now be fine-tuned with `tree.replication_timeout` config field.
 
 ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
