@@ -20,7 +20,8 @@ Changelog for NeoFS Node
 - `neofs-cli container get-eacl` print ACL table in json format only with arg `--json' (#2012)
 - Side chain notary deposits use max uint32 as till parameter (#1486)
 - Allow object removal without linking object (#2100)
-- `neofs-cli container delete` command pre-checks container ownership (#2106) 
+- `neofs-cli container delete` command pre-checks container ownership (#2106)
+- Policer cache size is now 1024 (#2158)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
