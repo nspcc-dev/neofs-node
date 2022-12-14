@@ -37,6 +37,7 @@ func New(opts ...Option) *Service {
 	s.containerCacheSize = defaultContainerCacheSize
 	s.replicatorChannelCapacity = defaultReplicatorCapacity
 	s.replicatorWorkerCount = defaultReplicatorWorkerCount
+	s.replicatorTimeout = defaultReplicatorSendTimeout
 
 	for i := range opts {
 		opts[i](&s.cfg)

@@ -2,6 +2,7 @@ package treeconfig_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
@@ -19,6 +20,7 @@ func TestTreeSection(t *testing.T) {
 		require.Equal(t, 0, treeSec.CacheSize())
 		require.Equal(t, 0, treeSec.ReplicationChannelCapacity())
 		require.Equal(t, 0, treeSec.ReplicationWorkerCount())
+		require.Equal(t, time.Duration(0), treeSec.ReplicationTimeout())
 	})
 
 	const path = "../../../../config/example/node"
@@ -30,6 +32,7 @@ func TestTreeSection(t *testing.T) {
 		require.Equal(t, 15, treeSec.CacheSize())
 		require.Equal(t, 32, treeSec.ReplicationChannelCapacity())
 		require.Equal(t, 32, treeSec.ReplicationWorkerCount())
+		require.Equal(t, 5*time.Second, treeSec.ReplicationTimeout())
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

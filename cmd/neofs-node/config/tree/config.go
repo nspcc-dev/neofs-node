@@ -1,6 +1,10 @@
 package treeconfig
 
-import "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+import (
+	"time"
+
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+)
 
 const (
 	subsection = "tree"
@@ -34,6 +38,14 @@ func (c TreeConfig) Enabled() bool {
 // Returns `0` if config value is not specified.
 func (c TreeConfig) CacheSize() int {
 	return int(config.IntSafe(c.cfg, "cache_size"))
+}
+
+// ReplicationTimeout returns the value of "replication_timeout"
+// config parameter from the "tree" section.
+//
+// Returns `0` if config value is not specified.
+func (c TreeConfig) ReplicationTimeout() time.Duration {
+	return config.DurationSafe(c.cfg, "replication_timeout")
 }
 
 // ReplicationChannelCapacity returns the value of "replication_channel_capacity"
