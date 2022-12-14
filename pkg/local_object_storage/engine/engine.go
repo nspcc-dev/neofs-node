@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -163,7 +164,9 @@ func (e *StorageEngine) reportShardErrorWithFlags(
 		zap.String("error", err.Error()),
 	}, fields...)...)
 
-	if e.errorsThreshold == 0 || errCount < e.errorsThreshold {
+	if errors.Is(err, common.ErrFatal) {
+		e.log.Error("fatal error encountered", zap.Error(err))
+	} else if e.errorsThreshold == 0 || errCount < e.errorsThreshold {
 		return
 	}
 
