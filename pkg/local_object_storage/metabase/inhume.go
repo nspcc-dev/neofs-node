@@ -144,7 +144,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			cnr := prm.target[i].Container()
 
 			// prevent locked objects to be inhumed
-			if objectLocked(tx, cnr, id) {
+			if !prm.forceRemoval && objectLocked(tx, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 
