@@ -40,7 +40,7 @@ var dropObjectsCmd = &cobra.Command{
 			resp, err = control.DropObjects(client, req)
 			return err
 		})
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		common.ExitOnErr(cmd, "", err)
 
 		verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
 
