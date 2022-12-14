@@ -201,7 +201,7 @@ func initObjectService(c *cfg) {
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, coreConstructor),
+			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(clientConstructor)),
 		),
 	)
 
