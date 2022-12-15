@@ -60,6 +60,7 @@ Changelog for NeoFS Node
 - Incomplete object put errors do contain the deepest error's message (#2092)
 - Prioritize internal addresses for clients (#2156)
 - Force object removal via control service (#2145)
+- Synchronizing a tree now longer reports an error for a single-node container (#2154)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
