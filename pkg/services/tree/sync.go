@@ -21,7 +21,6 @@ import (
 // ErrNotInContainer is returned when operation could not be performed
 // because the node is not included in the container.
 var ErrNotInContainer = errors.New("node is not in container")
-var errNoOtherNodes = errors.New("no nodes to fetch trees from")
 
 // SynchronizeAllTrees synchronizes all the trees of the container. It fetches
 // tree IDs from the other container nodes. Returns ErrNotInContainer if the node
@@ -43,7 +42,7 @@ func (s *Service) SynchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 
 	nodes = randomizeNodeOrder(nodes, pos)
 	if len(nodes) == 0 {
-		return errNoOtherNodes
+		return nil
 	}
 
 	rawCID := make([]byte, sha256.Size)
@@ -112,7 +111,7 @@ func (s *Service) SynchronizeTree(ctx context.Context, cid cid.ID, treeID string
 
 	nodes = randomizeNodeOrder(nodes, pos)
 	if len(nodes) == 0 {
-		return errNoOtherNodes
+		return nil
 	}
 
 	return s.synchronizeTree(ctx, d, treeID, nodes)
