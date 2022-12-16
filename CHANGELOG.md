@@ -66,6 +66,7 @@ Changelog for NeoFS Node
 - Force object removal via control service (#2145)
 - Synchronizing a tree now longer reports an error for a single-node container (#2154)
 - Prevent leaking goroutines in the tree service (#2162)
+- Do not search for LOCK objects when delete container when session provided (#2152)
 
 ### Removed
 - `-g` option from `neofs-cli control ...` and `neofs-cli container create` commands (#2089)
