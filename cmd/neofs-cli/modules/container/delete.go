@@ -57,24 +57,28 @@ Only owner of the container has a permission to remove container.`,
 
 			common.PrintVerbose("Account matches the container owner.")
 
-			fs := objectSDK.NewSearchFilters()
-			fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
+			if tok != nil {
+				common.PrintVerbose("Skip searching for LOCK objects - session provided.")
+			} else {
+				fs := objectSDK.NewSearchFilters()
+				fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
 
-			var searchPrm internalclient.SearchObjectsPrm
-			searchPrm.SetClient(cli)
-			searchPrm.SetContainerID(id)
-			searchPrm.SetFilters(fs)
-			searchPrm.SetTTL(2)
+				var searchPrm internalclient.SearchObjectsPrm
+				searchPrm.SetClient(cli)
+				searchPrm.SetContainerID(id)
+				searchPrm.SetFilters(fs)
+				searchPrm.SetTTL(2)
 
-			common.PrintVerbose("Searching for LOCK objects...")
+				common.PrintVerbose("Searching for LOCK objects...")
 
-			res, err := internalclient.SearchObjects(searchPrm)
-			common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
+				res, err := internalclient.SearchObjects(searchPrm)
+				common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
 
-			if len(res.IDList()) != 0 {
-				common.ExitOnErr(cmd, "",
-					fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
-						"Use --%s flag to remove anyway.", commonflags.ForceFlag))
+				if len(res.IDList()) != 0 {
+					common.ExitOnErr(cmd, "",
+						fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
+							"Use --%s flag to remove anyway.", commonflags.ForceFlag))
+				}
 			}
 		}
 
