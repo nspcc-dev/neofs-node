@@ -137,6 +137,7 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 				// Failed to connect, try the next address.
 				return false
 			}
+			defer cc.Close()
 
 			treeClient := NewTreeServiceClient(cc)
 			for {
