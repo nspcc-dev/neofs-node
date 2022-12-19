@@ -21,6 +21,7 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -126,6 +127,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 						break
 					}
 
+					internalclient.ReportError(c, err)
 					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
@@ -288,6 +290,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 						break
 					}
 
+					internalclient.ReportError(c, err)
 					return nil, fmt.Errorf("reading the response failed: %w", err)
 				}
 
