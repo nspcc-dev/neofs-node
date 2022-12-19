@@ -255,9 +255,29 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 }
 
 // TreeApply implements the Forest interface.
-func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move) error {
+func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgroundSync bool) error {
 	if !d.checkValid() {
 		return ErrInvalidCIDDescriptor
+	}
+
+	if backgroundSync {
+		var seen bool
+		err := t.db.View(func(tx *bbolt.Tx) error {
+			treeRoot := tx.Bucket(bucketName(d.CID, treeID))
+			if treeRoot == nil {
+				return nil
+			}
+
+			b := treeRoot.Bucket(logBucket)
+
+			var logKey [8]byte
+			binary.BigEndian.PutUint64(logKey[:], m.Time)
+			seen = b.Get(logKey[:]) != nil
+			return nil
+		})
+		if err != nil || seen {
+			return err
+		}
 	}
 
 	return t.db.Batch(func(tx *bbolt.Tx) error {

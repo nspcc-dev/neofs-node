@@ -489,7 +489,7 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 		Parent: op.GetParentId(),
 		Child:  op.GetChildId(),
 		Meta:   meta,
-	})
+	}, false)
 }
 
 func (s *Service) GetOpLog(req *GetOpLogRequest, srv TreeService_GetOpLogServer) error {
