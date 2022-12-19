@@ -42,7 +42,7 @@ func (s *Shard) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, attr stri
 }
 
 // TreeApply implements the pilorama.Forest interface.
-func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move) error {
+func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.Move, backgroundSync bool) error {
 	if s.pilorama == nil {
 		return ErrPiloramaDisabled
 	}
@@ -53,7 +53,7 @@ func (s *Shard) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pilorama.M
 	if s.info.Mode.ReadOnly() {
 		return ErrReadOnlyMode
 	}
-	return s.pilorama.TreeApply(d, treeID, m)
+	return s.pilorama.TreeApply(d, treeID, m, backgroundSync)
 }
 
 // TreeGetByPath implements the pilorama.Forest interface.

@@ -91,7 +91,7 @@ func (f *memoryForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string
 }
 
 // TreeApply implements the Forest interface.
-func (f *memoryForest) TreeApply(d CIDDescriptor, treeID string, op *Move) error {
+func (f *memoryForest) TreeApply(d CIDDescriptor, treeID string, op *Move, _ bool) error {
 	if !d.checkValid() {
 		return ErrInvalidCIDDescriptor
 	}

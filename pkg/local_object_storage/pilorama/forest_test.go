@@ -418,7 +418,7 @@ func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
 			Child:  10,
 			Parent: 0,
 			Meta:   Meta{Time: 1, Items: []KeyValue{{"grand", []byte{1}}}},
-		})
+		}, false)
 		require.ErrorIs(t, err, ErrInvalidCIDDescriptor)
 	})
 
@@ -427,7 +427,7 @@ func testForestTreeApply(t *testing.T, constructor func(t testing.TB) Forest) {
 			Child:  child,
 			Parent: parent,
 			Meta:   meta,
-		}))
+		}, false))
 	}
 
 	t.Run("add a child, then insert a parent removal", func(t *testing.T) {
@@ -489,7 +489,7 @@ func testForestTreeGetOpLog(t *testing.T, constructor func(t testing.TB) Forest)
 	})
 
 	for i := range logs {
-		require.NoError(t, s.TreeApply(d, treeID, &logs[i]))
+		require.NoError(t, s.TreeApply(d, treeID, &logs[i], false))
 	}
 
 	testGetOpLog := func(t *testing.T, height uint64, m Move) {
@@ -537,7 +537,7 @@ func testForestTreeExists(t *testing.T, constructor func(t testing.TB) Forest) {
 		checkExists(t, false, cid, treeID)
 	})
 
-	require.NoError(t, s.TreeApply(d, treeID, &Move{Parent: 0, Child: 1}))
+	require.NoError(t, s.TreeApply(d, treeID, &Move{Parent: 0, Child: 1}, false))
 	checkExists(t, true, cid, treeID)
 	checkExists(t, false, cidtest.ID(), treeID) // different CID, same tree
 	checkExists(t, false, cid, "another tree")  // same CID, different tree
@@ -573,7 +573,7 @@ func TestApplyTricky1(t *testing.T) {
 		t.Run(providers[i].name, func(t *testing.T) {
 			s := providers[i].construct(t)
 			for i := range ops {
-				require.NoError(t, s.TreeApply(d, treeID, &ops[i]))
+				require.NoError(t, s.TreeApply(d, treeID, &ops[i], false))
 			}
 
 			for i := range expected {
@@ -634,7 +634,7 @@ func TestApplyTricky2(t *testing.T) {
 		t.Run(providers[i].name, func(t *testing.T) {
 			s := providers[i].construct(t)
 			for i := range ops {
-				require.NoError(t, s.TreeApply(d, treeID, &ops[i]))
+				require.NoError(t, s.TreeApply(d, treeID, &ops[i], false))
 			}
 
 			for i := range expected {
@@ -702,7 +702,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 	for i := range ops {
-		require.NoError(t, expected.TreeApply(d, treeID, &ops[i]))
+		require.NoError(t, expected.TreeApply(d, treeID, &ops[i], false))
 	}
 
 	for i := 0; i < iterCount; i++ {
@@ -711,7 +711,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB) Fore
 
 		actual := constructor(t)
 		for i := range ops {
-			require.NoError(t, actual.TreeApply(d, treeID, &ops[i]))
+			require.NoError(t, actual.TreeApply(d, treeID, &ops[i], false))
 		}
 		for i := uint64(0); i < nodeCount; i++ {
 			expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
@@ -821,7 +821,7 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			op := <-ch
-			if err := s.TreeApply(d, treeID, op); err != nil {
+			if err := s.TreeApply(d, treeID, op, false); err != nil {
 				b.Fatalf("error in `Apply`: %v", err)
 			}
 		}
@@ -904,7 +904,7 @@ func testMove(t *testing.T, s Forest, ts int, node, parent Node, d CIDDescriptor
 			Time:  uint64(ts),
 			Items: items,
 		},
-	}))
+	}, false))
 }
 
 func TestGetTrees(t *testing.T) {
