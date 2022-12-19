@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -28,7 +29,13 @@ type Service struct {
 
 	syncChan chan struct{}
 	syncPool *ants.Pool
-	cnrMap   map[cidSDK.ID]struct{}
+
+	// cnrMap maps contrainer and tree ID to the minimum height which was fetched from _each_ client.
+	// This allows us to better handle split-brain scenario, because we always synchronize
+	// from the last seen height. The inner map is read-only and should not be modified in-place.
+	cnrMap map[cidSDK.ID]map[string]uint64
+	// cnrMapMtx protects cnrMap
+	cnrMapMtx sync.Mutex
 }
 
 var _ TreeServiceServer = (*Service)(nil)
@@ -54,7 +61,7 @@ func New(opts ...Option) *Service {
 	s.replicateCh = make(chan movePair, s.replicatorChannelCapacity)
 	s.replicationTasks = make(chan replicationTask, s.replicatorWorkerCount)
 	s.containerCache.init(s.containerCacheSize)
-	s.cnrMap = make(map[cidSDK.ID]struct{})
+	s.cnrMap = make(map[cidSDK.ID]map[string]uint64)
 	s.syncChan = make(chan struct{})
 	s.syncPool, _ = ants.NewPool(defaultSyncWorkerCount)
 
