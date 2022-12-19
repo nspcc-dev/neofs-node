@@ -170,6 +170,8 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		if err == nil {
 			// pull out an error from status
 			err = apistatus.ErrFromStatus(res.Status())
+		} else {
+			ReportError(prm.cli, err)
 		}
 
 		return nil, fmt.Errorf("read object header: %w", err)
@@ -439,6 +441,8 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	cliRes, err := w.Close()
 	if err == nil {
 		err = apistatus.ErrFromStatus(cliRes.Status())
+	} else {
+		ReportError(prm.cli, err)
 	}
 
 	if err != nil {

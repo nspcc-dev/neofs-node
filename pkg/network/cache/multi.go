@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -12,23 +13,34 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
+type singleClient struct {
+	sync.RWMutex
+	client      clientcore.Client
+	lastAttempt time.Time
+}
+
 type multiClient struct {
 	mtx sync.RWMutex
 
-	clients map[string]clientcore.Client
+	clients map[string]*singleClient
 
 	// addrMtx protects addr field. Should not be taken before the mtx.
 	addrMtx sync.RWMutex
 	addr    network.AddressGroup
 
 	opts ClientCacheOpts
+
+	reconnectInterval time.Duration
 }
+
+const defaultReconnectInterval = time.Second * 30
 
 func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClient {
 	return &multiClient{
-		clients: make(map[string]clientcore.Client),
-		addr:    addr,
-		opts:    opts,
+		clients:           make(map[string]*singleClient),
+		addr:              addr,
+		opts:              opts,
+		reconnectInterval: defaultReconnectInterval,
 	}
 }
 
@@ -110,6 +122,8 @@ loop:
 	x.addrMtx.Unlock()
 }
 
+var errRecentlyFailed = errors.New("client has recently failed, skipping")
+
 func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Client) error) error {
 	var firstErr error
 
@@ -134,14 +148,43 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 
 		success := err == nil || errors.Is(err, context.Canceled)
 
-		if success || firstErr == nil {
+		if success || firstErr == nil || errors.Is(firstErr, errRecentlyFailed) {
 			firstErr = err
+		}
+
+		if err != nil {
+			x.ReportError(err)
 		}
 
 		return success
 	})
 
 	return firstErr
+}
+
+func (x *multiClient) ReportError(err error) {
+	if errors.Is(err, errRecentlyFailed) {
+		return
+	}
+
+	// Dropping all clients here is not necessary, we do this
+	// because `multiClient` doesn't yet provide convenient interface
+	// for reporting individual errors for streaming operations.
+	x.mtx.RLock()
+	for _, sc := range x.clients {
+		sc.invalidate()
+	}
+	x.mtx.RUnlock()
+}
+
+func (s *singleClient) invalidate() {
+	s.Lock()
+	if s.client != nil {
+		_ = s.client.Close()
+	}
+	s.client = nil
+	s.lastAttempt = time.Now()
+	s.Unlock()
 }
 
 func (x *multiClient) ObjectPutInit(ctx context.Context, p client.PrmObjectPutInit) (res *client.ObjectWriter, err error) {
@@ -243,7 +286,9 @@ func (x *multiClient) Close() error {
 
 	{
 		for _, c := range x.clients {
-			_ = c.Close()
+			if c.client != nil {
+				_ = c.client.Close()
+			}
 		}
 	}
 
@@ -257,7 +302,12 @@ func (x *multiClient) RawForAddress(addr network.Address, f func(client *rawclie
 	if err != nil {
 		return err
 	}
-	return c.ExecRaw(f)
+
+	err = c.ExecRaw(f)
+	if err != nil {
+		x.ReportError(err)
+	}
+	return err
 }
 
 func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
@@ -268,20 +318,45 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 	x.mtx.RUnlock()
 
 	if cached {
-		return c, nil
-	}
-
-	x.mtx.Lock()
-	defer x.mtx.Unlock()
-
-	c, cached = x.clients[strAddr]
-	if !cached {
-		var err error
-		c, err = x.createForAddress(addr)
-		if err != nil {
-			return nil, err
+		c.RLock()
+		if c.client != nil {
+			cl := c.client
+			c.RUnlock()
+			return cl, nil
 		}
-		x.clients[strAddr] = c
+		if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+			c.RUnlock()
+			return nil, errRecentlyFailed
+		}
+		c.RUnlock()
+	} else {
+		var ok bool
+		x.mtx.Lock()
+		c, ok = x.clients[strAddr]
+		if !ok {
+			c = new(singleClient)
+			x.clients[strAddr] = c
+		}
+		x.mtx.Unlock()
 	}
-	return c, nil
+
+	c.Lock()
+	defer c.Unlock()
+
+	if c.client != nil {
+		return c.client, nil
+	}
+
+	if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+		return nil, errRecentlyFailed
+	}
+
+	cl, err := x.createForAddress(addr)
+	if err != nil {
+		c.lastAttempt = time.Now()
+		return nil, err
+	}
+
+	c.client = cl
+	return cl, nil
 }
