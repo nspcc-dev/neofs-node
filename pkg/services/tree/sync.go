@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"sync"
 
@@ -85,14 +86,30 @@ func (s *Service) synchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 		return fmt.Errorf("could not fetch tree ID list: %w", outErr)
 	}
 
-	for _, tid := range treesToSync {
-		err = s.synchronizeTree(ctx, d, tid, nodes)
-		if err != nil {
-			s.log.Error("could not sync tree",
-				zap.Stringer("cid", cid),
-				zap.String("treeID", tid))
+	s.cnrMapMtx.Lock()
+	oldStatus := s.cnrMap[cid]
+	s.cnrMapMtx.Unlock()
+
+	syncStatus := map[string]uint64{}
+	for i := range treesToSync {
+		syncStatus[treesToSync[i]] = 0
+	}
+	for tid := range oldStatus {
+		if _, ok := syncStatus[tid]; ok {
+			syncStatus[tid] = oldStatus[tid]
 		}
 	}
+
+	for _, tid := range treesToSync {
+		h := s.synchronizeTree(ctx, d, syncStatus[tid], tid, nodes)
+		if syncStatus[tid] < h {
+			syncStatus[tid] = h
+		}
+	}
+
+	s.cnrMapMtx.Lock()
+	s.cnrMap[cid] = syncStatus
+	s.cnrMapMtx.Unlock()
 
 	return nil
 }
@@ -118,18 +135,20 @@ func (s *Service) SynchronizeTree(ctx context.Context, cid cid.ID, treeID string
 		return nil
 	}
 
-	return s.synchronizeTree(ctx, d, treeID, nodes)
+	s.synchronizeTree(ctx, d, 0, treeID, nodes)
+	return nil
 }
 
-func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
-	treeID string, nodes []netmapSDK.NodeInfo) error {
-	lm, err := s.forest.TreeGetOpLog(d.CID, treeID, 0)
-	if err != nil && !errors.Is(err, pilorama.ErrTreeNotFound) {
-		return err
-	}
+func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor, from uint64,
+	treeID string, nodes []netmapSDK.NodeInfo) uint64 {
+	s.log.Debug("synchronize tree",
+		zap.Stringer("cid", d.CID),
+		zap.String("tree", treeID),
+		zap.Uint64("from", from))
 
-	height := lm.Time + 1
+	newHeight := uint64(math.MaxUint64)
 	for _, n := range nodes {
+		height := from
 		n.IterateNetworkEndpoints(func(addr string) bool {
 			var a network.Address
 			if err := a.FromString(addr); err != nil {
@@ -155,8 +174,16 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 				}
 			}
 		})
+		if height <= from { // do not increase starting height on fail
+			newHeight = from
+		} else if height < newHeight { // take minimum across all clients
+			newHeight = height
+		}
 	}
-	return nil
+	if newHeight == math.MaxUint64 {
+		newHeight = from
+	}
+	return newHeight
 }
 
 func (s *Service) synchronizeSingle(ctx context.Context, d pilorama.CIDDescriptor, treeID string, height uint64, treeClient TreeServiceClient) (uint64, error) {
@@ -254,14 +281,14 @@ func (s *Service) syncLoop(ctx context.Context) {
 			newMap := make(map[cid.ID]struct{}, len(s.cnrMap))
 			cnrsToSync := make([]cid.ID, 0, len(cnrs))
 
+			var removed []cid.ID
 			for _, cnr := range cnrs {
 				_, pos, err := s.getContainerNodes(cnr)
 				if err != nil {
 					s.log.Error("could not calculate container nodes",
 						zap.Stringer("cid", cnr),
 						zap.Error(err))
-					delete(s.cnrMap, cnr)
-
+					removed = append(removed, cnr)
 					continue
 				}
 
@@ -303,12 +330,19 @@ func (s *Service) syncLoop(ctx context.Context) {
 			}
 			wg.Wait()
 
-			// remove stored redundant trees
+			s.cnrMapMtx.Lock()
 			for cnr := range s.cnrMap {
 				if _, ok := newMap[cnr]; ok {
 					continue
 				}
+				removed = append(removed, cnr)
+			}
+			for i := range removed {
+				delete(s.cnrMap, removed[i])
+			}
+			s.cnrMapMtx.Unlock()
 
+			for _, cnr := range removed {
 				s.log.Debug("removing redundant trees...", zap.Stringer("cid", cnr))
 
 				err = s.DropTree(ctx, cnr, "")
@@ -319,8 +353,6 @@ func (s *Service) syncLoop(ctx context.Context) {
 					continue
 				}
 			}
-
-			s.cnrMap = newMap
 
 			s.log.Debug("trees have been synchronized")
 		}
