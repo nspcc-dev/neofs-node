@@ -42,6 +42,19 @@ func StreamTimeout(c *config.Config) time.Duration {
 	return StreamTimeoutDefault
 }
 
+// ReconnectTimeout returns the value of "reconnect_timeout" config parameter
+// from "apiclient" section.
+//
+// Returns 0 if the value is not positive duration.
+func ReconnectTimeout(c *config.Config) time.Duration {
+	v := config.DurationSafe(c.Sub(subsection), "reconnect_timeout")
+	if v > 0 {
+		return v
+	}
+
+	return 0
+}
+
 // AllowExternal returns the value of "allow_external" config parameter
 // from "apiclient" section.
 //

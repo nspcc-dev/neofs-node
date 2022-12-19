@@ -378,11 +378,13 @@ Configuration for the NeoFS API client used for communication with other NeoFS n
 apiclient:
   dial_timeout: 15s
   stream_timeout: 20s
+  reconnect_timeout: 30s
 ```
-| Parameter      | Type     | Default value | Description                                                           |
-|----------------|----------|---------------|-----------------------------------------------------------------------|
-| dial_timeout   | duration | `5s`          | Timeout for dialing connections to other storage or inner ring nodes. |
-| stream_timeout | duration | `15s`         | Timeout for individual operations in a streaming RPC.                 |
+| Parameter         | Type     | Default value | Description                                                           |
+|-------------------|----------|---------------|-----------------------------------------------------------------------|
+| dial_timeout      | duration | `5s`          | Timeout for dialing connections to other storage or inner ring nodes. |
+| stream_timeout    | duration | `15s`         | Timeout for individual operations in a streaming RPC.                 |
+| reconnect_timeout | duration | `30s`         | Time to wait before reconnecting to a failed node.                    |
 
 # `policer` section
 

@@ -36,6 +36,9 @@ type multiClient struct {
 const defaultReconnectInterval = time.Second * 30
 
 func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClient {
+	if opts.ReconnectTimeout <= 0 {
+		opts.ReconnectTimeout = defaultReconnectInterval
+	}
 	return &multiClient{
 		clients:           make(map[string]*singleClient),
 		addr:              addr,
