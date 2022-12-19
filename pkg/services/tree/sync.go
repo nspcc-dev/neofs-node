@@ -26,10 +26,10 @@ var ErrNotInContainer = errors.New("node is not in container")
 
 const defaultSyncWorkerCount = 20
 
-// SynchronizeAllTrees synchronizes all the trees of the container. It fetches
+// synchronizeAllTrees synchronizes all the trees of the container. It fetches
 // tree IDs from the other container nodes. Returns ErrNotInContainer if the node
 // is not included in the container.
-func (s *Service) SynchronizeAllTrees(ctx context.Context, cid cid.ID) error {
+func (s *Service) synchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 	nodes, pos, err := s.getContainerNodes(cid)
 	if err != nil {
 		return fmt.Errorf("can't get container nodes: %w", err)
@@ -283,7 +283,7 @@ func (s *Service) syncLoop(ctx context.Context) {
 					defer wg.Done()
 					s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))
 
-					err := s.SynchronizeAllTrees(ctx, cnr)
+					err := s.synchronizeAllTrees(ctx, cnr)
 					if err != nil {
 						s.log.Error("could not sync trees", zap.Stringer("cid", cnr), zap.Error(err))
 						return
