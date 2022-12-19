@@ -561,10 +561,11 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 
 	cacheOpts := cache.ClientCacheOpts{
-		DialTimeout:   apiclientconfig.DialTimeout(appCfg),
-		StreamTimeout: apiclientconfig.StreamTimeout(appCfg),
-		Key:           &key.PrivateKey,
-		AllowExternal: apiclientconfig.AllowExternal(appCfg),
+		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
+		StreamTimeout:    apiclientconfig.StreamTimeout(appCfg),
+		Key:              &key.PrivateKey,
+		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
+		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
 	}
 	c.shared = shared{
 		key:           key,

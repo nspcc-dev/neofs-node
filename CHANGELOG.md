@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - `neofs_node_object_*_req_count_success` prometheus metrics for tracking successfully executed requests (#1984)
 - Metric 'readonly' to get shards mode (#2022)
 - Tree service replication timeout (#2159)
+- `apiclient.reconnect_timeout` setting allowing to ignore failed clients for some time (#2164)
 
 ### Changed
 - `object lock` command reads CID and OID the same way other commands do (#1971)
