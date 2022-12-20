@@ -36,14 +36,22 @@ func (c *cache) Delete(addr oid.Address) error {
 		if err != nil {
 			return err
 		}
-		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("db DELETE"))
+		storagelog.Write(c.log,
+			storagelog.AddressField(saddr),
+			storagelog.StorageTypeField(wcStorageType),
+			storagelog.OpField("db DELETE"),
+		)
 		c.objCounters.DecDB()
 		return nil
 	}
 
 	_, err := c.fsTree.Delete(common.DeletePrm{Address: addr})
 	if err == nil {
-		storagelog.Write(c.log, storagelog.AddressField(saddr), storagelog.OpField("fstree DELETE"))
+		storagelog.Write(c.log,
+			storagelog.AddressField(saddr),
+			storagelog.StorageTypeField(wcStorageType),
+			storagelog.OpField("fstree DELETE"),
+		)
 		c.objCounters.DecFS()
 	}
 
