@@ -55,7 +55,7 @@ func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet
 		return nil, err
 	}
 
-	bc, err := core.NewBlockchain(storage.NewMemoryStore(), cfg.ProtocolConfiguration, zap.NewNop())
+	bc, err := core.NewBlockchain(storage.NewMemoryStore(), cfg.Blockchain(), zap.NewNop())
 	if err != nil {
 		return nil, err
 	}

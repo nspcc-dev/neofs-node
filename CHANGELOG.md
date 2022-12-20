@@ -76,6 +76,12 @@ Changelog for NeoFS Node
 - `--header` from `neofs-cli object get` (#2090)
 
 ### Updated
+- `neo-go` to `v0.100.0`
+- `spf13/cobra` to `v1.6.1`
+- `spf13/viper` to `v1.8.0`
+- `google.golang.org/grpc` to `v1.50.1`
+
+
 ### Updating from v0.34.0
 Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
 
@@ -89,9 +95,9 @@ to match the container owner. Use `--force` (`-f`) flag to bypass this requireme
 
 Tree service network replication can now be fine-tuned with `tree.replication_timeout` config field.
 
-## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
+ ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
-### Added
+# ## Added
 - `--timeout` flag in `neofs-cli control` commands (#1917)
 - Document shard modes of operation (#1909)
 - `tree list` CLI command (#1332)
@@ -125,7 +131,7 @@ Tree service network replication can now be fine-tuned with `tree.replication_ti
 - `neo-go` to `v0.99.4`
 - `protoc` to `v3.21.7`
 - `neofs-sdk` to `v1.0.0-rc.7`
-
+ 
 ### Updating from v0.33.0
 Now storage node serves Control API `SetNemapStatus` request with `MAINTENANCE`
 status only if the mode is allowed in the network settings. To force starting the local
