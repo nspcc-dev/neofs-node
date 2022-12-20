@@ -98,19 +98,6 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		res *objectSDK.Object
 	)
 
-	if s.hasWriteCache() {
-		res, err := wc(s.writeCache)
-		if err == nil || IsErrOutOfRange(err) {
-			return res, false, err
-		}
-
-		if IsErrNotFound(err) {
-			s.log.Debug("object is missing in write-cache")
-		} else {
-			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
-		}
-	}
-
 	var exists bool
 	if !skipMeta {
 		var mPrm meta.ExistsPrm
@@ -121,6 +108,19 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 			return res, false, err
 		}
 		exists = mRes.Exists()
+	}
+
+	if s.hasWriteCache() {
+		res, err = wc(s.writeCache)
+		if err == nil || IsErrOutOfRange(err) {
+			return res, false, err
+		}
+
+		if IsErrNotFound(err) {
+			s.log.Debug("object is missing in write-cache")
+		} else {
+			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
+		}
 	}
 
 	if skipMeta || err != nil {
