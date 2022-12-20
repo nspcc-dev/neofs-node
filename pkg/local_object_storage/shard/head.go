@@ -1,8 +1,6 @@
 package shard
 
 import (
-	"fmt"
-
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -46,23 +44,6 @@ func (r HeadRes) Object() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
 func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
-	// object can be saved in write-cache (if enabled) or in metabase
-
-	if s.hasWriteCache() {
-		// try to read header from write-cache
-		header, err := s.writeCache.Head(prm.addr)
-		if err == nil {
-			return HeadRes{
-				obj: header,
-			}, nil
-		} else if !IsErrNotFound(err) {
-			// in this case we think that object is presented in write-cache, but corrupted
-			return HeadRes{}, fmt.Errorf("could not read header from write-cache: %w", err)
-		}
-
-		// otherwise object seems to be flushed to metabase
-	}
-
 	var obj *objectSDK.Object
 	var err error
 	if s.GetMode().NoMetabase() {
