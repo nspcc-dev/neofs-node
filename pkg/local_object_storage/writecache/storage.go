@@ -109,7 +109,11 @@ func (c *cache) deleteFromDB(keys []string) []string {
 	})
 	for i := 0; i < errorIndex; i++ {
 		c.objCounters.DecDB()
-		storagelog.Write(c.log, storagelog.AddressField(keys[i]), storagelog.OpField("db DELETE"))
+		storagelog.Write(c.log,
+			storagelog.AddressField(keys[i]),
+			storagelog.StorageTypeField(wcStorageType),
+			storagelog.OpField("db DELETE"),
+		)
 	}
 	if err != nil {
 		c.log.Error("can't remove objects from the database", zap.Error(err))
@@ -142,7 +146,11 @@ func (c *cache) deleteFromDisk(keys []string) []string {
 			copyIndex++
 			continue
 		} else if err == nil {
-			storagelog.Write(c.log, storagelog.AddressField(keys[i]), storagelog.OpField("fstree DELETE"))
+			storagelog.Write(c.log,
+				storagelog.AddressField(keys[i]),
+				storagelog.StorageTypeField(wcStorageType),
+				storagelog.OpField("fstree DELETE"),
+			)
 			c.objCounters.DecFS()
 		}
 	}

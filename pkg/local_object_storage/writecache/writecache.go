@@ -67,6 +67,9 @@ type cache struct {
 	fsTree *fstree.FSTree
 }
 
+// wcStorageType is used for write-cache operations logging.
+const wcStorageType = "write-cache"
+
 type objectInfo struct {
 	addr string
 	data []byte

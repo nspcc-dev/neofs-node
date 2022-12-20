@@ -53,7 +53,11 @@ func (c *cache) putSmall(obj objectInfo) error {
 		return b.Put([]byte(obj.addr), obj.data)
 	})
 	if err == nil {
-		storagelog.Write(c.log, storagelog.AddressField(obj.addr), storagelog.OpField("db PUT"))
+		storagelog.Write(c.log,
+			storagelog.AddressField(obj.addr),
+			storagelog.StorageTypeField(wcStorageType),
+			storagelog.OpField("db PUT"),
+		)
 		c.objCounters.IncDB()
 	}
 	return nil
@@ -77,6 +81,11 @@ func (c *cache) putBig(addr string, prm common.PutPrm) error {
 		c.mtx.Unlock()
 	}
 	c.objCounters.IncFS()
-	storagelog.Write(c.log, storagelog.AddressField(addr), storagelog.OpField("fstree PUT"))
+	storagelog.Write(c.log,
+		storagelog.AddressField(addr),
+		storagelog.StorageTypeField(wcStorageType),
+		storagelog.OpField("fstree PUT"),
+	)
+
 	return nil
 }

@@ -26,7 +26,11 @@ func (c *cache) initFlushMarks() {
 
 				_, err := c.fsTree.Delete(prm)
 				if err == nil {
-					storagelog.Write(c.log, storagelog.AddressField(addr), storagelog.OpField("fstree DELETE"))
+					storagelog.Write(c.log,
+						storagelog.AddressField(addr),
+						storagelog.StorageTypeField(wcStorageType),
+						storagelog.OpField("fstree DELETE"),
+					)
 				}
 			}
 		}
@@ -83,7 +87,11 @@ func (c *cache) initFlushMarks() {
 		})
 		if err == nil {
 			for _, j := range indices {
-				storagelog.Write(c.log, zap.String("address", m[j]), storagelog.OpField("db DELETE"))
+				storagelog.Write(c.log,
+					zap.String("address", m[j]),
+					storagelog.StorageTypeField(wcStorageType),
+					storagelog.OpField("db DELETE"),
+				)
 			}
 		}
 		lastKey = append([]byte(m[len(m)-1]), 0)
