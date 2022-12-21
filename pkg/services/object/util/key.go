@@ -51,10 +51,13 @@ type SessionInfo struct {
 	Owner user.ID
 }
 
-// GetKey returns private key of the node.
+// GetKey fetches private key depending on the SessionInfo.
 //
-// If token is not nil, session private key is returned.
-// Otherwise, node private key is returned.
+// If info is not `nil`, searches for dynamic session token through the
+// underlying token storage. Returns apistatus.SessionTokenNotFound if
+// token storage does not contain information about provided dynamic session.
+//
+// If info is `nil`, returns node's private key.
 func (s *KeyStorage) GetKey(info *SessionInfo) (*ecdsa.PrivateKey, error) {
 	if info != nil {
 		binID, err := info.ID.MarshalBinary()
