@@ -66,7 +66,7 @@ var objectLockCmd = &cobra.Command{
 			exp = currEpoch + lifetime
 		}
 
-		common.PrintVerbose("Lock object will expire at %d epoch", exp)
+		common.PrintVerbose("Lock object will expire after %d epoch", exp)
 
 		var expirationAttr objectSDK.Attribute
 		expirationAttr.SetKey(objectV2.SysAttributeExpEpoch)
@@ -104,7 +104,7 @@ func initCommandObjectLock() {
 	ff.StringSlice(commonflags.OIDFlag, nil, commonflags.OIDFlagUsage)
 	_ = objectLockCmd.MarkFlagRequired(commonflags.OIDFlag)
 
-	ff.Uint64P(commonflags.ExpireAt, "e", 0, "Lock expiration epoch")
+	ff.Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch for the lock")
 
 	ff.Uint64(commonflags.Lifetime, 0, "Lock lifetime")
 	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)

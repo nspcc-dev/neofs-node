@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Pilorama no longer tries to apply already applied operations (#2161)
 - Use `sync.Pool` in Object.PUT service (#2139)
 - Shard uses metabase for `HEAD` requests by default, not write-cache (#2167)
+- Clarify help for `--expire-at` parameter for commands `object lock/put` and `bearer create` (#2097)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)

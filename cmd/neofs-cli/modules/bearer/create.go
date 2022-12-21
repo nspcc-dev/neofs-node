@@ -41,7 +41,7 @@ func init() {
 	createCmd.Flags().StringP(eaclFlag, "e", "", "Path to the extended ACL table")
 	createCmd.Flags().StringP(issuedAtFlag, "i", "", "Epoch to issue token at")
 	createCmd.Flags().StringP(notValidBeforeFlag, "n", "", "Not valid before epoch")
-	createCmd.Flags().StringP(commonflags.ExpireAt, "x", "", "Expiration epoch")
+	createCmd.Flags().StringP(commonflags.ExpireAt, "x", "", "The last active epoch for the token")
 	createCmd.Flags().StringP(ownerFlag, "o", "", "Token owner")
 	createCmd.Flags().String(outFlag, "", "File to write token to")
 	createCmd.Flags().Bool(jsonFlag, false, "Output token in JSON")
