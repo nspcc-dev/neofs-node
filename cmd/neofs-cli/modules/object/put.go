@@ -51,7 +51,7 @@ func initObjectPutCmd() {
 	flags.String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
 	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
-	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "Last epoch in the life of the object")
+	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "The last active epoch in the life of the object")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
 	flags.String(notificationFlag, "", "Object notification in the form of *epoch*:*topic*; '-' topic means using default")

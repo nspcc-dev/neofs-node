@@ -67,7 +67,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 	err = storagegroupSDK.ReadFromObject(&sg, *rawObj)
 	common.ExitOnErr(cmd, "could not read storage group from the obj: %w", err)
 
-	cmd.Printf("Expiration epoch: %d\n", sg.ExpirationEpoch())
+	cmd.Printf("The last active epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
 	common.PrintChecksum(cmd, "Group hash", sg.ValidationDataHash)
 
