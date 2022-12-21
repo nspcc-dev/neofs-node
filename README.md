@@ -1,5 +1,9 @@
 <p align="center">
-<img src="./.github/logo.svg" width="500px" alt="NeoFS">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./.github/logo_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./.github/logo_light.svg">
+    <img src="./.github/logo_light.svg"  width="500px" alt="NeoFS logo">
+  </picture>
 </p>
 <p align="center">
   <a href="https://fs.neo.org">NeoFS</a> is a decentralized distributed object storage integrated with the <a href="https://neo.org">NEO Blockchain</a>.
