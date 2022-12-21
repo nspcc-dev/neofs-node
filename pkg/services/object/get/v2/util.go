@@ -362,6 +362,23 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 
 	p.WithAddress(addr)
 
+	if tok := commonPrm.SessionToken(); tok != nil {
+		signerKey, err := s.keyStorage.GetKey(&util.SessionInfo{
+			ID:    tok.ID(),
+			Owner: tok.Issuer(),
+		})
+		if err != nil && errors.As(err, new(apistatus.SessionTokenNotFound)) {
+			commonPrm.ForgetTokens()
+			signerKey, err = s.keyStorage.GetKey(nil)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("fetching session key: %w", err)
+		}
+
+		p.WithCachedSignerKey(signerKey)
+	}
+
 	rngsV2 := body.GetRanges()
 	rngs := make([]object.Range, len(rngsV2))
 
