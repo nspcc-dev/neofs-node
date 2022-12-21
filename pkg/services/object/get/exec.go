@@ -109,6 +109,12 @@ func (exec execCtx) isChild(obj *objectSDK.Object) bool {
 }
 
 func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
+	if exec.prm.signerKey != nil {
+		// the key has already been requested and
+		// cached in the previous operations
+		return exec.prm.signerKey, nil
+	}
+
 	var sessionInfo *util.SessionInfo
 
 	if tok := exec.prm.common.SessionToken(); tok != nil {

@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - Use `sync.Pool` in Object.PUT service (#2139)
 - Shard uses metabase for `HEAD` requests by default, not write-cache (#2167)
 - Clarify help for `--expire-at` parameter for commands `object lock/put` and `bearer create` (#2097)
+- Node spawns `GETRANGE` requests signed with the node's key if session key was not found for `RANGEHASH` (#2144) 
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)

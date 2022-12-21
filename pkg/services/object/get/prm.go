@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"hash"
 
@@ -74,6 +75,11 @@ type commonPrm struct {
 	raw bool
 
 	forwarder RequestForwarder
+
+	// signerKey is a cached key that should be used for spawned
+	// requests (if any), could be nil if incoming request handling
+	// routine does not include any key fetching operations
+	signerKey *ecdsa.PrivateKey
 }
 
 // ChunkWriter is an interface of target component
@@ -143,6 +149,11 @@ func (p *commonPrm) WithAddress(addr oid.Address) {
 // WithRawFlag sets flag of raw reading.
 func (p *commonPrm) WithRawFlag(raw bool) {
 	p.raw = raw
+}
+
+// WithCachedSignerKey sets optional key for all further requests.
+func (p *commonPrm) WithCachedSignerKey(signerKey *ecdsa.PrivateKey) {
+	p.signerKey = signerKey
 }
 
 // SetHeaderWriter sets target component to write the object header.
