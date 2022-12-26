@@ -98,7 +98,11 @@ func NewBlobovniczaTree(opts ...Option) (blz *Blobovniczas) {
 	}
 
 	cache, err := simplelru.NewLRU(blz.openedCacheSize, func(key interface{}, value interface{}) {
-		if _, ok := blz.active[filepath.Dir(key.(string))]; ok {
+		p := key.(string)
+		lvlPath := filepath.Dir(p)
+		if b, ok := blz.active[lvlPath]; ok && b.ind == u64FromHexString(filepath.Base(p)) {
+			// This branch is taken if we have recently updated active blobovnicza and remove
+			// it from opened cache.
 			return
 		} else if err := value.(*blobovnicza.Blobovnicza).Close(); err != nil {
 			blz.log.Error("could not close Blobovnicza",
