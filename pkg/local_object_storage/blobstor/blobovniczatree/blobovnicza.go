@@ -130,19 +130,19 @@ func NewBlobovniczaTree(opts ...Option) (blz *Blobovniczas) {
 // activates and returns activated blobovnicza of p-level (dir).
 //
 // returns error if blobvnicza could not be activated.
-func (b *Blobovniczas) getActivated(p string) (blobovniczaWithIndex, error) {
-	return b.updateAndGet(p, nil)
+func (b *Blobovniczas) getActivated(lvlPath string) (blobovniczaWithIndex, error) {
+	return b.updateAndGet(lvlPath, nil)
 }
 
 // updates active blobovnicza of p-level (dir).
 //
 // if current active blobovnicza's index is not old, it remains unchanged.
-func (b *Blobovniczas) updateActive(p string, old *uint64) error {
-	b.log.Debug("updating active blobovnicza...", zap.String("path", p))
+func (b *Blobovniczas) updateActive(lvlPath string, old *uint64) error {
+	b.log.Debug("updating active blobovnicza...", zap.String("path", lvlPath))
 
-	_, err := b.updateAndGet(p, old)
+	_, err := b.updateAndGet(lvlPath, old)
 
-	b.log.Debug("active blobovnicza successfully updated", zap.String("path", p))
+	b.log.Debug("active blobovnicza successfully updated", zap.String("path", lvlPath))
 
 	return err
 }
@@ -150,9 +150,9 @@ func (b *Blobovniczas) updateActive(p string, old *uint64) error {
 // updates and returns active blobovnicza of p-level (dir).
 //
 // if current active blobovnicza's index is not old, it is returned unchanged.
-func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex, error) {
+func (b *Blobovniczas) updateAndGet(lvlPath string, old *uint64) (blobovniczaWithIndex, error) {
 	b.activeMtx.RLock()
-	active, ok := b.active[p]
+	active, ok := b.active[lvlPath]
 	b.activeMtx.RUnlock()
 
 	if ok {
@@ -172,7 +172,7 @@ func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	}
 
 	var err error
-	if active.blz, err = b.openBlobovnicza(filepath.Join(p, u64ToHexString(active.ind))); err != nil {
+	if active.blz, err = b.openBlobovnicza(filepath.Join(lvlPath, u64ToHexString(active.ind))); err != nil {
 		return active, err
 	}
 
@@ -180,7 +180,7 @@ func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	defer b.activeMtx.Unlock()
 
 	// check 2nd time to find out if it blobovnicza was activated while thread was locked
-	tryActive, ok := b.active[p]
+	tryActive, ok := b.active[lvlPath]
 	if ok && tryActive.blz == active.blz {
 		return tryActive, nil
 	}
@@ -188,13 +188,13 @@ func (b *Blobovniczas) updateAndGet(p string, old *uint64) (blobovniczaWithIndex
 	// Remove from opened cache (active blobovnicza should always be opened).
 	// Because `onEvict` callback is called in `Remove`, we need to update
 	// active map beforehand.
-	b.active[p] = active
+	b.active[lvlPath] = active
 
-	activePath := filepath.Join(p, u64ToHexString(active.ind))
+	activePath := filepath.Join(lvlPath, u64ToHexString(active.ind))
 	b.lruMtx.Lock()
 	b.opened.Remove(activePath)
 	if ok {
-		b.opened.Add(filepath.Join(p, u64ToHexString(tryActive.ind)), tryActive.blz)
+		b.opened.Add(filepath.Join(lvlPath, u64ToHexString(tryActive.ind)), tryActive.blz)
 	}
 	b.lruMtx.Unlock()
 
