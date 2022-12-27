@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 - Doc for extended headers (#2128)
 
 ### Changed
+- `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)
+
 ### Fixed
 ### Removed
 ### Updated

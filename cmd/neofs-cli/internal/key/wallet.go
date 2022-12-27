@@ -3,13 +3,14 @@ package key
 import (
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neo-go/cli/flags"
 	"github.com/nspcc-dev/neo-go/cli/input"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -22,37 +23,37 @@ var (
 )
 
 // FromWallet returns private key of the wallet account.
-func FromWallet(w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, error) {
+func FromWallet(cmd *cobra.Command, w *wallet.Wallet, addrStr string) (*ecdsa.PrivateKey, error) {
 	var (
 		addr util.Uint160
 		err  error
 	)
 
 	if addrStr == "" {
-		printVerbose("Using default wallet address")
+		common.PrintVerbose(cmd, "Using default wallet address")
 		addr = w.GetChangeAddress()
 	} else {
 		addr, err = flags.ParseAddress(addrStr)
 		if err != nil {
-			printVerbose("Can't parse address: %s", addrStr)
+			common.PrintVerbose(cmd, "Can't parse address: %s", addrStr)
 			return nil, ErrInvalidAddress
 		}
 	}
 
 	acc := w.GetAccount(addr)
 	if acc == nil {
-		printVerbose("Can't find wallet account for %s", addrStr)
+		common.PrintVerbose(cmd, "Can't find wallet account for %s", addrStr)
 		return nil, ErrInvalidAddress
 	}
 
 	pass, err := getPassword()
 	if err != nil {
-		printVerbose("Can't read password: %v", err)
+		common.PrintVerbose(cmd, "Can't read password: %v", err)
 		return nil, ErrInvalidPassword
 	}
 
 	if err := acc.Decrypt(pass, keys.NEP2ScryptParams()); err != nil {
-		printVerbose("Can't decrypt account: %v", err)
+		common.PrintVerbose(cmd, "Can't decrypt account: %v", err)
 		return nil, ErrInvalidPassword
 	}
 
@@ -66,10 +67,4 @@ func getPassword() (string, error) {
 	}
 
 	return input.ReadPassword("Enter password > ")
-}
-
-func printVerbose(format string, a ...interface{}) {
-	if viper.GetBool("verbose") {
-		fmt.Printf(format+"\n", a...)
-	}
 }

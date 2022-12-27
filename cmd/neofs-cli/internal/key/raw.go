@@ -20,12 +20,12 @@ var errCantGenerateKey = errors.New("can't generate new private key")
 // Ideally we want to touch file-system on the last step.
 // This function assumes that all flags were bind to viper in a `PersistentPreRun`.
 func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
-	pk, err := get()
+	pk, err := get(cmd)
 	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
 	return pk
 }
 
-func get() (*ecdsa.PrivateKey, error) {
+func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	keyDesc := viper.GetString(commonflags.WalletPath)
 	data, err := os.ReadFile(keyDesc)
 	if err != nil {
@@ -36,7 +36,7 @@ func get() (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		w, err := wallet.NewWalletFromFile(keyDesc)
 		if err == nil {
-			return FromWallet(w, viper.GetString(commonflags.Account))
+			return FromWallet(cmd, w, viper.GetString(commonflags.Account))
 		}
 		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
 	}
@@ -45,12 +45,12 @@ func get() (*ecdsa.PrivateKey, error) {
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
 func GetOrGenerate(cmd *cobra.Command) *ecdsa.PrivateKey {
-	pk, err := getOrGenerate()
+	pk, err := getOrGenerate(cmd)
 	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
 	return pk
 }
 
-func getOrGenerate() (*ecdsa.PrivateKey, error) {
+func getOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if viper.GetBool(commonflags.GenerateKey) {
 		priv, err := keys.NewPrivateKey()
 		if err != nil {
@@ -58,5 +58,5 @@ func getOrGenerate() (*ecdsa.PrivateKey, error) {
 		}
 		return &priv.PrivateKey, nil
 	}
-	return get()
+	return get(cmd)
 }

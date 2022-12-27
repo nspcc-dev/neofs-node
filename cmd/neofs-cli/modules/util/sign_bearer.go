@@ -51,8 +51,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	}
 
 	if len(to) == 0 {
-		prettyPrintJSON(cmd, data)
-
+		common.PrettyPrintJSON(cmd, btok, "bearer token")
 		return
 	}
 

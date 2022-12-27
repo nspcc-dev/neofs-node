@@ -19,7 +19,7 @@ func ReadEACL(cmd *cobra.Command, eaclPath string) *eacl.Table {
 		ExitOnErr(cmd, "", errors.New("incorrect path to file with EACL"))
 	}
 
-	PrintVerbose("Reading EACL from file: %s", eaclPath)
+	PrintVerbose(cmd, "Reading EACL from file: %s", eaclPath)
 
 	data, err := os.ReadFile(eaclPath)
 	ExitOnErr(cmd, "can't read file with EACL: %w", err)
@@ -28,13 +28,13 @@ func ReadEACL(cmd *cobra.Command, eaclPath string) *eacl.Table {
 
 	if err = table.UnmarshalJSON(data); err == nil {
 		validateAndFixEACLVersion(table)
-		PrintVerbose("Parsed JSON encoded EACL table")
+		PrintVerbose(cmd, "Parsed JSON encoded EACL table")
 		return table
 	}
 
 	if err = table.Unmarshal(data); err == nil {
 		validateAndFixEACLVersion(table)
-		PrintVerbose("Parsed binary encoded EACL table")
+		PrintVerbose(cmd, "Parsed binary encoded EACL table")
 		return table
 	}
 

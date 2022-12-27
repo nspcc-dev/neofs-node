@@ -51,7 +51,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 
 	printIgnoreForce := func(st control.NetmapStatus) {
 		if force {
-			common.PrintVerbose("Ignore --%s flag for %s state.", commonflags.ForceFlag, st)
+			common.PrintVerbose(cmd, "Ignore --%s flag for %s state.", commonflags.ForceFlag, st)
 		}
 	}
 
@@ -69,7 +69,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 
 		if force {
 			body.SetForceMaintenance()
-			common.PrintVerbose("Local maintenance will be forced.")
+			common.PrintVerbose(cmd, "Local maintenance will be forced.")
 		}
 	}
 

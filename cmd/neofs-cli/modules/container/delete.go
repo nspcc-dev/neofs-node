@@ -27,7 +27,7 @@ Only owner of the container has a permission to remove container.`,
 		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
-			common.PrintVerbose("Reading the container to check ownership...")
+			common.PrintVerbose(cmd, "Reading the container to check ownership...")
 
 			var getPrm internalclient.GetContainerPrm
 			getPrm.SetClient(cli)
@@ -39,13 +39,13 @@ Only owner of the container has a permission to remove container.`,
 			owner := resGet.Container().Owner()
 
 			if tok != nil {
-				common.PrintVerbose("Checking session issuer...")
+				common.PrintVerbose(cmd, "Checking session issuer...")
 
 				if !tok.Issuer().Equals(owner) {
 					common.ExitOnErr(cmd, "", fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer()))
 				}
 			} else {
-				common.PrintVerbose("Checking provided account...")
+				common.PrintVerbose(cmd, "Checking provided account...")
 
 				var acc user.ID
 				user.IDFromKey(&acc, pk.PublicKey)
@@ -55,10 +55,10 @@ Only owner of the container has a permission to remove container.`,
 				}
 			}
 
-			common.PrintVerbose("Account matches the container owner.")
+			common.PrintVerbose(cmd, "Account matches the container owner.")
 
 			if tok != nil {
-				common.PrintVerbose("Skip searching for LOCK objects - session provided.")
+				common.PrintVerbose(cmd, "Skip searching for LOCK objects - session provided.")
 			} else {
 				fs := objectSDK.NewSearchFilters()
 				fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
@@ -69,7 +69,7 @@ Only owner of the container has a permission to remove container.`,
 				searchPrm.SetFilters(fs)
 				searchPrm.SetTTL(2)
 
-				common.PrintVerbose("Searching for LOCK objects...")
+				common.PrintVerbose(cmd, "Searching for LOCK objects...")
 
 				res, err := internalclient.SearchObjects(searchPrm)
 				common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
