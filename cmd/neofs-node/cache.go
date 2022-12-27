@@ -321,9 +321,14 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 		return
 	}
 
+	vt := val.(*valueWithTime)
+	if s.ttl <= time.Since(vt.t) {
+		return
+	}
+
 	// panic on typecast below is OK since developer must be careful,
 	// runtime can do nothing with wrong type occurrence
-	item := val.(*valueWithTime).v.(*cacheItemContainerList)
+	item := vt.v.(*cacheItemContainerList)
 
 	item.mtx.Lock()
 	{
