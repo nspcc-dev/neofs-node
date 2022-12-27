@@ -1,9 +1,7 @@
 package container
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"encoding/json"
 	"os"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -77,18 +75,7 @@ func (x *stringWriter) WriteString(s string) (n int, err error) {
 
 func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncoding bool) {
 	if jsonEncoding {
-		data, err := cnr.MarshalJSON()
-		if err != nil {
-			common.PrintVerbose("Can't convert container to json: %w", err)
-			return
-		}
-		buf := new(bytes.Buffer)
-		if err := json.Indent(buf, data, "", "  "); err != nil {
-			common.PrintVerbose("Can't pretty print json: %w", err)
-		}
-
-		cmd.Println(buf)
-
+		common.PrettyPrintJSON(cmd, cnr, "container")
 		return
 	}
 

@@ -71,7 +71,7 @@ func createToken(cmd *cobra.Command, _ []string) {
 		defer cancel()
 
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
-		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
+		currEpoch, err := internalclient.GetCurrentEpoch(ctx, cmd, endpoint)
 		common.ExitOnErr(cmd, "can't fetch current epoch: %w", err)
 
 		if iatRelative {

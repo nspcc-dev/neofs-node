@@ -46,7 +46,7 @@ func InitBearer(cmd *cobra.Command) {
 // Prepare prepares object-related parameters for a command.
 func Prepare(cmd *cobra.Command, prms ...RPCParameters) {
 	ttl := viper.GetUint32(commonflags.TTL)
-	common.PrintVerbose("TTL: %d", ttl)
+	common.PrintVerbose(cmd, "TTL: %d", ttl)
 
 	for i := range prms {
 		btok := common.ReadBearerToken(cmd, bearerTokenFlag)
@@ -127,19 +127,19 @@ func readSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr 
 // decodes session.Object from the file by path specified in the
 // commonflags.SessionToken flag. Returns nil if flag is not set.
 func getSession(cmd *cobra.Command) *session.Object {
-	common.PrintVerbose("Trying to read session from the file...")
+	common.PrintVerbose(cmd, "Trying to read session from the file...")
 
 	path, _ := cmd.Flags().GetString(commonflags.SessionToken)
 	if path == "" {
-		common.PrintVerbose("File with session token is not provided.")
+		common.PrintVerbose(cmd, "File with session token is not provided.")
 		return nil
 	}
 
-	common.PrintVerbose("Reading session from the file [%s]...", path)
+	common.PrintVerbose(cmd, "Reading session from the file [%s]...", path)
 
 	var tok session.Object
 
-	err := common.ReadBinaryOrJSON(&tok, path)
+	err := common.ReadBinaryOrJSON(cmd, &tok, path)
 	common.ExitOnErr(cmd, "read session: %v", err)
 
 	return &tok
@@ -185,7 +185,7 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		return
 	}
 
-	common.PrintVerbose("Checking session correctness...")
+	common.PrintVerbose(cmd, "Checking session correctness...")
 
 	switch false {
 	case tok.AssertContainer(cnr):
@@ -200,7 +200,7 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		common.ExitOnErr(cmd, "", errors.New("invalid signature of the session data"))
 	}
 
-	common.PrintVerbose("Session is correct.")
+	common.PrintVerbose(cmd, "Session is correct.")
 
 	dst.SetSessionToken(tok)
 }
@@ -227,7 +227,7 @@ func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.
 		objs = []oid.ID{*obj}
 
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
-			common.PrintVerbose("Collecting relatives of the removal object...")
+			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
 			objs = append(objs, collectObjectRelatives(cmd, cli, cnr, *obj)...)
 		}
@@ -259,7 +259,7 @@ func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client
 
 	if obj != nil {
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
-			common.PrintVerbose("Collecting relatives of the removal object...")
+			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
 			rels := collectObjectRelatives(cmd, cli, cnr, *obj)
 
@@ -275,12 +275,12 @@ func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client
 
 	const sessionLifetime = 10 // in NeoFS epochs
 
-	common.PrintVerbose("Opening remote session with the node...")
+	common.PrintVerbose(cmd, "Opening remote session with the node...")
 
 	err := sessionCli.CreateSession(&tok, cli, sessionLifetime)
 	common.ExitOnErr(cmd, "open remote session: %w", err)
 
-	common.PrintVerbose("Session successfully opened.")
+	common.PrintVerbose(cmd, "Session successfully opened.")
 
 	finalizeSession(cmd, dst, &tok, key, cnr, objs...)
 
@@ -297,33 +297,33 @@ func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client
 //	*internal.PutObjectPrm
 //	*internal.DeleteObjectPrm
 func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
-	common.PrintVerbose("Finalizing session token...")
+	common.PrintVerbose(cmd, "Finalizing session token...")
 
 	switch dst.(type) {
 	default:
 		panic(fmt.Sprintf("unsupported op parameters %T", dst))
 	case *internal.PutObjectPrm:
-		common.PrintVerbose("Binding session to object PUT...")
+		common.PrintVerbose(cmd, "Binding session to object PUT...")
 		tok.ForVerb(session.VerbObjectPut)
 	case *internal.DeleteObjectPrm:
-		common.PrintVerbose("Binding session to object DELETE...")
+		common.PrintVerbose(cmd, "Binding session to object DELETE...")
 		tok.ForVerb(session.VerbObjectDelete)
 	}
 
-	common.PrintVerbose("Binding session to container %s...", cnr)
+	common.PrintVerbose(cmd, "Binding session to container %s...", cnr)
 
 	tok.BindContainer(cnr)
 	if len(objs) > 0 {
-		common.PrintVerbose("Limiting session by the objects %v...", objs)
+		common.PrintVerbose(cmd, "Limiting session by the objects %v...", objs)
 		tok.LimitByObjects(objs...)
 	}
 
-	common.PrintVerbose("Signing session...")
+	common.PrintVerbose(cmd, "Signing session...")
 
 	err := tok.Sign(*key)
 	common.ExitOnErr(cmd, "sign session: %w", err)
 
-	common.PrintVerbose("Session token successfully formed and attached to the request.")
+	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")
 
 	dst.SetSessionToken(tok)
 }
@@ -339,7 +339,7 @@ func initFlagSession(cmd *cobra.Command, verb string) {
 //
 // The object itself is not included in the result.
 func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, obj oid.ID) []oid.ID {
-	common.PrintVerbose("Fetching raw object header...")
+	common.PrintVerbose(cmd, "Fetching raw object header...")
 
 	// request raw header first
 	var addrObj oid.Address
@@ -361,10 +361,10 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 	default:
 		common.ExitOnErr(cmd, "failed to get raw object header: %w", err)
 	case err == nil:
-		common.PrintVerbose("Raw header received - object is singular.")
+		common.PrintVerbose(cmd, "Raw header received - object is singular.")
 		return nil
 	case errors.As(err, &errSplit):
-		common.PrintVerbose("Split information received - object is virtual.")
+		common.PrintVerbose(cmd, "Split information received - object is virtual.")
 	}
 
 	splitInfo := errSplit.SplitInfo()
@@ -373,7 +373,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 	// If any approach fails, we don't try the next since we assume that it will fail too.
 
 	if idLinking, ok := splitInfo.Link(); ok {
-		common.PrintVerbose("Collecting split members using linking object %s...", idLinking)
+		common.PrintVerbose(cmd, "Collecting split members using linking object %s...", idLinking)
 
 		addrObj.SetObject(idLinking)
 		prmHead.SetAddress(addrObj)
@@ -384,7 +384,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		if err == nil {
 			children := res.Header().Children()
 
-			common.PrintVerbose("Received split members from the linking object: %v", children)
+			common.PrintVerbose(cmd, "Received split members from the linking object: %v", children)
 
 			// include linking object
 			return append(children, idLinking)
@@ -392,11 +392,11 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 		// linking object is not required for
 		// object collecting
-		common.PrintVerbose("failed to get linking object's header: %w", err)
+		common.PrintVerbose(cmd, "failed to get linking object's header: %w", err)
 	}
 
 	if idSplit := splitInfo.SplitID(); idSplit != nil {
-		common.PrintVerbose("Collecting split members by split ID...")
+		common.PrintVerbose(cmd, "Collecting split members by split ID...")
 
 		var query object.SearchFilters
 		query.AddSplitIDFilter(object.MatchStringEqual, idSplit)
@@ -411,7 +411,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 		members := res.IDList()
 
-		common.PrintVerbose("Found objects by split ID: %v", res.IDList())
+		common.PrintVerbose(cmd, "Found objects by split ID: %v", res.IDList())
 
 		return members
 	}
@@ -421,7 +421,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		common.ExitOnErr(cmd, "", errors.New("missing any data in received object split information"))
 	}
 
-	common.PrintVerbose("Traverse the object split chain in reverse...", idMember)
+	common.PrintVerbose(cmd, "Traverse the object split chain in reverse...", idMember)
 
 	var res *internal.HeadObjectRes
 	chain := []oid.ID{idMember}
@@ -431,7 +431,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 	// split members are almost definitely singular, but don't get hung up on it
 
 	for {
-		common.PrintVerbose("Reading previous element of the split chain member %s...", idMember)
+		common.PrintVerbose(cmd, "Reading previous element of the split chain member %s...", idMember)
 
 		addrObj.SetObject(idMember)
 
@@ -440,7 +440,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 		idMember, ok = res.Header().PreviousID()
 		if !ok {
-			common.PrintVerbose("Chain ended.")
+			common.PrintVerbose(cmd, "Chain ended.")
 			break
 		}
 
@@ -452,7 +452,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		chainSet[idMember] = struct{}{}
 	}
 
-	common.PrintVerbose("Looking for a linking object...")
+	common.PrintVerbose(cmd, "Looking for a linking object...")
 
 	var query object.SearchFilters
 	query.AddParentIDFilter(object.MatchStringEqual, obj)
@@ -469,7 +469,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 	for i := range list {
 		if _, ok = chainSet[list[i]]; !ok {
-			common.PrintVerbose("Found one more related object %s.", list[i])
+			common.PrintVerbose(cmd, "Found one more related object %s.", list[i])
 			chain = append(chain, list[i])
 		}
 	}

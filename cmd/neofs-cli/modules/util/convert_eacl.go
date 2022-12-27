@@ -1,8 +1,6 @@
 package util
 
 import (
-	"bytes"
-	"encoding/json"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -45,7 +43,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 	}
 
 	if len(to) == 0 {
-		prettyPrintJSON(cmd, data)
+		common.PrettyPrintJSON(cmd, table, "eACL")
 		return
 	}
 
@@ -53,13 +51,4 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "can't write exteded ACL table to file: %w", err)
 
 	cmd.Printf("extended ACL table was successfully dumped to %s\n", to)
-}
-
-func prettyPrintJSON(cmd *cobra.Command, data []byte) {
-	buf := new(bytes.Buffer)
-	if err := json.Indent(buf, data, "", "  "); err != nil {
-		common.PrintVerbose("Can't pretty print json: %w", err)
-	}
-
-	cmd.Println(buf)
 }

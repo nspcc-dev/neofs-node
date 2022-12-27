@@ -11,10 +11,17 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/term"
 )
+
+var testCmd = &cobra.Command{
+	Use:   "test",
+	Short: "test",
+	Run:   func(cmd *cobra.Command, args []string) {},
+}
 
 func Test_getOrGenerate(t *testing.T) {
 	dir := t.TempDir()
@@ -96,7 +103,7 @@ func Test_getOrGenerate(t *testing.T) {
 
 	t.Run("generate", func(t *testing.T) {
 		viper.Set(commonflags.GenerateKey, true)
-		actual, err := getOrGenerate()
+		actual, err := getOrGenerate(testCmd)
 		require.NoError(t, err)
 		require.NotNil(t, actual)
 		for _, p := range []*keys.PrivateKey{nep2Key, rawKey, wifKey, acc1.PrivateKey(), acc2.PrivateKey()} {
@@ -107,13 +114,13 @@ func Test_getOrGenerate(t *testing.T) {
 
 func checkKeyError(t *testing.T, desc string, err error) {
 	viper.Set(commonflags.WalletPath, desc)
-	_, actualErr := getOrGenerate()
+	_, actualErr := getOrGenerate(testCmd)
 	require.ErrorIs(t, actualErr, err)
 }
 
 func checkKey(t *testing.T, desc string, expected *keys.PrivateKey) {
 	viper.Set(commonflags.WalletPath, desc)
-	actual, err := getOrGenerate()
+	actual, err := getOrGenerate(testCmd)
 	require.NoError(t, err)
 	require.Equal(t, &expected.PrivateKey, actual)
 }

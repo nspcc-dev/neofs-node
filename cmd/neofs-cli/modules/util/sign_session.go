@@ -52,7 +52,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		new(session.Object),
 		new(session.Container),
 	} {
-		errLast = common.ReadBinaryOrJSON(el, fPath)
+		errLast = common.ReadBinaryOrJSON(cmd, el, fPath)
 		if errLast == nil {
 			stok = el
 			break
@@ -71,7 +71,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 
 	to := cmd.Flag(signToFlag).Value.String()
 	if len(to) == 0 {
-		prettyPrintJSON(cmd, data)
+		common.PrettyPrintJSON(cmd, stok, "session token")
 		return
 	}
 

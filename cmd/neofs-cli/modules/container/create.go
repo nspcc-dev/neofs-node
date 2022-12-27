@@ -36,7 +36,7 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		placementPolicy, err := parseContainerPolicy(containerPolicy)
+		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
 		key := key.Get(cmd)
@@ -165,10 +165,10 @@ func initContainerCreateCmd() {
 		"Skip placement validity check")
 }
 
-func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) {
+func parseContainerPolicy(cmd *cobra.Command, policyString string) (*netmap.PlacementPolicy, error) {
 	_, err := os.Stat(policyString) // check if `policyString` is a path to file with placement policy
 	if err == nil {
-		common.PrintVerbose("Reading placement policy from file: %s", policyString)
+		common.PrintVerbose(cmd, "Reading placement policy from file: %s", policyString)
 
 		data, err := os.ReadFile(policyString)
 		if err != nil {
@@ -182,12 +182,12 @@ func parseContainerPolicy(policyString string) (*netmap.PlacementPolicy, error) 
 
 	err = result.DecodeString(policyString)
 	if err == nil {
-		common.PrintVerbose("Parsed QL encoded policy")
+		common.PrintVerbose(cmd, "Parsed QL encoded policy")
 		return &result, nil
 	}
 
 	if err = result.UnmarshalJSON([]byte(policyString)); err == nil {
-		common.PrintVerbose("Parsed JSON encoded policy")
+		common.PrintVerbose(cmd, "Parsed JSON encoded policy")
 		return &result, nil
 	}
 

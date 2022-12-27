@@ -2,7 +2,6 @@ package common
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -13,9 +12,9 @@ import (
 )
 
 // PrintVerbose prints to the stdout if the commonflags.Verbose flag is on.
-func PrintVerbose(format string, a ...interface{}) {
+func PrintVerbose(cmd *cobra.Command, format string, a ...interface{}) {
 	if viper.GetBool(commonflags.Verbose) {
-		fmt.Printf(format+"\n", a...)
+		cmd.Printf(format+"\n", a...)
 	}
 }
 

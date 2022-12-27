@@ -19,11 +19,11 @@ func ReadBearerToken(cmd *cobra.Command, flagname string) *bearer.Token {
 		return nil
 	}
 
-	PrintVerbose("Reading bearer token from file [%s]...", path)
+	PrintVerbose(cmd, "Reading bearer token from file [%s]...", path)
 
 	var tok bearer.Token
 
-	err = ReadBinaryOrJSON(&tok, path)
+	err = ReadBinaryOrJSON(cmd, &tok, path)
 	ExitOnErr(cmd, "invalid bearer token: %v", err)
 
 	return &tok
@@ -38,8 +38,8 @@ type BinaryOrJSON interface {
 
 // ReadBinaryOrJSON reads file data using provided path and decodes
 // BinaryOrJSON from the data.
-func ReadBinaryOrJSON(dst BinaryOrJSON, fPath string) error {
-	PrintVerbose("Reading file [%s]...", fPath)
+func ReadBinaryOrJSON(cmd *cobra.Command, dst BinaryOrJSON, fPath string) error {
+	PrintVerbose(cmd, "Reading file [%s]...", fPath)
 
 	// try to read session token from file
 	data, err := os.ReadFile(fPath)
@@ -47,17 +47,17 @@ func ReadBinaryOrJSON(dst BinaryOrJSON, fPath string) error {
 		return fmt.Errorf("read file <%s>: %w", fPath, err)
 	}
 
-	PrintVerbose("Trying to decode binary...")
+	PrintVerbose(cmd, "Trying to decode binary...")
 
 	err = dst.Unmarshal(data)
 	if err != nil {
-		PrintVerbose("Failed to decode binary: %v", err)
+		PrintVerbose(cmd, "Failed to decode binary: %v", err)
 
-		PrintVerbose("Trying to decode JSON...")
+		PrintVerbose(cmd, "Trying to decode JSON...")
 
 		err = dst.UnmarshalJSON(data)
 		if err != nil {
-			PrintVerbose("Failed to decode JSON: %v", err)
+			PrintVerbose(cmd, "Failed to decode JSON: %v", err)
 			return errors.New("invalid format")
 		}
 	}

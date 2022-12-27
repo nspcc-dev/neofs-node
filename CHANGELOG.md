@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 ### Changed
+- `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)
+
 ### Fixed
 ### Removed
 ### Updated
