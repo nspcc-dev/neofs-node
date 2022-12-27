@@ -127,7 +127,6 @@ func initContainerService(c *cfg) {
 		cnrRdr.get = c.cfgObject.cnrSource
 
 		cnrWrt.cacheEnabled = true
-		cnrWrt.lists = cachedContainerLister
 		cnrWrt.eacls = cachedEACLStorage
 	}
 
@@ -658,7 +657,6 @@ type morphContainerWriter struct {
 
 	cacheEnabled bool
 	eacls        *ttlEACLStorage
-	lists        *ttlContainerLister
 }
 
 func (m morphContainerWriter) Put(cnr containerCore.Container) (*cid.ID, error) {
