@@ -4,6 +4,15 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+### Changed
+### Fixed
+### Removed
+### Updated
+### Updating from v0.35.0
+
+## [0.35.0] - 2022-12-28 - Sindo (신도)
+
+### Added
 - `morph list-containers` in `neofs-adm` (#1689)
 - `--binary` flag in `neofs-cli object put/get/delete` commands (#1338)
 - `session` flag support to `neofs-cli object hash` (#2029)
@@ -1507,8 +1516,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 ## [0.10.0] - 2020-07-10
 
 First public review release.
-
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...master
+[0.35.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.31.0...v0.32.0
