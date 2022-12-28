@@ -8,6 +8,8 @@ Changelog for NeoFS Node
 ### Fixed
 ### Removed
 ### Updated
+- `neo-go` to `v0.100.1`
+
 ### Updating from v0.35.0
 
 ## [0.35.0] - 2022-12-28 - Sindo (신도)
