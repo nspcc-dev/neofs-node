@@ -10,6 +10,9 @@ Changelog for NeoFS Node
 ### Updated
 - `neo-go` to `v0.100.1`
 - `github.com/klauspost/compress` to `v1.15.13`
+- `github.com/multiformats/go-multiaddr` to `v0.8.0`
+- `golang.org/x/term` to `v0.3.0`
+- `google.golang.org/grpc` to `v1.51.0`
 
 ### Updating from v0.35.0
 
