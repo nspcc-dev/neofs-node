@@ -86,7 +86,8 @@ func (c *Config) Compress(data []byte) []byte {
 	if c == nil || !c.Enabled {
 		return data
 	}
-	return c.encoder.EncodeAll(data, make([]byte, 0, len(data)))
+	maxSize := c.encoder.MaxEncodedSize(len(data))
+	return c.encoder.EncodeAll(data, make([]byte, 0, maxSize))
 }
 
 // Close closes encoder and decoder, returns any error occurred.

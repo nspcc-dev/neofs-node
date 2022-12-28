@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 ### Removed
 ### Updated
 - `neo-go` to `v0.100.1`
+- `github.com/klauspost/compress` to `v1.15.13`
 
 ### Updating from v0.35.0
 
