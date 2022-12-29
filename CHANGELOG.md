@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Doc for extended headers (#2128)
+
 ### Changed
 ### Fixed
 ### Removed
