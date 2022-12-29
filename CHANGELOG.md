@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - `github.com/multiformats/go-multiaddr` to `v0.8.0`
 - `golang.org/x/term` to `v0.3.0`
 - `google.golang.org/grpc` to `v1.51.0`
+- `github.com/nats-io/nats.go` to `v1.22.1`
 
 ### Updating from v0.35.0
 

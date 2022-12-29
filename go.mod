@@ -13,10 +13,9 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.8.0
-	github.com/nats-io/nats.go v1.16.0
+	github.com/nats-io/nats.go v1.22.1
 	github.com/nspcc-dev/hrw v1.0.9
 	github.com/nspcc-dev/neo-go v0.100.1
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20221202075445-cb5c18dc73eb // indirect
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.16.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.7.0.20221212083658-a690dcb15917
@@ -71,6 +70,7 @@ require (
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20221202075445-cb5c18dc73eb // indirect
 	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
@@ -93,6 +93,7 @@ require (
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
