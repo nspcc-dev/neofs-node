@@ -65,8 +65,12 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 
 	e.iterateOverSortedShards(addr, func(ind int, sh hashedShard) (stop bool) {
 		e.mtx.RLock()
-		pool := e.shardPools[sh.ID().String()]
+		pool, ok := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
+		if !ok {
+			// Shard was concurrently removed, skip.
+			return false
+		}
 
 		putDone, exists := e.putToShard(sh, ind, pool, addr, prm.obj)
 		finished = putDone || exists
