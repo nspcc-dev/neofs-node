@@ -139,18 +139,18 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 	}
 
 	var lm LogMove
+	lm.Move = *m
 	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
 		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
 		if err != nil {
 			return err
 		}
 
-		m.Time = t.getLatestTimestamp(bLog, d.Position, d.Size)
-		if m.Child == RootID {
-			m.Child = t.findSpareID(bTree)
+		lm.Time = t.getLatestTimestamp(bLog, d.Position, d.Size)
+		if lm.Child == RootID {
+			lm.Child = t.findSpareID(bTree)
 		}
-		lm.Move = *m
-		return t.applyOperation(bLog, bTree, &lm)
+		return t.do(bLog, bTree, make([]byte, 17), &lm)
 	})
 }
 
