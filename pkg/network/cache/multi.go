@@ -11,6 +11,7 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
 type singleClient struct {
@@ -149,8 +150,12 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 			err = f(c)
 		}
 
-		success := err == nil || errors.Is(err, context.Canceled)
+		// non-status logic error that could be returned
+		// from the SDK client; should not be considered
+		// as a connection error
+		var siErr *objectSDK.SplitInfoError
 
+		success := err == nil || errors.Is(err, context.Canceled) || errors.As(err, &siErr)
 		if success || firstErr == nil || errors.Is(firstErr, errRecentlyFailed) {
 			firstErr = err
 		}
@@ -167,6 +172,14 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 
 func (x *multiClient) ReportError(err error) {
 	if errors.Is(err, errRecentlyFailed) {
+		return
+	}
+
+	// non-status logic error that could be returned
+	// from the SDK client; should not be considered
+	// as a connection error
+	var siErr *objectSDK.SplitInfoError
+	if errors.As(err, &siErr) {
 		return
 	}
 
