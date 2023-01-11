@@ -13,6 +13,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
@@ -21,7 +22,7 @@ import (
 type boltForest struct {
 	db *bbolt.DB
 
-	modeMtx sync.Mutex
+	modeMtx sync.RWMutex
 	mode    mode.Mode
 	cfg
 }
@@ -30,6 +31,12 @@ var (
 	dataBucket = []byte{0}
 	logBucket  = []byte{1}
 )
+
+// ErrDegradedMode is returned when pilorama is in a degraded mode.
+var ErrDegradedMode = logicerr.New("pilorama is in a degraded mode")
+
+// ErrReadOnlyMode is returned when pilorama is in a read-only mode.
+var ErrReadOnlyMode = logicerr.New("pilorama is in a read-only mode")
 
 // NewBoltForest returns storage wrapper for storing operations on CRDT trees.
 //
@@ -71,12 +78,9 @@ func (t *boltForest) SetMode(m mode.Mode) error {
 	if t.mode == m {
 		return nil
 	}
-	if t.mode.ReadOnly() == m.ReadOnly() {
-		return nil
-	}
 
 	err := t.Close()
-	if err == nil {
+	if err == nil && !m.NoMetabase() {
 		if err = t.Open(m.ReadOnly()); err == nil {
 			err = t.Init()
 		}
@@ -110,7 +114,7 @@ func (t *boltForest) Open(readOnly bool) error {
 	return nil
 }
 func (t *boltForest) Init() error {
-	if t.db.IsReadOnly() {
+	if t.mode.NoMetabase() || t.db.IsReadOnly() {
 		return nil
 	}
 	return t.db.Update(func(tx *bbolt.Tx) error {
@@ -138,6 +142,15 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 		return nil, ErrInvalidCIDDescriptor
 	}
 
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return nil, ErrReadOnlyMode
+	}
+
 	var lm LogMove
 	lm.Move = *m
 	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
@@ -156,6 +169,13 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 
 // TreeExists implements the Forest interface.
 func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return false, ErrDegradedMode
+	}
+
 	var exists bool
 
 	err := t.db.View(func(tx *bbolt.Tx) error {
@@ -174,6 +194,15 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 	}
 	if !isAttributeInternal(attr) {
 		return nil, ErrNotPathAttribute
+	}
+
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return nil, ErrReadOnlyMode
 	}
 
 	var lm []LogMove
@@ -258,6 +287,15 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgroundSync bool) error {
 	if !d.checkValid() {
 		return ErrInvalidCIDDescriptor
+	}
+
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	if backgroundSync {
@@ -508,6 +546,13 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 		return nil, nil
 	}
 
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	var nodes []Node
 
 	return nodes, t.db.View(func(tx *bbolt.Tx) error {
@@ -555,6 +600,13 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 
 // TreeGetMeta implements the forest interface.
 func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, Node, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return Meta{}, 0, ErrDegradedMode
+	}
+
 	key := parentKey(make([]byte, 9), nodeID)
 
 	var m Meta
@@ -578,6 +630,13 @@ func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Met
 
 // TreeGetChildren implements the Forest interface.
 func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	key := make([]byte, 9)
 	key[0] = 'c'
 	binary.LittleEndian.PutUint64(key[1:], nodeID)
@@ -603,6 +662,13 @@ func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) 
 
 // TreeList implements the Forest interface.
 func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	var ids []string
 	cidRaw := []byte(cid.EncodeToString())
 	cidLen := len(cidRaw)
@@ -628,6 +694,13 @@ func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
 
 // TreeGetOpLog implements the pilorama.Forest interface.
 func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return Move{}, ErrDegradedMode
+	}
+
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, height)
 
@@ -651,6 +724,15 @@ func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (
 
 // TreeDrop implements the pilorama.Forest interface.
 func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return ErrReadOnlyMode
+	}
+
 	return t.db.Batch(func(tx *bbolt.Tx) error {
 		if treeID == "" {
 			c := tx.Cursor()

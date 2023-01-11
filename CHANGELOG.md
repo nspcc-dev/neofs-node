@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 ### Changed
 ### Fixed
 - Big object removal with non-local parts (#1978)
+- Disable pilorama when moving to degraded mode (#2197)
+
 ### Removed
 ### Updated
 ### Updating from v0.35.0
