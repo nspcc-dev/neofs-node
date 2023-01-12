@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Big object removal with non-local parts (#1978)
 - Disable pilorama when moving to degraded mode (#2197)
 - Correct status error for expired session token (#2207)
+- Concurrent morph cache misses (#1248)
 
 ### Removed
 ### Updated

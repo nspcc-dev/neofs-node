@@ -26,6 +26,9 @@ type valueWithTime struct {
 
 // entity that provides TTL cache interface.
 type ttlNetCache struct {
+	m       sync.RWMutex                  // protects progMap
+	progMap map[interface{}]chan struct{} // contains fetch-in-progress keys
+
 	ttl time.Duration
 
 	sz int
@@ -41,11 +44,45 @@ func newNetworkTTLCache(sz int, ttl time.Duration, netRdr netValueReader) *ttlNe
 	fatalOnErr(err)
 
 	return &ttlNetCache{
-		ttl:    ttl,
-		sz:     sz,
-		cache:  cache,
-		netRdr: netRdr,
+		ttl:     ttl,
+		sz:      sz,
+		cache:   cache,
+		netRdr:  netRdr,
+		progMap: make(map[interface{}]chan struct{}),
 	}
+}
+
+func (c *ttlNetCache) actualValue(val interface{}) (*valueWithTime, bool) {
+	valWithTime := val.(*valueWithTime)
+	if time.Since(valWithTime.t) < c.ttl {
+		return valWithTime, true
+	}
+
+	return nil, false
+}
+
+func (c *ttlNetCache) waitForUpdate(key interface{}, ch chan struct{}) (interface{}, error) {
+	// wait for another routine to
+	// finish network fetching
+	<-ch
+
+	val, ok := c.cache.Peek(key)
+	if !ok {
+		// routine finished fetching
+		// but no value found; unexpected,
+		// repeat fetching
+		return c.get(key)
+	}
+
+	valWithTime, ok := c.actualValue(val)
+	if !ok {
+		// just updated value is already
+		// expired; unexpected, repeat
+		// fetching
+		return c.get(key)
+	}
+
+	return valWithTime.v, valWithTime.e
 }
 
 // reads value by the key.
@@ -56,18 +93,43 @@ func newNetworkTTLCache(sz int, ttl time.Duration, netRdr netValueReader) *ttlNe
 func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
 	val, ok := c.cache.Peek(key)
 	if ok {
-		valWithTime := val.(*valueWithTime)
-
-		if time.Since(valWithTime.t) < c.ttl {
+		valWithTime, ok := c.actualValue(val)
+		if ok {
 			return valWithTime.v, valWithTime.e
 		}
 
 		c.cache.Remove(key)
 	}
 
-	val, err := c.netRdr(key)
+	c.m.RLock()
+	ch, ok := c.progMap[key]
+	c.m.RUnlock()
 
+	if ok {
+		return c.waitForUpdate(key, ch)
+	}
+
+	c.m.Lock()
+	ch, ok = c.progMap[key]
+	if ok {
+		c.m.Unlock()
+		return c.waitForUpdate(key, ch)
+	}
+
+	ch = make(chan struct{})
+	c.progMap[key] = ch
+
+	c.m.Unlock()
+
+	val, err := c.netRdr(key)
 	c.set(key, val, err)
+
+	c.m.Lock()
+
+	close(ch)
+	delete(c.progMap, key)
+
+	c.m.Unlock()
 
 	return val, err
 }
