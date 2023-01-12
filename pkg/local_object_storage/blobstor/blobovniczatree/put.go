@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -45,11 +46,14 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 		}
 
 		if _, err := active.blz.Put(putPrm); err != nil {
-			// check if blobovnicza is full
-			if errors.Is(err, blobovnicza.ErrFull) {
-				b.log.Debug("blobovnicza overflowed",
-					zap.String("path", filepath.Join(p, u64ToHexString(active.ind))),
-				)
+			// Check if blobovnicza is full. We could either receive `blobovnicza.ErrFull` error
+			// or update active blobovnicza in other thread. In the latter case the database will be closed
+			// and `updateActive` takes care of not updating the active blobovnicza twice.
+			if isFull := errors.Is(err, blobovnicza.ErrFull); isFull || errors.Is(err, bbolt.ErrDatabaseNotOpen) {
+				if isFull {
+					b.log.Debug("blobovnicza overflowed",
+						zap.String("path", filepath.Join(p, u64ToHexString(active.ind))))
+				}
 
 				if err := b.updateActive(p, &active.ind); err != nil {
 					if !isLogical(err) {
