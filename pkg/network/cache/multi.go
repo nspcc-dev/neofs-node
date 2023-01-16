@@ -30,8 +30,6 @@ type multiClient struct {
 	addr    network.AddressGroup
 
 	opts ClientCacheOpts
-
-	reconnectInterval time.Duration
 }
 
 const defaultReconnectInterval = time.Second * 30
@@ -41,10 +39,9 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 		opts.ReconnectTimeout = defaultReconnectInterval
 	}
 	return &multiClient{
-		clients:           make(map[string]*singleClient),
-		addr:              addr,
-		opts:              opts,
-		reconnectInterval: defaultReconnectInterval,
+		clients: make(map[string]*singleClient),
+		addr:    addr,
+		opts:    opts,
 	}
 }
 
@@ -340,7 +337,7 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 			c.RUnlock()
 			return cl, nil
 		}
-		if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+		if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
 			c.RUnlock()
 			return nil, errRecentlyFailed
 		}
@@ -363,7 +360,7 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 		return c.client, nil
 	}
 
-	if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+	if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
 		return nil, errRecentlyFailed
 	}
 
