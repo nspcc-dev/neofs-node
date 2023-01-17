@@ -91,6 +91,10 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	}, err
 }
 
+// emptyStorageID is an empty storageID that indicates that
+// an object is big (and is stored in an FSTree, not in a blobovnicza).
+var emptyStorageID = make([]byte, 0)
+
 // fetchObjectData looks through writeCache and blobStor to find object.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
 	var (
@@ -140,7 +144,15 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	res, err := cb(s.blobStor, mExRes.StorageID())
+	storageID := mExRes.StorageID()
+	if storageID == nil {
+		// `nil` storageID returned without any error
+		// means that object is big, `cb` expects an
+		// empty (but non-nil) storageID in such cases
+		storageID = emptyStorageID
+	}
+
+	res, err := cb(s.blobStor, storageID)
 
 	return res, true, err
 }
