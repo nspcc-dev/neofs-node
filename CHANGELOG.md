@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Big object removal with non-local parts (#1978)
 - Disable pilorama when moving to degraded mode (#2197)
+- Fetching blobovnicza objects that not found in write-cache (#2206)
 - Correct status error for expired session token (#2207)
 
 ### Removed

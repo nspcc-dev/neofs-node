@@ -94,8 +94,8 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 // fetchObjectData looks through writeCache and blobStor to find object.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
 	var (
-		err error
-		res *objectSDK.Object
+		mErr error
+		mRes meta.ExistsRes
 	)
 
 	var exists bool
@@ -103,15 +103,15 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		var mPrm meta.ExistsPrm
 		mPrm.SetAddress(addr)
 
-		mRes, err := s.metaBase.Exists(mPrm)
-		if err != nil && !s.info.Mode.NoMetabase() {
-			return res, false, err
+		mRes, mErr = s.metaBase.Exists(mPrm)
+		if mErr != nil && !s.info.Mode.NoMetabase() {
+			return nil, false, mErr
 		}
 		exists = mRes.Exists()
 	}
 
 	if s.hasWriteCache() {
-		res, err = wc(s.writeCache)
+		res, err := wc(s.writeCache)
 		if err == nil || IsErrOutOfRange(err) {
 			return res, false, err
 		}
@@ -123,8 +123,8 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		}
 	}
 
-	if skipMeta || err != nil {
-		res, err = cb(s.blobStor, nil)
+	if skipMeta || mErr != nil {
+		res, err := cb(s.blobStor, nil)
 		return res, false, err
 	}
 
@@ -135,12 +135,12 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 	var mPrm meta.StorageIDPrm
 	mPrm.SetAddress(addr)
 
-	mRes, err := s.metaBase.StorageID(mPrm)
+	mExRes, err := s.metaBase.StorageID(mPrm)
 	if err != nil {
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	res, err = cb(s.blobStor, mRes.StorageID())
+	res, err := cb(s.blobStor, mExRes.StorageID())
 
 	return res, true, err
 }
