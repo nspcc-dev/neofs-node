@@ -44,7 +44,7 @@ func (f *memoryForest) TreeMove(d CIDDescriptor, treeID string, op *Move) (*LogM
 
 	lm := s.do(op)
 	s.operations = append(s.operations, lm)
-	return &lm, nil
+	return &lm.Move, nil
 }
 
 // TreeAddByPath implements the Forest interface.
@@ -66,20 +66,21 @@ func (f *memoryForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string
 	i, node := s.getPathPrefix(attr, path)
 	lm := make([]LogMove, len(path)-i+1)
 	for j := i; j < len(path); j++ {
-		lm[j-i] = s.do(&Move{
+		op := s.do(&Move{
 			Parent: node,
 			Meta: Meta{
 				Time:  s.timestamp(d.Position, d.Size),
 				Items: []KeyValue{{Key: attr, Value: []byte(path[j])}}},
 			Child: s.findSpareID(),
 		})
-		node = lm[j-i].Child
-		s.operations = append(s.operations, lm[j-i])
+		lm[j-i] = op.Move
+		node = op.Child
+		s.operations = append(s.operations, op)
 	}
 
 	mCopy := make([]KeyValue, len(m))
 	copy(mCopy, m)
-	lm[len(lm)-1] = s.do(&Move{
+	op := s.do(&Move{
 		Parent: node,
 		Meta: Meta{
 			Time:  s.timestamp(d.Position, d.Size),
@@ -87,6 +88,7 @@ func (f *memoryForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string
 		},
 		Child: s.findSpareID(),
 	})
+	lm[len(lm)-1] = op.Move
 	return lm, nil
 }
 
