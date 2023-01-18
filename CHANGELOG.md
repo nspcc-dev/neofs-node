@@ -48,7 +48,7 @@ Changelog for NeoFS Node
 - Use `sync.Pool` in Object.PUT service (#2139)
 - Shard uses metabase for `HEAD` requests by default, not write-cache (#2167)
 - Clarify help for `--expire-at` parameter for commands `object lock/put` and `bearer create` (#2097)
-- Node spawns `GETRANGE` requests signed with the node's key if session key was not found for `RANGEHASH` (#2144) 
+- Node spawns `GETRANGE` requests signed with the node's key if session key was not found for `RANGEHASH` (#2144)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
@@ -102,7 +102,6 @@ Changelog for NeoFS Node
 - `spf13/viper` to `v1.8.0`
 - `google.golang.org/grpc` to `v1.50.1`
 
-
 ### Updating from v0.34.0
 Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
 
@@ -116,9 +115,9 @@ to match the container owner. Use `--force` (`-f`) flag to bypass this requireme
 
 Tree service network replication can now be fine-tuned with `tree.replication_timeout` config field.
 
- ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
+## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
-# ## Added
+### Added
 - `--timeout` flag in `neofs-cli control` commands (#1917)
 - Document shard modes of operation (#1909)
 - `tree list` CLI command (#1332)
