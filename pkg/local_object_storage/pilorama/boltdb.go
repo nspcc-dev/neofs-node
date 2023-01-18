@@ -157,8 +157,9 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 	}
 
 	lm := *m
+	fullID := bucketName(d.CID, treeID)
 	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, fullID)
 		if err != nil {
 			return err
 		}
@@ -212,8 +213,9 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 	var lm []LogMove
 	var key [17]byte
 
+	fullID := bucketName(d.CID, treeID)
 	err := t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, fullID)
 		if err != nil {
 			return err
 		}
@@ -320,8 +322,9 @@ func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgrou
 	}
 
 	if t.db.MaxBatchSize == 1 {
+		fullID := bucketName(d.CID, treeID)
 		return t.db.Update(func(tx *bbolt.Tx) error {
-			bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+			bLog, bTree, err := t.getTreeBuckets(tx, fullID)
 			if err != nil {
 				return err
 			}
@@ -379,8 +382,7 @@ func (t *boltForest) addBatch(d CIDDescriptor, treeID string, m *Move, ch chan e
 	t.mtx.Unlock()
 }
 
-func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) (*bbolt.Bucket, *bbolt.Bucket, error) {
-	treeRoot := bucketName(cid, treeID)
+func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, treeRoot []byte) (*bbolt.Bucket, *bbolt.Bucket, error) {
 	child := tx.Bucket(treeRoot)
 	if child != nil {
 		return child.Bucket(logBucket), child.Bucket(dataBucket), nil
@@ -716,7 +718,9 @@ func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
 	}
 
 	var ids []string
-	cidRaw := []byte(cid.EncodeToString())
+	cidRaw := make([]byte, 32)
+	cid.Encode(cidRaw)
+
 	cidLen := len(cidRaw)
 
 	err := t.db.View(func(tx *bbolt.Tx) error {
@@ -782,7 +786,8 @@ func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 	return t.db.Batch(func(tx *bbolt.Tx) error {
 		if treeID == "" {
 			c := tx.Cursor()
-			prefix := []byte(cid.EncodeToString())
+			prefix := make([]byte, 32)
+			cid.Encode(prefix)
 			for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 				err := tx.DeleteBucket(k)
 				if err != nil {
@@ -855,7 +860,10 @@ func (t *boltForest) logToBytes(lm *LogMove) []byte {
 }
 
 func bucketName(cid cidSDK.ID, treeID string) []byte {
-	return []byte(cid.String() + treeID)
+	treeRoot := make([]byte, 32+len(treeID))
+	cid.Encode(treeRoot)
+	copy(treeRoot[32:], treeID)
+	return treeRoot
 }
 
 // 'o' + time -> old meta.

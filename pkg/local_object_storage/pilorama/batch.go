@@ -34,8 +34,9 @@ func (b *batch) run() {
 	sort.Slice(b.operations, func(i, j int) bool {
 		return b.operations[i].Time < b.operations[j].Time
 	})
+	fullID := bucketName(b.cid, b.treeID)
 	err := b.forest.db.Update(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := b.forest.getTreeBuckets(tx, b.cid, b.treeID)
+		bLog, bTree, err := b.forest.getTreeBuckets(tx, fullID)
 		if err != nil {
 			return err
 		}
