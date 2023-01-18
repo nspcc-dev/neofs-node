@@ -261,7 +261,10 @@ func (s *Shard) Close() error {
 		}
 	}
 
-	s.gc.stop()
+	// If Init/Open was unsuccessful gc can be nil.
+	if s.gc != nil {
+		s.gc.stop()
+	}
 
 	return nil
 }
