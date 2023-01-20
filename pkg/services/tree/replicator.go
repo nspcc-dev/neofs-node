@@ -148,7 +148,7 @@ func (s *Service) pushToQueue(cid cidSDK.ID, treeID string, op *pilorama.LogMove
 		treeID: treeID,
 		op:     op,
 	}:
-	case <-s.closeCh:
+	default:
 	}
 }
 
