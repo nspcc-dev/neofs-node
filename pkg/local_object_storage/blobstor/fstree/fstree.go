@@ -239,16 +239,17 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 		prm.RawData = t.Compress(prm.RawData)
 	}
 
-	err := t.writeFile(p, prm.RawData)
+	tmpPath := p + "#"
+	err := t.writeFile(tmpPath, prm.RawData)
 	if err != nil {
 		var pe *fs.PathError
 		if errors.As(err, &pe) && pe.Err == syscall.ENOSPC {
 			err = common.ErrNoSpace
-			_ = os.RemoveAll(p)
+			_ = os.RemoveAll(tmpPath)
 		}
 	}
 
-	return common.PutRes{StorageID: []byte{}}, err
+	return common.PutRes{StorageID: []byte{}}, os.Rename(tmpPath, p)
 }
 
 func (t *FSTree) writeFlags() int {
