@@ -485,7 +485,8 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 		return nil, fmt.Errorf("can't parse meta-information: %w", err)
 	}
 
-	s.replicateLocalCh <- applyOp{
+	select {
+	case s.replicateLocalCh <- applyOp{
 		treeID:        req.GetBody().GetTreeId(),
 		CIDDescriptor: pilorama.CIDDescriptor{CID: cid, Position: pos, Size: size},
 		Move: pilorama.Move{
@@ -493,6 +494,8 @@ func (s *Service) Apply(_ context.Context, req *ApplyRequest) (*ApplyResponse, e
 			Child:  op.GetChildId(),
 			Meta:   meta,
 		},
+	}:
+	default:
 	}
 	return &ApplyResponse{Body: &ApplyResponse_Body{}, Signature: &Signature{}}, nil
 }
