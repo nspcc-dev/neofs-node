@@ -244,6 +244,7 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 		var pe *fs.PathError
 		if errors.As(err, &pe) && pe.Err == syscall.ENOSPC {
 			err = common.ErrNoSpace
+			_ = os.RemoveAll(p)
 		}
 	}
 
