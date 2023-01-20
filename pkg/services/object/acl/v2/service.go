@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -572,6 +573,9 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 		currentEpoch, err := b.nm.Epoch()
 		if err != nil {
 			return info, errors.New("can't fetch current epoch")
+		}
+		if req.token.ExpiredAt(currentEpoch) {
+			return info, apistatus.SessionTokenExpired{}
 		}
 		if req.token.InvalidAt(currentEpoch) {
 			return info, fmt.Errorf("%s: token is invalid at %d epoch)",
