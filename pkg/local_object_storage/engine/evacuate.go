@@ -82,6 +82,8 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 		return EvacuateShardRes{}, errMustHaveTwoShards
 	}
 
+	e.log.Info("started shards evacuation", zap.Strings("shard_ids", sidList))
+
 	// We must have all shards, to have correct information about their
 	// indexes in a sorted slice and set appropriate marks in the metabase.
 	// Evacuated shard is skipped during put.
@@ -185,5 +187,7 @@ mainLoop:
 		}
 	}
 
+	e.log.Info("finished shards evacuation",
+		zap.Strings("shard_ids", sidList))
 	return res, nil
 }
