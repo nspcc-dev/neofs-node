@@ -74,6 +74,7 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	shPrm.SetAddress(prm.addr)
 
 	var hasDegraded bool
+	var objectExpired bool
 
 	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
 		noMeta := sh.GetMode().NoMetabase()
@@ -113,7 +114,7 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 			case shard.IsErrObjectExpired(err):
 				// object is found but should not
 				// be returned
-				outError = errNotFound
+				objectExpired = true
 				return true
 			default:
 				e.reportShardError(sh, "could not get object from shard", err)
@@ -128,6 +129,10 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 
 	if outSI != nil {
 		return GetRes{}, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+	}
+
+	if objectExpired {
+		return GetRes{}, errNotFound
 	}
 
 	if obj == nil {

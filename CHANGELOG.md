@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Do not search for the small objects in FSTree (#2206)
 - Correct status error for expired session token (#2207)
 - Restore subscriptions correctly on morph client switch (#2212)
+- Expired objects could be returned if not marked with GC yet (#2213)
 
 ### Removed
 ### Updated
