@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - Correct status error for expired session token (#2207)
 - Restore subscriptions correctly on morph client switch (#2212)
 - Expired objects could be returned if not marked with GC yet (#2213)
+- `neofs-adm morph dump-hashes` now properly iterates over custom domain (#2224)
 
 ### Removed
 ### Updated
