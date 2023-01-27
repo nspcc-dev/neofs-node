@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Fetching blobovnicza objects that not found in write-cache (#2206)
 - Do not search for the small objects in FSTree (#2206)
 - Correct status error for expired session token (#2207)
+- Restore subscriptions correctly on morph client switch (#2212)
 
 ### Removed
 ### Updated
