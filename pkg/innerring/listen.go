@@ -27,39 +27,34 @@ func (x *node) listenNotaryRequests(chDone <-chan struct{}) {
 	chNotaryRequests := x.subscribeToNotaryRequests(chDone)
 
 	for {
-		select {
-		case <-chDone:
-			x.log.Info("stopping listener of distilled notary requests (external signal)")
+		req, ok := <-chNotaryRequests
+		if !ok {
+			x.log.Info("stopping listener of distilled notary requests (channel of notary requests was closed)")
 			return
-		case req, ok := <-chNotaryRequests:
-			if !ok {
-				x.log.Info("stopping listener of distilled notary requests (channel of notary requests was closed)")
-				return
-			}
+		}
 
-			x.log.Info("notary request from the blockchain",
+		x.log.Info("notary request from the blockchain",
+			zap.Stringer("contract", req.contract),
+			zap.String("method", req.method),
+			zap.Int("op num", len(req.ops)),
+		)
+
+		switch req.contract {
+		default:
+			x.log.Info("ignore unsupported notary request",
 				zap.Stringer("contract", req.contract),
 				zap.String("method", req.method),
-				zap.Int("op num", len(req.ops)),
 			)
-
-			switch req.contract {
-			default:
-				x.log.Info("ignore unsupported notary request",
-					zap.Stringer("contract", req.contract),
-					zap.String("method", req.method),
-				)
-			case contractContainer:
-				x.processContainerNotaryRequest(req)
-			case contractBalance:
-				x.processBalanceNotaryRequest(req)
-				// case contractAudit:
-				// case contractNetmap:
-				// case contractSubnet:
-				// case contractNeoFSID:
-				// case contractProxy:
-				// case contractReputation:
-			}
+		case contractContainer:
+			x.processContainerNotaryRequest(req)
+		case contractBalance:
+			x.processBalanceNotaryRequest(req)
+			// case contractAudit:
+			// case contractNetmap:
+			// case contractSubnet:
+			// case contractNeoFSID:
+			// case contractProxy:
+			// case contractReputation:
 		}
 	}
 }
@@ -76,39 +71,34 @@ func (x *node) listenNotifications(chDone <-chan struct{}) {
 	chNotifications := x.subscribeToNotifications(chDone)
 
 	for {
-		select {
-		case <-chDone:
-			x.log.Info("stopping listener of distilled notifications (external signal)")
+		n, ok := <-chNotifications
+		if !ok {
+			x.log.Info("stopping listener of distilled notifications (notification channel closed)")
 			return
-		case n, ok := <-chNotifications:
-			if !ok {
-				x.log.Info("stopping listener of distilled notifications (notification channel closed)")
-				return
-			}
+		}
 
-			x.log.Info("notification from blockchain",
-				zap.String("name", n.name),
+		x.log.Info("notification from blockchain",
+			zap.String("name", n.name),
+			zap.Stringer("contract", n.contract),
+			zap.Int("item num", len(n.items)),
+		)
+
+		switch n.contract {
+		default:
+			x.log.Info("ignore unsupported notification",
 				zap.Stringer("contract", n.contract),
-				zap.Int("item num", len(n.items)),
+				zap.String("name", n.name),
 			)
-
-			switch n.contract {
-			default:
-				x.log.Info("ignore unsupported notification",
-					zap.Stringer("contract", n.contract),
-					zap.String("name", n.name),
-				)
-			case contractContainer:
-				x.processContainerNotification(n)
-			case contractBalance:
-				x.processBalanceNotification(n)
-				// case contractAudit:
-				// case contractNetmap:
-				// case contractSubnet:
-				// case contractNeoFSID:
-				// case contractProxy:
-				// case contractReputation:
-			}
+		case contractContainer:
+			x.processContainerNotification(n)
+		case contractBalance:
+			x.processBalanceNotification(n)
+			// case contractAudit:
+			// case contractNetmap:
+			// case contractSubnet:
+			// case contractNeoFSID:
+			// case contractProxy:
+			// case contractReputation:
 		}
 	}
 }
