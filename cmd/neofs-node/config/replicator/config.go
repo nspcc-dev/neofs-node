@@ -10,7 +10,7 @@ const (
 	subsection = "replicator"
 
 	// PutTimeoutDefault is a default timeout of object put request in replicator.
-	PutTimeoutDefault = 5 * time.Second
+	PutTimeoutDefault = time.Minute
 )
 
 // PutTimeout returns the value of "put_timeout" config parameter

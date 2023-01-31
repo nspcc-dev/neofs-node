@@ -411,7 +411,7 @@ replicator:
 
 | Parameter     | Type       | Default value                          | Description                                 |
 |---------------|------------|----------------------------------------|---------------------------------------------|
-| `put_timeout` | `duration` | `5s`                                   | Timeout for performing the `PUT` operation. |
+| `put_timeout` | `duration` | `1m`                                   | Timeout for performing the `PUT` operation. |
 | `pool_size`   | `int`      | Equal to `object.put.pool_size_remote` | Maximum amount of concurrent replications.  |
 
 # `object` section

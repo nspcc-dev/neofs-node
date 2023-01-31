@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)
+- Storage node's `replicator.put_timeout` config default to `1m` (#2227)
 
 ### Fixed
 ### Removed
