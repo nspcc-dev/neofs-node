@@ -103,7 +103,7 @@ policer:
   head_timeout: 15s  # timeout for the Policer HEAD remote operation
 
 replicator:
-  put_timeout: 15s  # timeout for the Replicator PUT remote operation
+  put_timeout: 15s  # timeout for the Replicator PUT remote operation (defaults to 1m)
   pool_size: 10     # maximum amount of concurrent replications
 
 object:
