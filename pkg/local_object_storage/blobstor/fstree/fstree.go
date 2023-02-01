@@ -247,9 +247,11 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 			err = common.ErrNoSpace
 			_ = os.RemoveAll(tmpPath)
 		}
+	} else {
+		err = os.Rename(tmpPath, p)
 	}
 
-	return common.PutRes{StorageID: []byte{}}, os.Rename(tmpPath, p)
+	return common.PutRes{StorageID: []byte{}}, err
 }
 
 func (t *FSTree) writeFlags() int {
