@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 - Separate batching for replicated operations over the same container in pilorama (#1621)
 
 ### Changed
+- Pilorama now can merge multiple batches into one (#2231)
+
 ### Fixed
 - Big object removal with non-local parts (#1978)
 - Disable pilorama when moving to degraded mode (#2197)

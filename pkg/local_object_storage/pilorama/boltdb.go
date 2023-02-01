@@ -377,7 +377,9 @@ func (t *boltForest) addBatch(d CIDDescriptor, treeID string, m *Move, ch chan e
 		results:    []chan<- error{ch},
 		operations: []*Move{m},
 	}
+	b.mtx.Lock()
 	b.timer = time.AfterFunc(t.db.MaxBatchDelay, b.trigger)
+	b.mtx.Unlock()
 	t.batches = append(t.batches, b)
 	t.mtx.Unlock()
 }
