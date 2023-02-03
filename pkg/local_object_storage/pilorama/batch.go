@@ -53,7 +53,15 @@ func (b *batch) run() {
 		var lm LogMove
 		return b.forest.applyOperation(bLog, bTree, b.operations, &lm)
 	})
-	for i := range b.operations {
+
+	// If we encounter disk error, `Update` can return an error before setting timer to nil.
+	// We set it to nil here, to avoid appending new items.
+	if err != nil {
+		b.mtx.Lock()
+		b.timer = nil
+		b.mtx.Unlock()
+	}
+	for i := range b.results {
 		b.results[i] <- err
 	}
 }
