@@ -116,9 +116,10 @@ func (c *initializeContext) transferNEOFinished(neoHash util.Uint160) (bool, err
 var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
 
 func (c *initializeContext) getCandidateRegisterPrice() (int64, error) {
-	switch ct := c.Client.(type) {
+	switch c.Client.(type) {
 	case *rpcclient.Client:
-		return ct.GetCandidateRegisterPrice()
+		reader := neo.NewReader(c.ReadOnlyInvoker)
+		return reader.GetRegisterPrice()
 	default:
 		neoHash := neo.Hash
 		res, err := invokeFunction(c.Client, neoHash, "getRegisterPrice", nil, nil)
