@@ -761,7 +761,7 @@ func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ 
 		actual := constructor(t, WithMaxBatchSize(batchSize))
 		wg := new(sync.WaitGroup)
 		ch := make(chan *Move, 0)
-		for i := 0; i < batchSize; i++ {
+		for i := 0; i < batchSize*4; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
