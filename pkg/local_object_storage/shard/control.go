@@ -255,9 +255,11 @@ func (s *Shard) Close() error {
 
 	components = append(components, s.blobStor, s.metaBase)
 
+	var lastErr error
 	for _, component := range components {
 		if err := component.Close(); err != nil {
-			return fmt.Errorf("could not close %s: %w", component, err)
+			lastErr = err
+			s.log.Error("could not close shard component", zap.Error(err))
 		}
 	}
 
@@ -266,7 +268,7 @@ func (s *Shard) Close() error {
 		s.gc.stop()
 	}
 
-	return nil
+	return lastErr
 }
 
 // Reload reloads configuration portions that are necessary.
