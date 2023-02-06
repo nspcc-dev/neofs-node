@@ -790,13 +790,18 @@ func initLocalStorage(c *cfg) {
 		tombstone.WithTombstoneSource(tombstoneSrc),
 	)
 
+	var shardsAttached int
 	for _, optsWithMeta := range c.shardOpts() {
 		id, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithTombstoneSource(tombstoneSource))...)
-		fatalOnErr(err)
-
-		c.log.Info("shard attached to engine",
-			zap.Stringer("id", id),
-		)
+		if err != nil {
+			c.log.Error("failed to attach shard to engine", zap.Error(err))
+		} else {
+			shardsAttached++
+			c.log.Info("shard attached to engine", zap.Stringer("id", id))
+		}
+	}
+	if shardsAttached == 0 {
+		fatalOnErr(engineconfig.ErrNoShardConfigured)
 	}
 
 	c.cfgObject.cfgLocalStorage.localStorage = ls
