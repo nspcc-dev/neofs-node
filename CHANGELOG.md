@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Restore subscriptions correctly on morph client switch (#2212)
 - Expired objects could be returned if not marked with GC yet (#2213)
 - `neofs-adm morph dump-hashes` now properly iterates over custom domain (#2224)
+- Possible deadlock in write-cache (#2239)
 
 ### Removed
 ### Updated
