@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Pilorama now can merge multiple batches into one (#2231)
+- Storage engine now can start even when some shard components are unavailable (#2238)
 
 ### Fixed
 - Big object removal with non-local parts (#1978)

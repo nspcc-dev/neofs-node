@@ -23,27 +23,44 @@ func (e *StorageEngine) Open() error {
 }
 
 func (e *StorageEngine) open() error {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
 
 	var wg sync.WaitGroup
-	var errCh = make(chan error, len(e.shards))
+	var errCh = make(chan shardInitError, len(e.shards))
 
 	for id, sh := range e.shards {
 		wg.Add(1)
 		go func(id string, sh *shard.Shard) {
 			defer wg.Done()
 			if err := sh.Open(); err != nil {
-				errCh <- fmt.Errorf("could not open shard %s: %w", id, err)
+				errCh <- shardInitError{
+					err: err,
+					id:  id,
+				}
 			}
 		}(id, sh.Shard)
 	}
 	wg.Wait()
 	close(errCh)
 
-	for err := range errCh {
-		if err != nil {
-			return err
+	for res := range errCh {
+		if res.err != nil {
+			e.log.Error("could not open shard, closing and skipping",
+				zap.String("id", res.id),
+				zap.Error(res.err))
+
+			sh := e.shards[res.id]
+			delete(e.shards, res.id)
+
+			err := sh.Close()
+			if err != nil {
+				e.log.Error("could not close partially initialized shard",
+					zap.String("id", res.id),
+					zap.Error(res.err))
+			}
+
+			continue
 		}
 	}
 
@@ -76,11 +93,19 @@ func (e *StorageEngine) Init() error {
 	for res := range errCh {
 		if res.err != nil {
 			if errors.Is(res.err, blobstor.ErrInitBlobovniczas) {
-				delete(e.shards, res.id)
-
-				e.log.Error("shard initialization failure, skipping",
+				e.log.Error("could not initialize shard, closing and skipping",
 					zap.String("id", res.id),
 					zap.Error(res.err))
+
+				sh := e.shards[res.id]
+				delete(e.shards, res.id)
+
+				err := sh.Close()
+				if err != nil {
+					e.log.Error("could not close partially initialized shard",
+						zap.String("id", res.id),
+						zap.Error(res.err))
+				}
 
 				continue
 			}
