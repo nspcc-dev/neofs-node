@@ -7,15 +7,147 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
+	"go.uber.org/zap/zaptest"
 )
+
+// TestInitializationFailure checks that shard is initialized and closed even if media
+// under any single component is absent. We emulate this with permission denied error.
+func TestInitializationFailure(t *testing.T) {
+	type paths struct {
+		blobstor   string
+		metabase   string
+		writecache string
+		pilorama   string
+	}
+
+	existsDir := filepath.Join(t.TempDir(), "shard")
+	badDir := filepath.Join(t.TempDir(), "missing")
+
+	testShard := func(c paths) []shard.Option {
+		sid, err := generateShardID()
+		require.NoError(t, err)
+
+		return []shard.Option{
+			shard.WithID(sid),
+			shard.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			shard.WithBlobStorOptions(
+				blobstor.WithStorages(
+					newStorages(c.blobstor, 1<<20))),
+			shard.WithMetaBaseOptions(
+				meta.WithBoltDBOptions(&bbolt.Options{
+					Timeout: 100 * time.Millisecond,
+				}),
+				meta.WithPath(c.metabase),
+				meta.WithPermissions(0700),
+				meta.WithEpochState(epochState{})),
+			shard.WithWriteCache(true),
+			shard.WithWriteCacheOptions(writecache.WithPath(c.writecache)),
+			shard.WithPiloramaOptions(pilorama.WithPath(c.pilorama)),
+		}
+	}
+
+	t.Run("blobstor", func(t *testing.T) {
+		badDir := filepath.Join(badDir, t.Name())
+		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
+		require.NoError(t, os.Chmod(badDir, 0))
+		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+			blobstor:   filepath.Join(badDir, "0"),
+			metabase:   filepath.Join(existsDir, t.Name(), "1"),
+			writecache: filepath.Join(existsDir, t.Name(), "2"),
+			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
+		}))
+	})
+	t.Run("metabase", func(t *testing.T) {
+		badDir := filepath.Join(badDir, t.Name())
+		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
+		require.NoError(t, os.Chmod(badDir, 0))
+		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
+			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
+			metabase:   filepath.Join(badDir, "1"),
+			writecache: filepath.Join(existsDir, t.Name(), "2"),
+			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
+		}))
+	})
+	t.Run("write-cache", func(t *testing.T) {
+		badDir := filepath.Join(badDir, t.Name())
+		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
+		require.NoError(t, os.Chmod(badDir, 0))
+		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
+			metabase:   filepath.Join(existsDir, t.Name(), "1"),
+			writecache: filepath.Join(badDir, "2"),
+			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
+		}))
+	})
+	t.Run("pilorama", func(t *testing.T) {
+		badDir := filepath.Join(badDir, t.Name())
+		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
+		require.NoError(t, os.Chmod(badDir, 0))
+		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
+			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
+			metabase:   filepath.Join(existsDir, t.Name(), "1"),
+			writecache: filepath.Join(existsDir, t.Name(), "2"),
+			pilorama:   filepath.Join(badDir, "3"),
+		}))
+	})
+}
+
+func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s []shard.Option) {
+	var configID string
+
+	e := New()
+	_, err := e.AddShard(s...)
+	if errOnAdd {
+		require.Error(t, err)
+		// This branch is only taken when we cannot update shard ID in the metabase.
+		// The id cannot be encountered during normal operation, but it is ok for tests:
+		// it is only compared for equality with other ids and we have 0 shards here.
+		configID = "id"
+	} else {
+		require.NoError(t, err)
+
+		e.mtx.RLock()
+		var id string
+		for id = range e.shards {
+			break
+		}
+		configID = calculateShardID(e.shards[id].Shard.DumpInfo())
+		e.mtx.RUnlock()
+
+		err = e.Open()
+		if err == nil {
+			require.Error(t, e.Init())
+		}
+	}
+
+	e.mtx.RLock()
+	shardCount := len(e.shards)
+	e.mtx.RUnlock()
+	require.Equal(t, 0, shardCount)
+
+	require.NoError(t, os.Chmod(badDir, os.ModePerm))
+	require.NoError(t, e.Reload(ReConfiguration{
+		shards: map[string][]shard.Option{configID: s},
+	}))
+
+	e.mtx.RLock()
+	shardCount = len(e.shards)
+	e.mtx.RUnlock()
+	require.Equal(t, 1, shardCount)
+}
 
 func TestExecBlocks(t *testing.T) {
 	e := testNewEngineWithShardNum(t, 2) // number doesn't matter in this test, 2 is several but not many
