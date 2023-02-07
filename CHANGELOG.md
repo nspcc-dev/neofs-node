@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - Expired objects could be returned if not marked with GC yet (#2213)
 - `neofs-adm morph dump-hashes` now properly iterates over custom domain (#2224)
 - Possible deadlock in write-cache (#2239)
+- Fix `*_req_count` and `*_req_count_success` metric values (#2241)
 
 ### Removed
 ### Updated

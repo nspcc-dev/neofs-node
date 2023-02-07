@@ -50,13 +50,13 @@ func newMethodCallCounter(name string) methodCount {
 		success: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
-			Name:      fmt.Sprintf("%s_req_count", name),
+			Name:      fmt.Sprintf("%s_req_count_success", name),
 			Help:      fmt.Sprintf("The number of successful %s requests processed", name),
 		}),
 		total: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: objectSubsystem,
-			Name:      fmt.Sprintf("%s_req_count_success", name),
+			Name:      fmt.Sprintf("%s_req_count", name),
 			Help:      fmt.Sprintf("Total number of %s requests processed", name),
 		}),
 	}
