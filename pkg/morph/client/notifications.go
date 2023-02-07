@@ -211,6 +211,29 @@ func (c *Client) restoreSubscriptions(cli *rpcclient.WSClient, endpoint string) 
 		id  string
 	)
 
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	// neo-go WS client says to _always_ read notifications
+	// from its channel. Subscribing to any notification
+	// while not reading them in another goroutine may
+	// lead to a dead-lock, thus that async side notification
+	// listening while restoring subscriptions
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				return
+			case n, ok := <-cli.Notifications:
+				if !ok {
+					return
+				}
+
+				c.notifications <- n
+			}
+		}
+	}()
+
 	// new block events restoration
 	if c.subscribedToNewBlocks {
 		_, err = cli.SubscribeForNewBlocks(nil)
