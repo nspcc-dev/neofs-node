@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -94,10 +96,11 @@ func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, e
 
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
 		exists, err := db.exists(tx, prm.addr, currEpoch)
-		if !exists || err != nil {
-			return err
+		if err == nil && exists || errors.Is(err, ErrObjectIsExpired) {
+			err = updateStorageID(tx, prm.addr, prm.id)
 		}
-		return updateStorageID(tx, prm.addr, prm.id)
+
+		return err
 	})
 
 	return

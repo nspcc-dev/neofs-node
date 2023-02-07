@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - `neofs-adm morph dump-hashes` now properly iterates over custom domain (#2224)
 - Possible deadlock in write-cache (#2239)
 - Fix `*_req_count` and `*_req_count_success` metric values (#2241)
+- Storage ID update by write-cache (#2244)
 
 ### Removed
 ### Updated
