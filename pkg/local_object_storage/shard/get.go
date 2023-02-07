@@ -121,9 +121,14 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		}
 
 		if IsErrNotFound(err) {
-			s.log.Debug("object is missing in write-cache")
+			s.log.Debug("object is missing in write-cache",
+				zap.Stringer("addr", addr),
+				zap.Bool("skip_meta", skipMeta))
 		} else {
-			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
+			s.log.Error("failed to fetch object from write-cache",
+				zap.Error(err),
+				zap.Stringer("addr", addr),
+				zap.Bool("skip_meta", skipMeta))
 		}
 	}
 
