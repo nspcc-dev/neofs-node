@@ -107,6 +107,8 @@ replicator:
   pool_size: 10     # maximum amount of concurrent replications
 
 object:
+  delete:
+    tombstone_lifetime: 10 # tombstone "local" lifetime in epochs
   put:
     pool_size_remote: 100  # number of async workers for remote PUT operations
 

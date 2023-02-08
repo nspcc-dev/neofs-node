@@ -472,6 +472,8 @@ type cfgObject struct {
 	pool cfgObjectRoutines
 
 	cfgLocalStorage cfgLocalStorage
+
+	tombstoneLifetime uint64
 }
 
 type cfgNotifications struct {
@@ -598,7 +600,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		proxyScriptHash: contractsconfig.Proxy(appCfg),
 	}
 	c.cfgObject = cfgObject{
-		pool: initObjectPool(appCfg),
+		pool:              initObjectPool(appCfg),
+		tombstoneLifetime: objectconfig.TombstoneLifetime(appCfg),
 	}
 	c.cfgReputation = cfgReputation{
 		scriptHash: contractsconfig.Reputation(appCfg),

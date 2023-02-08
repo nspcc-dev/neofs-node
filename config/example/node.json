@@ -128,6 +128,9 @@
     "put_timeout": "15s"
   },
   "object": {
+    "delete": {
+      "tombstone_lifetime": 10
+    },
     "put": {
       "pool_size_remote": 100
     }
