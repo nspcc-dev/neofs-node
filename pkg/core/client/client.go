@@ -33,6 +33,8 @@ type MultiAddressClient interface {
 	// RawForAddress must return rawclient.Client
 	// for the passed network.Address.
 	RawForAddress(network.Address, func(cli *rawclient.Client) error) error
+
+	ReportError(error)
 }
 
 // NodeInfo groups information about a NeoFS storage node needed for Client construction.
