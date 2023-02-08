@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Separate batching for replicated operations over the same container in pilorama (#1621)
+- `object.delete.tombstone_lifetime` config parameter to set tombstone lifetime in the DELETE service (#2246)
 
 ### Changed
 - Pilorama now can merge multiple batches into one (#2231)
@@ -26,6 +27,8 @@ Changelog for NeoFS Node
 ### Removed
 ### Updated
 ### Updating from v0.35.0
+New config field `object.delete.tombstone_lifetime` allows to set tombstone lifetime
+more appropriate for a specific deployment.
 
 ## [0.35.0] - 2022-12-28 - Sindo (신도, 信島)
 
