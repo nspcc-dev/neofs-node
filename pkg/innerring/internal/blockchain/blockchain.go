@@ -60,30 +60,54 @@ type Blockchain struct {
 	chErr chan error
 }
 
+// SignTools groups signing components for New constructor.
+type SignTools struct {
+	// NEO account of the node.
+	Account *wallet.Account
+
+	// File containing Account.
+	AccountFile struct {
+		// Path to the file.
+		Path string
+		// Account password.
+		Password string
+	}
+}
+
 // New returns new Blockchain instance initialized using provided parameters. If
 // New returns an error, Blockchain can (and must) not be used with provided
 // configuration.
 //
-// Provided file path is expected to lead to the Neo Go configuration file: it
-// is used to build core blockchain components similar to the Neo Go node in
-// order to use Neo blockchain services.
+// Provided file path is expected to lead to the Neo Go partial (*)
+// configuration file: it is used to build core blockchain components similar to
+// the Neo Go node in order to use Neo blockchain services.
+// (*) partial means that some values are static and can't be configured:
+//   - ApplicationConfiguration.Relay is always set
+//   - ApplicationConfiguration.X.UnlockWallet is set to specified SignTools.AccountFile
+//     (X - Consensus, P2PNotary)
+//   - ApplicationConfiguration.X.Enabled is set if node belongs to
+//     the committee (X - Consensus, P2PNotary)
 //
-// Given wallet.Account is expected to be Inner Ring node's NEO account. It must
-// be previously unlocked for signing.
+// Given SignTools.Account is expected to be Inner Ring node's NEO account. It
+// must be previously unlocked for signing, and SignTools.AccountFile must
+// correspond to it. If the account belongs to the committee of the configured
+// Neo blockchain, resulting Blockchain is run in consensus mode.
 //
 // Given zap.Logger instance is used to log Blockchain events. It should be
 // previously initialized: Blockchain does not modify the logger.
 //
 // Specified error channel is used to report internal Blockchain errors to the
 // superior context (Inner Ring application) listening to it in the background.
-func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chErr chan<- error) (*Blockchain, error) {
+func New(neoNodeConfigFilepath string, signTools SignTools, log *zap.Logger, chErr chan<- error) (*Blockchain, error) {
 	switch {
 	case neoNodeConfigFilepath == "":
 		panic("missing Neo node config file")
-	case acc == nil:
+	case signTools.Account == nil:
 		panic("missing node account")
-	case acc != nil && !acc.CanSign():
+	case signTools.Account != nil && !signTools.Account.CanSign():
 		panic("account can not sign anything")
+	case signTools.AccountFile.Path == "":
+		panic("missing path to file with the node account")
 	case log == nil:
 		panic("missing logger")
 	case chErr == nil:
@@ -96,6 +120,11 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 	if err != nil {
 		return nil, fmt.Errorf("load neo-go node config from file: %w", err)
 	}
+
+	// set static configurations which default to non-zero fields of config.Config
+	// structure.
+	cfg.ApplicationConfiguration.Relay = true
+	// TODO: what else?
 
 	cfgServer, err := network.NewServerConfig(cfg)
 	if err != nil {
@@ -119,6 +148,22 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 
 	go blockChain.Run() // is it required to be insta called?
 
+	committee, err := blockChain.GetCommittee()
+	if err != nil {
+		// currently never returns an error, but this is not documented, so exit would
+		// be incorrect.
+		return nil, fmt.Errorf("get committee members: %w", err)
+	}
+
+	isAlphabetNode := false
+
+	for i := range committee {
+		// note that CanSign is checked above
+		if isAlphabetNode = committee[i].Equal(signTools.Account.PublicKey()); isAlphabetNode {
+			break
+		}
+	}
+
 	netServer, err := network.NewServer(cfgServer, blockChain, blockChain.GetStateSyncModule(), log)
 	if err != nil {
 		return nil, fmt.Errorf("init neo-go network server: %w", err)
@@ -126,7 +171,7 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 
 	rpcActor := newActor(blockChain, netServer, cfg.ApplicationConfiguration.RPC.MaxGasInvoke)
 
-	_actor, err := actor.NewSimple(rpcActor, acc)
+	_actor, err := actor.NewSimple(rpcActor, signTools.Account)
 	if err != nil {
 		return nil, fmt.Errorf("init simple actor using node account: %w", err)
 	}
@@ -161,40 +206,45 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 	// 	artifacts.netServer.AddService(oracleService)
 	// }
 
-	var consensusService consensus.Service
+	if isAlphabetNode {
+		// currently Consensus and Notary services doesn't support external
+		// wallet.Account, so just pass file with the wallet including
+		// signTools.Account. Password should work since the account has been already
+		// unlocked with it.
+		cfgUnlockWallet := config.Wallet{
+			Path:     signTools.AccountFile.Path,
+			Password: signTools.AccountFile.Password,
+		}
 
-	if cfg.ApplicationConfiguration.Consensus.Enabled {
-		var c consensus.Config
-		c.Logger = log
-		c.Broadcast = netServer.BroadcastExtensible
-		c.Chain = blockChain
-		c.ProtocolConfiguration = blockChain.GetConfig().ProtocolConfiguration
-		c.RequestTx = netServer.RequestTx
-		c.StopTxFlow = netServer.StopTxFlow
-		c.Wallet = cfg.ApplicationConfiguration.Consensus.UnlockWallet
-		c.TimePerBlock = cfgServer.TimePerBlock
+		var cfgConsensus consensus.Config
+		cfgConsensus.Logger = log
+		cfgConsensus.Broadcast = netServer.BroadcastExtensible
+		cfgConsensus.Chain = blockChain
+		cfgConsensus.ProtocolConfiguration = blockChain.GetConfig().ProtocolConfiguration
+		cfgConsensus.RequestTx = netServer.RequestTx
+		cfgConsensus.StopTxFlow = netServer.StopTxFlow
+		// currently consensus.Service doesn't support external wallet.Account, so just
+		// pass file with the wallet including signTools.Account. Password should work
+		// since the account has been already unlocked with it.
+		cfgConsensus.Wallet = cfgUnlockWallet
+		cfgConsensus.TimePerBlock = cfgServer.TimePerBlock
 
-		consensusService, err = consensus.NewService(c)
+		consensusService, err := consensus.NewService(cfgConsensus)
 		if err != nil {
 			return nil, fmt.Errorf("init Consensus module: %w", err)
 		}
 
 		netServer.AddConsensusService(consensusService, consensusService.OnPayload, consensusService.OnTransaction)
-	}
 
-	var notaryService *notarysvc.Notary
-
-	if cfg.ApplicationConfiguration.P2PNotary.Enabled {
-		if !blockChain.P2PSigExtensionsEnabled() {
-			return nil, errors.New("P2PSigExtensions are disabled, but Notary service is enabled")
+		var cfgNotary notarysvc.Config
+		cfgNotary.MainCfg = config.P2PNotary{
+			Enabled:      true,
+			UnlockWallet: cfgUnlockWallet,
 		}
+		cfgNotary.Chain = blockChain
+		cfgNotary.Log = log
 
-		var c notarysvc.Config
-		c.MainCfg = cfg.ApplicationConfiguration.P2PNotary
-		c.Chain = blockChain
-		c.Log = log
-
-		notaryService, err = notarysvc.NewNotary(c, netServer.Net, netServer.GetNotaryPool(), func(tx *transaction.Transaction) error {
+		notaryService, err := notarysvc.NewNotary(cfgNotary, netServer.Net, netServer.GetNotaryPool(), func(tx *transaction.Transaction) error {
 			err := netServer.RelayTxn(tx)
 			if err != nil && !errors.Is(err, core.ErrAlreadyExists) {
 				return fmt.Errorf("relay completed notary transaction %s: %w", tx.Hash().StringLE(), err)

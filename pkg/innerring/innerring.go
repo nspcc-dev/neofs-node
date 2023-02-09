@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
@@ -325,16 +326,21 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	// parse notary support
 	server.feeConfig = config.NewFeeConfig(cfg)
 
+	var signTools blockchain.SignTools
+	signTools.AccountFile.Path = cfg.GetString("wallet.path")
+	signTools.AccountFile.Password = cfg.GetString("wallet.password")
+
 	// prepare inner ring node private key
-	acc, err := utilConfig.LoadAccount(
-		cfg.GetString("wallet.path"),
+	signTools.Account, err = utilConfig.LoadAccount(
+		signTools.AccountFile.Path,
 		cfg.GetString("wallet.address"),
-		cfg.GetString("wallet.password"))
+		signTools.AccountFile.Password,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("ir: %w", err)
 	}
 
-	server.key = acc.PrivateKey()
+	server.key = signTools.Account.PrivateKey()
 
 	server.persistate, err = initPersistentStateStorage(cfg)
 	if err != nil {
@@ -380,7 +386,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		}
 	}
 
-	server.node, err = newNode(cfg, acc, log, errChan, mainChainStatus{
+	server.node, err = newNode(cfg, signTools, log, errChan, mainChainStatus{
 		separated:            !server.withoutMainNet,
 		notaryServiceEnabled: !server.withoutMainNet && server.mainnetClient.ProbeNotary(),
 	})

@@ -82,11 +82,11 @@ type mainChainStatus struct {
 // contract must be configured by 'contracts.neofs' path. In this case if
 // mainChainStatus.notaryServiceEnabled is true, then address of the Processing
 // contract must be configured by 'contracts.processing' path.
-func newNode(cfg *viper.Viper, nodeAcc *wallet.Account, log *logger.Logger, chErr chan<- error, mainChain mainChainStatus) (*node, error) {
+func newNode(cfg *viper.Viper, signTools blockchain.SignTools, log *logger.Logger, chErr chan<- error, mainChain mainChainStatus) (*node, error) {
 	var n node
 	var err error
 
-	n.sidechain, err = blockchain.New(cfg.ConfigFileUsed(), nodeAcc, log.Named("Morph"), chErr)
+	n.sidechain, err = blockchain.New(cfg.ConfigFileUsed(), signTools, log.Named("Morph"), chErr)
 	if err != nil {
 		return nil, fmt.Errorf("init blockchain module: %w", err)
 	}
@@ -108,7 +108,7 @@ func newNode(cfg *viper.Viper, nodeAcc *wallet.Account, log *logger.Logger, chEr
 	}
 
 	n.storageEmissionAmount = cfg.GetUint64("emit.storage.amount")
-	n.acc = nodeAcc
+	n.acc = signTools.Account
 
 	n.processors.alphabet = alphabet.New(log, &n)
 	n.processors.balance = balance.New(log, &n)
@@ -267,8 +267,8 @@ func (x *node) ApproveWithdrawal(userAcc util.Uint160, amount uint64, withdrawTx
 
 	var tx transaction.Transaction
 
-	// main net: &transaction.Signer{Scopes: transaction.CalledByEntry}
-	// morph: &transaction.Signer{	Scopes: transaction.Global
+	// main net: &transaction.SignTools{Scopes: transaction.CalledByEntry}
+	// morph: &transaction.SignTools{	Scopes: transaction.Global
 
 	tx.Signers = []transaction.Signer{
 		{
