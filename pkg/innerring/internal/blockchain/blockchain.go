@@ -58,10 +58,6 @@ type Blockchain struct {
 	rpcActor notary.RPCActor
 
 	chErr chan error
-
-	// optional (can be nil) starter of the Neo RPC server
-	// if set, it is called on Run. otherwise
-	rpcServerStarter func()
 }
 
 // New returns new Blockchain instance initialized using provided parameters. If
@@ -237,10 +233,6 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 		chErr:     chErrRw,
 	}
 
-	if !cfg.ApplicationConfiguration.RPC.StartWhenSynchronized {
-		res.rpcServerStarter = rpcServer.Start
-	}
-
 	return res, nil
 }
 
@@ -255,11 +247,6 @@ func New(neoNodeConfigFilepath string, acc *wallet.Account, log *zap.Logger, chE
 // Use Stop to stop the Blockchain.
 func (x *Blockchain) Run() error {
 	go x.netServer.Start(x.chErr)
-
-	if x.rpcServerStarter != nil {
-		x.rpcServerStarter()
-	}
-
 	return nil
 }
 
