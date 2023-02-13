@@ -30,4 +30,23 @@ testfile
 .neofs-cli.yml
 
 # debhelpers
-**/.debhelper
+**/*.debhelper
+**/debhelper*
+
+# logfiles
+debian/*.log
+
+# .substvars
+debian/*.substvars
+
+# .bash-completion
+debian/*.bash-completion
+
+# Install folders and files
+debian/neofs-cli/
+debian/neofs-ir/
+debian/files
+debian/neofs-storage/
+debian/changelog
+man/
+debs/
