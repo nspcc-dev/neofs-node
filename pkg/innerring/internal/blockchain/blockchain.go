@@ -27,6 +27,7 @@ import (
 	notarysvc "github.com/nspcc-dev/neo-go/pkg/services/notary"
 	"github.com/nspcc-dev/neo-go/pkg/services/rpcsrv"
 	"github.com/nspcc-dev/neo-go/pkg/services/stateroot"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -559,34 +560,109 @@ func (x *Blockchain) TransactionBlock(txID util.Uint256) (uint32, error) {
 	return height, nil
 }
 
+// formMultiSigAccountFromKeys converts given base wallet.Account into
+// multi-signature account with number of sufficient signatures calculated
+// according to Neo consensus mechanism. Public keys of signers are passed in
+// corresponding parameter.
+func formMultiSigAccountFromKeys(base *wallet.Account, keys keys.PublicKeys) (*wallet.Account, error) {
+	multiSigAcc := wallet.NewAccountFromPrivateKey(base.PrivateKey())
+
+	err := multiSigAcc.ConvertMultisig(smartcontract.GetDefaultHonestNodeCount(len(keys)), keys)
+	if err != nil {
+		return nil, fmt.Errorf("convert simple account to the multisig one: %w", err)
+	}
+
+	return multiSigAcc, nil
+}
+
+// returns actor.SignerAccount for the given wallet.Account with
+// transaction.WitnessScope set to transaction.CalledByEntry.
+func accountToSignerAccount(acc *wallet.Account) (res actor.SignerAccount) {
+	res.Account = acc
+	res.Signer.Account = acc.ScriptHash()
+	res.Signer.Scopes = transaction.CalledByEntry
+	return
+}
+
+// returns actor.SignerAccount for the contract account which is provided to
+// notary.Actor to lay the signature expected by the given contract.
+func contractSignerAccount(contract util.Uint160) (res actor.SignerAccount) {
+	res.Account = notary.FakeContractAccount(contract)
+	res.Signer.Account = contract
+	res.Signer.Scopes = transaction.None
+	return
+}
+
 // SignAndSendTransactionNotary signs given transaction on behalf of the
-// specified simple Neo account and submits it as a notary request using
-// SubmitTransactionNotary.
-func (x *Blockchain) SignAndSendTransactionNotary(tx transaction.Transaction, multiSigAcc, simpleAcc *wallet.Account) error {
-	err := multiSigAcc.SignTx(x.actor.GetNetwork(), &tx)
+// specified simple Neo account, wraps the transaction into request for signing
+// by group of parties presented in a specified keys.PublicKeys, and spreads it
+// in the blockchain network via Neo Notary service.
+//
+// Passed keys.PublicKeys must not be empty.
+func (x *Blockchain) SignAndSendTransactionNotary(tx transaction.Transaction, signerKeys keys.PublicKeys, simpleAcc *wallet.Account) error {
+	if len(signerKeys) == 0 {
+		panic("missing signer keys")
+	}
+
+	multiSigAcc, err := formMultiSigAccountFromKeys(simpleAcc, signerKeys)
+	if err != nil {
+		return err
+	}
+
+	err = multiSigAcc.SignTx(x.actor.GetNetwork(), &tx)
 	if err != nil {
 		return fmt.Errorf("sign main transaction of the notary request: %w", err)
 	}
 
-	return x.SubmitTransactionNotary(tx, multiSigAcc, simpleAcc)
+	return x.submitTransactionNotary(simpleAcc, []actor.SignerAccount{accountToSignerAccount(multiSigAcc)}, func(*notary.Actor) (*transaction.Transaction, error) {
+		return &tx, nil
+	})
 }
 
-// SubmitTransactionNotary wraps and given transaction as a request for signing
-// by a group of parties presented in a provided multi-signature account and
-// spreads it in the blockchain network. The action is performed via Neo Notary
-// request. The request is signed on behalf of the specified simple Neo account.
-func (x *Blockchain) SubmitTransactionNotary(tx transaction.Transaction, multiSigAcc, simpleAcc *wallet.Account) error {
-	var signerAcc actor.SignerAccount
-	signerAcc.Account = multiSigAcc
-	signerAcc.Signer.Account = multiSigAcc.ScriptHash()
-	signerAcc.Signer.Scopes = transaction.CalledByEntry
+// CallContractNotarized creates transaction for calling specified contract
+// (particular method with its arguments), wraps the transaction into request
+// for signing by:
+//  1. Proxy contract deployed in the NeoFS Sidechain
+//  2. a group of parties presented in a provided keys.PublicKeys
+//  3. Notary native contract
+//
+// and spreads it in the blockchain network. The action is performed via Neo
+// Notary request. The request is signed on behalf of the specified simple Neo
+// account.
+//
+// Passed keys.PublicKeys must not be empty.
+func (x *Blockchain) CallContractNotarized(simpleAcc *wallet.Account, signerKeys keys.PublicKeys, proxyContract, calledContract util.Uint160, method string, args ...interface{}) error {
+	if len(signerKeys) == 0 {
+		panic("missing signer keys")
+	}
 
-	actr, err := notary.NewActor(x.rpcActor, []actor.SignerAccount{signerAcc}, simpleAcc)
+	multiSigAcc, err := formMultiSigAccountFromKeys(simpleAcc, signerKeys)
+	if err != nil {
+		return err
+	}
+
+	signers := []actor.SignerAccount{
+		contractSignerAccount(proxyContract),
+		accountToSignerAccount(multiSigAcc),
+		contractSignerAccount(notary.Hash),
+	}
+
+	return x.submitTransactionNotary(simpleAcc, signers, func(a *notary.Actor) (*transaction.Transaction, error) {
+		return a.MakeCall(calledContract, method, args...)
+	})
+}
+
+// submitTransactionNotary constructs transaction.Transaction and wraps it into
+// request for signing by a group of parties and spreads the request in the
+// blockchain network. The action is performed via Neo Notary service. The
+// request is signed on behalf of the specified simple Neo account.
+func (x *Blockchain) submitTransactionNotary(simpleAcc *wallet.Account, signers []actor.SignerAccount, fTx func(*notary.Actor) (*transaction.Transaction, error)) error {
+	a, err := notary.NewActor(x.rpcActor, signers, simpleAcc)
 	if err != nil {
 		return fmt.Errorf("init notary actor: %w", err)
 	}
 
-	_, _, _, err = actr.Notarize(&tx, nil)
+	_, _, _, err = a.Notarize(fTx(a))
 	if err != nil {
 		return fmt.Errorf("notarize transaction using notary actor: %w", err)
 	}

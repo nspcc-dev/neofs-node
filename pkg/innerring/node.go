@@ -1,16 +1,9 @@
 package innerring
 
 import (
-	"encoding/binary"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/models"
@@ -197,21 +190,6 @@ func (x *node) TransferGAS(amount uint64, to util.Uint160) error {
 	return x.sidechain.TransferGAS(amount, x.acc.ScriptHash(), to)
 }
 
-// buildAlphabetMultiSigAccount builds NeoFS Alphabet multi-signature
-// wallet.Account from local Inner Ring node's account and specified public keys
-// of the NeoFS Alphabet members with number of sufficient signatures set to
-// the Alphabet size.
-func (x *node) buildAlphabetMultiSigAccount(alphabetKeys keys.PublicKeys) (*wallet.Account, error) {
-	acc := wallet.NewAccountFromPrivateKey(x.acc.PrivateKey())
-
-	err := acc.ConvertMultisig(smartcontract.GetDefaultHonestNodeCount(len(alphabetKeys)), alphabetKeys)
-	if err != nil {
-		return nil, fmt.Errorf("convert node account to Alphabet multi-sig account: %w", err)
-	}
-
-	return acc, nil
-}
-
 // ApproveWithdrawal implements balance.LocalNode via calling the 'cheque'
 // method of the NeoFS contract deployed in the NeoFS Mainchain (*) with
 // following arguments:
@@ -258,76 +236,11 @@ func (x *node) ApproveWithdrawal(userAcc util.Uint160, amount uint64, withdrawTx
 		return err
 	}
 
-	m := smartcontract.GetDefaultHonestNodeCount(len(alphabetKeys))
-
-	multiSigScript, err := smartcontract.CreateMultiSigRedeemScript(m, alphabetKeys)
+	err = x.sidechain.CallContractNotarized(x.acc, alphabetKeys, x.contracts.get(contractProxy), contract, method,
+		withdrawTx, userAcc, amount, withdrawTx,
+	)
 	if err != nil {
-		return fmt.Errorf("create multi-sig redeem script for Alphabet: %w", err)
-	}
-
-	var tx transaction.Transaction
-
-	// main net: &transaction.SignTools{Scopes: transaction.CalledByEntry}
-	// morph: &transaction.SignTools{	Scopes: transaction.Global
-
-	tx.Signers = []transaction.Signer{
-		{
-			Account: x.contracts.get(contractProxy),
-			Scopes:  transaction.None,
-		},
-		{
-			Account: hash.Hash160(multiSigScript),
-			Scopes:  transaction.CalledByEntry, // transaction.Global for sidechain
-		},
-		{
-			Account: notary.Hash, // notary contract
-			Scopes:  transaction.None,
-		},
-	}
-
-	callRes, err := x.sidechain.TestCallContractMethod(contract, method, withdrawTx, userAcc, amount, withdrawTx)
-	if err != nil {
-		return fmt.Errorf("test call '%s' method of the NeoFS contract: %w", method, err)
-	}
-
-	alphabetMultiSigAcc, err := x.buildAlphabetMultiSigAccount(alphabetKeys)
-	if err != nil {
-		return fmt.Errorf("build alphabet multi-sig account: %w", err)
-	}
-
-	withdrawHeight, err := x.sidechain.TransactionBlock(withdrawTx)
-	if err != nil {
-		return fmt.Errorf("get withdrawal transaction block height: %w", err)
-	}
-
-	tx.SystemFee = callRes.ConsumedGAS
-	tx.Nonce = binary.BigEndian.Uint32(withdrawTx[:4])
-	tx.ValidUntilBlock = withdrawHeight + 50
-	tx.Script = callRes.Script
-	tx.Attributes = []transaction.Attribute{{
-		Type: transaction.NotaryAssistedT,
-		Value: &transaction.NotaryAssisted{
-			NKeys: uint8(len(alphabetKeys)),
-		},
-	}}
-	tx.Scripts = []transaction.Witness{
-		{ // placeholder for Proxy contract witness
-			InvocationScript:   []byte{},
-			VerificationScript: []byte{},
-		},
-		{
-			InvocationScript:   x.sidechain.InvocationScriptOfTransactionSignature(alphabetMultiSigAcc, tx),
-			VerificationScript: alphabetMultiSigAcc.GetVerificationScript(),
-		},
-		{ // placeholder for Notary contract witness
-			InvocationScript:   append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...),
-			VerificationScript: []byte{},
-		},
-	}
-
-	err = x.sidechain.SubmitTransactionNotary(tx, alphabetMultiSigAcc, x.acc)
-	if err != nil {
-		return fmt.Errorf("submit transaction to blockchain as notary request: %w", err)
+		return fmt.Errorf("call notarized '%s' method of the NeoFS contract: %w", method, err)
 	}
 
 	return nil
@@ -340,13 +253,7 @@ func (x *node) signAndSendVerifiedNotaryRequest(n notaryRequest) {
 		return
 	}
 
-	alphabetMultiSigAcc, err := x.buildAlphabetMultiSigAccount(_alphabet)
-	if err != nil {
-		x.log.Error("failed to build Alphabet multi-sig account", zap.Error(err))
-		return
-	}
-
-	err = x.sidechain.SignAndSendTransactionNotary(n.mainTx, alphabetMultiSigAcc, x.acc)
+	err = x.sidechain.SignAndSendTransactionNotary(n.mainTx, _alphabet, x.acc)
 	if err != nil {
 		x.log.Error("sign and send main transaction of the notary request", zap.Error(err))
 		return
