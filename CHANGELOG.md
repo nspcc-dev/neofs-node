@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Fix `*_req_count` and `*_req_count_success` metric values (#2241)
 - Storage ID update by write-cache (#2244)
 - `neo-go` client deadlock on subscription restoration (#2244)
+- Possible panic during write-cache initialization (#2234)
 
 ### Removed
 ### Updated

@@ -46,6 +46,7 @@ func (c *cache) initFlushMarks() {
 	var batchSize = flushBatchSize
 	for {
 		m = m[:0]
+		indices = indices[:0]
 
 		// We put objects in batches of fixed size to not interfere with main put cycle a lot.
 		_ = c.db.View(func(tx *bbolt.Tx) error {
