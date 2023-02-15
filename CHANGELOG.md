@@ -11,6 +11,8 @@ Changelog for NeoFS Node
 - Storage node's `replicator.put_timeout` config default to `1m` (#2227)
 
 ### Fixed
+- Pretty printer of basic ACL in the NeoFS CLI (#2259)
+
 ### Removed
 ### Updated
 - `neo-go` to `v0.100.1`
