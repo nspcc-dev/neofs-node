@@ -12,6 +12,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type singleClient struct {
@@ -169,6 +171,10 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 
 func (x *multiClient) ReportError(err error) {
 	if errors.Is(err, errRecentlyFailed) {
+		return
+	}
+
+	if status.Code(err) == codes.Canceled || errors.Is(err, context.Canceled) {
 		return
 	}
 
