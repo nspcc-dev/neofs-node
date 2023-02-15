@@ -24,7 +24,7 @@ func PrettyPrintTableBACL(cmd *cobra.Command, bacl *acl.Basic) {
 	fmt.Fprintln(w, "\tRangeHASH\tRange\tSearch\tDelete\tPut\tHead\tGet")
 	// Bits
 	bits := []string{
-		boolToString(bacl.Sticky()) + " " + boolToString(bacl.Extendable()),
+		boolToString(bacl.Sticky()) + " " + boolToString(!bacl.Extendable()),
 		getRoleBitsForOperation(bacl, acl.OpObjectHash), getRoleBitsForOperation(bacl, acl.OpObjectRange),
 		getRoleBitsForOperation(bacl, acl.OpObjectSearch), getRoleBitsForOperation(bacl, acl.OpObjectDelete),
 		getRoleBitsForOperation(bacl, acl.OpObjectPut), getRoleBitsForOperation(bacl, acl.OpObjectHead),
@@ -47,7 +47,7 @@ func getRoleBitsForOperation(bacl *acl.Basic, op acl.Op) string {
 	return boolToString(bacl.IsOpAllowed(op, acl.RoleOwner)) + " " +
 		boolToString(bacl.IsOpAllowed(op, acl.RoleContainer)) + " " +
 		boolToString(bacl.IsOpAllowed(op, acl.RoleOthers)) + " " +
-		boolToString(bacl.IsOpAllowed(op, acl.RoleInnerRing))
+		boolToString(bacl.AllowedBearerRules(op))
 }
 
 func boolToString(b bool) string {
