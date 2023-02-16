@@ -202,7 +202,6 @@ func (s *singleClient) invalidate() {
 		_ = s.client.Close()
 	}
 	s.client = nil
-	s.lastAttempt = time.Now()
 	s.Unlock()
 }
 
