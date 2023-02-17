@@ -191,7 +191,7 @@ func (c *initializeContext) updateContracts() error {
 			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
 
-		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
+		keysParam = append(keysParam, acc.PublicKey().Bytes())
 
 		params := c.getAlphabetDeployItems(i, len(c.Wallets))
 		emit.Array(w.BinWriter, params...)
@@ -278,7 +278,7 @@ func (c *initializeContext) updateContracts() error {
 		}
 	}
 
-	groupKey := c.ContractWallet.Accounts[0].PrivateKey().PublicKey()
+	groupKey := c.ContractWallet.Accounts[0].PublicKey()
 	_, _, err = c.emitUpdateNNSGroupScript(w, nnsHash, groupKey)
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
-		keysParam = append(keysParam, acc.PrivateKey().PublicKey().Bytes())
+		keysParam = append(keysParam, acc.PublicKey().Bytes())
 		params := getContractDeployParameters(alphaCs, c.getAlphabetDeployItems(i, len(c.Wallets)))
 
 		act, err := actor.NewSimple(c.Client, acc)

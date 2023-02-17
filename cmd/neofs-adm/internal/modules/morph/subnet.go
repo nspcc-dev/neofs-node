@@ -1035,7 +1035,7 @@ func notaryWitnesses(c Client, alphabet, acc *wallet.Account, tx *transaction.Tr
 	ww = append(ww, transaction.Witness{
 		InvocationScript: append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			acc.PrivateKey().SignHashable(uint32(magicNumber), tx)...),
+			acc.SignHashable(magicNumber, tx)...),
 		VerificationScript: acc.GetVerificationScript(),
 	})
 

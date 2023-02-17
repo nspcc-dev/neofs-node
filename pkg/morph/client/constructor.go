@@ -175,7 +175,7 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
 	return actor.New(ws, []actor.SignerAccount{{
 		Signer: transaction.Signer{
-			Account:          acc.PrivateKey().PublicKey().GetScriptHash(),
+			Account:          acc.ScriptHash(),
 			Scopes:           cfg.signer.Scopes,
 			AllowedContracts: cfg.signer.AllowedContracts,
 			AllowedGroups:    cfg.signer.AllowedGroups,
