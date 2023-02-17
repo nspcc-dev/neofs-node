@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
@@ -105,7 +104,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not create actor: %w", err)
 	}
 
-	gasActor := nep17.New(act, gas.Hash)
+	gasActor := gas.New(act)
 
 	txHash, vub, err := gasActor.Transfer(
 		accHash,
