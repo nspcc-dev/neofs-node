@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - Storage ID update by write-cache (#2244)
 - `neo-go` client deadlock on subscription restoration (#2244)
 - Possible panic during write-cache initialization (#2234)
+- Failing SN and IR transactions because of incorrect scopes (#2230, #2263)
 
 ### Removed
 ### Updated

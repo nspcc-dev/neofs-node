@@ -208,7 +208,7 @@ func (c *Client) SetGroupSignerScope() error {
 		return err
 	}
 
-	c.signer.Scopes = transaction.CustomGroups
+	c.signer.Scopes = transaction.CustomGroups | transaction.CalledByEntry
 	c.signer.AllowedGroups = []*keys.PublicKey{pub}
 	return nil
 }
