@@ -75,8 +75,8 @@ func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet
 	}
 
 	sort.Slice(accounts, func(i, j int) bool {
-		pi := accounts[i].PrivateKey().PublicKey().Bytes()
-		pj := accounts[j].PrivateKey().PublicKey().Bytes()
+		pi := accounts[i].PublicKey().Bytes()
+		pj := accounts[j].PublicKey().Bytes()
 		return indexMap[string(pi)] < indexMap[string(pj)]
 	})
 	sort.Slice(accounts[:cfg.ProtocolConfiguration.ValidatorsCount], func(i, j int) bool {
@@ -422,7 +422,7 @@ func (l *localClient) putTransactions() error {
 
 	magic := l.bc.GetConfig().Magic
 	for _, acc := range l.accounts {
-		sign := acc.PrivateKey().SignHashable(uint32(magic), b)
+		sign := acc.SignHashable(magic, b)
 		invocationScript = append(invocationScript, byte(opcode.PUSHDATA1), 64)
 		invocationScript = append(invocationScript, sign...)
 	}

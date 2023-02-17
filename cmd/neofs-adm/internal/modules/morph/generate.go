@@ -89,7 +89,7 @@ func initializeWallets(v *viper.Viper, walletDir string, size int) ([]string, er
 
 		passwords[i] = password
 		wallets[i] = w
-		pubs[i] = w.Accounts[0].PrivateKey().PublicKey()
+		pubs[i] = w.Accounts[0].PublicKey()
 	}
 
 	// Create committee account with N/2+1 multi-signature.

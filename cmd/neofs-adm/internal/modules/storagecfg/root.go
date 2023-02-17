@@ -126,7 +126,7 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	err = acc.Decrypt(c.Wallet.Password, keys.NEP2ScryptParams())
 	fatalOnErr(err)
 
-	c.AuthorizedKeys = append(c.AuthorizedKeys, hex.EncodeToString(acc.PrivateKey().PublicKey().Bytes()))
+	c.AuthorizedKeys = append(c.AuthorizedKeys, hex.EncodeToString(acc.PublicKey().Bytes()))
 
 	var network string
 	for {
