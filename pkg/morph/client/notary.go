@@ -575,18 +575,18 @@ func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, comm
 
 	s = append(s, transaction.Signer{
 		Account:          hash.Hash160(multisigScript),
-		Scopes:           c.signer.Scopes,
-		AllowedContracts: c.signer.AllowedContracts,
-		AllowedGroups:    c.signer.AllowedGroups,
+		Scopes:           c.cfg.signer.Scopes,
+		AllowedContracts: c.cfg.signer.AllowedContracts,
+		AllowedGroups:    c.cfg.signer.AllowedGroups,
 	})
 
 	if !invokedByAlpha {
 		// then we have invoker signature
 		s = append(s, transaction.Signer{
 			Account:          hash.Hash160(c.acc.GetVerificationScript()),
-			Scopes:           c.signer.Scopes,
-			AllowedContracts: c.signer.AllowedContracts,
-			AllowedGroups:    c.signer.AllowedGroups,
+			Scopes:           c.cfg.signer.Scopes,
+			AllowedContracts: c.cfg.signer.AllowedContracts,
+			AllowedGroups:    c.cfg.signer.AllowedGroups,
 		})
 	}
 

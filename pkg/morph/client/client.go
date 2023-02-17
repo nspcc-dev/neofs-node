@@ -56,8 +56,6 @@ type Client struct {
 	acc     *wallet.Account // neo account
 	accAddr util.Uint160    // account's address
 
-	signer *transaction.Signer
-
 	notary *notaryInfo
 
 	cfg cfg
