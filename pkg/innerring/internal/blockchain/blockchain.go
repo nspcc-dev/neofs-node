@@ -311,6 +311,10 @@ func (x *Blockchain) Run() error {
 //
 // Stop should not be called twice and before successful Run.
 func (x *Blockchain) Stop() {
+	if c, ok := x.rpcActor.(interface{ Close() }); ok {
+		c.Close()
+	}
+
 	x.netServer.Shutdown()
 	x.base.Close()
 }
