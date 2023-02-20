@@ -20,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/network"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
@@ -170,13 +171,6 @@ func New(neoNodeConfigFilepath string, signTools SignTools, log *zap.Logger, chE
 		return nil, fmt.Errorf("init neo-go network server: %w", err)
 	}
 
-	rpcActor := newActor(blockChain, netServer, cfg.ApplicationConfiguration.RPC.MaxGasInvoke)
-
-	_actor, err := actor.NewSimple(rpcActor, signTools.Account)
-	if err != nil {
-		return nil, fmt.Errorf("init simple actor using node account: %w", err)
-	}
-
 	stateRootMode := blockChain.GetStateModule().(*corestateroot.Module)
 
 	stateRootService, err := stateroot.New(cfgServer.StateRootCfg, stateRootMode, log, blockChain, netServer.BroadcastExtensible)
@@ -274,6 +268,18 @@ func New(neoNodeConfigFilepath string, signTools SignTools, log *zap.Logger, chE
 	rpcServer := rpcsrv.New(blockChain, cfg.ApplicationConfiguration.RPC, netServer, nil, log, chErrRw)
 
 	netServer.AddService(&rpcServer) // is it a cyclic dependency?
+
+	rpcActor, err := rpcclient.NewInternal(context.Background(), rpcServer.RegisterLocal)
+	if err != nil {
+		return nil, fmt.Errorf("construct internal RPC client: %w", err)
+	} else if err = rpcActor.Init(); err != nil {
+		return nil, fmt.Errorf("init internal RPC client: %w", err)
+	}
+
+	_actor, err := actor.NewSimple(rpcActor, signTools.Account)
+	if err != nil {
+		return nil, fmt.Errorf("init simple actor using node account: %w", err)
+	}
 
 	res := &Blockchain{
 		base:      blockChain,
