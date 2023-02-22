@@ -208,8 +208,18 @@ func (c *Client) SetGroupSignerScope() error {
 		return err
 	}
 
-	c.signer.Scopes = transaction.CustomGroups
-	c.signer.AllowedGroups = []*keys.PublicKey{pub}
+	// Don't change c before everything is OK.
+	cfg := c.cfg
+	cfg.signer = &transaction.Signer{
+		Scopes:        transaction.CustomGroups | transaction.CalledByEntry,
+		AllowedGroups: []*keys.PublicKey{pub},
+	}
+	rpcActor, err := newActor(c.client, c.acc, cfg)
+	if err != nil {
+		return err
+	}
+	c.cfg = cfg
+	c.setActor(rpcActor)
 	return nil
 }
 

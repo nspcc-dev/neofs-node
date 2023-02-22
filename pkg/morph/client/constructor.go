@@ -105,7 +105,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		logger:                 cfg.logger,
 		acc:                    acc,
 		accAddr:                accAddr,
-		signer:                 cfg.signer,
 		cfg:                    *cfg,
 		switchLock:             &sync.RWMutex{},
 		notifications:          make(chan rpcclient.Notification),
