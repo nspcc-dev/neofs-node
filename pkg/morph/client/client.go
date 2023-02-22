@@ -522,6 +522,6 @@ func (c *Client) inactiveMode() {
 
 func (c *Client) setActor(act *actor.Actor) {
 	c.rpcActor = act
-	c.gasToken = nep17.New(act, gas.Hash)
+	c.gasToken = gas.New(act)
 	c.rolemgmt = rolemgmt.New(act)
 }

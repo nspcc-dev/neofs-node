@@ -41,7 +41,7 @@ func (c *initializeContext) registerCandidates() error {
 	w := io.NewBufBinWriter()
 	emit.AppCall(w.BinWriter, neoHash, "setRegisterPrice", callflag.States, 1)
 	for _, acc := range c.Accounts {
-		emit.AppCall(w.BinWriter, neoHash, "registerCandidate", callflag.States, acc.PrivateKey().PublicKey().Bytes())
+		emit.AppCall(w.BinWriter, neoHash, "registerCandidate", callflag.States, acc.PublicKey().Bytes())
 		emit.Opcodes(w.BinWriter, opcode.ASSERT)
 	}
 	emit.AppCall(w.BinWriter, neoHash, "setRegisterPrice", callflag.States, regPrice)

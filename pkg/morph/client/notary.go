@@ -194,7 +194,7 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint2
 		c.accAddr,
 		c.notary.notary,
 		big.NewInt(int64(amount)),
-		[]interface{}{c.acc.PrivateKey().GetScriptHash(), till})
+		[]interface{}{c.acc.ScriptHash(), till})
 	if err != nil {
 		if !errors.Is(err, neorpc.ErrAlreadyExists) {
 			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
@@ -235,7 +235,7 @@ func (c *Client) GetNotaryDeposit() (res int64, err error) {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	sh := c.acc.PrivateKey().PublicKey().GetScriptHash()
+	sh := c.acc.ScriptHash()
 
 	items, err := c.TestInvoke(c.notary.notary, notaryBalanceOfMethod, sh)
 	if err != nil {
@@ -411,16 +411,11 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		return err
 	}
 
-	// error appears only if client
-	// is in inactive mode; that has
-	// been already checked above
-	magicNumber, _ := c.MagicNumber()
-
 	// mainTX is expected to be pre-validated: second witness must exist and be empty
 	mainTx.Scripts[1].VerificationScript = multiaddrAccount.GetVerificationScript()
 	mainTx.Scripts[1].InvocationScript = append(
 		[]byte{byte(opcode.PUSHDATA1), 64},
-		multiaddrAccount.PrivateKey().SignHashable(uint32(magicNumber), mainTx)...,
+		multiaddrAccount.SignHashable(c.rpcActor.GetNetwork(), mainTx)...,
 	)
 
 	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
@@ -646,12 +641,12 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 	// to pass Notary module verification
 	var invokeScript []byte
 
-	magicNumber, _ := c.MagicNumber()
+	magicNumber := c.rpcActor.GetNetwork()
 
 	if invokedByAlpha {
 		invokeScript = append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			multiaddr.PrivateKey().SignHashable(uint32(magicNumber), tx)...,
+			multiaddr.SignHashable(magicNumber, tx)...,
 		)
 	} else {
 		// we can't provide alphabet node signature
@@ -673,7 +668,7 @@ func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account,
 		// then we have invoker witness
 		invokeScript = append(
 			[]byte{byte(opcode.PUSHDATA1), 64},
-			c.acc.PrivateKey().SignHashable(uint32(magicNumber), tx)...,
+			c.acc.SignHashable(magicNumber, tx)...,
 		)
 
 		w = append(w, transaction.Witness{
@@ -733,7 +728,7 @@ func (c *Client) notaryTxValidationLimit() (uint32, error) {
 }
 
 func (c *Client) depositExpirationOf() (int64, error) {
-	expirationRes, err := c.TestInvoke(c.notary.notary, notaryExpirationOfMethod, c.acc.PrivateKey().GetScriptHash())
+	expirationRes, err := c.TestInvoke(c.notary.notary, notaryExpirationOfMethod, c.acc.ScriptHash())
 	if err != nil {
 		return 0, fmt.Errorf("can't invoke method: %w", err)
 	}

@@ -126,7 +126,7 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	err = acc.Decrypt(c.Wallet.Password, keys.NEP2ScryptParams())
 	fatalOnErr(err)
 
-	c.AuthorizedKeys = append(c.AuthorizedKeys, hex.EncodeToString(acc.PrivateKey().PublicKey().Bytes()))
+	c.AuthorizedKeys = append(c.AuthorizedKeys, hex.EncodeToString(acc.PublicKey().Bytes()))
 
 	var network string
 	for {
@@ -354,7 +354,7 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 		fatalOnErr(fmt.Errorf("creating actor over main chain client: %w", err))
 	}
 
-	mainGas := nep17.New(mainActor, gas.Hash)
+	mainGas := gas.New(mainActor)
 
 	txHash, _, err := mainGas.Transfer(accSH, neofsHash, amount, nil)
 	if err != nil {

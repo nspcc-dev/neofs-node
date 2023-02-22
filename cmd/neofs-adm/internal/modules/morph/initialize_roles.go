@@ -18,7 +18,7 @@ func (c *initializeContext) setNotaryAndAlphabetNodes() error {
 
 	var pubs []interface{}
 	for _, acc := range c.Accounts {
-		pubs = append(pubs, acc.PrivateKey().PublicKey().Bytes())
+		pubs = append(pubs, acc.PublicKey().Bytes())
 	}
 
 	w := io.NewBufBinWriter()
