@@ -127,6 +127,13 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		p.processNodes(c, addrWithType, nn[i], policy.ReplicaNumberByIndex(i), checkedNodes)
 	}
 
+	// if context is done, needLocalCopy might not be able to calculate
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
 	if !c.needLocalCopy {
 		p.log.Info("redundant local object copy detected",
 			zap.Stringer("object", addr),
