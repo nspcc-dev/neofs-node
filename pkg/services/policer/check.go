@@ -65,6 +65,18 @@ func (n *nodeCache) SubmitSuccessfulReplication(node netmap.NodeInfo) {
 	n.submitReplicaHolder(node)
 }
 
+// checks whether at least one remote container node holds particular object
+// replica (including as a result of successful replication).
+func (n nodeCache) atLeastOneHolder() bool {
+	for _, v := range n {
+		if v {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.AddressWithType) {
 	addr := addrWithType.Address
 	idCnr := addr.Container()
@@ -129,9 +141,28 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	}
 
 	if !c.needLocalCopy {
-		p.log.Info("redundant local object copy detected",
-			zap.Stringer("object", addr),
-		)
+		if !c.localNodeInContainer {
+			// If local node is outside the object container and at least one correct
+			// replica exists, then the node must not hold object replica. Otherwise, the
+			// node violates the container storage policy declared by its owner. On the
+			// other hand, in the complete absence of object replicas, the node must hold
+			// the replica to prevent data loss.
+			if !c.checkedNodes.atLeastOneHolder() {
+				p.log.Info("node outside the container, but nobody stores the object, holding the replica...",
+					zap.Stringer("object", addr),
+				)
+
+				return
+			}
+
+			p.log.Info("node outside the container, removing the replica so as not to violate the storage policy...",
+				zap.Stringer("object", addr),
+			)
+		} else {
+			p.log.Info("local replica of the object is redundant in the container, removing...",
+				zap.Stringer("object", addr),
+			)
+		}
 
 		p.cbRedundantCopy(addr)
 	}
@@ -140,6 +171,13 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 type processPlacementContext struct {
 	context.Context
 
+	// whether the local node is in the object container
+	localNodeInContainer bool
+
+	// whether the local node must store a meaningful replica of the object
+	// according to the container's storage policy (e.g. as a primary placement node
+	// or when such nodes fail replica check). Can be true only along with
+	// localNodeInContainer.
 	needLocalCopy bool
 
 	// descriptor of the object for which the policy is being checked
@@ -178,14 +216,22 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		shortage = uint32(len(nodes))
 	}
 
-	for i := 0; shortage > 0 && i < len(nodes); i++ {
+	for i := 0; (!ctx.localNodeInContainer || shortage > 0) && i < len(nodes); i++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
 
-		if p.netmapKeys.IsLocalKey(nodes[i].PublicKey()) {
+		isLocalNode := p.netmapKeys.IsLocalKey(nodes[i].PublicKey())
+
+		if !ctx.localNodeInContainer {
+			ctx.localNodeInContainer = isLocalNode
+		}
+
+		if shortage == 0 {
+			continue
+		} else if isLocalNode {
 			ctx.needLocalCopy = true
 
 			shortage--
