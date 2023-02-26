@@ -106,16 +106,15 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	}
 
 	c := &processPlacementContext{
-		Context: ctx,
+		Context:      ctx,
+		object:       addrWithType,
+		checkedNodes: newNodeCache(),
 	}
 
 	var numOfContainerNodes int
 	for i := range nn {
 		numOfContainerNodes += len(nn[i])
 	}
-
-	// cached info about already checked nodes
-	checkedNodes := newNodeCache()
 
 	for i := range nn {
 		select {
@@ -124,7 +123,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		default:
 		}
 
-		p.processNodes(c, addrWithType, nn[i], policy.ReplicaNumberByIndex(i), checkedNodes)
+		p.processNodes(c, nn[i], policy.ReplicaNumberByIndex(i))
 	}
 
 	// if context is done, needLocalCopy might not be able to calculate
@@ -147,12 +146,17 @@ type processPlacementContext struct {
 	context.Context
 
 	needLocalCopy bool
+
+	// descriptor of the object for which the policy is being checked
+	object objectcore.AddressWithType
+
+	// caches nodes which has been already processed in previous iterations
+	checkedNodes *nodeCache
 }
 
-func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType objectcore.AddressWithType,
-	nodes []netmap.NodeInfo, shortage uint32, checkedNodes *nodeCache) {
-	addr := addrWithType.Address
-	typ := addrWithType.Type
+func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
+	addr := ctx.object.Address
+	typ := ctx.object.Type
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
 
 	// Number of copies that are stored on maintenance nodes.
@@ -164,7 +168,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType object
 		// prevent spam with new replicas.
 		// However, additional copies should not be removed in this case,
 		// because we can remove the only copy this way.
-		checkedNodes.submitReplicaHolder(node)
+		ctx.checkedNodes.submitReplicaHolder(node)
 		shortage--
 		uncheckedCopies++
 
@@ -195,7 +199,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType object
 		} else if nodes[i].IsMaintenance() {
 			handleMaintenance(nodes[i])
 		} else {
-			if status := checkedNodes.processStatus(nodes[i]); status >= 0 {
+			if status := ctx.checkedNodes.processStatus(nodes[i]); status >= 0 {
 				if status == 0 {
 					// node already contains replica, no need to replicate
 					nodes = append(nodes[:i], nodes[i+1:]...)
@@ -213,7 +217,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType object
 			cancel()
 
 			if client.IsErrObjectNotFound(err) {
-				checkedNodes.submitReplicaCandidate(nodes[i])
+				ctx.checkedNodes.submitReplicaCandidate(nodes[i])
 				continue
 			}
 
@@ -226,7 +230,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType object
 				)
 			} else {
 				shortage--
-				checkedNodes.submitReplicaHolder(nodes[i])
+				ctx.checkedNodes.submitReplicaHolder(nodes[i])
 			}
 		}
 
@@ -245,7 +249,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, addrWithType object
 		task.SetNodes(nodes)
 		task.SetCopiesNumber(shortage)
 
-		p.replicator.HandleTask(ctx, task, checkedNodes)
+		p.replicator.HandleTask(ctx, task, ctx.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
