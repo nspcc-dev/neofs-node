@@ -150,9 +150,7 @@ type processPlacementContext struct {
 }
 
 func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
-	addr := ctx.object.Address
-	typ := ctx.object.Type
-	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(addr)
+	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(ctx.object.Address)
 
 	// Number of copies that are stored on maintenance nodes.
 	var uncheckedCopies int
@@ -172,7 +170,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		)
 	}
 
-	if typ == object.TypeLock {
+	if ctx.object.Type == object.TypeLock {
 		// all nodes of a container must store the `LOCK` objects
 		// for correct object removal protection:
 		//   - `LOCK` objects are broadcast on their PUT requests;
@@ -220,7 +218,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 				handleMaintenance(nodes[i])
 			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
-					zap.Stringer("object", addr),
+					zap.Stringer("object", ctx.object.Address),
 					zap.String("error", err.Error()),
 				)
 			} else {
@@ -235,12 +233,12 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 
 	if shortage > 0 {
 		p.log.Debug("shortage of object copies detected",
-			zap.Stringer("object", addr),
+			zap.Stringer("object", ctx.object.Address),
 			zap.Uint32("shortage", shortage),
 		)
 
 		var task replicator.Task
-		task.SetObjectAddress(addr)
+		task.SetObjectAddress(ctx.object.Address)
 		task.SetNodes(nodes)
 		task.SetCopiesNumber(shortage)
 
