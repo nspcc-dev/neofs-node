@@ -111,11 +111,6 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		checkedNodes: newNodeCache(),
 	}
 
-	var numOfContainerNodes int
-	for i := range nn {
-		numOfContainerNodes += len(nn[i])
-	}
-
 	for i := range nn {
 		select {
 		case <-ctx.Done():
