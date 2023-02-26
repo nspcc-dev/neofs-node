@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Pretty printer of basic ACL in the NeoFS CLI (#2259)
 - Failing SN and IR transactions because of incorrect scopes (#2230, #2263)
 - Global scope used for some transactions (#2230, #2263)
+- Potential data loss from nodes outside the container or netmap (#2267)
 
 ### Removed
 ### Updated

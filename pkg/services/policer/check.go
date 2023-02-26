@@ -142,6 +142,20 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 
 	if !c.needLocalCopy {
 		if !c.localNodeInContainer {
+			// Here we may encounter a special case where the node is not in the network
+			// map. In this scenario, it is impossible to determine whether the local node
+			// will enter the container in the future or not. At the same time, the rest of
+			// the network will perceive local peer as a 3rd party which will cause possible
+			// replication problems. Iin order to avoid the potential loss of a single
+			// replica, it is held.
+			if !p.network.IsLocalNodeInNetmap() {
+				p.log.Info("node is outside the network map, holding the replica...",
+					zap.Stringer("object", addr),
+				)
+
+				return
+			}
+
 			// If local node is outside the object container and at least one correct
 			// replica exists, then the node must not hold object replica. Otherwise, the
 			// node violates the container storage policy declared by its owner. On the

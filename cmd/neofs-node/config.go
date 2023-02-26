@@ -354,6 +354,9 @@ type shared struct {
 	netMap       atomicstd.Value // type netmap.NetMap
 	netMapSource netmapCore.Source
 
+	// whether the local node is in the netMap
+	localNodeInNetmap atomic.Bool
+
 	cnrClient *containerClient.Client
 
 	respSvc *response.Service
@@ -854,6 +857,7 @@ func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 // (before entering the network and after leaving it).
 func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setNodeInfo(ni)
+	c.localNodeInNetmap.Store(ni != nil)
 }
 
 // bootstrapWithState calls "addPeer" method of the Sidechain Netmap contract
