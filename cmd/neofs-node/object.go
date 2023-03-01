@@ -162,6 +162,12 @@ func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.MultiA
 	return c.(coreclient.MultiAddressClient), nil
 }
 
+// IsLocalNodeInNetmap looks for the local node in the latest view of the
+// network map.
+func (c *cfg) IsLocalNodeInNetmap() bool {
+	return c.localNodeInNetmap.Load()
+}
+
 func initObjectService(c *cfg) {
 	ls := c.cfgObject.cfgLocalStorage.localStorage
 	keyStorage := util.NewKeyStorage(&c.key.PrivateKey, c.privateTokenStore, c.cfgNetmap.state)
@@ -234,6 +240,7 @@ func initObjectService(c *cfg) {
 		policer.WithMaxCapacity(c.cfgObject.pool.replicatorPoolSize),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
+		policer.WithNetwork(c),
 	)
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)

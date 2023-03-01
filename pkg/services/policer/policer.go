@@ -65,6 +65,14 @@ type Option func(*cfg)
 // the redundant local copy of the object.
 type RedundantCopyCallback func(oid.Address)
 
+// Network provides information about the NeoFS network to Policer for work.
+type Network interface {
+	// IsLocalNodeInNetmap checks whether the local node belongs to the current
+	// network map. If it is impossible to check this fact, IsLocalNodeInNetmap
+	// returns false.
+	IsLocalNodeInNetmap() bool
+}
+
 type cfg struct {
 	headTimeout time.Duration
 
@@ -93,6 +101,8 @@ type cfg struct {
 	batchSize, cacheSize uint32
 
 	rebalanceFreq, evictDuration time.Duration
+
+	network Network
 }
 
 func defaultCfg() *cfg {
@@ -214,5 +224,12 @@ func WithPool(p *ants.Pool) Option {
 func WithNodeLoader(l nodeLoader) Option {
 	return func(c *cfg) {
 		c.loader = l
+	}
+}
+
+// WithNetwork provides Network component.
+func WithNetwork(n Network) Option {
+	return func(c *cfg) {
+		c.network = n
 	}
 }
