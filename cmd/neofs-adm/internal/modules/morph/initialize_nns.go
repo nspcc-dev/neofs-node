@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -20,7 +21,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-contract/nns"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -277,9 +277,11 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 }
 
 func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
-	switch ct := c.(type) {
+	switch c.(type) {
 	case *rpcclient.Client:
-		return ct.NNSIsAvailable(nnsHash, name)
+		invkr := invoker.New(c, nil)
+		reader := nns.NewReader(invkr, nnsHash)
+		return reader.IsAvailable(name)
 	default:
 		b, err := unwrap.Bool(invokeFunction(c, nnsHash, "isAvailable", []interface{}{name}, nil))
 		if err != nil {
