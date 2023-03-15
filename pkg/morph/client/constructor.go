@@ -96,10 +96,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		opt(cfg)
 	}
 
-	if len(cfg.endpoints) == 0 {
-		return nil, errors.New("no endpoints were provided")
-	}
-
 	cli := &Client{
 		cache:                  newClientCache(),
 		logger:                 cfg.logger,
@@ -112,8 +108,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		subscribedNotaryEvents: make(map[util.Uint160]string),
 		closeChan:              make(chan struct{}),
 	}
-
-	cli.endpoints.init(cfg.endpoints)
 
 	var err error
 	var act *actor.Actor
@@ -132,6 +126,12 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			return nil, fmt.Errorf("could not create RPC actor: %w", err)
 		}
 	} else {
+		if len(cfg.endpoints) == 0 {
+			return nil, errors.New("no endpoints were provided")
+		}
+
+		cli.endpoints.init(cfg.endpoints)
+
 		cli.client, act, err = cli.newCli(cli.endpoints.list[0].Address)
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC client: %w", err)
@@ -251,6 +251,8 @@ func WithSigner(signer *transaction.Signer) Option {
 
 // WithEndpoints returns a client constructor option
 // that specifies additional Neo rpc endpoints.
+//
+// Has no effect if WithSingleClient is provided.
 func WithEndpoints(endpoints ...Endpoint) Option {
 	return func(c *cfg) {
 		c.endpoints = append(c.endpoints, endpoints...)
