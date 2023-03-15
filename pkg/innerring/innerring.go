@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/balance"
@@ -62,6 +63,8 @@ type (
 	// processors, shared variables and event handlers.
 	Server struct {
 		log *logger.Logger
+
+		bc *blockchain.Blockchain
 
 		// event producers
 		morphListener   event.Listener
@@ -295,6 +298,8 @@ func (s *Server) Stop() {
 			)
 		}
 	}
+
+	s.bc.Stop()
 }
 
 func (s *Server) registerNoErrCloser(c func()) {
@@ -326,17 +331,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	// parse notary support
 	server.feeConfig = config.NewFeeConfig(cfg)
 
-	// prepare inner ring node private key
-	acc, err := utilConfig.LoadAccount(
-		cfg.GetString("wallet.path"),
-		cfg.GetString("wallet.address"),
-		cfg.GetString("wallet.password"))
-	if err != nil {
-		return nil, fmt.Errorf("ir: %w", err)
-	}
-
-	server.key = acc.PrivateKey()
-
 	server.persistate, err = initPersistentStateStorage(cfg)
 	if err != nil {
 		return nil, err
@@ -352,15 +346,88 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	morphChain := &chainParams{
 		log:  log,
 		cfg:  cfg,
-		key:  server.key,
 		name: morphPrefix,
 		from: fromSideChainBlock,
 	}
 
+	const walletPathKey = "wallet.path"
+	if !cfg.IsSet(walletPathKey) {
+		return nil, fmt.Errorf("file path to the node Neo wallet is not configured '%s'", walletPathKey)
+	}
+
+	walletPath := cfg.GetString(walletPathKey)
+	walletPass := cfg.GetString("wallet.password")
+
 	// create morph client
-	server.morphClient, err = createClient(ctx, morphChain, errChan)
-	if err != nil {
-		return nil, err
+	if len(cfg.GetStringSlice("morph.endpoint.client")) == 0 {
+		// go on a local blockchain
+		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
+		if err != nil {
+			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
+		}
+
+		cfgBlockchain.Wallet.Path = walletPath
+		cfgBlockchain.Wallet.Password = walletPass
+		cfgBlockchain.ErrorListener = errChan
+
+		server.bc, err = blockchain.New(cfgBlockchain)
+		if err != nil {
+			return nil, fmt.Errorf("init internal blockchain: %w", err)
+		}
+
+		// don't move this code area within current function
+		{
+			log.Info("running blockchain...")
+			// we run node here instead of Server.Start because some Server components
+			// require blockchain to be run in the current function. Later it would be nice
+			// to separate the stages of construction and launch. Track neofs-node#2294
+			err = server.bc.Run(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("run internal blockchain: %w", err)
+			}
+
+			defer func() {
+				if err != nil {
+					server.bc.Stop()
+				}
+			}()
+		}
+
+		wsClient, err := server.bc.BuildWSClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("build WS client on internal blockchain: %w", err)
+		}
+
+		server.key = server.bc.LocalKey()
+		morphChain.key = server.key
+
+		server.morphClient, err = client.New(
+			server.key,
+			client.WithContext(ctx),
+			client.WithLogger(log),
+			client.WithSingleClient(wsClient),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("init internal morph client: %w", err)
+		}
+	} else {
+		// fallback to the pure RPC architecture
+		acc, err := utilConfig.LoadAccount(
+			walletPath,
+			cfg.GetString("wallet.address"),
+			walletPass,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("ir: %w", err)
+		}
+
+		server.key = acc.PrivateKey()
+		morphChain.key = server.key
+
+		server.morphClient, err = createClient(ctx, morphChain, errChan)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// create morph listener
@@ -417,7 +484,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	)
 
 	// get all script hashes of contracts
-	server.contracts, err = parseContracts(
+	server.contracts, err = initContracts(ctx, log,
 		cfg,
 		server.morphClient,
 		server.withoutMainNet,

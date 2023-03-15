@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - Separate batching for replicated operations over the same container in pilorama (#1621)
 - `object.delete.tombstone_lifetime` config parameter to set tombstone lifetime in the DELETE service (#2246)
 - neofs-adm morph dump-hashes command now also prints NNS domain expiration time (#2295)
+- Launch mode of the Inner Ring with local consensus (#2194)
 
 ### Changed
 - `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)
