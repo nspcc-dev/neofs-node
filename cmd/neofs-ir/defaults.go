@@ -60,17 +60,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("wallet.address", "")  // account address
 	cfg.SetDefault("wallet.password", "") // password
 
-	cfg.SetDefault("contracts.netmap", "")
-	cfg.SetDefault("contracts.neofs", "")
-	cfg.SetDefault("contracts.balance", "")
-	cfg.SetDefault("contracts.container", "")
-	cfg.SetDefault("contracts.audit", "")
-	cfg.SetDefault("contracts.proxy", "")
-	cfg.SetDefault("contracts.processing", "")
-	cfg.SetDefault("contracts.reputation", "")
-	cfg.SetDefault("contracts.subnet", "")
-	cfg.SetDefault("contracts.proxy", "")
-
 	cfg.SetDefault("timers.emit", "0")
 	cfg.SetDefault("timers.stop_estimation.mul", 1)
 	cfg.SetDefault("timers.stop_estimation.div", 4)
