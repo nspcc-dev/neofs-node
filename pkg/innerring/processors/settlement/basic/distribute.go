@@ -12,6 +12,12 @@ func (inc *IncomeSettlementContext) Distribute() {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
 
+	total := inc.distributeTable.Total()
+	if total.Cmp(bigZero) == 0 {
+		inc.log.Info("zero total size of all estimated containers, skip distribution of funds")
+		return
+	}
+
 	txTable := common.NewTransferTable()
 
 	bankBalance, err := inc.balances.Balance(inc.bankOwner)
@@ -19,12 +25,6 @@ func (inc *IncomeSettlementContext) Distribute() {
 		inc.log.Error("can't fetch balance of banking account",
 			zap.String("error", err.Error()))
 
-		return
-	}
-
-	total := inc.distributeTable.Total()
-	if total.Cmp(bigZero) == 0 {
-		inc.log.Info("zero total size of all estimated containers, skip distribution of funds")
 		return
 	}
 
