@@ -23,6 +23,10 @@ func (inc *IncomeSettlementContext) Distribute() {
 	}
 
 	total := inc.distributeTable.Total()
+	if total.Cmp(bigZero) == 0 {
+		inc.log.Info("zero total size of all estimated containers, skip distribution of funds")
+		return
+	}
 
 	inc.distributeTable.Iterate(func(key []byte, n *big.Int) {
 		nodeOwner, err := inc.accounts.ResolveKey(nodeInfoWrapper(key))
