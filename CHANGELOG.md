@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Global scope used for some transactions (#2230, #2263)
 - Potential data loss from nodes outside the container or netmap (#2267)
 - Invalid Inner Ring listing method through Netmap contract with notary Sidechain (#2283)
+- Divide-by-zero panic in Inner Ring's basic income distribution procedure (#2262)
 
 ### Removed
 ### Updated

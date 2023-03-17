@@ -12,6 +12,12 @@ func (inc *IncomeSettlementContext) Distribute() {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
 
+	total := inc.distributeTable.Total()
+	if total.Sign() == 0 {
+		inc.log.Info("zero total size of all estimated containers, skip distribution of funds")
+		return
+	}
+
 	txTable := common.NewTransferTable()
 
 	bankBalance, err := inc.balances.Balance(inc.bankOwner)
@@ -21,8 +27,6 @@ func (inc *IncomeSettlementContext) Distribute() {
 
 		return
 	}
-
-	total := inc.distributeTable.Total()
 
 	inc.distributeTable.Iterate(func(key []byte, n *big.Int) {
 		nodeOwner, err := inc.accounts.ResolveKey(nodeInfoWrapper(key))
@@ -45,7 +49,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 }
 
 func normalizedValue(n, total, limit *big.Int) *big.Int {
-	if limit.Cmp(bigZero) == 0 {
+	if limit.Sign() == 0 {
 		return big.NewInt(0)
 	}
 
