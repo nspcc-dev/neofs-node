@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	bigGB   = big.NewInt(1 << 30)
-	bigZero = big.NewInt(0)
-	bigOne  = big.NewInt(1)
+	bigGB  = big.NewInt(1 << 30)
+	bigOne = big.NewInt(1)
 )
 
 func (inc *IncomeSettlementContext) Collect() {
@@ -100,7 +99,7 @@ func calculateBasicSum(size, rate uint64, ln int) *big.Int {
 	price.Mul(price, bigRate)
 	price.Div(price, bigGB)
 
-	if price.Cmp(bigZero) == 0 {
+	if price.Sign() == 0 {
 		price.Add(price, bigOne)
 	}
 

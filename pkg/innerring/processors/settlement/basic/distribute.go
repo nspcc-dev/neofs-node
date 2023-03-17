@@ -13,7 +13,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 	defer inc.mu.Unlock()
 
 	total := inc.distributeTable.Total()
-	if total.Cmp(bigZero) == 0 {
+	if total.Sign() == 0 {
 		inc.log.Info("zero total size of all estimated containers, skip distribution of funds")
 		return
 	}
@@ -49,7 +49,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 }
 
 func normalizedValue(n, total, limit *big.Int) *big.Int {
-	if limit.Cmp(bigZero) == 0 {
+	if limit.Sign() == 0 {
 		return big.NewInt(0)
 	}
 
