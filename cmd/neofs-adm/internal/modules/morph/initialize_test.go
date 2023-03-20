@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -97,11 +98,10 @@ func generateTestData(t *testing.T, dir string, size int) {
 
 	cfg := config.Config{}
 	cfg.ProtocolConfiguration.ValidatorsCount = size
-	cfg.ProtocolConfiguration.SecondsPerBlock = 1
+	cfg.ProtocolConfiguration.TimePerBlock = time.Second
 	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by glagolic letters
 	cfg.ProtocolConfiguration.P2PSigExtensions = true
 	cfg.ProtocolConfiguration.VerifyTransactions = true
-	cfg.ProtocolConfiguration.VerifyBlocks = true
 	data, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
 
