@@ -14,6 +14,7 @@ import (
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,17 +75,10 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		var idOwner user.ID
-		user.IDFromKey(&idOwner, ownerKey.PrivateKey.PublicKey)
-
-		tok := sessiontest.Object()
-		err := tok.Sign(ownerKey.PrivateKey)
-		require.NoError(t, err)
-
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
-		obj.SetSessionToken(tok)
-		obj.SetOwnerID(&idOwner)
+		obj.SetSessionToken(sessiontest.ObjectSigned())
+		obj.SetOwnerID(usertest.ID())
 
 		require.NoError(t, object.SetIDWithSignature(ownerKey.PrivateKey, obj))
 
