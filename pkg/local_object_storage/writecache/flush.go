@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -184,6 +185,12 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 
 		data, err := f()
 		if err != nil {
+			if errors.As(err, new(apistatus.ObjectNotFound)) {
+				// an object can be removed b/w iterating over it
+				// and reading its payload; not an error
+				return nil
+			}
+
 			c.reportFlushError("can't read a file", sAddr, err)
 			if ignoreErrors {
 				return nil
