@@ -99,10 +99,6 @@ func (c *cache) flushDB() {
 					lastKey = slice.Copy(k)
 				}
 
-				if _, ok := c.flushed.Peek(string(k)); ok {
-					continue
-				}
-
 				m = append(m, objectInfo{
 					addr: string(k),
 					data: slice.Copy(v),
@@ -111,12 +107,18 @@ func (c *cache) flushDB() {
 			return nil
 		})
 
+		var count int
 		for i := range m {
+			if c.flushed.Contains(m[i].addr) {
+				continue
+			}
+
 			obj := object.New()
 			if err := obj.Unmarshal(m[i].data); err != nil {
 				continue
 			}
 
+			count++
 			select {
 			case c.flushCh <- obj:
 			case <-c.closeCh:
@@ -125,7 +127,7 @@ func (c *cache) flushDB() {
 			}
 		}
 
-		if len(m) == 0 {
+		if count == 0 {
 			c.modeMtx.RUnlock()
 			break
 		}
@@ -133,7 +135,7 @@ func (c *cache) flushDB() {
 		c.modeMtx.RUnlock()
 
 		c.log.Debug("tried to flush items from write-cache",
-			zap.Int("count", len(m)),
+			zap.Int("count", count),
 			zap.String("start", base58.Encode(lastKey)))
 	}
 }

@@ -2,6 +2,7 @@ package morph
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -107,37 +108,69 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 
 func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string, c Client) error {
 	const nnsMaxTokens = 100
-	inv := invoker.New(c, nil)
 
-	arr, err := unwrap.Array(inv.CallAndExpandIterator(nnsHash, "tokens", nnsMaxTokens))
-	if err != nil {
-		return fmt.Errorf("can't get a list of NNS domains: %w", err)
-	}
+	inv := invoker.New(c, nil)
 
 	if !strings.HasPrefix(zone, ".") {
 		zone = "." + zone
 	}
 
 	var infos []contractDumpInfo
-	for i := range arr {
-		bs, err := arr[i].TryBytes()
+	processItem := func(item stackitem.Item) {
+		bs, err := item.TryBytes()
 		if err != nil {
-			continue
+			cmd.PrintErrf("Invalid NNS record: %v\n", err)
+			return
 		}
 
 		if !bytes.HasSuffix(bs, []byte(zone)) {
-			continue
+			// Related https://github.com/nspcc-dev/neofs-contract/issues/316.
+			return
 		}
 
 		h, err := nnsResolveHash(inv, nnsHash, string(bs))
 		if err != nil {
-			continue
+			cmd.PrintErrf("Could not resolve name %s: %v\n", string(bs), err)
+			return
 		}
 
 		infos = append(infos, contractDumpInfo{
 			hash: h,
 			name: strings.TrimSuffix(string(bs), zone),
 		})
+	}
+
+	sessionID, iter, err := unwrap.SessionIterator(inv.Call(nnsHash, "tokens"))
+	if err != nil {
+		if errors.Is(err, unwrap.ErrNoSessionID) {
+			items, err := unwrap.Array(inv.CallAndExpandIterator(nnsHash, "tokens", nnsMaxTokens))
+			if err != nil {
+				return fmt.Errorf("can't get a list of NNS domains: %w", err)
+			}
+			if len(items) == nnsMaxTokens {
+				cmd.PrintErrln("Provided RPC endpoint doesn't support sessions, some hashes might be lost.")
+			}
+			for i := range items {
+				processItem(items[i])
+			}
+		} else {
+			return err
+		}
+	} else {
+		defer func() {
+			_ = inv.TerminateSession(sessionID)
+		}()
+
+		items, err := inv.TraverseIterator(sessionID, &iter, nnsMaxTokens)
+		for err == nil && len(items) != 0 {
+			for i := range items {
+				processItem(items[i])
+			}
+			items, err = inv.TraverseIterator(sessionID, &iter, nnsMaxTokens)
+		}
+		if err != nil {
+			return fmt.Errorf("error during NNS domains iteration: %w", err)
+		}
 	}
 
 	fillContractVersion(cmd, c, infos)

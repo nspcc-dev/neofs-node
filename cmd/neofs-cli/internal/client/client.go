@@ -404,8 +404,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 		}
 
 		if prm.rdr != nil {
-			// TODO: (neofs-node#1198) explore better values or configure it
-			const defaultBufferSizePut = 4096
+			const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
 
 			if sz == 0 || sz > defaultBufferSizePut {
 				sz = defaultBufferSizePut

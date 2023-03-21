@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -158,6 +157,19 @@ func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 }
 
 func (l *listener) listen(ctx context.Context, intError chan<- error) error {
+	// mark listener as started
+	l.started = true
+
+	subErrCh := make(chan error)
+
+	go l.subscribe(subErrCh)
+
+	l.listenLoop(ctx, intError, subErrCh)
+
+	return nil
+}
+
+func (l *listener) subscribe(errCh chan error) {
 	// create the list of listening contract hashes
 	hashes := make([]util.Uint160, 0)
 
@@ -175,70 +187,49 @@ func (l *listener) listen(ctx context.Context, intError chan<- error) error {
 
 		hashes = append(hashes, hashType.ScriptHash())
 	}
-
-	// mark listener as started
-	l.started = true
-
 	l.mtx.RUnlock()
 
-	chEvent, err := l.subscriber.SubscribeForNotification(hashes...)
+	err := l.subscriber.SubscribeForNotification(hashes...)
 	if err != nil {
-		return err
+		errCh <- fmt.Errorf("could not subscribe for notifications: %w", err)
+		return
 	}
 
-	l.listenLoop(ctx, chEvent, intError)
-
-	return nil
-}
-
-func (l *listener) listenLoop(ctx context.Context, chEvent <-chan *state.ContainedNotificationEvent, intErr chan<- error) {
-	var (
-		blockChan <-chan *block.Block
-
-		notaryChan <-chan *result.NotaryRequestEvent
-
-		err error
-	)
-
 	if len(l.blockHandlers) > 0 {
-		if blockChan, err = l.subscriber.BlockNotifications(); err != nil {
-			if intErr != nil {
-				intErr <- fmt.Errorf("could not open block notifications channel: %w", err)
-			} else {
-				l.log.Debug("could not open block notifications channel",
-					zap.String("error", err.Error()),
-				)
-			}
-
+		if err = l.subscriber.BlockNotifications(); err != nil {
+			errCh <- fmt.Errorf("could not subscribe for blocks: %w", err)
 			return
 		}
-	} else {
-		blockChan = make(chan *block.Block)
 	}
 
 	if l.listenNotary {
-		if notaryChan, err = l.subscriber.SubscribeForNotaryRequests(l.notaryMainTXSigner); err != nil {
-			if intErr != nil {
-				intErr <- fmt.Errorf("could not open notary notifications channel: %w", err)
-			} else {
-				l.log.Debug("could not open notary notifications channel",
-					zap.String("error", err.Error()),
-				)
-			}
-
+		if err = l.subscriber.SubscribeForNotaryRequests(l.notaryMainTXSigner); err != nil {
+			errCh <- fmt.Errorf("could not subscribe for notary requests: %w", err)
 			return
 		}
 	}
+}
+
+func (l *listener) listenLoop(ctx context.Context, intErr chan<- error, subErrCh chan error) {
+	chs := l.subscriber.NotificationChannels()
 
 loop:
 	for {
 		select {
+		case err := <-subErrCh:
+			if intErr != nil {
+				intErr <- err
+			} else {
+				l.log.Error("stop event listener by error", zap.Error(err))
+			}
+
+			break loop
 		case <-ctx.Done():
 			l.log.Info("stop event listener by context",
 				zap.String("reason", ctx.Err().Error()),
 			)
 			break loop
-		case notifyEvent, ok := <-chEvent:
+		case notifyEvent, ok := <-chs.NotificationsCh:
 			if !ok {
 				l.log.Warn("stop event listener by notification channel")
 				if intErr != nil {
@@ -251,13 +242,13 @@ loop:
 				continue loop
 			}
 
-			if err = l.pool.Submit(func() {
+			if err := l.pool.Submit(func() {
 				l.parseAndHandleNotification(notifyEvent)
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
 					zap.Int("capacity", l.pool.Cap()))
 			}
-		case notaryEvent, ok := <-notaryChan:
+		case notaryEvent, ok := <-chs.NotaryRequestsCh:
 			if !ok {
 				l.log.Warn("stop event listener by notary channel")
 				if intErr != nil {
@@ -270,13 +261,13 @@ loop:
 				continue loop
 			}
 
-			if err = l.pool.Submit(func() {
+			if err := l.pool.Submit(func() {
 				l.parseAndHandleNotary(notaryEvent)
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
 					zap.Int("capacity", l.pool.Cap()))
 			}
-		case b, ok := <-blockChan:
+		case b, ok := <-chs.BlockCh:
 			if !ok {
 				l.log.Warn("stop event listener by block channel")
 				if intErr != nil {
@@ -289,7 +280,7 @@ loop:
 				continue loop
 			}
 
-			if err = l.pool.Submit(func() {
+			if err := l.pool.Submit(func() {
 				for i := range l.blockHandlers {
 					l.blockHandlers[i](b)
 				}

@@ -23,6 +23,11 @@ type store struct {
 	maxFlushedMarksCount int
 	maxRemoveBatchSize   int
 
+	// flushed contains addresses of objects that were already flushed to the main storage.
+	// We use LRU cache instead of map here to facilitate removing of unused object in favour of
+	// frequently read ones.
+	// MUST NOT be used inside bolt db transaction because it's eviction handler
+	// removes untracked items from the database.
 	flushed simplelru.LRUCache
 	db      *bbolt.DB
 

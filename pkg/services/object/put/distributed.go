@@ -141,6 +141,11 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 
+	if len(t.obj.Children()) > 0 {
+		// enabling extra broadcast for linking objects
+		t.traversal.extraBroadcastEnabled = true
+	}
+
 	return t.iteratePlacement(t.sendObject)
 }
 

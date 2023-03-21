@@ -35,7 +35,7 @@ var errRecentlyFailed = errors.New("client has recently failed")
 
 func (c *clientCache) init() {
 	l, _ := simplelru.NewLRU(defaultClientCacheSize, func(key, value interface{}) {
-		_ = value.(*grpc.ClientConn).Close()
+		_ = value.(cacheItem).cc.Close()
 	})
 	c.LRU = *l
 }

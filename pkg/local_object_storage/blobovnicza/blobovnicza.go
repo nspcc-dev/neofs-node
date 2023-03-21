@@ -41,8 +41,8 @@ type boltDBCfg struct {
 	boltOptions *bbolt.Options
 }
 
-func defaultCfg(с *cfg) {
-	*с = cfg{
+func defaultCfg(c *cfg) {
+	*c = cfg{
 		boltDBCfg: boltDBCfg{
 			perm: os.ModePerm, // 0777
 			boltOptions: &bbolt.Options{

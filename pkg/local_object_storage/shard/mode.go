@@ -3,6 +3,7 @@ package shard
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	"go.uber.org/zap"
 )
 
 // ErrReadOnlyMode is returned when it is impossible to apply operation
@@ -24,6 +25,10 @@ func (s *Shard) SetMode(m mode.Mode) error {
 }
 
 func (s *Shard) setMode(m mode.Mode) error {
+	s.log.Info("setting shard mode",
+		zap.Stringer("old_mode", s.info.Mode),
+		zap.Stringer("new_mode", m))
+
 	components := []interface{ SetMode(mode.Mode) error }{
 		s.metaBase, s.blobStor,
 	}
@@ -61,6 +66,8 @@ func (s *Shard) setMode(m mode.Mode) error {
 		s.metricsWriter.SetReadonly(s.info.Mode != mode.ReadWrite)
 	}
 
+	s.log.Info("shard mode set successfully",
+		zap.Stringer("mode", s.info.Mode))
 	return nil
 }
 

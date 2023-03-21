@@ -91,11 +91,15 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	}, err
 }
 
+// emptyStorageID is an empty storageID that indicates that
+// an object is big (and is stored in an FSTree, not in a blobovnicza).
+var emptyStorageID = make([]byte, 0)
+
 // fetchObjectData looks through writeCache and blobStor to find object.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
 	var (
-		err error
-		res *objectSDK.Object
+		mErr error
+		mRes meta.ExistsRes
 	)
 
 	var exists bool
@@ -103,28 +107,33 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		var mPrm meta.ExistsPrm
 		mPrm.SetAddress(addr)
 
-		mRes, err := s.metaBase.Exists(mPrm)
-		if err != nil && !s.info.Mode.NoMetabase() {
-			return res, false, err
+		mRes, mErr = s.metaBase.Exists(mPrm)
+		if mErr != nil && !s.info.Mode.NoMetabase() {
+			return nil, false, mErr
 		}
 		exists = mRes.Exists()
 	}
 
 	if s.hasWriteCache() {
-		res, err = wc(s.writeCache)
+		res, err := wc(s.writeCache)
 		if err == nil || IsErrOutOfRange(err) {
 			return res, false, err
 		}
 
 		if IsErrNotFound(err) {
-			s.log.Debug("object is missing in write-cache")
+			s.log.Debug("object is missing in write-cache",
+				zap.Stringer("addr", addr),
+				zap.Bool("skip_meta", skipMeta))
 		} else {
-			s.log.Error("failed to fetch object from write-cache", zap.Error(err))
+			s.log.Error("failed to fetch object from write-cache",
+				zap.Error(err),
+				zap.Stringer("addr", addr),
+				zap.Bool("skip_meta", skipMeta))
 		}
 	}
 
-	if skipMeta || err != nil {
-		res, err = cb(s.blobStor, nil)
+	if skipMeta || mErr != nil {
+		res, err := cb(s.blobStor, nil)
 		return res, false, err
 	}
 
@@ -135,12 +144,20 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 	var mPrm meta.StorageIDPrm
 	mPrm.SetAddress(addr)
 
-	mRes, err := s.metaBase.StorageID(mPrm)
+	mExRes, err := s.metaBase.StorageID(mPrm)
 	if err != nil {
 		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
 	}
 
-	res, err = cb(s.blobStor, mRes.StorageID())
+	storageID := mExRes.StorageID()
+	if storageID == nil {
+		// `nil` storageID returned without any error
+		// means that object is big, `cb` expects an
+		// empty (but non-nil) storageID in such cases
+		storageID = emptyStorageID
+	}
+
+	res, err := cb(s.blobStor, storageID)
 
 	return res, true, err
 }

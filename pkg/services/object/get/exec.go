@@ -128,7 +128,7 @@ func (exec execCtx) key() (*ecdsa.PrivateKey, error) {
 }
 
 func (exec *execCtx) canAssemble() bool {
-	return exec.svc.assembly && !exec.isRaw() && !exec.headOnly()
+	return exec.svc.assembly && !exec.isRaw() && !exec.headOnly() && !exec.isLocal()
 }
 
 func (exec *execCtx) splitInfo() *objectSDK.SplitInfo {

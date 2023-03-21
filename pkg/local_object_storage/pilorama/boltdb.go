@@ -13,6 +13,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
@@ -21,8 +22,13 @@ import (
 type boltForest struct {
 	db *bbolt.DB
 
-	modeMtx sync.Mutex
+	modeMtx sync.RWMutex
 	mode    mode.Mode
+
+	// mtx protects batches field.
+	mtx     sync.Mutex
+	batches []*batch
+
 	cfg
 }
 
@@ -30,6 +36,12 @@ var (
 	dataBucket = []byte{0}
 	logBucket  = []byte{1}
 )
+
+// ErrDegradedMode is returned when pilorama is in a degraded mode.
+var ErrDegradedMode = logicerr.New("pilorama is in a degraded mode")
+
+// ErrReadOnlyMode is returned when pilorama is in a read-only mode.
+var ErrReadOnlyMode = logicerr.New("pilorama is in a read-only mode")
 
 // NewBoltForest returns storage wrapper for storing operations on CRDT trees.
 //
@@ -71,12 +83,9 @@ func (t *boltForest) SetMode(m mode.Mode) error {
 	if t.mode == m {
 		return nil
 	}
-	if t.mode.ReadOnly() == m.ReadOnly() {
-		return nil
-	}
 
 	err := t.Close()
-	if err == nil {
+	if err == nil && !m.NoMetabase() {
 		if err = t.Open(m.ReadOnly()); err == nil {
 			err = t.Init()
 		}
@@ -110,7 +119,7 @@ func (t *boltForest) Open(readOnly bool) error {
 	return nil
 }
 func (t *boltForest) Init() error {
-	if t.db.IsReadOnly() {
+	if t.mode.NoMetabase() || t.db.IsReadOnly() {
 		return nil
 	}
 	return t.db.Update(func(tx *bbolt.Tx) error {
@@ -138,24 +147,40 @@ func (t *boltForest) TreeMove(d CIDDescriptor, treeID string, m *Move) (*LogMove
 		return nil, ErrInvalidCIDDescriptor
 	}
 
-	var lm LogMove
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return nil, ErrReadOnlyMode
+	}
+
+	lm := *m
+	fullID := bucketName(d.CID, treeID)
 	return &lm, t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, fullID)
 		if err != nil {
 			return err
 		}
 
-		m.Time = t.getLatestTimestamp(bLog, d.Position, d.Size)
-		if m.Child == RootID {
-			m.Child = t.findSpareID(bTree)
+		lm.Time = t.getLatestTimestamp(bLog, d.Position, d.Size)
+		if lm.Child == RootID {
+			lm.Child = t.findSpareID(bTree)
 		}
-		lm.Move = *m
-		return t.applyOperation(bLog, bTree, &lm)
+		return t.do(bLog, bTree, make([]byte, 17), &lm)
 	})
 }
 
 // TreeExists implements the Forest interface.
 func (t *boltForest) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return false, ErrDegradedMode
+	}
+
 	var exists bool
 
 	err := t.db.View(func(tx *bbolt.Tx) error {
@@ -176,11 +201,21 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 		return nil, ErrNotPathAttribute
 	}
 
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return nil, ErrReadOnlyMode
+	}
+
 	var lm []LogMove
 	var key [17]byte
 
+	fullID := bucketName(d.CID, treeID)
 	err := t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
+		bLog, bTree, err := t.getTreeBuckets(tx, fullID)
 		if err != nil {
 			return err
 		}
@@ -193,7 +228,7 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 		ts := t.getLatestTimestamp(bLog, d.Position, d.Size)
 		lm = make([]LogMove, len(path)-i+1)
 		for j := i; j < len(path); j++ {
-			lm[j-i].Move = Move{
+			lm[j-i] = Move{
 				Parent: node,
 				Meta: Meta{
 					Time:  ts,
@@ -211,7 +246,7 @@ func (t *boltForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string, 
 			node = lm[j-i].Child
 		}
 
-		lm[len(lm)-1].Move = Move{
+		lm[len(lm)-1] = Move{
 			Parent: node,
 			Meta: Meta{
 				Time:  ts,
@@ -240,17 +275,14 @@ func (t *boltForest) getLatestTimestamp(bLog *bbolt.Bucket, pos, size int) uint6
 // findSpareID returns random unused ID.
 func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 	id := uint64(rand.Int63())
-
-	var key [9]byte
-	key[0] = 't'
-	binary.LittleEndian.PutUint64(key[1:], id)
+	key := make([]byte, 9)
 
 	for {
-		if bTree.Get(key[:]) == nil {
+		_, _, _, ok := t.getState(bTree, stateKey(key, id))
+		if !ok {
 			return id
 		}
 		id = uint64(rand.Int63())
-		binary.LittleEndian.PutUint64(key[1:], id)
 	}
 }
 
@@ -258,6 +290,15 @@ func (t *boltForest) findSpareID(bTree *bbolt.Bucket) uint64 {
 func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgroundSync bool) error {
 	if !d.checkValid() {
 		return ErrInvalidCIDDescriptor
+	}
+
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return ErrReadOnlyMode
 	}
 
 	if backgroundSync {
@@ -280,19 +321,70 @@ func (t *boltForest) TreeApply(d CIDDescriptor, treeID string, m *Move, backgrou
 		}
 	}
 
-	return t.db.Batch(func(tx *bbolt.Tx) error {
-		bLog, bTree, err := t.getTreeBuckets(tx, d.CID, treeID)
-		if err != nil {
-			return err
-		}
+	if t.db.MaxBatchSize == 1 {
+		fullID := bucketName(d.CID, treeID)
+		return t.db.Update(func(tx *bbolt.Tx) error {
+			bLog, bTree, err := t.getTreeBuckets(tx, fullID)
+			if err != nil {
+				return err
+			}
 
-		lm := &LogMove{Move: *m}
-		return t.applyOperation(bLog, bTree, lm)
-	})
+			var lm LogMove
+			return t.applyOperation(bLog, bTree, []*Move{m}, &lm)
+		})
+	}
+
+	ch := make(chan error, 1)
+	t.addBatch(d, treeID, m, ch)
+	return <-ch
 }
 
-func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) (*bbolt.Bucket, *bbolt.Bucket, error) {
-	treeRoot := bucketName(cid, treeID)
+func (t *boltForest) addBatch(d CIDDescriptor, treeID string, m *Move, ch chan error) {
+	t.mtx.Lock()
+	for i := 0; i < len(t.batches); i++ {
+		t.batches[i].mtx.Lock()
+		if t.batches[i].timer == nil {
+			t.batches[i].mtx.Unlock()
+			copy(t.batches[i:], t.batches[i+1:])
+			t.batches = t.batches[:len(t.batches)-1]
+			i--
+			continue
+		}
+
+		found := t.batches[i].cid.Equals(d.CID) && t.batches[i].treeID == treeID
+		if found {
+			t.batches[i].results = append(t.batches[i].results, ch)
+			t.batches[i].operations = append(t.batches[i].operations, m)
+			if len(t.batches[i].operations) == t.db.MaxBatchSize {
+				t.batches[i].timer.Stop()
+				t.batches[i].timer = nil
+				t.batches[i].mtx.Unlock()
+				b := t.batches[i]
+				t.mtx.Unlock()
+				b.trigger()
+				return
+			}
+			t.batches[i].mtx.Unlock()
+			t.mtx.Unlock()
+			return
+		}
+		t.batches[i].mtx.Unlock()
+	}
+	b := &batch{
+		forest:     t,
+		cid:        d.CID,
+		treeID:     treeID,
+		results:    []chan<- error{ch},
+		operations: []*Move{m},
+	}
+	b.mtx.Lock()
+	b.timer = time.AfterFunc(t.db.MaxBatchDelay, b.trigger)
+	b.mtx.Unlock()
+	t.batches = append(t.batches, b)
+	t.mtx.Unlock()
+}
+
+func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, treeRoot []byte) (*bbolt.Bucket, *bbolt.Bucket, error) {
 	child := tx.Bucket(treeRoot)
 	if child != nil {
 		return child.Bucket(logBucket), child.Bucket(dataBucket), nil
@@ -313,15 +405,10 @@ func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, cid cidSDK.ID, treeID string) 
 	return bLog, bData, nil
 }
 
-func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *LogMove) error {
+// applyOperations applies log operations. Assumes lm are sorted by timestamp.
+func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, ms []*Move, lm *LogMove) error {
 	var tmp LogMove
 	var cKey [17]byte
-
-	var logKey [8]byte
-	binary.BigEndian.PutUint64(logKey[:], lm.Time)
-	if logBucket.Get(logKey[:]) != nil {
-		return nil
-	}
 
 	c := logBucket.Cursor()
 
@@ -331,82 +418,87 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, lm *Log
 	r := io.NewBinReaderFromIO(b)
 
 	// 1. Undo up until the desired timestamp is here.
-	for len(key) == 8 && binary.BigEndian.Uint64(key) > lm.Time {
+	for len(key) == 8 && ms[0].Time < binary.BigEndian.Uint64(key) {
 		b.Reset(value)
-		if err := t.logFromBytes(&tmp, r); err != nil {
-			return err
+
+		tmp.Child = r.ReadU64LE()
+		tmp.Parent = r.ReadU64LE()
+		tmp.Time = r.ReadVarUint()
+		if r.Err != nil {
+			return r.Err
 		}
-		if err := t.undo(&tmp.Move, &tmp, treeBucket, cKey[:]); err != nil {
+		if err := t.undo(&tmp, treeBucket, cKey[:]); err != nil {
 			return err
 		}
 		key, value = c.Prev()
 	}
 
-	key, _ = c.Next()
+	for i := 0; i < len(ms); i++ {
+		// Loop invariant: key represents the next stored timestamp after ms[i].Time.
 
-	// 2. Insert the operation.
-	if len(key) != 8 || binary.BigEndian.Uint64(key) != lm.Time {
+		// 2. Insert the operation.
+		*lm = *ms[i]
 		if err := t.do(logBucket, treeBucket, cKey[:], lm); err != nil {
 			return err
 		}
-	}
 
-	if key == nil {
-		// The operation is inserted in the beginning, reposition the cursor.
-		// Otherwise, `Next` call will return currently inserted operation.
-		c.First()
-	}
-	key, value = c.Seek(key)
-
-	// 3. Re-apply all other operations.
-	for len(key) == 8 {
-		b.Reset(value)
-		if err := t.logFromBytes(&tmp, r); err != nil {
-			return err
-		}
-		if err := t.do(logBucket, treeBucket, cKey[:], &tmp); err != nil {
-			return err
-		}
+		// Cursor can be invalid, seek again.
+		binary.BigEndian.PutUint64(cKey[:], lm.Time)
+		_, _ = c.Seek(cKey[:8])
 		key, value = c.Next()
+
+		// 3. Re-apply all other operations.
+		for len(key) == 8 && (i == len(ms)-1 || binary.BigEndian.Uint64(key) < ms[i+1].Time) {
+			if err := t.logFromBytes(&tmp, value); err != nil {
+				return err
+			}
+			if err := t.redo(treeBucket, cKey[:], &tmp, value[16:]); err != nil {
+				return err
+			}
+			key, value = c.Next()
+		}
 	}
 
 	return nil
 }
 
 func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMove) error {
-	currParent := b.Get(parentKey(key, op.Child))
-	op.HasOld = currParent != nil
-	if currParent != nil { // node is already in tree
-		op.Old.Parent = binary.LittleEndian.Uint64(currParent)
-		if err := op.Old.Meta.FromBytes(b.Get(metaKey(key, op.Child))); err != nil {
-			return err
-		}
-	} else {
-		op.HasOld = false
-		op.Old = nodeInfo{}
-	}
-
 	binary.BigEndian.PutUint64(key, op.Time)
-	if err := lb.Put(key[:8], t.logToBytes(op)); err != nil {
+	rawLog := t.logToBytes(op)
+	if err := lb.Put(key[:8], rawLog); err != nil {
 		return err
 	}
 
-	if op.Child == op.Parent || t.isAncestor(b, op.Child, op.Parent) {
-		return nil
+	return t.redo(b, key, op, rawLog[16:])
+}
+
+func (t *boltForest) redo(b *bbolt.Bucket, key []byte, op *LogMove, rawMeta []byte) error {
+	var err error
+
+	parent, ts, currMeta, inTree := t.getState(b, stateKey(key, op.Child))
+	if inTree {
+		err = t.putState(b, oldKey(key, op.Time), parent, ts, currMeta)
+	} else {
+		ts = op.Time
+		err = b.Delete(oldKey(key, op.Time))
 	}
 
-	if currParent == nil {
-		if err := b.Put(timestampKey(key, op.Child), toUint64(op.Time)); err != nil {
-			return err
-		}
-	} else {
-		parent := binary.LittleEndian.Uint64(currParent)
+	if err != nil || op.Child == op.Parent || t.isAncestor(b, op.Child, op.Parent) {
+		return err
+	}
+
+	if inTree {
 		if err := b.Delete(childrenKey(key, op.Child, parent)); err != nil {
 			return err
 		}
-		for i := range op.Old.Meta.Items {
-			if isAttributeInternal(op.Old.Meta.Items[i].Key) {
-				key = internalKey(key, op.Old.Meta.Items[i].Key, string(op.Old.Meta.Items[i].Value), parent, op.Child)
+
+		var meta Meta
+		if err := meta.FromBytes(currMeta); err != nil {
+			return err
+		}
+		for i := range meta.Items {
+			if isAttributeInternal(meta.Items[i].Key) {
+				key = internalKey(key, meta.Items[i].Key, string(meta.Items[i].Value), parent, op.Child)
 				err := b.Delete(key)
 				if err != nil {
 					return err
@@ -414,17 +506,16 @@ func (t *boltForest) do(lb *bbolt.Bucket, b *bbolt.Bucket, key []byte, op *LogMo
 			}
 		}
 	}
-	return t.addNode(b, key, op.Child, op.Parent, op.Meta)
+	return t.addNode(b, key, op.Child, op.Parent, ts, op.Meta, rawMeta)
 }
 
 // removeNode removes node keys from the tree except the children key or its parent.
 func (t *boltForest) removeNode(b *bbolt.Bucket, key []byte, node, parent Node) error {
-	if err := b.Delete(parentKey(key, node)); err != nil {
-		return err
-	}
+	k := stateKey(key, node)
+	_, _, rawMeta, _ := t.getState(b, k)
+
 	var meta Meta
-	var k = metaKey(key, node)
-	if err := meta.FromBytes(b.Get(k)); err == nil {
+	if err := meta.FromBytes(rawMeta); err == nil {
 		for i := range meta.Items {
 			if isAttributeInternal(meta.Items[i].Key) {
 				err := b.Delete(internalKey(nil, meta.Items[i].Key, string(meta.Items[i].Value), parent, node))
@@ -434,23 +525,16 @@ func (t *boltForest) removeNode(b *bbolt.Bucket, key []byte, node, parent Node) 
 			}
 		}
 	}
-	if err := b.Delete(metaKey(key, node)); err != nil {
-		return err
-	}
-	return b.Delete(timestampKey(key, node))
+	return b.Delete(k)
 }
 
 // addNode adds node keys to the tree except the timestamp key.
-func (t *boltForest) addNode(b *bbolt.Bucket, key []byte, child, parent Node, meta Meta) error {
-	err := b.Put(parentKey(key, child), toUint64(parent))
-	if err != nil {
+func (t *boltForest) addNode(b *bbolt.Bucket, key []byte, child, parent Node, time Timestamp, meta Meta, rawMeta []byte) error {
+	if err := t.putState(b, stateKey(key, child), parent, time, rawMeta); err != nil {
 		return err
 	}
-	err = b.Put(childrenKey(key, child, parent), []byte{1})
-	if err != nil {
-		return err
-	}
-	err = b.Put(metaKey(key, child), meta.Bytes())
+
+	err := b.Put(childrenKey(key, child, parent), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -473,27 +557,33 @@ func (t *boltForest) addNode(b *bbolt.Bucket, key []byte, child, parent Node, me
 	return nil
 }
 
-func (t *boltForest) undo(m *Move, lm *LogMove, b *bbolt.Bucket, key []byte) error {
+func (t *boltForest) undo(m *LogMove, b *bbolt.Bucket, key []byte) error {
 	if err := b.Delete(childrenKey(key, m.Child, m.Parent)); err != nil {
 		return err
 	}
 
-	if !lm.HasOld {
+	parent, ts, rawMeta, ok := t.getState(b, oldKey(key, m.Time))
+	if !ok {
 		return t.removeNode(b, key, m.Child, m.Parent)
 	}
-	return t.addNode(b, key, m.Child, lm.Old.Parent, lm.Old.Meta)
+
+	var meta Meta
+	if err := meta.FromBytes(rawMeta); err != nil {
+		return err
+	}
+	return t.addNode(b, key, m.Child, parent, ts, meta, rawMeta)
 }
 
 func (t *boltForest) isAncestor(b *bbolt.Bucket, parent, child Node) bool {
 	key := make([]byte, 9)
-	key[0] = 'p'
+	key[0] = 's'
 	for node := child; node != parent; {
 		binary.LittleEndian.PutUint64(key[1:], node)
-		rawParent := b.Get(key)
-		if len(rawParent) != 8 {
+		parent, _, _, ok := t.getState(b, key)
+		if !ok {
 			return false
 		}
-		node = binary.LittleEndian.Uint64(rawParent)
+		node = parent
 	}
 	return true
 }
@@ -506,6 +596,13 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 
 	if len(path) == 0 {
 		return nil, nil
+	}
+
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
 	}
 
 	var nodes []Node
@@ -526,10 +623,7 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 			return nil
 		}
 
-		var (
-			childID      [9]byte
-			maxTimestamp uint64
-		)
+		var maxTimestamp uint64
 
 		c := b.Cursor()
 
@@ -539,7 +633,7 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 		for len(childKey) == len(attrKey)+8 && bytes.Equal(attrKey, childKey[:len(childKey)-8]) {
 			child := binary.LittleEndian.Uint64(childKey[len(childKey)-8:])
 			if latest {
-				ts := binary.LittleEndian.Uint64(b.Get(timestampKey(childID[:], child)))
+				_, ts, _, _ := t.getState(b, stateKey(make([]byte, 9), child))
 				if ts >= maxTimestamp {
 					nodes = append(nodes[:0], child)
 					maxTimestamp = ts
@@ -555,7 +649,14 @@ func (t *boltForest) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, pa
 
 // TreeGetMeta implements the forest interface.
 func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Meta, Node, error) {
-	key := parentKey(make([]byte, 9), nodeID)
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return Meta{}, 0, ErrDegradedMode
+	}
+
+	key := stateKey(make([]byte, 9), nodeID)
 
 	var m Meta
 	var parentID uint64
@@ -567,10 +668,11 @@ func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Met
 		}
 
 		b := treeRoot.Bucket(dataBucket)
-		if data := b.Get(key); len(data) == 8 {
+		if data := b.Get(key); len(data) != 0 {
 			parentID = binary.LittleEndian.Uint64(data)
 		}
-		return m.FromBytes(b.Get(metaKey(key, nodeID)))
+		_, _, meta, _ := t.getState(b, stateKey(key, nodeID))
+		return m.FromBytes(meta)
 	})
 
 	return m, parentID, err
@@ -578,6 +680,13 @@ func (t *boltForest) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID Node) (Met
 
 // TreeGetChildren implements the Forest interface.
 func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) ([]uint64, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	key := make([]byte, 9)
 	key[0] = 'c'
 	binary.LittleEndian.PutUint64(key[1:], nodeID)
@@ -603,8 +712,17 @@ func (t *boltForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node) 
 
 // TreeList implements the Forest interface.
 func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
 	var ids []string
-	cidRaw := []byte(cid.EncodeToString())
+	cidRaw := make([]byte, 32)
+	cid.Encode(cidRaw)
+
 	cidLen := len(cidRaw)
 
 	err := t.db.View(func(tx *bbolt.Tx) error {
@@ -628,6 +746,13 @@ func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
 
 // TreeGetOpLog implements the pilorama.Forest interface.
 func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (Move, error) {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return Move{}, ErrDegradedMode
+	}
+
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, height)
 
@@ -651,10 +776,20 @@ func (t *boltForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (
 
 // TreeDrop implements the pilorama.Forest interface.
 func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
+	t.modeMtx.RLock()
+	defer t.modeMtx.RUnlock()
+
+	if t.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if t.mode.ReadOnly() {
+		return ErrReadOnlyMode
+	}
+
 	return t.db.Batch(func(tx *bbolt.Tx) error {
 		if treeID == "" {
 			c := tx.Cursor()
-			prefix := []byte(cid.EncodeToString())
+			prefix := make([]byte, 32)
+			cid.Encode(prefix)
 			for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 				err := tx.DeleteBucket(k)
 				if err != nil {
@@ -698,67 +833,72 @@ loop:
 }
 
 func (t *boltForest) moveFromBytes(m *Move, data []byte) error {
-	r := io.NewBinReaderFromBuf(data)
-	m.Child = r.ReadU64LE()
-	m.Parent = r.ReadU64LE()
-	m.Meta.DecodeBinary(r)
-	return r.Err
+	return t.logFromBytes(m, data)
 }
 
-func (t *boltForest) logFromBytes(lm *LogMove, r *io.BinReader) error {
-	lm.Child = r.ReadU64LE()
-	lm.Parent = r.ReadU64LE()
-	lm.Meta.DecodeBinary(r)
-	lm.HasOld = r.ReadBool()
-	if lm.HasOld {
-		lm.Old.Parent = r.ReadU64LE()
-		lm.Old.Meta.DecodeBinary(r)
-	}
-	return r.Err
+func (t *boltForest) logFromBytes(lm *LogMove, data []byte) error {
+	lm.Child = binary.LittleEndian.Uint64(data)
+	lm.Parent = binary.LittleEndian.Uint64(data[8:])
+	return lm.Meta.FromBytes(data[16:])
 }
 
 func (t *boltForest) logToBytes(lm *LogMove) []byte {
 	w := io.NewBufBinWriter()
 	size := 8 + 8 + lm.Meta.Size() + 1
-	if lm.HasOld {
-		size += 8 + lm.Old.Meta.Size()
-	}
+	//if lm.HasOld {
+	//	size += 8 + lm.Old.Meta.Size()
+	//}
 
 	w.Grow(size)
 	w.WriteU64LE(lm.Child)
 	w.WriteU64LE(lm.Parent)
 	lm.Meta.EncodeBinary(w.BinWriter)
-	w.WriteBool(lm.HasOld)
-	if lm.HasOld {
-		w.WriteU64LE(lm.Old.Parent)
-		lm.Old.Meta.EncodeBinary(w.BinWriter)
-	}
+	//w.WriteBool(lm.HasOld)
+	//if lm.HasOld {
+	//	w.WriteU64LE(lm.Old.Parent)
+	//	lm.Old.Meta.EncodeBinary(w.BinWriter)
+	//}
 	return w.Bytes()
 }
 
 func bucketName(cid cidSDK.ID, treeID string) []byte {
-	return []byte(cid.String() + treeID)
+	treeRoot := make([]byte, 32+len(treeID))
+	cid.Encode(treeRoot)
+	copy(treeRoot[32:], treeID)
+	return treeRoot
 }
 
-// 't' + node (id) -> timestamp when the node first appeared.
-func timestampKey(key []byte, child Node) []byte {
-	key[0] = 't'
+// 'o' + time -> old meta.
+func oldKey(key []byte, ts Timestamp) []byte {
+	key[0] = 'o'
+	binary.LittleEndian.PutUint64(key[1:], ts)
+	return key[:9]
+}
+
+// 's' + child ID -> parent + timestamp of the first appearance + meta
+func stateKey(key []byte, child Node) []byte {
+	key[0] = 's'
 	binary.LittleEndian.PutUint64(key[1:], child)
 	return key[:9]
 }
 
-// 'p' + node (id) -> parent (id).
-func parentKey(key []byte, child Node) []byte {
-	key[0] = 'p'
-	binary.LittleEndian.PutUint64(key[1:], child)
-	return key[:9]
+func (t *boltForest) putState(b *bbolt.Bucket, key []byte, parent Node, timestamp Timestamp, meta []byte) error {
+	data := make([]byte, len(meta)+8+8)
+	binary.LittleEndian.PutUint64(data, parent)
+	binary.LittleEndian.PutUint64(data[8:], timestamp)
+	copy(data[16:], meta)
+	return b.Put(key, data)
 }
 
-// 'm' + node (id) -> serialized meta.
-func metaKey(key []byte, child Node) []byte {
-	key[0] = 'm'
-	binary.LittleEndian.PutUint64(key[1:], child)
-	return key[:9]
+func (t *boltForest) getState(b *bbolt.Bucket, key []byte) (Node, Timestamp, []byte, bool) {
+	data := b.Get(key)
+	if data == nil {
+		return 0, 0, nil, false
+	}
+
+	parent := binary.LittleEndian.Uint64(data)
+	timestamp := binary.LittleEndian.Uint64(data[8:])
+	return parent, timestamp, data[16:], true
 }
 
 // 'c' + parent (id) + child (id) -> 0/1.

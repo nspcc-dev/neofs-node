@@ -11,6 +11,9 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type singleClient struct {
@@ -29,8 +32,6 @@ type multiClient struct {
 	addr    network.AddressGroup
 
 	opts ClientCacheOpts
-
-	reconnectInterval time.Duration
 }
 
 const defaultReconnectInterval = time.Second * 30
@@ -40,10 +41,9 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 		opts.ReconnectTimeout = defaultReconnectInterval
 	}
 	return &multiClient{
-		clients:           make(map[string]*singleClient),
-		addr:              addr,
-		opts:              opts,
-		reconnectInterval: defaultReconnectInterval,
+		clients: make(map[string]*singleClient),
+		addr:    addr,
+		opts:    opts,
 	}
 }
 
@@ -149,8 +149,12 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 			err = f(c)
 		}
 
-		success := err == nil || errors.Is(err, context.Canceled)
+		// non-status logic error that could be returned
+		// from the SDK client; should not be considered
+		// as a connection error
+		var siErr *objectSDK.SplitInfoError
 
+		success := err == nil || errors.Is(err, context.Canceled) || errors.As(err, &siErr)
 		if success || firstErr == nil || errors.Is(firstErr, errRecentlyFailed) {
 			firstErr = err
 		}
@@ -170,6 +174,18 @@ func (x *multiClient) ReportError(err error) {
 		return
 	}
 
+	if status.Code(err) == codes.Canceled || errors.Is(err, context.Canceled) {
+		return
+	}
+
+	// non-status logic error that could be returned
+	// from the SDK client; should not be considered
+	// as a connection error
+	var siErr *objectSDK.SplitInfoError
+	if errors.As(err, &siErr) {
+		return
+	}
+
 	// Dropping all clients here is not necessary, we do this
 	// because `multiClient` doesn't yet provide convenient interface
 	// for reporting individual errors for streaming operations.
@@ -186,7 +202,6 @@ func (s *singleClient) invalidate() {
 		_ = s.client.Close()
 	}
 	s.client = nil
-	s.lastAttempt = time.Now()
 	s.Unlock()
 }
 
@@ -327,7 +342,7 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 			c.RUnlock()
 			return cl, nil
 		}
-		if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+		if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
 			c.RUnlock()
 			return nil, errRecentlyFailed
 		}
@@ -350,7 +365,7 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 		return c.client, nil
 	}
 
-	if x.reconnectInterval != 0 && time.Since(c.lastAttempt) < x.reconnectInterval {
+	if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
 		return nil, errRecentlyFailed
 	}
 

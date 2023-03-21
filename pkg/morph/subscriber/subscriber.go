@@ -17,12 +17,21 @@ import (
 )
 
 type (
+	NotificationChannels struct {
+		BlockCh          <-chan *block.Block
+		NotificationsCh  <-chan *state.ContainedNotificationEvent
+		NotaryRequestsCh <-chan *result.NotaryRequestEvent
+	}
+
 	// Subscriber is an interface of the NotificationEvent listener.
 	Subscriber interface {
-		SubscribeForNotification(...util.Uint160) (<-chan *state.ContainedNotificationEvent, error)
+		SubscribeForNotification(...util.Uint160) error
 		UnsubscribeForNotification()
-		BlockNotifications() (<-chan *block.Block, error)
-		SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *result.NotaryRequestEvent, error)
+		BlockNotifications() error
+		SubscribeForNotaryRequests(mainTXSigner util.Uint160) error
+
+		NotificationChannels() NotificationChannels
+
 		Close()
 	}
 
@@ -46,6 +55,14 @@ type (
 	}
 )
 
+func (s *subscriber) NotificationChannels() NotificationChannels {
+	return NotificationChannels{
+		BlockCh:          s.blockChan,
+		NotificationsCh:  s.notifyChan,
+		NotaryRequestsCh: s.notaryChan,
+	}
+}
+
 var (
 	errNilParams = errors.New("chain/subscriber: config was not provided to the constructor")
 
@@ -54,7 +71,7 @@ var (
 	errNilClient = errors.New("chain/subscriber: client was not provided to the constructor")
 )
 
-func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan *state.ContainedNotificationEvent, error) {
+func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -69,14 +86,14 @@ func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) (<-chan
 				_ = s.client.UnsubscribeContract(hash)
 			}
 
-			return nil, err
+			return err
 		}
 
 		// save notification id
 		notifyIDs[contracts[i]] = struct{}{}
 	}
 
-	return s.notifyChan, nil
+	return nil
 }
 
 func (s *subscriber) UnsubscribeForNotification() {
@@ -91,20 +108,20 @@ func (s *subscriber) Close() {
 	s.client.Close()
 }
 
-func (s *subscriber) BlockNotifications() (<-chan *block.Block, error) {
+func (s *subscriber) BlockNotifications() error {
 	if err := s.client.SubscribeForNewBlocks(); err != nil {
-		return nil, fmt.Errorf("could not subscribe for new block events: %w", err)
+		return fmt.Errorf("could not subscribe for new block events: %w", err)
 	}
 
-	return s.blockChan, nil
+	return nil
 }
 
-func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) (<-chan *result.NotaryRequestEvent, error) {
+func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) error {
 	if err := s.client.SubscribeForNotaryRequests(mainTXSigner); err != nil {
-		return nil, fmt.Errorf("could not subscribe for notary request events: %w", err)
+		return fmt.Errorf("could not subscribe for notary request events: %w", err)
 	}
 
-	return s.notaryChan, nil
+	return nil
 }
 
 func (s *subscriber) routeNotifications(ctx context.Context) {

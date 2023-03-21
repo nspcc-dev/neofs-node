@@ -6,9 +6,15 @@ type nodeInfo struct {
 	Meta   Meta
 }
 
+type move struct {
+	Move
+	HasOld bool
+	Old    nodeInfo
+}
+
 // state represents state being replicated.
 type state struct {
-	operations []LogMove
+	operations []move
 	tree
 }
 
@@ -20,7 +26,7 @@ func newState() *state {
 }
 
 // undo un-does op and changes s in-place.
-func (s *state) undo(op *LogMove) {
+func (s *state) undo(op *move) {
 	children := s.tree.childMap[op.Parent]
 	for i := range children {
 		if children[i] == op.Child {
@@ -76,8 +82,8 @@ func (s *state) Apply(op *Move) error {
 }
 
 // do performs a single move operation on a tree.
-func (s *state) do(op *Move) LogMove {
-	lm := LogMove{
+func (s *state) do(op *Move) move {
+	lm := move{
 		Move: Move{
 			Parent: op.Parent,
 			Meta:   op.Meta,

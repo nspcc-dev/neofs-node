@@ -415,7 +415,7 @@ replicator:
 | `pool_size`   | `int`      | Equal to `object.put.pool_size_remote` | Maximum amount of concurrent replications.  |
 
 # `object` section
-Contains pool sizes for object operations with remote nodes.
+Contains object-service related parameters.
 
 ```yaml
 object:
@@ -423,6 +423,7 @@ object:
     pool_size_remote: 100
 ```
 
-| Parameter              | Type  | Default value | Description                                                                                    |
-|------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
-| `put.pool_size_remote` | `int` | `10`          | Max pool size for performing remote `PUT` operations. Used by Policer and Replicator services. |
+| Parameter                   | Type  | Default value | Description                                                                                    |
+|-----------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
+| `delete.tombstone_lifetime` | `int` | `5`           | Tombstone lifetime for removed objects in epochs.                                              |
+| `put.pool_size_remote`      | `int` | `10`          | Max pool size for performing remote `PUT` operations. Used by Policer and Replicator services. |

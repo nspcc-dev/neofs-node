@@ -188,6 +188,14 @@ func initObjectService(c *cfg) {
 		basicConstructor: c.clientCache,
 	}
 
+	putConstructor := &coreClientConstructor{
+		log:              c.log,
+		nmSrc:            c.netMapSource,
+		netState:         c.cfgNetmap.state,
+		trustStorage:     c.cfgReputation.localTrustStorage,
+		basicConstructor: c.putClientCache,
+	}
+
 	var irFetcher v2.InnerRingFetcher
 
 	if c.cfgMorph.client.ProbeNotary() {
@@ -262,7 +270,7 @@ func initObjectService(c *cfg) {
 
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientConstructor(coreConstructor),
+		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(os),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
@@ -323,7 +331,7 @@ func initObjectService(c *cfg) {
 		deletesvc.WithPutService(sPut),
 		deletesvc.WithNetworkInfo(&delNetInfo{
 			State:      c.cfgNetmap.state,
-			tsLifetime: 5,
+			tsLifetime: c.cfgObject.tombstoneLifetime,
 
 			cfg: c,
 		}),

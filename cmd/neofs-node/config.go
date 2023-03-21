@@ -342,9 +342,10 @@ type shared struct {
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
-	clientCache   *cache.ClientCache
-	bgClientCache *cache.ClientCache
-	localAddr     network.AddressGroup
+	clientCache    *cache.ClientCache
+	bgClientCache  *cache.ClientCache
+	putClientCache *cache.ClientCache
+	localAddr      network.AddressGroup
 
 	key            *keys.PrivateKey
 	binPublicKey   []byte
@@ -475,6 +476,8 @@ type cfgObject struct {
 	pool cfgObjectRoutines
 
 	cfgLocalStorage cfgLocalStorage
+
+	tombstoneLifetime uint64
 }
 
 type cfgNotifications struct {
@@ -571,13 +574,14 @@ func initCfg(appCfg *config.Config) *cfg {
 		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
 	}
 	c.shared = shared{
-		key:           key,
-		binPublicKey:  key.PublicKey().Bytes(),
-		localAddr:     netAddr,
-		respSvc:       response.NewService(response.WithNetworkState(netState)),
-		clientCache:   cache.NewSDKClientCache(cacheOpts),
-		bgClientCache: cache.NewSDKClientCache(cacheOpts),
-		persistate:    persistate,
+		key:            key,
+		binPublicKey:   key.PublicKey().Bytes(),
+		localAddr:      netAddr,
+		respSvc:        response.NewService(response.WithNetworkState(netState)),
+		clientCache:    cache.NewSDKClientCache(cacheOpts),
+		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
+		putClientCache: cache.NewSDKClientCache(cacheOpts),
+		persistate:     persistate,
 	}
 	c.cfgAccounting = cfgAccounting{
 		scriptHash: contractsconfig.Balance(appCfg),
@@ -601,7 +605,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		proxyScriptHash: contractsconfig.Proxy(appCfg),
 	}
 	c.cfgObject = cfgObject{
-		pool: initObjectPool(appCfg),
+		pool:              initObjectPool(appCfg),
+		tombstoneLifetime: objectconfig.TombstoneLifetime(appCfg),
 	}
 	c.cfgReputation = cfgReputation{
 		scriptHash: contractsconfig.Reputation(appCfg),
@@ -615,8 +620,9 @@ func initCfg(appCfg *config.Config) *cfg {
 		netState.metrics = c.metricsCollector
 	}
 
-	c.onShutdown(c.clientCache.CloseAll)   // clean up connections
-	c.onShutdown(c.bgClientCache.CloseAll) // clean up connections
+	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
+	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
+	c.onShutdown(c.putClientCache.CloseAll) // clean up connections
 	c.onShutdown(func() { _ = c.persistate.Close() })
 
 	return c
@@ -793,13 +799,18 @@ func initLocalStorage(c *cfg) {
 		tombstone.WithTombstoneSource(tombstoneSrc),
 	)
 
+	var shardsAttached int
 	for _, optsWithMeta := range c.shardOpts() {
 		id, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithTombstoneSource(tombstoneSource))...)
-		fatalOnErr(err)
-
-		c.log.Info("shard attached to engine",
-			zap.Stringer("id", id),
-		)
+		if err != nil {
+			c.log.Error("failed to attach shard to engine", zap.Error(err))
+		} else {
+			shardsAttached++
+			c.log.Info("shard attached to engine", zap.Stringer("id", id))
+		}
+	}
+	if shardsAttached == 0 {
+		fatalOnErr(engineconfig.ErrNoShardConfigured)
 	}
 
 	c.cfgObject.cfgLocalStorage.localStorage = ls

@@ -5,10 +5,16 @@ Changelog for NeoFS Node
 
 ### Added
 - Doc for extended headers (#2128)
+- Separate batching for replicated operations over the same container in pilorama (#1621)
+- `object.delete.tombstone_lifetime` config parameter to set tombstone lifetime in the DELETE service (#2246)
 
 ### Changed
 - `common.PrintVerbose` prints via `cobra.Command.Printf` (#1962)
 - Storage node's `replicator.put_timeout` config default to `1m` (#2227)
+- Full list of container is no longer cached (#2176)
+- Pilorama now can merge multiple batches into one (#2231)
+- Storage engine now can start even when some shard components are unavailable (#2238)
+- `neofs-cli` buffer for object put increased from 4 KiB to 3 MiB (#2243)
 
 ### Fixed
 - Pretty printer of basic ACL in the NeoFS CLI (#2259)
@@ -17,6 +23,19 @@ Changelog for NeoFS Node
 - Potential data loss from nodes outside the container or netmap (#2267)
 - Invalid Inner Ring listing method through Netmap contract with notary Sidechain (#2283)
 - Divide-by-zero panic in Inner Ring's basic income distribution procedure (#2262)
+- Big object removal with non-local parts (#1978)
+- Disable pilorama when moving to degraded mode (#2197)
+- Fetching blobovnicza objects that not found in write-cache (#2206)
+- Do not search for the small objects in FSTree (#2206)
+- Correct status error for expired session token (#2207)
+- Restore subscriptions correctly on morph client switch (#2212)
+- Expired objects could be returned if not marked with GC yet (#2213)
+- `neofs-adm morph dump-hashes` now properly iterates over custom domain (#2224)
+- Possible deadlock in write-cache (#2239)
+- Fix `*_req_count` and `*_req_count_success` metric values (#2241)
+- Storage ID update by write-cache (#2244)
+- `neo-go` client deadlock on subscription (#2244, #2272)
+- Possible panic during write-cache initialization (#2234)
 
 ### Removed
 ### Updated
@@ -28,8 +47,10 @@ Changelog for NeoFS Node
 - `github.com/nats-io/nats.go` to `v1.22.1`
 
 ### Updating from v0.35.0
+New config field `object.delete.tombstone_lifetime` allows to set tombstone lifetime
+more appropriate for a specific deployment.
 
-## [0.35.0] - 2022-12-28 - Sindo (신도)
+## [0.35.0] - 2022-12-28 - Sindo (신도, 信島)
 
 ### Added
 - `morph list-containers` in `neofs-adm` (#1689)
@@ -59,7 +80,6 @@ Changelog for NeoFS Node
 - Shard uses metabase for `HEAD` requests by default, not write-cache (#2167)
 - Clarify help for `--expire-at` parameter for commands `object lock/put` and `bearer create` (#2097)
 - Node spawns `GETRANGE` requests signed with the node's key if session key was not found for `RANGEHASH` (#2144)
-- Full list of container is no longer cached (#2176)
 
 ### Fixed
 - Open FSTree in sync mode by default (#1992)
@@ -113,7 +133,6 @@ Changelog for NeoFS Node
 - `spf13/viper` to `v1.8.0`
 - `google.golang.org/grpc` to `v1.50.1`
 
-
 ### Updating from v0.34.0
 Pass CID and OID parameters via the `--cid` and `--oid` flags, not as the command arguments.
 
@@ -127,9 +146,9 @@ to match the container owner. Use `--force` (`-f`) flag to bypass this requireme
 
 Tree service network replication can now be fine-tuned with `tree.replication_timeout` config field.
 
- ## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
+## [0.34.0] - 2022-10-31 - Marado (마라도, 馬羅島)
 
-# ## Added
+### Added
 - `--timeout` flag in `neofs-cli control` commands (#1917)
 - Document shard modes of operation (#1909)
 - `tree list` CLI command (#1332)

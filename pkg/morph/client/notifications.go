@@ -211,6 +211,29 @@ func (c *Client) restoreSubscriptions(cli *rpcclient.WSClient, endpoint string) 
 		id  string
 	)
 
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	// neo-go WS client says to _always_ read notifications
+	// from its channel. Subscribing to any notification
+	// while not reading them in another goroutine may
+	// lead to a dead-lock, thus that async side notification
+	// listening while restoring subscriptions
+	go func() {
+		for {
+			select {
+			case <-stopCh:
+				return
+			case n, ok := <-cli.Notifications:
+				if !ok {
+					return
+				}
+
+				c.notifications <- n
+			}
+		}
+	}()
+
 	// new block events restoration
 	if c.subscribedToNewBlocks {
 		_, err = cli.SubscribeForNewBlocks(nil)
@@ -226,6 +249,7 @@ func (c *Client) restoreSubscriptions(cli *rpcclient.WSClient, endpoint string) 
 
 	// notification events restoration
 	for contract := range c.subscribedEvents {
+		contract := contract // See https://github.com/nspcc-dev/neo-go/issues/2890
 		id, err = cli.SubscribeForExecutionNotifications(&contract, nil)
 		if err != nil {
 			c.logger.Error("could not restore notification subscription after RPC switch",
@@ -242,6 +266,7 @@ func (c *Client) restoreSubscriptions(cli *rpcclient.WSClient, endpoint string) 
 	// notary notification events restoration
 	if c.notary != nil {
 		for signer := range c.subscribedNotaryEvents {
+			signer := signer // See https://github.com/nspcc-dev/neo-go/issues/2890
 			id, err = cli.SubscribeForNotaryRequests(nil, &signer)
 			if err != nil {
 				c.logger.Error("could not restore notary notification subscription after RPC switch",
