@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -24,9 +26,10 @@ import (
 const lastGlagoliticLetter = 41
 
 type contractDumpInfo struct {
-	hash    util.Uint160
-	name    string
-	version string
+	hash       util.Uint160
+	name       string
+	version    string
+	expiration int64
 }
 
 func dumpContractHashes(cmd *cobra.Command, _ []string) error {
@@ -101,6 +104,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	fillContractVersion(cmd, c, infos)
+	fillContractExpiration(cmd, c, infos)
 	printContractInfo(cmd, infos)
 
 	return nil
@@ -174,6 +178,7 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 	}
 
 	fillContractVersion(cmd, c, infos)
+	fillContractExpiration(cmd, c, infos)
 	printContractInfo(cmd, infos)
 
 	return nil
@@ -200,11 +205,16 @@ func printContractInfo(cmd *cobra.Command, infos []contractDumpInfo) {
 	buf := bytes.NewBuffer(nil)
 	tw := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, info := range infos {
+		var timeStr = "unknown"
+		if info.expiration != 0 {
+			timeStr = time.UnixMilli(info.expiration).String()
+		}
 		if info.version == "" {
 			info.version = "unknown"
 		}
-		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t(%s):\t%s\n",
-			info.name, info.version, info.hash.StringLE())))
+		_, _ = tw.Write([]byte(fmt.Sprintf("%s\t(%s):\t%s\t%s\n",
+			info.name, info.version, info.hash.StringLE(),
+			timeStr)))
 	}
 	_ = tw.Flush()
 
@@ -245,6 +255,34 @@ func fillContractVersion(cmd *cobra.Command, c Client, infos []contractDumpInfo)
 	if res.State == vmstate.Halt.String() {
 		for i := range res.Stack {
 			infos[i].version = parseContractVersion(res.Stack[i])
+		}
+	}
+}
+
+func fillContractExpiration(cmd *cobra.Command, c Client, infos []contractDumpInfo) {
+	n11r := nep11.NewNonDivisibleReader(invoker.New(c, nil), infos[0].hash)
+	for i := range infos {
+		if infos[i].hash.Equals(util.Uint160{}) {
+			continue
+		}
+		props, err := n11r.Properties([]byte(strings.ReplaceAll(infos[i].name, " ", "") + ".neofs"))
+		if err != nil {
+			continue // OK for NNS itself, for example.
+		}
+		elems := props.Value().([]stackitem.MapElement)
+		for _, e := range elems {
+			k, err := e.Key.TryBytes()
+			if err != nil {
+				continue
+			}
+
+			if string(k) == "expiration" {
+				v, err := e.Value.TryInteger()
+				if err != nil || !v.IsInt64() {
+					continue
+				}
+				infos[i].expiration = v.Int64()
+			}
 		}
 	}
 }
