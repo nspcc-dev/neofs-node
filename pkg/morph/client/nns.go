@@ -166,31 +166,19 @@ func nnsResolve(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (uti
 	return util.Uint160{}, errors.New("no valid hashes are found")
 }
 
+// exists checks domain presence in the NNS contract with given address by
+// calling `ownerOf` method. Returns true if call succeeded only.
 func exists(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
-	result, err := c.InvokeFunction(nnsHash, "isAvailable", []smartcontract.Parameter{
+	result, err := c.InvokeFunction(nnsHash, "ownerOf", []smartcontract.Parameter{
 		{
-			Type:  smartcontract.StringType,
-			Value: domain,
+			Type:  smartcontract.ByteArrayType,
+			Value: []byte(domain),
 		},
 	}, nil)
 	if err != nil {
 		return false, err
 	}
-
-	if len(result.Stack) == 0 {
-		return false, errEmptyResultStack
-	}
-
-	res := result.Stack[0]
-
-	available, err := res.TryBool()
-	if err != nil {
-		return false, fmt.Errorf("malformed response: %w", err)
-	}
-
-	// not available means that it is taken
-	// and, therefore, exists
-	return !available, nil
+	return result.State == vmstate.Halt.String(), nil
 }
 
 // SetGroupSignerScope makes the default signer scope include all NeoFS contracts.

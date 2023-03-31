@@ -19,6 +19,71 @@ morph:
   validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
   switch_interval: 2m # interval b/w RPC switch attempts if the node is not connected to the highest priority node
+  consensus: # Local consensus launch mode activated only when 'endpoint.client' is unset.
+    magic: 15405 # Network magic. Must be unsigned integer in range [1:4294967295]
+    committee: # Initial committee
+      - 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2 # Hex-encoded public key
+    storage: # Blockchain storage
+      type: boltdb # One of following storage types:
+        # boltdb (local BoltDB)
+        # leveldb (local LevelDB)
+        # inmemory (volatile storage, mostly suitable for testing)
+      #
+      # If 'path' exists, it should correspond to the selected variant
+      path: ./db/morph.bolt # File system path to the storage. Ignored for 'inmemory' storage.
+    notary_disabled: true # Optional flag to disable Notary service. Defaults to false
+    time_per_block: 1s # Optional time period (approximate) between two adjacent blocks. Defaults to 15s.
+      # Must not be negative
+    max_traceable_blocks: 2102400 # Optional length of the chain accessible to smart contracts. Defaults to 2102400.
+      # Must not be greater than 4294967295
+    seed_nodes: # Optional list of existing nodes to communicate with over Neo P2P protocol. By default, node runs as standalone
+      # Same format as 'p2p.listen'
+      - node2:20333
+      - node3:20333
+    hardforks: # Optional hard-forks
+      name: 1730000 # Maps name to chain height. Heights must not be greater than 4294967295
+    validators_history: # Optional number of consensus nodes to use after given height
+      10: 7 # Maps chain height to number of consensus nodes. Values must not be greater than 2147483647
+    rpc: # Optional RPC settings
+      listen: # Optional list of network addresses to listen Neo RPC on. By default, protocol is not served
+        # TCP addresses in 'host:port' format
+        - localhost:30333
+        - localhost:30334
+    p2p: # Optional P2P settings
+      dial_timeout: 5s # Optional maximum duration a single peer dial may take. Defaults to 5s. Must not be negative
+      proto_tick_interval: 2s # Optional time period between protocol ticks with each connected peer. Defaults to 2s.
+        # Must not be negative
+      listen: # Optional list of network addresses to listen Neo P2P on. By default, protocol is not served
+        # TCP addresses in 'host:port' format
+        - localhost:20333
+        - localhost:20334
+      peers: # Optional peer settings
+        min: 1 # Optional minimum number of peers a node needs for normal operation. Defaults to consensus minimum
+          # of 'committee' size (ceil of 2/3N-1). Must not be greater than 2147483647. Note that consensus service
+          # won't start until at least 'min' number of peers are connected
+        max: 5 # Optional limits of maximum number of peers dealing with the node. Defaults to 100. Must not be
+          # greater than 2147483647
+        attempts: 20 # How many peers node should try to dial after falling under 'min' count. Defaults to 'min'+10.
+          # Must not be greater than 2147483647
+      ping: # Optional settings of pinging mechanism
+        interval: 30s # Optional time period between pings. Defaults to 30s. Must not be negative
+        timeout: 90s # Optional time period to wait for pong. Defaults to 1m. Must not be negative
+      native_activations: # Optional chronology of native contracts updates. Maps name of Neo native contract
+        # to height list. Values must not be empty. Each array element in the value must be unsigned integer
+        # not larger than 4294967295.
+        # Attention! Keep a close eye on the list: if some contracts are specified, then the rest of them are
+        # treated as disabled and won't be deployed. Use this option with care, and if you do, the list should
+        # match the one below.
+        ContractManagement: [0]
+        LedgerContract: [0]
+        NeoToken: [0]
+        GasToken: [0]
+        PolicyContract: [0]
+        OracleContract: [0]
+        RoleManagement: [0]
+        Notary: [0]
+        CryptoLib: [0]
+        StdLib: [0]
 
 mainnet:
   dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
