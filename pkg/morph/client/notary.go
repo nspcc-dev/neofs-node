@@ -25,9 +25,8 @@ import (
 
 type (
 	notaryInfo struct {
-		txValidTime  uint32 // minimum amount of blocks when mainTx will be valid
-		roundTime    uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
-		fallbackTime uint32 // mainTx's ValidUntilBlock - fallbackTime + 1 is when fallbackTx is sent
+		txValidTime uint32 // minimum amount of blocks when mainTx will be valid
+		roundTime   uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
 
 		alphabetSource AlphabetKeys // source of alphabet node keys to prepare witness
 
@@ -38,7 +37,7 @@ type (
 	notaryCfg struct {
 		proxy util.Uint160
 
-		txValidTime, roundTime, fallbackTime uint32
+		txValidTime, roundTime uint32
 
 		alphabetSource AlphabetKeys
 	}
@@ -48,9 +47,8 @@ type (
 )
 
 const (
-	defaultNotaryValidTime    = 50
-	defaultNotaryRoundTime    = 100
-	defaultNotaryFallbackTime = 40
+	defaultNotaryValidTime = 50
+	defaultNotaryRoundTime = 100
 
 	notaryBalanceOfMethod    = "balanceOf"
 	notaryExpirationOfMethod = "expirationOf"
@@ -66,7 +64,6 @@ func defaultNotaryConfig(c *Client) *notaryCfg {
 	return &notaryCfg{
 		txValidTime:    defaultNotaryValidTime,
 		roundTime:      defaultNotaryRoundTime,
-		fallbackTime:   defaultNotaryFallbackTime,
 		alphabetSource: c.Committee,
 	}
 }
@@ -101,7 +98,6 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 		proxy:          cfg.proxy,
 		txValidTime:    cfg.txValidTime,
 		roundTime:      cfg.roundTime,
-		fallbackTime:   cfg.fallbackTime,
 		alphabetSource: cfg.alphabetSource,
 		notary:         notary.Hash,
 	}
@@ -597,15 +593,6 @@ func WithTxValidTime(t uint32) NotaryOption {
 func WithRoundTime(t uint32) NotaryOption {
 	return func(c *notaryCfg) {
 		c.roundTime = t
-	}
-}
-
-// WithFallbackTime returns a notary support option for client
-// that specifies amount of blocks before fallbackTx will be sent.
-// Should be less than TxValidTime.
-func WithFallbackTime(t uint32) NotaryOption {
-	return func(c *notaryCfg) {
-		c.fallbackTime = t
 	}
 }
 
