@@ -15,12 +15,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
 
@@ -287,18 +286,7 @@ func (c *Client) UpdateNotaryList(prm UpdateNotaryListPrm) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	nonce, vub, err := c.CalculateNonceAndVUB(prm.hash)
-	if err != nil {
-		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
-	}
-
-	return c.notaryInvokeAsCommittee(
-		setDesignateMethod,
-		nonce,
-		vub,
-		noderoles.P2PNotary,
-		prm.list,
-	)
+	return c.notaryInvokeAsCommittee(setDesignateMethod, noderoles.P2PNotary, prm.list)
 }
 
 // UpdateAlphabetListPrm groups parameters of UpdateNeoFSAlphabetList operation.
@@ -335,18 +323,7 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	nonce, vub, err := c.CalculateNonceAndVUB(prm.hash)
-	if err != nil {
-		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
-	}
-
-	return c.notaryInvokeAsCommittee(
-		setDesignateMethod,
-		nonce,
-		vub,
-		noderoles.NeoFSAlphabet,
-		prm.list,
-	)
+	return c.notaryInvokeAsCommittee(setDesignateMethod, noderoles.NeoFSAlphabet, prm.list)
 }
 
 // NotaryInvoke invokes contract method by sending tx to notary contract in
@@ -354,7 +331,7 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 // it fallbacks to a simple `Invoke()`.
 //
 // `nonce` and `vub` are used only if notary is enabled.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...interface{}) error {
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -366,7 +343,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
+	return c.notaryInvoke(false, true, contract, method, args...)
 }
 
 // NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
@@ -386,7 +363,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 		return c.Invoke(contract, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
+	return c.notaryInvoke(false, false, contract, method, args...)
 }
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from
@@ -406,53 +383,58 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		return fmt.Errorf("could not fetch current alphabet keys: %w", err)
 	}
 
-	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, false, true)
+	multiAddr, err := c.notaryMultisigAccount(alphabetList, false, true)
 	if err != nil {
 		return err
 	}
 
-	// mainTX is expected to be pre-validated: second witness must exist and be empty
-	mainTx.Scripts[1].VerificationScript = multiaddrAccount.GetVerificationScript()
-	mainTx.Scripts[1].InvocationScript = append(
-		[]byte{byte(opcode.PUSHDATA1), 64},
-		multiaddrAccount.SignHashable(c.rpcActor.GetNetwork(), mainTx)...,
-	)
+	multiSignerAccount := actor.SignerAccount{
+		// TODO move init signer to notaryMultisigAccount, rename func to  notaryMultisigSignerAccount
+		Signer: transaction.Signer{
+			Account:          multiAddr.ScriptHash(),
+			Scopes:           c.cfg.signer.Scopes,
+			AllowedContracts: c.cfg.signer.AllowedContracts,
+			AllowedGroups:    c.cfg.signer.AllowedGroups,
+		},
+		Account: multiAddr,
+	}
 
-	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
-		[]byte{byte(opcode.RET)},
-		-1,
-		0,
-		c.notary.fallbackTime,
-		c.acc)
-	if err != nil && !alreadyOnChainError(err) {
+	nact, err := notary.NewActor(c.client, []actor.SignerAccount{multiSignerAccount}, c.acc)
+	if err != nil {
+		return err
+	}
+
+	mainTxHash, fbTxHash, vub, err := nact.Notarize(mainTx, nil)
+	if err != nil {
 		return err
 	}
 
 	c.logger.Debug("notary request with prepared main TX invoked",
-		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
-		zap.Stringer("tx_hash", resp.Hash().Reverse()))
+		zap.Uint32("valid_until_block", vub),
+		zap.Stringer("main_tx_hash", mainTxHash.Reverse()),
+		zap.Stringer("fallback_tx_hash", fbTxHash.Reverse()),
+		zap.Uint32("valid_until_block", vub))
 
 	return nil
 }
 
-func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...interface{}) error {
+func (c *Client) notaryInvokeAsCommittee(method string, args ...interface{}) error {
 	designate := c.GetDesignateHash()
-	return c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
+	return c.notaryInvoke(true, true, designate, method, args...)
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...interface{}) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, method string, args ...interface{}) error {
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
 	}
 
-	u8n := uint8(len(alphabetList))
-
-	if !invokedByAlpha {
-		u8n++
+	sa, err := c.notaryCosignersAccounts(invokedByAlpha, alphabetList, committee)
+	if err != nil {
+		return err
 	}
 
-	cosigners, err := c.notaryCosigners(invokedByAlpha, alphabetList, committee)
+	nact, err := notary.NewActor(c.client, sa, c.acc)
 	if err != nil {
 		return err
 	}
@@ -462,231 +444,74 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		return err
 	}
 
-	// make test invocation of the method
-	test, err := c.client.InvokeFunction(contract, method, params, cosigners)
+	mainTxHash, fbTxHash, vub, err := nact.Notarize(nact.MakeCall(contract, method, params, sa))
 	if err != nil {
-		return err
-	}
-
-	// check invocation state
-	if test.State != HaltState {
-		return wrapNeoFSError(&notHaltStateError{state: test.State, exception: test.FaultException})
-	}
-
-	// if test invocation failed, then return error
-	if len(test.Script) == 0 {
-		return wrapNeoFSError(errEmptyInvocationScript)
-	}
-
-	// after test invocation we build main multisig transaction
-
-	multiaddrAccount, err := c.notaryMultisigAccount(alphabetList, committee, invokedByAlpha)
-	if err != nil {
-		return err
-	}
-
-	var until uint32
-
-	if vub != nil {
-		until = *vub
-	} else {
-		until, err = c.notaryTxValidationLimit()
-		if err != nil {
-			return err
-		}
-	}
-
-	// prepare main tx
-	mainTx := &transaction.Transaction{
-		Nonce:           nonce,
-		SystemFee:       test.GasConsumed,
-		ValidUntilBlock: until,
-		Script:          test.Script,
-		Attributes: []transaction.Attribute{
-			{
-				Type:  transaction.NotaryAssistedT,
-				Value: &transaction.NotaryAssisted{NKeys: u8n},
-			},
-		},
-		Signers: cosigners,
-	}
-
-	// calculate notary fee
-	notaryFee, err := c.client.CalculateNotaryFee(u8n)
-	if err != nil {
-		return err
-	}
-
-	// add network fee for cosigners
-	//nolint:staticcheck // waits for neo-go v0.99.3 with notary actors
-	err = c.client.AddNetworkFee(
-		mainTx,
-		notaryFee,
-		c.notaryAccounts(invokedByAlpha, multiaddrAccount)...,
-	)
-	if err != nil {
-		return err
-	}
-
-	// define witnesses
-	mainTx.Scripts = c.notaryWitnesses(invokedByAlpha, multiaddrAccount, mainTx)
-
-	resp, err := c.client.SignAndPushP2PNotaryRequest(mainTx,
-		[]byte{byte(opcode.RET)},
-		-1,
-		0,
-		c.notary.fallbackTime,
-		c.acc)
-	if err != nil && !alreadyOnChainError(err) {
 		return err
 	}
 
 	c.logger.Debug("notary request invoked",
 		zap.String("method", method),
-		zap.Uint32("valid_until_block", until),
-		zap.Uint32("fallback_valid_for", c.notary.fallbackTime),
-		zap.Stringer("tx_hash", resp.Hash().Reverse()))
+		zap.Uint32("valid_until_block", vub),
+		zap.Stringer("main_tx_hash", mainTxHash.Reverse()),
+		zap.Stringer("fallback_tx_hash", fbTxHash.Reverse()),
+		zap.Uint32("valid_until_block", vub))
 
 	return nil
 }
 
-func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, committee bool) ([]transaction.Signer, error) {
-	s := make([]transaction.Signer, 0, 4)
+func (c *Client) notaryCosignersAccounts(invokedByAlpha bool, ir []*keys.PublicKey, committee bool) ([]actor.SignerAccount, error) {
+	sa := make([]actor.SignerAccount, 0, 4)
 
 	// first we have proxy contract signature, as it will pay for the execution
-	s = append(s, transaction.Signer{
-		Account: c.notary.proxy,
-		Scopes:  transaction.None,
+	sa = append(sa, actor.SignerAccount{
+		Signer: transaction.Signer{
+			Account: c.notary.proxy,
+			Scopes:  transaction.None,
+		},
+		Account: notary.FakeContractAccount(c.notary.proxy),
 	})
 
 	// then we have inner ring multiaddress signature
-	m := sigCount(ir, committee)
-
-	multisigScript, err := sc.CreateMultiSigRedeemScript(m, ir)
+	multiAddr, err := c.notaryMultisigAccount(ir, committee, invokedByAlpha)
 	if err != nil {
-		// wrap error as NeoFS-specific since the call is not related to any client
-		return nil, wrapNeoFSError(fmt.Errorf("can't create ir multisig redeem script: %w", err))
+		return nil, err
 	}
-
-	s = append(s, transaction.Signer{
-		Account:          hash.Hash160(multisigScript),
-		Scopes:           c.cfg.signer.Scopes,
-		AllowedContracts: c.cfg.signer.AllowedContracts,
-		AllowedGroups:    c.cfg.signer.AllowedGroups,
-	})
-
-	if !invokedByAlpha {
-		// then we have invoker signature
-		s = append(s, transaction.Signer{
-			Account:          hash.Hash160(c.acc.GetVerificationScript()),
+	sa = append(sa, actor.SignerAccount{
+		// TODO move init signer to notaryMultisigAccount, rename func to  notaryMultisigSignerAccount
+		Signer: transaction.Signer{
+			Account:          multiAddr.ScriptHash(),
 			Scopes:           c.cfg.signer.Scopes,
 			AllowedContracts: c.cfg.signer.AllowedContracts,
 			AllowedGroups:    c.cfg.signer.AllowedGroups,
+		},
+		Account: multiAddr,
+	})
+
+	// then we have invoker signature
+	if !invokedByAlpha {
+		sa = append(sa, actor.SignerAccount{
+			Signer: transaction.Signer{
+				Account:          hash.Hash160(c.acc.GetVerificationScript()),
+				Scopes:           c.cfg.signer.Scopes,
+				AllowedContracts: c.cfg.signer.AllowedContracts,
+				AllowedGroups:    c.cfg.signer.AllowedGroups,
+			},
+			Account: c.acc,
 		})
 	}
 
-	// last one is a placeholder for notary contract signature
-	s = append(s, transaction.Signer{
-		Account: c.notary.notary,
-		Scopes:  transaction.None,
+	// last one is a placeholder for notary contract
+	sa = append(sa, actor.SignerAccount{
+		Signer: transaction.Signer{
+			Account: c.notary.notary,
+			Scopes:  transaction.None,
+		},
+		Account: &wallet.Account{
+			Contract: &wallet.Contract{},
+		},
 	})
 
-	return s, nil
-}
-
-func (c *Client) notaryAccounts(invokedByAlpha bool, multiaddr *wallet.Account) []*wallet.Account {
-	if multiaddr == nil {
-		return nil
-	}
-
-	a := make([]*wallet.Account, 0, 4)
-
-	// first we have proxy account, as it will pay for the execution
-	a = append(a, notary.FakeContractAccount(c.notary.proxy))
-
-	// then we have inner ring multiaddress account
-	a = append(a, multiaddr)
-
-	if !invokedByAlpha {
-		// then we have invoker account
-		a = append(a, c.acc)
-	}
-
-	// last one is a placeholder for notary contract account
-	a = append(a, &wallet.Account{
-		Contract: &wallet.Contract{},
-	})
-
-	return a
-}
-
-func (c *Client) notaryWitnesses(invokedByAlpha bool, multiaddr *wallet.Account, tx *transaction.Transaction) []transaction.Witness {
-	if multiaddr == nil || tx == nil {
-		return nil
-	}
-
-	w := make([]transaction.Witness, 0, 4)
-
-	// first we have empty proxy witness, because notary will execute `Verify`
-	// method on the proxy contract to check witness
-	w = append(w, transaction.Witness{
-		InvocationScript:   []byte{},
-		VerificationScript: []byte{},
-	})
-
-	// then we have inner ring multiaddress witness
-
-	// invocation script should be of the form:
-	//		{ PUSHDATA1, 64, signatureBytes... }
-	// to pass Notary module verification
-	var invokeScript []byte
-
-	magicNumber := c.rpcActor.GetNetwork()
-
-	if invokedByAlpha {
-		invokeScript = append(
-			[]byte{byte(opcode.PUSHDATA1), 64},
-			multiaddr.SignHashable(magicNumber, tx)...,
-		)
-	} else {
-		// we can't provide alphabet node signature
-		// because Storage Node doesn't own alphabet's
-		// private key. Thus, add dummy witness with
-		// empty bytes instead of signature
-		invokeScript = append(
-			[]byte{byte(opcode.PUSHDATA1), 64},
-			make([]byte, 64)...,
-		)
-	}
-
-	w = append(w, transaction.Witness{
-		InvocationScript:   invokeScript,
-		VerificationScript: multiaddr.GetVerificationScript(),
-	})
-
-	if !invokedByAlpha {
-		// then we have invoker witness
-		invokeScript = append(
-			[]byte{byte(opcode.PUSHDATA1), 64},
-			c.acc.SignHashable(magicNumber, tx)...,
-		)
-
-		w = append(w, transaction.Witness{
-			InvocationScript:   invokeScript,
-			VerificationScript: c.acc.GetVerificationScript(),
-		})
-	}
-
-	// last one is a placeholder for notary contract witness
-	w = append(w, transaction.Witness{
-		InvocationScript: append(
-			[]byte{byte(opcode.PUSHDATA1), 64},
-			make([]byte, 64)...,
-		),
-		VerificationScript: []byte{},
-	})
-
-	return w
+	return sa, nil
 }
 
 func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedByAlpha bool) (*wallet.Account, error) {
@@ -713,18 +538,6 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 	}
 
 	return multisigAccount, nil
-}
-
-func (c *Client) notaryTxValidationLimit() (uint32, error) {
-	bc, err := c.rpcActor.GetBlockCount()
-	if err != nil {
-		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
-	}
-
-	min := bc + c.notary.txValidTime
-	rounded := (min/c.notary.roundTime + 1) * c.notary.roundTime
-
-	return rounded, nil
 }
 
 func (c *Client) depositExpirationOf() (int64, error) {

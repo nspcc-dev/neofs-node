@@ -75,14 +75,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 
 		if nr := ev.NotaryRequest(); nr != nil {
 			// create new notary request with the original nonce
-			err = np.netmapClient.Morph().NotaryInvoke(
-				np.netmapClient.ContractAddress(),
-				0,
-				nr.MainTransaction.Nonce,
-				nil,
-				methodAddPeerNotary,
-				nodeInfoBinary,
-			)
+			err = np.netmapClient.Morph().NotaryInvoke(np.netmapClient.ContractAddress(), 0, methodAddPeerNotary, nodeInfoBinary)
 		} else {
 			// notification event case
 			err = np.netmapClient.AddPeer(prm)
