@@ -47,7 +47,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("node.persistent_state.path", ".neofs-ir-state")
 
-	cfg.SetDefault("morph.endpoint.client", []string{})
 	cfg.SetDefault("morph.dial_timeout", 15*time.Second)
 	cfg.SetDefault("morph.validators", []string{})
 	cfg.SetDefault("morph.switch_interval", 2*time.Minute)
