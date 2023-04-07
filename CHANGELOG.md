@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Pilorama now can merge multiple batches into one (#2231)
 - Storage engine now can start even when some shard components are unavailable (#2238)
 - `neofs-cli` buffer for object put increased from 4 KiB to 3 MiB (#2243)
+- `neofs-adm` now reuses network's setting during contract update if they're not overriden by configuration (#2191)
 
 ### Fixed
 - Pretty printer of basic ACL in the NeoFS CLI (#2259)
