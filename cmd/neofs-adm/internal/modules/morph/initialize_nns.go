@@ -232,13 +232,17 @@ func nnsResolveKey(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (*
 	if err != nil {
 		return nil, err
 	}
-	v, ok := item.Value().(stackitem.Null)
+	_, ok := item.Value().(stackitem.Null)
 	if ok {
 		return nil, errors.New("NNS record is missing")
 	}
-	bs, err := v.TryBytes()
+	arr, ok := item.Value().([]stackitem.Item)
+	if !ok || len(arr) < 1 {
+		return nil, errors.New("malformed response (not an array)")
+	}
+	bs, err := arr[0].TryBytes()
 	if err != nil {
-		return nil, errors.New("malformed response")
+		return nil, errors.New("malformed response (no bytes)")
 	}
 
 	return keys.NewPublicKeyFromString(string(bs))
