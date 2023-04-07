@@ -359,7 +359,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	walletPass := cfg.GetString("wallet.password")
 
 	// create morph client
-	if len(cfg.GetStringSlice("morph.endpoint.client")) == 0 {
+	if isLocalConsensusMode(cfg) {
 		// go on a local blockchain
 		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
 		if err != nil {
