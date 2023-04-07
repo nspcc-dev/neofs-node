@@ -19,6 +19,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+// checks if Inner Ring app is configured to be launched in local consensus
+// mode.
+func isLocalConsensusMode(cfg *viper.Viper) bool {
+	return len(cfg.GetStringSlice("morph.endpoint.client")) == 0
+}
+
 func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain.Config, err error) {
 	const rootSection = "morph.consensus"
 

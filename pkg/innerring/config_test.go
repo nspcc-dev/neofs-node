@@ -2,6 +2,7 @@ package innerring
 
 import (
 	"math"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -355,5 +356,44 @@ func TestConfigParser(t *testing.T) {
 			_, err = parseBlockchainConfig(v, _logger)
 			require.Error(t, err)
 		})
+	})
+}
+
+func TestIsLocalConsensusMode(t *testing.T) {
+	t.Run("ENV", func(t *testing.T) {
+		v := viper.New()
+		v.AutomaticEnv()
+		v.SetEnvPrefix("neofs_ir")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+		const envKey = "NEOFS_IR_MORPH_ENDPOINT_CLIENT_0_ADDRESS"
+
+		err := os.Unsetenv(envKey)
+		require.NoError(t, err)
+
+		require.True(t, isLocalConsensusMode(v))
+
+		err = os.Setenv(envKey, "any string")
+		require.NoError(t, err)
+
+		require.False(t, isLocalConsensusMode(v))
+	})
+
+	t.Run("YAML", func(t *testing.T) {
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(`
+morph:
+  endpoint:
+    client:
+      - address: ws://morph-chain:30333/ws
+`))
+		require.NoError(t, err)
+
+		require.False(t, isLocalConsensusMode(v))
+
+		resetConfig(t, v, "morph.endpoint.client")
+
+		require.True(t, isLocalConsensusMode(v))
 	})
 }
