@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - Storage ID update by write-cache (#2244)
 - `neo-go` client deadlock on subscription (#2244, #2272)
 - Possible panic during write-cache initialization (#2234)
+- incorrect NNS resolve handling in neofs-adm (#2296)
 
 ### Removed
 ### Updated
