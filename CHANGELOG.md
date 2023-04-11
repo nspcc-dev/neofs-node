@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - `neo-go` client deadlock on subscription (#2244, #2272)
 - Possible panic during write-cache initialization (#2234)
 - incorrect NNS resolve handling in neofs-adm (#2296)
+- Failed TestNet replication (#2288)
 
 ### Removed
 ### Updated

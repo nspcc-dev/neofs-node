@@ -1,7 +1,6 @@
 package object
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // FormatValidator represents an object format validator.
@@ -147,24 +145,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return fmt.Errorf("decode public key: %w", err)
 	}
 
-	token := obj.SessionToken()
-
-	if token == nil || !token.AssertAuthKey(&key) {
-		return v.checkOwnerKey(*obj.OwnerID(), key)
-	}
-
 	// FIXME: #1159 perform token verification
-
-	return nil
-}
-
-func (v *FormatValidator) checkOwnerKey(id user.ID, key neofsecdsa.PublicKey) error {
-	var id2 user.ID
-	user.IDFromKey(&id2, (ecdsa.PublicKey)(key))
-
-	if !id.Equals(id2) {
-		return fmt.Errorf("(%T) different owner identifiers %s/%s", v, id, id2)
-	}
 
 	return nil
 }
