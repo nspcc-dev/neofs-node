@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
@@ -247,7 +248,7 @@ func (c *initializeContext) updateContracts() error {
 			invokeHash = ctrHash
 		}
 
-		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
+		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
 		res, err := c.CommitteeAct.MakeCall(invokeHash, method, params...)
 		if err != nil {
 			if method != updateMethodName || !strings.Contains(err.Error(), common.ErrAlreadyUpdated) {
@@ -347,7 +348,7 @@ func (c *initializeContext) deployContracts() error {
 			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
-		params := getContractDeployParameters(cs, c.getContractDeployData(ctrName, keysParam))
+		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
 		res, err := c.CommitteeAct.MakeCall(management.Hash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
@@ -514,7 +515,7 @@ func getContractDeployParameters(cs *contractState, deployData []interface{}) []
 	return []interface{}{cs.RawNEF, cs.RawManifest, deployData}
 }
 
-func (c *initializeContext) getContractDeployData(ctrName string, keysParam []interface{}) []interface{} {
+func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName string, keysParam []interface{}) []interface{} {
 	items := make([]interface{}, 1, 6)
 	items[0] = false // notaryDisabled is false
 
@@ -551,20 +552,43 @@ func (c *initializeContext) getContractDeployData(ctrName string, keysParam []in
 			c.Contracts[netmapContract].Hash,
 			c.Contracts[containerContract].Hash)
 	case netmapContract:
-		configParam := []interface{}{
-			netmapEpochKey, viper.GetInt64(epochDurationInitFlag),
-			netmapMaxObjectSizeKey, viper.GetInt64(maxObjectSizeInitFlag),
-			netmapAuditFeeKey, viper.GetInt64(auditFeeInitFlag),
-			netmapContainerFeeKey, viper.GetInt64(containerFeeInitFlag),
-			netmapContainerAliasFeeKey, viper.GetInt64(containerAliasFeeInitFlag),
-			netmapEigenTrustIterationsKey, int64(defaultEigenTrustIterations),
-			netmapEigenTrustAlphaKey, defaultEigenTrustAlpha,
-			netmapBasicIncomeRateKey, viper.GetInt64(incomeRateInitFlag),
-			netmapInnerRingCandidateFeeKey, viper.GetInt64(candidateFeeInitFlag),
-			netmapWithdrawFeeKey, viper.GetInt64(withdrawFeeInitFlag),
-			netmapHomomorphicHashDisabledKey, viper.GetBool(homomorphicHashDisabledInitFlag),
-			netmapMaintenanceAllowedKey, viper.GetBool(maintenanceModeAllowedInitFlag),
+		configParam := []interface{}{}
+		for _, kf := range []struct {
+			key  string
+			flag string
+		}{
+			{netmapEpochKey, epochDurationInitFlag},
+			{netmapMaxObjectSizeKey, maxObjectSizeInitFlag},
+			{netmapAuditFeeKey, auditFeeInitFlag},
+			{netmapContainerFeeKey, containerFeeInitFlag},
+			{netmapContainerAliasFeeKey, containerAliasFeeInitFlag},
+			{netmapBasicIncomeRateKey, incomeRateInitFlag},
+			{netmapInnerRingCandidateFeeKey, candidateFeeInitFlag},
+			{netmapWithdrawFeeKey, withdrawFeeInitFlag},
+		} {
+			i64, err := unwrap.Int64(c.ReadOnlyInvoker.Call(ctrHash, "config", kf.key))
+			if err != nil {
+				i64 = viper.GetInt64(kf.flag)
+			}
+			configParam = append(configParam, kf.key, i64)
 		}
+		for _, kf := range []struct {
+			key  string
+			flag string
+		}{
+			{netmapHomomorphicHashDisabledKey, homomorphicHashDisabledInitFlag},
+			{netmapMaintenanceAllowedKey, maintenanceModeAllowedInitFlag},
+		} {
+			bval, err := unwrap.Bool(c.ReadOnlyInvoker.Call(ctrHash, "config", kf.key))
+			if err != nil {
+				bval = viper.GetBool(kf.flag)
+			}
+			configParam = append(configParam, kf.key, bval)
+		}
+		configParam = append(configParam, netmapEigenTrustIterationsKey, int64(defaultEigenTrustIterations),
+			netmapEigenTrustAlphaKey, defaultEigenTrustAlpha,
+		)
+
 		items = append(items,
 			c.Contracts[balanceContract].Hash,
 			c.Contracts[containerContract].Hash,
