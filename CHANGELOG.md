@@ -4,6 +4,23 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Updated
+
+### Updating from v0.36.0
+
+## [0.36.0] - 2023-04-14 - Gado
+
+A number of fixes and an internal CN for IR nodes. An update is recommended,
+data storage scheme is compatible with 0.35.0.
+
+### Added
 - Doc for extended headers (#2128)
 - Separate batching for replicated operations over the same container in pilorama (#1621)
 - `object.delete.tombstone_lifetime` config parameter to set tombstone lifetime in the DELETE service (#2246)
@@ -42,9 +59,8 @@ Changelog for NeoFS Node
 - incorrect NNS resolve handling in neofs-adm (#2296)
 - Failed TestNet replication (#2288)
 
-### Removed
 ### Updated
-- `neo-go` to `v0.101.1`
+- `neo-go` to `v0.101.1` (some code also reworked to not use deprecated APIs)
 - `github.com/klauspost/compress` to `v1.15.13`
 - `github.com/multiformats/go-multiaddr` to `v0.8.0`
 - `golang.org/x/term` to `v0.3.0`
@@ -52,8 +68,8 @@ Changelog for NeoFS Node
 - `github.com/nats-io/nats.go` to `v1.22.1`
 
 ### Updating from v0.35.0
-New config field `object.delete.tombstone_lifetime` allows to set tombstone lifetime
-more appropriate for a specific deployment.
+New experimental config field `object.delete.tombstone_lifetime` allows to set
+tombstone lifetime more appropriate for a specific deployment.
 
 ## [0.35.0] - 2022-12-28 - Sindo (신도, 信島)
 
@@ -1560,7 +1576,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 ## [0.10.0] - 2020-07-10
 
 First public review release.
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...master
+[0.36.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.32.0...v0.33.0
