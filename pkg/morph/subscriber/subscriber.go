@@ -26,7 +26,6 @@ type (
 	// Subscriber is an interface of the NotificationEvent listener.
 	Subscriber interface {
 		SubscribeForNotification(...util.Uint160) error
-		UnsubscribeForNotification()
 		BlockNotifications() error
 		SubscribeForNotaryRequests(mainTXSigner util.Uint160) error
 
@@ -94,14 +93,6 @@ func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) error {
 	}
 
 	return nil
-}
-
-func (s *subscriber) UnsubscribeForNotification() {
-	err := s.client.UnsubscribeAll()
-	if err != nil {
-		s.log.Error("unsubscribe for notification",
-			zap.Error(err))
-	}
 }
 
 func (s *subscriber) Close() {
