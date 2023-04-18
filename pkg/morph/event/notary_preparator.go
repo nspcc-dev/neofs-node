@@ -116,13 +116,15 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	}
 	invokerWitness := ln == 4
 
-	// alphabet node should handle only notary requests
-	// that have been sent unsigned(by storage nodes) =>
-	// such main TXs should have dummy scripts as an
-	// invocation script
+	// alphabet node should handle only notary requests that do not yet have inner
+	// ring multisignature filled => such main TXs either have empty invocation script
+	// of the inner ring witness (in case if Notary Actor is used to create request)
+	// or have it filled with dummy bytes (if request was created manually with the old
+	// neo-go API)
 	//
 	// this check prevents notary flow recursion
-	if !bytes.Equal(nr.MainTransaction.Scripts[1].InvocationScript, p.dummyInvocationScript) {
+	if !(len(nr.MainTransaction.Scripts[1].InvocationScript) == 0 ||
+		bytes.Equal(nr.MainTransaction.Scripts[1].InvocationScript, p.dummyInvocationScript)) { // compatibility with old version
 		return nil, ErrTXAlreadyHandled
 	}
 
@@ -352,7 +354,9 @@ func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.Pu
 
 	// the last one must be a placeholder for notary contract witness
 	last := len(w) - 1
-	if !bytes.Equal(w[last].InvocationScript, p.dummyInvocationScript) || len(w[last].VerificationScript) != 0 {
+	if !(len(w[last].InvocationScript) == 0 || // https://github.com/nspcc-dev/neo-go/pull/2981
+		bytes.Equal(w[last].InvocationScript, p.dummyInvocationScript)) || // compatibility with old version
+		len(w[last].VerificationScript) != 0 {
 		return errIncorrectNotaryPlaceholder
 	}
 
