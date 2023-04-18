@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Storage node hanging after RPC disconnect (#2304)
 - Using deprecated NeoGo APIs (#2219)
+- Storage node panicking on exit (#2308)
 
 ### Removed
 
