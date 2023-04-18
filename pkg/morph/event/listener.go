@@ -228,9 +228,6 @@ loop:
 				l.log.Warn("stop event listener by notification channel")
 				res = errors.New("event subscriber connection has been terminated")
 				break loop
-			} else if notifyEvent == nil {
-				l.log.Warn("nil notification event was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
@@ -244,9 +241,6 @@ loop:
 				l.log.Warn("stop event listener by notary channel")
 				res = errors.New("notary event subscriber connection has been terminated")
 				break loop
-			} else if notaryEvent == nil {
-				l.log.Warn("nil notary event was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
@@ -260,9 +254,6 @@ loop:
 				l.log.Warn("stop event listener by block channel")
 				res = errors.New("new block notification channel is closed")
 				break loop
-			} else if b == nil {
-				l.log.Warn("nil block was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
