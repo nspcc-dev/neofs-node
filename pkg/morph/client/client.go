@@ -67,16 +67,8 @@ type Client struct {
 	// on every normal call.
 	switchLock *sync.RWMutex
 
-	// channel for ws notifications
-	notifications chan rpcclient.Notification
-
 	// channel for internal stop
 	closeChan chan struct{}
-
-	// cached subscription information
-	subscribedEvents       map[util.Uint160]string
-	subscribedNotaryEvents map[util.Uint160]string
-	subscribedToNewBlocks  bool
 
 	// indicates that Client is not able to
 	// establish connection to any of the
@@ -496,26 +488,9 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 
 // NotificationChannel returns channel than receives subscribed
 // notification from the connected RPC node.
-// Channel is closed when connection to the RPC node has been
-// lost without the possibility of recovery.
+// Channel is closed when connection to the RPC node is lost.
 func (c *Client) NotificationChannel() <-chan rpcclient.Notification {
-	return c.notifications
-}
-
-// inactiveMode switches Client to an inactive mode:
-// - notification channel is closed;
-// - all the new RPC request would return ErrConnectionLost;
-// - inactiveModeCb is called if not nil.
-func (c *Client) inactiveMode() {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
-
-	close(c.notifications)
-	c.inactive = true
-
-	if c.cfg.inactiveModeCb != nil {
-		c.cfg.inactiveModeCb()
-	}
+	return c.client.Notifications
 }
 
 func (c *Client) setActor(act *actor.Actor) {

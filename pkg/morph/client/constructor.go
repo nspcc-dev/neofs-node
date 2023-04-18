@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -97,16 +96,13 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 
 	cli := &Client{
-		cache:                  newClientCache(),
-		logger:                 cfg.logger,
-		acc:                    acc,
-		accAddr:                accAddr,
-		cfg:                    *cfg,
-		switchLock:             &sync.RWMutex{},
-		notifications:          make(chan rpcclient.Notification),
-		subscribedEvents:       make(map[util.Uint160]string),
-		subscribedNotaryEvents: make(map[util.Uint160]string),
-		closeChan:              make(chan struct{}),
+		cache:      newClientCache(),
+		logger:     cfg.logger,
+		acc:        acc,
+		accAddr:    accAddr,
+		cfg:        *cfg,
+		switchLock: &sync.RWMutex{},
+		closeChan:  make(chan struct{}),
 	}
 
 	var err error
@@ -139,7 +135,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 	cli.setActor(act)
 
-	go cli.notificationLoop()
+	go cli.closeWaiter()
 
 	return cli, nil
 }
