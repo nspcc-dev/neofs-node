@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Inner ring node panic on exit if internal CN is not enabled (#2308)
 
 ### Removed
+- FallbackTime Morph client configuration option (#2310)
 
 ### Updated
 
