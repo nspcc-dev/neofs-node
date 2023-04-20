@@ -1,0 +1,249 @@
+name: Run tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions: write-all
+
+env:
+  CONTRACT_DIR: /tmp/neofs-contract
+  LOCODE_DIR: /tmp/neofs-locode-db
+
+jobs:
+  run_tests:
+    runs-on: self-hosted
+    steps:
+    # Cleanup directories before start
+    - name: Cleanup directories before start
+      run: | 
+        rm -rf ${{ env.CONTRACT_DIR }}
+        rm -rf ${{ env.LOCODE_DIR }}
+
+###############################################################################
+###############################################################################
+###############################################################################
+    # Checkout NEOFS parts for the test environment
+    # neofs-testcases
+    - name: Checkout neofs-testcases repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-testcases
+        ref: ${{ github.event.inputs.neofs_testcases_branch || 'master' }}
+        path: neofs-testcases
+
+    # neofs-dev-env
+    - name: Checkout neofs-dev-env repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-dev-env
+        ref: ${{ github.event.inputs.neofs_dev_env_branch || 'master' }}
+        path: neofs-dev-env
+
+    # neofs-node
+    - name: Checkout neofs-node repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-node
+        ref: ${{ github.event.inputs.neofs_node_branch || github.head_ref || github.ref_name }}
+        path: neofs-node
+
+    # neofs-s3-gw
+    - name: Checkout neofs-s3-gw repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-s3-gw
+        ref: ${{ github.event.inputs.neofs_s3_gw_branch || 'v0.26.1' }}
+        path: neofs-s3-gw
+
+    # neo-go
+    - name: Checkout neo-go repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neo-go
+        ref: ${{ github.event.inputs.neo_go_branch || 'v0.101.0' }}
+        path: neo-go
+
+    # neofs-contract
+    - name: Checkout neofs-contract repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-contract
+        ref: ${{ github.event.inputs.neofs_contract_branch || 'v0.17.0' }}
+        path: neofs-contract
+
+    # neofs-locode-db
+    - name: Checkout neofs-locode-db repository
+      uses: actions/checkout@v3
+      with:
+        repository: nspcc-dev/neofs-locode-db
+        ref: ${{ github.event.inputs.neofs_locode_db_branch || 'v0.3.0' }}
+        path: neofs-locode-db
+
+###############################################################################
+###############################################################################
+###############################################################################
+# Prerequisites
+    # Set up Go
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.18.2
+
+###############################################################################
+###############################################################################
+###############################################################################
+    # Build and install NEOFS parts on runner
+    # Install neofs-cli
+    - name: Install neofs-node (neofs-cli and neofs-adm)
+      run: |
+        make all
+        sudo cp bin/neofs-cli /usr/local/bin/neofs-cli
+        sudo cp bin/neofs-adm /usr/local/bin/neofs-adm
+        cp bin/neofs-cli /tmp/neofs-cli
+        cp bin/neofs-adm /tmp/neofs-adm
+      working-directory: neofs-node
+
+    # Install neofs-s3-authmate
+    - name: Install neofs-s3-authmate
+      run: |
+        make
+        sudo cp bin/neofs-s3-authmate /usr/local/bin/neofs-s3-authmate
+      working-directory: neofs-s3-gw
+
+    # Install neo-go
+    - name: Install neo-go
+      run: |
+        make
+        sudo cp bin/neo-go /usr/local/bin/neo-go
+      working-directory: neo-go
+
+    # Install neofs-contract
+    - name: Install neofs-contract
+      run: |
+        NEOGO=../neo-go/bin/neo-go make all
+        mkdir -p ${{ env.CONTRACT_DIR }}
+        cp -r ./* ${{ env.CONTRACT_DIR }}
+      working-directory: neofs-contract
+
+    # Install neofs-locode-db
+    - name: Install neofs-locode-db
+      run: |
+        echo "Using v0.3.0"
+      working-directory: neofs-locode-db
+
+###############################################################################
+###############################################################################
+###############################################################################
+    # Transfer the env file for the NEOFS test cluster deployment to docker
+    - name: Copy .env file to .env in neofs-dev-env
+      run: |
+        cp .env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
+        cat .env
+        cat ${GITHUB_WORKSPACE}/neofs-dev-env/.env
+      working-directory: neofs-node
+
+    # Get vendor
+    - name: Get vendor
+      run: |
+        make get
+      working-directory: neofs-dev-env
+
+    # Generate hosts
+    - name: Generate hosts
+      run: |
+        sudo ./bin/update_hosts.sh
+      working-directory: neofs-dev-env
+
+    # Prepare test environment
+    - name: Prepare test environment
+      run: |
+        make prepare-test-env
+      working-directory: neofs-dev-env
+
+###############################################################################
+###############################################################################
+###############################################################################
+    # Make venv
+    - name: Prepare venv
+      run: |
+        make venv.local-pytest
+      working-directory: neofs-testcases
+
+    # Run tests
+    - name: Run tests
+      run: |
+        source venv.local-pytest/bin/activate && pytest --alluredir=allure-results pytest_tests/testsuites
+      continue-on-error: true
+      working-directory: neofs-testcases
+
+###############################################################################
+###############################################################################
+###############################################################################
+    # Cleanup tests
+    - name: Cleanup test environment
+      if: always()
+      run: |
+        make clean
+      continue-on-error: true
+      working-directory: neofs-testcases
+
+    # Cleanup test environment
+    - name: Cleanup test environment
+      if: always()
+      run: |
+        make down
+        make clean
+      continue-on-error: true
+      working-directory: neofs-dev-env
+
+    # Cleanup directories before finish
+    - name: Cleanup directories before finish
+      if: always()
+      run: |
+        echo "Clean"
+        rm -rf ${{ env.CONTRACT_DIR }}
+        rm -rf ${{ env.LOCODE_DIR }}
+      continue-on-error: true
+
+###############################################################################
+###############################################################################
+###############################################################################
+    - name: Get Allure history
+      uses: actions/checkout@v2
+      if: always()
+      continue-on-error: true
+      with:
+        ref: gh-pages
+        path: gh-pages
+
+    - name: Allure Report action from marketplace
+      uses: simple-elf/allure-report-action@master
+      if: always()
+      id: allure-report
+      with:
+        allure_results: allure-results
+        allure_report: allure-report
+        gh_pages: gh-pages
+        allure_history: allure-history
+
+    - name: Deploy report to Github Pages
+      if: always()
+      uses: peaceiris/actions-gh-pages@v2
+      env:
+        PERSONAL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PUBLISH_BRANCH: gh-pages
+        PUBLISH_DIR: allure-history
+
+    - name: Post the link to the report
+      if: always()
+      uses: Sibz/github-status-action@v1
+      with:
+        authToken: ${{secrets.GITHUB_TOKEN}}
+        context: 'Test report'
+        state: 'success'
+        sha: ${{github.event.pull_request.head.sha || github.sha}}
+        target_url: https://${{ github.repository_owner }}.github.io/${{ github.repository }}/allure-history/${{ github.run_number }}
