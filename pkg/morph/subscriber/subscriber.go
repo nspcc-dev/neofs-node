@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -26,7 +25,6 @@ type (
 	// Subscriber is an interface of the NotificationEvent listener.
 	Subscriber interface {
 		SubscribeForNotification(...util.Uint160) error
-		UnsubscribeForNotification()
 		BlockNotifications() error
 		SubscribeForNotaryRequests(mainTXSigner util.Uint160) error
 
@@ -41,10 +39,17 @@ type (
 		client *client.Client
 
 		notifyChan chan *state.ContainedNotificationEvent
-
-		blockChan chan *block.Block
-
+		blockChan  chan *block.Block
 		notaryChan chan *result.NotaryRequestEvent
+
+		curNotifyChan chan *state.ContainedNotificationEvent
+		curBlockChan  chan *block.Block
+		curNotaryChan chan *result.NotaryRequestEvent
+
+		// cached subscription information
+		subscribedEvents       map[util.Uint160]bool
+		subscribedNotaryEvents map[util.Uint160]bool
+		subscribedToNewBlocks  bool
 	}
 
 	// Params is a group of Subscriber constructor parameters.
@@ -75,33 +80,31 @@ func (s *subscriber) SubscribeForNotification(contracts ...util.Uint160) error {
 	s.Lock()
 	defer s.Unlock()
 
-	notifyIDs := make(map[util.Uint160]struct{}, len(contracts))
+	notifyIDs := make([]string, 0, len(contracts))
 
 	for i := range contracts {
+		if s.subscribedEvents[contracts[i]] {
+			continue
+		}
 		// subscribe to contract notifications
-		err := s.client.SubscribeForExecutionNotifications(contracts[i])
+		id, err := s.client.ReceiveExecutionNotifications(contracts[i], s.curNotifyChan)
 		if err != nil {
 			// if there is some error, undo all subscriptions and return error
-			for hash := range notifyIDs {
-				_ = s.client.UnsubscribeContract(hash)
+			for _, id := range notifyIDs {
+				_ = s.client.Unsubscribe(id)
 			}
 
 			return err
 		}
 
 		// save notification id
-		notifyIDs[contracts[i]] = struct{}{}
+		notifyIDs = append(notifyIDs, id)
+	}
+	for i := range contracts {
+		s.subscribedEvents[contracts[i]] = true
 	}
 
 	return nil
-}
-
-func (s *subscriber) UnsubscribeForNotification() {
-	err := s.client.UnsubscribeAll()
-	if err != nil {
-		s.log.Error("unsubscribe for notification",
-			zap.Error(err))
-	}
 }
 
 func (s *subscriber) Close() {
@@ -109,80 +112,32 @@ func (s *subscriber) Close() {
 }
 
 func (s *subscriber) BlockNotifications() error {
-	if err := s.client.SubscribeForNewBlocks(); err != nil {
+	s.Lock()
+	defer s.Unlock()
+	if s.subscribedToNewBlocks {
+		return nil
+	}
+	if _, err := s.client.ReceiveBlocks(s.curBlockChan); err != nil {
 		return fmt.Errorf("could not subscribe for new block events: %w", err)
 	}
+
+	s.subscribedToNewBlocks = true
 
 	return nil
 }
 
 func (s *subscriber) SubscribeForNotaryRequests(mainTXSigner util.Uint160) error {
-	if err := s.client.SubscribeForNotaryRequests(mainTXSigner); err != nil {
+	s.Lock()
+	defer s.Unlock()
+	if s.subscribedNotaryEvents[mainTXSigner] {
+		return nil
+	}
+	if _, err := s.client.ReceiveNotaryRequests(mainTXSigner, s.curNotaryChan); err != nil {
 		return fmt.Errorf("could not subscribe for notary request events: %w", err)
 	}
 
+	s.subscribedNotaryEvents[mainTXSigner] = true
 	return nil
-}
-
-func (s *subscriber) routeNotifications(ctx context.Context) {
-	notificationChan := s.client.NotificationChannel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case notification, ok := <-notificationChan:
-			if !ok {
-				s.log.Warn("remote notification channel has been closed")
-				close(s.notifyChan)
-				close(s.blockChan)
-				close(s.notaryChan)
-
-				return
-			}
-
-			switch notification.Type {
-			case neorpc.NotificationEventID:
-				notifyEvent, ok := notification.Value.(*state.ContainedNotificationEvent)
-				if !ok {
-					s.log.Error("can't cast notify event value to the notify struct",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
-					)
-					continue
-				}
-
-				s.log.Debug("new notification event from sidechain",
-					zap.String("name", notifyEvent.Name),
-				)
-
-				s.notifyChan <- notifyEvent
-			case neorpc.BlockEventID:
-				b, ok := notification.Value.(*block.Block)
-				if !ok {
-					s.log.Error("can't cast block event value to block",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
-					)
-					continue
-				}
-
-				s.blockChan <- b
-			case neorpc.NotaryRequestEventID:
-				notaryRequest, ok := notification.Value.(*result.NotaryRequestEvent)
-				if !ok {
-					s.log.Error("can't cast notify event value to the notary request struct",
-						zap.String("received type", fmt.Sprintf("%T", notification.Value)),
-					)
-					continue
-				}
-
-				s.notaryChan <- notaryRequest
-			default:
-				s.log.Debug("unsupported notification from the chain",
-					zap.Uint8("type", uint8(notification.Type)),
-				)
-			}
-		}
-	}
 }
 
 // New is a constructs Neo:Morph event listener and returns Subscriber interface.
@@ -208,14 +163,159 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 		notifyChan: make(chan *state.ContainedNotificationEvent),
 		blockChan:  make(chan *block.Block),
 		notaryChan: make(chan *result.NotaryRequestEvent),
-	}
 
-	// Worker listens all events from neo-go websocket and puts them
-	// into corresponding channel. It may be notifications, transactions,
-	// new blocks. For now only notifications.
+		curNotifyChan: make(chan *state.ContainedNotificationEvent),
+		curBlockChan:  make(chan *block.Block),
+		curNotaryChan: make(chan *result.NotaryRequestEvent),
+
+		subscribedEvents:       make(map[util.Uint160]bool),
+		subscribedNotaryEvents: make(map[util.Uint160]bool),
+	}
+	// Worker listens all events from temporary NeoGo channel and puts them
+	// into corresponding permanent channels.
 	go sub.routeNotifications(ctx)
 
 	return sub, nil
+}
+
+func (s *subscriber) routeNotifications(ctx context.Context) {
+	var (
+		// TODO: not needed after nspcc-dev/neo-go#2980.
+		cliCh             = s.client.NotificationChannel()
+		restoreCh         chan bool
+		restoreInProgress bool
+	)
+
+routeloop:
+	for {
+		var connLost bool
+		s.RLock()
+		notifCh := s.curNotifyChan
+		blCh := s.curBlockChan
+		notaryCh := s.curNotaryChan
+		s.RUnlock()
+		select {
+		case <-ctx.Done():
+			break routeloop
+		case ev, ok := <-notifCh:
+			if ok {
+				s.notifyChan <- ev
+			} else {
+				connLost = true
+			}
+		case ev, ok := <-blCh:
+			if ok {
+				s.blockChan <- ev
+			} else {
+				connLost = true
+			}
+		case ev, ok := <-notaryCh:
+			if ok {
+				s.notaryChan <- ev
+			} else {
+				connLost = true
+			}
+		case _, ok := <-cliCh:
+			connLost = !ok
+		case ok := <-restoreCh:
+			restoreInProgress = false
+			if !ok {
+				connLost = true
+			}
+		}
+		if connLost {
+			if !restoreInProgress {
+				s.log.Info("RPC connection lost, attempting reconnect")
+				if !s.client.SwitchRPC() {
+					s.log.Error("can't switch RPC node")
+					break routeloop
+				}
+				cliCh = s.client.NotificationChannel()
+
+				s.Lock()
+				s.curNotifyChan = make(chan *state.ContainedNotificationEvent)
+				s.curBlockChan = make(chan *block.Block)
+				s.curNotaryChan = make(chan *result.NotaryRequestEvent)
+				go s.restoreSubscriptions(s.curNotifyChan, s.curBlockChan, s.curNotaryChan, restoreCh)
+				s.Unlock()
+				restoreInProgress = true
+			drainloop:
+				for {
+					select {
+					case _, ok := <-notifCh:
+						if !ok {
+							notifCh = nil
+						}
+					case _, ok := <-blCh:
+						if !ok {
+							blCh = nil
+						}
+					case _, ok := <-notaryCh:
+						if !ok {
+							notaryCh = nil
+						}
+					default:
+						break drainloop
+					}
+				}
+			} else { // Avoid getting additional !ok events.
+				s.Lock()
+				s.curNotifyChan = nil
+				s.curBlockChan = nil
+				s.curNotaryChan = nil
+				s.Unlock()
+			}
+		}
+	}
+	close(s.notifyChan)
+	close(s.blockChan)
+	close(s.notaryChan)
+}
+
+// restoreSubscriptions restores subscriptions according to
+// cached information about them.
+func (s *subscriber) restoreSubscriptions(notifCh chan<- *state.ContainedNotificationEvent,
+	blCh chan<- *block.Block, notaryCh chan<- *result.NotaryRequestEvent, resCh chan<- bool) {
+	var err error
+
+	// new block events restoration
+	if s.subscribedToNewBlocks {
+		_, err = s.client.ReceiveBlocks(blCh)
+		if err != nil {
+			s.log.Error("could not restore block subscription",
+				zap.Error(err),
+			)
+			resCh <- false
+			return
+		}
+	}
+
+	// notification events restoration
+	for contract := range s.subscribedEvents {
+		contract := contract // See https://github.com/nspcc-dev/neo-go/issues/2890
+		_, err = s.client.ReceiveExecutionNotifications(contract, notifCh)
+		if err != nil {
+			s.log.Error("could not restore notification subscription after RPC switch",
+				zap.Error(err),
+			)
+			resCh <- false
+			return
+		}
+	}
+
+	// notary notification events restoration
+	for signer := range s.subscribedNotaryEvents {
+		signer := signer // See https://github.com/nspcc-dev/neo-go/issues/2890
+		_, err = s.client.ReceiveNotaryRequests(signer, notaryCh)
+		if err != nil {
+			s.log.Error("could not restore notary notification subscription after RPC switch",
+				zap.Error(err),
+			)
+			resCh <- false
+			return
+		}
+	}
+	resCh <- true
 }
 
 // awaitHeight checks if remote client has least expected block height and

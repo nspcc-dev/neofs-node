@@ -559,7 +559,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.internals = internals{
 		ctx:          context.Background(),
 		appCfg:       appCfg,
-		internalErr:  make(chan error),
+		internalErr:  make(chan error, 10), // We only need one error, but we can have multiple senders.
 		log:          log,
 		wg:           new(sync.WaitGroup),
 		apiVersion:   version.Current(),

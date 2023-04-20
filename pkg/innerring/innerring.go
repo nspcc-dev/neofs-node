@@ -299,7 +299,9 @@ func (s *Server) Stop() {
 		}
 	}
 
-	s.bc.Stop()
+	if s.bc != nil {
+		s.bc.Stop()
+	}
 }
 
 func (s *Server) registerNoErrCloser(c func()) {

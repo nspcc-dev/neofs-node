@@ -131,7 +131,7 @@ var (
 // Returns an error if listener was already started.
 func (l *listener) Listen(ctx context.Context) {
 	l.startOnce.Do(func() {
-		if err := l.listen(ctx, nil); err != nil {
+		if err := l.listen(ctx); err != nil {
 			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
 			)
@@ -147,7 +147,7 @@ func (l *listener) Listen(ctx context.Context) {
 // Returns an error if listener was already started.
 func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	l.startOnce.Do(func() {
-		if err := l.listen(ctx, intError); err != nil {
+		if err := l.listen(ctx); err != nil {
 			l.log.Error("could not start listen to events",
 				zap.String("error", err.Error()),
 			)
@@ -156,7 +156,7 @@ func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	})
 }
 
-func (l *listener) listen(ctx context.Context, intError chan<- error) error {
+func (l *listener) listen(ctx context.Context) error {
 	// mark listener as started
 	l.started = true
 
@@ -164,9 +164,7 @@ func (l *listener) listen(ctx context.Context, intError chan<- error) error {
 
 	go l.subscribe(subErrCh)
 
-	l.listenLoop(ctx, intError, subErrCh)
-
-	return nil
+	return l.listenLoop(ctx, subErrCh)
 }
 
 func (l *listener) subscribe(errCh chan error) {
@@ -210,19 +208,15 @@ func (l *listener) subscribe(errCh chan error) {
 	}
 }
 
-func (l *listener) listenLoop(ctx context.Context, intErr chan<- error, subErrCh chan error) {
+func (l *listener) listenLoop(ctx context.Context, subErrCh chan error) error {
 	chs := l.subscriber.NotificationChannels()
+	var res error
 
 loop:
 	for {
 		select {
-		case err := <-subErrCh:
-			if intErr != nil {
-				intErr <- err
-			} else {
-				l.log.Error("stop event listener by error", zap.Error(err))
-			}
-
+		case res = <-subErrCh:
+			l.log.Error("stop event listener by error", zap.Error(res))
 			break loop
 		case <-ctx.Done():
 			l.log.Info("stop event listener by context",
@@ -232,14 +226,8 @@ loop:
 		case notifyEvent, ok := <-chs.NotificationsCh:
 			if !ok {
 				l.log.Warn("stop event listener by notification channel")
-				if intErr != nil {
-					intErr <- errors.New("event subscriber connection has been terminated")
-				}
-
+				res = errors.New("event subscriber connection has been terminated")
 				break loop
-			} else if notifyEvent == nil {
-				l.log.Warn("nil notification event was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
@@ -251,14 +239,8 @@ loop:
 		case notaryEvent, ok := <-chs.NotaryRequestsCh:
 			if !ok {
 				l.log.Warn("stop event listener by notary channel")
-				if intErr != nil {
-					intErr <- errors.New("notary event subscriber connection has been terminated")
-				}
-
+				res = errors.New("notary event subscriber connection has been terminated")
 				break loop
-			} else if notaryEvent == nil {
-				l.log.Warn("nil notary event was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
@@ -270,14 +252,8 @@ loop:
 		case b, ok := <-chs.BlockCh:
 			if !ok {
 				l.log.Warn("stop event listener by block channel")
-				if intErr != nil {
-					intErr <- errors.New("new block notification channel is closed")
-				}
-
+				res = errors.New("new block notification channel is closed")
 				break loop
-			} else if b == nil {
-				l.log.Warn("nil block was caught")
-				continue loop
 			}
 
 			if err := l.pool.Submit(func() {
@@ -290,6 +266,7 @@ loop:
 			}
 		}
 	}
+	return res
 }
 
 func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotificationEvent) {

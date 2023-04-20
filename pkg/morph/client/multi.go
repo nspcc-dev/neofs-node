@@ -27,7 +27,8 @@ func (e *endpoints) init(ee []Endpoint) {
 	e.list = ee
 }
 
-func (c *Client) switchRPC() bool {
+// SwitchRPC performs reconnection and returns true if it was successful.
+func (c *Client) SwitchRPC() bool {
 	c.switchLock.Lock()
 	defer c.switchLock.Unlock()
 
@@ -51,16 +52,6 @@ func (c *Client) switchRPC() bool {
 		c.logger.Info("connection to the new RPC node has been established",
 			zap.String("endpoint", newEndpoint))
 
-		if !c.restoreSubscriptions(cli, newEndpoint) {
-			// new WS client does not allow
-			// restoring subscription, client
-			// could not work correctly =>
-			// closing connection to RPC node
-			// to switch to another one
-			cli.Close()
-			continue
-		}
-
 		c.client = cli
 		c.setActor(act)
 
@@ -73,62 +64,21 @@ func (c *Client) switchRPC() bool {
 		return true
 	}
 
+	c.inactive = true
+
+	if c.cfg.inactiveModeCb != nil {
+		c.cfg.inactiveModeCb()
+	}
 	return false
 }
 
-func (c *Client) notificationLoop() {
-	for {
-		c.switchLock.RLock()
-		nChan := c.client.Notifications
-		c.switchLock.RUnlock()
-
-		select {
-		case <-c.cfg.ctx.Done():
-			_ = c.UnsubscribeAll()
-			c.close()
-
-			return
-		case <-c.closeChan:
-			_ = c.UnsubscribeAll()
-			c.close()
-
-			return
-		case n, ok := <-nChan:
-			// notification channel is used as a connection
-			// state: if it is closed, the connection is
-			// considered to be lost
-			if !ok {
-				if closeErr := c.client.GetError(); closeErr != nil {
-					c.logger.Warn("switching to the next RPC node",
-						zap.String("reason", closeErr.Error()),
-					)
-				} else {
-					// neo-go client was closed by calling `Close`
-					// method that happens only when the client has
-					// switched to the more prioritized RPC
-					continue
-				}
-
-				if !c.switchRPC() {
-					c.logger.Error("could not establish connection to any RPC node")
-
-					// could not connect to all endpoints =>
-					// switch client to inactive mode
-					c.inactiveMode()
-
-					return
-				}
-
-				// TODO(@carpawell): call here some callback retrieved in constructor
-				// of the client to allow checking chain state since during switch
-				// process some notification could be lost
-
-				continue
-			}
-
-			c.notifications <- n
-		}
+func (c *Client) closeWaiter() {
+	select {
+	case <-c.cfg.ctx.Done():
+	case <-c.closeChan:
 	}
+	_ = c.UnsubscribeAll()
+	c.close()
 }
 
 func (c *Client) switchToMostPrioritized() {
@@ -173,35 +123,28 @@ mainLoop:
 					continue
 				}
 
-				if c.restoreSubscriptions(cli, tryE) {
-					c.switchLock.Lock()
+				c.switchLock.Lock()
 
-					// higher priority node could have been
-					// connected in the other goroutine
-					if e.Priority >= c.endpoints.list[c.endpoints.curr].Priority {
-						cli.Close()
-						c.switchLock.Unlock()
-						return
-					}
-
-					c.client.Close()
-					c.cache.invalidate()
-					c.client = cli
-					c.setActor(act)
-					c.endpoints.curr = i
-
+				// higher priority node could have been
+				// connected in the other goroutine
+				if e.Priority >= c.endpoints.list[c.endpoints.curr].Priority {
+					cli.Close()
 					c.switchLock.Unlock()
-
-					c.logger.Info("switched to the higher priority RPC",
-						zap.String("endpoint", tryE))
-
 					return
 				}
 
-				c.logger.Warn("could not restore side chain subscriptions using node",
-					zap.String("endpoint", tryE),
-					zap.Error(err),
-				)
+				c.client.Close()
+				c.cache.invalidate()
+				c.client = cli
+				c.setActor(act)
+				c.endpoints.curr = i
+
+				c.switchLock.Unlock()
+
+				c.logger.Info("switched to the higher priority RPC",
+					zap.String("endpoint", tryE))
+
+				return
 			}
 		}
 	}
@@ -209,6 +152,5 @@ mainLoop:
 
 // close closes notification channel and wrapped WS client.
 func (c *Client) close() {
-	close(c.notifications)
 	c.client.Close()
 }
