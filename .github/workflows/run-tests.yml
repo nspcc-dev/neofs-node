@@ -1,0 +1,212 @@
+name: Run automated system tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+      - support/**
+    types: [opened, synchronize]
+    paths-ignore:
+      - '**/*.md'
+    release:
+      types:
+        - published
+    workflow_dispatch:
+      inputs:
+        neofs_node_ref:
+          description: 'Neofs-node ref. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name]'
+          required: false
+          default: ''
+
+permissions: write-all
+
+jobs:
+  run_system_tests:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Checkout neofs-testcases repository
+        uses: actions/checkout@v3
+        with:
+          repository: nspcc-dev/neofs-testcases
+          ref: 'master'
+          path: neofs-testcases
+
+      - name: Checkout neofs-dev-env repository
+        uses: actions/checkout@v3
+        with:
+          repository: nspcc-dev/neofs-dev-env
+          ref: 'master'
+          path: neofs-dev-env
+
+      - name: Checkout neofs-node repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.inputs.neofs_node_ref || github.head_ref || github.ref_name }}
+          path: neofs-node
+
+################################################################
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+      - run: go version
+
+################################################################
+      - name: Build neofs-node (neofs-cli and neofs-adm)
+        run: |
+          make all
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+        working-directory: neofs-node
+
+################################################################
+      - name: Get TAG for docker images
+        run: |
+          echo "CURRENT_TAG=$( make version | sed 's/^v//' )" >> $GITHUB_ENV
+        working-directory: neofs-node
+
+      - name: Build NeoFS storage docker image
+        run: |
+          make image-storage
+        working-directory: neofs-node
+
+      - name: Build NeoFS Inner Ring docker image
+        run: |
+          make image-ir
+        working-directory: neofs-node
+
+      - name: Add NeoFS storage and NeoFS ir docker TAGs to testcases-env config file
+        run: |
+          sed -i "s/NODE_VERSION=.*/NODE_VERSION=${{ env.CURRENT_TAG }}/g" .github/testcases-env
+          sed -i "s/IR_VERSION=.*/IR_VERSION=${{ env.CURRENT_TAG }}/g" .github/testcases-env
+        working-directory: neofs-node
+
+################################################################
+      - name: Copy testcases-env file to testcases-env in neofs-dev-env
+        run: |
+          cp .github/testcases-env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
+        working-directory: neofs-node
+
+      - name: Prepare test environment
+        run: |
+          make prepare-test-env
+          echo "$(pwd)/vendor" >> $GITHUB_PATH
+        working-directory: neofs-dev-env
+
+################################################################
+      - name: Log environment
+        run: |
+          echo "Check /etc/hosts"
+          cat /etc/hosts
+          echo "=========================================="
+
+          echo "Check docker images"
+          docker images
+          echo "=========================================="
+
+          echo "Check docker ps"
+          docker ps
+          echo "=========================================="
+
+          echo "Check neo-go version"
+          neo-go --version
+          echo "=========================================="
+
+          echo "Check neofs-s3-authmate version"
+          neofs-s3-authmate --version
+          echo "=========================================="
+
+          echo "Check neofs-s3-gw version"
+          echo "=========================================="
+          neofs-s3-gw --version
+          echo "=========================================="
+
+          echo "Check neofs-adm version"
+          neofs-adm --version
+          echo "=========================================="
+
+          echo "Check neofs-ir version"
+          neofs-ir --version
+          echo "=========================================="
+
+          echo "Check neofs-lens version"
+          neofs-lens --version
+          echo "=========================================="
+
+          echo "Check neofs-cli version"
+          neofs-cli --version
+          echo "=========================================="
+
+          echo "Check vendor dir"
+          ls -lah "${GITHUB_WORKSPACE}/neofs-dev-env/vendor"
+          echo "=========================================="
+
+          echo "Check bin dir"
+          ls -lah "${GITHUB_WORKSPACE}/neofs-node/bin"
+          echo "=========================================="
+        working-directory: neofs-dev-env
+
+################################################################
+      - name: Prepare venv
+        run: |
+          make venv.local-pytest
+        working-directory: neofs-testcases
+
+      - name: Run tests
+        run: |
+          source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+        working-directory: neofs-testcases
+
+################################################################
+      - name: Cleanup system tests environment
+        if: always()
+        run: |
+          make clean
+        working-directory: neofs-testcases
+
+      - name: Cleanup dev-env environment
+        if: always()
+        run: |
+          make down
+          make clean
+        working-directory: neofs-dev-env
+
+################################################################
+      - name: Get Allure history
+        uses: actions/checkout@v3
+        if: always()
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Allure Report action from marketplace
+        uses: simple-elf/allure-report-action@v1.6
+        if: always()
+        id: allure-report
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          gh_pages: gh-pages
+          allure_history: allure-history
+
+      - name: Deploy report to Github Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v2
+        env:
+          PERSONAL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_BRANCH: gh-pages
+          PUBLISH_DIR: allure-history
+
+      - name: Post the link to the report
+        if: always()
+        uses: Sibz/github-status-action@v1
+        with:
+          authToken: ${{secrets.GITHUB_TOKEN}}
+          context: 'Test report'
+          state: 'success'
+          sha: ${{github.event.pull_request.head.sha || github.sha}}
+          target_url: https://${{ github.repository_owner }}.github.io/${{ github.repository }}/allure-history/${{ github.run_number }}
