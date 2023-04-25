@@ -35,11 +35,11 @@ func getSDKClientByFlag(cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag 
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errInvalidEndpoint, err)
 	}
-	return GetSDKClient(cmd, key, addr)
+	return GetSDKClient(context.TODO(), cmd, key, addr)
 }
 
 // GetSDKClient returns default neofs-sdk-go client.
-func GetSDKClient(cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Address) (*client.Client, error) {
+func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Address) (*client.Client, error) {
 	var (
 		c       client.Client
 		prmInit client.PrmInit
@@ -49,6 +49,7 @@ func GetSDKClient(cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Addres
 	prmInit.SetDefaultPrivateKey(*key)
 	prmInit.ResolveNeoFSFailures()
 	prmDial.SetServerURI(addr.URIAddr())
+	prmDial.SetContext(ctx)
 	if timeout := viper.GetDuration(commonflags.Timeout); timeout > 0 {
 		// In CLI we can only set a timeout for the whole operation.
 		// By also setting stream timeout we ensure that no operation hands
@@ -61,7 +62,7 @@ func GetSDKClient(cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Addres
 
 	c.Init(prmInit)
 
-	if err := c.Dial(prmDial); err != nil {
+	if err := c.Dial(prmDial); err != nil { //nolint:contextcheck // SetContext is used above.
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
@@ -81,7 +82,7 @@ func GetCurrentEpoch(ctx context.Context, cmd *cobra.Command, endpoint string) (
 		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
 	}
 
-	c, err := GetSDKClient(cmd, key, addr)
+	c, err := GetSDKClient(ctx, cmd, key, addr)
 	if err != nil {
 		return 0, err
 	}
