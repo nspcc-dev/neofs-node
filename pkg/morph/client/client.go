@@ -18,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
-	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -150,8 +149,6 @@ func (e *notHaltStateError) Error() string {
 		e.exception,
 	)
 }
-
-var errEmptyInvocationScript = errors.New("got empty invocation script from neo node")
 
 // implementation of error interface for NeoFS-specific errors.
 type neofsError struct {
@@ -369,64 +366,6 @@ func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 	}
 
 	return c.rolemgmt.GetDesignatedByRole(r, height)
-}
-
-// tries to resolve sc.Parameter from the arg.
-//
-// Wraps any error to neofsError.
-func toStackParameter(value interface{}) (sc.Parameter, error) {
-	var result = sc.Parameter{
-		Value: value,
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		result.Type = sc.ByteArrayType
-	case int:
-		result.Type = sc.IntegerType
-		result.Value = big.NewInt(int64(v))
-	case int64:
-		result.Type = sc.IntegerType
-		result.Value = big.NewInt(v)
-	case uint64:
-		result.Type = sc.IntegerType
-		result.Value = new(big.Int).SetUint64(v)
-	case [][]byte:
-		arr := make([]sc.Parameter, 0, len(v))
-		for i := range v {
-			elem, err := toStackParameter(v[i])
-			if err != nil {
-				return result, err
-			}
-
-			arr = append(arr, elem)
-		}
-
-		result.Type = sc.ArrayType
-		result.Value = arr
-	case string:
-		result.Type = sc.StringType
-	case util.Uint160:
-		result.Type = sc.ByteArrayType
-		result.Value = v.BytesBE()
-	case noderoles.Role:
-		result.Type = sc.IntegerType
-		result.Value = big.NewInt(int64(v))
-	case keys.PublicKeys:
-		arr := make([][]byte, 0, len(v))
-		for i := range v {
-			arr = append(arr, v[i].Bytes())
-		}
-
-		return toStackParameter(arr)
-	case bool:
-		result.Type = sc.BoolType
-		result.Value = v
-	default:
-		return result, wrapNeoFSError(fmt.Errorf("chain/client: unsupported parameter %v", value))
-	}
-
-	return result, nil
 }
 
 // MagicNumber returns the magic number of the network
