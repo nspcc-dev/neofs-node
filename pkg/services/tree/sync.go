@@ -360,7 +360,7 @@ func (s *Service) syncLoop(ctx context.Context) {
 }
 
 // randomizeNodeOrder shuffles nodes and removes not a `pos` index.
-// It is assumed that 0 <= pos < len(nodes)
+// It is assumed that 0 <= pos < len(nodes).
 func randomizeNodeOrder(cnrNodes []netmap.NodeInfo, pos int) []netmap.NodeInfo {
 	if len(cnrNodes) == 1 {
 		return nil
