@@ -875,7 +875,7 @@ func oldKey(key []byte, ts Timestamp) []byte {
 	return key[:9]
 }
 
-// 's' + child ID -> parent + timestamp of the first appearance + meta
+// 's' + child ID -> parent + timestamp of the first appearance + meta.
 func stateKey(key []byte, child Node) []byte {
 	key[0] = 's'
 	binary.LittleEndian.PutUint64(key[1:], child)
