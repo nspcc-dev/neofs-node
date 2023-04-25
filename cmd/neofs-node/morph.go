@@ -23,14 +23,8 @@ import (
 const (
 	newEpochNotification = "NewEpoch"
 
-	// notaryDepositExtraBlocks is the amount of extra blocks to overlap two deposits,
-	// we do that to make sure that there won't be any blocks without deposited
-	// assets in a notary contract; make sure it is bigger than any extra rounding
-	// value in a notary client.
-	notaryDepositExtraBlocks = 300
-
 	// amount of tries(blocks) before notary deposit timeout.
-	notaryDepositRetriesAmount
+	notaryDepositRetriesAmount = 300
 )
 
 func initMorphComponents(c *cfg) {
