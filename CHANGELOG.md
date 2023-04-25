@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Using deprecated NeoGo APIs (#2219, #2310)
 - Storage node panicking on exit (#2308)
 - Inner ring node panic on exit if internal CN is not enabled (#2308)
+- Typo in help message (#2240)
 
 ### Removed
 - FallbackTime Morph client configuration option (#2310)
