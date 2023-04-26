@@ -8,6 +8,16 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Fixed
+
+### Removed
+
+### Updated
+
+### Updating from v0.36.1
+
+## [0.36.1] - 2023-04-26
+
+### Fixed
 - Storage node hanging after RPC disconnect (#2304)
 - Using deprecated NeoGo APIs (#2219, #2310)
 - Storage node panicking on exit (#2308)
@@ -16,10 +26,6 @@ Changelog for NeoFS Node
 
 ### Removed
 - FallbackTime Morph client configuration option (#2310)
-
-### Updated
-
-### Updating from v0.36.0
 
 ## [0.36.0] - 2023-04-14 - Gado
 
@@ -1582,7 +1588,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 ## [0.10.0] - 2020-07-10
 
 First public review release.
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...master
+[0.36.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.33.0...v0.34.0
