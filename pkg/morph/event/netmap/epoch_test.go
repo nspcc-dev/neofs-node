@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/stretchr/testify/require"
@@ -40,4 +41,12 @@ func TestParseNewEpoch(t *testing.T) {
 			num: epochNum,
 		}, ev)
 	})
+}
+
+func createNotifyEventFromItems(items []stackitem.Item) *state.ContainedNotificationEvent {
+	return &state.ContainedNotificationEvent{
+		NotificationEvent: state.NotificationEvent{
+			Item: stackitem.NewArray(items),
+		},
+	}
 }

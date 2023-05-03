@@ -107,10 +107,8 @@ type (
 )
 
 const (
-	newEpochNotification        = "NewEpoch"
-	addPeerNotification         = "AddPeer"
-	updatePeerStateNotification = "UpdateState"
-	removeNodeNotification      = "RemoveNode"
+	newEpochNotification   = "NewEpoch"
+	removeNodeNotification = "RemoveNode"
 )
 
 // New creates network map contract processor instance.
@@ -199,16 +197,6 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 		return parsers
 	}
 
-	// new peer event
-	p.SetType(addPeerNotification)
-	p.SetParser(netmapEvent.ParseAddPeer)
-	parsers = append(parsers, p)
-
-	// update peer event
-	p.SetType(updatePeerStateNotification)
-	p.SetParser(netmapEvent.ParseUpdatePeer)
-	parsers = append(parsers, p)
-
 	return parsers
 }
 
@@ -235,16 +223,6 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	if !np.notaryDisabled {
 		return handlers
 	}
-
-	// new peer handler
-	i.SetType(addPeerNotification)
-	i.SetHandler(np.handleAddPeer)
-	handlers = append(handlers, i)
-
-	// update peer handler
-	i.SetType(updatePeerStateNotification)
-	i.SetHandler(np.handleUpdateState)
-	handlers = append(handlers, i)
 
 	return handlers
 }
