@@ -26,7 +26,7 @@ permissions: write-all
 jobs:
   run_system_tests:
     runs-on: self-hosted
-    timeout-minutes: 120
+    timeout-minutes: 500
     steps:
       - name: Checkout neofs-testcases repository
         uses: actions/checkout@v3
@@ -156,7 +156,16 @@ jobs:
           make venv.local-pytest
         working-directory: neofs-testcases
 
-      - name: Run tests
+      - name: Run Sanity tests for pull requests
+        timeout-minutes: 120
+        if: github.event_name == 'pull_request'
+        run: |
+          source venv.local-pytest/bin/activate && pytest -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+        working-directory: neofs-testcases
+
+      - name: Run all tests for other events
+        timeout-minutes: 480
+        if: github.event_name != 'pull_request'
         run: |
           source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
