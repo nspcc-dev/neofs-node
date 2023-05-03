@@ -64,13 +64,6 @@ type NetworkState interface {
 	HomomorphicHashDisabled() (bool, error)
 }
 
-const (
-	putNotification    = "containerPut"
-	deleteNotification = "containerDelete"
-
-	setEACLNotification = "setEACL"
-)
-
 // New creates a container contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
@@ -109,66 +102,12 @@ func New(p *Params) (*Processor, error) {
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	if !cp.notaryDisabled {
-		return nil
-	}
-
-	var (
-		parsers = make([]event.NotificationParserInfo, 0, 3)
-
-		p event.NotificationParserInfo
-	)
-
-	p.SetScriptHash(cp.cnrClient.ContractAddress())
-
-	// container put
-	p.SetType(event.TypeFromString(putNotification))
-	p.SetParser(containerEvent.ParsePut)
-	parsers = append(parsers, p)
-
-	// container delete
-	p.SetType(event.TypeFromString(deleteNotification))
-	p.SetParser(containerEvent.ParseDelete)
-	parsers = append(parsers, p)
-
-	// set eACL
-	p.SetType(event.TypeFromString(setEACLNotification))
-	p.SetParser(containerEvent.ParseSetEACL)
-	parsers = append(parsers, p)
-
-	return parsers
+	return nil
 }
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (cp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	if !cp.notaryDisabled {
-		return nil
-	}
-
-	var (
-		handlers = make([]event.NotificationHandlerInfo, 0, 3)
-
-		h event.NotificationHandlerInfo
-	)
-
-	h.SetScriptHash(cp.cnrClient.ContractAddress())
-
-	// container put
-	h.SetType(event.TypeFromString(putNotification))
-	h.SetHandler(cp.handlePut)
-	handlers = append(handlers, h)
-
-	// container delete
-	h.SetType(event.TypeFromString(deleteNotification))
-	h.SetHandler(cp.handleDelete)
-	handlers = append(handlers, h)
-
-	// set eACL
-	h.SetType(event.TypeFromString(setEACLNotification))
-	h.SetHandler(cp.handleSetEACL)
-	handlers = append(handlers, h)
-
-	return handlers
+	return nil
 }
 
 // ListenerNotaryParsers for the 'event.Listener' notary event producer.
