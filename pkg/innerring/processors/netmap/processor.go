@@ -75,8 +75,6 @@ type (
 
 		nodeValidator NodeValidator
 
-		notaryDisabled bool
-
 		nodeStateSettings state.NetworkSettings
 	}
 
@@ -99,8 +97,6 @@ type (
 		NotaryDepositHandler    event.Handler
 
 		NodeValidator NodeValidator
-
-		NotaryDisabled bool
 
 		NodeStateSettings state.NetworkSettings
 	}
@@ -167,8 +163,6 @@ func New(p *Params) (*Processor, error) {
 
 		nodeValidator: p.NodeValidator,
 
-		notaryDisabled: p.NotaryDisabled,
-
 		nodeStateSettings: p.NodeStateSettings,
 	}, nil
 }
@@ -193,10 +187,6 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 	p.SetParser(netmapEvent.ParseNewEpoch)
 	parsers = append(parsers, p)
 
-	if !np.notaryDisabled {
-		return parsers
-	}
-
 	return parsers
 }
 
@@ -219,10 +209,6 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	i.SetType(newEpochNotification)
 	i.SetHandler(np.handleNewEpoch)
 	handlers = append(handlers, i)
-
-	if !np.notaryDisabled {
-		return handlers
-	}
 
 	return handlers
 }

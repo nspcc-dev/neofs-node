@@ -52,10 +52,6 @@ func (s *Server) initSubnet(cfg subnetConfig) {
 		// initialize morph client of Subnet contract
 		clientMode := morphsubnet.NotaryAlphabet
 
-		if s.sideNotaryConfig.disabled {
-			clientMode = morphsubnet.NonNotary
-		}
-
 		var initPrm morphsubnet.InitPrm
 
 		initPrm.SetBaseClient(s.morphClient)
@@ -103,11 +99,6 @@ const (
 //   - Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
 //   - Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 func (s *Server) listenSubnet() {
-	if s.sideNotaryConfig.disabled {
-		s.listenSubnetWithoutNotary()
-		return
-	}
-
 	var (
 		parserInfo  event.NotaryParserInfo
 		handlerInfo event.NotaryHandlerInfo

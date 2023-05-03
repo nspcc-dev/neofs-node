@@ -23,14 +23,13 @@ type (
 
 	// Processor of events produced by container contract in the sidechain.
 	Processor struct {
-		log            *logger.Logger
-		pool           *ants.Pool
-		alphabetState  AlphabetState
-		cnrClient      *container.Client // notary must be enabled
-		idClient       *neofsid.Client
-		subnetClient   *morphsubnet.Client
-		netState       NetworkState
-		notaryDisabled bool
+		log           *logger.Logger
+		pool          *ants.Pool
+		alphabetState AlphabetState
+		cnrClient     *container.Client // notary must be enabled
+		idClient      *neofsid.Client
+		subnetClient  *morphsubnet.Client
+		netState      NetworkState
 	}
 
 	// Params of the processor constructor.
@@ -42,7 +41,6 @@ type (
 		NeoFSIDClient   *neofsid.Client
 		SubnetClient    *morphsubnet.Client
 		NetworkState    NetworkState
-		NotaryDisabled  bool
 	}
 )
 
@@ -89,14 +87,13 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:            p.Log,
-		pool:           pool,
-		alphabetState:  p.AlphabetState,
-		cnrClient:      p.ContainerClient,
-		idClient:       p.NeoFSIDClient,
-		netState:       p.NetworkState,
-		notaryDisabled: p.NotaryDisabled,
-		subnetClient:   p.SubnetClient,
+		log:           p.Log,
+		pool:          pool,
+		alphabetState: p.AlphabetState,
+		cnrClient:     p.ContainerClient,
+		idClient:      p.NeoFSIDClient,
+		netState:      p.NetworkState,
+		subnetClient:  p.SubnetClient,
 	}, nil
 }
 

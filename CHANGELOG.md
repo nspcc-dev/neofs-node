@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Removed
+- Non-notary mode support for sidechain (#2321)
 
 ### Updated
 
