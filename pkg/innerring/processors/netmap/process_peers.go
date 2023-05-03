@@ -21,16 +21,15 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 
 	// check if notary transaction is valid, see #976
-	if originalRequest := ev.NotaryRequest(); originalRequest != nil {
-		tx := originalRequest.MainTransaction
-		ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
-		if err != nil || !ok {
-			np.log.Warn("non-halt notary transaction",
-				zap.String("method", "netmap.AddPeer"),
-				zap.String("hash", tx.Hash().StringLE()),
-				zap.Error(err))
-			return
-		}
+	originalRequest := ev.NotaryRequest()
+	tx := originalRequest.MainTransaction
+	ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
+	if err != nil || !ok {
+		np.log.Warn("non-halt notary transaction",
+			zap.String("method", "netmap.AddPeer"),
+			zap.String("hash", tx.Hash().StringLE()),
+			zap.Error(err))
+		return
 	}
 
 	// unmarshal node info
@@ -42,7 +41,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 
 	// validate and update node info
-	err := np.nodeValidator.VerifyAndUpdate(&nodeInfo)
+	err = np.nodeValidator.VerifyAndUpdate(&nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("error", err.Error()),
@@ -73,20 +72,15 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		// See https://github.com/nspcc-dev/neofs-contract/issues/154.
 		const methodAddPeerNotary = "addPeerIR"
 
-		if nr := ev.NotaryRequest(); nr != nil {
-			// create new notary request with the original nonce
-			err = np.netmapClient.Morph().NotaryInvoke(
-				np.netmapClient.ContractAddress(),
-				0,
-				nr.MainTransaction.Nonce,
-				nil,
-				methodAddPeerNotary,
-				nodeInfoBinary,
-			)
-		} else {
-			// notification event case
-			err = np.netmapClient.AddPeer(prm)
-		}
+		// create new notary request with the original nonce
+		err = np.netmapClient.Morph().NotaryInvoke(
+			np.netmapClient.ContractAddress(),
+			0,
+			originalRequest.MainTransaction.Nonce,
+			nil,
+			methodAddPeerNotary,
+			nodeInfoBinary,
+		)
 
 		if err != nil {
 			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
@@ -118,22 +112,9 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		}
 	}
 
-	if nr := ev.NotaryRequest(); nr != nil {
-		err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
-	} else {
-		prm := netmapclient.UpdatePeerPrm{}
+	nr := ev.NotaryRequest()
+	err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 
-		switch {
-		case ev.Online():
-			prm.SetOnline()
-		case ev.Maintenance():
-			prm.SetMaintenance()
-		}
-
-		prm.SetKey(ev.PublicKey().Bytes())
-
-		err = np.netmapClient.UpdatePeerState(prm)
-	}
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))
 	}

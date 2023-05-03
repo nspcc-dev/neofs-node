@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
@@ -76,19 +75,11 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 	var (
 		id  = e.PeerID()
 		err error
+		nr  = e.NotaryRequest()
 	)
 
-	if nr := e.NotaryRequest(); nr != nil {
-		// put event was received via Notary service
-		err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
-	} else {
-		args := repClient.PutPrm{}
-		args.SetEpoch(e.Epoch())
-		args.SetPeerID(id)
-		args.SetValue(e.Value())
+	err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
 
-		err = rp.reputationWrp.Put(args)
-	}
 	if err != nil {
 		// FIXME: #1147 do not use `ToV2` method outside neofs-api-go library
 		rp.log.Warn("can't send approval tx for reputation value",
