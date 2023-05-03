@@ -85,7 +85,6 @@ func (s *Server) stopSubnet() {
 
 // names of listened notification events from Subnet contract.
 const (
-	subnetCreateEvName       = "Put"
 	subnetRemoveEvName       = "Delete"
 	notarySubnetCreateEvName = "put"
 )
@@ -140,8 +139,6 @@ func (s *Server) listenSubnet() {
 }
 
 func (s *Server) listenSubnetWithoutNotary() {
-	// subnet creation
-	listenNotifySubnetEvent(s, subnetCreateEvName, subnetevents.ParsePut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
 	// subnet removal
 	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
 }
