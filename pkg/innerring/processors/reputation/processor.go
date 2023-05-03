@@ -97,13 +97,6 @@ func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 	var parsers []event.NotificationParserInfo
 
-	// put reputation event
-	put := event.NotificationParserInfo{}
-	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationWrp.ContractAddress())
-	put.SetParser(reputationEvent.ParsePut)
-	parsers = append(parsers, put)
-
 	return parsers
 }
 
@@ -114,13 +107,6 @@ func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	}
 
 	var handlers []event.NotificationHandlerInfo
-
-	// put reputation handler
-	put := event.NotificationHandlerInfo{}
-	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationWrp.ContractAddress())
-	put.SetHandler(rp.handlePutReputation)
-	handlers = append(handlers, put)
 
 	return handlers
 }

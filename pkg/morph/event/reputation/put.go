@@ -1,12 +1,7 @@
 package reputation
 
 import (
-	"fmt"
-
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
 
@@ -46,54 +41,4 @@ func (p Put) Value() reputation.GlobalTrust {
 // was received via notary service. Otherwise, returns nil.
 func (p Put) NotaryRequest() *payload.P2PNotaryRequest {
 	return p.notaryRequest
-}
-
-// ParsePut from notification into reputation event structure.
-func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
-	var (
-		ev  Put
-		err error
-	)
-
-	params, err := event.ParseStackArray(e)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
-	}
-
-	if ln := len(params); ln != 3 {
-		return nil, event.WrongNumberOfParameters(3, ln)
-	}
-
-	// parse epoch number
-	epoch, err := client.IntFromStackItem(params[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get integer epoch number: %w", err)
-	}
-
-	ev.epoch = uint64(epoch)
-
-	// parse peer ID value
-	peerID, err := client.BytesFromStackItem(params[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get peer ID value: %w", err)
-	}
-
-	if ln := len(peerID); ln != peerIDLength {
-		return nil, fmt.Errorf("peer ID is %d byte long, expected %d", ln, peerIDLength)
-	}
-
-	ev.peerID.SetPublicKey(peerID)
-
-	// parse global trust value
-	rawValue, err := client.BytesFromStackItem(params[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not get global trust value: %w", err)
-	}
-
-	err = ev.value.Unmarshal(rawValue)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse global trust value: %w", err)
-	}
-
-	return ev, nil
 }
