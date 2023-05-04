@@ -58,6 +58,7 @@ jobs:
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
+        timeout-minutes: 5
         run: |
           make all
           echo "$(pwd)/bin" >> $GITHUB_PATH
@@ -70,11 +71,13 @@ jobs:
         working-directory: neofs-node
 
       - name: Build NeoFS storage docker image
+        timeout-minutes: 30
         run: |
           make image-storage
         working-directory: neofs-node
 
       - name: Build NeoFS Inner Ring docker image
+        timeout-minutes: 30
         run: |
           make image-ir
         working-directory: neofs-node
@@ -92,6 +95,7 @@ jobs:
         working-directory: neofs-node
 
       - name: Prepare test environment
+        timeout-minutes: 30
         run: |
           make prepare-test-env
           echo "$(pwd)/vendor" >> $GITHUB_PATH
@@ -152,6 +156,7 @@ jobs:
 
 ################################################################
       - name: Prepare venv
+        timeout-minutes: 30
         run: |
           make venv.local-pytest
         working-directory: neofs-testcases
@@ -172,12 +177,14 @@ jobs:
 
 ################################################################
       - name: Cleanup system tests environment
+        timeout-minutes: 30
         if: always()
         run: |
           make clean
         working-directory: neofs-testcases
 
       - name: Cleanup dev-env environment
+        timeout-minutes: 30
         if: always()
         run: |
           make down
@@ -186,6 +193,7 @@ jobs:
 
 ################################################################
       - name: Get Allure history
+        timeout-minutes: 60
         uses: actions/checkout@v3
         if: always()
         with:
@@ -193,6 +201,7 @@ jobs:
           path: gh-pages
 
       - name: Allure Report action from marketplace
+        timeout-minutes: 60
         uses: simple-elf/allure-report-action@v1.6
         if: always()
         id: allure-report
@@ -203,6 +212,7 @@ jobs:
           allure_history: allure-history
 
       - name: Deploy report to Github Pages
+        timeout-minutes: 120
         if: always()
         uses: peaceiris/actions-gh-pages@v2
         env:
@@ -211,6 +221,7 @@ jobs:
           PUBLISH_DIR: allure-history
 
       - name: Post the link to the report
+        timeout-minutes: 60
         if: always()
         uses: Sibz/github-status-action@v1
         with:
