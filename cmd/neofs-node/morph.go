@@ -73,7 +73,7 @@ func initMorphComponents(c *cfg) {
 	)
 	fatalOnErr(err)
 
-	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0, nmClient.TryNotary())
+	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
 	fatalOnErr(err)
 
 	var netmapSource netmap.Source

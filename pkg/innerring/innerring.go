@@ -533,7 +533,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	// form morph container client's options
 	morphCnrOpts := make([]cntClient.Option, 0, 3)
 	morphCnrOpts = append(morphCnrOpts,
-		cntClient.TryNotary(),
 		cntClient.AsAlphabet(),
 	)
 
@@ -542,22 +541,22 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, 0, nmClient.TryNotary(), nmClient.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, 0, nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, 0, balanceClient.TryNotary(), balanceClient.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, 0, balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.TryNotary(), repClient.AsAlphabet())
+	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, 0, neofsid.TryNotary(), neofsid.AsAlphabet())
+	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, 0, neofsid.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}

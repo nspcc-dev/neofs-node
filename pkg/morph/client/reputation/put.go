@@ -32,8 +32,6 @@ func (p *PutPrm) SetValue(v reputation.GlobalTrust) {
 }
 
 // Put invokes direct call of "put reputation value" method of reputation contract.
-//
-// If TryNotary is provided, calls notary contract.
 func (c *Client) Put(p PutPrm) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(putMethod)
