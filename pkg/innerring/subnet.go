@@ -222,25 +222,11 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 
 	notaryMainTx := putEv.NotaryMainTx()
 
-	isNotary := notaryMainTx != nil
-	if isNotary {
-		// re-sign notary request
-		err = s.morphClient.NotarySignAndInvokeTX(notaryMainTx)
-	} else {
-		// send new transaction
-		var prm morphsubnet.PutPrm
-
-		prm.SetID(putEv.ID())
-		prm.SetOwner(putEv.Owner())
-		prm.SetInfo(putEv.Info())
-		prm.SetTxHash(putEv.TxHash())
-
-		_, err = s.subnetHandler.morphClient.Put(prm)
-	}
+	// re-sign notary request
+	err = s.morphClient.NotarySignAndInvokeTX(notaryMainTx)
 
 	if err != nil {
 		s.log.Error("approve subnet creation",
-			zap.Bool("notary", isNotary),
 			zap.String("error", err.Error()),
 		)
 

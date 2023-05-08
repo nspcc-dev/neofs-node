@@ -49,11 +49,7 @@ func (x Put) TxHash() util.Uint256 {
 // NotaryMainTx returns main transaction of the request in the Notary service.
 // Returns nil in non-notary environments.
 func (x Put) NotaryMainTx() *transaction.Transaction {
-	if x.notaryRequest != nil {
-		return x.notaryRequest.MainTransaction
-	}
-
-	return nil
+	return x.notaryRequest.MainTransaction
 }
 
 // number of items in notification about subnet creation.
