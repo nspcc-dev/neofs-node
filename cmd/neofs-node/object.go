@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -133,24 +132,6 @@ func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
 	return result, nil
 }
 
-type innerRingFetcherWithoutNotary struct {
-	nm *nmClient.Client
-}
-
-func (f *innerRingFetcherWithoutNotary) InnerRingKeys() ([][]byte, error) {
-	keys, err := f.nm.GetInnerRingList()
-	if err != nil {
-		return nil, fmt.Errorf("can't get inner ring keys from netmap contract: %w", err)
-	}
-
-	result := make([][]byte, 0, len(keys))
-	for i := range keys {
-		result = append(result, keys[i].Bytes())
-	}
-
-	return result, nil
-}
-
 type coreClientConstructor reputationClientConstructor
 
 func (x *coreClientConstructor) Get(info coreclient.NodeInfo) (coreclient.MultiAddressClient, error) {
@@ -198,14 +179,8 @@ func initObjectService(c *cfg) {
 
 	var irFetcher v2.InnerRingFetcher
 
-	if c.cfgMorph.client.ProbeNotary() {
-		irFetcher = &innerRingFetcherWithNotary{
-			sidechain: c.cfgMorph.client,
-		}
-	} else {
-		irFetcher = &innerRingFetcherWithoutNotary{
-			nm: c.cfgNetmap.wrapper,
-		}
+	irFetcher = &innerRingFetcherWithNotary{
+		sidechain: c.cfgMorph.client,
 	}
 
 	c.replicator = replicator.New(

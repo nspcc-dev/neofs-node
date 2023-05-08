@@ -423,8 +423,6 @@ type cfgGRPC struct {
 type cfgMorph struct {
 	client *client.Client
 
-	notaryEnabled bool
-
 	// TTL of Sidechain cached values. Non-positive value disables caching.
 	cacheTTL time.Duration
 

@@ -63,22 +63,15 @@ func initMorphComponents(c *cfg) {
 	}
 
 	c.cfgMorph.client = cli
-	c.cfgMorph.notaryEnabled = cli.ProbeNotary()
 
 	lookupScriptHashesInNNS(c) // smart contract auto negotiation
 
-	if c.cfgMorph.notaryEnabled {
-		err = c.cfgMorph.client.EnableNotarySupport(
-			client.WithProxyContract(
-				c.cfgMorph.proxyScriptHash,
-			),
-		)
-		fatalOnErr(err)
-	}
-
-	c.log.Info("notary support",
-		zap.Bool("sidechain_enabled", c.cfgMorph.notaryEnabled),
+	err = c.cfgMorph.client.EnableNotarySupport(
+		client.WithProxyContract(
+			c.cfgMorph.proxyScriptHash,
+		),
 	)
+	fatalOnErr(err)
 
 	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0, nmClient.TryNotary())
 	fatalOnErr(err)
@@ -106,11 +99,6 @@ func initMorphComponents(c *cfg) {
 }
 
 func makeAndWaitNotaryDeposit(c *cfg) {
-	// skip notary deposit in non-notary environments
-	if !c.cfgMorph.notaryEnabled {
-		return
-	}
-
 	tx, err := makeNotaryDeposit(c)
 	fatalOnErr(err)
 
@@ -287,10 +275,6 @@ func lookupScriptHashesInNNS(c *cfg) {
 	)
 
 	for _, t := range targets {
-		if t.nnsName == client.NNSProxyContractName && !c.cfgMorph.notaryEnabled {
-			continue // ignore proxy contract if notary disabled
-		}
-
 		if emptyHash.Equals(*t.h) {
 			*t.h, err = c.cfgMorph.client.NNSContractAddress(t.nnsName)
 			fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
