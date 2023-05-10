@@ -429,6 +429,8 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 // notification from the connected RPC node.
 // Channel is closed when connection to the RPC node is lost.
 func (c *Client) NotificationChannel() <-chan rpcclient.Notification {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 	return c.client.Notifications //nolint:staticcheck // SA1019: c.client.Notifications is deprecated
 }
 

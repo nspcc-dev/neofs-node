@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Fixed
+- Inability to restore RPC connection after the second disconnect (#2325)
 
 ### Removed
 
