@@ -37,11 +37,6 @@ const (
 	dumpBalancesAlphabetFlag      = "alphabet"
 	dumpBalancesProxyFlag         = "proxy"
 	dumpBalancesUseScriptHashFlag = "script-hash"
-
-	// notaryEnabled signifies whether contracts were deployed in a notary-enabled environment.
-	// The setting is here to simplify testing and building the command for testnet (notary currently disabled).
-	// It will be removed eventually.
-	notaryEnabled = true
 )
 
 func dumpBalances(cmd *cobra.Command, _ []string) error {
@@ -60,7 +55,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	if !notaryEnabled || dumpStorage || dumpAlphabet || dumpProxy {
+	if dumpStorage || dumpAlphabet || dumpProxy {
 		nnsCs, err = c.GetContractStateByID(1)
 		if err != nil {
 			return fmt.Errorf("can't get NNS contract info: %w", err)
@@ -164,39 +159,21 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 }
 
 func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, error) {
-	var irList []accBalancePair
-
 	inv := invoker.New(c, nil)
 
-	if notaryEnabled {
-		height, err := c.GetBlockCount()
-		if err != nil {
-			return nil, fmt.Errorf("can't get block height: %w", err)
-		}
+	height, err := c.GetBlockCount()
+	if err != nil {
+		return nil, fmt.Errorf("can't get block height: %w", err)
+	}
 
-		arr, err := getDesignatedByRole(inv, desigHash, noderoles.NeoFSAlphabet, height)
-		if err != nil {
-			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
-		}
+	arr, err := getDesignatedByRole(inv, desigHash, noderoles.NeoFSAlphabet, height)
+	if err != nil {
+		return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
+	}
 
-		irList = make([]accBalancePair, len(arr))
-		for i := range arr {
-			irList[i].scriptHash = arr[i].GetScriptHash()
-		}
-	} else {
-		arr, err := unwrap.ArrayOfBytes(inv.Call(nmHash, "innerRingList"))
-		if err != nil {
-			return nil, errors.New("can't fetch list of IR nodes from the netmap contract")
-		}
-
-		irList = make([]accBalancePair, len(arr))
-		for i := range arr {
-			pub, err := keys.NewPublicKeyFromBytes(arr[i], elliptic.P256())
-			if err != nil {
-				return nil, fmt.Errorf("can't parse IR node public key: %w", err)
-			}
-			irList[i].scriptHash = pub.GetScriptHash()
-		}
+	var irList = make([]accBalancePair, len(arr))
+	for i := range arr {
+		irList[i].scriptHash = arr[i].GetScriptHash()
 	}
 	return irList, nil
 }

@@ -36,8 +36,6 @@ type (
 		reputationWrp *repClient.Client
 
 		mngBuilder common.ManagerBuilder
-
-		notaryDisabled bool
 	}
 
 	// Params of the processor constructor.
@@ -48,7 +46,6 @@ type (
 		AlphabetState     AlphabetState
 		ReputationWrapper *repClient.Client
 		ManagerBuilder    common.ManagerBuilder
-		NotaryDisabled    bool
 	}
 )
 
@@ -79,50 +76,23 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:            p.Log,
-		pool:           pool,
-		epochState:     p.EpochState,
-		alphabetState:  p.AlphabetState,
-		reputationWrp:  p.ReputationWrapper,
-		mngBuilder:     p.ManagerBuilder,
-		notaryDisabled: p.NotaryDisabled,
+		log:           p.Log,
+		pool:          pool,
+		epochState:    p.EpochState,
+		alphabetState: p.AlphabetState,
+		reputationWrp: p.ReputationWrapper,
+		mngBuilder:    p.ManagerBuilder,
 	}, nil
 }
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (rp *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	if !rp.notaryDisabled {
-		return nil
-	}
-
-	var parsers []event.NotificationParserInfo
-
-	// put reputation event
-	put := event.NotificationParserInfo{}
-	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationWrp.ContractAddress())
-	put.SetParser(reputationEvent.ParsePut)
-	parsers = append(parsers, put)
-
-	return parsers
+	return nil
 }
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	if !rp.notaryDisabled {
-		return nil
-	}
-
-	var handlers []event.NotificationHandlerInfo
-
-	// put reputation handler
-	put := event.NotificationHandlerInfo{}
-	put.SetType(putReputationNotification)
-	put.SetScriptHash(rp.reputationWrp.ContractAddress())
-	put.SetHandler(rp.handlePutReputation)
-	handlers = append(handlers, put)
-
-	return handlers
+	return nil
 }
 
 // ListenerNotaryParsers for the 'event.Listener' notary event producer.

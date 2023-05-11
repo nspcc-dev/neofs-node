@@ -40,14 +40,6 @@ func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain
 	}
 	c.NetworkMagic = netmode.Magic(_uint)
 
-	const notaryDisabledKey = rootSection + ".notary_disabled"
-	if v.IsSet(notaryDisabledKey) {
-		c.NotaryDisabled, err = cast.ToBoolE(v.Get(notaryDisabledKey))
-		if err != nil {
-			return c, fmt.Errorf("invalid notary flag '%s' (boolean): %w", notaryDisabledKey, err)
-		}
-	}
-
 	const storageSection = rootSection + ".storage"
 	if !v.IsSet(storageSection) {
 		return c, fmt.Errorf("missing storage section '%s'", storageSection)

@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
@@ -163,10 +161,6 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		if err != nil {
 			return nil, fmt.Errorf("invalid contracts path: %w", err)
 		}
-	}
-
-	if err := checkNotaryEnabled(c); err != nil {
-		return nil, err
 	}
 
 	accounts := make([]*wallet.Account, len(wallets))
@@ -441,24 +435,4 @@ func getWalletAccount(w *wallet.Wallet, typ string) (*wallet.Account, error) {
 		}
 	}
 	return nil, fmt.Errorf("account for '%s' not found", typ)
-}
-
-func checkNotaryEnabled(c Client) error {
-	ns, err := c.GetNativeContracts()
-	if err != nil {
-		return fmt.Errorf("can't get native contract hashes: %w", err)
-	}
-
-	notaryEnabled := false
-	nativeHashes := make(map[string]util.Uint160, len(ns))
-	for i := range ns {
-		if ns[i].Manifest.Name == nativenames.Notary {
-			notaryEnabled = len(ns[i].UpdateHistory) > 0
-		}
-		nativeHashes[ns[i].Manifest.Name] = ns[i].Hash
-	}
-	if !notaryEnabled {
-		return errors.New("notary contract must be enabled")
-	}
-	return nil
 }

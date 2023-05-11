@@ -84,10 +84,6 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if err := checkNotaryEnabled(c); err != nil {
-		return err
-	}
-
 	height, err := c.GetBlockCount()
 	if err != nil {
 		return fmt.Errorf("can't get current height: %v", err)

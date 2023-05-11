@@ -30,13 +30,6 @@ type staticOpts struct {
 	fees fees
 }
 
-// WithNotary returns notary status of the client.
-//
-// See also TryNotary.
-func (s *StaticClient) WithNotary() bool {
-	return s.client.IsNotaryEnabled()
-}
-
 // IsAlpha returns Alphabet status of the client.
 //
 // See also AsAlphabet.

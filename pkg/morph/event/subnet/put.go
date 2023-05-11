@@ -3,11 +3,9 @@ package subnetevents
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
@@ -51,57 +49,11 @@ func (x Put) TxHash() util.Uint256 {
 // NotaryMainTx returns main transaction of the request in the Notary service.
 // Returns nil in non-notary environments.
 func (x Put) NotaryMainTx() *transaction.Transaction {
-	if x.notaryRequest != nil {
-		return x.notaryRequest.MainTransaction
-	}
-
-	return nil
+	return x.notaryRequest.MainTransaction
 }
 
 // number of items in notification about subnet creation.
 const itemNumPut = 3
-
-// ParsePut parses the notification about the creation of a subnet which has been thrown
-// by the appropriate method of the subnet contract.
-//
-// Resulting event is of Put type.
-func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
-	var (
-		put Put
-		err error
-	)
-
-	items, err := event.ParseStackArray(e)
-	if err != nil {
-		return nil, fmt.Errorf("parse stack array: %w", err)
-	}
-
-	if ln := len(items); ln != itemNumPut {
-		return nil, event.WrongNumberOfParameters(itemNumPut, ln)
-	}
-
-	// parse ID
-	put.id, err = client.BytesFromStackItem(items[0])
-	if err != nil {
-		return nil, fmt.Errorf("id item: %w", err)
-	}
-
-	// parse owner
-	put.owner, err = client.BytesFromStackItem(items[1])
-	if err != nil {
-		return nil, fmt.Errorf("owner item: %w", err)
-	}
-
-	// parse info about subnet
-	put.info, err = client.BytesFromStackItem(items[2])
-	if err != nil {
-		return nil, fmt.Errorf("info item: %w", err)
-	}
-
-	put.txHash = e.Container
-
-	return put, nil
-}
 
 // ParseNotaryPut parses the notary notification about the creation of a subnet which has been
 // thrown by the appropriate method of the subnet contract.

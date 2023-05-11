@@ -188,11 +188,6 @@ type Config struct {
 	// Optional: by default, node runs as standalone.
 	SeedNodes []string
 
-	// Disable Notary service.
-	//
-	// Optional.
-	NotaryDisabled bool
-
 	// P2P settings.
 	//
 	// Required.
@@ -318,7 +313,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseProto.TimePerBlock = cfg.BlockInterval
 	cfgBaseProto.SeedList = cfg.SeedNodes
 	cfgBaseProto.VerifyTransactions = true
-	cfgBaseProto.P2PSigExtensions = !cfg.NotaryDisabled
+	cfgBaseProto.P2PSigExtensions = true
 	cfgBaseProto.MaxTraceableBlocks = cfg.TraceableChainLength
 	cfgBaseProto.Hardforks = cfg.HardForks
 	if cfg.ValidatorsHistory != nil {
@@ -336,7 +331,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.UnlockWallet = cfg.Wallet
 	cfgBaseApp.Consensus.Enabled = true
 	cfgBaseApp.Consensus.UnlockWallet = cfg.Wallet
-	cfgBaseApp.P2PNotary.Enabled = !cfg.NotaryDisabled
+	cfgBaseApp.P2PNotary.Enabled = true
 	cfgBaseApp.P2PNotary.UnlockWallet = cfg.Wallet
 	cfgBaseApp.RPC.Enabled = true
 	cfgBaseApp.RPC.Addresses = cfg.RPCListenAddresses
@@ -393,28 +388,26 @@ func New(cfg Config) (res *Blockchain, err error) {
 		return nil, fmt.Errorf("init NeoGo network server: %w", err)
 	}
 
-	if !cfg.NotaryDisabled {
-		var cfgNotary notary.Config
-		cfgNotary.MainCfg.Enabled = true
-		cfgNotary.MainCfg.UnlockWallet = cfg.Wallet
-		cfgNotary.Chain = bc
-		cfgNotary.Log = cfg.Logger
+	var cfgNotary notary.Config
+	cfgNotary.MainCfg.Enabled = true
+	cfgNotary.MainCfg.UnlockWallet = cfg.Wallet
+	cfgNotary.Chain = bc
+	cfgNotary.Log = cfg.Logger
 
-		notaryService, err := notary.NewNotary(cfgNotary, netServer.Net, netServer.GetNotaryPool(), func(tx *transaction.Transaction) error {
-			err := netServer.RelayTxn(tx)
-			if err != nil && !errors.Is(err, core.ErrAlreadyExists) {
-				return fmt.Errorf("relay completed notary transaction %s: %w", tx.Hash().StringLE(), err)
-			}
-
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("init Notary service: %w", err)
+	notaryService, err := notary.NewNotary(cfgNotary, netServer.Net, netServer.GetNotaryPool(), func(tx *transaction.Transaction) error {
+		err := netServer.RelayTxn(tx)
+		if err != nil && !errors.Is(err, core.ErrAlreadyExists) {
+			return fmt.Errorf("relay completed notary transaction %s: %w", tx.Hash().StringLE(), err)
 		}
 
-		netServer.AddService(notaryService)
-		bc.SetNotary(notaryService)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init Notary service: %w", err)
 	}
+
+	netServer.AddService(notaryService)
+	bc.SetNotary(notaryService)
 
 	var cfgConsensus consensus.Config
 	cfgConsensus.Logger = cfg.Logger
