@@ -7,11 +7,12 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
@@ -180,7 +181,7 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 }
 
 func newClientCache() cache {
-	c, _ := lru.New(100) // returns error only if size is negative
+	c, _ := lru.New[util.Uint256, uint32](100) // returns error only if size is negative
 	return cache{
 		m:         &sync.RWMutex{},
 		txHeights: c,
