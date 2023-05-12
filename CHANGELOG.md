@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Inability to restore RPC connection after the second disconnect (#2325)
 - Tree service panics when cleaning up failed connections (#2335)
+- Dropping small objects on any error on write-cache side (#2336)
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)

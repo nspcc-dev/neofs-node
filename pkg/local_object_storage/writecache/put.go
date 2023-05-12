@@ -60,7 +60,7 @@ func (c *cache) putSmall(obj objectInfo) error {
 		)
 		c.objCounters.IncDB()
 	}
-	return nil
+	return err
 }
 
 // putBig writes object to FSTree and pushes it to the flush workers queue.
