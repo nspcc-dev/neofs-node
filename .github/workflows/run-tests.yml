@@ -162,7 +162,7 @@ jobs:
         working-directory: neofs-testcases
 
       - name: Run Sanity tests for pull requests
-        timeout-minutes: 480
+        timeout-minutes: 500
         if: github.event_name == 'pull_request'
         run: |
           source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
