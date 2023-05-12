@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -47,7 +47,7 @@ type (
 		alphabetState       AlphabetState
 		converter           PrecisionConverter
 		mintEmitLock        *sync.Mutex
-		mintEmitCache       *lru.Cache
+		mintEmitCache       *lru.Cache[util.Uint160, uint64]
 		mintEmitThreshold   uint64
 		mintEmitValue       fixedn.Fixed8
 		gasBalanceThreshold int64
@@ -105,7 +105,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/neofs: can't create worker pool: %w", err)
 	}
 
-	lruCache, err := lru.New(p.MintEmitCacheSize)
+	lruCache, err := lru.New[util.Uint160, uint64](p.MintEmitCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("ir/neofs: can't create LRU cache for gas emission: %w", err)
 	}
