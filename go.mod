@@ -8,7 +8,6 @@ require (
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.2
 	github.com/klauspost/compress v1.15.13
 	github.com/mitchellh/go-homedir v1.1.0
@@ -52,6 +51,7 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
