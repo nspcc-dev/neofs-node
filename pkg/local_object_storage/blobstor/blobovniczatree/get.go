@@ -72,7 +72,7 @@ func (b *Blobovniczas) getObjectFromLevel(prm blobovnicza.GetPrm, blzPath string
 	v, ok := b.opened.Get(blzPath)
 	b.lruMtx.Unlock()
 	if ok {
-		if res, err := b.getObject(v.(*blobovnicza.Blobovnicza), prm); err == nil {
+		if res, err := b.getObject(v, prm); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
 			b.log.Debug("could not read object from opened blobovnicza",
