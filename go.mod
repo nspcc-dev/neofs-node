@@ -1,6 +1,6 @@
 module github.com/nspcc-dev/neofs-node
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cheggaaa/pb v1.0.29

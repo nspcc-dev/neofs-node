@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Non-notary mode support for sidechain (#2321)
 
 ### Updated
+- Update minimal supported Go version up to v1.18 (#2340)
 
 ### Updating from v0.36.1
 
