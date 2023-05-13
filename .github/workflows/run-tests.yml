@@ -38,8 +38,8 @@ jobs:
       - name: Checkout neofs-dev-env repository
         uses: actions/checkout@v3
         with:
-          repository: nspcc-dev/neofs-dev-env
-          ref: 'master'
+          repository: vvarg229/neofs-dev-env
+          ref: 'timeout-tests'
           path: neofs-dev-env
 
       - name: Checkout neofs-node repository
