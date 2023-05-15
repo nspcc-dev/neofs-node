@@ -71,7 +71,7 @@ var (
 // NewChecker creates Checker.
 // Panics if at least one of the parameter is nil.
 func NewChecker(prm *CheckerPrm) *Checker {
-	panicOnNil := func(fieldName string, field interface{}) {
+	panicOnNil := func(fieldName string, field any) {
 		if field == nil {
 			panic(fmt.Sprintf("incorrect field %s (%T): %v", fieldName, field, field))
 		}
@@ -118,7 +118,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 }
 
 // CheckEACL is a main check function for extended ACL.
-func (c *Checker) CheckEACL(msg interface{}, reqInfo v2.RequestInfo) error {
+func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	basicACL := reqInfo.BasicACL()
 	if !basicACL.Extendable() {
 		return nil

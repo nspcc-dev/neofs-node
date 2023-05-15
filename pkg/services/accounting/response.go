@@ -25,7 +25,7 @@ func NewResponseService(accSvc Server, respSvc *response.Service) Server {
 
 func (s *responseService) Balance(ctx context.Context, req *accounting.BalanceRequest) (*accounting.BalanceResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Balance(ctx, req.(*accounting.BalanceRequest))
 		},
 	)

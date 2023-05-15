@@ -25,7 +25,7 @@ func NewResponseService(nmSvc Server, respSvc *response.Service) Server {
 
 func (s *responseService) LocalNodeInfo(ctx context.Context, req *netmap.LocalNodeInfoRequest) (*netmap.LocalNodeInfoResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.LocalNodeInfo(ctx, req.(*netmap.LocalNodeInfoRequest))
 		},
 	)
@@ -38,7 +38,7 @@ func (s *responseService) LocalNodeInfo(ctx context.Context, req *netmap.LocalNo
 
 func (s *responseService) NetworkInfo(ctx context.Context, req *netmap.NetworkInfoRequest) (*netmap.NetworkInfoResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.NetworkInfo(ctx, req.(*netmap.NetworkInfoRequest))
 		},
 	)
@@ -51,7 +51,7 @@ func (s *responseService) NetworkInfo(ctx context.Context, req *netmap.NetworkIn
 
 func (s *responseService) Snapshot(ctx context.Context, req *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Snapshot(ctx, req.(*netmap.SnapshotRequest))
 		},
 	)

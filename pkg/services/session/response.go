@@ -25,7 +25,7 @@ func NewResponseService(ssSvc Server, respSvc *response.Service) Server {
 
 func (s *responseService) Create(ctx context.Context, req *session.CreateRequest) (*session.CreateResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Create(ctx, req.(*session.CreateRequest))
 		},
 	)

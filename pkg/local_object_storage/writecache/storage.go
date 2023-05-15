@@ -83,7 +83,7 @@ func (c *cache) openStore(readOnly bool) error {
 // To minimize interference with the client operations, the actual removal
 // is done in batches.
 // It is not thread-safe and is used only as an evict callback to LRU cache.
-func (c *cache) removeFlushed(key, value interface{}) {
+func (c *cache) removeFlushed(key, value any) {
 	fromDatabase := value.(bool)
 	if fromDatabase {
 		c.dbKeysToRemove = append(c.dbKeysToRemove, key.(string))

@@ -191,7 +191,7 @@ func (c *Client) readBoolConfig(key string) (bool, error) {
 type SetConfigPrm struct {
 	id    []byte
 	key   []byte
-	value interface{}
+	value any
 
 	client.InvokePrmOptional
 }
@@ -207,7 +207,7 @@ func (s *SetConfigPrm) SetKey(key []byte) {
 }
 
 // SetValue sets value of the config value.
-func (s *SetConfigPrm) SetValue(value interface{}) {
+func (s *SetConfigPrm) SetValue(value any) {
 	s.value = value
 }
 
@@ -359,7 +359,7 @@ var ErrConfigNotFound = errors.New("config value not found")
 // method of NeoFS Netmap contract.
 //
 // Returns ErrConfigNotFound if config key is not found in the contract.
-func (c *Client) config(key []byte, assert func(stackitem.Item) (interface{}, error)) (interface{}, error) {
+func (c *Client) config(key []byte, assert func(stackitem.Item) (any, error)) (any, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(configMethod)
 	prm.SetArgs(key)
@@ -383,17 +383,17 @@ func (c *Client) config(key []byte, assert func(stackitem.Item) (interface{}, er
 }
 
 // IntegerAssert converts stack item to int64.
-func IntegerAssert(item stackitem.Item) (interface{}, error) {
+func IntegerAssert(item stackitem.Item) (any, error) {
 	return client.IntFromStackItem(item)
 }
 
 // StringAssert converts stack item to string.
-func StringAssert(item stackitem.Item) (interface{}, error) {
+func StringAssert(item stackitem.Item) (any, error) {
 	return client.StringFromStackItem(item)
 }
 
 // BoolAssert converts stack item to bool.
-func BoolAssert(item stackitem.Item) (interface{}, error) {
+func BoolAssert(item stackitem.Item) (any, error) {
 	return client.BoolFromStackItem(item)
 }
 

@@ -23,7 +23,7 @@ func NewSignService(key *ecdsa.PrivateKey, svc Server) Server {
 
 func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Put(ctx, req.(*container.PutRequest))
 		},
 		func() util.ResponseMessage {
@@ -39,7 +39,7 @@ func (s *signService) Put(ctx context.Context, req *container.PutRequest) (*cont
 
 func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
 		},
 		func() util.ResponseMessage {
@@ -55,7 +55,7 @@ func (s *signService) Delete(ctx context.Context, req *container.DeleteRequest) 
 
 func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*container.GetResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Get(ctx, req.(*container.GetRequest))
 		},
 		func() util.ResponseMessage {
@@ -71,7 +71,7 @@ func (s *signService) Get(ctx context.Context, req *container.GetRequest) (*cont
 
 func (s *signService) List(ctx context.Context, req *container.ListRequest) (*container.ListResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.List(ctx, req.(*container.ListRequest))
 		},
 		func() util.ResponseMessage {
@@ -87,7 +87,7 @@ func (s *signService) List(ctx context.Context, req *container.ListRequest) (*co
 
 func (s *signService) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.SetExtendedACL(ctx, req.(*container.SetExtendedACLRequest))
 		},
 		func() util.ResponseMessage {
@@ -103,7 +103,7 @@ func (s *signService) SetExtendedACL(ctx context.Context, req *container.SetExte
 
 func (s *signService) GetExtendedACL(ctx context.Context, req *container.GetExtendedACLRequest) (*container.GetExtendedACLResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.GetExtendedACL(ctx, req.(*container.GetExtendedACLRequest))
 		},
 		func() util.ResponseMessage {
@@ -119,7 +119,7 @@ func (s *signService) GetExtendedACL(ctx context.Context, req *container.GetExte
 
 func (s *signService) AnnounceUsedSpace(ctx context.Context, req *container.AnnounceUsedSpaceRequest) (*container.AnnounceUsedSpaceResponse, error) {
 	resp, err := s.sigSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.AnnounceUsedSpace(ctx, req.(*container.AnnounceUsedSpaceRequest))
 		},
 		func() util.ResponseMessage {
