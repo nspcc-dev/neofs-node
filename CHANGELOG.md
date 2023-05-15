@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Dropping small objects on any error on write-cache side (#2336)
 - Iterating over just removed files by FSTree (#98)
 - IR metrics moved to `neofs_ir` namespace and epoch metrics to `object` subsystem (#2344)
+- IR metrics config reading (#2344)
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)

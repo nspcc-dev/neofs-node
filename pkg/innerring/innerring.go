@@ -966,7 +966,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		queueSize: cfg.GetUint32("workers.subnet"),
 	})
 
-	if cfg.GetString("metrics.address") != "" {
+	if cfg.GetString("prometheus.address") != "" {
 		m := metrics.NewInnerRingMetrics(misc.Version)
 		server.metrics = &m
 	}
