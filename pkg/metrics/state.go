@@ -11,7 +11,7 @@ type stateMetrics struct {
 func newStateMetrics() stateMetrics {
 	return stateMetrics{
 		healthCheck: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: stateSubsystem,
 			Name:      "health",
 			Help:      "Current Node state",

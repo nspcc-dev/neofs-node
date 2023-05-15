@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Tree service panics when cleaning up failed connections (#2335)
 - Dropping small objects on any error on write-cache side (#2336)
 - Iterating over just removed files by FSTree (#98)
+- IR metrics moved to `neofs_ir` namespace and epoch metrics to `object` subsystem (#2344)
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)
@@ -22,6 +23,8 @@ Changelog for NeoFS Node
 - `github.com/hashicorp/golang-lru` to `v2.0.2`
 
 ### Updating from v0.36.1
+- `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
+  next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
 
 ## [0.36.1] - 2023-04-26
 
