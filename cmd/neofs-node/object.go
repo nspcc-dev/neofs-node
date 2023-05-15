@@ -177,9 +177,7 @@ func initObjectService(c *cfg) {
 		basicConstructor: c.putClientCache,
 	}
 
-	var irFetcher v2.InnerRingFetcher
-
-	irFetcher = &innerRingFetcherWithNotary{
+	irFetcher := &innerRingFetcherWithNotary{
 		sidechain: c.cfgMorph.client,
 	}
 

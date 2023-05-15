@@ -129,11 +129,6 @@ func (s *Server) listenSubnet() {
 	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
 }
 
-func (s *Server) listenSubnetWithoutNotary() {
-	// subnet removal
-	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
-}
-
 func listenNotifySubnetEvent(s *Server, notifyName string, parser event.NotificationParser, handler event.Handler) {
 	var (
 		parserInfo  event.NotificationParserInfo

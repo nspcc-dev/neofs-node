@@ -49,10 +49,6 @@ type (
 	}
 )
 
-const (
-	putReputationNotification = "reputationPut"
-)
-
 // New creates reputation contract processor instance.
 func New(p *Params) (*Processor, error) {
 	switch {
