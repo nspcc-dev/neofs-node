@@ -19,7 +19,9 @@ type InnerRingServiceMetrics struct {
 }
 
 // NewInnerRingMetrics returns new instance of metrics collectors for inner ring.
-func NewInnerRingMetrics() InnerRingServiceMetrics {
+func NewInnerRingMetrics(version string) InnerRingServiceMetrics {
+	registerVersionMetric(innerRingNameSpace, version)
+
 	epoch := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: innerRingNameSpace,
 		Subsystem: stateSubsystem,

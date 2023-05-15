@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs_[node|ir]_version` with `version` label (#2326)
 
 ### Changed
 
@@ -25,6 +26,7 @@ Changelog for NeoFS Node
 ### Updating from v0.36.1
 - `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
   next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
+- Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
 
 ## [0.36.1] - 2023-04-26
 

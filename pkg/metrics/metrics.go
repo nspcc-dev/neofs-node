@@ -16,7 +16,9 @@ type NodeMetrics struct {
 	epochDeprecated prometheus.Gauge
 }
 
-func NewNodeMetrics() *NodeMetrics {
+func NewNodeMetrics(version string) *NodeMetrics {
+	registerVersionMetric(storageNodeNameSpace, version)
+
 	objectService := newObjectServiceMetrics()
 	objectService.register()
 
