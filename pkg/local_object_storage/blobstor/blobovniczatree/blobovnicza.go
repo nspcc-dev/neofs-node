@@ -97,7 +97,7 @@ func NewBlobovniczaTree(opts ...Option) (blz *Blobovniczas) {
 		opts[i](&blz.cfg)
 	}
 
-	cache, err := simplelru.NewLRU(blz.openedCacheSize, func(key interface{}, value interface{}) {
+	cache, err := simplelru.NewLRU(blz.openedCacheSize, func(key any, value interface{}) {
 		p := key.(string)
 		lvlPath := filepath.Dir(p)
 		if b, ok := blz.active[lvlPath]; ok && b.ind == u64FromHexString(filepath.Base(p)) {

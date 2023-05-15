@@ -7,7 +7,7 @@ import (
 const defaultAllocSize = 1024
 
 var putBytesPool = &sync.Pool{
-	New: func() interface{} { return make([]byte, 0, defaultAllocSize) },
+	New: func() any { return make([]byte, 0, defaultAllocSize) },
 }
 
 func getPayload() []byte {
