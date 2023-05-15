@@ -140,3 +140,25 @@ func TestStringFromStackItem(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestContractVersion(t *testing.T) {
+	require.Equal(t, "1.2.3", newContractVersion(1, 2, 3).String())
+
+	for i, tc := range []struct {
+		n, major, minor, patch uint64
+	}{
+		{1_000, 0, 1, 0},
+		{1_001, 0, 1, 1},
+		{1_000_000, 1, 0, 0},
+		{1_000_001, 1, 0, 1},
+		{1_001_000, 1, 1, 0},
+		{1_001_001, 1, 1, 1},
+	} {
+		require.EqualValues(t, newContractVersion(tc.major, tc.minor, tc.patch), newContractVersionFromNumber(tc.n), "#%d", i)
+	}
+
+	require.True(t, newContractVersion(0, 0, 1).equals(0, 0, 1))
+	require.False(t, newContractVersion(0, 0, 1).equals(0, 0, 2))
+	require.False(t, newContractVersion(0, 0, 1).equals(0, 1, 1))
+	require.False(t, newContractVersion(0, 0, 1).equals(1, 0, 1))
+}
