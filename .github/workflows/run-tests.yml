@@ -56,16 +56,16 @@ jobs:
           go-version: 1.20
       - run: go version
 
-      - name: Install libssl-dev
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10.11'
       - run: python --version
+
+      - name: Fix OpenSSL ripemd160
+        run: |
+          openssl version -a
+          cat /usr/lib/ssl/openssl.cnf
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
