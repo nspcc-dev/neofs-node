@@ -62,9 +62,59 @@ jobs:
           python-version: '3.10.11'
       - run: python --version
 
+# Hashlib uses OpenSSL for ripemd160 and apparently OpenSSL disabled some older crypto algos around version 3.0
+# in November 2021. All the functions are still there but require manual enabling.
+# See https://github.com/openssl/openssl/issues/16994
+# But we use ripemd160 for tests.
+# For ripemd160 to be supported, we need the openssl configuration file to contain the following lines:
+# openssl_conf = openssl_init
+#
+# [openssl_init]
+# providers = provider_sect
+#
+# [provider_sect]
+# default = default_sect
+# legacy = legacy_sect
+#
+# [default_sect]
+# activate = 1
+#
+# [legacy_sect]
+# activate = 1
       - name: Fix OpenSSL ripemd160
         run: |
           openssl version -a
+          echo "Old openssl config"
+          cat /usr/lib/ssl/openssl.cnf
+          python -c "
+          filename = '/usr/lib/ssl/openssl.cnf'
+          with open(filename, 'r') as file:
+              lines = file.readlines()
+          with open(filename, 'w') as file:
+              in_provider_sect = False
+              in_default_sect = False
+              for line in lines:
+                  if line.strip() == '#openssl_conf = openssl_init':
+                      file.write('openssl_conf = openssl_init\n')
+                  elif line.strip() == '[provider_sect]':
+                      in_provider_sect = True
+                      file.write(line)
+                  elif in_provider_sect and line.strip() == 'default = default_sect':
+                      file.write(line)
+                      file.write('legacy = legacy_sect\n')
+                      in_provider_sect = False
+                  elif line.strip() == '[default_sect]':
+                      in_default_sect = True
+                      file.write(line)
+                  elif in_default_sect and line.strip() == '# activate = 1':
+                      file.write('activate = 1\n')
+                      in_default_sect = False
+                  else:
+                      file.write(line)
+              file.write('[legacy_sect]\n')
+              file.write('activate = 1\n')
+          "
+          echo "New openssl config:"      
           cat /usr/lib/ssl/openssl.cnf
 
 ################################################################
