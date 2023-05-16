@@ -107,6 +107,13 @@ jobs:
           echo "$(pwd)/vendor" >> $GITHUB_PATH
         working-directory: neofs-dev-env
 
+      - name: Prepare hosts
+        timeout-minutes: 5
+        run: |
+          make get
+          sudo ./bin/update_hosts.sh
+        working-directory: neofs-dev-env
+
 ################################################################
       - name: Log environment
         run: |
