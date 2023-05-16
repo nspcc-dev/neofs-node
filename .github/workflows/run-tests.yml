@@ -58,9 +58,9 @@ jobs:
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
-        timeout-minutes: 5
+        timeout-minutes: 30
         run: |
-          make all
+          make docker/all
           echo "$(pwd)/bin" >> $GITHUB_PATH
         working-directory: neofs-node
 
