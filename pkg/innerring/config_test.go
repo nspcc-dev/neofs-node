@@ -57,6 +57,13 @@ const validConfigOptions = `
       listen:
         - localhost:30000
         - localhost:30001
+      tls:
+        enabled: true
+        listen:
+          - localhost:30002
+          - localhost:30003
+        cert_file: /path/to/cert
+        key_file: /path/to/key
     p2p:
       dial_timeout: 111s
       proto_tick_interval: 222s
@@ -153,9 +160,20 @@ func TestConfigParser(t *testing.T) {
 			NetworkMagic:  15405,
 			Committee:     validCommittee,
 			BlockInterval: time.Second,
-			RPCListenAddresses: []string{
-				"localhost:30000",
-				"localhost:30001",
+			RPC: blockchain.RPCConfig{
+				Addresses: []string{
+					"localhost:30000",
+					"localhost:30001",
+				},
+				TLSConfig: blockchain.TLSConfig{
+					Enabled:  true,
+					CertFile: "/path/to/cert",
+					KeyFile:  "/path/to/key",
+					Addresses: []string{
+						"localhost:30002",
+						"localhost:30003",
+					},
+				},
 			},
 			TraceableChainLength: 200,
 			HardForks: map[string]uint32{
@@ -260,7 +278,11 @@ func TestConfigParser(t *testing.T) {
 			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{-1}})},
 			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{math.MaxUint32 + 1}})},
 			{kvF("rpc.listen", []string{"not a TCP address"})},
-			{kvF("rpc.listen", []string{"127.0.0.1"})}, // missing port
+			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
 			{kvF("p2p.listen", []string{"not a TCP address"})},
 			{kvF("p2p.listen", []string{"127.0.0.1"})}, // missing port
 			{kvF("p2p.dial_timeout", "not a duration")},
