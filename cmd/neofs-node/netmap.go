@@ -209,16 +209,14 @@ func initNetmapService(c *cfg) {
 		c.handleLocalNodeInfo(ni)
 	})
 
-	if c.cfgMorph.notaryEnabled {
-		addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-			_, err := makeNotaryDeposit(c)
-			if err != nil {
-				c.log.Error("could not make notary deposit",
-					zap.String("error", err.Error()),
-				)
-			}
-		})
-	}
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		_, err := makeNotaryDeposit(c)
+		if err != nil {
+			c.log.Error("could not make notary deposit",
+				zap.String("error", err.Error()),
+			)
+		}
+	})
 }
 
 func readSubnetCfg(c *cfg) {

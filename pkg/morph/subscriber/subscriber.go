@@ -182,7 +182,7 @@ func (s *subscriber) routeNotifications(ctx context.Context) {
 	var (
 		// TODO: not needed after nspcc-dev/neo-go#2980.
 		cliCh             = s.client.NotificationChannel()
-		restoreCh         chan bool
+		restoreCh         = make(chan bool)
 		restoreInProgress bool
 	)
 

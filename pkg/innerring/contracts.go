@@ -30,7 +30,7 @@ type contracts struct {
 	alphabet alphabetContracts // in morph
 }
 
-func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary, withoutSideNotary bool) (*contracts, error) {
+func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -54,11 +54,9 @@ func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper
 
 	nnsCtx := &nnsContext{Context: ctx}
 
-	if !withoutSideNotary {
-		result.proxy, err = parseContract(nnsCtx, _logger, cfg, morph, "contracts.proxy", client.NNSProxyContractName)
-		if err != nil {
-			return nil, fmt.Errorf("can't get proxy script hash: %w", err)
-		}
+	result.proxy, err = parseContract(nnsCtx, _logger, cfg, morph, "contracts.proxy", client.NNSProxyContractName)
+	if err != nil {
+		return nil, fmt.Errorf("can't get proxy script hash: %w", err)
 	}
 
 	targets := [...]struct {

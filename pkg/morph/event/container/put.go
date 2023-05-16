@@ -65,49 +65,6 @@ func (x PutNamed) Zone() string {
 	return x.zone
 }
 
-// ParsePut from notification into container event structure.
-func ParsePut(e *state.ContainedNotificationEvent) (event.Event, error) {
-	var (
-		ev  Put
-		err error
-	)
-
-	params, err := event.ParseStackArray(e)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
-	}
-
-	if ln := len(params); ln != expectedItemNumPut {
-		return nil, event.WrongNumberOfParameters(expectedItemNumPut, ln)
-	}
-
-	// parse container
-	ev.rawContainer, err = client.BytesFromStackItem(params[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get container: %w", err)
-	}
-
-	// parse signature
-	ev.signature, err = client.BytesFromStackItem(params[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get signature: %w", err)
-	}
-
-	// parse public key
-	ev.publicKey, err = client.BytesFromStackItem(params[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not get public key: %w", err)
-	}
-
-	// parse session token
-	ev.token, err = client.BytesFromStackItem(params[3])
-	if err != nil {
-		return nil, fmt.Errorf("could not get sesison token: %w", err)
-	}
-
-	return ev, nil
-}
-
 // PutSuccess structures notification event of successful container creation
 // thrown by Container contract.
 type PutSuccess struct {

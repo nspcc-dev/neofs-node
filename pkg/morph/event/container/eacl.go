@@ -1,12 +1,7 @@
 package container
 
 import (
-	"fmt"
-
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 )
 
 // SetEACL represents structure of notification about
@@ -51,51 +46,4 @@ func (x SetEACL) SessionToken() []byte {
 // was received via notary service. Otherwise, returns nil.
 func (x SetEACL) NotaryRequest() *payload.P2PNotaryRequest {
 	return x.notaryRequest
-}
-
-const expectedItemNumEACL = 4
-
-// ParseSetEACL parses SetEACL notification event from list of stack items.
-//
-// Expects 4 stack items.
-func ParseSetEACL(e *state.ContainedNotificationEvent) (event.Event, error) {
-	var (
-		ev  SetEACL
-		err error
-	)
-
-	params, err := event.ParseStackArray(e)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
-	}
-
-	if ln := len(params); ln != expectedItemNumEACL {
-		return nil, event.WrongNumberOfParameters(expectedItemNumEACL, ln)
-	}
-
-	// parse table
-	ev.table, err = client.BytesFromStackItem(params[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not parse binary table: %w", err)
-	}
-
-	// parse signature
-	ev.signature, err = client.BytesFromStackItem(params[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not parse table signature: %w", err)
-	}
-
-	// parse public key
-	ev.publicKey, err = client.BytesFromStackItem(params[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not parse binary public key: %w", err)
-	}
-
-	// parse session token
-	ev.token, err = client.BytesFromStackItem(params[3])
-	if err != nil {
-		return nil, fmt.Errorf("could not get session token: %w", err)
-	}
-
-	return ev, nil
 }

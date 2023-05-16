@@ -12,8 +12,6 @@ import (
 // along with sig.Key() and sig.Sign().
 //
 // Returns error if table is nil.
-//
-// If TryNotary is provided, calls notary contract.
 func PutEACL(c *Client, eaclInfo containercore.EACL) error {
 	if eaclInfo.Value == nil {
 		return errNilArgument

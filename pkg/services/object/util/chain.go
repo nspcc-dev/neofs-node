@@ -14,7 +14,7 @@ type HeadReceiver interface {
 	// Head must return one of:
 	// * object header (*object.Object);
 	// * structured information about split-chain (*object.SplitInfo).
-	Head(id oid.Address) (interface{}, error)
+	Head(id oid.Address) (any, error)
 }
 
 // SplitMemberHandler is a handler of next split-chain element.

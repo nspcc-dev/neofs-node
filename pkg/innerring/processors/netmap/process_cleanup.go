@@ -3,7 +3,6 @@ package netmap
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
 
@@ -30,23 +29,14 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 		// See https://github.com/nspcc-dev/neofs-contract/issues/225
 		const methodUpdateStateNotary = "updateStateIR"
 
-		if np.notaryDisabled {
-			prm := netmapclient.UpdatePeerPrm{}
-
-			prm.SetKey(key.Bytes())
-			prm.SetHash(ev.TxHash())
-
-			err = np.netmapClient.UpdatePeerState(prm)
-		} else {
-			err = np.netmapClient.Morph().NotaryInvoke(
-				np.netmapClient.ContractAddress(),
-				0,
-				uint32(ev.epoch),
-				nil,
-				methodUpdateStateNotary,
-				int64(v2netmap.Offline), key.Bytes(),
-			)
-		}
+		err = np.netmapClient.Morph().NotaryInvoke(
+			np.netmapClient.ContractAddress(),
+			0,
+			uint32(ev.epoch),
+			nil,
+			methodUpdateStateNotary,
+			int64(v2netmap.Offline), key.Bytes(),
+		)
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
 		}

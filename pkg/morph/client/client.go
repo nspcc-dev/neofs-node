@@ -166,7 +166,7 @@ func wrapNeoFSError(err error) error {
 
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
-func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
+func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -189,7 +189,7 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 
 // TestInvoke invokes contract method locally in neo-go node. This method should
 // be used to read data from smart-contract.
-func (c *Client) TestInvoke(contract util.Uint160, method string, args ...interface{}) (res []stackitem.Item, err error) {
+func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) (res []stackitem.Item, err error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -429,6 +429,8 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 // notification from the connected RPC node.
 // Channel is closed when connection to the RPC node is lost.
 func (c *Client) NotificationChannel() <-chan rpcclient.Notification {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 	return c.client.Notifications //nolint:staticcheck // SA1019: c.client.Notifications is deprecated
 }
 

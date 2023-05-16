@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"go.uber.org/zap"
 )
 
@@ -85,21 +84,12 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 				zap.String("after", prettyKeys(newInnerRing)),
 			)
 
-			if gp.notaryDisabled {
-				updPrm := nmClient.UpdateIRPrm{}
+			updPrm := client.UpdateAlphabetListPrm{}
 
-				updPrm.SetKeys(newInnerRing)
-				updPrm.SetHash(txHash)
+			updPrm.SetList(newInnerRing)
+			updPrm.SetHash(txHash)
 
-				err = gp.netmapClient.UpdateInnerRing(updPrm)
-			} else {
-				updPrm := client.UpdateAlphabetListPrm{}
-
-				updPrm.SetList(newInnerRing)
-				updPrm.SetHash(txHash)
-
-				err = gp.morphClient.UpdateNeoFSAlphabetList(updPrm)
-			}
+			err = gp.morphClient.UpdateNeoFSAlphabetList(updPrm)
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",
@@ -108,19 +98,17 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		}
 	}
 
-	if !gp.notaryDisabled {
-		// 3. Update notary role in the sidechain.
+	// 3. Update notary role in the sidechain.
 
-		updPrm := client.UpdateNotaryListPrm{}
+	updPrm := client.UpdateNotaryListPrm{}
 
-		updPrm.SetList(newAlphabet)
-		updPrm.SetHash(txHash)
+	updPrm.SetList(newAlphabet)
+	updPrm.SetHash(txHash)
 
-		err = gp.morphClient.UpdateNotaryList(updPrm)
-		if err != nil {
-			gp.log.Error("can't update list of notary nodes in side chain",
-				zap.String("error", err.Error()))
-		}
+	err = gp.morphClient.UpdateNotaryList(updPrm)
+	if err != nil {
+		gp.log.Error("can't update list of notary nodes in side chain",
+			zap.String("error", err.Error()))
 	}
 
 	// 4. Update NeoFS contract in the mainnet.

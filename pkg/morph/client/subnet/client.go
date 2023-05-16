@@ -59,9 +59,6 @@ type Mode uint8
 const (
 	_ Mode = iota
 
-	// NonNotary makes client to work in non-notary environment.
-	NonNotary
-
 	// NotaryAlphabet makes client to use its internal key for signing the notary requests.
 	NotaryAlphabet
 
@@ -85,7 +82,7 @@ func (x *Client) Init(prm InitPrm) error {
 	}
 
 	if !prm.modeSet {
-		prm.mode = NonNotary
+		prm.mode = NotaryNonAlphabet
 	}
 
 	var opts []client.StaticClientOption
@@ -93,7 +90,6 @@ func (x *Client) Init(prm InitPrm) error {
 	switch prm.mode {
 	default:
 		panic(fmt.Sprintf("invalid work mode %d", prm.mode))
-	case NonNotary:
 	case NotaryNonAlphabet:
 		opts = []client.StaticClientOption{client.TryNotary()}
 	case NotaryAlphabet:

@@ -46,6 +46,7 @@ const (
 
 // ParseSetEACLNotary from NotaryEvent into container event structure.
 func ParseSetEACLNotary(ne event.NotaryEvent) (event.Event, error) {
+	const expectedItemNumEACL = 4
 	var (
 		ev        SetEACL
 		currentOp opcode.Opcode

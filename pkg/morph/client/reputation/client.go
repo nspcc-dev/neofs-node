@@ -60,15 +60,8 @@ type Option func(*opts)
 type opts []client.StaticClientOption
 
 func defaultOpts() *opts {
-	return new(opts)
-}
-
-// TryNotary returns option to enable
-// notary invocation tries.
-func TryNotary() Option {
-	return func(o *opts) {
-		*o = append(*o, client.TryNotary())
-	}
+	o := &opts{client.TryNotary()}
+	return o
 }
 
 // AsAlphabet returns option to sign main TX

@@ -89,15 +89,9 @@ type opts struct {
 }
 
 func defaultOpts() *opts {
-	return new(opts)
-}
-
-// TryNotary returns option to enable
-// notary invocation tries.
-func TryNotary() Option {
-	return func(o *opts) {
-		o.staticOpts = append(o.staticOpts, client.TryNotary())
-	}
+	var o = new(opts)
+	o.staticOpts = append(o.staticOpts, client.TryNotary())
+	return o
 }
 
 // AsAlphabet returns option to sign main TX

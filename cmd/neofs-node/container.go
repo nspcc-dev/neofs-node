@@ -42,7 +42,7 @@ const (
 func initContainerService(c *cfg) {
 	// container wrapper that tries to invoke notary
 	// requests if chain is configured so
-	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, cntClient.TryNotary())
+	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
 	c.shared.cnrClient = wrap

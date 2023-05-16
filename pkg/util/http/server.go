@@ -37,15 +37,15 @@ type Server struct {
 
 const invalidValFmt = "invalid %s %s (%T): %v"
 
-func panicOnPrmValue(n string, v interface{}) {
+func panicOnPrmValue(n string, v any) {
 	panicOnValue("parameter", n, v)
 }
 
-func panicOnOptValue(n string, v interface{}) {
+func panicOnOptValue(n string, v any) {
 	panicOnValue("option", n, v)
 }
 
-func panicOnValue(t, n string, v interface{}) {
+func panicOnValue(t, n string, v any) {
 	panic(fmt.Sprintf(invalidValFmt, t, n, v, v))
 }
 

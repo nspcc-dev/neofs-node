@@ -7,7 +7,7 @@ VERSION ?= $(shell git describe --tags --dirty --match "v*" --always --abbrev=8 
 HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
-GO_VERSION ?= 1.17
+GO_VERSION ?= 1.20
 LINT_VERSION ?= 1.50.0
 ARCH = amd64
 

@@ -51,7 +51,7 @@ type Router struct {
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"
 
-func panicOnPrmValue(n string, v interface{}) {
+func panicOnPrmValue(n string, v any) {
 	panic(fmt.Sprintf(invalidPrmValFmt, n, v, v))
 }
 
