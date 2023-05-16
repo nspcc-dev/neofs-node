@@ -2,14 +2,10 @@ package innerring
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -140,12 +136,9 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	cid.Encode(binCnr)
-
 	cn, err := nm.ContainerNodes(
 		cnr.Value.PlacementPolicy(),
-		binCnr, // may be replace pivot calculation to neofs-api-go
+		cid,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not calculate container nodes: %w", err)
@@ -199,15 +192,10 @@ func (s settlementDeps) SGInfo(addr oid.Address) (audit.SGInfo, error) {
 }
 
 func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
-	pub, err := keys.NewPublicKeyFromBytes(ni.PublicKey(), elliptic.P256())
-	if err != nil {
-		return nil, err
-	}
-
 	var id user.ID
-	user.IDFromKey(&id, (ecdsa.PublicKey)(*pub))
+	err := user.IDFromKey(&id, ni.PublicKey())
 
-	return &id, nil
+	return &id, err
 }
 
 func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, details []byte) {

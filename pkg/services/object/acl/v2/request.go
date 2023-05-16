@@ -1,10 +1,8 @@
 package v2
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -108,7 +106,7 @@ type MetaWithToken struct {
 
 // RequestOwner returns ownerID and its public key
 // according to internal meta information.
-func (r MetaWithToken) RequestOwner() (*user.ID, *keys.PublicKey, error) {
+func (r MetaWithToken) RequestOwner() (*user.ID, []byte, error) {
 	if r.vheader == nil {
 		return nil, nil, errEmptyVerificationHeader
 	}
@@ -125,13 +123,13 @@ func (r MetaWithToken) RequestOwner() (*user.ID, *keys.PublicKey, error) {
 		return nil, nil, errEmptyBodySig
 	}
 
-	key, err := unmarshalPublicKey(bodySignature.GetKey())
+	key := bodySignature.GetKey()
+
+	var idSender user.ID
+	err := user.IDFromKey(&idSender, key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid key in body signature: %w", err)
 	}
-
-	var idSender user.ID
-	user.IDFromKey(&idSender, (ecdsa.PublicKey)(*key))
 
 	return &idSender, key, nil
 }

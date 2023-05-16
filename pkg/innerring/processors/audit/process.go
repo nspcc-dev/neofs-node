@@ -2,7 +2,6 @@ package audit
 
 import (
 	"context"
-	"crypto/sha256"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -49,8 +48,6 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	var auditCtx context.Context
 	auditCtx, ap.prevAuditCanceler = context.WithCancel(context.Background())
 
-	pivot := make([]byte, sha256.Size)
-
 	for i := range containers {
 		cnr, err := cntClient.Get(ap.containerClient, containers[i]) // get container structure
 		if err != nil {
@@ -61,10 +58,8 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			continue
 		}
 
-		containers[i].Encode(pivot)
-
 		// find all container nodes for current epoch
-		nodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), pivot)
+		nodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), containers[i])
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),

@@ -5,9 +5,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"strconv"
 
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
@@ -30,6 +30,7 @@ import (
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -400,11 +401,13 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([][]net
 		return nil, err
 	}
 
-	const pivotPrefix = "load_announcement_"
+	buf := make([]byte, sha256.Size)
 
-	pivot := []byte(
-		pivotPrefix + strconv.FormatUint(epoch, 10),
-	)
+	cnr.Encode(buf)
+	binary.LittleEndian.PutUint64(buf[len(buf)-8:], epoch)
+
+	var pivot oid.ID
+	_ = pivot.Decode(buf)
 
 	placement, err := nm.PlacementVectors(cnrNodes, pivot)
 	if err != nil {
@@ -425,10 +428,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 		return nil, nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	idCnr.Encode(binCnr)
-
-	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), binCnr)
+	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), idCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -108,7 +109,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		}
 
 		var ownerSession user.ID
-		user.IDFromKey(&ownerSession, sessionKey.PublicKey)
+		err = user.IDFromSigner(&ownerSession, neofsecdsa.SignerRFC6979(*sessionKey))
+		if err != nil {
+			return fmt.Errorf("could not user from key: %w", err)
+		}
 
 		if !ownerObj.Equals(ownerSession) {
 			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)

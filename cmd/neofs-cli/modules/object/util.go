@@ -320,7 +320,7 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 
 	common.PrintVerbose(cmd, "Signing session...")
 
-	err := tok.Sign(*key)
+	err := tok.Sign(neofsecdsa.SignerRFC6979(*key))
 	common.ExitOnErr(cmd, "sign session: %w", err)
 
 	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")

@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -50,7 +51,8 @@ func putSG(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
 	var ownerID user.ID
-	user.IDFromKey(&ownerID, pk.PublicKey)
+	err := user.IDFromSigner(&ownerID, neofsecdsa.SignerRFC6979(*pk))
+	common.ExitOnErr(cmd, "decoding user from key", err)
 
 	var cnr cid.ID
 	readCID(cmd, &cnr)

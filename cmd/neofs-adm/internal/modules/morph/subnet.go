@@ -23,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/morph/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/subnet"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -146,7 +147,10 @@ var cmdSubnetCreate = &cobra.Command{
 
 		// declare creator ID and encode it
 		var creator user.ID
-		user.IDFromKey(&creator, key.PrivateKey.PublicKey)
+		err = user.IDFromSigner(&creator, neofsecdsa.SignerRFC6979(key.PrivateKey))
+		if err != nil {
+			return fmt.Errorf("decoding user from key: %w", err)
+		}
 
 		// fill subnet info and encode it
 		var info subnet.Info

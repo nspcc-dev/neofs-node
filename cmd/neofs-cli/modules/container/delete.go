@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -48,7 +49,8 @@ Only owner of the container has a permission to remove container.`,
 				common.PrintVerbose(cmd, "Checking provided account...")
 
 				var acc user.ID
-				user.IDFromKey(&acc, pk.PublicKey)
+				err = user.IDFromSigner(&acc, neofsecdsa.SignerRFC6979(*pk))
+				common.ExitOnErr(cmd, "decoding user from key", err)
 
 				if !acc.Equals(owner) {
 					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))

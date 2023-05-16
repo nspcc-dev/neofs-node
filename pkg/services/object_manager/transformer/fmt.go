@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -75,13 +76,15 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		parHdr *object.Object
 	)
 
+	signer := neofsecdsa.SignerRFC6979(*f.prm.Key)
+
 	if par := f.obj.Parent(); par != nil && par.Signature() == nil {
 		rawPar := object.NewFromV2(par.ToV2())
 
 		rawPar.SetSessionToken(f.prm.SessionToken)
 		rawPar.SetCreationEpoch(curEpoch)
 
-		if err := object.SetIDWithSignature(*f.prm.Key, rawPar); err != nil {
+		if err := object.SetIDWithSignature(signer, rawPar); err != nil {
 			return nil, fmt.Errorf("could not finalize parent object: %w", err)
 		}
 
@@ -92,7 +95,7 @@ func (f *formatter) Close() (*AccessIdentifiers, error) {
 		f.obj.SetParent(parHdr)
 	}
 
-	if err := object.SetIDWithSignature(*f.prm.Key, f.obj); err != nil {
+	if err := object.SetIDWithSignature(signer, f.obj); err != nil {
 		return nil, fmt.Errorf("could not finalize object: %w", err)
 	}
 

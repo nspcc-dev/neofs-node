@@ -11,6 +11,7 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,7 +58,7 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 	prmDial.SetServerURI(addr.URIAddr())
 
 	if x.opts.Key != nil {
-		prmInit.SetDefaultPrivateKey(*x.opts.Key)
+		prmInit.SetDefaultSigner(neofsecdsa.SignerRFC6979(*x.opts.Key))
 	}
 
 	if x.opts.DialTimeout > 0 {

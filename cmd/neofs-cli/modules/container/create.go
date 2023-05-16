@@ -13,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -50,7 +52,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
 				"use --force option to skip this check: %w", err)
 
-			nodesByRep, err := resmap.NetMap().ContainerNodes(*placementPolicy, nil)
+			nodesByRep, err := resmap.NetMap().ContainerNodes(*placementPolicy, cid.ID{})
 			common.ExitOnErr(cmd, "could not build container nodes based on given placement policy, "+
 				"use --force option to skip this check: %w", err)
 
@@ -91,7 +93,8 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			cnr.SetOwner(issuer)
 		} else {
 			var idOwner user.ID
-			user.IDFromKey(&idOwner, key.PublicKey)
+			err = user.IDFromSigner(&idOwner, neofsecdsa.SignerRFC6979(*key))
+			common.ExitOnErr(cmd, "decoding user from key", err)
 
 			cnr.SetOwner(idOwner)
 		}

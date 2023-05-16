@@ -3,7 +3,6 @@ package control
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -66,10 +65,7 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 		return err
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	cid.Encode(binCnr)
-
-	ns, err := nm.ContainerNodes(c.Value.PlacementPolicy(), binCnr)
+	ns, err := nm.ContainerNodes(c.Value.PlacementPolicy(), cid)
 	if err != nil {
 		return fmt.Errorf("can't build a list of container nodes")
 	}

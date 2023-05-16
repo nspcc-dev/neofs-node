@@ -25,7 +25,7 @@ func TestNewKeyStorage(t *testing.T) {
 	tokenStor := tokenStorage.NewTokenStore()
 	stor := util.NewKeyStorage(&nodeKey.PrivateKey, tokenStor, mockedNetworkState{42})
 
-	owner := *usertest.ID()
+	owner := *usertest.ID(t)
 
 	t.Run("node key", func(t *testing.T) {
 		key, err := stor.GetKey(nil)
@@ -36,7 +36,7 @@ func TestNewKeyStorage(t *testing.T) {
 	t.Run("unknown token", func(t *testing.T) {
 		_, err = stor.GetKey(&util.SessionInfo{
 			ID:    uuid.New(),
-			Owner: *usertest.ID(),
+			Owner: *usertest.ID(t),
 		})
 		require.Error(t, err)
 	})

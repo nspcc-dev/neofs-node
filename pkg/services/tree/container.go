@@ -2,7 +2,6 @@ package tree
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"sync"
 
@@ -58,10 +57,7 @@ func (s *Service) getContainerNodes(cid cidSDK.ID) ([]netmapSDK.NodeInfo, int, e
 
 	policy := cnr.Value.PlacementPolicy()
 
-	rawCID := make([]byte, sha256.Size)
-	cid.Encode(rawCID)
-
-	cntNodes, err := nm.ContainerNodes(policy, rawCID)
+	cntNodes, err := nm.ContainerNodes(policy, cid)
 	if err != nil {
 		return nil, -1, err
 	}

@@ -1,13 +1,10 @@
 package innerring
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	irsubnet "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/subnet"
 	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -183,14 +180,7 @@ func (x putSubnetEvent) ReadCreator(id *user.ID) error {
 		return errMissingSubnetOwner
 	}
 
-	key, err := keys.NewPublicKeyFromBytes(data, elliptic.P256())
-	if err != nil {
-		return err
-	}
-
-	user.IDFromKey(id, (ecdsa.PublicKey)(*key))
-
-	return nil
+	return user.IDFromKey(id, data)
 }
 
 // ReadInfo unmarshal the subnet info from a binary NeoFS API protocol's format.

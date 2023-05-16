@@ -178,7 +178,7 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
-	obj.SetOwnerID(usertest.ID())
+	obj.SetOwnerID(usertest.ID(t))
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
