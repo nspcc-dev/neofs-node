@@ -86,7 +86,7 @@ jobs:
           openssl version -a
           echo "Old openssl config"
           cat /usr/lib/ssl/openssl.cnf
-          python -c "
+          sudo python -c "
           filename = '/usr/lib/ssl/openssl.cnf'
           with open(filename, 'r') as file:
               lines = file.readlines()
