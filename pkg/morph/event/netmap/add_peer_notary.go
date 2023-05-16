@@ -20,6 +20,7 @@ const (
 
 // ParseAddPeerNotary from NotaryEvent into netmap event structure.
 func ParseAddPeerNotary(ne event.NotaryEvent) (event.Event, error) {
+	const expectedItemNumAddPeer = 1
 	var (
 		ev        AddPeer
 		currentOp opcode.Opcode

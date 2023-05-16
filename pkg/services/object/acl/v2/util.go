@@ -20,7 +20,7 @@ import (
 
 var errMissingContainerID = errors.New("missing container ID")
 
-func getContainerIDFromRequest(req interface{}) (cid.ID, error) {
+func getContainerIDFromRequest(req any) (cid.ID, error) {
 	var idV2 *refsV2.ContainerID
 	var id cid.ID
 

@@ -39,6 +39,7 @@ const (
 
 // ParseDeleteNotary from NotaryEvent into container event structure.
 func ParseDeleteNotary(ne event.NotaryEvent) (event.Event, error) {
+	const expectedItemNumDelete = 3
 	var (
 		ev        Delete
 		currentOp opcode.Opcode

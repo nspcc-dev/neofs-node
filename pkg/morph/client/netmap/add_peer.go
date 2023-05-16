@@ -24,8 +24,8 @@ func (a *AddPeerPrm) SetNodeInfo(nodeInfo netmap.NodeInfo) {
 func (c *Client) AddPeer(p AddPeerPrm) error {
 	var method = addPeerMethod
 
-	if c.client.WithNotary() && c.client.IsAlpha() {
-		// In notary environments Alphabet must calls AddPeerIR method instead of AddPeer.
+	if c.client.IsAlpha() {
+		// Alphabet node must call AddPeerIR method instead of AddPeer.
 		// It differs from AddPeer only by name, so we can do this in the same form.
 		// See https://github.com/nspcc-dev/neofs-contract/issues/154.
 		method += "IR"

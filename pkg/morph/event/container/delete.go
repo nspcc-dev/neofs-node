@@ -42,47 +42,6 @@ func (d Delete) NotaryRequest() *payload.P2PNotaryRequest {
 	return d.notaryRequest
 }
 
-const expectedItemNumDelete = 3
-
-// ParseDelete from notification into container event structure.
-//
-// Expects 3 stack items.
-func ParseDelete(e *state.ContainedNotificationEvent) (event.Event, error) {
-	var (
-		ev  Delete
-		err error
-	)
-
-	params, err := event.ParseStackArray(e)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
-	}
-
-	if ln := len(params); ln != expectedItemNumDelete {
-		return nil, event.WrongNumberOfParameters(expectedItemNumDelete, ln)
-	}
-
-	// parse container
-	ev.containerID, err = client.BytesFromStackItem(params[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get container: %w", err)
-	}
-
-	// parse signature
-	ev.signature, err = client.BytesFromStackItem(params[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get signature: %w", err)
-	}
-
-	// parse session token
-	ev.token, err = client.BytesFromStackItem(params[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not get session token: %w", err)
-	}
-
-	return ev, nil
-}
-
 // DeleteSuccess structures notification event of successful container removal
 // thrown by Container contract.
 type DeleteSuccess struct {

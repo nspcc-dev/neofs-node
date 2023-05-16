@@ -7,7 +7,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -57,11 +56,9 @@ func (s *Server) notaryHandler(_ event.Event) {
 		}
 	}
 
-	if !s.sideNotaryConfig.disabled {
-		_, err := s.depositSideNotary()
-		if err != nil {
-			s.log.Error("can't make notary deposit in side chain", zap.Error(err))
-		}
+	_, err := s.depositSideNotary()
+	if err != nil {
+		s.log.Error("can't make notary deposit in side chain", zap.Error(err))
 	}
 }
 
@@ -105,20 +102,4 @@ func awaitNotaryDepositInClient(ctx context.Context, cli *client.Client, txHash 
 	}
 
 	return errDepositTimeout
-}
-
-func parseNotaryConfigs(cfg *viper.Viper, withSideNotary, withMainNotary bool) (main, side *notaryConfig) {
-	main = new(notaryConfig)
-	side = new(notaryConfig)
-
-	if !withSideNotary {
-		main.disabled = true
-		side.disabled = true
-
-		return
-	}
-
-	main.disabled = !withMainNotary
-
-	return
 }

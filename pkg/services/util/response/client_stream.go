@@ -17,7 +17,7 @@ type ClientMessageStreamer struct {
 }
 
 // Send calls send method of internal streamer.
-func (s *ClientMessageStreamer) Send(req interface{}) error {
+func (s *ClientMessageStreamer) Send(req any) error {
 	if err := s.send(req); err != nil {
 		return fmt.Errorf("(%T) could not send the request: %w", s, err)
 	}

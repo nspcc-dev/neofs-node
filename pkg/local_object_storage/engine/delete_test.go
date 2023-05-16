@@ -87,7 +87,7 @@ func TestDeleteBigObject(t *testing.T) {
 	}
 }
 
-func checkGetError(t *testing.T, e *StorageEngine, addr oid.Address, expected interface{}) {
+func checkGetError(t *testing.T, e *StorageEngine, addr oid.Address, expected any) {
 	var getPrm GetPrm
 	getPrm.WithAddress(addr)
 

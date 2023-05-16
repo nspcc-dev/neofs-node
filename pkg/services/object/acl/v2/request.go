@@ -32,7 +32,7 @@ type RequestInfo struct {
 
 	bearer *bearer.Token // bearer token of request
 
-	srcRequest interface{}
+	srcRequest any
 }
 
 func (r *RequestInfo) SetBasicACL(basicACL acl.Basic) {
@@ -48,7 +48,7 @@ func (r *RequestInfo) SetSenderKey(senderKey []byte) {
 }
 
 // Request returns raw API request.
-func (r RequestInfo) Request() interface{} {
+func (r RequestInfo) Request() any {
 	return r.srcRequest
 }
 
@@ -103,7 +103,7 @@ type MetaWithToken struct {
 	vheader *sessionV2.RequestVerificationHeader
 	token   *sessionSDK.Object
 	bearer  *bearer.Token
-	src     interface{}
+	src     any
 }
 
 // RequestOwner returns ownerID and its public key

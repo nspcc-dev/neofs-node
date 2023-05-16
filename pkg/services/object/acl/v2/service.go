@@ -86,7 +86,7 @@ func New(opts ...Option) Service {
 		opts[i](cfg)
 	}
 
-	panicOnNil := func(v interface{}, name string) {
+	panicOnNil := func(v any, name string) {
 		if v == nil {
 			panic(fmt.Sprintf("ACL service: %s is nil", name))
 		}

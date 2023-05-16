@@ -91,7 +91,6 @@ type (
 		// notary configuration
 		feeConfig        *config.FeeConfig
 		mainNotaryConfig *notaryConfig
-		sideNotaryConfig *notaryConfig
 
 		// internal variables
 		key                   *keys.PrivateKey
@@ -189,15 +188,13 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}
 
-	if !s.sideNotaryConfig.disabled {
-		err = s.initNotary(ctx,
-			s.depositSideNotary,
-			s.awaitSideNotaryDeposit,
-			"waiting to accept side notary deposit",
-		)
-		if err != nil {
-			return err
-		}
+	err = s.initNotary(ctx,
+		s.depositSideNotary,
+		s.awaitSideNotaryDeposit,
+		"waiting to accept side notary deposit",
+	)
+	if err != nil {
+		return err
 	}
 
 	prm := governance.VoteValidatorPrm{}
@@ -474,14 +471,10 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		}
 	}
 
-	server.mainNotaryConfig, server.sideNotaryConfig = parseNotaryConfigs(
-		cfg,
-		server.morphClient.ProbeNotary(),
-		!server.withoutMainNet && server.mainnetClient.ProbeNotary(), // if mainnet disabled then notary flag must be disabled too
-	)
+	server.mainNotaryConfig = new(notaryConfig)
+	server.mainNotaryConfig.disabled = server.withoutMainNet || !server.mainnetClient.ProbeNotary() // if mainnet disabled then notary flag must be disabled too
 
 	log.Info("notary support",
-		zap.Bool("sidechain_enabled", !server.sideNotaryConfig.disabled),
 		zap.Bool("mainchain_enabled", !server.mainNotaryConfig.disabled),
 	)
 
@@ -491,23 +484,20 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		server.morphClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
-		server.sideNotaryConfig.disabled,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if !server.sideNotaryConfig.disabled {
-		// enable notary support in the side client
-		err = server.morphClient.EnableNotarySupport(
-			client.WithProxyContract(server.contracts.proxy),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
-		}
-
-		server.morphListener.EnableNotarySupport(server.contracts.proxy, server.morphClient.Committee, server.morphClient)
+	// enable notary support in the side client
+	err = server.morphClient.EnableNotarySupport(
+		client.WithProxyContract(server.contracts.proxy),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
 	}
+
+	server.morphListener.EnableNotarySupport(server.contracts.proxy, server.morphClient.Committee, server.morphClient)
 
 	if !server.mainNotaryConfig.disabled {
 		// enable notary support in the main client
@@ -533,11 +523,9 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	fee := server.feeConfig.SideChainFee()
-
 	// do not use TryNotary() in audit wrapper
 	// audit operations do not require multisignatures
-	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.contracts.audit, fee)
+	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.contracts.audit, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -545,39 +533,30 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	// form morph container client's options
 	morphCnrOpts := make([]cntClient.Option, 0, 3)
 	morphCnrOpts = append(morphCnrOpts,
-		cntClient.TryNotary(),
 		cntClient.AsAlphabet(),
 	)
 
-	if server.sideNotaryConfig.disabled {
-		// in non-notary environments we customize fee for named container registration
-		// because it takes much more additional GAS than other operations.
-		morphCnrOpts = append(morphCnrOpts,
-			cntClient.WithCustomFeeForNamedPut(server.feeConfig.NamedContainerRegistrationFee()),
-		)
-	}
-
-	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, fee, morphCnrOpts...)
+	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, 0, morphCnrOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, fee, nmClient.TryNotary(), nmClient.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, 0, nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, fee, balanceClient.TryNotary(), balanceClient.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, 0, balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, fee, repClient.TryNotary(), repClient.AsAlphabet())
+	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, fee, neofsid.TryNotary(), neofsid.AsAlphabet())
+	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, 0, neofsid.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -590,10 +569,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 
 	// initialize morph client of Subnet contract
 	clientMode := morphsubnet.NotaryAlphabet
-
-	if server.sideNotaryConfig.disabled {
-		clientMode = morphsubnet.NonNotary
-	}
 
 	subnetInitPrm := morphsubnet.InitPrm{}
 	subnetInitPrm.SetBaseClient(server.morphClient)
@@ -608,7 +583,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 
 	var irf irFetcher
 
-	if server.withoutMainNet || !server.sideNotaryConfig.disabled {
+	if server.withoutMainNet {
 		// if mainchain is disabled we should use NeoFSAlphabetList client method according to its docs
 		// (naming `...WithNotary` will not always be correct)
 		irf = NewIRFetcherWithNotary(server.morphClient)
@@ -738,16 +713,15 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	} else {
 		// create governance processor
 		governanceProcessor, err := governance.New(&governance.Params{
-			Log:            log,
-			NeoFSClient:    neofsCli,
-			NetmapClient:   server.netmapClient,
-			AlphabetState:  server,
-			EpochState:     server,
-			Voter:          server,
-			IRFetcher:      irf,
-			MorphClient:    server.morphClient,
-			MainnetClient:  server.mainnetClient,
-			NotaryDisabled: server.sideNotaryConfig.disabled,
+			Log:           log,
+			NeoFSClient:   neofsCli,
+			NetmapClient:  server.netmapClient,
+			AlphabetState: server,
+			EpochState:    server,
+			Voter:         server,
+			IRFetcher:     irf,
+			MorphClient:   server.morphClient,
+			MainnetClient: server.mainnetClient,
 		})
 		if err != nil {
 			return nil, err
@@ -792,7 +766,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 			locodeValidator,
 			subnetValidator,
 		),
-		NotaryDisabled: server.sideNotaryConfig.disabled,
 		SubnetContract: &server.contracts.subnet,
 
 		NodeStateSettings: netSettings,
@@ -814,7 +787,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		ContainerClient: cnrClient,
 		NeoFSIDClient:   neofsIDClient,
 		NetworkState:    server.netmapClient,
-		NotaryDisabled:  server.sideNotaryConfig.disabled,
 		SubnetClient:    subnetClient,
 	})
 	if err != nil {
@@ -903,7 +875,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 				NetMapSource: server.netmapClient,
 			},
 		),
-		NotaryDisabled: server.sideNotaryConfig.disabled,
 	})
 	if err != nil {
 		return nil, err

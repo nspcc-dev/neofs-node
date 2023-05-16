@@ -25,7 +25,7 @@ func NewResponseService(cnrSvc Server, respSvc *response.Service) Server {
 
 func (s *responseService) Put(ctx context.Context, req *container.PutRequest) (*container.PutResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Put(ctx, req.(*container.PutRequest))
 		},
 	)
@@ -38,7 +38,7 @@ func (s *responseService) Put(ctx context.Context, req *container.PutRequest) (*
 
 func (s *responseService) Delete(ctx context.Context, req *container.DeleteRequest) (*container.DeleteResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Delete(ctx, req.(*container.DeleteRequest))
 		},
 	)
@@ -51,7 +51,7 @@ func (s *responseService) Delete(ctx context.Context, req *container.DeleteReque
 
 func (s *responseService) Get(ctx context.Context, req *container.GetRequest) (*container.GetResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.Get(ctx, req.(*container.GetRequest))
 		},
 	)
@@ -64,7 +64,7 @@ func (s *responseService) Get(ctx context.Context, req *container.GetRequest) (*
 
 func (s *responseService) List(ctx context.Context, req *container.ListRequest) (*container.ListResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.List(ctx, req.(*container.ListRequest))
 		},
 	)
@@ -77,7 +77,7 @@ func (s *responseService) List(ctx context.Context, req *container.ListRequest) 
 
 func (s *responseService) SetExtendedACL(ctx context.Context, req *container.SetExtendedACLRequest) (*container.SetExtendedACLResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.SetExtendedACL(ctx, req.(*container.SetExtendedACLRequest))
 		},
 	)
@@ -90,7 +90,7 @@ func (s *responseService) SetExtendedACL(ctx context.Context, req *container.Set
 
 func (s *responseService) GetExtendedACL(ctx context.Context, req *container.GetExtendedACLRequest) (*container.GetExtendedACLResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.GetExtendedACL(ctx, req.(*container.GetExtendedACLRequest))
 		},
 	)
@@ -103,7 +103,7 @@ func (s *responseService) GetExtendedACL(ctx context.Context, req *container.Get
 
 func (s *responseService) AnnounceUsedSpace(ctx context.Context, req *container.AnnounceUsedSpaceRequest) (*container.AnnounceUsedSpaceResponse, error) {
 	resp, err := s.respSvc.HandleUnaryRequest(ctx, req,
-		func(ctx context.Context, req interface{}) (util.ResponseMessage, error) {
+		func(ctx context.Context, req any) (util.ResponseMessage, error) {
 			return s.svc.AnnounceUsedSpace(ctx, req.(*container.AnnounceUsedSpaceRequest))
 		},
 	)

@@ -93,8 +93,6 @@ func (p *PutPrm) SetZone(zone string) {
 //
 // Returns calculated container identifier and any error
 // encountered that caused the saving to interrupt.
-//
-// If TryNotary is provided, calls notary contract.
 func (c *Client) Put(p PutPrm) error {
 	if len(p.sig) == 0 || len(p.key) == 0 {
 		return errNilArgument

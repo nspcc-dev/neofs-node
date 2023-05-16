@@ -21,7 +21,7 @@ type ResponseMessage interface {
 	SetMetaHeader(*session.ResponseMetaHeader)
 }
 
-type UnaryHandler func(context.Context, interface{}) (ResponseMessage, error)
+type UnaryHandler func(context.Context, any) (ResponseMessage, error)
 
 type SignService struct {
 	key *ecdsa.PrivateKey
@@ -29,7 +29,7 @@ type SignService struct {
 
 type ResponseMessageWriter func(ResponseMessage) error
 
-type ServerStreamHandler func(context.Context, interface{}) (ResponseMessageReader, error)
+type ServerStreamHandler func(context.Context, any) (ResponseMessageReader, error)
 
 type ResponseMessageReader func() (ResponseMessage, error)
 
@@ -37,7 +37,7 @@ var ErrAbortStream = errors.New("abort message stream")
 
 type ResponseConstructor func() ResponseMessage
 
-type RequestMessageWriter func(interface{}) error
+type RequestMessageWriter func(any) error
 
 type ClientStreamCloser func() (ResponseMessage, error)
 
@@ -61,7 +61,7 @@ func NewUnarySignService(key *ecdsa.PrivateKey) *SignService {
 	}
 }
 
-func (s *RequestMessageStreamer) Send(req interface{}) error {
+func (s *RequestMessageStreamer) Send(req any) error {
 	// req argument should be strengthen with type RequestMessage
 	s.statusSupported = isStatusSupported(req.(RequestMessage)) // panic is OK here for now
 
@@ -130,7 +130,7 @@ func (s *SignService) CreateRequestStreamer(sender RequestMessageWriter, closer 
 }
 
 func (s *SignService) HandleServerStreamRequest(
-	req interface{},
+	req any,
 	respWriter ResponseMessageWriter,
 	blankResp ResponseConstructor,
 	respWriterCaller func(ResponseMessageWriter) error,
@@ -172,7 +172,7 @@ func (s *SignService) HandleServerStreamRequest(
 	return nil
 }
 
-func (s *SignService) HandleUnaryRequest(ctx context.Context, req interface{}, handler UnaryHandler, blankResp ResponseConstructor) (ResponseMessage, error) {
+func (s *SignService) HandleUnaryRequest(ctx context.Context, req any, handler UnaryHandler, blankResp ResponseConstructor) (ResponseMessage, error) {
 	// handle protocol versions <=2.10 (API statuses was introduced in 2.11 only)
 
 	// req argument should be strengthen with type RequestMessage
@@ -233,7 +233,7 @@ func setStatusV2(resp ResponseMessage, err error) {
 // The signature error affects the result depending on the protocol version:
 //   - if status return is supported, panics since we cannot return the failed status, because it will not be signed;
 //   - otherwise, returns error in order to transport it directly.
-func signResponse(key *ecdsa.PrivateKey, resp interface{}, statusSupported bool) error {
+func signResponse(key *ecdsa.PrivateKey, resp any, statusSupported bool) error {
 	err := signature.SignServiceMessage(key, resp)
 	if err != nil {
 		err = fmt.Errorf("could not sign response: %w", err)

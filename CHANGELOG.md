@@ -8,10 +8,15 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Fixed
+- Inability to restore RPC connection after the second disconnect (#2325)
+- Tree service panics when cleaning up failed connections (#2335)
+- Dropping small objects on any error on write-cache side (#2336)
 
 ### Removed
+- Non-notary mode support for sidechain (#2321)
 
 ### Updated
+- Update minimal supported Go version up to v1.18 (#2340)
 
 ### Updating from v0.36.1
 

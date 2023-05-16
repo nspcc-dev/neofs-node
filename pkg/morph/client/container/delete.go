@@ -57,8 +57,6 @@ func (d *DeletePrm) SetToken(token []byte) {
 //
 // Returns any error encountered that caused
 // the removal to interrupt.
-//
-// If TryNotary is provided, calls notary contract.
 func (c *Client) Delete(p DeletePrm) error {
 	if len(p.signature) == 0 {
 		return errNilArgument

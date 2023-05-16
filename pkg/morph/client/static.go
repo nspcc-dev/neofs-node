@@ -30,13 +30,6 @@ type staticOpts struct {
 	fees fees
 }
 
-// WithNotary returns notary status of the client.
-//
-// See also TryNotary.
-func (s *StaticClient) WithNotary() bool {
-	return s.client.IsNotaryEnabled()
-}
-
 // IsAlpha returns Alphabet status of the client.
 //
 // See also AsAlphabet.
@@ -151,7 +144,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 // TestInvokePrm groups parameters of the TestInvoke operation.
 type TestInvokePrm struct {
 	method string
-	args   []interface{}
+	args   []any
 }
 
 // SetMethod sets method of the contract to call.
@@ -160,7 +153,7 @@ func (ti *TestInvokePrm) SetMethod(method string) {
 }
 
 // SetArgs sets arguments of the contact call.
-func (ti *TestInvokePrm) SetArgs(args ...interface{}) {
+func (ti *TestInvokePrm) SetArgs(args ...any) {
 	ti.args = args
 }
 

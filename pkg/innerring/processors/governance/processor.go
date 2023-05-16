@@ -68,8 +68,6 @@ type (
 		mainnetClient *client.Client
 		morphClient   *client.Client
 
-		notaryDisabled bool
-
 		designate util.Uint160
 	}
 
@@ -86,8 +84,6 @@ type (
 		MainnetClient *client.Client
 		NeoFSClient   *neofscontract.Client
 		NetmapClient  *nmClient.Client
-
-		NotaryDisabled bool
 	}
 )
 
@@ -119,18 +115,17 @@ func New(p *Params) (*Processor, error) {
 	designate := p.MainnetClient.GetDesignateHash()
 
 	return &Processor{
-		log:            p.Log,
-		pool:           pool,
-		neofsClient:    p.NeoFSClient,
-		netmapClient:   p.NetmapClient,
-		alphabetState:  p.AlphabetState,
-		epochState:     p.EpochState,
-		voter:          p.Voter,
-		irFetcher:      p.IRFetcher,
-		mainnetClient:  p.MainnetClient,
-		morphClient:    p.MorphClient,
-		notaryDisabled: p.NotaryDisabled,
-		designate:      designate,
+		log:           p.Log,
+		pool:          pool,
+		neofsClient:   p.NeoFSClient,
+		netmapClient:  p.NetmapClient,
+		alphabetState: p.AlphabetState,
+		epochState:    p.EpochState,
+		voter:         p.Voter,
+		irFetcher:     p.IRFetcher,
+		mainnetClient: p.MainnetClient,
+		morphClient:   p.MorphClient,
+		designate:     designate,
 	}, nil
 }
 

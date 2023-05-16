@@ -12,7 +12,7 @@ type ACLChecker interface {
 	CheckBasicACL(RequestInfo) bool
 	// CheckEACL must return non-nil error if request
 	// doesn't pass extended ACL validation.
-	CheckEACL(interface{}, RequestInfo) error
+	CheckEACL(any, RequestInfo) error
 	// StickyBitCheck must return true only if sticky bit
 	// is disabled or enabled but request contains correct
 	// owner field.

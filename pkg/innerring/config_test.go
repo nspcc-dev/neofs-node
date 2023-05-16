@@ -31,7 +31,6 @@ morph:
 
 // Path of YAML configuration of the IR consensus with all optional fields.
 const validConfigOptions = `
-    notary_disabled: true
     time_per_block: 1s
     max_traceable_blocks: 200
     seed_nodes:
@@ -165,7 +164,6 @@ func TestConfigParser(t *testing.T) {
 				"localhost:20000",
 				"localhost:20001",
 			},
-			NotaryDisabled: true,
 			P2P: blockchain.P2PConfig{
 				MinPeers:         1,
 				AttemptConnPeers: 20,
@@ -232,7 +230,6 @@ func TestConfigParser(t *testing.T) {
 			{"committee", []string{}},
 			{"committee", []string{"not a key"}},
 			{"storage.type", "random string"},
-			{"notary_disabled", "not a boolean"},
 			{"time_per_block", "not a duration"},
 			{"time_per_block", -time.Second},
 			{"max_traceable_blocks", -1},

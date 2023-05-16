@@ -34,7 +34,7 @@ import (
 )
 
 func initReputationService(c *cfg) {
-	wrap, err := repClient.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0, repClient.TryNotary())
+	wrap, err := repClient.NewFromMorph(c.cfgMorph.client, c.cfgReputation.scriptHash, 0)
 	fatalOnErr(err)
 
 	localKey := c.key.PublicKey().Bytes()

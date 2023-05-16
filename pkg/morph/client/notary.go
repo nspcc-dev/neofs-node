@@ -194,7 +194,7 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint2
 		c.accAddr,
 		c.notary.notary,
 		big.NewInt(int64(amount)),
-		[]interface{}{c.acc.ScriptHash(), till})
+		[]any{c.acc.ScriptHash(), till})
 	if err != nil {
 		if !errors.Is(err, neorpc.ErrAlreadyExists) {
 			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
@@ -354,7 +354,7 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 // it fallbacks to a simple `Invoke()`.
 //
 // `nonce` and `vub` are used only if notary is enabled.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...interface{}) error {
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -374,7 +374,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 // not expected to be signed by the current node.
 //
 // Considered to be used by non-IR nodes.
-func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...interface{}) error {
+func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -488,12 +488,12 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	return nil
 }
 
-func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...interface{}) error {
+func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...any) error {
 	designate := c.GetDesignateHash()
 	return c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...interface{}) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) error {
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err

@@ -52,10 +52,6 @@ func (s *Server) initSubnet(cfg subnetConfig) {
 		// initialize morph client of Subnet contract
 		clientMode := morphsubnet.NotaryAlphabet
 
-		if s.sideNotaryConfig.disabled {
-			clientMode = morphsubnet.NonNotary
-		}
-
 		var initPrm morphsubnet.InitPrm
 
 		initPrm.SetBaseClient(s.morphClient)
@@ -85,7 +81,6 @@ func (s *Server) stopSubnet() {
 
 // names of listened notification events from Subnet contract.
 const (
-	subnetCreateEvName       = "Put"
 	subnetRemoveEvName       = "Delete"
 	notarySubnetCreateEvName = "put"
 )
@@ -104,11 +99,6 @@ const (
 //   - Put (parser: subnetevents.ParsePut, handler: catchSubnetCreation);
 //   - Delete (parser: subnetevents.ParseDelete, handler: catchSubnetCreation).
 func (s *Server) listenSubnet() {
-	if s.sideNotaryConfig.disabled {
-		s.listenSubnetWithoutNotary()
-		return
-	}
-
 	var (
 		parserInfo  event.NotaryParserInfo
 		handlerInfo event.NotaryHandlerInfo
@@ -135,13 +125,6 @@ func (s *Server) listenSubnet() {
 
 	// subnet creation
 	listenNotaryEvent(notarySubnetCreateEvName, subnetevents.ParseNotaryPut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
-	// subnet removal
-	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
-}
-
-func (s *Server) listenSubnetWithoutNotary() {
-	// subnet creation
-	listenNotifySubnetEvent(s, subnetCreateEvName, subnetevents.ParsePut, s.onlyAlphabetEventHandler(s.catchSubnetCreation))
 	// subnet removal
 	listenNotifySubnetEvent(s, subnetRemoveEvName, subnetevents.ParseDelete, s.onlyAlphabetEventHandler(s.catchSubnetRemoval))
 }
@@ -234,25 +217,11 @@ func (s *Server) handleSubnetCreation(e event.Event) {
 
 	notaryMainTx := putEv.NotaryMainTx()
 
-	isNotary := notaryMainTx != nil
-	if isNotary {
-		// re-sign notary request
-		err = s.morphClient.NotarySignAndInvokeTX(notaryMainTx)
-	} else {
-		// send new transaction
-		var prm morphsubnet.PutPrm
-
-		prm.SetID(putEv.ID())
-		prm.SetOwner(putEv.Owner())
-		prm.SetInfo(putEv.Info())
-		prm.SetTxHash(putEv.TxHash())
-
-		_, err = s.subnetHandler.morphClient.Put(prm)
-	}
+	// re-sign notary request
+	err = s.morphClient.NotarySignAndInvokeTX(notaryMainTx)
 
 	if err != nil {
 		s.log.Error("approve subnet creation",
-			zap.Bool("notary", isNotary),
 			zap.String("error", err.Error()),
 		)
 

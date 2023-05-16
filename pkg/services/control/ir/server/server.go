@@ -15,7 +15,7 @@ type Server struct {
 	allowedKeys [][]byte
 }
 
-func panicOnPrmValue(n string, v interface{}) {
+func panicOnPrmValue(n string, v any) {
 	const invalidPrmValFmt = "invalid %s parameter (%T): %v"
 	panic(fmt.Sprintf(invalidPrmValFmt, n, v, v))
 }

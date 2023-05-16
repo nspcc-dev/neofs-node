@@ -31,7 +31,6 @@ morph:
       #
       # If 'path' exists, it should correspond to the selected variant
       path: ./db/morph.bolt # File system path to the storage. Ignored for 'inmemory' storage.
-    notary_disabled: true # Optional flag to disable Notary service. Defaults to false
     time_per_block: 1s # Optional time period (approximate) between two adjacent blocks. Defaults to 15s.
       # Must not be negative
     max_traceable_blocks: 2102400 # Optional length of the chain accessible to smart contracts. Defaults to 2102400.
@@ -113,8 +112,6 @@ locode:
 
 fee:
   main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
-  side_chain: 200000000                # Fixed8 value of extra GAS fee for sidechain contract invocation; ignore if notary is enabled in sidechain
-  named_container_register: 2500000000 # Fixed8 value of extra GAS fee for named conatiner registration in container contract; ignore if notary is enabled in sidechain
 
 timers:
   emit: 240 # Number of sidechain blocks between GAS emission cycles; disabled by default
@@ -171,13 +168,13 @@ netmap_cleaner:
 
 contracts:
   neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
-  processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled or notary is disabled in mainchain
+  processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled
   audit: 219e37aed2180b87e7fe945dbf97d67125e8d73f      # Optional: override address of audit contract in sidechain
   balance: d2aa48d14b17b11bc4c68205027884a96706dd16    # Optional: override address of balance contract in sidechain
   container: ed4a7a66fe3f9bfe50f214b49be8f215a3c886b6  # Optional: override address of container contract in sidechain
   neofsid: 9f5866decbc751a099e74c7c7bc89f609201755a    # Optional: override address of neofsid contract in sidechain
   netmap: 83c600c81d47a1b1b7cf58eb49ae7ee7240dc742     # Optional: override address of netmap contract in sidechain
-  proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain; ignore if notary is disabled in sidechain
+  proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain
   reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
   subnet: e9266864d3c562c6e17f2bb9cb1392aaa293d93a     # Optional: override address of subnet contract in sidechain
   alphabet:

@@ -34,6 +34,7 @@ const (
 
 // ParseUpdatePeerNotary from NotaryEvent into netmap event structure.
 func ParseUpdatePeerNotary(ne event.NotaryEvent) (event.Event, error) {
+	const expectedItemNumUpdatePeer = 2
 	var (
 		ev  UpdatePeer
 		err error
