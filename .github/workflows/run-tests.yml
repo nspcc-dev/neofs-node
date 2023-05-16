@@ -57,6 +57,12 @@ jobs:
           check-latest: true
       - run: go version
 
+      - name: Set up Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: python --version
+
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
         timeout-minutes: 30
