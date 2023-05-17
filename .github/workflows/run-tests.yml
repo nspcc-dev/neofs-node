@@ -174,7 +174,7 @@ jobs:
         run: |
           echo "Check free space"
           df -h
-          df -f .
+          df -h .
           echo "=========================================="
 
           echo "Check /etc/hosts"
