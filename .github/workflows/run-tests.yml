@@ -172,6 +172,10 @@ jobs:
 ################################################################
       - name: Log environment
         run: |
+          echo "Check free space"
+          df -h
+          echo "=========================================="
+
           echo "Check /etc/hosts"
           cat /etc/hosts
           echo "=========================================="
