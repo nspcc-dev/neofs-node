@@ -95,7 +95,7 @@ func TestIterate(t *testing.T, cons Constructor, min, max uint64) {
 		}
 
 		_, err := s.Iterate(iterPrm)
-		require.Equal(t, err, logicErr)
+		require.Equal(t, logicErr, err)
 		require.Equal(t, len(objects)/2, len(seen))
 		for i := range objects {
 			d, ok := seen[objects[i].addr.String()]

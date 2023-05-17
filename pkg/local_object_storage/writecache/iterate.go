@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -59,7 +60,9 @@ func (c *cache) Iterate(prm IterationPrm) error {
 		}
 		data, err := f()
 		if err != nil {
-			if prm.ignoreErrors {
+			if prm.ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
+				// an object can be removed b/w iterating over it
+				// and reading its payload; not an error
 				return nil
 			}
 			return err
