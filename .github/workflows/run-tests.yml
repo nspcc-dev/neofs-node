@@ -175,6 +175,8 @@ jobs:
           echo "Check free space"
           df -h
           df -h .
+          df -h /home/runner/runners
+          df -h ${GITHUB_WORKSPACE}
           echo "=========================================="
 
           echo "Check /etc/hosts"
