@@ -251,6 +251,7 @@ jobs:
         working-directory: neofs-testcases
 
       - name: Log environment
+        if: always()
         run: |
           echo "Check free space"
           df -h
