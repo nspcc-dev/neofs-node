@@ -257,7 +257,7 @@ jobs:
           df -h
           df -h .
           df -h /home/runner/runners
-          df -h ${GITHUB_WORKSPACE}"
+          df -h ${GITHUB_WORKSPACE}
         working-directory: neofs-testcases
 
 ################################################################
@@ -284,6 +284,16 @@ jobs:
         with:
           ref: gh-pages
           path: gh-pages
+
+      - name: Log environment
+        if: always()
+        run: |
+          echo "Check free space"
+          df -h
+          df -h .
+          df -h /home/runner/runners
+          df -h ${GITHUB_WORKSPACE}
+        working-directory: neofs-testcases
 
       - name: Allure Report action from marketplace
         timeout-minutes: 60
