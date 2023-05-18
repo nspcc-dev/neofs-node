@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - Update minimal supported Go version up to v1.18 (#2340)
+- tzhash library to 1.7.0 (#2348)
 
 ### Updating from v0.36.1
 
