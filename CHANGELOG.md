@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)
+- Priority switching b/w RPC endpoints in the morph client (#2306)
 
 ### Updated
 - Update minimal supported Go version up to v1.18 (#2340)
@@ -31,6 +32,7 @@ Changelog for NeoFS Node
 - Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
 - In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
   `morph.consensus.rpc.tls` section.
+- `morph.switch_interval` IR and SN config value is not used anymore.
 
 ## [0.36.1] - 2023-04-26
 

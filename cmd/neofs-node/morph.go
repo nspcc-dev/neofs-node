@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
-	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	"go.uber.org/zap"
 )
 
@@ -30,22 +29,20 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	addresses := morphconfig.RPCEndpoint(c.appCfg)
+	addressesCfg := morphconfig.RPCEndpoint(c.appCfg)
+	addresses := make([]string, 0, len(addressesCfg))
 
-	// Morph client stable-sorts endpoints by priority. Shuffle here to randomize
-	// order of endpoints with the same priority.
-	rand.Shuffle(len(addresses), func(i, j int) {
-		addresses[i], addresses[j] = addresses[j], addresses[i]
-	})
+	for _, e := range addressesCfg {
+		addresses = append(addresses, e.Address)
+	}
 
 	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
-		client.WithEndpoints(addresses...),
+		client.WithEndpoints(addresses),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),
-		client.WithSwitchInterval(morphconfig.SwitchInterval(c.appCfg)),
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",

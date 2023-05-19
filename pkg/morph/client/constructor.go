@@ -37,13 +37,11 @@ type cfg struct {
 
 	signer *transaction.Signer
 
-	endpoints []Endpoint
+	endpoints []string
 
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
 	inactiveModeCb Callback
-
-	switchInterval time.Duration
 }
 
 const (
@@ -127,9 +125,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			return nil, errors.New("no endpoints were provided")
 		}
 
-		cli.endpoints.init(cfg.endpoints)
-
-		cli.client, act, err = cli.newCli(cli.endpoints.list[0].Address)
+		cli.client, act, err = cli.newCli(cli.endpoints[0])
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC client: %w", err)
 		}
@@ -247,10 +243,10 @@ func WithSigner(signer *transaction.Signer) Option {
 }
 
 // WithEndpoints returns a client constructor option
-// that specifies additional Neo rpc endpoints.
+// that specifies Neo rpc endpoints.
 //
 // Has no effect if WithSingleClient is provided.
-func WithEndpoints(endpoints ...Endpoint) Option {
+func WithEndpoints(endpoints []string) Option {
 	return func(c *cfg) {
 		c.endpoints = append(c.endpoints, endpoints...)
 	}
@@ -274,14 +270,5 @@ func WithSingleClient(cli *rpcclient.WSClient) Option {
 func WithConnLostCallback(cb Callback) Option {
 	return func(c *cfg) {
 		c.inactiveModeCb = cb
-	}
-}
-
-// WithSwitchInterval returns a client constructor option
-// that specifies a wait interval b/w attempts to reconnect
-// to an RPC node with the highest priority.
-func WithSwitchInterval(i time.Duration) Option {
-	return func(c *cfg) {
-		c.switchInterval = i
 	}
 }

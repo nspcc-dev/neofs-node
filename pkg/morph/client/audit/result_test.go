@@ -26,7 +26,7 @@ func TestAuditResults(t *testing.T) {
 	auditHash, err := util.Uint160DecodeStringLE(sAuditHash)
 	require.NoError(t, err)
 
-	morphClient, err := client.New(key, client.WithEndpoints(client.Endpoint{Address: endpoint}))
+	morphClient, err := client.New(key, client.WithEndpoints([]string{endpoint}))
 	require.NoError(t, err)
 
 	auditClientWrapper, err := NewFromMorph(morphClient, auditHash, 0)
