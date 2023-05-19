@@ -315,6 +315,7 @@ jobs:
           publish_branch: gh-pages
           publish_dir: allure-history
           force_orphan: true
+          enable_jekyll: true
 
       - name: Post the link to the report
         timeout-minutes: 60
