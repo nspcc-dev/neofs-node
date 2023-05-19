@@ -305,7 +305,6 @@ jobs:
           allure_report: allure-report
           gh_pages: gh-pages
           allure_history: allure-history
-          keep_reports: 1
 
       - name: Deploy report to Github Pages
         timeout-minutes: 120
@@ -315,6 +314,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: allure-history
+          force_orphan: true
 
       - name: Post the link to the report
         timeout-minutes: 60
