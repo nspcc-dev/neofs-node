@@ -80,7 +80,7 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 	v, ok := b.opened.Get(blzPath)
 	b.lruMtx.Unlock()
 	if ok {
-		if res, err := b.deleteObject(v.(*blobovnicza.Blobovnicza), prm, dp); err == nil {
+		if res, err := b.deleteObject(v, prm, dp); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
 			b.log.Debug("could not remove object from opened blobovnicza",

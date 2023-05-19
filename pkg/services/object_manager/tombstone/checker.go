@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -31,7 +31,7 @@ type Source interface {
 // `ExpirationChecker{}` declarations leads to undefined behaviour
 // and may lead to panics.
 type ExpirationChecker struct {
-	cache *lru.Cache
+	cache *lru.Cache[oid.Address, uint64]
 
 	log *logger.Logger
 
@@ -49,9 +49,9 @@ func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Addr
 	addrStr := a.EncodeToString()
 	log := g.log.With(zap.String("address", addrStr))
 
-	expEpoch, ok := g.cache.Get(addrStr)
+	expEpoch, ok := g.cache.Get(a)
 	if ok {
-		return expEpoch.(uint64) > epoch
+		return expEpoch > epoch
 	}
 
 	ts, err := g.tsSource.Tombstone(ctx, a, epoch)
@@ -62,7 +62,7 @@ func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Addr
 		)
 	} else {
 		if ts != nil {
-			return g.handleTS(addrStr, ts, epoch)
+			return g.handleTS(a, ts, epoch)
 		}
 	}
 
@@ -71,7 +71,7 @@ func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Addr
 	return false
 }
 
-func (g *ExpirationChecker) handleTS(addr string, ts *object.Object, reqEpoch uint64) bool {
+func (g *ExpirationChecker) handleTS(addr oid.Address, ts *object.Object, reqEpoch uint64) bool {
 	for _, atr := range ts.Attributes() {
 		if atr.Key() == objectV2.SysAttributeExpEpoch {
 			epoch, err := strconv.ParseUint(atr.Value(), 10, 64)

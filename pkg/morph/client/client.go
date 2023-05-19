@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -85,7 +85,7 @@ type cache struct {
 
 	nnsHash   *util.Uint160
 	gKey      *keys.PublicKey
-	txHeights *lru.Cache
+	txHeights *lru.Cache[util.Uint256, uint32]
 }
 
 func (c cache) nns() *util.Uint160 {

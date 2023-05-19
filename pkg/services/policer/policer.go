@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -53,7 +53,7 @@ func (oiw *objectsInWork) add(addr oid.Address) {
 type Policer struct {
 	*cfg
 
-	cache *lru.Cache
+	cache *lru.Cache[oid.Address, time.Time]
 
 	objsInWork *objectsInWork
 }
@@ -125,7 +125,7 @@ func New(opts ...Option) *Policer {
 
 	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Policer"))}
 
-	cache, err := lru.New(int(c.cacheSize))
+	cache, err := lru.New[oid.Address, time.Time](int(c.cacheSize))
 	if err != nil {
 		panic(err)
 	}

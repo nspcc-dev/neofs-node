@@ -3,8 +3,9 @@ package tombstone
 import (
 	"fmt"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +49,7 @@ func NewChecker(oo ...Option) *ExpirationChecker {
 
 	panicOnNil(cfg.tsSource, "Tombstone source")
 
-	cache, err := lru.New(cfg.cacheSize)
+	cache, err := lru.New[oid.Address, uint64](cfg.cacheSize)
 	if err != nil {
 		panic(fmt.Errorf("could not create LRU cache with %d size: %w", cfg.cacheSize, err))
 	}

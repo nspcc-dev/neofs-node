@@ -76,7 +76,7 @@ func (b *Blobovniczas) getRangeFromLevel(prm common.GetRangePrm, blzPath string,
 	v, ok := b.opened.Get(blzPath)
 	b.lruMtx.Unlock()
 	if ok {
-		res, err := b.getObjectRange(v.(*blobovnicza.Blobovnicza), prm)
+		res, err := b.getObjectRange(v, prm)
 		switch {
 		case err == nil,
 			isErrOutOfRange(err):

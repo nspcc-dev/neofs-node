@@ -55,8 +55,8 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				}
 
 				err = p.taskPool.Submit(func() {
-					v, ok := p.cache.Get(addr.Address)
-					if ok && time.Since(v.(time.Time)) < p.evictDuration {
+					lastTime, ok := p.cache.Get(addr.Address)
+					if ok && time.Since(lastTime) < p.evictDuration {
 						return
 					}
 

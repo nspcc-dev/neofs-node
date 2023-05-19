@@ -57,11 +57,10 @@ func (b *Blobovniczas) Close() error {
 		b.opened.Remove(p)
 	}
 	for _, k := range b.opened.Keys() {
-		v, _ := b.opened.Get(k)
-		blz := v.(*blobovnicza.Blobovnicza)
+		blz, _ := b.opened.Get(k)
 		if err := blz.Close(); err != nil {
 			b.log.Debug("could not close active blobovnicza",
-				zap.String("path", k.(string)),
+				zap.String("path", k),
 				zap.String("error", err.Error()),
 			)
 		}
@@ -86,7 +85,7 @@ func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 	b.lruMtx.Unlock()
 	if ok {
 		// blobovnicza should be opened in cache
-		return v.(*blobovnicza.Blobovnicza), nil
+		return v, nil
 	}
 
 	lvlPath := filepath.Dir(p)
@@ -105,7 +104,7 @@ func (b *Blobovniczas) openBlobovnicza(p string) (*blobovnicza.Blobovnicza, erro
 
 	v, ok = b.opened.Get(p)
 	if ok {
-		return v.(*blobovnicza.Blobovnicza), nil
+		return v, nil
 	}
 
 	blz, err := b.openBlobovniczaNoCache(p)
