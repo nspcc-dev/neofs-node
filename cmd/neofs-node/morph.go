@@ -29,12 +29,7 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	addressesCfg := morphconfig.RPCEndpoint(c.appCfg)
-	addresses := make([]string, 0, len(addressesCfg))
-
-	for _, e := range addressesCfg {
-		addresses = append(addresses, e.Address)
-	}
+	addresses := morphconfig.Endpoints(c.appCfg)
 
 	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),

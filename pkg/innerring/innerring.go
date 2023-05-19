@@ -1010,9 +1010,9 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 }
 
 func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
-	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
-	var endpoints []string
+	endpoints := p.cfg.GetStringSlice(p.name + ".endpoints")
 
+	// deprecated endpoints with priorities
 	section := p.name + ".endpoint.client"
 	for i := 0; ; i++ {
 		addr := p.cfg.GetString(fmt.Sprintf("%s.%d.%s", section, i, "address"))

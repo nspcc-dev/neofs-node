@@ -33,6 +33,8 @@ Changelog for NeoFS Node
 - In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
   `morph.consensus.rpc.tls` section.
 - `morph.switch_interval` IR and SN config value is not used anymore.
+- `morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
+  removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
 
 ## [0.36.1] - 2023-04-26
 
