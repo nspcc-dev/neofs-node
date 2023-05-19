@@ -30,6 +30,7 @@ import (
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
+	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -614,7 +615,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	user.IDFromKey(&c.ownerIDFromKey, key.PrivateKey.PublicKey)
 
 	if metricsconfig.Enabled(c.appCfg) {
-		c.metricsCollector = metrics.NewNodeMetrics()
+		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
 		netState.metrics = c.metricsCollector
 	}
 

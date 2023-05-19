@@ -27,77 +27,77 @@ const engineSubsystem = "engine"
 func newEngineMetrics() engineMetrics {
 	var (
 		listContainersDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "list_containers_duration",
 			Help:      "Accumulated duration of engine list containers operations",
 		})
 
 		estimateContainerSizeDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "estimate_container_size_duration",
 			Help:      "Accumulated duration of engine container size estimate operations",
 		})
 
 		deleteDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "delete_duration",
 			Help:      "Accumulated duration of engine delete operations",
 		})
 
 		existsDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "exists_duration",
 			Help:      "Accumulated duration of engine exists operations",
 		})
 
 		getDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "get_duration",
 			Help:      "Accumulated duration of engine get operations",
 		})
 
 		headDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "head_duration",
 			Help:      "Accumulated duration of engine head operations",
 		})
 
 		inhumeDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "inhume_duration",
 			Help:      "Accumulated duration of engine inhume operations",
 		})
 
 		putDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "put_duration",
 			Help:      "Accumulated duration of engine put operations",
 		})
 
 		rangeDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "range_duration",
 			Help:      "Accumulated duration of engine range operations",
 		})
 
 		searchDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "search_duration",
 			Help:      "Accumulated duration of engine search operations",
 		})
 
 		listObjectsDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "list_objects_duration",
 			Help:      "Accumulated duration of engine list objects operations",

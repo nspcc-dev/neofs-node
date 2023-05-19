@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
@@ -965,8 +966,8 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		queueSize: cfg.GetUint32("workers.subnet"),
 	})
 
-	if cfg.GetString("metrics.address") != "" {
-		m := metrics.NewInnerRingMetrics()
+	if cfg.GetString("prometheus.address") != "" {
+		m := metrics.NewInnerRingMetrics(misc.Version)
 		server.metrics = &m
 	}
 

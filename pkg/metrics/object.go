@@ -48,13 +48,13 @@ const (
 func newMethodCallCounter(name string) methodCount {
 	return methodCount{
 		success: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      fmt.Sprintf("%s_req_count_success", name),
 			Help:      fmt.Sprintf("The number of successful %s requests processed", name),
 		}),
 		total: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      fmt.Sprintf("%s_req_count", name),
 			Help:      fmt.Sprintf("Total number of %s requests processed", name),
@@ -87,49 +87,49 @@ func newObjectServiceMetrics() objectServiceMetrics {
 
 	var ( // Request duration metrics.
 		getDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "get_req_duration",
 			Help:      "Accumulated get request process duration",
 		})
 
 		putDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "put_req_duration",
 			Help:      "Accumulated put request process duration",
 		})
 
 		headDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "head_req_duration",
 			Help:      "Accumulated head request process duration",
 		})
 
 		searchDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "search_req_duration",
 			Help:      "Accumulated search request process duration",
 		})
 
 		deleteDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "delete_req_duration",
 			Help:      "Accumulated delete request process duration",
 		})
 
 		rangeDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "range_req_duration",
 			Help:      "Accumulated range request process duration",
 		})
 
 		rangeHashDuration = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "range_hash_req_duration",
 			Help:      "Accumulated range hash request process duration",
@@ -138,21 +138,21 @@ func newObjectServiceMetrics() objectServiceMetrics {
 
 	var ( // Object payload metrics.
 		putPayload = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "put_payload",
 			Help:      "Accumulated payload size at object put method",
 		})
 
 		getPayload = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "get_payload",
 			Help:      "Accumulated payload size at object get method",
 		})
 
 		shardsMetrics = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "counter",
 			Help:      "Objects counters per shards",
@@ -161,7 +161,7 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		)
 
 		shardsReadonly = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: namespace,
+			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "readonly",
 			Help:      "Shard state",
