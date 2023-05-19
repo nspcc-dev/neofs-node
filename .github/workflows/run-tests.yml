@@ -305,6 +305,7 @@ jobs:
           allure_report: allure-report
           gh_pages: gh-pages
           allure_history: allure-history
+          keep_reports: 10
 
       - name: Deploy report to Github Pages
         timeout-minutes: 120
