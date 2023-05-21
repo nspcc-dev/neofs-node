@@ -25,7 +25,7 @@ permissions: write-all
 
 jobs:
   run_system_tests:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 500
     steps:
       - name: Checkout neofs-testcases repository
@@ -53,6 +53,36 @@ jobs:
         with:
           go-version: '1.20'
       - run: go version
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.11'
+      - run: python --version
+
+# Hashlib uses OpenSSL for ripemd160 and apparently OpenSSL disabled some older crypto algos around version 3.0
+# in November 2021. All the functions are still there but require manual enabling.
+# See https://github.com/openssl/openssl/issues/16994
+# But we use ripemd160 for tests.
+# For ripemd160 to be supported, we need the openssl configuration file to contain the following lines:
+# openssl_conf = openssl_init
+#
+# [openssl_init]
+# providers = provider_sect
+#
+# [provider_sect]
+# default = default_sect
+# legacy = legacy_sect
+#
+# [default_sect]
+# activate = 1
+#
+# [legacy_sect]
+# activate = 1
+      - name: Fix OpenSSL ripemd160
+        run: |
+          sudo python ./tools/src/openssl_config_fix.py
+        working-directory: neofs-testcases
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
@@ -91,6 +121,13 @@ jobs:
         run: |
           cp .github/testcases-env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
         working-directory: neofs-node
+
+      - name: Prepare hosts
+        timeout-minutes: 5
+        run: |
+          make get
+          sudo ./bin/update_hosts.sh
+        working-directory: neofs-dev-env
 
       - name: Prepare test environment
         timeout-minutes: 30
