@@ -172,6 +172,11 @@ jobs:
 ################################################################
       - name: Log environment
         run: |
+          echo "Check free space"
+          df -h
+          df -h ${GITHUB_WORKSPACE}
+          echo "=========================================="
+
           echo "Check /etc/hosts"
           cat /etc/hosts
           echo "=========================================="
@@ -233,7 +238,7 @@ jobs:
         timeout-minutes: 120
         if: github.event_name == 'pull_request'
         run: |
-          source venv.local-pytest/bin/activate && pytest -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+          source venv.local-pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
 
       - name: Run all tests for other events
@@ -282,11 +287,13 @@ jobs:
       - name: Deploy report to Github Pages
         timeout-minutes: 120
         if: always()
-        uses: peaceiris/actions-gh-pages@v2
-        env:
-          PERSONAL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUBLISH_BRANCH: gh-pages
-          PUBLISH_DIR: allure-history
+        uses: peaceiris/actions-gh-pages@v3.9.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+          force_orphan: true
+          enable_jekyll: true
 
       - name: Post the link to the report
         timeout-minutes: 60
