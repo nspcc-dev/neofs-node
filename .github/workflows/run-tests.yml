@@ -25,7 +25,7 @@ permissions: write-all
 
 jobs:
   run_system_tests:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 500
     steps:
       - name: Checkout neofs-testcases repository
@@ -56,11 +56,72 @@ jobs:
           go-version: 1.20
       - run: go version
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.11'
+      - run: python --version
+
+# Hashlib uses OpenSSL for ripemd160 and apparently OpenSSL disabled some older crypto algos around version 3.0
+# in November 2021. All the functions are still there but require manual enabling.
+# See https://github.com/openssl/openssl/issues/16994
+# But we use ripemd160 for tests.
+# For ripemd160 to be supported, we need the openssl configuration file to contain the following lines:
+# openssl_conf = openssl_init
+#
+# [openssl_init]
+# providers = provider_sect
+#
+# [provider_sect]
+# default = default_sect
+# legacy = legacy_sect
+#
+# [default_sect]
+# activate = 1
+#
+# [legacy_sect]
+# activate = 1
+      - name: Fix OpenSSL ripemd160
+        run: |
+          openssl version -a
+          echo "Old openssl config"
+          cat /usr/lib/ssl/openssl.cnf
+          sudo python -c "
+          filename = '/usr/lib/ssl/openssl.cnf'
+          with open(filename, 'r') as file:
+              lines = file.readlines()
+          with open(filename, 'w') as file:
+              in_provider_sect = False
+              in_default_sect = False
+              for line in lines:
+                  if line.strip() == '#openssl_conf = openssl_init':
+                      file.write('openssl_conf = openssl_init\n')
+                  elif line.strip() == '[provider_sect]':
+                      in_provider_sect = True
+                      file.write(line)
+                  elif in_provider_sect and line.strip() == 'default = default_sect':
+                      file.write(line)
+                      file.write('legacy = legacy_sect\n')
+                      in_provider_sect = False
+                  elif line.strip() == '[default_sect]':
+                      in_default_sect = True
+                      file.write(line)
+                  elif in_default_sect and line.strip() == '# activate = 1':
+                      file.write('activate = 1\n')
+                      in_default_sect = False
+                  else:
+                      file.write(line)
+              file.write('[legacy_sect]\n')
+              file.write('activate = 1\n')
+          "
+          echo "New openssl config:"
+          cat /usr/lib/ssl/openssl.cnf
+
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
-        timeout-minutes: 5
+        timeout-minutes: 30
         run: |
-          make all
+          make docker/all
           echo "$(pwd)/bin" >> $GITHUB_PATH
         working-directory: neofs-node
 
@@ -93,6 +154,13 @@ jobs:
         run: |
           cp .github/testcases-env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
         working-directory: neofs-node
+
+      - name: Prepare hosts
+        timeout-minutes: 5
+        run: |
+          make get
+          sudo ./bin/update_hosts.sh
+        working-directory: neofs-dev-env
 
       - name: Prepare test environment
         timeout-minutes: 30
