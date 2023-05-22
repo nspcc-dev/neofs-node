@@ -22,9 +22,12 @@ import (
 // checks if Inner Ring app is configured to be launched in local consensus
 // mode.
 func isLocalConsensusMode(cfg *viper.Viper) bool {
-	const morphRPCSection = "morph.endpoint.client"
+	const morphRPCSectionDeprecated = "morph.endpoint.client"
 	// first expression required for ENVs in which nesting breaks
-	return !cfg.IsSet(morphRPCSection+".0.address") && !cfg.IsSet(morphRPCSection)
+	deprecatedNotSet := !cfg.IsSet(morphRPCSectionDeprecated+".0.address") && !cfg.IsSet(morphRPCSectionDeprecated)
+	actualNotSet := !cfg.IsSet("morph.endpoints")
+
+	return deprecatedNotSet && actualNotSet
 }
 
 func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain.Config, err error) {

@@ -1010,12 +1010,9 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 }
 
 func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
-	// config name left unchanged for compatibility, may be its better to rename it to "endpoints" or "clients"
-	var endpoints []client.Endpoint
+	endpoints := p.cfg.GetStringSlice(p.name + ".endpoints")
 
-	// defaultPriority is a default endpoint priority
-	const defaultPriority = 1
-
+	// deprecated endpoints with priorities
 	section := p.name + ".endpoint.client"
 	for i := 0; ; i++ {
 		addr := p.cfg.GetString(fmt.Sprintf("%s.%d.%s", section, i, "address"))
@@ -1023,15 +1020,7 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 			break
 		}
 
-		priority := p.cfg.GetInt(section + ".priority")
-		if priority <= 0 {
-			priority = defaultPriority
-		}
-
-		endpoints = append(endpoints, client.Endpoint{
-			Address:  addr,
-			Priority: priority,
-		})
+		endpoints = append(endpoints, addr)
 	}
 
 	if len(endpoints) == 0 {
@@ -1044,11 +1033,10 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 		client.WithSigner(p.sgn),
-		client.WithEndpoints(endpoints...),
+		client.WithEndpoints(endpoints),
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
-		client.WithSwitchInterval(p.cfg.GetDuration(p.name+".switch_interval")),
 	)
 }
 
