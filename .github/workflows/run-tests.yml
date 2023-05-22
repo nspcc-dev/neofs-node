@@ -114,7 +114,7 @@ jobs:
               file.write('[legacy_sect]\n')
               file.write('activate = 1\n')
           "
-          echo "New openssl config:"
+          echo "New openssl config:"      
           cat /usr/lib/ssl/openssl.cnf
 
 ################################################################
