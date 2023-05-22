@@ -174,6 +174,8 @@ jobs:
         run: |
           echo "Check free space"
           df -h
+          df -h .
+          df -h /home/runner/runners
           df -h ${GITHUB_WORKSPACE}
           echo "=========================================="
 
@@ -248,6 +250,16 @@ jobs:
           source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
 
+      - name: Log environment
+        if: always()
+        run: |
+          echo "Check free space"
+          df -h
+          df -h .
+          df -h /home/runner/runners
+          df -h ${GITHUB_WORKSPACE}
+        working-directory: neofs-testcases
+
 ################################################################
       - name: Cleanup system tests environment
         timeout-minutes: 30
@@ -272,6 +284,16 @@ jobs:
         with:
           ref: gh-pages
           path: gh-pages
+
+      - name: Log environment
+        if: always()
+        run: |
+          echo "Check free space"
+          df -h
+          df -h .
+          df -h /home/runner/runners
+          df -h ${GITHUB_WORKSPACE}
+        working-directory: neofs-testcases
 
       - name: Allure Report action from marketplace
         timeout-minutes: 60
