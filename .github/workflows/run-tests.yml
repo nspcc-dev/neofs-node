@@ -275,7 +275,7 @@ jobs:
 
       - name: Allure Report action from marketplace
         timeout-minutes: 60
-        uses: simple-elf/allure-report-action@v1.6
+        uses: simple-elf/allure-report-action@master
         if: always()
         id: allure-report
         with:
