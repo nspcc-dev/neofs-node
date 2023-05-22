@@ -91,6 +91,42 @@ type PingConfig struct {
 	Timeout time.Duration
 }
 
+// RPCConfig configures RPC serving.
+type RPCConfig struct {
+	// Network addresses to listen Neo RPC on. Each element must be a valid TCP
+	// address in 'host:port' format.
+	//
+	// Optional: by default, insecure Neo RPC is not served.
+	Addresses []string
+
+	// Additional addresses that use TLS.
+	//
+	// Optional.
+	TLSConfig
+}
+
+// TLSConfig configures additional RPC serving over TLS.
+type TLSConfig struct {
+	// Additional TLS serving switcher.
+	//
+	// Optional: by default TLS is switched off.
+	Enabled bool
+
+	// Network addresses to listen Neo RPC on if Enabled. Each element must be a valid TCP
+	// address in 'host:port' format.
+	Addresses []string
+
+	// TLS certificate file path.
+	//
+	// Required if Enabled and one or more addresses are provided.
+	CertFile string
+
+	// TLS private key file path.
+	//
+	// Required if Enabled and one or more addresses are provided.
+	KeyFile string
+}
+
 // P2PConfig configures communication over Neo P2P protocol.
 type P2PConfig struct {
 	// Specifies the minimum number of peers a node needs for normal operation.
@@ -165,11 +201,10 @@ type Config struct {
 	// Optional: defaults to 15s. Must not be negative.
 	BlockInterval time.Duration
 
-	// Network addresses to listen Neo RPC on. Each element must be a valid TCP
-	// address in 'host:port' format.
+	// Neo RPC service configuration.
 	//
-	// Optional: by default, Neo RPC is not served.
-	RPCListenAddresses []string
+	// Optional: see RPCConfig defaults.
+	RPC RPCConfig
 
 	// Length of the chain accessible to smart contracts.
 	//
@@ -333,8 +368,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.Consensus.UnlockWallet = cfg.Wallet
 	cfgBaseApp.P2PNotary.Enabled = true
 	cfgBaseApp.P2PNotary.UnlockWallet = cfg.Wallet
-	cfgBaseApp.RPC.Enabled = true
-	cfgBaseApp.RPC.Addresses = cfg.RPCListenAddresses
 	cfgBaseApp.RPC.StartWhenSynchronized = true
 	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(100)
 	cfgBaseApp.P2P.Addresses = cfg.P2P.ListenAddresses
@@ -345,6 +378,15 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.P2P.MinPeers = int(cfg.P2P.MinPeers)
 	cfgBaseApp.P2P.AttemptConnPeers = int(cfg.P2P.AttemptConnPeers)
 	cfgBaseApp.P2P.MaxPeers = int(cfg.P2P.MaxPeers)
+
+	cfgBaseApp.RPC.Enabled = true
+	cfgBaseApp.RPC.Addresses = cfg.RPC.Addresses
+	if tlsCfg := cfg.RPC.TLSConfig; tlsCfg.Enabled {
+		cfgBaseApp.RPC.TLSConfig.Enabled = true
+		cfgBaseApp.RPC.TLSConfig.Addresses = tlsCfg.Addresses
+		cfgBaseApp.RPC.TLSConfig.CertFile = tlsCfg.CertFile
+		cfgBaseApp.RPC.TLSConfig.KeyFile = tlsCfg.KeyFile
+	}
 
 	err = cfgBase.ProtocolConfiguration.Validate()
 	if err != nil {

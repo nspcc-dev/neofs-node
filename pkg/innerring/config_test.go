@@ -1,6 +1,7 @@
 package innerring
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -56,6 +57,13 @@ const validConfigOptions = `
       listen:
         - localhost:30000
         - localhost:30001
+      tls:
+        enabled: true
+        listen:
+          - localhost:30002
+          - localhost:30003
+        cert_file: /path/to/cert
+        key_file: /path/to/key
     p2p:
       dial_timeout: 111s
       proto_tick_interval: 222s
@@ -152,9 +160,20 @@ func TestConfigParser(t *testing.T) {
 			NetworkMagic:  15405,
 			Committee:     validCommittee,
 			BlockInterval: time.Second,
-			RPCListenAddresses: []string{
-				"localhost:30000",
-				"localhost:30001",
+			RPC: blockchain.RPCConfig{
+				Addresses: []string{
+					"localhost:30000",
+					"localhost:30001",
+				},
+				TLSConfig: blockchain.TLSConfig{
+					Enabled:  true,
+					CertFile: "/path/to/cert",
+					KeyFile:  "/path/to/key",
+					Addresses: []string{
+						"localhost:30002",
+						"localhost:30003",
+					},
+				},
 			},
 			TraceableChainLength: 200,
 			HardForks: map[string]uint32{
@@ -219,62 +238,81 @@ func TestConfigParser(t *testing.T) {
 		_, err := parseBlockchainConfig(v, _logger)
 		require.Error(t, err)
 
-		for _, testCase := range []struct {
+		type kv struct {
 			key string
 			val interface{}
-		}{
-			{"magic", "not an integer"},
-			{"magic", -1},
-			{"magic", 0},
-			{"magic", math.MaxUint32 + 1},
-			{"committee", []string{}},
-			{"committee", []string{"not a key"}},
-			{"storage.type", "random string"},
-			{"time_per_block", "not a duration"},
-			{"time_per_block", -time.Second},
-			{"max_traceable_blocks", -1},
-			{"max_traceable_blocks", math.MaxUint32 + 1},
-			{"seed_nodes", []string{"not a TCP address"}},
-			{"seed_nodes", []string{"127.0.0.1"}}, // missing port
-			{"hardforks", "not a dictionary"},
-			{"hardforks", map[string]interface{}{"": 1}},
-			{"hardforks", map[string]interface{}{"name": "not a number"}},
-			{"hardforks", map[string]interface{}{"name": -1}},
-			{"hardforks", map[string]interface{}{"name": math.MaxUint32 + 1}},
-			{"validators_history", map[string]interface{}{"not a number": 1}},
-			{"validators_history", map[string]interface{}{"1": "not a number"}},
-			{"validators_history", map[string]interface{}{"-1": 1}},
-			{"validators_history", map[string]interface{}{"1": -1}},
-			{"validators_history", map[string]interface{}{"1": math.MaxInt32 + 1}},
-			{"native_activations", map[string]interface{}{"1": ""}},
-			{"native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): "not an array"}},
-			{"native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{}}},
-			{"native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{"not a number"}}},
-			{"native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{-1}}},
-			{"native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{math.MaxUint32 + 1}}},
-			{"rpc.listen", []string{"not a TCP address"}},
-			{"rpc.listen", []string{"127.0.0.1"}}, // missing port
-			{"p2p.listen", []string{"not a TCP address"}},
-			{"p2p.listen", []string{"127.0.0.1"}}, // missing port
-			{"p2p.dial_timeout", "not a duration"},
-			{"p2p.dial_timeout", -time.Second},
-			{"p2p.proto_tick_interval", "not a duration"},
-			{"p2p.proto_tick_interval", -time.Second},
-			{"p2p.ping.interval", "not a duration"},
-			{"p2p.ping.interval", -time.Second},
-			{"p2p.ping.timeout", "not a duration"},
-			{"p2p.ping.timeout", -time.Second},
-			{"p2p.peers.min", -1},
-			{"p2p.peers.min", math.MaxInt32 + 1},
-			{"p2p.peers.max", -1},
-			{"p2p.peers.max", math.MaxInt32 + 1},
-			{"p2p.peers.attempts", -1},
-			{"p2p.peers.attempts", math.MaxInt32 + 1},
+		}
+
+		kvF := func(k string, v interface{}) kv {
+			return kv{k, v}
+		}
+
+		for _, testCase := range [][]kv{
+			{kvF("magic", "not an integer")},
+			{kvF("magic", -1)},
+			{kvF("magic", 0)},
+			{kvF("magic", math.MaxUint32+1)},
+			{kvF("committee", []string{})},
+			{kvF("committee", []string{"not a key"})},
+			{kvF("storage.type", "random string")},
+			{kvF("time_per_block", "not a duration")},
+			{kvF("time_per_block", -time.Second)},
+			{kvF("max_traceable_blocks", -1)},
+			{kvF("max_traceable_blocks", math.MaxUint32+1)},
+			{kvF("seed_nodes", []string{"not a TCP address"})},
+			{kvF("seed_nodes", []string{"127.0.0.1"})}, // missing port
+			{kvF("hardforks", "not a dictionary")},
+			{kvF("hardforks", map[string]interface{}{"": 1})},
+			{kvF("hardforks", map[string]interface{}{"name": "not a number"})},
+			{kvF("hardforks", map[string]interface{}{"name": -1})},
+			{kvF("hardforks", map[string]interface{}{"name": math.MaxUint32 + 1})},
+			{kvF("validators_history", map[string]interface{}{"not a number": 1})},
+			{kvF("validators_history", map[string]interface{}{"1": "not a number"})},
+			{kvF("validators_history", map[string]interface{}{"-1": 1})},
+			{kvF("validators_history", map[string]interface{}{"1": -1})},
+			{kvF("validators_history", map[string]interface{}{"1": math.MaxInt32 + 1})},
+			{kvF("native_activations", map[string]interface{}{"1": ""})},
+			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): "not an array"})},
+			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{}})},
+			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{"not a number"}})},
+			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{-1}})},
+			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{math.MaxUint32 + 1}})},
+			{kvF("rpc.listen", []string{"not a TCP address"})},
+			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
+			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
+			{kvF("p2p.listen", []string{"not a TCP address"})},
+			{kvF("p2p.listen", []string{"127.0.0.1"})}, // missing port
+			{kvF("p2p.dial_timeout", "not a duration")},
+			{kvF("p2p.dial_timeout", -time.Second)},
+			{kvF("p2p.proto_tick_interval", "not a duration")},
+			{kvF("p2p.proto_tick_interval", -time.Second)},
+			{kvF("p2p.ping.interval", "not a duration")},
+			{kvF("p2p.ping.interval", -time.Second)},
+			{kvF("p2p.ping.timeout", "not a duration")},
+			{kvF("p2p.ping.timeout", -time.Second)},
+			{kvF("p2p.peers.min", -1)},
+			{kvF("p2p.peers.min", math.MaxInt32+1)},
+			{kvF("p2p.peers.max", -1)},
+			{kvF("p2p.peers.max", math.MaxInt32+1)},
+			{kvF("p2p.peers.attempts", -1)},
+			{kvF("p2p.peers.attempts", math.MaxInt32+1)},
 		} {
+			var reportMsg []string
+
 			v := newValidConfig(t, fullConfig)
-			v.Set("morph.consensus."+testCase.key, testCase.val)
+			for _, kvPair := range testCase {
+				key := kvPair.key
+				val := kvPair.val
+
+				v.Set("morph.consensus."+key, val)
+				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
+			}
+
 			_, err := parseBlockchainConfig(v, _logger)
-			require.Errorf(t, err, "%s=%v", testCase.key, testCase.val)
+			require.Error(t, err, strings.Join(reportMsg, ", "))
 		}
 	})
 
