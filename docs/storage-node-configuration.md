@@ -134,24 +134,14 @@ morph:
   cache_ttl: 15s
   rpc_endpoint:
     - address: wss://rpc1.morph.fs.neo.org:40341/ws
-      priority: 1
     - address: wss://rpc2.morph.fs.neo.org:40341/ws
-      priority: 2
-  switch_interval: 2m
  ```
 
-| Parameter         | Type                                                      | Default value    | Description                                                                                                                                                         |
-|-------------------|-----------------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout`    | `duration`                                                | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
-| `cache_ttl`       | `duration`                                                | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
-| `rpc_endpoint`    | list of [endpoint descriptions](#rpc_endpoint-subsection) |                  | Array of endpoint descriptions.                                                                                                                                     |
-| `switch_interval` | `duration`                                                | `2m`             | Time interval between the attempts to connect to the highest priority RPC node if the connection is not established yet.                                            |
-
-## `rpc_endpoint` subsection
-| Parameter  | Type     | Default value | Description                                                                                                                                                                                                              |
-|------------|----------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `address`  | `string` |               | _WebSocket_ N3 endpoint.                                                                                                                                                                                                 |
-| `priority` | `int`    | `1`           | Priority of an endpoint. Endpoint with a higher priority (lower configuration value) has more chance of being used. Endpoints with equal priority are iterated over randomly; a negative priority is interpreted as `1`. |
+| Parameter      | Type       | Default value    | Description                                                                                                                                                         |
+|----------------|------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout` | `duration` | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `cache_ttl`    | `duration` | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
+| `endpoints`    | `[]string` |                  | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
 
 # `storage` section
 

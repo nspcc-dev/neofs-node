@@ -86,12 +86,9 @@ morph:
   cache_ttl: 15s  # Sidechain cache TTL value (min interval between similar calls). Negative value disables caching.
                   # Default value: block time. It is recommended to have this value less or equal to block time.
                   # Cached entities: containers, container lists, eACL tables.
-  switch_interval: 3m # interval b/w RPC switch attempts if the node is connected not to the highest priority node
-  rpc_endpoint:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
-    - address: wss://rpc1.morph.fs.neo.org:40341/ws
-      priority: 0
-    - address: wss://rpc2.morph.fs.neo.org:40341/ws
-      priority: 2
+  endpoints:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
+    - wss://rpc1.morph.fs.neo.org:40341/ws
+    - wss://rpc2.morph.fs.neo.org:40341/ws
 
 apiclient:
   dial_timeout: 15s  # timeout for NEOFS API client connection

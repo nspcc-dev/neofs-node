@@ -49,11 +49,8 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("morph.dial_timeout", 15*time.Second)
 	cfg.SetDefault("morph.validators", []string{})
-	cfg.SetDefault("morph.switch_interval", 2*time.Minute)
 
-	cfg.SetDefault("mainnet.endpoint.client", []string{})
 	cfg.SetDefault("mainnet.dial_timeout", 15*time.Second)
-	cfg.SetDefault("mainnet.switch_interval", 2*time.Minute)
 
 	cfg.SetDefault("wallet.path", "")     // inner ring node NEP-6 wallet
 	cfg.SetDefault("wallet.address", "")  // account address
