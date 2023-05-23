@@ -22,9 +22,12 @@ import (
 // checks if Inner Ring app is configured to be launched in local consensus
 // mode.
 func isLocalConsensusMode(cfg *viper.Viper) bool {
-	const morphRPCSection = "morph.endpoint.client"
+	const morphRPCSectionDeprecated = "morph.endpoint.client"
 	// first expression required for ENVs in which nesting breaks
-	return !cfg.IsSet(morphRPCSection+".0.address") && !cfg.IsSet(morphRPCSection)
+	deprecatedNotSet := !cfg.IsSet(morphRPCSectionDeprecated+".0.address") && !cfg.IsSet(morphRPCSectionDeprecated)
+	actualNotSet := !cfg.IsSet("morph.endpoints")
+
+	return deprecatedNotSet && actualNotSet
 }
 
 func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain.Config, err error) {
@@ -181,9 +184,31 @@ func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain
 
 	const rpcSection = rootSection + ".rpc"
 	if v.IsSet(rpcSection) {
-		c.RPCListenAddresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen Neo RPC on")
+		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on")
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
+		}
+
+		const rpcTLSSection = rpcSection + ".tls"
+		if v.GetBool(rpcTLSSection + ".enabled") {
+			c.RPC.TLSConfig.Enabled = true
+
+			c.RPC.TLSConfig.Addresses, err = parseConfigAddressesTCP(v, rpcTLSSection+".listen", "network addresses to listen to Neo RPC over TLS")
+			if err != nil {
+				return c, err
+			}
+
+			const certCfgKey = rpcTLSSection + ".cert_file"
+			c.RPC.TLSConfig.CertFile = v.GetString(certCfgKey)
+			if strings.TrimSpace(c.RPC.TLSConfig.CertFile) == "" {
+				return c, fmt.Errorf("RPC TLS setup is enabled but no certificate ('%s') is provided", certCfgKey)
+			}
+
+			const keyCfgKey = rpcTLSSection + ".key_file"
+			c.RPC.TLSConfig.KeyFile = v.GetString(keyCfgKey)
+			if strings.TrimSpace(c.RPC.TLSConfig.KeyFile) == "" {
+				return c, fmt.Errorf("RPC TLS setup is enabled but no key ('%s') is provided", keyCfgKey)
+			}
 		}
 	}
 

@@ -137,11 +137,19 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 
 		if prm.LazyHandler != nil {
 			err = prm.LazyHandler(*addr, func() ([]byte, error) {
-				return os.ReadFile(filepath.Join(curPath...))
+				data, err := os.ReadFile(filepath.Join(curPath...))
+				if err != nil && errors.Is(err, fs.ErrNotExist) {
+					return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+				}
+
+				return data, err
 			})
 		} else {
 			var data []byte
 			data, err = os.ReadFile(filepath.Join(curPath...))
+			if err != nil && errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			if err == nil {
 				data, err = t.Decompress(data)
 			}

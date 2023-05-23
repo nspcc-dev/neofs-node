@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 const (
@@ -16,23 +15,17 @@ const (
 	// DialTimeoutDefault is a default dial timeout of morph chain client connection.
 	DialTimeoutDefault = 5 * time.Second
 
-	// PriorityDefault is a default endpoint priority for the morph client.
-	PriorityDefault = 1
-
 	// CacheTTLDefault is a default value for cached values TTL.
 	// It is 0, because actual default depends on block time.
 	CacheTTLDefault = time.Duration(0)
-
-	// SwitchIntervalDefault is a default Neo RPCs switch interval.
-	SwitchIntervalDefault = 2 * time.Minute
 )
 
-// RPCEndpoint returns list of the values of "rpc_endpoint" config parameter
+// Endpoints returns list of the values of "endpoints" config parameter
 // from "morph" section.
 //
 // Throws panic if list is empty.
-func RPCEndpoint(c *config.Config) []client.Endpoint {
-	var es []client.Endpoint
+func Endpoints(c *config.Config) []string {
+	var endpointsDeprecated []string
 
 	sub := c.Sub(subsection).Sub("rpc_endpoint")
 	for i := 0; ; i++ {
@@ -42,21 +35,16 @@ func RPCEndpoint(c *config.Config) []client.Endpoint {
 			break
 		}
 
-		priority := int(config.IntSafe(s, "priority"))
-		if priority <= 0 {
-			priority = PriorityDefault
-		}
-
-		es = append(es, client.Endpoint{
-			Address:  addr,
-			Priority: priority,
-		})
+		endpointsDeprecated = append(endpointsDeprecated, addr)
 	}
 
-	if len(es) == 0 {
+	endpoints := config.StringSliceSafe(c.Sub(subsection), "endpoints")
+	endpoints = append(endpoints, endpointsDeprecated...)
+
+	if len(endpoints) == 0 {
 		panic(fmt.Errorf("no morph chain RPC endpoints, see `morph.rpc_endpoint` section"))
 	}
-	return es
+	return endpoints
 }
 
 // DialTimeout returns the value of "dial_timeout" config parameter
@@ -83,17 +71,4 @@ func CacheTTL(c *config.Config) time.Duration {
 	}
 
 	return CacheTTLDefault
-}
-
-// SwitchInterval returns the value of "switch_interval" config parameter
-// from "morph" section.
-//
-// Returns SwitchIntervalDefault if value is not positive duration.
-func SwitchInterval(c *config.Config) time.Duration {
-	res := config.DurationSafe(c.Sub(subsection), "switch_interval")
-	if res != 0 {
-		return res
-	}
-
-	return SwitchIntervalDefault
 }

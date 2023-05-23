@@ -761,7 +761,7 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 
 func (c *Client) getTransactionHeight(h util.Uint256) (uint32, error) {
 	if rh, ok := c.cache.txHeights.Get(h); ok {
-		return rh.(uint32), nil
+		return rh, nil
 	}
 	height, err := c.client.GetTransactionHeight(h)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -17,7 +17,7 @@ import (
 
 type clientCache struct {
 	sync.Mutex
-	simplelru.LRU
+	simplelru.LRU[string, cacheItem]
 }
 
 type cacheItem struct {
@@ -34,8 +34,8 @@ const (
 var errRecentlyFailed = errors.New("client has recently failed")
 
 func (c *clientCache) init() {
-	l, _ := simplelru.NewLRU(defaultClientCacheSize, func(key, value interface{}) {
-		if conn := value.(cacheItem).cc; conn != nil {
+	l, _ := simplelru.NewLRU[string, cacheItem](defaultClientCacheSize, func(_ string, v cacheItem) {
+		if conn := v.cc; conn != nil {
 			_ = conn.Close()
 		}
 	})
@@ -48,17 +48,16 @@ func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceCl
 	c.Unlock()
 
 	if ok {
-		item := ccInt.(cacheItem)
-		if item.cc == nil {
-			if d := time.Since(item.lastTry); d < defaultReconnectInterval {
+		if ccInt.cc == nil {
+			if d := time.Since(ccInt.lastTry); d < defaultReconnectInterval {
 				return nil, fmt.Errorf("%w: %s till the next reconnection to %s",
 					errRecentlyFailed, d, netmapAddr)
 			}
 		} else {
-			if s := item.cc.GetState(); s == connectivity.Idle || s == connectivity.Ready {
-				return NewTreeServiceClient(item.cc), nil
+			if s := ccInt.cc.GetState(); s == connectivity.Idle || s == connectivity.Ready {
+				return NewTreeServiceClient(ccInt.cc), nil
 			}
-			_ = item.cc.Close()
+			_ = ccInt.cc.Close()
 		}
 	}
 

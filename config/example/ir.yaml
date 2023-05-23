@@ -12,13 +12,11 @@ without_mainnet: false # Run application in single chain environment without mai
 
 morph:
   dial_timeout: 5s # Timeout for RPC client connection to sidechain
-  endpoint:
-    client: # List of websocket RPC endpoints in sidechain
-      - address: wss://sidechain1.fs.neo.org:30333/ws
-      - address: wss://sidechain2.fs.neo.org:30333/ws
+  endpoints: # List of websocket RPC endpoints in sidechain
+      - wss://sidechain1.fs.neo.org:30333/ws
+      - wss://sidechain2.fs.neo.org:30333/ws
   validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
-  switch_interval: 2m # interval b/w RPC switch attempts if the node is not connected to the highest priority node
   consensus: # Local consensus launch mode activated only when 'endpoint.client' is unset.
     magic: 15405 # Network magic. Must be unsigned integer in range [1:4294967295]
     committee: # Initial committee
@@ -48,6 +46,14 @@ morph:
         # TCP addresses in 'host:port' format
         - localhost:30333
         - localhost:30334
+      tls: # Additional addresses to listen to using TLS setup; must not overlap with `listen` section
+        enabled: false # Additional TLS serving switcher
+        listen: # Addresses to listen to; required to be at least 1-length if 'enabled' is 'true'
+          # TCP addresses in 'host:port' format
+          - localhost:30335
+          - localhost:30336
+        cert_file: serv.crt # TLS certificate file path; required if 'enabled' is 'true'
+        key_file: serv.key # TLS private key file path; required if 'enabled' is 'true'
     p2p: # Optional P2P settings
       dial_timeout: 5s # Optional maximum duration a single peer dial may take. Defaults to 5s. Must not be negative
       proto_tick_interval: 2s # Optional time period between protocol ticks with each connected peer. Defaults to 2s.

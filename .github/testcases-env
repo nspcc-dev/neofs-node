@@ -30,7 +30,7 @@ NATS_VERSION=2.7.2
 NATS_IMAGE=nats
 
 # HTTP Gate
-HTTP_GW_VERSION=0.26.0
+HTTP_GW_VERSION=0.27.0
 HTTP_GW_IMAGE=nspccdev/neofs-http-gw
 
 # REST Gate
@@ -38,7 +38,7 @@ REST_GW_VERSION=0.5.0
 REST_GW_IMAGE=nspccdev/neofs-rest-gw
 
 # S3 Gate
-S3_GW_VERSION=0.26.1
+S3_GW_VERSION=0.27.0
 S3_GW_IMAGE=nspccdev/neofs-s3-gw
 S3_GW_PLATFORM=linux-amd64
 S3_AUTHMATE_URL=https://github.com/nspcc-dev/neofs-s3-gw/releases/download/v${S3_GW_VERSION}/neofs-s3-authmate-${S3_GW_PLATFORM}

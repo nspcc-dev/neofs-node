@@ -4,6 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs_[node|ir]_version` with `version` label (#2326)
+- TLS RPC support for IR consensus mode (#2322)
 
 ### Changed
 
@@ -11,14 +13,28 @@ Changelog for NeoFS Node
 - Inability to restore RPC connection after the second disconnect (#2325)
 - Tree service panics when cleaning up failed connections (#2335)
 - Dropping small objects on any error on write-cache side (#2336)
+- Iterating over just removed files by FSTree (#98)
+- IR metrics moved to `neofs_ir` namespace and epoch metrics to `object` subsystem (#2344)
+- IR metrics config reading (#2344)
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)
+- Priority switching b/w RPC endpoints in the morph client (#2306)
 
 ### Updated
 - Update minimal supported Go version up to v1.18 (#2340)
+- tzhash library to 1.7.0 (#2348)
+- `github.com/hashicorp/golang-lru` to `v2.0.2`
 
 ### Updating from v0.36.1
+- `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
+  next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
+- Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
+- In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
+  `morph.consensus.rpc.tls` section.
+- `morph.switch_interval` IR and SN config value is not used anymore.
+- `morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
+  removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
 
 ## [0.36.1] - 2023-04-26
 

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -15,32 +15,32 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-type netValueReader func(interface{}) (interface{}, error)
+type netValueReader[K comparable, V any] func(K) (V, error)
 
-type valueWithTime struct {
-	v interface{}
+type valueWithTime[V any] struct {
+	v V
 	t time.Time
 	// cached error in order to not repeat failed request for some time
 	e error
 }
 
 // entity that provides TTL cache interface.
-type ttlNetCache struct {
+type ttlNetCache[K comparable, V any] struct {
 	ttl time.Duration
 
 	sz int
 
-	cache *lru.Cache
+	cache *lru.Cache[K, *valueWithTime[V]]
 
-	netRdr netValueReader
+	netRdr netValueReader[K, V]
 }
 
 // complicates netValueReader with TTL caching mechanism.
-func newNetworkTTLCache(sz int, ttl time.Duration, netRdr netValueReader) *ttlNetCache {
-	cache, err := lru.New(sz)
+func newNetworkTTLCache[K comparable, V any](sz int, ttl time.Duration, netRdr netValueReader[K, V]) ttlNetCache[K, V] {
+	cache, err := lru.New[K, *valueWithTime[V]](sz)
 	fatalOnErr(err)
 
-	return &ttlNetCache{
+	return ttlNetCache[K, V]{
 		ttl:    ttl,
 		sz:     sz,
 		cache:  cache,
@@ -53,47 +53,45 @@ func newNetworkTTLCache(sz int, ttl time.Duration, netRdr netValueReader) *ttlNe
 // updates the value from the network on cache miss or by TTL.
 //
 // returned value should not be modified.
-func (c *ttlNetCache) get(key interface{}) (interface{}, error) {
+func (c *ttlNetCache[K, V]) get(key K) (V, error) {
 	val, ok := c.cache.Peek(key)
 	if ok {
-		valWithTime := val.(*valueWithTime)
-
-		if time.Since(valWithTime.t) < c.ttl {
-			return valWithTime.v, valWithTime.e
+		if time.Since(val.t) < c.ttl {
+			return val.v, val.e
 		}
 
 		c.cache.Remove(key)
 	}
 
-	val, err := c.netRdr(key)
+	netVal, err := c.netRdr(key)
 
-	c.set(key, val, err)
+	c.set(key, netVal, err)
 
-	return val, err
+	return netVal, err
 }
 
-func (c *ttlNetCache) set(k, v interface{}, e error) {
-	c.cache.Add(k, &valueWithTime{
+func (c *ttlNetCache[K, V]) set(k K, v V, e error) {
+	c.cache.Add(k, &valueWithTime[V]{
 		v: v,
 		t: time.Now(),
 		e: e,
 	})
 }
 
-func (c *ttlNetCache) remove(key interface{}) {
+func (c *ttlNetCache[K, V]) remove(key K) {
 	c.cache.Remove(key)
 }
 
 // entity that provides LRU cache interface.
 type lruNetCache struct {
-	cache *lru.Cache
+	cache *lru.Cache[uint64, *netmapSDK.NetMap]
 
-	netRdr netValueReader
+	netRdr netValueReader[uint64, *netmapSDK.NetMap]
 }
 
 // newNetworkLRUCache returns wrapper over netValueReader with LRU cache.
-func newNetworkLRUCache(sz int, netRdr netValueReader) *lruNetCache {
-	cache, err := lru.New(sz)
+func newNetworkLRUCache(sz int, netRdr netValueReader[uint64, *netmapSDK.NetMap]) *lruNetCache {
+	cache, err := lru.New[uint64, *netmapSDK.NetMap](sz)
 	fatalOnErr(err)
 
 	return &lruNetCache{
@@ -107,7 +105,7 @@ func newNetworkLRUCache(sz int, netRdr netValueReader) *lruNetCache {
 // updates the value from the network on cache miss.
 //
 // returned value should not be modified.
-func (c *lruNetCache) get(key interface{}) (interface{}, error) {
+func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
 	val, ok := c.cache.Get(key)
 	if ok {
 		return val, nil
@@ -125,73 +123,63 @@ func (c *lruNetCache) get(key interface{}) (interface{}, error) {
 
 // wrapper over TTL cache of values read from the network
 // that implements container storage.
-type ttlContainerStorage ttlNetCache
+type ttlContainerStorage struct {
+	tc ttlNetCache[cid.ID, *container.Container]
+}
 
 func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContainerStorage {
 	const containerCacheSize = 100
 
-	lruCnrCache := newNetworkTTLCache(containerCacheSize, ttl, func(key interface{}) (interface{}, error) {
-		var id cid.ID
-
-		err := id.DecodeString(key.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return v.Get(id)
-	})
-
-	return (*ttlContainerStorage)(lruCnrCache)
+	return &ttlContainerStorage{
+		tc: newNetworkTTLCache[cid.ID, *container.Container](containerCacheSize, ttl, func(key cid.ID) (*container.Container, error) {
+			return v.Get(key)
+		}),
+	}
 }
 
 func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
-	(*ttlNetCache)(s).set(cnr.EncodeToString(), nil, apistatus.ContainerNotFound{})
+	s.tc.set(cnr, nil, apistatus.ContainerNotFound{})
 }
 
 // Get returns container value from the cache. If value is missing in the cache
 // or expired, then it returns value from side chain and updates the cache.
 func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
-	val, err := (*ttlNetCache)(s).get(cnr.EncodeToString())
+	val, err := s.tc.get(cnr)
 	if err != nil {
 		return nil, err
 	}
 
-	return val.(*container.Container), nil
+	return val, nil
 }
 
-type ttlEACLStorage ttlNetCache
+type ttlEACLStorage struct {
+	tc ttlNetCache[cid.ID, *container.EACL]
+}
 
 func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLStorage {
 	const eaclCacheSize = 100
 
-	lruCnrCache := newNetworkTTLCache(eaclCacheSize, ttl, func(key interface{}) (interface{}, error) {
-		var id cid.ID
-
-		err := id.DecodeString(key.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return v.GetEACL(id)
-	})
-
-	return (*ttlEACLStorage)(lruCnrCache)
+	return &ttlEACLStorage{
+		newNetworkTTLCache[cid.ID, *container.EACL](eaclCacheSize, ttl, func(key cid.ID) (*container.EACL, error) {
+			return v.GetEACL(key)
+		}),
+	}
 }
 
 // GetEACL returns eACL value from the cache. If value is missing in the cache
 // or expired, then it returns value from side chain and updates cache.
 func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (*container.EACL, error) {
-	val, err := (*ttlNetCache)(s).get(cnr.EncodeToString())
+	val, err := s.tc.get(cnr)
 	if err != nil {
 		return nil, err
 	}
 
-	return val.(*container.EACL), nil
+	return val, nil
 }
 
 // InvalidateEACL removes cached eACL value.
 func (s *ttlEACLStorage) InvalidateEACL(cnr cid.ID) {
-	(*ttlNetCache)(s).remove(cnr.EncodeToString())
+	s.tc.remove(cnr)
 }
 
 type lruNetmapSource struct {
@@ -203,13 +191,11 @@ type lruNetmapSource struct {
 func newCachedNetmapStorage(s netmap.State, v netmap.Source) netmap.Source {
 	const netmapCacheSize = 10
 
-	lruNetmapCache := newNetworkLRUCache(netmapCacheSize, func(key interface{}) (interface{}, error) {
-		return v.GetNetMapByEpoch(key.(uint64))
-	})
-
 	return &lruNetmapSource{
 		netState: s,
-		cache:    lruNetmapCache,
+		cache: newNetworkLRUCache(netmapCacheSize, func(key uint64) (*netmapSDK.NetMap, error) {
+			return v.GetNetMapByEpoch(key)
+		}),
 	}
 }
 
@@ -227,7 +213,7 @@ func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, err
 		return nil, err
 	}
 
-	return val.(*netmapSDK.NetMap), nil
+	return val, nil
 }
 
 func (s *lruNetmapSource) Epoch() (uint64, error) {
@@ -237,7 +223,7 @@ func (s *lruNetmapSource) Epoch() (uint64, error) {
 // wrapper over TTL cache of values read from the network
 // that implements container lister.
 type ttlContainerLister struct {
-	inner  ttlNetCache
+	inner  ttlNetCache[string, *cacheItemContainerList]
 	client *cntClient.Client
 }
 
@@ -252,11 +238,8 @@ type cacheItemContainerList struct {
 func newCachedContainerLister(c *cntClient.Client, ttl time.Duration) *ttlContainerLister {
 	const containerListerCacheSize = 100
 
-	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, ttl, func(key interface{}) (interface{}, error) {
-		var (
-			id    *user.ID
-			strID = key.(string)
-		)
+	lruCnrListerCache := newNetworkTTLCache(containerListerCacheSize, ttl, func(strID string) (*cacheItemContainerList, error) {
+		var id *user.ID
 
 		if strID != "" {
 			id = new(user.ID)
@@ -277,7 +260,7 @@ func newCachedContainerLister(c *cntClient.Client, ttl time.Duration) *ttlContai
 		}, nil
 	})
 
-	return &ttlContainerLister{inner: *lruCnrListerCache, client: c}
+	return &ttlContainerLister{inner: lruCnrListerCache, client: c}
 }
 
 // List returns list of container IDs from the cache. If list is missing in the
@@ -293,14 +276,10 @@ func (s *ttlContainerLister) List(id *user.ID) ([]cid.ID, error) {
 		return nil, err
 	}
 
-	// panic on typecast below is OK since developer must be careful,
-	// runtime can do nothing with wrong type occurrence
-	item := val.(*cacheItemContainerList)
-
-	item.mtx.RLock()
-	res := make([]cid.ID, len(item.list))
-	copy(res, item.list)
-	item.mtx.RUnlock()
+	val.mtx.RLock()
+	res := make([]cid.ID, len(val.list))
+	copy(res, val.list)
+	val.mtx.RUnlock()
 
 	return res, nil
 }
@@ -315,21 +294,18 @@ func (s *ttlContainerLister) List(id *user.ID) ([]cid.ID, error) {
 func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 	strOwner := owner.EncodeToString()
 
-	val, ok := s.inner.cache.Peek(strOwner)
+	vt, ok := s.inner.cache.Peek(strOwner)
 	if !ok {
 		// we could cache the single cnr but in this case we will disperse
 		// with the Sidechain a lot
 		return
 	}
 
-	vt := val.(*valueWithTime)
 	if s.inner.ttl <= time.Since(vt.t) {
 		return
 	}
 
-	// panic on typecast below is OK since developer must be careful,
-	// runtime can do nothing with wrong type occurrence
-	item := vt.v.(*cacheItemContainerList)
+	item := vt.v
 
 	item.mtx.Lock()
 	{
@@ -355,7 +331,9 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 	item.mtx.Unlock()
 }
 
-type cachedIRFetcher ttlNetCache
+type cachedIRFetcher struct {
+	tc ttlNetCache[struct{}, [][]byte]
+}
 
 func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cachedIRFetcher {
 	const (
@@ -371,24 +349,24 @@ func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cache
 	)
 
 	irFetcherCache := newNetworkTTLCache(irFetcherCacheSize, irFetcherCacheTTL,
-		func(key interface{}) (interface{}, error) {
+		func(key struct{}) ([][]byte, error) {
 			return f.InnerRingKeys()
 		},
 	)
 
-	return (*cachedIRFetcher)(irFetcherCache)
+	return &cachedIRFetcher{tc: irFetcherCache}
 }
 
 // InnerRingKeys returns cached list of Inner Ring keys. If keys are missing in
 // the cache or expired, then it returns keys from side chain and updates
 // the cache.
 func (f *cachedIRFetcher) InnerRingKeys() ([][]byte, error) {
-	val, err := (*ttlNetCache)(f).get("")
+	val, err := f.tc.get(struct{}{})
 	if err != nil {
 		return nil, err
 	}
 
-	return val.([][]byte), nil
+	return val, nil
 }
 
 type ttlMaxObjectSizeCache struct {
