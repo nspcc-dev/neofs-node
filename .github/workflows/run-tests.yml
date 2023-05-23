@@ -81,41 +81,41 @@ jobs:
 #
 # [legacy_sect]
 # activate = 1
-      - name: Fix OpenSSL ripemd160
-        run: |
-          openssl version -a
-          echo "Old openssl config"
-          cat /usr/lib/ssl/openssl.cnf
-          sudo python -c "
-          filename = '/usr/lib/ssl/openssl.cnf'
-          with open(filename, 'r') as file:
-              lines = file.readlines()
-          with open(filename, 'w') as file:
-              in_provider_sect = False
-              in_default_sect = False
-              for line in lines:
-                  if line.strip() == '#openssl_conf = openssl_init':
-                      file.write('openssl_conf = openssl_init\n')
-                  elif line.strip() == '[provider_sect]':
-                      in_provider_sect = True
-                      file.write(line)
-                  elif in_provider_sect and line.strip() == 'default = default_sect':
-                      file.write(line)
-                      file.write('legacy = legacy_sect\n')
-                      in_provider_sect = False
-                  elif line.strip() == '[default_sect]':
-                      in_default_sect = True
-                      file.write(line)
-                  elif in_default_sect and line.strip() == '# activate = 1':
-                      file.write('activate = 1\n')
-                      in_default_sect = False
-                  else:
-                      file.write(line)
-              file.write('[legacy_sect]\n')
-              file.write('activate = 1\n')
-          "
-          echo "New openssl config:"      
-          cat /usr/lib/ssl/openssl.cnf
+#      - name: Fix OpenSSL ripemd160
+#        run: |
+#          openssl version -a
+#          echo "Old openssl config"
+#          cat /usr/lib/ssl/openssl.cnf
+#          sudo python -c "
+#          filename = '/usr/lib/ssl/openssl.cnf'
+#          with open(filename, 'r') as file:
+#              lines = file.readlines()
+#          with open(filename, 'w') as file:
+#              in_provider_sect = False
+#              in_default_sect = False
+#              for line in lines:
+#                  if line.strip() == '#openssl_conf = openssl_init':
+#                      file.write('openssl_conf = openssl_init\n')
+#                  elif line.strip() == '[provider_sect]':
+#                      in_provider_sect = True
+#                      file.write(line)
+#                  elif in_provider_sect and line.strip() == 'default = default_sect':
+#                      file.write(line)
+#                      file.write('legacy = legacy_sect\n')
+#                      in_provider_sect = False
+#                  elif line.strip() == '[default_sect]':
+#                      in_default_sect = True
+#                      file.write(line)
+#                  elif in_default_sect and line.strip() == '# activate = 1':
+#                      file.write('activate = 1\n')
+#                      in_default_sect = False
+#                  else:
+#                      file.write(line)
+#              file.write('[legacy_sect]\n')
+#              file.write('activate = 1\n')
+#          "
+#          echo "New openssl config:"
+#          cat /usr/lib/ssl/openssl.cnf
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
