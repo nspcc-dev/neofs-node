@@ -155,12 +155,12 @@ jobs:
           cp .github/testcases-env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
         working-directory: neofs-node
 
-      - name: Prepare hosts
-        timeout-minutes: 5
-        run: |
-          make get
-          sudo ./bin/update_hosts.sh
-        working-directory: neofs-dev-env
+#      - name: Prepare hosts
+#        timeout-minutes: 5
+#        run: |
+#          make get
+#          sudo ./bin/update_hosts.sh
+#        working-directory: neofs-dev-env
 
       - name: Prepare test environment
         timeout-minutes: 30
