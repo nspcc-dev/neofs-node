@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - TLS RPC support for IR consensus mode (#2322)
 
 ### Changed
+- NeoFS CLI generates random private key automatically if wallet is omitted (#2123)
 
 ### Fixed
 - Inability to restore RPC connection after the second disconnect (#2325)
