@@ -125,6 +125,8 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			return nil, errors.New("no endpoints were provided")
 		}
 
+		cli.endpoints = cfg.endpoints
+
 		cli.client, act, err = cli.newCli(cli.endpoints[0])
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC client: %w", err)

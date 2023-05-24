@@ -51,6 +51,7 @@ func NewNodeMetrics(version string) *NodeMetrics {
 		engineMetrics:        engine,
 		stateMetrics:         state,
 		epoch:                epoch,
+		epochDeprecated:      epochDeprecated,
 	}
 }
 
