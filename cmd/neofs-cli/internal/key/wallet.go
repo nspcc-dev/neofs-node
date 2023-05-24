@@ -17,7 +17,7 @@ import (
 // Key-related errors.
 var (
 	ErrFs              = errors.New("unable to read file from given path")
-	ErrInvalidKey      = errors.New("provided key is incorrect, only wallet or binary key supported")
+	ErrInvalidKey      = errors.New("provided wallet is incorrect")
 	ErrInvalidAddress  = errors.New("--address option must be specified and valid")
 	ErrInvalidPassword = errors.New("invalid password for the encrypted key")
 )

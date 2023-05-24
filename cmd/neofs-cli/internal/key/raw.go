@@ -35,21 +35,15 @@ func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if keyDesc == "" {
 		return nil, errMissingFlag
 	}
-
-	data, err := os.ReadFile(keyDesc)
+	w, err := wallet.NewWalletFromFile(keyDesc)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrFs, err)
-	}
-
-	priv, err := keys.NewPrivateKeyFromBytes(data)
-	if err != nil {
-		w, err := wallet.NewWalletFromFile(keyDesc)
-		if err == nil {
-			return FromWallet(cmd, w, viper.GetString(commonflags.Account))
+		var perr = new(*os.PathError)
+		if errors.As(err, perr) {
+			return nil, fmt.Errorf("%w: %v", ErrFs, err)
 		}
 		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
 	}
-	return &priv.PrivateKey, nil
+	return FromWallet(cmd, w, viper.GetString(commonflags.Account))
 }
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
