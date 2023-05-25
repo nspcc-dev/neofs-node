@@ -98,11 +98,21 @@ func Test_getOrGenerate(t *testing.T) {
 	})
 
 	t.Run("raw key", func(t *testing.T) {
-		checkKey(t, keyPath, rawKey)
+		checkKeyError(t, keyPath, ErrInvalidKey)
 	})
 
 	t.Run("generate", func(t *testing.T) {
 		viper.Set(commonflags.GenerateKey, true)
+		actual, err := getOrGenerate(testCmd)
+		require.NoError(t, err)
+		require.NotNil(t, actual)
+		for _, p := range []*keys.PrivateKey{nep2Key, rawKey, wifKey, acc1.PrivateKey(), acc2.PrivateKey()} {
+			require.NotEqual(t, p, actual, "expected new key to be generated")
+		}
+	})
+	t.Run("generate implicitly", func(t *testing.T) {
+		viper.Set(commonflags.GenerateKey, false)
+		viper.Set(commonflags.WalletPath, "")
 		actual, err := getOrGenerate(testCmd)
 		require.NoError(t, err)
 		require.NotNil(t, actual)

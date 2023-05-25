@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - TLS RPC support for IR consensus mode (#2322)
 
 ### Changed
+- NeoFS CLI generates random private key automatically if wallet is omitted (#2123)
 
 ### Fixed
 - Inability to restore RPC connection after the second disconnect (#2325)
@@ -20,6 +21,7 @@ Changelog for NeoFS Node
 ### Removed
 - Non-notary mode support for sidechain (#2321)
 - Priority switching b/w RPC endpoints in the morph client (#2306)
+- Support for binary keys in the CLI (#2357)
 
 ### Updated
 - Update minimal supported Go version up to v1.18 (#2340)
@@ -35,6 +37,12 @@ Changelog for NeoFS Node
 - `morph.switch_interval` IR and SN config value is not used anymore.
 - `morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
   removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
+- If you're using binary keys with neofs-cli (`-w`), convert them to proper
+  NEP-6 wallets like this:
+    $ xxd -p < path_to_binary.wallet # outputs hex-encoded key
+    $ neofs-cli util keyer <hex_key> # outputs WIF
+    $ neo-go wallet import -w <wallet_file> --wif <wif_key>
+  or just generate/use new keys.
 
 ## [0.36.1] - 2023-04-26
 

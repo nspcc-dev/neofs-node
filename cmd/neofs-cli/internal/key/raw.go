@@ -25,22 +25,25 @@ func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
 	return pk
 }
 
+var errMissingFlag = errors.New("missing key flag")
+
+// get decodes ecdsa.PrivateKey from the wallet file located in the path
+// stored by commonflags.WalletPath viper key. Returns errMissingFlag
+// if the viper flag is not set.
 func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	keyDesc := viper.GetString(commonflags.WalletPath)
-	data, err := os.ReadFile(keyDesc)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrFs, err)
+	if keyDesc == "" {
+		return nil, errMissingFlag
 	}
-
-	priv, err := keys.NewPrivateKeyFromBytes(data)
+	w, err := wallet.NewWalletFromFile(keyDesc)
 	if err != nil {
-		w, err := wallet.NewWalletFromFile(keyDesc)
-		if err == nil {
-			return FromWallet(cmd, w, viper.GetString(commonflags.Account))
+		var perr = new(*os.PathError)
+		if errors.As(err, perr) {
+			return nil, fmt.Errorf("%w: %v", ErrFs, err)
 		}
 		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
 	}
-	return &priv.PrivateKey, nil
+	return FromWallet(cmd, w, viper.GetString(commonflags.Account))
 }
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
@@ -51,12 +54,27 @@ func GetOrGenerate(cmd *cobra.Command) *ecdsa.PrivateKey {
 }
 
 func getOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
-	if viper.GetBool(commonflags.GenerateKey) {
-		priv, err := keys.NewPrivateKey()
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errCantGenerateKey, err)
+	if !viper.GetBool(commonflags.GenerateKey) {
+		key, err := get(cmd)
+		if !errors.Is(err, errMissingFlag) {
+			if err == nil {
+				common.PrintVerbose(cmd, "Configured wallet will be used for the command.")
+			}
+
+			return key, err
 		}
-		return &priv.PrivateKey, nil
+
+		common.PrintVerbose(cmd, "Missing wallet in the configuration.")
 	}
-	return get(cmd)
+
+	common.PrintVerbose(cmd, "Generating random private key for command processing...")
+
+	priv, err := keys.NewPrivateKey()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errCantGenerateKey, err)
+	}
+
+	common.PrintVerbose(cmd, "Private key generated successfully. Public key: %s", priv.PublicKey())
+
+	return &priv.PrivateKey, nil
 }

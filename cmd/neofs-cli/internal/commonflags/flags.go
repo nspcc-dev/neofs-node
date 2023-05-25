@@ -18,7 +18,7 @@ const (
 	WalletPath          = "wallet"
 	WalletPathShorthand = "w"
 	WalletPathDefault   = ""
-	WalletPathUsage     = "Path to the wallet or binary key"
+	WalletPathUsage     = "Path to the wallet"
 
 	Account          = "address"
 	AccountShorthand = ""
