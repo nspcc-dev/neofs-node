@@ -25,7 +25,7 @@ permissions: write-all
 
 jobs:
   run_system_tests:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 500
     steps:
       - name: Checkout neofs-testcases repository
@@ -56,11 +56,11 @@ jobs:
           go-version: '1.20'
       - run: go version
 
-#      - name: Set up Python
-#        uses: actions/setup-python@v4
-#        with:
-#          python-version: '3.10.11'
-#      - run: python --version
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.11'
+      - run: python --version
 
 # Hashlib uses OpenSSL for ripemd160 and apparently OpenSSL disabled some older crypto algos around version 3.0
 # in November 2021. All the functions are still there but require manual enabling.
@@ -81,41 +81,41 @@ jobs:
 #
 # [legacy_sect]
 # activate = 1
-#      - name: Fix OpenSSL ripemd160
-#        run: |
-#          openssl version -a
-#          echo "Old openssl config"
-#          cat /usr/lib/ssl/openssl.cnf
-#          sudo python -c "
-#          filename = '/usr/lib/ssl/openssl.cnf'
-#          with open(filename, 'r') as file:
-#              lines = file.readlines()
-#          with open(filename, 'w') as file:
-#              in_provider_sect = False
-#              in_default_sect = False
-#              for line in lines:
-#                  if line.strip() == '#openssl_conf = openssl_init':
-#                      file.write('openssl_conf = openssl_init\n')
-#                  elif line.strip() == '[provider_sect]':
-#                      in_provider_sect = True
-#                      file.write(line)
-#                  elif in_provider_sect and line.strip() == 'default = default_sect':
-#                      file.write(line)
-#                      file.write('legacy = legacy_sect\n')
-#                      in_provider_sect = False
-#                  elif line.strip() == '[default_sect]':
-#                      in_default_sect = True
-#                      file.write(line)
-#                  elif in_default_sect and line.strip() == '# activate = 1':
-#                      file.write('activate = 1\n')
-#                      in_default_sect = False
-#                  else:
-#                      file.write(line)
-#              file.write('[legacy_sect]\n')
-#              file.write('activate = 1\n')
-#          "
-#          echo "New openssl config:"
-#          cat /usr/lib/ssl/openssl.cnf
+      - name: Fix OpenSSL ripemd160
+        run: |
+          openssl version -a
+          echo "Old openssl config"
+          cat /usr/lib/ssl/openssl.cnf
+          sudo python -c "
+          filename = '/usr/lib/ssl/openssl.cnf'
+          with open(filename, 'r') as file:
+              lines = file.readlines()
+          with open(filename, 'w') as file:
+              in_provider_sect = False
+              in_default_sect = False
+              for line in lines:
+                  if line.strip() == '#openssl_conf = openssl_init':
+                      file.write('openssl_conf = openssl_init\n')
+                  elif line.strip() == '[provider_sect]':
+                      in_provider_sect = True
+                      file.write(line)
+                  elif in_provider_sect and line.strip() == 'default = default_sect':
+                      file.write(line)
+                      file.write('legacy = legacy_sect\n')
+                      in_provider_sect = False
+                  elif line.strip() == '[default_sect]':
+                      in_default_sect = True
+                      file.write(line)
+                  elif in_default_sect and line.strip() == '# activate = 1':
+                      file.write('activate = 1\n')
+                      in_default_sect = False
+                  else:
+                      file.write(line)
+              file.write('[legacy_sect]\n')
+              file.write('activate = 1\n')
+          "
+          echo "New openssl config:"
+          cat /usr/lib/ssl/openssl.cnf
 
 ################################################################
       - name: Build neofs-node (neofs-cli and neofs-adm)
@@ -155,12 +155,12 @@ jobs:
           cp .github/testcases-env ${GITHUB_WORKSPACE}/neofs-dev-env/.env
         working-directory: neofs-node
 
-#      - name: Prepare hosts
-#        timeout-minutes: 5
-#        run: |
-#          make get
-#          sudo ./bin/update_hosts.sh
-#        working-directory: neofs-dev-env
+      - name: Prepare hosts
+        timeout-minutes: 5
+        run: |
+          make get
+          sudo ./bin/update_hosts.sh
+        working-directory: neofs-dev-env
 
       - name: Prepare test environment
         timeout-minutes: 30
@@ -236,94 +236,94 @@ jobs:
           make venv.local-pytest
         working-directory: neofs-testcases
 
-      - name: Run Sanity tests for pull requests
-        timeout-minutes: 120
-        if: github.event_name == 'pull_request'
-        run: |
-          source venv.local-pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
-        working-directory: neofs-testcases
-
-      - name: Run all tests for other events
-        timeout-minutes: 480
-        if: github.event_name != 'pull_request'
-        run: |
-          source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
-        working-directory: neofs-testcases
-
-      - name: Log environment
-        if: always()
-        run: |
-          echo "Check free space"
-          df -h
-          df -h .
-          df -h /home/runner/runners
-          df -h ${GITHUB_WORKSPACE}
-        working-directory: neofs-testcases
-
-################################################################
-      - name: Cleanup system tests environment
-        timeout-minutes: 30
-        if: always()
-        run: |
-          make clean
-        working-directory: neofs-testcases
-
-      - name: Cleanup dev-env environment
-        timeout-minutes: 30
-        if: always()
-        run: |
-          make down
-          make clean
-        working-directory: neofs-dev-env
-
-################################################################
-      - name: Get Allure history
-        timeout-minutes: 60
-        uses: actions/checkout@v3
-        if: always()
-        with:
-          ref: gh-pages
-          path: gh-pages
-
-      - name: Log environment
-        if: always()
-        run: |
-          echo "Check free space"
-          df -h
-          df -h .
-          df -h /home/runner/runners
-          df -h ${GITHUB_WORKSPACE}
-        working-directory: neofs-testcases
-
-      - name: Allure Report action from marketplace
-        timeout-minutes: 60
-        uses: simple-elf/allure-report-action@master
-        if: always()
-        id: allure-report
-        with:
-          allure_results: allure-results
-          allure_report: allure-report
-          gh_pages: gh-pages
-          allure_history: allure-history
-
-      - name: Deploy report to Github Pages
-        timeout-minutes: 120
-        if: always()
-        uses: peaceiris/actions-gh-pages@v3.9.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: allure-history
-          force_orphan: true
-          enable_jekyll: true
-
-      - name: Post the link to the report
-        timeout-minutes: 60
-        if: always()
-        uses: Sibz/github-status-action@v1
-        with:
-          authToken: ${{secrets.GITHUB_TOKEN}}
-          context: 'Test report'
-          state: 'success'
-          sha: ${{github.event.pull_request.head.sha || github.sha}}
-          target_url: https://${{ github.repository_owner }}.github.io/neofs-node/${{ github.run_number }}
+#      - name: Run Sanity tests for pull requests
+#        timeout-minutes: 120
+#        if: github.event_name == 'pull_request'
+#        run: |
+#          source venv.local-pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+#        working-directory: neofs-testcases
+#
+#      - name: Run all tests for other events
+#        timeout-minutes: 480
+#        if: github.event_name != 'pull_request'
+#        run: |
+#          source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+#        working-directory: neofs-testcases
+#
+#      - name: Log environment
+#        if: always()
+#        run: |
+#          echo "Check free space"
+#          df -h
+#          df -h .
+#          df -h /home/runner/runners
+#          df -h ${GITHUB_WORKSPACE}
+#        working-directory: neofs-testcases
+#
+#################################################################
+#      - name: Cleanup system tests environment
+#        timeout-minutes: 30
+#        if: always()
+#        run: |
+#          make clean
+#        working-directory: neofs-testcases
+#
+#      - name: Cleanup dev-env environment
+#        timeout-minutes: 30
+#        if: always()
+#        run: |
+#          make down
+#          make clean
+#        working-directory: neofs-dev-env
+#
+#################################################################
+#      - name: Get Allure history
+#        timeout-minutes: 60
+#        uses: actions/checkout@v3
+#        if: always()
+#        with:
+#          ref: gh-pages
+#          path: gh-pages
+#
+#      - name: Log environment
+#        if: always()
+#        run: |
+#          echo "Check free space"
+#          df -h
+#          df -h .
+#          df -h /home/runner/runners
+#          df -h ${GITHUB_WORKSPACE}
+#        working-directory: neofs-testcases
+#
+#      - name: Allure Report action from marketplace
+#        timeout-minutes: 60
+#        uses: simple-elf/allure-report-action@master
+#        if: always()
+#        id: allure-report
+#        with:
+#          allure_results: allure-results
+#          allure_report: allure-report
+#          gh_pages: gh-pages
+#          allure_history: allure-history
+#
+#      - name: Deploy report to Github Pages
+#        timeout-minutes: 120
+#        if: always()
+#        uses: peaceiris/actions-gh-pages@v3.9.3
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
+#          publish_branch: gh-pages
+#          publish_dir: allure-history
+#          force_orphan: true
+#          enable_jekyll: true
+#
+#      - name: Post the link to the report
+#        timeout-minutes: 60
+#        if: always()
+#        uses: Sibz/github-status-action@v1
+#        with:
+#          authToken: ${{secrets.GITHUB_TOKEN}}
+#          context: 'Test report'
+#          state: 'success'
+#          sha: ${{github.event.pull_request.head.sha || github.sha}}
+#          target_url: https://${{ github.repository_owner }}.github.io/neofs-node/${{ github.run_number }}
