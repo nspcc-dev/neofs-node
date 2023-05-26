@@ -11,15 +11,15 @@ on:
     types: [opened, synchronize]
     paths-ignore:
       - '**/*.md'
-    release:
-      types:
-        - published
-    workflow_dispatch:
-      inputs:
-        neofs_node_ref:
-          description: 'Neofs-node ref. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name]'
-          required: false
-          default: ''
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      neofs_node_ref:
+        description: 'Neofs-node ref. Default ref - latest master. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name'
+        required: false
+        default: ''
 
 permissions: write-all
 
@@ -45,8 +45,6 @@ jobs:
       - name: Checkout neofs-node repository
         uses: actions/checkout@v3
         with:
-          repository: ${{ github.repository }}
-          ref: ${{ github.event.inputs.neofs_node_ref || github.head_ref || github.ref_name }}
           path: neofs-node
 
 ################################################################
