@@ -1,14 +1,18 @@
 package transformer
 
 import (
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	slicerSDK "github.com/nspcc-dev/neofs-sdk-go/object/slicer"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/tzhash/tz"
 )
 
 type payloadSizeLimiter struct {
@@ -26,27 +30,69 @@ type payloadSizeLimiter struct {
 // objStreamInitializer implements [slicerSDK.ObjectWriter].
 type objStreamInitializer struct {
 	targetInit TargetInitializer
+
+	_signer neofscrypto.Signer
 }
+
+var (
+	_emptyPayloadSHA256Sum = sha256.Sum256(nil)
+	_emptyPayloadTZSum     = tz.Sum(nil)
+)
 
 func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, error) {
 	stream := o.targetInit()
+
+	// v1.0.0-rc.8 has a bug that relates linking objects, thus that
+	// check, see https://github.com/nspcc-dev/neofs-sdk-go/pull/427.
+	linkObj := len(header.Children()) > 0
+	if linkObj {
+		header.SetPayloadSize(0)
+
+		var cs checksum.Checksum
+		cs.SetSHA256(_emptyPayloadSHA256Sum)
+
+		header.SetPayloadChecksum(cs)
+
+		_, set := header.PayloadHomomorphicHash()
+		if set {
+			cs.SetTillichZemor(_emptyPayloadTZSum)
+			header.SetPayloadHomomorphicHash(cs)
+		}
+
+		err := object.CalculateAndSetID(&header)
+		if err != nil {
+			return nil, fmt.Errorf("broken linking object id recalculation: %w", err)
+		}
+
+		err = object.CalculateAndSetSignature(o._signer, &header)
+		if err != nil {
+			return nil, fmt.Errorf("broken linking ojbect id recalculation: %w", err)
+		}
+	}
 
 	err := stream.WriteHeader(&header)
 	if err != nil {
 		return nil, err
 	}
 
-	return &objStream{stream}, nil
+	return &objStream{target: stream, _linkObj: linkObj}, nil
 }
 
 // objStream implements [io.Writer] and [io.Closer].
 type objStream struct {
 	target ObjectTarget
+
+	_linkObj bool
 }
 
 func (o *objStream) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
+	emptyPayload := len(p) == 0
+	if emptyPayload {
 		return 0, nil
+	}
+
+	if o._linkObj && !emptyPayload {
+		return 0, errors.New("linking object with payload")
 	}
 
 	return o.target.Write(p)
@@ -85,11 +131,15 @@ func (s *payloadSizeLimiter) WriteHeader(hdr *object.Object) error {
 	}
 
 	cid, _ := hdr.ContainerID()
+	streamInitializer := &objStreamInitializer{
+		targetInit: s.targetInit,
+		_signer:    s.signer,
+	}
 
 	if s.sessionToken == nil {
-		s.objSlicer = slicerSDK.New(s.signer, cid, *hdr.OwnerID(), &objStreamInitializer{s.targetInit}, opts)
+		s.objSlicer = slicerSDK.New(s.signer, cid, *hdr.OwnerID(), streamInitializer, opts)
 	} else {
-		s.objSlicer = slicerSDK.NewSession(s.signer, cid, *s.sessionToken, &objStreamInitializer{s.targetInit}, opts)
+		s.objSlicer = slicerSDK.NewSession(s.signer, cid, *s.sessionToken, streamInitializer, opts)
 	}
 
 	var err error
