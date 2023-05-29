@@ -114,8 +114,7 @@ func (s *payloadSizeLimiter) Close() (*AccessIdentifiers, error) {
 	id := s.stream.ID()
 
 	ids := new(AccessIdentifiers)
-	ids.WithParentID(&id)
-	ids.WithSelfID(id) // sdk does not say whether slicing was done
+	ids.WithSelfID(id)
 
 	return ids, nil
 }

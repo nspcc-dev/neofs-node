@@ -7,15 +7,9 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// AccessIdentifiers represents group of the object identifiers
-// that are returned after writing the object.
-// Consists of the ID of the stored object and the ID of the parent object.
+// AccessIdentifiers groups the result of the writing object operation.
 type AccessIdentifiers struct {
-	par *oid.ID
-
-	self oid.ID
-
-	parHdr *object.Object
+	id oid.ID
 }
 
 // ObjectTarget is an interface of the object writer.
@@ -53,7 +47,7 @@ type TargetInitializer func() ObjectTarget
 
 // SelfID returns identifier of the written object.
 func (a AccessIdentifiers) SelfID() oid.ID {
-	return a.self
+	return a.id
 }
 
 // WithSelfID returns AccessIdentifiers with passed self identifier.
@@ -63,49 +57,7 @@ func (a *AccessIdentifiers) WithSelfID(v oid.ID) *AccessIdentifiers {
 		res = new(AccessIdentifiers)
 	}
 
-	res.self = v
-
-	return res
-}
-
-// ParentID return identifier of the parent of the written object.
-func (a *AccessIdentifiers) ParentID() *oid.ID {
-	if a != nil {
-		return a.par
-	}
-
-	return nil
-}
-
-// WithParentID returns AccessIdentifiers with passed parent identifier.
-func (a *AccessIdentifiers) WithParentID(v *oid.ID) *AccessIdentifiers {
-	res := a
-	if res == nil {
-		res = new(AccessIdentifiers)
-	}
-
-	res.par = v
-
-	return res
-}
-
-// Parent return identifier of the parent of the written object.
-func (a *AccessIdentifiers) Parent() *object.Object {
-	if a != nil {
-		return a.parHdr
-	}
-
-	return nil
-}
-
-// WithParent returns AccessIdentifiers with passed parent identifier.
-func (a *AccessIdentifiers) WithParent(v *object.Object) *AccessIdentifiers {
-	res := a
-	if res == nil {
-		res = new(AccessIdentifiers)
-	}
-
-	res.parHdr = v
+	res.id = v
 
 	return res
 }
