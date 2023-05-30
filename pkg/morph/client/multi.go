@@ -1,6 +1,8 @@
 package client
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 )
 
@@ -15,6 +17,28 @@ func (c *Client) SwitchRPC() bool {
 	c.switchLock.Lock()
 	defer c.switchLock.Unlock()
 
+	for attempt := 0; attempt < c.cfg.reconnectionRetries; attempt++ {
+		if c.switchPRC() {
+			return true
+		}
+
+		select {
+		case <-time.After(c.cfg.reconnectionDelay):
+		case <-c.closeChan:
+			return false
+		}
+	}
+
+	c.inactive = true
+
+	if c.cfg.inactiveModeCb != nil {
+		c.cfg.inactiveModeCb()
+	}
+
+	return false
+}
+
+func (c *Client) switchPRC() bool {
 	c.client.Close()
 
 	// Iterate endpoints in the order of decreasing priority.
@@ -38,12 +62,6 @@ func (c *Client) SwitchRPC() bool {
 		c.setActor(act)
 
 		return true
-	}
-
-	c.inactive = true
-
-	if c.cfg.inactiveModeCb != nil {
-		c.cfg.inactiveModeCb()
 	}
 	return false
 }
