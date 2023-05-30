@@ -12,6 +12,8 @@ without_mainnet: false # Run application in single chain environment without mai
 
 morph:
   dial_timeout: 5s # Timeout for RPC client connection to sidechain
+  reconnections_number: 5  # number of reconnection attempts
+  reconnections_delay: 5s  # time delay b/w reconnection attempts
   endpoints: # List of websocket RPC endpoints in sidechain
       - wss://sidechain1.fs.neo.org:30333/ws
       - wss://sidechain2.fs.neo.org:30333/ws
@@ -92,6 +94,8 @@ morph:
 
 mainnet:
   dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
+  reconnections_number: 5  # number of reconnection attempts
+  reconnections_delay: 5s  # time delay b/w reconnection attempts
   switch_interval: 2m # interval b/w RPC switch attempts if the node is not connected to the highest priority node
   endpoint:
     client: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled
