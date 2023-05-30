@@ -35,6 +35,8 @@ func initMorphComponents(c *cfg) {
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
 		client.WithEndpoints(addresses),
+		client.WithReconnectionRetries(morphconfig.ReconnectionRetriesNumber(c.appCfg)),
+		client.WithReconnectionsDelay(morphconfig.ReconnectionRetriesDelay(c.appCfg)),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),

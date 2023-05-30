@@ -137,11 +137,13 @@ morph:
     - address: wss://rpc2.morph.fs.neo.org:40341/ws
  ```
 
-| Parameter      | Type       | Default value    | Description                                                                                                                                                         |
-|----------------|------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout` | `duration` | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
-| `cache_ttl`    | `duration` | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
-| `endpoints`    | `[]string` |                  | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
+| Parameter              | Type       | Default value    | Description                                                                                                                                                         |
+|------------------------|------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout`         | `duration` | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `cache_ttl`            | `duration` | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
+| `endpoints`            | `[]string` |                  | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
+| `reconnections_number` | `int`      | `5`              | Number of reconnection attempts (through the full list provided via `endpoints`) before RPC connection is considered lost. Non-positive values make no retries.     |
+| `reconnections_delay`  | `duration` | `5s`             | Time interval between attempts to reconnect an RPC node from `endpoints` if the connection has been lost.                                                           |
 
 # `storage` section
 

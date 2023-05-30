@@ -86,6 +86,8 @@ morph:
   cache_ttl: 15s  # Sidechain cache TTL value (min interval between similar calls). Negative value disables caching.
                   # Default value: block time. It is recommended to have this value less or equal to block time.
                   # Cached entities: containers, container lists, eACL tables.
+  reconnections_number: 6  # number of reconnection attempts
+  reconnections_delay: 6s  # time delay b/w reconnection attempts
   endpoints:  # side chain NEO RPC endpoints; are shuffled and used one by one until the first success
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws

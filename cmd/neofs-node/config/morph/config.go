@@ -18,6 +18,11 @@ const (
 	// CacheTTLDefault is a default value for cached values TTL.
 	// It is 0, because actual default depends on block time.
 	CacheTTLDefault = time.Duration(0)
+
+	// ReconnectionRetriesNumberDefault is a default value for reconnection retries.
+	ReconnectionRetriesNumberDefault = 5
+	// ReconnectionRetriesDelayDefault is a default delay b/w reconnections.
+	ReconnectionRetriesDelayDefault = 5 * time.Second
 )
 
 // Endpoints returns list of the values of "endpoints" config parameter
@@ -71,4 +76,30 @@ func CacheTTL(c *config.Config) time.Duration {
 	}
 
 	return CacheTTLDefault
+}
+
+// ReconnectionRetriesNumber returns the value of "reconnections_number" config
+// parameter from "morph" section.
+//
+// Returns 0 if value is not specified.
+func ReconnectionRetriesNumber(c *config.Config) int {
+	res := config.Int(c.Sub(subsection), "reconnections_number")
+	if res != 0 {
+		return int(res)
+	}
+
+	return ReconnectionRetriesNumberDefault
+}
+
+// ReconnectionRetriesDelay returns the value of "reconnections_delay" config
+// parameter from "morph" section.
+//
+// Returns 0 if value is not specified.
+func ReconnectionRetriesDelay(c *config.Config) time.Duration {
+	res := config.DurationSafe(c.Sub(subsection), "reconnections_delay")
+	if res != 0 {
+		return res
+	}
+
+	return ReconnectionRetriesDelayDefault
 }
