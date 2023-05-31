@@ -358,12 +358,22 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	walletPath := cfg.GetString(walletPathKey)
 	walletPass := cfg.GetString("wallet.password")
 
+	// parse default validators
+	server.predefinedValidators, err = parsePredefinedValidators(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse predefined validators list: %w", err)
+	}
+
 	// create morph client
 	if isLocalConsensusMode(cfg) {
 		// go on a local blockchain
 		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
+		}
+
+		if len(server.predefinedValidators) == 0 {
+			server.predefinedValidators = cfgBlockchain.Committee
 		}
 
 		cfgBlockchain.Wallet.Path = walletPath
@@ -509,12 +519,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		if err != nil {
 			return nil, fmt.Errorf("could not enable main chain notary support: %w", err)
 		}
-	}
-
-	// parse default validators
-	server.predefinedValidators, err = parsePredefinedValidators(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't parse predefined validators list: %w", err)
 	}
 
 	server.pubKey = server.key.PublicKey().Bytes()
