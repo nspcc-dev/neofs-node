@@ -215,22 +215,6 @@ jobs:
         working-directory: neofs-testcases
 
 ################################################################
-      - name: Cleanup system tests environment
-        timeout-minutes: 30
-        if: always()
-        run: |
-          make clean
-        working-directory: neofs-testcases
-
-      - name: Cleanup dev-env environment
-        timeout-minutes: 30
-        if: always()
-        run: |
-          make down
-          make clean
-        working-directory: neofs-dev-env
-
-################################################################
       - name: Get Allure history
         timeout-minutes: 60
         uses: actions/checkout@v3
