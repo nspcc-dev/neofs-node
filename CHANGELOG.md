@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - `neofs_[node|ir]_version` with `version` label (#2326)
 - TLS RPC support for IR consensus mode (#2322)
+- Multiple neo-go RPC reconnection attempts with a delay (#2307)
 
 ### Changed
 - NeoFS CLI generates random private key automatically if wallet is omitted (#2123)

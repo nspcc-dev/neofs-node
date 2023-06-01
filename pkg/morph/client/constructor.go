@@ -42,6 +42,9 @@ type cfg struct {
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
 	inactiveModeCb Callback
+
+	reconnectionRetries int
+	reconnectionDelay   time.Duration
 }
 
 const (
@@ -58,6 +61,8 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.Global,
 		},
+		reconnectionDelay:   5 * time.Second,
+		reconnectionRetries: 5,
 	}
 }
 
@@ -262,6 +267,24 @@ func WithEndpoints(endpoints []string) Option {
 func WithSingleClient(cli *rpcclient.WSClient) Option {
 	return func(c *cfg) {
 		c.singleCli = cli
+	}
+}
+
+// WithReconnectionRetries returns a client constructor option
+// that specifies number of reconnection attempts (through the full list
+// provided via [WithEndpoints]) before RPC connection is considered
+// lost. Non-positive values make no retries.
+func WithReconnectionRetries(r int) Option {
+	return func(c *cfg) {
+		c.reconnectionRetries = r
+	}
+}
+
+// WithReconnectionsDelay returns a client constructor option
+// that specifies delays b/w reconnections.
+func WithReconnectionsDelay(d time.Duration) Option {
+	return func(c *cfg) {
+		c.reconnectionDelay = d
 	}
 }
 

@@ -17,6 +17,8 @@ func TestMorphSection(t *testing.T) {
 		require.Panics(t, func() { morphconfig.Endpoints(empty) })
 		require.Equal(t, morphconfig.DialTimeoutDefault, morphconfig.DialTimeout(empty))
 		require.Equal(t, morphconfig.CacheTTLDefault, morphconfig.CacheTTL(empty))
+		require.Equal(t, 5, morphconfig.ReconnectionRetriesNumber(empty))
+		require.Equal(t, 5*time.Second, morphconfig.ReconnectionRetriesDelay(empty))
 	})
 
 	const path = "../../../../config/example/node"
@@ -27,6 +29,8 @@ func TestMorphSection(t *testing.T) {
 		require.Equal(t, rpcs, morphconfig.Endpoints(c))
 		require.Equal(t, 30*time.Second, morphconfig.DialTimeout(c))
 		require.Equal(t, 15*time.Second, morphconfig.CacheTTL(c))
+		require.Equal(t, 6, morphconfig.ReconnectionRetriesNumber(c))
+		require.Equal(t, 6*time.Second, morphconfig.ReconnectionRetriesDelay(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

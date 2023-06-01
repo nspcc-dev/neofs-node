@@ -1034,6 +1034,8 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
 		client.WithSigner(p.sgn),
 		client.WithEndpoints(endpoints),
+		client.WithReconnectionRetries(p.cfg.GetInt(p.name+".reconnections_number")),
+		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name+".reconnections_delay")),
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
