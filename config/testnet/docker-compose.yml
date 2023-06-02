@@ -13,19 +13,5 @@ services:
       - <NEOFS_NODE_KEY>:/node.key
     stop_signal: SIGINT
 
-  vmagent:
-    image: victoriametrics/vmagent:v1.61.0
-    container_name: vmagent
-    depends_on:
-      - storage01
-    env_file: node_config.env
-    command:
-      - '-promscrape.config=/configs/prometheus.yml'
-      - '-remoteWrite.url=https://collector.fs.neo.org/api/v1/write'
-    network_mode: host
-    restart: always
-    volumes:
-      - ./prometheus.yml:/configs/prometheus.yml
-
 volumes:
   neofs_storage:
