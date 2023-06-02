@@ -79,6 +79,68 @@ To make docker images suitable for use in [neofs-dev-env](https://github.com/nsp
 make images
 ```
 
+# Running
+
+## CLI
+
+`neofs-cli` allows to perform a lot of actions like container/object management
+connecting to any node of the target network. It has an extensive description
+for all of its commands and options internally, but some specific concepts
+have additional documents describing them:
+ * [Sessions](docs/cli-sessions.md)
+ * [Extended headers](docs/cli-xheaders.md)
+
+`neofs-adm` is a network setup and management utility usually used by the
+network administrators. Refer to [docs/cli-adm.md](docs/cli-adm.md) for mode
+information about it.
+
+Both neofs-cli and neofs-adm can take configuration file as a parameter to
+simplify working with the same network/wallet. See
+[cli.yaml](config/example/cli.yaml) for an example of what this config may look
+like. Control service-specific configuration examples are
+[ir-control.yaml](config/example/ir-control.yaml) and
+[node-control.yaml](config/example/node-control.yaml) for IR and SN nodes
+respectively.
+
+## Node
+
+There are two kinds of nodes -- inner ring nodes and storage nodes. Most of
+the time you're interested in running a storage node, because inner ring ones
+are special and are somewhat similar to Neo consensus nodes in their role for
+the network. Both accept parameters from YAML or JSON configuration files and
+environment variables.
+
+See [docs/sighup.md](docs/sighup.md) on how nodes can be reconfigured without
+restart.
+
+See [docs/storage-node-configuration.md](docs/storage-node-configuration.md)
+on how to configure a storage node.
+
+### Example configurations
+
+These examples contain all possible configurations of NeoFS nodes. All
+parameters are correct there, however, their particular values are provided
+for informational purposes only (and not recommended for direct use), real
+networks and real configuration are likely to differ a lot for them.
+
+ See [node.yaml](node.yaml) for configuration notes.
+- Storage node
+  - YAML (with comments): [node.yaml](config/example/node.yaml)
+  - JSON: [node.json](config/example/node.json)
+  - Environment: [node.env](config/example/node.env)
+- Inner ring
+  - YAML: [ir.yaml](config/example/ir.yaml)
+  - Environment: [ir.env](config/example/ir.env)
+
+# Private network
+
+If you're planning on NeoFS development take a look at
+[neofs-dev-env](https://github.com/nspcc-dev/neofs-dev-env/). To develop
+applications using NeoFS we recommend more light-weight
+[neofs-aio](https://github.com/nspcc-dev/neofs-aio) container. If you really
+want to get your hands dirty refer to [docs/deploy.md](docs/deploy.md) for
+instructions on how to do things manually from scratch.
+
 # Contributing
 
 Feel free to contribute to this project after reading the [contributing
