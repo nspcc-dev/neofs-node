@@ -127,6 +127,7 @@ jobs:
         run: |
           make get
           sudo ./bin/update_hosts.sh
+          sudo chmod a+w vendor/hosts
         working-directory: neofs-dev-env
 
       - name: Prepare test environment
