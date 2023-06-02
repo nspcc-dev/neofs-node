@@ -60,7 +60,7 @@ import (
 )
 
 type (
-	// Server is the inner ring application structure, that contains all event
+	// Server is the inner ring application structure that contains all event
 	// processors, shared variables and event handlers.
 	Server struct {
 		log *logger.Logger
