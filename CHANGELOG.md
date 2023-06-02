@@ -10,7 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - NeoFS CLI generates random private key automatically if wallet is omitted (#2123)
-- `morph.validators` config can be omitted for IR in local consensus mode (#2311)
+- `morph.validators` config can be omitted for IR in local consensus mode but must be non-empty otherwise (#2311)
 
 ### Fixed
 - Inability to restore RPC connection after the second disconnect (#2325)
@@ -46,6 +46,7 @@ Changelog for NeoFS Node
     $ neo-go wallet import -w <wallet_file> --wif <wif_key>
   or just generate/use new keys.
 - In local consensus mode `morph.validators` in IR's config can be omitted now, `morph.consensus.committee` will be used instead.
+  For detached consensus, it is a required config parameter now.
 
 ## [0.36.1] - 2023-04-26
 
