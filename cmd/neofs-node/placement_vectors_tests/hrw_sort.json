@@ -1,0 +1,165 @@
+{
+  "name": "HRW ordering",
+  "nodes": [
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Germany"
+        },
+        {
+          "key": "Price",
+          "value": "2"
+        },
+        {
+          "key": "Capacity",
+          "value": "10000"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Germany"
+        },
+        {
+          "key": "Price",
+          "value": "4"
+        },
+        {
+          "key": "Capacity",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "France"
+        },
+        {
+          "key": "Price",
+          "value": "3"
+        },
+        {
+          "key": "Capacity",
+          "value": "10"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Russia"
+        },
+        {
+          "key": "Price",
+          "value": "2"
+        },
+        {
+          "key": "Capacity",
+          "value": "10000"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Russia"
+        },
+        {
+          "key": "Price",
+          "value": "1"
+        },
+        {
+          "key": "Capacity",
+          "value": "10000"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Russia"
+        },
+        {
+          "key": "Capacity",
+          "value": "10000"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "France"
+        },
+        {
+          "key": "Price",
+          "value": "100"
+        },
+        {
+          "key": "Capacity",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "France"
+        },
+        {
+          "key": "Price",
+          "value": "7"
+        },
+        {
+          "key": "Capacity",
+          "value": "10000"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "key": "Country",
+          "value": "Russia"
+        },
+        {
+          "key": "Price",
+          "value": "2"
+        },
+        {
+          "key": "Capacity",
+          "value": "1"
+        }
+      ]
+    }
+  ],
+  "tests": {
+    "select 3 nodes in 3 distinct countries, same placement": {
+      "policy": {"replicas":[{"count":1,"selector":"Main"}],"containerBackupFactor":1,"selectors":[{"name":"Main","count":3,"clause":"DISTINCT","attribute":"Country","filter":"*"}],"filters":[],"subnetId":null},
+      "pivot": "Y29udGFpbmVySUQ=",
+      "result": [[4, 0, 7]],
+      "placement": {
+        "pivot": "b2JqZWN0SUQ=",
+        "result": [[4, 0, 7]]
+      }
+    },
+    "select 6 nodes in 3 distinct countries, different placement": {
+      "policy": {"replicas":[{"count":1,"selector":"Main"}],"containerBackupFactor":2,"selectors":[{"name":"Main","count":3,"clause":"DISTINCT","attribute":"Country","filter":"*"}],"filters":[],"subnetId":null},
+      "pivot": "Y29udGFpbmVySUQ=",
+      "result": [[4, 3, 0, 1, 7, 2]],
+      "placement": {
+        "pivot": "b2JqZWN0SUQ=",
+        "result": [[4, 3, 0, 7, 2, 1]]
+      }
+    }
+  }
+}
