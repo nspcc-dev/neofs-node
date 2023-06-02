@@ -16,7 +16,7 @@
 
 # Overview
 
-NeoFS Nodes are organized in a peer-to-peer network that takes care of storing
+NeoFS nodes are organized in a peer-to-peer network that takes care of storing
 and distributing user's data. Any Neo user may participate in the network and
 get paid for providing storage resources to other users or store their data in
 NeoFS and pay a competitive price for it.
