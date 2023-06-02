@@ -24,6 +24,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v4
         with:
+          cache: true
           go-version: ${{ matrix.go }}
 
       - name: Check out code
