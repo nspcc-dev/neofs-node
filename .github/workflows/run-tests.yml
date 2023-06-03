@@ -31,8 +31,8 @@ jobs:
       - name: Checkout neofs-testcases repository
         uses: actions/checkout@v3
         with:
-          repository: nspcc-dev/neofs-testcases
-          ref: 'master'
+          repository: vvarg-229/neofs-testcases
+          ref: 'tst-skip'
           path: neofs-testcases
 
       - name: Checkout neofs-dev-env repository
