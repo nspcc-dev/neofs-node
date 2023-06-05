@@ -27,7 +27,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 		data := make([]byte, size)
 		rand.Read(data)
 
-		objects[i] = generateObjectWithPayload(cidtest.ID(), data)
+		objects[i] = generateObjectWithPayload(t, cidtest.ID(), data)
 	}
 
 	dir := t.TempDir()

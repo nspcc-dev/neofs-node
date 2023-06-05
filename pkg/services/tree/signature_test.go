@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -78,8 +78,10 @@ func TestMessageSign(t *testing.T) {
 	cid1 := cidtest.ID()
 	cid2 := cidtest.ID()
 
+	signer := neofsecdsa.SignerRFC6979(privs[0].PrivateKey)
+
 	var ownerID user.ID
-	user.IDFromKey(&ownerID, (ecdsa.PublicKey)(*privs[0].PublicKey()))
+	require.NoError(t, user.IDFromSigner(&ownerID, signer))
 
 	cnr := &containercore.Container{
 		Value: testContainer(ownerID),
@@ -151,7 +153,7 @@ func TestMessageSign(t *testing.T) {
 
 		t.Run("invalid bearer CID", func(t *testing.T) {
 			bt := testBearerToken(cid2, privs[1].PublicKey(), privs[2].PublicKey())
-			require.NoError(t, bt.Sign(privs[0].PrivateKey))
+			require.NoError(t, bt.Sign(signer))
 			req.Body.BearerToken = bt.Marshal()
 
 			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
@@ -159,7 +161,7 @@ func TestMessageSign(t *testing.T) {
 		})
 		t.Run("invalid bearer owner", func(t *testing.T) {
 			bt := testBearerToken(cid1, privs[1].PublicKey(), privs[2].PublicKey())
-			require.NoError(t, bt.Sign(privs[1].PrivateKey))
+			require.NoError(t, bt.Sign(signer))
 			req.Body.BearerToken = bt.Marshal()
 
 			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
@@ -167,7 +169,7 @@ func TestMessageSign(t *testing.T) {
 		})
 		t.Run("invalid bearer signature", func(t *testing.T) {
 			bt := testBearerToken(cid1, privs[1].PublicKey(), privs[2].PublicKey())
-			require.NoError(t, bt.Sign(privs[0].PrivateKey))
+			require.NoError(t, bt.Sign(signer))
 
 			var bv2 aclV2.BearerToken
 			bt.WriteToV2(&bv2)
@@ -179,7 +181,7 @@ func TestMessageSign(t *testing.T) {
 		})
 
 		bt := testBearerToken(cid1, privs[1].PublicKey(), privs[2].PublicKey())
-		require.NoError(t, bt.Sign(privs[0].PrivateKey))
+		require.NoError(t, bt.Sign(signer))
 		req.Body.BearerToken = bt.Marshal()
 		cnr.Value.SetBasicACL(acl.PublicRWExtended)
 

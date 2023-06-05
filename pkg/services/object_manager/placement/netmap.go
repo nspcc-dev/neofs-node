@@ -72,7 +72,7 @@ func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmapSDK.Plac
 		b.mtx.Unlock()
 	}
 
-	cn, err := nm.ContainerNodes(p, binCnr)
+	cn, err := nm.ContainerNodes(p, cnr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get container nodes: %w", err)
 	}
@@ -89,10 +89,7 @@ func BuildObjectPlacement(nm *netmapSDK.NetMap, cnrNodes [][]netmapSDK.NodeInfo,
 		return cnrNodes, nil
 	}
 
-	binObj := make([]byte, sha256.Size)
-	id.Encode(binObj)
-
-	on, err := nm.PlacementVectors(cnrNodes, binObj)
+	on, err := nm.PlacementVectors(cnrNodes, *id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get placement vectors for object: %w", err)
 	}

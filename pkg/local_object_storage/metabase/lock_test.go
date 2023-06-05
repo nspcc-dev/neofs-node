@@ -30,7 +30,7 @@ func TestDB_Lock(t *testing.T) {
 			object.TypeLock,
 			object.TypeRegular,
 		} {
-			obj := objecttest.Object()
+			obj := objecttest.Object(t)
 			obj.SetType(typ)
 			obj.SetContainerID(cnr)
 
@@ -197,7 +197,7 @@ func TestDB_IsLocked(t *testing.T) {
 
 	// existing but not locked obj
 
-	obj := objecttest.Object()
+	obj := objecttest.Object(t)
 
 	var putPrm meta.PutPrm
 	putPrm.SetObject(obj)

@@ -55,7 +55,7 @@ func TestShardReload(t *testing.T) {
 
 	objects := make([]objAddr, 5)
 	for i := range objects {
-		objects[i].obj = newObject()
+		objects[i].obj = newObject(t)
 		objects[i].addr = objectCore.AddressOf(objects[i].obj)
 		require.NoError(t, putObject(sh, objects[i].obj))
 	}
@@ -90,7 +90,7 @@ func TestShardReload(t *testing.T) {
 		checkHasObjects(t, false) // new path, but no resync
 
 		t.Run("can put objects", func(t *testing.T) {
-			obj := newObject()
+			obj := newObject(t)
 			require.NoError(t, putObject(sh, obj))
 			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
 		})
@@ -108,7 +108,7 @@ func TestShardReload(t *testing.T) {
 			require.Error(t, sh.Reload(newOpts...))
 
 			// Cleanup is done, no panic.
-			obj := newObject()
+			obj := newObject(t)
 			require.ErrorIs(t, putObject(sh, obj), ErrReadOnlyMode)
 
 			// Old objects are still accessible.
@@ -118,7 +118,7 @@ func TestShardReload(t *testing.T) {
 			require.NoError(t, os.RemoveAll(badPath))
 			require.NoError(t, sh.Reload(newOpts...))
 
-			obj = newObject()
+			obj = newObject(t)
 			require.NoError(t, putObject(sh, obj))
 
 			objects = append(objects, objAddr{obj: obj, addr: objectCore.AddressOf(obj)})
@@ -135,7 +135,7 @@ func putObject(sh *Shard, obj *objectSDK.Object) error {
 	return err
 }
 
-func newObject() *objectSDK.Object {
+func newObject(t testing.TB) *objectSDK.Object {
 	x := objectSDK.New()
 	ver := version.Current()
 
@@ -143,7 +143,7 @@ func newObject() *objectSDK.Object {
 	x.SetSessionToken(sessiontest.Object())
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	x.SetOwnerID(usertest.ID())
+	x.SetOwnerID(usertest.ID(t))
 	x.SetContainerID(cidtest.ID())
 	x.SetType(objectSDK.TypeRegular)
 	x.SetVersion(&ver)

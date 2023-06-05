@@ -97,7 +97,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		}
 		data := make([]byte, size)
 		rand.Read(data)
-		obj := generateObjectWithPayload(cnr, data)
+		obj := generateObjectWithPayload(t, cnr, data)
 		objects[i] = obj
 
 		var prm shard.PutPrm
@@ -326,7 +326,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	objects := make([]*objectSDK.Object, objCount)
 	for i := 0; i < objCount; i++ {
 		size := (wcSmallObjectSize << (i % 4)) - headerSize
-		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))
+		obj := generateObjectWithPayload(t, cidtest.ID(), make([]byte, size))
 		objects[i] = obj
 
 		var prm shard.PutPrm

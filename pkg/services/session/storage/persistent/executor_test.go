@@ -22,7 +22,7 @@ func TestTokenStore(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := *usertest.ID()
+	owner := *usertest.ID(t)
 
 	var ownerV2 refs.OwnerID
 	owner.WriteToV2(&ownerV2)
@@ -66,7 +66,7 @@ func TestTokenStore_Persistent(t *testing.T) {
 	ts, err := NewTokenStore(path)
 	require.NoError(t, err)
 
-	idOwner := *usertest.ID()
+	idOwner := *usertest.ID(t)
 
 	var idOwnerV2 refs.OwnerID
 	idOwner.WriteToV2(&idOwnerV2)
@@ -127,7 +127,7 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := *usertest.ID()
+	owner := *usertest.ID(t)
 
 	var ownerV2 refs.OwnerID
 	owner.WriteToV2(&ownerV2)

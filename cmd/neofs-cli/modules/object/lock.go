@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -43,7 +44,8 @@ var objectLockCmd = &cobra.Command{
 		key := key.GetOrGenerate(cmd)
 
 		var idOwner user.ID
-		user.IDFromKey(&idOwner, key.PublicKey)
+		err = user.IDFromSigner(&idOwner, neofsecdsa.SignerRFC6979(*key))
+		common.ExitOnErr(cmd, "decoding user from key", err)
 
 		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)

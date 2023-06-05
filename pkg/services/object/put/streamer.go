@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -99,6 +100,8 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not receive session key: %w", p, err)
 	}
 
+	signer := neofsecdsa.SignerRFC6979(*sessionKey)
+
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
 	if sToken == nil {
@@ -108,7 +111,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		}
 
 		var ownerSession user.ID
-		user.IDFromKey(&ownerSession, sessionKey.PublicKey)
+		err = user.IDFromSigner(&ownerSession, signer)
+		if err != nil {
+			return fmt.Errorf("could not user from key: %w", err)
+		}
 
 		if !ownerObj.Equals(ownerSession) {
 			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
@@ -121,13 +127,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 		nextTarget: transformer.NewPayloadSizeLimiter(
 			p.maxPayloadSz,
 			containerSDK.IsHomomorphicHashingDisabled(prm.cnr),
+			signer,
+			sToken,
+			p.networkState,
 			func() transformer.ObjectTarget {
-				return transformer.NewFormatTarget(&transformer.FormatterParams{
-					Key:          sessionKey,
-					NextTarget:   p.newCommonTarget(prm),
-					SessionToken: sToken,
-					NetworkState: p.networkState,
-				})
+				return p.newCommonTarget(prm)
 			},
 		),
 	}
@@ -264,13 +268,6 @@ func (p *Streamer) Close() (*PutResponse, error) {
 	ids, err := p.target.Close()
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
-	}
-
-	id := ids.ParentID()
-	if id != nil {
-		return &PutResponse{
-			id: *id,
-		}, nil
 	}
 
 	return &PutResponse{

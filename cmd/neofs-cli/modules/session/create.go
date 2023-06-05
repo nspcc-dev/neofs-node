@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
@@ -65,7 +66,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 
 	var tok session.Object
 
-	err = CreateSession(&tok, c, lifetime)
+	err = CreateSession(&tok, c, neofsecdsa.SignerRFC6979(*privKey), lifetime)
 	common.ExitOnErr(cmd, "can't create session: %w", err)
 
 	var data []byte
@@ -87,7 +88,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 // number of epochs.
 //
 // Fills ID, lifetime and session key.
-func CreateSession(dst *session.Object, c *client.Client, lifetime uint64) error {
+func CreateSession(dst *session.Object, c *client.Client, _signer neofscrypto.Signer, lifetime uint64) error {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(c)
 
@@ -102,6 +103,7 @@ func CreateSession(dst *session.Object, c *client.Client, lifetime uint64) error
 	var sessionPrm internalclient.CreateSessionPrm
 	sessionPrm.SetClient(c)
 	sessionPrm.SetExp(exp)
+	sessionPrm.UseSigner(_signer)
 
 	sessionRes, err := internalclient.CreateSession(sessionPrm)
 	if err != nil {

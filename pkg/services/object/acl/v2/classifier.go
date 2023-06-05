@@ -2,7 +2,6 @@ package v2
 
 import (
 	"bytes"
-	"crypto/sha256"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
@@ -33,19 +32,17 @@ func (c senderClassifier) classify(
 		return nil, err
 	}
 
-	ownerKeyInBytes := ownerKey.Bytes()
-
 	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
 	if ownerID.Equals(cnr.Owner()) {
 		return &classifyResult{
 			role: acl.RoleOwner,
-			key:  ownerKeyInBytes,
+			key:  ownerKey,
 		}, nil
 	}
 
-	isInnerRingNode, err := c.isInnerRingKey(ownerKeyInBytes)
+	isInnerRingNode, err := c.isInnerRingKey(ownerKey)
 	if err != nil {
 		// do not throw error, try best case matching
 		c.log.Debug("can't check if request from inner ring",
@@ -53,14 +50,11 @@ func (c senderClassifier) classify(
 	} else if isInnerRingNode {
 		return &classifyResult{
 			role: acl.RoleInnerRing,
-			key:  ownerKeyInBytes,
+			key:  ownerKey,
 		}, nil
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	idCnr.Encode(binCnr)
-
-	isContainerNode, err := c.isContainerKey(ownerKeyInBytes, binCnr, cnr)
+	isContainerNode, err := c.isContainerKey(ownerKey, idCnr, cnr)
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
@@ -70,14 +64,14 @@ func (c senderClassifier) classify(
 	} else if isContainerNode {
 		return &classifyResult{
 			role: acl.RoleContainer,
-			key:  ownerKeyInBytes,
+			key:  ownerKey,
 		}, nil
 	}
 
 	// if none of above, return RoleOthers
 	return &classifyResult{
 		role: acl.RoleOthers,
-		key:  ownerKeyInBytes,
+		key:  ownerKey,
 	}, nil
 }
 
@@ -98,7 +92,7 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 }
 
 func (c senderClassifier) isContainerKey(
-	owner, idCnr []byte,
+	owner []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
 	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
 	if err != nil {
@@ -124,7 +118,7 @@ func (c senderClassifier) isContainerKey(
 
 func lookupKeyInContainer(
 	nm *netmap.NetMap,
-	owner, idCnr []byte,
+	owner []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
 	cnrVectors, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
 	if err != nil {

@@ -62,6 +62,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -612,7 +613,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		workerPool: reputationWorkerPool,
 	}
 
-	user.IDFromKey(&c.ownerIDFromKey, key.PrivateKey.PublicKey)
+	err = user.IDFromSigner(&c.ownerIDFromKey, neofsecdsa.SignerRFC6979(key.PrivateKey))
+	fatalOnErr(err)
 
 	if metricsconfig.Enabled(c.appCfg) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)

@@ -99,7 +99,7 @@ func TestPutValidator_Assert(t *testing.T) {
 	e.info.SetID(e.id)
 
 	// diff explicit creator and the one in info
-	creator2 := *usertest.ID()
+	creator2 := *usertest.ID(t)
 
 	e.info.SetOwner(creator2)
 

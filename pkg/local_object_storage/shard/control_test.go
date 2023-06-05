@@ -107,7 +107,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	obj := objecttest.Object()
+	obj := objecttest.Object(t)
 	obj.SetType(objectSDK.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
@@ -174,7 +174,7 @@ func TestRefillMetabase(t *testing.T) {
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
 	for i := uint64(0); i < objNum; i++ {
-		obj := objecttest.Object()
+		obj := objecttest.Object(t)
 		obj.SetType(objectSDK.TypeRegular)
 
 		if len(locked) < 2 {
@@ -191,7 +191,7 @@ func TestRefillMetabase(t *testing.T) {
 		}
 	}
 
-	tombObj := objecttest.Object()
+	tombObj := objecttest.Object(t)
 	tombObj.SetType(objectSDK.TypeTombstone)
 
 	tombstone := objecttest.Tombstone()
@@ -231,7 +231,7 @@ func TestRefillMetabase(t *testing.T) {
 	var lock objectSDK.Lock
 	lock.WriteMembers(locked)
 
-	lockObj := objecttest.Object()
+	lockObj := objecttest.Object(t)
 	lockObj.SetContainerID(cnrLocked)
 	objectSDK.WriteLock(lockObj, lock)
 

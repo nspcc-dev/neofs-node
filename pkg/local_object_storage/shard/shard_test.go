@@ -103,10 +103,10 @@ func generateObject(t *testing.T) *object.Object {
 func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
 	data := make([]byte, 32)
 	rand.Read(data)
-	return generateObjectWithPayload(cnr, data)
+	return generateObjectWithPayload(t, cnr, data)
 }
 
-func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
+func generateObjectWithPayload(t testing.TB, cnr cid.ID, data []byte) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)
@@ -119,7 +119,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
-	obj.SetOwnerID(usertest.ID())
+	obj.SetOwnerID(usertest.ID(t))
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayload(data)

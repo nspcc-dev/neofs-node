@@ -1,7 +1,6 @@
 package acl
 
 import (
-	"crypto/ecdsa"
 	"crypto/elliptic"
 	"errors"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -112,9 +110,7 @@ func (c *Checker) StickyBitCheck(info v2.RequestInfo, owner user.ID) bool {
 		return false
 	}
 
-	requestSenderKey := unmarshalPublicKey(info.SenderKey())
-
-	return isOwnerFromKey(owner, requestSenderKey)
+	return isOwnerFromKey(owner, info.SenderKey())
 }
 
 // CheckEACL is a main check function for extended ACL.
@@ -239,15 +235,11 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 5. Then check if request sender has rights to use this token.
-	var keySender neofsecdsa.PublicKey
-
-	err := keySender.Decode(reqInfo.SenderKey())
+	var usrSender user.ID
+	err := user.IDFromKey(&usrSender, reqInfo.SenderKey())
 	if err != nil {
 		return fmt.Errorf("decode sender public key: %w", err)
 	}
-
-	var usrSender user.ID
-	user.IDFromKey(&usrSender, ecdsa.PublicKey(keySender))
 
 	if !token.AssertUser(usrSender) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
@@ -257,13 +249,16 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	return nil
 }
 
-func isOwnerFromKey(id user.ID, key *keys.PublicKey) bool {
+func isOwnerFromKey(id user.ID, key []byte) bool {
 	if key == nil {
 		return false
 	}
 
 	var id2 user.ID
-	user.IDFromKey(&id2, (ecdsa.PublicKey)(*key))
+	err := user.IDFromKey(&id2, key)
+	if err != nil {
+		return false
+	}
 
 	return id.Equals(id2)
 }

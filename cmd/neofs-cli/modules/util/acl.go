@@ -199,7 +199,7 @@ func parseEACLTable(tb *eacl.Table, args []string) error {
 	}
 
 	var action eacl.Action
-	if !action.FromString(strings.ToUpper(args[0])) {
+	if !action.DecodeString(strings.ToUpper(args[0])) {
 		return errors.New("invalid action (expected 'allow' or 'deny')")
 	}
 
@@ -291,7 +291,7 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 // eaclRoleFromString parses eacl.Role from string.
 func eaclRoleFromString(s string) (eacl.Role, error) {
 	var r eacl.Role
-	if !r.FromString(strings.ToUpper(s)) {
+	if !r.DecodeString(strings.ToUpper(s)) {
 		return r, fmt.Errorf("unexpected role %s", s)
 	}
 
@@ -321,7 +321,7 @@ func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 	ops := make([]eacl.Operation, len(ss))
 
 	for i := range ss {
-		if !ops[i].FromString(strings.ToUpper(ss[i])) {
+		if !ops[i].DecodeString(strings.ToUpper(ss[i])) {
 			return nil, fmt.Errorf("invalid operation: %s", ss[i])
 		}
 	}

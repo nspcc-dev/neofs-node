@@ -18,7 +18,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.101.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.16.0
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.7.0.20221212083658-a690dcb15917
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.8
 	github.com/nspcc-dev/tzhash v1.7.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.4.0
@@ -39,7 +39,7 @@ require (
 )
 
 require (
-	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20221202181307-76fa05c21b12 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -51,7 +51,7 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru v0.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
@@ -91,8 +91,9 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210305035536-64b5b1c73954 // indirect
 	github.com/twmb/murmur3 v1.1.5 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
+	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
+	golang.org/x/exp v0.0.0-20221227203929-1b447090c38c // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect

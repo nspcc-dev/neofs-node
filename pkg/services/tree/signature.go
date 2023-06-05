@@ -3,11 +3,9 @@ package tree
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -172,13 +170,11 @@ func roleFromReq(cnr *core.Container, req message) (acl.Role, error) {
 	role := acl.RoleOthers
 	owner := cnr.Value.Owner()
 
-	pub, err := keys.NewPublicKeyFromBytes(req.GetSignature().GetKey(), elliptic.P256())
+	var reqSigner user.ID
+	err := user.IDFromKey(&reqSigner, req.GetSignature().GetKey())
 	if err != nil {
 		return role, fmt.Errorf("invalid public key: %w", err)
 	}
-
-	var reqSigner user.ID
-	user.IDFromKey(&reqSigner, (ecdsa.PublicKey)(*pub))
 
 	if reqSigner.Equals(owner) {
 		role = acl.RoleOwner

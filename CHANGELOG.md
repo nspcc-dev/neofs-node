@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Update minimal supported Go version up to v1.18 (#2340)
 - tzhash library to 1.7.0 (#2348)
 - `github.com/hashicorp/golang-lru` to `v2.0.2`
+- `neofs-sdk-go` to `v1.0.0-rc.8`
 
 ### Updating from v0.36.1
 - `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the

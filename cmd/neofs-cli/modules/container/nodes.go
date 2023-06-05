@@ -1,8 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
-
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -36,13 +34,11 @@ var containerNodesCmd = &cobra.Command{
 
 		var id cid.ID
 		containerAPI.CalculateID(&id, cnr)
-		binCnr := make([]byte, sha256.Size)
-		id.Encode(binCnr)
 
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
-		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, binCnr)
+		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, id)
 		common.ExitOnErr(cmd, "could not build container nodes for given container: %w", err)
 
 		for i := range cnrNodes {

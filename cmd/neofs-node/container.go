@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strconv"
 
+	"github.com/nspcc-dev/hrw"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -406,12 +406,95 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([][]net
 		pivotPrefix + strconv.FormatUint(epoch, 10),
 	)
 
-	placement, err := nm.PlacementVectors(cnrNodes, pivot)
-	if err != nil {
-		return nil, fmt.Errorf("could not build placement vectors: %w", err)
+	return placementVectors(cnrNodes, nm, hrw.Hash(pivot)), nil
+}
+
+func placementVectors(cnrNodes [][]netmap.NodeInfo, nm *netmap.NetMap, hash uint64) [][]netmap.NodeInfo {
+	minimumPrice := minPrice(nm.Nodes())
+	meanCap := meanCapacity(nm.Nodes())
+	sortedVectors := make([][]netmap.NodeInfo, len(cnrNodes))
+
+	for i, v := range cnrNodes {
+		sortedVectors[i] = make([]netmap.NodeInfo, len(v))
+		copy(sortedVectors[i], v)
+
+		hrw.SortSliceByWeightValue(sortedVectors[i], weights(sortedVectors[i], minimumPrice, meanCap), hash)
 	}
 
-	return placement, nil
+	return sortedVectors
+}
+
+func weights(nn []netmap.NodeInfo, minPrice, meanCap float64) []float64 {
+	w := make([]float64, 0, len(nn))
+	for _, n := range nn {
+		w = append(w, reverseMinNorm(float64(n.Price()), minPrice)*sigmoidNorm(float64(capacity(n)), meanCap))
+	}
+
+	return w
+}
+
+func reverseMinNorm(v, base float64) float64 {
+	if v == 0 || base == 0 {
+		return 0
+	}
+
+	return base / v
+}
+
+func sigmoidNorm(v, base float64) float64 {
+	if v == 0 || base == 0 {
+		return 0
+	}
+
+	x := v / base
+
+	return x / (1 + x)
+}
+
+func meanCapacity(nn []netmap.NodeInfo) float64 {
+	l := len(nn)
+	if l == 0 {
+		return 0
+	}
+
+	var sum uint64
+	for _, n := range nn {
+		sum += capacity(n)
+	}
+
+	return float64(sum) / float64(l)
+}
+
+func minPrice(nn []netmap.NodeInfo) float64 {
+	l := len(nn)
+	if l == 0 {
+		return 0
+	}
+
+	var min uint64
+	for i := 0; i < l; i++ {
+		if p := nn[i].Price(); min == 0 || p < min { // That is how min looks in SDK in RC8: https://github.com/nspcc-dev/neofs-sdk-go/issues/438
+			min = p
+		}
+	}
+
+	return float64(min)
+}
+
+// capacity is copied with minor changed from SDK.
+// See https://github.com/nspcc-dev/neofs-sdk-go/blob/v1.0.0-rc.8/netmap/node_info.go#L283.
+func capacity(n netmap.NodeInfo) uint64 {
+	val := n.Attribute("Capacity")
+	if val == "" {
+		return 0
+	}
+
+	capParsed, err := strconv.ParseUint(val, 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return capParsed
 }
 
 func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]netmap.NodeInfo, *netmap.NetMap, error) {
@@ -425,10 +508,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 		return nil, nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	idCnr.Encode(binCnr)
-
-	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), binCnr)
+	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), idCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}

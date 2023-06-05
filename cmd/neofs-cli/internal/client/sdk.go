@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -46,7 +47,7 @@ func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey
 		prmDial client.PrmDial
 	)
 
-	prmInit.SetDefaultPrivateKey(*key)
+	prmInit.SetDefaultSigner(neofsecdsa.SignerRFC6979(*key))
 	prmInit.ResolveNeoFSFailures()
 	prmDial.SetServerURI(addr.URIAddr())
 	prmDial.SetContext(ctx)

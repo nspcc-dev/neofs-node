@@ -277,7 +277,7 @@ func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client
 
 	common.PrintVerbose(cmd, "Opening remote session with the node...")
 
-	err := sessionCli.CreateSession(&tok, cli, sessionLifetime)
+	err := sessionCli.CreateSession(&tok, cli, neofsecdsa.SignerRFC6979(*key), sessionLifetime)
 	common.ExitOnErr(cmd, "open remote session: %w", err)
 
 	common.PrintVerbose(cmd, "Session successfully opened.")
@@ -320,7 +320,7 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 
 	common.PrintVerbose(cmd, "Signing session...")
 
-	err := tok.Sign(*key)
+	err := tok.Sign(neofsecdsa.SignerRFC6979(*key))
 	common.ExitOnErr(cmd, "sign session: %w", err)
 
 	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")

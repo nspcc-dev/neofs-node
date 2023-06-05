@@ -2,12 +2,9 @@ package audit
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/hex"
 	"math/big"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
@@ -322,13 +319,8 @@ func (c *singleResultCtx) auditEpoch() uint64 {
 }
 
 func ownerFromKey(key []byte) (*user.ID, error) {
-	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
-	if err != nil {
-		return nil, err
-	}
-
 	var id user.ID
-	user.IDFromKey(&id, (ecdsa.PublicKey)(*pubKey))
+	err := user.IDFromKey(&id, key)
 
-	return &id, nil
+	return &id, err
 }

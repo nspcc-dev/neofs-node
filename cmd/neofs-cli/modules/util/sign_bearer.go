@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	btok := common.ReadBearerToken(cmd, signFromFlag)
 	pk := key.GetOrGenerate(cmd)
 
-	err := btok.Sign(*pk)
+	err := btok.Sign(neofsecdsa.SignerRFC6979(*pk))
 	common.ExitOnErr(cmd, "", err)
 
 	to := cmd.Flag(signToFlag).Value.String()

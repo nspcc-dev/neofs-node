@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -155,7 +156,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 	if prm.key != nil {
-		prm.cliPrm.UseKey(*prm.key)
+		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
 	}
 
 	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
@@ -416,7 +417,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	prmCli.MarkLocal()
 
 	if prm.key != nil {
-		prmCli.UseKey(*prm.key)
+		prmCli.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
 	}
 
 	if prm.tokenSession != nil {
@@ -502,7 +503,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
 	if prm.key != nil {
-		prm.cliPrm.UseKey(*prm.key)
+		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
 	}
 
 	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cliPrm)

@@ -48,11 +48,12 @@ func TestInvalidToken(t *testing.T) {
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
+	signer := neofsecdsa.Signer(priv.PrivateKey)
+
 	sign := func(reqBody interface {
 		StableMarshal([]byte) []byte
 		SetSignature(signature *refs.Signature)
 	}) {
-		signer := neofsecdsa.Signer(priv.PrivateKey)
 		var sig neofscrypto.Signature
 		require.NoError(t, sig.Calculate(signer, reqBody.StableMarshal(nil)))
 
@@ -62,7 +63,7 @@ func TestInvalidToken(t *testing.T) {
 	}
 
 	var tokV2 session.Token
-	sessiontest.ContainerSigned().WriteToV2(&tokV2)
+	sessiontest.ContainerSigned(signer).WriteToV2(&tokV2)
 
 	tests := []struct {
 		name string
@@ -73,7 +74,7 @@ func TestInvalidToken(t *testing.T) {
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.PutRequestBody
 
-				cnr := containertest.Container()
+				cnr := containertest.Container(t)
 
 				var cnrV2 container.Container
 				cnr.WriteToV2(&cnrV2)

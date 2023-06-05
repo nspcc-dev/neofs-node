@@ -11,6 +11,7 @@ import (
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	aclsdk "github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
@@ -18,11 +19,13 @@ import (
 )
 
 func TestOriginalTokens(t *testing.T) {
-	sToken := sessiontest.ObjectSigned()
-	bToken := bearertest.Token()
-
 	pk, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, bToken.Sign(*pk))
+	signer := neofsecdsa.SignerRFC6979(*pk)
+
+	sToken := sessiontest.ObjectSigned(signer)
+	bToken := bearertest.Token(t)
+
+	require.NoError(t, bToken.Sign(signer))
 
 	var bTokenV2 acl.BearerToken
 	bToken.WriteToV2(&bTokenV2)

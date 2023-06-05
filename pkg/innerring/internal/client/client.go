@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -64,7 +65,7 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
 	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(sgFilter)
-	cliPrm.UseKey(*x.key)
+	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
 	rdr, err := x.c.ObjectSearchInit(prm.ctx, cliPrm)
 	if err != nil {
@@ -123,7 +124,7 @@ func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
-	cliPrm.UseKey(*x.key)
+	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
 	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
 	if err != nil {
@@ -202,7 +203,7 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
-	cliPrm.UseKey(*x.key)
+	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
 	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
 	if err == nil {
