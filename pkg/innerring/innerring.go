@@ -358,12 +358,22 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	walletPath := cfg.GetString(walletPathKey)
 	walletPass := cfg.GetString("wallet.password")
 
+	// parse default validators
+	server.predefinedValidators, err = parsePredefinedValidators(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse predefined validators list: %w", err)
+	}
+
 	// create morph client
 	if isLocalConsensusMode(cfg) {
 		// go on a local blockchain
 		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
+		}
+
+		if len(server.predefinedValidators) == 0 {
+			server.predefinedValidators = cfgBlockchain.Committee
 		}
 
 		cfgBlockchain.Wallet.Path = walletPath
@@ -411,6 +421,10 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 			return nil, fmt.Errorf("init internal morph client: %w", err)
 		}
 	} else {
+		if len(server.predefinedValidators) == 0 {
+			return nil, fmt.Errorf("empty '%s' list in config", validatorsConfigKey)
+		}
+
 		// fallback to the pure RPC architecture
 		acc, err := utilConfig.LoadAccount(
 			walletPath,
@@ -509,12 +523,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		if err != nil {
 			return nil, fmt.Errorf("could not enable main chain notary support: %w", err)
 		}
-	}
-
-	// parse default validators
-	server.predefinedValidators, err = parsePredefinedValidators(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("ir: can't parse predefined validators list: %w", err)
 	}
 
 	server.pubKey = server.key.PublicKey().Bytes()
@@ -1042,8 +1050,10 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 	)
 }
 
+const validatorsConfigKey = "morph.validators"
+
 func parsePredefinedValidators(cfg *viper.Viper) (keys.PublicKeys, error) {
-	publicKeyStrings := cfg.GetStringSlice("morph.validators")
+	publicKeyStrings := cfg.GetStringSlice(validatorsConfigKey)
 
 	return ParsePublicKeysFromStrings(publicKeyStrings)
 }

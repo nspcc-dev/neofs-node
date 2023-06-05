@@ -17,7 +17,7 @@ morph:
   endpoints: # List of websocket RPC endpoints in sidechain
       - wss://sidechain1.fs.neo.org:30333/ws
       - wss://sidechain2.fs.neo.org:30333/ws
-  validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup
+  validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup; can be omitted if equals `consensus.committee`
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
   consensus: # Local consensus launch mode activated only when 'endpoint.client' is unset.
     magic: 15405 # Network magic. Must be unsigned integer in range [1:4294967295]
