@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	slicerSDK "github.com/nspcc-dev/neofs-sdk-go/object/slicer"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -25,13 +26,17 @@ type payloadSizeLimiter struct {
 	stream     *slicerSDK.PayloadWriter
 	objSlicer  *slicerSDK.Slicer
 	targetInit TargetInitializer
+
+	_changedParentID *oid.ID
 }
 
 // objStreamInitializer implements [slicerSDK.ObjectWriter].
 type objStreamInitializer struct {
 	targetInit TargetInitializer
 
-	_signer neofscrypto.Signer
+	_psl     *payloadSizeLimiter
+	_signer  neofscrypto.Signer
+	_objType object.Type
 }
 
 var (
@@ -41,10 +46,53 @@ var (
 
 func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, error) {
 	stream := o.targetInit()
+	linkObj := len(header.Children()) > 0
+
+	// v1.0.0-rc.8 has a bug that does not allow any non-regular objects
+	// to be split, thus that check, see https://github.com/nspcc-dev/neofs-sdk-go/issues/442.
+	if o._objType != object.TypeRegular {
+		if header.SplitID() != nil {
+			// non-regular object has been split;
+			// needed to make it carefully and add
+			// original object type to the parent
+			// header only
+			if par := header.Parent(); par != nil {
+				par.SetType(o._objType)
+				err := _healHeader(o._signer, par)
+				if err != nil {
+					return nil, fmt.Errorf("broken non-regular object (parent): %w", err)
+				}
+
+				newID, _ := par.ID()
+				o._psl._changedParentID = &newID
+
+				header.SetParent(par)
+
+				// linking objects will be healed
+				// below anyway
+				if !linkObj {
+					err = _healHeader(o._signer, &header)
+					if err != nil {
+						return nil, fmt.Errorf("broken non-regular object (child): %w", err)
+					}
+				}
+			}
+		} else {
+			// non-regular object has not been split
+			// so just restore its type
+			header.SetType(o._objType)
+			err := _healHeader(o._signer, &header)
+			if err != nil {
+				return nil, fmt.Errorf("broken non-regular object: %w", err)
+			}
+
+			newID, _ := header.ID()
+			o._psl._changedParentID = &newID
+		}
+	}
 
 	// v1.0.0-rc.8 has a bug that relates linking objects, thus that
 	// check, see https://github.com/nspcc-dev/neofs-sdk-go/pull/427.
-	linkObj := len(header.Children()) > 0
 	if linkObj {
 		header.SetPayloadSize(0)
 
@@ -59,14 +107,9 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 			header.SetPayloadHomomorphicHash(cs)
 		}
 
-		err := object.CalculateAndSetID(&header)
+		err := _healHeader(o._signer, &header)
 		if err != nil {
-			return nil, fmt.Errorf("broken linking object id recalculation: %w", err)
-		}
-
-		err = object.CalculateAndSetSignature(o._signer, &header)
-		if err != nil {
-			return nil, fmt.Errorf("broken linking ojbect id recalculation: %w", err)
+			return nil, fmt.Errorf("broken linking object: %w", err)
 		}
 	}
 
@@ -76,6 +119,22 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 	}
 
 	return &objStream{target: stream, _linkObj: linkObj}, nil
+}
+
+// _healHeader recalculates all signature related fields that are
+// broken after any setter call.
+func _healHeader(signer neofscrypto.Signer, header *object.Object) error {
+	err := object.CalculateAndSetID(header)
+	if err != nil {
+		return fmt.Errorf("id recalculation: %w", err)
+	}
+
+	err = object.CalculateAndSetSignature(signer, header)
+	if err != nil {
+		return fmt.Errorf("signature recalculation: %w", err)
+	}
+
+	return nil
 }
 
 // objStream implements [io.Writer] and [io.Closer].
@@ -133,7 +192,9 @@ func (s *payloadSizeLimiter) WriteHeader(hdr *object.Object) error {
 	cid, _ := hdr.ContainerID()
 	streamInitializer := &objStreamInitializer{
 		targetInit: s.targetInit,
+		_psl:       s,
 		_signer:    s.signer,
+		_objType:   hdr.Type(),
 	}
 
 	if s.sessionToken == nil {
@@ -174,6 +235,12 @@ func (s *payloadSizeLimiter) Close() (*AccessIdentifiers, error) {
 
 	ids := new(AccessIdentifiers)
 	ids.WithSelfID(id)
+
+	// object's header has been changed therefore SDK `Slicer`
+	// returned the broken ID, let's help it and correct the ID
+	if s._changedParentID != nil {
+		ids.WithSelfID(*s._changedParentID)
+	}
 
 	return ids, nil
 }
