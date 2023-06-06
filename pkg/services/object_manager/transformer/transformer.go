@@ -142,8 +142,17 @@ func (s *payloadSizeLimiter) WriteHeader(hdr *object.Object) error {
 		s.objSlicer = slicerSDK.NewSession(s.signer, cid, *s.sessionToken, streamInitializer, opts)
 	}
 
+	var attrs []string
+	if oAttrs := hdr.Attributes(); len(oAttrs) > 0 {
+		attrs = make([]string, 0, len(oAttrs)*2)
+
+		for _, a := range oAttrs {
+			attrs = append(attrs, a.Key(), a.Value())
+		}
+	}
+
 	var err error
-	s.stream, err = s.objSlicer.InitPayloadStream()
+	s.stream, err = s.objSlicer.InitPayloadStream(attrs...)
 	if err != nil {
 		return fmt.Errorf("initializing payload stream: %w", err)
 	}
