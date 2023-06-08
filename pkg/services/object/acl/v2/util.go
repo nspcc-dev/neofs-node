@@ -1,11 +1,9 @@
 package v2
 
 import (
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -142,10 +140,6 @@ func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signa
 	}
 
 	return v.GetBodySignature()
-}
-
-func unmarshalPublicKey(bs []byte) (*keys.PublicKey, error) {
-	return keys.NewPublicKeyFromBytes(bs, elliptic.P256())
 }
 
 func isOwnerFromKey(id user.ID, key []byte) bool {

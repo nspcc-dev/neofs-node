@@ -1,11 +1,9 @@
 package acl
 
 import (
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -261,12 +259,4 @@ func isOwnerFromKey(id user.ID, key []byte) bool {
 	}
 
 	return id.Equals(id2)
-}
-
-func unmarshalPublicKey(bs []byte) *keys.PublicKey {
-	pub, err := keys.NewPublicKeyFromBytes(bs, elliptic.P256())
-	if err != nil {
-		return nil
-	}
-	return pub
 }
