@@ -17,9 +17,9 @@ const (
 )
 
 var (
-	errCreateTimeout  = errors.New("timeout: container has not been persisted on sidechain")
-	errDeleteTimeout  = errors.New("timeout: container has not been removed from sidechain")
-	errSetEACLTimeout = errors.New("timeout: EACL has not been persisted on sidechain")
+	errCreateTimeout  = errors.New("container creation was requested, but timeout has happened while waiting for the outcome")
+	errDeleteTimeout  = errors.New("container removal was requested, but timeout has happened while waiting for the outcome")
+	errSetEACLTimeout = errors.New("eACL modification was requested, but timeout has happened while waiting for the outcome")
 )
 
 func parseContainerID(cmd *cobra.Command) cid.ID {
