@@ -18,13 +18,16 @@ var nodeInfoCmd = &cobra.Command{
 	Short: "Get target node info",
 	Long:  `Get target node info`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		p := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, p, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, p, commonflags.RPC)
 
 		var prm internalclient.NodeInfoPrm
 		prm.SetClient(cli)
 
-		res, err := internalclient.NodeInfo(prm)
+		res, err := internalclient.NodeInfo(ctx, prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		prettyPrintNodeInfo(cmd, res.NodeInfo())

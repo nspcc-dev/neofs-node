@@ -34,6 +34,9 @@ func initAddCmd() {
 }
 
 func add(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.GetOrGenerate(cmd)
 
 	var cnr cid.ID
@@ -45,8 +48,6 @@ func add(cmd *cobra.Command, _ []string) {
 
 	meta, err := parseMeta(cmd)
 	common.ExitOnErr(cmd, "meta data parsing: %w", err)
-
-	ctx := cmd.Context()
 
 	cli, err := _client(ctx)
 	common.ExitOnErr(cmd, "client: %w", err)

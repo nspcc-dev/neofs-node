@@ -45,6 +45,9 @@ func initObjectHeadCmd() {
 }
 
 func getObjectHeader(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -52,7 +55,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 	mainOnly, _ := cmd.Flags().GetBool("main-only")
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.HeadObjectPrm
 	prm.SetClient(cli)
@@ -64,7 +67,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 	prm.SetAddress(objAddr)
 	prm.SetMainOnlyFlag(mainOnly)
 
-	res, err := internalclient.HeadObject(prm)
+	res, err := internalclient.HeadObject(ctx, prm)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return

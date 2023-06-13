@@ -3,6 +3,7 @@ package control
 import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -21,6 +22,9 @@ var restoreShardCmd = &cobra.Command{
 }
 
 func restoreShard(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.Get(cmd)
 
 	body := new(control.RestoreShardRequest_Body)
@@ -37,7 +41,7 @@ func restoreShard(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(cmd, pk)
+	cli := getClient(ctx, cmd, pk)
 
 	var resp *control.RestoreShardResponse
 	var err error

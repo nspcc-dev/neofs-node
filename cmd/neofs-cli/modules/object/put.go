@@ -60,6 +60,9 @@ func initObjectPutCmd() {
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	binary, _ := cmd.Flags().GetBool(binaryFlag)
 	cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
@@ -130,7 +133,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	}
 
 	var prm internalclient.PutObjectPrm
-	ReadOrOpenSession(cmd, &prm, pk, cnr, nil)
+	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, nil)
 	Prepare(cmd, &prm)
 	prm.SetHeader(obj)
 
@@ -161,7 +164,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 		}
 	}
 
-	res, err := internalclient.PutObject(prm)
+	res, err := internalclient.PutObject(ctx, prm)
 	if p != nil {
 		p.Finish()
 	}

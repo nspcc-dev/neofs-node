@@ -38,6 +38,9 @@ func initSGGetCmd() {
 }
 
 func getSG(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -45,7 +48,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 	buf := bytes.NewBuffer(nil)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.GetObjectPrm
 	objectCli.Prepare(cmd, &prm)
@@ -56,7 +59,7 @@ func getSG(cmd *cobra.Command, _ []string) {
 	prm.SetAddress(addr)
 	prm.SetPayloadWriter(buf)
 
-	res, err := internalclient.GetObject(prm)
+	res, err := internalclient.GetObject(ctx, prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	rawObj := res.Header()

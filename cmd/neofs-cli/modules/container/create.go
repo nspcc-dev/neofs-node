@@ -38,17 +38,20 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
 		key := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
 
 		if !force {
 			var prm internalclient.NetMapSnapshotPrm
 			prm.SetClient(cli)
 
-			resmap, err := internalclient.NetMapSnapshot(prm)
+			resmap, err := internalclient.NetMapSnapshot(ctx, prm)
 			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
 				"use --force option to skip this check: %w", err)
 
@@ -106,7 +109,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		syncContainerPrm.SetClient(cli)
 		syncContainerPrm.SetContainer(&cnr)
 
-		_, err = internalclient.SyncContainerSettings(syncContainerPrm)
+		_, err = internalclient.SyncContainerSettings(ctx, syncContainerPrm)
 		common.ExitOnErr(cmd, "syncing container's settings rpc error: %w", err)
 
 		var putPrm internalclient.PutContainerPrm
@@ -117,7 +120,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			putPrm.WithinSession(*tok)
 		}
 
-		res, err := internalclient.PutContainer(putPrm)
+		res, err := internalclient.PutContainer(ctx, putPrm)
 		common.ExitOnErr(cmd, "put container rpc error: %w", err)
 
 		id := res.ID()
@@ -134,7 +137,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := internalclient.GetContainer(getPrm)
+				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err == nil {
 					cmd.Println("container has been persisted on sidechain")
 					return

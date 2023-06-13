@@ -44,6 +44,9 @@ func initObjectRangeCmd() {
 }
 
 func getObjectRange(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -74,7 +77,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.PayloadRangePrm
 	prm.SetClient(cli)
@@ -87,7 +90,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 	prm.SetRange(ranges[0])
 	prm.SetPayloadWriter(out)
 
-	_, err = internalclient.PayloadRange(prm)
+	_, err = internalclient.PayloadRange(ctx, prm)
 	if err != nil {
 		if ok := printSplitInfoErr(cmd, err); ok {
 			return

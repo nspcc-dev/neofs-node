@@ -37,8 +37,8 @@ func (x BalanceOfRes) Balance() accounting.Decimal {
 // BalanceOf requests the current balance of a NeoFS user.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func BalanceOf(prm BalanceOfPrm) (res BalanceOfRes, err error) {
-	res.cliRes, err = prm.cli.BalanceGet(context.Background(), prm.PrmBalanceGet)
+func BalanceOf(ctx context.Context, prm BalanceOfPrm) (res BalanceOfRes, err error) {
+	res.cliRes, err = prm.cli.BalanceGet(ctx, prm.PrmBalanceGet)
 
 	return
 }
@@ -62,8 +62,8 @@ func (x ListContainersRes) IDList() []cid.ID {
 // ListContainers requests a list of NeoFS user's containers.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func ListContainers(prm ListContainersPrm) (res ListContainersRes, err error) {
-	res.cliRes, err = prm.cli.ContainerList(context.Background(), prm.PrmContainerList)
+func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContainersRes, err error) {
+	res.cliRes, err = prm.cli.ContainerList(ctx, prm.PrmContainerList)
 
 	return
 }
@@ -92,8 +92,8 @@ func (x PutContainerRes) ID() cid.ID {
 // Success can be verified by reading by identifier.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func PutContainer(prm PutContainerPrm) (res PutContainerRes, err error) {
-	cliRes, err := prm.cli.ContainerPut(context.Background(), prm.PrmContainerPut)
+func PutContainer(ctx context.Context, prm PutContainerPrm) (res PutContainerRes, err error) {
+	cliRes, err := prm.cli.ContainerPut(ctx, prm.PrmContainerPut)
 	if err == nil {
 		res.cnr = cliRes.ID()
 	}
@@ -125,20 +125,20 @@ func (x GetContainerRes) Container() containerSDK.Container {
 // GetContainer reads a container from NeoFS by ID.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func GetContainer(prm GetContainerPrm) (res GetContainerRes, err error) {
-	res.cliRes, err = prm.cli.ContainerGet(context.Background(), prm.cliPrm)
+func GetContainer(ctx context.Context, prm GetContainerPrm) (res GetContainerRes, err error) {
+	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cliPrm)
 
 	return
 }
 
 // IsACLExtendable checks if ACL of the container referenced by the given identifier
 // can be extended. Client connection MUST BE correctly established in advance.
-func IsACLExtendable(c *client.Client, cnr cid.ID) (bool, error) {
+func IsACLExtendable(ctx context.Context, c *client.Client, cnr cid.ID) (bool, error) {
 	var prm GetContainerPrm
 	prm.SetClient(c)
 	prm.SetContainer(cnr)
 
-	res, err := GetContainer(prm)
+	res, err := GetContainer(ctx, prm)
 	if err != nil {
 		return false, fmt.Errorf("get container from the NeoFS: %w", err)
 	}
@@ -163,8 +163,8 @@ type DeleteContainerRes struct{}
 // Success can be verified by reading by identifier.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func DeleteContainer(prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	_, err = prm.cli.ContainerDelete(context.Background(), prm.PrmContainerDelete)
+func DeleteContainer(ctx context.Context, prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
+	_, err = prm.cli.ContainerDelete(ctx, prm.PrmContainerDelete)
 
 	return
 }
@@ -188,8 +188,8 @@ func (x EACLRes) EACL() eacl.Table {
 // EACL reads eACL table from NeoFS by container ID.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func EACL(prm EACLPrm) (res EACLRes, err error) {
-	res.cliRes, err = prm.cli.ContainerEACL(context.Background(), prm.PrmContainerEACL)
+func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
+	res.cliRes, err = prm.cli.ContainerEACL(ctx, prm.PrmContainerEACL)
 
 	return
 }
@@ -211,8 +211,8 @@ type SetEACLRes struct{}
 // Success can be verified by reading by container identifier.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func SetEACL(prm SetEACLPrm) (res SetEACLRes, err error) {
-	_, err = prm.cli.ContainerSetEACL(context.Background(), prm.PrmContainerSetEACL)
+func SetEACL(ctx context.Context, prm SetEACLPrm) (res SetEACLRes, err error) {
+	_, err = prm.cli.ContainerSetEACL(ctx, prm.PrmContainerSetEACL)
 
 	return
 }
@@ -236,8 +236,8 @@ func (x NetworkInfoRes) NetworkInfo() netmap.NetworkInfo {
 // NetworkInfo reads information about the NeoFS network.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func NetworkInfo(prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
-	res.cliRes, err = prm.cli.NetworkInfo(context.Background(), prm.PrmNetworkInfo)
+func NetworkInfo(ctx context.Context, prm NetworkInfoPrm) (res NetworkInfoRes, err error) {
+	res.cliRes, err = prm.cli.NetworkInfo(ctx, prm.PrmNetworkInfo)
 
 	return
 }
@@ -266,8 +266,8 @@ func (x NodeInfoRes) LatestVersion() version.Version {
 // NodeInfo requests information about the remote server from NeoFS netmap.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func NodeInfo(prm NodeInfoPrm) (res NodeInfoRes, err error) {
-	res.cliRes, err = prm.cli.EndpointInfo(context.Background(), prm.PrmEndpointInfo)
+func NodeInfo(ctx context.Context, prm NodeInfoPrm) (res NodeInfoRes, err error) {
+	res.cliRes, err = prm.cli.EndpointInfo(ctx, prm.PrmEndpointInfo)
 
 	return
 }
@@ -290,8 +290,8 @@ func (x NetMapSnapshotRes) NetMap() netmap.NetMap {
 // NetMapSnapshot requests current network view of the remote server.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func NetMapSnapshot(prm NetMapSnapshotPrm) (res NetMapSnapshotRes, err error) {
-	res.cliRes, err = prm.cli.NetMapSnapshot(context.Background(), client.PrmNetMapSnapshot{})
+func NetMapSnapshot(ctx context.Context, prm NetMapSnapshotPrm) (res NetMapSnapshotRes, err error) {
+	res.cliRes, err = prm.cli.NetMapSnapshot(ctx, client.PrmNetMapSnapshot{})
 	return
 }
 
@@ -319,8 +319,8 @@ func (x CreateSessionRes) SessionKey() []byte {
 // CreateSession opens a new unlimited session with the remote node.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func CreateSession(prm CreateSessionPrm) (res CreateSessionRes, err error) {
-	res.cliRes, err = prm.cli.SessionCreate(context.Background(), prm.PrmSessionCreate)
+func CreateSession(ctx context.Context, prm CreateSessionPrm) (res CreateSessionRes, err error) {
+	res.cliRes, err = prm.cli.SessionCreate(ctx, prm.PrmSessionCreate)
 
 	return
 }
@@ -365,7 +365,7 @@ func (x PutObjectRes) ID() oid.ID {
 // PutObject saves the object in NeoFS network.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
+func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 	var putPrm client.PrmObjectPutInit
 
 	if prm.sessionToken != nil {
@@ -382,7 +382,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 
 	putPrm.WithXHeaders(prm.xHeaders...)
 
-	wrt, err := prm.cli.ObjectPutInit(context.Background(), putPrm)
+	wrt, err := prm.cli.ObjectPutInit(ctx, putPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object writing: %w", err)
 	}
@@ -462,7 +462,7 @@ func (x DeleteObjectRes) Tombstone() oid.ID {
 // DeleteObject marks an object to be removed from NeoFS through tombstone placement.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
+func DeleteObject(ctx context.Context, prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	var delPrm client.PrmObjectDelete
 	delPrm.FromContainer(prm.objAddr.Container())
 	delPrm.ByID(prm.objAddr.Object())
@@ -477,7 +477,7 @@ func DeleteObject(prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 
 	delPrm.WithXHeaders(prm.xHeaders...)
 
-	cliRes, err := prm.cli.ObjectDelete(context.Background(), delPrm)
+	cliRes, err := prm.cli.ObjectDelete(ctx, delPrm)
 	if err != nil {
 		return nil, fmt.Errorf("remove object via client: %w", err)
 	}
@@ -518,7 +518,7 @@ func (x GetObjectRes) Header() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
-func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
+func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 	var getPrm client.PrmObjectGet
 	getPrm.FromContainer(prm.objAddr.Container())
 	getPrm.ByID(prm.objAddr.Object())
@@ -541,7 +541,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 
 	getPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectGetInit(context.Background(), getPrm)
+	rdr, err := prm.cli.ObjectGetInit(ctx, getPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading on client: %w", err)
 	}
@@ -594,7 +594,7 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
-func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
+func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
@@ -617,7 +617,7 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHead(context.Background(), cliPrm)
+	res, err := prm.cli.ObjectHead(ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header via client: %w", err)
 	}
@@ -659,7 +659,7 @@ func (x SearchObjectsRes) IDList() []oid.ID {
 // SearchObjects selects objects from the container which match the filters.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
-func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
+func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	var cliPrm client.PrmObjectSearch
 	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(prm.filters)
@@ -678,7 +678,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectSearchInit(context.Background(), cliPrm)
+	rdr, err := prm.cli.ObjectSearchInit(ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -749,7 +749,7 @@ func (x HashPayloadRangesRes) HashList() [][]byte {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns an error if number of received hashes differs with the number of requested ranges.
-func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
+func HashPayloadRanges(ctx context.Context, prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
 	var cliPrm client.PrmObjectHash
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
@@ -783,7 +783,7 @@ func HashPayloadRanges(prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) 
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHash(context.Background(), cliPrm)
+	res, err := prm.cli.ObjectHash(ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read payload hashes via client: %w", err)
 	}
@@ -817,7 +817,7 @@ type PayloadRangeRes struct{}
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
-func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
+func PayloadRange(ctx context.Context, prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	var cliPrm client.PrmObjectRange
 	cliPrm.FromContainer(prm.objAddr.Container())
 	cliPrm.ByID(prm.objAddr.Object())
@@ -843,7 +843,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectRangeInit(context.Background(), cliPrm)
+	rdr, err := prm.cli.ObjectRangeInit(ctx, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
@@ -877,12 +877,12 @@ type SyncContainerRes struct{}
 // Interrupts on any writer error.
 //
 // Panics if a container passed as a parameter is nil.
-func SyncContainerSettings(prm SyncContainerPrm) (*SyncContainerRes, error) {
+func SyncContainerSettings(ctx context.Context, prm SyncContainerPrm) (*SyncContainerRes, error) {
 	if prm.c == nil {
 		panic("sync container settings with the network: nil container")
 	}
 
-	err := client.SyncContainerWithNetwork(context.Background(), prm.c, prm.cli)
+	err := client.SyncContainerWithNetwork(ctx, prm.c, prm.cli)
 	if err != nil {
 		return nil, err
 	}

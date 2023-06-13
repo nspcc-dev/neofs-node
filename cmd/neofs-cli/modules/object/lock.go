@@ -26,6 +26,9 @@ var objectLockCmd = &cobra.Command{
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
 	Run: func(cmd *cobra.Command, _ []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 		var cnr cid.ID
@@ -82,11 +85,11 @@ var objectLockCmd = &cobra.Command{
 		obj.SetPayload(lock.Marshal())
 
 		var prm internalclient.PutObjectPrm
-		ReadOrOpenSession(cmd, &prm, key, cnr, nil)
+		ReadOrOpenSession(ctx, cmd, &prm, key, cnr, nil)
 		Prepare(cmd, &prm)
 		prm.SetHeader(obj)
 
-		res, err := internalclient.PutObject(prm)
+		res, err := internalclient.PutObject(ctx, prm)
 		common.ExitOnErr(cmd, "Store lock object in NeoFS: %w", err)
 
 		cmd.Printf("Lock object ID: %s\n", res.ID())

@@ -29,12 +29,15 @@ var listContainerObjectsCmd = &cobra.Command{
 	Short: "List existing objects in container",
 	Long:  `List existing objects in container`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		id := parseContainerID(cmd)
 
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
 
-		cli := internalclient.GetSDKClientByFlag(cmd, key.GetOrGenerate(cmd), commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key.GetOrGenerate(cmd), commonflags.RPC)
 
 		var prmSearch internalclient.SearchObjectsPrm
 		var prmHead internalclient.HeadObjectPrm
@@ -51,7 +54,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		prmSearch.SetContainerID(id)
 		prmSearch.SetFilters(*filters)
 
-		res, err := internalclient.SearchObjects(prmSearch)
+		res, err := internalclient.SearchObjects(ctx, prmSearch)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		objectIDs := res.IDList()
@@ -65,7 +68,7 @@ var listContainerObjectsCmd = &cobra.Command{
 				addr.SetObject(objectIDs[i])
 				prmHead.SetAddress(addr)
 
-				resHead, err := internalclient.HeadObject(prmHead)
+				resHead, err := internalclient.HeadObject(ctx, prmHead)
 				if err == nil {
 					attrs := resHead.Header().Attributes()
 					for i := range attrs {

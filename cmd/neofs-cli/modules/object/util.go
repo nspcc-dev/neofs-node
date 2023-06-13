@@ -1,6 +1,7 @@
 package object
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -206,19 +207,19 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 }
 
 // ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
-func ReadOrOpenSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
-	cli := internal.GetSDKClientByFlag(cmd, key, commonflags.RPC)
-	ReadOrOpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	cli := internal.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+	ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
 }
 
 // ReadOrOpenSessionViaClient tries to read session from the file specified in
 // commonflags.SessionToken flag, finalizes structures of the decoded token
 // and write the result into provided SessionPrm. If file is missing,
 // ReadOrOpenSessionViaClient calls OpenSessionViaClient.
-func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
 	tok := getSession(cmd)
 	if tok == nil {
-		OpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+		OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
 		return
 	}
 
@@ -229,7 +230,7 @@ func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
 			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
-			objs = append(objs, collectObjectRelatives(cmd, cli, cnr, *obj)...)
+			objs = append(objs, collectObjectRelatives(ctx, cmd, cli, cnr, *obj)...)
 		}
 	}
 
@@ -238,9 +239,9 @@ func ReadOrOpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.
 }
 
 // OpenSession opens client connection and calls OpenSessionViaClient with it.
-func OpenSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
-	cli := internal.GetSDKClientByFlag(cmd, key, commonflags.RPC)
-	OpenSessionViaClient(cmd, dst, cli, key, cnr, obj)
+func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+	cli := internal.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+	OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
 }
 
 // OpenSessionViaClient opens object session with the remote node, finalizes
@@ -254,14 +255,14 @@ func OpenSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr 
 //
 // If provided SessionPrm is of type internal.DeleteObjectPrm, OpenSessionViaClient
 // spreads the session to all object's relatives.
-func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
 	var objs []oid.ID
 
 	if obj != nil {
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
 			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
-			rels := collectObjectRelatives(cmd, cli, cnr, *obj)
+			rels := collectObjectRelatives(ctx, cmd, cli, cnr, *obj)
 
 			if len(rels) == 0 {
 				objs = []oid.ID{*obj}
@@ -277,7 +278,7 @@ func OpenSessionViaClient(cmd *cobra.Command, dst SessionPrm, cli *client.Client
 
 	common.PrintVerbose(cmd, "Opening remote session with the node...")
 
-	err := sessionCli.CreateSession(&tok, cli, neofsecdsa.SignerRFC6979(*key), sessionLifetime)
+	err := sessionCli.CreateSession(ctx, &tok, cli, neofsecdsa.SignerRFC6979(*key), sessionLifetime)
 	common.ExitOnErr(cmd, "open remote session: %w", err)
 
 	common.PrintVerbose(cmd, "Session successfully opened.")
@@ -338,7 +339,7 @@ func initFlagSession(cmd *cobra.Command, verb string) {
 // container.
 //
 // The object itself is not included in the result.
-func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, obj oid.ID) []oid.ID {
+func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client.Client, cnr cid.ID, obj oid.ID) []oid.ID {
 	common.PrintVerbose(cmd, "Fetching raw object header...")
 
 	// request raw header first
@@ -353,7 +354,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 	Prepare(cmd, &prmHead)
 
-	_, err := internal.HeadObject(prmHead)
+	_, err := internal.HeadObject(ctx, prmHead)
 
 	var errSplit *object.SplitInfoError
 
@@ -380,7 +381,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		prmHead.SetRawFlag(false)
 		// client is already set
 
-		res, err := internal.HeadObject(prmHead)
+		res, err := internal.HeadObject(ctx, prmHead)
 		if err == nil {
 			children := res.Header().Children()
 
@@ -406,7 +407,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 		prm.SetClient(cli)
 		prm.SetFilters(query)
 
-		res, err := internal.SearchObjects(prm)
+		res, err := internal.SearchObjects(ctx, prm)
 		common.ExitOnErr(cmd, "failed to search objects by split ID: %w", err)
 
 		members := res.IDList()
@@ -435,7 +436,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 
 		addrObj.SetObject(idMember)
 
-		res, err = internal.HeadObject(prmHead)
+		res, err = internal.HeadObject(ctx, prmHead)
 		common.ExitOnErr(cmd, "failed to read split chain member's header: %w", err)
 
 		idMember, ok = res.Header().PreviousID()
@@ -462,7 +463,7 @@ func collectObjectRelatives(cmd *cobra.Command, cli *client.Client, cnr cid.ID, 
 	prmSearch.SetContainerID(cnr)
 	prmSearch.SetFilters(query)
 
-	resSearch, err := internal.SearchObjects(prmSearch)
+	resSearch, err := internal.SearchObjects(ctx, prmSearch)
 	common.ExitOnErr(cmd, "failed to find object children: %w", err)
 
 	list := resSearch.IDList()

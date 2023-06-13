@@ -48,6 +48,9 @@ func initObjectHashCmd() {
 }
 
 func getObjectHash(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -64,7 +67,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "could not decode salt: %w", err)
 
 	pk := key.GetOrGenerate(cmd)
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	tz := typ == hashTz
 	fullHash := len(ranges) == 0
@@ -75,7 +78,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		headPrm.SetAddress(objAddr)
 
 		// get hash of full payload through HEAD (may be user can do it through dedicated command?)
-		res, err := internalclient.HeadObject(headPrm)
+		res, err := internalclient.HeadObject(ctx, headPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		var cs checksum.Checksum
@@ -108,7 +111,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		hashPrm.TZ()
 	}
 
-	res, err := internalclient.HashPayloadRanges(hashPrm)
+	res, err := internalclient.HashPayloadRanges(ctx, hashPrm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	hs := res.HashList()

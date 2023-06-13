@@ -20,12 +20,15 @@ var deleteContainerCmd = &cobra.Command{
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		id := parseContainerID(cmd)
 
 		tok := getSession(cmd)
 
 		pk := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
@@ -34,7 +37,7 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			resGet, err := internalclient.GetContainer(getPrm)
+			resGet, err := internalclient.GetContainer(ctx, getPrm)
 			common.ExitOnErr(cmd, "can't get the container: %w", err)
 
 			owner := resGet.Container().Owner()
@@ -73,7 +76,7 @@ Only owner of the container has a permission to remove container.`,
 
 				common.PrintVerbose(cmd, "Searching for LOCK objects...")
 
-				res, err := internalclient.SearchObjects(searchPrm)
+				res, err := internalclient.SearchObjects(ctx, searchPrm)
 				common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
 
 				if len(res.IDList()) != 0 {
@@ -92,7 +95,7 @@ Only owner of the container has a permission to remove container.`,
 			delPrm.WithinSession(*tok)
 		}
 
-		_, err := internalclient.DeleteContainer(delPrm)
+		_, err := internalclient.DeleteContainer(ctx, delPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		cmd.Println("container delete method invoked")
@@ -107,7 +110,7 @@ Only owner of the container has a permission to remove container.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				_, err := internalclient.GetContainer(getPrm)
+				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err != nil {
 					cmd.Println("container has been removed:", containerID)
 					return

@@ -24,6 +24,9 @@ var setExtendedACLCmd = &cobra.Command{
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		id := parseContainerID(cmd)
 		eaclTable := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
 
@@ -32,12 +35,12 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		eaclTable.SetCID(id)
 
 		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		if !flagVarsSetEACL.noPreCheck {
 			cmd.Println("Checking the ability to modify access rights in the container...")
 
-			extendable, err := internalclient.IsACLExtendable(cli, id)
+			extendable, err := internalclient.IsACLExtendable(ctx, cli, id)
 			common.ExitOnErr(cmd, "Extensibility check failure: %w", err)
 
 			if !extendable {
@@ -55,7 +58,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			setEACLPrm.WithinSession(*tok)
 		}
 
-		_, err := internalclient.SetEACL(setEACLPrm)
+		_, err := internalclient.SetEACL(ctx, setEACLPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		if containerAwait {
@@ -71,7 +74,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for i := 0; i < awaitTimeout; i++ {
 				time.Sleep(1 * time.Second)
 
-				res, err := internalclient.EACL(getEACLPrm)
+				res, err := internalclient.EACL(ctx, getEACLPrm)
 				if err == nil {
 					// compare binary values because EACL could have been set already
 					table := res.EACL()

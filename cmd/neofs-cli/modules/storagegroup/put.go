@@ -1,6 +1,7 @@
 package storagegroup
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
@@ -48,6 +49,9 @@ func initSGPutCmd() {
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.GetOrGenerate(cmd)
 
 	var ownerID user.ID
@@ -77,14 +81,14 @@ func putSG(cmd *cobra.Command, _ []string) {
 		getCnrPrm internalclient.GetContainerPrm
 	)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 	getCnrPrm.SetClient(cli)
 	getCnrPrm.SetContainer(cnr)
 
-	resGetCnr, err := internalclient.GetContainer(getCnrPrm)
+	resGetCnr, err := internalclient.GetContainer(ctx, getCnrPrm)
 	common.ExitOnErr(cmd, "get container RPC call: %w", err)
 
-	objectCli.OpenSessionViaClient(cmd, &putPrm, cli, pk, cnr, nil)
+	objectCli.OpenSessionViaClient(ctx, cmd, &putPrm, cli, pk, cnr, nil)
 	objectCli.Prepare(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)
@@ -101,7 +105,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(cli)
 
-	ni, err := internalclient.NetworkInfo(netInfoPrm)
+	ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
 	common.ExitOnErr(cmd, "can't fetch network info: %w", err)
 
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
@@ -115,7 +119,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	putPrm.SetHeader(obj)
 
-	res, err := internalclient.PutObject(putPrm)
+	res, err := internalclient.PutObject(ctx, putPrm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	cmd.Println("Storage group successfully stored")
@@ -123,6 +127,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 }
 
 type sgHeadReceiver struct {
+	ctx     context.Context
 	cmd     *cobra.Command
 	key     *ecdsa.PrivateKey
 	ownerID *user.ID
@@ -132,7 +137,7 @@ type sgHeadReceiver struct {
 func (c sgHeadReceiver) Head(addr oid.Address) (interface{}, error) {
 	c.prm.SetAddress(addr)
 
-	res, err := internalclient.HeadObject(c.prm)
+	res, err := internalclient.HeadObject(c.ctx, c.prm)
 
 	var errSplitInfo *object.SplitInfoError
 

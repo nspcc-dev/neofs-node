@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 
@@ -54,6 +55,6 @@ func verifyResponse(cmd *cobra.Command,
 	}
 }
 
-func getClient(cmd *cobra.Command, pk *ecdsa.PrivateKey) *client.Client {
-	return internalclient.GetSDKClientByFlag(cmd, pk, controlRPC)
+func getClient(ctx context.Context, cmd *cobra.Command, pk *ecdsa.PrivateKey) *client.Client {
+	return internalclient.GetSDKClientByFlag(ctx, cmd, pk, controlRPC)
 }

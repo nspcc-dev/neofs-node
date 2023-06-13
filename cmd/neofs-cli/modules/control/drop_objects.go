@@ -3,6 +3,7 @@ package control
 import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -15,6 +16,9 @@ var dropObjectsCmd = &cobra.Command{
 	Short: "Drop objects from the node's local storage",
 	Long:  "Drop objects from the node's local storage",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		pk := key.Get(cmd)
 
 		dropObjectsList, _ := cmd.Flags().GetStringSlice(dropObjectsFlag)
@@ -32,7 +36,7 @@ var dropObjectsCmd = &cobra.Command{
 
 		signRequest(cmd, pk, req)
 
-		cli := getClient(cmd, pk)
+		cli := getClient(ctx, cmd, pk)
 
 		var resp *control.DropObjectsResponse
 		var err error
