@@ -7,9 +7,9 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -51,14 +51,16 @@ func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey
 	prmInit.ResolveNeoFSFailures()
 	prmDial.SetServerURI(addr.URIAddr())
 	prmDial.SetContext(ctx)
-	if timeout := viper.GetDuration(commonflags.Timeout); timeout > 0 {
-		// In CLI we can only set a timeout for the whole operation.
-		// By also setting stream timeout we ensure that no operation hands
-		// for too long.
-		prmDial.SetTimeout(timeout)
-		prmDial.SetStreamTimeout(timeout)
 
-		common.PrintVerbose(cmd, "Set request timeout to %s.", timeout)
+	deadline, ok := ctx.Deadline()
+	if ok {
+		if timeout := time.Until(deadline); timeout > 0 {
+			// In CLI we can only set a timeout for the whole operation.
+			// By also setting stream timeout we ensure that no operation hands
+			// for too long.
+			prmDial.SetTimeout(timeout)
+			prmDial.SetStreamTimeout(timeout)
+		}
 	}
 
 	c.Init(prmInit)
