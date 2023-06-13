@@ -185,6 +185,12 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 
 	// new object streaming (`header`)
 
+	header.SetSplitID(o._splitID)
+	err = _healHeader(o._signer, &header)
+	if err != nil {
+		return nil, fmt.Errorf("broken second child: %w", err)
+	}
+
 	stream = o.targetInit()
 	err = stream.WriteHeader(&header)
 	if err != nil {
