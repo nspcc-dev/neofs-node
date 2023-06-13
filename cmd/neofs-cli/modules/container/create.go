@@ -38,7 +38,7 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
+		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
 		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
@@ -134,8 +134,14 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for i := 0; i < awaitTimeout; i++ {
+			for {
 				time.Sleep(1 * time.Second)
+
+				select {
+				case <-ctx.Done():
+					common.ExitOnErr(cmd, "", errCreateTimeout)
+				default:
+				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err == nil {
@@ -143,8 +149,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 					return
 				}
 			}
-
-			common.ExitOnErr(cmd, "", errCreateTimeout)
 		}
 	},
 }

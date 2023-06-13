@@ -24,7 +24,7 @@ var setExtendedACLCmd = &cobra.Command{
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
+		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
 		id := parseContainerID(cmd)
@@ -71,8 +71,14 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			getEACLPrm.SetClient(cli)
 			getEACLPrm.SetContainer(id)
 
-			for i := 0; i < awaitTimeout; i++ {
+			for {
 				time.Sleep(1 * time.Second)
+
+				select {
+				case <-ctx.Done():
+					common.ExitOnErr(cmd, "", errSetEACLTimeout)
+				default:
+				}
 
 				res, err := internalclient.EACL(ctx, getEACLPrm)
 				if err == nil {
@@ -90,7 +96,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				}
 			}
 
-			common.ExitOnErr(cmd, "", errSetEACLTimeout)
 		}
 	},
 }

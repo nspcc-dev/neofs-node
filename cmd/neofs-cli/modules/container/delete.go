@@ -20,7 +20,7 @@ var deleteContainerCmd = &cobra.Command{
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
+		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
 		id := parseContainerID(cmd)
@@ -107,8 +107,14 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for i := 0; i < awaitTimeout; i++ {
+			for {
 				time.Sleep(1 * time.Second)
+
+				select {
+				case <-ctx.Done():
+					common.ExitOnErr(cmd, "", errDeleteTimeout)
+				default:
+				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err != nil {
@@ -116,8 +122,6 @@ Only owner of the container has a permission to remove container.`,
 					return
 				}
 			}
-
-			common.ExitOnErr(cmd, "", errDeleteTimeout)
 		}
 	},
 }

@@ -1,7 +1,9 @@
 package container
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -13,7 +15,7 @@ import (
 const (
 	attributeDelimiter = "="
 
-	awaitTimeout = 120 // in seconds
+	awaitTimeout = time.Minute
 )
 
 var (
@@ -54,4 +56,8 @@ func getSession(cmd *cobra.Command) *session.Container {
 	common.PrintVerbose(cmd, "Session successfully read.")
 
 	return &res
+}
+
+func getAwaitContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	return commonflags.GetCommandContextWithAwait(cmd, "await", awaitTimeout)
 }
