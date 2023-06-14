@@ -35,11 +35,13 @@ type payloadSizeLimiter struct {
 type objStreamInitializer struct {
 	targetInit TargetInitializer
 
-	_psl     *payloadSizeLimiter
-	_signer  neofscrypto.Signer
-	_objType object.Type
-	_objBuf  *object.Object
-	_splitID *object.SplitID
+	_psl      *payloadSizeLimiter
+	_signer   neofscrypto.Signer
+	_objType  object.Type
+	_objBuf   *object.Object
+	_splitID  *object.SplitID
+	_childIDs []oid.ID
+	_prev     *oid.ID
 }
 
 var (
@@ -97,6 +99,7 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 	// check, see https://github.com/nspcc-dev/neofs-sdk-go/pull/427.
 	if linkObj {
 		header.SetPayloadSize(0)
+		header.SetChildren(o._childIDs...)
 
 		var cs checksum.Checksum
 		cs.SetSHA256(_emptyPayloadSHA256Sum)
@@ -135,10 +138,15 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 		// is full of kludges so let it be as stupid as possible
 
 		header.SetSplitID(o._splitID)
+		header.SetPreviousID(*o._prev)
 		err := _healHeader(o._signer, &header)
 		if err != nil {
 			return nil, fmt.Errorf("broken intermediate object: %w", err)
 		}
+
+		id, _ := header.ID()
+		o._childIDs = append(o._childIDs, id)
+		o._prev = &id
 
 		stream := o.targetInit()
 		err = stream.WriteHeader(&header)
@@ -163,6 +171,9 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 		return nil, fmt.Errorf("broken first child: %w", err)
 	}
 
+	id, _ := hdr.ID()
+	o._childIDs = append(o._childIDs, id)
+
 	stream := o.targetInit()
 
 	err = stream.WriteHeader(hdr)
@@ -184,6 +195,17 @@ func (o *objStreamInitializer) InitDataStream(header object.Object) (io.Writer, 
 	o._objBuf = nil
 
 	// new object streaming (`header`)
+
+	header.SetSplitID(o._splitID)
+	header.SetPreviousID(id)
+	err = _healHeader(o._signer, &header)
+	if err != nil {
+		return nil, fmt.Errorf("broken second child: %w", err)
+	}
+
+	id, _ = header.ID()
+	o._childIDs = append(o._childIDs, id)
+	o._prev = &id
 
 	stream = o.targetInit()
 	err = stream.WriteHeader(&header)
