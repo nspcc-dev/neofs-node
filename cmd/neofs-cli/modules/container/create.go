@@ -167,7 +167,8 @@ func initContainerCreateCmd() {
 	))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
-	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is persisted")
+	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is persisted. "+
+		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.StringVar(&containerName, "name", "", "Container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
 	flags.StringVar(&containerSubnet, "subnet", "", "String representation of container subnetwork")

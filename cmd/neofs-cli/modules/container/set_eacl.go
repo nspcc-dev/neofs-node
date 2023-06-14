@@ -3,6 +3,7 @@ package container
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -106,6 +107,7 @@ func initContainerSetEACLCmd() {
 	flags := setExtendedACLCmd.Flags()
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 	flags.StringVar(&flagVarsSetEACL.srcPath, "table", "", "path to file with JSON or binary encoded EACL table")
-	flags.BoolVar(&containerAwait, "await", false, "block execution until EACL is persisted")
+	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("block execution until EACL is persisted. "+
+		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.BoolVar(&flagVarsSetEACL.noPreCheck, "no-precheck", false, "do not pre-check the extensibility of the container ACL")
 }

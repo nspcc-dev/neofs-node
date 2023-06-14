@@ -134,6 +134,7 @@ func initContainerDeleteCmd() {
 	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
-	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is removed")
+	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is removed. "+
+		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Skip validation checks (ownership, presence of LOCK objects)")
 }
