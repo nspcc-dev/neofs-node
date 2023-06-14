@@ -231,6 +231,7 @@ jobs:
         if: always()
         id: allure-report
         with:
+          keep_reports: 200
           allure_results: allure-results
           allure_report: allure-report
           gh_pages: gh-pages
