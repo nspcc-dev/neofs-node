@@ -3,6 +3,16 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Fixed
+
+### Removed
+
+### Updated
+
+### Updating from v0.37.0
+
+## [0.37.0] - 2023-06-15 - Sogado
+
 ### Added
 - `neofs_[node|ir]_version` with `version` label (#2326)
 - TLS RPC support for IR consensus mode (#2322)
@@ -1623,7 +1633,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 ## [0.10.0] - 2020-07-10
 
 First public review release.
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...master
+[0.37.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.34.0...v0.35.0
