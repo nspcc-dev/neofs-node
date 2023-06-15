@@ -30,7 +30,7 @@ NATS_VERSION=2.7.2
 NATS_IMAGE=nats
 
 # HTTP Gate
-HTTP_GW_VERSION=0.27.0
+HTTP_GW_VERSION=0.27.1
 HTTP_GW_IMAGE=nspccdev/neofs-http-gw
 
 # REST Gate
