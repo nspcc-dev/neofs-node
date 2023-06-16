@@ -135,13 +135,16 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for {
-				time.Sleep(1 * time.Second)
+			const waitInterval = time.Second
 
+			t := time.NewTimer(waitInterval)
+			defer t.Stop()
+
+			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
 					common.ExitOnErr(cmd, "", errCreateTimeout)
-				default:
+				case <-t.C:
 				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)

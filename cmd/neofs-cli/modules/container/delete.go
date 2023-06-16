@@ -107,13 +107,16 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for {
-				time.Sleep(1 * time.Second)
+			const waitInterval = time.Second
 
+			t := time.NewTimer(waitInterval)
+			defer t.Stop()
+
+			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
 					common.ExitOnErr(cmd, "", errDeleteTimeout)
-				default:
+				case <-t.C:
 				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)

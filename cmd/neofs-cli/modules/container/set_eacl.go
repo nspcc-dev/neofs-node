@@ -74,13 +74,16 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			getEACLPrm.SetClient(cli)
 			getEACLPrm.SetContainer(id)
 
-			for {
-				time.Sleep(1 * time.Second)
+			const waitInterval = time.Second
 
+			t := time.NewTimer(waitInterval)
+			defer t.Stop()
+
+			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
 					common.ExitOnErr(cmd, "", errSetEACLTimeout)
-				default:
+				case <-t.C:
 				}
 
 				res, err := internalclient.EACL(ctx, getEACLPrm)
