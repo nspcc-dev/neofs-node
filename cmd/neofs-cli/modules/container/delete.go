@@ -98,7 +98,7 @@ Only owner of the container has a permission to remove container.`,
 		_, err := internalclient.DeleteContainer(ctx, delPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
-		cmd.Println("container delete method invoked")
+		cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
 
 		if containerAwait {
 			cmd.Println("awaiting...")
