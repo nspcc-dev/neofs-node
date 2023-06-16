@@ -62,6 +62,8 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		_, err := internalclient.SetEACL(ctx, setEACLPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
+		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
+
 		if containerAwait {
 			exp, err := eaclTable.Marshal()
 			common.ExitOnErr(cmd, "broken EACL table: %w", err)
