@@ -125,6 +125,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 		id := res.ID()
 
+		cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
 		cmd.Println("container ID:", id)
 
 		if containerAwait {
