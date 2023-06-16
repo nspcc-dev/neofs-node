@@ -213,7 +213,7 @@ jobs:
         timeout-minutes: 480
         if: github.event_name != 'pull_request'
         run: |
-          source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
+          source venv.local-pytest/bin/activate && pytest -m "not sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
 
 ################################################################
