@@ -45,6 +45,9 @@ func initControlSetNetmapStatusCmd() {
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.Get(cmd)
 	body := new(control.SetNetmapStatusRequest_Body)
 	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
@@ -78,7 +81,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(cmd, pk)
+	cli := getClient(ctx, cmd, pk)
 
 	var resp *control.SetNetmapStatusResponse
 	var err error

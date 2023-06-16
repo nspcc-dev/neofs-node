@@ -18,18 +18,21 @@ var containerNodesCmd = &cobra.Command{
 	Short: "Show nodes for container",
 	Long:  "Show nodes taking part in a container at the current epoch.",
 	Run: func(cmd *cobra.Command, args []string) {
-		var cnr, pkey = getContainer(cmd)
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
+		var cnr, pkey = getContainer(ctx, cmd)
 
 		if pkey == nil {
 			pkey = key.GetOrGenerate(cmd)
 		}
 
-		cli := internalclient.GetSDKClientByFlag(cmd, pkey, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pkey, commonflags.RPC)
 
 		var prm internalclient.NetMapSnapshotPrm
 		prm.SetClient(cli)
 
-		resmap, err := internalclient.NetMapSnapshot(prm)
+		resmap, err := internalclient.NetMapSnapshot(ctx, prm)
 		common.ExitOnErr(cmd, "unable to get netmap snapshot", err)
 
 		var id cid.ID

@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -25,6 +26,8 @@ var accountingBalanceCmd = &cobra.Command{
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+
 		var idUser user.ID
 
 		pk := key.GetOrGenerate(cmd)
@@ -37,13 +40,13 @@ var accountingBalanceCmd = &cobra.Command{
 			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}
 
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		var prm internalclient.BalanceOfPrm
 		prm.SetClient(cli)
 		prm.SetAccount(idUser)
 
-		res, err := internalclient.BalanceOf(prm)
+		res, err := internalclient.BalanceOf(ctx, prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		// print to stdout

@@ -26,12 +26,15 @@ func initSGListCmd() {
 }
 
 func listSG(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	readCID(cmd, &cnr)
 
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.SearchObjectsPrm
 	objectCli.Prepare(cmd, &prm)
@@ -39,7 +42,7 @@ func listSG(cmd *cobra.Command, _ []string) {
 	prm.SetContainerID(cnr)
 	prm.SetFilters(storagegroup.SearchQuery())
 
-	res, err := internalclient.SearchObjects(prm)
+	res, err := internalclient.SearchObjects(ctx, prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	ids := res.IDList()

@@ -7,9 +7,19 @@ Changelog for NeoFS Node
 
 ### Removed
 
+### Changed
+- CLI `--timeout` flag configures whole execution timeout from now (#2124)
+- CLI default timeout for commands with `--await` flag increased to 1m (#2124)
+
 ### Updated
 
 ### Updating from v0.37.0
+CLI command timeouts (flag `--timeout`) now limit the total command execution
+time and not single network operation. If any commands suddenly start to fail
+on timeout, try increasing the value, for example, twice. Also note that the
+execution of commands with the `--await` flag and without an explicitly
+specified time period is now limited to 1 minute. This value can be changed with
+`--timeout` flag.
 
 ## [0.37.0] - 2023-06-15 - Sogado
 

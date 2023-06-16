@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"os"
 
@@ -32,7 +33,10 @@ var getContainerInfoCmd = &cobra.Command{
 	Short: "Get container field info",
 	Long:  `Get container field info`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cnr, _ := getContainer(cmd)
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
+		cnr, _ := getContainer(ctx, cmd)
 
 		prettyPrintContainer(cmd, cnr, containerJSON)
 
@@ -132,7 +136,7 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
-func getContainer(cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {
+func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {
 	var cnr container.Container
 	var pk *ecdsa.PrivateKey
 	if containerPathFrom != "" {
@@ -144,13 +148,13 @@ func getContainer(cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {
 	} else {
 		id := parseContainerID(cmd)
 		pk = key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		var prm internalclient.GetContainerPrm
 		prm.SetClient(cli)
 		prm.SetContainer(id)
 
-		res, err := internalclient.GetContainer(prm)
+		res, err := internalclient.GetContainer(ctx, prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		cnr = res.Container()

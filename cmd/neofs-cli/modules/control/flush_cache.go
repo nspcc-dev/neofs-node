@@ -3,6 +3,7 @@ package control
 import (
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/spf13/cobra"
@@ -16,6 +17,9 @@ var flushCacheCmd = &cobra.Command{
 }
 
 func flushCache(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.Get(cmd)
 
 	req := &control.FlushCacheRequest{Body: new(control.FlushCacheRequest_Body)}
@@ -23,7 +27,7 @@ func flushCache(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(cmd, pk)
+	cli := getClient(ctx, cmd, pk)
 
 	var resp *control.FlushCacheResponse
 	var err error

@@ -50,13 +50,15 @@ func init() {
 }
 
 func createSession(cmd *cobra.Command, _ []string) {
+	ctx := context.Background()
+
 	privKey := key.Get(cmd)
 
 	var netAddr network.Address
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
 	common.ExitOnErr(cmd, "can't parse endpoint: %w", netAddr.FromString(addrStr))
 
-	c, err := internalclient.GetSDKClient(context.TODO(), cmd, privKey, netAddr)
+	c, err := internalclient.GetSDKClient(ctx, cmd, privKey, netAddr)
 	common.ExitOnErr(cmd, "can't create client: %w", err)
 
 	lifetime := uint64(defaultLifetime)
@@ -66,7 +68,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 
 	var tok session.Object
 
-	err = CreateSession(&tok, c, neofsecdsa.SignerRFC6979(*privKey), lifetime)
+	err = CreateSession(ctx, &tok, c, neofsecdsa.SignerRFC6979(*privKey), lifetime)
 	common.ExitOnErr(cmd, "can't create session: %w", err)
 
 	var data []byte
@@ -88,11 +90,11 @@ func createSession(cmd *cobra.Command, _ []string) {
 // number of epochs.
 //
 // Fills ID, lifetime and session key.
-func CreateSession(dst *session.Object, c *client.Client, _signer neofscrypto.Signer, lifetime uint64) error {
+func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, _signer neofscrypto.Signer, lifetime uint64) error {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(c)
 
-	ni, err := internalclient.NetworkInfo(netInfoPrm)
+	ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
 	if err != nil {
 		return fmt.Errorf("can't fetch network info: %w", err)
 	}
@@ -105,7 +107,7 @@ func CreateSession(dst *session.Object, c *client.Client, _signer neofscrypto.Si
 	sessionPrm.SetExp(exp)
 	sessionPrm.UseSigner(_signer)
 
-	sessionRes, err := internalclient.CreateSession(sessionPrm)
+	sessionRes, err := internalclient.CreateSession(ctx, sessionPrm)
 	if err != nil {
 		return fmt.Errorf("can't open session: %w", err)
 	}

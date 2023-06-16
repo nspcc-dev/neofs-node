@@ -30,6 +30,9 @@ func initControlShardsListCmd() {
 }
 
 func listShards(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.Get(cmd)
 
 	req := new(control.ListShardsRequest)
@@ -37,7 +40,7 @@ func listShards(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(cmd, pk)
+	cli := getClient(ctx, cmd, pk)
 
 	var resp *control.ListShardsResponse
 	var err error

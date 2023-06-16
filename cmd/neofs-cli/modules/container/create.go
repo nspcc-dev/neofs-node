@@ -38,17 +38,20 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := getAwaitContext(cmd)
+		defer cancel()
+
 		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
 		common.ExitOnErr(cmd, "", err)
 
 		key := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
 
 		if !force {
 			var prm internalclient.NetMapSnapshotPrm
 			prm.SetClient(cli)
 
-			resmap, err := internalclient.NetMapSnapshot(prm)
+			resmap, err := internalclient.NetMapSnapshot(ctx, prm)
 			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
 				"use --force option to skip this check: %w", err)
 
@@ -106,7 +109,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		syncContainerPrm.SetClient(cli)
 		syncContainerPrm.SetContainer(&cnr)
 
-		_, err = internalclient.SyncContainerSettings(syncContainerPrm)
+		_, err = internalclient.SyncContainerSettings(ctx, syncContainerPrm)
 		common.ExitOnErr(cmd, "syncing container's settings rpc error: %w", err)
 
 		var putPrm internalclient.PutContainerPrm
@@ -117,11 +120,12 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			putPrm.WithinSession(*tok)
 		}
 
-		res, err := internalclient.PutContainer(putPrm)
+		res, err := internalclient.PutContainer(ctx, putPrm)
 		common.ExitOnErr(cmd, "put container rpc error: %w", err)
 
 		id := res.ID()
 
+		cmd.Println("container creation request accepted for processing (the operation may not be completed yet)")
 		cmd.Println("container ID:", id)
 
 		if containerAwait {
@@ -131,17 +135,24 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for i := 0; i < awaitTimeout; i++ {
-				time.Sleep(1 * time.Second)
+			const waitInterval = time.Second
 
-				_, err := internalclient.GetContainer(getPrm)
+			t := time.NewTimer(waitInterval)
+			defer t.Stop()
+
+			for ; ; t.Reset(waitInterval) {
+				select {
+				case <-ctx.Done():
+					common.ExitOnErr(cmd, "", errCreateTimeout)
+				case <-t.C:
+				}
+
+				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err == nil {
 					cmd.Println("container has been persisted on sidechain")
 					return
 				}
 			}
-
-			common.ExitOnErr(cmd, "", errCreateTimeout)
 		}
 	},
 }
@@ -160,7 +171,8 @@ func initContainerCreateCmd() {
 	))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
-	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is persisted")
+	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is persisted. "+
+		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.StringVar(&containerName, "name", "", "Container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
 	flags.StringVar(&containerSubnet, "subnet", "", "String representation of container subnetwork")

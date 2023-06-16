@@ -1,7 +1,9 @@
 package container
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -13,13 +15,13 @@ import (
 const (
 	attributeDelimiter = "="
 
-	awaitTimeout = 120 // in seconds
+	awaitTimeout = time.Minute
 )
 
 var (
-	errCreateTimeout  = errors.New("timeout: container has not been persisted on sidechain")
-	errDeleteTimeout  = errors.New("timeout: container has not been removed from sidechain")
-	errSetEACLTimeout = errors.New("timeout: EACL has not been persisted on sidechain")
+	errCreateTimeout  = errors.New("container creation was requested, but timeout has happened while waiting for the outcome")
+	errDeleteTimeout  = errors.New("container removal was requested, but timeout has happened while waiting for the outcome")
+	errSetEACLTimeout = errors.New("eACL modification was requested, but timeout has happened while waiting for the outcome")
 )
 
 func parseContainerID(cmd *cobra.Command) cid.ID {
@@ -54,4 +56,8 @@ func getSession(cmd *cobra.Command) *session.Container {
 	common.PrintVerbose(cmd, "Session successfully read.")
 
 	return &res
+}
+
+func getAwaitContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	return commonflags.GetCommandContextWithAwait(cmd, "await", awaitTimeout)
 }

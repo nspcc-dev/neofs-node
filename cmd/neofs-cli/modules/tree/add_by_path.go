@@ -40,6 +40,9 @@ func initAddByPathCmd() {
 }
 
 func addByPath(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.GetOrGenerate(cmd)
 
 	cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
@@ -49,7 +52,6 @@ func addByPath(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
 
 	tid, _ := cmd.Flags().GetString(treeIDFlagKey)
-	ctx := cmd.Context()
 
 	cli, err := _client(ctx)
 	common.ExitOnErr(cmd, "client: %w", err)

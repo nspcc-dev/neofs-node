@@ -30,6 +30,9 @@ var listContainersCmd = &cobra.Command{
 	Short: "List all created containers",
 	Long:  "List all created containers",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		var idUser user.ID
 
 		key := key.GetOrGenerate(cmd)
@@ -42,13 +45,13 @@ var listContainersCmd = &cobra.Command{
 			common.ExitOnErr(cmd, "invalid user ID: %w", err)
 		}
 
-		cli := internalclient.GetSDKClientByFlag(cmd, key, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
 
 		var prm internalclient.ListContainersPrm
 		prm.SetClient(cli)
 		prm.SetAccount(idUser)
 
-		res, err := internalclient.ListContainers(prm)
+		res, err := internalclient.ListContainers(ctx, prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		var prmGet internalclient.GetContainerPrm
@@ -61,7 +64,7 @@ var listContainersCmd = &cobra.Command{
 			if flagVarListPrintAttr {
 				prmGet.SetContainer(list[i])
 
-				res, err := internalclient.GetContainer(prmGet)
+				res, err := internalclient.GetContainer(ctx, prmGet)
 				if err == nil {
 					res.Container().IterateAttributes(func(key, val string) {
 						if !strings.HasPrefix(key, container.SysAttributePrefix) {

@@ -43,6 +43,9 @@ func initObjectGetCmd() {
 }
 
 func getObject(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -65,7 +68,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.GetObjectPrm
 	prm.SetClient(cli)
@@ -101,7 +104,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 		})
 	}
 
-	res, err := internalclient.GetObject(prm)
+	res, err := internalclient.GetObject(ctx, prm)
 	if p != nil {
 		p.Finish()
 	}
@@ -115,7 +118,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 
 	if binary {
 		objToStore := res.Header()
-		//TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
+		// TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
 		objToStore.SetPayload(payloadBuffer.Bytes())
 		objBytes, err := objToStore.Marshal()
 		common.ExitOnErr(cmd, "", err)

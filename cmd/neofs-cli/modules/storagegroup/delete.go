@@ -31,6 +31,9 @@ func initSGDeleteCmd() {
 }
 
 func delSG(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.GetOrGenerate(cmd)
 
 	var cnr cid.ID
@@ -39,11 +42,11 @@ func delSG(cmd *cobra.Command, _ []string) {
 	addr := readObjectAddress(cmd, &cnr, &obj)
 
 	var prm internalclient.DeleteObjectPrm
-	objectCli.OpenSession(cmd, &prm, pk, cnr, &obj)
+	objectCli.OpenSession(ctx, cmd, &prm, pk, cnr, &obj)
 	objectCli.Prepare(cmd, &prm)
 	prm.SetAddress(addr)
 
-	res, err := internalclient.DeleteObject(prm)
+	res, err := internalclient.DeleteObject(ctx, prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	tombstone := res.Tombstone()

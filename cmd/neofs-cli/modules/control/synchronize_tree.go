@@ -36,6 +36,9 @@ func initControlSynchronizeTreeCmd() {
 }
 
 func synchronizeTree(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.Get(cmd)
 
 	var cnr cid.ID
@@ -63,7 +66,7 @@ func synchronizeTree(cmd *cobra.Command, _ []string) {
 	err := controlSvc.SignMessage(pk, req)
 	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
-	cli := getClient(cmd, pk)
+	cli := getClient(ctx, cmd, pk)
 
 	var resp *control.SynchronizeTreeResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {

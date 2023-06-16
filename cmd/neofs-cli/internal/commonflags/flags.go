@@ -1,6 +1,7 @@
 package commonflags
 
 import (
+	"context"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -81,4 +82,36 @@ func Bind(cmd *cobra.Command) {
 	_ = viper.BindPFlag(Account, ff.Lookup(Account))
 	_ = viper.BindPFlag(RPC, ff.Lookup(RPC))
 	_ = viper.BindPFlag(Timeout, ff.Lookup(Timeout))
+}
+
+// GetCommandContextWithAwait works like GetCommandContext but uses specified
+// await timeout if 'timeout' flag is omitted and given boolean await flag is
+// set.
+func GetCommandContextWithAwait(cmd *cobra.Command, awaitFlag string, awaitTimeout time.Duration) (context.Context, context.CancelFunc) {
+	if !viper.IsSet(Timeout) {
+		if await, _ := cmd.Flags().GetBool(awaitFlag); await {
+			return getCommandContext(cmd, awaitTimeout)
+		}
+	}
+
+	return GetCommandContext(cmd)
+}
+
+// GetCommandContext returns cmd context with timeout specified in 'timeout' flag
+// if the flag is set.
+func GetCommandContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	return getCommandContext(cmd, viper.GetDuration(Timeout))
+}
+
+func getCommandContext(cmd *cobra.Command, timeout time.Duration) (context.Context, context.CancelFunc) {
+	parentCtx := cmd.Context()
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+
+	if timeout <= 0 {
+		return parentCtx, func() {}
+	}
+
+	return context.WithTimeout(parentCtx, timeout)
 }

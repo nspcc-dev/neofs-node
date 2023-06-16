@@ -20,12 +20,15 @@ var deleteContainerCmd = &cobra.Command{
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := getAwaitContext(cmd)
+		defer cancel()
+
 		id := parseContainerID(cmd)
 
 		tok := getSession(cmd)
 
 		pk := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
@@ -34,7 +37,7 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			resGet, err := internalclient.GetContainer(getPrm)
+			resGet, err := internalclient.GetContainer(ctx, getPrm)
 			common.ExitOnErr(cmd, "can't get the container: %w", err)
 
 			owner := resGet.Container().Owner()
@@ -73,7 +76,7 @@ Only owner of the container has a permission to remove container.`,
 
 				common.PrintVerbose(cmd, "Searching for LOCK objects...")
 
-				res, err := internalclient.SearchObjects(searchPrm)
+				res, err := internalclient.SearchObjects(ctx, searchPrm)
 				common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
 
 				if len(res.IDList()) != 0 {
@@ -92,10 +95,10 @@ Only owner of the container has a permission to remove container.`,
 			delPrm.WithinSession(*tok)
 		}
 
-		_, err := internalclient.DeleteContainer(delPrm)
+		_, err := internalclient.DeleteContainer(ctx, delPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
-		cmd.Println("container delete method invoked")
+		cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
 
 		if containerAwait {
 			cmd.Println("awaiting...")
@@ -104,17 +107,24 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetClient(cli)
 			getPrm.SetContainer(id)
 
-			for i := 0; i < awaitTimeout; i++ {
-				time.Sleep(1 * time.Second)
+			const waitInterval = time.Second
 
-				_, err := internalclient.GetContainer(getPrm)
+			t := time.NewTimer(waitInterval)
+			defer t.Stop()
+
+			for ; ; t.Reset(waitInterval) {
+				select {
+				case <-ctx.Done():
+					common.ExitOnErr(cmd, "", errDeleteTimeout)
+				case <-t.C:
+				}
+
+				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err != nil {
 					cmd.Println("container has been removed:", containerID)
 					return
 				}
 			}
-
-			common.ExitOnErr(cmd, "", errDeleteTimeout)
 		}
 	},
 }
@@ -127,6 +137,7 @@ func initContainerDeleteCmd() {
 	flags.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 
 	flags.StringVar(&containerID, commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
-	flags.BoolVar(&containerAwait, "await", false, "Block execution until container is removed")
+	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is removed. "+
+		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "Skip validation checks (ownership, presence of LOCK objects)")
 }

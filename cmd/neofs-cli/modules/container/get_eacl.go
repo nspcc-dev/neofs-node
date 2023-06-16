@@ -15,15 +15,18 @@ var getExtendedACLCmd = &cobra.Command{
 	Short: "Get extended ACL table of container",
 	Long:  `Get extended ACL table of container`,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		id := parseContainerID(cmd)
 		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 		var eaclPrm internalclient.EACLPrm
 		eaclPrm.SetClient(cli)
 		eaclPrm.SetContainer(id)
 
-		res, err := internalclient.EACL(eaclPrm)
+		res, err := internalclient.EACL(ctx, eaclPrm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
 		eaclTable := res.EACL()

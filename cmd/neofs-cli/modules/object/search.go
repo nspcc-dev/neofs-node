@@ -44,6 +44,9 @@ func initObjectSearchCmd() {
 }
 
 func searchObject(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	readCID(cmd, &cnr)
 
@@ -52,7 +55,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
 
 	var prm internalclient.SearchObjectsPrm
 	prm.SetClient(cli)
@@ -61,7 +64,7 @@ func searchObject(cmd *cobra.Command, _ []string) {
 	prm.SetContainerID(cnr)
 	prm.SetFilters(sf)
 
-	res, err := internalclient.SearchObjects(prm)
+	res, err := internalclient.SearchObjects(ctx, prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	ids := res.IDList()

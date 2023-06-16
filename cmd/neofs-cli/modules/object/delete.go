@@ -33,6 +33,9 @@ func initObjectDeleteCmd() {
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	var cnr cid.ID
 	var obj oid.ID
 	var objAddr oid.Address
@@ -61,11 +64,11 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 
 	var prm internalclient.DeleteObjectPrm
-	ReadOrOpenSession(cmd, &prm, pk, cnr, &obj)
+	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, &obj)
 	Prepare(cmd, &prm)
 	prm.SetAddress(objAddr)
 
-	res, err := internalclient.DeleteObject(prm)
+	res, err := internalclient.DeleteObject(ctx, prm)
 	common.ExitOnErr(cmd, "rpc error: %w", err)
 
 	tomb := res.Tombstone()

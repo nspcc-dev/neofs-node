@@ -31,14 +31,15 @@ func initListCmd() {
 }
 
 func list(cmd *cobra.Command, _ []string) {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	pk := key.GetOrGenerate(cmd)
 	cidString, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
 	err := cnr.DecodeString(cidString)
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
-
-	ctx := cmd.Context()
 
 	cli, err := _client(ctx)
 	common.ExitOnErr(cmd, "client: %w", err)
