@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+- Embedded Neo contracts in `contracts` dir (#2391)
+
 ### Fixed
 
 ### Removed
