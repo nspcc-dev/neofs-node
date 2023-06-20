@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
+- `neofs_node_object_epoch` metric for IR and SN (#2347)
 
 ### Changed
 - CLI `--timeout` flag configures whole execution timeout from now (#2124)
@@ -26,6 +27,9 @@ specified time period is now limited to 1 minute. This value can be changed with
 `--timeout` flag.
 Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR configurations
 have been removed. Use `morph.endpoints` for both instead.
+Deprecated `neofs_node_object_epoch` metric for IR and SN (the same for both)
+has been removed. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch`
+for IR instead.
 
 ## [0.37.0] - 2023-06-15 - Sogado
 

@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"fmt"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -12,8 +10,7 @@ type NodeMetrics struct {
 	objectServiceMetrics
 	engineMetrics
 	stateMetrics
-	epoch           prometheus.Gauge
-	epochDeprecated prometheus.Gauge
+	epoch prometheus.Gauge
 }
 
 func NewNodeMetrics(version string) *NodeMetrics {
@@ -36,27 +33,15 @@ func NewNodeMetrics(version string) *NodeMetrics {
 	})
 	prometheus.MustRegister(epoch)
 
-	// FIXME: drop after v0.38.0 release: #2347.
-	const stateSubsystemDeprecated = objectSubsystem
-	epochDeprecated := prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: storageNodeNameSpace,
-		Subsystem: stateSubsystemDeprecated,
-		Name:      "epoch",
-		Help:      fmt.Sprintf("Current epoch as seen by inner-ring node. DEPRECATED: use [%s_%s_epoch] instead.", storageNodeNameSpace, stateSubsystem),
-	})
-	prometheus.MustRegister(epochDeprecated)
-
 	return &NodeMetrics{
 		objectServiceMetrics: objectService,
 		engineMetrics:        engine,
 		stateMetrics:         state,
 		epoch:                epoch,
-		epochDeprecated:      epochDeprecated,
 	}
 }
 
 // SetEpoch updates epoch metric.
 func (m *NodeMetrics) SetEpoch(epoch uint64) {
 	m.epoch.Set(float64(epoch))
-	m.epochDeprecated.Set(float64(epoch))
 }
