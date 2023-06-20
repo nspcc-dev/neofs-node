@@ -95,6 +95,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	headPrm.SetClient(cli)
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
+		ctx:     ctx,
 		cmd:     cmd,
 		key:     pk,
 		ownerID: &ownerID,
