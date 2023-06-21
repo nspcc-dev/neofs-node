@@ -132,9 +132,9 @@ contracts:
 morph:
   dial_timeout: 30s
   cache_ttl: 15s
-  rpc_endpoint:
-    - address: wss://rpc1.morph.fs.neo.org:40341/ws
-    - address: wss://rpc2.morph.fs.neo.org:40341/ws
+  endpoints:
+    - wss://rpc1.morph.fs.neo.org:40341/ws
+    - wss://rpc2.morph.fs.neo.org:40341/ws
  ```
 
 | Parameter              | Type       | Default value    | Description                                                                                                                                                         |

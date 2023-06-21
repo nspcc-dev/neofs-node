@@ -401,7 +401,7 @@ func TestIsLocalConsensusMode(t *testing.T) {
 		v.SetEnvPrefix("neofs_ir")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-		const envKey = "NEOFS_IR_MORPH_ENDPOINT_CLIENT_0_ADDRESS"
+		const envKey = "NEOFS_IR_MORPH_ENDPOINTS"
 
 		err := os.Unsetenv(envKey)
 		require.NoError(t, err)
@@ -419,15 +419,14 @@ func TestIsLocalConsensusMode(t *testing.T) {
 		v.SetConfigType("yaml")
 		err := v.ReadConfig(strings.NewReader(`
 morph:
-  endpoint:
-    client:
-      - address: ws://morph-chain:30333/ws
+  endpoints:
+      - ws://morph-chain:30333/ws
 `))
 		require.NoError(t, err)
 
 		require.False(t, isLocalConsensusMode(v))
 
-		resetConfig(t, v, "morph.endpoint.client")
+		resetConfig(t, v, "morph.endpoints")
 
 		require.True(t, isLocalConsensusMode(v))
 	})

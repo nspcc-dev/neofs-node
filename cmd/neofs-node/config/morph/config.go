@@ -2,7 +2,6 @@ package morphconfig
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -30,24 +29,9 @@ const (
 //
 // Throws panic if list is empty.
 func Endpoints(c *config.Config) []string {
-	var endpointsDeprecated []string
-
-	sub := c.Sub(subsection).Sub("rpc_endpoint")
-	for i := 0; ; i++ {
-		s := sub.Sub(strconv.FormatInt(int64(i), 10))
-		addr := config.StringSafe(s, "address")
-		if addr == "" {
-			break
-		}
-
-		endpointsDeprecated = append(endpointsDeprecated, addr)
-	}
-
 	endpoints := config.StringSliceSafe(c.Sub(subsection), "endpoints")
-	endpoints = append(endpoints, endpointsDeprecated...)
-
 	if len(endpoints) == 0 {
-		panic(fmt.Errorf("no morph chain RPC endpoints, see `morph.rpc_endpoint` section"))
+		panic(fmt.Errorf("no morph chain RPC endpoints, see `morph.endpoints` section"))
 	}
 	return endpoints
 }
