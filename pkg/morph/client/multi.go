@@ -19,6 +19,11 @@ func (c *Client) SwitchRPC() bool {
 	for attempt := 0; attempt < c.cfg.reconnectionRetries; attempt++ {
 		if c.switchPRC() {
 			c.switchLock.Unlock()
+
+			if c.cfg.rpcSwitchCb != nil {
+				c.cfg.rpcSwitchCb()
+			}
+
 			return true
 		}
 

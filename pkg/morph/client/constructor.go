@@ -42,6 +42,7 @@ type cfg struct {
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
 	inactiveModeCb Callback
+	rpcSwitchCb    Callback
 
 	reconnectionRetries int
 	reconnectionDelay   time.Duration
@@ -295,5 +296,15 @@ func WithReconnectionsDelay(d time.Duration) Option {
 func WithConnLostCallback(cb Callback) Option {
 	return func(c *cfg) {
 		c.inactiveModeCb = cb
+	}
+}
+
+// WithConnSwitchCallback returns a client constructor option
+// that specifies a callback that is called when the Client
+// reconnected to a new RPC (from [WithEndpoints] list)
+// successfully.
+func WithConnSwitchCallback(cb Callback) Option {
+	return func(c *cfg) {
+		c.rpcSwitchCb = cb
 	}
 }
