@@ -70,6 +70,8 @@ credentials:     # passwords for consensus node / alphabet wallets
 
 #### Network maintenance
 
+- `dump-names` allows to walk through NNS names and see their expirations.
+
 - `set-config` add/update configuration values in the Netmap contract.
 
 - `force-new-epoch` increments NeoFS epoch number and executes new epoch

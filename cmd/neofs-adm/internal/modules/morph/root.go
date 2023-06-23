@@ -162,6 +162,15 @@ var (
 		RunE: dumpContractHashes,
 	}
 
+	dumpNamesCmd = &cobra.Command{
+		Use:   "dump-names",
+		Short: "Dump known registred NNS names and expirations",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpNames,
+	}
+
 	dumpNetworkConfigCmd = &cobra.Command{
 		Use:   "dump-config",
 		Short: "Dump NeoFS network config",
@@ -270,6 +279,10 @@ func init() {
 	RootCmd.AddCommand(dumpContractHashesCmd)
 	dumpContractHashesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	dumpContractHashesCmd.Flags().String(customZoneFlag, "", "Custom zone to search.")
+
+	RootCmd.AddCommand(dumpNamesCmd)
+	dumpNamesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	dumpNamesCmd.Flags().StringP(nameDomainFlag, "d", "", "Filter by domain")
 
 	RootCmd.AddCommand(dumpNetworkConfigCmd)
 	dumpNetworkConfigCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
