@@ -30,14 +30,6 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Cache go mod
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go }}-
-
       - name: Run go test
         run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
