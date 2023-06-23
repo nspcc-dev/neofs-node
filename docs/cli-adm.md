@@ -77,6 +77,8 @@ credentials:     # passwords for consensus node / alphabet wallets
 - `force-new-epoch` increments NeoFS epoch number and executes new epoch
   handlers in NeoFS nodes.
 
+- `renew-domain` updates expiration date of the given domain for one year.
+
 - `refill-gas` transfers sidechain GAS to the specified wallet. 
 
 - `update-contracts` updates contracts to a new version.

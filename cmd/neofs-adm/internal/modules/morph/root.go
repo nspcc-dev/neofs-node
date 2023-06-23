@@ -208,6 +208,16 @@ var (
 		RunE: dumpContainers,
 	}
 
+	renewDomainCmd = &cobra.Command{
+		Use:   "renew-domain",
+		Short: "Renew NNS domain",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: renewDomain,
+	}
+
 	restoreContainersCmd = &cobra.Command{
 		Use:   "restore-containers",
 		Short: "Restore NeoFS containers from file",
@@ -309,6 +319,12 @@ func init() {
 	dumpContainersCmd.Flags().String(containerDumpFlag, "", "File where to save dumped containers")
 	dumpContainersCmd.Flags().String(containerContractFlag, "", "Container contract hash (for networks without NNS)")
 	dumpContainersCmd.Flags().StringSlice(containerIDsFlag, nil, "Containers to dump")
+
+	RootCmd.AddCommand(renewDomainCmd)
+	renewDomainCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
+	renewDomainCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	renewDomainCmd.Flags().StringP(nameDomainFlag, "d", "", "Domain")
+	renewDomainCmd.Flags().BoolP(recursiveFlag, "u", false, "Recursive (renew all subdomain as well)")
 
 	RootCmd.AddCommand(restoreContainersCmd)
 	restoreContainersCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
