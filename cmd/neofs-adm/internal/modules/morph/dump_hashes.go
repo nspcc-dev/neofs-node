@@ -269,20 +269,29 @@ func fillContractExpiration(cmd *cobra.Command, c Client, infos []contractDumpIn
 		if err != nil {
 			continue // OK for NNS itself, for example.
 		}
-		elems := props.Value().([]stackitem.MapElement)
-		for _, e := range elems {
-			k, err := e.Key.TryBytes()
-			if err != nil {
+		exp, err := expirationFromProperties(props)
+		if err != nil {
+			continue // Should be there, but who knows.
+		}
+		infos[i].expiration = exp
+	}
+}
+
+func expirationFromProperties(props *stackitem.Map) (int64, error) {
+	elems := props.Value().([]stackitem.MapElement)
+	for _, e := range elems {
+		k, err := e.Key.TryBytes()
+		if err != nil {
+			continue
+		}
+
+		if string(k) == "expiration" {
+			v, err := e.Value.TryInteger()
+			if err != nil || !v.IsInt64() {
 				continue
 			}
-
-			if string(k) == "expiration" {
-				v, err := e.Value.TryInteger()
-				if err != nil || !v.IsInt64() {
-					continue
-				}
-				infos[i].expiration = v.Int64()
-			}
+			return v.Int64(), nil
 		}
 	}
+	return 0, errors.New("not found")
 }

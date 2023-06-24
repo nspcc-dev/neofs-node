@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Added
 - Embedded Neo contracts in `contracts` dir (#2391)
+- `dump-names` command for adm
+- `renew-domain` command for adm
 
 ### Fixed
 
