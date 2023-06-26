@@ -535,13 +535,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	// form morph container client's options
-	morphCnrOpts := make([]cntClient.Option, 0, 3)
-	morphCnrOpts = append(morphCnrOpts,
-		cntClient.AsAlphabet(),
-	)
-
-	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, 0, morphCnrOpts...)
+	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, 0, cntClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
