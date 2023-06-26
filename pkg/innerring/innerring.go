@@ -344,7 +344,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
 	}
 
-	morphChain := &chainParams{
+	morphChain := chainParams{
 		log:  log,
 		cfg:  cfg,
 		name: morphPrefix,
@@ -953,7 +953,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	return server, nil
 }
 
-func createListener(ctx context.Context, cli *client.Client, p *chainParams) (event.Listener, error) {
+func createListener(ctx context.Context, cli *client.Client, p chainParams) (event.Listener, error) {
 	// listenerPoolCap is a capacity of a
 	// worker pool inside the listener. It
 	// is used to prevent blocking in neo-go:
@@ -988,9 +988,8 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	return listener, err
 }
 
-func (s *Server) createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
-	name := p.name
-	endpoints := p.cfg.GetStringSlice(name + ".endpoints")
+func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<- error) (*client.Client, error) {
+	endpoints := p.cfg.GetStringSlice(p.name + ".endpoints")
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
 	}
@@ -1007,13 +1006,13 @@ func (s *Server) createClient(ctx context.Context, p *chainParams, errChan chan<
 		client.WithConnSwitchCallback(func() {
 			var err error
 
-			if name == morphPrefix {
+			if p.name == morphPrefix {
 				err = s.restartMorph()
 			} else {
 				err = s.restartMainChain()
 			}
 			if err != nil {
-				errChan <- fmt.Errorf("internal services' restart after RPC reconnection to the %s: %w", name, err)
+				errChan <- fmt.Errorf("internal services' restart after RPC reconnection to the %s: %w", p.name, err)
 			}
 		}),
 		client.WithConnLostCallback(func() {
