@@ -82,6 +82,16 @@ func (s *innerRingIndexer) update() (ind indexes, err error) {
 	return s.ind, nil
 }
 
+func (s *innerRingIndexer) reset() {
+	s.Lock()
+	defer s.Unlock()
+
+	// zero time, every real time is expected to
+	// be _much later_ after that time; `update`
+	// will be forced to make RPC calls
+	s.lastAccess = time.Time{}
+}
+
 func (s *innerRingIndexer) InnerRingIndex() (int32, error) {
 	ind, err := s.update()
 	if err != nil {

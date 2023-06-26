@@ -77,6 +77,8 @@ type (
 		balanceClient *balanceClient.Client
 		netmapClient  *nmClient.Client
 
+		auditTaskManager *audittask.Manager
+
 		// global state
 		epochCounter  atomic.Uint64
 		epochDuration atomic.Uint64
@@ -97,7 +99,7 @@ type (
 		pubKey                []byte
 		contracts             *contracts
 		predefinedValidators  keys.PublicKeys
-		initialEpochTickDelta uint32
+		initialEpochTickDelta atomic.Uint32
 		withoutMainNet        bool
 
 		// runtime processors
@@ -208,7 +210,9 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 
 	// tick initial epoch
 	initialEpochTicker := timer.NewOneTickTimer(
-		timer.StaticBlockMeter(s.initialEpochTickDelta),
+		func() (uint32, error) {
+			return s.initialEpochTickDelta.Load(), nil
+		},
 		func() {
 			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
 		})
@@ -435,7 +439,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		server.key = acc.PrivateKey()
 		morphChain.key = server.key
 
-		server.morphClient, err = createClient(ctx, morphChain, errChan)
+		server.morphClient, err = server.createClient(ctx, morphChain, errChan)
 		if err != nil {
 			return nil, err
 		}
@@ -471,7 +475,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		mainnetChain.from = fromMainChainBlock
 
 		// create mainnet client
-		server.mainnetClient, err = createClient(ctx, mainnetChain, errChan)
+		server.mainnetClient, err = server.createClient(ctx, mainnetChain, errChan)
 		if err != nil {
 			return nil, err
 		}
@@ -604,7 +608,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	porPoolSize := cfg.GetInt("audit.por.pool_size")
 
 	// create audit processor dependencies
-	auditTaskManager := audittask.New(
+	server.auditTaskManager = audittask.New(
 		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
 		audittask.WithWorkerPool(auditPool),
 		audittask.WithLogger(log),
@@ -618,7 +622,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		}),
 	)
 
-	server.workers = append(server.workers, auditTaskManager.Listen)
+	server.workers = append(server.workers, server.auditTaskManager.Listen)
 
 	// create audit processor
 	auditProcessor, err := audit.New(&audit.Params{
@@ -630,7 +634,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		SGSource:         clientCache,
 		Key:              &server.key.PrivateKey,
 		RPCSearchTimeout: cfg.GetDuration("audit.timeout.search"),
-		TaskManager:      auditTaskManager,
+		TaskManager:      server.auditTaskManager,
 		Reporter:         server,
 	})
 	if err != nil {
@@ -984,8 +988,9 @@ func createListener(ctx context.Context, cli *client.Client, p *chainParams) (ev
 	return listener, err
 }
 
-func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
-	endpoints := p.cfg.GetStringSlice(p.name + ".endpoints")
+func (s *Server) createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*client.Client, error) {
+	name := p.name
+	endpoints := p.cfg.GetStringSlice(name + ".endpoints")
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
 	}
@@ -999,6 +1004,18 @@ func createClient(ctx context.Context, p *chainParams, errChan chan<- error) (*c
 		client.WithEndpoints(endpoints),
 		client.WithReconnectionRetries(p.cfg.GetInt(p.name+".reconnections_number")),
 		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name+".reconnections_delay")),
+		client.WithConnSwitchCallback(func() {
+			var err error
+
+			if name == morphPrefix {
+				err = s.restartMorph()
+			} else {
+				err = s.restartMainChain()
+			}
+			if err != nil {
+				errChan <- fmt.Errorf("internal services' restart after RPC reconnection to the %s: %w", name, err)
+			}
+		}),
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
@@ -1043,21 +1060,22 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read epoch duration: %w", err)
 	}
 
-	s.epochCounter.Store(epoch)
-	s.epochDuration.Store(epochDuration)
-
 	// get next epoch delta tick
-	s.initialEpochTickDelta, err = s.nextEpochBlockDelta()
+	delta, err := s.nextEpochBlockDelta()
 	if err != nil {
 		return err
 	}
+
+	s.epochCounter.Store(epoch)
+	s.epochDuration.Store(epochDuration)
+	s.initialEpochTickDelta.Store(delta)
 
 	s.log.Debug("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Uint64("epoch", epoch),
 		zap.Uint32("precision", s.precision),
-		zap.Uint32("init_epoch_tick_delta", s.initialEpochTickDelta),
+		zap.Uint32("init_epoch_tick_delta", delta),
 	)
 
 	return nil
@@ -1110,4 +1128,31 @@ func (s *Server) newEpochTickHandlers() []newEpochHandler {
 	}
 
 	return newEpochHandlers
+}
+
+func (s *Server) restartMorph() error {
+	s.log.Info("restarting internal services because of RPC connection loss...")
+
+	s.auditTaskManager.Reset()
+	s.statusIndex.reset()
+
+	err := s.initConfigFromBlockchain()
+	if err != nil {
+		return fmt.Errorf("side chain config reinitialization: %w", err)
+	}
+
+	for _, t := range s.blockTimers {
+		err = t.Reset()
+		if err != nil {
+			return fmt.Errorf("could not reset block timers: %w", err)
+		}
+	}
+
+	s.log.Info("internal services have been restarted after RPC connection loss...")
+
+	return nil
+}
+
+func (s *Server) restartMainChain() error {
+	return nil
 }
