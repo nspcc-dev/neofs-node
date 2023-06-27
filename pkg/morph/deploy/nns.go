@@ -66,6 +66,9 @@ type deployNNSContractPrm struct {
 
 	blockchain Blockchain
 
+	// based on blockchain
+	monitor *blockchainMonitor
+
 	localAcc *wallet.Account
 
 	localNEF      nef.File
@@ -91,17 +94,11 @@ type deployNNSContractPrm struct {
 // If contract is missing and deployNNSContractPrm.initCommitteeGroupKey is provided,
 // initNNSContract attempts to deploy local contract.
 func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Uint160, err error) {
-	monitor, err := newBlockchainMonitor(prm.logger, prm.blockchain)
-	if err != nil {
-		return res, fmt.Errorf("init blockchain monitor: %w", err)
-	}
-	defer monitor.stop()
-
 	var managementContract *management.Contract
 	var sentTxValidUntilBlock uint32
 	var committeeGroupKey *keys.PrivateKey
 
-	for ; ; monitor.waitForNextBlock(ctx) {
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
 		case <-ctx.Done():
 			return res, fmt.Errorf("wait for NNS contract synchronization: %w", ctx.Err())
@@ -149,7 +146,7 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 		if sentTxValidUntilBlock > 0 {
 			prm.logger.Info("transaction deploying NNS contract was sent earlier, checking relevance...")
 
-			if cur := monitor.currentHeight(); cur <= sentTxValidUntilBlock {
+			if cur := prm.monitor.currentHeight(); cur <= sentTxValidUntilBlock {
 				prm.logger.Info("previously sent transaction deploying NNS contract may still be relevant, will wait for the outcome",
 					zap.Uint32("current height", cur), zap.Uint32("retry after height", sentTxValidUntilBlock))
 				continue

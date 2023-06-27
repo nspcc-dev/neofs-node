@@ -24,6 +24,9 @@ type initCommitteeGroupPrm struct {
 
 	blockchain Blockchain
 
+	// based on blockchain
+	monitor *blockchainMonitor
+
 	nnsOnChainAddress util.Uint160
 	systemEmail       string
 
@@ -36,19 +39,13 @@ type initCommitteeGroupPrm struct {
 
 // initCommitteeGroup initializes committee group and returns corresponding private key.
 func initCommitteeGroup(ctx context.Context, prm initCommitteeGroupPrm) (*keys.PrivateKey, error) {
-	monitor, err := newBlockchainMonitor(prm.logger, prm.blockchain)
-	if err != nil {
-		return nil, fmt.Errorf("init blockchain monitor: %w", err)
-	}
-	defer monitor.stop()
-
 	inv := invoker.New(prm.blockchain, nil)
 	const leaderCommitteeIndex = 0
 	var committeeGroupKey *keys.PrivateKey
 	var leaderTick func()
 
 upperLoop:
-	for ; ; monitor.waitForNextBlock(ctx) {
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("wait for committee group key to be distributed: %w", ctx.Err())
@@ -100,6 +97,8 @@ upperLoop:
 			continue
 		}
 
+		var err error
+
 		if committeeGroupKey == nil {
 			committeeGroupKey, err = prm.keyStorage.GetPersistedPrivateKey()
 			if err != nil {
@@ -109,7 +108,7 @@ upperLoop:
 		}
 
 		if leaderTick == nil {
-			leaderTick, err = initShareCommitteeGroupKeyAsLeaderTick(prm, monitor, committeeGroupKey)
+			leaderTick, err = initShareCommitteeGroupKeyAsLeaderTick(prm, committeeGroupKey)
 			if err != nil {
 				prm.logger.Error("failed to construct action sharing committee group key between committee members as leader, will try again later",
 					zap.Error(err))
@@ -124,7 +123,7 @@ upperLoop:
 // initShareCommitteeGroupKeyAsLeaderTick returns a function that preserves
 // context of the committee group key distribution by leading committee member
 // between calls.
-func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *blockchainMonitor, committeeGroupKey *keys.PrivateKey) (func(), error) {
+func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, committeeGroupKey *keys.PrivateKey) (func(), error) {
 	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
@@ -153,7 +152,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *
 					if ok && vubs[0] > 0 {
 						l.Info("transaction registering NNS domain was sent earlier, checking relevance...")
 
-						if cur := monitor.currentHeight(); cur <= vubs[0] {
+						if cur := prm.monitor.currentHeight(); cur <= vubs[0] {
 							l.Info("previously sent transaction registering NNS domain may still be relevant, will wait for the outcome",
 								zap.Uint32("current height", cur), zap.Uint32("retry after height", vubs[0]))
 							return
@@ -194,7 +193,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *
 				if ok && vubs[1] > 0 {
 					l.Info("transaction setting NNS domain record was sent earlier, checking relevance...")
 
-					if cur := monitor.currentHeight(); cur <= vubs[1] {
+					if cur := prm.monitor.currentHeight(); cur <= vubs[1] {
 						l.Info("previously sent transaction setting NNS domain record may still be relevant, will wait for the outcome",
 							zap.Uint32("current height", cur), zap.Uint32("retry after height", vubs[1]))
 						return

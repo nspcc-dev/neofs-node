@@ -121,9 +121,17 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return errors.New("local account does not belong to any Neo committee member")
 	}
 
+	monitor, err := newBlockchainMonitor(prm.Logger, prm.Blockchain)
+	if err != nil {
+		return fmt.Errorf("init blockchain monitor: %w", err)
+	}
+
+	defer monitor.stop()
+
 	deployNNSPrm := deployNNSContractPrm{
 		logger:                prm.Logger,
 		blockchain:            prm.Blockchain,
+		monitor:               monitor,
 		localAcc:              prm.LocalAccount,
 		localNEF:              prm.NNS.Common.NEF,
 		localManifest:         prm.NNS.Common.Manifest,
@@ -169,6 +177,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	err = enableNotary(ctx, enableNotaryPrm{
 		logger:                 prm.Logger,
 		blockchain:             prm.Blockchain,
+		monitor:                monitor,
 		nnsOnChainAddress:      nnsOnChainAddress,
 		systemEmail:            prm.NNS.SystemEmail,
 		committee:              committee,
@@ -186,6 +195,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	committeeGroupKey, err := initCommitteeGroup(ctx, initCommitteeGroupPrm{
 		logger:                 prm.Logger,
 		blockchain:             prm.Blockchain,
+		monitor:                monitor,
 		nnsOnChainAddress:      nnsOnChainAddress,
 		systemEmail:            prm.NNS.SystemEmail,
 		committee:              committee,

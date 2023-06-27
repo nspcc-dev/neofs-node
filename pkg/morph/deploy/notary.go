@@ -31,6 +31,9 @@ type enableNotaryPrm struct {
 
 	blockchain Blockchain
 
+	// based on blockchain
+	monitor *blockchainMonitor
+
 	nnsOnChainAddress util.Uint160
 	systemEmail       string
 
@@ -41,18 +44,13 @@ type enableNotaryPrm struct {
 
 // enableNotary makes Notary service ready-to-go for the committee members.
 func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
-	monitor, err := newBlockchainMonitor(prm.logger, prm.blockchain)
-	if err != nil {
-		return fmt.Errorf("init blockchain monitor: %w", err)
-	}
-	defer monitor.stop()
-
 	var tick func()
+	var err error
 
 	if len(prm.committee) == 1 {
 		prm.logger.Info("committee is single-acc, no multi-signature needed for Notary role designation")
 
-		tick, err = initDesignateNotaryRoleToLocalAccountTick(prm, monitor)
+		tick, err = initDesignateNotaryRoleToLocalAccountTick(prm)
 		if err != nil {
 			return fmt.Errorf("construct action designating Notary role to the local account: %w", err)
 		}
@@ -60,12 +58,12 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 		prm.logger.Info("committee is multi-acc, multi-signature is needed for Notary role designation")
 
 		if prm.localAccCommitteeIndex == 0 {
-			tick, err = initDesignateNotaryRoleAsLeaderTick(prm, monitor)
+			tick, err = initDesignateNotaryRoleAsLeaderTick(prm)
 			if err != nil {
 				return fmt.Errorf("construct action designating Notary role to the multi-acc committee as leader: %w", err)
 			}
 		} else {
-			tick, err = initDesignateNotaryRoleAsSignerTick(prm, monitor)
+			tick, err = initDesignateNotaryRoleAsSignerTick(prm)
 			if err != nil {
 				return fmt.Errorf("construct action designating Notary role to the multi-acc committee as signer: %w", err)
 			}
@@ -74,7 +72,7 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 
 	roleContract := rolemgmt.NewReader(invoker.New(prm.blockchain, nil))
 
-	for ; ; monitor.waitForNextBlock(ctx) {
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("wait for Notary service to be enabled for the committee: %w", ctx.Err())
@@ -83,7 +81,7 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 
 		prm.logger.Info("checking Notary role of the committee members...")
 
-		accsWithNotaryRole, err := roleContract.GetDesignatedByRole(noderoles.P2PNotary, monitor.currentHeight())
+		accsWithNotaryRole, err := roleContract.GetDesignatedByRole(noderoles.P2PNotary, prm.monitor.currentHeight())
 		if err != nil {
 			prm.logger.Error("failed to check role of the committee, will try again later", zap.Error(err))
 			continue
@@ -111,7 +109,7 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 
 // initDesignateNotaryRoleToLocalAccountTick returns a function that preserves
 // context of the Notary role designation to the local account between calls.
-func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm, monitor *blockchainMonitor) (func(), error) {
+func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm) (func(), error) {
 	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
@@ -123,7 +121,7 @@ func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm, monitor *blo
 	var sentTxValidUntilBlock uint32
 
 	return func() {
-		if sentTxValidUntilBlock > 0 && sentTxValidUntilBlock <= monitor.currentHeight() {
+		if sentTxValidUntilBlock > 0 && sentTxValidUntilBlock <= prm.monitor.currentHeight() {
 			prm.logger.Info("previously sent transaction designating Notary role to the local account may still be relevant, will wait for the outcome")
 			return
 		}
@@ -131,7 +129,7 @@ func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm, monitor *blo
 		if sentTxValidUntilBlock > 0 {
 			prm.logger.Info("transaction designating Notary role to the local account was sent earlier, checking relevance...")
 
-			if cur := monitor.currentHeight(); cur <= sentTxValidUntilBlock {
+			if cur := prm.monitor.currentHeight(); cur <= sentTxValidUntilBlock {
 				prm.logger.Info("previously sent transaction designating Notary role to the local account may still be relevant, will wait for the outcome",
 					zap.Uint32("current height", cur), zap.Uint32("retry after height", sentTxValidUntilBlock))
 				return
@@ -165,7 +163,7 @@ func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm, monitor *blo
 // of the Notary role designation to the multi-acc committee between calls. The
 // operation is performed by the leading committee member which is assigned to
 // collect signatures for the corresponding transaction.
-func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchainMonitor) (func(), error) {
+func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
 	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
 
@@ -247,9 +245,9 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 			var txValidUntilBlock uint32
 
 			if defaultValidUntilBlockIncrement <= ver.Protocol.MaxValidUntilBlockIncrement {
-				txValidUntilBlock = monitor.currentHeight() + defaultValidUntilBlockIncrement
+				txValidUntilBlock = prm.monitor.currentHeight() + defaultValidUntilBlockIncrement
 			} else {
-				txValidUntilBlock = monitor.currentHeight() + ver.Protocol.MaxValidUntilBlockIncrement
+				txValidUntilBlock = prm.monitor.currentHeight() + ver.Protocol.MaxValidUntilBlockIncrement
 			}
 
 			strSharedTxData := sharedTransactionData{
@@ -291,7 +289,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 				if registerDomainTxValidUntilBlock > 0 {
 					l.Info("transaction registering NNS domain was sent earlier, checking relevance...")
 
-					if cur := monitor.currentHeight(); cur <= registerDomainTxValidUntilBlock {
+					if cur := prm.monitor.currentHeight(); cur <= registerDomainTxValidUntilBlock {
 						l.Info("previously sent transaction registering NNS domain may still be relevant, will wait for the outcome",
 							zap.Uint32("current height", cur), zap.Uint32("retry after height", registerDomainTxValidUntilBlock))
 						return
@@ -329,7 +327,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 			if setDomainRecordTxValidUntilBlock > 0 {
 				l.Info("transaction setting NNS domain record was sent earlier, checking relevance...")
 
-				if cur := monitor.currentHeight(); cur <= setDomainRecordTxValidUntilBlock {
+				if cur := prm.monitor.currentHeight(); cur <= setDomainRecordTxValidUntilBlock {
 					l.Info("previously sent transaction setting NNS domain record may still be relevant, will wait for the outcome",
 						zap.Uint32("current height", cur), zap.Uint32("retry after height", setDomainRecordTxValidUntilBlock))
 					return
@@ -349,7 +347,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 			return
 		}
 
-		if cur := monitor.currentHeight(); cur > sharedTxData.validUntilBlock {
+		if cur := prm.monitor.currentHeight(); cur > sharedTxData.validUntilBlock {
 			l.Error("previously used shared data of the transaction expired, need a reset",
 				zap.Uint32("expires after height", sharedTxData.validUntilBlock), zap.Uint32("current height", cur))
 			generateAndShareTxData(true)
@@ -481,7 +479,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 		if designateRoleTxValidUntilBlock > 0 {
 			prm.logger.Info("transaction designating Notary role to the committee was sent earlier, checking relevance...")
 
-			if cur := monitor.currentHeight(); cur <= designateRoleTxValidUntilBlock {
+			if cur := prm.monitor.currentHeight(); cur <= designateRoleTxValidUntilBlock {
 				prm.logger.Info("previously sent transaction designating Notary role to the committee may still be relevant, will wait for the outcome",
 					zap.Uint32("current height", cur), zap.Uint32("retry after height", designateRoleTxValidUntilBlock))
 				return
@@ -545,7 +543,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm, monitor *blockchai
 // of the Notary role designation to the multi-acc committee between calls. The
 // operation is performed by the non-leading committee member which is assigned to
 // sign transaction submitted by the leader.
-func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm, monitor *blockchainMonitor) (func(), error) {
+func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
 	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
 
@@ -621,7 +619,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm, monitor *blockchai
 			return
 		}
 
-		if cur := monitor.currentHeight(); cur > sharedTxData.validUntilBlock {
+		if cur := prm.monitor.currentHeight(); cur > sharedTxData.validUntilBlock {
 			l.Error("previously used shared data of the transaction expired, will wait for update by leader",
 				zap.Uint32("expires after height", sharedTxData.validUntilBlock), zap.Uint32("current height", cur))
 			resetTx()
@@ -663,7 +661,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm, monitor *blockchai
 				if registerDomainTxValidUntilBlock > 0 {
 					l.Info("transaction registering NNS domain was sent earlier, checking relevance...")
 
-					if cur := monitor.currentHeight(); cur <= registerDomainTxValidUntilBlock {
+					if cur := prm.monitor.currentHeight(); cur <= registerDomainTxValidUntilBlock {
 						l.Info("previously sent transaction registering NNS domain may still be relevant, will wait for the outcome",
 							zap.Uint32("current height", cur), zap.Uint32("retry after height", registerDomainTxValidUntilBlock))
 						return
@@ -701,7 +699,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm, monitor *blockchai
 			if setDomainRecordTxValidUntilBlock > 0 {
 				l.Info("transaction setting NNS domain record was sent earlier, checking relevance...")
 
-				if cur := monitor.currentHeight(); cur <= setDomainRecordTxValidUntilBlock {
+				if cur := prm.monitor.currentHeight(); cur <= setDomainRecordTxValidUntilBlock {
 					l.Info("previously sent transaction setting NNS domain record may still be relevant, will wait for the outcome",
 						zap.Uint32("current height", cur), zap.Uint32("retry after height", setDomainRecordTxValidUntilBlock))
 					return
