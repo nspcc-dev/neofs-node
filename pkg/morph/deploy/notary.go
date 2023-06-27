@@ -3,21 +3,30 @@ package deploy
 import (
 	"bytes"
 	"context"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	randutil "github.com/nspcc-dev/neofs-node/pkg/util/rand"
@@ -110,12 +119,12 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 // initDesignateNotaryRoleToLocalAccountTick returns a function that preserves
 // context of the Notary role designation to the local account between calls.
 func initDesignateNotaryRoleToLocalAccountTick(prm enableNotaryPrm) (func(), error) {
-	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
 
-	roleContract := rolemgmt.New(_actor)
+	roleContract := rolemgmt.New(localActor)
 
 	// multi-tick context
 	var sentTxValidUntilBlock uint32
@@ -172,7 +181,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
-	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
@@ -199,7 +208,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 		return nil, fmt.Errorf("init transaction sender with committee signers: %w", err)
 	}
 
-	_invoker := invoker.New(prm.blockchain, nil)
+	invkr := invoker.New(prm.blockchain, nil)
 	roleContract := rolemgmt.New(committeeActor)
 
 	// multi-tick context
@@ -238,7 +247,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 				return
 			}
 
-			// _actor.CalculateValidUntilBlock is not used because it is rather "idealized"
+			// localActor.CalculateValidUntilBlock is not used because it is rather "idealized"
 			// in terms of the accessibility of committee member nodes. So, we need a more
 			// practically viable timeout to reduce the chance of transaction re-creation.
 			const defaultValidUntilBlockIncrement = 120 // ~30m for 15s block interval
@@ -251,7 +260,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 			}
 
 			strSharedTxData := sharedTransactionData{
-				sender:          _actor.Sender(),
+				sender:          localActor.Sender(),
 				validUntilBlock: txValidUntilBlock,
 				nonce:           randutil.Uint32(),
 			}.encodeToString()
@@ -260,10 +269,10 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 
 			var vub uint32
 			if recordExists {
-				_, vub, err = _actor.SendCall(prm.nnsOnChainAddress, methodNNSSetRecord,
+				_, vub, err = localActor.SendCall(prm.nnsOnChainAddress, methodNNSSetRecord,
 					domainDesignateNotaryTx, int64(nns.TXT), 0, strSharedTxData)
 			} else {
-				_, vub, err = _actor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
+				_, vub, err = localActor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
 					domainDesignateNotaryTx, int64(nns.TXT), strSharedTxData)
 			}
 			if err != nil {
@@ -281,7 +290,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 			l.Info("transaction setting NNS domain record has been successfully sent, will wait for the outcome")
 		}
 
-		strSharedTxData, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domainDesignateNotaryTx)
+		strSharedTxData, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domainDesignateNotaryTx)
 		if err != nil {
 			if errors.Is(err, errMissingDomain) {
 				l.Info("NNS domain is missing, registration is needed")
@@ -300,8 +309,8 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 
 				l.Info("sending new transaction registering domain in the NNS...")
 
-				_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
-					domainDesignateNotaryTx, _actor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+				_, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
+					domainDesignateNotaryTx, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 				if err != nil {
 					registerDomainTxValidUntilBlock = 0
 					if isErrNotEnoughGAS(err) {
@@ -371,7 +380,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 
 			prm.logger.Info("transaction designating Notary role to the committee initialized, signing...")
 
-			netMagic := _actor.GetNetwork()
+			netMagic := localActor.GetNetwork()
 
 			err = prm.localAcc.SignTx(netMagic, tx)
 			if err != nil {
@@ -406,7 +415,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 			for i := range prm.committee[1:] {
 				domain := designateNotarySignatureDomainForMember(i)
 
-				rec, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domain)
+				rec, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domain)
 				if err != nil {
 					if errors.Is(err, errMissingDomain) || errors.Is(err, errMissingDomainRecord) {
 						prm.logger.Info("missing NNS domain record with committee member's signature of the transaction designating Notary role to the committee, will wait",
@@ -439,7 +448,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 				}
 
 				txCp := *tx // to safely call Hash method below
-				if !prm.committee[i].VerifyHashable(bSignature, uint32(_actor.GetNetwork()), &txCp) {
+				if !prm.committee[i].VerifyHashable(bSignature, uint32(localActor.GetNetwork()), &txCp) {
 					prm.logger.Info("invalid signature of the transaction designating Notary role to the committee submitted by committee member",
 						zap.Stringer("member", prm.committee[i]),
 						zap.String("domain", domain))
@@ -516,7 +525,7 @@ func initDesignateNotaryRoleAsLeaderTick(prm enableNotaryPrm) (func(), error) {
 
 		prm.logger.Info("sending the transaction designating Notary role to the committee...")
 
-		_, vub, err := _actor.Send(tx)
+		_, vub, err := localActor.Send(tx)
 		if err != nil {
 			designateRoleTxValidUntilBlock = 0
 			switch {
@@ -552,7 +561,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
-	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
@@ -579,7 +588,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 		return nil, fmt.Errorf("init transaction sender with committee signers: %w", err)
 	}
 
-	_invoker := invoker.New(prm.blockchain, nil)
+	invkr := invoker.New(prm.blockchain, nil)
 	roleContract := rolemgmt.New(committeeActor)
 
 	// multi-tick context
@@ -597,7 +606,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 
 		prm.logger.Info("synchronizing shared data of the transaction designating Notary role to the committee with NNS domain record...")
 
-		strSharedTxData, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domainDesignateNotaryTx)
+		strSharedTxData, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domainDesignateNotaryTx)
 		if err != nil {
 			switch {
 			default:
@@ -653,7 +662,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 		var recordExists bool
 		var needReset bool
 
-		rec, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domain)
+		rec, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domain)
 		if err != nil {
 			if errors.Is(err, errMissingDomain) {
 				l.Info("NNS domain is missing, registration is needed")
@@ -672,8 +681,8 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 
 				l.Info("sending new transaction registering domain in the NNS...")
 
-				_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
-					domain, _actor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+				_, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
+					domain, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 				if err != nil {
 					registerDomainTxValidUntilBlock = 0
 					if isErrNotEnoughGAS(err) {
@@ -723,7 +732,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 				needReset = true
 			} else {
 				txCp := *tx // to safely call Hash method below
-				if !prm.localAcc.PublicKey().VerifyHashable(bSignature, uint32(_actor.GetNetwork()), &txCp) {
+				if !prm.localAcc.PublicKey().VerifyHashable(bSignature, uint32(localActor.GetNetwork()), &txCp) {
 					l.Info("invalid signature of the transaction designating Notary role to the committee submitted by local account, need to be recalculated")
 					needReset = true
 				}
@@ -735,7 +744,7 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 		if needReset {
 			prm.logger.Info("calculating signature of the transaction designating Notary role to the committee using local account...")
 
-			sig := prm.localAcc.SignHashable(_actor.GetNetwork(), tx)
+			sig := prm.localAcc.SignHashable(localActor.GetNetwork(), tx)
 			sig = sharedTxData.unshiftChecksum(sig)
 
 			rec = base64.StdEncoding.EncodeToString(sig)
@@ -744,10 +753,10 @@ func initDesignateNotaryRoleAsSignerTick(prm enableNotaryPrm) (func(), error) {
 
 			var vub uint32
 			if recordExists {
-				_, vub, err = _actor.SendCall(prm.nnsOnChainAddress, methodNNSSetRecord,
+				_, vub, err = localActor.SendCall(prm.nnsOnChainAddress, methodNNSSetRecord,
 					domain, int64(nns.TXT), 0, rec)
 			} else {
-				_, vub, err = _actor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
+				_, vub, err = localActor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
 					domain, int64(nns.TXT), rec)
 			}
 			if err != nil {
@@ -868,4 +877,349 @@ func makeUnsignedDesignateCommitteeNotaryTx(roleContract *rolemgmt.Contract, com
 	tx.Signers[0].Account = sharedTxData.sender
 
 	return tx, nil
+}
+
+// newCommitteeNotaryActor returns notary.Actor that builds and sends Notary
+// service requests witnessed by the specified committee members to the provided
+// Blockchain. Given local account pays for transactions.
+func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys) (*notary.Actor, error) {
+	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(committee))
+	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(localAcc.PrivateKey())
+
+	err := committeeMultiSigAcc.ConvertMultisig(committeeMultiSigM, committee)
+	if err != nil {
+		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
+	}
+
+	return notary.NewActor(b, []actor.SignerAccount{
+		{
+			Signer: transaction.Signer{
+				Account: localAcc.ScriptHash(),
+				Scopes:  transaction.None,
+			},
+			Account: localAcc,
+		},
+		{
+			Signer: transaction.Signer{
+				Account: committeeMultiSigAcc.ScriptHash(),
+				Scopes:  transaction.CalledByEntry,
+			},
+			Account: committeeMultiSigAcc,
+		},
+	}, localAcc)
+}
+
+// notaryDepositDeficiencyHandler is a function returned by initNotaryDepositDeficiencyHandler.
+// True argument is passed when there is not enough GAS on local account's
+// balance in the Notary contract, false - when local account's Notary deposit
+// expires before particular fallback transaction.
+//
+// The function is intended to be called multiple times on each deposit problem
+// encounter. On each call, It attempts to fix Notary deposit problem without
+// waiting for success. Caller should by default wait for the problem to be
+// fixed, and if not, retry.
+//
+// notaryDepositDeficiencyHandler must not be called from multiple routines in
+// parallel.
+type notaryDepositDeficiencyHandler = func(lackOfGAS bool)
+
+// Amount of GAS for the single local account's GAS->Notary transfer. Relatively
+// small value for fallback transactions' fees.
+var singleNotaryDepositAmount = big.NewInt(1_0000_0000) // 1 GAS
+
+// constructs notaryDepositDeficiencyHandler working with the specified
+// Blockchain and GAS/Notary balance of the given account.
+func initNotaryDepositDeficiencyHandler(l *zap.Logger, b Blockchain, monitor *blockchainMonitor, localAcc *wallet.Account) (notaryDepositDeficiencyHandler, error) {
+	localActor, err := actor.NewSimple(b, localAcc)
+	if err != nil {
+		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
+	}
+
+	notaryContract := notary.New(localActor)
+	gasContract := gas.New(localActor)
+	localAccID := localAcc.ScriptHash()
+
+	// multi-tick context
+	var transferTxValidUntilBlock uint32
+	var expirationTxValidUntilBlock uint32
+
+	return func(lackOfGAS bool) {
+		notaryBalance, err := notaryContract.BalanceOf(localAccID)
+		if err != nil {
+			l.Error("failed to read Notary balance of the local account, will try again later", zap.Error(err))
+			return
+		}
+
+		gasBalance, err := gasContract.BalanceOf(localAccID)
+		if err != nil {
+			l.Error("failed to read GAS token balance of the local account, will try again later", zap.Error(err))
+			return
+		}
+
+		// simple deposit scheme: transfer 1GAS (at most 2% of GAS token balance) for
+		// 100 blocks after the latest deposit's expiration height (if first, then from
+		// current height).
+		//
+		// If we encounter deposit expiration and current Notary balance >=20% of single
+		// transfer, we just increase the expiration time of the deposit, otherwise, we
+		// make transfer.
+
+		const (
+			// GAS:Notary proportion, see scheme above
+			gasProportion = 50
+			// even there is no lack of GAS at the moment, when the balance falls below 1/5
+			// of the supported value - replenish
+			refillProportion = 5
+			// for simplicity, we just make Notary deposit "infinite" not to prolong
+			till = math.MaxUint32
+		)
+
+		if !lackOfGAS { // deposit expired
+			if new(big.Int).Mul(notaryBalance, big.NewInt(refillProportion)).Cmp(singleNotaryDepositAmount) >= 0 {
+				if expirationTxValidUntilBlock > 0 {
+					l.Info("transaction increasing expiration time of the Notary deposit was sent earlier, checking relevance...")
+
+					if cur := monitor.currentHeight(); cur <= expirationTxValidUntilBlock {
+						l.Info("previously sent transaction increasing expiration time of the Notary deposit may still be relevant, will wait for the outcome",
+							zap.Uint32("current height", cur), zap.Uint32("retry after height", expirationTxValidUntilBlock))
+						return
+					}
+
+					l.Info("previously sent transaction increasing expiration time of the Notary deposit expired without side-effect ")
+				}
+
+				l.Info("sending new transaction increasing expiration time of the Notary deposit...", zap.Uint32("till", till))
+
+				_, vub, err := notaryContract.LockDepositUntil(localAccID, till)
+				if err != nil {
+					l.Error("failed to send transaction increasing expiration time of the Notary deposit, will try again later", zap.Error(err))
+					return
+				}
+
+				expirationTxValidUntilBlock = vub
+
+				l.Info("transaction increasing expiration time of the Notary deposit has been successfully sent, will wait for the outcome")
+
+				return
+			}
+		}
+
+		if transferTxValidUntilBlock > 0 {
+			l.Info("transaction transferring local account's GAS to the Notary contract was sent earlier, checking relevance...")
+
+			// for simplicity, we track ValidUntilBlock. In this particular case, it'd be
+			// more efficient to monitor a transaction by ID, because side effect is
+			// inconsistent (funds can be spent in background).
+
+			if cur := monitor.currentHeight(); cur <= transferTxValidUntilBlock {
+				l.Info("previously sent transaction transferring local account's GAS to the Notary contract may still be relevant, will wait for the outcome",
+					zap.Uint32("current height", cur), zap.Uint32("retry after height", transferTxValidUntilBlock))
+				return
+			}
+
+			l.Info("previously sent transaction transferring local account's GAS to the Notary contract expired without side-effect")
+		}
+
+		needAtLeast := new(big.Int).Mul(singleNotaryDepositAmount, big.NewInt(gasProportion))
+		if gasBalance.Cmp(needAtLeast) < 0 {
+			l.Info("minimum threshold for GAS transfer from local account to the Notary contract not reached, will wait for replenishment",
+				zap.Stringer("need at least", needAtLeast), zap.Stringer("have", gasBalance))
+			return
+		}
+
+		var transferData notary.OnNEP17PaymentData
+		transferData.Account = &localAccID
+		transferData.Till = till
+
+		l.Info("sending new transaction transferring local account's GAS to the Notary contract...",
+			zap.Stringer("amount", singleNotaryDepositAmount), zap.Uint32("till", transferData.Till))
+
+		// nep17.TokenWriter.Transfer doesn't support notary.OnNEP17PaymentData
+		// directly, so split the args
+		// Track https://github.com/nspcc-dev/neofs-node/issues/2429
+		_, vub, err := gasContract.Transfer(localAccID, notary.Hash, singleNotaryDepositAmount, []interface{}{transferData.Account, transferData.Till})
+		if err != nil {
+			l.Error("failed to send transaction transferring local account's GAS to the Notary contract, will try again later", zap.Error(err))
+			return
+		}
+
+		transferTxValidUntilBlock = vub
+
+		l.Info("transaction transferring local account's GAS to the Notary contract has been successfully sent, will wait for the outcome")
+	}, nil
+}
+
+// listenCommitteeNotaryRequestsPrm groups parameters of listenCommitteeNotaryRequests.
+type listenCommitteeNotaryRequestsPrm struct {
+	logger *zap.Logger
+
+	blockchain Blockchain
+
+	localAcc *wallet.Account
+
+	committee keys.PublicKeys
+
+	onNotaryDepositDeficiency notaryDepositDeficiencyHandler
+}
+
+// listenCommitteeNotaryRequests starts background process listening to incoming
+// Notary service requests. The process filters transactions witnessed by the
+// committee and signs them on behalf of the local account (representing
+// committee member). Routine handles only requests sent by the remote accounts.
+// The process is stopped by context or internal Blockchain signal.
+func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotaryRequestsPrm) error {
+	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
+	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+
+	err := committeeMultiSigAcc.ConvertMultisig(committeeMultiSigM, prm.committee)
+	if err != nil {
+		return fmt.Errorf("compose committee multi-signature account: %w", err)
+	}
+
+	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
+	chNotaryRequests := make(chan *result.NotaryRequestEvent, 100) // secure from blocking
+	// cache processed operations: when main transaction from received notary
+	// request is signed and sent by the local account, we receive the request from
+	// the channel again
+	mProcessedMainTxs := make(map[util.Uint256]struct{})
+
+	subID, err := prm.blockchain.ReceiveNotaryRequests(&neorpc.TxFilter{
+		Signer: &committeeMultiSigAccID,
+	}, chNotaryRequests)
+	if err != nil {
+		return fmt.Errorf("subscribe to notary requests from committee: %w", err)
+	}
+
+	go func() {
+		defer func() {
+			err := prm.blockchain.Unsubscribe(subID)
+			if err != nil {
+				prm.logger.Warn("failed to cancel subscription to notary requests", zap.Error(err))
+			}
+		}()
+
+		prm.logger.Info("listening to committee notary requests...")
+
+		for {
+			select {
+			case <-ctx.Done():
+				prm.logger.Info("stop listening to committee notary requests (context is done)", zap.Error(ctx.Err()))
+				return
+			case notaryEvent, ok := <-chNotaryRequests:
+				if !ok {
+					prm.logger.Info("stop listening to committee notary requests (subscription channel closed)")
+					return
+				}
+
+				// for simplicity, requests are handled one-by one. We could process them in parallel
+				// using worker pool, but actions seem to be relatively lightweight
+
+				const expectedSignersCount = 3 // sender + committee + Notary
+				mainTx := notaryEvent.NotaryRequest.MainTransaction
+				// note: instruction above can throw NPE and it's ok to panic: we confidently
+				// expect that only non-nil pointers will come from the channel (NeoGo
+				// guarantees)
+
+				srcMainTxHash := mainTx.Hash()
+				_, processed := mProcessedMainTxs[srcMainTxHash]
+
+				// revise severity level of the messages
+				// https://github.com/nspcc-dev/neofs-node/issues/2419
+				switch {
+				case processed:
+					prm.logger.Info("main transaction of the notary request has already been processed, skip",
+						zap.Stringer("ID", srcMainTxHash))
+					continue
+				case notaryEvent.Type != mempoolevent.TransactionAdded:
+					prm.logger.Info("unsupported type of the notary request event, skip",
+						zap.Stringer("got", notaryEvent.Type), zap.Stringer("expect", mempoolevent.TransactionAdded))
+					continue
+				case len(mainTx.Signers) != expectedSignersCount:
+					prm.logger.Info("unsupported number of signers of main transaction from the received notary request, skip",
+						zap.Int("expected", expectedSignersCount), zap.Int("got", len(mainTx.Signers)))
+					continue
+				case !mainTx.HasSigner(committeeMultiSigAccID):
+					prm.logger.Info("committee is not a signer of main transaction from the received notary request, skip")
+					continue
+				case mainTx.HasSigner(prm.localAcc.ScriptHash()):
+					prm.logger.Info("main transaction from the received notary request is signed by a local account, skip")
+					continue
+				case len(mainTx.Scripts) == 0:
+					prm.logger.Info("missing scripts of main transaction from the received notary request, skip")
+					continue
+				}
+
+				bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[0].VerificationScript)
+				if !ok {
+					prm.logger.Info("first verification script in main transaction of the received notary request is not a signature one, skip", zap.Error(err))
+					continue
+				}
+
+				senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
+				if err != nil {
+					prm.logger.Info("failed to decode sender's public key from first script of main transaction from the received notary request, skip", zap.Error(err))
+					continue
+				}
+
+				// copy transaction to avoid pointer mutation
+				mainTxCp := *mainTx
+				mainTxCp.Scripts = nil
+
+				mainTx = &mainTxCp // source one isn't needed anymore
+
+				// it'd be safer to get into the transaction and analyze what it is trying to do.
+				// For simplicity, now we blindly sign it. Track https://github.com/nspcc-dev/neofs-node/issues/2430
+
+				prm.logger.Info("signing main transaction from the received notary request by the local account...")
+
+				// create new actor for current signers. As a slight optimization, we could also
+				// compare with signers of previously created actor and deduplicate.
+				// See also https://github.com/nspcc-dev/neofs-node/issues/2314
+				notaryActor, err := notary.NewActor(prm.blockchain, []actor.SignerAccount{
+					{
+						Signer:  mainTx.Signers[0],
+						Account: notary.FakeSimpleAccount(senderKey),
+					},
+					{
+						Signer:  mainTx.Signers[1],
+						Account: committeeMultiSigAcc,
+					},
+				}, prm.localAcc)
+				if err != nil {
+					// not really expected
+					prm.logger.Error("failed to init Notary request sender with signers from the main transaction of the received notary request", zap.Error(err))
+					continue
+				}
+
+				err = notaryActor.Sign(mainTx)
+				if err != nil {
+					prm.logger.Error("failed to sign main transaction from the received notary request by the local account, skip", zap.Error(err))
+					continue
+				}
+
+				prm.logger.Info("sending new notary request with the main transaction signed by the local account...")
+
+				_, _, _, err = notaryActor.Notarize(mainTx, nil)
+				if err != nil {
+					lackOfGAS := isErrNotEnoughGAS(err)
+					// here lackOfGAS=true always means lack of Notary balance and not related to
+					// the main transaction itself
+					if !lackOfGAS {
+						if !isErrNotaryDepositExpires(err) {
+							prm.logger.Error("failed to send transaction deploying NNS contract, will try again later", zap.Error(err))
+							continue
+						}
+					}
+
+					prm.onNotaryDepositDeficiency(lackOfGAS)
+
+					continue
+				}
+
+				prm.logger.Info("main transaction from the received notary request has been successfully signed and sent by the local account")
+			}
+		}
+	}()
+
+	return nil
 }

@@ -124,12 +124,12 @@ upperLoop:
 // context of the committee group key distribution by leading committee member
 // between calls.
 func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, committeeGroupKey *keys.PrivateKey) (func(), error) {
-	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
 
-	_invoker := invoker.New(prm.blockchain, nil)
+	invkr := invoker.New(prm.blockchain, nil)
 
 	// multi-tick context
 	mDomainsToVubs := make(map[string][2]uint32) // 1st - register, 2nd - addRecord
@@ -143,7 +143,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, committee
 
 			l.Info("synchronizing committee group key with NNS domain record...")
 
-			_, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domain)
+			_, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domain)
 			if err != nil {
 				if errors.Is(err, errMissingDomain) {
 					l.Info("NNS domain is missing, registration is needed")
@@ -163,8 +163,8 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, committee
 
 					l.Info("sending new transaction registering domain in the NNS...")
 
-					_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
-						domain, _actor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+					_, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
+						domain, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 					if err != nil {
 						vubs[0] = 0
 						mDomainsToVubs[domain] = vubs
@@ -213,7 +213,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, committee
 
 				l.Info("sending new transaction setting domain record in the NNS...")
 
-				_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
+				_, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
 					domain, int64(nns.TXT), keyCipher)
 				if err != nil {
 					vubs[1] = 0

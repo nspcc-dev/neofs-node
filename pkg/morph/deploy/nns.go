@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -158,13 +159,13 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 		prm.logger.Info("sending new transaction deploying NNS contract...")
 
 		if managementContract == nil {
-			_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+			localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 			if err != nil {
 				prm.logger.Warn("NNS contract is missing on the chain but attempts to deploy are disabled, will try again later")
 				continue
 			}
 
-			managementContract = management.New(_actor)
+			managementContract = management.New(localActor)
 
 			setGroupInManifest(&prm.localManifest, prm.localNEF, committeeGroupKey, prm.localAcc.ScriptHash())
 		}
@@ -225,4 +226,175 @@ func lookupNNSDomainRecord(inv *invoker.Invoker, nnsContract util.Uint160, domai
 	}
 
 	return "", errMissingDomainRecord
+}
+
+// updateNNSContractPrm groups parameters of NeoFS NNS contract update.
+type updateNNSContractPrm struct {
+	logger *zap.Logger
+
+	blockchain Blockchain
+
+	// based on blockchain
+	monitor *blockchainMonitor
+
+	localAcc *wallet.Account
+
+	localNEF      nef.File
+	localManifest manifest.Manifest
+	systemEmail   string
+
+	committee         keys.PublicKeys
+	committeeGroupKey *keys.PrivateKey
+
+	// constructor of extra arguments to be passed into method updating the
+	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
+	// used).
+	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+
+	onNotaryDepositDeficiency notaryDepositDeficiencyHandler
+}
+
+// updateNNSContract synchronizes on-chain NNS contract (its presence is a
+// precondition) with the local one represented by compiled executables. If
+// on-chain version is greater or equal to the local one, nothing happens.
+// Otherwise, transaction calling 'update' method is sent.
+//
+// Local manifest is extended with committee group represented by the
+// parameterized private key.
+//
+// Function behaves similar to initNNSContract in terms of context.
+func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
+	bLocalNEF, err := prm.localNEF.Bytes()
+	if err != nil {
+		// not really expected
+		return fmt.Errorf("encode local NEF of the NNS contract into binary: %w", err)
+	}
+
+	jLocalManifest, err := json.Marshal(prm.localManifest)
+	if err != nil {
+		// not really expected
+		return fmt.Errorf("encode local manifest of the NNS contract into JSON: %w", err)
+	}
+
+	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
+	if err != nil {
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+	}
+
+	localVersion, err := readContractLocalVersion(prm.blockchain, prm.localNEF, prm.localManifest)
+	if err != nil {
+		return fmt.Errorf("read version of the local NNS contract: %w", err)
+	}
+
+	var updateTxValidUntilBlock uint32
+
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for NNS contract synchronization: %w", ctx.Err())
+		default:
+		}
+
+		prm.logger.Info("reading on-chain state of the NNS contract...")
+
+		nnsOnChainState, err := readNNSOnChainState(prm.blockchain)
+		if err != nil {
+			prm.logger.Error("failed to read on-chain state of the NNS contract, will try again later", zap.Error(err))
+			continue
+		} else if nnsOnChainState == nil {
+			// NNS contract must be deployed at this stage
+			return errors.New("missing required NNS contract on the chain")
+		}
+
+		if nnsOnChainState.NEF.Checksum == prm.localNEF.Checksum {
+			// manifests may differ, but currently we should bump internal contract version
+			// (i.e. change NEF) to make such updates. Right now they are not supported due
+			// to dubious practical need
+			// Track https://github.com/nspcc-dev/neofs-contract/issues/340
+			prm.logger.Info("same local and on-chain checksums of the NNS contract NEF, update is not needed")
+			return nil
+		}
+
+		prm.logger.Info("NEF checksums of the on-chain and local NNS contracts differ, need an update")
+
+		versionOnChain, err := readContractOnChainVersion(prm.blockchain, nnsOnChainState.Hash)
+		if err != nil {
+			prm.logger.Error("failed to read on-chain version of the NNS contract, will try again later", zap.Error(err))
+			continue
+		}
+
+		if v := localVersion.cmp(versionOnChain); v == -1 {
+			prm.logger.Info("local contract version is < than the on-chain one, update is not needed",
+				zap.Stringer("local", localVersion), zap.Stringer("on-chain", versionOnChain))
+			return nil
+		} else if v == 0 {
+			return fmt.Errorf("local and on-chain contracts have different NEF checksums but same version '%s'", versionOnChain)
+		}
+
+		extraUpdateArgs, err := prm.buildVersionedExtraUpdateArgs(versionOnChain)
+		if err != nil {
+			prm.logger.Error("failed to prepare build extra arguments for NNS contract update, will try again later",
+				zap.Stringer("on-chain version", versionOnChain), zap.Error(err))
+			continue
+		}
+
+		setGroupInManifest(&prm.localManifest, prm.localNEF, prm.committeeGroupKey, prm.localAcc.ScriptHash())
+
+		var vub uint32
+
+		// we pre-check 'already updated' case via MakeCall in order to not potentially
+		// wait for previously sent transaction to be expired (condition below) and
+		// immediately succeed
+		tx, err := committeeActor.MakeCall(nnsOnChainState.Hash, methodUpdate,
+			bLocalNEF, jLocalManifest, extraUpdateArgs)
+		if err != nil {
+			if isErrContractAlreadyUpdated(err) {
+				// note that we can come here only if local version is > than the on-chain one
+				// (compared above)
+				prm.logger.Info("NNS contract has already been updated, skip")
+				return nil
+			}
+		} else {
+			if updateTxValidUntilBlock > 0 {
+				prm.logger.Info("transaction updating NNS contract was sent earlier, checking relevance...")
+
+				if cur := prm.monitor.currentHeight(); cur <= updateTxValidUntilBlock {
+					prm.logger.Info("previously sent transaction updating NNS contract may still be relevant, will wait for the outcome",
+						zap.Uint32("current height", cur), zap.Uint32("retry after height", updateTxValidUntilBlock))
+					continue
+				}
+
+				prm.logger.Info("previously sent transaction updating NNS contract expired without side-effect")
+			}
+
+			prm.logger.Info("sending new transaction updating NNS contract...")
+
+			_, _, vub, err = committeeActor.Notarize(tx, nil)
+		}
+		if err != nil {
+			lackOfGAS := isErrNotEnoughGAS(err)
+			// here lackOfGAS=true always means lack of Notary balance and not related to
+			// the main transaction itself
+			if !lackOfGAS {
+				if !isErrNotaryDepositExpires(err) {
+					prm.logger.Error("failed to send transaction deploying NNS contract, will try again later", zap.Error(err))
+					continue
+				}
+			}
+
+			// same approach with in-place deposit is going to be used in other functions.
+			// Consider replacement with background process (e.g. blockchainMonitor
+			// internal) which periodically checks Notary balance and updates it when, for
+			// example, balance goes lower than 20% of desired amount or expires soon. With
+			// this approach functions like current will not try to make a deposit, but
+			// simply wait until it becomes enough.
+			prm.onNotaryDepositDeficiency(lackOfGAS)
+
+			continue
+		}
+
+		updateTxValidUntilBlock = vub
+
+		prm.logger.Info("transaction updating NNS contract has been successfully sent, will wait for the outcome")
+	}
 }
