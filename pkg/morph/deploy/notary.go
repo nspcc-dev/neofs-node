@@ -48,6 +48,30 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 	defer monitor.stop()
 
 	var tick func()
+
+	if len(prm.committee) == 1 {
+		prm.logger.Info("committee is single-acc, no multi-signature needed for Notary role designation")
+
+		tick, err = initDesignateNotaryRoleToLocalAccountTick(prm, monitor)
+		if err != nil {
+			return fmt.Errorf("construct action designating Notary role to the local account: %w", err)
+		}
+	} else {
+		prm.logger.Info("committee is multi-acc, multi-signature is needed for Notary role designation")
+
+		if prm.localAccCommitteeIndex == 0 {
+			tick, err = initDesignateNotaryRoleAsLeaderTick(prm, monitor)
+			if err != nil {
+				return fmt.Errorf("construct action designating Notary role to the multi-acc committee as leader: %w", err)
+			}
+		} else {
+			tick, err = initDesignateNotaryRoleAsSignerTick(prm, monitor)
+			if err != nil {
+				return fmt.Errorf("construct action designating Notary role to the multi-acc committee as signer: %w", err)
+			}
+		}
+	}
+
 	roleContract := rolemgmt.NewReader(invoker.New(prm.blockchain, nil))
 
 	for ; ; monitor.waitForNextBlock(ctx) {
@@ -80,37 +104,6 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 		}
 
 		prm.logger.Info("not all members of the committee have a Notary role, designation is needed")
-
-		if tick == nil {
-			if len(prm.committee) == 1 {
-				prm.logger.Info("committee is single-acc, no multi-signature needed for Notary role designation")
-
-				tick, err = initDesignateNotaryRoleToLocalAccountTick(prm, monitor)
-				if err != nil {
-					prm.logger.Error("failed to construct action designating Notary role to the local account, will try again later",
-						zap.Error(err))
-					continue
-				}
-			} else {
-				prm.logger.Info("committee is multi-acc, multi-signature is needed for Notary role designation")
-
-				if prm.localAccCommitteeIndex == 0 {
-					tick, err = initDesignateNotaryRoleAsLeaderTick(prm, monitor)
-					if err != nil {
-						prm.logger.Error("failed to construct action designating Notary role to the multi-acc committee as leader, will try again later",
-							zap.Error(err))
-						continue
-					}
-				} else {
-					tick, err = initDesignateNotaryRoleAsSignerTick(prm, monitor)
-					if err != nil {
-						prm.logger.Error("failed to construct action designating Notary role to the multi-acc committee as signer, will try again later",
-							zap.Error(err))
-						continue
-					}
-				}
-			}
-		}
 
 		tick()
 	}
