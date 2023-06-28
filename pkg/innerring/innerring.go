@@ -71,17 +71,18 @@ type (
 		blockTimers     []*timer.BlockTimer
 		epochTimer      *timer.BlockTimer
 
-		// global state
 		morphClient   *client.Client
 		mainnetClient *client.Client
+		auditClient   *auditClient.Client
+		balanceClient *balanceClient.Client
+		netmapClient  *nmClient.Client
+
+		// global state
 		epochCounter  atomic.Uint64
 		epochDuration atomic.Uint64
 		statusIndex   *innerRingIndexer
 		precision     precision.Fixed8Converter
-		auditClient   *auditClient.Client
 		healthStatus  atomic.Value
-		balanceClient *balanceClient.Client
-		netmapClient  *nmClient.Client
 		persistate    *state.PersistentStorage
 
 		// metrics
