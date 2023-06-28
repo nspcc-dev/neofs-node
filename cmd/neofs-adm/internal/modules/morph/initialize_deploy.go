@@ -47,7 +47,6 @@ const (
 	netmapContract     = "netmap"
 	proxyContract      = "proxy"
 	reputationContract = "reputation"
-	subnetContract     = "subnet"
 )
 
 const (
@@ -77,7 +76,6 @@ var (
 		netmapContract,
 		proxyContract,
 		reputationContract,
-		subnetContract,
 	}
 
 	fullContractList = append([]string{
@@ -597,7 +595,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 	case proxyContract:
 		items = nil
 	case reputationContract:
-	case subnetContract:
 	default:
 		panic(fmt.Sprintf("invalid contract name: %s", ctrName))
 	}

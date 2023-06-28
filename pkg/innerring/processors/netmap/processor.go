@@ -5,13 +5,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	subnetEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/panjf2000/ants/v2"
@@ -64,8 +62,6 @@ type (
 		netmapClient *nmClient.Client
 		containerWrp *container.Client
 
-		subnetContract util.Uint160
-
 		netmapSnapshot cleanupTable
 
 		handleNewAudit         event.Handler
@@ -89,7 +85,6 @@ type (
 		CleanupEnabled   bool
 		CleanupThreshold uint64 // in epochs
 		ContainerWrapper *container.Client
-		SubnetContract   *util.Uint160
 
 		HandleAudit             event.Handler
 		AuditSettlementsHandler event.Handler
@@ -130,8 +125,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	case p.NodeValidator == nil:
 		return nil, errors.New("ir/netmap: node validator is not set")
-	case p.SubnetContract == nil:
-		return nil, errors.New("ir/netmap: subnet contract script hash is not set")
 	case p.NodeStateSettings == nil:
 		return nil, errors.New("ir/netmap: node state settings is not set")
 	}
@@ -153,7 +146,6 @@ func New(p *Params) (*Processor, error) {
 		containerWrp:   p.ContainerWrapper,
 		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 		handleNewAudit: p.HandleAudit,
-		subnetContract: *p.SubnetContract,
 
 		handleAuditSettlements: p.AuditSettlementsHandler,
 
@@ -169,17 +161,9 @@ func New(p *Params) (*Processor, error) {
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	parsers := make([]event.NotificationParserInfo, 0, 3)
+	parsers := make([]event.NotificationParserInfo, 0, 1)
 
 	var p event.NotificationParserInfo
-
-	// remove node from subnetwork event
-	p.SetScriptHash(np.subnetContract)
-	p.SetType(removeNodeNotification)
-	p.SetParser(subnetEvent.ParseRemoveNode)
-
-	parsers = append(parsers, p)
-
 	p.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new epoch event
@@ -192,17 +176,9 @@ func (np *Processor) ListenerNotificationParsers() []event.NotificationParserInf
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	handlers := make([]event.NotificationHandlerInfo, 0, 3)
+	handlers := make([]event.NotificationHandlerInfo, 0, 1)
 
 	var i event.NotificationHandlerInfo
-
-	// remove node from subnetwork event
-	i.SetScriptHash(np.subnetContract)
-	i.SetType(removeNodeNotification)
-	i.SetHandler(np.handleRemoveNode)
-
-	handlers = append(handlers, i)
-
 	i.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new epoch handler

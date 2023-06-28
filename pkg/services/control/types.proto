@@ -54,9 +54,6 @@ message NodeInfo {
     //   attributes it's a string presenting floating point number with comma or
     //   point delimiter for decimal part. In the Network Map it will be saved as
     //   64-bit unsigned integer representing number of minimal token fractions.
-    // * Subnet \
-    //   String ID of Node's storage subnet. There can be only one subnet served
-    //   by the Storage Node.
     // * Locode \
     //   Node's geographic location in
     //   [UN/LOCODE](https://www.unece.org/cefact/codesfortrade/codes_index.html)

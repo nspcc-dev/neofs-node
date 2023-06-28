@@ -29,12 +29,6 @@ node:
     path: /sessions  # path to persistent session tokens file of Storage node (default: in-memory sessions)
   persistent_state:
     path: /state  # path to persistent state file of Storage node
-  subnet:
-    exit_zero: true # toggle entrance to zero subnet (overrides corresponding attribute and occurrence in `entries`)
-    entries: # list of IDs of subnets to enter in a text format of NeoFS API protocol (overrides corresponding attributes)
-      - 123
-      - 456
-      - 789
   notification:
     enabled: true  # turn on object notification service
     endpoint: "tls://localhost:4222"  # notification server endpoint

@@ -52,20 +52,6 @@ func TestNodeSection(t *testing.T) {
 		require.Equal(t, "", notificationDefaultCertPath)
 		require.Equal(t, "", notificationDefaultKeyPath)
 		require.Equal(t, "", notificationDefaultCAPath)
-
-		var subnetCfg SubnetConfig
-
-		subnetCfg.Init(*empty)
-
-		require.False(t, subnetCfg.ExitZero())
-
-		called := false
-
-		subnetCfg.IterateSubnets(func(string) {
-			called = true
-		})
-
-		require.False(t, called)
 	})
 
 	const path = "../../../../config/example/node"
@@ -143,20 +129,6 @@ func TestNodeSection(t *testing.T) {
 		require.Equal(t, "/cert/path", notificationCertPath)
 		require.Equal(t, "/key/path", notificationKeyPath)
 		require.Equal(t, "/ca/path", notificationCAPath)
-
-		var subnetCfg SubnetConfig
-
-		subnetCfg.Init(*c)
-
-		require.True(t, subnetCfg.ExitZero())
-
-		var ids []string
-
-		subnetCfg.IterateSubnets(func(id string) {
-			ids = append(ids, id)
-		})
-
-		require.Equal(t, []string{"123", "456", "789"}, ids)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

@@ -150,7 +150,6 @@ workers:
   neofs: 10      # Number of workers to process events from neofs contracts in parallel
   netmap: 10     # Number of workers to process events from netmap contract in parallel
   reputation: 10 # Number of workers to process events from reputation contract in parallel
-  subnet: 10     # Number of workers to process events from subnet contract in parallel
 
 audit:
   timeout:
@@ -184,7 +183,6 @@ contracts:
   netmap: 83c600c81d47a1b1b7cf58eb49ae7ee7240dc742     # Optional: override address of netmap contract in sidechain
   proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain
   reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
-  subnet: e9266864d3c562c6e17f2bb9cb1392aaa293d93a     # Optional: override address of subnet contract in sidechain
   alphabet:
     amount: 7                                         # Optional: override amount of alphabet contracts
     az: c1d211fceeb4b1dc76b8e4054d11fdf887e418ea      # Optional: override address of az alphabet contract in sidechain

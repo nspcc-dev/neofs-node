@@ -25,7 +25,6 @@ import (
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/maddress"
 	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
-	subnetvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -39,7 +38,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	morphsubnet "github.com/nspcc-dev/neofs-node/pkg/morph/client/subnet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
@@ -127,8 +125,6 @@ type (
 		// should report start errors
 		// to the application.
 		runners []func(chan<- error) error
-
-		subnetHandler
 	}
 
 	chainParams struct {
@@ -576,20 +572,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	// initialize morph client of Subnet contract
-	clientMode := morphsubnet.NotaryAlphabet
-
-	subnetInitPrm := morphsubnet.InitPrm{}
-	subnetInitPrm.SetBaseClient(server.morphClient)
-	subnetInitPrm.SetContractAddress(server.contracts.subnet)
-	subnetInitPrm.SetMode(clientMode)
-
-	subnetClient := &morphsubnet.Client{}
-	err = subnetClient.Init(subnetInitPrm)
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize subnet client: %w", err)
-	}
-
 	var irf irFetcher
 
 	if server.withoutMainNet {
@@ -704,15 +686,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
-	subnetValidator, err := subnetvalidator.New(
-		subnetvalidator.Prm{
-			SubnetClient: subnetClient,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	var alphaSync event.Handler
 
 	if server.withoutMainNet || cfg.GetBool("governance.disable") {
@@ -773,10 +746,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 			&netMapCandidateStateValidator,
 			addrvalidator.New(),
 			locodeValidator,
-			subnetValidator,
 		),
-		SubnetContract: &server.contracts.subnet,
-
 		NodeStateSettings: netSettings,
 	})
 	if err != nil {
@@ -796,7 +766,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		ContainerClient: cnrClient,
 		NeoFSIDClient:   neofsIDClient,
 		NetworkState:    server.netmapClient,
-		SubnetClient:    subnetClient,
 	})
 	if err != nil {
 		return nil, err
@@ -969,10 +938,6 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 	} else {
 		log.Info("no Control server endpoint specified, service is disabled")
 	}
-
-	server.initSubnet(subnetConfig{
-		queueSize: cfg.GetUint32("workers.subnet"),
-	})
 
 	if cfg.GetString("prometheus.address") != "" {
 		m := metrics.NewInnerRingMetrics(misc.Version)

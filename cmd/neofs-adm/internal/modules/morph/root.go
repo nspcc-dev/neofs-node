@@ -344,8 +344,6 @@ func init() {
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "Additional amount of GAS to transfer")
 	refillGasCmd.MarkFlagsMutuallyExclusive(walletAddressFlag, storageWalletFlag)
 
-	RootCmd.AddCommand(cmdSubnet)
-
 	RootCmd.AddCommand(depositNotaryCmd)
 	depositNotaryCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	depositNotaryCmd.Flags().String(storageWalletFlag, "", "Path to storage node wallet")
