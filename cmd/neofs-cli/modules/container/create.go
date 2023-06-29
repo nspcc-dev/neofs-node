@@ -16,7 +16,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	subnetid "github.com/nspcc-dev/neofs-sdk-go/subnet/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +27,6 @@ var (
 	containerAwait       bool
 	containerName        string
 	containerNoTimestamp bool
-	containerSubnet      string
 	force                bool
 )
 
@@ -69,15 +67,6 @@ It will be stored in sidechain when inner ring will accepts it.`,
 					))
 				}
 			}
-		}
-
-		if containerSubnet != "" {
-			var subnetID subnetid.ID
-
-			err = subnetID.DecodeString(containerSubnet)
-			common.ExitOnErr(cmd, "could not parse subnetID: %w", err)
-
-			placementPolicy.RestrictSubnet(subnetID)
 		}
 
 		var cnr container.Container
@@ -175,7 +164,6 @@ func initContainerCreateCmd() {
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.StringVar(&containerName, "name", "", "Container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
-	flags.StringVar(&containerSubnet, "subnet", "", "String representation of container subnetwork")
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
 }

@@ -12,9 +12,6 @@ node:
     - {{ .AnnouncedAddress }}
   attribute_0: UN-LOCODE:{{ .Attribute.Locode }}
   relay: {{ .Relay }}  # start Storage node in relay mode without bootstrapping into the Network map
-  subnet:
-    exit_zero: false # toggle entrance to zero subnet (overrides corresponding attribute and occurrence in entries)
-    entries: [] # list of IDs of subnets to enter in a text format of NeoFS API protocol (overrides corresponding attributes)
 
 grpc:
   num: 1  # total number of listener endpoints

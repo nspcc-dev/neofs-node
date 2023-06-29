@@ -24,7 +24,6 @@ type contracts struct {
 	proxy      util.Uint160 // in morph
 	processing util.Uint160 // in mainnet
 	reputation util.Uint160 // in morph
-	subnet     util.Uint160 // in morph
 	neofsID    util.Uint160 // in morph
 
 	alphabet alphabetContracts // in morph
@@ -69,7 +68,6 @@ func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper
 		{"contracts.container", client.NNSContainerContractName, &result.container},
 		{"contracts.audit", client.NNSAuditContractName, &result.audit},
 		{"contracts.reputation", client.NNSReputationContractName, &result.reputation},
-		{"contracts.subnet", client.NNSSubnetworkContractName, &result.subnet},
 		{"contracts.neofsid", client.NNSNeoFSIDContractName, &result.neofsID},
 	}
 

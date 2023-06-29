@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
 - `neofs_node_object_epoch` metric for IR and SN (#2347)
+- Subnets support (#2411)
 
 ### Changed
 - CLI `--timeout` flag configures whole execution timeout from now (#2124)
@@ -27,11 +28,18 @@ on timeout, try increasing the value, for example, twice. Also note that the
 execution of commands with the `--await` flag and without an explicitly
 specified time period is now limited to 1 minute. This value can be changed with
 `--timeout` flag.
+
 Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR configurations
 have been removed. Use `morph.endpoints` for both instead.
 Deprecated `neofs_node_object_epoch` metric for IR and SN (the same for both)
 has been removed. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch`
 for IR instead.
+
+Subnets support has been removed:
+- IR's `workers.subnet` and `contracts.subnet` configs are not used anymore.
+- SN's `node.subnet` config section is not used anymore.
+- `neoofs-amd morph` does not have `subnet` subcommand anymore.
+- `neofs-cli container create` does not have `--subnet` flag anymore.
 
 ## [0.37.0] - 2023-06-15 - Sogado
 
@@ -65,21 +73,25 @@ for IR instead.
 - BoltDB (`go.etcd.io/bbolt`) to 1.3.7
 
 ### Updating from v0.36.1
-- `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
+`neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
   next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
-- Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
-- In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
+
+Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
+
+In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
   `morph.consensus.rpc.tls` section.
-- `morph.switch_interval` IR and SN config value is not used anymore.
-- `morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
+`morph.switch_interval` IR and SN config value is not used anymore.
+`morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
   removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
-- If you're using binary keys with neofs-cli (`-w`), convert them to proper
+
+If you're using binary keys with neofs-cli (`-w`), convert them to proper
   NEP-6 wallets like this:
     $ xxd -p < path_to_binary.wallet # outputs hex-encoded key
     $ neofs-cli util keyer <hex_key> # outputs WIF
     $ neo-go wallet import -w <wallet_file> --wif <wif_key>
   or just generate/use new keys.
-- In local consensus mode `morph.validators` in IR's config can be omitted now, `morph.consensus.committee` will be used instead.
+
+In local consensus mode `morph.validators` in IR's config can be omitted now, `morph.consensus.committee` will be used instead.
   For detached consensus, it is a required config parameter now.
 
 ## [0.36.1] - 2023-04-26
@@ -464,10 +476,11 @@ Provide `--no-precheck` flag to `neofs-cli container set-eacl` for unconditional
 - `google.golang.org/grpc` to `v1.48.0`
 
 ### Updating from v0.30.0
-1. Change `morph.endpoint.client` priority values using the following rule:
+Change `morph.endpoint.client` priority values using the following rule:
 the higher the priority the lower the value (non-specified or `0` values are
 interpreted as the highest priority -- `1`).
-2. Deprecated `profiler` and `metrics` configuration sections are dropped,
+
+Deprecated `profiler` and `metrics` configuration sections are dropped,
 use `pprof` and `prometheus` instead.
 
 ## [0.30.2] - 2022-08-01
@@ -522,12 +535,13 @@ use `pprof` and `prometheus` instead.
 - `github.com/spf13/cobra` to v1.5.0
 
 ### Updating from v0.29.0
-1. Change morph endpoints from simple string to a pair of `address` and `priority`. The second can be omitted.
+Change morph endpoints from simple string to a pair of `address` and `priority`. The second can be omitted.
 For inner ring node this resides in `morph.endpoint.client` section,
 for storage node -- in `morph.rpc_endpoint` section. See `config/example` for an example.
 
-2. Move `storage.default` section to `storage.shard.default`.
-3. Rename `metrics` and `profiler` sections to `prometheus` and `pprof` respectively, though old versions are supported.
+Move `storage.default` section to `storage.shard.default`.
+
+Rename `metrics` and `profiler` sections to `prometheus` and `pprof` respectively, though old versions are supported.
 In addition, these sections must now be explicitly enabled with `enabled: true` flag.
 
 ## [0.29.0] - 2022-07-07 - Yeonpyeongdo (연평도, 延坪島)
@@ -776,7 +790,7 @@ See example config for more details.
 - `--generate-key` flag in CLI control commands (#1103)
 - Various unused code (#1123)
 
-### Upgrading from v0.27.4
+### Updating from v0.27.4
 Use `--wallet` key in CLI to provide WIF or binary key file instead of `--wif`
 and `--binary-key`.
 
@@ -802,7 +816,7 @@ Specify `password: xxx` in config file for NeoFS CLI to avoid password input.
 - Factor out autocomplete command in CLI and Adm (#1041)
 - Single crypto rand source (#851)
 
-### Upgrading from v0.27.3
+### Updating from v0.27.3
 To disable compression for object with specific content-types, specify them
 as a string array in blobstor section:
 `NEOFS_STORAGE_SHARD_N_BLOBSTOR_COMPRESSION_EXCLUDE_CONTENT_TYPES`. Use
@@ -883,7 +897,7 @@ NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 - Alphabet nodes now invoke `netmap.Register` to add node to the network map 
   candidates in notary enabled environment (#1008)
 
-### Upgrading from v0.26.1
+### Updating from v0.26.1
 `NEOFS_IR_CONTRACTS_ALPHABET_AMOUNT` is not mandatory env anymore. If it
 is not set, Inner Ring would try to read maximum from config and NNS contract.
 However, that parameter still can be set in order to require the exact number
@@ -932,7 +946,7 @@ with `NEOFS_IR_FEE_NAMED_CONTAINER_REGISTER`.
 - LOCODE generator tries to find the closest continent if there are 
   no exact match (#955)
 
-### Upgrading from v0.26.0
+### Updating from v0.26.0
 You can specify default section in storage engine configuration. 
 See [example](./config/example/node.yaml) for more details.
 
@@ -981,11 +995,12 @@ NeoFS API v2.10 support
   command (#810).
 - Interactive mode in docker run command (#916)
 
-### Upgrading from v0.25.1
+### Updating from v0.25.1
 Deleted `NEOFS_IR_NOTARY_SIDE_DEPOSIT_AMOUNT`, `NEOFS_IR_NOTARY_MAIN_DEPOSIT_AMOUNT`
 and `NEOFS_IR_TIMERS_SIDE_NOTARY`, `NEOFS_IR_TIMERS_MAIN_NOTARY` Inner Ring envs.
 Deleted `NEOFS_MORPH_NOTARY_DEPOSIT_AMOUNT` and `NEOFS_MORPH_NOTARY_DEPOSIT_DURATION`
 Storage Node envs.
+
 `control` CLI command does not have `--rpc-endpoint`/`r` flag, use `endpoint`
 instead.
 
@@ -1040,7 +1055,7 @@ instead.
 ### Removed
 - Dockerfile for AllInOne image moved to a separate repository (#796)
 
-### Upgrading from v0.24.1
+### Updating from v0.24.1
 Added `NEOFS_CONTRACTS_PROXY` env for Storage Node; mandatory in
 notary enabled environments only. It should contain proxy contract's
 scripthash in side chain.
@@ -1070,7 +1085,7 @@ Object service pool size now split into `NEOFS_OBJECT_PUT_POOL_SIZE_REMOTE` and
 - Storage and Inner Ring will not start until Neo RPC node will have the height
 of the latest processed block by the nodes (#795)
 
-### Upgrading from v0.24.0
+### Updating from v0.24.0
 Specify path to the local state DB in Inner Ring node config with 
 `NEOFS_IR_NODE_PERSISTENT_STATE_PATH`. Specify path to the local state DB in
 Storage node config with `NEOFS_NODE_PERSISTENT_STATE_PATH`.
@@ -1102,7 +1117,7 @@ Storage node config with `NEOFS_NODE_PERSISTENT_STATE_PATH`.
 ### Removed
 - Unused `DB_SIZE` parameter of writecache (#773)
 
-### Upgrading from v0.23.1
+### Updating from v0.23.1
 Storage Node does not read unused `NEOFS_STORAGE_SHARD_XXX_WRITECACHE_DB_SIZE`
 config parameter anymore.
 
@@ -1130,7 +1145,7 @@ N3 Mainnet launch release with minor fixes.
 - Handle context shutdown at NeoFS multi client group address switching (#737)
 - Scope for main chain invocations from Inner Ring nodes (#751)
 
-### Upgrading from v0.23.0
+### Updating from v0.23.0
 Added `NEOFS_MORPH_DISABLE_CACHE` env. If `true`, none of
 the `eACL`/`netmap`/`container` RPC responses cached.
 
@@ -1158,7 +1173,7 @@ Improved stability for notary disabled environment.
 - Inner Ring node does not require proxy and processing contracts if notary
   disabled (#701, #714)
 
-### Upgrading from v0.22.3
+### Updating from v0.22.3
 To upgrade Storage node or Inner Ring node from v0.22.3, you don't need to
 change configuration files. Make sure, that NEO RPC nodes, specified in config,
 are connected to N3 RC4 (Testnet) network.

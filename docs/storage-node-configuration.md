@@ -124,7 +124,6 @@ contracts:
 | `container`  | `hash160` |               | Container contract hash.  |
 | `netmap`     | `hash160` |               | Netmap contract hash.     |
 | `reputation` | `hash160` |               | Reputation contract hash. |
-| `subnet`     | `hash160` |               | Subnet contract hash.     |
 
 # `morph` section
 
@@ -290,10 +289,6 @@ node:
     path: /sessions
   persistent_state:
     path: /state
-  subnet:
-    exit_zero: false
-    entries:
-      - 123
   notification:
     enabled: true
     endpoint: tls://localhost:4222
@@ -313,7 +308,6 @@ node:
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                      |
 | `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                           |
 | `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                         |
-| `subnet`              | [Subnet config](#subnet-subsection)                           |               | Subnet configuration.                                                   |
 | `notification`        | [Notification config](#notification-subsection)               |               | NATS configuration.                                                     |
 
 
@@ -341,14 +335,6 @@ It is used to correctly handle node restarts or crashes.
 | Parameter | Type     | Default value          | Description            |
 |-----------|----------|------------------------|------------------------|
 | `path`    | `string` | `.neofs-storage-state` | Path to the database.  |
-
-## `subnet` subsection
-This is an advanced section, use with caution.
-
-| Parameter   | Type       | Default value | Description                                          |
-|-------------|------------|---------------|------------------------------------------------------|
-| `exit_zero` | `bool`     | `false`       | Exit from the default subnet.                        |
-| `entries`   | `[]uint32` |               | List of non-default subnet ID this node belongs to.  |
 
 ## `notification` subsection
 This is an advanced section, use with caution.
