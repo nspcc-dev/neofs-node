@@ -11,24 +11,24 @@ import (
 )
 
 const (
-	maxObjectSizeConfig           = "MaxObjectSize"
-	basicIncomeRateConfig         = "BasicIncomeRate"
-	auditFeeConfig                = "AuditFee"
-	epochDurationConfig           = "EpochDuration"
-	containerFeeConfig            = "ContainerFee"
-	containerAliasFeeConfig       = "ContainerAliasFee"
-	etIterationsConfig            = "EigenTrustIterations"
-	etAlphaConfig                 = "EigenTrustAlpha"
-	irCandidateFeeConfig          = "InnerRingCandidateFee"
-	withdrawFeeConfig             = "WithdrawFee"
-	homomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
-	maintenanceModeAllowedConfig  = "MaintenanceModeAllowed"
+	MaxObjectSizeConfig           = "MaxObjectSize"
+	BasicIncomeRateConfig         = "BasicIncomeRate"
+	AuditFeeConfig                = "AuditFee"
+	EpochDurationConfig           = "EpochDuration"
+	ContainerFeeConfig            = "ContainerFee"
+	ContainerAliasFeeConfig       = "ContainerAliasFee"
+	EigenTrustIterationsConfig    = "EigenTrustIterations"
+	EigenTrustAlphaConfig         = "EigenTrustAlpha"
+	InnerRingCandidateFeeConfig   = "InnerRingCandidateFee"
+	WithdrawFeeConfig             = "WithdrawFee"
+	HomomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
+	MaintenanceModeAllowedConfig  = "MaintenanceModeAllowed"
 )
 
 // MaxObjectSize receives max object size configuration
 // value through the Netmap contract call.
 func (c *Client) MaxObjectSize() (uint64, error) {
-	objectSize, err := c.readUInt64Config(maxObjectSizeConfig)
+	objectSize, err := c.readUInt64Config(MaxObjectSizeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get epoch number: %w", c, err)
 	}
@@ -39,7 +39,7 @@ func (c *Client) MaxObjectSize() (uint64, error) {
 // BasicIncomeRate returns basic income rate configuration value from network
 // config in netmap contract.
 func (c *Client) BasicIncomeRate() (uint64, error) {
-	rate, err := c.readUInt64Config(basicIncomeRateConfig)
+	rate, err := c.readUInt64Config(BasicIncomeRateConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get basic income rate: %w", c, err)
 	}
@@ -50,7 +50,7 @@ func (c *Client) BasicIncomeRate() (uint64, error) {
 // AuditFee returns audit fee configuration value from network
 // config in netmap contract.
 func (c *Client) AuditFee() (uint64, error) {
-	fee, err := c.readUInt64Config(auditFeeConfig)
+	fee, err := c.readUInt64Config(AuditFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get audit fee: %w", c, err)
 	}
@@ -60,7 +60,7 @@ func (c *Client) AuditFee() (uint64, error) {
 
 // EpochDuration returns number of sidechain blocks per one NeoFS epoch.
 func (c *Client) EpochDuration() (uint64, error) {
-	epochDuration, err := c.readUInt64Config(epochDurationConfig)
+	epochDuration, err := c.readUInt64Config(EpochDurationConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get epoch duration: %w", c, err)
 	}
@@ -71,7 +71,7 @@ func (c *Client) EpochDuration() (uint64, error) {
 // ContainerFee returns fee paid by container owner to each alphabet node
 // for container registration.
 func (c *Client) ContainerFee() (uint64, error) {
-	fee, err := c.readUInt64Config(containerFeeConfig)
+	fee, err := c.readUInt64Config(ContainerFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get container fee: %w", c, err)
 	}
@@ -82,7 +82,7 @@ func (c *Client) ContainerFee() (uint64, error) {
 // ContainerAliasFee returns additional fee paid by container owner to each
 // alphabet node for container nice name registration.
 func (c *Client) ContainerAliasFee() (uint64, error) {
-	fee, err := c.readUInt64Config(containerAliasFeeConfig)
+	fee, err := c.readUInt64Config(ContainerAliasFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get container alias fee: %w", c, err)
 	}
@@ -93,7 +93,7 @@ func (c *Client) ContainerAliasFee() (uint64, error) {
 // EigenTrustIterations returns global configuration value of iteration cycles
 // for EigenTrust algorithm per epoch.
 func (c *Client) EigenTrustIterations() (uint64, error) {
-	iterations, err := c.readUInt64Config(etIterationsConfig)
+	iterations, err := c.readUInt64Config(EigenTrustIterationsConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get eigen trust iterations: %w", c, err)
 	}
@@ -104,7 +104,7 @@ func (c *Client) EigenTrustIterations() (uint64, error) {
 // EigenTrustAlpha returns global configuration value of alpha parameter.
 // It receives the alpha as a string and tries to convert it to float.
 func (c *Client) EigenTrustAlpha() (float64, error) {
-	strAlpha, err := c.readStringConfig(etAlphaConfig)
+	strAlpha, err := c.readStringConfig(EigenTrustAlphaConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get eigen trust alpha: %w", c, err)
 	}
@@ -117,13 +117,13 @@ func (c *Client) EigenTrustAlpha() (float64, error) {
 //
 // Returns (false, nil) if config key is not found in the contract.
 func (c *Client) HomomorphicHashDisabled() (bool, error) {
-	return c.readBoolConfig(homomorphicHashingDisabledKey)
+	return c.readBoolConfig(HomomorphicHashingDisabledKey)
 }
 
 // InnerRingCandidateFee returns global configuration value of fee paid by
 // node to be in inner ring candidates list.
 func (c *Client) InnerRingCandidateFee() (uint64, error) {
-	fee, err := c.readUInt64Config(irCandidateFeeConfig)
+	fee, err := c.readUInt64Config(InnerRingCandidateFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get inner ring candidate fee: %w", c, err)
 	}
@@ -134,7 +134,7 @@ func (c *Client) InnerRingCandidateFee() (uint64, error) {
 // WithdrawFee returns global configuration value of fee paid by user to
 // withdraw assets from NeoFS contract.
 func (c *Client) WithdrawFee() (uint64, error) {
-	fee, err := c.readUInt64Config(withdrawFeeConfig)
+	fee, err := c.readUInt64Config(WithdrawFeeConfig)
 	if err != nil {
 		return 0, fmt.Errorf("(%T) could not get withdraw fee: %w", c, err)
 	}
@@ -148,7 +148,7 @@ func (c *Client) WithdrawFee() (uint64, error) {
 //
 // By default, maintenance state is disallowed.
 func (c *Client) MaintenanceModeAllowed() (bool, error) {
-	return c.readBoolConfig(maintenanceModeAllowedConfig)
+	return c.readBoolConfig(MaintenanceModeAllowedConfig)
 }
 
 func (c *Client) readUInt64Config(key string) (uint64, error) {
@@ -299,32 +299,32 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 				Name:  name,
 				Value: value,
 			})
-		case maxObjectSizeConfig:
+		case MaxObjectSizeConfig:
 			res.MaxObjectSize = bytesToUint64(value)
-		case basicIncomeRateConfig:
+		case BasicIncomeRateConfig:
 			res.StoragePrice = bytesToUint64(value)
-		case auditFeeConfig:
+		case AuditFeeConfig:
 			res.AuditFee = bytesToUint64(value)
-		case epochDurationConfig:
+		case EpochDurationConfig:
 			res.EpochDuration = bytesToUint64(value)
-		case containerFeeConfig:
+		case ContainerFeeConfig:
 			res.ContainerFee = bytesToUint64(value)
-		case containerAliasFeeConfig:
+		case ContainerAliasFeeConfig:
 			res.ContainerAliasFee = bytesToUint64(value)
-		case etIterationsConfig:
+		case EigenTrustIterationsConfig:
 			res.EigenTrustIterations = bytesToUint64(value)
-		case etAlphaConfig:
+		case EigenTrustAlphaConfig:
 			res.EigenTrustAlpha, err = strconv.ParseFloat(string(value), 64)
 			if err != nil {
-				return fmt.Errorf("invalid prm %s: %v", etAlphaConfig, err)
+				return fmt.Errorf("invalid prm %s: %v", EigenTrustAlphaConfig, err)
 			}
-		case irCandidateFeeConfig:
+		case InnerRingCandidateFeeConfig:
 			res.IRCandidateFee = bytesToUint64(value)
-		case withdrawFeeConfig:
+		case WithdrawFeeConfig:
 			res.WithdrawalFee = bytesToUint64(value)
-		case homomorphicHashingDisabledKey:
+		case HomomorphicHashingDisabledKey:
 			res.HomomorphicHashingDisabled = bytesToBool(value)
-		case maintenanceModeAllowedConfig:
+		case MaintenanceModeAllowedConfig:
 			res.MaintenanceModeAllowed = bytesToBool(value)
 		}
 
