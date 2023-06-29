@@ -39,11 +39,18 @@ func convert(n, factor *big.Int, decreasePrecision bool) *big.Int {
 
 // NewConverter returns Fixed8Converter.
 func NewConverter(precision uint32) Fixed8Converter {
-	var c Fixed8Converter
+	exp := int(precision) - fixed8Precision
+	if exp < 0 {
+		exp = -exp
+	}
 
-	c.SetBalancePrecision(precision)
-
-	return c
+	return Fixed8Converter{
+		converter: converter{
+			base:   fixed8Precision,
+			target: precision,
+			factor: new(big.Int).SetInt64(int64(math.Pow10(exp))),
+		},
+	}
 }
 
 func (c converter) toTarget(n *big.Int) *big.Int {
@@ -62,18 +69,6 @@ func (c Fixed8Converter) ToFixed8(n int64) int64 {
 // ToBalancePrecision converts n of Fixed8 precision to balance contract precision.
 func (c Fixed8Converter) ToBalancePrecision(n int64) int64 {
 	return c.toTarget(new(big.Int).SetInt64(n)).Int64()
-}
-
-// SetBalancePrecision prepares converter to work.
-func (c *Fixed8Converter) SetBalancePrecision(precision uint32) {
-	exp := int(precision) - fixed8Precision
-	if exp < 0 {
-		exp = -exp
-	}
-
-	c.base = fixed8Precision
-	c.target = precision
-	c.factor = new(big.Int).SetInt64(int64(math.Pow10(exp)))
 }
 
 // Convert is a wrapper of convert function. Use cached `converter` struct

@@ -81,7 +81,7 @@ type (
 		epochCounter  atomic.Uint64
 		epochDuration atomic.Uint64
 		statusIndex   *innerRingIndexer
-		precision     precision.Fixed8Converter
+		precision     uint32 // not changeable
 		healthStatus  atomic.Value
 		persistate    *state.PersistentStorage
 
@@ -551,6 +551,11 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
+	server.precision, err = server.balanceClient.Decimals()
+	if err != nil {
+		return nil, fmt.Errorf("can't read balance contract precision: %w", err)
+	}
+
 	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
@@ -771,6 +776,8 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		return nil, err
 	}
 
+	precisionConverter := precision.NewConverter(server.precision)
+
 	// create balance processor
 	balanceProcessor, err := balance.New(&balance.Params{
 		Log:           log,
@@ -778,7 +785,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 		NeoFSClient:   neofsCli,
 		BalanceSC:     server.contracts.balance,
 		AlphabetState: server,
-		Converter:     &server.precision,
+		Converter:     precisionConverter,
 	})
 	if err != nil {
 		return nil, err
@@ -801,7 +808,7 @@ func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan
 			MorphClient:         server.morphClient,
 			EpochState:          server,
 			AlphabetState:       server,
-			Converter:           &server.precision,
+			Converter:           precisionConverter,
 			MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
 			MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
 			MintEmitValue:       fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),
@@ -1036,15 +1043,8 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read epoch duration: %w", err)
 	}
 
-	// get balance precision
-	balancePrecision, err := s.balanceClient.Decimals()
-	if err != nil {
-		return fmt.Errorf("can't read balance contract precision: %w", err)
-	}
-
 	s.epochCounter.Store(epoch)
 	s.epochDuration.Store(epochDuration)
-	s.precision.SetBalancePrecision(balancePrecision)
 
 	// get next epoch delta tick
 	s.initialEpochTickDelta, err = s.nextEpochBlockDelta()
@@ -1056,7 +1056,7 @@ func (s *Server) initConfigFromBlockchain() error {
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Uint64("epoch", epoch),
-		zap.Uint32("precision", balancePrecision),
+		zap.Uint32("precision", s.precision),
 		zap.Uint32("init_epoch_tick_delta", s.initialEpochTickDelta),
 	)
 
