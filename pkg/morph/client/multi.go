@@ -15,21 +15,28 @@ type Endpoint struct {
 // SwitchRPC performs reconnection and returns true if it was successful.
 func (c *Client) SwitchRPC() bool {
 	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
 
 	for attempt := 0; attempt < c.cfg.reconnectionRetries; attempt++ {
 		if c.switchPRC() {
+			c.switchLock.Unlock()
+
+			if c.cfg.rpcSwitchCb != nil {
+				c.cfg.rpcSwitchCb()
+			}
+
 			return true
 		}
 
 		select {
 		case <-time.After(c.cfg.reconnectionDelay):
 		case <-c.closeChan:
+			c.switchLock.Unlock()
 			return false
 		}
 	}
 
 	c.inactive = true
+	c.switchLock.Unlock()
 
 	if c.cfg.inactiveModeCb != nil {
 		c.cfg.inactiveModeCb()

@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - `renew-domain` command for adm
 
 ### Fixed
+- `neo-go` RPC connection lost handling by IR (#1337)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
