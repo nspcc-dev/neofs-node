@@ -696,8 +696,7 @@ func writeCurrentVersion(metaHdr *session.RequestMetaHeader) {
 
 func checkStatus(stV2 *status.Status) error {
 	if !status.IsSuccess(stV2.Code()) {
-		st := apistatus.FromStatusV2(stV2)
-		return apistatus.ErrFromStatus(st)
+		return apistatus.ErrorFromV2(stV2)
 	}
 
 	return nil

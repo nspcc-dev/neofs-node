@@ -10,7 +10,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -63,11 +62,10 @@ var sgFilter = storagegroup.SearchQuery()
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
-	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(sgFilter)
 	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
-	rdr, err := x.c.ObjectSearchInit(prm.ctx, cliPrm)
+	rdr, err := x.c.ObjectSearchInit(prm.ctx, prm.cnrID, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -87,12 +85,7 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 		}
 	}
 
-	res, err := rdr.Close()
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.Status())
-	}
-
+	err = rdr.Close()
 	if err != nil {
 		return nil, fmt.Errorf("read object list: %w", err)
 	}
@@ -122,11 +115,9 @@ func (x GetObjectRes) Object() *object.Object {
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
-	rdr, err := x.c.ObjectGetInit(prm.ctx, cliPrm)
+	rdr, err := x.c.ObjectGetInit(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -134,13 +125,7 @@ func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var obj object.Object
 
 	if !rdr.ReadHeader(&obj) {
-		res, err := rdr.Close()
-		if err == nil {
-			// pull out an error from status
-			err = apistatus.ErrFromStatus(res.Status())
-		}
-
-		return nil, fmt.Errorf("read object header: %w", err)
+		return nil, fmt.Errorf("read object header: %w", rdr.Close())
 	}
 
 	buf := make([]byte, obj.PayloadSize())
@@ -201,16 +186,9 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
-	cliRes, err := x.c.ObjectHead(prm.ctx, cliPrm)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	}
-
+	cliRes, err := x.c.ObjectHead(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
@@ -301,20 +279,11 @@ func (x HashPayloadRangeRes) Hash() []byte {
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeRes, err error) {
 	var cliPrm client.PrmObjectHash
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 	cliPrm.SetRangeList(prm.rng.GetOffset(), prm.rng.GetLength())
 	cliPrm.TillichZemorAlgo()
 
-	cliRes, err := x.c.ObjectHash(prm.ctx, cliPrm)
+	hs, err := x.c.ObjectHash(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
 	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-		if err != nil {
-			return
-		}
-
-		hs := cliRes.Checksums()
 		if ln := len(hs); ln != 1 {
 			err = fmt.Errorf("wrong number of checksums %d", ln)
 		} else {

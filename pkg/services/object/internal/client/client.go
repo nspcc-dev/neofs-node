@@ -100,6 +100,7 @@ type GetObjectPrm struct {
 	cliPrm client.PrmObjectGet
 
 	obj oid.ID
+	cnr cid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -114,8 +115,7 @@ func (x *GetObjectPrm) SetRawFlag() {
 // Required parameter.
 func (x *GetObjectPrm) SetAddress(addr oid.Address) {
 	x.obj = addr.Object()
-	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(x.obj)
+	x.cnr = addr.Container()
 }
 
 // GetObjectRes groups the resulting values of GetObject operation.
@@ -159,7 +159,7 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
 	}
 
-	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cliPrm)
+	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cnr, prm.obj, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading: %w", err)
 	}
@@ -167,13 +167,8 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var obj object.Object
 
 	if !rdr.ReadHeader(&obj) {
-		res, err := rdr.Close()
-		if err == nil {
-			// pull out an error from status
-			err = apistatus.ErrFromStatus(res.Status())
-		} else {
-			ReportError(prm.cli, err)
-		}
+		err = rdr.Close()
+		ReportError(prm.cli, err)
 
 		return nil, fmt.Errorf("read object header: %w", err)
 	}
@@ -199,6 +194,7 @@ type HeadObjectPrm struct {
 	cliPrm client.PrmObjectHead
 
 	obj oid.ID
+	cnr cid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -213,8 +209,7 @@ func (x *HeadObjectPrm) SetRawFlag() {
 // Required parameter.
 func (x *HeadObjectPrm) SetAddress(addr oid.Address) {
 	x.obj = addr.Object()
-	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(x.obj)
+	x.cnr = addr.Container()
 }
 
 // HeadObjectRes groups the resulting values of GetObject operation.
@@ -254,12 +249,7 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
-	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cliPrm)
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	}
-
+	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cnr, prm.obj, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
@@ -279,11 +269,12 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 type PayloadRangePrm struct {
 	readPrmCommon
 
-	ln uint64
+	offset, ln uint64
 
 	cliPrm client.PrmObjectRange
 
 	obj oid.ID
+	cnr cid.ID
 }
 
 // SetRawFlag sets raw flag of the request.
@@ -298,15 +289,14 @@ func (x *PayloadRangePrm) SetRawFlag() {
 // Required parameter.
 func (x *PayloadRangePrm) SetAddress(addr oid.Address) {
 	x.obj = addr.Object()
-	x.cliPrm.FromContainer(addr.Container())
-	x.cliPrm.ByID(x.obj)
+	x.cnr = addr.Container()
 }
 
 // SetRange range of the object payload to be read.
 //
 // Required parameter.
 func (x *PayloadRangePrm) SetRange(rng *object.Range) {
-	x.cliPrm.SetOffset(rng.GetOffset())
+	x.offset = rng.GetOffset()
 	x.ln = rng.GetLength()
 }
 
@@ -351,10 +341,9 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 		prm.cliPrm.WithBearerToken(*prm.tokenBearer)
 	}
 
-	prm.cliPrm.SetLength(prm.ln)
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cliPrm)
+	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cnr, prm.obj, prm.offset, prm.ln, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
@@ -440,13 +429,8 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	}
 
 	cliRes, err := w.Close()
-	if err == nil {
-		err = apistatus.ErrFromStatus(cliRes.Status())
-	} else {
-		ReportError(prm.cli, err)
-	}
-
 	if err != nil {
+		ReportError(prm.cli, err)
 		return nil, fmt.Errorf("write object via client: %w", err)
 	}
 
@@ -459,6 +443,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 type SearchObjectsPrm struct {
 	readPrmCommon
 
+	cid    cid.ID
 	cliPrm client.PrmObjectSearch
 }
 
@@ -466,7 +451,7 @@ type SearchObjectsPrm struct {
 //
 // Required parameter.
 func (x *SearchObjectsPrm) SetContainerID(id cid.ID) {
-	x.cliPrm.InContainer(id)
+	x.cid = id
 }
 
 // SetFilters sets search filters.
@@ -506,7 +491,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
 	}
 
-	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cliPrm)
+	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cid, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object searching in client: %w", err)
 	}
@@ -530,12 +515,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 		}
 	}
 
-	res, err := rdr.Close()
-	if err == nil {
-		// pull out an error from status
-		err = apistatus.ErrFromStatus(res.Status())
-	}
-
+	err = rdr.Close()
 	if err != nil {
 		return nil, fmt.Errorf("read object list: %w", err)
 	}

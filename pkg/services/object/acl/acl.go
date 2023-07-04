@@ -10,7 +10,7 @@ import (
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -130,7 +130,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	if bearerTok == nil {
 		eaclInfo, err := c.eaclSrc.GetEACL(cnr)
 		if err != nil {
-			if client.IsErrEACLNotFound(err) {
+			if errors.Is(err, apistatus.ErrEACLNotFound) {
 				return nil
 			}
 			return err

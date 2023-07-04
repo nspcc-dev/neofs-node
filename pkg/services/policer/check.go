@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -269,7 +268,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 
 			cancel()
 
-			if client.IsErrObjectNotFound(err) {
+			if errors.Is(err, apistatus.ErrObjectNotFound) {
 				ctx.checkedNodes.submitReplicaCandidate(nodes[i])
 				continue
 			}
