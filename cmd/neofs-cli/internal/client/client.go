@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -26,12 +27,12 @@ type BalanceOfPrm struct {
 
 // BalanceOfRes groups the resulting values of BalanceOf operation.
 type BalanceOfRes struct {
-	cliRes *client.ResBalanceGet
+	cliRes accounting.Decimal
 }
 
 // Balance returns the current balance.
 func (x BalanceOfRes) Balance() accounting.Decimal {
-	return x.cliRes.Amount()
+	return x.cliRes
 }
 
 // BalanceOf requests the current balance of a NeoFS user.
@@ -46,24 +47,31 @@ func BalanceOf(ctx context.Context, prm BalanceOfPrm) (res BalanceOfRes, err err
 // ListContainersPrm groups parameters of ListContainers operation.
 type ListContainersPrm struct {
 	commonPrm
+
+	owner user.ID
 	client.PrmContainerList
+}
+
+// SetAccount sets containers' owner.
+func (l *ListContainersPrm) SetAccount(owner user.ID) {
+	l.owner = owner
 }
 
 // ListContainersRes groups the resulting values of ListContainers operation.
 type ListContainersRes struct {
-	cliRes *client.ResContainerList
+	cliRes []cid.ID
 }
 
 // IDList returns list of identifiers of user's containers.
 func (x ListContainersRes) IDList() []cid.ID {
-	return x.cliRes.Containers()
+	return x.cliRes
 }
 
 // ListContainers requests a list of NeoFS user's containers.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContainersRes, err error) {
-	res.cliRes, err = prm.cli.ContainerList(ctx, prm.PrmContainerList)
+	res.cliRes, err = prm.cli.ContainerList(ctx, prm.owner, prm.PrmContainerList)
 
 	return
 }
@@ -71,7 +79,14 @@ func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContain
 // PutContainerPrm groups parameters of PutContainer operation.
 type PutContainerPrm struct {
 	commonPrm
+
+	cnr containerSDK.Container
 	client.PrmContainerPut
+}
+
+// SetContainer sets container.
+func (p *PutContainerPrm) SetContainer(cnr containerSDK.Container) {
+	p.cnr = cnr
 }
 
 // PutContainerRes groups the resulting values of PutContainer operation.
@@ -93,9 +108,9 @@ func (x PutContainerRes) ID() cid.ID {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func PutContainer(ctx context.Context, prm PutContainerPrm) (res PutContainerRes, err error) {
-	cliRes, err := prm.cli.ContainerPut(ctx, prm.PrmContainerPut)
+	cliRes, err := prm.cli.ContainerPut(ctx, prm.cnr, prm.PrmContainerPut)
 	if err == nil {
-		res.cnr = cliRes.ID()
+		res.cnr = cliRes
 	}
 
 	return
@@ -104,29 +119,31 @@ func PutContainer(ctx context.Context, prm PutContainerPrm) (res PutContainerRes
 // GetContainerPrm groups parameters of GetContainer operation.
 type GetContainerPrm struct {
 	commonPrm
+
+	cid    cid.ID
 	cliPrm client.PrmContainerGet
 }
 
 // SetContainer sets identifier of the container to be read.
 func (x *GetContainerPrm) SetContainer(id cid.ID) {
-	x.cliPrm.SetContainer(id)
+	x.cid = id
 }
 
 // GetContainerRes groups the resulting values of GetContainer operation.
 type GetContainerRes struct {
-	cliRes *client.ResContainerGet
+	cliRes containerSDK.Container
 }
 
 // Container returns structured of the requested container.
 func (x GetContainerRes) Container() containerSDK.Container {
-	return x.cliRes.Container()
+	return x.cliRes
 }
 
 // GetContainer reads a container from NeoFS by ID.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func GetContainer(ctx context.Context, prm GetContainerPrm) (res GetContainerRes, err error) {
-	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cliPrm)
+	res.cliRes, err = prm.cli.ContainerGet(ctx, prm.cid, prm.cliPrm)
 
 	return
 }
@@ -149,7 +166,14 @@ func IsACLExtendable(ctx context.Context, c *client.Client, cnr cid.ID) (bool, e
 // DeleteContainerPrm groups parameters of DeleteContainerPrm operation.
 type DeleteContainerPrm struct {
 	commonPrm
+
+	cid cid.ID
 	client.PrmContainerDelete
+}
+
+// SetContainer sets an ID of a container to be removed.
+func (d *DeleteContainerPrm) SetContainer(cid cid.ID) {
+	d.cid = cid
 }
 
 // DeleteContainerRes groups the resulting values of DeleteContainer operation.
@@ -164,7 +188,7 @@ type DeleteContainerRes struct{}
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func DeleteContainer(ctx context.Context, prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	_, err = prm.cli.ContainerDelete(ctx, prm.PrmContainerDelete)
+	err = prm.cli.ContainerDelete(ctx, prm.cid, prm.PrmContainerDelete)
 
 	return
 }
@@ -172,24 +196,32 @@ func DeleteContainer(ctx context.Context, prm DeleteContainerPrm) (res DeleteCon
 // EACLPrm groups parameters of EACL operation.
 type EACLPrm struct {
 	commonPrm
+
+	cid cid.ID
 	client.PrmContainerEACL
+}
+
+// SetContainer sets container ID to be requested
+// for its eACL.
+func (E *EACLPrm) SetContainer(cid cid.ID) {
+	E.cid = cid
 }
 
 // EACLRes groups the resulting values of EACL operation.
 type EACLRes struct {
-	cliRes *client.ResContainerEACL
+	cliRes eacl.Table
 }
 
 // EACL returns requested eACL table.
 func (x EACLRes) EACL() eacl.Table {
-	return x.cliRes.Table()
+	return x.cliRes
 }
 
 // EACL reads eACL table from NeoFS by container ID.
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
-	res.cliRes, err = prm.cli.ContainerEACL(ctx, prm.PrmContainerEACL)
+	res.cliRes, err = prm.cli.ContainerEACL(ctx, prm.cid, prm.PrmContainerEACL)
 
 	return
 }
@@ -197,7 +229,14 @@ func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
 // SetEACLPrm groups parameters of SetEACL operation.
 type SetEACLPrm struct {
 	commonPrm
+
+	table eacl.Table
 	client.PrmContainerSetEACL
+}
+
+// SetTable sets extended Access Control List table to be applied.
+func (s *SetEACLPrm) SetTable(table eacl.Table) {
+	s.table = table
 }
 
 // SetEACLRes groups the resulting values of SetEACL operation.
@@ -212,7 +251,7 @@ type SetEACLRes struct{}
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func SetEACL(ctx context.Context, prm SetEACLPrm) (res SetEACLRes, err error) {
-	_, err = prm.cli.ContainerSetEACL(ctx, prm.PrmContainerSetEACL)
+	err = prm.cli.ContainerSetEACL(ctx, prm.table, prm.PrmContainerSetEACL)
 
 	return
 }
@@ -225,12 +264,12 @@ type NetworkInfoPrm struct {
 
 // NetworkInfoRes groups the resulting values of NetworkInfo operation.
 type NetworkInfoRes struct {
-	cliRes *client.ResNetworkInfo
+	cliRes netmap.NetworkInfo
 }
 
 // NetworkInfo returns structured information about the NeoFS network.
 func (x NetworkInfoRes) NetworkInfo() netmap.NetworkInfo {
-	return x.cliRes.Info()
+	return x.cliRes
 }
 
 // NetworkInfo reads information about the NeoFS network.
@@ -279,12 +318,12 @@ type NetMapSnapshotPrm struct {
 
 // NetMapSnapshotRes groups the resulting values of NetMapSnapshot operation.
 type NetMapSnapshotRes struct {
-	cliRes *client.ResNetMapSnapshot
+	cliRes netmap.NetMap
 }
 
 // NetMap returns current local snapshot of the NeoFS network map.
 func (x NetMapSnapshotRes) NetMap() netmap.NetMap {
-	return x.cliRes.NetMap()
+	return x.cliRes
 }
 
 // NetMapSnapshot requests current network view of the remote server.
@@ -464,8 +503,6 @@ func (x DeleteObjectRes) Tombstone() oid.ID {
 // Returns any error which prevented the operation from completing correctly in error return.
 func DeleteObject(ctx context.Context, prm DeleteObjectPrm) (*DeleteObjectRes, error) {
 	var delPrm client.PrmObjectDelete
-	delPrm.FromContainer(prm.objAddr.Container())
-	delPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		delPrm.WithinSession(*prm.sessionToken)
@@ -477,13 +514,13 @@ func DeleteObject(ctx context.Context, prm DeleteObjectPrm) (*DeleteObjectRes, e
 
 	delPrm.WithXHeaders(prm.xHeaders...)
 
-	cliRes, err := prm.cli.ObjectDelete(ctx, delPrm)
+	cliRes, err := prm.cli.ObjectDelete(ctx, prm.objAddr.Container(), prm.objAddr.Object(), delPrm)
 	if err != nil {
 		return nil, fmt.Errorf("remove object via client: %w", err)
 	}
 
 	return &DeleteObjectRes{
-		tomb: cliRes.Tombstone(),
+		tomb: cliRes,
 	}, nil
 }
 
@@ -520,8 +557,6 @@ func (x GetObjectRes) Header() *object.Object {
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 	var getPrm client.PrmObjectGet
-	getPrm.FromContainer(prm.objAddr.Container())
-	getPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		getPrm.WithinSession(*prm.sessionToken)
@@ -541,7 +576,7 @@ func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 
 	getPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectGetInit(ctx, getPrm)
+	rdr, err := prm.cli.ObjectGetInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), getPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading on client: %w", err)
 	}
@@ -549,8 +584,7 @@ func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 	var hdr object.Object
 
 	if !rdr.ReadHeader(&hdr) {
-		_, err = rdr.Close()
-		return nil, fmt.Errorf("read object header: %w", err)
+		return nil, fmt.Errorf("read object header: %w", rdr.Close())
 	}
 	if prm.headerCallback != nil {
 		prm.headerCallback(&hdr)
@@ -596,8 +630,6 @@ func (x HeadObjectRes) Header() *object.Object {
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) {
 	var cliPrm client.PrmObjectHead
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		cliPrm.WithinSession(*prm.sessionToken)
@@ -617,7 +649,7 @@ func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) 
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHead(ctx, cliPrm)
+	res, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header via client: %w", err)
 	}
@@ -661,7 +693,6 @@ func (x SearchObjectsRes) IDList() []oid.ID {
 // Returns any error which prevented the operation from completing correctly in error return.
 func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 	var cliPrm client.PrmObjectSearch
-	cliPrm.InContainer(prm.cnrID)
 	cliPrm.SetFilters(prm.filters)
 
 	if prm.sessionToken != nil {
@@ -678,7 +709,7 @@ func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectSearchInit(ctx, cliPrm)
+	rdr, err := prm.cli.ObjectSearchInit(ctx, prm.cnrID, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -698,7 +729,7 @@ func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes
 		}
 	}
 
-	_, err = rdr.Close()
+	err = rdr.Close()
 	if err != nil {
 		return nil, fmt.Errorf("read object list: %w", err)
 	}
@@ -737,12 +768,12 @@ func (x *HashPayloadRangesPrm) SetSalt(salt []byte) {
 
 // HashPayloadRangesRes groups the resulting values of HashPayloadRanges operation.
 type HashPayloadRangesRes struct {
-	cliRes *client.ResObjectHash
+	cliRes [][]byte
 }
 
 // HashList returns a list of hashes of the payload ranges keeping order.
 func (x HashPayloadRangesRes) HashList() [][]byte {
-	return x.cliRes.Checksums()
+	return x.cliRes
 }
 
 // HashPayloadRanges requests hashes (by default SHA256) of the object payload ranges.
@@ -751,8 +782,6 @@ func (x HashPayloadRangesRes) HashList() [][]byte {
 // Returns an error if number of received hashes differs with the number of requested ranges.
 func HashPayloadRanges(ctx context.Context, prm HashPayloadRangesPrm) (*HashPayloadRangesRes, error) {
 	var cliPrm client.PrmObjectHash
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.local {
 		cliPrm.MarkLocal()
@@ -783,7 +812,7 @@ func HashPayloadRanges(ctx context.Context, prm HashPayloadRangesPrm) (*HashPayl
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHash(ctx, cliPrm)
+	res, err := prm.cli.ObjectHash(ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read payload hashes via client: %w", err)
 	}
@@ -819,8 +848,6 @@ type PayloadRangeRes struct{}
 // For raw reading, returns *object.SplitInfoError error if object is virtual.
 func PayloadRange(ctx context.Context, prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	var cliPrm client.PrmObjectRange
-	cliPrm.FromContainer(prm.objAddr.Container())
-	cliPrm.ByID(prm.objAddr.Object())
 
 	if prm.sessionToken != nil {
 		cliPrm.WithinSession(*prm.sessionToken)
@@ -838,12 +865,9 @@ func PayloadRange(ctx context.Context, prm PayloadRangePrm) (*PayloadRangeRes, e
 		cliPrm.MarkLocal()
 	}
 
-	cliPrm.SetOffset(prm.rng.GetOffset())
-	cliPrm.SetLength(prm.rng.GetLength())
-
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectRangeInit(ctx, cliPrm)
+	rdr, err := prm.cli.ObjectRangeInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.rng.GetOffset(), prm.rng.GetLength(), cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}

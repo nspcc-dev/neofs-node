@@ -42,13 +42,11 @@ func getSDKClientByFlag(ctx context.Context, cmd *cobra.Command, key *ecdsa.Priv
 // GetSDKClient returns default neofs-sdk-go client.
 func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Address) (*client.Client, error) {
 	var (
-		c       client.Client
 		prmInit client.PrmInit
 		prmDial client.PrmDial
 	)
 
 	prmInit.SetDefaultSigner(neofsecdsa.SignerRFC6979(*key))
-	prmInit.ResolveNeoFSFailures()
 	prmDial.SetServerURI(addr.URIAddr())
 	prmDial.SetContext(ctx)
 
@@ -63,13 +61,16 @@ func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey
 		}
 	}
 
-	c.Init(prmInit)
+	c, err := client.New(prmInit)
+	if err != nil {
+		return nil, fmt.Errorf("can't create SDK client: %w", err)
+	}
 
 	if err := c.Dial(prmDial); err != nil { //nolint:contextcheck // SetContext is used above.
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
-	return &c, nil
+	return c, nil
 }
 
 // GetCurrentEpoch returns current epoch.
@@ -95,5 +96,5 @@ func GetCurrentEpoch(ctx context.Context, cmd *cobra.Command, endpoint string) (
 		return 0, err
 	}
 
-	return ni.Info().CurrentEpoch(), nil
+	return ni.CurrentEpoch(), nil
 }

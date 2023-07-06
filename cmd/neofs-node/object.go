@@ -37,7 +37,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -443,19 +442,17 @@ func (c *reputationClient) ObjectPutInit(ctx context.Context, prm client.PrmObje
 	return res, err
 }
 
-func (c *reputationClient) ObjectDelete(ctx context.Context, prm client.PrmObjectDelete) (*client.ResObjectDelete, error) {
-	res, err := c.MultiAddressClient.ObjectDelete(ctx, prm)
+func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectDelete) (oid.ID, error) {
+	res, err := c.MultiAddressClient.ObjectDelete(ctx, containerID, objectID, prm)
 	if err != nil {
 		c.submitResult(err)
-	} else {
-		c.submitResult(apistatus.ErrFromStatus(res.Status()))
 	}
 
 	return res, err
 }
 
-func (c *reputationClient) GetObjectInit(ctx context.Context, prm client.PrmObjectGet) (*client.ObjectReader, error) {
-	res, err := c.MultiAddressClient.ObjectGetInit(ctx, prm)
+func (c *reputationClient) GetObjectInit(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectGet) (*client.ObjectReader, error) {
+	res, err := c.MultiAddressClient.ObjectGetInit(ctx, containerID, objectID, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
 	c.submitResult(err)
@@ -463,24 +460,24 @@ func (c *reputationClient) GetObjectInit(ctx context.Context, prm client.PrmObje
 	return res, err
 }
 
-func (c *reputationClient) ObjectHead(ctx context.Context, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
-	res, err := c.MultiAddressClient.ObjectHead(ctx, prm)
+func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
+	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) ObjectHash(ctx context.Context, prm client.PrmObjectHash) (*client.ResObjectHash, error) {
-	res, err := c.MultiAddressClient.ObjectHash(ctx, prm)
+func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHash) ([][]byte, error) {
+	res, err := c.MultiAddressClient.ObjectHash(ctx, containerID, objectID, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) ObjectSearchInit(ctx context.Context, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
-	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, prm)
+func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
+	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, containerID, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
 	c.submitResult(err)

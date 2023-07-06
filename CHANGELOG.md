@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - CLI default timeout for commands with `--await` flag increased to 1m (#2124)
 
 ### Updated
+- `neofs-sdk-go` to `v1.0.0-rc.9`
 
 ### Updating from v0.37.0
 CLI command timeouts (flag `--timeout`) now limit the total command execution

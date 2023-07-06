@@ -11,8 +11,12 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -50,7 +54,6 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 
 func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client, error) {
 	var (
-		c       client.Client
 		prmInit client.PrmInit
 		prmDial client.PrmDial
 	)
@@ -73,13 +76,17 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 		prmInit.SetResponseInfoCallback(x.opts.ResponseCallback)
 	}
 
-	c.Init(prmInit)
-	err := c.Dial(prmDial)
+	c, err := client.New(prmInit)
+	if err != nil {
+		return nil, fmt.Errorf("can't create SDK client: %w", err)
+	}
+
+	err = c.Dial(prmDial)
 	if err != nil {
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
-	return &c, nil
+	return c, nil
 }
 
 // updateGroup replaces current multiClient addresses with a new group.
@@ -215,85 +222,76 @@ func (x *multiClient) ObjectPutInit(ctx context.Context, p client.PrmObjectPutIn
 	return
 }
 
-func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, prm client.PrmAnnounceSpace) (res *client.ResAnnounceSpace, err error) {
+func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error {
+	return x.iterateClients(ctx, func(c clientcore.Client) error {
+		return c.ContainerAnnounceUsedSpace(ctx, announcements, prm)
+	})
+}
+
+func (x *multiClient) ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectDelete) (tombID oid.ID, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ContainerAnnounceUsedSpace(ctx, prm)
+		tombID, err = c.ObjectDelete(ctx, containerID, objectID, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectDelete(ctx context.Context, p client.PrmObjectDelete) (res *client.ResObjectDelete, err error) {
+func (x *multiClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectGet) (res *client.ObjectReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectDelete(ctx, p)
+		res, err = c.ObjectGetInit(ctx, containerID, objectID, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectGetInit(ctx context.Context, p client.PrmObjectGet) (res *client.ObjectReader, err error) {
+func (x *multiClient) ObjectRangeInit(ctx context.Context, containerID cid.ID, objectID oid.ID, offset, length uint64, prm client.PrmObjectRange) (res *client.ObjectRangeReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectGetInit(ctx, p)
+		res, err = c.ObjectRangeInit(ctx, containerID, objectID, offset, length, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectRangeInit(ctx context.Context, p client.PrmObjectRange) (res *client.ObjectRangeReader, err error) {
+func (x *multiClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHead) (res *client.ResObjectHead, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectRangeInit(ctx, p)
+		res, err = c.ObjectHead(ctx, containerID, objectID, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectHead(ctx context.Context, p client.PrmObjectHead) (res *client.ResObjectHead, err error) {
+func (x *multiClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHash) (res [][]byte, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectHead(ctx, p)
+		res, err = c.ObjectHash(ctx, containerID, objectID, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectHash(ctx context.Context, p client.PrmObjectHash) (res *client.ResObjectHash, err error) {
+func (x *multiClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, prm client.PrmObjectSearch) (res *client.ObjectListReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectHash(ctx, p)
+		res, err = c.ObjectSearchInit(ctx, containerID, prm)
 		return err
 	})
 
 	return
 }
 
-func (x *multiClient) ObjectSearchInit(ctx context.Context, p client.PrmObjectSearch) (res *client.ObjectListReader, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.ObjectSearchInit(ctx, p)
-		return err
+func (x *multiClient) AnnounceLocalTrust(ctx context.Context, epoch uint64, trusts []reputationSDK.Trust, prm client.PrmAnnounceLocalTrust) error {
+	return x.iterateClients(ctx, func(c clientcore.Client) error {
+		return c.AnnounceLocalTrust(ctx, epoch, trusts, prm)
 	})
-
-	return
 }
 
-func (x *multiClient) AnnounceLocalTrust(ctx context.Context, prm client.PrmAnnounceLocalTrust) (res *client.ResAnnounceLocalTrust, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceLocalTrust(ctx, prm)
-		return err
+func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, epoch uint64, trust reputationSDK.PeerToPeerTrust, prm client.PrmAnnounceIntermediateTrust) error {
+	return x.iterateClients(ctx, func(c clientcore.Client) error {
+		return c.AnnounceIntermediateTrust(ctx, epoch, trust, prm)
 	})
-
-	return
-}
-
-func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, prm client.PrmAnnounceIntermediateTrust) (res *client.ResAnnounceIntermediateTrust, err error) {
-	err = x.iterateClients(ctx, func(c clientcore.Client) error {
-		res, err = c.AnnounceIntermediateTrust(ctx, prm)
-		return err
-	})
-
-	return
 }
 
 func (x *multiClient) ExecRaw(f func(client *rawclient.Client) error) error {

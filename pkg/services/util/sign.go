@@ -226,7 +226,7 @@ func setStatusV2(resp ResponseMessage, err error) {
 		err = e
 	}
 
-	session.SetStatus(resp, apistatus.ToStatusV2(apistatus.ErrToStatus(err)))
+	session.SetStatus(resp, apistatus.ErrorToV2(err))
 }
 
 // signs response with private key via signature.SignServiceMessage.
