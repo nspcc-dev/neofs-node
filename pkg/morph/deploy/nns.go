@@ -95,9 +95,19 @@ type deployNNSContractPrm struct {
 // If contract is missing and deployNNSContractPrm.initCommitteeGroupKey is provided,
 // initNNSContract attempts to deploy local contract.
 func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Uint160, err error) {
-	var managementContract *management.Contract
-	var sentTxValidUntilBlock uint32
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	if err != nil {
+		return res, fmt.Errorf("init transaction sender from local account: %w", err)
+	}
+
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	var committeeGroupKey *keys.PrivateKey
+	txMonitor := newTransactionGroupMonitor(localActor)
+	managementContract := management.New(localActor)
 
 	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
@@ -141,47 +151,29 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 				continue
 			}
 
+			setGroupInManifest(&prm.localManifest, prm.localNEF, committeeGroupKey, prm.localAcc.ScriptHash())
+
 			prm.logger.Info("private key of the committee group has been initialized", zap.Stringer("public key", committeeGroupKey.PublicKey()))
 		}
 
-		if sentTxValidUntilBlock > 0 {
-			prm.logger.Info("transaction deploying NNS contract was sent earlier, checking relevance...")
-
-			if cur := prm.monitor.currentHeight(); cur <= sentTxValidUntilBlock {
-				prm.logger.Info("previously sent transaction deploying NNS contract may still be relevant, will wait for the outcome",
-					zap.Uint32("current height", cur), zap.Uint32("retry after height", sentTxValidUntilBlock))
-				continue
-			}
-
-			prm.logger.Info("previously sent transaction deploying NNS contract expired without side-effect")
+		if txMonitor.isPending() {
+			prm.logger.Info("previously sent transaction updating NNS contract is still pending, will wait for the outcome")
+			continue
 		}
 
 		prm.logger.Info("sending new transaction deploying NNS contract...")
-
-		if managementContract == nil {
-			localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
-			if err != nil {
-				prm.logger.Warn("NNS contract is missing on the chain but attempts to deploy are disabled, will try again later")
-				continue
-			}
-
-			managementContract = management.New(localActor)
-
-			setGroupInManifest(&prm.localManifest, prm.localNEF, committeeGroupKey, prm.localAcc.ScriptHash())
-		}
 
 		// just to definitely avoid mutation
 		nefCp := prm.localNEF
 		manifestCp := prm.localManifest
 
-		_, vub, err := managementContract.Deploy(&nefCp, &manifestCp, []interface{}{
+		txID, vub, err := managementContract.Deploy(&nefCp, &manifestCp, []interface{}{
 			[]interface{}{
 				[]interface{}{domainBootstrap, prm.systemEmail},
 				[]interface{}{domainContractAddresses, prm.systemEmail},
 			},
 		})
 		if err != nil {
-			sentTxValidUntilBlock = 0
 			if isErrNotEnoughGAS(err) {
 				prm.logger.Info("not enough GAS to deploy NNS contract, will try again later")
 			} else {
@@ -190,9 +182,11 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 			continue
 		}
 
-		sentTxValidUntilBlock = vub
+		prm.logger.Info("transaction deploying NNS contract has been successfully sent, will wait for the outcome",
+			zap.Stringer("tx", txID), zap.Uint32("vub", vub),
+		)
 
-		prm.logger.Info("transaction deploying NNS contract has been successfully sent, will wait for the outcome")
+		txMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
 	}
 }
 
@@ -286,7 +280,12 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		return fmt.Errorf("read version of the local NNS contract: %w", err)
 	}
 
-	var updateTxValidUntilBlock uint32
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	txMonitor := newTransactionGroupMonitor(committeeActor)
 
 	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
@@ -340,8 +339,6 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 
 		setGroupInManifest(&prm.localManifest, prm.localNEF, prm.committeeGroupKey, prm.localAcc.ScriptHash())
 
-		var vub uint32
-
 		// we pre-check 'already updated' case via MakeCall in order to not potentially
 		// wait for previously sent transaction to be expired (condition below) and
 		// immediately succeed
@@ -354,23 +351,17 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 				prm.logger.Info("NNS contract has already been updated, skip")
 				return nil
 			}
-		} else {
-			if updateTxValidUntilBlock > 0 {
-				prm.logger.Info("transaction updating NNS contract was sent earlier, checking relevance...")
 
-				if cur := prm.monitor.currentHeight(); cur <= updateTxValidUntilBlock {
-					prm.logger.Info("previously sent transaction updating NNS contract may still be relevant, will wait for the outcome",
-						zap.Uint32("current height", cur), zap.Uint32("retry after height", updateTxValidUntilBlock))
-					continue
-				}
-
-				prm.logger.Info("previously sent transaction updating NNS contract expired without side-effect")
-			}
-
-			prm.logger.Info("sending new transaction updating NNS contract...")
-
-			_, _, vub, err = committeeActor.Notarize(tx, nil)
+			prm.logger.Error("failed to make transaction updating NNS contract, will try again later", zap.Error(err))
+			continue
 		}
+
+		if txMonitor.isPending() {
+			prm.logger.Info("previously sent notary request updating NNS contract is still pending, will wait for the outcome")
+			continue
+		}
+
+		mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(tx, nil)
 		if err != nil {
 			lackOfGAS := isErrNotEnoughGAS(err)
 			// here lackOfGAS=true always means lack of Notary balance and not related to
@@ -393,8 +384,9 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			continue
 		}
 
-		updateTxValidUntilBlock = vub
+		prm.logger.Info("notary request updating NNS contract has been successfully sent, will wait for the outcome",
+			zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
 
-		prm.logger.Info("transaction updating NNS contract has been successfully sent, will wait for the outcome")
+		txMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
 	}
 }

@@ -284,3 +284,42 @@ func readContractLocalVersion(rpc invoker.RPCInvoke, localNEF nef.File, localMan
 
 	return parseContractVersionFromInvocationResult(res)
 }
+
+type transactionGroupWaiter interface {
+	WaitAny(ctx context.Context, vub uint32, hashes ...util.Uint256) (*state.AppExecResult, error)
+}
+
+type transactionGroupMonitor struct {
+	waiter  transactionGroupWaiter
+	pending atomic.Bool
+}
+
+func newTransactionGroupMonitor(w transactionGroupWaiter) *transactionGroupMonitor {
+	return &transactionGroupMonitor{
+		waiter: w,
+	}
+}
+
+func (x *transactionGroupMonitor) reset() {
+	x.pending.Store(false)
+}
+
+func (x *transactionGroupMonitor) isPending() bool {
+	return x.pending.Load()
+}
+
+func (x *transactionGroupMonitor) trackPendingTransactionsAsync(ctx context.Context, vub uint32, txs ...util.Uint256) {
+	if len(txs) == 0 {
+		panic("missing transactions")
+	}
+
+	x.pending.Store(true)
+
+	waitCtx, cancel := context.WithCancel(ctx)
+
+	go func() {
+		_, _ = x.waiter.WaitAny(waitCtx, vub, txs...)
+		x.reset()
+		cancel()
+	}()
+}

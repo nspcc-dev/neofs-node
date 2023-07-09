@@ -106,6 +106,11 @@ type Prm struct {
 //
 // See project documentation for details.
 func Deploy(ctx context.Context, prm Prm) error {
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	committee, err := prm.Blockchain.GetCommittee()
 	if err != nil {
 		return fmt.Errorf("get Neo committee of the network: %w", err)
@@ -198,7 +203,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Notary service successfully enabled for the committee")
 
-	onNotaryDepositDeficiency, err := initNotaryDepositDeficiencyHandler(prm.Logger, prm.Blockchain, monitor, prm.LocalAccount)
+	onNotaryDepositDeficiency, err := initNotaryDepositDeficiencyHandler(ctx, prm.Logger, prm.Blockchain, prm.LocalAccount)
 	if err != nil {
 		return fmt.Errorf("construct action depositing funds to the local account's Notary balance: %w", err)
 	}
