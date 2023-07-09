@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
@@ -871,51 +872,56 @@ func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee k
 	}, localAcc)
 }
 
-// notaryDepositDeficiencyHandler is a function returned by initNotaryDepositDeficiencyHandler.
-// True argument is passed when there is not enough GAS on local account's
-// balance in the Notary contract, false - when local account's Notary deposit
-// expires before particular fallback transaction.
-//
-// The function is intended to be called multiple times on each deposit problem
-// encounter. On each call, It attempts to fix Notary deposit problem without
-// waiting for success. Caller should by default wait for the problem to be
-// fixed, and if not, retry.
-//
-// notaryDepositDeficiencyHandler must not be called from multiple routines in
-// parallel.
-type notaryDepositDeficiencyHandler = func(lackOfGAS bool)
-
 // Amount of GAS for the single local account's GAS->Notary transfer. Relatively
 // small value for fallback transactions' fees.
 var singleNotaryDepositAmount = big.NewInt(1_0000_0000) // 1 GAS
 
-// constructs notaryDepositDeficiencyHandler working with the specified
-// Blockchain and GAS/Notary balance of the given account.
-func initNotaryDepositDeficiencyHandler(ctx context.Context, l *zap.Logger, b Blockchain, localAcc *wallet.Account) (notaryDepositDeficiencyHandler, error) {
-	localActor, err := actor.NewSimple(b, localAcc)
-	if err != nil {
-		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
-	}
+func autoReplenishNotaryBalance(ctx context.Context, l *zap.Logger, b Blockchain, localAcc *wallet.Account, chTrigger <-chan struct{}) {
+	l.Info("tracking Notary balance for auto-replenishment...")
 
-	notaryContract := notary.New(localActor)
-	gasContract := gas.New(localActor)
+	var err error
+	var localActor *actor.Actor
+	var notaryContract *notary.Contract
+	var gasContract *nep17.Token
+	var txMonitor *transactionGroupMonitor
 	localAccID := localAcc.ScriptHash()
 
-	// multi-tick context
-	transferTxMonitor := newTransactionGroupMonitor(localActor)
-	expirationTxMonitor := newTransactionGroupMonitor(localActor)
+	for {
+		select {
+		case <-ctx.Done():
+			l.Info("Notary balance tracker stopped by context", zap.Error(ctx.Err()))
+			return
+		case _, ok := <-chTrigger:
+			if !ok {
+				l.Info("Notary balance tracker stopped by closed block channel")
+				return
+			}
+		}
 
-	return func(lackOfGAS bool) {
+		if localActor == nil {
+			localActor, err = actor.NewSimple(b, localAcc)
+			if err != nil {
+				l.Error("failed to init transaction sender from local account, will try again later", zap.Error(err))
+				continue
+			}
+
+			notaryContract = notary.New(localActor)
+			gasContract = gas.New(localActor)
+			txMonitor = newTransactionGroupMonitor(localActor)
+		}
+
 		notaryBalance, err := notaryContract.BalanceOf(localAccID)
 		if err != nil {
 			l.Error("failed to read Notary balance of the local account, will try again later", zap.Error(err))
-			return
+			continue
 		}
 
-		gasBalance, err := gasContract.BalanceOf(localAccID)
-		if err != nil {
-			l.Error("failed to read GAS token balance of the local account, will try again later", zap.Error(err))
-			return
+		// deposit when balance falls below 1/5 of the single deposit amount
+		const refillProportion = 5
+
+		if new(big.Int).Mul(notaryBalance, big.NewInt(refillProportion)).Cmp(singleNotaryDepositAmount) >= 0 {
+			l.Info("enough funds on the notary balance, deposit is not needed", zap.Stringer("balance", notaryBalance))
+			continue
 		}
 
 		// simple deposit scheme: transfer 1GAS (at most 2% of GAS token balance) for
@@ -925,56 +931,14 @@ func initNotaryDepositDeficiencyHandler(ctx context.Context, l *zap.Logger, b Bl
 		// If we encounter deposit expiration and current Notary balance >=20% of single
 		// transfer, we just increase the expiration time of the deposit, otherwise, we
 		// make transfer.
-
-		const (
-			// GAS:Notary proportion, see scheme above
-			gasProportion = 50
-			// even there is no lack of GAS at the moment, when the balance falls below 1/5
-			// of the supported value - replenish
-			refillProportion = 5
-			// for simplicity, we just make Notary deposit "infinite" not to prolong
-			till = math.MaxUint32
-		)
-
-		if !lackOfGAS { // deposit expired
-			if new(big.Int).Mul(notaryBalance, big.NewInt(refillProportion)).Cmp(singleNotaryDepositAmount) >= 0 {
-				if expirationTxMonitor.isPending() {
-					l.Info("previously sent transaction increasing expiration time of the Notary deposit is still pending, will wait for the outcome")
-					return
-				}
-
-				l.Info("sending new transaction increasing expiration time of the Notary deposit...", zap.Uint32("till", till))
-
-				txID, vub, err := notaryContract.LockDepositUntil(localAccID, till)
-				if err != nil {
-					l.Error("failed to send transaction increasing expiration time of the Notary deposit, will try again later", zap.Error(err))
-					return
-				}
-
-				l.Info("transaction increasing expiration time of the Notary deposit has been successfully sent, will wait for the outcome",
-					zap.Stringer("tx", txID), zap.Uint32("vub", vub))
-
-				expirationTxMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
-
-				return
-			}
-		}
-
-		if transferTxMonitor.isPending() {
-			l.Info("previously sent transaction local account's GAS to the Notary contract is still pending, will wait for the outcome")
-			return
-		}
-
-		needAtLeast := new(big.Int).Mul(singleNotaryDepositAmount, big.NewInt(gasProportion))
-		if gasBalance.Cmp(needAtLeast) < 0 {
-			l.Info("minimum threshold for GAS transfer from local account to the Notary contract not reached, will wait for replenishment",
-				zap.Stringer("need at least", needAtLeast), zap.Stringer("have", gasBalance))
-			return
+		if txMonitor.isPending() {
+			l.Info("previously sent transaction transferring local account's GAS to the Notary contract is still pending, will wait for the outcome")
+			continue
 		}
 
 		var transferData notary.OnNEP17PaymentData
 		transferData.Account = &localAccID
-		transferData.Till = till
+		transferData.Till = math.MaxUint32 // deposit "forever" so we don't have to renew
 
 		l.Info("sending new transaction transferring local account's GAS to the Notary contract...",
 			zap.Stringer("amount", singleNotaryDepositAmount), zap.Uint32("till", transferData.Till))
@@ -985,13 +949,13 @@ func initNotaryDepositDeficiencyHandler(ctx context.Context, l *zap.Logger, b Bl
 		txID, vub, err := gasContract.Transfer(localAccID, notary.Hash, singleNotaryDepositAmount, []interface{}{transferData.Account, transferData.Till})
 		if err != nil {
 			l.Error("failed to send transaction transferring local account's GAS to the Notary contract, will try again later", zap.Error(err))
-			return
+			continue
 		}
 
 		l.Info("transaction transferring local account's GAS to the Notary contract has been successfully sent, will wait for the outcome")
 
-		transferTxMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
-	}, nil
+		txMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
+	}
 }
 
 // listenCommitteeNotaryRequestsPrm groups parameters of listenCommitteeNotaryRequests.
@@ -1003,8 +967,6 @@ type listenCommitteeNotaryRequestsPrm struct {
 	localAcc *wallet.Account
 
 	committee keys.PublicKeys
-
-	onNotaryDepositDeficiency notaryDepositDeficiencyHandler
 }
 
 // listenCommitteeNotaryRequests starts background process listening to incoming
@@ -1146,18 +1108,11 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 				_, _, _, err = notaryActor.Notarize(mainTx, nil)
 				if err != nil {
-					lackOfGAS := isErrNotEnoughGAS(err)
-					// here lackOfGAS=true always means lack of Notary balance and not related to
-					// the main transaction itself
-					if !lackOfGAS {
-						if !isErrNotaryDepositExpires(err) {
-							prm.logger.Error("failed to send transaction deploying NNS contract, will try again later", zap.Error(err))
-							continue
-						}
+					if isErrNotEnoughGAS(err) {
+						prm.logger.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
+					} else {
+						prm.logger.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
 					}
-
-					prm.onNotaryDepositDeficiency(lackOfGAS)
-
 					continue
 				}
 

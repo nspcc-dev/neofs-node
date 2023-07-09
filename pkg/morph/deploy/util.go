@@ -44,10 +44,6 @@ func isErrInvalidTransaction(err error) bool {
 	return errors.Is(err, neorpc.ErrValidationFailed)
 }
 
-func isErrNotaryDepositExpires(err error) bool {
-	return strings.Contains(err.Error(), "fallback transaction is valid after deposit is unlocked")
-}
-
 func isErrContractAlreadyUpdated(err error) bool {
 	return strings.Contains(err.Error(), common.ErrAlreadyUpdated)
 }
@@ -92,7 +88,7 @@ type blockchainMonitor struct {
 
 // newBlockchainMonitor constructs and runs monitor for the given Blockchain.
 // Resulting blockchainMonitor must be stopped when no longer needed.
-func newBlockchainMonitor(l *zap.Logger, b Blockchain) (*blockchainMonitor, error) {
+func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{}) (*blockchainMonitor, error) {
 	ver, err := b.GetVersion()
 	if err != nil {
 		return nil, fmt.Errorf("request Neo protocol configuration: %w", err)
@@ -124,11 +120,17 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain) (*blockchainMonitor, erro
 		for {
 			b, ok := <-blockCh
 			if !ok {
+				close(chNewBlock)
 				l.Info("listening to new blocks stopped")
 				return
 			}
 
 			res.height.Store(b.Index)
+
+			select {
+			case chNewBlock <- struct{}{}:
+			default:
+			}
 
 			l.Info("new block arrived", zap.Uint32("height", b.Index))
 		}

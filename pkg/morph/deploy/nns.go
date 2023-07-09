@@ -244,8 +244,6 @@ type updateNNSContractPrm struct {
 	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
 	// used).
 	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
-
-	onNotaryDepositDeficiency notaryDepositDeficiencyHandler
 }
 
 // updateNNSContract synchronizes on-chain NNS contract (its presence is a
@@ -363,24 +361,11 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 
 		mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(tx, nil)
 		if err != nil {
-			lackOfGAS := isErrNotEnoughGAS(err)
-			// here lackOfGAS=true always means lack of Notary balance and not related to
-			// the main transaction itself
-			if !lackOfGAS {
-				if !isErrNotaryDepositExpires(err) {
-					prm.logger.Error("failed to send transaction deploying NNS contract, will try again later", zap.Error(err))
-					continue
-				}
+			if isErrNotEnoughGAS(err) {
+				prm.logger.Info("insufficient Notary balance to send new Notary request updating NNS contract, skip")
+			} else {
+				prm.logger.Error("failed to send new Notary request updating NNS contract, skip", zap.Error(err))
 			}
-
-			// same approach with in-place deposit is going to be used in other functions.
-			// Consider replacement with background process (e.g. blockchainMonitor
-			// internal) which periodically checks Notary balance and updates it when, for
-			// example, balance goes lower than 20% of desired amount or expires soon. With
-			// this approach functions like current will not try to make a deposit, but
-			// simply wait until it becomes enough.
-			prm.onNotaryDepositDeficiency(lackOfGAS)
-
 			continue
 		}
 

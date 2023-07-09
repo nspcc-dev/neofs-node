@@ -134,7 +134,9 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return errors.New("local account does not belong to any Neo committee member")
 	}
 
-	monitor, err := newBlockchainMonitor(prm.Logger, prm.Blockchain)
+	chNewBlock := make(chan struct{}, 1)
+
+	monitor, err := newBlockchainMonitor(prm.Logger, prm.Blockchain, chNewBlock)
 	if err != nil {
 		return fmt.Errorf("init blockchain monitor: %w", err)
 	}
@@ -203,17 +205,13 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Notary service successfully enabled for the committee")
 
-	onNotaryDepositDeficiency, err := initNotaryDepositDeficiencyHandler(ctx, prm.Logger, prm.Blockchain, prm.LocalAccount)
-	if err != nil {
-		return fmt.Errorf("construct action depositing funds to the local account's Notary balance: %w", err)
-	}
+	go autoReplenishNotaryBalance(ctx, prm.Logger, prm.Blockchain, prm.LocalAccount, chNewBlock)
 
 	err = listenCommitteeNotaryRequests(ctx, listenCommitteeNotaryRequestsPrm{
-		logger:                    prm.Logger,
-		blockchain:                prm.Blockchain,
-		localAcc:                  prm.LocalAccount,
-		committee:                 committee,
-		onNotaryDepositDeficiency: onNotaryDepositDeficiency,
+		logger:     prm.Logger,
+		blockchain: prm.Blockchain,
+		localAcc:   prm.LocalAccount,
+		committee:  committee,
 	})
 	if err != nil {
 		return fmt.Errorf("start listener of committee notary requests: %w", err)
@@ -251,7 +249,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 		committee:                     committee,
 		committeeGroupKey:             committeeGroupKey,
 		buildVersionedExtraUpdateArgs: noExtraUpdateArgs,
-		onNotaryDepositDeficiency:     onNotaryDepositDeficiency,
 	})
 	if err != nil {
 		return fmt.Errorf("update NNS contract on the chain: %w", err)
