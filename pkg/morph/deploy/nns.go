@@ -29,7 +29,25 @@ const (
 	domainDesignateNotaryPrefix = "designate-committee-notary-"
 	domainDesignateNotaryTx     = domainDesignateNotaryPrefix + "tx." + domainBootstrap
 	domainContractAddresses     = "neofs"
+	domainContainers            = "container"
+
+	domainAlphabetFmt = "alphabet%d"
+	domainAudit       = "audit"
+	domainBalance     = "balance"
+	domainContainer   = "container"
+	domainNeoFSID     = "neofsid"
+	domainNetmap      = "netmap"
+	domainProxy       = "proxy"
+	domainReputation  = "reputation"
 )
+
+func calculateAlphabetContractAddressDomain(index int) string {
+	return fmt.Sprintf(domainAlphabetFmt, index)
+}
+
+func calculateContractAddressDomain(contractDomain string) string {
+	return contractDomain + "." + domainContractAddresses
+}
 
 func designateNotarySignatureDomainForMember(memberIndex int) string {
 	return fmt.Sprintf("%s%d.%s", domainDesignateNotaryPrefix, memberIndex, domainBootstrap)
@@ -41,10 +59,11 @@ func committeeGroupDomainForMember(memberIndex int) string {
 
 // various methods of the NeoFS NNS contract.
 const (
-	methodNNSRegister  = "register"
-	methodNNSResolve   = "resolve"
-	methodNNSAddRecord = "addRecord"
-	methodNNSSetRecord = "setRecord"
+	methodNNSRegister    = "register"
+	methodNNSRegisterTLD = "registerTLD"
+	methodNNSResolve     = "resolve"
+	methodNNSAddRecord   = "addRecord"
+	methodNNSSetRecord   = "setRecord"
 )
 
 // default NNS domain settings. See DNS specification and also
@@ -274,7 +293,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
 	}
 
-	localVersion, err := readContractLocalVersion(prm.blockchain, prm.localNEF, prm.localManifest)
+	localVersion, err := readContractLocalVersion(prm.blockchain, prm.committee, prm.localNEF, prm.localManifest)
 	if err != nil {
 		return fmt.Errorf("read version of the local NNS contract: %w", err)
 	}

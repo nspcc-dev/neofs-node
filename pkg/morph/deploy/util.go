@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
@@ -34,6 +35,10 @@ import (
 
 func isErrContractAlreadyUpdated(err error) bool {
 	return strings.Contains(err.Error(), common.ErrAlreadyUpdated)
+}
+
+func isErrTLDNotFound(err error) bool {
+	return strings.Contains(err.Error(), "TLD not found")
 }
 
 func setGroupInManifest(manif *manifest.Manifest, nefFile nef.File, groupPrivKey *keys.PrivateKey, deployerAcc util.Uint160) {
@@ -332,4 +337,36 @@ func (x *transactionGroupMonitor) trackPendingTransactionsAsync(ctx context.Cont
 		x.reset()
 		cancel()
 	}()
+}
+
+var errInvalidContractDomainRecord = errors.New("invalid contract domain record")
+
+// readContractOnChainStateByDomainName reads address state of contract deployed
+// in the given Blockchain and recorded in the NNS with the specified domain
+// name. Returns errMissingDomain if domain doesn't exist. Returns
+// errMissingDomainRecord if domain has no records. Returns
+// errInvalidContractDomainRecord if domain record has invalid/unsupported
+// format. Returns [neorpc.ErrUnknownContract] if contract is recorded in the NNS but
+// missing in the Blockchain.
+func readContractOnChainStateByDomainName(b Blockchain, nnsContract util.Uint160, domainName string) (*state.Contract, error) {
+	rec, err := lookupNNSDomainRecord(invoker.New(b, nil), nnsContract, domainName)
+	if err != nil {
+		return nil, err
+	}
+
+	// historically two formats may occur
+	addr, err := util.Uint160DecodeStringLE(rec)
+	if err != nil {
+		addr, err = address.StringToUint160(rec)
+		if err != nil {
+			return nil, fmt.Errorf("%w: domain record '%s' neither NEO address nor little-endian hex-encoded script hash", errInvalidContractDomainRecord, rec)
+		}
+	}
+
+	res, err := b.GetContractStateByHash(addr)
+	if err != nil {
+		return nil, fmt.Errorf("get contract by address=%s: %w", addr, err)
+	}
+
+	return res, nil
 }

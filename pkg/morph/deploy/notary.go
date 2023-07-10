@@ -842,10 +842,28 @@ func makeUnsignedDesignateCommitteeNotaryTx(roleContract *rolemgmt.Contract, com
 	return tx, nil
 }
 
-// newCommitteeNotaryActor returns notary.Actor that builds and sends Notary
-// service requests witnessed by the specified committee members to the provided
-// Blockchain. Given local account pays for transactions.
+// newCommitteeNotaryActor calls newCommitteeNotaryActorWithScope with transaction.CalledByEntry
+// witness scope appropriate for most transactions.
 func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys) (*notary.Actor, error) {
+	return newCommitteeNotaryActorWithCustomCommitteeSigner(b, localAcc, committee, func(s *transaction.Signer) {
+		s.Scopes = transaction.CalledByEntry
+	})
+}
+
+// returns notary.Actor builds and sends Notary service requests witnessed by
+// the specified committee members to the provided Blockchain. Composed main
+// transactions will have specified witness scope. Given local account pays for
+// transactions.
+//
+// Transaction signer callback allows to specify committee signer (e.g. tune
+// witness scope). Instance passed to it has Account set to multi-signature
+// account for the parameterized committee.
+func newCommitteeNotaryActorWithCustomCommitteeSigner(
+	b Blockchain,
+	localAcc *wallet.Account,
+	committee keys.PublicKeys,
+	fCommitteeSigner func(*transaction.Signer),
+) (*notary.Actor, error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(committee))
 	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(localAcc.PrivateKey())
 
@@ -853,6 +871,15 @@ func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee k
 	if err != nil {
 		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
+
+	committeeSignerAcc := actor.SignerAccount{
+		Signer: transaction.Signer{
+			Account: committeeMultiSigAcc.ScriptHash(),
+		},
+		Account: committeeMultiSigAcc,
+	}
+
+	fCommitteeSigner(&committeeSignerAcc.Signer)
 
 	return notary.NewActor(b, []actor.SignerAccount{
 		{
@@ -862,13 +889,7 @@ func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee k
 			},
 			Account: localAcc,
 		},
-		{
-			Signer: transaction.Signer{
-				Account: committeeMultiSigAcc.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			},
-			Account: committeeMultiSigAcc,
-		},
+		committeeSignerAcc,
 	}, localAcc)
 }
 

@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -126,9 +126,8 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	}
 	tmpl.AlphabetDir = filepath.Join(appDir, "alphabet-wallets")
 
-	var i innerring.GlagoliticLetter
-	for i = 0; i < innerring.GlagoliticLetter(credSize); i++ {
-		tmpl.Glagolitics = append(tmpl.Glagolitics, i.String())
+	for i := 0; i < credSize; i++ {
+		tmpl.Glagolitics = append(tmpl.Glagolitics, glagolitsa.LetterByIndex(i))
 	}
 
 	t, err := template.New("config.yml").Parse(configTxtTemplate)

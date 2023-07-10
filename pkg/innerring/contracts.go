@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -88,26 +89,26 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 }
 
 func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
-	var num GlagoliticLetter
+	var num int
 	const numConfigKey = "contracts.alphabet.amount"
 	if cfg.IsSet(numConfigKey) {
 		u, err := cast.ToUintE(cfg.Get(numConfigKey))
 		if err != nil {
 			return nil, fmt.Errorf("invalid config '%s': %w", numConfigKey, err)
 		}
-		num = GlagoliticLetter(u)
+		num = int(u)
 	} else {
 		committee, err := morph.Committee()
 		if err != nil {
 			return nil, fmt.Errorf("get Sidechain committee: %w", err)
 		}
-		num = GlagoliticLetter(len(committee))
+		num = len(committee)
 	}
 
 	alpha := newAlphabetContracts()
 
-	if num > lastLetterNum {
-		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, lastLetterNum)
+	if num > glagolitsa.Size {
+		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
 	}
 
 	thresholdIsSet := num != 0
@@ -115,13 +116,14 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Vip
 	if !thresholdIsSet {
 		// try to read maximum alphabet contracts
 		// if threshold has not been set manually
-		num = lastLetterNum
+		num = glagolitsa.Size
 	}
 
-	for letter := az; letter < num; letter++ {
+	for ind := 0; ind < num; ind++ {
+		letter := glagolitsa.LetterByIndex(ind)
 		contractHash, err := parseContract(ctx, _logger, cfg, morph,
-			"contracts.alphabet."+letter.String(),
-			client.NNSAlphabetContractName(int(letter)),
+			"contracts.alphabet."+letter,
+			client.NNSAlphabetContractName(ind),
 		)
 		if err != nil {
 			if errors.Is(err, client.ErrNNSRecordNotFound) {
@@ -131,7 +133,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Vip
 			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
 		}
 
-		alpha.set(letter, contractHash)
+		alpha.set(ind, contractHash)
 	}
 
 	if thresholdIsSet && len(alpha) != int(num) {
