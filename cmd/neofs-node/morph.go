@@ -90,8 +90,10 @@ func initMorphComponents(c *cfg) {
 	if c.cfgMorph.cacheTTL < 0 {
 		netmapSource = wrap
 	} else {
+		c.shared.netmapCache = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+
 		// use RPC node as source of netmap (with caching)
-		netmapSource = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+		netmapSource = c.shared.netmapCache
 	}
 
 	c.netMapSource = netmapSource

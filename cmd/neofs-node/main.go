@@ -154,5 +154,7 @@ func (c *cfg) onShutdown(f func()) {
 }
 
 func (c *cfg) restartMorph() error {
+	c.shared.resetCaches()
+
 	return nil
 }
