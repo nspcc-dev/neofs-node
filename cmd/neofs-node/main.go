@@ -152,3 +152,7 @@ func shutdown(c *cfg) {
 func (c *cfg) onShutdown(f func()) {
 	c.closers = append(c.closers, f)
 }
+
+func (c *cfg) restartMorph() error {
+	return nil
+}

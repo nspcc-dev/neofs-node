@@ -37,6 +37,12 @@ func initMorphComponents(c *cfg) {
 		client.WithEndpoints(addresses),
 		client.WithReconnectionRetries(morphconfig.ReconnectionRetriesNumber(c.appCfg)),
 		client.WithReconnectionsDelay(morphconfig.ReconnectionRetriesDelay(c.appCfg)),
+		client.WithConnSwitchCallback(func() {
+			err = c.restartMorph()
+			if err != nil {
+				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
+			}
+		}),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),
