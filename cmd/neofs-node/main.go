@@ -163,6 +163,9 @@ func (c *cfg) restartMorph() error {
 
 	updateLocalState(c, epoch, ni)
 
+	// drop expired sessions if any has appeared while node was sleeping
+	c.shared.privateTokenStore.RemoveOld(epoch)
+
 	// bootstrap node after every reconnection cause the longevity of
 	// a connection downstate is unpredictable and bootstrap TX is a
 	// way to make a heartbeat so nothing is wrong in making sure the

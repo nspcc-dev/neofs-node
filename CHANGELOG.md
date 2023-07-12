@@ -9,7 +9,7 @@ Changelog for NeoFS Node
 - `renew-domain` command for adm
 
 ### Fixed
-- `neo-go` RPC connection lost handling by IR (#1337)
+- `neo-go` RPC connection loss handling (#1337)
 - Concurrent morph cache misses (#1248)
 
 ### Removed
