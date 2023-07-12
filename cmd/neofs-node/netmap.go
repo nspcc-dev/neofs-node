@@ -247,11 +247,8 @@ func setNetmapNotificationParser(c *cfg, sTyp string, p event.NotificationParser
 // initNetmapState inits current Network map state.
 // Must be called after Morph components initialization.
 func initNetmapState(c *cfg) {
-	epoch, err := c.cfgNetmap.wrapper.Epoch()
-	fatalOnErrDetails("could not initialize current epoch number", err)
-
-	ni, err := c.netmapLocalNodeState(epoch)
-	fatalOnErrDetails("could not init network state", err)
+	epoch, ni, err := getNetworkState(c)
+	fatalOnErrDetails("getting network state", err)
 
 	stateWord := "undefined"
 
@@ -269,6 +266,24 @@ func initNetmapState(c *cfg) {
 		zap.String("state", stateWord),
 	)
 
+	updateLocalState(c, epoch, ni)
+}
+
+func getNetworkState(c *cfg) (uint64, *netmapSDK.NodeInfo, error) {
+	epoch, err := c.cfgNetmap.wrapper.Epoch()
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not get current epoch number: %w", err)
+	}
+
+	ni, err := c.netmapLocalNodeState(epoch)
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not init network state: %w", err)
+	}
+
+	return epoch, ni, nil
+}
+
+func updateLocalState(c *cfg, epoch uint64, ni *netmapSDK.NodeInfo) {
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
 	c.cfgNetmap.startEpoch = epoch
 	c.handleLocalNodeInfo(ni)

@@ -156,5 +156,12 @@ func (c *cfg) onShutdown(f func()) {
 func (c *cfg) restartMorph() error {
 	c.shared.resetCaches()
 
+	epoch, ni, err := getNetworkState(c)
+	if err != nil {
+		return fmt.Errorf("getting network state: %w", err)
+	}
+
+	updateLocalState(c, epoch, ni)
+
 	return nil
 }
