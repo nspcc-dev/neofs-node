@@ -163,5 +163,19 @@ func (c *cfg) restartMorph() error {
 
 	updateLocalState(c, epoch, ni)
 
+	// bootstrap node after every reconnection cause the longevity of
+	// a connection downstate is unpredictable and bootstrap TX is a
+	// way to make a heartbeat so nothing is wrong in making sure the
+	// node is online (if it should be)
+
+	if !c.needBootstrap() || c.cfgNetmap.reBoostrapTurnedOff.Load() {
+		return nil
+	}
+
+	err = c.bootstrap()
+	if err != nil {
+		c.log.Warn("failed to re-bootstrap", zap.Error(err))
+	}
+
 	return nil
 }
