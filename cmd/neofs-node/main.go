@@ -154,6 +154,8 @@ func (c *cfg) onShutdown(f func()) {
 }
 
 func (c *cfg) restartMorph() error {
+	c.log.Info("restarting internal services because of RPC connection loss...")
+
 	c.shared.resetCaches()
 
 	epoch, ni, err := getNetworkState(c)
@@ -179,6 +181,8 @@ func (c *cfg) restartMorph() error {
 	if err != nil {
 		c.log.Warn("failed to re-bootstrap", zap.Error(err))
 	}
+
+	c.log.Info("internal services have been restarted after RPC connection loss")
 
 	return nil
 }
