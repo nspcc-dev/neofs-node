@@ -43,6 +43,8 @@ Subnets support has been removed:
 - `neoofs-amd morph` does not have `subnet` subcommand anymore.
 - `neofs-cli container create` does not have `--subnet` flag anymore.
 
+Docker images now contain a single executable file and SSL certificates only.
+
 ## [0.37.0] - 2023-06-15 - Sogado
 
 ### Added

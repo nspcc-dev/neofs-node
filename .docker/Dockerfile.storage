@@ -8,11 +8,11 @@ COPY . /src
 RUN make bin/neofs-node
 
 # Executable image
-FROM alpine AS neofs-node
-RUN apk add --no-cache bash
+FROM scratch
 
 WORKDIR /
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /src/bin/neofs-node /bin/neofs-node
 
 CMD ["neofs-node"]
