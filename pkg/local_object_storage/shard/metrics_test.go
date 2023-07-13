@@ -19,6 +19,7 @@ import (
 type metricsStore struct {
 	objectCounters map[string]uint64
 	containerSize  map[string]int64
+	payloadSize    int64
 	readOnly       bool
 }
 
@@ -61,6 +62,10 @@ func (m metricsStore) AddToContainerSize(cnr string, size int64) {
 	m.containerSize[cnr] += size
 }
 
+func (m *metricsStore) AddToPayloadSize(size int64) {
+	m.payloadSize += size
+}
+
 const physical = "phy"
 const logical = "logic"
 const readonly = "readonly"
@@ -84,12 +89,17 @@ func TestCounters(t *testing.T) {
 		require.Zero(t, mm.objectCounters[physical])
 		require.Zero(t, mm.objectCounters[logical])
 		require.Empty(t, mm.containerSize)
+		require.Zero(t, mm.payloadSize)
 	})
+
+	var totalPayload int64
 
 	expectedSizes := make(map[string]int64)
 	for i := range oo {
 		cnr, _ := oo[i].ContainerID()
-		expectedSizes[cnr.EncodeToString()] += int64(oo[i].PayloadSize())
+		oSize := int64(oo[i].PayloadSize())
+		expectedSizes[cnr.EncodeToString()] += oSize
+		totalPayload += oSize
 	}
 
 	t.Run("put", func(t *testing.T) {
@@ -105,6 +115,7 @@ func TestCounters(t *testing.T) {
 		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
 		require.Equal(t, uint64(objNumber), mm.objectCounters[logical])
 		require.Equal(t, expectedSizes, mm.containerSize)
+		require.Equal(t, totalPayload, mm.payloadSize)
 	})
 
 	t.Run("inhume_GC", func(t *testing.T) {
@@ -121,6 +132,7 @@ func TestCounters(t *testing.T) {
 		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
 		require.Equal(t, uint64(objNumber-inhumedNumber), mm.objectCounters[logical])
 		require.Equal(t, expectedSizes, mm.containerSize)
+		require.Equal(t, totalPayload, mm.payloadSize)
 
 		oo = oo[inhumedNumber:]
 	})
@@ -141,6 +153,7 @@ func TestCounters(t *testing.T) {
 		require.Equal(t, phy, mm.objectCounters[physical])
 		require.Equal(t, logic-uint64(inhumedNumber), mm.objectCounters[logical])
 		require.Equal(t, expectedSizes, mm.containerSize)
+		require.Equal(t, totalPayload, mm.payloadSize)
 
 		oo = oo[inhumedNumber:]
 	})
@@ -159,11 +172,16 @@ func TestCounters(t *testing.T) {
 
 		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[physical])
 		require.Equal(t, logic-uint64(deletedNumber), mm.objectCounters[logical])
+		var totalRemovedpayload uint64
 		for i := range oo[:deletedNumber] {
+			removedPayload := oo[i].PayloadSize()
+			totalRemovedpayload += removedPayload
+
 			cnr, _ := oo[i].ContainerID()
-			expectedSizes[cnr.EncodeToString()] -= int64(oo[i].PayloadSize())
+			expectedSizes[cnr.EncodeToString()] -= int64(removedPayload)
 		}
 		require.Equal(t, expectedSizes, mm.containerSize)
+		require.Equal(t, totalPayload-int64(totalRemovedpayload), mm.payloadSize)
 	})
 }
 

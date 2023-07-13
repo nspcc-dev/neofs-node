@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - `dump-names` command for adm
 - `renew-domain` command for adm
 - Stored payload metric per container (#2116)
+- Stored payload metric per shard (#2023)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
