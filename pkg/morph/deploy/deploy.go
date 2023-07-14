@@ -11,7 +11,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -21,9 +22,9 @@ import (
 // Blockchain groups services provided by particular Neo blockchain network
 // representing NeoFS Sidechain that are required for its deployment.
 type Blockchain interface {
-	// RPCActor groups functions needed to compose and send transactions to the
-	// blockchain.
-	actor.RPCActor
+	// RPCActor groups functions needed to compose and send transactions (incl.
+	// Notary service requests) to the blockchain.
+	notary.RPCActor
 
 	// GetCommittee returns list of public keys owned by Neo blockchain committee
 	// members. Resulting list is non-empty, unique and unsorted.
@@ -40,7 +41,14 @@ type Blockchain interface {
 	// to stop the process via Unsubscribe.
 	ReceiveBlocks(*neorpc.BlockFilter, chan<- *block.Block) (id string, err error)
 
-	// Unsubscribe stops background process started by ReceiveBlocks by ID.
+	// ReceiveNotaryRequests starts background process that forwards new notary
+	// requests of the blockchain to the provided channel. The process skips
+	// requests that don't match specified filter. Returns unique identifier to be
+	// used to stop the process via Unsubscribe.
+	ReceiveNotaryRequests(*neorpc.TxFilter, chan<- *result.NotaryRequestEvent) (string, error)
+
+	// Unsubscribe stops background process started by ReceiveBlocks or
+	// ReceiveNotaryRequests by ID.
 	Unsubscribe(id string) error
 }
 
@@ -93,11 +101,16 @@ type Prm struct {
 //  1. NNS contract deployment
 //  2. launch of a notary service for the committee
 //  3. committee group initialization
-//  4. deployment of the NeoFS system contracts (currently not done)
+//  4. deployment/update of the NeoFS system contracts (currently only NNS)
 //  5. deployment of custom contracts
 //
 // See project documentation for details.
 func Deploy(ctx context.Context, prm Prm) error {
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	committee, err := prm.Blockchain.GetCommittee()
 	if err != nil {
 		return fmt.Errorf("get Neo committee of the network: %w", err)
@@ -121,9 +134,19 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return errors.New("local account does not belong to any Neo committee member")
 	}
 
+	chNewBlock := make(chan struct{}, 1)
+
+	monitor, err := newBlockchainMonitor(prm.Logger, prm.Blockchain, chNewBlock)
+	if err != nil {
+		return fmt.Errorf("init blockchain monitor: %w", err)
+	}
+
+	defer monitor.stop()
+
 	deployNNSPrm := deployNNSContractPrm{
 		logger:                prm.Logger,
 		blockchain:            prm.Blockchain,
+		monitor:               monitor,
 		localAcc:              prm.LocalAccount,
 		localNEF:              prm.NNS.Common.NEF,
 		localManifest:         prm.NNS.Common.Manifest,
@@ -169,6 +192,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	err = enableNotary(ctx, enableNotaryPrm{
 		logger:                 prm.Logger,
 		blockchain:             prm.Blockchain,
+		monitor:                monitor,
 		nnsOnChainAddress:      nnsOnChainAddress,
 		systemEmail:            prm.NNS.SystemEmail,
 		committee:              committee,
@@ -181,11 +205,24 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Notary service successfully enabled for the committee")
 
+	go autoReplenishNotaryBalance(ctx, prm.Logger, prm.Blockchain, prm.LocalAccount, chNewBlock)
+
+	err = listenCommitteeNotaryRequests(ctx, listenCommitteeNotaryRequestsPrm{
+		logger:     prm.Logger,
+		blockchain: prm.Blockchain,
+		localAcc:   prm.LocalAccount,
+		committee:  committee,
+	})
+	if err != nil {
+		return fmt.Errorf("start listener of committee notary requests: %w", err)
+	}
+
 	prm.Logger.Info("initializing committee group for contract management...")
 
 	committeeGroupKey, err := initCommitteeGroup(ctx, initCommitteeGroupPrm{
 		logger:                 prm.Logger,
 		blockchain:             prm.Blockchain,
+		monitor:                monitor,
 		nnsOnChainAddress:      nnsOnChainAddress,
 		systemEmail:            prm.NNS.SystemEmail,
 		committee:              committee,
@@ -199,7 +236,29 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("committee group successfully initialized", zap.Stringer("public key", committeeGroupKey.PublicKey()))
 
-	// TODO: deploy contracts
+	prm.Logger.Info("updating on-chain NNS contract...")
+
+	err = updateNNSContract(ctx, updateNNSContractPrm{
+		logger:                        prm.Logger,
+		blockchain:                    prm.Blockchain,
+		monitor:                       monitor,
+		localAcc:                      prm.LocalAccount,
+		localNEF:                      prm.NNS.Common.NEF,
+		localManifest:                 prm.NNS.Common.Manifest,
+		systemEmail:                   prm.NNS.SystemEmail,
+		committee:                     committee,
+		committeeGroupKey:             committeeGroupKey,
+		buildVersionedExtraUpdateArgs: noExtraUpdateArgs,
+	})
+	if err != nil {
+		return fmt.Errorf("update NNS contract on the chain: %w", err)
+	}
+
+	prm.Logger.Info("on-chain NNS contract successfully updated")
+
+	// TODO: deploy/update other contracts
 
 	return nil
 }
+
+func noExtraUpdateArgs(contractVersion) ([]interface{}, error) { return nil, nil }

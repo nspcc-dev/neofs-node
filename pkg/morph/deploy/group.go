@@ -24,6 +24,9 @@ type initCommitteeGroupPrm struct {
 
 	blockchain Blockchain
 
+	// based on blockchain
+	monitor *blockchainMonitor
+
 	nnsOnChainAddress util.Uint160
 	systemEmail       string
 
@@ -36,11 +39,10 @@ type initCommitteeGroupPrm struct {
 
 // initCommitteeGroup initializes committee group and returns corresponding private key.
 func initCommitteeGroup(ctx context.Context, prm initCommitteeGroupPrm) (*keys.PrivateKey, error) {
-	monitor, err := newBlockchainMonitor(prm.logger, prm.blockchain)
-	if err != nil {
-		return nil, fmt.Errorf("init blockchain monitor: %w", err)
-	}
-	defer monitor.stop()
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	inv := invoker.New(prm.blockchain, nil)
 	const leaderCommitteeIndex = 0
@@ -48,7 +50,7 @@ func initCommitteeGroup(ctx context.Context, prm initCommitteeGroupPrm) (*keys.P
 	var leaderTick func()
 
 upperLoop:
-	for ; ; monitor.waitForNextBlock(ctx) {
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("wait for committee group key to be distributed: %w", ctx.Err())
@@ -100,6 +102,8 @@ upperLoop:
 			continue
 		}
 
+		var err error
+
 		if committeeGroupKey == nil {
 			committeeGroupKey, err = prm.keyStorage.GetPersistedPrivateKey()
 			if err != nil {
@@ -109,7 +113,7 @@ upperLoop:
 		}
 
 		if leaderTick == nil {
-			leaderTick, err = initShareCommitteeGroupKeyAsLeaderTick(prm, monitor, committeeGroupKey)
+			leaderTick, err = initShareCommitteeGroupKeyAsLeaderTick(ctx, prm, committeeGroupKey)
 			if err != nil {
 				prm.logger.Error("failed to construct action sharing committee group key between committee members as leader, will try again later",
 					zap.Error(err))
@@ -124,16 +128,17 @@ upperLoop:
 // initShareCommitteeGroupKeyAsLeaderTick returns a function that preserves
 // context of the committee group key distribution by leading committee member
 // between calls.
-func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *blockchainMonitor, committeeGroupKey *keys.PrivateKey) (func(), error) {
-	_actor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitteeGroupPrm, committeeGroupKey *keys.PrivateKey) (func(), error) {
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
 
-	_invoker := invoker.New(prm.blockchain, nil)
+	invkr := invoker.New(prm.blockchain, nil)
 
 	// multi-tick context
-	mDomainsToVubs := make(map[string][2]uint32) // 1st - register, 2nd - addRecord
+	mDomainsToRegisterTxs := make(map[string]*transactionGroupMonitor, len(prm.committee))
+	mDomainsToSetRecordTxs := make(map[string]*transactionGroupMonitor, len(prm.committee))
 
 	return func() {
 		prm.logger.Info("distributing committee group key between committee members using NNS...")
@@ -144,63 +149,57 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *
 
 			l.Info("synchronizing committee group key with NNS domain record...")
 
-			_, err := lookupNNSDomainRecord(_invoker, prm.nnsOnChainAddress, domain)
+			_, err := lookupNNSDomainRecord(invkr, prm.nnsOnChainAddress, domain)
 			if err != nil {
 				if errors.Is(err, errMissingDomain) {
 					l.Info("NNS domain is missing, registration is needed")
 
-					vubs, ok := mDomainsToVubs[domain]
-					if ok && vubs[0] > 0 {
-						l.Info("transaction registering NNS domain was sent earlier, checking relevance...")
-
-						if cur := monitor.currentHeight(); cur <= vubs[0] {
-							l.Info("previously sent transaction registering NNS domain may still be relevant, will wait for the outcome",
-								zap.Uint32("current height", cur), zap.Uint32("retry after height", vubs[0]))
-							return
+					txMonitor, ok := mDomainsToRegisterTxs[domain]
+					if ok {
+						if txMonitor.isPending() {
+							l.Info("previously sent transaction registering NNS domain is still pending, will wait for the outcome")
+							continue
 						}
-
-						l.Info("previously sent transaction registering NNS domain expired without side-effect")
+					} else {
+						txMonitor = newTransactionGroupMonitor(localActor)
+						mDomainsToRegisterTxs[domain] = txMonitor
 					}
 
 					l.Info("sending new transaction registering domain in the NNS...")
 
-					_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
-						domain, _actor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+					txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
+						domain, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 					if err != nil {
-						vubs[0] = 0
-						mDomainsToVubs[domain] = vubs
 						if isErrNotEnoughGAS(err) {
 							l.Info("not enough GAS to register domain in the NNS, will try again later")
 						} else {
 							l.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
 						}
-						return
+						continue
 					}
 
-					vubs[0] = vub
-					mDomainsToVubs[domain] = vubs
+					l.Info("transaction registering domain in the NNS has been successfully sent, will wait for the outcome",
+						zap.Stringer("tx", txID), zap.Uint32("vub", vub))
 
-					l.Info("transaction registering domain in the NNS has been successfully sent, will wait for the outcome")
+					txMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
 
 					continue
 				} else if !errors.Is(err, errMissingDomainRecord) {
 					l.Error("failed to lookup NNS domain record, will try again later", zap.Error(err))
-					return
+					continue
 				}
 
 				l.Info("missing record of the NNS domain, needed to be set")
 
-				vubs, ok := mDomainsToVubs[domain]
-				if ok && vubs[1] > 0 {
-					l.Info("transaction setting NNS domain record was sent earlier, checking relevance...")
-
-					if cur := monitor.currentHeight(); cur <= vubs[1] {
-						l.Info("previously sent transaction setting NNS domain record may still be relevant, will wait for the outcome",
-							zap.Uint32("current height", cur), zap.Uint32("retry after height", vubs[1]))
-						return
+				txMonitor, ok := mDomainsToSetRecordTxs[domain]
+				if ok {
+					if txMonitor.isPending() {
+						l.Info("previously sent transaction setting NNS domain record is still pending, will wait for the outcome")
+						continue
 					}
-
-					l.Info("previously sent transaction setting NNS domain record expired without side-effect")
+				} else {
+					txMonitor = newTransactionGroupMonitor(localActor)
+					mDomainsToSetRecordTxs[domain] = txMonitor
 				}
 
 				l.Info("sharing encrypted committee group key with the committee member...")
@@ -209,28 +208,26 @@ func initShareCommitteeGroupKeyAsLeaderTick(prm initCommitteeGroupPrm, monitor *
 				if err != nil {
 					l.Error("failed to encrypt committee group key to share with the committee member, will try again later",
 						zap.Error(err))
-					return
+					continue
 				}
 
 				l.Info("sending new transaction setting domain record in the NNS...")
 
-				_, vub, err := _actor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
+				txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
 					domain, int64(nns.TXT), keyCipher)
 				if err != nil {
-					vubs[1] = 0
-					mDomainsToVubs[domain] = vubs
 					if isErrNotEnoughGAS(err) {
 						l.Info("not enough GAS to set NNS domain record, will try again later")
 					} else {
 						l.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))
 					}
-					return
+					continue
 				}
 
-				vubs[1] = vub
-				mDomainsToVubs[domain] = vubs
+				l.Info("transaction setting NNS domain record has been successfully sent, will wait for the outcome",
+					zap.Stringer("tx", txID), zap.Uint32("vub", vub))
 
-				l.Info("transaction setting NNS domain record has been successfully sent, will wait for the outcome")
+				txMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
 
 				continue
 			}
