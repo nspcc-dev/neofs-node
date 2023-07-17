@@ -421,7 +421,8 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 }
 
 // AccountVote returns a key the provided account has voted with its NEO
-// tokens for. Nil key with no error is returned if the account has no NEO.
+// tokens for. Nil key with no error is returned if the account has no NEO
+// or if the account hasn't voted for anyone.
 func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
