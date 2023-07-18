@@ -12,6 +12,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -19,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
@@ -244,8 +247,14 @@ func readContractOnChainVersion(b Blockchain, onChainAddress util.Uint160) (cont
 }
 
 // readContractLocalVersion returns version of the local smart contract
-// represented by its compiled artifacts.
-func readContractLocalVersion(rpc invoker.RPCInvoke, localNEF nef.File, localManifest manifest.Manifest) (contractVersion, error) {
+// represented by its compiled artifacts. Deployment is tested using provided
+// invoker on behalf of the committee.
+func readContractLocalVersion(rpc invoker.RPCInvoke, committee keys.PublicKeys, localNEF nef.File, localManifest manifest.Manifest, deployArgs ...interface{}) (contractVersion, error) {
+	multiSigScript, err := smartcontract.CreateMultiSigRedeemScript(smartcontract.GetMajorityHonestNodeCount(len(committee)), committee)
+	if err != nil {
+		return contractVersion{}, fmt.Errorf("create committee multi-signature verification script: %w", err)
+	}
+
 	jManifest, err := json.Marshal(localManifest)
 	if err != nil {
 		return contractVersion{}, fmt.Errorf("encode manifest into JSON: %w", err)
@@ -256,15 +265,29 @@ func readContractLocalVersion(rpc invoker.RPCInvoke, localNEF nef.File, localMan
 		return contractVersion{}, fmt.Errorf("encode NEF into binary: %w", err)
 	}
 
+	var deployData interface{}
+	if len(deployArgs) > 0 {
+		deployData = deployArgs
+	}
+
 	script := io.NewBufBinWriter()
 	emit.Opcodes(script.BinWriter, opcode.NEWARRAY0)
 	emit.Int(script.BinWriter, int64(callflag.All))
 	emit.String(script.BinWriter, methodVersion)
-	emit.AppCall(script.BinWriter, management.Hash, "deploy", callflag.All, bNEF, jManifest)
+	emit.AppCall(script.BinWriter, management.Hash, "deploy", callflag.All, bNEF, jManifest, deployData)
 	emit.Opcodes(script.BinWriter, opcode.PUSH2, opcode.PICKITEM)
 	emit.Syscall(script.BinWriter, interopnames.SystemContractCall)
 
-	res, err := invoker.New(rpc, nil).Run(script.Bytes())
+	res, err := invoker.New(rpc, []transaction.Signer{
+		{
+			Account: util.Uint160{}, // zero hash to avoid 'contract already exists' case
+			Scopes:  transaction.None,
+		},
+		{
+			Account: hash.Hash160(multiSigScript),
+			Scopes:  transaction.Global,
+		},
+	}).Run(script.Bytes())
 	if err != nil {
 		return contractVersion{}, fmt.Errorf("run test script deploying contract and calling its '%s' method: %w", methodVersion, err)
 	}

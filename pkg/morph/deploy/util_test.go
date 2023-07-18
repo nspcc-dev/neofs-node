@@ -9,6 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/compiler"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/neotest"
 	"github.com/nspcc-dev/neo-go/pkg/neotest/chain"
@@ -148,7 +149,15 @@ func TestReadContractLocalVersion(t *testing.T) {
 
 	ctr := neotest.CompileSource(t, e.CommitteeHash, strings.NewReader(src), &compiler.Options{Name: "Helper"})
 
-	res, err := readContractLocalVersion(newTestRPCInvoker(t, e), *ctr.NEF, *ctr.Manifest)
+	var committeeSigner neotest.SingleSigner
+
+	if single, ok := acc.(neotest.SingleSigner); ok {
+		committeeSigner = single
+	} else {
+		committeeSigner = acc.(neotest.MultiSigner).Single(0)
+	}
+
+	res, err := readContractLocalVersion(newTestRPCInvoker(t, e), keys.PublicKeys{committeeSigner.Account().PublicKey()}, *ctr.NEF, *ctr.Manifest)
 	require.NoError(t, err)
 	require.EqualValues(t, version, res.toUint64())
 }
