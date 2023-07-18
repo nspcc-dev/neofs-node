@@ -45,6 +45,8 @@ Subnets support has been removed:
 
 Docker images now contain a single executable file and SSL certificates only.
 
+`neofs-cli control healthcheck` exit code is `0` only for "READY" state.
+
 ## [0.37.0] - 2023-06-15 - Sogado
 
 ### Added
