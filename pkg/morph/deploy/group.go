@@ -176,7 +176,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 						} else {
 							l.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
 						}
-						continue
+						return
 					}
 
 					l.Info("transaction registering domain in the NNS has been successfully sent, will wait for the outcome",
@@ -187,7 +187,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 					continue
 				} else if !errors.Is(err, errMissingDomainRecord) {
 					l.Error("failed to lookup NNS domain record, will try again later", zap.Error(err))
-					continue
+					return
 				}
 
 				l.Info("missing record of the NNS domain, needed to be set")
@@ -222,7 +222,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 					} else {
 						l.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))
 					}
-					continue
+					return
 				}
 
 				l.Info("transaction setting NNS domain record has been successfully sent, will wait for the outcome",
