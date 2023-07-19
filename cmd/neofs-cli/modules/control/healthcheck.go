@@ -2,6 +2,7 @@ package control
 
 import (
 	"crypto/ecdsa"
+	"os"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -60,8 +61,14 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 
 	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
 
+	healthStatus := resp.GetBody().GetHealthStatus()
+
 	cmd.Printf("Network status: %s\n", resp.GetBody().GetNetmapStatus())
-	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
+	cmd.Printf("Health status: %s\n", healthStatus)
+
+	if healthStatus != control.HealthStatus_READY {
+		os.Exit(1)
+	}
 }
 
 func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) {
@@ -81,5 +88,11 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 
 	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
 
-	cmd.Printf("Health status: %s\n", resp.GetBody().GetHealthStatus())
+	healthStatus := resp.GetBody().GetHealthStatus()
+
+	cmd.Printf("Health status: %s\n", healthStatus)
+
+	if healthStatus != ircontrol.HealthStatus_READY {
+		os.Exit(1)
+	}
 }

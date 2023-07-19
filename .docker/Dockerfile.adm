@@ -8,8 +8,7 @@ COPY . /src
 RUN make bin/neofs-adm
 
 # Executable image
-FROM alpine AS neofs-adm
-RUN apk add --no-cache bash
+FROM scratch
 
 WORKDIR /
 
