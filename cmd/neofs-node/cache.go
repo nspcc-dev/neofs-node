@@ -24,9 +24,19 @@ type valueWithTime[V any] struct {
 	e error
 }
 
+// valueInProgress is a struct that contains
+// values that are being fetched/updated.
+type valueInProgress[V any] struct {
+	m sync.RWMutex
+	v V
+	e error
+}
+
 // entity that provides TTL cache interface.
 type ttlNetCache[K comparable, V any] struct {
-	ttl time.Duration
+	m       *sync.RWMutex             // protects progMap
+	progMap map[K]*valueInProgress[V] // contains fetch-in-progress keys
+	ttl     time.Duration
 
 	sz int
 
@@ -41,11 +51,20 @@ func newNetworkTTLCache[K comparable, V any](sz int, ttl time.Duration, netRdr n
 	fatalOnErr(err)
 
 	return ttlNetCache[K, V]{
-		ttl:    ttl,
-		sz:     sz,
-		cache:  cache,
-		netRdr: netRdr,
+		ttl:     ttl,
+		sz:      sz,
+		cache:   cache,
+		netRdr:  netRdr,
+		m:       &sync.RWMutex{},
+		progMap: make(map[K]*valueInProgress[V]),
 	}
+}
+
+func waitForUpdate[V any](vip *valueInProgress[V]) (V, error) {
+	vip.m.RLock()
+	defer vip.m.RUnlock()
+
+	return vip.v, vip.e
 }
 
 // reads value by the key.
@@ -63,9 +82,37 @@ func (c *ttlNetCache[K, V]) get(key K) (V, error) {
 		c.cache.Remove(key)
 	}
 
-	netVal, err := c.netRdr(key)
+	c.m.RLock()
+	valInProg, ok := c.progMap[key]
+	c.m.RUnlock()
 
+	if ok {
+		return waitForUpdate(valInProg)
+	}
+
+	c.m.Lock()
+	valInProg, ok = c.progMap[key]
+	if ok {
+		c.m.Unlock()
+		return waitForUpdate(valInProg)
+	}
+
+	valInProg = &valueInProgress[V]{}
+	valInProg.m.Lock()
+	c.progMap[key] = valInProg
+
+	c.m.Unlock()
+
+	netVal, err := c.netRdr(key)
 	c.set(key, netVal, err)
+
+	valInProg.v = netVal
+	valInProg.e = err
+	valInProg.m.Unlock()
+
+	c.m.Lock()
+	delete(c.progMap, key)
+	c.m.Unlock()
 
 	return netVal, err
 }

@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - `neo-go` RPC connection lost handling by IR (#1337)
+- Concurrent morph cache misses (#1248)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
