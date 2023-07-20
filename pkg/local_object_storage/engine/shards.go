@@ -49,6 +49,10 @@ func (m *metricsWithID) SetReadonly(readonly bool) {
 	m.mw.SetReadonly(m.id, readonly)
 }
 
+func (m *metricsWithID) AddToContainerSize(cnr string, size int64) {
+	m.mw.AddToContainerSize(cnr, size)
+}
+
 // AddShard adds a new shard to the storage engine.
 //
 // Returns any error encountered that did not allow adding a shard.

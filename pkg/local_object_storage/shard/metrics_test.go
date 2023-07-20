@@ -18,6 +18,7 @@ import (
 
 type metricsStore struct {
 	objectCounters map[string]uint64
+	containerSize  map[string]int64
 	readOnly       bool
 }
 
@@ -56,6 +57,10 @@ func (m *metricsStore) SetReadonly(r bool) {
 	m.readOnly = r
 }
 
+func (m metricsStore) AddToContainerSize(cnr string, size int64) {
+	m.containerSize[cnr] += size
+}
+
 const physical = "phy"
 const logical = "logic"
 const readonly = "readonly"
@@ -78,7 +83,14 @@ func TestCounters(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		require.Zero(t, mm.objectCounters[physical])
 		require.Zero(t, mm.objectCounters[logical])
+		require.Empty(t, mm.containerSize)
 	})
+
+	expectedSizes := make(map[string]int64)
+	for i := range oo {
+		cnr, _ := oo[i].ContainerID()
+		expectedSizes[cnr.EncodeToString()] += int64(oo[i].PayloadSize())
+	}
 
 	t.Run("put", func(t *testing.T) {
 		var prm shard.PutPrm
@@ -92,6 +104,7 @@ func TestCounters(t *testing.T) {
 
 		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
 		require.Equal(t, uint64(objNumber), mm.objectCounters[logical])
+		require.Equal(t, expectedSizes, mm.containerSize)
 	})
 
 	t.Run("inhume_GC", func(t *testing.T) {
@@ -107,6 +120,7 @@ func TestCounters(t *testing.T) {
 
 		require.Equal(t, uint64(objNumber), mm.objectCounters[physical])
 		require.Equal(t, uint64(objNumber-inhumedNumber), mm.objectCounters[logical])
+		require.Equal(t, expectedSizes, mm.containerSize)
 
 		oo = oo[inhumedNumber:]
 	})
@@ -126,6 +140,7 @@ func TestCounters(t *testing.T) {
 
 		require.Equal(t, phy, mm.objectCounters[physical])
 		require.Equal(t, logic-uint64(inhumedNumber), mm.objectCounters[logical])
+		require.Equal(t, expectedSizes, mm.containerSize)
 
 		oo = oo[inhumedNumber:]
 	})
@@ -144,6 +159,11 @@ func TestCounters(t *testing.T) {
 
 		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[physical])
 		require.Equal(t, logic-uint64(deletedNumber), mm.objectCounters[logical])
+		for i := range oo[:deletedNumber] {
+			cnr, _ := oo[i].ContainerID()
+			expectedSizes[cnr.EncodeToString()] -= int64(oo[i].PayloadSize())
+		}
+		require.Equal(t, expectedSizes, mm.containerSize)
 	})
 }
 
@@ -164,6 +184,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 			"phy":   0,
 			"logic": 0,
 		},
+		containerSize: make(map[string]int64),
 	}
 
 	sh := shard.New(
