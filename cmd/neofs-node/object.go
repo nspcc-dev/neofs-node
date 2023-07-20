@@ -37,6 +37,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -432,8 +433,8 @@ func (c *reputationClient) submitResult(err error) {
 	c.cons.trustStorage.Update(prm)
 }
 
-func (c *reputationClient) ObjectPutInit(ctx context.Context, prm client.PrmObjectPutInit) (*client.ObjectWriter, error) {
-	res, err := c.MultiAddressClient.ObjectPutInit(ctx, prm)
+func (c *reputationClient) ObjectPutInit(ctx context.Context, hdr objectSDK.Object, signer user.Signer, prm client.PrmObjectPutInit) (client.ObjectWriter, error) {
+	res, err := c.MultiAddressClient.ObjectPutInit(ctx, hdr, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, writing errors are not processed
 	c.submitResult(err)
@@ -441,8 +442,8 @@ func (c *reputationClient) ObjectPutInit(ctx context.Context, prm client.PrmObje
 	return res, err
 }
 
-func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectDelete) (oid.ID, error) {
-	res, err := c.MultiAddressClient.ObjectDelete(ctx, containerID, objectID, prm)
+func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectDelete) (oid.ID, error) {
+	res, err := c.MultiAddressClient.ObjectDelete(ctx, containerID, objectID, signer, prm)
 	if err != nil {
 		c.submitResult(err)
 	}
@@ -450,33 +451,33 @@ func (c *reputationClient) ObjectDelete(ctx context.Context, containerID cid.ID,
 	return res, err
 }
 
-func (c *reputationClient) GetObjectInit(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectGet) (*client.ObjectReader, error) {
-	res, err := c.MultiAddressClient.ObjectGetInit(ctx, containerID, objectID, prm)
+func (c *reputationClient) GetObjectInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (objectSDK.Object, *client.PayloadReader, error) {
+	hdr, rdr, err := c.MultiAddressClient.ObjectGetInit(ctx, containerID, objectID, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
 	c.submitResult(err)
 
-	return res, err
+	return hdr, rdr, err
 }
 
-func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
-	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, prm)
+func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
+	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, prm client.PrmObjectHash) ([][]byte, error) {
-	res, err := c.MultiAddressClient.ObjectHash(ctx, containerID, objectID, prm)
+func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer neofscrypto.Signer, prm client.PrmObjectHash) ([][]byte, error) {
+	res, err := c.MultiAddressClient.ObjectHash(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)
 
 	return res, err
 }
 
-func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
-	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, containerID, prm)
+func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, signer user.Signer, prm client.PrmObjectSearch) (*client.ObjectListReader, error) {
+	res, err := c.MultiAddressClient.ObjectSearchInit(ctx, containerID, signer, prm)
 
 	// FIXME: (neofs-node#1193) here we submit only initialization errors, reading errors are not processed
 	c.submitResult(err)

@@ -36,7 +36,7 @@ var dropObjectsCmd = &cobra.Command{
 
 		signRequest(cmd, pk, req)
 
-		cli := getClient(ctx, cmd, pk)
+		cli := getClient(ctx, cmd)
 
 		var resp *control.DropObjectsResponse
 		var err error

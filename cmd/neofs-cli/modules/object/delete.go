@@ -66,6 +66,7 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 	var prm internalclient.DeleteObjectPrm
 	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, &obj)
 	Prepare(cmd, &prm)
+	prm.SetPrivateKey(*pk)
 	prm.SetAddress(objAddr)
 
 	res, err := internalclient.DeleteObject(ctx, prm)

@@ -2,9 +2,6 @@ package internal
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"time"
@@ -12,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -21,32 +17,31 @@ var errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 
 // GetSDKClientByFlag returns default neofs-sdk-go client using the specified flag for the address.
 // On error, outputs to stderr of cmd and exits with non-zero code.
-func GetSDKClientByFlag(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag string) *client.Client {
-	cli, err := getSDKClientByFlag(ctx, cmd, key, endpointFlag)
+func GetSDKClientByFlag(ctx context.Context, cmd *cobra.Command, endpointFlag string) *client.Client {
+	cli, err := getSDKClientByFlag(ctx, cmd, endpointFlag)
 	if err != nil {
 		common.ExitOnErr(cmd, "can't create API client: %w", err)
 	}
 	return cli
 }
 
-func getSDKClientByFlag(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
+func getSDKClientByFlag(ctx context.Context, cmd *cobra.Command, endpointFlag string) (*client.Client, error) {
 	var addr network.Address
 
 	err := addr.FromString(viper.GetString(endpointFlag))
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errInvalidEndpoint, err)
 	}
-	return GetSDKClient(ctx, cmd, key, addr)
+	return GetSDKClient(ctx, cmd, addr)
 }
 
 // GetSDKClient returns default neofs-sdk-go client.
-func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Address) (*client.Client, error) {
+func GetSDKClient(ctx context.Context, cmd *cobra.Command, addr network.Address) (*client.Client, error) {
 	var (
 		prmInit client.PrmInit
 		prmDial client.PrmDial
 	)
 
-	prmInit.SetDefaultSigner(neofsecdsa.SignerRFC6979(*key))
 	prmDial.SetServerURI(addr.URIAddr())
 	prmDial.SetContext(ctx)
 
@@ -81,12 +76,7 @@ func GetCurrentEpoch(ctx context.Context, cmd *cobra.Command, endpoint string) (
 		return 0, fmt.Errorf("can't parse RPC endpoint: %w", err)
 	}
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
-	}
-
-	c, err := GetSDKClient(ctx, cmd, key, addr)
+	c, err := GetSDKClient(ctx, cmd, addr)
 	if err != nil {
 		return 0, err
 	}

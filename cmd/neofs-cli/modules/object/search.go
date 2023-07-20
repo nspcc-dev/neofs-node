@@ -55,10 +55,11 @@ func searchObject(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 	var prm internalclient.SearchObjectsPrm
 	prm.SetClient(cli)
+	prm.SetPrivateKey(*pk)
 	Prepare(cmd, &prm)
 	readSessionGlobal(cmd, &prm, pk, cnr)
 	prm.SetContainerID(cnr)

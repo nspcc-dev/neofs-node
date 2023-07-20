@@ -11,16 +11,16 @@ import (
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	aclsdk "github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOriginalTokens(t *testing.T) {
 	pk, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	signer := neofsecdsa.SignerRFC6979(*pk)
+	signer := user.NewAutoIDSigner(*pk)
 
 	sToken := sessiontest.ObjectSigned(signer)
 	bToken := bearertest.Token(t)

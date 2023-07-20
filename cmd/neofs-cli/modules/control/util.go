@@ -55,6 +55,6 @@ func verifyResponse(cmd *cobra.Command,
 	}
 }
 
-func getClient(ctx context.Context, cmd *cobra.Command, pk *ecdsa.PrivateKey) *client.Client {
-	return internalclient.GetSDKClientByFlag(ctx, cmd, pk, controlRPC)
+func getClient(ctx context.Context, cmd *cobra.Command) *client.Client {
+	return internalclient.GetSDKClientByFlag(ctx, cmd, controlRPC)
 }

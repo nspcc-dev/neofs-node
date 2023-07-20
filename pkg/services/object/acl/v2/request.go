@@ -1,8 +1,11 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -125,11 +128,12 @@ func (r MetaWithToken) RequestOwner() (*user.ID, []byte, error) {
 
 	key := bodySignature.GetKey()
 
-	var idSender user.ID
-	err := user.IDFromKey(&idSender, key)
+	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid key in body signature: %w", err)
+		return nil, nil, fmt.Errorf("decode public key: %w", err)
 	}
+
+	idSender := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	return &idSender, key, nil
 }

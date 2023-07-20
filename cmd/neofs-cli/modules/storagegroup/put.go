@@ -12,9 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -54,9 +52,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	var ownerID user.ID
-	err := user.IDFromSigner(&ownerID, neofsecdsa.SignerRFC6979(*pk))
-	common.ExitOnErr(cmd, "decoding user from key", err)
+	ownerID := user.ResolveFromECDSAPublicKey(pk.PublicKey)
 
 	var cnr cid.ID
 	readCID(cmd, &cnr)
@@ -81,7 +77,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 		getCnrPrm internalclient.GetContainerPrm
 	)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 	getCnrPrm.SetClient(cli)
 	getCnrPrm.SetContainer(cnr)
 
@@ -93,6 +89,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	headPrm.SetRawFlag(true)
 	headPrm.SetClient(cli)
+	headPrm.SetPrivateKey(*pk)
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		ctx:     ctx,
@@ -100,7 +97,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 		key:     pk,
 		ownerID: &ownerID,
 		prm:     headPrm,
-	}, cnr, members, !container.IsHomomorphicHashingDisabled(resGetCnr.Container()))
+	}, cnr, members, !resGetCnr.Container().IsHomomorphicHashingDisabled())
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
 
 	var netInfoPrm internalclient.NetworkInfoPrm
@@ -118,6 +115,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 
 	storagegroupSDK.WriteToObject(*sg, obj)
 
+	putPrm.SetPrivateKey(*pk)
 	putPrm.SetHeader(obj)
 
 	res, err := internalclient.PutObject(ctx, putPrm)

@@ -27,7 +27,7 @@ func flushCache(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(ctx, cmd, pk)
+	cli := getClient(ctx, cmd)
 
 	var resp *control.FlushCacheResponse
 	var err error

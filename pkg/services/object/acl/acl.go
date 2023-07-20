@@ -1,15 +1,17 @@
 package acl
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
-	bearerSDK "github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -227,17 +229,18 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 4. Then check if container owner signed this token.
-	if !bearerSDK.ResolveIssuer(*token).Equals(ownerCnr) {
+	if !token.ResolveIssuer().Equals(ownerCnr) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
 	// 5. Then check if request sender has rights to use this token.
-	var usrSender user.ID
-	err := user.IDFromKey(&usrSender, reqInfo.SenderKey())
+	pubKey, err := keys.NewPublicKeyFromBytes(reqInfo.SenderKey(), elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("decode sender public key: %w", err)
 	}
+
+	usrSender := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	if !token.AssertUser(usrSender) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
@@ -252,11 +255,10 @@ func isOwnerFromKey(id user.ID, key []byte) bool {
 		return false
 	}
 
-	var id2 user.ID
-	err := user.IDFromKey(&id2, key)
+	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
 		return false
 	}
 
-	return id.Equals(id2)
+	return id.Equals(user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey)))
 }

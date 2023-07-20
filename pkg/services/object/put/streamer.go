@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -110,11 +109,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			return errors.New("missing object owner")
 		}
 
-		var ownerSession user.ID
-		err = user.IDFromSigner(&ownerSession, signer)
-		if err != nil {
-			return fmt.Errorf("could not user from key: %w", err)
-		}
+		ownerSession := user.ResolveFromECDSAPublicKey(signer.PublicKey)
 
 		if !ownerObj.Equals(ownerSession) {
 			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
@@ -124,12 +119,13 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	p.target = &validatingTarget{
 		fmt:              p.fmtValidator,
 		unpreparedObject: true,
-		nextTarget: transformer.NewPayloadSizeLimiter(
+		nextTarget: newSlicingTarget(
+			p.ctx,
 			p.maxPayloadSz,
-			containerSDK.IsHomomorphicHashingDisabled(prm.cnr),
-			signer,
+			prm.cnr.IsHomomorphicHashingDisabled(),
+			user.NewAutoIDSigner(*sessionKey),
 			sToken,
-			p.networkState,
+			p.networkState.CurrentEpoch(),
 			func() transformer.ObjectTarget {
 				return p.newCommonTarget(prm)
 			},

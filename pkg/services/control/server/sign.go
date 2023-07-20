@@ -84,12 +84,9 @@ func SignMessage(key *ecdsa.PrivateKey, msg SignedMessage) error {
 	}
 
 	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
-	var sigV2 refs.Signature
-	sig.WriteToV2(&sigV2)
-
 	var sigControl control.Signature
-	sigControl.SetKey(sigV2.GetKey())
-	sigControl.SetSign(sigV2.GetSign())
+	sigControl.SetKey(sig.PublicKeyBytes())
+	sigControl.SetSign(sig.Value())
 
 	msg.SetSignature(&sigControl)
 

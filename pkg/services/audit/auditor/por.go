@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -51,7 +50,7 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 	getHeaderPrm.CID = c.task.ContainerID()
 	getHeaderPrm.NodeIsRelay = true
 
-	homomorphicHashingEnabled := !containerSDK.IsHomomorphicHashingDisabled(c.task.ContainerStructure())
+	homomorphicHashingEnabled := !c.task.ContainerStructure().IsHomomorphicHashingDisabled()
 
 	for i := range members {
 		objectPlacement, err := c.buildPlacement(members[i])

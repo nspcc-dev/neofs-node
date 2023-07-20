@@ -1,6 +1,7 @@
 package container
 
 import (
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
@@ -101,11 +102,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 	if keyProvided {
 		// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-		var idFromKey user.ID
-		err = user.IDFromKey(&idFromKey, v.binPublicKey)
-		if err != nil {
-			return fmt.Errorf("")
-		}
+		idFromKey := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(key))
 
 		if v.ownerContainer.Equals(idFromKey) {
 			if key.Verify(v.signedData, v.signature) {

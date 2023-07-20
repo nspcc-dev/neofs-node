@@ -37,7 +37,8 @@ var listContainerObjectsCmd = &cobra.Command{
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key.GetOrGenerate(cmd), commonflags.RPC)
+		pk := key.GetOrGenerate(cmd)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prmSearch internalclient.SearchObjectsPrm
 		var prmHead internalclient.HeadObjectPrm
@@ -46,11 +47,13 @@ var listContainerObjectsCmd = &cobra.Command{
 
 		if flagVarListObjectsPrintAttr {
 			prmHead.SetClient(cli)
+			prmHead.SetPrivateKey(*pk)
 			objectCli.Prepare(cmd, &prmSearch, &prmHead)
 		} else {
 			objectCli.Prepare(cmd, &prmSearch)
 		}
 
+		prmSearch.SetPrivateKey(*pk)
 		prmSearch.SetContainerID(id)
 		prmSearch.SetFilters(*filters)
 

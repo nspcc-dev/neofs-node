@@ -232,7 +232,7 @@ func TestRefillMetabase(t *testing.T) {
 
 	lockObj := objecttest.Object(t)
 	lockObj.SetContainerID(cnrLocked)
-	objectSDK.WriteLock(lockObj, lock)
+	lockObj.WriteLock(lock)
 
 	putPrm.SetObject(lockObj)
 	_, err = sh.Put(putPrm)

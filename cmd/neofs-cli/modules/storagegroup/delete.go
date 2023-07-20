@@ -42,6 +42,7 @@ func delSG(cmd *cobra.Command, _ []string) {
 	addr := readObjectAddress(cmd, &cnr, &obj)
 
 	var prm internalclient.DeleteObjectPrm
+	prm.SetPrivateKey(*pk)
 	objectCli.OpenSession(ctx, cmd, &prm, pk, cnr, &obj)
 	objectCli.Prepare(cmd, &prm)
 	prm.SetAddress(addr)
