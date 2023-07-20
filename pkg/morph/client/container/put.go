@@ -3,10 +3,8 @@ package container
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -17,7 +15,7 @@ import (
 func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 	data := cnr.Value.Marshal()
 
-	d := container.ReadDomain(cnr.Value)
+	d := cnr.Value.ReadDomain()
 
 	var prm PutPrm
 	prm.SetContainer(data)
@@ -28,12 +26,8 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 		prm.SetToken(cnr.Session.Marshal())
 	}
 
-	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	var sigV2 refs.Signature
-	cnr.Signature.WriteToV2(&sigV2)
-
-	prm.SetKey(sigV2.GetKey())
-	prm.SetSignature(sigV2.GetSign())
+	prm.SetKey(cnr.Signature.PublicKeyBytes())
+	prm.SetSignature(cnr.Signature.Value())
 
 	err := c.Put(prm)
 	if err != nil {
@@ -41,7 +35,7 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 	}
 
 	var id cid.ID
-	container.CalculateIDFromBinary(&id, data)
+	id.FromBinary(data)
 
 	return &id, nil
 }

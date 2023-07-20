@@ -46,7 +46,7 @@ type (
 func newClientCache(p *clientCacheParams) *ClientCache {
 	return &ClientCache{
 		log:          p.Log,
-		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal, Key: p.Key}),
+		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal}),
 		key:          p.Key,
 		sgTimeout:    p.SGTimeout,
 		headTimeout:  p.HeadTimeout,

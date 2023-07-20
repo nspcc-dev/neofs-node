@@ -2,13 +2,11 @@ package container
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"os"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -36,7 +34,7 @@ var getContainerInfoCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr, _ := getContainer(ctx, cmd)
+		cnr := getContainer(ctx, cmd)
 
 		prettyPrintContainer(cmd, cnr, containerJSON)
 
@@ -84,7 +82,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncod
 	}
 
 	var id cid.ID
-	container.CalculateID(&id, cnr)
+	cnr.CalculateID(&id)
 	cmd.Println("container ID:", id)
 
 	cmd.Println("owner ID:", cnr.Owner())
@@ -92,7 +90,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncod
 	basicACL := cnr.BasicACL()
 	prettyPrintBasicACL(cmd, basicACL)
 
-	cmd.Println("created:", container.CreatedAt(cnr))
+	cmd.Println("created:", cnr.CreatedAt())
 
 	cmd.Println("attributes:")
 	cnr.IterateAttributes(func(key, val string) {
@@ -136,9 +134,8 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
-func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container, *ecdsa.PrivateKey) {
+func getContainer(ctx context.Context, cmd *cobra.Command) container.Container {
 	var cnr container.Container
-	var pk *ecdsa.PrivateKey
 	if containerPathFrom != "" {
 		data, err := os.ReadFile(containerPathFrom)
 		common.ExitOnErr(cmd, "can't read file: %w", err)
@@ -147,8 +144,7 @@ func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container,
 		common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
 	} else {
 		id := parseContainerID(cmd)
-		pk = key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.GetContainerPrm
 		prm.SetClient(cli)
@@ -159,5 +155,5 @@ func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container,
 
 		cnr = res.Container()
 	}
-	return cnr, pk
+	return cnr
 }

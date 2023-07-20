@@ -7,8 +7,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -19,12 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func blankValidObject(signer neofscrypto.Signer) *object.Object {
-	var idOwner user.ID
-	err := user.IDFromSigner(&idOwner, signer)
-	if err != nil {
-		panic(err)
-	}
+func blankValidObject(signer user.Signer) *object.Object {
+	idOwner := signer.UserID()
 
 	obj := object.New()
 	obj.SetContainerID(cidtest.ID())
@@ -79,23 +73,23 @@ func TestFormatValidator_Validate(t *testing.T) {
 	})
 
 	t.Run("correct w/ session token", func(t *testing.T) {
-		signer := neofsecdsa.SignerRFC6979(ownerKey.PrivateKey)
+		signer := user.NewAutoIDSignerRFC6979(ownerKey.PrivateKey)
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
 		obj.SetSessionToken(sessiontest.ObjectSigned(signer))
 		obj.SetOwnerID(usertest.ID(t))
 
-		require.NoError(t, object.SetIDWithSignature(signer, obj))
+		require.NoError(t, obj.SetIDWithSignature(signer))
 
 		require.NoError(t, v.Validate(obj, false))
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {
-		signer := neofsecdsa.SignerRFC6979(ownerKey.PrivateKey)
+		signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 		obj := blankValidObject(signer)
 
-		require.NoError(t, object.SetIDWithSignature(signer, obj))
+		require.NoError(t, obj.SetIDWithSignature(signer))
 
 		require.NoError(t, v.Validate(obj, false))
 	})
@@ -209,7 +203,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("expiration", func(t *testing.T) {
 		fn := func(val string) *object.Object {
-			signer := neofsecdsa.SignerRFC6979(ownerKey.PrivateKey)
+			signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 			obj := blankValidObject(signer)
 
 			var a object.Attribute
@@ -218,7 +212,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			obj.SetAttributes(a)
 
-			require.NoError(t, object.SetIDWithSignature(signer, obj))
+			require.NoError(t, obj.SetIDWithSignature(signer))
 
 			return obj
 		}
@@ -244,7 +238,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 	t.Run("attributes", func(t *testing.T) {
 		t.Run("duplication", func(t *testing.T) {
-			signer := neofsecdsa.SignerRFC6979(ownerKey.PrivateKey)
+			signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 			obj := blankValidObject(signer)
 
 			var a1 object.Attribute
@@ -268,7 +262,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		})
 
 		t.Run("empty value", func(t *testing.T) {
-			signer := neofsecdsa.SignerRFC6979(ownerKey.PrivateKey)
+			signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
 			obj := blankValidObject(signer)
 
 			var a object.Attribute

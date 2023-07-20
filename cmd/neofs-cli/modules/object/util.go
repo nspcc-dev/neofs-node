@@ -19,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -208,7 +209,7 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 
 // ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
 func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
-	cli := internal.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+	cli := internal.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 	ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
 }
 
@@ -230,7 +231,7 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
 			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
-			objs = append(objs, collectObjectRelatives(ctx, cmd, cli, cnr, *obj)...)
+			objs = append(objs, collectObjectRelatives(ctx, cmd, cli, key, cnr, *obj)...)
 		}
 	}
 
@@ -240,7 +241,7 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 
 // OpenSession opens client connection and calls OpenSessionViaClient with it.
 func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
-	cli := internal.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+	cli := internal.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 	OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
 }
 
@@ -262,7 +263,7 @@ func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPr
 		if _, ok := dst.(*internal.DeleteObjectPrm); ok {
 			common.PrintVerbose(cmd, "Collecting relatives of the removal object...")
 
-			rels := collectObjectRelatives(ctx, cmd, cli, cnr, *obj)
+			rels := collectObjectRelatives(ctx, cmd, cli, key, cnr, *obj)
 
 			if len(rels) == 0 {
 				objs = []oid.ID{*obj}
@@ -278,7 +279,7 @@ func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPr
 
 	common.PrintVerbose(cmd, "Opening remote session with the node...")
 
-	err := sessionCli.CreateSession(ctx, &tok, cli, neofsecdsa.SignerRFC6979(*key), sessionLifetime)
+	err := sessionCli.CreateSession(ctx, &tok, cli, *key, sessionLifetime)
 	common.ExitOnErr(cmd, "open remote session: %w", err)
 
 	common.PrintVerbose(cmd, "Session successfully opened.")
@@ -321,7 +322,7 @@ func finalizeSession(cmd *cobra.Command, dst SessionPrm, tok *session.Object, ke
 
 	common.PrintVerbose(cmd, "Signing session...")
 
-	err := tok.Sign(neofsecdsa.SignerRFC6979(*key))
+	err := tok.Sign(user.NewAutoIDSigner(*key))
 	common.ExitOnErr(cmd, "sign session: %w", err)
 
 	common.PrintVerbose(cmd, "Session token successfully formed and attached to the request.")
@@ -339,7 +340,7 @@ func initFlagSession(cmd *cobra.Command, verb string) {
 // container.
 //
 // The object itself is not included in the result.
-func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client.Client, cnr cid.ID, obj oid.ID) []oid.ID {
+func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj oid.ID) []oid.ID {
 	common.PrintVerbose(cmd, "Fetching raw object header...")
 
 	// request raw header first
@@ -349,6 +350,7 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 
 	var prmHead internal.HeadObjectPrm
 	prmHead.SetClient(cli)
+	prmHead.SetPrivateKey(*key)
 	prmHead.SetAddress(addrObj)
 	prmHead.SetRawFlag(true)
 
@@ -405,6 +407,7 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 		var prm internal.SearchObjectsPrm
 		prm.SetContainerID(cnr)
 		prm.SetClient(cli)
+		prm.SetPrivateKey(*key)
 		prm.SetFilters(query)
 
 		res, err := internal.SearchObjects(ctx, prm)
@@ -460,6 +463,7 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 
 	var prmSearch internal.SearchObjectsPrm
 	prmSearch.SetClient(cli)
+	prmSearch.SetPrivateKey(*key)
 	prmSearch.SetContainerID(cnr)
 	prmSearch.SetFilters(query)
 

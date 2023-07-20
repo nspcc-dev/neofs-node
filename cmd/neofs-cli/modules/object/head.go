@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -55,10 +54,11 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 	mainOnly, _ := cmd.Flags().GetBool("main-only")
 	pk := key.GetOrGenerate(cmd)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 	var prm internalclient.HeadObjectPrm
 	prm.SetClient(cli)
+	prm.SetPrivateKey(*pk)
 	Prepare(cmd, &prm)
 	readSession(cmd, &prm, pk, cnr, obj)
 
@@ -165,13 +165,8 @@ func printHeader(cmd *cobra.Command, obj *object.Object) error {
 
 	if signature := obj.Signature(); signature != nil {
 		cmd.Print("ID signature:\n")
-
-		// TODO(@carpawell): #1387 implement and use another approach to avoid conversion
-		var sigV2 refs.Signature
-		signature.WriteToV2(&sigV2)
-
-		cmd.Printf("  public key: %s\n", hex.EncodeToString(sigV2.GetKey()))
-		cmd.Printf("  signature: %s\n", hex.EncodeToString(sigV2.GetSign()))
+		cmd.Printf("  public key: %s\n", hex.EncodeToString(signature.PublicKeyBytes()))
+		cmd.Printf("  signature: %s\n", hex.EncodeToString(signature.Value()))
 	}
 
 	return printSplitHeader(cmd, obj)

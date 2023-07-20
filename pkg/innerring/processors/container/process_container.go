@@ -186,7 +186,7 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 
 func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
 	// fetch domain info
-	ctx.d = containerSDK.ReadDomain(cnr)
+	ctx.d = cnr.ReadDomain()
 
 	// if PutNamed event => check if values in container correspond to args
 	if named, ok := ctx.e.(interface {
@@ -211,7 +211,7 @@ func checkHomomorphicHashing(ns NetworkState, cnr containerSDK.Container) error 
 		return fmt.Errorf("could not get setting in contract: %w", err)
 	}
 
-	if cnrSetting := containerSDK.IsHomomorphicHashingDisabled(cnr); netSetting != cnrSetting {
+	if cnrSetting := cnr.IsHomomorphicHashingDisabled(); netSetting != cnrSetting {
 		return fmt.Errorf("network setting: %t, container setting: %t", netSetting, cnrSetting)
 	}
 

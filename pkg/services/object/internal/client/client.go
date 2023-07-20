@@ -13,10 +13,10 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type commonPrm struct {
@@ -24,7 +24,7 @@ type commonPrm struct {
 
 	ctx context.Context
 
-	key *ecdsa.PrivateKey
+	signer user.Signer
 
 	tokenSession *session.Object
 
@@ -53,7 +53,7 @@ func (x *commonPrm) SetContext(ctx context.Context) {
 //
 // Required parameter.
 func (x *commonPrm) SetPrivateKey(key *ecdsa.PrivateKey) {
-	x.key = key
+	x.signer = user.NewAutoIDSigner(*key)
 }
 
 // SetSessionToken sets token of the session within which request should be sent.
@@ -155,22 +155,10 @@ func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	}
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
-	if prm.key != nil {
-		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
-	}
 
-	rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cnr, prm.obj, prm.cliPrm)
+	obj, rdr, err := prm.cli.ObjectGetInit(prm.ctx, prm.cnr, prm.obj, prm.signer, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading: %w", err)
-	}
-
-	var obj object.Object
-
-	if !rdr.ReadHeader(&obj) {
-		err = rdr.Close()
-		ReportError(prm.cli, err)
-
-		return nil, fmt.Errorf("read object header: %w", err)
 	}
 
 	buf := make([]byte, obj.PayloadSize())
@@ -249,7 +237,7 @@ func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
-	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cnr, prm.obj, prm.cliPrm)
+	cliRes, err := prm.cli.ObjectHead(prm.ctx, prm.cnr, prm.obj, prm.signer, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
@@ -343,7 +331,7 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cnr, prm.obj, prm.offset, prm.ln, prm.cliPrm)
+	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cnr, prm.obj, prm.offset, prm.ln, prm.signer, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
@@ -405,10 +393,6 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 
 	prmCli.MarkLocal()
 
-	if prm.key != nil {
-		prmCli.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
-	}
-
 	if prm.tokenSession != nil {
 		prmCli.WithinSession(*prm.tokenSession)
 	}
@@ -419,23 +403,24 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 
 	prmCli.WithXHeaders(prm.xHeaders...)
 
-	w, err := prm.cli.ObjectPutInit(prm.ctx, prmCli)
+	w, err := prm.cli.ObjectPutInit(prm.ctx, *prm.obj, prm.signer, prmCli)
 	if err != nil {
 		return nil, fmt.Errorf("init object writing on client: %w", err)
 	}
 
-	if w.WriteHeader(*prm.obj) {
-		w.WritePayloadChunk(prm.obj.Payload())
+	_, err = w.Write(prm.obj.Payload())
+	if err != nil {
+		return nil, fmt.Errorf("write object payload into stream: %w", err)
 	}
 
-	cliRes, err := w.Close()
+	err = w.Close()
 	if err != nil {
 		ReportError(prm.cli, err)
-		return nil, fmt.Errorf("write object via client: %w", err)
+		return nil, fmt.Errorf("finish object stream: %w", err)
 	}
 
 	return &PutObjectRes{
-		id: cliRes.StoredObjectID(),
+		id: w.GetResult().StoredObjectID(),
 	}, nil
 }
 
@@ -487,11 +472,7 @@ func SearchObjects(prm SearchObjectsPrm) (*SearchObjectsRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
-	if prm.key != nil {
-		prm.cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*prm.key))
-	}
-
-	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cid, prm.cliPrm)
+	rdr, err := prm.cli.ObjectSearchInit(prm.ctx, prm.cid, prm.signer, prm.cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object searching in client: %w", err)
 	}

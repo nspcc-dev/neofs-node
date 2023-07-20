@@ -40,7 +40,7 @@ func listShards(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(ctx, cmd, pk)
+	cli := getClient(ctx, cmd)
 
 	var resp *control.ListShardsResponse
 	var err error

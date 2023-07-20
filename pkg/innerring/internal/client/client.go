@@ -11,14 +11,14 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // Client represents NeoFS API client cut down to the needs of a purely IR application.
 type Client struct {
-	key *ecdsa.PrivateKey
+	signer user.Signer
 
 	c clientcore.Client
 }
@@ -30,7 +30,7 @@ func (x *Client) WrapBasicClient(c clientcore.Client) {
 
 // SetPrivateKey sets a private key to sign RPC requests.
 func (x *Client) SetPrivateKey(key *ecdsa.PrivateKey) {
-	x.key = key
+	x.signer = user.NewAutoIDSigner(*key)
 }
 
 // SearchSGPrm groups parameters of SearchSG operation.
@@ -63,9 +63,8 @@ var sgFilter = storagegroup.SearchQuery()
 func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 	var cliPrm client.PrmObjectSearch
 	cliPrm.SetFilters(sgFilter)
-	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
-	rdr, err := x.c.ObjectSearchInit(prm.ctx, prm.cnrID, cliPrm)
+	rdr, err := x.c.ObjectSearchInit(prm.ctx, prm.cnrID, x.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -115,17 +114,10 @@ func (x GetObjectRes) Object() *object.Object {
 // Returns any error which prevented the operation from completing correctly in error return.
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
-	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
 
-	rdr, err := x.c.ObjectGetInit(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
+	obj, rdr, err := x.c.ObjectGetInit(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
-	}
-
-	var obj object.Object
-
-	if !rdr.ReadHeader(&obj) {
-		return nil, fmt.Errorf("read object header: %w", rdr.Close())
 	}
 
 	buf := make([]byte, obj.PayloadSize())
@@ -186,9 +178,7 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	cliPrm.UseSigner(neofsecdsa.SignerRFC6979(*x.key))
-
-	cliRes, err := x.c.ObjectHead(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
+	cliRes, err := x.c.ObjectHead(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
@@ -282,7 +272,7 @@ func (x Client) HashPayloadRange(prm HashPayloadRangePrm) (res HashPayloadRangeR
 	cliPrm.SetRangeList(prm.rng.GetOffset(), prm.rng.GetLength())
 	cliPrm.TillichZemorAlgo()
 
-	hs, err := x.c.ObjectHash(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
+	hs, err := x.c.ObjectHash(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
 	if err == nil {
 		if ln := len(hs); ln != 1 {
 			err = fmt.Errorf("wrong number of checksums %d", ln)

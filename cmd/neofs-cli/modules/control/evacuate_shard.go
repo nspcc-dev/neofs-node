@@ -28,7 +28,7 @@ func evacuateShard(cmd *cobra.Command, _ []string) {
 
 	signRequest(cmd, pk, req)
 
-	cli := getClient(ctx, cmd, pk)
+	cli := getClient(ctx, cmd)
 
 	var resp *control.EvacuateShardResponse
 	var err error

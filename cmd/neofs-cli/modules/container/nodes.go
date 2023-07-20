@@ -4,8 +4,6 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -21,13 +19,9 @@ var containerNodesCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		var cnr, pkey = getContainer(ctx, cmd)
+		cnr := getContainer(ctx, cmd)
 
-		if pkey == nil {
-			pkey = key.GetOrGenerate(cmd)
-		}
-
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pkey, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.NetMapSnapshotPrm
 		prm.SetClient(cli)
@@ -36,7 +30,7 @@ var containerNodesCmd = &cobra.Command{
 		common.ExitOnErr(cmd, "unable to get netmap snapshot", err)
 
 		var id cid.ID
-		containerAPI.CalculateID(&id, cnr)
+		cnr.CalculateID(&id)
 
 		policy := cnr.PlacementPolicy()
 

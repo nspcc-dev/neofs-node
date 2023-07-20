@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-sdk-go/accounting"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,13 +33,12 @@ var accountingBalanceCmd = &cobra.Command{
 
 		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {
-			err := user.IDFromSigner(&idUser, neofsecdsa.SignerRFC6979(*pk))
-			common.ExitOnErr(cmd, "decoding user from key", err)
+			idUser = user.ResolveFromECDSAPublicKey(pk.PublicKey)
 		} else {
 			common.ExitOnErr(cmd, "can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.BalanceOfPrm
 		prm.SetClient(cli)

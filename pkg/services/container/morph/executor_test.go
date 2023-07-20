@@ -15,8 +15,8 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,7 +48,7 @@ func TestInvalidToken(t *testing.T) {
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 
-	signer := neofsecdsa.Signer(priv.PrivateKey)
+	signer := user.NewAutoIDSigner(priv.PrivateKey)
 
 	sign := func(reqBody interface {
 		StableMarshal([]byte) []byte

@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -38,14 +37,13 @@ var listContainersCmd = &cobra.Command{
 		key := key.GetOrGenerate(cmd)
 
 		if flagVarListContainerOwner == "" {
-			err := user.IDFromSigner(&idUser, neofsecdsa.SignerRFC6979(*key))
-			common.ExitOnErr(cmd, "decoding user from key", err)
+			idUser = user.ResolveFromECDSAPublicKey(key.PublicKey)
 		} else {
 			err := idUser.DecodeString(flagVarListContainerOwner)
 			common.ExitOnErr(cmd, "invalid user ID: %w", err)
 		}
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.ListContainersPrm
 		prm.SetClient(cli)

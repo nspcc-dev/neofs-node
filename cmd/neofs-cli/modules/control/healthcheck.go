@@ -39,7 +39,7 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 
 	pk := key.Get(cmd)
 
-	cli := getClient(ctx, cmd, pk)
+	cli := getClient(ctx, cmd)
 
 	if isIR, _ := cmd.Flags().GetBool(healthcheckIRFlag); isIR {
 		healthCheckIR(cmd, pk, cli)

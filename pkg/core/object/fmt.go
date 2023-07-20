@@ -6,10 +6,8 @@ import (
 	"strconv"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -112,7 +110,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("object did not pass expiration check: %w", err)
 		}
 
-		if err := object.CheckHeaderVerificationFields(obj); err != nil {
+		if err := obj.CheckHeaderVerificationFields(); err != nil {
 			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
 		}
 	}
@@ -131,18 +129,6 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	if sig == nil {
 		// TODO(@cthulhu-rider): #1387 use "const" error
 		return errors.New("missing signature")
-	}
-
-	var sigV2 refs.Signature
-	sig.WriteToV2(&sigV2)
-
-	binKey := sigV2.GetKey()
-
-	var key neofsecdsa.PublicKey
-
-	err := key.Decode(binKey)
-	if err != nil {
-		return fmt.Errorf("decode public key: %w", err)
 	}
 
 	// FIXME: #1159 perform token verification

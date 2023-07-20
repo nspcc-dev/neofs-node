@@ -3,9 +3,11 @@ package tree
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -89,7 +91,7 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 		if err = bt.Unmarshal(rawBearer); err != nil {
 			return eACLErr(eaclOp, fmt.Errorf("invalid bearer token: %w", err))
 		}
-		if !bearer.ResolveIssuer(bt).Equals(cnr.Value.Owner()) {
+		if !bt.ResolveIssuer().Equals(cnr.Value.Owner()) {
 			return eACLErr(eaclOp, errBearerWrongOwner)
 		}
 		if !bt.AssertContainer(cid) {
@@ -156,10 +158,8 @@ func SignMessage(m message, key *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	rawPub := make([]byte, keySDK.Public().MaxEncodedSize())
-	rawPub = rawPub[:keySDK.Public().Encode(rawPub)]
 	m.SetSignature(&Signature{
-		Key:  rawPub,
+		Key:  neofscrypto.PublicKeyBytes(keySDK.Public()),
 		Sign: data,
 	})
 
@@ -170,11 +170,12 @@ func roleFromReq(cnr *core.Container, req message) (acl.Role, error) {
 	role := acl.RoleOthers
 	owner := cnr.Value.Owner()
 
-	var reqSigner user.ID
-	err := user.IDFromKey(&reqSigner, req.GetSignature().GetKey())
+	pubKey, err := keys.NewPublicKeyFromBytes(req.GetSignature().GetKey(), elliptic.P256())
 	if err != nil {
-		return role, fmt.Errorf("invalid public key: %w", err)
+		return role, fmt.Errorf("decode public key from signature: %w", err)
 	}
+
+	reqSigner := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	if reqSigner.Equals(owner) {
 		role = acl.RoleOwner

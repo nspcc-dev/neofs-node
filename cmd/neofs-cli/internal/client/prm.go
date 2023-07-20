@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"crypto/ecdsa"
 	"io"
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -8,6 +9,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // here are small structures with public setters to share between parameter structures
@@ -68,6 +70,7 @@ func (x *payloadWriterPrm) SetPayloadWriter(wrt io.Writer) {
 type commonObjectPrm struct {
 	commonPrm
 	bearerTokenPrm
+	signerPrm
 
 	sessionToken *session.Object
 
@@ -89,4 +92,22 @@ func (x *commonObjectPrm) SetXHeaders(hs []string) {
 // SetSessionToken sets the token of the session within which the request should be sent.
 func (x *commonObjectPrm) SetSessionToken(tok *session.Object) {
 	x.sessionToken = tok
+}
+
+type signerPrm struct {
+	signer user.Signer
+}
+
+// SetPrivateKey sets ecdsa.PrivateKey to be used for the operation.
+func (x *signerPrm) SetPrivateKey(key ecdsa.PrivateKey) {
+	x.signer = user.NewAutoIDSigner(key)
+}
+
+type signerRFC6979Prm struct {
+	signer user.Signer
+}
+
+// SetPrivateKey sets ecdsa.PrivateKey to be used for the operation.
+func (p *signerRFC6979Prm) SetPrivateKey(key ecdsa.PrivateKey) {
+	p.signer = user.NewAutoIDSignerRFC6979(key)
 }

@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/spf13/cobra"
@@ -58,7 +58,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
 	common.ExitOnErr(cmd, "can't parse endpoint: %w", netAddr.FromString(addrStr))
 
-	c, err := internalclient.GetSDKClient(ctx, cmd, privKey, netAddr)
+	c, err := internalclient.GetSDKClient(ctx, cmd, netAddr)
 	common.ExitOnErr(cmd, "can't create client: %w", err)
 
 	lifetime := uint64(defaultLifetime)
@@ -68,7 +68,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 
 	var tok session.Object
 
-	err = CreateSession(ctx, &tok, c, neofsecdsa.SignerRFC6979(*privKey), lifetime)
+	err = CreateSession(ctx, &tok, c, *privKey, lifetime)
 	common.ExitOnErr(cmd, "can't create session: %w", err)
 
 	var data []byte
@@ -90,7 +90,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 // number of epochs.
 //
 // Fills ID, lifetime and session key.
-func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, _signer neofscrypto.Signer, lifetime uint64) error {
+func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, key ecdsa.PrivateKey, lifetime uint64) error {
 	var netInfoPrm internalclient.NetworkInfoPrm
 	netInfoPrm.SetClient(c)
 
@@ -105,7 +105,7 @@ func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, _
 	var sessionPrm internalclient.CreateSessionPrm
 	sessionPrm.SetClient(c)
 	sessionPrm.SetExp(exp)
-	sessionPrm.UseSigner(_signer)
+	sessionPrm.SetPrivateKey(key)
 
 	sessionRes, err := internalclient.CreateSession(ctx, sessionPrm)
 	if err != nil {
