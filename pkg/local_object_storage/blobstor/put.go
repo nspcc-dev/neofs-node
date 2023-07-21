@@ -39,18 +39,24 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 		prm.RawData = data
 	}
 
+	var overflow bool
+
 	for i := range b.storage {
 		if b.storage[i].Policy == nil || b.storage[i].Policy(prm.Object, prm.RawData) {
 			res, err := b.storage[i].Storage.Put(prm)
 			if err == nil {
 				logOp(b.log, putOp, prm.Address, b.storage[i].Storage.Type(), res.StorageID)
-			} else if errors.Is(err, common.ErrNoSpace) {
+			} else if overflow = errors.Is(err, common.ErrNoSpace); overflow {
 				b.log.Debug("blobstor sub-storage overflowed, will try another one",
 					zap.String("type", b.storage[i].Storage.Type()))
 				continue
 			}
 			return res, err
 		}
+	}
+
+	if overflow {
+		return common.PutRes{}, common.ErrNoSpace
 	}
 
 	return common.PutRes{}, ErrNoPlaceFound

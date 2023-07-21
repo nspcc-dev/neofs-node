@@ -6,6 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,13 +32,24 @@ func (x *mockWriter) Put(common.PutPrm) (common.PutRes, error) {
 func (x *mockWriter) SetCompressor(*compression.Config) {}
 
 func TestBlobStor_Put_Overflow(t *testing.T) {
+	sub1 := &mockWriter{full: true}
+	sub2 := &mockWriter{full: false}
+	policyMismatch := blobstor.SubStorage{Storage: sub1, Policy: func(*object.Object, []byte) bool { return false }}
 	bs := blobstor.New(blobstor.WithStorages(
 		[]blobstor.SubStorage{
-			{Storage: &mockWriter{full: true}},
-			{Storage: &mockWriter{full: false}},
+			policyMismatch,
+			{Storage: sub1},
+			policyMismatch,
+			{Storage: sub2},
+			policyMismatch,
 		},
 	))
 
 	_, err := bs.Put(common.PutPrm{})
 	require.NoError(t, err)
+
+	sub2.full = true
+
+	_, err = bs.Put(common.PutPrm{})
+	require.ErrorIs(t, err, common.ErrNoSpace)
 }
