@@ -1,9 +1,9 @@
 package settlement
 
-import "github.com/nspcc-dev/neofs-node/pkg/util/logger"
+import "go.uber.org/zap"
 
 type auditEventHandler struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	epoch uint64
 

@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -17,12 +16,12 @@ type Calculator struct {
 type CalculatorOption func(*options)
 
 type options struct {
-	log *logger.Logger
+	log *zap.Logger
 }
 
 func defaultOptions() *options {
 	return &options{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 	}
 }
 
@@ -41,7 +40,7 @@ func NewCalculator(p *CalculatorPrm, opts ...CalculatorOption) *Calculator {
 }
 
 // WithLogger returns an option to specify the logging component.
-func WithLogger(l *logger.Logger) CalculatorOption {
+func WithLogger(l *zap.Logger) CalculatorOption {
 	return func(o *options) {
 		o.log = l
 	}

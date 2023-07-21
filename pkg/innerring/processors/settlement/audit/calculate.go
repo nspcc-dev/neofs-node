@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -26,7 +25,7 @@ type singleResultCtx struct {
 
 	auditResult *audit.Result
 
-	log *logger.Logger
+	log *zap.Logger
 
 	txTable *common.TransferTable
 
@@ -49,9 +48,9 @@ var (
 // Calculate calculates payments for audit results in a specific epoch of the network.
 // Wraps the results in a money transfer transaction and sends it to the network.
 func (c *Calculator) Calculate(p *CalculatePrm) {
-	log := &logger.Logger{Logger: c.opts.log.With(
+	log := c.opts.log.With(
 		zap.Uint64("current epoch", p.Epoch),
-	)}
+	)
 
 	if p.Epoch == 0 {
 		log.Info("settlements are ignored for zero epoch")
@@ -100,10 +99,10 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 }
 
 func (c *Calculator) processResult(ctx *singleResultCtx) {
-	ctx.log = &logger.Logger{Logger: ctx.log.With(
+	ctx.log = ctx.log.With(
 		zap.Stringer("cid", ctx.containerID()),
 		zap.Uint64("audit epoch", ctx.auditResult.Epoch()),
-	)}
+	)
 
 	ctx.log.Debug("reading information about the container")
 

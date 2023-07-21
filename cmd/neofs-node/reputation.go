@@ -28,7 +28,6 @@ import (
 	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
@@ -60,8 +59,8 @@ func initReputationService(c *cfg) {
 		Storage: consumerStorage,
 	}
 
-	localTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "local"))}
-	intermediateTrustLogger := &logger.Logger{Logger: c.log.With(zap.String("trust_type", "intermediate"))}
+	localTrustLogger := c.log.With(zap.String("trust_type", "local"))
+	intermediateTrustLogger := c.log.With(zap.String("trust_type", "intermediate"))
 
 	localTrustStorage := &localreputation.TrustStorage{
 		Log:      localTrustLogger,
@@ -256,7 +255,7 @@ func initReputationService(c *cfg) {
 
 type reputationServer struct {
 	*cfg
-	log                *logger.Logger
+	log                *zap.Logger
 	localRouter        reputationcommon.WriterProvider
 	intermediateRouter reputationcommon.WriterProvider
 	routeBuilder       reputationrouter.Builder

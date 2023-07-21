@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -74,7 +73,7 @@ type shortHeader struct {
 type ContextPrm struct {
 	maxPDPSleep uint64
 
-	log *logger.Logger
+	log *zap.Logger
 
 	cnrCom ContainerCommunicator
 
@@ -123,7 +122,7 @@ func NewContext(prm ContextPrm) *Context {
 }
 
 // SetLogger sets logging component.
-func (p *ContextPrm) SetLogger(l *logger.Logger) {
+func (p *ContextPrm) SetLogger(l *zap.Logger) {
 	if p != nil {
 		p.log = l
 	}
@@ -191,9 +190,9 @@ func (c *Context) init() {
 
 	c.headResponses = make(map[string]shortHeader)
 
-	c.log = &logger.Logger{Logger: c.log.With(
+	c.log = c.log.With(
 		zap.Stringer("container ID", c.task.ContainerID()),
-	)}
+	)
 }
 
 func (c *Context) expired() bool {

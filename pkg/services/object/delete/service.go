@@ -6,7 +6,6 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -35,7 +34,7 @@ type NetworkInfo interface {
 }
 
 type cfg struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	header interface {
 		// must return (nil, nil) for PHY objects
@@ -62,7 +61,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 	}
 }
 
@@ -81,9 +80,9 @@ func New(opts ...Option) *Service {
 }
 
 // WithLogger returns option to specify Delete service's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Object.Delete service"))}
+		c.log = l.With(zap.String("component", "Object.Delete service"))
 	}
 }
 

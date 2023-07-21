@@ -7,7 +7,6 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
@@ -67,7 +66,7 @@ type FinalWriter struct {
 	pubKey    []byte
 	client    *repClient.Client
 
-	l *logger.Logger
+	l *zap.Logger
 }
 
 func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error {
@@ -126,18 +125,18 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 }
 
 type finalWriterOptions struct {
-	log *logger.Logger
+	log *zap.Logger
 }
 
 type FinalWriterOption func(*finalWriterOptions)
 
 func defaultFinalWriterOptionsOpts() *finalWriterOptions {
 	return &finalWriterOptions{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 	}
 }
 
-func FinalWriterWithLogger(l *logger.Logger) FinalWriterOption {
+func FinalWriterWithLogger(l *zap.Logger) FinalWriterOption {
 	return func(o *finalWriterOptions) {
 		if l != nil {
 			o.log = l

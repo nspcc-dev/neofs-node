@@ -4,12 +4,11 @@ import (
 	"crypto/ecdsa"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
 type cfg struct {
-	l          *logger.Logger
+	l          *zap.Logger
 	timeout    time.Duration
 	privateKey *ecdsa.PrivateKey
 }
@@ -19,14 +18,14 @@ type Option func(*cfg)
 
 func defaultCfg() *cfg {
 	return &cfg{
-		l:       &logger.Logger{Logger: zap.L()},
+		l:       zap.L(),
 		timeout: 100 * time.Millisecond,
 	}
 }
 
 // WithLogger returns an option to specify
 // logger.
-func WithLogger(v *logger.Logger) Option {
+func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.l = v
 	}

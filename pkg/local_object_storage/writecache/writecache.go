@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -33,7 +32,7 @@ type Cache interface {
 	Iterate(IterationPrm) error
 	Put(common.PutPrm) (common.PutRes, error)
 	SetMode(mode.Mode) error
-	SetLogger(*logger.Logger)
+	SetLogger(*zap.Logger)
 	DumpInfo() Info
 	Flush(bool) error
 
@@ -94,7 +93,7 @@ func New(opts ...Option) Cache {
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
-			log:             &logger.Logger{Logger: zap.NewNop()},
+			log:             zap.NewNop(),
 			maxObjectSize:   defaultMaxObjectSize,
 			smallObjectSize: defaultSmallObjectSize,
 			workersCount:    defaultFlushWorkersCount,
@@ -118,7 +117,7 @@ func New(opts ...Option) Cache {
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (c *cache) SetLogger(l *logger.Logger) {
+func (c *cache) SetLogger(l *zap.Logger) {
 	c.log = l
 }
 

@@ -60,7 +60,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -71,6 +70,7 @@ import (
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 )
 
@@ -306,7 +306,8 @@ type internals struct {
 
 	appCfg *config.Config
 
-	log *logger.Logger
+	logLevel zap.AtomicLevel
+	log      *zap.Logger
 
 	wg      *sync.WaitGroup
 	workers []worker
@@ -391,17 +392,10 @@ func (s shared) resetCaches() {
 	}
 }
 
-// dynamicConfiguration stores parameters of the
-// components that supports runtime reconfigurations.
-type dynamicConfiguration struct {
-	logger *logger.Prm
-}
-
 type cfg struct {
 	applicationConfiguration
 	internals
 	shared
-	dynamicConfiguration
 
 	// configuration of the internal
 	// services
@@ -546,12 +540,6 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	key := nodeconfig.Key(appCfg)
 
-	logPrm, err := c.loggerPrm()
-	fatalOnErr(err)
-
-	log, err := logger.NewLogger(logPrm)
-	fatalOnErr(err)
-
 	var netAddr network.AddressGroup
 
 	relayOnly := nodeconfig.Relay(appCfg)
@@ -580,11 +568,23 @@ func initCfg(appCfg *config.Config) *cfg {
 		ctx:          context.Background(),
 		appCfg:       appCfg,
 		internalErr:  make(chan error, 10), // We only need one error, but we can have multiple senders.
-		log:          log,
 		wg:           new(sync.WaitGroup),
 		apiVersion:   version.Current(),
 		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
 	}
+
+	c.internals.logLevel, err = zap.ParseAtomicLevel(c.LoggerCfg.level)
+	fatalOnErr(err)
+
+	logCfg := zap.NewProductionConfig()
+	logCfg.Level = c.internals.logLevel
+	logCfg.Encoding = "console"
+	logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	c.internals.log, err = logCfg.Build(
+		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
+	)
+	fatalOnErr(err)
 
 	cacheOpts := cache.ClientCacheOpts{
 		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
@@ -780,22 +780,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 	return shards
 }
 
-func (c *cfg) loggerPrm() (*logger.Prm, error) {
-	// check if it has been inited before
-	if c.dynamicConfiguration.logger == nil {
-		c.dynamicConfiguration.logger = new(logger.Prm)
-	}
-
-	// (re)init read configuration
-	err := c.dynamicConfiguration.logger.SetLevelString(c.LoggerCfg.level)
-	if err != nil {
-		// not expected since validation should be performed before
-		panic(fmt.Sprintf("incorrect log level format: %s", c.LoggerCfg.level))
-	}
-
-	return c.dynamicConfiguration.logger, nil
-}
-
 func (c *cfg) LocalAddress() network.AddressGroup {
 	return c.localAddr
 }
@@ -940,13 +924,6 @@ func (c *cfg) ObjectServiceLoad() float64 {
 	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemoteCapacity)
 }
 
-type dCfg struct {
-	name string
-	cfg  interface {
-		Reload() error
-	}
-}
-
 func (c *cfg) configWatcher(ctx context.Context) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)
@@ -962,19 +939,13 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				continue
 			}
 
-			// all the components are expected to support
-			// Logger's dynamic reconfiguration approach
-			var components []dCfg
-
 			// Logger
 
-			logPrm, err := c.loggerPrm()
+			err = c.internals.logLevel.UnmarshalText([]byte(c.LoggerCfg.level))
 			if err != nil {
-				c.log.Error("logger configuration preparation", zap.Error(err))
+				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
 			}
-
-			components = append(components, dCfg{name: "logger", cfg: logPrm})
 
 			// Storage Engine
 
@@ -987,15 +958,6 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			if err != nil {
 				c.log.Error("storage engine configuration update", zap.Error(err))
 				continue
-			}
-
-			for _, component := range components {
-				err = component.cfg.Reload()
-				if err != nil {
-					c.log.Error("updated configuration applying",
-						zap.String("component", component.name),
-						zap.Error(err))
-				}
 			}
 
 			c.log.Info("configuration has been reloaded successfully")

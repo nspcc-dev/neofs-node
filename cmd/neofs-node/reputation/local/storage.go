@@ -9,13 +9,12 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
 
 type TrustStorage struct {
-	Log *logger.Logger
+	Log *zap.Logger
 
 	Storage *truststorage.Storage
 

@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/notificator"
 	"github.com/nspcc-dev/neofs-node/pkg/services/notificator/nats"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -18,7 +17,7 @@ import (
 
 type notificationSource struct {
 	e            *engine.StorageEngine
-	l            *logger.Logger
+	l            *zap.Logger
 	defaultTopic string
 }
 
@@ -93,7 +92,7 @@ func (n *notificationSource) processAddress(
 }
 
 type notificationWriter struct {
-	l *logger.Logger
+	l *zap.Logger
 	w *nats.Writer
 }
 

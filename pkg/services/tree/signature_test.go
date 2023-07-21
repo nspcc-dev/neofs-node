@@ -9,7 +9,6 @@ import (
 	aclV2 "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -89,7 +88,7 @@ func TestMessageSign(t *testing.T) {
 
 	s := &Service{
 		cfg: cfg{
-			log:      &logger.Logger{Logger: zaptest.NewLogger(t)},
+			log:      zaptest.NewLogger(t),
 			key:      &privs[0].PrivateKey,
 			nmSource: dummyNetmapSource{},
 			cnrSource: dummyContainerSource{

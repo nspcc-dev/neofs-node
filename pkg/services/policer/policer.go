@@ -11,7 +11,6 @@ import (
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -76,7 +75,7 @@ type Network interface {
 type cfg struct {
 	headTimeout time.Duration
 
-	log *logger.Logger
+	log *zap.Logger
 
 	jobQueue jobQueue
 
@@ -107,7 +106,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:           &logger.Logger{Logger: zap.L()},
+		log:           zap.L(),
 		batchSize:     10,
 		cacheSize:     1024, // 1024 * address size = 1024 * 64 = 64 MiB
 		rebalanceFreq: 1 * time.Second,
@@ -123,7 +122,7 @@ func New(opts ...Option) *Policer {
 		opts[i](c)
 	}
 
-	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Policer"))}
+	c.log = c.log.With(zap.String("component", "Object Policer"))
 
 	cache, err := lru.New[oid.Address, time.Time](int(c.cacheSize))
 	if err != nil {
@@ -147,7 +146,7 @@ func WithHeadTimeout(v time.Duration) Option {
 }
 
 // WithLogger returns option to set Logger of Policer.
-func WithLogger(v *logger.Logger) Option {
+func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = v
 	}

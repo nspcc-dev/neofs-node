@@ -3,7 +3,6 @@ package notificator
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -13,11 +12,11 @@ import (
 type Prm struct {
 	writer             NotificationWriter
 	notificationSource NotificationSource
-	logger             *logger.Logger
+	logger             *zap.Logger
 }
 
 // SetLogger sets a logger.
-func (prm *Prm) SetLogger(v *logger.Logger) *Prm {
+func (prm *Prm) SetLogger(v *zap.Logger) *Prm {
 	prm.logger = v
 	return prm
 }
@@ -44,7 +43,7 @@ func (prm *Prm) SetNotificationSource(v NotificationSource) *Prm {
 type Notificator struct {
 	w  NotificationWriter
 	ns NotificationSource
-	l  *logger.Logger
+	l  *zap.Logger
 }
 
 // New creates, initializes and returns the Notificator instance.

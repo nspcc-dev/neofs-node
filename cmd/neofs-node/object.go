@@ -35,7 +35,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -395,7 +394,7 @@ func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*containercore.EACL, error) {
 }
 
 type reputationClientConstructor struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	nmSrc netmap.Source
 

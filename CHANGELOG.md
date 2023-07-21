@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
 - `neofs_node_object_epoch` metric for IR and SN (#2347)
 - Subnets support (#2411)
+- Logging utility completely replaced with `zap.Logger` (#696)
 
 ### Changed
 - CLI `--timeout` flag configures whole execution timeout from now (#2124)

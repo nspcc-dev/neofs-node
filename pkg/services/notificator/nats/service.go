@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -30,7 +29,7 @@ type Writer struct {
 }
 
 type opts struct {
-	log   *logger.Logger
+	log   *zap.Logger
 	nOpts []nats.Option
 }
 
@@ -86,7 +85,7 @@ func New(oo ...Option) *Writer {
 		m:              &sync.RWMutex{},
 		createdStreams: make(map[string]struct{}),
 		opts: opts{
-			log:   &logger.Logger{Logger: zap.L()},
+			log:   zap.L(),
 			nOpts: make([]nats.Option, 0, len(oo)+3),
 		},
 	}

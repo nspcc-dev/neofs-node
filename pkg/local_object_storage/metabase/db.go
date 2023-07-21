@@ -14,7 +14,6 @@ import (
 	"github.com/mr-tron/base58"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -57,7 +56,7 @@ type cfg struct {
 
 	info Info
 
-	log *logger.Logger
+	log *zap.Logger
 
 	epochState EpochState
 }
@@ -69,7 +68,7 @@ func defaultCfg() *cfg {
 		},
 		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
 		boltBatchSize:  bbolt.DefaultMaxBatchSize,
-		log:            &logger.Logger{Logger: zap.L()},
+		log:            zap.L(),
 	}
 }
 
@@ -288,12 +287,12 @@ func bucketKeyHelper(hdr string, val string) []byte {
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (db *DB) SetLogger(l *logger.Logger) {
+func (db *DB) SetLogger(l *zap.Logger) {
 	db.log = l
 }
 
 // WithLogger returns option to set logger of DB.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
 	}

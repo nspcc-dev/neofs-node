@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -17,7 +16,7 @@ import (
 func TestExistsInvalidStorageID(t *testing.T) {
 	dir := t.TempDir()
 	b := NewBlobovniczaTree(
-		WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+		WithLogger(zaptest.NewLogger(t)),
 		WithObjectSizeLimit(1024),
 		WithBlobovniczaShallowWidth(2),
 		WithBlobovniczaShallowDepth(2),

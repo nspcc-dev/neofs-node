@@ -10,7 +10,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -53,7 +52,7 @@ type (
 	// Processor of events produced by network map contract
 	// and new epoch ticker, because it is related to contract.
 	Processor struct {
-		log           *logger.Logger
+		log           *zap.Logger
 		pool          *ants.Pool
 		epochTimer    EpochTimerReseter
 		epochState    EpochState
@@ -76,7 +75,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log              *logger.Logger
+		Log              *zap.Logger
 		PoolSize         int
 		NetmapClient     *nmClient.Client
 		EpochTimer       EpochTimerReseter

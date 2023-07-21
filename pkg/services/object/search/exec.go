@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -25,7 +24,7 @@ type execCtx struct {
 
 	statusError
 
-	log *logger.Logger
+	log *zap.Logger
 
 	curProcEpoch uint64
 }
@@ -41,14 +40,14 @@ func (exec *execCtx) prepare() {
 	}
 }
 
-func (exec *execCtx) setLogger(l *logger.Logger) {
-	exec.log = &logger.Logger{Logger: l.With(
+func (exec *execCtx) setLogger(l *zap.Logger) {
+	exec.log = l.With(
 		zap.String("request", "SEARCH"),
 		zap.Stringer("container", exec.containerID()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	)
 }
 
 func (exec execCtx) context() context.Context {

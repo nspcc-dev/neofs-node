@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -32,7 +31,7 @@ type ClientConstructor interface {
 }
 
 type cfg struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	localStorage interface {
 		search(*execCtx) ([]oid.ID, error)
@@ -55,7 +54,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:               &logger.Logger{Logger: zap.L()},
+		log:               zap.L(),
 		clientConstructor: new(clientConstructorWrapper),
 	}
 }
@@ -75,9 +74,9 @@ func New(opts ...Option) *Service {
 }
 
 // WithLogger returns option to specify Get service's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Object.Search service"))}
+		c.log = l.With(zap.String("component", "Object.Search service"))
 	}
 }
 

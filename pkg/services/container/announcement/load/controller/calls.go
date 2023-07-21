@@ -3,7 +3,6 @@ package loadcontroller
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"go.uber.org/zap"
 )
@@ -20,7 +19,7 @@ type commonContext struct {
 
 	ctrl *Controller
 
-	log *logger.Logger
+	log *zap.Logger
 
 	ctx context.Context
 }
@@ -125,9 +124,9 @@ func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
 
 	c.announceMtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
+	log := c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
-	)}
+	)
 
 	if ctx == nil {
 		log.Debug("announcement is already started")
@@ -217,9 +216,9 @@ func (c *Controller) acquireReport(prm StopPrm) *stopContext {
 
 	c.reportMtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
+	log := c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
-	)}
+	)
 
 	if ctx == nil {
 		log.Debug("report is already started")

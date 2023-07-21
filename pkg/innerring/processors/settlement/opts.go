@@ -1,7 +1,6 @@
 package settlement
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -11,7 +10,7 @@ type Option func(*options)
 type options struct {
 	poolSize int
 
-	log *logger.Logger
+	log *zap.Logger
 }
 
 func defaultOptions() *options {
@@ -19,12 +18,12 @@ func defaultOptions() *options {
 
 	return &options{
 		poolSize: poolSize,
-		log:      &logger.Logger{Logger: zap.L()},
+		log:      zap.L(),
 	}
 }
 
 // WithLogger returns option to override the component for logging.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(o *options) {
 		o.log = l
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -32,7 +31,7 @@ type execCtx struct {
 
 	infoSplit *objectSDK.SplitInfo
 
-	log *logger.Logger
+	log *zap.Logger
 
 	collectedObject *objectSDK.Object
 
@@ -65,7 +64,7 @@ func withPayloadRange(r *objectSDK.Range) execOption {
 	}
 }
 
-func (exec *execCtx) setLogger(l *logger.Logger) {
+func (exec *execCtx) setLogger(l *zap.Logger) {
 	req := "GET"
 	if exec.headOnly() {
 		req = "HEAD"
@@ -73,14 +72,14 @@ func (exec *execCtx) setLogger(l *logger.Logger) {
 		req = "GET_RANGE"
 	}
 
-	exec.log = &logger.Logger{Logger: l.With(
+	exec.log = l.With(
 		zap.String("request", req),
 		zap.Stringer("address", exec.address()),
 		zap.Bool("raw", exec.isRaw()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	)
 }
 
 func (exec execCtx) context() context.Context {

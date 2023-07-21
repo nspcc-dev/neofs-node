@@ -4,14 +4,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/daughters"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
 // DaughterStorageWriterProvider is an implementation of the reputation.WriterProvider
 // interface that provides DaughterTrustWriter writer.
 type DaughterStorageWriterProvider struct {
-	Log     *logger.Logger
+	Log     *zap.Logger
 	Storage *daughters.Storage
 }
 
@@ -19,7 +18,7 @@ type DaughterStorageWriterProvider struct {
 // that writes passed daughter's Trust values to Daughter storage. After writing
 // that, values can be used in eigenTrust algorithm's iterations.
 type DaughterTrustWriter struct {
-	log     *logger.Logger
+	log     *zap.Logger
 	storage *daughters.Storage
 	ctx     reputationcommon.Context
 }

@@ -5,12 +5,11 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
 type cfg struct {
-	log             *logger.Logger
+	log             *zap.Logger
 	perm            fs.FileMode
 	readOnly        bool
 	rootPath        string
@@ -34,7 +33,7 @@ const (
 
 func initConfig(c *cfg) {
 	*c = cfg{
-		log:             &logger.Logger{Logger: zap.L()},
+		log:             zap.L(),
 		perm:            defaultPerm,
 		openedCacheSize: defaultOpenedCacheSize,
 		blzShallowDepth: defaultBlzShallowDepth,
@@ -43,7 +42,7 @@ func initConfig(c *cfg) {
 	}
 }
 
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
 		c.blzOpts = append(c.blzOpts, blobovnicza.WithLogger(l))

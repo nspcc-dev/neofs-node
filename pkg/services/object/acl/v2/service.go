@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -59,7 +58,7 @@ type searchStreamBasicChecker struct {
 type Option func(*cfg)
 
 type cfg struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	containers container.Source
 
@@ -74,7 +73,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 	}
 }
 
