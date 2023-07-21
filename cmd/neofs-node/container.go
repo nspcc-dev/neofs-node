@@ -76,6 +76,10 @@ func initContainerService(c *cfg) {
 		cachedEACLStorage := newCachedEACLStorage(eACLFetcher, c.cfgMorph.cacheTTL)
 		cachedContainerLister := newCachedContainerLister(wrap, c.cfgMorph.cacheTTL)
 
+		c.shared.containerCache = cachedContainerStorage
+		c.shared.eaclCache = cachedEACLStorage
+		c.shared.containerListCache = cachedContainerLister
+
 		subscribeToContainerCreation(c, func(e event.Event) {
 			ev := e.(containerEvent.PutSuccess)
 

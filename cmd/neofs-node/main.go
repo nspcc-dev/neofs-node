@@ -152,3 +152,37 @@ func shutdown(c *cfg) {
 func (c *cfg) onShutdown(f func()) {
 	c.closers = append(c.closers, f)
 }
+
+func (c *cfg) restartMorph() error {
+	c.log.Info("restarting internal services because of RPC connection loss...")
+
+	c.shared.resetCaches()
+
+	epoch, ni, err := getNetworkState(c)
+	if err != nil {
+		return fmt.Errorf("getting network state: %w", err)
+	}
+
+	updateLocalState(c, epoch, ni)
+
+	// drop expired sessions if any has appeared while node was sleeping
+	c.shared.privateTokenStore.RemoveOld(epoch)
+
+	// bootstrap node after every reconnection cause the longevity of
+	// a connection downstate is unpredictable and bootstrap TX is a
+	// way to make a heartbeat so nothing is wrong in making sure the
+	// node is online (if it should be)
+
+	if !c.needBootstrap() || c.cfgNetmap.reBoostrapTurnedOff.Load() {
+		return nil
+	}
+
+	err = c.bootstrap()
+	if err != nil {
+		c.log.Warn("failed to re-bootstrap", zap.Error(err))
+	}
+
+	c.log.Info("internal services have been restarted after RPC connection loss")
+
+	return nil
+}

@@ -349,6 +349,11 @@ type shared struct {
 	putClientCache *cache.ClientCache
 	localAddr      network.AddressGroup
 
+	containerCache     *ttlContainerStorage
+	eaclCache          *ttlEACLStorage
+	containerListCache *ttlContainerLister
+	netmapCache        *lruNetmapSource
+
 	key            *keys.PrivateKey
 	binPublicKey   []byte
 	ownerIDFromKey user.ID // user ID calculated from key
@@ -369,6 +374,21 @@ type shared struct {
 	treeService *tree.Service
 
 	metricsCollector *metrics.NodeMetrics
+}
+
+func (s shared) resetCaches() {
+	if s.containerCache != nil {
+		s.containerCache.reset()
+	}
+	if s.eaclCache != nil {
+		s.eaclCache.reset()
+	}
+	if s.containerListCache != nil {
+		s.containerListCache.reset()
+	}
+	if s.netmapCache != nil {
+		s.netmapCache.reset()
+	}
 }
 
 // dynamicConfiguration stores parameters of the

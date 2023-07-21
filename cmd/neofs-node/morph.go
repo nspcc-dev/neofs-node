@@ -37,6 +37,12 @@ func initMorphComponents(c *cfg) {
 		client.WithEndpoints(addresses),
 		client.WithReconnectionRetries(morphconfig.ReconnectionRetriesNumber(c.appCfg)),
 		client.WithReconnectionsDelay(morphconfig.ReconnectionRetriesDelay(c.appCfg)),
+		client.WithConnSwitchCallback(func() {
+			err = c.restartMorph()
+			if err != nil {
+				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
+			}
+		}),
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),
@@ -84,8 +90,10 @@ func initMorphComponents(c *cfg) {
 	if c.cfgMorph.cacheTTL < 0 {
 		netmapSource = wrap
 	} else {
+		c.shared.netmapCache = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+
 		// use RPC node as source of netmap (with caching)
-		netmapSource = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
+		netmapSource = c.shared.netmapCache
 	}
 
 	c.netMapSource = netmapSource

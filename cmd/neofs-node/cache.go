@@ -129,6 +129,11 @@ func (c *ttlNetCache[K, V]) remove(key K) {
 	c.cache.Remove(key)
 }
 
+// reset removes every cached value.
+func (c *ttlNetCache[K, V]) reset() {
+	c.cache.Purge()
+}
+
 // entity that provides LRU cache interface.
 type lruNetCache struct {
 	cache *lru.Cache[uint64, *netmapSDK.NetMap]
@@ -168,6 +173,10 @@ func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
 	return val, nil
 }
 
+func (c *lruNetCache) reset() {
+	c.cache.Purge()
+}
+
 // wrapper over TTL cache of values read from the network
 // that implements container storage.
 type ttlContainerStorage struct {
@@ -197,6 +206,10 @@ func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
 	}
 
 	return val, nil
+}
+
+func (s *ttlContainerStorage) reset() {
+	s.tc.reset()
 }
 
 type ttlEACLStorage struct {
@@ -229,13 +242,17 @@ func (s *ttlEACLStorage) InvalidateEACL(cnr cid.ID) {
 	s.tc.remove(cnr)
 }
 
+func (s *ttlEACLStorage) reset() {
+	s.tc.reset()
+}
+
 type lruNetmapSource struct {
 	netState netmap.State
 
 	cache *lruNetCache
 }
 
-func newCachedNetmapStorage(s netmap.State, v netmap.Source) netmap.Source {
+func newCachedNetmapStorage(s netmap.State, v netmap.Source) *lruNetmapSource {
 	const netmapCacheSize = 10
 
 	return &lruNetmapSource{
@@ -265,6 +282,10 @@ func (s *lruNetmapSource) getNetMapByEpoch(epoch uint64) (*netmapSDK.NetMap, err
 
 func (s *lruNetmapSource) Epoch() (uint64, error) {
 	return s.netState.CurrentEpoch(), nil
+}
+
+func (s *lruNetmapSource) reset() {
+	s.cache.reset()
 }
 
 // wrapper over TTL cache of values read from the network
@@ -376,6 +397,10 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 		}
 	}
 	item.mtx.Unlock()
+}
+
+func (s *ttlContainerLister) reset() {
+	s.inner.reset()
 }
 
 type cachedIRFetcher struct {
