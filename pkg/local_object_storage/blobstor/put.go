@@ -1,12 +1,14 @@
 package blobstor
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"go.uber.org/zap"
 )
 
 // ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
@@ -42,6 +44,10 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 			res, err := b.storage[i].Storage.Put(prm)
 			if err == nil {
 				logOp(b.log, putOp, prm.Address, b.storage[i].Storage.Type(), res.StorageID)
+			} else if errors.Is(err, common.ErrNoSpace) {
+				b.log.Debug("blobstor sub-storage overflowed, will try another one",
+					zap.String("type", b.storage[i].Storage.Type()))
+				continue
 			}
 			return res, err
 		}
