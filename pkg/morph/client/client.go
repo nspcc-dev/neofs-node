@@ -16,6 +16,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
@@ -416,6 +418,30 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 	}
 
 	return result.State == vmstate.Halt.String(), nil
+}
+
+// AccountVote returns a key the provided account has voted with its NEO
+// tokens for. Nil key with no error is returned if the account has no NEO.
+func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	neoReader := neo.NewReader(invoker.New(c.client, nil))
+
+	state, err := neoReader.GetAccountState(addr)
+	if err != nil {
+		return nil, fmt.Errorf("can't get vote info: %w", err)
+	}
+
+	if state == nil {
+		return nil, nil
+	}
+
+	return state.VoteTo, nil
 }
 
 // NotificationChannel returns channel than receives subscribed
