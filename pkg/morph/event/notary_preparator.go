@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -70,6 +71,11 @@ type preparator struct {
 	alphaKeys client.AlphabetKeys
 
 	blockCounter BlockCounter
+
+	// cache for TX recursion; size limited because it is
+	// just an optimization, already handled TX are not gonna
+	// be signed once more anyway
+	alreadyHandledTXs *lru.Cache[util.Uint256, struct{}]
 }
 
 // notaryPreparator inits and returns preparator.
@@ -89,11 +95,15 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 
 	dummyInvocationScript := append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
 
+	const txCacheSize = 1000
+	cache, _ := lru.New[util.Uint256, struct{}](txCacheSize)
+
 	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
 		alphaKeys:             prm.AlphaKeys,
 		blockCounter:          prm.BlockCounter,
+		alreadyHandledTXs:     cache,
 	}
 }
 
@@ -105,6 +115,11 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 // from the Notary service but already signed. This happens
 // since every notary call is a new notary request in fact.
 func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
+	if _, ok := p.alreadyHandledTXs.Get(nr.MainTransaction.Hash()); ok {
+		// received already signed and sent TX
+		return nil, ErrTXAlreadyHandled
+	}
+
 	// notary request's main tx is expected to have
 	// three or four witnesses: one for proxy contract,
 	// one for alphabet multisignature, one optional for
@@ -211,6 +226,8 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		// without args packing opcodes
 		args = args[:len(args)-2]
 	}
+
+	p.alreadyHandledTXs.Add(nr.MainTransaction.Hash(), struct{}{})
 
 	return parsedNotaryEvent{
 		hash:       contractHash,
