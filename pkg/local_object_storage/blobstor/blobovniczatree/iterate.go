@@ -75,10 +75,12 @@ func (b *Blobovniczas) iterateSortedLeaves(addr *oid.Address, f func(string) (bo
 
 // iterator over directories with Blobovniczas sorted by weight.
 func (b *Blobovniczas) iterateDeepest(addr oid.Address, f func(string) (bool, error)) error {
-	depth := b.blzShallowDepth
-	if depth > 0 {
-		depth--
+	if b.blzShallowDepth == 0 {
+		_, err := f(".")
+		return err
 	}
+
+	depth := b.blzShallowDepth - 1
 
 	_, err := b.iterateSorted(
 		&addr,
