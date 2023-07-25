@@ -186,7 +186,13 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			name: "incorrect main TX attribute amount",
 			addW: false,
 			mTX: mTX{
-				attrs: []transaction.Attribute{{}, {}},
+				attrs: []transaction.Attribute{{
+					Type:  transaction.NotValidBeforeT,
+					Value: &transaction.NotaryAssisted{},
+				}, {
+					Type:  transaction.NotValidBeforeT,
+					Value: &transaction.NotaryAssisted{},
+				}},
 			},
 			expErr: errIncorrectAttributesAmount,
 		},
@@ -196,6 +202,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			mTX: mTX{
 				attrs: []transaction.Attribute{
 					{
+						Type: transaction.NotaryAssistedT,
 						Value: &transaction.NotaryAssisted{
 							NKeys: uint8(len(alphaKeys) + 1),
 						},
@@ -371,6 +378,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			mTX: mTX{
 				attrs: []transaction.Attribute{
 					{
+						Type: transaction.NotaryAssistedT,
 						Value: &transaction.NotaryAssisted{
 							NKeys: uint8(len(alphaKeys) + 2),
 						},
@@ -546,6 +554,7 @@ func correctNR(script []byte, dummyMultisig, additionalWitness bool) *payload.P2
 			Scripts: scripts,
 			Attributes: []transaction.Attribute{
 				{
+					Type: transaction.NotaryAssistedT,
 					Value: &transaction.NotaryAssisted{
 						NKeys: nKeys,
 					},
