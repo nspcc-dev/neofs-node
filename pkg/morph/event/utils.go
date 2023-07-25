@@ -28,6 +28,10 @@ type scriptHashWithType struct {
 
 type notaryRequestTypes struct {
 	notaryRequestMempoolType
+	notaryScriptWithHash
+}
+
+type notaryScriptWithHash struct {
 	notaryRequestType
 	scriptHashValue
 }

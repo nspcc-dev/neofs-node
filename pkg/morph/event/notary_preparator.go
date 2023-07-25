@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
@@ -43,6 +44,9 @@ var (
 
 	// ErrMainTXExpired is returned if received fallback TX is already valid.
 	ErrMainTXExpired = errors.New("received main tx has expired")
+
+	// ErrUnknownEvent is returned if main transaction is not expected.
+	ErrUnknownEvent = errors.New("received notary request is not allowed")
 )
 
 // BlockCounter must return block count of the network
@@ -76,6 +80,9 @@ type preparator struct {
 	// just an optimization, already handled TX are not gonna
 	// be signed once more anyway
 	alreadyHandledTXs *lru.Cache[util.Uint256, struct{}]
+
+	m             *sync.RWMutex
+	allowedEvents map[notaryScriptWithHash]struct{}
 }
 
 // notaryPreparator inits and returns preparator.
@@ -104,6 +111,8 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 		alphaKeys:             prm.AlphaKeys,
 		blockCounter:          prm.BlockCounter,
 		alreadyHandledTXs:     cache,
+		m:                     &sync.RWMutex{},
+		allowedEvents:         make(map[notaryScriptWithHash]struct{}),
 	}
 }
 
@@ -114,6 +123,9 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 // transaction is expected to be received one more time
 // from the Notary service but already signed. This happens
 // since every notary call is a new notary request in fact.
+//
+// Returns ErrUnknownEvent if main transactions is not an
+// expected contract call.
 func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	if _, ok := p.alreadyHandledTXs.Get(nr.MainTransaction.Hash()); ok {
 		// received already signed and sent TX
@@ -208,6 +220,18 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 
 	// retrieve contract's method
 	contractMethod := string(ops[opsLen-3].param)
+	eventType := NotaryTypeFromString(contractMethod)
+
+	p.m.RLock()
+	_, allowed := p.allowedEvents[notaryScriptWithHash{
+		scriptHashValue:   scriptHashValue{contractHash},
+		notaryRequestType: notaryRequestType{eventType},
+	}]
+	p.m.RUnlock()
+
+	if !allowed {
+		return nil, ErrUnknownEvent
+	}
 
 	// check if there is a call flag(must be in range [0:15))
 	callFlag := callflag.CallFlag(ops[opsLen-4].code - opcode.PUSH0)
@@ -231,10 +255,17 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 
 	return parsedNotaryEvent{
 		hash:       contractHash,
-		notaryType: NotaryTypeFromString(contractMethod),
+		notaryType: eventType,
 		params:     args,
 		raw:        nr,
 	}, nil
+}
+
+func (p preparator) allowNotaryEvent(filter notaryScriptWithHash) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	p.allowedEvents[filter] = struct{}{}
 }
 
 func (p preparator) validateParameterOpcodes(ops []Op) error {
