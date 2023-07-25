@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 ### Changed
 - CLI `--timeout` flag configures whole execution timeout from now (#2124)
 - CLI default timeout for commands with `--await` flag increased to 1m (#2124)
+- BlobStor tries to store object in any sub-storage with free space (#2450)
 
 ### Updated
 - `neofs-sdk-go` to `v1.0.0-rc.9`
