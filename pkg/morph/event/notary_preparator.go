@@ -50,7 +50,7 @@ type BlockCounter interface {
 	BlockCount() (res uint32, err error)
 }
 
-// PreparatorPrm groups the required parameters of the Preparator constructor.
+// PreparatorPrm groups the required parameters of the preparator constructor.
 type PreparatorPrm struct {
 	AlphaKeys client.AlphabetKeys
 
@@ -59,8 +59,9 @@ type PreparatorPrm struct {
 	BlockCounter BlockCounter
 }
 
-// Preparator implements NotaryPreparator interface.
-type Preparator struct {
+// preparator constructs NotaryEvent
+// from the NotaryRequest event.
+type preparator struct {
 	// contractSysCall contract call in NeoVM
 	contractSysCall []byte
 	// dummyInvocationScript is invocation script from TX that is not signed.
@@ -71,11 +72,11 @@ type Preparator struct {
 	blockCounter BlockCounter
 }
 
-// notaryPreparator inits and returns NotaryPreparator.
+// notaryPreparator inits and returns preparator.
 //
 // Considered to be used for preparing notary request
 // for parsing it by event.Listener.
-func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
+func notaryPreparator(prm PreparatorPrm) preparator {
 	switch {
 	case prm.AlphaKeys == nil:
 		panic("alphabet keys source must not be nil")
@@ -88,7 +89,7 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 
 	dummyInvocationScript := append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
 
-	return Preparator{
+	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
 		alphaKeys:             prm.AlphaKeys,
@@ -103,7 +104,7 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 // transaction is expected to be received one more time
 // from the Notary service but already signed. This happens
 // since every notary call is a new notary request in fact.
-func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
+func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	// notary request's main tx is expected to have
 	// three or four witnesses: one for proxy contract,
 	// one for alphabet multisignature, one optional for
@@ -219,7 +220,7 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	}, nil
 }
 
-func (p Preparator) validateParameterOpcodes(ops []Op) error {
+func (p preparator) validateParameterOpcodes(ops []Op) error {
 	l := len(ops)
 
 	if ops[l-1].code != opcode.PACK {
@@ -283,7 +284,7 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 	return nil
 }
 
-func (p Preparator) validateExpiration(fbTX *transaction.Transaction) error {
+func (p preparator) validateExpiration(fbTX *transaction.Transaction) error {
 	if len(fbTX.Attributes) != 3 {
 		return errIncorrectFBAttributesAmount
 	}
@@ -310,7 +311,7 @@ func (p Preparator) validateExpiration(fbTX *transaction.Transaction) error {
 	return nil
 }
 
-func (p Preparator) validateCosigners(expected int, s []transaction.Signer, alphaKeys keys.PublicKeys) error {
+func (p preparator) validateCosigners(expected int, s []transaction.Signer, alphaKeys keys.PublicKeys) error {
 	if len(s) != expected {
 		return errUnexpectedCosignersAmount
 	}
@@ -327,7 +328,7 @@ func (p Preparator) validateCosigners(expected int, s []transaction.Signer, alph
 	return nil
 }
 
-func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys, invokerWitness bool) error {
+func (p preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// the first one(proxy contract) must have empty
 	// witnesses
 	if len(w[0].VerificationScript)+len(w[0].InvocationScript) != 0 {
@@ -363,7 +364,7 @@ func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.Pu
 	return nil
 }
 
-func (p Preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys, invokerWitness bool) error {
+func (p preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// main tx must have exactly one attribute
 	if len(aa) != 1 {
 		return errIncorrectAttributesAmount

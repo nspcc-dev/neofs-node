@@ -101,7 +101,7 @@ type listener struct {
 	notificationHandlers map[scriptHashWithType][]Handler
 
 	listenNotary           bool
-	notaryEventsPreparator NotaryPreparator
+	notaryEventsPreparator preparator
 	notaryParsers          map[notaryRequestTypes]NotaryParser
 	notaryHandlers         map[notaryRequestTypes]Handler
 	notaryMainTXSigner     util.Uint160 // filter for notary subscription
