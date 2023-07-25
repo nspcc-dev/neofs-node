@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 - Embedded Neo contracts in `contracts` dir (#2391)
 - `dump-names` command for adm
 - `renew-domain` command for adm
+- Stored payload metric per container (#2116)
+- Stored payload metric per shard (#2023)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)

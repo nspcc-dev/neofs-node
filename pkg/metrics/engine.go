@@ -19,6 +19,8 @@ type (
 		rangeDuration                 prometheus.Counter
 		searchDuration                prometheus.Counter
 		listObjectsDuration           prometheus.Counter
+		containerSize                 prometheus.GaugeVec
+		payloadSize                   prometheus.GaugeVec
 	}
 )
 
@@ -102,6 +104,20 @@ func newEngineMetrics() engineMetrics {
 			Name:      "list_objects_duration",
 			Help:      "Accumulated duration of engine list objects operations",
 		})
+
+		containerSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "container_size",
+			Help:      "Accumulated size of all objects in a container",
+		}, []string{containerIDLabelKey})
+
+		payloadSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "payload_size",
+			Help:      "Accumulated size of all objects in a shard",
+		}, []string{shardIDLabelKey})
 	)
 
 	return engineMetrics{
@@ -116,6 +132,8 @@ func newEngineMetrics() engineMetrics {
 		rangeDuration:                 rangeDuration,
 		searchDuration:                searchDuration,
 		listObjectsDuration:           listObjectsDuration,
+		containerSize:                 *containerSize,
+		payloadSize:                   *payloadSize,
 	}
 }
 
@@ -131,6 +149,8 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.rangeDuration)
 	prometheus.MustRegister(m.searchDuration)
 	prometheus.MustRegister(m.listObjectsDuration)
+	prometheus.MustRegister(m.containerSize)
+	prometheus.MustRegister(m.payloadSize)
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
@@ -175,4 +195,16 @@ func (m engineMetrics) AddSearchDuration(d time.Duration) {
 
 func (m engineMetrics) AddListObjectsDuration(d time.Duration) {
 	m.listObjectsDuration.Add(float64(d))
+}
+
+func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {
+	m.containerSize.With(
+		prometheus.Labels{
+			containerIDLabelKey: cnrID,
+		},
+	).Add(float64(size))
+}
+
+func (m engineMetrics) AddToPayloadCounter(shardID string, size int64) {
+	m.payloadSize.With(prometheus.Labels{shardIDLabelKey: shardID}).Add(float64(size))
 }

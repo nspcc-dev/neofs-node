@@ -53,6 +53,12 @@ type MetricsWriter interface {
 	// type.
 	// Negative parameter must decrease the counter.
 	AddToObjectCounter(objectType string, delta int)
+	// AddToContainerSize must add a value to the container size.
+	// Value can be negative.
+	AddToContainerSize(cnr string, value int64)
+	// AddToPayloadSize must add a value to the payload size.
+	// Value can be negative.
+	AddToPayloadSize(value int64)
 	// IncObjectCounter must increment shard's object counter taking into account
 	// object type.
 	IncObjectCounter(objectType string)
@@ -323,7 +329,7 @@ const (
 	logical = "logic"
 )
 
-func (s *Shard) updateObjectCounter() {
+func (s *Shard) initMetrics() {
 	if s.cfg.metricsWriter != nil && !s.GetMode().NoMetabase() {
 		cc, err := s.metaBase.ObjectCounters()
 		if err != nil {
@@ -336,6 +342,28 @@ func (s *Shard) updateObjectCounter() {
 
 		s.cfg.metricsWriter.SetObjectCounter(physical, cc.Phy())
 		s.cfg.metricsWriter.SetObjectCounter(logical, cc.Logic())
+
+		cnrList, err := s.metaBase.Containers()
+		if err != nil {
+			s.log.Warn("meta: can't read container list", zap.Error(err))
+			return
+		}
+
+		var totalPayload uint64
+
+		for i := range cnrList {
+			size, err := s.metaBase.ContainerSize(cnrList[i])
+			if err != nil {
+				s.log.Warn("meta: can't read container size",
+					zap.String("cid", cnrList[i].EncodeToString()),
+					zap.Error(err))
+				continue
+			}
+			s.metricsWriter.AddToContainerSize(cnrList[i].EncodeToString(), int64(size))
+			totalPayload += size
+		}
+
+		s.metricsWriter.AddToPayloadSize(int64(totalPayload))
 	}
 }
 
@@ -351,5 +379,17 @@ func (s *Shard) incObjectCounter() {
 func (s *Shard) decObjectCounterBy(typ string, v uint64) {
 	if s.cfg.metricsWriter != nil {
 		s.cfg.metricsWriter.AddToObjectCounter(typ, -int(v))
+	}
+}
+
+func (s *Shard) addToContainerSize(cnr string, size int64) {
+	if s.cfg.metricsWriter != nil {
+		s.cfg.metricsWriter.AddToContainerSize(cnr, size)
+	}
+}
+
+func (s *Shard) addToPayloadCounter(size int64) {
+	if s.cfg.metricsWriter != nil {
+		s.cfg.metricsWriter.AddToPayloadSize(size)
 	}
 }

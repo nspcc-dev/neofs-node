@@ -43,6 +43,7 @@ type (
 const (
 	shardIDLabelKey     = "shard"
 	counterTypeLabelKey = "type"
+	containerIDLabelKey = "cid"
 )
 
 func newMethodCallCounter(name string) methodCount {
