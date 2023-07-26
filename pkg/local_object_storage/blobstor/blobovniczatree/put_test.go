@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	. "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
@@ -41,7 +42,7 @@ func TestSingleDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func benchmarkPutMN(b *testing.B, depth, width uint64) {
+func benchmarkPutMN(b *testing.B, depth, width uint64, parallel bool) {
 	nBlobovniczas := uint64(1)
 	for i := uint64(1); i <= depth+1; i++ {
 		nBlobovniczas *= width
@@ -68,27 +69,40 @@ func benchmarkPutMN(b *testing.B, depth, width uint64) {
 
 	rand.Read(prm.RawData)
 
+	var wg sync.WaitGroup
+
+	f := func(prm common.PutPrm) {
+		defer wg.Done()
+
+		var err error
+
+		for i := 0; i < b.N; i++ {
+			prm.Address = oidtest.Address()
+
+			_, err = bbcz.Put(prm)
+			if err != nil {
+				if errors.Is(err, common.ErrNoSpace) {
+					break
+				}
+				require.NoError(b, err)
+			}
+		}
+	}
+
+	nRoutine := 1
+	if parallel {
+		nRoutine = 20
+	}
+
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	var err error
-
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		prm.Address = oidtest.Address()
-		b.StartTimer()
-
-		_, err = bbcz.Put(prm)
-
-		b.StopTimer()
-		if err != nil {
-			if errors.Is(err, common.ErrNoSpace) {
-				break
-			}
-			require.NoError(b, err)
-		}
-		b.StartTimer()
+	for j := 0; j < nRoutine; j++ {
+		wg.Add(1)
+		go f(prm)
 	}
+
+	wg.Wait()
 }
 
 func BenchmarkBlobovniczas_Put(b *testing.B) {
@@ -101,7 +115,10 @@ func BenchmarkBlobovniczas_Put(b *testing.B) {
 		{4, 4},
 	} {
 		b.Run(fmt.Sprintf("tree=%dx%d", testCase.width, testCase.depth), func(b *testing.B) {
-			benchmarkPutMN(b, testCase.depth, testCase.width)
+			benchmarkPutMN(b, testCase.depth, testCase.width, false)
+		})
+		b.Run(fmt.Sprintf("tree=%dx%d_parallel", testCase.width, testCase.depth), func(b *testing.B) {
+			benchmarkPutMN(b, testCase.depth, testCase.width, true)
 		})
 	}
 }
