@@ -12,8 +12,8 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/rolemanagement"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 )
 
 // ProcessorPoolSize limits the pool size for governance Processor. Processor manages
@@ -55,7 +55,7 @@ type (
 
 	// Processor of events related to governance in the network.
 	Processor struct {
-		log          *logger.Logger
+		log          *zap.Logger
 		pool         *ants.Pool
 		neofsClient  *neofscontract.Client
 		netmapClient *nmClient.Client
@@ -73,7 +73,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log *logger.Logger
+		Log *zap.Logger
 
 		AlphabetState AlphabetState
 		EpochState    EpochState

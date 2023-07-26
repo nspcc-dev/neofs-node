@@ -12,8 +12,8 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 )
 
 type (
@@ -40,7 +40,7 @@ type (
 
 	// Processor of events related to data audit.
 	Processor struct {
-		log           *logger.Logger
+		log           *zap.Logger
 		pool          *ants.Pool
 		irList        Indexer
 		sgSrc         storagegroup.SGSource
@@ -57,7 +57,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log              *logger.Logger
+		Log              *zap.Logger
 		NetmapClient     *nmClient.Client
 		ContainerClient  *cntClient.Client
 		IRList           Indexer

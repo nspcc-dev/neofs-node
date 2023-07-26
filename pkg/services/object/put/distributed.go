@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -38,7 +37,7 @@ type distributedTarget struct {
 
 	fmt *object.FormatValidator
 
-	log *logger.Logger
+	log *zap.Logger
 }
 
 // parameters and state of container traversal.

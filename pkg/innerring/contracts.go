@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -29,7 +28,7 @@ type contracts struct {
 	alphabet alphabetContracts // in morph
 }
 
-func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
+func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -87,7 +86,7 @@ func initContracts(ctx context.Context, _logger *logger.Logger, cfg *viper.Viper
 	return result, nil
 }
 
-func parseAlphabetContracts(ctx *nnsContext, _logger *logger.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
+func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
 	var num GlagoliticLetter
 	const numConfigKey = "contracts.alphabet.amount"
 	if cfg.IsSet(numConfigKey) {
@@ -147,7 +146,7 @@ type nnsContext struct {
 	nnsDeployed bool
 }
 
-func parseContract(ctx *nnsContext, _logger *logger.Logger, cfg *viper.Viper, morph *client.Client, cfgName, nnsName string) (res util.Uint160, err error) {
+func parseContract(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, cfgName, nnsName string) (res util.Uint160, err error) {
 	if cfg.IsSet(cfgName) {
 		_logger.Debug("decoding configured contract...", zap.String("config key", cfgName))
 		return util.Uint160DecodeStringLE(cfg.GetString(cfgName))

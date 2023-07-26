@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -46,7 +45,7 @@ type reportContext struct {
 
 	ctrl *Controller
 
-	log *logger.Logger
+	log *zap.Logger
 
 	ctx common.Context
 }
@@ -75,9 +74,9 @@ func (c *Controller) acquireReport(epoch uint64) *reportContext {
 
 	c.mtx.Unlock()
 
-	log := &logger.Logger{Logger: c.opts.log.With(
+	log := c.opts.log.With(
 		zap.Uint64("epoch", epoch),
-	)}
+	)
 
 	if ctx == nil {
 		log.Debug("report is already started")
@@ -150,7 +149,7 @@ func (c *reportContext) report() {
 	c.log.Debug("reporting successfully finished")
 }
 
-func (c *Controller) freeReport(epoch uint64, log *logger.Logger) {
+func (c *Controller) freeReport(epoch uint64, log *zap.Logger) {
 	var stopped bool
 
 	c.mtx.Lock()
@@ -191,6 +190,6 @@ func (p *StopPrm) SetEpoch(e uint64) {
 func (c *Controller) Stop(prm StopPrm) {
 	c.freeReport(
 		prm.epoch,
-		&logger.Logger{Logger: c.opts.log.With(zap.Uint64("epoch", prm.epoch))},
+		c.opts.log.With(zap.Uint64("epoch", prm.epoch)),
 	)
 }

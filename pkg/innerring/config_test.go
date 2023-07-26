@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -129,7 +128,7 @@ func resetConfig(tb testing.TB, v *viper.Viper, key string) {
 
 func TestConfigParser(t *testing.T) {
 	fullConfig := true
-	_logger := &logger.Logger{Logger: zap.NewNop()}
+	_logger := zap.NewNop()
 
 	validCommittee, err := keys.NewPublicKeysFromStrings([]string{
 		"02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6",
@@ -143,7 +142,7 @@ func TestConfigParser(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, blockchain.Config{
-			Logger:       _logger.Logger,
+			Logger:       _logger,
 			NetworkMagic: 15405,
 			Committee:    validCommittee,
 			Storage:      blockchain.BoltDB("chain.db"),
@@ -156,7 +155,7 @@ func TestConfigParser(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, blockchain.Config{
-			Logger:        _logger.Logger,
+			Logger:        _logger,
 			NetworkMagic:  15405,
 			Committee:     validCommittee,
 			BlockInterval: time.Second,

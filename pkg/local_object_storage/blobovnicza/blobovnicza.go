@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -30,7 +29,7 @@ type cfg struct {
 
 	objSizeLimit uint64
 
-	log *logger.Logger
+	log *zap.Logger
 }
 
 type boltDBCfg struct {
@@ -51,7 +50,7 @@ func defaultCfg(c *cfg) {
 		},
 		fullSizeLimit: 1 << 30, // 1GB
 		objSizeLimit:  1 << 20, // 1MB
-		log:           &logger.Logger{Logger: zap.L()},
+		log:           zap.L(),
 	}
 }
 
@@ -100,9 +99,9 @@ func WithFullSizeLimit(lim uint64) Option {
 }
 
 // WithLogger returns an option to specify Blobovnicza's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "Blobovnicza"))}
+		c.log = l.With(zap.String("component", "Blobovnicza"))
 	}
 }
 

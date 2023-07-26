@@ -6,7 +6,6 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -27,7 +26,7 @@ type execCtx struct {
 
 	statusError
 
-	log *logger.Logger
+	log *zap.Logger
 
 	tombstone *object.Tombstone
 
@@ -41,14 +40,14 @@ const (
 	statusOK
 )
 
-func (exec *execCtx) setLogger(l *logger.Logger) {
-	exec.log = &logger.Logger{Logger: l.With(
+func (exec *execCtx) setLogger(l *zap.Logger) {
+	exec.log = l.With(
 		zap.String("request", "DELETE"),
 		zap.Stringer("address", exec.address()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)}
+	)
 }
 
 func (exec execCtx) context() context.Context {

@@ -23,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -44,7 +43,7 @@ import (
 type Client struct {
 	cache cache
 
-	logger *logger.Logger // logging component
+	logger *zap.Logger // logging component
 
 	client   *rpcclient.WSClient // neo-go websocket client
 	rpcActor *actor.Actor        // neo-go RPC actor

@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust"
 	eigencalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
 	consumerstorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/storage/consumers"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +14,7 @@ var ErrIncorrectContextPanicMsg = "could not write intermediate trust: passed co
 // ConsumerStorageWriterProvider is an implementation of the reputation.WriterProvider
 // interface that provides ConsumerTrustWriter writer.
 type ConsumerStorageWriterProvider struct {
-	Log     *logger.Logger
+	Log     *zap.Logger
 	Storage *consumerstorage.Storage
 }
 
@@ -23,7 +22,7 @@ type ConsumerStorageWriterProvider struct {
 // that writes passed consumer's Trust values to the Consumer storage. After writing
 // that, values can be used in eigenTrust algorithm's iterations.
 type ConsumerTrustWriter struct {
-	log     *logger.Logger
+	log     *zap.Logger
 	storage *consumerstorage.Storage
 	eiCtx   eigencalc.Context
 }

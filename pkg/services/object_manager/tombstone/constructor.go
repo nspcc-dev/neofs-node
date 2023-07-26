@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -12,7 +11,7 @@ import (
 const defaultLRUCacheSize = 100
 
 type cfg struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	cacheSize int
 
@@ -24,7 +23,7 @@ type Option func(*cfg)
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log:       &logger.Logger{Logger: zap.NewNop()},
+		log:       zap.NewNop(),
 		cacheSize: defaultLRUCacheSize,
 	}
 }
@@ -63,7 +62,7 @@ func NewChecker(oo ...Option) *ExpirationChecker {
 
 // WithLogger returns an option to specify
 // logger.
-func WithLogger(v *logger.Logger) Option {
+func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = v
 	}

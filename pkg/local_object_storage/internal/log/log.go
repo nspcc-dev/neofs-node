@@ -1,7 +1,6 @@
 package storagelog
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -9,7 +8,7 @@ import (
 const headMsg = "local object storage operation"
 
 // Write writes message about storage engine's operation to logger.
-func Write(logger *logger.Logger, fields ...zap.Field) {
+func Write(logger *zap.Logger, fields ...zap.Field) {
 	logger.Info(headMsg, fields...)
 }
 

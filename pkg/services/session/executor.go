@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -16,11 +15,11 @@ type ServiceExecutor interface {
 type executorSvc struct {
 	exec ServiceExecutor
 
-	log *logger.Logger
+	log *zap.Logger
 }
 
 // NewExecutionService wraps ServiceExecutor and returns Session Service interface.
-func NewExecutionService(exec ServiceExecutor, l *logger.Logger) Server {
+func NewExecutionService(exec ServiceExecutor, l *zap.Logger) Server {
 	return &executorSvc{
 		exec: exec,
 		log:  l,

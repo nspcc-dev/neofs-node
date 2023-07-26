@@ -8,7 +8,6 @@ import (
 	"time"
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -104,8 +103,8 @@ func serveGRPC(c *cfg) {
 	}
 }
 
-func stopGRPC(name string, s *grpc.Server, l *logger.Logger) {
-	l = &logger.Logger{Logger: l.With(zap.String("name", name))}
+func stopGRPC(name string, s *grpc.Server, l *zap.Logger) {
+	l = l.With(zap.String("name", name))
 
 	l.Info("stopping gRPC server...")
 

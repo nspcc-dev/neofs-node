@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	eigentrustcalc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/eigentrust/calculator"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	reputationapi "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
 )
@@ -21,7 +20,7 @@ import (
 // failure (error or panic depending on the implementation).
 type RemoteProviderPrm struct {
 	Key *ecdsa.PrivateKey
-	Log *logger.Logger
+	Log *zap.Logger
 }
 
 // NewRemoteProvider creates a new instance of the RemoteProvider.
@@ -47,7 +46,7 @@ func NewRemoteProvider(prm RemoteProviderPrm) *RemoteProvider {
 // RemoteProvider is an implementation of the clientKeyRemoteProvider interface.
 type RemoteProvider struct {
 	key *ecdsa.PrivateKey
-	log *logger.Logger
+	log *zap.Logger
 }
 
 func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.WriterProvider {
@@ -61,7 +60,7 @@ func (rp RemoteProvider) WithClient(c coreclient.Client) reputationcommon.Writer
 type TrustWriterProvider struct {
 	client coreclient.Client
 	key    *ecdsa.PrivateKey
-	log    *logger.Logger
+	log    *zap.Logger
 }
 
 func (twp *TrustWriterProvider) InitWriter(ctx reputationcommon.Context) (reputationcommon.Writer, error) {
@@ -83,7 +82,7 @@ type RemoteTrustWriter struct {
 	eiCtx  eigentrustcalc.Context
 	client coreclient.Client
 	key    *ecdsa.PrivateKey
-	log    *logger.Logger
+	log    *zap.Logger
 }
 
 // Write sends a trust value to a remote node via ReputationService.AnnounceIntermediateResult RPC.

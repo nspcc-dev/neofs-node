@@ -12,10 +12,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -47,14 +47,17 @@ func main() {
 	cfg, err := newConfig(*configFile)
 	exitErr(err)
 
-	var logPrm logger.Prm
-
-	err = logPrm.SetLevelString(
-		cfg.GetString("logger.level"),
-	)
+	logLevel, err := zap.ParseAtomicLevel(cfg.GetString("logger.level"))
 	exitErr(err)
 
-	log, err := logger.NewLogger(&logPrm)
+	c := zap.NewProductionConfig()
+	c.Level = logLevel
+	c.Encoding = "console"
+	c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	log, err := c.Build(
+		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
+	)
 	exitErr(err)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -107,7 +110,7 @@ func main() {
 	log.Info("application stopped")
 }
 
-func initHTTPServers(cfg *viper.Viper, log *logger.Logger) []*httputil.Server {
+func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
 	items := []struct {
 		cfgPrefix string
 		handler   func() http.Handler

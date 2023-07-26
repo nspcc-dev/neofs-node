@@ -4,11 +4,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 // WithLogger returns option to set logger.
-func WithLogger(v *logger.Logger) Option {
+func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = v
 	}

@@ -8,7 +8,7 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 type clientCache interface {
@@ -32,7 +32,7 @@ type remoteTrustProvider struct {
 	deadEndProvider reputationcommon.WriterProvider
 	clientCache     clientCache
 	remoteProvider  clientKeyRemoteProvider
-	log             *logger.Logger
+	log             *zap.Logger
 }
 
 // RemoteProviderPrm groups the required parameters of the remoteTrustProvider's constructor.
@@ -45,7 +45,7 @@ type RemoteProviderPrm struct {
 	DeadEndProvider reputationcommon.WriterProvider
 	ClientCache     clientCache
 	WriterProvider  clientKeyRemoteProvider
-	Log             *logger.Logger
+	Log             *zap.Logger
 }
 
 func NewRemoteTrustProvider(prm RemoteProviderPrm) reputationrouter.RemoteWriterProvider {

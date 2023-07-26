@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -91,7 +90,7 @@ type cfg struct {
 
 	piloramaOpts []pilorama.Option
 
-	log *logger.Logger
+	log *zap.Logger
 
 	gcCfg gcCfg
 
@@ -111,7 +110,7 @@ type cfg struct {
 func defaultCfg() *cfg {
 	return &cfg{
 		rmBatchSize:     100,
-		log:             &logger.Logger{Logger: zap.L()},
+		log:             zap.L(),
 		gcCfg:           defaultGCCfg(),
 		reportErrorFunc: func(string, string, error) {},
 	}
@@ -194,7 +193,7 @@ func WithPiloramaOptions(opts ...pilorama.Option) Option {
 }
 
 // WithLogger returns option to set Shard's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
 		c.gcCfg.log = l

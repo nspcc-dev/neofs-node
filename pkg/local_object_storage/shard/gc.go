@@ -8,7 +8,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -78,7 +77,7 @@ type gc struct {
 type gcCfg struct {
 	removerInterval time.Duration
 
-	log *logger.Logger
+	log *zap.Logger
 
 	workerPoolInit func(int) util.WorkerPool
 }
@@ -86,7 +85,7 @@ type gcCfg struct {
 func defaultGCCfg() gcCfg {
 	return gcCfg{
 		removerInterval: 10 * time.Second,
-		log:             &logger.Logger{Logger: zap.L()},
+		log:             zap.L(),
 		workerPoolInit: func(int) util.WorkerPool {
 			return nil
 		},

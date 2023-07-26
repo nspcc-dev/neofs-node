@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -29,7 +28,7 @@ type blob interface {
 }
 
 type options struct {
-	log *logger.Logger
+	log *zap.Logger
 	// path is a path to a directory for write-cache.
 	path string
 	// blobstor is the main persistent storage.
@@ -58,9 +57,9 @@ type options struct {
 }
 
 // WithLogger sets logger.
-func WithLogger(log *logger.Logger) Option {
+func WithLogger(log *zap.Logger) Option {
 	return func(o *options) {
-		o.log = &logger.Logger{Logger: log.With(zap.String("component", "WriteCache"))}
+		o.log = log.With(zap.String("component", "WriteCache"))
 	}
 }
 

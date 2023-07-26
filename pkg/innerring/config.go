@@ -14,9 +14,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // checks if Inner Ring app is configured to be launched in local consensus
@@ -25,7 +25,7 @@ func isLocalConsensusMode(cfg *viper.Viper) bool {
 	return !cfg.IsSet("morph.endpoints")
 }
 
-func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain.Config, err error) {
+func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Config, err error) {
 	const rootSection = "morph.consensus"
 
 	if !v.IsSet(rootSection) {
@@ -257,7 +257,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *logger.Logger) (c blockchain
 		}
 	}
 
-	c.Logger = _logger.Logger
+	c.Logger = _logger
 
 	return c, nil
 }

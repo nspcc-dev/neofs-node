@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 // Prm groups the required parameters of the Router's constructor.
@@ -41,7 +41,7 @@ type Prm struct {
 // and optional components. After successful creation,
 // the Router is immediately ready to work through API.
 type Router struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	remoteProvider RemoteWriterProvider
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -19,7 +18,7 @@ func TestGeneric(t *testing.T) {
 
 	helper := func(t *testing.T, dir string) common.Storage {
 		return NewBlobovniczaTree(
-			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			WithLogger(zaptest.NewLogger(t)),
 			WithObjectSizeLimit(maxObjectSize),
 			WithBlobovniczaShallowWidth(2),
 			WithBlobovniczaShallowDepth(2),
@@ -52,7 +51,7 @@ func TestControl(t *testing.T) {
 	newTree := func(t *testing.T) common.Storage {
 		dir := filepath.Join(t.Name(), strconv.Itoa(n))
 		return NewBlobovniczaTree(
-			WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			WithLogger(zaptest.NewLogger(t)),
 			WithObjectSizeLimit(maxObjectSize),
 			WithBlobovniczaShallowWidth(2),
 			WithBlobovniczaShallowDepth(2),

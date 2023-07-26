@@ -11,16 +11,14 @@ import (
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap/zapcore"
 )
 
 // validateConfig validates storage node configuration.
 func validateConfig(c *config.Config) error {
 	// logger configuration validation
 
-	var loggerPrm logger.Prm
-
-	err := loggerPrm.SetLevelString(loggerconfig.Level(c))
+	_, err := zapcore.ParseLevel(loggerconfig.Level(c))
 	if err != nil {
 		return fmt.Errorf("invalid logger level: %w", err)
 	}

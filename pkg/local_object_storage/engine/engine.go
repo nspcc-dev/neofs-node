@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -195,7 +194,7 @@ func isLogical(err error) bool {
 type Option func(*cfg)
 
 type cfg struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	errorsThreshold uint32
 
@@ -206,7 +205,7 @@ type cfg struct {
 
 func defaultCfg() *cfg {
 	return &cfg{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 
 		shardPoolSize: 20,
 	}
@@ -231,7 +230,7 @@ func New(opts ...Option) *StorageEngine {
 }
 
 // WithLogger returns option to set StorageEngine's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
 	}

@@ -47,7 +47,6 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
@@ -61,7 +60,7 @@ type (
 	// Server is the inner ring application structure that contains all event
 	// processors, shared variables and event handlers.
 	Server struct {
-		log *logger.Logger
+		log *zap.Logger
 
 		bc *blockchain.Blockchain
 
@@ -131,7 +130,7 @@ type (
 	}
 
 	chainParams struct {
-		log  *logger.Logger
+		log  *zap.Logger
 		cfg  *viper.Viper
 		key  *keys.PrivateKey
 		name string
@@ -323,7 +322,7 @@ func (s *Server) registerStarter(f func() error) {
 }
 
 // New creates instance of inner ring sever structure.
-func New(ctx context.Context, log *logger.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
+func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
 	var err error
 	server := &Server{log: log}
 
@@ -977,7 +976,7 @@ func createListener(ctx context.Context, cli *client.Client, p chainParams) (eve
 	}
 
 	listener, err := event.NewListener(event.ListenerParams{
-		Logger:             &logger.Logger{Logger: p.log.With(zap.String("chain", p.name))},
+		Logger:             p.log.With(zap.String("chain", p.name)),
 		Subscriber:         sub,
 		WorkerPoolCapacity: listenerPoolCap,
 	})

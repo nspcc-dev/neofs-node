@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -54,14 +53,14 @@ type cfg struct {
 
 	clientConstructor ClientConstructor
 
-	log *logger.Logger
+	log *zap.Logger
 }
 
 func defaultCfg() *cfg {
 	return &cfg{
 		remotePool: util.NewPseudoWorkerPool(),
 		localPool:  util.NewPseudoWorkerPool(),
-		log:        &logger.Logger{Logger: zap.L()},
+		log:        zap.L(),
 	}
 }
 
@@ -141,7 +140,7 @@ func WithClientConstructor(v ClientConstructor) Option {
 	}
 }
 
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
 	}

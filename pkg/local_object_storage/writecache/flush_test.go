@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -57,7 +56,7 @@ func TestFlush(t *testing.T) {
 
 		wc := New(
 			append([]Option{
-				WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+				WithLogger(zaptest.NewLogger(t)),
 				WithPath(filepath.Join(dir, "writecache")),
 				WithSmallObjectSize(smallSize),
 				WithMetabase(mb),

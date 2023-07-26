@@ -8,7 +8,6 @@ import (
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -26,7 +25,7 @@ type (
 
 	// Processor of events produced by balance contract in the morphchain.
 	Processor struct {
-		log           *logger.Logger
+		log           *zap.Logger
 		pool          *ants.Pool
 		neofsClient   *neofscontract.Client
 		balanceSC     util.Uint160
@@ -36,7 +35,7 @@ type (
 
 	// Params of the processor constructor.
 	Params struct {
-		Log           *logger.Logger
+		Log           *zap.Logger
 		PoolSize      int
 		NeoFSClient   *neofscontract.Client
 		BalanceSC     util.Uint160

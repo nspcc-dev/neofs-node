@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -42,7 +41,7 @@ func TestInitializationFailure(t *testing.T) {
 
 		return []shard.Option{
 			shard.WithID(sid),
-			shard.WithLogger(&logger.Logger{Logger: zaptest.NewLogger(t)}),
+			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(
 					newStorages(c.blobstor, 1<<20))),

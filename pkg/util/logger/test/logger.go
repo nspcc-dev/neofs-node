@@ -1,7 +1,6 @@
 package test
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -11,9 +10,8 @@ const sampling = 1000
 // NewLogger creates a new logger.
 //
 // If debug, development logger is created.
-func NewLogger(debug bool) *logger.Logger {
-	var l logger.Logger
-	l.Logger = zap.L()
+func NewLogger(debug bool) *zap.Logger {
+	l := zap.L()
 
 	if debug {
 		cfg := zap.NewDevelopmentConfig()
@@ -29,8 +27,8 @@ func NewLogger(debug bool) *logger.Logger {
 			panic("could not prepare logger: " + err.Error())
 		}
 
-		l.Logger = log
+		return log
 	}
 
-	return &l
+	return l
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +20,7 @@ type Option func(*cfg)
 type cfg struct {
 	putTimeout time.Duration
 
-	log *logger.Logger
+	log *zap.Logger
 
 	remoteSender *putsvc.RemoteSender
 
@@ -40,7 +39,7 @@ func New(opts ...Option) *Replicator {
 		opts[i](c)
 	}
 
-	c.log = &logger.Logger{Logger: c.log.With(zap.String("component", "Object Replicator"))}
+	c.log = c.log.With(zap.String("component", "Object Replicator"))
 
 	return &Replicator{
 		cfg: c,
@@ -55,7 +54,7 @@ func WithPutTimeout(v time.Duration) Option {
 }
 
 // WithLogger returns option to set Logger of Replicator.
-func WithLogger(v *logger.Logger) Option {
+func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = v
 	}

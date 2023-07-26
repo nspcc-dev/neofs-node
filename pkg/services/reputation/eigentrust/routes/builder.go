@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
+	"go.uber.org/zap"
 )
 
 // Prm groups the required parameters of the Builder's constructor.
@@ -18,7 +18,7 @@ type Prm struct {
 	// Must not be nil.
 	ManagerBuilder common.ManagerBuilder
 
-	Log *logger.Logger
+	Log *zap.Logger
 }
 
 // Builder represents component that routes node to its managers.
@@ -29,7 +29,7 @@ type Prm struct {
 // the Builder is immediately ready to work through API.
 type Builder struct {
 	managerBuilder common.ManagerBuilder
-	log            *logger.Logger
+	log            *zap.Logger
 }
 
 const invalidPrmValFmt = "invalid parameter %s (%T):%v"

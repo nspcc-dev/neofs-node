@@ -6,7 +6,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -41,12 +40,12 @@ type Option func(*cfg)
 
 type cfg struct {
 	compression compression.Config
-	log         *logger.Logger
+	log         *zap.Logger
 	storage     []SubStorage
 }
 
 func initConfig(c *cfg) {
-	c.log = &logger.Logger{Logger: zap.L()}
+	c.log = zap.L()
 }
 
 // New creates, initializes and returns new BlobStor instance.
@@ -66,7 +65,7 @@ func New(opts ...Option) *BlobStor {
 }
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
-func (b *BlobStor) SetLogger(l *logger.Logger) {
+func (b *BlobStor) SetLogger(l *zap.Logger) {
 	b.log = l
 }
 
@@ -78,9 +77,9 @@ func WithStorages(st []SubStorage) Option {
 }
 
 // WithLogger returns option to specify BlobStor's logger.
-func WithLogger(l *logger.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
-		c.log = &logger.Logger{Logger: l.With(zap.String("component", "BlobStor"))}
+		c.log = l.With(zap.String("component", "BlobStor"))
 	}
 }
 

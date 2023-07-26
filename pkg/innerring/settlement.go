@@ -15,7 +15,6 @@ import (
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -32,7 +31,7 @@ const (
 )
 
 type settlementDeps struct {
-	log *logger.Logger
+	log *zap.Logger
 
 	cnrSrc container.Source
 

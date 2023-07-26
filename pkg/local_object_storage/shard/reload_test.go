@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -26,7 +25,7 @@ func TestShardReload(t *testing.T) {
 	p := t.Name()
 	defer os.RemoveAll(p)
 
-	l := &logger.Logger{Logger: zaptest.NewLogger(t)}
+	l := zaptest.NewLogger(t)
 	blobOpts := []blobstor.Option{
 		blobstor.WithLogger(l),
 		blobstor.WithStorages([]blobstor.SubStorage{

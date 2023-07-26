@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/hrw"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/util/logger"
 	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"go.uber.org/zap"
@@ -15,7 +14,7 @@ import (
 // It sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
 type managerBuilder struct {
-	log   *logger.Logger
+	log   *zap.Logger
 	nmSrc netmapcore.Source
 	opts  *mngOptions
 }
@@ -111,19 +110,19 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([
 }
 
 type mngOptions struct {
-	log *logger.Logger
+	log *zap.Logger
 }
 
 type MngOption func(*mngOptions)
 
 func defaultMngOpts() *mngOptions {
 	return &mngOptions{
-		log: &logger.Logger{Logger: zap.L()},
+		log: zap.L(),
 	}
 }
 
 // WithLogger returns MngOption to specify logging component.
-func WithLogger(l *logger.Logger) MngOption {
+func WithLogger(l *zap.Logger) MngOption {
 	return func(o *mngOptions) {
 		if l != nil {
 			o.log = l
