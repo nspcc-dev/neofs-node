@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
@@ -108,13 +109,21 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		return nil
 	}
 
+	voted, err := s.alreadyVoted(validators)
+	if err != nil {
+		return fmt.Errorf("could not check validators state: %w", err)
+	}
+
+	if voted {
+		return nil
+	}
+
 	epoch := s.EpochCounter()
 
 	var (
 		nonce uint32 = 1
 		vub   uint32
 		vubP  *uint32
-		err   error
 	)
 
 	if prm.Hash != nil {
@@ -136,6 +145,30 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 	})
 
 	return nil
+}
+
+func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
+	currentValidators := make(map[keys.PublicKey]struct{}, len(s.contracts.alphabet))
+	for letter, contract := range s.contracts.alphabet {
+		validator, err := s.morphClient.AccountVote(contract)
+		if err != nil {
+			return false, fmt.Errorf("receiving %s's vote: %w", letter, err)
+		}
+
+		if validator == nil {
+			continue
+		}
+
+		currentValidators[*validator] = struct{}{}
+	}
+
+	for _, v := range validatorsToVote {
+		if _, voted := currentValidators[*v]; !voted {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // VoteForSidechainValidator calls vote method on alphabet contracts with
