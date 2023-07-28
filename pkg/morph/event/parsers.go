@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 )
 
 // NotificationParser is a function that constructs Event
@@ -18,12 +17,6 @@ type NotificationParserInfo struct {
 	scriptHashWithType
 
 	p NotificationParser
-}
-
-// NotaryPreparator constructs NotaryEvent
-// from the NotaryRequest event.
-type NotaryPreparator interface {
-	Prepare(*payload.P2PNotaryRequest) (NotaryEvent, error)
 }
 
 // NotaryParser is a function that constructs Event

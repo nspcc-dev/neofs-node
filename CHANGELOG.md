@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - `neo-go` RPC connection loss handling (#1337)
 - Concurrent morph cache misses (#1248)
 - Double voting for validators on IR startup (#2365)
+- Skip unexpected notary events on notary request parsing step (#2315)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)

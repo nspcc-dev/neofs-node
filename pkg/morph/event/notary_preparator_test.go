@@ -2,6 +2,7 @@ package event
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm"
@@ -20,6 +21,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/stretchr/testify/require"
 )
+
+const contractMethod = "test"
 
 var (
 	alphaKeys      keys.PublicKeys
@@ -63,12 +66,17 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 		},
 	)
 
+	preparator.allowNotaryEvent(notaryScriptWithHash{
+		notaryRequestType: notaryRequestType{contractMethod},
+		scriptHashValue:   scriptHashValue{scriptHash},
+	})
+
 	for _, dummyMultisig := range []bool{true, false} { // try both empty and dummy multisig/Notary invocation witness script
 		t.Run(fmt.Sprintf("not contract call, compat: %t", dummyMultisig), func(t *testing.T) {
 			bw := io.NewBufBinWriter()
 
 			emit.Int(bw.BinWriter, 4)
-			emit.String(bw.BinWriter, "test")
+			emit.String(bw.BinWriter, contractMethod)
 			emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
 			emit.Syscall(bw.BinWriter, interopnames.SystemContractCallNative) // any != interopnames.SystemContractCall
 
@@ -83,7 +91,7 @@ func TestPrepare_IncorrectScript(t *testing.T) {
 			bw := io.NewBufBinWriter()
 
 			emit.Int(bw.BinWriter, -1)
-			emit.String(bw.BinWriter, "test")
+			emit.String(bw.BinWriter, contractMethod)
 			emit.Bytes(bw.BinWriter, scriptHash.BytesBE())
 			emit.Syscall(bw.BinWriter, interopnames.SystemContractCall)
 
@@ -186,7 +194,13 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			name: "incorrect main TX attribute amount",
 			addW: false,
 			mTX: mTX{
-				attrs: []transaction.Attribute{{}, {}},
+				attrs: []transaction.Attribute{{
+					Type:  transaction.NotValidBeforeT,
+					Value: &transaction.NotaryAssisted{},
+				}, {
+					Type:  transaction.NotValidBeforeT,
+					Value: &transaction.NotaryAssisted{},
+				}},
 			},
 			expErr: errIncorrectAttributesAmount,
 		},
@@ -196,6 +210,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			mTX: mTX{
 				attrs: []transaction.Attribute{
 					{
+						Type: transaction.NotaryAssistedT,
 						Value: &transaction.NotaryAssisted{
 							NKeys: uint8(len(alphaKeys) + 1),
 						},
@@ -371,6 +386,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			mTX: mTX{
 				attrs: []transaction.Attribute{
 					{
+						Type: transaction.NotaryAssistedT,
 						Value: &transaction.NotaryAssisted{
 							NKeys: uint8(len(alphaKeys) + 2),
 						},
@@ -440,14 +456,20 @@ func TestPrepare_CorrectNR(t *testing.T) {
 
 	for _, test := range tests {
 		for i := 0; i < 1; i++ { // run tests against 3 and 4 witness NR
-			for _, dummyMultisig := range []bool{true, false} { // run tests against empty and dummy multisig/Notary witness
+			for j, dummyMultisig := range []bool{true, false} { // run tests against empty and dummy multisig/Notary witness
+				method := test.method + strconv.FormatInt(int64(j), 10)
+				preparator.allowNotaryEvent(notaryScriptWithHash{
+					notaryRequestType: notaryRequestType{NotaryTypeFromString(method)},
+					scriptHashValue:   scriptHashValue{scriptHash},
+				})
+
 				additionalWitness := i == 0
-				nr := correctNR(script(test.hash, test.method, test.args...), dummyMultisig, additionalWitness)
+				nr := correctNR(script(test.hash, method, test.args...), dummyMultisig, additionalWitness)
 
 				event, err := preparator.Prepare(nr)
 
 				require.NoError(t, err)
-				require.Equal(t, test.method, event.Type().String())
+				require.Equal(t, method, event.Type().String())
 				require.Equal(t, test.hash.StringLE(), event.ScriptHash().StringLE())
 
 				// check args parsing
@@ -478,6 +500,20 @@ func TestPrepare_CorrectNR(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestNotAllowedEvents(t *testing.T) {
+	preparator := notaryPreparator(
+		PreparatorPrm{
+			alphaKeysSource(),
+			blockCounter{100, nil},
+		},
+	)
+
+	nr := correctNR(script(scriptHash, "test1", nil), false, false)
+
+	_, err := preparator.Prepare(nr)
+	require.ErrorIs(t, err, ErrUnknownEvent)
 }
 
 func alphaKeysSource() client.AlphabetKeys {
@@ -546,6 +582,7 @@ func correctNR(script []byte, dummyMultisig, additionalWitness bool) *payload.P2
 			Scripts: scripts,
 			Attributes: []transaction.Attribute{
 				{
+					Type: transaction.NotaryAssistedT,
 					Value: &transaction.NotaryAssisted{
 						NKeys: nKeys,
 					},

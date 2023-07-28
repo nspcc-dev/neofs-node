@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -42,6 +44,9 @@ var (
 
 	// ErrMainTXExpired is returned if received fallback TX is already valid.
 	ErrMainTXExpired = errors.New("received main tx has expired")
+
+	// ErrUnknownEvent is returned if main transaction is not expected.
+	ErrUnknownEvent = errors.New("received notary request is not allowed")
 )
 
 // BlockCounter must return block count of the network
@@ -50,7 +55,7 @@ type BlockCounter interface {
 	BlockCount() (res uint32, err error)
 }
 
-// PreparatorPrm groups the required parameters of the Preparator constructor.
+// PreparatorPrm groups the required parameters of the preparator constructor.
 type PreparatorPrm struct {
 	AlphaKeys client.AlphabetKeys
 
@@ -59,8 +64,9 @@ type PreparatorPrm struct {
 	BlockCounter BlockCounter
 }
 
-// Preparator implements NotaryPreparator interface.
-type Preparator struct {
+// preparator constructs NotaryEvent
+// from the NotaryRequest event.
+type preparator struct {
 	// contractSysCall contract call in NeoVM
 	contractSysCall []byte
 	// dummyInvocationScript is invocation script from TX that is not signed.
@@ -69,13 +75,21 @@ type Preparator struct {
 	alphaKeys client.AlphabetKeys
 
 	blockCounter BlockCounter
+
+	// cache for TX recursion; size limited because it is
+	// just an optimization, already handled TX are not gonna
+	// be signed once more anyway
+	alreadyHandledTXs *lru.Cache[util.Uint256, struct{}]
+
+	m             *sync.RWMutex
+	allowedEvents map[notaryScriptWithHash]struct{}
 }
 
-// notaryPreparator inits and returns NotaryPreparator.
+// notaryPreparator inits and returns preparator.
 //
 // Considered to be used for preparing notary request
 // for parsing it by event.Listener.
-func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
+func notaryPreparator(prm PreparatorPrm) preparator {
 	switch {
 	case prm.AlphaKeys == nil:
 		panic("alphabet keys source must not be nil")
@@ -88,11 +102,17 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 
 	dummyInvocationScript := append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
 
-	return Preparator{
+	const txCacheSize = 1000
+	cache, _ := lru.New[util.Uint256, struct{}](txCacheSize)
+
+	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
 		alphaKeys:             prm.AlphaKeys,
 		blockCounter:          prm.BlockCounter,
+		alreadyHandledTXs:     cache,
+		m:                     &sync.RWMutex{},
+		allowedEvents:         make(map[notaryScriptWithHash]struct{}),
 	}
 }
 
@@ -103,7 +123,15 @@ func notaryPreparator(prm PreparatorPrm) NotaryPreparator {
 // transaction is expected to be received one more time
 // from the Notary service but already signed. This happens
 // since every notary call is a new notary request in fact.
-func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
+//
+// Returns ErrUnknownEvent if main transactions is not an
+// expected contract call.
+func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
+	if _, ok := p.alreadyHandledTXs.Get(nr.MainTransaction.Hash()); ok {
+		// received already signed and sent TX
+		return nil, ErrTXAlreadyHandled
+	}
+
 	// notary request's main tx is expected to have
 	// three or four witnesses: one for proxy contract,
 	// one for alphabet multisignature, one optional for
@@ -192,6 +220,18 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 
 	// retrieve contract's method
 	contractMethod := string(ops[opsLen-3].param)
+	eventType := NotaryTypeFromString(contractMethod)
+
+	p.m.RLock()
+	_, allowed := p.allowedEvents[notaryScriptWithHash{
+		scriptHashValue:   scriptHashValue{contractHash},
+		notaryRequestType: notaryRequestType{eventType},
+	}]
+	p.m.RUnlock()
+
+	if !allowed {
+		return nil, ErrUnknownEvent
+	}
 
 	// check if there is a call flag(must be in range [0:15))
 	callFlag := callflag.CallFlag(ops[opsLen-4].code - opcode.PUSH0)
@@ -211,15 +251,24 @@ func (p Preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		args = args[:len(args)-2]
 	}
 
+	p.alreadyHandledTXs.Add(nr.MainTransaction.Hash(), struct{}{})
+
 	return parsedNotaryEvent{
 		hash:       contractHash,
-		notaryType: NotaryTypeFromString(contractMethod),
+		notaryType: eventType,
 		params:     args,
 		raw:        nr,
 	}, nil
 }
 
-func (p Preparator) validateParameterOpcodes(ops []Op) error {
+func (p preparator) allowNotaryEvent(filter notaryScriptWithHash) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	p.allowedEvents[filter] = struct{}{}
+}
+
+func (p preparator) validateParameterOpcodes(ops []Op) error {
 	l := len(ops)
 
 	if ops[l-1].code != opcode.PACK {
@@ -283,7 +332,7 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 	return nil
 }
 
-func (p Preparator) validateExpiration(fbTX *transaction.Transaction) error {
+func (p preparator) validateExpiration(fbTX *transaction.Transaction) error {
 	if len(fbTX.Attributes) != 3 {
 		return errIncorrectFBAttributesAmount
 	}
@@ -310,7 +359,7 @@ func (p Preparator) validateExpiration(fbTX *transaction.Transaction) error {
 	return nil
 }
 
-func (p Preparator) validateCosigners(expected int, s []transaction.Signer, alphaKeys keys.PublicKeys) error {
+func (p preparator) validateCosigners(expected int, s []transaction.Signer, alphaKeys keys.PublicKeys) error {
 	if len(s) != expected {
 		return errUnexpectedCosignersAmount
 	}
@@ -327,7 +376,7 @@ func (p Preparator) validateCosigners(expected int, s []transaction.Signer, alph
 	return nil
 }
 
-func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys, invokerWitness bool) error {
+func (p preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// the first one(proxy contract) must have empty
 	// witnesses
 	if len(w[0].VerificationScript)+len(w[0].InvocationScript) != 0 {
@@ -363,7 +412,7 @@ func (p Preparator) validateWitnesses(w []transaction.Witness, alphaKeys keys.Pu
 	return nil
 }
 
-func (p Preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys, invokerWitness bool) error {
+func (p preparator) validateAttributes(aa []transaction.Attribute, alphaKeys keys.PublicKeys, invokerWitness bool) error {
 	// main tx must have exactly one attribute
 	if len(aa) != 1 {
 		return errIncorrectAttributesAmount

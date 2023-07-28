@@ -101,7 +101,7 @@ type listener struct {
 	notificationHandlers map[scriptHashWithType][]Handler
 
 	listenNotary           bool
-	notaryEventsPreparator NotaryPreparator
+	notaryEventsPreparator preparator
 	notaryParsers          map[notaryRequestTypes]NotaryParser
 	notaryHandlers         map[notaryRequestTypes]Handler
 	notaryMainTXSigner     util.Uint160 // filter for notary subscription
@@ -328,7 +328,7 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	notaryEvent, err := l.notaryEventsPreparator.Prepare(nr.NotaryRequest)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrTXAlreadyHandled):
+		case errors.Is(err, ErrTXAlreadyHandled) || errors.Is(err, ErrUnknownEvent):
 		case errors.Is(err, ErrMainTXExpired):
 			l.log.Warn("skip expired main TX notary event",
 				zap.String("error", err.Error()),
@@ -514,6 +514,8 @@ func (l *listener) SetNotaryParser(pi NotaryParserInfo) {
 	if _, ok := l.notaryParsers[pi.notaryRequestTypes]; !ok {
 		l.notaryParsers[pi.notaryRequestTypes] = pi.parser()
 	}
+
+	l.notaryEventsPreparator.allowNotaryEvent(pi.notaryScriptWithHash)
 
 	log.Info("registered new event parser")
 }
