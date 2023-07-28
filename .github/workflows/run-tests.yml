@@ -28,6 +28,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 500
     steps:
+      - name: Get the current date
+        id: date
+        run: echo "::set-output name=timestamp::$(date +%s)"
+
+      - name: Set RUN_ID
+        env:
+          TIMESTAMP: ${{ steps.date.outputs.timestamp }}
+        run: echo "RUN_ID=${{ github.run_number }}-$TIMESTAMP" >> $GITHUB_ENV
+
       - name: Checkout neofs-testcases repository
         uses: actions/checkout@v3
         with:
@@ -39,7 +48,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: nspcc-dev/neofs-dev-env
-          ref: 'master'
+          ref: 'feat/make-health-check-not-depend-on-shell'
           path: neofs-dev-env
 
       - name: Checkout neofs-node repository
@@ -47,7 +56,20 @@ jobs:
         with:
           path: neofs-node
 
-################################################################
+      - name: Download latest stable neofs-cli for uploading reports to NeoFS
+        uses: dsaltares/fetch-gh-release-asset@1.1.1
+        with:
+          repo: 'nspcc-dev/neofs-node'
+          version: 'tags/v0.37.0'
+          file: 'neofs-cli-amd64'
+          target: 'neofs-node-stable/neofs-cli'
+
+      - name: Chmod latest stable neofs-cli
+        run: |
+          sudo chmod a+x neofs-cli
+        working-directory: neofs-node-stable
+
+#################################################################
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -217,44 +239,58 @@ jobs:
         working-directory: neofs-testcases
 
 ################################################################
-      - name: Get Allure history
-        timeout-minutes: 60
-        uses: actions/checkout@v3
-        if: always()
-        with:
-          ref: gh-pages
-          path: gh-pages
-
-      - name: Allure Report action from marketplace
+      - name: Generate Allure report
         timeout-minutes: 60
         uses: simple-elf/allure-report-action@v1.6
         if: always()
         id: allure-report
         with:
-          keep_reports: 200
+          keep_reports: 100000
           allure_results: allure-results
           allure_report: allure-report
-          gh_pages: gh-pages
           allure_history: allure-history
 
-      - name: Deploy report to Github Pages
-        timeout-minutes: 120
+      - name: Remove testing neofs-cli
         if: always()
-        uses: peaceiris/actions-gh-pages@v3.9.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: allure-history
-          force_orphan: true
-          enable_jekyll: true
+        run: |
+          make clean
+        working-directory: neofs-node
+
+      - name: Enable stable neofs-cli
+        if: always()
+        run: |
+          echo "$(pwd)" >> $GITHUB_PATH
+        working-directory: neofs-node-stable
+
+      - name: Create wallet
+        if: always()
+        env:
+          TEST_RESULTS_WALLET: ${{ secrets.TEST_RESULTS_WALLET }}
+        run: |
+          echo "$TEST_RESULTS_WALLET" | base64 -d > wallet.json
+        working-directory: neofs-testcases
+
+      - name: Put allure report to NeoFS
+        if: always()
+        env:
+          TEST_RESULTS_PASSWORD: ${{ secrets.TEST_RESULTS_PASSWORD }}
+          TEST_RESULTS_NEOFS_NETWORK_DOMAIN: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
+          TEST_RESULTS_CID: ${{ vars.TEST_RESULTS_CID }}
+        run: |
+          sudo chmod -R a+rw ${GITHUB_WORKSPACE}/allure-report
+          source venv.local-pytest/bin/activate && python ./tools/src/process-allure-reports.py --neofs_domain $TEST_RESULTS_NEOFS_NETWORK_DOMAIN --run_id $RUN_ID --cid $TEST_RESULTS_CID --allure_report ${GITHUB_WORKSPACE}/allure-report --wallet wallet.json
+        working-directory: neofs-testcases
 
       - name: Post the link to the report
         timeout-minutes: 60
         if: always()
+        env:
+          TEST_RESULTS_NEOFS_NETWORK_DOMAIN: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
+          TEST_RESULTS_CID: ${{ vars.TEST_RESULTS_CID }}
         uses: Sibz/github-status-action@v1
         with:
           authToken: ${{secrets.GITHUB_TOKEN}}
           context: 'Test report'
           state: 'success'
           sha: ${{github.event.pull_request.head.sha || github.sha}}
-          target_url: https://${{ github.repository_owner }}.github.io/neofs-node/${{ github.run_number }}
+          target_url: https://http.${{ env.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}/${{ env.TEST_RESULTS_CID }}/${{ env.RUN_ID }}/index.html
