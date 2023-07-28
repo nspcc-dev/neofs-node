@@ -479,16 +479,12 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			}
 		}
 
-		var sTok *sessionSDK.Object
+		sTok, err := originalSessionToken(request.GetMetaHeader())
+		if err != nil {
+			return err
+		}
 
-		if tokV2 := request.GetMetaHeader().GetSessionToken(); tokV2 != nil {
-			sTok = new(sessionSDK.Object)
-
-			err = sTok.ReadFromV2(*tokV2)
-			if err != nil {
-				return fmt.Errorf("invalid session token: %w", err)
-			}
-
+		if sTok != nil {
 			if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
 				// if session relates to object's removal, we don't check
 				// relation of the tombstone to the session here since user
