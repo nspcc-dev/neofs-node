@@ -107,7 +107,7 @@ func (c *announceContext) announce() {
 		return
 	}
 
-	c.log.Debug("trust announcement successfully finished")
+	c.log.Debug("load announcement successfully finished")
 }
 
 func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
