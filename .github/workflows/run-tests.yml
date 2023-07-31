@@ -285,7 +285,7 @@ jobs:
         timeout-minutes: 60
         if: always()
         env:
-          TEST_RESULTS_NEOFS_NETWORK_DOMAIN: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
+          TEST_RESULTS_HTTP_GATE: ${{ vars.TEST_RESULTS_HTTP_GATE }}
           TEST_RESULTS_CID: ${{ vars.TEST_RESULTS_CID }}
         uses: Sibz/github-status-action@v1
         with:
@@ -293,4 +293,4 @@ jobs:
           context: 'Test report'
           state: 'success'
           sha: ${{github.event.pull_request.head.sha || github.sha}}
-          target_url: https://http.${{ env.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}/${{ env.TEST_RESULTS_CID }}/${{ env.RUN_ID }}/index.html
+          target_url: https://${{ env.TEST_RESULTS_HTTP_GATE }}/${{ env.TEST_RESULTS_CID }}/${{ env.RUN_ID }}/index.html
