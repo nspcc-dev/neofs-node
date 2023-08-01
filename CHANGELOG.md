@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - `renew-domain` command for adm
 - Stored payload metric per container (#2116)
 - Stored payload metric per shard (#2023)
+- Histogram metrics for RPC and engine operations (#2351) 
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
@@ -41,6 +42,11 @@ on timeout, try increasing the value, for example, twice. Also note that the
 execution of commands with the `--await` flag and without an explicitly
 specified time period is now limited to 1 minute. This value can be changed with
 `--timeout` flag.
+Histogram (not counter) RPC/engine operation handling time metrics were added. For
+an old engine `*operation_name*_duration` a new `*operation_name*_time` is available.
+For an old `*operation_name*_req_duration` RPC a new `rpc_*operation_name*_time` is
+available. The old ones (the counters) have been deprecated and will be removed with
+the following minor release.
 
 Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR configurations
 have been removed. Use `morph.endpoints` for both instead.

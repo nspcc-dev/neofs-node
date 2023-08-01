@@ -8,19 +8,32 @@ import (
 
 type (
 	engineMetrics struct {
-		listContainersDuration        prometheus.Counter
-		estimateContainerSizeDuration prometheus.Counter
-		deleteDuration                prometheus.Counter
-		existsDuration                prometheus.Counter
-		getDuration                   prometheus.Counter
-		headDuration                  prometheus.Counter
-		inhumeDuration                prometheus.Counter
-		putDuration                   prometheus.Counter
-		rangeDuration                 prometheus.Counter
-		searchDuration                prometheus.Counter
-		listObjectsDuration           prometheus.Counter
-		containerSize                 prometheus.GaugeVec
-		payloadSize                   prometheus.GaugeVec
+		listContainersDurationCounter        prometheus.Counter
+		estimateContainerSizeDurationCounter prometheus.Counter
+		deleteDurationCounter                prometheus.Counter
+		existsDurationCounter                prometheus.Counter
+		getDurationCounter                   prometheus.Counter
+		headDurationCounter                  prometheus.Counter
+		inhumeDurationCounter                prometheus.Counter
+		putDurationCounter                   prometheus.Counter
+		rangeDurationCounter                 prometheus.Counter
+		searchDurationCounter                prometheus.Counter
+		listObjectsDurationCounter           prometheus.Counter
+
+		listContainersDuration        prometheus.Histogram
+		estimateContainerSizeDuration prometheus.Histogram
+		deleteDuration                prometheus.Histogram
+		existsDuration                prometheus.Histogram
+		getDuration                   prometheus.Histogram
+		headDuration                  prometheus.Histogram
+		inhumeDuration                prometheus.Histogram
+		putDuration                   prometheus.Histogram
+		rangeDuration                 prometheus.Histogram
+		searchDuration                prometheus.Histogram
+		listObjectsDuration           prometheus.Histogram
+
+		containerSize prometheus.GaugeVec
+		payloadSize   prometheus.GaugeVec
 	}
 )
 
@@ -28,83 +41,164 @@ const engineSubsystem = "engine"
 
 func newEngineMetrics() engineMetrics {
 	var (
-		listContainersDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		listContainersDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "list_containers_time",
+			Help:      "Engine 'list containers' operations handling time",
+		})
+
+		estimateContainerSizeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "estimate_container_size_time",
+			Help:      "Engine 'container size' operations handling time",
+		})
+
+		deleteDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "delete_time",
+			Help:      "Engine 'delete' operations handling time",
+		})
+
+		existsDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "exists_time",
+			Help:      "Engine 'exists' operations handling time",
+		})
+
+		getDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "get_time",
+			Help:      "Engine 'get' operations handling time",
+		})
+
+		headDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "head_time",
+			Help:      "Engine 'head' operations handling time",
+		})
+
+		inhumeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "inhume_time",
+			Help:      "Engine 'inhume' operations handling time",
+		})
+
+		putDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "put_time",
+			Help:      "Engine 'put' operations handling time",
+		})
+
+		rangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "range_time",
+			Help:      "Engine 'range' operations handling time",
+		})
+
+		searchDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "search_time",
+			Help:      "Engine 'search' operations handling time",
+		})
+
+		listObjectsDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: engineSubsystem,
+			Name:      "list_objects_time",
+			Help:      "Engine 'list objects' operations handling time",
+		})
+	)
+
+	var (
+		listContainersDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "list_containers_duration",
-			Help:      "Accumulated duration of engine list containers operations",
+			Help:      "Accumulated duration of engine 'list containers' operations [DEPRECATED]",
 		})
 
-		estimateContainerSizeDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		estimateContainerSizeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "estimate_container_size_duration",
-			Help:      "Accumulated duration of engine container size estimate operations",
+			Help:      "Accumulated duration of engine 'container size estimate' operations [DEPRECATED]",
 		})
 
-		deleteDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		deleteDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "delete_duration",
-			Help:      "Accumulated duration of engine delete operations",
+			Help:      "Accumulated duration of engine 'delete' operations [DEPRECATED]",
 		})
 
-		existsDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		existsDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "exists_duration",
-			Help:      "Accumulated duration of engine exists operations",
+			Help:      "Accumulated duration of engine 'exists' operations [DEPRECATED]",
 		})
 
-		getDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		getDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "get_duration",
-			Help:      "Accumulated duration of engine get operations",
+			Help:      "Accumulated duration of engine 'get' operations [DEPRECATED]",
 		})
 
-		headDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		headDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "head_duration",
-			Help:      "Accumulated duration of engine head operations",
+			Help:      "Accumulated duration of engine 'head' operations [DEPRECATED]",
 		})
 
-		inhumeDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		inhumeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "inhume_duration",
-			Help:      "Accumulated duration of engine inhume operations",
+			Help:      "Accumulated duration of engine 'inhume' operations [DEPRECATED]",
 		})
 
-		putDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		putDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "put_duration",
-			Help:      "Accumulated duration of engine put operations",
+			Help:      "Accumulated duration of engine 'put' operations [DEPRECATED]",
 		})
 
-		rangeDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		rangeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "range_duration",
-			Help:      "Accumulated duration of engine range operations",
+			Help:      "Accumulated duration of engine 'range' operations [DEPRECATED]",
 		})
 
-		searchDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		searchDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "search_duration",
-			Help:      "Accumulated duration of engine search operations",
+			Help:      "Accumulated duration of engine 'search' operations [DEPRECATED]",
 		})
 
-		listObjectsDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		listObjectsDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
 			Name:      "list_objects_duration",
-			Help:      "Accumulated duration of engine list objects operations",
+			Help:      "Accumulated duration of engine 'list objects' operations [DEPRECATED]",
 		})
+	)
 
+	var (
 		containerSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
@@ -134,6 +228,18 @@ func newEngineMetrics() engineMetrics {
 		listObjectsDuration:           listObjectsDuration,
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
+
+		listContainersDurationCounter:        listContainersDurationCounter,
+		estimateContainerSizeDurationCounter: estimateContainerSizeDurationCounter,
+		deleteDurationCounter:                deleteDurationCounter,
+		existsDurationCounter:                existsDurationCounter,
+		getDurationCounter:                   getDurationCounter,
+		headDurationCounter:                  headDurationCounter,
+		inhumeDurationCounter:                inhumeDurationCounter,
+		putDurationCounter:                   putDurationCounter,
+		rangeDurationCounter:                 rangeDurationCounter,
+		searchDurationCounter:                searchDurationCounter,
+		listObjectsDurationCounter:           listObjectsDurationCounter,
 	}
 }
 
@@ -151,50 +257,73 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.listObjectsDuration)
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
+
+	prometheus.MustRegister(m.listContainersDurationCounter)
+	prometheus.MustRegister(m.estimateContainerSizeDurationCounter)
+	prometheus.MustRegister(m.deleteDurationCounter)
+	prometheus.MustRegister(m.existsDurationCounter)
+	prometheus.MustRegister(m.getDurationCounter)
+	prometheus.MustRegister(m.headDurationCounter)
+	prometheus.MustRegister(m.inhumeDurationCounter)
+	prometheus.MustRegister(m.putDurationCounter)
+	prometheus.MustRegister(m.rangeDurationCounter)
+	prometheus.MustRegister(m.searchDurationCounter)
+	prometheus.MustRegister(m.listObjectsDurationCounter)
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
-	m.listObjectsDuration.Add(float64(d))
+	m.listObjectsDurationCounter.Add(float64(d))
+	m.listObjectsDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddEstimateContainerSizeDuration(d time.Duration) {
-	m.estimateContainerSizeDuration.Add(float64(d))
+	m.estimateContainerSizeDurationCounter.Add(float64(d))
+	m.estimateContainerSizeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddDeleteDuration(d time.Duration) {
-	m.deleteDuration.Add(float64(d))
+	m.deleteDurationCounter.Add(float64(d))
+	m.deleteDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddExistsDuration(d time.Duration) {
-	m.existsDuration.Add(float64(d))
+	m.existsDurationCounter.Add(float64(d))
+	m.existsDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetDuration(d time.Duration) {
-	m.getDuration.Add(float64(d))
+	m.getDurationCounter.Add(float64(d))
+	m.getDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddHeadDuration(d time.Duration) {
-	m.headDuration.Add(float64(d))
+	m.headDurationCounter.Add(float64(d))
+	m.headDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddInhumeDuration(d time.Duration) {
-	m.inhumeDuration.Add(float64(d))
+	m.inhumeDurationCounter.Add(float64(d))
+	m.inhumeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddPutDuration(d time.Duration) {
-	m.putDuration.Add(float64(d))
+	m.putDurationCounter.Add(float64(d))
+	m.putDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddRangeDuration(d time.Duration) {
-	m.rangeDuration.Add(float64(d))
+	m.rangeDurationCounter.Add(float64(d))
+	m.rangeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddSearchDuration(d time.Duration) {
-	m.searchDuration.Add(float64(d))
+	m.searchDurationCounter.Add(float64(d))
+	m.searchDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddListObjectsDuration(d time.Duration) {
-	m.listObjectsDuration.Add(float64(d))
+	m.listObjectsDurationCounter.Add(float64(d))
+	m.listObjectsDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddToContainerSize(cnrID string, size int64) {

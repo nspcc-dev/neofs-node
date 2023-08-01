@@ -24,19 +24,27 @@ type (
 		rangeCounter     methodCount
 		rangeHashCounter methodCount
 
-		getDuration       prometheus.Counter
-		putDuration       prometheus.Counter
-		headDuration      prometheus.Counter
-		searchDuration    prometheus.Counter
-		deleteDuration    prometheus.Counter
-		rangeDuration     prometheus.Counter
-		rangeHashDuration prometheus.Counter
+		getDuration       prometheus.Histogram
+		putDuration       prometheus.Histogram
+		headDuration      prometheus.Histogram
+		searchDuration    prometheus.Histogram
+		deleteDuration    prometheus.Histogram
+		rangeDuration     prometheus.Histogram
+		rangeHashDuration prometheus.Histogram
 
 		putPayload prometheus.Counter
 		getPayload prometheus.Counter
 
 		shardMetrics   *prometheus.GaugeVec
 		shardsReadonly *prometheus.GaugeVec
+
+		getDurationCounter       prometheus.Counter
+		putDurationCounter       prometheus.Counter
+		headDurationCounter      prometheus.Counter
+		searchDurationCounter    prometheus.Counter
+		deleteDurationCounter    prometheus.Counter
+		rangeDurationCounter     prometheus.Counter
+		rangeHashDurationCounter prometheus.Counter
 	}
 )
 
@@ -87,53 +95,104 @@ func newObjectServiceMetrics() objectServiceMetrics {
 	)
 
 	var ( // Request duration metrics.
-		getDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		getDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_get_time",
+			Help:      "RPC 'get' request handling time",
+		})
+
+		putDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_put_time",
+			Help:      "RPC 'put' request handling time",
+		})
+
+		headDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_head_time",
+			Help:      "RPC 'head' request handling time",
+		})
+
+		searchDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_search_time",
+			Help:      "RPC 'search' request handling time",
+		})
+
+		deleteDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_delete_time",
+			Help:      "RPC 'delete' request handling time",
+		})
+
+		rangeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_range_time",
+			Help:      "RPC 'range request' handling time",
+		})
+
+		rangeHashDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: storageNodeNameSpace,
+			Subsystem: objectSubsystem,
+			Name:      "rpc_range_hash_time",
+			Help:      "RPC 'range hash' handling time",
+		})
+	)
+
+	var ( // Request duration metrics (deprecated).
+		getDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "get_req_duration",
-			Help:      "Accumulated get request process duration",
+			Help:      "Accumulated 'get' request process duration [DEPRECATED]",
 		})
 
-		putDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		putDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "put_req_duration",
-			Help:      "Accumulated put request process duration",
+			Help:      "Accumulated 'put' request process duration [DEPRECATED]",
 		})
 
-		headDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		headDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "head_req_duration",
-			Help:      "Accumulated head request process duration",
+			Help:      "Accumulated 'head' request process duration [DEPRECATED]",
 		})
 
-		searchDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		searchDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "search_req_duration",
-			Help:      "Accumulated search request process duration",
+			Help:      "Accumulated 'search' request process duration [DEPRECATED]",
 		})
 
-		deleteDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		deleteDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "delete_req_duration",
-			Help:      "Accumulated delete request process duration",
+			Help:      "Accumulated 'delete' request process duration [DEPRECATED]",
 		})
 
-		rangeDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		rangeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "range_req_duration",
-			Help:      "Accumulated range request process duration",
+			Help:      "Accumulated 'range' request process duration [DEPRECATED]",
 		})
 
-		rangeHashDuration = prometheus.NewCounter(prometheus.CounterOpts{
+		rangeHashDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: objectSubsystem,
 			Name:      "range_hash_req_duration",
-			Help:      "Accumulated range hash request process duration",
+			Help:      "Accumulated 'range hash' request process duration [DEPRECATED]",
 		})
 	)
 
@@ -190,6 +249,14 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		getPayload:        getPayload,
 		shardMetrics:      shardsMetrics,
 		shardsReadonly:    shardsReadonly,
+
+		getDurationCounter:       getDurationCounter,
+		putDurationCounter:       putDurationCounter,
+		headDurationCounter:      headDurationCounter,
+		searchDurationCounter:    searchDurationCounter,
+		deleteDurationCounter:    deleteDurationCounter,
+		rangeDurationCounter:     rangeDurationCounter,
+		rangeHashDurationCounter: rangeHashDurationCounter,
 	}
 }
 
@@ -215,6 +282,14 @@ func (m objectServiceMetrics) register() {
 
 	prometheus.MustRegister(m.shardMetrics)
 	prometheus.MustRegister(m.shardsReadonly)
+
+	prometheus.MustRegister(m.getDurationCounter)
+	prometheus.MustRegister(m.putDurationCounter)
+	prometheus.MustRegister(m.headDurationCounter)
+	prometheus.MustRegister(m.searchDurationCounter)
+	prometheus.MustRegister(m.deleteDurationCounter)
+	prometheus.MustRegister(m.rangeDurationCounter)
+	prometheus.MustRegister(m.rangeHashDurationCounter)
 }
 
 func (m objectServiceMetrics) IncGetReqCounter(success bool) {
@@ -246,31 +321,38 @@ func (m objectServiceMetrics) IncRangeHashReqCounter(success bool) {
 }
 
 func (m objectServiceMetrics) AddGetReqDuration(d time.Duration) {
-	m.getDuration.Add(float64(d))
+	m.getDurationCounter.Add(float64(d))
+	m.getDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddPutReqDuration(d time.Duration) {
-	m.putDuration.Add(float64(d))
+	m.putDurationCounter.Add(float64(d))
+	m.putDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddHeadReqDuration(d time.Duration) {
-	m.headDuration.Add(float64(d))
+	m.headDurationCounter.Add(float64(d))
+	m.headDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddSearchReqDuration(d time.Duration) {
-	m.searchDuration.Add(float64(d))
+	m.searchDurationCounter.Add(float64(d))
+	m.searchDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddDeleteReqDuration(d time.Duration) {
-	m.deleteDuration.Add(float64(d))
+	m.deleteDurationCounter.Add(float64(d))
+	m.deleteDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddRangeReqDuration(d time.Duration) {
-	m.rangeDuration.Add(float64(d))
+	m.rangeDurationCounter.Add(float64(d))
+	m.rangeDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddRangeHashReqDuration(d time.Duration) {
-	m.rangeHashDuration.Add(float64(d))
+	m.rangeHashDurationCounter.Add(float64(d))
+	m.rangeHashDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddPutPayload(ln int) {
