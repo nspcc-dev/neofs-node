@@ -6,7 +6,7 @@ import (
 )
 
 // Config is a wrapper over the config section
-// which provides access to Blobovnicza configurations.
+// which provides access to FSTree configurations.
 type Config config.Config
 
 // DepthDefault is a default shallow dir depth.
