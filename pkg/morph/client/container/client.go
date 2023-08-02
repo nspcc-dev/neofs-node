@@ -59,6 +59,10 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		o.staticOpts = append(o.staticOpts, client.WithCustomFee(putNamedMethod, o.feePutNamed))
 	}
 
+	if !o.disableNotarySigning {
+		o.staticOpts = append(o.staticOpts, client.TryNotary())
+	}
+
 	sc, err := client.NewStatic(cli, contract, fee, o.staticOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
@@ -85,13 +89,24 @@ type opts struct {
 	feePutNamedSet bool
 	feePutNamed    fixedn.Fixed8
 
+	disableNotarySigning bool
+
 	staticOpts []client.StaticClientOption
 }
 
 func defaultOpts() *opts {
-	var o = new(opts)
-	o.staticOpts = append(o.staticOpts, client.TryNotary())
-	return o
+	return new(opts)
+}
+
+// DisableNotarySigning returns option to disable
+// notary request signing. With that option, every
+// call will be created, signed with provided key
+// (a single regular sign) and sent to the side
+// chain.
+func DisableNotarySigning() Option {
+	return func(o *opts) {
+		o.disableNotarySigning = true
+	}
 }
 
 // AsAlphabet returns option to sign main TX
