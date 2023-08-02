@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Histogram metrics for RPC and engine operations (#2351) 
 - SN's version is announced via the attributes automatically but can be overwritten explicitly (#2455)
 - New storage component for small objects named Peapod (#2453)
+- New `blobovnicza-to-peapod` tool providing blobovnicza-to-peapod data migration (#2453)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
@@ -71,6 +72,17 @@ Subnets support has been removed:
 Docker images now contain a single executable file and SSL certificates only.
 
 `neofs-cli control healthcheck` exit code is `0` only for "READY" state.
+
+To migrate data from Blobovnicza trees to Peapods:
+```shell
+$ blobovnicza-to-peapod -config </path/to/storage/node/config>
+```
+For any shard, the data from the configured Blobovnicza tree is copied into
+a created Peapod file named `peapod.db` in the directory where the tree is
+located. For example, `/neofs/data/blobovcniza/*` -> `/neofs/data/peapod.db`.
+Notice that existing Blobovnicza trees are untouched. Configuration is also
+updated, for example, `/etc/neofs/config.yaml` -> `/etc/neofs/config_peapod.yaml`.
+WARN: carefully review the updated config before using it in the application!
 
 ## [0.37.0] - 2023-06-15 - Sogado
 
