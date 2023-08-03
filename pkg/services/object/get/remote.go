@@ -21,15 +21,11 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 	obj, err := client.getObject(exec, info)
 
 	var errSplitInfo *objectSDK.SplitInfoError
-	var errRemoved *apistatus.ObjectAlreadyRemoved
-	var errOutOfRange *apistatus.ObjectOutOfRange
 
 	switch {
 	default:
-		var errNotFound apistatus.ObjectNotFound
-
 		exec.status = statusUndefined
-		exec.err = errNotFound
+		exec.err = apistatus.ErrObjectNotFound
 
 		exec.log.Debug("remote call failed",
 			zap.String("error", err.Error()),
@@ -45,12 +41,12 @@ func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool
 			exec.collectedObject = obj
 			exec.writeCollectedObject()
 		}
-	case errors.As(err, &errRemoved):
+	case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
 		exec.status = statusINHUMED
-		exec.err = errRemoved
-	case errors.As(err, &errOutOfRange):
+		exec.err = err
+	case errors.Is(err, apistatus.ErrObjectOutOfRange):
 		exec.status = statusOutOfRange
-		exec.err = errOutOfRange
+		exec.err = err
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
