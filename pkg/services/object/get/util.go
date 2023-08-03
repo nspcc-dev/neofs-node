@@ -142,8 +142,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 		res, err := internalclient.PayloadRange(prm)
 		if err != nil {
-			var errAccessDenied *apistatus.ObjectAccessDenied
-			if errors.As(err, &errAccessDenied) {
+			if errors.Is(err, apistatus.ErrObjectAccessDenied) {
 				// Current spec allows other storage node to deny access,
 				// fallback to GET here.
 				obj, err := c.get(exec, key)
