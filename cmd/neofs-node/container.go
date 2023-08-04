@@ -39,8 +39,8 @@ const (
 )
 
 func initContainerService(c *cfg) {
-	// container wrapper that tries to invoke notary
-	// requests if chain is configured so
+	// container wrapper that invokes notary
+	// requests with the (empty) Alphabet signature
 	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
@@ -48,7 +48,7 @@ func initContainerService(c *cfg) {
 
 	// container wrapper that always sends non-notary
 	// requests
-	wrapperNoNotary, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
+	wrapperNoNotary, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, cntClient.DisableNotarySigning())
 	fatalOnErr(err)
 
 	cnrSrc := cntClient.AsContainerSource(wrap)
