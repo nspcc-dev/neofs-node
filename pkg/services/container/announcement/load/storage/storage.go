@@ -40,21 +40,26 @@ type storageKey struct {
 type Storage struct {
 	mtx sync.RWMutex
 
-	mItems map[storageKey]*usedSpaceEstimations
+	estLifeCycle uint64
+	mItems       map[storageKey]*usedSpaceEstimations
 }
 
 // Prm groups the required parameters of the Storage's constructor.
-//
-// The component is not parameterizable at the moment.
-type Prm struct{}
+type Prm struct {
+	// EstimationsLifeCycle is a longevity (in epochs) of estimations
+	// that are kept in the [Storage] instance. Note, current epoch
+	// is controlled with [Storage.EpochEvent].
+	EstimationsLifeCycle uint64
+}
 
 // New creates a new instance of the Storage.
 //
 // The created Storage does not require additional
 // initialization and is completely ready for work.
-func New(_ Prm) *Storage {
+func New(prm Prm) *Storage {
 	return &Storage{
-		mItems: make(map[storageKey]*usedSpaceEstimations),
+		mItems:       make(map[storageKey]*usedSpaceEstimations),
+		estLifeCycle: prm.EstimationsLifeCycle,
 	}
 }
 
@@ -116,6 +121,20 @@ func (s *Storage) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontroller.Use
 	s.mtx.RUnlock()
 
 	return
+}
+
+// EpochEvent notifies [Storage] about epoch counter updating.
+// Used to remove unused estimations. See [Prm.EstimationsLifeCycle].
+// Blocking operation.
+func (s *Storage) EpochEvent(e uint64) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	for k := range s.mItems {
+		if k.epoch+s.estLifeCycle < e {
+			delete(s.mItems, k)
+		}
+	}
 }
 
 func finalEstimation(vals []uint64) uint64 {
