@@ -45,12 +45,16 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		return
 	}
 
+	estimationEpoch := epoch - 1
+
 	prm := cntClient.StartEstimationPrm{}
 
-	prm.SetEpoch(epoch - 1)
+	prm.SetEpoch(estimationEpoch)
 	prm.SetHash(ev.TxHash())
 
 	if epoch > 0 { // estimates are invalid in genesis epoch
+		np.log.Info("start estimation collection", zap.Uint64("epoch", estimationEpoch))
+
 		err = np.containerWrp.StartEstimation(prm)
 
 		if err != nil {
