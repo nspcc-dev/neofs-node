@@ -52,7 +52,7 @@ func (c *Controller) Start(prm StartPrm) {
 }
 
 func (c *announceContext) announce() {
-	c.log.Debug("starting to announce the values of the metrics")
+	c.log.Debug("starting to announce local metrics")
 
 	var (
 		metricsIterator Iterator
@@ -85,6 +85,8 @@ func (c *announceContext) announce() {
 			return true // local metrics don't know about epochs
 		},
 		func(a container.SizeEstimation) error {
+			c.log.Debug("sending local metrics", zap.String("cid", a.Container().EncodeToString()))
+
 			a.SetEpoch(c.epoch) // set epoch explicitly
 			return targetWriter.Put(a)
 		},
@@ -107,7 +109,7 @@ func (c *announceContext) announce() {
 		return
 	}
 
-	c.log.Debug("load announcement successfully finished")
+	c.log.Debug("local load announcement successfully finished")
 }
 
 func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
@@ -126,10 +128,11 @@ func (c *Controller) acquireAnnouncement(prm StartPrm) *announceContext {
 
 	log := c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
+		zap.String("stage", "p2p"),
 	)
 
 	if ctx == nil {
-		log.Debug("announcement is already started")
+		log.Debug("local announcement is already started")
 		return nil
 	}
 
@@ -218,6 +221,7 @@ func (c *Controller) acquireReport(prm StopPrm) *stopContext {
 
 	log := c.opts.log.With(
 		zap.Uint64("epoch", prm.Epoch),
+		zap.String("stage", "report"),
 	)
 
 	if ctx == nil {

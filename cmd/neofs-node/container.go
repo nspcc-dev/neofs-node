@@ -135,15 +135,17 @@ func initContainerService(c *cfg) {
 		cnrWrt.eacls = cachedEACLStorage
 	}
 
+	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
+
 	localMetrics := &localStorageLoad{
-		log:    c.log,
+		log:    estimationsLogger,
 		engine: c.cfgObject.cfgLocalStorage.localStorage,
 	}
 
 	pubKey := c.key.PublicKey().Bytes()
 
 	resultWriter := &morphLoadWriter{
-		log:            c.log,
+		log:            estimationsLogger,
 		cnrMorphClient: wrapperNoNotary,
 		key:            pubKey,
 	}
@@ -156,7 +158,7 @@ func initContainerService(c *cfg) {
 	})
 
 	loadPlacementBuilder := &loadPlacementBuilder{
-		log:    c.log,
+		log:    estimationsLogger,
 		nmSrc:  c.netMapSource,
 		cnrSrc: cnrSrc,
 	}
@@ -176,7 +178,7 @@ func initContainerService(c *cfg) {
 			},
 			Builder: routeBuilder,
 		},
-		loadroute.WithLogger(c.log),
+		loadroute.WithLogger(estimationsLogger),
 	)
 
 	ctrl := loadcontroller.New(
@@ -186,7 +188,7 @@ func initContainerService(c *cfg) {
 			LocalAnnouncementTarget: loadRouter,
 			ResultReceiver:          loadcontroller.SimpleWriterProvider(resultWriter),
 		},
-		loadcontroller.WithLogger(c.log),
+		loadcontroller.WithLogger(estimationsLogger),
 	)
 
 	setContainerNotificationParser(c, startEstimationNotifyEvent, containerEvent.ParseStartEstimation)
