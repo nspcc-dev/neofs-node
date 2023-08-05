@@ -332,7 +332,7 @@ func awaitHeight(cli *client.Client, startFrom uint32) error {
 		return fmt.Errorf("could not get block height: %w", err)
 	}
 
-	if height < startFrom {
+	if height < startFrom+1 {
 		return fmt.Errorf("RPC block counter %d didn't reach expected height %d", height, startFrom)
 	}
 
