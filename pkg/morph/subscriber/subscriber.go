@@ -68,6 +68,9 @@ func (s *subscriber) NotificationChannels() NotificationChannels {
 }
 
 var (
+	// ErrStaleNode is returned from [New] when StartFromBlock requirement
+	// specified in [Params] is not satisfied by the given node.
+	ErrStaleNode = errors.New("RPC node is not yet up to date")
 	errNilParams = errors.New("chain/subscriber: config was not provided to the constructor")
 
 	errNilLogger = errors.New("chain/subscriber: logger was not provided to the constructor")
@@ -333,7 +336,7 @@ func awaitHeight(cli *client.Client, startFrom uint32) error {
 	}
 
 	if height < startFrom+1 {
-		return fmt.Errorf("RPC block counter %d didn't reach expected height %d", height, startFrom)
+		return fmt.Errorf("%w: expected %d height, got %d count", ErrStaleNode, startFrom, height)
 	}
 
 	return nil
