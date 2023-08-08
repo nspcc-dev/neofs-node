@@ -5,17 +5,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"go.uber.org/zap"
 )
-
-type shardInitError struct {
-	err error
-	id  string
-}
 
 // Open opens all StorageEngine's components.
 func (e *StorageEngine) Open() error {
@@ -26,41 +19,9 @@ func (e *StorageEngine) open() error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
-	var wg sync.WaitGroup
-	var errCh = make(chan shardInitError, len(e.shards))
-
 	for id, sh := range e.shards {
-		wg.Add(1)
-		go func(id string, sh *shard.Shard) {
-			defer wg.Done()
-			if err := sh.Open(); err != nil {
-				errCh <- shardInitError{
-					err: err,
-					id:  id,
-				}
-			}
-		}(id, sh.Shard)
-	}
-	wg.Wait()
-	close(errCh)
-
-	for res := range errCh {
-		if res.err != nil {
-			e.log.Error("could not open shard, closing and skipping",
-				zap.String("id", res.id),
-				zap.Error(res.err))
-
-			sh := e.shards[res.id]
-			delete(e.shards, res.id)
-
-			err := sh.Close()
-			if err != nil {
-				e.log.Error("could not close partially initialized shard",
-					zap.String("id", res.id),
-					zap.Error(res.err))
-			}
-
-			continue
+		if err := sh.Open(); err != nil {
+			return fmt.Errorf("open shard %s: %w", id, err)
 		}
 	}
 
@@ -72,49 +33,10 @@ func (e *StorageEngine) Init() error {
 	e.mtx.Lock()
 	defer e.mtx.Unlock()
 
-	var wg sync.WaitGroup
-	var errCh = make(chan shardInitError, len(e.shards))
-
 	for id, sh := range e.shards {
-		wg.Add(1)
-		go func(id string, sh *shard.Shard) {
-			defer wg.Done()
-			if err := sh.Init(); err != nil {
-				errCh <- shardInitError{
-					err: err,
-					id:  id,
-				}
-			}
-		}(id, sh.Shard)
-	}
-	wg.Wait()
-	close(errCh)
-
-	for res := range errCh {
-		if res.err != nil {
-			if errors.Is(res.err, blobstor.ErrInitBlobovniczas) {
-				e.log.Error("could not initialize shard, closing and skipping",
-					zap.String("id", res.id),
-					zap.Error(res.err))
-
-				sh := e.shards[res.id]
-				delete(e.shards, res.id)
-
-				err := sh.Close()
-				if err != nil {
-					e.log.Error("could not close partially initialized shard",
-						zap.String("id", res.id),
-						zap.Error(res.err))
-				}
-
-				continue
-			}
-			return fmt.Errorf("could not initialize shard %s: %w", res.id, res.err)
+		if err := sh.Init(); err != nil {
+			return fmt.Errorf("init shard %s: %w", id, err)
 		}
-	}
-
-	if len(e.shards) == 0 {
-		return errors.New("failed initialization on all shards")
 	}
 
 	e.wg.Add(1)

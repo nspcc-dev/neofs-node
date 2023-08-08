@@ -1,7 +1,6 @@
 package blobstor
 
 import (
-	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -14,20 +13,15 @@ func (b *BlobStor) Open(readOnly bool) error {
 	for i := range b.storage {
 		err := b.storage[i].Storage.Open(readOnly)
 		if err != nil {
-			return err
+			return fmt.Errorf("open substorage %s: %w", b.storage[i].Storage.Type(), err)
 		}
 	}
 	return nil
 }
 
-// ErrInitBlobovniczas is returned when blobovnicza initialization fails.
-var ErrInitBlobovniczas = errors.New("failure on blobovnicza initialization stage")
-
 // Init initializes internal data structures and system resources.
 //
 // If BlobStor is already initialized, no action is taken.
-//
-// Returns wrapped ErrInitBlobovniczas on blobovnicza tree's initializaiton failure.
 func (b *BlobStor) Init() error {
 	b.log.Debug("initializing...")
 
@@ -38,7 +32,7 @@ func (b *BlobStor) Init() error {
 	for i := range b.storage {
 		err := b.storage[i].Storage.Init()
 		if err != nil {
-			return fmt.Errorf("%w: %v", ErrInitBlobovniczas, err)
+			return fmt.Errorf("init substorage %s: %w", b.storage[i].Storage.Type(), err)
 		}
 	}
 	return nil

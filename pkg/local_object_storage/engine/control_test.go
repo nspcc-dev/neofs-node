@@ -132,18 +132,13 @@ func testEngineFailInitAndReload(t *testing.T, badDir string, errOnAdd bool, s [
 		}
 	}
 
-	e.mtx.RLock()
-	shardCount := len(e.shards)
-	e.mtx.RUnlock()
-	require.Equal(t, 0, shardCount)
-
 	require.NoError(t, os.Chmod(badDir, os.ModePerm))
 	require.NoError(t, e.Reload(ReConfiguration{
 		shards: map[string][]shard.Option{configID: s},
 	}))
 
 	e.mtx.RLock()
-	shardCount = len(e.shards)
+	shardCount := len(e.shards)
 	e.mtx.RUnlock()
 	require.Equal(t, 1, shardCount)
 }
