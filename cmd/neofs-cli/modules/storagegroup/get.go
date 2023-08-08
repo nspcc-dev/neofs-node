@@ -48,11 +48,12 @@ func getSG(cmd *cobra.Command, _ []string) {
 	pk := key.GetOrGenerate(cmd)
 	buf := bytes.NewBuffer(nil)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 	var prm internalclient.GetObjectPrm
 	objectCli.Prepare(cmd, &prm)
 	prm.SetClient(cli)
+	prm.SetPrivateKey(*pk)
 
 	raw, _ := cmd.Flags().GetBool(sgRawFlag)
 	prm.SetRawFlag(raw)

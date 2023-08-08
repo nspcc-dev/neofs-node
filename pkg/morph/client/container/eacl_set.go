@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -29,12 +28,8 @@ func PutEACL(c *Client, eaclInfo containercore.EACL) error {
 		prm.SetToken(eaclInfo.Session.Marshal())
 	}
 
-	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	var sigV2 refs.Signature
-	eaclInfo.Signature.WriteToV2(&sigV2)
-
-	prm.SetKey(sigV2.GetKey())
-	prm.SetSignature(sigV2.GetSign())
+	prm.SetKey(eaclInfo.Signature.PublicKeyBytes())
+	prm.SetSignature(eaclInfo.Signature.Value())
 
 	return c.PutEACL(prm)
 }

@@ -66,7 +66,7 @@ func synchronizeTree(cmd *cobra.Command, _ []string) {
 	err := controlSvc.SignMessage(pk, req)
 	common.ExitOnErr(cmd, "could not sign request: %w", err)
 
-	cli := getClient(ctx, cmd, pk)
+	cli := getClient(ctx, cmd)
 
 	var resp *control.SynchronizeTreeResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {

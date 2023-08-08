@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -93,8 +92,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 		ownerID = *objTemp.OwnerID()
 	} else {
 		readCID(cmd, &cnr)
-		err = user.IDFromSigner(&ownerID, neofsecdsa.SignerRFC6979(*pk))
-		common.ExitOnErr(cmd, "decoding user from key", err)
+		ownerID = user.ResolveFromECDSAPublicKey(pk.PublicKey)
 	}
 
 	attrs, err := parseObjectAttrs(cmd)
@@ -133,6 +131,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 	}
 
 	var prm internalclient.PutObjectPrm
+	prm.SetPrivateKey(*pk)
 	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, nil)
 	Prepare(cmd, &prm)
 	prm.SetHeader(obj)

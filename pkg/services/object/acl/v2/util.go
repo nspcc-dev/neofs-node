@@ -1,9 +1,12 @@
 package v2
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -115,12 +118,8 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	}
 
 	// 2. Then check if session token owner issued the session token
-	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	var tokV2 sessionV2.Token
-	token.WriteToV2(&tokV2)
-
 	tokenIssuer := token.Issuer()
-	key := tokV2.GetSignature().GetKey()
+	key := token.IssuerPublicKeyBytes()
 
 	if !isOwnerFromKey(tokenIssuer, key) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
@@ -147,13 +146,12 @@ func isOwnerFromKey(id user.ID, key []byte) bool {
 		return false
 	}
 
-	var id2 user.ID
-	err := user.IDFromKey(&id2, key)
+	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
 	if err != nil {
 		return false
 	}
 
-	return id2.Equals(id)
+	return id.Equals(user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey)))
 }
 
 // assertVerb checks that token verb corresponds to op.

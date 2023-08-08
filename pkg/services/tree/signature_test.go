@@ -79,8 +79,7 @@ func TestMessageSign(t *testing.T) {
 
 	signer := neofsecdsa.SignerRFC6979(privs[0].PrivateKey)
 
-	var ownerID user.ID
-	require.NoError(t, user.IDFromSigner(&ownerID, signer))
+	ownerID := user.ResolveFromECDSAPublicKey(privs[0].PrivateKey.PublicKey)
 
 	cnr := &containercore.Container{
 		Value: testContainer(ownerID),

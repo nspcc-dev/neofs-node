@@ -6,7 +6,6 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 )
@@ -21,8 +20,7 @@ var nodeInfoCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		p := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, p, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.NodeInfoPrm
 		prm.SetClient(cli)

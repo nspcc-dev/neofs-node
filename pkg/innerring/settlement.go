@@ -2,10 +2,13 @@ package innerring
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -191,10 +194,14 @@ func (s settlementDeps) SGInfo(addr oid.Address) (audit.SGInfo, error) {
 }
 
 func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
-	var id user.ID
-	err := user.IDFromKey(&id, ni.PublicKey())
+	pubKey, err := keys.NewPublicKeyFromBytes(ni.PublicKey(), elliptic.P256())
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %w", err)
+	}
 
-	return &id, err
+	id := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
+
+	return &id, nil
 }
 
 func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, details []byte) {

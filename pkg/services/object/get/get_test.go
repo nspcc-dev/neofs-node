@@ -470,7 +470,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
 
 	var idCnr cid.ID
-	container.CalculateID(&idCnr, cnr)
+	cnr.CalculateID(&idCnr)
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -1125,7 +1125,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
 
 	var idCnr cid.ID
-	container.CalculateID(&idCnr, cnr)
+	cnr.CalculateID(&idCnr)
 
 	addr := oidtest.Address()
 	addr.SetContainer(idCnr)

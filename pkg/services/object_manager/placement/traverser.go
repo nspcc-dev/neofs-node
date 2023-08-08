@@ -237,7 +237,7 @@ func ForContainer(cnr container.Container) Option {
 	return func(c *cfg) {
 		c.policy = cnr.PlacementPolicy()
 		c.policySet = true
-		container.CalculateID(&c.cnr, cnr)
+		cnr.CalculateID(&c.cnr)
 	}
 }
 

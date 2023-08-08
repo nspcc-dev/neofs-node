@@ -2,9 +2,12 @@ package audit
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"math/big"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-sdk-go/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -285,7 +288,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	}
 
 	// add txs to pay inner ring node for audit result
-	auditIR, err := ownerFromKey(ctx.auditResult.AuditorKey())
+	auditorKey, err := keys.NewPublicKeyFromBytes(ctx.auditResult.AuditorKey(), elliptic.P256())
 	if err != nil {
 		ctx.log.Error("could not parse public key of the inner ring node",
 			zap.String("error", err.Error()),
@@ -295,11 +298,13 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		return false
 	}
 
-	ctx.txTable.Transfer(&common.TransferTx{
+	transferTx := &common.TransferTx{
 		From:   cnrOwner,
-		To:     *auditIR,
 		Amount: ctx.auditFee,
-	})
+	}
+	transferTx.To = user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*auditorKey))
+
+	ctx.txTable.Transfer(transferTx)
 
 	return false
 }
@@ -315,11 +320,4 @@ func (c *singleResultCtx) auditEpoch() uint64 {
 	}
 
 	return c.eAudit
-}
-
-func ownerFromKey(key []byte) (*user.ID, error) {
-	var id user.ID
-	err := user.IDFromKey(&id, key)
-
-	return &id, err
 }

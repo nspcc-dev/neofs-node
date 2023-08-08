@@ -99,7 +99,7 @@ func TestLockUserScenario(t *testing.T) {
 	// 2.
 	var locker object.Lock
 	locker.WriteMembers([]oid.ID{id})
-	object.WriteLock(lockerObj, locker)
+	lockerObj.WriteLock(locker)
 
 	err = Put(e, lockerObj)
 	require.NoError(t, err)

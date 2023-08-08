@@ -36,7 +36,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		eaclTable.SetCID(id)
 
 		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		if !flagVarsSetEACL.noPreCheck {
 			cmd.Println("Checking the ability to modify access rights in the container...")
@@ -54,6 +54,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		var setEACLPrm internalclient.SetEACLPrm
 		setEACLPrm.SetClient(cli)
 		setEACLPrm.SetTable(*eaclTable)
+		setEACLPrm.SetPrivateKey(*pk)
 
 		if tok != nil {
 			setEACLPrm.WithinSession(*tok)

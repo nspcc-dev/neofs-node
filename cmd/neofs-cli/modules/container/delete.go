@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -28,7 +27,7 @@ Only owner of the container has a permission to remove container.`,
 		tok := getSession(cmd)
 
 		pk := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
@@ -51,9 +50,7 @@ Only owner of the container has a permission to remove container.`,
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
 
-				var acc user.ID
-				err = user.IDFromSigner(&acc, neofsecdsa.SignerRFC6979(*pk))
-				common.ExitOnErr(cmd, "decoding user from key", err)
+				acc := user.ResolveFromECDSAPublicKey(pk.PublicKey)
 
 				if !acc.Equals(owner) {
 					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))
@@ -70,6 +67,7 @@ Only owner of the container has a permission to remove container.`,
 
 				var searchPrm internalclient.SearchObjectsPrm
 				searchPrm.SetClient(cli)
+				searchPrm.SetPrivateKey(*pk)
 				searchPrm.SetContainerID(id)
 				searchPrm.SetFilters(fs)
 				searchPrm.SetTTL(2)
@@ -90,6 +88,7 @@ Only owner of the container has a permission to remove container.`,
 		var delPrm internalclient.DeleteContainerPrm
 		delPrm.SetClient(cli)
 		delPrm.SetContainer(id)
+		delPrm.SetPrivateKey(*pk)
 
 		if tok != nil {
 			delPrm.WithinSession(*tok)

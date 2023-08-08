@@ -6,7 +6,6 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +18,7 @@ var getExtendedACLCmd = &cobra.Command{
 		defer cancel()
 
 		id := parseContainerID(cmd)
-		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, pk, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var eaclPrm internalclient.EACLPrm
 		eaclPrm.SetClient(cli)

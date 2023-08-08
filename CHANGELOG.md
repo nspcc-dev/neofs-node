@@ -32,7 +32,7 @@ Changelog for NeoFS Node
 - BlobStor tries to store object in any sub-storage with free space (#2450)
 
 ### Updated
-- `neofs-sdk-go` to `v1.0.0-rc.9`
+- `neofs-sdk-go` to `v1.0.0-rc.10`
 
 ### Updating from v0.37.0
 CLI command timeouts (flag `--timeout`) now limit the total command execution

@@ -4,7 +4,6 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/spf13/cobra"
 )
 
@@ -16,8 +15,7 @@ var snapshotCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		p := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, p, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		var prm internalclient.NetMapSnapshotPrm
 		prm.SetClient(cli)

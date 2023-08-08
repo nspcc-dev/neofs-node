@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"crypto/ecdsa"
 	"sync"
 	"time"
 
@@ -22,7 +21,6 @@ type (
 		DialTimeout      time.Duration
 		StreamTimeout    time.Duration
 		ReconnectTimeout time.Duration
-		Key              *ecdsa.PrivateKey
 		ResponseCallback func(client.ResponseMetaInfo) error
 		AllowExternal    bool
 	}

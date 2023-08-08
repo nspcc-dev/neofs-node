@@ -61,7 +61,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -589,7 +588,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	cacheOpts := cache.ClientCacheOpts{
 		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
 		StreamTimeout:    apiclientconfig.StreamTimeout(appCfg),
-		Key:              &key.PrivateKey,
 		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
 		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
 	}
@@ -633,8 +631,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		workerPool: reputationWorkerPool,
 	}
 
-	err = user.IDFromSigner(&c.ownerIDFromKey, neofsecdsa.SignerRFC6979(key.PrivateKey))
-	fatalOnErr(err)
+	c.ownerIDFromKey = user.ResolveFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
 	if metricsconfig.Enabled(c.appCfg) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)

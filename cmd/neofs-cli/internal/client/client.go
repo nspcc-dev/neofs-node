@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -79,6 +78,7 @@ func ListContainers(ctx context.Context, prm ListContainersPrm) (res ListContain
 // PutContainerPrm groups parameters of PutContainer operation.
 type PutContainerPrm struct {
 	commonPrm
+	signerRFC6979Prm
 
 	cnr containerSDK.Container
 	client.PrmContainerPut
@@ -108,7 +108,7 @@ func (x PutContainerRes) ID() cid.ID {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func PutContainer(ctx context.Context, prm PutContainerPrm) (res PutContainerRes, err error) {
-	cliRes, err := prm.cli.ContainerPut(ctx, prm.cnr, prm.PrmContainerPut)
+	cliRes, err := prm.cli.ContainerPut(ctx, prm.cnr, prm.signer, prm.PrmContainerPut)
 	if err == nil {
 		res.cnr = cliRes
 	}
@@ -166,6 +166,7 @@ func IsACLExtendable(ctx context.Context, c *client.Client, cnr cid.ID) (bool, e
 // DeleteContainerPrm groups parameters of DeleteContainerPrm operation.
 type DeleteContainerPrm struct {
 	commonPrm
+	signerRFC6979Prm
 
 	cid cid.ID
 	client.PrmContainerDelete
@@ -188,7 +189,7 @@ type DeleteContainerRes struct{}
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func DeleteContainer(ctx context.Context, prm DeleteContainerPrm) (res DeleteContainerRes, err error) {
-	err = prm.cli.ContainerDelete(ctx, prm.cid, prm.PrmContainerDelete)
+	err = prm.cli.ContainerDelete(ctx, prm.cid, prm.signer, prm.PrmContainerDelete)
 
 	return
 }
@@ -229,6 +230,7 @@ func EACL(ctx context.Context, prm EACLPrm) (res EACLRes, err error) {
 // SetEACLPrm groups parameters of SetEACL operation.
 type SetEACLPrm struct {
 	commonPrm
+	signerRFC6979Prm
 
 	table eacl.Table
 	client.PrmContainerSetEACL
@@ -251,7 +253,7 @@ type SetEACLRes struct{}
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func SetEACL(ctx context.Context, prm SetEACLPrm) (res SetEACLRes, err error) {
-	err = prm.cli.ContainerSetEACL(ctx, prm.table, prm.PrmContainerSetEACL)
+	err = prm.cli.ContainerSetEACL(ctx, prm.table, prm.signer, prm.PrmContainerSetEACL)
 
 	return
 }
@@ -337,6 +339,7 @@ func NetMapSnapshot(ctx context.Context, prm NetMapSnapshotPrm) (res NetMapSnaps
 // CreateSessionPrm groups parameters of CreateSession operation.
 type CreateSessionPrm struct {
 	commonPrm
+	signerPrm
 	client.PrmSessionCreate
 }
 
@@ -359,7 +362,7 @@ func (x CreateSessionRes) SessionKey() []byte {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func CreateSession(ctx context.Context, prm CreateSessionPrm) (res CreateSessionRes, err error) {
-	res.cliRes, err = prm.cli.SessionCreate(ctx, prm.PrmSessionCreate)
+	res.cliRes, err = prm.cli.SessionCreate(ctx, prm.signer, prm.PrmSessionCreate)
 
 	return
 }
@@ -421,64 +424,48 @@ func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 
 	putPrm.WithXHeaders(prm.xHeaders...)
 
-	wrt, err := prm.cli.ObjectPutInit(ctx, putPrm)
+	wrt, err := prm.cli.ObjectPutInit(ctx, *prm.hdr, prm.signer, putPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object writing: %w", err)
 	}
 
-	if wrt.WriteHeader(*prm.hdr) {
-		if prm.headerCallback != nil {
-			prm.headerCallback(prm.hdr)
-		}
+	if prm.headerCallback != nil {
+		prm.headerCallback(prm.hdr)
+	}
 
-		sz := prm.hdr.PayloadSize()
+	sz := prm.hdr.PayloadSize()
 
-		if data := prm.hdr.Payload(); len(data) > 0 {
-			if prm.rdr != nil {
-				prm.rdr = io.MultiReader(bytes.NewReader(data), prm.rdr)
-			} else {
-				prm.rdr = bytes.NewReader(data)
-				sz = uint64(len(data))
-			}
-		}
-
+	if data := prm.hdr.Payload(); len(data) > 0 {
 		if prm.rdr != nil {
-			const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
-
-			if sz == 0 || sz > defaultBufferSizePut {
-				sz = defaultBufferSizePut
-			}
-
-			buf := make([]byte, sz)
-
-			var n int
-
-			for {
-				n, err = prm.rdr.Read(buf)
-				if n > 0 {
-					if !wrt.WritePayloadChunk(buf[:n]) {
-						break
-					}
-
-					continue
-				}
-
-				if errors.Is(err, io.EOF) {
-					break
-				}
-
-				return nil, fmt.Errorf("read payload: %w", err)
-			}
+			prm.rdr = io.MultiReader(bytes.NewReader(data), prm.rdr)
+		} else {
+			prm.rdr = bytes.NewReader(data)
+			sz = uint64(len(data))
 		}
 	}
 
-	cliRes, err := wrt.Close()
-	if err != nil { // here err already carries both status and client errors
-		return nil, fmt.Errorf("client failure: %w", err)
+	if prm.rdr != nil {
+		const defaultBufferSizePut = 3 << 20 // Maximum chunk size is 3 MiB in the SDK.
+
+		if sz == 0 || sz > defaultBufferSizePut {
+			sz = defaultBufferSizePut
+		}
+
+		buf := make([]byte, sz)
+
+		_, err = io.CopyBuffer(wrt, prm.rdr, buf)
+		if err != nil {
+			return nil, fmt.Errorf("copy data into object stream: %w", err)
+		}
+	}
+
+	err = wrt.Close()
+	if err != nil {
+		return nil, fmt.Errorf("finish object stream: %w", err)
 	}
 
 	return &PutObjectRes{
-		id: cliRes.StoredObjectID(),
+		id: wrt.GetResult().StoredObjectID(),
 	}, nil
 }
 
@@ -514,7 +501,7 @@ func DeleteObject(ctx context.Context, prm DeleteObjectPrm) (*DeleteObjectRes, e
 
 	delPrm.WithXHeaders(prm.xHeaders...)
 
-	cliRes, err := prm.cli.ObjectDelete(ctx, prm.objAddr.Container(), prm.objAddr.Object(), delPrm)
+	cliRes, err := prm.cli.ObjectDelete(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, delPrm)
 	if err != nil {
 		return nil, fmt.Errorf("remove object via client: %w", err)
 	}
@@ -576,16 +563,11 @@ func GetObject(ctx context.Context, prm GetObjectPrm) (*GetObjectRes, error) {
 
 	getPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectGetInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), getPrm)
+	hdr, rdr, err := prm.cli.ObjectGetInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, getPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object reading on client: %w", err)
 	}
 
-	var hdr object.Object
-
-	if !rdr.ReadHeader(&hdr) {
-		return nil, fmt.Errorf("read object header: %w", rdr.Close())
-	}
 	if prm.headerCallback != nil {
 		prm.headerCallback(&hdr)
 	}
@@ -649,7 +631,7 @@ func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) 
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
+	res, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header via client: %w", err)
 	}
@@ -709,7 +691,7 @@ func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectSearchInit(ctx, prm.cnrID, cliPrm)
+	rdr, err := prm.cli.ObjectSearchInit(ctx, prm.cnrID, prm.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
@@ -812,7 +794,7 @@ func HashPayloadRanges(ctx context.Context, prm HashPayloadRangesPrm) (*HashPayl
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHash(ctx, prm.objAddr.Container(), prm.objAddr.Object(), cliPrm)
+	res, err := prm.cli.ObjectHash(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read payload hashes via client: %w", err)
 	}
@@ -867,7 +849,7 @@ func PayloadRange(ctx context.Context, prm PayloadRangePrm) (*PayloadRangeRes, e
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	rdr, err := prm.cli.ObjectRangeInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.rng.GetOffset(), prm.rng.GetLength(), cliPrm)
+	rdr, err := prm.cli.ObjectRangeInit(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.rng.GetOffset(), prm.rng.GetLength(), prm.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}

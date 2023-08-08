@@ -2,9 +2,6 @@ package internal
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"time"
@@ -12,41 +9,41 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
 
 // GetSDKClientByFlag returns default neofs-sdk-go client using the specified flag for the address.
 // On error, outputs to stderr of cmd and exits with non-zero code.
-func GetSDKClientByFlag(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag string) *client.Client {
-	cli, err := getSDKClientByFlag(ctx, cmd, key, endpointFlag)
+func GetSDKClientByFlag(ctx context.Context, cmd *cobra.Command, endpointFlag string) *client.Client {
+	cli, err := getSDKClientByFlag(ctx, cmd, endpointFlag)
 	if err != nil {
 		common.ExitOnErr(cmd, "can't create API client: %w", err)
 	}
 	return cli
 }
 
-func getSDKClientByFlag(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, endpointFlag string) (*client.Client, error) {
+func getSDKClientByFlag(ctx context.Context, cmd *cobra.Command, endpointFlag string) (*client.Client, error) {
 	var addr network.Address
 
 	err := addr.FromString(viper.GetString(endpointFlag))
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errInvalidEndpoint, err)
 	}
-	return GetSDKClient(ctx, cmd, key, addr)
+	return GetSDKClient(ctx, cmd, addr)
 }
 
 // GetSDKClient returns default neofs-sdk-go client.
-func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, addr network.Address) (*client.Client, error) {
+func GetSDKClient(ctx context.Context, cmd *cobra.Command, addr network.Address) (*client.Client, error) {
 	var (
 		prmInit client.PrmInit
 		prmDial client.PrmDial
 	)
 
-	prmInit.SetDefaultSigner(neofsecdsa.SignerRFC6979(*key))
 	prmDial.SetServerURI(addr.URIAddr())
 	prmDial.SetContext(ctx)
 
@@ -67,6 +64,23 @@ func GetSDKClient(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey
 	}
 
 	if err := c.Dial(prmDial); err != nil { //nolint:contextcheck // SetContext is used above.
+		// Here is a hack helping IR healthcheck to work. Current API client revision
+		// calls NetmapService.EndpointInfo RPC which is a part of the NeoFS API
+		// protocol. Inner ring nodes don't serve NeoFS API services, so they respond
+		// with Unimplemented code. We ignore this error here:
+		//  - if nodes responds, then dial was successful
+		//  - even if we connect to storage node which MUST provide NeoFS API services,
+		//    subsequent EndpointInfo method will return Unimplemented error anyway
+		// This behavior is going to be fixed on SDK side.
+		//
+		// Track https://github.com/nspcc-dev/neofs-node/issues/2477
+		wErr := err
+		for e := errors.Unwrap(wErr); e != nil; e = errors.Unwrap(wErr) {
+			wErr = e
+		}
+		if status.Code(wErr) == codes.Unimplemented {
+			return c, nil
+		}
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
@@ -81,12 +95,7 @@ func GetCurrentEpoch(ctx context.Context, cmd *cobra.Command, endpoint string) (
 		return 0, fmt.Errorf("can't parse RPC endpoint: %w", err)
 	}
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return 0, fmt.Errorf("can't generate key to sign query: %w", err)
-	}
-
-	c, err := GetSDKClient(ctx, cmd, key, addr)
+	c, err := GetSDKClient(ctx, cmd, addr)
 	if err != nil {
 		return 0, err
 	}

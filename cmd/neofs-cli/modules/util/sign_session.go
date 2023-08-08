@@ -9,9 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +43,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 	type iTokenSession interface {
 		json.Marshaler
 		common.BinaryOrJSON
-		Sign(neofscrypto.Signer) error
+		Sign(user.Signer) error
 	}
 	var errLast error
 	var stok iTokenSession
@@ -64,7 +63,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 
 	pk := key.GetOrGenerate(cmd)
 
-	err = stok.Sign(neofsecdsa.SignerRFC6979(*pk))
+	err = stok.Sign(user.NewAutoIDSignerRFC6979(*pk))
 	common.ExitOnErr(cmd, "can't sign token: %w", err)
 
 	data, err := stok.MarshalJSON()

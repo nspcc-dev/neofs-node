@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -43,7 +42,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		common.ExitOnErr(cmd, "", err)
 
 		key := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, key, commonflags.RPC)
+		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 
 		if !force {
 			var prm internalclient.NetMapSnapshotPrm
@@ -84,11 +83,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			issuer := tok.Issuer()
 			cnr.SetOwner(issuer)
 		} else {
-			var idOwner user.ID
-			err = user.IDFromSigner(&idOwner, neofsecdsa.SignerRFC6979(*key))
-			common.ExitOnErr(cmd, "decoding user from key", err)
-
-			cnr.SetOwner(idOwner)
+			cnr.SetOwner(user.ResolveFromECDSAPublicKey(key.PublicKey))
 		}
 
 		cnr.SetPlacementPolicy(*placementPolicy)
@@ -104,6 +99,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
 		putPrm.SetContainer(cnr)
+		putPrm.SetPrivateKey(*key)
 
 		if tok != nil {
 			putPrm.WithinSession(*tok)
@@ -208,11 +204,11 @@ func parseAttributes(dst *container.Container, attributes []string) error {
 	}
 
 	if !containerNoTimestamp {
-		container.SetCreationTime(dst, time.Now())
+		dst.SetCreationTime(time.Now())
 	}
 
 	if containerName != "" {
-		container.SetName(dst, containerName)
+		dst.SetName(containerName)
 	}
 
 	return nil
