@@ -49,6 +49,9 @@ an old engine `*operation_name*_duration` a new `*operation_name*_time` is avail
 For an old `*operation_name*_req_duration` RPC a new `rpc_*operation_name*_time` is
 available. The old ones (the counters) have been deprecated and will be removed with
 the following minor release.
+Container estimation main node calculation has been changed. A new 32-byte long
+array is taken as a sorting pivot: it is an estimated container with the first 8 bytes
+replaced with a target epoch in a little-endian encoding now.
 
 Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR configurations
 have been removed. Use `morph.endpoints` for both instead.
