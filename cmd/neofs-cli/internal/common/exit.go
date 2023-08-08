@@ -28,15 +28,11 @@ func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
 		aclDenied
 	)
 
-	var (
-		code int
-
-		internalErr = new(sdkstatus.ServerInternal)
-		accessErr   = new(sdkstatus.ObjectAccessDenied)
-	)
+	var code int
+	var accessErr = new(sdkstatus.ObjectAccessDenied)
 
 	switch {
-	case errors.As(err, &internalErr):
+	case errors.Is(err, sdkstatus.ErrServerInternal):
 		code = internal
 	case errors.As(err, &accessErr):
 		code = aclDenied

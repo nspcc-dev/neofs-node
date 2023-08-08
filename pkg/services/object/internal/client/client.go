@@ -134,8 +134,8 @@ func (x GetObjectRes) Object() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//   - error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual
+//   - [apistatus.ErrObjectAlreadyRemoved] error if the requested object is marked to be removed
 //
 // GetObject ignores the provided session if it is not related to the requested object.
 func GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
@@ -228,9 +228,9 @@ func (x HeadObjectRes) Header() *object.Object {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//
-//	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed.
+//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual
+//   - [apistatus.ErrObjectAlreadyRemoved] error if the requested object is marked to be removed
+//   - [apistatus.ErrNodeUnderMaintenance] error if remote node is currently under maintenance
 //
 // HeadObject ignores the provided session if it is not related to the requested object.
 func HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
@@ -321,10 +321,10 @@ const maxInitialBufferSize = 1024 * 1024 // 1 MiB
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 // Returns:
-//
-//	error of type *object.SplitInfoError if object raw flag is set and requested object is virtual;
-//	error of type *apistatus.ObjectAlreadyRemoved if the requested object is marked to be removed;
-//	error of type *apistatus.ObjectOutOfRange if the requested range is too big.
+//   - error of type *object.SplitInfoError if object raw flag is set and requested object is virtual
+//   - [apistatus.ErrObjectAlreadyRemoved] error if the requested object is marked to be removed
+//   - [apistatus.ErrObjectOutOfRange] error if the requested range is too big
+//   - [apistatus.ErrObjectAccessDenied] error if access to the requested object is denied
 //
 // PayloadRange ignores the provided session if it is not related to the requested object.
 func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {

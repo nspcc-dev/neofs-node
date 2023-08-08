@@ -63,7 +63,9 @@ func (p *RemoteHeadPrm) WithObjectAddress(v oid.Address) *RemoteHeadPrm {
 	return p
 }
 
-// Head requests object header from the remote node.
+// Head requests object header from the remote node. Returns:
+//   - [apistatus.ErrObjectNotFound] error if the requested object is missing
+//   - [apistatus.ErrNodeUnderMaintenance] error if remote node is currently under maintenance
 func (h *RemoteHeader) Head(ctx context.Context, prm *RemoteHeadPrm) (*object.Object, error) {
 	key, err := h.keyStorage.GetKey(nil)
 	if err != nil {

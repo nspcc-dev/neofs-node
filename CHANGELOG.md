@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Session inactivity on object PUT request relay (#2460)
 - Missing connection retries on IR node startup when the first configured mainnet RPC node is not in sync (#2474)
 - Storage node no longer ignores unhealthy shards on startup (#2464)
+- Processing of status errors returned by API client from NeoFS SDK RC-9 (#2465)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
