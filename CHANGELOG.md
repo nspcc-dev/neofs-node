@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Double voting for validators on IR startup (#2365)
 - Skip unexpected notary events on notary request parsing step (#2315)
 - Session inactivity on object PUT request relay (#2460)
+- Missing connection retries on IR node startup when the first configured mainnet RPC node is not in sync (#2474)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)

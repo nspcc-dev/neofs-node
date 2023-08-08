@@ -479,8 +479,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, err
 		}
 
-		// create mainnet listener
-		server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
+		// create mainnet listener, retry with a different node if current one is not up to date
+		for {
+			server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
+			if !errors.Is(err, subscriber.ErrStaleNode) || !server.mainnetClient.SwitchRPC() {
+				break
+			}
+		}
 		if err != nil {
 			return nil, err
 		}
