@@ -26,16 +26,22 @@ permissions: write-all
 jobs:
   run_system_tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test_set: [ sanity_tests, all_tests ]
+      fail-fast: false
     timeout-minutes: 500
     steps:
       - name: Get the current date
         id: date
         run: echo "::set-output name=timestamp::$(date +%s)"
 
-      - name: Set RUN_ID
+      - name: Set RUN_ID and CONTEXT
         env:
           TIMESTAMP: ${{ steps.date.outputs.timestamp }}
-        run: echo "RUN_ID=${{ github.run_number }}-$TIMESTAMP" >> $GITHUB_ENV
+        run: |
+          echo "RUN_ID=${{ github.run_number }}-$TIMESTAMP-${{matrix.test_set}}" >> $GITHUB_ENV
+          echo "CONTEXT=Test_report_from_${{matrix.test_set}}" >> $GITHUB_ENV
 
       - name: Checkout neofs-testcases repository
         uses: actions/checkout@v3
@@ -227,14 +233,14 @@ jobs:
 ################################################################
       - name: Run Sanity tests for pull requests
         timeout-minutes: 120
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.test_set == 'sanity_tests'
         run: |
           source venv.local-pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
 
       - name: Run all tests for other events
         timeout-minutes: 480
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || matrix.test_set == 'all_tests'
         run: |
           source venv.local-pytest/bin/activate && pytest --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/testsuites
         working-directory: neofs-testcases
@@ -293,7 +299,7 @@ jobs:
         uses: Sibz/github-status-action@v1
         with:
           authToken: ${{secrets.GITHUB_TOKEN}}
-          context: 'Test report'
+          context: ${{env.CONTEXT}}
           state: 'success'
           sha: ${{github.event.pull_request.head.sha || github.sha}}
           target_url: https://${{ env.TEST_RESULTS_HTTP_GATE }}/${{ env.TEST_RESULTS_CID }}/${{ env.RUN_ID }}/index.html
