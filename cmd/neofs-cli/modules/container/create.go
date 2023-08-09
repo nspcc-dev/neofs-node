@@ -150,10 +150,8 @@ func initContainerCreateCmd() {
 	flags.DurationP(commonflags.Timeout, commonflags.TimeoutShorthand, commonflags.TimeoutDefault, commonflags.TimeoutUsage)
 	flags.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
 	flags.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
-
-	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("HEX encoded basic ACL value or keywords like '%s', '%s', '%s'",
-		acl.NamePublicRW, acl.NamePrivate, acl.NamePublicROExtended,
-	))
+	flags.StringVar(&containerACL, "basic-acl", acl.NamePrivate, fmt.Sprintf("HEX-encoded basic ACL value or one of the keywords ['%s', '%s', '%s','%s', '%s', '%s', '%s', '%s']. To see the basic ACL details, run: 'neofs-cli acl basic print'",
+		acl.NamePublicRW, acl.NamePrivate, acl.NamePublicROExtended, acl.NamePrivateExtended, acl.NamePublicRO, acl.NamePublicRWExtended, acl.NamePublicAppend, acl.NamePublicAppendExtended))
 	flags.StringVarP(&containerPolicy, "policy", "p", "", "QL-encoded or JSON-encoded placement policy or path to file with it")
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is persisted. "+
