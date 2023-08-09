@@ -11,7 +11,7 @@ var printACLCmd = &cobra.Command{
 	Use:     "print",
 	Short:   "Pretty print basic ACL from the HEX representation",
 	Example: `neofs-cli acl basic print 0x1C8C8CCC`,
-	Long: `Pretty print basic ACL from the HEX representation.
+	Long: `Pretty print basic ACL from the HEX representation or keyword.
 Few roles have exclusive default access to set of operation, even if particular bit deny it.
 Container have access to the operations of the data replication mechanism:
     Get, Head, Put, Search, Hash.
