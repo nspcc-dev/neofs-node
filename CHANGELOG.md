@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- Update minimal supported Go version up to v1.19 (#2485)
 
 ### Updating from v0.38.0
 
