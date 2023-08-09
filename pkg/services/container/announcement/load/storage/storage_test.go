@@ -18,7 +18,7 @@ func TestStorage(t *testing.T) {
 
 	const opinionsNum = 100
 
-	s := New(Prm{})
+	s := New(0)
 
 	opinions := make([]uint64, opinionsNum)
 	for i := range opinions {
@@ -53,7 +53,7 @@ func TestStorage_NewEpoch(t *testing.T) {
 	const epoch uint64 = 13
 	const lifeCycle = 5
 
-	s := New(Prm{EstimationsLifeCycle: lifeCycle})
+	s := New(lifeCycle)
 
 	var a container.SizeEstimation
 	a.SetContainer(cidtest.ID())

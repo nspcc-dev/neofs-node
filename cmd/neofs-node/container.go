@@ -150,7 +150,7 @@ func initContainerService(c *cfg) {
 		key:            pubKey,
 	}
 
-	loadAccumulator := loadstorage.New(loadstorage.Prm{EstimationsLifeCycle: containercontract.CleanupDelta})
+	loadAccumulator := loadstorage.New(containercontract.CleanupDelta)
 
 	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
 		ev := e.(netmapEv.NewEpoch)

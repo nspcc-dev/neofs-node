@@ -44,22 +44,18 @@ type Storage struct {
 	mItems       map[storageKey]*usedSpaceEstimations
 }
 
-// Prm groups the required parameters of the Storage's constructor.
-type Prm struct {
-	// EstimationsLifeCycle is a longevity (in epochs) of estimations
-	// that are kept in the [Storage] instance. Note, current epoch
-	// is controlled with [Storage.EpochEvent].
-	EstimationsLifeCycle uint64
-}
-
 // New creates a new instance of the Storage.
 //
 // The created Storage does not require additional
 // initialization and is completely ready for work.
-func New(prm Prm) *Storage {
+//
+// estimationsLifeCycle is a longevity (in epochs) of estimations
+// that are kept in the [Storage] instance. Note, current epoch
+// is controlled with [Storage.EpochEvent].
+func New(estimationsLifeCycle uint64) *Storage {
 	return &Storage{
 		mItems:       make(map[storageKey]*usedSpaceEstimations),
-		estLifeCycle: prm.EstimationsLifeCycle,
+		estLifeCycle: estimationsLifeCycle,
 	}
 }
 
