@@ -532,6 +532,11 @@ var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
 
+	// attaching version to the node's attributes; do not
+	// move it anywhere below reading the other attributes
+	// since a user should be able to overwrite it.
+	writeAppVersion(c)
+
 	err := c.readConfig(appCfg)
 	if err != nil {
 		panic(fmt.Errorf("config reading: %w", err))
@@ -962,4 +967,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// writeAppVersion writes app version as defined at compilation
+// step to the node's attributes.
+func writeAppVersion(c *cfg) {
+	c.cfgNodeInfo.localInfo.SetAttribute("Version", misc.Version)
 }

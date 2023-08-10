@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Stored payload metric per container (#2116)
 - Stored payload metric per shard (#2023)
 - Histogram metrics for RPC and engine operations (#2351) 
+- SN's version is announced via the attributes automatically but can be overwritten explicitly (#2455)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
