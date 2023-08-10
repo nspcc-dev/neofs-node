@@ -927,11 +927,8 @@ func internalKey(key []byte, k, v string, parent, node Node) []byte {
 	key = append(key, byte(l), byte(l>>8))
 	key = append(key, v...)
 
-	var raw [8]byte
-	binary.LittleEndian.PutUint64(raw[:], parent)
-	key = append(key, raw[:]...)
+	key = binary.LittleEndian.AppendUint64(key, parent)
+	key = binary.LittleEndian.AppendUint64(key, node)
 
-	binary.LittleEndian.PutUint64(raw[:], node)
-	key = append(key, raw[:]...)
 	return key
 }
