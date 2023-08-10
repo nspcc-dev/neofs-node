@@ -291,7 +291,7 @@ func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, epoch uint6
 	})
 }
 
-func (x *multiClient) ExecRaw(f func(client *rawclient.Client) error) error {
+func (x *multiClient) ExecRaw(_ func(client *rawclient.Client) error) error {
 	panic("multiClient.ExecRaw() must not be called")
 }
 

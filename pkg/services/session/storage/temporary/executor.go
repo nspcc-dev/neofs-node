@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
+func (s *TokenStore) Create(_ context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
 	idV2 := body.GetOwnerID()
 	if idV2 == nil {
 		return nil, errors.New("missing owner")

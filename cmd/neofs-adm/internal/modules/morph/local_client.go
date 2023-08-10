@@ -229,7 +229,7 @@ func (l *localClient) GetVersion() (*result.Version, error) {
 	return &result.Version{}, nil
 }
 
-func (l *localClient) InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error) {
+func (l *localClient) InvokeContractVerify(_ util.Uint160, _ []smartcontract.Parameter, _ []transaction.Signer, _ ...transaction.Witness) (*result.Invoke, error) {
 	// not used by `morph init` command
 	panic("unexpected call")
 }

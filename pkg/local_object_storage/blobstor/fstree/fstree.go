@@ -434,6 +434,6 @@ func (t *FSTree) SetCompressor(cc *compression.Config) {
 }
 
 // SetReportErrorFunc implements common.Storage.
-func (t *FSTree) SetReportErrorFunc(f func(string, error)) {
+func (t *FSTree) SetReportErrorFunc(_ func(string, error)) {
 	// Do nothing, FSTree can encounter only one error which is returned.
 }

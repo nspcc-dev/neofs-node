@@ -17,7 +17,7 @@ import (
 // encrypts private keys if storage has been configured so).
 // Returns response that is filled with just created token's
 // ID and public key for it.
-func (s *TokenStore) Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
+func (s *TokenStore) Create(_ context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error) {
 	idV2 := body.GetOwnerID()
 	if idV2 == nil {
 		return nil, errors.New("missing owner")

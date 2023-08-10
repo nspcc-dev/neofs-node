@@ -11,7 +11,7 @@ import (
 // SetNetmapStatus sets node status in NeoFS network.
 //
 // If request is unsigned or signed by disallowed key, permission error returns.
-func (s *Server) SetNetmapStatus(ctx context.Context, req *control.SetNetmapStatusRequest) (*control.SetNetmapStatusResponse, error) {
+func (s *Server) SetNetmapStatus(_ context.Context, req *control.SetNetmapStatusRequest) (*control.SetNetmapStatusResponse, error) {
 	// verify request
 	if err := s.isValidRequest(req); err != nil {
 		return nil, status.Error(codes.PermissionDenied, err.Error())

@@ -104,7 +104,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	fillContractVersion(cmd, c, infos)
-	fillContractExpiration(cmd, c, infos)
+	fillContractExpiration(c, infos)
 	printContractInfo(cmd, infos)
 
 	return nil
@@ -178,7 +178,7 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 	}
 
 	fillContractVersion(cmd, c, infos)
-	fillContractExpiration(cmd, c, infos)
+	fillContractExpiration(c, infos)
 	printContractInfo(cmd, infos)
 
 	return nil
@@ -259,7 +259,7 @@ func fillContractVersion(cmd *cobra.Command, c Client, infos []contractDumpInfo)
 	}
 }
 
-func fillContractExpiration(cmd *cobra.Command, c Client, infos []contractDumpInfo) {
+func fillContractExpiration(c Client, infos []contractDumpInfo) {
 	n11r := nep11.NewNonDivisibleReader(invoker.New(c, nil), infos[0].hash)
 	for i := range infos {
 		if infos[i].hash.Equals(util.Uint160{}) {

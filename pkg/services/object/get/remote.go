@@ -1,7 +1,6 @@
 package getsvc
 
 import (
-	"context"
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -10,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) processNode(ctx context.Context, info client.NodeInfo) bool {
+func (exec *execCtx) processNode(info client.NodeInfo) bool {
 	exec.log.Debug("processing node...")
 
 	client, ok := exec.remoteClient(info)

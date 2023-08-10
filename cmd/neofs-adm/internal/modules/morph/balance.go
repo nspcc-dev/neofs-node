@@ -67,7 +67,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	irList, err := fetchIRNodes(c, nmHash, rolemgmt.Hash)
+	irList, err := fetchIRNodes(c, rolemgmt.Hash)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func fetchIRNodes(c Client, nmHash, desigHash util.Uint160) ([]accBalancePair, error) {
+func fetchIRNodes(c Client, desigHash util.Uint160) ([]accBalancePair, error) {
 	inv := invoker.New(c, nil)
 
 	height, err := c.GetBlockCount()

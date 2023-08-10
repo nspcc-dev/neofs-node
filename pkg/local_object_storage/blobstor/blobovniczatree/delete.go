@@ -29,7 +29,7 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 			return res, err
 		}
 
-		return b.deleteObject(blz, bPrm, prm)
+		return b.deleteObject(blz, bPrm)
 	}
 
 	activeCache := make(map[string]struct{})
@@ -41,7 +41,7 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 		// don't process active blobovnicza of the level twice
 		_, ok := activeCache[dirPath]
 
-		res, err = b.deleteObjectFromLevel(bPrm, p, !ok, prm)
+		res, err = b.deleteObjectFromLevel(bPrm, p, !ok)
 		if err != nil {
 			if !blobovnicza.IsErrNotFound(err) {
 				b.log.Debug("could not remove object from level",
@@ -72,7 +72,7 @@ func (b *Blobovniczas) Delete(prm common.DeletePrm) (res common.DeleteRes, err e
 // tries to delete object from particular blobovnicza.
 //
 // returns no error if object was removed from some blobovnicza of the same level.
-func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool, dp common.DeletePrm) (common.DeleteRes, error) {
+func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath string, tryActive bool) (common.DeleteRes, error) {
 	lvlPath := filepath.Dir(blzPath)
 
 	// try to remove from blobovnicza if it is opened
@@ -80,7 +80,7 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 	v, ok := b.opened.Get(blzPath)
 	b.lruMtx.Unlock()
 	if ok {
-		if res, err := b.deleteObject(v, prm, dp); err == nil {
+		if res, err := b.deleteObject(v, prm); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
 			b.log.Debug("could not remove object from opened blobovnicza",
@@ -99,7 +99,7 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 	b.activeMtx.RUnlock()
 
 	if ok && tryActive {
-		if res, err := b.deleteObject(active.blz, prm, dp); err == nil {
+		if res, err := b.deleteObject(active.blz, prm); err == nil {
 			return res, err
 		} else if !blobovnicza.IsErrNotFound(err) {
 			b.log.Debug("could not remove object from active blobovnicza",
@@ -124,11 +124,11 @@ func (b *Blobovniczas) deleteObjectFromLevel(prm blobovnicza.DeletePrm, blzPath 
 		return common.DeleteRes{}, err
 	}
 
-	return b.deleteObject(blz, prm, dp)
+	return b.deleteObject(blz, prm)
 }
 
 // removes object from blobovnicza and returns common.DeleteRes.
-func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm, dp common.DeletePrm) (common.DeleteRes, error) {
+func (b *Blobovniczas) deleteObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.DeletePrm) (common.DeleteRes, error) {
 	_, err := blz.Delete(prm)
 	return common.DeleteRes{}, err
 }
