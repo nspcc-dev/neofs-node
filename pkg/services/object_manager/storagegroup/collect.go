@@ -1,6 +1,8 @@
 package storagegroup
 
 import (
+	"fmt"
+
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -52,7 +54,7 @@ func CollectMembers(r objutil.HeadReceiver, cnr cid.ID, members []oid.ID, calcHo
 	if calcHomoHash {
 		sumHash, err := tz.Concat(phyHashes)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("concatenate '%s' checksums of all members: %w", checksum.TZ, err)
 		}
 
 		var cs checksum.Checksum
