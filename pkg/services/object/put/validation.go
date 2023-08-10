@@ -31,6 +31,8 @@ type validatingTarget struct {
 	payloadSz uint64 // payload size of the streaming object from header
 
 	writtenPayload uint64 // number of already written payload bytes
+
+	homomorphicChecksumRequired bool
 }
 
 var (
@@ -53,6 +55,20 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 		// check payload size limit
 		if t.payloadSz > t.maxPayloadSz {
 			return ErrExceedingMaxSize
+		}
+
+		if t.homomorphicChecksumRequired {
+			cs, csSet := obj.PayloadHomomorphicHash()
+			switch {
+			case !csSet:
+				return errors.New("missing homomorphic payload checksum")
+			case cs.Type() != checksum.TZ:
+				return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum: %s instead of %s",
+					cs.Type(), checksum.TZ)
+			case len(cs.Value()) != tz.Size:
+				return fmt.Errorf("invalid/unsupported length of %s homomorphic payload checksum: %d instead of %d",
+					cs.Type(), len(cs.Value()), tz.Size)
+			}
 		}
 
 		cs, csSet := obj.PayloadChecksum()
