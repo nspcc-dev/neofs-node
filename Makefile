@@ -8,7 +8,7 @@ HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= "$(shell echo ${VERSION} | sed 's/^v//')"
 
 GO_VERSION ?= 1.20
-LINT_VERSION ?= 1.50.0
+LINT_VERSION ?= 1.54.0
 ARCH = amd64
 
 BIN = bin
