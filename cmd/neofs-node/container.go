@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/hrw"
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	containercontract "github.com/nspcc-dev/neofs-contract/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -18,6 +19,7 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	netmapEv "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -133,23 +135,30 @@ func initContainerService(c *cfg) {
 		cnrWrt.eacls = cachedEACLStorage
 	}
 
+	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
+
 	localMetrics := &localStorageLoad{
-		log:    c.log,
+		log:    estimationsLogger,
 		engine: c.cfgObject.cfgLocalStorage.localStorage,
 	}
 
 	pubKey := c.key.PublicKey().Bytes()
 
 	resultWriter := &morphLoadWriter{
-		log:            c.log,
+		log:            estimationsLogger,
 		cnrMorphClient: wrapperNoNotary,
 		key:            pubKey,
 	}
 
-	loadAccumulator := loadstorage.New(loadstorage.Prm{})
+	loadAccumulator := loadstorage.New(containercontract.CleanupDelta)
+
+	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
+		ev := e.(netmapEv.NewEpoch)
+		loadAccumulator.EpochEvent(ev.EpochNumber())
+	})
 
 	loadPlacementBuilder := &loadPlacementBuilder{
-		log:    c.log,
+		log:    estimationsLogger,
 		nmSrc:  c.netMapSource,
 		cnrSrc: cnrSrc,
 	}
@@ -169,7 +178,7 @@ func initContainerService(c *cfg) {
 			},
 			Builder: routeBuilder,
 		},
-		loadroute.WithLogger(c.log),
+		loadroute.WithLogger(estimationsLogger),
 	)
 
 	ctrl := loadcontroller.New(
@@ -179,7 +188,7 @@ func initContainerService(c *cfg) {
 			LocalAnnouncementTarget: loadRouter,
 			ResultReceiver:          loadcontroller.SimpleWriterProvider(resultWriter),
 		},
-		loadcontroller.WithLogger(c.log),
+		loadcontroller.WithLogger(estimationsLogger),
 	)
 
 	setContainerNotificationParser(c, startEstimationNotifyEvent, containerEvent.ParseStartEstimation)
