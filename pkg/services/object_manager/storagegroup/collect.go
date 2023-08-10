@@ -16,6 +16,7 @@ import (
 var (
 	errMissingHomomorphicChecksum = errors.New("missing homomorphic checksum in member's child header")
 	errInvalidHomomorphicChecksum = errors.New("invalid homomorphic checksum in member's child header")
+	errMissingSplitMemberID       = errors.New("missing object ID in member's child header")
 )
 
 // CollectMembers creates new storage group structure and fills it
@@ -41,7 +42,8 @@ func CollectMembers(r objutil.HeadReceiver, cnr cid.ID, members []oid.ID, calcHo
 		if err := objutil.IterateSplitLeaves(r, addr, func(leaf *object.Object) bool {
 			id, ok := leaf.ID()
 			if !ok {
-				return false
+				errMember = errMissingSplitMemberID
+				return true
 			}
 
 			phyMembers = append(phyMembers, id)

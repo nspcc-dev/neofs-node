@@ -45,4 +45,16 @@ func TestCollectMembers(t *testing.T) {
 		_, err := CollectMembers(src, cidtest.ID(), []oid.ID{oidtest.ID()}, true)
 		require.ErrorIs(t, err, errInvalidHomomorphicChecksum)
 	})
+
+	t.Run("missing member's child ID", func(t *testing.T) {
+		var child object.Object
+
+		_, ok := child.ID()
+		require.False(t, ok)
+
+		src := &mockedObjects{hdr: &child}
+
+		_, err := CollectMembers(src, cidtest.ID(), []oid.ID{oidtest.ID()}, false)
+		require.ErrorIs(t, err, errMissingSplitMemberID)
+	})
 }
