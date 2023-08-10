@@ -302,7 +302,8 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	ver := versionSDK.Current()
 
 	obj.SetID(oidtest.ID())
-	obj.SetOwnerID(usertest.ID(t))
+	owner := usertest.ID(t)
+	obj.SetOwnerID(&owner)
 	obj.SetContainerID(cidtest.ID())
 	obj.SetType(object.TypeRegular)
 	obj.SetVersion(&ver)

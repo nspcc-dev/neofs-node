@@ -25,7 +25,8 @@ func TestSingleDir(t *testing.T) {
 	defer func() { _ = tree.Close() }()
 	require.NoError(t, tree.Init())
 
-	bObj, err := objecttest.Object(t).Marshal()
+	obj := objecttest.Object(t)
+	bObj, err := obj.Marshal()
 	require.NoError(t, err)
 
 	putPrm := common.PutPrm{

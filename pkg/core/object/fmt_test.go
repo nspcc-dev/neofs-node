@@ -90,8 +90,10 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
-		obj.SetSessionToken(sessiontest.ObjectSigned(signer))
-		obj.SetOwnerID(usertest.ID(t))
+		tok := sessiontest.ObjectSigned(signer)
+		obj.SetSessionToken(&tok)
+		owner := usertest.ID(t)
+		obj.SetOwnerID(&owner)
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
 

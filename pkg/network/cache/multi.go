@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -234,7 +233,7 @@ func (x *multiClient) ObjectDelete(ctx context.Context, containerID cid.ID, obje
 	return
 }
 
-func (x *multiClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer neofscrypto.Signer, prm client.PrmObjectGet) (hdr objectSDK.Object, rdr *client.PayloadReader, err error) {
+func (x *multiClient) ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (hdr objectSDK.Object, rdr *client.PayloadReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		hdr, rdr, err = c.ObjectGetInit(ctx, containerID, objectID, signer, prm)
 		return err
@@ -243,7 +242,7 @@ func (x *multiClient) ObjectGetInit(ctx context.Context, containerID cid.ID, obj
 	return
 }
 
-func (x *multiClient) ObjectRangeInit(ctx context.Context, containerID cid.ID, objectID oid.ID, offset, length uint64, signer neofscrypto.Signer, prm client.PrmObjectRange) (res *client.ObjectRangeReader, err error) {
+func (x *multiClient) ObjectRangeInit(ctx context.Context, containerID cid.ID, objectID oid.ID, offset, length uint64, signer user.Signer, prm client.PrmObjectRange) (res *client.ObjectRangeReader, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		res, err = c.ObjectRangeInit(ctx, containerID, objectID, offset, length, signer, prm)
 		return err
@@ -252,7 +251,7 @@ func (x *multiClient) ObjectRangeInit(ctx context.Context, containerID cid.ID, o
 	return
 }
 
-func (x *multiClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (res *client.ResObjectHead, err error) {
+func (x *multiClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (res *objectSDK.Object, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		res, err = c.ObjectHead(ctx, containerID, objectID, signer, prm)
 		return err
@@ -261,7 +260,7 @@ func (x *multiClient) ObjectHead(ctx context.Context, containerID cid.ID, object
 	return
 }
 
-func (x *multiClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer neofscrypto.Signer, prm client.PrmObjectHash) (res [][]byte, err error) {
+func (x *multiClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHash) (res [][]byte, err error) {
 	err = x.iterateClients(ctx, func(c clientcore.Client) error {
 		res, err = c.ObjectHash(ctx, containerID, objectID, signer, prm)
 		return err

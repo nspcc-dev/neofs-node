@@ -617,19 +617,13 @@ func HeadObject(ctx context.Context, prm HeadObjectPrm) (*HeadObjectRes, error) 
 
 	cliPrm.WithXHeaders(prm.xHeaders...)
 
-	res, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, cliPrm)
+	hdr, err := prm.cli.ObjectHead(ctx, prm.objAddr.Container(), prm.objAddr.Object(), prm.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header via client: %w", err)
 	}
 
-	var hdr object.Object
-
-	if !res.ReadHeader(&hdr) {
-		return nil, fmt.Errorf("missing header in response")
-	}
-
 	return &HeadObjectRes{
-		hdr: &hdr,
+		hdr: hdr,
 	}, nil
 }
 
@@ -682,24 +676,14 @@ func SearchObjects(ctx context.Context, prm SearchObjectsPrm) (*SearchObjectsRes
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
-	buf := make([]oid.ID, 10)
 	var list []oid.ID
-	var n int
-	var ok bool
 
-	for {
-		n, ok = rdr.Read(buf)
-		for i := 0; i < n; i++ {
-			list = append(list, buf[i])
-		}
-		if !ok {
-			break
-		}
-	}
-
-	err = rdr.Close()
+	err = rdr.Iterate(func(id oid.ID) bool {
+		list = append(list, id)
+		return false
+	})
 	if err != nil {
-		return nil, fmt.Errorf("read object list: %w", err)
+		return nil, fmt.Errorf("search objects using NeoFS API: %w", err)
 	}
 
 	return &SearchObjectsRes{

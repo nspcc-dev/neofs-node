@@ -83,7 +83,11 @@ func (w *headSvcWrapper) previous(exec *execCtx, id oid.ID) (*oid.ID, error) {
 
 func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oid.ID, error) {
 	fs := object.SearchFilters{}
-	fs.AddSplitIDFilter(object.MatchStringEqual, exec.splitInfo.SplitID())
+	if splitID := exec.splitInfo.SplitID(); splitID != nil {
+		fs.AddSplitIDFilter(object.MatchStringEqual, *splitID)
+	} else {
+		fs.AddFilter(object.FilterSplitID, "", object.MatchStringEqual)
+	}
 
 	wr := new(simpleIDWriter)
 

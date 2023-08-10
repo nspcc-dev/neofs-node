@@ -121,7 +121,11 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 
 func (e *StorageEngine) deleteChildren(addr oid.Address, force bool, splitID *objectSDK.SplitID) {
 	var fs objectSDK.SearchFilters
-	fs.AddSplitIDFilter(objectSDK.MatchStringEqual, splitID)
+	if splitID != nil {
+		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *splitID)
+	} else {
+		fs.AddFilter(objectSDK.FilterSplitID, "", objectSDK.MatchStringEqual)
+	}
 
 	var selectPrm shard.SelectPrm
 	selectPrm.SetFilters(fs)

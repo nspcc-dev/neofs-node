@@ -40,7 +40,7 @@ func TestOriginalTokens(t *testing.T) {
 		metaHeaders := testGenerateMetaHeader(uint32(i), &bTokenV2, &sTokenV2)
 		res, err := originalSessionToken(metaHeaders)
 		require.NoError(t, err)
-		require.Equal(t, sToken, res, i)
+		require.Equal(t, sToken, *res, i)
 
 		bTok, err := originalBearerToken(metaHeaders)
 		require.NoError(t, err)

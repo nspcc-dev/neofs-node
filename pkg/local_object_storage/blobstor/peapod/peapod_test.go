@@ -103,7 +103,7 @@ func TestPeapod_Get(t *testing.T) {
 	res, err := ppd.Get(getPrm)
 	require.NoError(t, err)
 	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, res.Object)
+	require.Equal(t, obj, *res.Object)
 }
 
 func TestPeapod_Exists(t *testing.T) {
@@ -186,7 +186,7 @@ func TestPeapod_Put(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, res.Object)
+	require.Equal(t, obj, *res.Object)
 
 	t.Run("read-only", func(t *testing.T) {
 		ppd, _ := newTestPeapodReadOnly(t)
@@ -225,7 +225,7 @@ func TestPeapod_Delete(t *testing.T) {
 	res, err := ppd.Get(getPrm)
 	require.NoError(t, err)
 	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, res.Object)
+	require.Equal(t, obj, *res.Object)
 
 	_, err = ppd.Delete(common.DeletePrm{
 		Address: addr,

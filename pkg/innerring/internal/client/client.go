@@ -69,24 +69,14 @@ func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
-	buf := make([]oid.ID, 10)
 	var list []oid.ID
-	var n int
-	var ok bool
 
-	for {
-		n, ok = rdr.Read(buf)
-		for i := 0; i < n; i++ {
-			list = append(list, buf[i])
-		}
-		if !ok {
-			break
-		}
-	}
-
-	err = rdr.Close()
+	err = rdr.Iterate(func(id oid.ID) bool {
+		list = append(list, id)
+		return false
+	})
 	if err != nil {
-		return nil, fmt.Errorf("read object list: %w", err)
+		return nil, fmt.Errorf("search objects using NeoFS API: %w", err)
 	}
 
 	return &SearchSGRes{
@@ -178,19 +168,13 @@ func (x Client) HeadObject(prm HeadObjectPrm) (*HeadObjectRes, error) {
 		cliPrm.MarkLocal()
 	}
 
-	cliRes, err := x.c.ObjectHead(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
+	hdr, err := x.c.ObjectHead(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
 	if err != nil {
 		return nil, fmt.Errorf("read object header from NeoFS: %w", err)
 	}
 
-	var hdr object.Object
-
-	if !cliRes.ReadHeader(&hdr) {
-		return nil, errors.New("missing object header in the response")
-	}
-
 	return &HeadObjectRes{
-		hdr: &hdr,
+		hdr: hdr,
 	}, nil
 }
 

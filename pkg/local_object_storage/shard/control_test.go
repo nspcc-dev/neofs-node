@@ -111,12 +111,12 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
 	var putPrm PutPrm
-	putPrm.SetObject(obj)
+	putPrm.SetObject(&obj)
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
-	addr := object.AddressOf(obj)
+	addr := object.AddressOf(&obj)
 	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
 	require.NoError(t, err)
 
@@ -182,10 +182,10 @@ func TestRefillMetabase(t *testing.T) {
 			locked = append(locked, id)
 		}
 
-		addr := object.AddressOf(obj)
+		addr := object.AddressOf(&obj)
 
 		mObjs[addr.EncodeToString()] = objAddr{
-			obj:  obj,
+			obj:  &obj,
 			addr: addr,
 		}
 	}
@@ -221,7 +221,7 @@ func TestRefillMetabase(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	putPrm.SetObject(tombObj)
+	putPrm.SetObject(&tombObj)
 
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestRefillMetabase(t *testing.T) {
 	lockObj.SetContainerID(cnrLocked)
 	lockObj.WriteLock(lock)
 
-	putPrm.SetObject(lockObj)
+	putPrm.SetObject(&lockObj)
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
 
@@ -242,7 +242,7 @@ func TestRefillMetabase(t *testing.T) {
 	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
 	var inhumePrm InhumePrm
-	inhumePrm.SetTarget(object.AddressOf(tombObj), tombMembers...)
+	inhumePrm.SetTarget(object.AddressOf(&tombObj), tombMembers...)
 
 	_, err = sh.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -304,7 +304,7 @@ func TestRefillMetabase(t *testing.T) {
 	}
 
 	checkAllObjs(true)
-	checkObj(object.AddressOf(tombObj), tombObj)
+	checkObj(object.AddressOf(&tombObj), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 
@@ -336,7 +336,7 @@ func TestRefillMetabase(t *testing.T) {
 	defer sh.Close()
 
 	checkAllObjs(false)
-	checkObj(object.AddressOf(tombObj), nil)
+	checkObj(object.AddressOf(&tombObj), nil)
 	checkTombMembers(false)
 
 	err = sh.refillMetabase()
@@ -349,7 +349,7 @@ func TestRefillMetabase(t *testing.T) {
 	require.Equal(t, logicalBefore, c.Logic())
 
 	checkAllObjs(true)
-	checkObj(object.AddressOf(tombObj), tombObj)
+	checkObj(object.AddressOf(&tombObj), &tombObj)
 	checkTombMembers(true)
 	checkLocked(t, cnrLocked, locked)
 }
