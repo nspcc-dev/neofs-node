@@ -3,6 +3,7 @@ package auditor
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
@@ -12,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -23,7 +24,6 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -86,7 +86,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 		}
 
 		engine.shards[s.ID().String()] = shardWrapper{
-			errorCount: atomic.NewUint32(0),
+			errorCount: new(atomic.Uint32),
 			Shard:      s,
 		}
 		engine.shardPools[s.ID().String()] = pool

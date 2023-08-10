@@ -3,12 +3,12 @@ package engine
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -126,7 +126,7 @@ func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err er
 		return
 	}
 
-	errCount := sh.errorCount.Inc()
+	errCount := sh.errorCount.Add(1)
 	e.reportShardErrorWithFlags(sh.Shard, errCount, false, msg, err)
 }
 
@@ -144,7 +144,7 @@ func (e *StorageEngine) reportShardError(
 		return
 	}
 
-	errCount := sh.errorCount.Inc()
+	errCount := sh.errorCount.Add(1)
 	e.reportShardErrorWithFlags(sh.Shard, errCount, true, msg, err, fields...)
 }
 

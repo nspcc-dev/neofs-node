@@ -1,8 +1,9 @@
 package util
 
 import (
+	"sync/atomic"
+
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/atomic"
 )
 
 // WorkerPool represents a tool to control

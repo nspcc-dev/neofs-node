@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -17,13 +18,12 @@ import (
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
 // primary solution of local network state dump.
 type networkState struct {
-	epoch *atomic.Uint64
+	epoch atomic.Uint64
 
 	controlNetStatus atomic.Value // control.NetmapStatus
 
@@ -37,7 +37,6 @@ func newNetworkState() *networkState {
 	nmStatus.Store(control.NetmapStatus_STATUS_UNDEFINED)
 
 	return &networkState{
-		epoch:            atomic.NewUint64(0),
 		controlNetStatus: nmStatus,
 	}
 }

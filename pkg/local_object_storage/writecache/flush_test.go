@@ -3,6 +3,7 @@ package writecache
 import (
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -21,7 +22,6 @@ import (
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
-	"go.uber.org/atomic"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -157,7 +157,7 @@ func TestFlush(t *testing.T) {
 		testIgnoreErrors := func(t *testing.T, f func(*cache)) {
 			var errCount atomic.Uint32
 			wc, bs, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
-				errCount.Inc()
+				errCount.Add(1)
 			}))
 			objects := putObjects(t, wc)
 			f(wc.(*cache))

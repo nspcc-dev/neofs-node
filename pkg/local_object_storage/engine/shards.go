@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/hrw"
@@ -10,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -128,7 +128,7 @@ func (e *StorageEngine) addShard(sh *shard.Shard) error {
 	}
 
 	e.shards[strID] = shardWrapper{
-		errorCount: atomic.NewUint32(0),
+		errorCount: new(atomic.Uint32),
 		Shard:      sh,
 	}
 

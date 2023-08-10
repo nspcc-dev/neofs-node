@@ -45,7 +45,7 @@ func (b *Blobovnicza) incSize(sz uint64) {
 }
 
 func (b *Blobovnicza) decSize(sz uint64) {
-	b.filled.Sub(sz)
+	b.filled.Add(^(sz - 1))
 }
 
 func (b *Blobovnicza) full() bool {

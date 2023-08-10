@@ -3,10 +3,10 @@ package blobovnicza
 import (
 	"io/fs"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"go.etcd.io/bbolt"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
