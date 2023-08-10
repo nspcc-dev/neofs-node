@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
 
@@ -40,9 +41,37 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		if !flagVarsSetEACL.noPreCheck {
 			cmd.Println("Checking the ability to modify access rights in the container...")
+			common.PrintVerbose(cmd, "Reading the container to check ownership...")
 
-			extendable, err := internalclient.IsACLExtendable(ctx, cli, id)
-			common.ExitOnErr(cmd, "Extensibility check failure: %w", err)
+			var getPrm internalclient.GetContainerPrm
+			getPrm.SetClient(cli)
+			getPrm.SetContainer(id)
+
+			resGet, err := internalclient.GetContainer(ctx, getPrm)
+			common.ExitOnErr(cmd, "can't get the container: %w", err)
+
+			cnr := resGet.Container()
+			owner := cnr.Owner()
+
+			if tok != nil {
+				common.PrintVerbose(cmd, "Checking session issuer...")
+
+				if !tok.Issuer().Equals(owner) {
+					common.ExitOnErr(cmd, "", fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer()))
+				}
+			} else {
+				common.PrintVerbose(cmd, "Checking provided account...")
+
+				acc := user.ResolveFromECDSAPublicKey(pk.PublicKey)
+
+				if !acc.Equals(owner) {
+					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))
+				}
+			}
+
+			common.PrintVerbose(cmd, "Account matches the container owner.")
+
+			extendable := cnr.BasicACL().Extendable()
 
 			if !extendable {
 				common.ExitOnErr(cmd, "", errors.New("container ACL is immutable"))

@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - CLI default timeout for commands with `--await` flag increased to 1m (#2124)
 - BlobStor tries to store object in any sub-storage with free space (#2450)
 - SN does not store container estimations in-mem forever (#2472)
+- CLI `neofs-cli container set-eacl` checks container's ownership (#2436)
 
 ### Updated
 - `neofs-sdk-go` to `v1.0.0-rc.10`
