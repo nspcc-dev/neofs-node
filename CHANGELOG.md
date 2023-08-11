@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - CLI default timeout for commands with `--await` flag increased to 1m (#2124)
 - BlobStor tries to store object in any sub-storage with free space (#2450)
 - SN does not store container estimations in-mem forever (#2472)
+- CLI `neofs-cli container set-eacl` checks container's ownership (#2436)
 
 ### Updated
 - `neofs-sdk-go` to `v1.0.0-rc.10`
@@ -58,6 +59,7 @@ have been removed. Use `morph.endpoints` for both instead.
 Deprecated `neofs_node_object_epoch` metric for IR and SN (the same for both)
 has been removed. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch`
 for IR instead.
+Deprecated `--no-precheck` flag in `neofs-cli container set-eacl` use `--force` flag instead for skipping validation checks.
 
 Subnets support has been removed:
 - IR's `workers.subnet` and `contracts.subnet` configs are not used anymore.
