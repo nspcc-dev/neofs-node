@@ -43,7 +43,7 @@ type initializeContext struct {
 	ContractPath string
 }
 
-func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
+func initializeSideChainCmd(cmd *cobra.Command, _ []string) error {
 	initCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)
@@ -52,45 +52,45 @@ func initializeSideChainCmd(cmd *cobra.Command, args []string) error {
 
 	// 1. Transfer funds to committee accounts.
 	cmd.Println("Stage 1: transfer GAS to alphabet nodes.")
-	if err := initCtx.transferFunds(); err != nil {
-		return err
+	if err = initCtx.transferFunds(); err != nil {
+		return fmt.Errorf("transferring GAS to alphabet nodes: %w", err)
 	}
 
 	cmd.Println("Stage 2: set notary and alphabet nodes in designate contract.")
-	if err := initCtx.setNotaryAndAlphabetNodes(); err != nil {
-		return err
+	if err = initCtx.setNotaryAndAlphabetNodes(); err != nil {
+		return fmt.Errorf("setting notary and alphabet roles: %w", err)
 	}
 
 	// 3. Deploy NNS contract.
 	cmd.Println("Stage 3: deploy NNS contract.")
-	if err := initCtx.deployNNS(deployMethodName); err != nil {
-		return err
+	if err = initCtx.deployNNS(deployMethodName); err != nil {
+		return fmt.Errorf("deploying NNS: %w", err)
 	}
 
 	// 4. Deploy NeoFS contracts.
 	cmd.Println("Stage 4: deploy NeoFS contracts.")
-	if err := initCtx.deployContracts(); err != nil {
-		return err
+	if err = initCtx.deployContracts(); err != nil {
+		return fmt.Errorf("deploying NeoFS contracts: %w", err)
 	}
 
 	cmd.Println("Stage 4.1: Transfer GAS to proxy contract.")
-	if err := initCtx.transferGASToProxy(); err != nil {
-		return err
+	if err = initCtx.transferGASToProxy(); err != nil {
+		return fmt.Errorf("topping up proxy contract: %w", err)
 	}
 
 	cmd.Println("Stage 5: register candidates.")
-	if err := initCtx.registerCandidates(); err != nil {
-		return err
+	if err = initCtx.registerCandidates(); err != nil {
+		return fmt.Errorf("candidate registration: %w", err)
 	}
 
 	cmd.Println("Stage 6: transfer NEO to alphabet contracts.")
-	if err := initCtx.transferNEOToAlphabetContracts(); err != nil {
-		return err
+	if err = initCtx.transferNEOToAlphabetContracts(); err != nil {
+		return fmt.Errorf(": %w", err)
 	}
 
 	cmd.Println("Stage 7: set addresses in NNS.")
-	if err := initCtx.setNNS(); err != nil {
-		return err
+	if err = initCtx.setNNS(); err != nil {
+		return fmt.Errorf("filling NNS with contract hashes: %w", err)
 	}
 
 	return nil

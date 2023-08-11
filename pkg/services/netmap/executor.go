@@ -129,7 +129,7 @@ func (s *executorSvc) NetworkInfo(
 	return resp, nil
 }
 
-func (s *executorSvc) Snapshot(_ context.Context, req *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
+func (s *executorSvc) Snapshot(_ context.Context, _ *netmap.SnapshotRequest) (*netmap.SnapshotResponse, error) {
 	var nm netmap.NetMap
 
 	err := s.state.ReadCurrentNetMap(&nm)

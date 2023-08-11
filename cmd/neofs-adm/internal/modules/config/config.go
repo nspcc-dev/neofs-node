@@ -47,7 +47,7 @@ credentials:
   {{.}}: password{{end}}
 `
 
-func initConfig(cmd *cobra.Command, args []string) error {
+func initConfig(cmd *cobra.Command, _ []string) error {
 	configPath, err := readConfigPathFromArgs(cmd)
 	if err != nil {
 		return nil

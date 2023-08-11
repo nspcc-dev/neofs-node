@@ -83,7 +83,7 @@ func (exec *execCtx) processCurrentEpoch() bool {
 
 			client.NodeInfoFromNetmapElement(&info, addrs[i])
 
-			if exec.processNode(ctx, info) {
+			if exec.processNode(info) {
 				exec.log.Debug("completing the operation")
 				return true
 			}

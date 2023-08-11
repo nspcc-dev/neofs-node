@@ -136,7 +136,7 @@ func (s *morphExecutor) Delete(_ context.Context, tokV2 *sessionV2.Token, body *
 	return new(container.DeleteResponseBody), nil
 }
 
-func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
+func (s *morphExecutor) Get(_ context.Context, body *container.GetRequestBody) (*container.GetResponseBody, error) {
 	idV2 := body.GetContainerID()
 	if idV2 == nil {
 		return nil, errors.New("missing container ID")
@@ -176,7 +176,7 @@ func (s *morphExecutor) Get(ctx context.Context, body *container.GetRequestBody)
 	return res, nil
 }
 
-func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
+func (s *morphExecutor) List(_ context.Context, body *container.ListRequestBody) (*container.ListResponseBody, error) {
 	idV2 := body.GetOwnerID()
 	if idV2 == nil {
 		return nil, fmt.Errorf("missing user ID")
@@ -205,7 +205,7 @@ func (s *morphExecutor) List(ctx context.Context, body *container.ListRequestBod
 	return res, nil
 }
 
-func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Token, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
+func (s *morphExecutor) SetExtendedACL(_ context.Context, tokV2 *sessionV2.Token, body *container.SetExtendedACLRequestBody) (*container.SetExtendedACLResponseBody, error) {
 	sigV2 := body.GetSignature()
 	if sigV2 == nil {
 		// TODO(@cthulhu-rider): #1387 use "const" error
@@ -238,7 +238,7 @@ func (s *morphExecutor) SetExtendedACL(ctx context.Context, tokV2 *sessionV2.Tok
 	return new(container.SetExtendedACLResponseBody), nil
 }
 
-func (s *morphExecutor) GetExtendedACL(ctx context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
+func (s *morphExecutor) GetExtendedACL(_ context.Context, body *container.GetExtendedACLRequestBody) (*container.GetExtendedACLResponseBody, error) {
 	idV2 := body.GetContainerID()
 	if idV2 == nil {
 		return nil, errors.New("missing container ID")

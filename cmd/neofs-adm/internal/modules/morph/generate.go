@@ -29,7 +29,7 @@ const (
 	consensusAccountName = "consensus"
 )
 
-func generateAlphabetCreds(cmd *cobra.Command, args []string) error {
+func generateAlphabetCreds(cmd *cobra.Command, _ []string) error {
 	// alphabet size is not part of the config
 	size, err := cmd.Flags().GetUint(alphabetSizeFlag)
 	if err != nil {

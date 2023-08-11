@@ -49,7 +49,7 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-func entryPoint(cmd *cobra.Command, args []string) error {
+func entryPoint(cmd *cobra.Command, _ []string) error {
 	printVersion, _ := cmd.Flags().GetBool("version")
 	if printVersion {
 		cmd.Print(misc.BuildInfo("NeoFS Adm"))

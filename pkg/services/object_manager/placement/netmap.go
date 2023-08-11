@@ -47,7 +47,7 @@ func NewNetworkMapSourceBuilder(nmSrc netmap.Source) Builder {
 	}
 }
 
-func (s *netMapSrc) GetNetMap(diff uint64) (*netmapSDK.NetMap, error) {
+func (s *netMapSrc) GetNetMap(_ uint64) (*netmapSDK.NetMap, error) {
 	return s.nm, nil
 }
 

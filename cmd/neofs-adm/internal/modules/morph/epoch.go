@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func forceNewEpochCmd(cmd *cobra.Command, args []string) error {
+func forceNewEpochCmd(cmd *cobra.Command, _ []string) error {
 	wCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't to initialize context: %w", err)

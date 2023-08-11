@@ -58,7 +58,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
 	common.ExitOnErr(cmd, "can't parse endpoint: %w", netAddr.FromString(addrStr))
 
-	c, err := internalclient.GetSDKClient(ctx, cmd, netAddr)
+	c, err := internalclient.GetSDKClient(ctx, netAddr)
 	common.ExitOnErr(cmd, "can't create client: %w", err)
 
 	lifetime := uint64(defaultLifetime)

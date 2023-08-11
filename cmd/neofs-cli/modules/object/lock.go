@@ -62,7 +62,7 @@ var objectLockCmd = &cobra.Command{
 
 			endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 
-			currEpoch, err := internalclient.GetCurrentEpoch(ctx, cmd, endpoint)
+			currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 			common.ExitOnErr(cmd, "Request current epoch: %w", err)
 
 			exp = currEpoch + lifetime

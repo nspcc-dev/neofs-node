@@ -3,6 +3,7 @@ package blobovnicza
 import (
 	"encoding/binary"
 	"fmt"
+	"math/bits"
 	"strconv"
 )
 
@@ -31,11 +32,12 @@ func bucketForSize(sz uint64) []byte {
 	return bucketKeyFromBounds(upperPowerOfTwo(sz))
 }
 
-func upperPowerOfTwo(v uint64) (upperBound uint64) {
-	for upperBound = firstBucketBound; upperBound < v; upperBound *= 2 {
+func upperPowerOfTwo(v uint64) uint64 {
+	if v <= firstBucketBound {
+		return firstBucketBound
 	}
 
-	return
+	return 1 << bits.Len64(v-1)
 }
 
 func (b *Blobovnicza) incSize(sz uint64) {

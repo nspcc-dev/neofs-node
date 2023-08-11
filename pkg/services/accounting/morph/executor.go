@@ -21,7 +21,7 @@ func NewExecutor(client *balance.Client) accountingSvc.ServiceExecutor {
 	}
 }
 
-func (s *morphExecutor) Balance(ctx context.Context, body *accounting.BalanceRequestBody) (*accounting.BalanceResponseBody, error) {
+func (s *morphExecutor) Balance(_ context.Context, body *accounting.BalanceRequestBody) (*accounting.BalanceResponseBody, error) {
 	idV2 := body.GetOwnerID()
 	if idV2 == nil {
 		return nil, errors.New("missing account")
