@@ -36,6 +36,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -264,6 +265,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.depth = sub.Depth()
 				sCfg.noSync = sub.NoSync()
+			case peapod.Type:
 			default:
 				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
 			}
@@ -730,6 +732,13 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 						fstree.WithNoSync(sRead.noSync)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
+					},
+				})
+			case peapod.Type:
+				ss = append(ss, blobstor.SubStorage{
+					Storage: peapod.New(sRead.path, sRead.perm),
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return uint64(len(data)) < shCfg.smallSizeObjectLimit
 					},
 				})
 			default:

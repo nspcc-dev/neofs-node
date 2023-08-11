@@ -194,8 +194,8 @@ storage:
         path: tmp/1/meta  # metabase path
 
       blobstor:
-        - type: blobovnicza
-          path: tmp/1/blob/blobovnicza
+        - type: peapod
+          path: tmp/1/blob/peapod.db # path to Peapod database
         - type: fstree
           path: tmp/1/blob  # blobstor path
           no_sync: true

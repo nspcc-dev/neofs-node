@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+This is the last release to support the Blobovnicza tree. Starting with the next
+minor release, the component will be purged, so be prepared (see `Updating` section).
+
 ### Added
 - Embedded Neo contracts in `contracts` dir (#2391)
 - `dump-names` command for adm
@@ -83,6 +86,11 @@ located. For example, `/neofs/data/blobovcniza/*` -> `/neofs/data/peapod.db`.
 Notice that existing Blobovnicza trees are untouched. Configuration is also
 updated, for example, `/etc/neofs/config.yaml` -> `/etc/neofs/config_peapod.yaml`.
 WARN: carefully review the updated config before using it in the application!
+
+To store small objects in more effective and simple sub-storage Peapod, replace
+`blobovnicza` sub-storage with the `peapod` one in `blobstor` config section.
+If storage node already stores some data, don't forget to make data migration
+described above.
 
 ## [0.37.0] - 2023-06-15 - Sogado
 

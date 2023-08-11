@@ -175,7 +175,7 @@ The following table describes configuration for each shard.
 ### `blobstor` subsection
 
 Contains a list of substorages each with it's own type.
-Currently only 2 types are supported: `fstree` and `blobovnicza`.
+Currently only 3 types are supported: `fstree`, `blobovnicza` and `peapod`.
 
 ```yaml
 blobstor:
@@ -214,6 +214,12 @@ blobstor:
 | `depth`                 | `int`     | `2`           | Blobovnicza tree depth.                               |
 | `width`                 | `int`     | `16`          | Blobovnicza tree width.                               |
 | `opened_cache_capacity` | `int`     | `16`          | Maximum number of simultaneously opened blobovniczas. |
+
+#### `peapod` type options
+| Parameter           | Type      | Default value | Description                                           |
+|---------------------|-----------|---------------|-------------------------------------------------------|
+| `path`              | `string`  |               | Path to the Peapod database file.                     |
+| `perm`              | file mode | `0660`        | Default permission for created files and directories. |
 
 ### `gc` subsection
 
