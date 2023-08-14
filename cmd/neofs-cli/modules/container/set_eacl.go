@@ -112,7 +112,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "", errSetEACLTimeout)
+					common.ExitOnErr(cmd, "eACL setting: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 

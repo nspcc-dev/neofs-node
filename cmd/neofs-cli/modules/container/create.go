@@ -128,7 +128,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "", errCreateTimeout)
+					common.ExitOnErr(cmd, "container creation: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 

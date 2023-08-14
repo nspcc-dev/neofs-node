@@ -9,10 +9,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ExitOnErr prints error and exits with a code that matches
-// one of the common errors from sdk library. If no errors
-// found, exits with 1 code.
-// Does nothing if passed error in nil.
+// ErrAwaitTimeout represents the expiration of a polling interval
+// while awaiting a certain condition.
+var ErrAwaitTimeout = errors.New("await timeout expired")
+
+// ExitOnErr prints error and exits with a code depending on the error type
+//
+//	0 if nil
+//	1 if [sdkstatus.ErrServerInternal] or untyped
+//	2 if [sdkstatus.ErrObjectAccessDenied]
+//	3 if [ErrAwaitTimeout]
 func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
 	if err == nil {
 		return
@@ -26,6 +32,7 @@ func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
 		_ = iota
 		internal
 		aclDenied
+		awaitTimeout
 	)
 
 	var code int
@@ -37,6 +44,8 @@ func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
 	case errors.As(err, &accessErr):
 		code = aclDenied
 		err = fmt.Errorf("%w: %s", err, accessErr.Reason())
+	case errors.Is(err, ErrAwaitTimeout):
+		code = awaitTimeout
 	default:
 		code = internal
 	}

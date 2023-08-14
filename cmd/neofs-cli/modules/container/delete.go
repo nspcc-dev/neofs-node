@@ -114,7 +114,7 @@ Only owner of the container has a permission to remove container.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "", errDeleteTimeout)
+					common.ExitOnErr(cmd, "container deletion: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 

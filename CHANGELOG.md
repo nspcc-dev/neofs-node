@@ -17,6 +17,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - New `blobovnicza-to-peapod` tool providing blobovnicza-to-peapod data migration (#2453)
 - SN's version and capacity is announced via the attributes automatically but can be overwritten explicitly (#2455, #602)
 - `peapod` command for `neofs-lens` (#2507)
+-  New CLI exit code for awaiting timeout (#2380)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)

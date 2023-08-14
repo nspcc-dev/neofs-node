@@ -89,6 +89,7 @@ for all of its commands and options internally, but some specific concepts
 have additional documents describing them:
  * [Sessions](docs/cli-sessions.md)
  * [Extended headers](docs/cli-xheaders.md)
+ * [Exit codes](docs/cli-exit-codes.md)
 
 `neofs-adm` is a network setup and management utility usually used by the
 network administrators. Refer to [docs/cli-adm.md](docs/cli-adm.md) for mode
