@@ -55,6 +55,9 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 	if x.sessionToken != nil {
 		opts.SetSession(*x.sessionToken)
 	}
+	if !x.homoHashDisabled {
+		opts.CalculateHomomorphicChecksum()
+	}
 
 	var err error
 	x.payloadWriter, err = slicer.InitPut(x.ctx, &readyObjectWriter{
