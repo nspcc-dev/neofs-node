@@ -11,9 +11,9 @@ import (
 )
 
 var listCMD = &cobra.Command{
-	Use:   "inspect",
-	Short: "Object inspection",
-	Long:  `Inspect specific object in a write-cache.`,
+	Use:   "list",
+	Short: "Object listing",
+	Long:  `List all objects stored in a write-cache.`,
 	Run:   listFunc,
 }
 

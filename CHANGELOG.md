@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - Missing connection retries on IR node startup when the first configured mainnet RPC node is not in sync (#2474)
 - Storage node no longer ignores unhealthy shards on startup (#2464)
 - Processing of status errors returned by API client from NeoFS SDK RC-9 (#2465)
+- `neofs-lens write-cache list` command duplication (#2505)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
