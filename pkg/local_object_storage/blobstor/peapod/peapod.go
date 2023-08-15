@@ -43,6 +43,8 @@ type Peapod struct {
 	path string
 	perm fs.FileMode
 
+	flushInterval time.Duration
+
 	compress *compression.Config
 
 	readOnly bool
@@ -63,18 +65,24 @@ var errMissingRootBucket = errors.New("missing root bucket")
 
 // New creates new Peapod instance to be located at the given path with
 // specified permissions.
-func New(path string, perm fs.FileMode) *Peapod {
+//
+// Specified flush interval MUST be positive (see Init).
+func New(path string, perm fs.FileMode, flushInterval time.Duration) *Peapod {
+	if flushInterval <= 0 {
+		panic(fmt.Sprintf("non-positive flush interval %v", flushInterval))
+	}
 	return &Peapod{
 		path: path,
 		perm: perm,
+
+		flushInterval: flushInterval,
 	}
 }
 
 func (x *Peapod) flushLoop() {
 	defer close(x.chFlushDone)
 
-	const flushInterval = 10 * time.Millisecond
-	t := time.NewTimer(flushInterval)
+	t := time.NewTimer(x.flushInterval)
 	defer t.Stop()
 
 	for {
@@ -88,7 +96,7 @@ func (x *Peapod) flushLoop() {
 
 			x.flushCurrentBatch(true)
 
-			interval := flushInterval - time.Since(st)
+			interval := x.flushInterval - time.Since(st)
 			if interval <= 0 {
 				interval = time.Microsecond
 			}
@@ -207,7 +215,9 @@ func (x *Peapod) Open(readOnly bool) error {
 	return nil
 }
 
-// Init initializes internal structure of the underlying database.
+// Init initializes internal structure of the underlying database and runs
+// flushing routine. The routine writes data batches into disk once per time
+// interval configured in New.
 func (x *Peapod) Init() error {
 	if x.readOnly {
 		// no extra actions needed in read-only mode

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
@@ -67,7 +68,7 @@ func main() {
 		}
 
 		ppdPath := filepath.Join(filepath.Dir(bbcz.Path()), "peapod.db")
-		ppd := peapod.New(ppdPath, perm)
+		ppd := peapod.New(ppdPath, perm, 10*time.Millisecond)
 
 		var compressCfg compression.Config
 		compressCfg.Enabled = sc.Compress()

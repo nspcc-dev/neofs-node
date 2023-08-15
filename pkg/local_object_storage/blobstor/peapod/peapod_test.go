@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
@@ -23,20 +24,20 @@ func TestGeneric(t *testing.T) {
 	}
 
 	blobstortest.TestAll(t, func(t *testing.T) common.Storage {
-		return peapod.New(newPath(), 0600)
+		return peapod.New(newPath(), 0600, 10*time.Millisecond)
 	}, 2048, 16*1024)
 
 	t.Run("info", func(t *testing.T) {
 		path := newPath()
 		blobstortest.TestInfo(t, func(t *testing.T) common.Storage {
-			return peapod.New(path, 0600)
+			return peapod.New(path, 0600, 10*time.Millisecond)
 		}, peapod.Type, path)
 	})
 }
 
 func TestControl(t *testing.T) {
 	blobstortest.TestControl(t, func(t *testing.T) common.Storage {
-		return peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0600)
+		return peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0600, 10*time.Millisecond)
 	}, 2048, 2048)
 }
 
@@ -73,7 +74,7 @@ func newTestPeapodReadOnly(tb testing.TB) (*peapod.Peapod, oid.Address) {
 }
 
 func _newTestPeapod(tb testing.TB, path string, readOnly bool) *peapod.Peapod {
-	ppd := peapod.New(path, 0600)
+	ppd := peapod.New(path, 0600, 10*time.Millisecond)
 	require.NoError(tb, ppd.Open(readOnly))
 	require.NoError(tb, ppd.Init())
 

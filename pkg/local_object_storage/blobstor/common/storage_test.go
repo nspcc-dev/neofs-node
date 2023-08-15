@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -43,7 +44,7 @@ func TestCopy(t *testing.T) {
 
 	require.NoError(t, src.Close())
 
-	dst := peapod.New(filepath.Join(dir, "peapod.db"), 0600)
+	dst := peapod.New(filepath.Join(dir, "peapod.db"), 0600, 10*time.Millisecond)
 
 	err := common.Copy(dst, src)
 	require.NoError(t, err)

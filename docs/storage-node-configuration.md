@@ -220,6 +220,7 @@ blobstor:
 |---------------------|-----------|---------------|-------------------------------------------------------|
 | `path`              | `string`  |               | Path to the Peapod database file.                     |
 | `perm`              | file mode | `0660`        | Default permission for created files and directories. |
+| `flush_interval`    | `duration`| `10ms`        | Time interval between batch writes to disk.           |
 
 ### `gc` subsection
 
