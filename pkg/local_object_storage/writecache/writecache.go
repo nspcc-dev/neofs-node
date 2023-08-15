@@ -141,10 +141,12 @@ func (c *cache) Open(readOnly bool) error {
 	return c.initCounters()
 }
 
-// Init runs necessary services.
+// Init runs necessary services. No-op in read-only mode.
 func (c *cache) Init() error {
-	c.initFlushMarks()
-	c.runFlushLoop()
+	if !c.db.IsReadOnly() {
+		c.initFlushMarks()
+		c.runFlushLoop()
+	}
 	return nil
 }
 
