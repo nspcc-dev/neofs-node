@@ -89,6 +89,7 @@ Docker images now contain a single executable file and SSL certificates only.
 - Iterating over just removed files by FSTree (#98)
 - IR metrics moved to `neofs_ir` namespace and epoch metrics to `object` subsystem (#2344)
 - IR metrics config reading (#2344)
+- Write-cache initialization in read-only mode (#2504)
 
 ### Removed
 - Non-notary mode support for sidechain (#2321)
