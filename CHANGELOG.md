@@ -13,9 +13,9 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - Stored payload metric per container (#2116)
 - Stored payload metric per shard (#2023)
 - Histogram metrics for RPC and engine operations (#2351) 
-- SN's version is announced via the attributes automatically but can be overwritten explicitly (#2455)
 - New storage component for small objects named Peapod (#2453)
 - New `blobovnicza-to-peapod` tool providing blobovnicza-to-peapod data migration (#2453)
+- SN's version and capacity is announced via the attributes automatically but can be overwritten explicitly (#2455, #602)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)

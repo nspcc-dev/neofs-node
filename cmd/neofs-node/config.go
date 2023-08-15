@@ -542,15 +542,16 @@ var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
 
-	// attaching version to the node's attributes; do not
-	// move it anywhere below reading the other attributes
-	// since a user should be able to overwrite it.
-	writeAppVersion(c)
-
 	err := c.readConfig(appCfg)
 	if err != nil {
 		panic(fmt.Errorf("config reading: %w", err))
 	}
+
+	// filling system attributes; do not move it anywhere
+	// below applying the other attributes since a user
+	// should be able to overwrite it.
+	err = writeSystemAttributes(c)
+	fatalOnErr(err)
 
 	key := nodeconfig.Key(appCfg)
 
@@ -986,8 +987,35 @@ func (c *cfg) configWatcher(ctx context.Context) {
 	}
 }
 
-// writeAppVersion writes app version as defined at compilation
-// step to the node's attributes.
-func writeAppVersion(c *cfg) {
+// writeSystemAttributes writes app version as defined at compilation
+// step to the node's attributes and an aggregated disk capacity
+// according to the all space on the all configured disks.
+func writeSystemAttributes(c *cfg) error {
+	// `Version` attribute
+
 	c.cfgNodeInfo.localInfo.SetAttribute("Version", misc.Version)
+
+	// `Capacity` attribute
+
+	var paths []string
+	for _, sh := range c.applicationConfiguration.EngineCfg.shards {
+		for _, storage := range sh.subStorages {
+			path := storage.path
+			paths = append(paths, path)
+
+			err := util.MkdirAllX(path, storage.perm)
+			if err != nil {
+				return fmt.Errorf("can not create (ensure it exists) dir by '%s' path: %w", path, err)
+			}
+		}
+	}
+
+	total, err := totalBytes(paths)
+	if err != nil {
+		return fmt.Errorf("calculating capacity on every shard: %w", err)
+	}
+
+	c.cfgNodeInfo.localInfo.SetCapacity(total / (1 << 30))
+
+	return nil
 }
