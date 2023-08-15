@@ -25,6 +25,7 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
+	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
@@ -36,6 +37,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -158,9 +160,11 @@ func (c *shardCfg) id() string {
 
 type subStorageCfg struct {
 	// common for all storages
-	typ    string
-	path   string
-	perm   fs.FileMode
+	typ  string
+	path string
+	perm fs.FileMode
+
+	// tree-specific (FS and blobovnicza)
 	depth  uint64
 	noSync bool
 
@@ -168,6 +172,9 @@ type subStorageCfg struct {
 	size            uint64
 	width           uint64
 	openedCacheSize int
+
+	// Peapod-specific
+	flushInterval time.Duration
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -264,6 +271,9 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.depth = sub.Depth()
 				sCfg.noSync = sub.NoSync()
+			case peapod.Type:
+				peapodCfg := peapodconfig.From((*config.Config)(storagesCfg[i]))
+				sCfg.flushInterval = peapodCfg.FlushInterval()
 			default:
 				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
 			}
@@ -730,6 +740,13 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 						fstree.WithNoSync(sRead.noSync)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
+					},
+				})
+			case peapod.Type:
+				ss = append(ss, blobstor.SubStorage{
+					Storage: peapod.New(sRead.path, sRead.perm, sRead.flushInterval),
+					Policy: func(_ *objectSDK.Object, data []byte) bool {
+						return uint64(len(data)) < shCfg.smallSizeObjectLimit
 					},
 				})
 			default:

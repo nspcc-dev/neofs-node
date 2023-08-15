@@ -10,8 +10,10 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
+	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/stretchr/testify/require"
 )
@@ -132,13 +134,11 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 102400, sc.SmallSizeLimit())
 
 				require.Equal(t, 2, len(ss))
-
-				blz := blobovniczaconfig.From((*config.Config)(ss[0]))
-				require.Equal(t, "tmp/1/blob/blobovnicza", ss[0].Path())
-				require.EqualValues(t, 4194304, blz.Size())
-				require.EqualValues(t, 1, blz.ShallowDepth())
-				require.EqualValues(t, 4, blz.ShallowWidth())
-				require.EqualValues(t, 50, blz.OpenedCacheSize())
+				ppd := peapodconfig.From((*config.Config)(ss[0]))
+				require.Equal(t, "tmp/1/blob/peapod.db", ss[0].Path())
+				require.EqualValues(t, 0644, ss[0].Perm())
+				require.EqualValues(t, peapod.Type, ss[0].Type())
+				require.EqualValues(t, 30*time.Millisecond, ppd.FlushInterval())
 
 				require.Equal(t, "tmp/1/blob", ss[1].Path())
 				require.EqualValues(t, 0644, ss[1].Perm())

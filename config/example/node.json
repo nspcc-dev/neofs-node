@@ -198,13 +198,10 @@
         "small_object_size": 102400,
         "blobstor": [
           {
-            "type": "blobovnicza",
-            "path": "tmp/1/blob/blobovnicza",
+            "type": "peapod",
+            "path": "tmp/1/blob/peapod.db",
             "perm": "0644",
-            "size": 4194304,
-            "depth": 1,
-            "width": 4,
-            "opened_cache_capacity": 50
+            "flush_interval": "30ms"
           },
           {
             "type": "fstree",

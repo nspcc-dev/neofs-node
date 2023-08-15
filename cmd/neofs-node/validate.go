@@ -11,6 +11,7 @@ import (
 	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -54,7 +55,7 @@ func validateConfig(c *config.Config) error {
 		}
 		for i := range blobstor {
 			switch blobstor[i].Type() {
-			case fstree.Type, blobovniczatree.Type:
+			case fstree.Type, blobovniczatree.Type, peapod.Type:
 			default:
 				// FIXME #1764 (@fyrchik): this line is currently unreachable,
 				//   because we panic in `sc.BlobStor().Storages()`.
