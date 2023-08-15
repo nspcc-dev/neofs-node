@@ -271,6 +271,30 @@ jobs:
           echo "$TEST_RESULTS_WALLET" | base64 -d > wallet.json
         working-directory: neofs-testcases
 
+      - name: Define expiration
+        if: always()
+        env:
+          TEST_RESULTS_NEOFS_NETWORK_DOMAIN: ${{ vars.TEST_RESULTS_NEOFS_NETWORK_DOMAIN }}
+          MASTER_EXPIRATION_PERIOD: ${{ vars.MASTER_EXPIRATION_PERIOD }}
+          PR_EXPIRATION_PERIOD: ${{ vars.PR_EXPIRATION_PERIOD }}
+          MANUAL_RUN_EXPIRATION_PERIOD: ${{ vars.MANUAL_RUN_EXPIRATION_PERIOD }}
+          OTHER_EXPIRATION_PERIOD: ${{ vars.OTHER_EXPIRATION_PERIOD }}
+        run: |
+          CURRENT_EPOCH=$(neofs-cli netmap epoch --rpc-endpoint st1.$TEST_RESULTS_NEOFS_NETWORK_DOMAIN:8080)
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            EXP_EPOCH=$((MASTER_EXPIRATION_PERIOD + CURRENT_EPOCH))
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            EXP_EPOCH=$((PR_EXPIRATION_PERIOD + CURRENT_EPOCH))
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            EXP_EPOCH=0 # For test reports from releases - no expiration period
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            EXP_EPOCH=$((MANUAL_RUN_EXPIRATION_PERIOD + CURRENT_EPOCH))
+          else
+            EXP_EPOCH=$((OTHER_EXPIRATION_PERIOD + CURRENT_EPOCH))
+          fi
+          echo "EXP_EPOCH=$EXP_EPOCH" >> $GITHUB_ENV
+        working-directory: neofs-testcases
+
       - name: Put allure report to NeoFS
         id: put_report
         if: always() && steps.prepare_test_env.outcome == 'success'
@@ -280,7 +304,9 @@ jobs:
           TEST_RESULTS_CID: ${{ vars.TEST_RESULTS_CID }}
         run: |
           sudo chmod -R a+rw ${GITHUB_WORKSPACE}/allure-report
-          source venv.local-pytest/bin/activate && python ./tools/src/process-allure-reports.py --neofs_domain $TEST_RESULTS_NEOFS_NETWORK_DOMAIN --run_id $RUN_ID --cid $TEST_RESULTS_CID --allure_report ${GITHUB_WORKSPACE}/allure-report --wallet wallet.json
+          source venv.local-pytest/bin/activate && python ./tools/src/process-allure-reports.py --expire-at $EXP_EPOCH \
+          --neofs_domain $TEST_RESULTS_NEOFS_NETWORK_DOMAIN --run_id $RUN_ID --cid $TEST_RESULTS_CID \
+          --allure_report ${GITHUB_WORKSPACE}/allure-report --wallet wallet.json
         working-directory: neofs-testcases
 
       - name: Post the link to the report
