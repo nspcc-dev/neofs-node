@@ -298,3 +298,36 @@ func BenchmarkPeapod_Put(b *testing.B) {
 		})
 	}
 }
+
+func TestPeapod_IterateAddresses(t *testing.T) {
+	ppd := newTestPeapod(t)
+
+	mSrc := map[oid.Address]struct{}{
+		oidtest.Address(): {},
+		oidtest.Address(): {},
+		oidtest.Address(): {},
+	}
+
+	mDst := make(map[oid.Address]struct{})
+
+	f := func(addr oid.Address) error {
+		mDst[addr] = struct{}{}
+		return nil
+	}
+
+	err := ppd.IterateAddresses(f)
+	require.NoError(t, err)
+	require.Empty(t, mDst)
+
+	for addr := range mSrc {
+		_, err = ppd.Put(common.PutPrm{
+			Address: addr,
+			RawData: nil, // doesn't affect current test
+		})
+		require.NoError(t, err)
+	}
+
+	err = ppd.IterateAddresses(f)
+	require.NoError(t, err)
+	require.Equal(t, mSrc, mDst)
+}

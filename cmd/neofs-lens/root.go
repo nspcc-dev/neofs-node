@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/meta"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/peapod"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/writecache"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
@@ -35,6 +36,7 @@ func init() {
 	command.SetOut(os.Stdout)
 	command.Flags().Bool("version", false, "Application version")
 	command.AddCommand(
+		peapod.Root,
 		blobovnicza.Root,
 		meta.Root,
 		writecache.Root,
