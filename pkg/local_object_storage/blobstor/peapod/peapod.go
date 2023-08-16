@@ -67,6 +67,13 @@ var errMissingRootBucket = errors.New("missing root bucket")
 // specified permissions.
 //
 // Specified flush interval MUST be positive (see Init).
+//
+// Note that resulting Peapod is NOT ready-to-go:
+//   - configure compression first (SetCompressor method)
+//   - then open the instance (Open method). Opened Peapod must be finally closed
+//   - initialize internal database structure (Init method). May be skipped for read-only usage
+//
+// Any other usage is unsafe and may lead to panic.
 func New(path string, perm fs.FileMode, flushInterval time.Duration) *Peapod {
 	if flushInterval <= 0 {
 		panic(fmt.Sprintf("non-positive flush interval %v", flushInterval))
