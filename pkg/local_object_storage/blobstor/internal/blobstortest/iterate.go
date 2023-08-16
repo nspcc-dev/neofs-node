@@ -20,8 +20,8 @@ func TestIterate(t *testing.T, cons Constructor, min, max uint64) {
 	// Delete random object to ensure it is not iterated over.
 	const delID = 2
 	var delPrm common.DeletePrm
-	delPrm.Address = objects[2].addr
-	delPrm.StorageID = objects[2].storageID
+	delPrm.Address = objects[delID].addr
+	delPrm.StorageID = objects[delID].storageID
 	_, err := s.Delete(delPrm)
 	require.NoError(t, err)
 
@@ -53,11 +53,17 @@ func TestIterate(t *testing.T, cons Constructor, min, max uint64) {
 	})
 
 	t.Run("lazy handler", func(t *testing.T) {
-		seen := make(map[string]func() ([]byte, error))
+		seen := make(map[string]objectDesc)
 
 		var iterPrm common.IteratePrm
 		iterPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
-			seen[addr.String()] = f
+			data, err := f()
+			require.NoError(t, err)
+
+			seen[addr.String()] = objectDesc{
+				addr: addr,
+				raw:  data,
+			}
 			return nil
 		}
 
@@ -65,12 +71,9 @@ func TestIterate(t *testing.T, cons Constructor, min, max uint64) {
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
-			f, ok := seen[objects[i].addr.String()]
+			objDesc, ok := seen[objects[i].addr.String()]
 			require.True(t, ok)
-
-			data, err := f()
-			require.NoError(t, err)
-			require.Equal(t, objects[i].raw, data)
+			require.Equal(t, objects[i].raw, objDesc.raw)
 		}
 	})
 
