@@ -437,6 +437,8 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 
 // Iterate iterates over all objects stored in the underlying database and
 // passes them into LazyHandler or Handler. Break on f's false return.
+//
+// Use IterateAddresses to iterate over keys only.
 func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	var addr oid.Address
 
@@ -491,4 +493,32 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 	}
 
 	return common.IterateRes{}, nil
+}
+
+// IterateAddresses iterates over all objects stored in the underlying database
+// and passes their addresses into f. If f returns an error, IterateAddresses
+// returns it and breaks.
+func (x *Peapod) IterateAddresses(f func(addr oid.Address) error) error {
+	var addr oid.Address
+
+	err := x.bolt.View(func(tx *bbolt.Tx) error {
+		bktRoot := tx.Bucket(rootBucket)
+		if bktRoot == nil {
+			return errMissingRootBucket
+		}
+
+		return bktRoot.ForEach(func(k, v []byte) error {
+			err := decodeKeyForObject(&addr, k)
+			if err != nil {
+				return fmt.Errorf("decode object address from bucket key: %w", err)
+			}
+
+			return f(addr)
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+	}
+
+	return nil
 }
