@@ -293,11 +293,6 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
 	}
 
-	localVersion, err := readContractLocalVersion(prm.blockchain, prm.committee, prm.localNEF, prm.localManifest)
-	if err != nil {
-		return fmt.Errorf("read version of the local NNS contract: %w", err)
-	}
-
 	// wrap the parent context into the context of the current function so that
 	// transaction wait routines do not leak
 	ctx, cancel := context.WithCancel(ctx)
@@ -323,29 +318,10 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			return errors.New("missing required NNS contract on the chain")
 		}
 
-		if nnsOnChainState.NEF.Checksum == prm.localNEF.Checksum {
-			// manifests may differ, but currently we should bump internal contract version
-			// (i.e. change NEF) to make such updates. Right now they are not supported due
-			// to dubious practical need
-			// Track https://github.com/nspcc-dev/neofs-contract/issues/340
-			prm.logger.Info("same local and on-chain checksums of the NNS contract NEF, update is not needed")
-			return nil
-		}
-
-		prm.logger.Info("NEF checksums of the on-chain and local NNS contracts differ, need an update")
-
 		versionOnChain, err := readContractOnChainVersion(prm.blockchain, nnsOnChainState.Hash)
 		if err != nil {
 			prm.logger.Error("failed to read on-chain version of the NNS contract, will try again later", zap.Error(err))
 			continue
-		}
-
-		if v := localVersion.cmp(versionOnChain); v == -1 {
-			prm.logger.Info("local contract version is < than the on-chain one, update is not needed",
-				zap.Stringer("local", localVersion), zap.Stringer("on-chain", versionOnChain))
-			return nil
-		} else if v == 0 {
-			return fmt.Errorf("local and on-chain contracts have different NEF checksums but same version '%s'", versionOnChain)
 		}
 
 		extraUpdateArgs, err := prm.buildVersionedExtraUpdateArgs(versionOnChain)
@@ -364,9 +340,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			bLocalNEF, jLocalManifest, extraUpdateArgs)
 		if err != nil {
 			if isErrContractAlreadyUpdated(err) {
-				// note that we can come here only if local version is > than the on-chain one
-				// (compared above)
-				prm.logger.Info("NNS contract has already been updated, skip")
+				prm.logger.Info("NNS contract is unchanged or has already been updated, skip")
 				return nil
 			}
 
