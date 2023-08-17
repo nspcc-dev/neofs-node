@@ -248,6 +248,8 @@ type updateNNSContractPrm struct {
 
 	blockchain Blockchain
 
+	neoFS NeoFS
+
 	// based on blockchain
 	monitor *blockchainMonitor
 
@@ -302,6 +304,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
 	for ; ; prm.monitor.waitForNextBlock(ctx) {
@@ -340,7 +343,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		// we pre-check 'already updated' case via MakeCall in order to not potentially
 		// wait for previously sent transaction to be expired (condition below) and
 		// immediately succeed
-		tx, err := committeeActor.MakeCall(nnsOnChainState.Hash, methodUpdate,
+		tx, err := committeeActor.MakeTunedCall(nnsOnChainState.Hash, methodUpdate, nil, updateTxModifier,
 			bLocalNEF, jLocalManifest, extraUpdateArgs)
 		if err != nil {
 			if isErrContractAlreadyUpdated(err) {

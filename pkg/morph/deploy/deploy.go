@@ -11,9 +11,11 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
@@ -68,6 +70,20 @@ type KeyStorage interface {
 	// storage. GetPersistedPrivateKey randomizes the key initially. All subsequent
 	// successful calls return the same key.
 	GetPersistedPrivateKey() (*keys.PrivateKey, error)
+}
+
+// NeoFSState groups information about NeoFS network state processed by Deploy.
+type NeoFSState struct {
+	// Current NeoFS epoch.
+	CurrentEpoch uint64
+	// Height of the NeoFS Sidechain at which CurrentEpoch began.
+	CurrentEpochBlock uint32
+}
+
+// NeoFS provides access to the running NeoFS network.
+type NeoFS interface {
+	// CurrentState returns current state of the NeoFS network.
+	CurrentState() (NeoFSState, error)
 }
 
 // CommonDeployPrm groups common deployment parameters of the smart contract.
@@ -136,6 +152,9 @@ type Prm struct {
 
 	// Storage for single committee group key.
 	KeyStorage KeyStorage
+
+	// Running NeoFS network for which deployment procedure is performed.
+	NeoFS NeoFS
 
 	NNS NNSPrm
 
@@ -315,6 +334,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm := syncNeoFSContractPrm{
 		logger:            prm.Logger,
 		blockchain:        prm.Blockchain,
+		neoFS:             prm.NeoFS,
 		monitor:           monitor,
 		localAcc:          prm.LocalAccount,
 		nnsContract:       nnsOnChainAddress,
@@ -369,6 +389,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	err = updateNNSContract(ctx, updateNNSContractPrm{
 		logger:                        prm.Logger,
 		blockchain:                    prm.Blockchain,
+		neoFS:                         prm.NeoFS,
 		monitor:                       monitor,
 		localAcc:                      prm.LocalAccount,
 		localNEF:                      prm.NNS.Common.NEF,
@@ -644,4 +665,26 @@ func encodeFloatConfig(v float64) []byte {
 
 func encodeBoolConfig(v bool) []byte {
 	return stackitem.NewBool(v).Bytes()
+}
+
+// returns actor.TransactionCheckerModifier which sets current NeoFS epoch as
+// nonce of the transaction and makes it valid 100 blocks after Sidechain block
+// when the epoch began.
+func neoFSRuntimeTransactionModifier(neoFS NeoFS) actor.TransactionCheckerModifier {
+	return func(r *result.Invoke, tx *transaction.Transaction) error {
+		err := actor.DefaultCheckerModifier(r, tx)
+		if err != nil {
+			return err
+		}
+
+		neoFSState, err := neoFS.CurrentState()
+		if err != nil {
+			return fmt.Errorf("get current NeoFS network state: %w", err)
+		}
+
+		tx.Nonce = uint32(neoFSState.CurrentEpoch)
+		tx.ValidUntilBlock = neoFSState.CurrentEpochBlock + 100
+
+		return nil
+	}
 }
