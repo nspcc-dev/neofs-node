@@ -409,7 +409,7 @@ func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
 	}
 
 	_, err = w.Write(prm.obj.Payload())
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("write object payload into stream: %w", err)
 	}
 
