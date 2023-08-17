@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -66,6 +67,14 @@ type syncNeoFSContractPrm struct {
 	// constructor of extra arguments to be passed into method updating the
 	// contract. If returns both nil, no data is passed.
 	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+
+	// address of the Proxy contract deployed in the blockchain. The contract
+	// pays for update transactions.
+	proxyContract util.Uint160
+	// set when syncNeoFSContractPrm relates to Proxy contract. In this case
+	// proxyContract field is unused because address is dynamically resolved within
+	// syncNeoFSContract.
+	isProxy bool
 }
 
 // syncNeoFSContract behaves similar to updateNNSContract but also attempts to
@@ -96,6 +105,26 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
 	if err != nil {
 		return util.Uint160{}, fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+	}
+
+	var proxyCommitteeActor *notary.Actor
+
+	initProxyCommitteeActor := func(proxyContract util.Uint160) error {
+		var err error
+		proxyCommitteeActor, err = newProxyCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee, proxyContract)
+		if err != nil {
+			return fmt.Errorf("create Notary service client sending transactions to be signed by the committee and paid by Proxy contract: %w", err)
+		}
+		return nil
+	}
+
+	if !prm.isProxy {
+		// otherwise, we dynamically receive Proxy contract address below and construct
+		// proxyCommitteeActor after
+		err = initProxyCommitteeActor(prm.proxyContract)
+		if err != nil {
+			return util.Uint160{}, err
+		}
 	}
 
 	// wrap the parent context into the context of the current function so that
@@ -265,7 +294,14 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 				continue
 			}
 
-			tx, err := committeeActor.MakeCall(onChainState.Hash, methodUpdate,
+			if prm.isProxy && proxyCommitteeActor == nil {
+				err = initProxyCommitteeActor(onChainState.Hash)
+				if err != nil {
+					return util.Uint160{}, err
+				}
+			}
+
+			tx, err := proxyCommitteeActor.MakeCall(onChainState.Hash, methodUpdate,
 				bLocalNEF, jLocalManifest, extraUpdateArgs)
 			if err != nil {
 				if isErrContractAlreadyUpdated(err) {
@@ -287,7 +323,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 
 			l.Info("sending new Notary request updating the contract...")
 
-			mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(tx, nil)
+			mainTxID, fallbackTxID, vub, err := proxyCommitteeActor.Notarize(tx, nil)
 			if err != nil {
 				if errors.Is(err, neorpc.ErrInsufficientFunds) {
 					l.Info("insufficient Notary balance to update the contract, will try again later")

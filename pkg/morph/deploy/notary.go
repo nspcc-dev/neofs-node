@@ -850,18 +850,43 @@ func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee k
 	})
 }
 
-// returns notary.Actor builds and sends Notary service requests witnessed by
-// the specified committee members to the provided Blockchain. Composed main
-// transactions will have specified witness scope. Given local account pays for
-// transactions.
-//
-// Transaction signer callback allows to specify committee signer (e.g. tune
-// witness scope). Instance passed to it has Account set to multi-signature
-// account for the parameterized committee.
+// calls newCommitteeNotaryActorWithCustomCommitteeSignerAndPayer with local account
+// set as payer.
 func newCommitteeNotaryActorWithCustomCommitteeSigner(
 	b Blockchain,
 	localAcc *wallet.Account,
 	committee keys.PublicKeys,
+	fCommitteeSigner func(*transaction.Signer),
+) (*notary.Actor, error) {
+	return _newCustomCommitteeNotaryActor(b, localAcc, committee, localAcc, fCommitteeSigner)
+}
+
+// returns notary.Actor that builds and sends Notary service requests witnessed
+// by the specified committee members to the provided Blockchain. Local account
+// should be one of the committee members. Given Proxy contract pays for main
+// transactions.
+func newProxyCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys, proxyContract util.Uint160) (*notary.Actor, error) {
+	return _newCustomCommitteeNotaryActor(b, localAcc, committee, notary.FakeContractAccount(proxyContract), func(s *transaction.Signer) {
+		s.Scopes = transaction.CalledByEntry
+	})
+}
+
+// returns notary.Actor builds and sends Notary service requests witnessed by
+// the specified committee members to the provided Blockchain. Local account
+// should be one of the committee members. Specified account pays for
+// main transactions.
+//
+// Transaction signer callback allows to specify committee signer (e.g. tune
+// witness scope). Instance passed to it has Account set to multi-signature
+// account for the parameterized committee.
+//
+// This function is presented to share common code and is expected to be called
+// by helper constructors only.
+func _newCustomCommitteeNotaryActor(
+	b Blockchain,
+	localAcc *wallet.Account,
+	committee keys.PublicKeys,
+	payerAcc *wallet.Account,
 	fCommitteeSigner func(*transaction.Signer),
 ) (*notary.Actor, error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(committee))
@@ -884,10 +909,10 @@ func newCommitteeNotaryActorWithCustomCommitteeSigner(
 	return notary.NewActor(b, []actor.SignerAccount{
 		{
 			Signer: transaction.Signer{
-				Account: localAcc.ScriptHash(),
+				Account: payerAcc.ScriptHash(),
 				Scopes:  transaction.None,
 			},
-			Account: localAcc,
+			Account: payerAcc,
 		},
 		committeeSignerAcc,
 	}, localAcc)
@@ -1074,16 +1099,19 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 					continue
 				}
 
-				bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[0].VerificationScript)
-				if !ok {
-					prm.logger.Info("first verification script in main transaction of the received notary request is not a signature one, skip", zap.Error(err))
-					continue
-				}
+				var payerAcc *wallet.Account
 
-				senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
-				if err != nil {
-					prm.logger.Info("failed to decode sender's public key from first script of main transaction from the received notary request, skip", zap.Error(err))
-					continue
+				bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[0].VerificationScript)
+				if ok {
+					senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
+					if err != nil {
+						prm.logger.Info("failed to decode sender's public key from first script of main transaction from the received notary request, skip", zap.Error(err))
+						continue
+					}
+
+					payerAcc = notary.FakeSimpleAccount(senderKey)
+				} else {
+					payerAcc = notary.FakeContractAccount(mainTx.Signers[0].Account)
 				}
 
 				// copy transaction to avoid pointer mutation
@@ -1103,7 +1131,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 				notaryActor, err := notary.NewActor(prm.blockchain, []actor.SignerAccount{
 					{
 						Signer:  mainTx.Signers[0],
-						Account: notary.FakeSimpleAccount(senderKey),
+						Account: payerAcc,
 					},
 					{
 						Signer:  mainTx.Signers[1],

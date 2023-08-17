@@ -264,6 +264,10 @@ type updateNNSContractPrm struct {
 	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
 	// used).
 	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+
+	// address of the Proxy contract deployed in the blockchain. The contract
+	// pays for update transactions.
+	proxyContract util.Uint160
 }
 
 // updateNNSContract synchronizes on-chain NNS contract (its presence is a
@@ -288,9 +292,9 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		return fmt.Errorf("encode local manifest of the NNS contract into JSON: %w", err)
 	}
 
-	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
+	committeeActor, err := newProxyCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee, prm.proxyContract)
 	if err != nil {
-		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee and paid by Proxy contract: %w", err)
 	}
 
 	// wrap the parent context into the context of the current function so that

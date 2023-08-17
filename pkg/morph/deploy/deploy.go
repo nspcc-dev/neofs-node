@@ -312,26 +312,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("NeoFS Alphabet successfully initialized")
 
-	prm.Logger.Info("updating on-chain NNS contract...")
-
-	err = updateNNSContract(ctx, updateNNSContractPrm{
-		logger:                        prm.Logger,
-		blockchain:                    prm.Blockchain,
-		monitor:                       monitor,
-		localAcc:                      prm.LocalAccount,
-		localNEF:                      prm.NNS.Common.NEF,
-		localManifest:                 prm.NNS.Common.Manifest,
-		systemEmail:                   prm.NNS.SystemEmail,
-		committee:                     committee,
-		committeeGroupKey:             committeeGroupKey,
-		buildVersionedExtraUpdateArgs: noExtraUpdateArgs,
-	})
-	if err != nil {
-		return fmt.Errorf("update NNS contract on the chain: %w", err)
-	}
-
-	prm.Logger.Info("on-chain NNS contract successfully updated")
-
 	syncPrm := syncNeoFSContractPrm{
 		logger:            prm.Logger,
 		blockchain:        prm.Blockchain,
@@ -361,6 +341,49 @@ func Deploy(ctx context.Context, prm Prm) error {
 		}
 		return onChainState.Hash, nil
 	}
+
+	// Proxy goes first. It's required for Notary service to work, and also pays for
+	// subsequent contract updates.
+	syncPrm.localNEF = prm.ProxyContract.Common.NEF
+	syncPrm.localManifest = prm.ProxyContract.Common.Manifest
+	syncPrm.domainName = domainProxy
+	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
+	syncPrm.buildVersionedExtraUpdateArgs = noExtraUpdateArgs
+	syncPrm.isProxy = true
+
+	prm.Logger.Info("synchronizing Proxy contract with the chain...")
+
+	proxyContractAddress, err := syncNeoFSContract(ctx, syncPrm)
+	if err != nil {
+		return fmt.Errorf("sync Proxy contract with the chain: %w", err)
+	}
+
+	prm.Logger.Info("Proxy contract successfully synchronized", zap.Stringer("address", proxyContractAddress))
+
+	// use on-chain address of the Proxy contract to update all others
+	syncPrm.isProxy = false
+	syncPrm.proxyContract = proxyContractAddress
+
+	prm.Logger.Info("updating on-chain NNS contract...")
+
+	err = updateNNSContract(ctx, updateNNSContractPrm{
+		logger:                        prm.Logger,
+		blockchain:                    prm.Blockchain,
+		monitor:                       monitor,
+		localAcc:                      prm.LocalAccount,
+		localNEF:                      prm.NNS.Common.NEF,
+		localManifest:                 prm.NNS.Common.Manifest,
+		systemEmail:                   prm.NNS.SystemEmail,
+		committee:                     committee,
+		committeeGroupKey:             committeeGroupKey,
+		buildVersionedExtraUpdateArgs: noExtraUpdateArgs,
+		proxyContract:                 proxyContractAddress,
+	})
+	if err != nil {
+		return fmt.Errorf("update NNS contract on the chain: %w", err)
+	}
+
+	prm.Logger.Info("on-chain NNS contract successfully updated")
 
 	// Alphabet
 	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
@@ -582,22 +605,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	}
 
 	prm.Logger.Info("Netmap contract successfully synchronized", zap.Stringer("address", netmapContractAddress))
-
-	// Proxy
-	syncPrm.localNEF = prm.ProxyContract.Common.NEF
-	syncPrm.localManifest = prm.ProxyContract.Common.Manifest
-	syncPrm.domainName = domainProxy
-	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildVersionedExtraUpdateArgs = noExtraUpdateArgs
-
-	prm.Logger.Info("synchronizing Proxy contract with the chain...")
-
-	proxyContractAddress, err := syncNeoFSContract(ctx, syncPrm)
-	if err != nil {
-		return fmt.Errorf("sync Proxy contract with the chain: %w", err)
-	}
-
-	prm.Logger.Info("Proxy contract successfully synchronized", zap.Stringer("address", proxyContractAddress))
 
 	// Reputation
 	syncPrm.localNEF = prm.ReputationContract.Common.NEF
