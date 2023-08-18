@@ -18,12 +18,6 @@ const (
 	awaitTimeout = time.Minute
 )
 
-var (
-	errCreateTimeout  = errors.New("container creation was requested, but timeout has happened while waiting for the outcome")
-	errDeleteTimeout  = errors.New("container removal was requested, but timeout has happened while waiting for the outcome")
-	errSetEACLTimeout = errors.New("eACL modification was requested, but timeout has happened while waiting for the outcome")
-)
-
 func parseContainerID(cmd *cobra.Command) cid.ID {
 	if containerID == "" {
 		common.ExitOnErr(cmd, "", errors.New("container ID is not set"))
