@@ -278,8 +278,11 @@ func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPr
 	const sessionLifetime = 10 // in NeoFS epochs
 
 	common.PrintVerbose(cmd, "Opening remote session with the node...")
-
-	err := sessionCli.CreateSession(ctx, &tok, cli, *key, sessionLifetime)
+	endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+	currEpoch, err := internal.GetCurrentEpoch(ctx, endpoint)
+	common.ExitOnErr(cmd, "can't fetch current epoch: %w", err)
+	exp := currEpoch + sessionLifetime
+	err = sessionCli.CreateSession(ctx, &tok, cli, *key, exp, currEpoch)
 	common.ExitOnErr(cmd, "open remote session: %w", err)
 
 	common.PrintVerbose(cmd, "Session successfully opened.")

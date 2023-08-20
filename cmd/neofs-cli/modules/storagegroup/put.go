@@ -44,10 +44,18 @@ func initSGPutCmd() {
 	_ = sgPutCmd.MarkFlagRequired(sgMembersFlag)
 
 	flags.Uint64(commonflags.Lifetime, 0, "Storage group lifetime in epochs")
-	_ = sgPutCmd.MarkFlagRequired(commonflags.Lifetime)
+	flags.Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch of the storage group")
+	sgPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
+	// with 1.8.0 cobra release we can use this instead of below
+	// sgPutCmd.MarkFlagsOneRequired("expire-at", "lifetime")
+	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
+	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
+	if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
+		common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
+	}
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -101,14 +109,17 @@ func putSG(cmd *cobra.Command, _ []string) {
 	}, cnr, members, !resGetCnr.Container().IsHomomorphicHashingDisabled())
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
 
-	var netInfoPrm internalclient.NetworkInfoPrm
-	netInfoPrm.SetClient(cli)
+	if lifetime != 0 {
+		var netInfoPrm internalclient.NetworkInfoPrm
+		netInfoPrm.SetClient(cli)
 
-	ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
-	common.ExitOnErr(cmd, "can't fetch network info: %w", err)
+		ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
+		common.ExitOnErr(cmd, "can't fetch network info: %w", err)
+		currEpoch := ni.NetworkInfo().CurrentEpoch()
+		exp = currEpoch + lifetime
+	}
 
-	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
-	sg.SetExpirationEpoch(ni.NetworkInfo().CurrentEpoch() + lifetime)
+	sg.SetExpirationEpoch(exp)
 
 	obj := object.New()
 	obj.SetContainerID(cnr)
