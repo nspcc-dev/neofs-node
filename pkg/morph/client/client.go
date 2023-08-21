@@ -9,6 +9,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -20,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -202,6 +204,41 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) (
 	}
 
 	return val.Stack, nil
+}
+
+// TestInvokeIterator is the same [Client.TestInvoke] but expands an iterator placed
+// on the stack. Returned values are the values an iterator provides.
+func (c *Client) TestInvokeIterator(contract util.Uint160, method string, args ...any) (res []stackitem.Item, err error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	sid, iter, err := unwrap.SessionIterator(c.rpcActor.Call(contract, method, args...))
+	if err != nil {
+		return nil, fmt.Errorf("iterator expansion: %w", err)
+	}
+	defer func() {
+		_ = c.rpcActor.TerminateSession(sid)
+	}()
+
+	items := make([]stackitem.Item, 0)
+	for {
+		ii, err := c.rpcActor.TraverseIterator(sid, &iter, config.DefaultMaxIteratorResultItems)
+		if err != nil {
+			return nil, fmt.Errorf("iterator traversal; session: %s, error: %w", sid, err)
+		}
+
+		if len(ii) == 0 {
+			break
+		}
+
+		items = append(items, ii...)
+	}
+
+	return items, nil
 }
 
 // TransferGas to the receiver from local wallet.
