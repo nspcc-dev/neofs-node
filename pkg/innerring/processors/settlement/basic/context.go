@@ -7,13 +7,14 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
 type (
 	EstimationFetcher interface {
-		Estimations(uint64) ([]*container.Estimations, error)
+		Estimations(uint64) (map[cid.ID]*container.Estimations, error)
 	}
 
 	RateFetcher interface {

@@ -33,7 +33,7 @@ const (
 	stopEstimationMethod  = "stopContainerEstimation"
 
 	putSizeMethod   = "putContainerSize"
-	listSizesMethod = "listContainerSizes"
+	listSizesMethod = "iterateAllContainerSizes"
 	getSizeMethod   = "getContainerSize"
 
 	// putNamedMethod is method name for container put with an alias. It is exported to provide custom fee.
