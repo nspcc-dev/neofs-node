@@ -316,6 +316,24 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("committee group successfully initialized", zap.Stringer("public key", committeeGroupKey.PublicKey()))
 
+	prm.Logger.Info("registering committee group in the NNS...")
+
+	err = registerCommitteeGroupInNNS(ctx, registerCommitteeGroupInNNSPrm{
+		logger:            prm.Logger,
+		blockchain:        prm.Blockchain,
+		monitor:           monitor,
+		nnsContract:       nnsOnChainAddress,
+		systemEmail:       prm.NNS.SystemEmail,
+		localAcc:          prm.LocalAccount,
+		committee:         committee,
+		committeeGroupKey: committeeGroupKey,
+	})
+	if err != nil {
+		return fmt.Errorf("regsiter committee group in the NNS: %w", err)
+	}
+
+	prm.Logger.Info("committee group successfully registered in the NNS")
+
 	prm.Logger.Info("initializing NeoFS Alphabet...")
 
 	err = initAlphabet(ctx, initAlphabetPrm{

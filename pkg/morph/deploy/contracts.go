@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
@@ -163,8 +162,17 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
 	deployTxMonitor := newTransactionGroupMonitor(localActor)
 	updateTxMonitor := newTransactionGroupMonitor(localActor)
-	registerTLDTxMonitor := newTransactionGroupMonitor(localActor)
-	setDomainRecordTxMonitor := newTransactionGroupMonitor(localActor)
+	setContractRecordPrm := setNeoFSContractDomainRecordPrm{
+		logger:               l,
+		setRecordTxMonitor:   newTransactionGroupMonitor(localActor),
+		registerTLDTxMonitor: newTransactionGroupMonitor(localActor),
+		nnsContract:          prm.nnsContract,
+		systemEmail:          prm.systemEmail,
+		localActor:           localActor,
+		committeeActor:       committeeActor,
+		domain:               domainNameForAddress,
+		record:               "", // set in for loop
+	}
 
 	for ; ; prm.monitor.waitForNextBlock(ctx) {
 		select {
@@ -335,69 +343,8 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 			continue
 		}
 
-		l.Info("NNS domain record is missing, registration is needed")
+		setContractRecordPrm.record = onChainState.Hash.StringLE()
 
-		if setDomainRecordTxMonitor.isPending() {
-			l.Info("previously sent transaction setting domain in the NNS is still pending, will wait for the outcome")
-			continue
-		}
-
-		l.Info("sending new transaction setting domain in the NNS...")
-
-		resRegister, err := localActor.Call(prm.nnsContract, methodNNSRegister,
-			domainNameForAddress, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
-		if err != nil {
-			l.Info("test invocation registering domain in the NNS failed, will try again later")
-			continue
-		}
-
-		resAddRecord, err := localActor.Call(prm.nnsContract, methodNNSAddRecord,
-			domainNameForAddress, int64(nns.TXT), onChainState.Hash.StringLE())
-		if err != nil {
-			l.Info("test invocation setting domain record in the NNS failed, will try again later")
-			continue
-		}
-
-		txID, vub, err := localActor.SendRun(append(resRegister.Script, resAddRecord.Script...))
-		if err != nil {
-			switch {
-			default:
-				l.Error("failed to send transaction setting domain in the NNS, will try again later", zap.Error(err))
-			case errors.Is(err, neorpc.ErrInsufficientFunds):
-				l.Info("not enough GAS to set domain record in the NNS, will try again later")
-			case isErrTLDNotFound(err):
-				l.Info("missing TLD, need registration")
-
-				if registerTLDTxMonitor.isPending() {
-					l.Info("previously sent Notary request registering TLD in the NNS is still pending, will wait for the outcome")
-					continue
-				}
-
-				l.Info("sending new Notary registering TLD in the NNS...")
-
-				mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(committeeActor.MakeCall(prm.nnsContract, methodNNSRegisterTLD,
-					domainContractAddresses, prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum))
-				if err != nil {
-					if errors.Is(err, neorpc.ErrInsufficientFunds) {
-						l.Info("insufficient Notary balance to register TLD in the NNS, will try again later")
-					} else {
-						l.Error("failed to send Notary request registering TLD in the NNS, will try again later", zap.Error(err))
-					}
-					continue
-				}
-
-				l.Info("Notary request registering TLD in the NNS has been successfully sent, will wait for the outcome",
-					zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
-
-				registerTLDTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
-			}
-			continue
-		}
-
-		l.Info("transaction settings domain record in the NNS has been successfully sent, will wait for the outcome",
-			zap.Stringer("tx", txID), zap.Uint32("vub", vub),
-		)
-
-		setDomainRecordTxMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
+		setNeoFSContractDomainRecord(ctx, setContractRecordPrm)
 	}
 }

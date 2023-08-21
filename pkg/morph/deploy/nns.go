@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
@@ -39,6 +40,8 @@ const (
 	domainNetmap      = "netmap"
 	domainProxy       = "proxy"
 	domainReputation  = "reputation"
+
+	domainCommitteeGroup = "group"
 )
 
 func calculateAlphabetContractAddressDomain(index int) string {
@@ -369,4 +372,89 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 
 		txMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
 	}
+}
+
+// setNeoFSContractDomainRecord groups parameters of setNeoFSContractDomainRecord.
+type setNeoFSContractDomainRecordPrm struct {
+	logger *zap.Logger
+
+	setRecordTxMonitor   *transactionGroupMonitor
+	registerTLDTxMonitor *transactionGroupMonitor
+
+	nnsContract util.Uint160
+	systemEmail string
+
+	localActor *actor.Actor
+
+	committeeActor *notary.Actor
+
+	domain string
+	record string
+}
+
+func setNeoFSContractDomainRecord(ctx context.Context, prm setNeoFSContractDomainRecordPrm) {
+	prm.logger.Info("NNS domain record is missing, registration is needed")
+
+	if prm.setRecordTxMonitor.isPending() {
+		prm.logger.Info("previously sent transaction setting domain in the NNS is still pending, will wait for the outcome")
+		return
+	}
+
+	prm.logger.Info("sending new transaction setting domain in the NNS...")
+
+	resRegister, err := prm.localActor.Call(prm.nnsContract, methodNNSRegister,
+		prm.domain, prm.localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+	if err != nil {
+		prm.logger.Info("test invocation registering domain in the NNS failed, will try again later", zap.Error(err))
+		return
+	}
+
+	resAddRecord, err := prm.localActor.Call(prm.nnsContract, methodNNSAddRecord,
+		prm.domain, int64(nns.TXT), prm.record)
+	if err != nil {
+		prm.logger.Info("test invocation setting domain record in the NNS failed, will try again later", zap.Error(err))
+		return
+	}
+
+	txID, vub, err := prm.localActor.SendRun(append(resRegister.Script, resAddRecord.Script...))
+	if err != nil {
+		switch {
+		default:
+			prm.logger.Error("failed to send transaction setting domain in the NNS, will try again later", zap.Error(err))
+		case errors.Is(err, neorpc.ErrInsufficientFunds):
+			prm.logger.Info("not enough GAS to set domain record in the NNS, will try again later")
+		case isErrTLDNotFound(err):
+			prm.logger.Info("missing TLD, need registration")
+
+			if prm.registerTLDTxMonitor.isPending() {
+				prm.logger.Info("previously sent Notary request registering TLD in the NNS is still pending, will wait for the outcome")
+				return
+			}
+
+			prm.logger.Info("sending new Notary registering TLD in the NNS...")
+
+			mainTxID, fallbackTxID, vub, err := prm.committeeActor.Notarize(prm.committeeActor.MakeCall(prm.nnsContract, methodNNSRegisterTLD,
+				domainContractAddresses, prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum))
+			if err != nil {
+				if errors.Is(err, neorpc.ErrInsufficientFunds) {
+					prm.logger.Info("insufficient Notary balance to register TLD in the NNS, will try again later")
+				} else {
+					prm.logger.Error("failed to send Notary request registering TLD in the NNS, will try again later", zap.Error(err))
+				}
+				return
+			}
+
+			prm.logger.Info("Notary request registering TLD in the NNS has been successfully sent, will wait for the outcome",
+				zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
+
+			prm.registerTLDTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
+		}
+		return
+	}
+
+	prm.logger.Info("transaction settings domain record in the NNS has been successfully sent, will wait for the outcome",
+		zap.Stringer("tx", txID), zap.Uint32("vub", vub),
+	)
+
+	prm.setRecordTxMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
 }
