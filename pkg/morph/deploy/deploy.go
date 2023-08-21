@@ -345,9 +345,24 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	localAccLeads := localAccCommitteeIndex == 0
 
+	// we attempt to deploy contracts (except Alphabet ones) by single committee
+	// member (1st for simplicity) to reduce the likelihood of contract duplication
+	// in the chain and better predictability of the final address (the address is a
+	// function from the sender of the deploying transaction). While this approach
+	// is centralized, we still expect any node incl. 1st one to be "healthy".
+	// Updates are done concurrently.
+	syncPrm.tryDeploy = localAccLeads
+
 	var notaryDisabledExtraUpdateArg bool
 
-	// then go dependent contracts. Things may become better/easier after
+	// function allowing to calculate addresses of cross-dependent contracts. For
+	// example, when A contract requires address of the B one, and B contract
+	// requires address of the A one, we cannot get on-chain addresses of them both
+	// because it's a cross dependency. Since fixed account performs initial
+	// deployment (see above why), we are able to pre-calculate addresses and
+	// resolve dependency problem.
+	//
+	// Things may become better/easier after
 	// https://github.com/nspcc-dev/neofs-contract/issues/325
 	resolveContractAddressDynamically := func(commonPrm CommonDeployPrm, contractDomain string) (util.Uint160, error) {
 		domain := calculateContractAddressDomain(contractDomain)
@@ -362,8 +377,13 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return onChainState.Hash, nil
 	}
 
-	// Proxy goes first. It's required for Notary service to work, and also pays for
-	// subsequent contract updates.
+	// Deploy NeoFS contracts in strict order. Contracts dependent on others come
+	// after.
+
+	// 1. Proxy
+	//
+	// It's required for Notary service to work, and also pays for subsequent
+	// contract updates.
 	syncPrm.localNEF = prm.ProxyContract.Common.NEF
 	syncPrm.localManifest = prm.ProxyContract.Common.Manifest
 	syncPrm.domainName = domainProxy
@@ -384,6 +404,10 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.isProxy = false
 	syncPrm.proxyContract = proxyContractAddress
 
+	// NNS (update)
+	//
+	// Special contract which is always deployed first, but its update depends on
+	// Proxy contract.
 	prm.Logger.Info("updating on-chain NNS contract...")
 
 	err = updateNNSContract(ctx, updateNNSContractPrm{
@@ -406,55 +430,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("on-chain NNS contract successfully updated")
 
-	// Alphabet
-	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
-	syncPrm.localManifest = prm.AlphabetContract.Common.Manifest
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
-
-	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
-		syncPrm.tryDeploy = ind == localAccCommitteeIndex // each member deploys its own Alphabet contract
-		syncPrm.domainName = calculateAlphabetContractAddressDomain(ind)
-		syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-			netmapContractAddress, err := resolveContractAddressDynamically(prm.NetmapContract.Common, domainNetmap)
-			if err != nil {
-				return nil, fmt.Errorf("resolve address of the Netmap contract: %w", err)
-			}
-			proxyContractAddress, err := resolveContractAddressDynamically(prm.ProxyContract.Common, domainProxy)
-			if err != nil {
-				return nil, fmt.Errorf("resolve address of the Proxy contract: %w", err)
-			}
-			return []interface{}{
-				notaryDisabledExtraUpdateArg,
-				netmapContractAddress,
-				proxyContractAddress,
-				glagolitsa.LetterByIndex(ind),
-				ind,
-				len(committee),
-			}, nil
-		}
-
-		prm.Logger.Info("synchronizing Alphabet contract with the chain...", zap.Int("index", ind))
-
-		alphabetContractAddress, err := syncNeoFSContract(ctx, syncPrm)
-		if err != nil {
-			return fmt.Errorf("sync Alphabet contract #%d with the chain: %w", ind, err)
-		}
-
-		prm.Logger.Info("Alphabet contract successfully synchronized",
-			zap.Int("index", ind), zap.Stringer("address", alphabetContractAddress))
-	}
-
-	// we attempt to deploy contracts other than Alphabet ones by single committee
-	// member (1st for simplicity) to reduce the likelihood of contract duplication
-	// in the chain and better predictability of the final address (the address is a
-	// function from the sender of the deploying transaction). While this approach
-	// is centralized, we still expect any node incl. 1st one to be "healthy".
-	// Updates are done concurrently.
-	syncPrm.tryDeploy = localAccLeads
-
-	// Audit
+	// 2. Audit
 	syncPrm.localNEF = prm.AuditContract.Common.NEF
 	syncPrm.localManifest = prm.AuditContract.Common.Manifest
 	syncPrm.domainName = domainAudit
@@ -472,7 +448,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Audit contract successfully synchronized", zap.Stringer("address", auditContractAddress))
 
-	// Balance
+	// 3. Balance
 	syncPrm.localNEF = prm.BalanceContract.Common.NEF
 	syncPrm.localManifest = prm.BalanceContract.Common.Manifest
 	syncPrm.domainName = domainBalance
@@ -490,49 +466,34 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Balance contract successfully synchronized", zap.Stringer("address", balanceContractAddress))
 
-	// Container
-	syncPrm.localNEF = prm.ContainerContract.Common.NEF
-	syncPrm.localManifest = prm.ContainerContract.Common.Manifest
-	syncPrm.domainName = domainContainer
-	syncPrm.committeeDeployRequired = true
-	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-		netmapContractAddress, err := resolveContractAddressDynamically(prm.NetmapContract.Common, domainNetmap)
-		if err != nil {
-			return nil, fmt.Errorf("resolve address of the Netmap contract: %w", err)
-		}
-		balanceContractAddress, err := resolveContractAddressDynamically(prm.BalanceContract.Common, domainBalance)
-		if err != nil {
-			return nil, fmt.Errorf("resolve address of the Balance contract: %w", err)
-		}
-		neoFSIDContractAddress, err := resolveContractAddressDynamically(prm.NeoFSIDContract.Common, domainNeoFSID)
-		if err != nil {
-			return nil, fmt.Errorf("resolve address of the NeoFSID contract: %w", err)
-		}
-		return []interface{}{
-			notaryDisabledExtraUpdateArg,
-			netmapContractAddress,
-			balanceContractAddress,
-			neoFSIDContractAddress,
-			nnsOnChainAddress,
-			domainContainers,
-		}, nil
-	}
+	// 4. Reputation
+	syncPrm.localNEF = prm.ReputationContract.Common.NEF
+	syncPrm.localManifest = prm.ReputationContract.Common.Manifest
+	syncPrm.domainName = domainReputation
+	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
 	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
 		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
-	prm.Logger.Info("synchronizing Container contract with the chain...")
+	prm.Logger.Info("synchronizing Reputation contract with the chain...")
 
-	containerContractAddress, err := syncNeoFSContract(ctx, syncPrm)
+	reputationContractAddress, err := syncNeoFSContract(ctx, syncPrm)
 	if err != nil {
-		return fmt.Errorf("sync Container contract with the chain: %w", err)
+		return fmt.Errorf("sync Reputation contract with the chain: %w", err)
 	}
 
-	prm.Logger.Info("Container contract successfully synchronized", zap.Stringer("address", containerContractAddress))
+	prm.Logger.Info("Reputation contract successfully synchronized", zap.Stringer("address", reputationContractAddress))
 
-	syncPrm.committeeDeployRequired = false
+	// order of the following contracts is trickier:
+	//  - Netmap depends on Container
+	//  - NeoFS ID depends on Netmap
+	//  - Container depends on Netmap and NeoFS ID
+	// (other dependencies doesn't matter in current context)
+	//
+	// according to this, we cannot select linear deployment order, so, taking
+	// into account we use workaround described above, the order is any
 
-	// NeoFSID
+	// 5. NeoFSID
 	syncPrm.localNEF = prm.NeoFSIDContract.Common.NEF
 	syncPrm.localManifest = prm.NeoFSIDContract.Common.Manifest
 	syncPrm.domainName = domainNeoFSID
@@ -559,7 +520,41 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("NeoFSID contract successfully synchronized", zap.Stringer("address", neoFSIDContractAddress))
 
-	// Netmap
+	// 6. Container
+	syncPrm.localNEF = prm.ContainerContract.Common.NEF
+	syncPrm.localManifest = prm.ContainerContract.Common.Manifest
+	syncPrm.domainName = domainContainer
+	syncPrm.committeeDeployRequired = true
+	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
+		netmapContractAddress, err := resolveContractAddressDynamically(prm.NetmapContract.Common, domainNetmap)
+		if err != nil {
+			return nil, fmt.Errorf("resolve address of the Netmap contract: %w", err)
+		}
+		return []interface{}{
+			notaryDisabledExtraUpdateArg,
+			netmapContractAddress,
+			balanceContractAddress,
+			neoFSIDContractAddress,
+			nnsOnChainAddress,
+			domainContainers,
+		}, nil
+	}
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
+	}
+
+	prm.Logger.Info("synchronizing Container contract with the chain...")
+
+	containerContractAddress, err := syncNeoFSContract(ctx, syncPrm)
+	if err != nil {
+		return fmt.Errorf("sync Container contract with the chain: %w", err)
+	}
+
+	prm.Logger.Info("Container contract successfully synchronized", zap.Stringer("address", containerContractAddress))
+
+	syncPrm.committeeDeployRequired = false
+
+	// 7. Netmap
 	netConfig := []interface{}{
 		[]byte(netmap.MaxObjectSizeConfig), encodeUintConfig(prm.NetmapContract.Config.MaxObjectSize),
 		[]byte(netmap.BasicIncomeRateConfig), encodeUintConfig(prm.NetmapContract.Config.StoragePrice),
@@ -583,14 +578,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.NetmapContract.Common.Manifest
 	syncPrm.domainName = domainNetmap
 	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-		balanceContractAddress, err := resolveContractAddressDynamically(prm.BalanceContract.Common, domainBalance)
-		if err != nil {
-			return nil, fmt.Errorf("resolve address of the Balance contract: %w", err)
-		}
-		containerContractAddress, err := resolveContractAddressDynamically(prm.ContainerContract.Common, domainContainer)
-		if err != nil {
-			return nil, fmt.Errorf("resolve address of the Container contract: %w", err)
-		}
 		return []interface{}{
 			notaryDisabledExtraUpdateArg,
 			balanceContractAddress,
@@ -612,23 +599,37 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Netmap contract successfully synchronized", zap.Stringer("address", netmapContractAddress))
 
-	// Reputation
-	syncPrm.localNEF = prm.ReputationContract.Common.NEF
-	syncPrm.localManifest = prm.ReputationContract.Common.Manifest
-	syncPrm.domainName = domainReputation
-	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
+	// 8. Alphabet
+	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
+	syncPrm.localManifest = prm.AlphabetContract.Common.Manifest
 	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
 		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
-	prm.Logger.Info("synchronizing Reputation contract with the chain...")
+	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
+		syncPrm.tryDeploy = ind == localAccCommitteeIndex // each member deploys its own Alphabet contract
+		syncPrm.domainName = calculateAlphabetContractAddressDomain(ind)
+		syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
+			return []interface{}{
+				notaryDisabledExtraUpdateArg,
+				netmapContractAddress,
+				proxyContractAddress,
+				glagolitsa.LetterByIndex(ind),
+				ind,
+				len(committee),
+			}, nil
+		}
 
-	reputationContractAddress, err := syncNeoFSContract(ctx, syncPrm)
-	if err != nil {
-		return fmt.Errorf("sync Reputation contract with the chain: %w", err)
+		prm.Logger.Info("synchronizing Alphabet contract with the chain...", zap.Int("index", ind))
+
+		alphabetContractAddress, err := syncNeoFSContract(ctx, syncPrm)
+		if err != nil {
+			return fmt.Errorf("sync Alphabet contract #%d with the chain: %w", ind, err)
+		}
+
+		prm.Logger.Info("Alphabet contract successfully synchronized",
+			zap.Int("index", ind), zap.Stringer("address", alphabetContractAddress))
 	}
-
-	prm.Logger.Info("Reputation contract successfully synchronized", zap.Stringer("address", reputationContractAddress))
 
 	return nil
 }
