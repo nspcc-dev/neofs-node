@@ -67,8 +67,9 @@ type syncNeoFSContractPrm struct {
 	buildExtraDeployArgs func() ([]interface{}, error)
 
 	// constructor of extra arguments to be passed into method updating the
-	// contract. If returns both nil, no data is passed.
-	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
+	//	used).
+	buildExtraUpdateArgs func() ([]interface{}, error)
 
 	// address of the Proxy contract deployed in the blockchain. The contract
 	// pays for update transactions.
@@ -284,16 +285,10 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 				return onChainState.Hash, nil
 			}
 		} else {
-			versionOnChain, err := readContractOnChainVersion(prm.blockchain, onChainState.Hash)
-			if err != nil {
-				l.Error("failed to read on-chain version of the contract, will try again later", zap.Error(err))
-				continue
-			}
-
-			extraUpdateArgs, err := prm.buildVersionedExtraUpdateArgs(versionOnChain)
+			extraUpdateArgs, err := prm.buildExtraUpdateArgs()
 			if err != nil {
 				l.Error("failed to prepare build extra arguments for the contract update, will try again later",
-					zap.Stringer("on-chain version", versionOnChain), zap.Error(err))
+					zap.Error(err))
 				continue
 			}
 

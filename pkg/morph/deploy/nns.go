@@ -265,7 +265,7 @@ type updateNNSContractPrm struct {
 	// constructor of extra arguments to be passed into method updating the
 	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
 	// used).
-	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+	buildExtraUpdateArgs func() ([]interface{}, error)
 
 	// address of the Proxy contract deployed in the blockchain. The contract
 	// pays for update transactions.
@@ -325,16 +325,10 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			return errors.New("missing required NNS contract on the chain")
 		}
 
-		versionOnChain, err := readContractOnChainVersion(prm.blockchain, nnsOnChainState.Hash)
-		if err != nil {
-			prm.logger.Error("failed to read on-chain version of the NNS contract, will try again later", zap.Error(err))
-			continue
-		}
-
-		extraUpdateArgs, err := prm.buildVersionedExtraUpdateArgs(versionOnChain)
+		extraUpdateArgs, err := prm.buildExtraUpdateArgs()
 		if err != nil {
 			prm.logger.Error("failed to prepare build extra arguments for NNS contract update, will try again later",
-				zap.Stringer("on-chain version", versionOnChain), zap.Error(err))
+				zap.Error(err))
 			continue
 		}
 

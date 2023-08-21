@@ -368,7 +368,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.ProxyContract.Common.Manifest
 	syncPrm.domainName = domainProxy
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildVersionedExtraUpdateArgs = noExtraUpdateArgs
+	syncPrm.buildExtraUpdateArgs = noExtraUpdateArgs
 	syncPrm.isProxy = true
 
 	prm.Logger.Info("synchronizing Proxy contract with the chain...")
@@ -387,18 +387,18 @@ func Deploy(ctx context.Context, prm Prm) error {
 	prm.Logger.Info("updating on-chain NNS contract...")
 
 	err = updateNNSContract(ctx, updateNNSContractPrm{
-		logger:                        prm.Logger,
-		blockchain:                    prm.Blockchain,
-		neoFS:                         prm.NeoFS,
-		monitor:                       monitor,
-		localAcc:                      prm.LocalAccount,
-		localNEF:                      prm.NNS.Common.NEF,
-		localManifest:                 prm.NNS.Common.Manifest,
-		systemEmail:                   prm.NNS.SystemEmail,
-		committee:                     committee,
-		committeeGroupKey:             committeeGroupKey,
-		buildVersionedExtraUpdateArgs: noExtraUpdateArgs,
-		proxyContract:                 proxyContractAddress,
+		logger:               prm.Logger,
+		blockchain:           prm.Blockchain,
+		neoFS:                prm.NeoFS,
+		monitor:              monitor,
+		localAcc:             prm.LocalAccount,
+		localNEF:             prm.NNS.Common.NEF,
+		localManifest:        prm.NNS.Common.Manifest,
+		systemEmail:          prm.NNS.SystemEmail,
+		committee:            committee,
+		committeeGroupKey:    committeeGroupKey,
+		buildExtraUpdateArgs: noExtraUpdateArgs,
+		proxyContract:        proxyContractAddress,
 	})
 	if err != nil {
 		return fmt.Errorf("update NNS contract on the chain: %w", err)
@@ -409,11 +409,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	// Alphabet
 	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
 	syncPrm.localManifest = prm.AlphabetContract.Common.Manifest
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
@@ -462,11 +459,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.AuditContract.Common.Manifest
 	syncPrm.domainName = domainAudit
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing Audit contract with the chain...")
@@ -483,11 +477,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.BalanceContract.Common.Manifest
 	syncPrm.domainName = domainBalance
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing Balance contract with the chain...")
@@ -526,11 +517,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 			domainContainers,
 		}, nil
 	}
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing Container contract with the chain...")
@@ -558,11 +546,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 			netmapContractAddress,
 		}, nil
 	}
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing NeoFSID contract with the chain...")
@@ -614,7 +599,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 			netConfig,
 		}, nil
 	}
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
 		return []interface{}{notaryDisabledExtraUpdateArg, util.Uint160{}, util.Uint160{}, []interface{}(nil), []interface{}(nil)}, nil
 	}
 
@@ -632,11 +617,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.ReputationContract.Common.Manifest
 	syncPrm.domainName = domainReputation
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildVersionedExtraUpdateArgs = func(versionOnChain contractVersion) ([]interface{}, error) {
-		if versionOnChain.equals(0, 17, 0) {
-			return []interface{}{notaryDisabledExtraUpdateArg}, nil
-		}
-		return nil, nil
+	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
+		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing Reputation contract with the chain...")
@@ -651,7 +633,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	return nil
 }
 
-func noExtraUpdateArgs(contractVersion) ([]interface{}, error) { return nil, nil }
+func noExtraUpdateArgs() ([]interface{}, error) { return nil, nil }
 
 func noExtraDeployArgs() ([]interface{}, error) { return nil, nil }
 
