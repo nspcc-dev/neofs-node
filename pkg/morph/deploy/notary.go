@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
@@ -1010,6 +1009,8 @@ type listenCommitteeNotaryRequestsPrm struct {
 	localAcc *wallet.Account
 
 	committee keys.PublicKeys
+
+	validatorMultiSigAcc *wallet.Account
 }
 
 // listenCommitteeNotaryRequests starts background process listening to incoming
@@ -1026,6 +1027,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 		return fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
+	validatorMultiSigAccID := prm.validatorMultiSigAcc.ScriptHash()
 	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
 	chNotaryRequests := make(chan *result.NotaryRequestEvent, 100) // secure from blocking
 	// cache processed operations: when main transaction from received notary
@@ -1033,9 +1035,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 	// the channel again
 	mProcessedMainTxs := make(map[util.Uint256]struct{})
 
-	subID, err := prm.blockchain.ReceiveNotaryRequests(&neorpc.TxFilter{
-		Signer: &committeeMultiSigAccID,
-	}, chNotaryRequests)
+	subID, err := prm.blockchain.ReceiveNotaryRequests(nil, chNotaryRequests)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests from committee: %w", err)
 	}
@@ -1064,7 +1064,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 				// for simplicity, requests are handled one-by one. We could process them in parallel
 				// using worker pool, but actions seem to be relatively lightweight
 
-				const expectedSignersCount = 3 // sender + committee + Notary
+				const expectedSignersCount = 3 // sender + committee|validator + Notary
 				mainTx := notaryEvent.NotaryRequest.MainTransaction
 				// note: instruction above can throw NPE and it's ok to panic: we confidently
 				// expect that only non-nil pointers will come from the channel (NeoGo
@@ -1088,9 +1088,11 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 					prm.logger.Info("unsupported number of signers of main transaction from the received notary request, skip",
 						zap.Int("expected", expectedSignersCount), zap.Int("got", len(mainTx.Signers)))
 					continue
-				case !mainTx.HasSigner(committeeMultiSigAccID):
-					prm.logger.Info("committee is not a signer of main transaction from the received notary request, skip")
-					continue
+				case !mainTx.Signers[1].Account.Equals(committeeMultiSigAccID):
+					if !mainTx.Signers[1].Account.Equals(validatorMultiSigAccID) {
+						prm.logger.Info("2nd signer of main transaction from the received notary request is neither committee nor validator multi-sig account, skip")
+						continue
+					}
 				case mainTx.HasSigner(prm.localAcc.ScriptHash()):
 					prm.logger.Info("main transaction from the received notary request is signed by a local account, skip")
 					continue
@@ -1125,6 +1127,14 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 				prm.logger.Info("signing main transaction from the received notary request by the local account...")
 
+				var multiSigAcc *wallet.Account
+				if mainTx.Signers[1].Account.Equals(committeeMultiSigAccID) {
+					multiSigAcc = committeeMultiSigAcc
+				} else {
+					// note: switch-case above denies any other cases
+					multiSigAcc = prm.validatorMultiSigAcc
+				}
+
 				// create new actor for current signers. As a slight optimization, we could also
 				// compare with signers of previously created actor and deduplicate.
 				// See also https://github.com/nspcc-dev/neofs-node/issues/2314
@@ -1135,7 +1145,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 					},
 					{
 						Signer:  mainTx.Signers[1],
-						Account: committeeMultiSigAcc,
+						Account: multiSigAcc,
 					},
 				}, prm.localAcc)
 				if err != nil {

@@ -150,6 +150,10 @@ type Prm struct {
 	// Local process account used for transaction signing (must be unlocked).
 	LocalAccount *wallet.Account
 
+	// Validator multi-sig account to spread initial GAS to network
+	// participants (must be unlocked).
+	ValidatorMultiSigAccount *wallet.Account
+
 	// Storage for single committee group key.
 	KeyStorage KeyStorage
 
@@ -179,10 +183,11 @@ type Prm struct {
 // Deployment process is detailed in NeoFS docs. Summary of stages:
 //  1. NNS contract deployment
 //  2. launch of a notary service for the committee
-//  3. committee group initialization
-//  4. Alphabet initialization
-//  5. deployment/update of the NeoFS system contracts
-//  6. deployment of custom contracts (currently not supported)
+//  3. initial GAS distribution between committee members
+//  4. committee group initialization
+//  5. Alphabet initialization
+//  6. deployment/update of the NeoFS system contracts
+//  7. deployment of custom contracts (currently not supported)
 //
 // See project documentation for details.
 func Deploy(ctx context.Context, prm Prm) error {
@@ -288,14 +293,32 @@ func Deploy(ctx context.Context, prm Prm) error {
 	go autoReplenishNotaryBalance(ctx, prm.Logger, prm.Blockchain, prm.LocalAccount, chNewBlock)
 
 	err = listenCommitteeNotaryRequests(ctx, listenCommitteeNotaryRequestsPrm{
-		logger:     prm.Logger,
-		blockchain: prm.Blockchain,
-		localAcc:   prm.LocalAccount,
-		committee:  committee,
+		logger:               prm.Logger,
+		blockchain:           prm.Blockchain,
+		localAcc:             prm.LocalAccount,
+		committee:            committee,
+		validatorMultiSigAcc: prm.ValidatorMultiSigAccount,
 	})
 	if err != nil {
 		return fmt.Errorf("start listener of committee notary requests: %w", err)
 	}
+
+	prm.Logger.Info("making initial transfer of funds to the committee...")
+
+	err = makeInitialTransferToCommittee(ctx, makeInitialGASTransferToCommitteePrm{
+		logger:               prm.Logger,
+		blockchain:           prm.Blockchain,
+		monitor:              monitor,
+		committee:            committee,
+		localAcc:             prm.LocalAccount,
+		validatorMultiSigAcc: prm.ValidatorMultiSigAccount,
+		tryTransfer:          localAccCommitteeIndex == 0,
+	})
+	if err != nil {
+		return fmt.Errorf("initial transfer funds to the committee: %w", err)
+	}
+
+	prm.Logger.Info("initial transfer to the committee successfully done")
 
 	prm.Logger.Info("initializing committee group for contract management...")
 
