@@ -98,7 +98,7 @@ func StringFromStackItem(param stackitem.Item) (string, error) {
 func addFeeCheckerModifier(add int64) func(r *result.Invoke, t *transaction.Transaction) error {
 	return func(r *result.Invoke, t *transaction.Transaction) error {
 		if r.State != HaltState {
-			return wrapNeoFSError(&notHaltStateError{state: r.State, exception: r.FaultException})
+			return &notHaltStateError{state: r.State, exception: r.FaultException}
 		}
 
 		t.SystemFee += add

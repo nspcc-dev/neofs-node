@@ -147,20 +147,6 @@ func (e *notHaltStateError) Error() string {
 	)
 }
 
-// implementation of error interface for NeoFS-specific errors.
-type neofsError struct {
-	err error
-}
-
-func (e neofsError) Error() string {
-	return fmt.Sprintf("neofs error: %v", e.err)
-}
-
-// wraps NeoFS-specific error into neofsError. Arg must not be nil.
-func wrapNeoFSError(err error) error {
-	return neofsError{err}
-}
-
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
 func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
@@ -200,7 +186,7 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) (
 	}
 
 	if val.State != HaltState {
-		return nil, wrapNeoFSError(&notHaltStateError{state: val.State, exception: val.FaultException})
+		return nil, &notHaltStateError{state: val.State, exception: val.FaultException}
 	}
 
 	return val.Stack, nil
