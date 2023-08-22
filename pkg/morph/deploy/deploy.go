@@ -445,6 +445,23 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.isProxy = false
 	syncPrm.proxyContract = proxyContractAddress
 
+	prm.Logger.Info("replenishing the the Proxy contract's balance...")
+
+	err = transferGASToProxy(ctx, transferGASToProxyPrm{
+		logger:        prm.Logger,
+		blockchain:    prm.Blockchain,
+		monitor:       monitor,
+		proxyContract: proxyContractAddress,
+		committee:     committee,
+		localAcc:      prm.LocalAccount,
+		tryTransfer:   localAccLeads,
+	})
+	if err != nil {
+		return fmt.Errorf("replenish balance of the Proxy contract: %w", err)
+	}
+
+	prm.Logger.Info("Proxy balance successfully replenished")
+
 	// NNS (update)
 	//
 	// Special contract which is always deployed first, but its update depends on

@@ -17,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,9 @@ const (
 	// to pay fees for transfer transaction(s). The value is big enough for
 	// transfer, and not very big to leave no tail on the account.
 	validatorLowerGASThreshold = 10
+	// share of GAS on the committee multi-sig account to be transferred to the
+	// Proxy contract (in %).
+	initialProxyGASPercent = 90
 )
 
 // groups parameters of makeInitialGASTransferToCommittee.
@@ -225,6 +229,108 @@ upperLoop:
 		}
 
 		prm.logger.Info("Notary request transferring funds from validator multi-sig account to the committee has been successfully sent, will wait for the outcome",
+			zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
+
+		transferTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
+	}
+}
+
+// groups parameters of transferGASToProxy.
+type transferGASToProxyPrm struct {
+	logger *zap.Logger
+
+	blockchain Blockchain
+
+	// based on blockchain
+	monitor *blockchainMonitor
+
+	proxyContract util.Uint160
+
+	committee keys.PublicKeys
+
+	localAcc *wallet.Account
+
+	tryTransfer bool
+}
+
+// transfers 90% of GAS from committee multi-sig account to the Proxy contract.
+// No-op if Proxy contract already has GAS.
+func transferGASToProxy(ctx context.Context, prm transferGASToProxyPrm) error {
+	var committeeMultiSigAccAddress util.Uint160
+
+	committeeActor, err := newCommitteeNotaryActorWithCustomCommitteeSigner(prm.blockchain, prm.localAcc, prm.committee, func(s *transaction.Signer) {
+		committeeMultiSigAccAddress = s.Account
+		s.Scopes = transaction.CalledByEntry
+	})
+	if err != nil {
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+	}
+
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	gasContract := gas.New(committeeActor)
+	transferTxMonitor := newTransactionGroupMonitor(committeeActor)
+
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for distribution of initial funds: %w", ctx.Err())
+		default:
+		}
+
+		proxyBalance, err := gasContract.BalanceOf(prm.proxyContract)
+		if err != nil {
+			prm.logger.Error("failed to get GAS balance of the Proxy contract, will try again later",
+				zap.Error(err))
+			continue
+		}
+
+		if proxyBalance.Sign() > 0 {
+			prm.logger.Info("Proxy contract already has GAS, skip transfer")
+			return nil
+		}
+
+		if !prm.tryTransfer {
+			prm.logger.Info("GAS balance of the Proxy contract is empty but attempts to transfer are disabled, will wait for a leader")
+			continue
+		}
+
+		committeeBalance, err := gasContract.BalanceOf(committeeMultiSigAccAddress)
+		if err != nil {
+			prm.logger.Error("failed to get GAS balance of the committee multi-sig account, will try again later",
+				zap.Error(err))
+			continue
+		}
+
+		amount := new(big.Int).Mul(committeeBalance, big.NewInt(initialProxyGASPercent))
+		amount.Div(amount, big.NewInt(100))
+		if amount.Sign() <= 0 {
+			prm.logger.Info("nothing to transfer from the committee multi-sig account, skip")
+			return nil
+		}
+
+		if transferTxMonitor.isPending() {
+			prm.logger.Info("previously sent transaction transferring funds from committee multi-sig account to the Proxy contract is still pending, will wait for the outcome")
+			continue
+		}
+
+		prm.logger.Info("sending new Notary request transferring funds from committee multi-sig account to the Proxy contract...")
+
+		mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(
+			gasContract.TransferTransaction(committeeMultiSigAccAddress, prm.proxyContract, amount, nil))
+		if err != nil {
+			if errors.Is(err, neorpc.ErrInsufficientFunds) {
+				prm.logger.Info("insufficient Notary balance to transfer funds from committee multi-sig account to the Proxy contract, will try again later")
+			} else {
+				prm.logger.Error("failed to send Notary request transferring funds from committee multi-sig account to the Proxy contract, will try again later", zap.Error(err))
+			}
+			continue
+		}
+
+		prm.logger.Info("Notary request transferring funds from committee multi-sig account to the Proxy contract has been successfully sent, will wait for the outcome",
 			zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
 
 		transferTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
