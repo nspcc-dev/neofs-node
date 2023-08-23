@@ -864,17 +864,17 @@ func newCommitteeNotaryActorWithCustomCommitteeSigner(
 // returns notary.Actor that builds and sends Notary service requests witnessed
 // by the specified committee members to the provided Blockchain. Local account
 // should be one of the committee members. Given Proxy contract pays for main
-// transactions.
-func newProxyCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys, proxyContract util.Uint160) (*notary.Actor, error) {
+// transactions. Allows to specify extra transaction signers.
+func newProxyCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys, proxyContract util.Uint160, extraSigners ...actor.SignerAccount) (*notary.Actor, error) {
 	return _newCustomCommitteeNotaryActor(b, localAcc, committee, notary.FakeContractAccount(proxyContract), func(s *transaction.Signer) {
 		s.Scopes = transaction.CalledByEntry
-	})
+	}, extraSigners...)
 }
 
 // returns notary.Actor builds and sends Notary service requests witnessed by
 // the specified committee members to the provided Blockchain. Local account
 // should be one of the committee members. Specified account pays for
-// main transactions.
+// main transactions. Allows to specify extra transaction signers.
 //
 // Transaction signer callback allows to specify committee signer (e.g. tune
 // witness scope). Instance passed to it has Account set to multi-signature
@@ -888,6 +888,7 @@ func _newCustomCommitteeNotaryActor(
 	committee keys.PublicKeys,
 	payerAcc *wallet.Account,
 	fCommitteeSigner func(*transaction.Signer),
+	extraSigners ...actor.SignerAccount,
 ) (*notary.Actor, error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(committee))
 	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(localAcc.PrivateKey())
@@ -906,7 +907,7 @@ func _newCustomCommitteeNotaryActor(
 
 	fCommitteeSigner(&committeeSignerAcc.Signer)
 
-	return notary.NewActor(b, []actor.SignerAccount{
+	signers := []actor.SignerAccount{
 		{
 			Signer: transaction.Signer{
 				Account: payerAcc.ScriptHash(),
@@ -915,7 +916,9 @@ func _newCustomCommitteeNotaryActor(
 			Account: payerAcc,
 		},
 		committeeSignerAcc,
-	}, localAcc)
+	}
+
+	return notary.NewActor(b, append(signers, extraSigners...), localAcc)
 }
 
 // Amount of GAS for the single local account's GAS->Notary transfer. Relatively

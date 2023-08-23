@@ -185,7 +185,7 @@ type Prm struct {
 //  2. launch of a notary service for the committee
 //  3. initial GAS distribution between committee members
 //  4. committee group initialization
-//  5. Alphabet initialization
+//  5. Alphabet initialization (incl. registration as candidates to validators)
 //  6. deployment/update of the NeoFS system contracts
 //  7. deployment of custom contracts (currently not supported)
 //
@@ -461,6 +461,22 @@ func Deploy(ctx context.Context, prm Prm) error {
 	}
 
 	prm.Logger.Info("Proxy balance successfully replenished")
+
+	prm.Logger.Info("initializing vote for NeoFS Alphabet members to role of validators...")
+
+	err = initVoteForAlphabet(ctx, initVoteForAlphabetPrm{
+		logger:        prm.Logger,
+		blockchain:    prm.Blockchain,
+		monitor:       monitor,
+		committee:     committee,
+		localAcc:      prm.LocalAccount,
+		proxyContract: proxyContractAddress,
+	})
+	if err != nil {
+		return fmt.Errorf("init vote for NeoFS Alphabet members to role of validators: %w", err)
+	}
+
+	prm.Logger.Info("vote for NeoFS Alphabet to role of validators successfully initialized")
 
 	// NNS (update)
 	//
