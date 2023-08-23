@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: nspcc-dev/neofs-dev-env
-          ref: 'feat/make-health-check-not-depend-on-shell'
+          ref: 'master'
           path: neofs-dev-env
 
       - name: Checkout neofs-node repository
