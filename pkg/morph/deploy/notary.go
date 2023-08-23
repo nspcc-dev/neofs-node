@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
@@ -1027,6 +1028,13 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 		return fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
+	ver, err := prm.blockchain.GetVersion()
+	if err != nil {
+		return fmt.Errorf("read protocol configuration: %w", err)
+	}
+
+	netMagic := ver.Protocol.Network
+	localAccID := prm.localAcc.ScriptHash()
 	validatorMultiSigAccID := prm.validatorMultiSigAcc.ScriptHash()
 	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
 	chNotaryRequests := make(chan *result.NotaryRequestEvent, 100) // secure from blocking
@@ -1050,6 +1058,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 		prm.logger.Info("listening to committee notary requests...")
 
+	upperLoop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -1064,115 +1073,185 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 				// for simplicity, requests are handled one-by one. We could process them in parallel
 				// using worker pool, but actions seem to be relatively lightweight
 
-				const expectedSignersCount = 3 // sender + committee|validator + Notary
 				mainTx := notaryEvent.NotaryRequest.MainTransaction
 				// note: instruction above can throw NPE and it's ok to panic: we confidently
 				// expect that only non-nil pointers will come from the channel (NeoGo
 				// guarantees)
 
 				srcMainTxHash := mainTx.Hash()
+				l := prm.logger.With(zap.Stringer("tx", srcMainTxHash))
 				_, processed := mProcessedMainTxs[srcMainTxHash]
+				if processed {
+					l.Info("main transaction of the notary request has already been processed, skip")
+					continue
+				}
+
+				mProcessedMainTxs[srcMainTxHash] = struct{}{}
 
 				// revise severity level of the messages
 				// https://github.com/nspcc-dev/neofs-node/issues/2419
 				switch {
-				case processed:
-					prm.logger.Info("main transaction of the notary request has already been processed, skip",
-						zap.Stringer("ID", srcMainTxHash))
-					continue
 				case notaryEvent.Type != mempoolevent.TransactionAdded:
-					prm.logger.Info("unsupported type of the notary request event, skip",
+					l.Info("unsupported type of the notary request event, skip",
 						zap.Stringer("got", notaryEvent.Type), zap.Stringer("expect", mempoolevent.TransactionAdded))
 					continue
-				case len(mainTx.Signers) != expectedSignersCount:
-					prm.logger.Info("unsupported number of signers of main transaction from the received notary request, skip",
-						zap.Int("expected", expectedSignersCount), zap.Int("got", len(mainTx.Signers)))
+				case len(mainTx.Scripts) != len(mainTx.Signers):
+					l.Info("different number of signers and scripts of main transaction from the received notary request, skip")
 					continue
-				case !mainTx.Signers[1].Account.Equals(committeeMultiSigAccID):
-					if !mainTx.Signers[1].Account.Equals(validatorMultiSigAccID) {
-						prm.logger.Info("2nd signer of main transaction from the received notary request is neither committee nor validator multi-sig account, skip")
-						continue
-					}
-				case mainTx.HasSigner(prm.localAcc.ScriptHash()):
-					prm.logger.Info("main transaction from the received notary request is signed by a local account, skip")
-					continue
-				case len(mainTx.Scripts) == 0:
-					prm.logger.Info("missing scripts of main transaction from the received notary request, skip")
+				case len(mainTx.Signers) == 0 || !mainTx.Signers[len(mainTx.Signers)-1].Account.Equals(notary.Hash):
+					l.Info("Notary contract is not the last signer of main transaction from the received notary request, skip")
 					continue
 				}
 
-				var payerAcc *wallet.Account
+				localAccSignerIndex := -1
+				committeeMultiSigSignerIndex := -1
+				validatorMultiSigSignerIndex := -1
+				notaryContractSignerIndex := -1
 
-				bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[0].VerificationScript)
-				if ok {
-					senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
-					if err != nil {
-						prm.logger.Info("failed to decode sender's public key from first script of main transaction from the received notary request, skip", zap.Error(err))
+				for i := range mainTx.Signers {
+					switch mainTx.Signers[i].Account {
+					case notary.Hash:
+						notaryContractSignerIndex = i
+					case localAccID:
+						if len(mainTx.Scripts[i].InvocationScript) > 0 {
+							l.Info("main transaction from the received notary request already has local account's signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						localAccSignerIndex = i
+					case committeeMultiSigAccID:
+						// simplified: we know binary format, so may match faster
+						if bytes.Contains(mainTx.Scripts[i].InvocationScript, committeeMultiSigAcc.SignHashable(netMagic, mainTx)) {
+							l.Info("main transaction from the received notary request already has local account's committee signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						// we cannot differ missing signature from the incorrect one in this case
+
+						committeeMultiSigSignerIndex = i
+					case validatorMultiSigAccID:
+						// simplified: we know binary format, so may match faster
+						if bytes.Contains(mainTx.Scripts[i].InvocationScript, prm.validatorMultiSigAcc.SignHashable(netMagic, mainTx)) {
+							l.Info("main transaction from the received notary request already has local account's committee signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						// we cannot differ missing signature from the incorrect one in this case
+
+						validatorMultiSigSignerIndex = i
+					}
+				}
+
+				if notaryContractSignerIndex < 0 {
+					l.Info("Notary contract is not a signer of main transaction of the received notary request, skip")
+					continue
+				}
+
+				if localAccSignerIndex < 0 && committeeMultiSigSignerIndex < 0 && validatorMultiSigSignerIndex < 0 {
+					l.Info("local account is not a signer of main transaction of the received notary request, skip")
+					continue
+				}
+
+				signers := make([]actor.SignerAccount, 0, len(mainTx.Signers)-1) // Notary contract added by actor
+
+				for i := range mainTx.Signers {
+					if i == notaryContractSignerIndex {
 						continue
 					}
 
-					payerAcc = notary.FakeSimpleAccount(senderKey)
-				} else {
-					payerAcc = notary.FakeContractAccount(mainTx.Signers[0].Account)
+					var acc *wallet.Account
+					switch i {
+					case localAccSignerIndex:
+						acc = prm.localAcc
+					case committeeMultiSigSignerIndex:
+						acc = committeeMultiSigAcc
+					case validatorMultiSigSignerIndex:
+						acc = prm.validatorMultiSigAcc
+					default:
+						if len(mainTx.Scripts[i].VerificationScript) > 0 {
+							if bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[i].VerificationScript); ok {
+								senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
+								if err != nil {
+									l.Info("failed to decode public key from simple signature contract verification script of main transaction from the received notary request, skip",
+										zap.Int("script#", i), zap.Error(err))
+									continue
+								}
+
+								acc = notary.FakeSimpleAccount(senderKey)
+							} else if m, bKeys, ok := vm.ParseMultiSigContract(mainTx.Scripts[i].VerificationScript); ok {
+								pKeys := make(keys.PublicKeys, len(bKeys))
+								for j := range bKeys {
+									err := pKeys[j].DecodeBytes(bKeys[j])
+									if err != nil {
+										l.Info("failed to decode public key from multi-sig contract verification script of main transaction from the received notary request, skip",
+											zap.Int("script#", i), zap.Int("key#", j), zap.Error(err))
+										continue
+									}
+								}
+
+								acc, err = notary.FakeMultisigAccount(m, pKeys)
+								if err != nil {
+									l.Info("failed to build fake multi-sig account from verification script of main transaction from the received notary request, skip",
+										zap.Int("script#", i), zap.Error(err))
+									continue
+								}
+							} else {
+								l.Info("got invalid/unsupported verification script in main transaction from the received notary request, skip",
+									zap.Int("script#", i))
+								continue upperLoop
+							}
+						} else {
+							acc = notary.FakeContractAccount(mainTx.Signers[i].Account)
+						}
+					}
+
+					signers = append(signers, actor.SignerAccount{
+						Signer:  mainTx.Signers[i],
+						Account: acc,
+					})
 				}
 
 				// copy transaction to avoid pointer mutation
 				mainTxCp := *mainTx
-				mainTxCp.Scripts = nil
-
 				mainTx = &mainTxCp // source one isn't needed anymore
 
 				// it'd be safer to get into the transaction and analyze what it is trying to do.
 				// For simplicity, now we blindly sign it. Track https://github.com/nspcc-dev/neofs-node/issues/2430
 
-				prm.logger.Info("signing main transaction from the received notary request by the local account...")
+				l.Info("signing main transaction from the received notary request by the local account...")
 
-				var multiSigAcc *wallet.Account
-				if mainTx.Signers[1].Account.Equals(committeeMultiSigAccID) {
-					multiSigAcc = committeeMultiSigAcc
-				} else {
-					// note: switch-case above denies any other cases
-					multiSigAcc = prm.validatorMultiSigAcc
-				}
+				// reset all existing script because Notary actor adds itself
+				mainTx.Scripts = nil
 
 				// create new actor for current signers. As a slight optimization, we could also
 				// compare with signers of previously created actor and deduplicate.
 				// See also https://github.com/nspcc-dev/neofs-node/issues/2314
-				notaryActor, err := notary.NewActor(prm.blockchain, []actor.SignerAccount{
-					{
-						Signer:  mainTx.Signers[0],
-						Account: payerAcc,
-					},
-					{
-						Signer:  mainTx.Signers[1],
-						Account: multiSigAcc,
-					},
-				}, prm.localAcc)
+				notaryActor, err := notary.NewActor(prm.blockchain, signers, prm.localAcc)
 				if err != nil {
 					// not really expected
-					prm.logger.Error("failed to init Notary request sender with signers from the main transaction of the received notary request", zap.Error(err))
+					l.Error("failed to init Notary request sender with signers from the main transaction of the received notary request", zap.Error(err))
 					continue
 				}
 
 				err = notaryActor.Sign(mainTx)
 				if err != nil {
-					prm.logger.Error("failed to sign main transaction from the received notary request by the local account, skip", zap.Error(err))
+					l.Error("failed to sign main transaction from the received notary request by the local account, skip", zap.Error(err))
 					continue
 				}
 
-				prm.logger.Info("sending new notary request with the main transaction signed by the local account...")
+				l.Info("sending new notary request with the main transaction signed by the local account...")
 
 				_, _, _, err = notaryActor.Notarize(mainTx, nil)
 				if err != nil {
 					if errors.Is(err, neorpc.ErrInsufficientFunds) {
-						prm.logger.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
+						l.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
 					} else {
-						prm.logger.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
+						l.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
 					}
 					continue
 				}
 
-				prm.logger.Info("main transaction from the received notary request has been successfully signed and sent by the local account")
+				l.Info("main transaction from the received notary request has been successfully signed and sent by the local account")
 			}
 		}
 	}()
