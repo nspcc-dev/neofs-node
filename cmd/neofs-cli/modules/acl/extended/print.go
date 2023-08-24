@@ -13,6 +13,7 @@ import (
 var printEACLCmd = &cobra.Command{
 	Use:   "print",
 	Short: "Pretty print extended ACL from the file(in text or json format) or for given container.",
+	Args:  cobra.NoArgs,
 	Run:   printEACL,
 }
 

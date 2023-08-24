@@ -29,6 +29,7 @@ const defaultLifetime = 10
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create session token",
+	Args:  cobra.NoArgs,
 	Run:   createSession,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		_ = viper.BindPFlag(commonflags.WalletPath, cmd.Flags().Lookup(commonflags.WalletPath))

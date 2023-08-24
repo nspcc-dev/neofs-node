@@ -13,6 +13,7 @@ var flushCacheCmd = &cobra.Command{
 	Use:   "flush-cache",
 	Short: "Flush objects from the write-cache to the main storage",
 	Long:  "Flush objects from the write-cache to the main storage",
+	Args:  cobra.NoArgs,
 	Run:   flushCache,
 }
 

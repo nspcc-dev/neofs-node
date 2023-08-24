@@ -35,6 +35,7 @@ var (
 	locodeGenerateCmd = &cobra.Command{
 		Use:   "generate",
 		Short: "Generate UN/LOCODE database for NeoFS",
+		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
 			locodeDB := csvlocode.New(
 				csvlocode.Prm{

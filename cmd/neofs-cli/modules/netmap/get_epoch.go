@@ -11,7 +11,8 @@ var getEpochCmd = &cobra.Command{
 	Use:   "epoch",
 	Short: "Get current epoch number",
 	Long:  "Get current epoch number",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

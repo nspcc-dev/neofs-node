@@ -16,7 +16,8 @@ var nodeInfoCmd = &cobra.Command{
 	Use:   "nodeinfo",
 	Short: "Get target node info",
 	Long:  `Get target node info`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

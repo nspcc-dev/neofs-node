@@ -33,6 +33,7 @@ var objectPutCmd = &cobra.Command{
 	Use:   "put",
 	Short: "Put object to NeoFS",
 	Long:  "Put object to NeoFS",
+	Args:  cobra.NoArgs,
 	Run:   putObject,
 }
 

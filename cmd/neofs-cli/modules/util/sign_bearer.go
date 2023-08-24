@@ -17,6 +17,7 @@ const (
 var signBearerCmd = &cobra.Command{
 	Use:   "bearer-token",
 	Short: "Sign bearer token to use it in requests",
+	Args:  cobra.NoArgs,
 	Run:   signBearerToken,
 }
 

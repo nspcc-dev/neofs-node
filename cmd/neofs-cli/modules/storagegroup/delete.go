@@ -15,6 +15,7 @@ var sgDelCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete storage group from NeoFS",
 	Long:  "Delete storage group from NeoFS",
+	Args:  cobra.NoArgs,
 	Run:   delSG,
 }
 

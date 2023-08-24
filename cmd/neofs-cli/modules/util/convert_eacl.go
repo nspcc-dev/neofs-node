@@ -11,6 +11,7 @@ import (
 var convertEACLCmd = &cobra.Command{
 	Use:   "eacl",
 	Short: "Convert representation of extended ACL table",
+	Args:  cobra.NoArgs,
 	Run:   convertEACLTable,
 }
 

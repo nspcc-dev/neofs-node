@@ -18,6 +18,7 @@ var restoreShardCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore objects from shard",
 	Long:  "Restore objects from shard to a file",
+	Args:  cobra.NoArgs,
 	Run:   restoreShard,
 }
 

@@ -18,6 +18,7 @@ var dumpShardCmd = &cobra.Command{
 	Use:   "dump",
 	Short: "Dump objects from shard",
 	Long:  "Dump objects from shard to a file",
+	Args:  cobra.NoArgs,
 	Run:   dumpShard,
 }
 

@@ -19,6 +19,7 @@ var listShardsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List shards of the storage node",
 	Long:  "List shards of the storage node",
+	Args:  cobra.NoArgs,
 	Run:   listShards,
 }
 

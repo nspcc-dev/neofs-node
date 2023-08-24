@@ -17,6 +17,7 @@ import (
 var signSessionCmd = &cobra.Command{
 	Use:   "session-token",
 	Short: "Sign session token to use it in requests",
+	Args:  cobra.NoArgs,
 	Run:   signSessionToken,
 }
 

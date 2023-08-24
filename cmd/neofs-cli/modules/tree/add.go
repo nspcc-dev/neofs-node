@@ -17,6 +17,7 @@ var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a node to the tree service",
 	Run:   add,
+	Args:  cobra.NoArgs,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)
 	},

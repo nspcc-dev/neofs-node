@@ -28,7 +28,8 @@ var listContainersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all created containers",
 	Long:  "List all created containers",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

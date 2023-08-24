@@ -28,7 +28,8 @@ var listContainerObjectsCmd = &cobra.Command{
 	Use:   "list-objects",
 	Short: "List existing objects in container",
 	Long:  `List existing objects in container`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

@@ -15,7 +15,8 @@ var netInfoCmd = &cobra.Command{
 	Use:   "netinfo",
 	Short: "Get information about NeoFS network",
 	Long:  "Get information about NeoFS network",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

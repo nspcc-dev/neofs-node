@@ -22,6 +22,7 @@ var (
 		Use:   "search",
 		Short: "Search object",
 		Long:  "Search object",
+		Args:  cobra.NoArgs,
 		Run:   searchObject,
 	}
 )

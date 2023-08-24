@@ -21,6 +21,7 @@ var objectGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get object from NeoFS",
 	Long:  "Get object from NeoFS",
+	Args:  cobra.NoArgs,
 	Run:   getObject,
 }
 

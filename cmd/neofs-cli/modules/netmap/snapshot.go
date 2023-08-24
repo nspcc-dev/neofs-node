@@ -11,7 +11,8 @@ var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
 	Short: "Request current local snapshot of the network map",
 	Long:  `Request current local snapshot of the network map`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

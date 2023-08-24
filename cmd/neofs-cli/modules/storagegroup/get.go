@@ -20,6 +20,7 @@ var sgGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get storage group from NeoFS",
 	Long:  "Get storage group from NeoFS",
+	Args:  cobra.NoArgs,
 	Run:   getSG,
 }
 

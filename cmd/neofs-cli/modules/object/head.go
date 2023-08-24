@@ -21,6 +21,7 @@ var objectHeadCmd = &cobra.Command{
 	Use:   "head",
 	Short: "Get object header",
 	Long:  "Get object header",
+	Args:  cobra.NoArgs,
 	Run:   getObjectHeader,
 }
 
