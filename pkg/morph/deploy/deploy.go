@@ -187,7 +187,7 @@ type Prm struct {
 //  4. committee group initialization
 //  5. Alphabet initialization (incl. registration as candidates to validators)
 //  6. deployment/update of the NeoFS system contracts
-//  7. deployment of custom contracts (currently not supported)
+//  7. distribution of all available NEO between the Alphabet contracts
 //
 // See project documentation for details.
 func Deploy(ctx context.Context, prm Prm) error {
@@ -680,6 +680,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
+	var alphabetContracts []util.Uint160
+
 	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
 		syncPrm.tryDeploy = ind == localAccCommitteeIndex // each member deploys its own Alphabet contract
 		syncPrm.domainName = calculateAlphabetContractAddressDomain(ind)
@@ -703,7 +705,26 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 		prm.Logger.Info("Alphabet contract successfully synchronized",
 			zap.Int("index", ind), zap.Stringer("address", alphabetContractAddress))
+
+		alphabetContracts = append(alphabetContracts, alphabetContractAddress)
 	}
+
+	prm.Logger.Info("distributing NEO to the Alphabet contracts...")
+
+	err = distributeNEOToAlphabetContracts(ctx, distributeNEOToAlphabetContractsPrm{
+		logger:            prm.Logger,
+		blockchain:        prm.Blockchain,
+		monitor:           monitor,
+		proxyContract:     proxyContractAddress,
+		committee:         committee,
+		localAcc:          prm.LocalAccount,
+		alphabetContracts: alphabetContracts,
+	})
+	if err != nil {
+		return fmt.Errorf("distribute NEO to the Alphabet contracts: %w", err)
+	}
+
+	prm.Logger.Info("NEO distribution to the Alphabet contracts successfully completed")
 
 	return nil
 }

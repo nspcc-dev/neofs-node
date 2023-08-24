@@ -336,3 +336,121 @@ func transferGASToProxy(ctx context.Context, prm transferGASToProxyPrm) error {
 		transferTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
 	}
 }
+
+// groups parameters of distributeNEOToAlphabetContracts.
+type distributeNEOToAlphabetContractsPrm struct {
+	logger *zap.Logger
+
+	blockchain Blockchain
+
+	// based on blockchain
+	monitor *blockchainMonitor
+
+	proxyContract util.Uint160
+
+	committee keys.PublicKeys
+
+	localAcc *wallet.Account
+
+	alphabetContracts []util.Uint160
+}
+
+// distributes all available NEO between NeoFS Alphabet members evenly.
+func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAlphabetContractsPrm) error {
+	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
+	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+
+	err := committeeMultiSigAcc.ConvertMultisig(committeeMultiSigM, prm.committee)
+	if err != nil {
+		return fmt.Errorf("compose committee multi-signature account: %w", err)
+	}
+
+	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
+
+	committeeActor, err := notary.NewActor(prm.blockchain, []actor.SignerAccount{
+		{
+			Signer: transaction.Signer{
+				Account: prm.proxyContract,
+				Scopes:  transaction.None,
+			},
+			Account: notary.FakeContractAccount(prm.proxyContract),
+		},
+		{
+			Signer: transaction.Signer{
+				Account: committeeMultiSigAccID,
+				Scopes:  transaction.CalledByEntry,
+			},
+			Account: committeeMultiSigAcc,
+		},
+	}, prm.localAcc)
+	if err != nil {
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee and paid by Proxy contract: %w", err)
+	}
+
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	neoContract := neo.NewReader(committeeActor)
+	scriptBuilder := smartcontract.NewBuilder()
+	transfer := func(to util.Uint160, amount *big.Int) {
+		scriptBuilder.InvokeWithAssert(neo.Hash, "transfer", committeeMultiSigAccID, to, amount, nil)
+	}
+	txMonitor := newTransactionGroupMonitor(committeeActor)
+
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for distribution of NEO between Alphabet contracts: %w", ctx.Err())
+		default:
+		}
+
+		bal, err := neoContract.BalanceOf(committeeMultiSigAccID)
+		if err != nil {
+			prm.logger.Error("failed to get NEO balance of the committee multi-sig account", zap.Error(err))
+			continue
+		}
+
+		if bal.Sign() <= 0 {
+			prm.logger.Error("no NEO on the committee multi-sig account, nothing to transfer, skip")
+			return nil
+		}
+
+		prm.logger.Info("have available NEO on the committee multi-sig account, going to transfer to the Alphabet contracts",
+			zap.Stringer("balance", bal))
+
+		singleAmount := new(big.Int).Div(bal, big.NewInt(int64(len(prm.alphabetContracts))))
+
+		scriptBuilder.Reset()
+
+		for i := range prm.alphabetContracts {
+			prm.logger.Info("going to transfer NEO from the committee multi-sig account to the Alphabet contract",
+				zap.Stringer("contract", prm.alphabetContracts[i]), zap.Stringer("", singleAmount))
+			transfer(prm.alphabetContracts[i], singleAmount)
+			bal.Sub(bal, singleAmount)
+		}
+
+		script, err := scriptBuilder.Script()
+		if err != nil {
+			prm.logger.Info("failed to build script transferring Neo from committee multi-sig account to the Alphabet contracts, will try again later",
+				zap.Error(err))
+			continue
+		}
+
+		mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(committeeActor.MakeRun(script))
+		if err != nil {
+			if errors.Is(err, neorpc.ErrInsufficientFunds) {
+				prm.logger.Info("insufficient Notary balance to transfer Neo from committee multi-sig account to the Alphabet contracts, skip")
+			} else {
+				prm.logger.Error("failed to send new Notary request transferring Neo from committee multi-sig account to the Alphabet contracts, skip", zap.Error(err))
+			}
+			continue
+		}
+
+		prm.logger.Info("Notary request transferring Neo from committee multi-sig account to the Alphabet contracts has been successfully sent, will wait for the outcome",
+			zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
+
+		txMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
+	}
+}
