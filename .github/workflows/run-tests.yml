@@ -333,7 +333,7 @@ jobs:
           TEST_RESULTS_CID: ${{ vars.TEST_RESULTS_CID }}
         run: |
           source venv.local-pytest/bin/activate && python ./tools/src/zip_dev_env_logs.py
-          NEOFS_CLI_PASSWORD=$TEST_RESULTS_PASSWORD neofs-cli --verbose --rpc-endpoint st1.$TEST_RESULTS_NEOFS_NETWORK_DOMAIN:8080 \
+          NEOFS_CLI_PASSWORD=$TEST_RESULTS_PASSWORD neofs-cli --rpc-endpoint st1.$TEST_RESULTS_NEOFS_NETWORK_DOMAIN:8080 \
           --wallet wallet.json object put --file containers_logs.zip --cid $TEST_RESULTS_CID --timeout 1200s \
           --attributes FilePath=$RUN_ID/data/containers_logs.zip,RunNumber=$RUN_ID,ContentType=application/zip
         working-directory: neofs-testcases
