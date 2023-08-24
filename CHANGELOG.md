@@ -18,6 +18,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - SN's version and capacity is announced via the attributes automatically but can be overwritten explicitly (#2455, #602)
 - `peapod` command for `neofs-lens` (#2507)
 - New CLI exit code for awaiting timeout (#2380)
+- New CLI exit code for already removed objects (#2376)
 - Validation of excessive positional arguments to `neofs-cli` commands (#1941)
 - `--lifetime` flag to `bearer create` and `object put` CLI commands  (#1574) 
 - `--expired-at` flag to `session create` and `storagegroup put` CLI commands (#1574)
