@@ -121,7 +121,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, c
 		addr.SetContainer(cnr)
 		addr.SetObject(id)
 
-		if objectStatus(tx, addr, currEpoch) > 0 {
+		if objectStatus(tx, addr, currEpoch) > 0 && !objectLocked(tx, cnr, id) {
 			continue // ignore removed objects
 		}
 
