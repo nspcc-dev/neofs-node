@@ -1295,8 +1295,8 @@ Storage nodes with a group of network endpoints.
 - Control service with healthcheck RPC in IR and CLI support ([#414](https://github.com/nspcc-dev/neofs-node/issues/414)).
 
 ### Fixed
-- Approval of objects with with duplicate attribute keys or empty values ([#633](https://github.com/nspcc-dev/neofs-node/issues/633)).
-- Approval of containers with with duplicate attribute keys or empty values ([#634](https://github.com/nspcc-dev/neofs-node/issues/634)).
+- Approval of objects with duplicate attribute keys or empty values ([#633](https://github.com/nspcc-dev/neofs-node/issues/633)).
+- Approval of containers with duplicate attribute keys or empty values ([#634](https://github.com/nspcc-dev/neofs-node/issues/634)).
 - Default path for CLI config ([#626](https://github.com/nspcc-dev/neofs-node/issues/626)).
 
 ### Changed
