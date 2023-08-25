@@ -15,7 +15,8 @@ var dropObjectsCmd = &cobra.Command{
 	Use:   "drop-objects",
 	Short: "Drop objects from the node's local storage",
 	Long:  "Drop objects from the node's local storage",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

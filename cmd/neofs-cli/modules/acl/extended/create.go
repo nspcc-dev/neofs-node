@@ -44,7 +44,8 @@ When both '--rule' and '--file' arguments are used, '--rule' records will be pla
 `,
 	Example: `neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -f rules.txt --out table.json
 neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -r 'allow get obj:Key=Value others' -r 'deny put others'`,
-	Run: createEACL,
+	Args: cobra.NoArgs,
+	Run:  createEACL,
 }
 
 func init() {

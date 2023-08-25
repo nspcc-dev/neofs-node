@@ -27,6 +27,7 @@ var objectHashCmd = &cobra.Command{
 	Use:   "hash",
 	Short: "Get object hash",
 	Long:  "Get object hash",
+	Args:  cobra.NoArgs,
 	Run:   getObjectHash,
 }
 

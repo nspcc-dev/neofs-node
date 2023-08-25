@@ -15,6 +15,7 @@ var sgListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List storage groups in NeoFS container",
 	Long:  "List storage groups in NeoFS container",
+	Args:  cobra.NoArgs,
 	Run:   listSG,
 }
 

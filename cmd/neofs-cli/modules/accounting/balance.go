@@ -24,7 +24,8 @@ var accountingBalanceCmd = &cobra.Command{
 	Use:   "balance",
 	Short: "Get internal balance of NeoFS account",
 	Long:  `Get internal balance of NeoFS account`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx := context.Background()
 
 		var idUser user.ID

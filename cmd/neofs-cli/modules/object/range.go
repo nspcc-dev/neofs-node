@@ -23,6 +23,7 @@ var objectRangeCmd = &cobra.Command{
 	Use:   "range",
 	Short: "Get payload range data of an object",
 	Long:  "Get payload range data of an object",
+	Args:  cobra.NoArgs,
 	Run:   getObjectRange,
 }
 

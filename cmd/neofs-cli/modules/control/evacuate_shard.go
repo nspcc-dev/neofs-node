@@ -13,6 +13,7 @@ var evacuateShardCmd = &cobra.Command{
 	Use:   "evacuate",
 	Short: "Evacuate objects from shard",
 	Long:  "Evacuate objects from shard to other shards",
+	Args:  cobra.NoArgs,
 	Run:   evacuateShard,
 }
 

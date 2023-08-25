@@ -11,7 +11,8 @@ var Cmd = &cobra.Command{
 	Use:   "accounting",
 	Short: "Operations with accounts and balances",
 	Long:  `Operations with accounts and balances`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		flags := cmd.Flags()
 
 		_ = viper.BindPFlag(commonflags.WalletPath, flags.Lookup(commonflags.WalletPath))

@@ -43,7 +43,8 @@ It contains commands for interaction with NeoFS nodes using different versions
 of neofs-api and some useful utilities for compiling ACL rules from JSON
 notation, managing container access through protocol gates, querying network map
 and much more!`,
-	Run: entryPoint,
+	Args: cobra.NoArgs,
+	Run:  entryPoint,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

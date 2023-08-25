@@ -15,7 +15,8 @@ var containerNodesCmd = &cobra.Command{
 	Use:   "nodes",
 	Short: "Show nodes for container",
 	Long:  "Show nodes taking part in a container at the current epoch.",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

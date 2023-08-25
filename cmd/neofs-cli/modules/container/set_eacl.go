@@ -25,7 +25,8 @@ var setExtendedACLCmd = &cobra.Command{
 	Short: "Set new extended ACL table for container",
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 

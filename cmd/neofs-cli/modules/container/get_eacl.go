@@ -13,7 +13,8 @@ var getExtendedACLCmd = &cobra.Command{
 	Use:   "get-eacl",
 	Short: "Get extended ACL table of container",
 	Long:  `Get extended ACL table of container`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

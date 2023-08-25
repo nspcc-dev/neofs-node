@@ -14,6 +14,7 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Get tree IDs",
+	Args:  cobra.NoArgs,
 	Run:   list,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)

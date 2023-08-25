@@ -34,7 +34,8 @@ All epoch flags can be specified relative to the current epoch with the +n synta
 In this case --` + commonflags.RPC + ` flag should be specified and the epoch in bearer token
 is set to current epoch + n.
 `,
-	Run: createToken,
+	Args: cobra.NoArgs,
+	Run:  createToken,
 }
 
 func init() {

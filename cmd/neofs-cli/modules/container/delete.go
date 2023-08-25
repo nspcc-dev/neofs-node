@@ -18,7 +18,8 @@ var deleteContainerCmd = &cobra.Command{
 	Short: "Delete existing container",
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 

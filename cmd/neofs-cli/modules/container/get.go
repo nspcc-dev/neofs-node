@@ -30,7 +30,8 @@ var getContainerInfoCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get container field info",
 	Long:  `Get container field info`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 

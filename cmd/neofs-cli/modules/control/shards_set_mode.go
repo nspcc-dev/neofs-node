@@ -75,6 +75,7 @@ var setShardModeCmd = &cobra.Command{
 	Use:   "set-mode",
 	Short: "Set work mode of the shard",
 	Long:  "Set work mode of the shard",
+	Args:  cobra.NoArgs,
 	Run:   setShardMode,
 }
 

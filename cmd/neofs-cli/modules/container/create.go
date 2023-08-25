@@ -34,7 +34,8 @@ var createContainerCmd = &cobra.Command{
 	Short: "Create new container",
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 

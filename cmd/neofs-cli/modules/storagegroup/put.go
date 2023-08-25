@@ -28,6 +28,7 @@ var sgPutCmd = &cobra.Command{
 	Use:   "put",
 	Short: "Put storage group to NeoFS",
 	Long:  "Put storage group to NeoFS",
+	Args:  cobra.NoArgs,
 	Run:   putSG,
 }
 

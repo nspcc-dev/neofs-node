@@ -16,6 +16,7 @@ import (
 var addByPathCmd = &cobra.Command{
 	Use:   "add-by-path",
 	Short: "Add a node by the path",
+	Args:  cobra.NoArgs,
 	Run:   addByPath,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)

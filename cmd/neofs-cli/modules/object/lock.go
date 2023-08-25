@@ -24,6 +24,7 @@ var objectLockCmd = &cobra.Command{
 	Use:   "lock",
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()

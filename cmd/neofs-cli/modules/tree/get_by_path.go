@@ -16,6 +16,7 @@ import (
 var getByPathCmd = &cobra.Command{
 	Use:   "get-by-path",
 	Short: "Get a node by its path",
+	Args:  cobra.NoArgs,
 	Run:   getByPath,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)

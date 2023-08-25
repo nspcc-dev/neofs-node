@@ -17,6 +17,7 @@ var objectDelCmd = &cobra.Command{
 	Aliases: []string{"del"},
 	Short:   "Delete object from NeoFS",
 	Long:    "Delete object from NeoFS",
+	Args:    cobra.NoArgs,
 	Run:     deleteObject,
 }
 

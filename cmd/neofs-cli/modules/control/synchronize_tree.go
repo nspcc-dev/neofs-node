@@ -23,6 +23,7 @@ var synchronizeTreeCmd = &cobra.Command{
 	Use:   "synchronize-tree",
 	Short: "Synchronize log for the tree",
 	Long:  "Synchronize log for the tree in an object tree service.",
+	Args:  cobra.NoArgs,
 	Run:   synchronizeTree,
 }
 
