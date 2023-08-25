@@ -84,6 +84,20 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 	return *nnsHash, nil
 }
 
+// InitSidechainScope allows to replace [WithAutoSidechainScope] option and
+// postpone Sidechain scope initialization when NNS contract is not yet ready
+// while Client is already needed.
+func (c *Client) InitSidechainScope() error {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
+	}
+
+	return autoSidechainScope(c.client, &c.cfg)
+}
+
 func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {
 	nnsHash, err := nns.InferHash(ws)
 	if err != nil {

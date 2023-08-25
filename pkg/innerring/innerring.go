@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
@@ -41,6 +42,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -373,6 +375,42 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
 		}
 
+		wlt, err := wallet.NewWalletFromFile(walletPath)
+		if err != nil {
+			return nil, fmt.Errorf("read wallet from file '%s': %w", walletPath, err)
+		}
+
+		const singleAccLabel = "single"
+		const consensusAccLabel = "consensus"
+		var singleAcc *wallet.Account
+		var consensusAcc *wallet.Account
+
+		for i := range wlt.Accounts {
+			err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+			switch wlt.Accounts[i].Label {
+			case singleAccLabel:
+				if err != nil {
+					return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPass, err)
+				}
+
+				singleAcc = wlt.Accounts[i]
+			case consensusAccLabel:
+				if err != nil {
+					return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
+				}
+
+				consensusAcc = wlt.Accounts[i]
+			}
+		}
+
+		if singleAcc == nil {
+			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
+		}
+
+		if consensusAcc == nil {
+			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", consensusAccLabel, walletPass)
+		}
+
 		if len(server.predefinedValidators) == 0 {
 			server.predefinedValidators = cfgBlockchain.Committee
 		}
@@ -409,18 +447,64 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, fmt.Errorf("build WS client on internal blockchain: %w", err)
 		}
 
-		server.key = server.bc.LocalKey()
+		server.key = singleAcc.PrivateKey()
 		morphChain.key = server.key
+		sidechainOpts := make([]client.Option, 3, 4)
+		sidechainOpts[0] = client.WithContext(ctx)
+		sidechainOpts[1] = client.WithLogger(log)
+		sidechainOpts[2] = client.WithSingleClient(wsClient)
 
-		server.morphClient, err = client.New(
-			server.key,
-			client.WithContext(ctx),
-			client.WithLogger(log),
-			client.WithSingleClient(wsClient),
-			client.WithAutoSidechainScope(),
-		)
+		isAutoDeploy := isAutoDeploymentMode(cfg)
+
+		if !isAutoDeploy {
+			sidechainOpts = append(sidechainOpts, client.WithAutoSidechainScope())
+		}
+
+		server.morphClient, err = client.New(server.key, sidechainOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("init internal morph client: %w", err)
+		}
+
+		if isAutoDeploy {
+			log.Info("auto-deployment configured, initializing Sidechain...")
+
+			sidechain := newNeoFSSidechain(server.morphClient)
+			sidechainKeyStorage := newSidechainKeyStorage(server.persistate)
+
+			var deployPrm deploy.Prm
+			deployPrm.Logger = server.log
+			deployPrm.Blockchain = wsClient
+			deployPrm.LocalAccount = singleAcc
+			deployPrm.ValidatorMultiSigAccount = consensusAcc
+			deployPrm.KeyStorage = sidechainKeyStorage
+			deployPrm.NeoFS = sidechain
+
+			nnsCfg, err := parseNNSConfig(cfg)
+			if err != nil {
+				return nil, fmt.Errorf("invalid NNS configuration: %w", err)
+			}
+
+			deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
+
+			err = readEmbeddedContracts(&deployPrm)
+			if err != nil {
+				return nil, err
+			}
+
+			deployPrm.NetmapContract.Config, err = parseNetworkSettingsConfig(cfg)
+			if err != nil {
+				return nil, fmt.Errorf("invalid configuration of network settings: %w", err)
+			}
+
+			err = deploy.Deploy(ctx, deployPrm)
+			if err != nil {
+				return nil, fmt.Errorf("deploy Sidechain: %w", err)
+			}
+
+			err = server.morphClient.InitSidechainScope()
+			if err != nil {
+				return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
+			}
 		}
 	} else {
 		if len(server.predefinedValidators) == 0 {

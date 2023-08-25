@@ -9,7 +9,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	embeddedcontracts "github.com/nspcc-dev/neofs-node/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
@@ -202,4 +204,44 @@ func parseContract(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph
 
 		time.Sleep(pollInterval)
 	}
+}
+
+func readEmbeddedContracts(deployPrm *deploy.Prm) error {
+	cs, err := embeddedcontracts.Read()
+	if err != nil {
+		return fmt.Errorf("read embedded contracts: %w", err)
+	}
+
+	mRequired := map[string]*deploy.CommonDeployPrm{
+		"NameService":        &deployPrm.NNS.Common,
+		"NeoFS Alphabet":     &deployPrm.AlphabetContract.Common,
+		"NeoFS Audit":        &deployPrm.AuditContract.Common,
+		"NeoFS Balance":      &deployPrm.BalanceContract.Common,
+		"NeoFS Container":    &deployPrm.ContainerContract.Common,
+		"NeoFS ID":           &deployPrm.NeoFSIDContract.Common,
+		"NeoFS Netmap":       &deployPrm.NetmapContract.Common,
+		"NeoFS Notary Proxy": &deployPrm.ProxyContract.Common,
+		"NeoFS Reputation":   &deployPrm.ReputationContract.Common,
+	}
+
+	for i := range cs {
+		p, ok := mRequired[cs[i].Manifest.Name]
+		if ok {
+			p.Manifest = cs[i].Manifest
+			p.NEF = cs[i].NEF
+
+			delete(mRequired, cs[i].Manifest.Name)
+		}
+	}
+
+	if len(mRequired) > 0 {
+		missing := make([]string, 0, len(mRequired))
+		for name := range mRequired {
+			missing = append(missing, name)
+		}
+
+		return fmt.Errorf("some contracts are required but not embedded: %v", missing)
+	}
+
+	return nil
 }

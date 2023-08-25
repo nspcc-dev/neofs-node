@@ -11,13 +11,14 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-// Path of YAML configuration of the IR consensus with all required fields.
-const validConfigMinimal = `
+// YAML configuration of the IR consensus with all required fields.
+const validBlockchainConfigMinimal = `
 morph:
   consensus:
     magic: 15405
@@ -29,8 +30,8 @@ morph:
       path: chain.db
 `
 
-// Path of YAML configuration of the IR consensus with all optional fields.
-const validConfigOptions = `
+// YAML sub-configuration of the IR consensus with all optional fields.
+const validBlockchainConfigOptions = `
     time_per_block: 1s
     max_traceable_blocks: 200
     seed_nodes:
@@ -78,20 +79,23 @@ const validConfigOptions = `
         timeout: 55s
 `
 
-// returns viper.Viper initialized from valid configuration above.
-func newValidConfig(tb testing.TB, full bool) *viper.Viper {
+func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *viper.Viper {
 	v := viper.New()
 	v.SetConfigType("yaml")
 
-	src := validConfigMinimal
-	if full {
-		src += validConfigOptions
-	}
-
-	err := v.ReadConfig(strings.NewReader(src))
+	err := v.ReadConfig(strings.NewReader(yaml1 + yaml2))
 	require.NoError(tb, err)
 
 	return v
+}
+
+// returns viper.Viper initialized from valid blockchain configuration above.
+func newValidBlockchainConfig(tb testing.TB, full bool) *viper.Viper {
+	if full {
+		return _newConfigFromYAML(tb, validBlockchainConfigMinimal, validBlockchainConfigOptions)
+	}
+
+	return _newConfigFromYAML(tb, validBlockchainConfigMinimal, "")
 }
 
 // resets value by key. Currently, viper doesn't provide unset method. Here is a
@@ -126,7 +130,7 @@ func resetConfig(tb testing.TB, v *viper.Viper, key string) {
 	}
 }
 
-func TestConfigParser(t *testing.T) {
+func TestParseBlockchainConfig(t *testing.T) {
 	fullConfig := true
 	_logger := zap.NewNop()
 
@@ -137,7 +141,7 @@ func TestConfigParser(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("minimal", func(t *testing.T) {
-		v := newValidConfig(t, !fullConfig)
+		v := newValidBlockchainConfig(t, !fullConfig)
 		c, err := parseBlockchainConfig(v, _logger)
 		require.NoError(t, err)
 
@@ -150,7 +154,7 @@ func TestConfigParser(t *testing.T) {
 	})
 
 	t.Run("full", func(t *testing.T) {
-		v := newValidConfig(t, fullConfig)
+		v := newValidBlockchainConfig(t, fullConfig)
 		c, err := parseBlockchainConfig(v, _logger)
 		require.NoError(t, err)
 
@@ -224,7 +228,7 @@ func TestConfigParser(t *testing.T) {
 			"storage",
 			"storage.type",
 		} {
-			v := newValidConfig(t, !fullConfig)
+			v := newValidBlockchainConfig(t, !fullConfig)
 			resetConfig(t, v, "morph.consensus."+requiredKey)
 			_, err := parseBlockchainConfig(v, _logger)
 			require.Error(t, err, requiredKey)
@@ -232,7 +236,7 @@ func TestConfigParser(t *testing.T) {
 	})
 
 	t.Run("invalid", func(t *testing.T) {
-		v := newValidConfig(t, fullConfig)
+		v := newValidBlockchainConfig(t, fullConfig)
 		resetConfig(t, v, "morph.consensus")
 		_, err := parseBlockchainConfig(v, _logger)
 		require.Error(t, err)
@@ -301,7 +305,7 @@ func TestConfigParser(t *testing.T) {
 		} {
 			var reportMsg []string
 
-			v := newValidConfig(t, fullConfig)
+			v := newValidBlockchainConfig(t, fullConfig)
 			for _, kvPair := range testCase {
 				key := kvPair.key
 				val := kvPair.val
@@ -317,7 +321,7 @@ func TestConfigParser(t *testing.T) {
 
 	t.Run("enums", func(t *testing.T) {
 		t.Run("storage", func(t *testing.T) {
-			v := newValidConfig(t, fullConfig)
+			v := newValidBlockchainConfig(t, fullConfig)
 			const path = "path/to/db"
 
 			v.Set("morph.consensus.storage.path", path)
@@ -361,7 +365,7 @@ func TestConfigParser(t *testing.T) {
 				nativenames.StdLib,
 			}
 
-			v := newValidConfig(t, fullConfig)
+			v := newValidBlockchainConfig(t, fullConfig)
 
 			setI := func(name string, i int) {
 				v.Set("morph.consensus.native_activations."+strings.ToLower(name), []interface{}{i})
@@ -428,5 +432,297 @@ morph:
 		resetConfig(t, v, "morph.endpoints")
 
 		require.True(t, isLocalConsensusMode(v))
+	})
+}
+
+// YAML configuration of the NeoFS network settings with all required fields.
+const validNetworkSettingsConfigMinimal = `
+network_settings:
+  epoch_duration: 1
+  max_object_size: 2
+  require_homomorphic_hashing: true
+  allow_maintenance_mode: false
+  eigen_trust:
+    alpha: 0.1
+    iterations_number: 3
+  price:
+    storage: 4
+    fee:
+      ir_candidate: 5
+      withdraw: 6
+      audit: 7
+      new_container: 8
+      container_domain: 9
+`
+
+// YAML configuration the NeoFS network settings with all optional fields.
+const validNetworkSettingsConfigOptions = `
+  custom:
+    - my_custom_key1=val1
+    - my_custom_key2=val2
+`
+
+// returns viper.Viper initialized from valid network configuration above.
+func newValidNetworkSettingsConfig(tb testing.TB, full bool) *viper.Viper {
+	if full {
+		return _newConfigFromYAML(tb, validNetworkSettingsConfigMinimal, validNetworkSettingsConfigOptions)
+	}
+
+	return _newConfigFromYAML(tb, validNetworkSettingsConfigMinimal, "")
+}
+
+func TestParseNetworkSettingsConfig(t *testing.T) {
+	fullConfig := true
+
+	t.Run("minimal", func(t *testing.T) {
+		v := newValidNetworkSettingsConfig(t, !fullConfig)
+		c, err := parseNetworkSettingsConfig(v)
+		require.NoError(t, err)
+
+		require.Equal(t, netmap.NetworkConfiguration{
+			MaxObjectSize:              2,
+			StoragePrice:               4,
+			AuditFee:                   7,
+			EpochDuration:              1,
+			ContainerFee:               8,
+			ContainerAliasFee:          9,
+			EigenTrustIterations:       3,
+			EigenTrustAlpha:            0.1,
+			IRCandidateFee:             5,
+			WithdrawalFee:              6,
+			HomomorphicHashingDisabled: false,
+			MaintenanceModeAllowed:     false,
+		}, c)
+	})
+
+	t.Run("full", func(t *testing.T) {
+		v := newValidNetworkSettingsConfig(t, fullConfig)
+		c, err := parseNetworkSettingsConfig(v)
+		require.NoError(t, err)
+
+		require.Equal(t, netmap.NetworkConfiguration{
+			MaxObjectSize:              2,
+			StoragePrice:               4,
+			AuditFee:                   7,
+			EpochDuration:              1,
+			ContainerFee:               8,
+			ContainerAliasFee:          9,
+			EigenTrustIterations:       3,
+			EigenTrustAlpha:            0.1,
+			IRCandidateFee:             5,
+			WithdrawalFee:              6,
+			HomomorphicHashingDisabled: false,
+			MaintenanceModeAllowed:     false,
+			Raw: []netmap.RawNetworkParameter{
+				{Name: "my_custom_key1", Value: []byte("val1")},
+				{Name: "my_custom_key2", Value: []byte("val2")},
+			},
+		}, c)
+	})
+
+	t.Run("incomplete", func(t *testing.T) {
+		for _, requiredKey := range []string{
+			"epoch_duration",
+			"max_object_size",
+			"require_homomorphic_hashing",
+			"allow_maintenance_mode",
+			"eigen_trust",
+			"eigen_trust.alpha",
+			"eigen_trust.iterations_number",
+			"price.storage",
+			"price.fee",
+			"price.fee.ir_candidate",
+			"price.fee.withdraw",
+			"price.fee.audit",
+			"price.fee.new_container",
+			"price.fee.container_domain",
+		} {
+			v := newValidNetworkSettingsConfig(t, !fullConfig)
+			resetConfig(t, v, "network_settings."+requiredKey)
+			_, err := parseNetworkSettingsConfig(v)
+			require.Error(t, err, requiredKey)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		type kv struct {
+			key string
+			val interface{}
+		}
+
+		kvF := func(k string, v interface{}) kv {
+			return kv{k, v}
+		}
+
+		for _, testCase := range [][]kv{
+			{kvF("epoch_duration", "not an integer")},
+			{kvF("epoch_duration", -1)},
+			{kvF("epoch_duration", 0)},
+			{kvF("epoch_duration", 0.1)},
+			{kvF("max_object_size", "not an integer")},
+			{kvF("max_object_size", -1)},
+			{kvF("max_object_size", 0)},
+			{kvF("max_object_size", 0.1)},
+			{kvF("require_homomorphic_hashing", "not a boolean")},
+			{kvF("require_homomorphic_hashing", 1)},
+			{kvF("require_homomorphic_hashing", "True")},
+			{kvF("require_homomorphic_hashing", "False")},
+			{kvF("allow_maintenance_mode", "not a boolean")},
+			{kvF("allow_maintenance_mode", 1)},
+			{kvF("allow_maintenance_mode", "True")},
+			{kvF("allow_maintenance_mode", "False")},
+			{kvF("eigen_trust.alpha", "not a float")},
+			{kvF("eigen_trust.alpha", -0.1)},
+			{kvF("eigen_trust.alpha", 1.1)},
+			{kvF("eigen_trust.iterations_number", "not an integer")},
+			{kvF("eigen_trust.iterations_number", -1)},
+			{kvF("eigen_trust.iterations_number", 0)},
+			{kvF("eigen_trust.iterations_number", 0.1)},
+			{kvF("price.storage", "not an integer")},
+			{kvF("price.storage", -1)},
+			{kvF("price.storage", 0.1)},
+			{kvF("price.fee.ir_candidate", "not an integer")},
+			{kvF("price.fee.ir_candidate", -1)},
+			{kvF("price.fee.ir_candidate", 0.1)},
+			{kvF("price.fee.withdraw", "not an integer")},
+			{kvF("price.fee.withdraw", -1)},
+			{kvF("price.fee.withdraw", 0.1)},
+			{kvF("price.fee.audit", "not an integer")},
+			{kvF("price.fee.audit", -1)},
+			{kvF("price.fee.audit", 0.1)},
+			{kvF("price.fee.new_container", "not an integer")},
+			{kvF("price.fee.new_container", -1)},
+			{kvF("price.fee.new_container", 0.1)},
+			{kvF("price.fee.container_domain", "not an integer")},
+			{kvF("price.fee.container_domain", -1)},
+			{kvF("price.fee.container_domain", 0.1)},
+			{kvF("custom", []string{})},
+			{kvF("custom", []string{"without_separator"})},
+			{kvF("custom", []string{"with=several=separators"})},
+			{kvF("custom", []string{"dup=1", "dup=2"})},
+			{kvF("custom", []string{"AuditFee=any"})},
+			{kvF("custom", []string{"BasicIncomeRate=any"})},
+			{kvF("custom", []string{"ContainerAliasFee=any"})},
+			{kvF("custom", []string{"EigenTrustIterations=any"})},
+			{kvF("custom", []string{"EpochDuration=any"})},
+			{kvF("custom", []string{"HomomorphicHashingDisabled=any"})},
+			{kvF("custom", []string{"MaintenanceModeAllowed=any"})},
+			{kvF("custom", []string{"MaxObjectSize=any"})},
+			{kvF("custom", []string{"WithdrawFee=any"})},
+		} {
+			var reportMsg []string
+
+			v := newValidNetworkSettingsConfig(t, fullConfig)
+			for _, kvPair := range testCase {
+				key := kvPair.key
+				val := kvPair.val
+
+				v.Set("network_settings."+key, val)
+				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
+			}
+
+			_, err := parseNetworkSettingsConfig(v)
+			require.Error(t, err, strings.Join(reportMsg, ", "))
+		}
+	})
+}
+
+// YAML configuration of the NNS with all required fields.
+const validNNSConfig = `
+nns:
+  system_email: usr@domain.io
+`
+
+// returns viper.Viper initialized from valid NNS configuration above.
+func newValidNNSConfig(tb testing.TB) *viper.Viper {
+	return _newConfigFromYAML(tb, validNNSConfig, "")
+}
+
+func TestParseNNSConfig(t *testing.T) {
+	t.Run("minimal", func(t *testing.T) {
+		v := newValidNNSConfig(t)
+		c, err := parseNNSConfig(v)
+		require.NoError(t, err)
+
+		require.Equal(t, nnsConfig{
+			systemEmail: "usr@domain.io",
+		}, c)
+	})
+
+	t.Run("incomplete", func(t *testing.T) {
+		for _, requiredKey := range []string{
+			"system_email",
+		} {
+			v := newValidNNSConfig(t)
+			resetConfig(t, v, "nns."+requiredKey)
+			_, err := parseNNSConfig(v)
+			require.Error(t, err, requiredKey)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		type kv struct {
+			key string
+			val interface{}
+		}
+
+		kvF := func(k string, v interface{}) kv {
+			return kv{k, v}
+		}
+
+		for _, testCase := range [][]kv{
+			{kvF("system_email", "")},
+		} {
+			var reportMsg []string
+
+			v := newValidNNSConfig(t)
+			for _, kvPair := range testCase {
+				key := kvPair.key
+				val := kvPair.val
+
+				v.Set("nns."+key, val)
+				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
+			}
+
+			_, err := parseNNSConfig(v)
+			require.Error(t, err, strings.Join(reportMsg, ", "))
+		}
+	})
+}
+
+func TestIsAutoDeploymentMode(t *testing.T) {
+	t.Run("ENV", func(t *testing.T) {
+		v := viper.New()
+		v.AutomaticEnv()
+		v.SetEnvPrefix("neofs_ir")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+		const envKey = "NEOFS_IR_NETWORK_SETTINGS"
+
+		err := os.Unsetenv(envKey)
+		require.NoError(t, err)
+
+		require.False(t, isAutoDeploymentMode(v))
+
+		err = os.Setenv(envKey, "any string")
+		require.NoError(t, err)
+
+		require.True(t, isAutoDeploymentMode(v))
+	})
+
+	t.Run("YAML", func(t *testing.T) {
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(`
+network_settings:
+  any_key: any_val
+`))
+		require.NoError(t, err)
+
+		require.True(t, isAutoDeploymentMode(v))
+
+		resetConfig(t, v, "network_settings")
+
+		require.False(t, isAutoDeploymentMode(v))
 	})
 }

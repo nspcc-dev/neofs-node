@@ -2,9 +2,9 @@ package state
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"go.etcd.io/bbolt"
 )
 
@@ -27,37 +27,55 @@ func NewPersistentStorage(path string) (*PersistentStorage, error) {
 	return &PersistentStorage{db: db}, nil
 }
 
-// SetUInt32 sets a uint32 value in the storage.
-func (p PersistentStorage) SetUInt32(key []byte, value uint32) error {
+// saves given KV in the storage.
+func (p PersistentStorage) put(k, v []byte) error {
 	return p.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(stateBucket)
 		if err != nil {
 			return fmt.Errorf("can't create state bucket in state persistent storage: %w", err)
 		}
 
-		buf := make([]byte, 8)
-		binary.LittleEndian.PutUint64(buf, uint64(value))
-
-		return b.Put(key, buf)
+		return b.Put(k, v)
 	})
+}
+
+// looks up for value in the storage by specified key and passes the value into
+// provided handler. Nil corresponds to missing value. Handler's error is
+// forwarded.
+//
+// Handler MUST NOT retain passed []byte, make a copy if needed.
+func (p PersistentStorage) lookup(k []byte, f func(v []byte) error) error {
+	return p.db.View(func(tx *bbolt.Tx) error {
+		var v []byte
+
+		b := tx.Bucket(stateBucket)
+		if b != nil {
+			v = b.Get(k)
+		}
+
+		return f(v)
+	})
+}
+
+// SetUInt32 sets a uint32 value in the storage.
+func (p PersistentStorage) SetUInt32(key []byte, value uint32) error {
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, uint64(value))
+
+	return p.put(key, buf)
 }
 
 // UInt32 returns a uint32 value from persistent storage. If the value does not exist,
 // returns 0.
 func (p PersistentStorage) UInt32(key []byte) (n uint32, err error) {
-	err = p.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(stateBucket)
-		if b == nil {
-			return nil // if bucket not exists yet, return default n = 0
-		}
+	err = p.lookup(key, func(v []byte) error {
+		if v != nil {
+			if len(v) != 8 {
+				return fmt.Errorf("unexpected byte len: %d instead of %d", len(v), 8)
+			}
 
-		buf := b.Get(key)
-		if len(buf) != 8 {
-			return fmt.Errorf("persistent storage does not store uint data in %s", hex.EncodeToString(key))
+			n = uint32(binary.LittleEndian.Uint64(v))
 		}
-
-		u64 := binary.LittleEndian.Uint64(buf)
-		n = uint32(u64)
 
 		return nil
 	})
@@ -68,4 +86,21 @@ func (p PersistentStorage) UInt32(key []byte) (n uint32, err error) {
 // Close closes persistent database instance.
 func (p PersistentStorage) Close() error {
 	return p.db.Close()
+}
+
+// SetBytes saves binary value in the storage by specified key.
+func (p PersistentStorage) SetBytes(key []byte, value []byte) error {
+	return p.put(key, value)
+}
+
+// Bytes reads binary value by specified key. Returns nil if value is missing.
+func (p PersistentStorage) Bytes(key []byte) (res []byte, err error) {
+	err = p.lookup(key, func(v []byte) error {
+		if v != nil {
+			res = slice.Copy(v)
+		}
+		return nil
+	})
+
+	return
 }
