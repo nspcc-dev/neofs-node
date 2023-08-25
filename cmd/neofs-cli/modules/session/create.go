@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"os"
 
@@ -44,10 +45,12 @@ func init() {
 	createCmd.Flags().String(outFlag, "", "File to write session token to")
 	createCmd.Flags().Bool(jsonFlag, false, "Output token in JSON")
 	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
+	createCmd.Flags().Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch for token to stay valid")
 
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
+	createCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func createSession(cmd *cobra.Command, _ []string) {
@@ -62,14 +65,23 @@ func createSession(cmd *cobra.Command, _ []string) {
 	c, err := internalclient.GetSDKClient(ctx, netAddr)
 	common.ExitOnErr(cmd, "can't create client: %w", err)
 
+	endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+	currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
+	common.ExitOnErr(cmd, "can't get current epoch: %w", err)
+
+	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime := uint64(defaultLifetime)
 	if lfArg, _ := cmd.Flags().GetUint64(commonflags.Lifetime); lfArg != 0 {
-		lifetime = lfArg
+		exp = currEpoch + lfArg
 	}
-
+	if exp == 0 {
+		exp = currEpoch + lifetime
+	}
+	if exp <= currEpoch {
+		common.ExitOnErr(cmd, "", errors.New("expiration epoch must be greater than current epoch"))
+	}
 	var tok session.Object
-
-	err = CreateSession(ctx, &tok, c, *privKey, lifetime)
+	err = CreateSession(ctx, &tok, c, *privKey, exp, currEpoch)
 	common.ExitOnErr(cmd, "can't create session: %w", err)
 
 	var data []byte
@@ -91,21 +103,10 @@ func createSession(cmd *cobra.Command, _ []string) {
 // number of epochs.
 //
 // Fills ID, lifetime and session key.
-func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, key ecdsa.PrivateKey, lifetime uint64) error {
-	var netInfoPrm internalclient.NetworkInfoPrm
-	netInfoPrm.SetClient(c)
-
-	ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
-	if err != nil {
-		return fmt.Errorf("can't fetch network info: %w", err)
-	}
-
-	cur := ni.NetworkInfo().CurrentEpoch()
-	exp := cur + lifetime
-
+func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, key ecdsa.PrivateKey, expireAt uint64, currEpoch uint64) error {
 	var sessionPrm internalclient.CreateSessionPrm
 	sessionPrm.SetClient(c)
-	sessionPrm.SetExp(exp)
+	sessionPrm.SetExp(expireAt)
 	sessionPrm.SetPrivateKey(key)
 
 	sessionRes, err := internalclient.CreateSession(ctx, sessionPrm)
@@ -130,9 +131,9 @@ func CreateSession(ctx context.Context, dst *session.Object, c *client.Client, k
 	}
 
 	dst.SetID(idSession)
-	dst.SetNbf(cur)
-	dst.SetIat(cur)
-	dst.SetExp(exp)
+	dst.SetNbf(currEpoch)
+	dst.SetIat(currEpoch)
+	dst.SetExp(expireAt)
 	dst.SetAuthKey(&keySession)
 
 	return nil

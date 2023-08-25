@@ -53,10 +53,12 @@ func initObjectPutCmd() {
 	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "The last active epoch in the life of the object")
+	flags.Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for object to stay valid")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
 	flags.String(notificationFlag, "", "Object notification in the form of *epoch*:*topic*; '-' topic means using default")
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
+	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func putObject(cmd *cobra.Command, _ []string) {
@@ -100,6 +102,15 @@ func putObject(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, "can't parse object attributes: %w", err)
 
 	expiresOn, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
+	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
+	if lifetime > 0 {
+		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
+		common.ExitOnErr(cmd, "Request current epoch: %w", err)
+
+		expiresOn = currEpoch + lifetime
+	}
+
 	if expiresOn > 0 {
 		var expAttrFound bool
 		expAttrValue := strconv.FormatUint(expiresOn, 10)

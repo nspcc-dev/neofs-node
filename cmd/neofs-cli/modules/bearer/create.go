@@ -3,6 +3,7 @@ package bearer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -47,27 +48,32 @@ func init() {
 	createCmd.Flags().String(outFlag, "", "File to write token to")
 	createCmd.Flags().Bool(jsonFlag, false, "Output token in JSON")
 	createCmd.Flags().StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
+	createCmd.Flags().Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for token to stay valid")
 
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), eaclFlag)
 
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), issuedAtFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), notValidBeforeFlag)
-	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.ExpireAt)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), ownerFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
+	createCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func createToken(cmd *cobra.Command, _ []string) {
 	iat, iatRelative, err := common.ParseEpoch(cmd, issuedAtFlag)
 	common.ExitOnErr(cmd, "can't parse --"+issuedAtFlag+" flag: %w", err)
 
+	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	exp, expRelative, err := common.ParseEpoch(cmd, commonflags.ExpireAt)
 	common.ExitOnErr(cmd, "can't parse --"+commonflags.ExpireAt+" flag: %w", err)
+	if exp == 0 && lifetime == 0 {
+		common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
+	}
 
 	nvb, nvbRelative, err := common.ParseEpoch(cmd, notValidBeforeFlag)
 	common.ExitOnErr(cmd, "can't parse --"+notValidBeforeFlag+" flag: %w", err)
 
-	if iatRelative || expRelative || nvbRelative {
+	if iatRelative || expRelative || nvbRelative || lifetime != 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel()
 
@@ -83,6 +89,9 @@ func createToken(cmd *cobra.Command, _ []string) {
 		}
 		if nvbRelative {
 			nvb += currEpoch
+		}
+		if lifetime != 0 {
+			exp = currEpoch + lifetime
 		}
 	}
 	if exp < nvb {

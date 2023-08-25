@@ -54,7 +54,7 @@ var objectLockCmd = &cobra.Command{
 		exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 		if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
-			common.ExitOnErr(cmd, "", errors.New("either expiration epoch of a lifetime is required"))
+			common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
 		}
 
 		if lifetime != 0 {
