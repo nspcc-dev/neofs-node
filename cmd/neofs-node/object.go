@@ -529,6 +529,10 @@ type engineWithNotifications struct {
 	defaultTopic string
 }
 
+func (e engineWithNotifications) IsLocked(address oid.Address) (bool, error) {
+	return e.base.IsLocked(address)
+}
+
 func (e engineWithNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {
 	return e.base.Delete(tombstone, toDelete)
 }
@@ -560,6 +564,10 @@ func (e engineWithNotifications) Put(o *objectSDK.Object) error {
 
 type engineWithoutNotifications struct {
 	engine *engine.StorageEngine
+}
+
+func (e engineWithoutNotifications) IsLocked(address oid.Address) (bool, error) {
+	return e.engine.IsLocked(address)
 }
 
 func (e engineWithoutNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {

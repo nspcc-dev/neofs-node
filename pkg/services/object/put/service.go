@@ -100,6 +100,7 @@ func WithMaxSizeSource(v MaxSizeSource) Option {
 func WithObjectStorage(v ObjectStorage) Option {
 	return func(c *cfg) {
 		c.localStore = v
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithLockSource(v))
 	}
 }
 
