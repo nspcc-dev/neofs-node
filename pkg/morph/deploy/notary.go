@@ -125,7 +125,15 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 // initDesignateNotaryRoleToLocalAccountTick returns a function that preserves
 // context of the Notary role designation to the local account between calls.
 func initDesignateNotaryRoleToLocalAccountTick(ctx context.Context, prm enableNotaryPrm) (func(), error) {
-	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
+	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+
+	err := committeeMultiSigAcc.ConvertMultisig(committeeMultiSigM, prm.committee)
+	if err != nil {
+		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
+	}
+
+	localActor, err := actor.NewSimple(prm.blockchain, committeeMultiSigAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
