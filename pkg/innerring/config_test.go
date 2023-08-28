@@ -254,6 +254,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("magic", "not an integer")},
 			{kvF("magic", -1)},
 			{kvF("magic", 0)},
+			{kvF("magic", 0.1)},
 			{kvF("magic", math.MaxUint32+1)},
 			{kvF("committee", []string{})},
 			{kvF("committee", []string{"not a key"})},

@@ -429,7 +429,13 @@ func parseConfigUint64Condition(v *viper.Viper, key, desc string, cond func(uint
 		err = errMissingConfig
 	}
 	if err == nil {
-		res, err = cast.ToUint64E(v.Get(key))
+		switch val := v.Get(key).(type) {
+		case float32, float64:
+			// cast.ToUint64E just drops mantissa
+			return 0, fmt.Errorf("unable to cast %#v of type %T to uint64", val, val)
+		default:
+			res, err = cast.ToUint64E(val)
+		}
 		if err == nil && cond != nil {
 			err = cond(res)
 		}
