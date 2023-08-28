@@ -1,4 +1,4 @@
-package common
+package cmdprinter
 
 import (
 	"encoding/hex"

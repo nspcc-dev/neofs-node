@@ -245,6 +245,15 @@ var (
 		},
 		RunE: depositNotary,
 	}
+	netmapCandidatesCmd = &cobra.Command{
+		Use:   "netmap-candidates",
+		Short: "List netmap candidates nodes",
+		Args:  cobra.NoArgs,
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: listNetmapCandidatesNodes,
+	}
 )
 
 func init() {
@@ -350,4 +359,7 @@ func init() {
 	depositNotaryCmd.Flags().String(walletAccountFlag, "", "Wallet account address")
 	depositNotaryCmd.Flags().String(refillGasAmountFlag, "", "Amount of GAS to deposit")
 	depositNotaryCmd.Flags().String(notaryDepositTillFlag, "", "Notary deposit duration in blocks")
+
+	RootCmd.AddCommand(netmapCandidatesCmd)
+	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 }

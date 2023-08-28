@@ -22,7 +22,7 @@ func (c *Client) GetNetMapByEpoch(epoch uint64) (*netmap.NetMap, error) {
 			epochSnapshotMethod, err)
 	}
 
-	nm, err := decodeNetMap(res)
+	nm, err := DecodeNetMap(res)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +61,10 @@ func (c *Client) NetMap() (*netmap.NetMap, error) {
 			netMapMethod, err)
 	}
 
-	return decodeNetMap(res)
+	return DecodeNetMap(res)
 }
 
-func decodeNetMap(resStack []stackitem.Item) (*netmap.NetMap, error) {
+func DecodeNetMap(resStack []stackitem.Item) (*netmap.NetMap, error) {
 	var nm netmap.NetMap
 
 	if len(resStack) > 0 {

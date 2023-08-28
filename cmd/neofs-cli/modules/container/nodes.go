@@ -1,6 +1,7 @@
 package container
 
 import (
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -42,7 +43,7 @@ var containerNodesCmd = &cobra.Command{
 		for i := range cnrNodes {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
 			for j := range cnrNodes[i] {
-				common.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
+				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
 			}
 		}
 	},
