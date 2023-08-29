@@ -106,15 +106,17 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	// expired previously for less than the one epoch duration
 
 	var expired bool
+	oID := addr.Object()
+	cID := addr.Container()
 
 	// bucket with objects that have expiration attr
 	attrKey := make([]byte, bucketKeySize+len(objectV2.SysAttributeExpEpoch))
-	expirationBucket := tx.Bucket(attributeBucketName(addr.Container(), objectV2.SysAttributeExpEpoch, attrKey))
+	expirationBucket := tx.Bucket(attributeBucketName(cID, objectV2.SysAttributeExpEpoch, attrKey))
 	if expirationBucket != nil {
 		// bucket that contains objects that expire in the current epoch
 		prevEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch-1, 10)))
 		if prevEpochBkt != nil {
-			rawOID := objectKey(addr.Object(), make([]byte, objectKeySize))
+			rawOID := objectKey(oID, make([]byte, objectKeySize))
 			if prevEpochBkt.Get(rawOID) != nil {
 				expired = true
 			}
@@ -122,13 +124,23 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	}
 
 	if expired {
+		if objectLocked(tx, cID, oID) {
+			return 0
+		}
+
 		return 3
 	}
 
 	graveyardBkt := tx.Bucket(graveyardBucketName)
 	garbageBkt := tx.Bucket(garbageBucketName)
 	addrKey := addressKey(addr, make([]byte, addressKeySize))
-	return inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
+
+	removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
+	if removedStatus != 0 && objectLocked(tx, cID, oID) {
+		return 0
+	}
+
+	return removedStatus
 }
 
 func inGraveyardWithKey(addrKey []byte, graveyard, garbageBCK *bbolt.Bucket) uint8 {

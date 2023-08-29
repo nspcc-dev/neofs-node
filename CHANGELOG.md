@@ -12,12 +12,13 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - `renew-domain` command for adm
 - Stored payload metric per container (#2116)
 - Stored payload metric per shard (#2023)
-- Histogram metrics for RPC and engine operations (#2351) 
+- Histogram metrics for RPC and engine operations (#2351)
 - New storage component for small objects named Peapod (#2453)
 - New `blobovnicza-to-peapod` tool providing blobovnicza-to-peapod data migration (#2453)
 - SN's version and capacity is announced via the attributes automatically but can be overwritten explicitly (#2455, #602)
 - `peapod` command for `neofs-lens` (#2507)
--  New CLI exit code for awaiting timeout (#2380)
+- New CLI exit code for awaiting timeout (#2380)
+- New CLI exit code for already removed objects (#2376)
 - Validation of excessive positional arguments to `neofs-cli` commands (#1941)
 - `--lifetime` flag to `bearer create` and `object put` CLI commands  (#1574) 
 - `--expired-at` flag to `session create` and `storagegroup put` CLI commands (#1574)
@@ -34,6 +35,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - Processing of status errors returned by API client from NeoFS SDK RC-9 (#2465)
 - `neofs-lens write-cache list` command duplication (#2505)
 - `neofs-adm` works with contract wallet in `init` and `update-contracts` commands only (#2134)
+- Missing removed but locked objects in `SEARCH`'s results (#2526)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
@@ -134,15 +136,15 @@ described above.
 
 ### Updating from v0.36.1
 `neofs_node_object_epoch` metric for IR and SN (the same for both) has been deprecated and will be removed with the
-  next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
+next minor release. Use `neofs_node_state_epoch` for SN and `neofs_ir_state_epoch` for IR instead.
 
 Storage and Inner-ring nodes exposes their version via the `neofs_[node|ir]_version` metric now.
 
 In the local consensus mode (IR) it is allowed to provide additional TLS setup addresses now, see
-  `morph.consensus.rpc.tls` section.
+`morph.consensus.rpc.tls` section.
 `morph.switch_interval` IR and SN config value is not used anymore.
-`morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be 
-  removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
+`morph.rpc_endpoint` SN config value and `morph.endpoint.client` IR config value has been deprecated and will be
+removed with the next minor release. Use `morph.endpoints` for both instead (NOTE: it does not have priorities now).
 
 If you're using binary keys with neofs-cli (`-w`), convert them to proper
   NEP-6 wallets like this:
@@ -152,7 +154,7 @@ If you're using binary keys with neofs-cli (`-w`), convert them to proper
   or just generate/use new keys.
 
 In local consensus mode `morph.validators` in IR's config can be omitted now, `morph.consensus.committee` will be used instead.
-  For detached consensus, it is a required config parameter now.
+For detached consensus, it is a required config parameter now.
 
 ## [0.36.1] - 2023-04-26
 
@@ -354,7 +356,7 @@ Tree service network replication can now be fine-tuned with `tree.replication_ti
 - `neo-go` to `v0.99.4`
 - `protoc` to `v3.21.7`
 - `neofs-sdk` to `v1.0.0-rc.7`
- 
+
 ### Updating from v0.33.0
 Now storage node serves Control API `SetNemapStatus` request with `MAINTENANCE`
 status only if the mode is allowed in the network settings. To force starting the local
@@ -392,7 +394,7 @@ command.
 - Policer marks nodes under maintenance as OK without requests (#1680)
 - Unify help messages in CLI (#1854)
 - `evacuate`, `set-mode` and `flush-cache` control subcommands now accept a list of shard ids (#1867)
-- Reading `object` commands of NeoFS CLI don't open remote sessions (#1865) 
+- Reading `object` commands of NeoFS CLI don't open remote sessions (#1865)
 - Use hex format to print storage node ID (#1765)
 
 ### Fixed
@@ -420,7 +422,7 @@ command.
 - `neofs-contract` to `v0.16.0`
 - `neofs-api-go` to `v2.14.0`
 
-### Updating from v0.32.0 
+### Updating from v0.32.0
 Replace using the `control netmap-snapshot` command with `netmap snapshot` one in NeoFS CLI.
 Node can now specify additional addresses in `ExternalAddr` attribute. To allow a node to dial
 other nodes external address, use `apiclient.allow_external` config setting.
@@ -430,7 +432,7 @@ Pass `maintenance` state to `neofs-cli control set-status` to enter maintenance 
 If network allows maintenance state (*), it will be reflected in the network map.
 Storage nodes under maintenance are not excluded from the network map, but don't
 serve object operations. (*) can be fetched from network configuration via
-`neofs-cli netmap netinfo` command.    
+`neofs-cli netmap netinfo` command.
 
 To allow maintenance mode during neofs-adm deployments, set
 `network.maintenance_mode_allowed` parameter in config.
@@ -696,7 +698,7 @@ Support WalletConnect signature scheme.
 - Node's object GC mechanism (#1318)
 
 ### Updating from v0.28.0-rc.3
-Clean up all metabases  and re-sync them using `resync_metabase` config flag.
+Clean up all metabases and re-sync them using `resync_metabase` config flag.
 
 ## [0.28.0-rc.3] - 2022-04-08
 
@@ -727,15 +729,15 @@ Clean up all metabases  and re-sync them using `resync_metabase` config flag.
 - Reduced amount of slices with pointers (#1239)
 
 ### Updating from v0.28.0-rc.2
-Remove `NEOFS_IR_MAINNET_ENDPOINT_NOTIFICATION`, 
-`NEOFS_IR_MORPH_ENDPOINT_NOTIFICATION`,  and `NEOFS_MORPH_NOTIFICATION_ENDPOINT`
-from Inner Ring and Storage configurations. 
+Remove `NEOFS_IR_MAINNET_ENDPOINT_NOTIFICATION`,
+`NEOFS_IR_MORPH_ENDPOINT_NOTIFICATION`, and `NEOFS_MORPH_NOTIFICATION_ENDPOINT`
+from Inner Ring and Storage configurations.
 
 Specify _WebSocket_ endpoints in `NEOFS_IR_MAINNET_ENDPOINT_CLIENT`,
 `NEOFS_IR_MORPH_ENDPOINT_CLIENT`, and `NEOFS_MORPH_RPC_ENDPOINT` at Inner Ring
 and Storage configurations.
 
-Specify path to persistent session token db in Storage configuration with 
+Specify path to persistent session token db in Storage configuration with
 `NEOFS_NODE_PERSISTENT_SESSIONS_PATH`.
 
 ## [0.28.0-rc.2] - 2022-03-24
@@ -751,7 +753,7 @@ Specify path to persistent session token db in Storage configuration with
 
 ## [0.28.0-rc.1] - 2022-03-18
 
-Native RFC-6979 signatures of messages and tokens, LOCK object types, 
+Native RFC-6979 signatures of messages and tokens, LOCK object types,
 experimental notifications over NATS with NeoFS API v2.12 support
 
 ### Fixed
@@ -787,8 +789,8 @@ experimental notifications over NATS with NeoFS API v2.12 support
 - Deprecated structures from SDK v1.0.0 rc (#1181)
 
 ### Updating from neofs-node v0.27.5
-Set shard error threshold for read-only mode switch with 
-`NEOFS_STORAGE_SHARD_RO_ERROR_THRESHOLD` (default: 0, deactivated). 
+Set shard error threshold for read-only mode switch with
+`NEOFS_STORAGE_SHARD_RO_ERROR_THRESHOLD` (default: 0, deactivated).
 
 Set NATS configuration for notifications in `NEOFS_NODE_NOTIFICATION` section.
 See example config for more details.
@@ -854,7 +856,7 @@ See example config for more details.
 Use `--wallet` key in CLI to provide WIF or binary key file instead of `--wif`
 and `--binary-key`.
 
-Replace `NEOFS_STORAGE_SHARD_N_USE_WRITE_CACHE` with 
+Replace `NEOFS_STORAGE_SHARD_N_USE_WRITE_CACHE` with
 `NEOFS_STORAGE_SHARD_N_WRITECACHE_ENABLED` in Storage node config.
 
 Specify `password: xxx` in config file for NeoFS CLI to avoid password input.
@@ -931,7 +933,7 @@ NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 - CLI now opens LOCODE database in read-only mode for listing command (#958)
 - Tombstone owner now is always set (#842)
 - Node in relay mode does not require shard config anymore (#969)
-- Alphabet nodes now ignore notary notifications with non-HALT main tx (#976) 
+- Alphabet nodes now ignore notary notifications with non-HALT main tx (#976)
 - neofs-adm now prints version of NNS contract (#1014)
 - Possible NPE in blobovnicza (#1007)
 - More precise calculation of blobovnicza size (#915)
@@ -948,13 +950,13 @@ NeoFS API v2.11.0 support with response status codes and storage subnetworks.
 - Alphabet nodes resign `AddPeer` request if it updates Storage node info (#938)
 - All applications now use client from neofs-sdk-go library (#966)
 - Some shard configuration records were renamed, see upgrading section (#859)
-- `Nonce` and `VUB` values of notary transactions generated from notification 
+- `Nonce` and `VUB` values of notary transactions generated from notification
   hash (#844)
 - Non alphabet notary invocations now have 4 witnesses (#975)
 - Object replication is now async and continuous (#965)
 - NeoFS ADM updated for the neofs-contract v0.13.0 deploy (#984)
 - Minimal TLS version is set to v1.2 (#878)
-- Alphabet nodes now invoke `netmap.Register` to add node to the network map 
+- Alphabet nodes now invoke `netmap.Register` to add node to the network map
   candidates in notary enabled environment (#1008)
 
 ### Updating from v0.26.1
@@ -984,7 +986,7 @@ with `NEOFS_IR_FEE_NAMED_CONTAINER_REGISTER`.
 ### Fixed
 - Storage Node handles requests before its initialization is finished (#934)
 - Release worker pools gracefully (#901)
-- Metabase ignored containers of storage group and tombstone objects 
+- Metabase ignored containers of storage group and tombstone objects
   in listing (#945)
 - CLI missed endpoint flag in `control netmap-snapshot` command (#942)
 - Write cache object persisting (#866)
@@ -998,16 +1000,16 @@ with `NEOFS_IR_FEE_NAMED_CONTAINER_REGISTER`.
 
 ### Changed
 - Use FSTree counter in write cache (#821)
-- Calculate notary deposit `till` parameter depending on available 
+- Calculate notary deposit `till` parameter depending on available
   deposit (#910)
-- Storage node returns session token error if attached token's private key 
+- Storage node returns session token error if attached token's private key
   is not available (#943)
 - Refactor of NeoFS API client in inner ring (#946)
-- LOCODE generator tries to find the closest continent if there are 
+- LOCODE generator tries to find the closest continent if there are
   no exact match (#955)
 
 ### Updating from v0.26.0
-You can specify default section in storage engine configuration. 
+You can specify default section in storage engine configuration.
 See [example](./config/example/node.yaml) for more details.
 
 ## [0.26.0] - 2021-10-19 - Udo (우도, 牛島)
@@ -1017,7 +1019,7 @@ NeoFS API v2.10 support
 ### Fixed
 - Check remote node public key in every response message (#645)
 - Do not lose local container size estimations (#872)
-- Compressed and uncompressed objects are always available for reading 
+- Compressed and uncompressed objects are always available for reading
   regardless of compression configuration (#868)
 - Use request session token in ACL check of object.Put (#881)
 - Parse URI in neofs-cli properly (#883)
@@ -1072,7 +1074,7 @@ instead.
 ### Added
 - Support of multiple Neo RPC endpoints in Inner Ring node (#792)
 
-`mainchain` section of storage node config is left unused by the application. 
+`mainchain` section of storage node config is left unused by the application.
 
 ## [0.25.0] - 2021-09-27 - Mungapdo (문갑도, 文甲島)
 
@@ -1080,7 +1082,7 @@ instead.
 - Work of a storage node with one Neo RPC endpoint instead of a list (#746)
 - Lack of support for HEAD operation on the object write cache (#762)
 - Storage node attribute parsing is stable now (#787)
-- Inner Ring node now logs transaction hashes of Deposit and Withdraw events 
+- Inner Ring node now logs transaction hashes of Deposit and Withdraw events
   in LittleEndian encoding (#794)
 - Storage node uses public keys of the remote nodes in placement traverser
   checks (#645)
@@ -1088,7 +1090,7 @@ instead.
   (#816)
 - neofs-adm supports update and deploy of neofs-contract v0.11.0 (#834, #836)
 - Possible NPE in public key conversion (#848)
-- Object assembly routine do not forward existing request instead of creating 
+- Object assembly routine do not forward existing request instead of creating
   new one (#839)
 - Shard now returns only physical stored objects for replication (#840)
 
@@ -1097,7 +1099,7 @@ instead.
 - Smart contract address auto negotiation with NNS contract (#736)
 - Detailed logs for all data writing operations in storage engine (#790)
 - Docker build and release targets in Makefile (#785)
-- Metabase restore option in the shard config (#789) 
+- Metabase restore option in the shard config (#789)
 - Write cache used size limit in bytes (#776)
 
 ### Changed
@@ -1132,7 +1134,7 @@ Added `NEOFS_STORAGE_SHARD_<N>_WRITECACHE_SIZE_LIMIT` where `<N>` is shard ID.
 This is the size limit for the all write cache storages combined in bytes. Default
 size limit is 1 GiB.
 
-Added `NEOFS_STORAGE_SHARD_<N>_REFILL_METABASE` bool flag where `<N>` is shard 
+Added `NEOFS_STORAGE_SHARD_<N>_REFILL_METABASE` bool flag where `<N>` is shard
 ID. This flag purges metabase instance at the application start and reinitialize
 it with available objects from the blobstor.
 
@@ -1141,12 +1143,12 @@ Object service pool size now split into `NEOFS_OBJECT_PUT_POOL_SIZE_REMOTE` and
 
 ## [0.24.1] - 2021-09-07
 
-### Fixed 
+### Fixed
 - Storage and Inner Ring will not start until Neo RPC node will have the height
 of the latest processed block by the nodes (#795)
 
 ### Updating from v0.24.0
-Specify path to the local state DB in Inner Ring node config with 
+Specify path to the local state DB in Inner Ring node config with
 `NEOFS_IR_NODE_PERSISTENT_STATE_PATH`. Specify path to the local state DB in
 Storage node config with `NEOFS_NODE_PERSISTENT_STATE_PATH`.
 
@@ -1165,7 +1167,7 @@ Storage node config with `NEOFS_NODE_PERSISTENT_STATE_PATH`.
 - Contract update support in `neofs-adm` utility (#748)
 - Container transferring support in `neofs-adm` utility (#755)
 - Storage Node's balance refilling support in `neofs-adm` utility (#758)
-- Support `COMMON_PREFIX` filter for object attributes in storage engine and `neofs-cli` (#760) 
+- Support `COMMON_PREFIX` filter for object attributes in storage engine and `neofs-cli` (#760)
 - Node's and IR's notary status debug message on startup (#758)
 - Go `1.17` unit tests in CI (#766)
 - Supporting all eACL filter fields from the specification (#768)
@@ -1227,7 +1229,7 @@ Improved stability for notary disabled environment.
 - Storage Node configuration example contains usable parameters (#699)
 
 ### Fixed
-- Do not use side chain RoleManagement contract as source of Inner Ring list 
+- Do not use side chain RoleManagement contract as source of Inner Ring list
   when notary disabled in side chain (#672)
 - Alphabet list transition is even more effective (#697)
 - Inner Ring node does not require proxy and processing contracts if notary
@@ -1294,9 +1296,9 @@ Storage nodes with a group of network endpoints.
 - Control service with healthcheck RPC in IR and CLI support ([#414](https://github.com/nspcc-dev/neofs-node/issues/414)).
 
 ### Fixed
-- Approval of objects with with duplicate attribute keys or empty values ([#633](https://github.com/nspcc-dev/neofs-node/issues/633)). 
-- Approval of containers with with duplicate attribute keys or empty values ([#634](https://github.com/nspcc-dev/neofs-node/issues/634)).
-- Default path for CLI config ([#626](https://github.com/nspcc-dev/neofs-node/issues/626)). 
+- Approval of objects with duplicate attribute keys or empty values ([#633](https://github.com/nspcc-dev/neofs-node/issues/633)).
+- Approval of containers with duplicate attribute keys or empty values ([#634](https://github.com/nspcc-dev/neofs-node/issues/634)).
+- Default path for CLI config ([#626](https://github.com/nspcc-dev/neofs-node/issues/626)).
 
 ### Changed
 - `version` command replaced with `--version` flag in CLI ([#571](https://github.com/nspcc-dev/neofs-node/issues/571)).
@@ -1324,7 +1326,7 @@ Storage nodes with a group of network endpoints.
 - grpc: [v1.38.0](https://github.com/grpc/grpc-go/releases/tag/v1.38.0).
 - cast: [v1.3.1](https://github.com/spf13/cast/releases/tag/v1.3.1).
 - cobra: [1.1.3](https://github.com/spf13/cobra/releases/tag/v1.1.3).
-- viper: [v1.8.1](https://github.com/spf13/viper/releases/tag/v1.8.1). 
+- viper: [v1.8.1](https://github.com/spf13/viper/releases/tag/v1.8.1).
 
 ## [0.21.1] - 2021-06-10
 
@@ -1344,7 +1346,7 @@ Session token support in container service, refactored config in storage node,
 TLS support on gRPC servers.
 
 ### Fixed
-- ACL service traverses over all RequestMetaHeader chain to find 
+- ACL service traverses over all RequestMetaHeader chain to find
   bearer and session tokens (#548).
 - Object service correctly resends complete objects without attached
   session token (#501).
@@ -1352,7 +1354,7 @@ TLS support on gRPC servers.
 - Client cache now gracefully closes all available connections (#567).
 
 ### Added
-- Session token support in container service for `container.Put`, 
+- Session token support in container service for `container.Put`,
   `container.Delete` and `container.SetEACL` operations.
 - Session token support in container and sign command of NeoFS CLI.
 - TLS encryption support of gRPC service in storage node.
@@ -1362,8 +1364,8 @@ TLS support on gRPC servers.
   update earlier.
 - Inner ring processes extended ACL changes.
 - Inner ring makes signature checks of containers and extended ACLs.
-- Refactored config of storage node. 
-- Static clients from `morph/client` do not process notary invocations 
+- Refactored config of storage node.
+- Static clients from `morph/client` do not process notary invocations
   explicitly anymore. Now notary support specified at static client creation.
 - Updated neo-go to v0.95.1 release.
 - Updated neofs-api-go to v1.27.0 release.
@@ -1374,7 +1376,7 @@ TLS support on gRPC servers.
 
 ## [0.20.0] - 2021-05-21 - Dolsando (돌산도, 突山島)
 
-NeoFS is N3 RC2 compatible. 
+NeoFS is N3 RC2 compatible.
 
 ### Fixed
 - Calculations in EigenTrust algorithm (#527).
@@ -1387,7 +1389,7 @@ NeoFS is N3 RC2 compatible.
 - Client for NeoFSID contract.
 
 ### Changed
-- Reorganized and removed plenty of application configuration records 
+- Reorganized and removed plenty of application configuration records
   (#510, #511, #512, #514).
 - Nodes do not resolve remote addresses manually.
 - Presets for basic ACL in CLI are `private` ,`public-read` and
@@ -1405,11 +1407,11 @@ NeoFS is N3 RC2 compatible.
 
 Storage nodes exchange, calculate, aggregate and store reputation information
 in reputation contract. Inner ring nodes support workflows with and without
-notary subsystem in chains. 
+notary subsystem in chains.
 
 ### Fixed
 - Build with go1.16.
-- Notary deposits last more blocks. 
+- Notary deposits last more blocks.
 - TX hashes now prints in little endian in logs.
 - Metabase deletes graves regardless of the presence of objects.
 - SplitInfo error created from all shards instead of first matched shard.
@@ -1417,7 +1419,7 @@ notary subsystem in chains.
 - Storage node does not send rebootstrap messages after it went offline.
 
 ### Added
-- Reputation subsystem that includes reputation collection, exchange, 
+- Reputation subsystem that includes reputation collection, exchange,
 calculation and storage components.
 - Notary and non notary workflows in inner ring.
 - Audit fee transfer for inner ring nodes that performed audit.
@@ -1427,7 +1429,7 @@ calculation and storage components.
 
 ### Changed
 - Metabase puts data in batches.
-- Network related new epoch handlers in storage node executed asynchronously. 
+- Network related new epoch handlers in storage node executed asynchronously.
 - Storage node gets epoch duration from global config.
 - Storage node resign and resend Search, Range, Head, Get requests of object
 service without modification.
@@ -1444,7 +1446,7 @@ alphabet keys are synchronized with main chain.
 ### Fixed
 - Metabase does not store object payloads anymore.
 - TTLNetCache now always evict data after a timeout.
-- NeoFS CLI keyer could misinterpret hex value as base58. 
+- NeoFS CLI keyer could misinterpret hex value as base58.
 
 ### Added
 - Local trust controller in storage node.
@@ -1456,7 +1458,7 @@ alphabet keys are synchronized with main chain.
 
 ## [0.17.0] - 2021-03-22 - Jebudo (제부도, 濟扶島)
 
-Notary contract support, updated neofs-api-go with raw client, some performance 
+Notary contract support, updated neofs-api-go with raw client, some performance
 tweaks with extra caches and enhanced metrics.
 
 ### Added
@@ -1475,7 +1477,7 @@ tweaks with extra caches and enhanced metrics.
 
 Garbage collector is now running inside storage engine. It is accessed
 via Control API, from `policer` component and through object expiration
-scrubbers. 
+scrubbers.
 
 Inner ring configuration now supports single chain mode with any number of
 alphabet contracts.
@@ -1506,39 +1508,39 @@ Storage node now supports NetworkInfo method in netmap service.
 
 ## [0.15.0] - 2021-02-12 - Seonyudo (선유도, 仙遊島)
 
-NeoFS nodes are now preview5-compatible. 
+NeoFS nodes are now preview5-compatible.
 
 IR nodes are now engaged in the distribution of funds to the storage nodes:
-for the passed audit and for the amount of stored information. All timers 
-of the IR nodes related to the generation and processing of global system 
-events are decoupled from astronomical time, and are measured in the number 
+for the passed audit and for the amount of stored information. All timers
+of the IR nodes related to the generation and processing of global system
+events are decoupled from astronomical time, and are measured in the number
 of blockchain blocks.
 
 For the geographic positioning of storage nodes, a global NeoFS location
-database is now used, the key in which is a UN/LOCODE, and the base itself 
+database is now used, the key in which is a UN/LOCODE, and the base itself
 is generated on the basis of the UN/LOCODE and OpenFlights databases.
 
 ### Added
 - Timers with time in blocks of the chain.
 - Subscriptions to new blocks in blockchain event `Listener`.
-- Tracking the volume of stored information by containers in the 
+- Tracking the volume of stored information by containers in the
   storage engine and an external interface for obtaining this data.
 - `TransferX` operation in sidechain client.
 - Calculators of audit and basic settlements.
-- Distribution of funds to storage nodes for audit and for the amount 
+- Distribution of funds to storage nodes for audit and for the amount
   of stored information (settlement processors of IR).
 - NeoFS API `Container.AnnounceUsedSpace` RPC service.
-- Exchange of information about container volumes between storage nodes 
+- Exchange of information about container volumes between storage nodes
   controlled by IR through sidechain notifications.
 - Support of new search matchers (`STRING_NOT_EQUAL`, `NOT_PRESENT`).
 - Functional for the formation of NeoFS location database.
 - CLI commands for generating and reading the location database.
-- Checking the locode attribute and generating geographic attributes 
+- Checking the locode attribute and generating geographic attributes
   for candidates for a network map on IR side.
 - Verification of the eACL signature when checking Object ACL rules.
 
 ### Fixed
-- Overwriting the local configuration of node attributes when updating 
+- Overwriting the local configuration of node attributes when updating
   the network map.
 - Ignoring the X-headers CLI `storagegroup` commands.
 - Inability to attach bearer token in CLI `storagegroup` commands.
@@ -1556,7 +1558,7 @@ is generated on the basis of the UN/LOCODE and OpenFlights databases.
 ### Fixed
 - Upload of objects bigger than single gRPC message.
 - Inconsistent placement issues (#347, #349).
-- Bug when ACL request classifier failed to classify `RoleOthers` in 
+- Bug when ACL request classifier failed to classify `RoleOthers` in
   first epoch.
 
 ### Added
@@ -1570,13 +1572,13 @@ is generated on the basis of the UN/LOCODE and OpenFlights databases.
 
 Testnet4 related bugfixes.
 
-### Fixed 
-- Default values for blobovnicza object size limit and blobstor small object 
+### Fixed
+- Default values for blobovnicza object size limit and blobstor small object
   size are not zero.
 - Various storage engine log messages.
 - Bug when inner ring node ignored bootstrap messages from restarted storage
-  nodes. 
-  
+  nodes.
+
 ### Added
 - Timeout for reading boltDB files at storage node initialization.
 

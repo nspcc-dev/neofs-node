@@ -213,6 +213,27 @@ func TestDB_IsLocked(t *testing.T) {
 	require.False(t, res.Locked())
 }
 
+func TestDB_Lock_Expired(t *testing.T) {
+	es := &epochState{e: 123}
+
+	db := newDB(t, meta.WithEpochState(es))
+
+	// put an object
+	addr := putWithExpiration(t, db, object.TypeRegular, 124)
+
+	// expire the obj
+	es.e = 125
+	_, err := metaGet(db, addr, false)
+	require.ErrorIs(t, err, meta.ErrObjectIsExpired)
+
+	// lock the obj
+	require.NoError(t, db.Lock(addr.Container(), oidtest.ID(), []oid.ID{addr.Object()}))
+
+	// object is expired but locked, thus, must be available
+	_, err = metaGet(db, addr, false)
+	require.NoError(t, err)
+}
+
 // putAndLockObj puts object, returns it and its locker.
 func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Object, *object.Object) {
 	cnr := cidtest.ID()

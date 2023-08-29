@@ -822,6 +822,55 @@ func TestExpiredObjects(t *testing.T) {
 	})
 }
 
+func TestRemovedObjects(t *testing.T) {
+	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
+
+	cnr := cidtest.ID()
+
+	o1 := generateObjectWithCID(t, cnr)
+	addAttribute(o1, "1", "11")
+
+	o2 := generateObjectWithCID(t, cnr)
+	addAttribute(o2, "2", "22")
+
+	o3 := generateObjectWithCID(t, cnr) // expired but will be locked
+	setExpiration(o3, currEpoch-1)
+
+	require.NoError(t, putBig(db, o1))
+	require.NoError(t, putBig(db, o2))
+	require.NoError(t, putBig(db, o3))
+
+	f1 := objectSDK.SearchFilters{}
+	f1.AddFilter("1", "11", objectSDK.MatchStringEqual)
+
+	f2 := objectSDK.SearchFilters{}
+	f2.AddFilter("2", "22", objectSDK.MatchStringEqual)
+
+	fAll := objectSDK.SearchFilters{}
+
+	testSelect(t, db, cnr, f1, object.AddressOf(o1))
+	testSelect(t, db, cnr, f2, object.AddressOf(o2))
+	testSelect(t, db, cnr, fAll, object.AddressOf(o1), object.AddressOf(o2))
+
+	// Removed object
+
+	ts1 := generateObject(t)
+	require.NoError(t, metaInhume(db, object.AddressOf(o1), object.AddressOf(ts1)))
+
+	oo, err := metaSelect(db, cnr, f1)
+	require.NoError(t, err)
+	require.Empty(t, oo)
+
+	testSelect(t, db, cnr, fAll, object.AddressOf(o2))
+
+	// Expired (== removed) but locked
+
+	l := generateObject(t)
+	require.NoError(t, db.Lock(cnr, object.AddressOf(l).Object(), []oid.ID{object.AddressOf(o3).Object()}))
+
+	testSelect(t, db, cnr, fAll, object.AddressOf(o2), object.AddressOf(o3))
+}
+
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
 	var prm meta.SelectPrm
 	prm.SetContainerID(cid)
