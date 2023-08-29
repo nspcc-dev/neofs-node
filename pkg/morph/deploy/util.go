@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,25 +9,14 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/interop/interopnames"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-contract/common"
 	"go.uber.org/zap"
 )
@@ -179,125 +167,6 @@ func readNNSOnChainState(b Blockchain) (*state.Contract, error) {
 		return nil, fmt.Errorf("read contract state by ID=%d: %w", nnsContractID, err)
 	}
 	return res, nil
-}
-
-// contractVersion describes versioning of NeoFS smart contracts.
-type contractVersion struct{ major, minor, patch uint64 }
-
-// space sizes for major and minor versions of the NeoFS contracts.
-const majorSpace, minorSpace = 1e6, 1e3
-
-// equals checks if contractVersion equals to the specified SemVer version.
-//
-//nolint:unused
-func (x contractVersion) equals(major, minor, patch uint64) bool {
-	return x.major == major && x.minor == minor && x.patch == patch
-}
-
-// returns contractVersion as single integer.
-func (x contractVersion) toUint64() uint64 {
-	return x.major*majorSpace + x.minor*minorSpace + x.patch
-}
-
-// cmp compares x and y and returns:
-//
-//	-1 if x <  y
-//	 0 if x == y
-//	+1 if x >  y
-func (x contractVersion) cmp(y contractVersion) int {
-	xN := x.toUint64()
-	yN := y.toUint64()
-	if xN < yN {
-		return -1
-	} else if xN == yN {
-		return 0
-	}
-	return 1
-}
-
-func (x contractVersion) String() string {
-	const sep = "."
-	return fmt.Sprintf("%d%s%d%s%d", x.major, sep, x.minor, sep, x.patch)
-}
-
-// parses contractVersion from the invocation result of methodVersion method.
-func parseContractVersionFromInvocationResult(res *result.Invoke) (contractVersion, error) {
-	bigVersionOnChain, err := unwrap.BigInt(res, nil)
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("unwrap big integer from '%s' method return: %w", methodVersion, err)
-	} else if !bigVersionOnChain.IsUint64() {
-		return contractVersion{}, fmt.Errorf("invalid/unsupported format of the '%s' method return: expected uint64, got %v", methodVersion, bigVersionOnChain)
-	}
-
-	n := bigVersionOnChain.Uint64()
-
-	mjr := n / majorSpace
-
-	return contractVersion{
-		major: mjr,
-		minor: (n - mjr*majorSpace) / minorSpace,
-		patch: n % minorSpace,
-	}, nil
-}
-
-// readContractOnChainVersion returns current version of the smart contract
-// presented in given Blockchain with specified address.
-func readContractOnChainVersion(b Blockchain, onChainAddress util.Uint160) (contractVersion, error) {
-	res, err := invoker.New(b, nil).Call(onChainAddress, methodVersion)
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("call '%s' contract method: %w", methodVersion, err)
-	}
-
-	return parseContractVersionFromInvocationResult(res)
-}
-
-// readContractLocalVersion returns version of the local smart contract
-// represented by its compiled artifacts. Deployment is tested using provided
-// invoker on behalf of the committee.
-func readContractLocalVersion(rpc invoker.RPCInvoke, committee keys.PublicKeys, localNEF nef.File, localManifest manifest.Manifest, deployArgs ...interface{}) (contractVersion, error) {
-	multiSigScript, err := smartcontract.CreateMultiSigRedeemScript(smartcontract.GetMajorityHonestNodeCount(len(committee)), committee)
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("create committee multi-signature verification script: %w", err)
-	}
-
-	jManifest, err := json.Marshal(localManifest)
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("encode manifest into JSON: %w", err)
-	}
-
-	bNEF, err := localNEF.Bytes()
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("encode NEF into binary: %w", err)
-	}
-
-	var deployData interface{}
-	if len(deployArgs) > 0 {
-		deployData = deployArgs
-	}
-
-	script := io.NewBufBinWriter()
-	emit.Opcodes(script.BinWriter, opcode.NEWARRAY0)
-	emit.Int(script.BinWriter, int64(callflag.All))
-	emit.String(script.BinWriter, methodVersion)
-	emit.AppCall(script.BinWriter, management.Hash, "deploy", callflag.All, bNEF, jManifest, deployData)
-	emit.Opcodes(script.BinWriter, opcode.PUSH2, opcode.PICKITEM)
-	emit.Syscall(script.BinWriter, interopnames.SystemContractCall)
-
-	res, err := invoker.New(rpc, []transaction.Signer{
-		{
-			Account: util.Uint160{}, // zero hash to avoid 'contract already exists' case
-			Scopes:  transaction.None,
-		},
-		{
-			Account: hash.Hash160(multiSigScript),
-			Scopes:  transaction.Global,
-		},
-	}).Run(script.Bytes())
-	if err != nil {
-		return contractVersion{}, fmt.Errorf("run test script deploying contract and calling its '%s' method: %w", methodVersion, err)
-	}
-
-	return parseContractVersionFromInvocationResult(res)
 }
 
 type transactionGroupWaiter interface {
