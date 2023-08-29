@@ -416,13 +416,16 @@ func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
 }
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.
-// If successful, marks lockers themselves as garbage.
+// If successful, marks lockers themselves as garbage. Also, marks as
+// garbage every object that becomes free-to-remove and just removed
+// lock object is the only reason for that object to be alive (e.g.
+// expired but locked objects).
 func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	if s.GetMode().NoMetabase() {
 		return
 	}
 
-	err := s.metaBase.FreeLockedBy(lockers)
+	unlocked, err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
 			zap.String("error", err.Error()),
@@ -431,8 +434,17 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 		return
 	}
 
+	expired, err := s.metaBase.FilterExpired(unlocked)
+	if err != nil {
+		s.log.Warn("expired object filtering",
+			zap.Error(err),
+		)
+
+		return
+	}
+
 	var pInhume meta.InhumePrm
-	pInhume.SetAddresses(lockers...)
+	pInhume.SetAddresses(append(lockers, expired...)...)
 	pInhume.SetGCMark()
 
 	res, err := s.metaBase.Inhume(pInhume)
@@ -448,12 +460,15 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 }
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.
+// Also, marks as garbage every object that becomes free-to-remove and
+// just removed lock object is the only reason for that object to be
+// alive (e.g. expired but locked objects).
 func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 	if s.GetMode().NoMetabase() {
 		return
 	}
 
-	err := s.metaBase.FreeLockedBy(lockers)
+	unlocked, err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
 			zap.String("error", err.Error()),
@@ -461,6 +476,30 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 
 		return
 	}
+
+	expired, err := s.metaBase.FilterExpired(unlocked)
+	if err != nil {
+		s.log.Warn("expired object filtering",
+			zap.Error(err),
+		)
+
+		return
+	}
+
+	var pInhume meta.InhumePrm
+	pInhume.SetAddresses(expired...)
+	pInhume.SetGCMark()
+
+	res, err := s.metaBase.Inhume(pInhume)
+	if err != nil {
+		s.log.Warn("failure to mark unlocked objects as garbage",
+			zap.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	s.decObjectCounterBy(logical, res.AvailableInhumed())
 }
 
 // NotificationChannel returns channel for shard events.

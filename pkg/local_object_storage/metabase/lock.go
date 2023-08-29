@@ -96,25 +96,28 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 }
 
 // FreeLockedBy unlocks all objects in DB which are locked by lockers.
-func (db *DB) FreeLockedBy(lockers []oid.Address) error {
+// Returns unlocked objects if any.
+func (db *DB) FreeLockedBy(lockers []oid.Address) ([]oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		var err error
+	var unlocked []oid.Address
 
+	return unlocked, db.boltDB.Update(func(tx *bbolt.Tx) error {
 		for i := range lockers {
-			err = freePotentialLocks(tx, lockers[i].Container(), lockers[i].Object())
+			uu, err := freePotentialLocks(tx, lockers[i].Container(), lockers[i].Object())
 			if err != nil {
 				return err
 			}
+
+			unlocked = append(unlocked, uu...)
 		}
 
-		return err
+		return nil
 	})
 }
 
@@ -134,59 +137,76 @@ func objectLocked(tx *bbolt.Tx, idCnr cid.ID, idObj oid.ID) bool {
 }
 
 // releases all records about the objects locked by the locker.
+// Returns unlocked objects (if any).
 //
 // Operation is very resource-intensive, which is caused by the admissibility
 // of multiple locks. Also, if we knew what objects are locked, it would be
 // possible to speed up the execution.
-func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) error {
+func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) ([]oid.Address, error) {
 	bucketLocked := tx.Bucket(bucketNameLocked)
-	if bucketLocked != nil {
-		key := make([]byte, cidSize)
-		idCnr.Encode(key)
+	if bucketLocked == nil {
+		return nil, nil
+	}
 
-		bucketLockedContainer := bucketLocked.Bucket(key)
-		if bucketLockedContainer != nil {
-			keyLocker := objectKey(locker, key)
-			return bucketLockedContainer.ForEach(func(k, v []byte) error {
-				keyLockers, err := decodeList(v)
-				if err != nil {
-					return fmt.Errorf("decode list of lockers in locked bucket: %w", err)
-				}
+	key := make([]byte, cidSize)
+	idCnr.Encode(key)
 
-				for i := range keyLockers {
-					if bytes.Equal(keyLockers[i], keyLocker) {
-						if len(keyLockers) == 1 {
-							// locker was all alone
-							err = bucketLockedContainer.Delete(k)
-							if err != nil {
-								return fmt.Errorf("delete locked object record from locked bucket: %w", err)
-							}
-						} else {
-							// exclude locker
-							keyLockers = append(keyLockers[:i], keyLockers[i+1:]...)
+	bucketLockedContainer := bucketLocked.Bucket(key)
+	if bucketLockedContainer == nil {
+		return nil, nil
+	}
 
-							v, err = encodeList(keyLockers)
-							if err != nil {
-								return fmt.Errorf("encode updated list of lockers: %w", err)
-							}
+	var unlocked []oid.Address
+	keyLocker := objectKey(locker, key)
 
-							// update the record
-							err = bucketLockedContainer.Put(k, v)
-							if err != nil {
-								return fmt.Errorf("update list of lockers: %w", err)
-							}
-						}
+	return unlocked, bucketLockedContainer.ForEach(func(k, v []byte) error {
+		keyLockers, err := decodeList(v)
+		if err != nil {
+			return fmt.Errorf("decode list of lockers in locked bucket: %w", err)
+		}
 
-						return nil
+		for i := range keyLockers {
+			if bytes.Equal(keyLockers[i], keyLocker) {
+				if len(keyLockers) == 1 {
+					// locker was all alone
+					err = bucketLockedContainer.Delete(k)
+					if err != nil {
+						return fmt.Errorf("delete locked object record from locked bucket: %w", err)
+					}
+
+					var oID oid.ID
+					err = oID.Decode(k)
+					if err != nil {
+						return fmt.Errorf("decode unlocked object id error: %w", err)
+					}
+
+					var addr oid.Address
+					addr.SetContainer(idCnr)
+					addr.SetObject(oID)
+
+					unlocked = append(unlocked, addr)
+				} else {
+					// exclude locker
+					keyLockers = append(keyLockers[:i], keyLockers[i+1:]...)
+
+					v, err = encodeList(keyLockers)
+					if err != nil {
+						return fmt.Errorf("encode updated list of lockers: %w", err)
+					}
+
+					// update the record
+					err = bucketLockedContainer.Put(k, v)
+					if err != nil {
+						return fmt.Errorf("update list of lockers: %w", err)
 					}
 				}
 
 				return nil
-			})
+			}
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 // IsLockedPrm groups the parameters of IsLocked operation.

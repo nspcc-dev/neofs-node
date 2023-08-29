@@ -109,8 +109,9 @@ func TestDB_Lock(t *testing.T) {
 		require.Len(t, res.DeletedLockObjects(), 1)
 		require.Equal(t, objectcore.AddressOf(lockObj), res.DeletedLockObjects()[0])
 
-		err = db.FreeLockedBy([]oid.Address{lockAddr})
+		unlocked, err := db.FreeLockedBy([]oid.Address{lockAddr})
 		require.NoError(t, err)
+		require.ElementsMatch(t, objsToAddrs(objs), unlocked)
 
 		inhumePrm.SetAddresses(objAddr)
 		inhumePrm.SetGCMark()
@@ -140,8 +141,9 @@ func TestDB_Lock(t *testing.T) {
 
 		// unlock just objects that were locked by
 		// just removed locker
-		err = db.FreeLockedBy([]oid.Address{res.DeletedLockObjects()[0]})
+		unlocked, err := db.FreeLockedBy([]oid.Address{res.DeletedLockObjects()[0]})
 		require.NoError(t, err)
+		require.ElementsMatch(t, objsToAddrs(objs), unlocked)
 
 		// removing objects after unlock
 
@@ -263,4 +265,13 @@ func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Ob
 	require.NoError(t, err)
 
 	return lockedObjs, lockObj
+}
+
+func objsToAddrs(oo []*object.Object) []oid.Address {
+	res := make([]oid.Address, 0, len(oo))
+	for _, o := range oo {
+		res = append(res, objectcore.AddressOf(o))
+	}
+
+	return res
 }

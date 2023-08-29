@@ -26,10 +26,12 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-type epochState struct{}
+type epochState struct {
+	Value uint64
+}
 
 func (s epochState) CurrentEpoch() uint64 {
-	return 0
+	return s.Value
 }
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
