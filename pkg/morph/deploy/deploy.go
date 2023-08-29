@@ -219,6 +219,16 @@ func Deploy(ctx context.Context, prm Prm) error {
 		return errors.New("local account does not belong to any Neo committee member")
 	}
 
+	simpleLocalActor, err := actor.NewSimple(prm.Blockchain, prm.LocalAccount)
+	if err != nil {
+		return fmt.Errorf("init transaction sender from single local account: %w", err)
+	}
+
+	committeeLocalActor, err := newCommitteeNotaryActor(prm.Blockchain, prm.LocalAccount, committee)
+	if err != nil {
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+	}
+
 	chNewBlock := make(chan struct{}, 1)
 
 	monitor, err := newBlockchainMonitor(prm.Logger, prm.Blockchain, chNewBlock)
@@ -373,15 +383,17 @@ func Deploy(ctx context.Context, prm Prm) error {
 	prm.Logger.Info("NeoFS Alphabet successfully initialized")
 
 	syncPrm := syncNeoFSContractPrm{
-		logger:            prm.Logger,
-		blockchain:        prm.Blockchain,
-		neoFS:             prm.NeoFS,
-		monitor:           monitor,
-		localAcc:          prm.LocalAccount,
-		nnsContract:       nnsOnChainAddress,
-		systemEmail:       prm.NNS.SystemEmail,
-		committee:         committee,
-		committeeGroupKey: committeeGroupKey,
+		logger:              prm.Logger,
+		blockchain:          prm.Blockchain,
+		neoFS:               prm.NeoFS,
+		monitor:             monitor,
+		localAcc:            prm.LocalAccount,
+		nnsContract:         nnsOnChainAddress,
+		systemEmail:         prm.NNS.SystemEmail,
+		committee:           committee,
+		committeeGroupKey:   committeeGroupKey,
+		simpleLocalActor:    simpleLocalActor,
+		committeeLocalActor: committeeLocalActor,
 	}
 
 	localAccLeads := localAccCommitteeIndex == 0

@@ -46,6 +46,11 @@ type syncNeoFSContractPrm struct {
 	committee         keys.PublicKeys
 	committeeGroupKey *keys.PrivateKey
 
+	// with localAcc signer only
+	simpleLocalActor *actor.Actor
+	// committee multi-sig signs, localAcc pays
+	committeeLocalActor *notary.Actor
+
 	localNEF      nef.File
 	localManifest manifest.Manifest
 
@@ -99,16 +104,6 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 		return util.Uint160{}, fmt.Errorf("encode local manifest of the contract into JSON: %w", err)
 	}
 
-	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
-	if err != nil {
-		return util.Uint160{}, fmt.Errorf("init transaction sender from local account: %w", err)
-	}
-
-	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
-	if err != nil {
-		return util.Uint160{}, fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
-	}
-
 	var proxyCommitteeActor *notary.Actor
 
 	initProxyCommitteeActor := func(proxyContract util.Uint160) error {
@@ -152,24 +147,24 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 		managementContract = management.New(deployCommitteeActor)
 		contractDeployer = deployCommitteeActor
 	} else {
-		managementContract = management.New(localActor)
-		contractDeployer = localActor
+		managementContract = management.New(prm.simpleLocalActor)
+		contractDeployer = prm.simpleLocalActor
 	}
 
 	var alreadyUpdated bool
 	domainNameForAddress := prm.domainName + "." + domainContractAddresses
 	l := prm.logger.With(zap.String("contract", prm.localManifest.Name), zap.String("domain", domainNameForAddress))
 	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
-	deployTxMonitor := newTransactionGroupMonitor(localActor)
-	updateTxMonitor := newTransactionGroupMonitor(localActor)
+	deployTxMonitor := newTransactionGroupMonitor(prm.simpleLocalActor)
+	updateTxMonitor := newTransactionGroupMonitor(prm.simpleLocalActor)
 	setContractRecordPrm := setNeoFSContractDomainRecordPrm{
 		logger:               l,
-		setRecordTxMonitor:   newTransactionGroupMonitor(localActor),
-		registerTLDTxMonitor: newTransactionGroupMonitor(localActor),
+		setRecordTxMonitor:   newTransactionGroupMonitor(prm.simpleLocalActor),
+		registerTLDTxMonitor: newTransactionGroupMonitor(prm.simpleLocalActor),
 		nnsContract:          prm.nnsContract,
 		systemEmail:          prm.systemEmail,
-		localActor:           localActor,
-		committeeActor:       committeeActor,
+		localActor:           prm.simpleLocalActor,
+		committeeActor:       prm.committeeLocalActor,
 		domain:               domainNameForAddress,
 		record:               "", // set in for loop
 	}
@@ -245,7 +240,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 			if prm.committeeDeployRequired {
 				l.Info("contract requires committee witness for deployment, sending Notary request...")
 
-				mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(managementContract.DeployTransaction(&nefCp, &manifestCp, extraDeployArgs))
+				mainTxID, fallbackTxID, vub, err := prm.committeeLocalActor.Notarize(managementContract.DeployTransaction(&nefCp, &manifestCp, extraDeployArgs))
 				if err != nil {
 					if errors.Is(err, neorpc.ErrInsufficientFunds) {
 						l.Info("insufficient Notary balance to deploy the contract, will try again later")
