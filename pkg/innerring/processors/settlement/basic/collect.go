@@ -36,28 +36,28 @@ func (inc *IncomeSettlementContext) Collect() {
 
 	txTable := common.NewTransferTable()
 
-	for i := range cnrEstimations {
-		owner, err := inc.container.ContainerInfo(cnrEstimations[i].ContainerID)
+	for cnr, e := range cnrEstimations {
+		owner, err := inc.container.ContainerInfo(cnr)
 		if err != nil {
 			inc.log.Warn("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
+				zap.Stringer("container_id", cnr),
 				zap.String("error", err.Error()))
 
 			continue
 		}
 
-		cnrNodes, err := inc.placement.ContainerNodes(inc.epoch, cnrEstimations[i].ContainerID)
+		cnrNodes, err := inc.placement.ContainerNodes(inc.epoch, cnr)
 		if err != nil {
 			inc.log.Debug("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
-				zap.Stringer("container_id", cnrEstimations[i].ContainerID),
+				zap.Stringer("container_id", cnr),
 				zap.String("error", err.Error()))
 
 			continue
 		}
 
-		avg := inc.avgEstimation(cnrEstimations[i]) // average container size per node
+		avg := inc.avgEstimation(e) // average container size per node
 		total := calculateBasicSum(avg, cachedRate, len(cnrNodes))
 
 		// fill distribute asset table

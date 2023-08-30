@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	v2refs "github.com/nspcc-dev/neofs-api-go/v2/refs"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -48,39 +48,71 @@ func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
 	return nil
 }
 
-// EstimationID is an identity of container load estimation inside Container contract.
-type EstimationID []byte
-
 // ListLoadEstimationsByEpoch returns a list of container load estimations for to the specified epoch.
 // The list is composed through Container contract call.
-func (c *Client) ListLoadEstimationsByEpoch(epoch uint64) ([]EstimationID, error) {
+func (c *Client) ListLoadEstimationsByEpoch(epoch uint64) (map[cid.ID]*Estimations, error) {
 	invokePrm := client.TestInvokePrm{}
 	invokePrm.SetMethod(listSizesMethod)
 	invokePrm.SetArgs(epoch)
 
-	prms, err := c.client.TestInvoke(invokePrm)
+	kvs, err := c.client.TestInvokeIterator(invokePrm)
 	if err != nil {
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", listSizesMethod, err)
-	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", listSizesMethod, ln)
 	}
 
-	prms, err = client.ArrayFromStackItem(prms[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get stack item array from stack item (%s): %w", listSizesMethod, err)
-	}
-
-	res := make([]EstimationID, 0, len(prms))
-	for i := range prms {
-		id, err := client.BytesFromStackItem(prms[i])
+	resMap := make(map[cid.ID]*Estimations)
+	for i := range kvs {
+		kv, err := client.ArrayFromStackItem(kvs[i])
 		if err != nil {
-			return nil, fmt.Errorf("could not get ID byte array from stack item (%s): %w", listSizesMethod, err)
+			return nil, fmt.Errorf("could not unwrap iterator key-value pair: %w", err)
 		}
 
-		res = append(res, id)
+		if len(kv) != 2 { // key-value array
+			return nil, fmt.Errorf("incorrect contract key-value struct size: %d", len(kv))
+		}
+
+		cnr, err := cidFromStorageKey(kv[0])
+		if err != nil {
+			return nil, fmt.Errorf("storage key handling: %w", err)
+		}
+
+		var e Estimation
+		err = e.FromStackItem(kv[1])
+		if err != nil {
+			return nil, fmt.Errorf("storage value handling: %w", err)
+		}
+
+		if ee, found := resMap[cnr]; found {
+			ee.Values = append(ee.Values, e)
+		} else {
+			resMap[cnr] = &Estimations{
+				ContainerID: cnr,
+				Values:      []Estimation{e},
+			}
+		}
 	}
 
-	return res, nil
+	return resMap, nil
+}
+
+func cidFromStorageKey(stack stackitem.Item) (cid.ID, error) {
+	var cnr cid.ID
+
+	k, err := client.BytesFromStackItem(stack)
+	if err != nil {
+		return cnr, fmt.Errorf("incorrect estimation key from iterator: %w", err)
+	}
+
+	if len(k) < sha256.Size {
+		return cnr, fmt.Errorf("incorrect estimations key len: %d", len(k))
+	}
+
+	err = cnr.Decode(k[:sha256.Size])
+	if err != nil {
+		return cnr, fmt.Errorf("cid decoding: %w", err)
+	}
+
+	return cnr, nil
 }
 
 // Estimation is a structure of single container load estimation
@@ -91,81 +123,41 @@ type Estimation struct {
 	Reporter []byte
 }
 
+// ToStackItem implements stackitem.Convertible.
+func (e *Estimation) ToStackItem() (stackitem.Item, error) {
+	panic("not for now")
+}
+
+// FromStackItem implements stackitem.Convertible.
+func (e *Estimation) FromStackItem(item stackitem.Item) error {
+	v, err := client.ArrayFromStackItem(item)
+	if err != nil {
+		return fmt.Errorf("incorrect estimation value from iterator: %w", err)
+	}
+
+	if len(v) != 2 { // 2 field resulting struct
+		return fmt.Errorf("incorrect estimation struct size: %d", len(v))
+	}
+
+	pk, err := client.BytesFromStackItem(v[0])
+	if err != nil {
+		return fmt.Errorf("incorrect reporter key %w", err)
+	}
+
+	size, err := client.IntFromStackItem(v[1])
+	if err != nil {
+		return fmt.Errorf("incorrect container size: %w", err)
+	}
+
+	e.Reporter = pk
+	e.Size = uint64(size)
+
+	return nil
+}
+
 // Estimations is a structure of grouped container load estimation inside Container contract.
 type Estimations struct {
 	ContainerID cid.ID
 
 	Values []Estimation
-}
-
-// GetUsedSpaceEstimations returns a list of container load estimations by ID.
-// The list is composed through Container contract call.
-func (c *Client) GetUsedSpaceEstimations(id EstimationID) (*Estimations, error) {
-	prm := client.TestInvokePrm{}
-	prm.SetMethod(getSizeMethod)
-	prm.SetArgs([]byte(id))
-
-	prms, err := c.client.TestInvoke(prm)
-	if err != nil {
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getSizeMethod, err)
-	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getSizeMethod, ln)
-	}
-
-	prms, err = client.ArrayFromStackItem(prms[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get stack items of estimation fields from stack item (%s): %w", getSizeMethod, err)
-	} else if ln := len(prms); ln != 2 {
-		return nil, fmt.Errorf("unexpected stack item count of estimations fields (%s)", getSizeMethod)
-	}
-
-	rawCnr, err := client.BytesFromStackItem(prms[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get container ID byte array from stack item (%s): %w", getSizeMethod, err)
-	}
-
-	prms, err = client.ArrayFromStackItem(prms[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get estimation list array from stack item (%s): %w", getSizeMethod, err)
-	}
-
-	var cnr cid.ID
-
-	err = cnr.Decode(rawCnr)
-	if err != nil {
-		return nil, fmt.Errorf("decode container ID: %w", err)
-	}
-
-	v2 := new(v2refs.ContainerID)
-	v2.SetValue(rawCnr)
-	res := &Estimations{
-		ContainerID: cnr,
-		Values:      make([]Estimation, 0, len(prms)),
-	}
-
-	for i := range prms {
-		arr, err := client.ArrayFromStackItem(prms[i])
-		if err != nil {
-			return nil, fmt.Errorf("could not get estimation struct from stack item (%s): %w", getSizeMethod, err)
-		} else if ln := len(arr); ln != 2 {
-			return nil, fmt.Errorf("unexpected stack item count of estimation fields (%s)", getSizeMethod)
-		}
-
-		reporter, err := client.BytesFromStackItem(arr[0])
-		if err != nil {
-			return nil, fmt.Errorf("could not get reporter byte array from stack item (%s): %w", getSizeMethod, err)
-		}
-
-		sz, err := client.IntFromStackItem(arr[1])
-		if err != nil {
-			return nil, fmt.Errorf("could not get estimation size from stack item (%s): %w", getSizeMethod, err)
-		}
-
-		res.Values = append(res.Values, Estimation{
-			Reporter: reporter,
-			Size:     uint64(sz),
-		})
-	}
-
-	return res, nil
 }

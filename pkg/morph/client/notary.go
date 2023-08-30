@@ -243,12 +243,12 @@ func (c *Client) GetNotaryDeposit() (res int64, err error) {
 	}
 
 	if len(items) != 1 {
-		return 0, wrapNeoFSError(fmt.Errorf("%v: %w", notaryBalanceErrMsg, errUnexpectedItems))
+		return 0, fmt.Errorf("%v: %w", notaryBalanceErrMsg, errUnexpectedItems)
 	}
 
 	bigIntDeposit, err := items[0].TryInteger()
 	if err != nil {
-		return 0, wrapNeoFSError(fmt.Errorf("%v: %w", notaryBalanceErrMsg, err))
+		return 0, fmt.Errorf("%v: %w", notaryBalanceErrMsg, err)
 	}
 
 	return bigIntDeposit.Int64(), nil
@@ -522,7 +522,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 
 	mainH, fbH, untilActual, err := nAct.Notarize(nAct.MakeTunedCall(contract, method, nil, func(r *result.Invoke, t *transaction.Transaction) error {
 		if r.State != vmstate.Halt.String() {
-			return wrapNeoFSError(&notHaltStateError{state: r.State, exception: r.FaultException})
+			return &notHaltStateError{state: r.State, exception: r.FaultException}
 		}
 
 		t.ValidUntilBlock = until
@@ -597,7 +597,7 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 		err := multisigAccount.ConvertMultisig(m, ir)
 		if err != nil {
 			// wrap error as NeoFS-specific since the call is not related to any client
-			return nil, wrapNeoFSError(fmt.Errorf("can't convert account to inner ring multisig wallet: %w", err))
+			return nil, fmt.Errorf("can't convert account to inner ring multisig wallet: %w", err)
 		}
 	} else {
 		// alphabet multisig redeem script is
@@ -606,7 +606,7 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 		multisigAccount, err = notary.FakeMultisigAccount(m, ir)
 		if err != nil {
 			// wrap error as NeoFS-specific since the call is not related to any client
-			return nil, wrapNeoFSError(fmt.Errorf("can't make inner ring multisig wallet: %w", err))
+			return nil, fmt.Errorf("can't make inner ring multisig wallet: %w", err)
 		}
 	}
 

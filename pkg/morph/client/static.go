@@ -166,6 +166,16 @@ func (s StaticClient) TestInvoke(prm TestInvokePrm) ([]stackitem.Item, error) {
 	)
 }
 
+// TestInvokeIterator calls TestInvokeIterator method of [Client] with static
+// internal script hash.
+func (s StaticClient) TestInvokeIterator(prm TestInvokePrm) ([]stackitem.Item, error) {
+	return s.client.TestInvokeIterator(
+		s.scScriptHash,
+		prm.method,
+		prm.args...,
+	)
+}
+
 // ContractAddress returns the address of the associated contract.
 func (s StaticClient) ContractAddress() util.Uint160 {
 	return s.scScriptHash

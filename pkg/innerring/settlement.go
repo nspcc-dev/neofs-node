@@ -245,28 +245,8 @@ func (b basicIncomeSettlementDeps) BasicRate() (uint64, error) {
 	return b.nmClient.BasicIncomeRate()
 }
 
-func (b basicIncomeSettlementDeps) Estimations(epoch uint64) ([]*containerClient.Estimations, error) {
-	estimationIDs, err := b.cnrClient.ListLoadEstimationsByEpoch(epoch)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*containerClient.Estimations, 0, len(estimationIDs))
-
-	for i := range estimationIDs {
-		estimation, err := b.cnrClient.GetUsedSpaceEstimations(estimationIDs[i])
-		if err != nil {
-			b.log.Warn("can't get used space estimation",
-				zap.String("estimation_id", hex.EncodeToString(estimationIDs[i])),
-				zap.String("error", err.Error()))
-
-			continue
-		}
-
-		result = append(result, estimation)
-	}
-
-	return result, nil
+func (b basicIncomeSettlementDeps) Estimations(epoch uint64) (map[cid.ID]*containerClient.Estimations, error) {
+	return b.cnrClient.ListLoadEstimationsByEpoch(epoch)
 }
 
 func (b basicIncomeSettlementDeps) Balance(id user.ID) (*big.Int, error) {
