@@ -1,9 +1,6 @@
 package container
 
 import (
-	"strings"
-
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -74,13 +71,9 @@ var listContainerObjectsCmd = &cobra.Command{
 
 				resHead, err := internalclient.HeadObject(ctx, prmHead)
 				if err == nil {
-					attrs := resHead.Header().Attributes()
+					attrs := resHead.Header().UserAttributes()
 					for i := range attrs {
-						attrKey := attrs[i].Key()
-						if !strings.HasPrefix(attrKey, v2object.SysAttributePrefix) {
-							// FIXME(@cthulhu-rider): neofs-sdk-go#226 use dedicated method to skip system attributes
-							cmd.Printf("  %s: %s\n", attrKey, attrs[i].Value())
-						}
+						cmd.Printf("  %s: %s\n", attrs[i].Key(), attrs[i].Value())
 					}
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)

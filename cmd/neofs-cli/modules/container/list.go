@@ -1,9 +1,6 @@
 package container
 
 import (
-	"strings"
-
-	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -65,11 +62,8 @@ var listContainersCmd = &cobra.Command{
 
 				res, err := internalclient.GetContainer(ctx, prmGet)
 				if err == nil {
-					res.Container().IterateAttributes(func(key, val string) {
-						if !strings.HasPrefix(key, container.SysAttributePrefix) {
-							// FIXME(@cthulhu-rider): neofs-sdk-go#314 use dedicated method to skip system attributes
-							cmd.Printf("  %s: %s\n", key, val)
-						}
+					res.Container().IterateUserAttributes(func(key, val string) {
+						cmd.Printf("  %s: %s\n", key, val)
 					})
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)
