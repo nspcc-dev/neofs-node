@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -318,7 +317,7 @@ func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 
 func expirationEpochAttribute(obj *object.Object) (uint64, error) {
 	for _, a := range obj.Attributes() {
-		if a.Key() != objectV2.SysAttributeExpEpoch {
+		if a.Key() != object.AttributeExpirationEpoch {
 			continue
 		}
 

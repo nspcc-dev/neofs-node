@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -254,7 +253,7 @@ func (exec *execCtx) initTombstoneObject() bool {
 	}
 
 	var a object.Attribute
-	a.SetKey(objectV2.SysAttributeExpEpoch)
+	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.FormatUint(exec.tombstone.ExpirationEpoch(), 10))
 
 	exec.tombstoneObj.SetAttributes(a)

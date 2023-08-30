@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -58,7 +57,7 @@ func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
 
 func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler) error {
 	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		cidBytes := cidFromAttributeBucket(name, objectV2.SysAttributeExpEpoch)
+		cidBytes := cidFromAttributeBucket(name, object.AttributeExpirationEpoch)
 		if cidBytes == nil {
 			return nil
 		}

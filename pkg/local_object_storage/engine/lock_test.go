@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -76,7 +75,7 @@ func TestLockUserScenario(t *testing.T) {
 	lockerAddr.SetObject(lockerID)
 
 	var a object.Attribute
-	a.SetKey(objectV2.SysAttributeExpEpoch)
+	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
 	lockerObj := generateObjectWithCID(t, cnr)
@@ -173,7 +172,7 @@ func TestLockExpiration(t *testing.T) {
 
 	// 2.
 	var a object.Attribute
-	a.SetKey(objectV2.SysAttributeExpEpoch)
+	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
 	lock := generateObjectWithCID(t, cnr)

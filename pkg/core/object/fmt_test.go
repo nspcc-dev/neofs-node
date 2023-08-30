@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -139,7 +138,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, err) // no expiration epoch in tombstone
 
 		var expirationAttribute object.Attribute
-		expirationAttribute.SetKey(objectV2.SysAttributeExpEpoch)
+		expirationAttribute.SetKey(object.AttributeExpirationEpoch)
 		expirationAttribute.SetValue(strconv.Itoa(10))
 
 		obj.SetAttributes(expirationAttribute)
@@ -222,7 +221,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			obj := blankValidObject(signer)
 
 			var a object.Attribute
-			a.SetKey(objectV2.SysAttributeExpEpoch)
+			a.SetKey(object.AttributeExpirationEpoch)
 			a.SetValue(val)
 
 			obj.SetAttributes(a)

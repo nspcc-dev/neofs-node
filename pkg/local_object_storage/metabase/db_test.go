@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -122,7 +121,7 @@ func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *objectSD
 func setExpiration(o *objectSDK.Object, epoch uint64) {
 	var attr objectSDK.Attribute
 
-	attr.SetKey(objectV2.SysAttributeExpEpoch)
+	attr.SetKey(object.AttributeExpirationEpoch)
 	attr.SetValue(strconv.FormatUint(epoch, 10))
 
 	o.SetAttributes(append(o.Attributes(), attr)...)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -110,8 +109,8 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	cID := addr.Container()
 
 	// bucket with objects that have expiration attr
-	attrKey := make([]byte, bucketKeySize+len(objectV2.SysAttributeExpEpoch))
-	expirationBucket := tx.Bucket(attributeBucketName(cID, objectV2.SysAttributeExpEpoch, attrKey))
+	attrKey := make([]byte, bucketKeySize+len(objectSDK.AttributeExpirationEpoch))
+	expirationBucket := tx.Bucket(attributeBucketName(cID, objectSDK.AttributeExpirationEpoch, attrKey))
 	if expirationBucket != nil {
 		// bucket that contains objects that expire in the current epoch
 		prevEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch-1, 10)))
