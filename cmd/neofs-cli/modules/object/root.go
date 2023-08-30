@@ -19,7 +19,7 @@ var Cmd = &cobra.Command{
 }
 
 func init() {
-	objectChildCommands := []*cobra.Command{
+	objectRPCs := []*cobra.Command{
 		objectPutCmd,
 		objectDelCmd,
 		objectGetCmd,
@@ -29,9 +29,10 @@ func init() {
 		objectRangeCmd,
 		objectLockCmd}
 
-	Cmd.AddCommand(objectChildCommands...)
+	Cmd.AddCommand(objectNodesCmd)
+	Cmd.AddCommand(objectRPCs...)
 
-	for _, objCommand := range objectChildCommands {
+	for _, objCommand := range objectRPCs {
 		InitBearer(objCommand)
 		commonflags.InitAPI(objCommand)
 	}
@@ -44,4 +45,5 @@ func init() {
 	initObjectHashCmd()
 	initObjectRangeCmd()
 	initCommandObjectLock()
+	initObjectNodesCmd()
 }
