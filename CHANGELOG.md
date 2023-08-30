@@ -23,6 +23,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - `--lifetime` flag to `bearer create` and `object put` CLI commands  (#1574) 
 - `--expired-at` flag to `session create` and `storagegroup put` CLI commands (#1574)
 - Sessions to RPC server running in IR's local consensus mode (#2532)
+- `neofs-cli object nodes` command to get SNs for an object (#2512)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
