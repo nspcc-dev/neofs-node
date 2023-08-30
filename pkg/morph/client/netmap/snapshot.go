@@ -16,5 +16,5 @@ func (c *Client) GetNetMap(diff uint64) (*netmap.NetMap, error) {
 		return nil, err
 	}
 
-	return decodeNetMap(res)
+	return DecodeNetMap(res)
 }

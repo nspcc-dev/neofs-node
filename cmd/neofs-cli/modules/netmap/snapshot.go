@@ -1,6 +1,7 @@
 package netmap
 
 import (
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -24,7 +25,7 @@ var snapshotCmd = &cobra.Command{
 		res, err := internalclient.NetMapSnapshot(ctx, prm)
 		common.ExitOnErr(cmd, "rpc error: %w", err)
 
-		common.PrettyPrintNetMap(cmd, res.NetMap())
+		cmdprinter.PrettyPrintNetMap(cmd, res.NetMap())
 	},
 }
 

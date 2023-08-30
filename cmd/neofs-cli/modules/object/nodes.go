@@ -1,6 +1,7 @@
 package object
 
 import (
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -61,7 +62,7 @@ var objectNodesCmd = &cobra.Command{
 		for i := range placementNodes {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
 			for j := range placementNodes[i] {
-				common.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
+				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
 			}
 		}
 	},
