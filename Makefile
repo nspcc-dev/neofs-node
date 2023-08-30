@@ -16,7 +16,7 @@ RELEASE = release
 DIRS = $(BIN) $(RELEASE)
 
 # List of binaries to build.
-CMDS = $(notdir $(basename $(wildcard cmd/*)))
+CMDS = $(filter-out internal, $(notdir $(basename $(wildcard cmd/*))))
 BINS = $(addprefix $(BIN)/, $(CMDS))
 
 # .deb package versioning
