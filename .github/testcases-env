@@ -7,6 +7,9 @@ CA_CERTS_TRUSTED_STORE=./vendor/certs
 BASTION_VERSION=10
 BASTION_IMAGE=debian
 
+# Flag to enable metabase resync on start
+RESYNC_METABASE=false
+
 # NeoGo privnet
 #CHAIN_PATH="/path/to/devenv.dump.gz"
 CHAIN_URL="https://github.com/nspcc-dev/neofs-contract/releases/download/v0.17.0/devenv_mainchain.gz"
