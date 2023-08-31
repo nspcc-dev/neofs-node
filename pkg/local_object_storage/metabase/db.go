@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
@@ -111,11 +110,11 @@ func stringifyValue(key string, objVal []byte) string {
 	switch key {
 	default:
 		return string(objVal)
-	case v2object.FilterHeaderObjectID, v2object.FilterHeaderContainerID, v2object.FilterHeaderParent:
+	case object.FilterID, object.FilterContainerID, object.FilterParentID:
 		return base58.Encode(objVal)
-	case v2object.FilterHeaderPayloadHash, v2object.FilterHeaderHomomorphicHash:
+	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		return hex.EncodeToString(objVal)
-	case v2object.FilterHeaderCreationEpoch, v2object.FilterHeaderPayloadLength:
+	case object.FilterCreationEpoch, object.FilterPayloadSize:
 		return strconv.FormatUint(binary.LittleEndian.Uint64(objVal), 10)
 	}
 }
@@ -142,10 +141,10 @@ func destringifyValue(key, value string, prefix bool) ([]byte, bool, bool) {
 	switch key {
 	default:
 		return []byte(value), false, true
-	case v2object.FilterHeaderObjectID, v2object.FilterHeaderContainerID, v2object.FilterHeaderParent:
+	case object.FilterID, object.FilterContainerID, object.FilterParentID:
 		v, err := base58.Decode(value)
 		return v, false, err == nil
-	case v2object.FilterHeaderPayloadHash, v2object.FilterHeaderHomomorphicHash:
+	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		v, err := hex.DecodeString(value)
 		if err != nil {
 			if !prefix || len(value)%2 == 0 {
@@ -167,7 +166,7 @@ func destringifyValue(key, value string, prefix bool) ([]byte, bool, bool) {
 			return v, true, true
 		}
 		return v, false, err == nil
-	case v2object.FilterHeaderCreationEpoch, v2object.FilterHeaderPayloadLength:
+	case object.FilterCreationEpoch, object.FilterPayloadSize:
 		u, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
 			return nil, false, false
@@ -259,20 +258,20 @@ func unknownMatcherBucket(_ *bbolt.Bucket, _ string, _ string, _ func([]byte, []
 // in boltDB. Useful for getting filter values from unique and list indexes.
 func bucketKeyHelper(hdr string, val string) []byte {
 	switch hdr {
-	case v2object.FilterHeaderParent:
+	case object.FilterParentID:
 		v, err := base58.Decode(val)
 		if err != nil {
 			return nil
 		}
 		return v
-	case v2object.FilterHeaderPayloadHash:
+	case object.FilterPayloadChecksum:
 		v, err := hex.DecodeString(val)
 		if err != nil {
 			return nil
 		}
 
 		return v
-	case v2object.FilterHeaderSplitID:
+	case object.FilterSplitID:
 		s := object.NewSplitID()
 
 		err := s.Parse(val)

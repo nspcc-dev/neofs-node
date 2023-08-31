@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -173,27 +172,27 @@ func (db *DB) selectFastFilter(
 	currEpoch := db.epochState.CurrentEpoch()
 	bucketName := make([]byte, bucketKeySize)
 	switch f.Header() {
-	case v2object.FilterHeaderObjectID:
+	case object.FilterID:
 		db.selectObjectID(tx, f, cnr, to, fNum, currEpoch)
-	case v2object.FilterHeaderOwnerID:
+	case object.FilterOwnerID:
 		bucketName := ownerBucketName(cnr, bucketName)
 		db.selectFromFKBT(tx, bucketName, f, to, fNum)
-	case v2object.FilterHeaderPayloadHash:
+	case object.FilterPayloadChecksum:
 		bucketName := payloadHashBucketName(cnr, bucketName)
 		db.selectFromList(tx, bucketName, f, to, fNum)
-	case v2object.FilterHeaderObjectType:
+	case object.FilterType:
 		for _, bucketName := range bucketNamesForType(cnr, f.Operation(), f.Value()) {
 			selectAllFromBucket(tx, bucketName, to, fNum)
 		}
-	case v2object.FilterHeaderParent:
+	case object.FilterParentID:
 		bucketName := parentBucketName(cnr, bucketName)
 		db.selectFromList(tx, bucketName, f, to, fNum)
-	case v2object.FilterHeaderSplitID:
+	case object.FilterSplitID:
 		bucketName := splitBucketName(cnr, bucketName)
 		db.selectFromList(tx, bucketName, f, to, fNum)
-	case v2object.FilterPropertyRoot:
+	case object.FilterRoot:
 		selectAllFromBucket(tx, rootBucketName(cnr, bucketName), to, fNum)
-	case v2object.FilterPropertyPhy:
+	case object.FilterPhysical:
 		selectAllFromBucket(tx, primaryBucketName(cnr, bucketName), to, fNum)
 		selectAllFromBucket(tx, tombstoneBucketName(cnr, bucketName), to, fNum)
 		selectAllFromBucket(tx, storageGroupBucketName(cnr, bucketName), to, fNum)
@@ -210,10 +209,10 @@ func (db *DB) selectFastFilter(
 }
 
 var mBucketNaming = map[string][]func(cid.ID, []byte) []byte{
-	v2object.TypeRegular.String():      {primaryBucketName, parentBucketName},
-	v2object.TypeTombstone.String():    {tombstoneBucketName},
-	v2object.TypeStorageGroup.String(): {storageGroupBucketName},
-	v2object.TypeLock.String():         {bucketNameLockers},
+	object.TypeRegular.EncodeToString():      {primaryBucketName, parentBucketName},
+	object.TypeTombstone.EncodeToString():    {tombstoneBucketName},
+	object.TypeStorageGroup.EncodeToString(): {storageGroupBucketName},
+	object.TypeLock.EncodeToString():         {bucketNameLockers},
 }
 
 func allBucketNames(cnr cid.ID) (names [][]byte) {
@@ -481,15 +480,15 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFi
 		var data []byte
 
 		switch f[i].Header() {
-		case v2object.FilterHeaderVersion:
+		case object.FilterVersion:
 			data = []byte(obj.Version().String())
-		case v2object.FilterHeaderHomomorphicHash:
+		case object.FilterPayloadHomomorphicHash:
 			cs, _ := obj.PayloadHomomorphicHash()
 			data = cs.Value()
-		case v2object.FilterHeaderCreationEpoch:
+		case object.FilterCreationEpoch:
 			data = make([]byte, 8)
 			binary.LittleEndian.PutUint64(data, obj.CreationEpoch())
-		case v2object.FilterHeaderPayloadLength:
+		case object.FilterPayloadSize:
 			data = make([]byte, 8)
 			binary.LittleEndian.PutUint64(data, obj.PayloadSize())
 		default:
@@ -515,7 +514,7 @@ func groupFilters(filters object.SearchFilters) (filterGroup, error) {
 
 	for i := range filters {
 		switch filters[i].Header() {
-		case v2object.FilterHeaderContainerID: // support deprecated field
+		case object.FilterContainerID: // support deprecated field
 			err := res.cnr.DecodeString(filters[i].Value())
 			if err != nil {
 				return filterGroup{}, fmt.Errorf("can't parse container id: %w", err)
@@ -523,10 +522,10 @@ func groupFilters(filters object.SearchFilters) (filterGroup, error) {
 
 			res.withCnrFilter = true
 		case // slow filters
-			v2object.FilterHeaderVersion,
-			v2object.FilterHeaderCreationEpoch,
-			v2object.FilterHeaderPayloadLength,
-			v2object.FilterHeaderHomomorphicHash:
+			object.FilterVersion,
+			object.FilterCreationEpoch,
+			object.FilterPayloadSize,
+			object.FilterPayloadHomomorphicHash:
 			res.slowFilters = append(res.slowFilters, filters[i])
 		default: // fast filters or user attributes if unknown
 			res.fastFilters = append(res.fastFilters, filters[i])
@@ -545,7 +544,7 @@ func markAddressInCache(cache map[string]int, fNum int, addr string) {
 // returns true if query leads to a deliberately empty result.
 func blindlyProcess(fs object.SearchFilters) bool {
 	for i := range fs {
-		if fs[i].Operation() == object.MatchNotPresent && isSystemKey(fs[i].Header()) {
+		if fs[i].Operation() == object.MatchNotPresent && fs[i].IsNonAttribute() {
 			return true
 		}
 
@@ -554,12 +553,6 @@ func blindlyProcess(fs object.SearchFilters) bool {
 	}
 
 	return false
-}
-
-// returns true if string key is a reserved system filter key.
-func isSystemKey(key string) bool {
-	// FIXME: #1147 version-dependent approach
-	return strings.HasPrefix(key, v2object.ReservedFilterPrefix)
 }
 
 // FilterExpired filters expired object from `addresses` and return them.
@@ -606,7 +599,7 @@ func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
 
 func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid.ID, error) {
 	objKey := make([]byte, objectKeySize)
-	expAttr := v2object.SysAttributeExpEpoch
+	expAttr := object.AttributeExpirationEpoch
 	expirationBucketKey := make([]byte, bucketKeySize+len(expAttr))
 
 	res := make([]oid.ID, 0)
