@@ -445,7 +445,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 
 	var pInhume meta.InhumePrm
 	pInhume.SetAddresses(append(lockers, expired...)...)
-	pInhume.SetGCMark()
+	pInhume.SetForceGCMark()
 
 	res, err := s.metaBase.Inhume(pInhume)
 	if err != nil {
