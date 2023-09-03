@@ -28,6 +28,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - `neofs-adm morph netmap-candidates` CLI command (#1889)
 - SN network validation (is available by its announced addresses) on bootstrap by the IR (#2475)
 - Display of container alias fee info in `neofs-cli netmap netinfo` (#2553)
+- `neofs-lens storage inspect` CLI command (#1336)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)

@@ -4,12 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"sync"
 	atomicstd "sync/atomic"
 	"syscall"
@@ -31,6 +28,7 @@ import (
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/storage"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -42,7 +40,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	shardmode "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -99,82 +96,8 @@ type applicationConfiguration struct {
 	EngineCfg struct {
 		errorThreshold uint32
 		shardPoolSize  uint32
-		shards         []shardCfg
+		shards         []storage.ShardCfg
 	}
-}
-
-type shardCfg struct {
-	compress                  bool
-	smallSizeObjectLimit      uint64
-	uncompressableContentType []string
-	refillMetabase            bool
-	mode                      shardmode.Mode
-
-	metaCfg struct {
-		path          string
-		perm          fs.FileMode
-		maxBatchSize  int
-		maxBatchDelay time.Duration
-	}
-
-	subStorages []subStorageCfg
-
-	gcCfg struct {
-		removerBatchSize     int
-		removerSleepInterval time.Duration
-	}
-
-	writecacheCfg struct {
-		enabled          bool
-		path             string
-		maxBatchSize     int
-		maxBatchDelay    time.Duration
-		smallObjectSize  uint64
-		maxObjSize       uint64
-		flushWorkerCount int
-		sizeLimit        uint64
-		noSync           bool
-	}
-
-	piloramaCfg struct {
-		enabled       bool
-		path          string
-		perm          fs.FileMode
-		noSync        bool
-		maxBatchSize  int
-		maxBatchDelay time.Duration
-	}
-}
-
-// id returns persistent id of a shard. It is different from the ID used in runtime
-// and is primarily used to identify shards in the configuration.
-func (c *shardCfg) id() string {
-	// This calculation should be kept in sync with
-	// pkg/local_object_storage/engine/control.go file.
-	var sb strings.Builder
-	for i := range c.subStorages {
-		sb.WriteString(filepath.Clean(c.subStorages[i].path))
-	}
-	return sb.String()
-}
-
-type subStorageCfg struct {
-	// common for all storages
-	typ  string
-	path string
-	perm fs.FileMode
-
-	// tree-specific (FS and blobovnicza)
-	depth  uint64
-	noSync bool
-
-	// blobovnicza-specific
-	size            uint64
-	width           uint64
-	openedCacheSize int
-
-	// Peapod-specific
-	flushInterval time.Duration
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -207,29 +130,29 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
-		var sh shardCfg
+		var sh storage.ShardCfg
 
-		sh.refillMetabase = sc.RefillMetabase()
-		sh.mode = sc.Mode()
-		sh.compress = sc.Compress()
-		sh.uncompressableContentType = sc.UncompressableContentTypes()
-		sh.smallSizeObjectLimit = sc.SmallSizeLimit()
+		sh.RefillMetabase = sc.RefillMetabase()
+		sh.Mode = sc.Mode()
+		sh.Compress = sc.Compress()
+		sh.UncompressableContentType = sc.UncompressableContentTypes()
+		sh.SmallSizeObjectLimit = sc.SmallSizeLimit()
 
 		// write-cache
 
 		writeCacheCfg := sc.WriteCache()
 		if writeCacheCfg.Enabled() {
-			wc := &sh.writecacheCfg
+			wc := &sh.WritecacheCfg
 
-			wc.enabled = true
-			wc.path = writeCacheCfg.Path()
-			wc.maxBatchSize = writeCacheCfg.BoltDB().MaxBatchSize()
-			wc.maxBatchDelay = writeCacheCfg.BoltDB().MaxBatchDelay()
-			wc.maxObjSize = writeCacheCfg.MaxObjectSize()
-			wc.smallObjectSize = writeCacheCfg.SmallObjectSize()
-			wc.flushWorkerCount = writeCacheCfg.WorkersNumber()
-			wc.sizeLimit = writeCacheCfg.SizeLimit()
-			wc.noSync = writeCacheCfg.NoSync()
+			wc.Enabled = true
+			wc.Path = writeCacheCfg.Path()
+			wc.MaxBatchSize = writeCacheCfg.BoltDB().MaxBatchSize()
+			wc.MaxBatchDelay = writeCacheCfg.BoltDB().MaxBatchDelay()
+			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
+			wc.SmallObjectSize = writeCacheCfg.SmallObjectSize()
+			wc.FlushWorkerCount = writeCacheCfg.WorkersNumber()
+			wc.SizeLimit = writeCacheCfg.SizeLimit()
+			wc.NoSync = writeCacheCfg.NoSync()
 		}
 
 		// blobstor with substorages
@@ -241,39 +164,39 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 		if config.BoolSafe(c.Sub("tree"), "enabled") {
 			piloramaCfg := sc.Pilorama()
-			pr := &sh.piloramaCfg
+			pr := &sh.PiloramaCfg
 
-			pr.enabled = true
-			pr.path = piloramaCfg.Path()
-			pr.perm = piloramaCfg.Perm()
-			pr.noSync = piloramaCfg.NoSync()
-			pr.maxBatchSize = piloramaCfg.MaxBatchSize()
-			pr.maxBatchDelay = piloramaCfg.MaxBatchDelay()
+			pr.Enabled = true
+			pr.Path = piloramaCfg.Path()
+			pr.Perm = piloramaCfg.Perm()
+			pr.NoSync = piloramaCfg.NoSync()
+			pr.MaxBatchSize = piloramaCfg.MaxBatchSize()
+			pr.MaxBatchDelay = piloramaCfg.MaxBatchDelay()
 		}
 
-		ss := make([]subStorageCfg, 0, len(storagesCfg))
+		ss := make([]storage.SubStorageCfg, 0, len(storagesCfg))
 		for i := range storagesCfg {
-			var sCfg subStorageCfg
+			var sCfg storage.SubStorageCfg
 
-			sCfg.typ = storagesCfg[i].Type()
-			sCfg.path = storagesCfg[i].Path()
-			sCfg.perm = storagesCfg[i].Perm()
+			sCfg.Typ = storagesCfg[i].Type()
+			sCfg.Path = storagesCfg[i].Path()
+			sCfg.Perm = storagesCfg[i].Perm()
 
 			switch storagesCfg[i].Type() {
 			case blobovniczatree.Type:
 				sub := blobovniczaconfig.From((*config.Config)(storagesCfg[i]))
 
-				sCfg.size = sub.Size()
-				sCfg.depth = sub.ShallowDepth()
-				sCfg.width = sub.ShallowWidth()
-				sCfg.openedCacheSize = sub.OpenedCacheSize()
+				sCfg.Size = sub.Size()
+				sCfg.Depth = sub.ShallowDepth()
+				sCfg.Width = sub.ShallowWidth()
+				sCfg.OpenedCacheSize = sub.OpenedCacheSize()
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
-				sCfg.depth = sub.Depth()
-				sCfg.noSync = sub.NoSync()
+				sCfg.Depth = sub.Depth()
+				sCfg.NoSync = sub.NoSync()
 			case peapod.Type:
 				peapodCfg := peapodconfig.From((*config.Config)(storagesCfg[i]))
-				sCfg.flushInterval = peapodCfg.FlushInterval()
+				sCfg.FlushInterval = peapodCfg.FlushInterval()
 			default:
 				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
 			}
@@ -281,21 +204,21 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			ss = append(ss, sCfg)
 		}
 
-		sh.subStorages = ss
+		sh.SubStorages = ss
 
 		// meta
 
-		m := &sh.metaCfg
+		m := &sh.MetaCfg
 
-		m.path = metabaseCfg.Path()
-		m.perm = metabaseCfg.BoltDB().Perm()
-		m.maxBatchDelay = metabaseCfg.BoltDB().MaxBatchDelay()
-		m.maxBatchSize = metabaseCfg.BoltDB().MaxBatchSize()
+		m.Path = metabaseCfg.Path()
+		m.Perm = metabaseCfg.BoltDB().Perm()
+		m.MaxBatchDelay = metabaseCfg.BoltDB().MaxBatchDelay()
+		m.MaxBatchSize = metabaseCfg.BoltDB().MaxBatchSize()
 
 		// GC
 
-		sh.gcCfg.removerBatchSize = gcCfg.RemoverBatchSize()
-		sh.gcCfg.removerSleepInterval = gcCfg.RemoverSleepInterval()
+		sh.GcCfg.RemoverBatchSize = gcCfg.RemoverBatchSize()
+		sh.GcCfg.RemoverSleepInterval = gcCfg.RemoverSleepInterval()
 
 		a.EngineCfg.shards = append(a.EngineCfg.shards, sh)
 
@@ -689,65 +612,65 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 
 	for _, shCfg := range c.EngineCfg.shards {
 		var writeCacheOpts []writecache.Option
-		if wcRead := shCfg.writecacheCfg; wcRead.enabled {
+		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
-				writecache.WithPath(wcRead.path),
-				writecache.WithMaxBatchSize(wcRead.maxBatchSize),
-				writecache.WithMaxBatchDelay(wcRead.maxBatchDelay),
-				writecache.WithMaxObjectSize(wcRead.maxObjSize),
-				writecache.WithSmallObjectSize(wcRead.smallObjectSize),
-				writecache.WithFlushWorkersCount(wcRead.flushWorkerCount),
-				writecache.WithMaxCacheSize(wcRead.sizeLimit),
-				writecache.WithNoSync(wcRead.noSync),
+				writecache.WithPath(wcRead.Path),
+				writecache.WithMaxBatchSize(wcRead.MaxBatchSize),
+				writecache.WithMaxBatchDelay(wcRead.MaxBatchDelay),
+				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
+				writecache.WithSmallObjectSize(wcRead.SmallObjectSize),
+				writecache.WithFlushWorkersCount(wcRead.FlushWorkerCount),
+				writecache.WithMaxCacheSize(wcRead.SizeLimit),
+				writecache.WithNoSync(wcRead.NoSync),
 				writecache.WithLogger(c.log),
 			)
 		}
 
 		var piloramaOpts []pilorama.Option
-		if prRead := shCfg.piloramaCfg; prRead.enabled {
+		if prRead := shCfg.PiloramaCfg; prRead.Enabled {
 			piloramaOpts = append(piloramaOpts,
-				pilorama.WithPath(prRead.path),
-				pilorama.WithPerm(prRead.perm),
-				pilorama.WithNoSync(prRead.noSync),
-				pilorama.WithMaxBatchSize(prRead.maxBatchSize),
-				pilorama.WithMaxBatchDelay(prRead.maxBatchDelay),
+				pilorama.WithPath(prRead.Path),
+				pilorama.WithPerm(prRead.Perm),
+				pilorama.WithNoSync(prRead.NoSync),
+				pilorama.WithMaxBatchSize(prRead.MaxBatchSize),
+				pilorama.WithMaxBatchDelay(prRead.MaxBatchDelay),
 			)
 		}
 
 		var ss []blobstor.SubStorage
-		for _, sRead := range shCfg.subStorages {
-			switch sRead.typ {
+		for _, sRead := range shCfg.SubStorages {
+			switch sRead.Typ {
 			case blobovniczatree.Type:
 				ss = append(ss, blobstor.SubStorage{
 					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithRootPath(sRead.path),
-						blobovniczatree.WithPermissions(sRead.perm),
-						blobovniczatree.WithBlobovniczaSize(sRead.size),
-						blobovniczatree.WithBlobovniczaShallowDepth(sRead.depth),
-						blobovniczatree.WithBlobovniczaShallowWidth(sRead.width),
-						blobovniczatree.WithOpenedCacheSize(sRead.openedCacheSize),
+						blobovniczatree.WithRootPath(sRead.Path),
+						blobovniczatree.WithPermissions(sRead.Perm),
+						blobovniczatree.WithBlobovniczaSize(sRead.Size),
+						blobovniczatree.WithBlobovniczaShallowDepth(sRead.Depth),
+						blobovniczatree.WithBlobovniczaShallowWidth(sRead.Width),
+						blobovniczatree.WithOpenedCacheSize(sRead.OpenedCacheSize),
 
 						blobovniczatree.WithLogger(c.log)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.smallSizeObjectLimit
+						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
 					},
 				})
 			case fstree.Type:
 				ss = append(ss, blobstor.SubStorage{
 					Storage: fstree.New(
-						fstree.WithPath(sRead.path),
-						fstree.WithPerm(sRead.perm),
-						fstree.WithDepth(sRead.depth),
-						fstree.WithNoSync(sRead.noSync)),
+						fstree.WithPath(sRead.Path),
+						fstree.WithPerm(sRead.Perm),
+						fstree.WithDepth(sRead.Depth),
+						fstree.WithNoSync(sRead.NoSync)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
 					},
 				})
 			case peapod.Type:
 				ss = append(ss, blobstor.SubStorage{
-					Storage: peapod.New(sRead.path, sRead.perm, sRead.flushInterval),
+					Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.smallSizeObjectLimit
+						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
 					},
 				})
 			default:
@@ -757,23 +680,23 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		}
 
 		var sh shardOptsWithID
-		sh.configID = shCfg.id()
+		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
-			shard.WithRefillMetabase(shCfg.refillMetabase),
-			shard.WithMode(shCfg.mode),
+			shard.WithRefillMetabase(shCfg.RefillMetabase),
+			shard.WithMode(shCfg.Mode),
 			shard.WithBlobStorOptions(
-				blobstor.WithCompressObjects(shCfg.compress),
-				blobstor.WithUncompressableContentTypes(shCfg.uncompressableContentType),
+				blobstor.WithCompressObjects(shCfg.Compress),
+				blobstor.WithUncompressableContentTypes(shCfg.UncompressableContentType),
 				blobstor.WithStorages(ss),
 
 				blobstor.WithLogger(c.log),
 			),
 			shard.WithMetaBaseOptions(
-				meta.WithPath(shCfg.metaCfg.path),
-				meta.WithPermissions(shCfg.metaCfg.perm),
-				meta.WithMaxBatchSize(shCfg.metaCfg.maxBatchSize),
-				meta.WithMaxBatchDelay(shCfg.metaCfg.maxBatchDelay),
+				meta.WithPath(shCfg.MetaCfg.Path),
+				meta.WithPermissions(shCfg.MetaCfg.Perm),
+				meta.WithMaxBatchSize(shCfg.MetaCfg.MaxBatchSize),
+				meta.WithMaxBatchDelay(shCfg.MetaCfg.MaxBatchDelay),
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: 100 * time.Millisecond,
 				}),
@@ -782,10 +705,10 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				meta.WithEpochState(c.cfgNetmap.state),
 			),
 			shard.WithPiloramaOptions(piloramaOpts...),
-			shard.WithWriteCache(shCfg.writecacheCfg.enabled),
+			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
-			shard.WithRemoverBatchSize(shCfg.gcCfg.removerBatchSize),
-			shard.WithGCRemoverSleepInterval(shCfg.gcCfg.removerSleepInterval),
+			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),
+			shard.WithGCRemoverSleepInterval(shCfg.GcCfg.RemoverSleepInterval),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)
 				fatalOnErr(err)
@@ -1007,11 +930,11 @@ func writeSystemAttributes(c *cfg) error {
 
 	var paths []string
 	for _, sh := range c.applicationConfiguration.EngineCfg.shards {
-		for _, storage := range sh.subStorages {
-			path := storage.path
+		for _, subStorage := range sh.SubStorages {
+			path := subStorage.Path
 			paths = append(paths, path)
 
-			err := util.MkdirAllX(path, storage.perm)
+			err := util.MkdirAllX(path, subStorage.Perm)
 			if err != nil {
 				return fmt.Errorf("can not create (ensure it exists) dir by '%s' path: %w", path, err)
 			}
