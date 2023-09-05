@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +42,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 		force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 		if !(force || flagVarsSetEACL.noPreCheck) {
+			common.PrintVerbose(cmd, "Validating eACL table...")
+			err := util.ValidateEACLTable(eaclTable)
+			common.ExitOnErr(cmd, "table validation: %w", err)
+
 			cmd.Println("Checking the ability to modify access rights in the container...")
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
 
