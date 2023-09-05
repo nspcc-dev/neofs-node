@@ -40,6 +40,11 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
 
+	err = validateEACl(table)
+	if err != nil {
+		return fmt.Errorf("table validation: %w", err)
+	}
+
 	idCnr, ok := table.CID()
 	if !ok {
 		return errors.New("missing container ID in eACL table")
@@ -91,4 +96,16 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 			zap.String("error", err.Error()),
 		)
 	}
+}
+
+func validateEACl(t *eacl.Table) error {
+	for _, record := range t.Records() {
+		for _, target := range record.Targets() {
+			if target.Role() == eacl.RoleSystem {
+				return errors.New("it is prohibited to modify system access")
+			}
+		}
+	}
+
+	return nil
 }
