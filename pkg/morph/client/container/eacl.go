@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -86,12 +85,10 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 		}
 	}
 
-	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	var sigV2 refs.Signature
-	sigV2.SetKey(pub)
-	sigV2.SetSign(sig)
-	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
+	res.Signature, err = decodeSignature(pub, sig)
+	if err != nil {
+		return nil, fmt.Errorf("decode signature: %w", err)
+	}
 
-	err = res.Signature.ReadFromV2(sigV2)
-	return &res, err
+	return &res, nil
 }

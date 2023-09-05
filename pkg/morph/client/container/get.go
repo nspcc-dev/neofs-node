@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	containerContract "github.com/nspcc-dev/neofs-contract/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -102,12 +101,10 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 		}
 	}
 
-	// TODO(@cthulhu-rider): #1387 implement and use another approach to avoid conversion
-	var sigV2 refs.Signature
-	sigV2.SetKey(pub)
-	sigV2.SetSign(sigBytes)
-	sigV2.SetScheme(refs.ECDSA_RFC6979_SHA256)
+	cnr.Signature, err = decodeSignature(pub, sigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("decode signature: %w", err)
+	}
 
-	err = cnr.Signature.ReadFromV2(sigV2)
-	return &cnr, err
+	return &cnr, nil
 }
