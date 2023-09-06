@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -30,8 +31,13 @@ const defaultLifetime = 10
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create session token",
-	Args:  cobra.NoArgs,
-	Run:   createSession,
+	Long: `Create session token.
+
+Default lifetime of session token is ` + strconv.Itoa(defaultLifetime) + ` epochs 
+if none of --` + commonflags.ExpireAt + ` or --` + commonflags.Lifetime + ` flags is specified. 
+`,
+	Args: cobra.NoArgs,
+	Run:  createSession,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		_ = viper.BindPFlag(commonflags.WalletPath, cmd.Flags().Lookup(commonflags.WalletPath))
 		_ = viper.BindPFlag(commonflags.Account, cmd.Flags().Lookup(commonflags.Account))
@@ -69,12 +75,9 @@ func createSession(cmd *cobra.Command, _ []string) {
 	currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
 	common.ExitOnErr(cmd, "can't get current epoch: %w", err)
 
-	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
-	lifetime := uint64(defaultLifetime)
-	if lfArg, _ := cmd.Flags().GetUint64(commonflags.Lifetime); lfArg != 0 {
-		exp = currEpoch + lfArg
-	}
-	if exp == 0 {
+	var exp uint64
+	if exp, _ = cmd.Flags().GetUint64(commonflags.ExpireAt); exp == 0 {
+		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 		exp = currEpoch + lifetime
 	}
 	if exp <= currEpoch {
