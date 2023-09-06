@@ -30,7 +30,7 @@ func inspectFunc(cmd *cobra.Command, _ []string) {
 	err := addr.DecodeString(vAddress)
 	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
 
-	db := openMeta(cmd)
+	db := openMeta(cmd, true)
 	defer db.Close()
 
 	storageID := meta.StorageIDPrm{}

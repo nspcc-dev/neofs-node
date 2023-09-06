@@ -9,6 +9,7 @@ const (
 	flagEnginePath = "path"
 	flagOutFile    = "out"
 	flagConfigFile = "config"
+	flagInFile     = "obj"
 )
 
 // AddAddressFlag adds the address flag to the passed cobra command.
@@ -45,4 +46,12 @@ func AddConfigFileFlag(cmd *cobra.Command, v *string) {
 
 func AddPayloadOnlyFlag(cmd *cobra.Command, v *bool) {
 	cmd.Flags().BoolVar(v, "payload-only", false, "Save only object payload")
+}
+
+// AddInputPathFile adds the input file with object flag to the passed cobra command.
+func AddInputPathFile(cmd *cobra.Command, v *string) {
+	cmd.Flags().StringVar(v, flagInFile, "",
+		"Path to file with object")
+	_ = cmd.MarkFlagFilename(flagInFile)
+	_ = cmd.MarkFlagRequired(flagInFile)
 }
