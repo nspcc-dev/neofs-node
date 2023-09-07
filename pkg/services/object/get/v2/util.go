@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -70,7 +71,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 		var onceHeaderSending sync.Once
 		var globalProgress int
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(ctx context.Context, addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -245,7 +246,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			return nil, err
 		}
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(ctx context.Context, addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			// once compose and resign forwarding request
@@ -405,6 +406,62 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 		})
 	}
 
+	if !commonPrm.LocalOnly() {
+		var onceResign sync.Once
+		var key *ecdsa.PrivateKey
+
+		key, err = s.keyStorage.GetKey(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		p.SetRangeRequestForwarder(groupAddressRequestForwarder(func(ctx context.Context, addr network.Address, c client.MultiAddressClient, pubkey []byte) ([][]byte, error) {
+			meta := req.GetMetaHeader()
+
+			// once compose and resign forwarding request
+			onceResign.Do(func() {
+				// compose meta header of the local server
+				metaHdr := new(session.RequestMetaHeader)
+				metaHdr.SetTTL(meta.GetTTL() - 1)
+				// TODO: #1165 think how to set the other fields
+				metaHdr.SetOrigin(meta)
+				writeCurrentVersion(metaHdr)
+
+				req.SetMetaHeader(metaHdr)
+
+				err = signature.SignServiceMessage(key, req)
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			var resp *objectV2.GetRangeHashResponse
+			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
+				resp, err = rpc.HashObjectRange(cli, req, rpcclient.WithContext(ctx))
+				return err
+			})
+			if err != nil {
+				return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
+			}
+
+			// verify response key
+			if err = internal.VerifyResponseKeyV2(pubkey, resp); err != nil {
+				return nil, err
+			}
+
+			// verify response structure
+			if err := signature.VerifyServiceMessage(resp); err != nil {
+				return nil, fmt.Errorf("could not verify %T: %w", resp, err)
+			}
+
+			if err = checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+				return nil, err
+			}
+
+			return resp.GetBody().GetHashList(), nil
+		}))
+	}
+
 	return p, nil
 }
 
@@ -459,7 +516,7 @@ func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp
 	if !commonPrm.LocalOnly() {
 		var onceResign sync.Once
 
-		p.SetRequestForwarder(groupAddressRequestForwarder(func(addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
+		p.SetRequestForwarder(groupAddressRequestForwarder(func(ctx context.Context, addr network.Address, c client.MultiAddressClient, pubkey []byte) (*object.Object, error) {
 			var err error
 
 			key, err := s.keyStorage.GetKey(nil)
@@ -654,11 +711,11 @@ func toShortObjectHeader(hdr *object.Object) objectV2.GetHeaderPart {
 	return sh
 }
 
-func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) (*object.Object, error)) getsvc.RequestForwarder {
-	return func(info client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
+func groupAddressRequestForwarder[V any](f func(context.Context, network.Address, client.MultiAddressClient, []byte) (V, error)) func(context.Context, client.NodeInfo, client.MultiAddressClient) (V, error) {
+	return func(ctx context.Context, info client.NodeInfo, c client.MultiAddressClient) (V, error) {
 		var (
 			firstErr error
-			res      *object.Object
+			res      V
 
 			key = info.PublicKey()
 		)
@@ -676,7 +733,7 @@ func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressCli
 				// would be nice to log otherwise
 			}()
 
-			res, err = f(addr, c, key)
+			res, err = f(ctx, addr, c, key)
 
 			return
 		})

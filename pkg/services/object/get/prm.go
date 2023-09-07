@@ -1,6 +1,7 @@
 package getsvc
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"hash"
@@ -21,6 +22,8 @@ type RangePrm struct {
 	commonPrm
 
 	rng *object.Range
+
+	forwardedRangeHashResponse [][]byte
 }
 
 var (
@@ -58,7 +61,8 @@ type RangeHashPrm struct {
 	salt []byte
 }
 
-type RequestForwarder func(coreclient.NodeInfo, coreclient.MultiAddressClient) (*object.Object, error)
+type RequestForwarder func(context.Context, coreclient.NodeInfo, coreclient.MultiAddressClient) (*object.Object, error)
+type RangeRequestForwarder func(context.Context, coreclient.NodeInfo, coreclient.MultiAddressClient) ([][]byte, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {
@@ -74,7 +78,8 @@ type commonPrm struct {
 
 	raw bool
 
-	forwarder RequestForwarder
+	forwarder      RequestForwarder
+	rangeForwarder RangeRequestForwarder
 
 	// signerKey is a cached key that should be used for spawned
 	// requests (if any), could be nil if incoming request handling
@@ -139,6 +144,10 @@ func (p *commonPrm) SetCommonParameters(common *util.CommonPrm) {
 
 func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
 	p.forwarder = f
+}
+
+func (p *commonPrm) SetRangeRequestForwarder(f RangeRequestForwarder) {
+	p.rangeForwarder = f
 }
 
 // WithAddress sets object address to be read.
