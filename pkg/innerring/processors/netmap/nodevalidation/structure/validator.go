@@ -1,7 +1,7 @@
-package maddress
+package structure
 
-// Validator is an utility that verifies node
-// multiaddress.
+// Validator is a utility that verifies announced node
+// structure.
 //
 // For correct operation, the Validator must be created
 // using the constructor (New). After successful creation,

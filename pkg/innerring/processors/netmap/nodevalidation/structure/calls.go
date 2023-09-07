@@ -1,4 +1,4 @@
-package maddress
+package structure
 
 import (
 	"fmt"
@@ -14,5 +14,12 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 		return fmt.Errorf("could not verify multiaddress: %w", err)
 	}
 
-	return nil
+	attrM := make(map[string]struct{}, n.NumberOfAttributes())
+	n.IterateAttributes(func(key, _ string) {
+		if _, alreadyHave := attrM[key]; alreadyHave {
+			err = fmt.Errorf("repeating node attribute: '%s'", key)
+		}
+	})
+
+	return err
 }
