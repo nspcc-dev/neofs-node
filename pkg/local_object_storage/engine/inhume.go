@@ -181,6 +181,18 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
 func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
+	var res bool
+	var err error
+
+	err = e.execIfNotBlocked(func() error {
+		res, err = e.isLocked(addr)
+		return err
+	})
+
+	return res, err
+}
+
+func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	var locked bool
 	var err error
 	var outErr error
