@@ -26,6 +26,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - `neofs-cli object nodes` command to get SNs for an object (#2512)
 - Fetching container estimations via iterators to prevent NeoVM stack overflow (#2173)
 - `neofs-adm morph netmap-candidates` CLI command (#1889)
+- SN network validation (is available by its announced addresses) on bootstrap by the IR (#2475)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)

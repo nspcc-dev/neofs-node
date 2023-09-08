@@ -23,8 +23,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/neofs"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
-	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/maddress"
+	availabilityvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/availability"
 	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
+	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	auditSettlement "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
@@ -754,6 +755,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			&netMapCandidateStateValidator,
 			addrvalidator.New(),
 			locodeValidator,
+			availabilityvalidator.New(),
 		),
 		NodeStateSettings: netSettings,
 	})
