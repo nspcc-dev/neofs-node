@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -559,4 +560,101 @@ func blindlyProcess(fs object.SearchFilters) bool {
 func isSystemKey(key string) bool {
 	// FIXME: #1147 version-dependent approach
 	return strings.HasPrefix(key, v2object.ReservedFilterPrefix)
+}
+
+// FilterExpired filters expired object from `addresses` and return them.
+// Uses internal epoch state provided via the [WithEpochState] option.
+func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
+	epoch := db.epochState.CurrentEpoch()
+	res := make([]oid.Address, 0)
+	cIDToOIDs := make(map[cid.ID][]oid.ID)
+	for _, a := range addresses {
+		cIDToOIDs[a.Container()] = append(cIDToOIDs[a.Container()], a.Object())
+	}
+
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		for cID, oIDs := range cIDToOIDs {
+			expired, err := filterExpired(tx, epoch, cID, oIDs)
+			if err != nil {
+				return err
+			}
+
+			for _, oID := range expired {
+				var a oid.Address
+				a.SetContainer(cID)
+				a.SetObject(oID)
+
+				res = append(res, a)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid.ID, error) {
+	objKey := make([]byte, objectKeySize)
+	expAttr := v2object.SysAttributeExpEpoch
+	expirationBucketKey := make([]byte, bucketKeySize+len(expAttr))
+
+	res := make([]oid.ID, 0)
+	notHandled := sliceToMap(oIDs)
+	expirationBucket := tx.Bucket(attributeBucketName(cID, expAttr, expirationBucketKey))
+	if expirationBucket == nil {
+		return nil, nil
+	}
+
+	err := expirationBucket.ForEach(func(expBktKey, _ []byte) error {
+		exp, err := strconv.ParseUint(string(expBktKey), 10, 64)
+		if err != nil {
+			return fmt.Errorf("could not parse expiration epoch: %w", err)
+		} else if exp >= epoch {
+			return nil
+		}
+
+		epochExpirationBucket := expirationBucket.Bucket(expBktKey)
+		if epochExpirationBucket == nil {
+			return nil
+		}
+
+		for oID := range notHandled {
+			key := objectKey(oID, objKey)
+			if epochExpirationBucket.Get(key) != nil {
+				delete(notHandled, oID)
+				res = append(res, oID)
+			}
+		}
+
+		if len(notHandled) == 0 {
+			return errBreakBucketForEach
+		}
+
+		return nil
+	})
+	if err != nil && !errors.Is(err, errBreakBucketForEach) {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func sliceToMap[V comparable](s []V) map[V]struct{} {
+	res := make(map[V]struct{}, len(s))
+	for _, v := range s {
+		res[v] = struct{}{}
+	}
+
+	return res
 }

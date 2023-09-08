@@ -81,7 +81,7 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 
 	for i := range prm.addrs {
 		if !prm.forceRemoval {
-			locked, err := e.isLocked(prm.addrs[i])
+			locked, err := e.IsLocked(prm.addrs[i])
 			if err != nil {
 				e.log.Warn("removing an object without full locking check",
 					zap.Error(err),
@@ -177,6 +177,19 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 	})
 
 	return ok, retErr
+}
+
+// IsLocked checks whether an object is locked according to StorageEngine's state.
+func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
+	var res bool
+	var err error
+
+	err = e.execIfNotBlocked(func() error {
+		res, err = e.isLocked(addr)
+		return err
+	})
+
+	return res, err
 }
 
 func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {

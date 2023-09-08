@@ -20,6 +20,8 @@ type ObjectStorage interface {
 	// Lock must lock passed objects
 	// and return any appeared error.
 	Lock(locker oid.Address, toLock []oid.ID) error
+	// IsLocked must clarify object's lock status.
+	IsLocked(oid.Address) (bool, error)
 }
 
 type localTarget struct {

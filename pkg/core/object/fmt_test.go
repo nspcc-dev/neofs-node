@@ -35,13 +35,26 @@ func (s testNetState) CurrentEpoch() uint64 {
 	return s.epoch
 }
 
+type testLockSource struct {
+	m map[oid.Address]bool
+}
+
+func (t testLockSource) IsLocked(address oid.Address) (bool, error) {
+	return t.m[address], nil
+}
+
 func TestFormatValidator_Validate(t *testing.T) {
 	const curEpoch = 13
+
+	ls := testLockSource{
+		m: make(map[oid.Address]bool),
+	}
 
 	v := NewFormatValidator(
 		WithNetState(testNetState{
 			epoch: curEpoch,
 		}),
+		WithLockSource(ls),
 	)
 
 	ownerKey, err := keys.NewPrivateKey()
@@ -225,8 +238,25 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		t.Run("expired object", func(t *testing.T) {
 			val := strconv.FormatUint(curEpoch-1, 10)
-			err := v.Validate(fn(val), false)
-			require.ErrorIs(t, err, errExpired)
+			obj := fn(val)
+
+			t.Run("non-locked", func(t *testing.T) {
+				err := v.Validate(obj, false)
+				require.ErrorIs(t, err, errExpired)
+			})
+
+			t.Run("locked", func(t *testing.T) {
+				var addr oid.Address
+				oID, _ := obj.ID()
+				cID, _ := obj.ContainerID()
+
+				addr.SetContainer(cID)
+				addr.SetObject(oID)
+				ls.m[addr] = true
+
+				err := v.Validate(obj, false)
+				require.NoError(t, err)
+			})
 		})
 
 		t.Run("alive object", func(t *testing.T) {

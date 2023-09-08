@@ -23,6 +23,7 @@ type FormatValidatorOption func(*cfg)
 
 type cfg struct {
 	netState netmap.State
+	e        LockSource
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -32,6 +33,12 @@ type DeleteHandler interface {
 	// Returns apistatus.LockNonRegularObject if at least one object
 	// is locked.
 	DeleteObjects(oid.Address, ...oid.Address) error
+}
+
+// LockSource is a source of lock relations between the objects.
+type LockSource interface {
+	// IsLocked must clarify object's lock status.
+	IsLocked(address oid.Address) (bool, error)
 }
 
 // Locker is an object lock storage interface.
@@ -286,7 +293,24 @@ func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 	}
 
 	if exp < v.netState.CurrentEpoch() {
-		return errExpired
+		// an object could be expired but locked;
+		// put such an object is a correct operation
+
+		cID, _ := obj.ContainerID()
+		oID, _ := obj.ID()
+
+		var addr oid.Address
+		addr.SetContainer(cID)
+		addr.SetObject(oID)
+
+		locked, err := v.e.IsLocked(addr)
+		if err != nil {
+			return fmt.Errorf("locking status check for an expired object: %w", err)
+		}
+
+		if !locked {
+			return errExpired
+		}
 	}
 
 	return nil
@@ -345,5 +369,12 @@ func (v *FormatValidator) checkOwner(obj *object.Object) error {
 func WithNetState(netState netmap.State) FormatValidatorOption {
 	return func(c *cfg) {
 		c.netState = netState
+	}
+}
+
+// WithLockSource return option to set a Locked objects source.
+func WithLockSource(e LockSource) FormatValidatorOption {
+	return func(c *cfg) {
+		c.e = e
 	}
 }
