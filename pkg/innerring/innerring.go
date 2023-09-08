@@ -754,8 +754,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		NodeValidator: nodevalidator.New(
 			&netMapCandidateStateValidator,
 			addrvalidator.New(),
-			locodeValidator,
 			availabilityvalidator.New(),
+			locodeValidator,
 		),
 		NodeStateSettings: netSettings,
 	})
