@@ -1,10 +1,7 @@
 package peapod_test
 
 import (
-	"crypto/rand"
-	"fmt"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -243,60 +240,6 @@ func TestPeapod_Delete(t *testing.T) {
 		})
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
-}
-
-func benchmark(b *testing.B, ppd *peapod.Peapod, objSize uint64, nThreads int) {
-	data := make([]byte, objSize)
-	rand.Read(data)
-
-	prm := common.PutPrm{
-		RawData: data,
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		var wg sync.WaitGroup
-
-		for i := 0; i < nThreads; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				prm := prm
-				prm.Address = oidtest.Address()
-
-				_, err := ppd.Put(prm)
-				require.NoError(b, err)
-			}()
-		}
-
-		wg.Wait()
-	}
-}
-
-func BenchmarkPeapod_Put(b *testing.B) {
-	ppd := newTestPeapod(b)
-
-	for _, tc := range []struct {
-		objSize  uint64
-		nThreads int
-	}{
-		{1, 1},
-		{1, 20},
-		{1, 100},
-		{1 << 10, 1},
-		{1 << 10, 20},
-		{1 << 10, 100},
-		{100 << 10, 1},
-		{100 << 10, 20},
-		{100 << 10, 100},
-	} {
-		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
-			benchmark(b, ppd, tc.objSize, tc.nThreads)
-		})
-	}
 }
 
 func TestPeapod_IterateAddresses(t *testing.T) {
