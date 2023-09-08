@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
@@ -130,12 +131,18 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 const pingTimeout = 15 * time.Second
 
 func createSDKClient(e string) (*client.Client, error) {
+	var a network.Address
+	err := a.FromString(e)
+	if err != nil {
+		return nil, fmt.Errorf("parsing address: %w", err)
+	}
+
 	var prmInit client.PrmInit
 	var prmDial client.PrmDial
 
 	prmDial.SetTimeout(pingTimeout)
 	prmDial.SetStreamTimeout(pingTimeout)
-	prmDial.SetServerURI(e)
+	prmDial.SetServerURI(a.URIAddr())
 
 	c, err := client.New(prmInit)
 	if err != nil {
