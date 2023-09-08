@@ -56,7 +56,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - CLI `neofs-cli container set-eacl` checks container's ownership (#2436)
 
 ### Updated
-- `neofs-sdk-go` to `v1.0.0-rc.10`
+- `neofs-sdk-go` to `v1.0.0-rc.11`
 
 ### Updating from v0.37.0
 CLI command timeouts (flag `--timeout`) now limit the total command execution

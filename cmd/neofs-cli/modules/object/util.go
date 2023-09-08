@@ -405,7 +405,7 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 		common.PrintVerbose(cmd, "Collecting split members by split ID...")
 
 		var query object.SearchFilters
-		query.AddSplitIDFilter(object.MatchStringEqual, idSplit)
+		query.AddSplitIDFilter(object.MatchStringEqual, *idSplit)
 
 		var prm internal.SearchObjectsPrm
 		prm.SetContainerID(cnr)

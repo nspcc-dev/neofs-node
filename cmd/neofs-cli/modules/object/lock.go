@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -72,7 +71,7 @@ var objectLockCmd = &cobra.Command{
 		common.PrintVerbose(cmd, "Lock object will expire after %d epoch", exp)
 
 		var expirationAttr objectSDK.Attribute
-		expirationAttr.SetKey(objectV2.SysAttributeExpEpoch)
+		expirationAttr.SetKey(objectSDK.AttributeExpirationEpoch)
 		expirationAttr.SetValue(strconv.FormatUint(exp, 10))
 
 		obj := objectSDK.New()

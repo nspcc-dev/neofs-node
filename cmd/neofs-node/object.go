@@ -37,7 +37,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -460,7 +459,7 @@ func (c *reputationClient) GetObjectInit(ctx context.Context, containerID cid.ID
 	return hdr, rdr, err
 }
 
-func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*client.ResObjectHead, error) {
+func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*objectSDK.Object, error) {
 	res, err := c.MultiAddressClient.ObjectHead(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)
@@ -468,7 +467,7 @@ func (c *reputationClient) ObjectHead(ctx context.Context, containerID cid.ID, o
 	return res, err
 }
 
-func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer neofscrypto.Signer, prm client.PrmObjectHash) ([][]byte, error) {
+func (c *reputationClient) ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHash) ([][]byte, error) {
 	res, err := c.MultiAddressClient.ObjectHash(ctx, containerID, objectID, signer, prm)
 
 	c.submitResult(err)

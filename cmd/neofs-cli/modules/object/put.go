@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cheggaaa/pb"
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -116,7 +115,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 		expAttrValue := strconv.FormatUint(expiresOn, 10)
 
 		for i := range attrs {
-			if attrs[i].Key() == objectV2.SysAttributeExpEpoch {
+			if attrs[i].Key() == object.AttributeExpirationEpoch {
 				attrs[i].SetValue(expAttrValue)
 				expAttrFound = true
 				break
@@ -126,7 +125,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 		if !expAttrFound {
 			index := len(attrs)
 			attrs = append(attrs, object.Attribute{})
-			attrs[index].SetKey(objectV2.SysAttributeExpEpoch)
+			attrs[index].SetKey(object.AttributeExpirationEpoch)
 			attrs[index].SetValue(expAttrValue)
 		}
 	}

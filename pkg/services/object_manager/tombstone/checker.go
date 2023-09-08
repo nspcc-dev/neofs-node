@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -72,7 +71,7 @@ func (g *ExpirationChecker) IsTombstoneAvailable(ctx context.Context, a oid.Addr
 
 func (g *ExpirationChecker) handleTS(addr oid.Address, ts *object.Object, reqEpoch uint64) bool {
 	for _, atr := range ts.Attributes() {
-		if atr.Key() == objectV2.SysAttributeExpEpoch {
+		if atr.Key() == object.AttributeExpirationEpoch {
 			epoch, err := strconv.ParseUint(atr.Value(), 10, 64)
 			if err != nil {
 				g.log.Warn(

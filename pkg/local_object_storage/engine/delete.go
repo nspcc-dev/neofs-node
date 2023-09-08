@@ -113,13 +113,15 @@ func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
 	}
 
 	if splitInfo != nil {
-		e.deleteChildren(prm.addr, prm.forceRemoval, splitInfo.SplitID())
+		if splitID := splitInfo.SplitID(); splitID != nil {
+			e.deleteChildren(prm.addr, prm.forceRemoval, *splitID)
+		}
 	}
 
 	return DeleteRes{}, nil
 }
 
-func (e *StorageEngine) deleteChildren(addr oid.Address, force bool, splitID *objectSDK.SplitID) {
+func (e *StorageEngine) deleteChildren(addr oid.Address, force bool, splitID objectSDK.SplitID) {
 	var fs objectSDK.SearchFilters
 	fs.AddSplitIDFilter(objectSDK.MatchStringEqual, splitID)
 

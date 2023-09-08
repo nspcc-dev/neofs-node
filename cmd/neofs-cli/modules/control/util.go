@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"errors"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
 )
 
@@ -41,14 +41,10 @@ func verifyResponse(cmd *cobra.Command,
 		common.ExitOnErr(cmd, "", errors.New("missing response signature"))
 	}
 
-	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
-	var sigV2 refs.Signature
-	sigV2.SetScheme(refs.ECDSA_SHA512)
-	sigV2.SetKey(sigControl.GetKey())
-	sigV2.SetSign(sigControl.GetSign())
+	var pubKey neofsecdsa.PublicKey
+	common.ExitOnErr(cmd, "decode public key from signature: %w", pubKey.Decode(sigControl.GetKey()))
 
-	var sig neofscrypto.Signature
-	common.ExitOnErr(cmd, "can't read signature: %w", sig.ReadFromV2(sigV2))
+	sig := neofscrypto.NewSignature(neofscrypto.ECDSA_SHA512, &pubKey, sigControl.GetSign())
 
 	if !sig.Verify(body.StableMarshal(nil)) {
 		common.ExitOnErr(cmd, "", errors.New("invalid response signature"))

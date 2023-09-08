@@ -1,11 +1,11 @@
 package meta_test
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
 	"testing"
 
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cidSDK "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -14,6 +14,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -196,10 +197,6 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(small),
 			object.AddressOf(parent),
 		)
-
-		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterPropertyRoot, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("phy objects", func(t *testing.T) {
@@ -214,15 +211,11 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 			object.AddressOf(link),
 			object.AddressOf(lock),
 		)
-
-		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterPropertyPhy, "", objectSDK.MatchNotPresent)
-		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("regular objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeRegular.String(), objectSDK.MatchStringEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeRegular)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
@@ -232,7 +225,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeRegular.String(), objectSDK.MatchStringNotEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringNotEqual, objectSDK.TypeRegular)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(ts),
 			object.AddressOf(sg),
@@ -240,17 +233,17 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterType, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("tombstone objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeTombstone.String(), objectSDK.MatchStringEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeTombstone)
 		testSelect(t, db, cnr, fs, object.AddressOf(ts))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeTombstone.String(), objectSDK.MatchStringNotEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringNotEqual, objectSDK.TypeTombstone)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
@@ -262,17 +255,17 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterType, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("storage group objects", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeStorageGroup.String(), objectSDK.MatchStringEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeStorageGroup)
 		testSelect(t, db, cnr, fs, object.AddressOf(sg))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, v2object.TypeStorageGroup.String(), objectSDK.MatchStringNotEqual)
+		fs.AddTypeFilter(objectSDK.MatchStringNotEqual, objectSDK.TypeStorageGroup)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(small),
 			object.AddressOf(leftChild),
@@ -284,7 +277,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderObjectType, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterType, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
 	})
 
@@ -292,9 +285,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		idParent, _ := parent.ID()
 
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderParent,
-			idParent.EncodeToString(),
-			objectSDK.MatchStringEqual)
+		fs.AddParentIDFilter(objectSDK.MatchStringEqual, idParent)
 
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(rightChild),
@@ -302,7 +293,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderParent, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterParentID, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
 	})
 
@@ -367,31 +358,28 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	require.NoError(t, err)
 
 	cs, _ := raw1.PayloadChecksum()
-	payloadHash := hex.EncodeToString(cs.Value())
+	var payloadHash [sha256.Size]byte
+	copy(payloadHash[:], cs.Value())
 
 	fs := objectSDK.SearchFilters{}
-	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		payloadHash,
-		objectSDK.MatchStringEqual)
+	fs.AddPayloadHashFilter(objectSDK.MatchStringEqual, payloadHash)
 
 	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 	fs = objectSDK.SearchFilters{}
-	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		payloadHash[:len(payloadHash)-1],
+	fs.AddFilter(objectSDK.FilterPayloadChecksum,
+		hex.EncodeToString(payloadHash[:len(payloadHash)-1]),
 		objectSDK.MatchCommonPrefix)
 
 	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 	fs = objectSDK.SearchFilters{}
-	fs.AddFilter(v2object.FilterHeaderPayloadHash,
-		payloadHash,
-		objectSDK.MatchStringNotEqual)
+	fs.AddPayloadHashFilter(objectSDK.MatchStringNotEqual, payloadHash)
 
 	testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 	fs = objectSDK.SearchFilters{}
-	fs.AddFilter(v2object.FilterHeaderPayloadHash,
+	fs.AddFilter(objectSDK.FilterPayloadChecksum,
 		"",
 		objectSDK.MatchNotPresent)
 
@@ -399,23 +387,14 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 
 	t.Run("invalid hashes", func(t *testing.T) {
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadHash,
-			payloadHash[:len(payloadHash)-1],
-			objectSDK.MatchStringNotEqual)
+		otherHash := payloadHash
+		otherHash[0]++
+		fs.AddPayloadHashFilter(objectSDK.MatchStringNotEqual, otherHash)
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw1), object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadHash,
-			payloadHash[:len(payloadHash)-2]+"x",
-			objectSDK.MatchCommonPrefix)
-
-		testSelect(t, db, cnr, fs)
-
-		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadHash,
-			payloadHash[:len(payloadHash)-3]+"x0",
-			objectSDK.MatchCommonPrefix)
+		fs.AddPayloadHashFilter(objectSDK.MatchCommonPrefix, otherHash)
 
 		testSelect(t, db, cnr, fs)
 	})
@@ -449,23 +428,21 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 
 	t.Run("object with TZHash", func(t *testing.T) {
 		cs, _ := raw1.PayloadHomomorphicHash()
+		var homoHash [tz.Size]byte
+		copy(homoHash[:], cs.Value())
 
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
-			hex.EncodeToString(cs.Value()),
-			objectSDK.MatchStringEqual)
+		fs.AddHomomorphicHashFilter(objectSDK.MatchStringEqual, homoHash)
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
-			hex.EncodeToString(cs.Value()),
-			objectSDK.MatchStringNotEqual)
+		fs.AddHomomorphicHashFilter(objectSDK.MatchStringNotEqual, homoHash)
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderHomomorphicHash,
+		fs.AddFilter(objectSDK.FilterPayloadHomomorphicHash,
 			"",
 			objectSDK.MatchNotPresent)
 
@@ -474,39 +451,39 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 
 	t.Run("object with payload length", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadLength, "20", objectSDK.MatchStringEqual)
+		fs.AddPayloadSizeFilter(objectSDK.MatchStringEqual, raw2.PayloadSize())
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadLength, "20", objectSDK.MatchStringNotEqual)
+		fs.AddPayloadSizeFilter(objectSDK.MatchStringNotEqual, raw2.PayloadSize())
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderPayloadLength, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterPayloadSize, "", objectSDK.MatchNotPresent)
 
 		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("object with creation epoch", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "11", objectSDK.MatchStringEqual)
+		fs.AddCreationEpochFilter(objectSDK.MatchStringEqual, raw1.CreationEpoch())
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "11", objectSDK.MatchStringNotEqual)
+		fs.AddCreationEpochFilter(objectSDK.MatchStringNotEqual, raw1.CreationEpoch())
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterCreationEpoch, "", objectSDK.MatchNotPresent)
 
 		testSelect(t, db, cnr, fs)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderCreationEpoch, "1", objectSDK.MatchCommonPrefix)
+		fs.AddCreationEpochFilter(objectSDK.MatchCommonPrefix, 1)
 
 		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
 	})
@@ -688,34 +665,26 @@ func TestDB_SelectSplitID(t *testing.T) {
 
 	t.Run("not present", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderSplitID, "", objectSDK.MatchNotPresent)
+		fs.AddFilter(objectSDK.FilterSplitID, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("split id", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderSplitID, split1.String(), objectSDK.MatchStringEqual)
+		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *split1)
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(child1),
 			object.AddressOf(child2),
 		)
 
 		fs = objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderSplitID, split2.String(), objectSDK.MatchStringEqual)
+		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *split2)
 		testSelect(t, db, cnr, fs, object.AddressOf(child3))
-	})
-
-	t.Run("empty split", func(t *testing.T) {
-		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderSplitID, "", objectSDK.MatchStringEqual)
-		testSelect(t, db, cnr, fs)
 	})
 
 	t.Run("unknown split id", func(t *testing.T) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter(v2object.FilterHeaderSplitID,
-			objectSDK.NewSplitID().String(),
-			objectSDK.MatchStringEqual)
+		fs.AddSplitIDFilter(objectSDK.MatchStringEqual, *objectSDK.NewSplitID())
 		testSelect(t, db, cnr, fs)
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	statusSDK "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -126,16 +125,14 @@ func verifyMessage(m message) error {
 
 	sig := m.GetSignature()
 
-	// TODO(@cthulhu-rider): #1387 use Signature message from NeoFS API to avoid conversion
-	var sigV2 refs.Signature
-	sigV2.SetKey(sig.GetKey())
-	sigV2.SetSign(sig.GetSign())
-	sigV2.SetScheme(refs.ECDSA_SHA512)
+	var pubKey neofsecdsa.PublicKey
 
-	var sigSDK neofscrypto.Signature
-	if err := sigSDK.ReadFromV2(sigV2); err != nil {
-		return fmt.Errorf("can't read signature: %w", err)
+	err = pubKey.Decode(sig.GetKey())
+	if err != nil {
+		return fmt.Errorf("decode public key from signature: %w", err)
 	}
+
+	sigSDK := neofscrypto.NewSignature(neofscrypto.ECDSA_SHA512, &pubKey, sig.GetSign())
 
 	if !sigSDK.Verify(binBody) {
 		return errors.New("invalid signature")
