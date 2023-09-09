@@ -6,6 +6,6 @@ import (
 	"io/fs"
 )
 
-func newSpecificWriteData(_ string, _ fs.FileMode, _ bool) func(string, []byte) error {
+func newSpecificWriter(_ string, _ fs.FileMode, _ bool) writer {
 	return nil
 }

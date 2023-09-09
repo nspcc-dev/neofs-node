@@ -1,7 +1,9 @@
 package fstree
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +30,7 @@ type FSTree struct {
 	*compression.Config
 	Depth      uint64
 	DirNameLen int
-	writeData  func(string, []byte) error
+	writer     writer
 
 	noSync   bool
 	readOnly bool
@@ -43,11 +45,23 @@ type Info struct {
 	RootPath string
 }
 
+// writer is an internal FS writing interface.
+type writer interface {
+	writeData(oid.ID, string, []byte) error
+	finalize() error
+}
+
 const (
 	// DirNameLen is how many bytes is used to group keys into directories.
 	DirNameLen = 1 // in bytes
 	// MaxDepth is maximum depth of nested directories.
 	MaxDepth = (sha256.Size - 1) / DirNameLen
+
+	// combinedPrefix is the prefix that Protobuf message can't start with,
+	// it reads as "field number 15 of type 7", but there is no type 7 in
+	// the system (and we usually don't have 15 fields). ZSTD magic is also
+	// different.
+	combinedPrefix = 0x7f
 )
 
 var _ common.Storage = (*FSTree)(nil)
@@ -65,7 +79,7 @@ func New(opts ...Option) *FSTree {
 	for i := range opts {
 		opts[i](f)
 	}
-	f.writeData = newGenericWriteData(f.Permissions, f.noSync)
+	f.writer = newGenericWriter(f.Permissions, f.noSync)
 
 	return f
 }
@@ -141,11 +155,13 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 		if prm.LazyHandler != nil {
 			err = prm.LazyHandler(*addr, func() ([]byte, error) {
 				data, err := os.ReadFile(filepath.Join(curPath...))
-				if err != nil && errors.Is(err, fs.ErrNotExist) {
-					return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+				if err != nil {
+					if errors.Is(err, fs.ErrNotExist) {
+						return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+					}
+					return nil, err
 				}
-
-				return data, err
+				return extractCombinedObject(addr.Object(), data)
 			})
 		} else {
 			var data []byte
@@ -155,7 +171,10 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 				continue
 			}
 			if err == nil {
-				data, err = t.Decompress(data)
+				data, err = extractCombinedObject(addr.Object(), data)
+				if err == nil {
+					data, err = t.Decompress(data)
+				}
 			}
 			if err != nil {
 				if prm.IgnoreErrors {
@@ -266,7 +285,7 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if !prm.DontCompress {
 		prm.RawData = t.Compress(prm.RawData)
 	}
-	err := t.writeData(p, prm.RawData)
+	err := t.writer.writeData(prm.Address.Object(), p, prm.RawData)
 	if err != nil {
 		return common.PutRes{}, fmt.Errorf("write object data into file %q: %w", p, err)
 	}
@@ -285,7 +304,13 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	if err != nil {
 		return common.GetRes{}, fmt.Errorf("read file %q: %w", p, err)
 	}
-
+	data, err = extractCombinedObject(prm.Address.Object(), data)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
+		return common.GetRes{}, fmt.Errorf("extract object from %q: %w", p, err)
+	}
 	data, err = t.Decompress(data)
 	if err != nil {
 		return common.GetRes{}, fmt.Errorf("decompress file data %q: %w", p, err)
@@ -334,6 +359,14 @@ func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 		return nil, fmt.Errorf("read all %d bytes from object file %q: %w", sz, p, err)
 	}
 
+	b, err = extractCombinedObject(addr.Object(), b)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
+		return nil, fmt.Errorf("extract object from %q: %w", p, err)
+	}
+
 	if !t.IsCompressed(b) {
 		return b, nil
 	}
@@ -344,6 +377,38 @@ func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 	}
 
 	return dec, nil
+}
+
+func extractCombinedObject(id oid.ID, data []byte) ([]byte, error) {
+	const (
+		prefixSize = 1
+		idSize     = sha256.Size
+		lengthSize = 4
+
+		idOff     = prefixSize
+		lengthOff = idOff + idSize
+		dataOff   = lengthOff + lengthSize
+	)
+
+	var notFound bool
+
+	for len(data) > dataOff && data[0] == combinedPrefix {
+		notFound = true // The file _is_ combined, so the object _must_ be there.
+		var l = binary.BigEndian.Uint32(data[lengthOff:dataOff])
+		if bytes.Equal(data[idOff:lengthOff], id[:]) {
+			data = data[dataOff : dataOff+int(l)]
+			notFound = false
+			break
+		}
+		if len(data) < dataOff+int(l) {
+			break
+		}
+		data = data[dataOff+int(l):]
+	}
+	if notFound {
+		return nil, fs.ErrNotExist // Quite similar in meaning.
+	}
+	return data, nil
 }
 
 // GetRange implements common.Storage.
