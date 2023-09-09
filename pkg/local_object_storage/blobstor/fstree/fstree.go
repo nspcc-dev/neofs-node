@@ -328,27 +328,6 @@ func (t *FSTree) writeFile(p string, data []byte) error {
 	return err
 }
 
-// PutStream puts executes handler on a file opened for write.
-func (t *FSTree) PutStream(addr oid.Address, handler func(*os.File) error) error {
-	if t.readOnly {
-		return common.ErrReadOnly
-	}
-
-	p := t.treePath(addr)
-
-	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(p, t.writeFlags(), t.Permissions)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return handler(f)
-}
-
 // Get returns an object from the storage by address.
 func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	p := t.treePath(prm.Address)
