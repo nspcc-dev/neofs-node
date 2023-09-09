@@ -10,6 +10,7 @@ import (
 
 	bbczt "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -61,25 +62,20 @@ func testPeapodPath(tb testing.TB) string {
 	return filepath.Join(tb.TempDir(), "peapod.db")
 }
 
-func newTestPeapod(tb testing.TB) putter {
-	ppd := _newTestPeapod(tb, testPeapodPath(tb))
-	tb.Cleanup(func() { _ = ppd.Close() })
-	return ppd
+func newTestPeapod(tb testing.TB) common.Storage {
+	return peapod.New(testPeapodPath(tb), 0600, 10*time.Millisecond)
 }
 
-func _newTestPeapod(tb testing.TB, path string) *peapod.Peapod {
-	ppd := peapod.New(path, 0600, 10*time.Millisecond)
-	require.NoError(tb, ppd.Open(false))
-	require.NoError(tb, ppd.Init())
-
-	return ppd
+func newTestFSTree(tb testing.TB) common.Storage {
+	return fstree.New(
+		fstree.WithDepth(4), // Default.
+		fstree.WithPath(tb.TempDir()),
+		fstree.WithDirNameLen(1), // Default.
+		fstree.WithNoSync(false), // Default.
+	)
 }
 
-type putter interface {
-	Put(common.PutPrm) (common.PutRes, error)
-}
-
-func benchmark(b *testing.B, p putter, objSize uint64, nThreads int) {
+func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
 	rand.Read(data)
 
@@ -124,15 +120,20 @@ func BenchmarkPut(b *testing.B) {
 		{100 << 10, 20},
 		{100 << 10, 100},
 	} {
-		for name, creat := range map[string]func(testing.TB) putter{
-			"peapod": newTestPeapod,
-		} {
-			b.Run(name, func(b *testing.B) {
-				ptt := creat(b)
-				b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
+		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
+			for name, creat := range map[string]func(testing.TB) common.Storage{
+				"peapod": newTestPeapod,
+				"fstree": newTestFSTree,
+			} {
+				b.Run(name, func(b *testing.B) {
+					ptt := creat(b)
+					require.NoError(b, ptt.Open(false))
+					require.NoError(b, ptt.Init())
+					b.Cleanup(func() { _ = ptt.Close() })
+
 					benchmark(b, ptt, tc.objSize, tc.nThreads)
 				})
-			})
-		}
+			}
+		})
 	}
 }
