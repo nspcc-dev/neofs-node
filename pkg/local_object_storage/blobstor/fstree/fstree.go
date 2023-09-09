@@ -22,6 +22,7 @@ import (
 // FSTree represents an object storage as a filesystem tree.
 type FSTree struct {
 	Info
+	osSpecific
 
 	*compression.Config
 	Depth      uint64
