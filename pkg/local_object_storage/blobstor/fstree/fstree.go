@@ -1,7 +1,9 @@
 package fstree
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -46,6 +48,12 @@ const (
 	DirNameLen = 1 // in bytes
 	// MaxDepth is maximum depth of nested directories.
 	MaxDepth = (sha256.Size - 1) / DirNameLen
+
+	// combinedPrefix is the prefix that Protobuf message can't start with,
+	// it reads as "field number 15 of type 7", but there is no type 7 in
+	// the system (and we usually don't have 15 fields). ZSTD magic is also
+	// different.
+	combinedPrefix = 0x7f
 )
 
 var _ common.Storage = (*FSTree)(nil)
@@ -140,6 +148,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 				if err != nil && errors.Is(err, fs.ErrNotExist) {
 					return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 				}
+				data = extractCombinedObject(addr.Object(), data)
 
 				return data, err
 			})
@@ -150,6 +159,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 				continue
 			}
 			if err == nil {
+				data = extractCombinedObject(addr.Object(), data)
 				data, err = t.Decompress(data)
 			}
 			if err != nil {
@@ -246,7 +256,7 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if !prm.DontCompress {
 		prm.RawData = t.Compress(prm.RawData)
 	}
-	return common.PutRes{StorageID: []byte{}}, t.writeData(p, prm.RawData)
+	return common.PutRes{StorageID: []byte{}}, t.writeData(prm.Address.Object(), p, prm.RawData)
 }
 
 // Get returns an object from the storage by address.
@@ -261,7 +271,7 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	if err != nil {
 		return common.GetRes{}, err
 	}
-
+	data = extractCombinedObject(prm.Address.Object(), data)
 	data, err = t.Decompress(data)
 	if err != nil {
 		return common.GetRes{}, err
@@ -273,6 +283,18 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, err
+}
+
+func extractCombinedObject(addr oid.ID, data []byte) []byte {
+	for len(data) > 1+32+4 && data[0] == combinedPrefix {
+		var l = binary.BigEndian.Uint32(data[33 : 33+4])
+		if bytes.Compare(data[1:33], addr[:]) == 0 {
+			data = data[37 : 37+int(l)]
+			break
+		}
+		data = data[37+int(l):]
+	}
+	return data
 }
 
 // GetRange implements common.Storage.
