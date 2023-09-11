@@ -41,6 +41,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - `neofs-adm` works with contract wallet in `init` and `update-contracts` commands only (#2134)
 - Missing removed but locked objects in `SEARCH`'s results (#2526)
 - LOCK objects and regular objects expiration conflicts (#2392)
+- SN responds with a different node information compared to a bootstrapping contract call's argument (#2568)
 
 ### Removed
 - Deprecated `morph.rpc_endpoint` SN and `morph.endpoint.client` IR config sections (#2400)
