@@ -328,3 +328,17 @@ func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 
 	return ops, nil
 }
+
+// ValidateEACLTable validates eACL table:
+//   - eACL table must not modify [eacl.RoleSystem] access.
+func ValidateEACLTable(t *eacl.Table) error {
+	for _, record := range t.Records() {
+		for _, target := range record.Targets() {
+			if target.Role() == eacl.RoleSystem {
+				return errors.New("it is prohibited to modify system access")
+			}
+		}
+	}
+
+	return nil
+}
