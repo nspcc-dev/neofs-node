@@ -15,7 +15,7 @@ RESYNC_METABASE=false
 CHAIN_URL="https://github.com/nspcc-dev/neofs-contract/releases/download/v0.17.0/devenv_mainchain.gz"
 
 #NEOGO
-NEOGO_VERSION=0.101.1
+NEOGO_VERSION=0.102.0
 NEOGO_IMAGE=nspccdev/neo-go
 NEO_GO_PLATFORM=linux-amd64
 NEO_GO_URL=https://github.com/nspcc-dev/neo-go/releases/download/v${NEOGO_VERSION}/neo-go-${NEO_GO_PLATFORM}
