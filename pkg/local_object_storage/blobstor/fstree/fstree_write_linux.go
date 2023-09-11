@@ -178,7 +178,9 @@ func (t *FSTree) writeCombinedFile(id oid.ID, p string, data []byte) error {
 	}
 	err = sb.write(id, p, data)
 	if err == nil && sb.cnt >= combinedCountLimit || sb.size >= combinedSizeLimit {
-		sb.intSync()
+		if sb.timer.Stop() {
+			go sb.intSync()
+		}
 	}
 	sb.lock.Unlock()
 	t.batchLock.Unlock()
