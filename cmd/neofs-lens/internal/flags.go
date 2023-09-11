@@ -42,3 +42,7 @@ func AddConfigFileFlag(cmd *cobra.Command, v *string) {
 	_ = cmd.MarkFlagFilename(flagConfigFile)
 	_ = cmd.MarkFlagRequired(flagConfigFile)
 }
+
+func AddPayloadOnlyFlag(cmd *cobra.Command, v *bool) {
+	cmd.Flags().BoolVar(v, "payload-only", false, "Save only object payload")
+}

@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	vAddress string
-	vPath    string
-	vOut     string
+	vAddress     string
+	vPath        string
+	vOut         string
+	vPayloadOnly bool
 )
 
 // Root contains `blobovnicza` command definition.

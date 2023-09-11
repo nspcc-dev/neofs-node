@@ -53,7 +53,7 @@ func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
 
 // WriteObjectToFile writes object to the provided path. Does nothing if
 // the path is empty.
-func WriteObjectToFile(cmd *cobra.Command, path string, data []byte) {
+func WriteObjectToFile(cmd *cobra.Command, path string, data []byte, payloadOnly bool) {
 	if path == "" {
 		return
 	}
@@ -61,5 +61,9 @@ func WriteObjectToFile(cmd *cobra.Command, path string, data []byte) {
 	ExitOnErr(cmd, Errf("could not write file: %w",
 		os.WriteFile(path, data, 0644)))
 
-	cmd.Printf("\nSaved payload to '%s' file\n", path)
+	if payloadOnly {
+		cmd.Printf("\nSaved payload to '%s' file\n", path)
+		return
+	}
+	cmd.Printf("\nSaved object to '%s' file\n", path)
 }

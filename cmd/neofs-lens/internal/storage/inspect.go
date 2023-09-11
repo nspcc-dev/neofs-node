@@ -19,6 +19,7 @@ func init() {
 	common.AddAddressFlag(storageInspectObjCMD, &vAddress)
 	common.AddOutputFileFlag(storageInspectObjCMD, &vOut)
 	common.AddConfigFileFlag(storageInspectObjCMD, &vConfig)
+	common.AddPayloadOnlyFlag(storageInspectObjCMD, &vPayloadOnly)
 }
 
 func inspectObject(cmd *cobra.Command, _ []string) {
@@ -34,7 +35,11 @@ func inspectObject(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))
 
 	common.PrintObjectHeader(cmd, *obj)
+	if vPayloadOnly {
+		common.WriteObjectToFile(cmd, vOut, obj.Payload(), true)
+		return
+	}
 	data, err := obj.Marshal()
 	common.ExitOnErr(cmd, common.Errf("could not marshal object: %w", err))
-	common.WriteObjectToFile(cmd, vOut, data)
+	common.WriteObjectToFile(cmd, vOut, data, false)
 }

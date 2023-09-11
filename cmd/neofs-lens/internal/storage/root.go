@@ -30,9 +30,10 @@ import (
 )
 
 var (
-	vAddress string
-	vOut     string
-	vConfig  string
+	vAddress     string
+	vOut         string
+	vConfig      string
+	vPayloadOnly bool
 )
 
 var Root = &cobra.Command{
