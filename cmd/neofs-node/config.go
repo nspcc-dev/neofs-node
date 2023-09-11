@@ -900,7 +900,15 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 // with the binary-encoded information from the current node's configuration.
 // The state is set using the provided setter which MUST NOT be nil.
 func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
-	ni := c.cfgNodeInfo.localInfo
+	var ni netmap.NodeInfo
+	if niAtomic := c.cfgNetmap.state.nodeInfo.Load(); niAtomic != nil {
+		// node has already been bootstrapped successfully
+		ni = niAtomic.(netmap.NodeInfo)
+	} else {
+		// unknown network state
+		ni = c.cfgNodeInfo.localInfo
+	}
+
 	stateSetter(&ni)
 
 	prm := nmClient.AddPeerPrm{}
