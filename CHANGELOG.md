@@ -5,6 +5,8 @@ Changelog for NeoFS Node
 
 ### Fixed
 
+- `neofs-adm morph set-config` command error messages (#2556)
+
 ### Removed
 
 ### Updated
