@@ -43,6 +43,7 @@ var netInfoCmd = &cobra.Command{
 		cmd.Printf(format, "Audit fee", netInfo.AuditFee())
 		cmd.Printf(format, "Storage price", netInfo.StoragePrice())
 		cmd.Printf(format, "Container fee", netInfo.ContainerFee())
+		cmd.Printf(format, "Container alias fee", netInfo.NamedContainerFee())
 		cmd.Printf(format, "EigenTrust alpha", netInfo.EigenTrustAlpha())
 		cmd.Printf(format, "Number of EigenTrust iterations", netInfo.NumberOfEigenTrustIterations())
 		cmd.Printf(format, "Epoch duration", netInfo.EpochDuration())
