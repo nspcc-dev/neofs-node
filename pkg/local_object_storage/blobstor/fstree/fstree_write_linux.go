@@ -40,6 +40,7 @@ type syncBatch struct {
 
 func newSyncBatch(root string, perm uint32) (*syncBatch, error) {
 	flags := unix.O_WRONLY | unix.O_TMPFILE | unix.O_CLOEXEC
+	flags |= unix.O_DSYNC
 	fd, err := unix.Open(root, flags, perm)
 	if err != nil {
 		return nil, err
@@ -69,12 +70,12 @@ func (b *syncBatch) sync() {
 func (b *syncBatch) intSync() {
 	var err error
 
-	if b.err == nil {
-		err = unix.Fdatasync(b.fd)
-		if err != nil {
-			b.err = err
-		}
-	}
+	//	if b.err == nil {
+	//		err = unix.Fdatasync(b.fd)
+	//		if err != nil {
+	//			b.err = err
+	//		}
+	//	}
 	err = unix.Close(b.fd)
 	if b.err == nil && err != nil {
 		b.err = err
@@ -178,9 +179,7 @@ func (t *FSTree) writeCombinedFile(id oid.ID, p string, data []byte) error {
 	}
 	err = sb.write(id, p, data)
 	if err == nil && sb.cnt >= combinedCountLimit || sb.size >= combinedSizeLimit {
-		if sb.timer.Stop() {
-			go sb.intSync()
-		}
+		sb.intSync()
 	}
 	sb.lock.Unlock()
 	t.batchLock.Unlock()
