@@ -17,6 +17,7 @@ func init() {
 	common.AddAddressFlag(inspectCMD, &vAddress)
 	common.AddComponentPathFlag(inspectCMD, &vPath)
 	common.AddOutputFileFlag(inspectCMD, &vOut)
+	common.AddPayloadOnlyFlag(inspectCMD, &vPayloadOnly)
 }
 
 func inspectFunc(cmd *cobra.Command, _ []string) {
@@ -32,5 +33,9 @@ func inspectFunc(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, common.Errf("failed to read object from Peapod: %w", err))
 
 	common.PrintObjectHeader(cmd, *res.Object)
-	common.WriteObjectToFile(cmd, vOut, res.RawData)
+	if vPayloadOnly {
+		common.WriteObjectToFile(cmd, vOut, res.RawData, true)
+		return
+	}
+	common.WriteObjectToFile(cmd, vOut, res.RawData, false)
 }

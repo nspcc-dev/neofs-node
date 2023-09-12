@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	vAddress string
-	vPath    string
-	vOut     string
+	vAddress     string
+	vPath        string
+	vOut         string
+	vPayloadOnly bool
 )
 
 // Root defines root command for operations with Peapod.

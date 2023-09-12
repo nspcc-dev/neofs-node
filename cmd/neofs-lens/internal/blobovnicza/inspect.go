@@ -19,6 +19,7 @@ func init() {
 	common.AddAddressFlag(inspectCMD, &vAddress)
 	common.AddComponentPathFlag(inspectCMD, &vPath)
 	common.AddOutputFileFlag(inspectCMD, &vOut)
+	common.AddPayloadOnlyFlag(inspectCMD, &vPayloadOnly)
 }
 
 func inspectFunc(cmd *cobra.Command, _ []string) {
@@ -44,5 +45,10 @@ func inspectFunc(cmd *cobra.Command, _ []string) {
 	)
 
 	common.PrintObjectHeader(cmd, o)
-	common.WriteObjectToFile(cmd, vOut, data)
+	if vPayloadOnly {
+		data = o.Payload()
+		common.WriteObjectToFile(cmd, vOut, data, true)
+		return
+	}
+	common.WriteObjectToFile(cmd, vOut, data, false)
 }
