@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"os"
 	"time"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
@@ -10,8 +11,9 @@ import (
 )
 
 var (
-	vAddress string
-	vPath    string
+	vAddress  string
+	vPath     string
+	vInputObj string
 )
 
 type epochState struct{}
@@ -31,19 +33,23 @@ func init() {
 		inspectCMD,
 		listGraveyardCMD,
 		listGarbageCMD,
+		writeObjectCMD,
 	)
 }
 
-func openMeta(cmd *cobra.Command) *meta.DB {
+func openMeta(cmd *cobra.Command, readOnly bool) *meta.DB {
+	_, err := os.Stat(vPath)
+	common.ExitOnErr(cmd, err)
+
 	db := meta.New(
 		meta.WithPath(vPath),
 		meta.WithBoltDBOptions(&bbolt.Options{
-			ReadOnly: true,
+			ReadOnly: readOnly,
 			Timeout:  100 * time.Millisecond,
 		}),
 		meta.WithEpochState(epochState{}),
 	)
-	common.ExitOnErr(cmd, common.Errf("could not open metabase: %w", db.Open(true)))
+	common.ExitOnErr(cmd, common.Errf("could not open metabase: %w", db.Open(readOnly)))
 
 	return db
 }

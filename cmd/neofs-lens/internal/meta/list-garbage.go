@@ -18,7 +18,7 @@ func init() {
 }
 
 func listGarbageFunc(cmd *cobra.Command, _ []string) {
-	db := openMeta(cmd)
+	db := openMeta(cmd, true)
 	defer db.Close()
 
 	var garbPrm meta.GarbageIterationPrm

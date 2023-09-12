@@ -30,6 +30,7 @@ minor release, the component will be purged, so be prepared (see `Updating` sect
 - Display of container alias fee info in `neofs-cli netmap netinfo` (#2553)
 - `neofs-lens storage inspect` CLI command (#1336)
 - `neofs-lens` payload-only flag (#2543)
+- `neofs-lens meta put` CLI command (#1816)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
