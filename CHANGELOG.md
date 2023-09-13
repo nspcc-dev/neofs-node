@@ -3,8 +3,25 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
-This is the last release to support the Blobovnicza tree. Starting with the next
-minor release, the component will be purged, so be prepared (see `Updating` section).
+### Fixed
+
+### Removed
+
+### Updated
+
+### Updating from v0.38.0
+
+## [0.38.0] - 2023-09-13 - Gogado
+
+A number of important fixes are brought by this release, including protocol
+ones (subnet and system EACL changes), as well as an updated storage subsystem
+and useful CLI updates making it more powerful and user-friendly at the same time.
+
+Some previously deprecated configuration options were removed, so be careful
+and this is the last minor release to support the Blobovnicza tree storage
+subsystem. Starting with the next minor release, the component will be purged,
+so be prepared (see `Updating` section) and migrate to more efficient and
+simple Peapod.
 
 ### Added
 - Embedded Neo contracts in `contracts` dir (#2391)
@@ -1745,7 +1762,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...master
+[0.38.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.35.0...v0.36.0
