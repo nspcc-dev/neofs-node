@@ -129,7 +129,7 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 		return errors.New("missing 'storage' section")
 	}
 
-	mStorage, ok := v.(map[any]any)
+	mStorage, ok := v.(map[string]any)
 	if !ok {
 		return fmt.Errorf("unexpected 'storage' section type: %T instead of %T", v, mStorage)
 	}
@@ -144,7 +144,7 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 		return fmt.Errorf("unexpected 'storage.shard' section type: %T instead of %T", v, mShards)
 	}
 
-	replaceBlobovniczaWithPeapod := func(mShard map[any]any, shardDesc any) error {
+	replaceBlobovniczaWithPeapod := func(mShard map[string]any, shardDesc any) error {
 		v, ok := mShard["blobstor"]
 		if !ok {
 			return fmt.Errorf("missing 'blobstor' section in shard '%v' config", shardDesc)
@@ -155,10 +155,10 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 			return fmt.Errorf("unexpected 'blobstor' section type in shard '%v': %T instead of %T", shardDesc, v, sBlobStor)
 		}
 
-		var bbczSubStorage map[any]any
+		var bbczSubStorage map[string]any
 
 		for i := range sBlobStor {
-			mSubStorage, ok := sBlobStor[i].(map[any]any)
+			mSubStorage, ok := sBlobStor[i].(map[string]any)
 			if !ok {
 				return fmt.Errorf("unexpected sub-storage #%d type in shard '%v': %T instead of %T", i, shardDesc, v, mStorage)
 			}
@@ -217,7 +217,7 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 
 	v, ok = mShards["default"]
 	if ok {
-		mShard, ok := v.(map[any]any)
+		mShard, ok := v.(map[string]any)
 		if !ok {
 			return fmt.Errorf("unexpected 'storage.shard.default' section type: %T instead of %T", v, mShard)
 		}
@@ -237,7 +237,7 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 			break
 		}
 
-		mShard, ok := v.(map[any]any)
+		mShard, ok := v.(map[string]any)
 		if !ok {
 			return fmt.Errorf("unexpected 'storage.shard.%d' section type: %T instead of %T", i, v, mStorage)
 		}
