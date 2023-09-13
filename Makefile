@@ -50,7 +50,7 @@ $(DIRS):
 # Prepare binaries and archives for release
 .ONESHELL:
 prepare-release: docker/all
-	@for file in `ls -1 $(BIN)/neofs-*`; do
+	@for file in `ls -1 $(BIN)/*`; do
 		cp $$file $(RELEASE)/`basename $$file`-$(ARCH)
 		strip $(RELEASE)/`basename $$file`-$(ARCH)
 		tar -czf $(RELEASE)/`basename $$file`-$(ARCH).tar.gz $(RELEASE)/`basename $$file`-$(ARCH)
