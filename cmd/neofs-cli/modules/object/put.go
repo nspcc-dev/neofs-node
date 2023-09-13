@@ -48,7 +48,7 @@ func initObjectPutCmd() {
 
 	flags.String(commonflags.CIDFlag, "", commonflags.CIDFlagUsage)
 
-	flags.String("attributes", "", "User attributes in form of Key1=Value1,Key2=Value2")
+	flags.StringSlice("attributes", []string{}, "User attributes in form of Key1=Value1,Key2=Value2")
 	flags.Bool("disable-filename", false, "Do not set well-known filename attribute")
 	flags.Bool("disable-timestamp", false, "Do not set well-known timestamp attribute")
 	flags.Uint64VarP(&putExpiredOn, commonflags.ExpireAt, "e", 0, "The last active epoch in the life of the object")
@@ -187,10 +187,8 @@ func putObject(cmd *cobra.Command, _ []string) {
 func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 	var rawAttrs []string
 
-	raw := cmd.Flag("attributes").Value.String()
-	if len(raw) != 0 {
-		rawAttrs = strings.Split(raw, ",")
-	}
+	rawAttrs, err := cmd.Flags().GetStringSlice("attributes")
+	common.ExitOnErr(cmd, "can't get attributes: %w", err)
 
 	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+2) // name + timestamp attributes
 	for i := range rawAttrs {
