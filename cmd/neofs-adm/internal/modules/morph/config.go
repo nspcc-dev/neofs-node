@@ -157,21 +157,21 @@ func parseConfigPair(kvStr string, force bool) (key string, val interface{}, err
 		netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 		val, err = strconv.ParseInt(valRaw, 10, 64)
 		if err != nil {
-			err = fmt.Errorf("could not parse %s's value '%s' as int: %w", key, valRaw, err)
+			err = fmt.Errorf("invalid value for %s key, expected int, got '%s'", key, valRaw)
 		}
 	case netmapEigenTrustAlphaKey:
 		// just check that it could
 		// be parsed correctly
 		_, err = strconv.ParseFloat(kv[1], 64)
 		if err != nil {
-			err = fmt.Errorf("could not parse %s's value '%s' as float: %w", key, valRaw, err)
+			err = fmt.Errorf("invalid value for %s key, expected float, got '%s'", key, valRaw)
 		}
 
 		val = valRaw
 	case netmapHomomorphicHashDisabledKey, netmapMaintenanceAllowedKey:
 		val, err = strconv.ParseBool(valRaw)
 		if err != nil {
-			err = fmt.Errorf("could not parse %s's value '%s' as bool: %w", key, valRaw, err)
+			err = fmt.Errorf("invalid value for %s key, expected bool, got '%s'", key, valRaw)
 		}
 
 	default:
