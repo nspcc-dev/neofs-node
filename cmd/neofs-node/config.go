@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	atomicstd "sync/atomic"
 	"syscall"
@@ -932,12 +934,19 @@ func writeSystemAttributes(c *cfg) error {
 	for _, sh := range c.applicationConfiguration.EngineCfg.shards {
 		for _, subStorage := range sh.SubStorages {
 			path := subStorage.Path
-			paths = append(paths, path)
 
-			err := util.MkdirAllX(path, subStorage.Perm)
-			if err != nil {
-				return fmt.Errorf("can not create (ensure it exists) dir by '%s' path: %w", path, err)
+			for len(path) > 1 { // Dir returns / or . if nothing else left.
+				fi, err := os.Stat(path)
+				if err == nil && fi.IsDir() {
+					break
+				}
+				if err != nil && !errors.Is(err, fs.ErrNotExist) {
+					return fmt.Errorf("accessing %q: %w", path, err)
+				}
+				path = filepath.Dir(path)
 			}
+
+			paths = append(paths, path)
 		}
 	}
 

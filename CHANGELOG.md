@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Fixed
+- Inability to start node with peapods configured (#2576)
 
 - `neofs-adm morph set-config` command error messages (#2556)
 
