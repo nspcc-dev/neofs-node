@@ -103,7 +103,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 			// open stream
 			var getStream *rpc.GetResponseReader
 			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				getStream, err = rpc.GetObject(cli, req, rpcclient.WithContext(stream.Context()))
+				getStream, err = rpc.GetObject(cli, req, rpcclient.WithContext(ctx))
 				return err
 			})
 			if err != nil {
@@ -273,7 +273,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			// open stream
 			var rangeStream *rpc.ObjectRangeResponseReader
 			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				rangeStream, err = rpc.GetObjectRange(cli, req, rpcclient.WithContext(stream.Context()))
+				rangeStream, err = rpc.GetObjectRange(cli, req, rpcclient.WithContext(ctx))
 				return err
 			})
 			if err != nil {
@@ -481,7 +481,7 @@ func (w *headResponseWriter) WriteHeader(hdr *object.Object) error {
 	return nil
 }
 
-func (s *Service) toHeadPrm(ctx context.Context, req *objectV2.HeadRequest, resp *objectV2.HeadResponse) (*getsvc.HeadPrm, error) {
+func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *objectV2.HeadResponse) (*getsvc.HeadPrm, error) {
 	body := req.GetBody()
 
 	addrV2 := body.GetAddress()
