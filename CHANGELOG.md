@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
+- Update `neo-go` to `v0.102.0` (#2221)
 
 ### Updating from v0.38.1
 

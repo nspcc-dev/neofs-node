@@ -41,7 +41,9 @@ func isErrNotEnoughGAS(err error) bool {
 }
 
 func isErrInvalidTransaction(err error) bool {
-	return errors.Is(err, neorpc.ErrValidationFailed)
+	// neo-go changed -504 code to be a network fee error,
+	// but it was a verification error before v0.102.0
+	return errors.Is(err, neorpc.ErrInsufficientNetworkFee)
 }
 
 func isErrContractAlreadyUpdated(err error) bool {

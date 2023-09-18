@@ -145,8 +145,10 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 }
 
 func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, error) {
-	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.Options{
-		DialTimeout: c.cfg.dialTimeout,
+	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.WSOptions{
+		Options: rpcclient.Options{
+			DialTimeout: c.cfg.dialTimeout,
+		},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client creation: %w", err)

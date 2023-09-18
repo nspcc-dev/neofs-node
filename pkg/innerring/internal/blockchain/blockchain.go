@@ -352,12 +352,12 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseProto.MaxTraceableBlocks = cfg.TraceableChainLength
 	cfgBaseProto.Hardforks = cfg.HardForks
 	if cfg.ValidatorsHistory != nil {
-		cfgBaseProto.ValidatorsHistory = make(map[uint32]int, len(cfg.ValidatorsHistory))
+		cfgBaseProto.ValidatorsHistory = make(map[uint32]uint32, len(cfg.ValidatorsHistory))
 		for height, num := range cfg.ValidatorsHistory {
-			cfgBaseProto.ValidatorsHistory[height] = int(num)
+			cfgBaseProto.ValidatorsHistory[height] = num
 		}
 	} else {
-		cfgBaseProto.ValidatorsCount = len(standByCommittee)
+		cfgBaseProto.ValidatorsCount = uint32(len(standByCommittee))
 	}
 	cfgBaseProto.NativeUpdateHistories = cfg.NativeActivations
 
@@ -522,7 +522,7 @@ func (x *Blockchain) Run(ctx context.Context) (err error) {
 	}()
 
 	go x.core.Run()
-	go x.netServer.Start(x.chErr)
+	go x.netServer.Start()
 
 	// await synchronization with the network
 	t := time.NewTicker(x.core.GetConfig().TimePerBlock)
