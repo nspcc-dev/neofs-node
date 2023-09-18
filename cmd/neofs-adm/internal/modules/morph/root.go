@@ -131,6 +131,9 @@ var (
 		Use:                   "set-config key1=val1 [key2=val2 ...]",
 		DisableFlagsInUseLine: true,
 		Short:                 "Add/update global config value in the NeoFS network",
+		Long: `Add/update global config value in the NeoFS network. 
+				If key is unknown, it will be added to the config only with --force flag.
+Values for unknown keys are added exactly the way they're provided, no conversion is made ("123" will be stored as "313233" hexadecimal).`,
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
