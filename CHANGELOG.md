@@ -4,15 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Fixed
-- Inability to start node with peapods configured (#2576)
-
-- `neofs-adm morph set-config` command error messages (#2556)
 
 ### Removed
 
 ### Updated
 
-### Updating from v0.38.0
+### Updating from v0.38.1
+
+## [0.38.1] - 2023-09-18
+
+A tiny fix for peapod-enabled nodes.
+
+### Fixed
+- Inability to start node with peapods configured (#2576)
+- `neofs-adm morph set-config` command error messages (#2556)
 
 ## [0.38.0] - 2023-09-13 - Gogado
 
@@ -1765,7 +1770,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...master
+[0.38.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.0...v0.36.1
