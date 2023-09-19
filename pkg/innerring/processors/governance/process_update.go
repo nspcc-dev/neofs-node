@@ -112,12 +112,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	// 4. Update NeoFS contract in the mainnet.
-	epoch := gp.epochState.EpochCounter()
-
-	buf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buf, epoch)
-
-	id := append([]byte(alphabetUpdateIDPrefix), buf...)
+	id := binary.LittleEndian.AppendUint64([]byte(alphabetUpdateIDPrefix), gp.epochState.EpochCounter())
 
 	prm := neofscontract.AlphabetUpdatePrm{}
 

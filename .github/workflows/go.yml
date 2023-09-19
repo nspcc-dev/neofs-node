@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        go: [ '1.18.x', '1.19.x', '1.20' ]
+        go: [ '1.19.x', '1.20.x', '1.21' ]
     steps:
       - name: Setup go
         uses: actions/setup-go@v4

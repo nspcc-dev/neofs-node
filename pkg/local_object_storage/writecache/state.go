@@ -2,9 +2,10 @@ package writecache
 
 import (
 	"fmt"
+	"math"
+	"sync/atomic"
 
 	"go.etcd.io/bbolt"
-	"go.uber.org/atomic"
 )
 
 func (c *cache) estimateCacheSize() uint64 {
@@ -24,11 +25,11 @@ type counters struct {
 }
 
 func (x *counters) IncDB() {
-	x.cDB.Inc()
+	x.cDB.Add(1)
 }
 
 func (x *counters) DecDB() {
-	x.cDB.Dec()
+	x.cDB.Add(math.MaxUint32)
 }
 
 func (x *counters) DB() uint64 {
@@ -36,11 +37,11 @@ func (x *counters) DB() uint64 {
 }
 
 func (x *counters) IncFS() {
-	x.cFS.Inc()
+	x.cFS.Add(1)
 }
 
 func (x *counters) DecFS() {
-	x.cFS.Dec()
+	x.cFS.Add(math.MaxUint32)
 }
 
 func (x *counters) FS() uint64 {

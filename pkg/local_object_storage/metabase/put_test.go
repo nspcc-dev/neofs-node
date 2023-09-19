@@ -3,6 +3,7 @@ package meta_test
 import (
 	"runtime"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 )
 
 func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
@@ -47,13 +47,14 @@ func BenchmarkPut(b *testing.B) {
 		// Ensure the benchmark is bound by CPU and not waiting batch-delay time.
 		b.SetParallelism(1)
 
-		index := atomic.NewInt64(-1)
+		index := new(atomic.Int64)
+		index.Store(-1)
 		objs := prepareObjects(b, b.N)
 		b.ResetTimer()
 		b.ReportAllocs()
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				if err := metaPut(db, objs[index.Inc()], nil); err != nil {
+				if err := metaPut(db, objs[index.Add(1)], nil); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -63,12 +64,13 @@ func BenchmarkPut(b *testing.B) {
 		db := newDB(b,
 			meta.WithMaxBatchDelay(time.Millisecond*10),
 			meta.WithMaxBatchSize(1))
-		index := atomic.NewInt64(-1)
+		index := new(atomic.Int64)
+		index.Store(-1)
 		objs := prepareObjects(b, b.N)
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			if err := metaPut(db, objs[index.Inc()], nil); err != nil {
+			if err := metaPut(db, objs[index.Add(1)], nil); err != nil {
 				b.Fatal(err)
 			}
 		}

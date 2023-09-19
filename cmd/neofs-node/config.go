@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	atomicstd "sync/atomic"
 	"syscall"
 	"time"
@@ -68,7 +69,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -248,7 +248,7 @@ type internals struct {
 	closers []func()
 
 	apiVersion   version.Version
-	healthStatus *atomic.Int32
+	healthStatus atomic.Int32
 	// is node under maintenance
 	isMaintenance atomic.Bool
 }
@@ -405,8 +405,8 @@ type cfgNetmap struct {
 	state *networkState
 
 	needBootstrap       bool
-	reBoostrapTurnedOff *atomic.Bool // managed by control service in runtime
-	startEpoch          uint64       // epoch number when application is started
+	reBoostrapTurnedOff atomic.Bool // managed by control service in runtime
+	startEpoch          uint64      // epoch number when application is started
 }
 
 type cfgNodeInfo struct {
@@ -505,13 +505,13 @@ func initCfg(appCfg *config.Config) *cfg {
 	fatalOnErr(err)
 
 	c.internals = internals{
-		ctx:          context.Background(),
-		appCfg:       appCfg,
-		internalErr:  make(chan error, 10), // We only need one error, but we can have multiple senders.
-		wg:           new(sync.WaitGroup),
-		apiVersion:   version.Current(),
-		healthStatus: atomic.NewInt32(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED)),
+		ctx:         context.Background(),
+		appCfg:      appCfg,
+		internalErr: make(chan error, 10), // We only need one error, but we can have multiple senders.
+		wg:          new(sync.WaitGroup),
+		apiVersion:  version.Current(),
 	}
+	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
 	c.internals.logLevel, err = zap.ParseAtomicLevel(c.LoggerCfg.level)
 	fatalOnErr(err)
@@ -550,11 +550,10 @@ func initCfg(appCfg *config.Config) *cfg {
 		workerPool: containerWorkerPool,
 	}
 	c.cfgNetmap = cfgNetmap{
-		scriptHash:          contractsconfig.Netmap(appCfg),
-		state:               netState,
-		workerPool:          netmapWorkerPool,
-		needBootstrap:       !relayOnly,
-		reBoostrapTurnedOff: atomic.NewBool(relayOnly),
+		scriptHash:    contractsconfig.Netmap(appCfg),
+		state:         netState,
+		workerPool:    netmapWorkerPool,
+		needBootstrap: !relayOnly,
 	}
 	c.cfgGRPC = cfgGRPC{
 		maxChunkSize:  maxChunkSize,
@@ -571,6 +570,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		scriptHash: contractsconfig.Reputation(appCfg),
 		workerPool: reputationWorkerPool,
 	}
+
+	c.cfgNetmap.reBoostrapTurnedOff.Store(nodeconfig.Relay(appCfg))
 
 	c.ownerIDFromKey = user.ResolveFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
