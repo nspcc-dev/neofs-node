@@ -311,7 +311,7 @@ type shared struct {
 	metricsCollector *metrics.NodeMetrics
 }
 
-func (s shared) resetCaches() {
+func (s *shared) resetCaches() {
 	if s.containerCache != nil {
 		s.containerCache.reset()
 	}
