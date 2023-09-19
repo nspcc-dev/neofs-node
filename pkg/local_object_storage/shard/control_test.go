@@ -117,6 +117,9 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Close())
 
 	addr := object.AddressOf(&obj)
+	// https://github.com/nspcc-dev/neofs-node/issues/2563
+	_, err = fsTree.Delete(common.DeletePrm{Address: addr})
+	require.NoError(t, err)
 	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
 	require.NoError(t, err)
 

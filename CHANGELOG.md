@@ -5,6 +5,9 @@ Changelog for NeoFS Node
 
 ### Fixed
 
+### Changed
+- FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
+
 ### Removed
 
 ### Updated
