@@ -294,7 +294,6 @@ func (s *subscriber) restoreSubscriptions(notifCh chan<- *state.ContainedNotific
 
 	// notification events restoration
 	for contract := range s.subscribedEvents {
-		contract := contract // See https://github.com/nspcc-dev/neo-go/issues/2890
 		_, err = s.client.ReceiveExecutionNotifications(contract, notifCh)
 		if err != nil {
 			s.log.Error("could not restore notification subscription after RPC switch",
@@ -307,7 +306,6 @@ func (s *subscriber) restoreSubscriptions(notifCh chan<- *state.ContainedNotific
 
 	// notary notification events restoration
 	for signer := range s.subscribedNotaryEvents {
-		signer := signer // See https://github.com/nspcc-dev/neo-go/issues/2890
 		_, err = s.client.ReceiveNotaryRequests(signer, notaryCh)
 		if err != nil {
 			s.log.Error("could not restore notary notification subscription after RPC switch",
