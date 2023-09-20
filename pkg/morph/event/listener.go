@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -85,7 +84,7 @@ type Listener interface {
 type ListenerParams struct {
 	Logger *zap.Logger
 
-	Subscriber subscriber.Subscriber
+	Client *client.Client
 
 	WorkerPoolCapacity int
 }
@@ -108,7 +107,7 @@ type listener struct {
 
 	log *zap.Logger
 
-	subscriber subscriber.Subscriber
+	cli *client.Client
 
 	blockHandlers []BlockHandler
 
@@ -120,7 +119,7 @@ const newListenerFailMsg = "could not instantiate Listener"
 var (
 	errNilLogger = errors.New("nil logger")
 
-	errNilSubscriber = errors.New("nil event subscriber")
+	errNilSubscriber = errors.New("nil event client")
 )
 
 // Listen starts the listening for events with registered handlers.
@@ -186,21 +185,21 @@ func (l *listener) subscribe(errCh chan error) {
 	}
 	l.mtx.RUnlock()
 
-	err := l.subscriber.SubscribeForNotification(hashes...)
+	err := l.cli.ReceiveExecutionNotifications(hashes)
 	if err != nil {
 		errCh <- fmt.Errorf("could not subscribe for notifications: %w", err)
 		return
 	}
 
 	if len(l.blockHandlers) > 0 {
-		if err = l.subscriber.BlockNotifications(); err != nil {
+		if err = l.cli.ReceiveBlocks(); err != nil {
 			errCh <- fmt.Errorf("could not subscribe for blocks: %w", err)
 			return
 		}
 	}
 
 	if l.listenNotary {
-		if err = l.subscriber.SubscribeForNotaryRequests(l.notaryMainTXSigner); err != nil {
+		if err = l.cli.ReceiveNotaryRequests(l.notaryMainTXSigner); err != nil {
 			errCh <- fmt.Errorf("could not subscribe for notary requests: %w", err)
 			return
 		}
@@ -208,7 +207,7 @@ func (l *listener) subscribe(errCh chan error) {
 }
 
 func (l *listener) listenLoop(ctx context.Context, subErrCh chan error) error {
-	chs := l.subscriber.NotificationChannels()
+	nCh, bCh, notaryCh := l.cli.Notifications()
 	var res error
 
 loop:
@@ -222,7 +221,7 @@ loop:
 				zap.String("reason", ctx.Err().Error()),
 			)
 			break loop
-		case notifyEvent, ok := <-chs.NotificationsCh:
+		case notifyEvent, ok := <-nCh:
 			if !ok {
 				l.log.Warn("stop event listener by notification channel")
 				res = errors.New("event subscriber connection has been terminated")
@@ -235,7 +234,7 @@ loop:
 				l.log.Warn("listener worker pool drained",
 					zap.Int("capacity", l.pool.Cap()))
 			}
-		case notaryEvent, ok := <-chs.NotaryRequestsCh:
+		case notaryEvent, ok := <-notaryCh:
 			if !ok {
 				l.log.Warn("stop event listener by notary channel")
 				res = errors.New("notary event subscriber connection has been terminated")
@@ -248,7 +247,7 @@ loop:
 				l.log.Warn("listener worker pool drained",
 					zap.Int("capacity", l.pool.Cap()))
 			}
-		case b, ok := <-chs.BlockCh:
+		case b, ok := <-bCh:
 			if !ok {
 				l.log.Warn("stop event listener by block channel")
 				res = errors.New("new block notification channel is closed")
@@ -562,7 +561,7 @@ func (l *listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 // Stop closes subscription channel with remote neo node.
 func (l *listener) Stop() {
 	l.stopOnce.Do(func() {
-		l.subscriber.Close()
+		l.cli.Close()
 	})
 }
 
@@ -585,7 +584,7 @@ func NewListener(p ListenerParams) (Listener, error) {
 	switch {
 	case p.Logger == nil:
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilLogger)
-	case p.Subscriber == nil:
+	case p.Client == nil:
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilSubscriber)
 	}
 
@@ -603,7 +602,7 @@ func NewListener(p ListenerParams) (Listener, error) {
 		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
 		notificationHandlers: make(map[scriptHashWithType][]Handler),
 		log:                  p.Logger,
-		subscriber:           p.Subscriber,
+		cli:                  p.Client,
 		pool:                 pool,
 	}, nil
 }

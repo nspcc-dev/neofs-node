@@ -68,6 +68,8 @@ type Client struct {
 	// on every normal call.
 	switchLock *sync.RWMutex
 
+	subs subscriptions
+
 	// channel for internal stop
 	closeChan chan struct{}
 
