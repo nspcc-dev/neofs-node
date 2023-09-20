@@ -182,8 +182,6 @@ func New(ctx context.Context, p *Params) (Subscriber, error) {
 
 func (s *subscriber) routeNotifications(ctx context.Context) {
 	var (
-		// TODO: not needed after nspcc-dev/neo-go#2980.
-		cliCh             = s.client.NotificationChannel()
 		restoreCh         = make(chan bool)
 		restoreInProgress bool
 	)
@@ -217,8 +215,6 @@ routeloop:
 			} else {
 				connLost = true
 			}
-		case _, ok := <-cliCh:
-			connLost = !ok
 		case ok := <-restoreCh:
 			restoreInProgress = false
 			if !ok {
@@ -232,7 +228,6 @@ routeloop:
 					s.log.Error("can't switch RPC node")
 					break routeloop
 				}
-				cliCh = s.client.NotificationChannel()
 
 				s.Lock()
 				s.curNotifyChan = make(chan *state.ContainedNotificationEvent)
