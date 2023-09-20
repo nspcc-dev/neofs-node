@@ -687,13 +687,17 @@ func WithProxyContract(h util.Uint160) NotaryOption {
 	}
 }
 
-// Neo RPC node can return `core.ErrInvalidAttribute` error with
+// Neo RPC node can return `neorpc.ErrInvalidAttribute` error with
 // `conflicting transaction <> is already on chain` message. This
 // error is expected and ignored. As soon as main tx persisted on
 // chain everything is fine. This happens because notary contract
 // requires 5 out of 7 signatures to send main tx, thus last two
 // notary requests may be processed after main tx appeared on chain.
 func alreadyOnChainError(err error) bool {
+	if !errors.Is(err, neorpc.ErrInvalidAttribute) {
+		return false
+	}
+
 	const alreadyOnChainErrorMessage = "already on chain"
 
 	return strings.Contains(err.Error(), alreadyOnChainErrorMessage)

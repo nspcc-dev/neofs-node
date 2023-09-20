@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
@@ -170,7 +171,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 					txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
 						domain, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 					if err != nil {
-						if isErrNotEnoughGAS(err) {
+						if errors.Is(err, neorpc.ErrInsufficientFunds) {
 							l.Info("not enough GAS to register domain in the NNS, will try again later")
 						} else {
 							l.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
@@ -216,7 +217,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 				txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSAddRecord,
 					domain, int64(nns.TXT), keyCipher)
 				if err != nil {
-					if isErrNotEnoughGAS(err) {
+					if errors.Is(err, neorpc.ErrInsufficientFunds) {
 						l.Info("not enough GAS to set NNS domain record, will try again later")
 					} else {
 						l.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))

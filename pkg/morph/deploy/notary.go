@@ -147,7 +147,7 @@ func initDesignateNotaryRoleToLocalAccountTick(ctx context.Context, prm enableNo
 
 		txID, vub, err := roleContract.DesignateAsRole(noderoles.P2PNotary, keys.PublicKeys{prm.localAcc.PublicKey()})
 		if err != nil {
-			if isErrNotEnoughGAS(err) {
+			if errors.Is(err, neorpc.ErrInsufficientFunds) {
 				prm.logger.Info("not enough GAS to designate Notary role to the local account, will try again later")
 			} else {
 				prm.logger.Error("failed to send transaction designating Notary role to the local account, will try again later", zap.Error(err))
@@ -272,7 +272,7 @@ func initDesignateNotaryRoleAsLeaderTick(ctx context.Context, prm enableNotaryPr
 					domainDesignateNotaryTx, int64(nns.TXT), strSharedTxData)
 			}
 			if err != nil {
-				if isErrNotEnoughGAS(err) {
+				if errors.Is(err, neorpc.ErrInsufficientFunds) {
 					prm.logger.Info("not enough GAS to set NNS domain record, will try again later")
 				} else {
 					prm.logger.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))
@@ -301,7 +301,7 @@ func initDesignateNotaryRoleAsLeaderTick(ctx context.Context, prm enableNotaryPr
 				txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
 					domainDesignateNotaryTx, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 				if err != nil {
-					if isErrNotEnoughGAS(err) {
+					if errors.Is(err, neorpc.ErrInsufficientFunds) {
 						prm.logger.Info("not enough GAS to register domain in the NNS, will try again later")
 					} else {
 						prm.logger.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
@@ -507,9 +507,9 @@ func initDesignateNotaryRoleAsLeaderTick(ctx context.Context, prm enableNotaryPr
 			default:
 				prm.logger.Error("failed to send transaction designating Notary role to the committee, will try again later",
 					zap.Error(err))
-			case isErrNotEnoughGAS(err):
+			case errors.Is(err, neorpc.ErrInsufficientFunds):
 				prm.logger.Info("not enough GAS for transaction designating Notary role to the committee, will try again later")
-			case isErrInvalidTransaction(err):
+			case errors.Is(err, neorpc.ErrVerificationFailed):
 				prm.logger.Warn("composed transaction designating Notary role to the committee is invalid and can't be sent, will recreate",
 					zap.Error(err))
 				generateAndShareTxData(true)
@@ -654,7 +654,7 @@ func initDesignateNotaryRoleAsSignerTick(ctx context.Context, prm enableNotaryPr
 				txID, vub, err := localActor.SendCall(prm.nnsOnChainAddress, methodNNSRegister,
 					domain, localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
 				if err != nil {
-					if isErrNotEnoughGAS(err) {
+					if errors.Is(err, neorpc.ErrInsufficientFunds) {
 						prm.logger.Info("not enough GAS to register domain in the NNS, will try again later")
 					} else {
 						prm.logger.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
@@ -724,7 +724,7 @@ func initDesignateNotaryRoleAsSignerTick(ctx context.Context, prm enableNotaryPr
 					domain, int64(nns.TXT), rec)
 			}
 			if err != nil {
-				if isErrNotEnoughGAS(err) {
+				if errors.Is(err, neorpc.ErrInsufficientFunds) {
 					prm.logger.Info("not enough GAS to set NNS domain record, will try again later")
 				} else {
 					prm.logger.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))
@@ -1108,7 +1108,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 				_, _, _, err = notaryActor.Notarize(mainTx, nil)
 				if err != nil {
-					if isErrNotEnoughGAS(err) {
+					if errors.Is(err, neorpc.ErrInsufficientFunds) {
 						prm.logger.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
 					} else {
 						prm.logger.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
