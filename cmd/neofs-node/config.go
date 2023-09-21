@@ -803,13 +803,7 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 	var res netmapV2.NodeInfo
-
-	ni, ok := c.cfgNetmap.state.getNodeInfo()
-	if ok {
-		ni.WriteToV2(&res)
-	} else {
-		c.cfgNodeInfo.localInfo.WriteToV2(&res)
-	}
+	c.cfgNodeInfo.localInfo.WriteToV2(&res)
 
 	return &res, nil
 }
@@ -826,15 +820,7 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 // with the binary-encoded information from the current node's configuration.
 // The state is set using the provided setter which MUST NOT be nil.
 func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
-	var ni netmap.NodeInfo
-	if niAtomic := c.cfgNetmap.state.nodeInfo.Load(); niAtomic != nil {
-		// node has already been bootstrapped successfully
-		ni = niAtomic.(netmap.NodeInfo)
-	} else {
-		// unknown network state
-		ni = c.cfgNodeInfo.localInfo
-	}
-
+	ni := c.cfgNodeInfo.localInfo
 	stateSetter(&ni)
 
 	prm := nmClient.AddPeerPrm{}
