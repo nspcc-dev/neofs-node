@@ -35,7 +35,9 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 
 		// both object and err are nil only if the original
 		// request was forwarded to another node and the object
-		// has already been streamed to the requesting party
+		// has already been streamed to the requesting party,
+		// or it is a GETRANGEHASH forwarded request whose
+		// response is not an object
 		if obj != nil {
 			exec.collectedObject = obj
 			exec.writeCollectedObject()

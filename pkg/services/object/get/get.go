@@ -46,6 +46,13 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			return nil, err
 		}
 
+		if rngPrm.forwardedRangeHashResponse != nil {
+			// forwarder request case; no need to collect the other
+			// parts, the whole response has already been received
+			hashes = rngPrm.forwardedRangeHashResponse
+			break
+		}
+
 		hashes = append(hashes, h.Sum(nil))
 	}
 

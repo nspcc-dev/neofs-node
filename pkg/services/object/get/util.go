@@ -88,7 +88,7 @@ func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
 
 func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, error) {
 	if exec.isForwardingEnabled() {
-		return exec.prm.forwarder(info, c.client)
+		return exec.prm.forwarder(exec.ctx, info, c.client)
 	}
 
 	key, err := exec.key()
@@ -123,6 +123,11 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 	// we don't specify payload writer because we accumulate
 	// the object locally (even huge).
 	if rng := exec.ctxRange(); rng != nil {
+		if exec.isRangeForwardingEnabled() {
+			exec.prm.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, info, c.client)
+			return nil, err
+		}
+
 		var prm internalclient.PayloadRangePrm
 
 		prm.SetContext(exec.context())
