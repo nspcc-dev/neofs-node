@@ -71,10 +71,10 @@ func defaultConfig() *cfg {
 	}
 }
 
-// ErrStaleNode is returned from [New] when minimal required height
+// ErrStaleNodes is returned from [New] when minimal required height
 // requirement specified in [WithMinRequiredBlockHeight] is not
 // satisfied by the given nodes.
-var ErrStaleNode = errors.New("RPC node is not yet up to date")
+var ErrStaleNodes = errors.New("RPC nodes are not yet up to date")
 
 // New creates, initializes and returns the Client instance.
 // Notary support should be enabled with EnableNotarySupport client
@@ -161,7 +161,16 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 	cli.setActor(act)
 
-	err = cli.reachedHeight(cfg.minRequiredHeight)
+	for attempt := 0; attempt < cfg.reconnectionRetries; attempt++ {
+		err = cli.reachedHeight(cfg.minRequiredHeight)
+		if !errors.Is(err, ErrStaleNodes) {
+			break
+		}
+
+		if !cli.switchRPC() {
+			return nil, fmt.Errorf("%w: could not switch to the next node", err)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +349,7 @@ func WithConnSwitchCallback(cb Callback) Option {
 
 // WithMinRequiredBlockHeight returns a client constructor
 // option that specifies a minimal chain height that is
-// considered as acceptable. [New] returns [ErrStaleNode]
+// considered as acceptable. [New] returns [ErrStaleNodes]
 // if the height could not been reached.
 func WithMinRequiredBlockHeight(h uint32) Option {
 	return func(c *cfg) {
@@ -364,7 +373,7 @@ func (c *Client) reachedHeight(startFrom uint32) error {
 	}
 
 	if height < startFrom+1 {
-		return fmt.Errorf("%w: expected %d height, got %d count", ErrStaleNode, startFrom, height)
+		return fmt.Errorf("%w: expected %d height, got %d count", ErrStaleNodes, startFrom, height)
 	}
 
 	return nil

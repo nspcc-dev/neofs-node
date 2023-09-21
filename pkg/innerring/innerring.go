@@ -473,13 +473,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 		mainnetChain.from = fromMainChainBlock
 
-		// create mainnet client, retry with a different node if current one is not up to date
-		for {
-			server.mainnetClient, err = server.createClient(ctx, mainnetChain, errChan)
-			if !errors.Is(err, client.ErrStaleNode) || !server.mainnetClient.SwitchRPC() {
-				break
-			}
-		}
+		// create mainnet client
+		server.mainnetClient, err = server.createClient(ctx, mainnetChain, errChan)
 		if err != nil {
 			return nil, err
 		}
