@@ -214,23 +214,11 @@ routeloop:
 		case <-c.closeChan:
 			break routeloop
 		case ev, ok := <-notifCh:
-			if ok {
-				c.subs.notifyChan <- ev
-			} else {
-				connLost = true
-			}
+			connLost = handleEv(c.subs.notifyChan, ok, ev)
 		case ev, ok := <-blCh:
-			if ok {
-				c.subs.blockChan <- ev
-			} else {
-				connLost = true
-			}
+			connLost = handleEv(c.subs.blockChan, ok, ev)
 		case ev, ok := <-notaryCh:
-			if ok {
-				c.subs.notaryChan <- ev
-			} else {
-				connLost = true
-			}
+			connLost = handleEv(c.subs.notaryChan, ok, ev)
 		case ok := <-restoreCh:
 			restoreInProgress = false
 			if !ok {
@@ -327,4 +315,14 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 		}
 	}
 	resCh <- true
+}
+
+func handleEv[T any](ch chan<- T, ok bool, ev T) bool {
+	if !ok {
+		return true
+	}
+
+	ch <- ev
+
+	return false
 }
