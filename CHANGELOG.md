@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Fixed
+- `neofs-cli netmap netinfo` documentation (#2555)
 
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)

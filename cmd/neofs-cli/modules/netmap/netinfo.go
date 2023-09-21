@@ -14,8 +14,9 @@ import (
 var netInfoCmd = &cobra.Command{
 	Use:   "netinfo",
 	Short: "Get information about NeoFS network",
-	Long:  "Get information about NeoFS network",
-	Args:  cobra.NoArgs,
+	Long: `Get information about NeoFS network.
+		Unknown configuration settings are displayed in hexadecimal format.`,
+	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, _ []string) {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
