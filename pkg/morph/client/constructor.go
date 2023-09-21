@@ -161,7 +161,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 	cli.setActor(act)
 
-	err = cli.awaitHeight(cfg.minRequiredHeight)
+	err = cli.reachedHeight(cfg.minRequiredHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -348,12 +348,12 @@ func WithMinRequiredBlockHeight(h uint32) Option {
 	}
 }
 
-// awaitHeight checks if [Client] has least expected block height and
-// returns error if it is not reached that height after timeout duration.
+// reachedHeight checks if [Client] has least expected block height and
+// returns error if it is not reached that height.
 // This function is required to avoid connections to unsynced RPC nodes, because
 // they can produce events from the past that should not be processed by
 // NeoFS nodes.
-func (c *Client) awaitHeight(startFrom uint32) error {
+func (c *Client) reachedHeight(startFrom uint32) error {
 	if startFrom == 0 {
 		return nil
 	}
