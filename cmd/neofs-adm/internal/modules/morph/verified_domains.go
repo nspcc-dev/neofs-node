@@ -1,0 +1,225 @@
+package morph
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/nspcc-dev/neo-go/cli/input"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	nnsrpc "github.com/nspcc-dev/neofs-contract/rpc/nns"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
+	vpr := viper.GetViper()
+
+	n3Client, err := getN3Client(vpr)
+	if err != nil {
+		return fmt.Errorf("open connection: %w", err)
+	}
+
+	nnsContractAddr, err := nnsrpc.InferHash(n3Client)
+	if err != nil {
+		return fmt.Errorf("get NeoFS NNS contract address: %w", err)
+	}
+
+	domain := vpr.GetString(domainFlag)
+
+	err = iterateNNSDomainTextRecords(invoker.New(n3Client, nil), nnsContractAddr, domain, func(rec string) error {
+		cmd.Println(rec)
+		return nil
+	})
+	if err != nil {
+		switch {
+		default:
+			return fmt.Errorf("handle domain %q records: %w", domain, err)
+		case errors.Is(err, errDomainNotFound):
+			cmd.Println("Domain not found.")
+			return nil
+		case errors.Is(err, errMissingDomainRecords):
+			cmd.Println("List is empty.")
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
+	vpr := viper.GetViper()
+
+	strNeoAddresses := vpr.GetStringSlice(neoAddressesFlag)
+	strPublicKeys := vpr.GetStringSlice(publicKeysFlag)
+	if len(strNeoAddresses)+len(strPublicKeys) == 0 {
+		// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
+		return errors.New("neither Neo addresses nor public keys are set")
+	}
+
+	if len(strNeoAddresses)*len(strPublicKeys) != 0 {
+		// just to make sure
+		panic("mutually exclusive flags bypassed Cobra")
+	}
+
+	var err error
+	var additionalRecords []string
+
+	if len(strNeoAddresses) > 0 {
+		for i := range strNeoAddresses {
+			for j := i + 1; j < len(strNeoAddresses); j++ {
+				if strNeoAddresses[i] == strNeoAddresses[j] {
+					return fmt.Errorf("duplicated Neo address %s", strNeoAddresses[i])
+				}
+			}
+
+			_, err = address.StringToUint160(strNeoAddresses[i])
+			if err != nil {
+				return fmt.Errorf("address #%d is invalid: %w", i, err)
+			}
+		}
+
+		additionalRecords = strNeoAddresses
+	} else {
+		additionalRecords = make([]string, len(strPublicKeys))
+
+		for i := range strPublicKeys {
+			for j := i + 1; j < len(strPublicKeys); j++ {
+				if strPublicKeys[i] == strPublicKeys[j] {
+					return fmt.Errorf("duplicated public key %s", strPublicKeys[i])
+				}
+			}
+
+			pubKey, err := keys.NewPublicKeyFromString(strPublicKeys[i])
+			if err != nil {
+				return fmt.Errorf("public key #%d is not a HEX-encoded public key: %w", i, err)
+			}
+
+			additionalRecords[i] = address.Uint160ToString(pubKey.GetScriptHash())
+		}
+	}
+
+	w, err := wallet.NewWalletFromFile(viper.GetString(walletFlag))
+	if err != nil {
+		return fmt.Errorf("decode Neo wallet from file: %v", err)
+	}
+
+	var accAddr util.Uint160
+	if strAccAddr := viper.GetString(walletAccountFlag); strAccAddr != "" {
+		accAddr, err = address.StringToUint160(strAccAddr)
+		if err != nil {
+			return fmt.Errorf("invalid Neo account address in flag --%s: %q", walletAccountFlag, strAccAddr)
+		}
+	} else {
+		accAddr = w.GetChangeAddress()
+	}
+
+	acc := w.GetAccount(accAddr)
+	if acc == nil {
+		return fmt.Errorf("account %s not found in the wallet", address.Uint160ToString(accAddr))
+	}
+
+	prompt := fmt.Sprintf("Enter password for %s >", address.Uint160ToString(accAddr))
+	pass, err := input.ReadPassword(prompt)
+	if err != nil {
+		return fmt.Errorf("failed to read account password: %v", err)
+	}
+
+	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
+	if err != nil {
+		return fmt.Errorf("failed to unlock the account with password: %v", err)
+	}
+
+	n3Client, err := getN3Client(vpr)
+	if err != nil {
+		return fmt.Errorf("open connection: %w", err)
+	}
+
+	nnsContractAddr, err := nnsrpc.InferHash(n3Client)
+	if err != nil {
+		return fmt.Errorf("get NeoFS NNS contract address: %w", err)
+	}
+
+	actr, err := actor.NewSimple(n3Client, acc)
+	if err != nil {
+		return fmt.Errorf("init committee actor: %w", err)
+	}
+
+	domain := vpr.GetString(domainFlag)
+	scriptBuilder := smartcontract.NewBuilder()
+	hasOtherRecord := false
+	mAlreadySetIndices := make(map[int]struct{}, len(additionalRecords))
+
+	err = iterateNNSDomainTextRecords(actr, nnsContractAddr, domain, func(rec string) error {
+		for i := range additionalRecords {
+			if additionalRecords[i] == rec {
+				mAlreadySetIndices[i] = struct{}{}
+				return nil
+			}
+		}
+
+		hasOtherRecord = true
+
+		return errBreakIterator
+	})
+	if err != nil {
+		switch {
+		default:
+			return fmt.Errorf("handle domain %q records: %w", domain, err)
+		case errors.Is(err, errMissingDomainRecords):
+			// domain exists but has no records, that's ok: just going to add new ones
+		case errors.Is(err, errDomainNotFound):
+			domainToRegister := domain
+			if labels := strings.Split(domainToRegister, "."); len(labels) > 2 {
+				// we need explicitly register L2 domain like 'some-org.neofs'
+				// and then just add records to inferior domains
+				domainToRegister = labels[len(labels)-2] + "." + labels[len(labels)-1]
+			}
+
+			scriptBuilder.InvokeMethod(nnsContractAddr, "register",
+				domainToRegister, acc.ScriptHash(), "ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+		}
+	}
+
+	if !hasOtherRecord && len(mAlreadySetIndices) == len(additionalRecords) {
+		cmd.Println("Current list is already the same, skip.")
+		return nil
+	}
+
+	if hasOtherRecord {
+		// there is no way to delete particular record, so clean all first
+		scriptBuilder.InvokeMethod(nnsContractAddr, "deleteRecords",
+			domain, nnsrpc.TXT.Int64())
+	}
+
+	for i := range additionalRecords {
+		if !hasOtherRecord {
+			if _, ok := mAlreadySetIndices[i]; ok {
+				continue
+			}
+		}
+
+		scriptBuilder.InvokeMethod(nnsContractAddr, "addRecord",
+			domain, nnsrpc.TXT.Int64(), additionalRecords[i])
+	}
+
+	txScript, err := scriptBuilder.Script()
+	if err != nil {
+		return fmt.Errorf("build transaction script: %w", err)
+	}
+
+	_, err = actr.Wait(actr.SendRun(txScript))
+	if err != nil {
+		return fmt.Errorf("send transction with built script and wait for it to be accepted: %w", err)
+	}
+
+	cmd.Println("Access list has been successfully updated.")
+
+	return nil
+}

@@ -58,7 +58,7 @@ type clientContext struct {
 	SentTxs         []hashVUBPair
 }
 
-func getN3Client(v *viper.Viper) (Client, error) {
+func getN3Client(v *viper.Viper) (*rpcclient.Client, error) {
 	// number of opened connections
 	// by neo-go client per one host
 	const (

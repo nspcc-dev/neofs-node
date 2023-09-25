@@ -42,6 +42,10 @@ const (
 	localDumpFlag                   = "local-dump"
 	protoConfigPath                 = "protocol"
 	walletAddressFlag               = "wallet-address"
+	domainFlag                      = "domain"
+	neoAddressesFlag                = "neo-addresses"
+	publicKeysFlag                  = "public-keys"
+	walletFlag                      = "wallet"
 )
 
 var (
@@ -257,6 +261,39 @@ Values for unknown keys are added exactly the way they're provided, no conversio
 		},
 		RunE: listNetmapCandidatesNodes,
 	}
+
+	verifiedNodesDomainCmd = &cobra.Command{
+		Use:   "verified-nodes-domain",
+		Short: "Group of commands to work with verified domains for the storage nodes",
+		Args:  cobra.NoArgs,
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+			_ = viper.BindPFlag(domainFlag, cmd.Flags().Lookup(domainFlag))
+		},
+	}
+
+	verifiedNodesDomainAccessListCmd = &cobra.Command{
+		Use:   "access-list",
+		Short: "Get access list for the verified nodes' domain",
+		Long:  "List Neo addresses of the storage nodes that have access to use the specified verified domain.",
+		Args:  cobra.NoArgs,
+		RunE:  verifiedNodesDomainAccessList,
+	}
+
+	verifiedNodesDomainSetAccessListCmd = &cobra.Command{
+		Use:   "set-access-list",
+		Short: "Set access list for the verified nodes' domain",
+		Long: "Set list of the storage nodes that have access to use the specified verified domain. " +
+			"The list may be either Neo addresses or HEX-encoded public keys of the nodes.",
+		Args: cobra.NoArgs,
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(walletFlag, cmd.Flags().Lookup(walletFlag))
+			_ = viper.BindPFlag(walletAccountFlag, cmd.Flags().Lookup(walletAccountFlag))
+			_ = viper.BindPFlag(publicKeysFlag, cmd.Flags().Lookup(publicKeysFlag))
+			_ = viper.BindPFlag(neoAddressesFlag, cmd.Flags().Lookup(neoAddressesFlag))
+		},
+		RunE: verifiedNodesDomainSetAccessList,
+	}
 )
 
 func init() {
@@ -365,4 +402,31 @@ func init() {
 
 	RootCmd.AddCommand(netmapCandidatesCmd)
 	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+
+	cmd := verifiedNodesDomainAccessListCmd
+	fs := cmd.Flags()
+	fs.StringP(endpointFlag, "r", "", "NeoFS Sidechain RPC endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	fs.StringP(domainFlag, "d", "", "Verified domain of the storage nodes. Must be a valid NeoFS NNS domain (e.g. 'nodes.some-org.neofs')")
+	_ = cmd.MarkFlagRequired(domainFlag)
+
+	verifiedNodesDomainCmd.AddCommand(cmd)
+
+	cmd = verifiedNodesDomainSetAccessListCmd
+	fs = cmd.Flags()
+	fs.StringP(walletFlag, "w", "", "Path to the Neo wallet file")
+	_ = cmd.MarkFlagRequired(walletFlag)
+	fs.StringP(walletAccountFlag, "a", "", "Optional Neo address of the wallet account for signing transactions. "+
+		"If omitted, default change address from the wallet is used")
+	fs.StringP(endpointFlag, "r", "", "NeoFS Sidechain RPC endpoint")
+	_ = cmd.MarkFlagRequired(endpointFlag)
+	fs.StringP(domainFlag, "d", "", "Verified domain of the storage nodes. Must be a valid NeoFS NNS domain (e.g. 'nodes.some-org.neofs')")
+	_ = cmd.MarkFlagRequired(domainFlag)
+	fs.StringSlice(neoAddressesFlag, nil, "Neo addresses resolved from public keys of the storage nodes")
+	fs.StringSlice(publicKeysFlag, nil, "HEX-encoded public keys of the storage nodes")
+	cmd.MarkFlagsMutuallyExclusive(publicKeysFlag, neoAddressesFlag)
+
+	verifiedNodesDomainCmd.AddCommand(cmd)
+
+	RootCmd.AddCommand(verifiedNodesDomainCmd)
 }
