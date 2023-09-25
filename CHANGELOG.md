@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Policer's setting to the SN's application configuration (#2600)
 - Support of verified domains for the storage nodes (#2280)
+- `neofs-lens storage status` CLI command (#2550)
 
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
