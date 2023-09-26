@@ -20,7 +20,7 @@ var Root = &cobra.Command{
 }
 
 func init() {
-	Root.AddCommand(listCMD, inspectCMD)
+	Root.AddCommand(listCMD, inspectCMD, getCMD)
 }
 
 func openBlobovnicza(cmd *cobra.Command) *blobovnicza.Blobovnicza {

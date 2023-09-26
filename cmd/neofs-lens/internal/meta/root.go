@@ -34,6 +34,7 @@ func init() {
 		listGraveyardCMD,
 		listGarbageCMD,
 		writeObjectCMD,
+		getCMD,
 	)
 }
 

@@ -7,10 +7,18 @@ import (
 )
 
 var inspectCMD = &cobra.Command{
-	Use:   "inspect",
-	Short: "Object inspection",
-	Long:  `Inspect specific object in a Peapod.`,
-	Run:   inspectFunc,
+	Use:        "inspect",
+	Short:      "Object inspection",
+	Long:       `Inspect specific object in a Peapod.`,
+	Deprecated: "will be removed in the next release. Use `get` instead.",
+	Run:        getFunc,
+}
+
+var getCMD = &cobra.Command{
+	Use:   "get",
+	Short: "Get object",
+	Long:  `Get specific object from a Peapod.`,
+	Run:   getFunc,
 }
 
 func init() {
@@ -18,9 +26,14 @@ func init() {
 	common.AddComponentPathFlag(inspectCMD, &vPath)
 	common.AddOutputFileFlag(inspectCMD, &vOut)
 	common.AddPayloadOnlyFlag(inspectCMD, &vPayloadOnly)
+
+	common.AddAddressFlag(getCMD, &vAddress)
+	common.AddComponentPathFlag(getCMD, &vPath)
+	common.AddOutputFileFlag(getCMD, &vOut)
+	common.AddPayloadOnlyFlag(getCMD, &vPayloadOnly)
 }
 
-func inspectFunc(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) {
 	var getPrm blobstorcommon.GetPrm
 
 	err := getPrm.Address.DecodeString(vAddress)

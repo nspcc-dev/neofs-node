@@ -8,11 +8,20 @@ import (
 )
 
 var storageInspectObjCMD = &cobra.Command{
-	Use:   "inspect",
+	Use:        "inspect",
+	Short:      "Get object from the NeoFS node's storage snapshot",
+	Long:       "Get object from the NeoFS node's storage snapshot",
+	Deprecated: "will be removed in the next release. Use `get` instead.",
+	Args:       cobra.NoArgs,
+	Run:        getFunc,
+}
+
+var storageGetObjCMD = &cobra.Command{
+	Use:   "get",
 	Short: "Get object from the NeoFS node's storage snapshot",
 	Long:  "Get object from the NeoFS node's storage snapshot",
 	Args:  cobra.NoArgs,
-	Run:   inspectObject,
+	Run:   getFunc,
 }
 
 func init() {
@@ -20,9 +29,14 @@ func init() {
 	common.AddOutputFileFlag(storageInspectObjCMD, &vOut)
 	common.AddConfigFileFlag(storageInspectObjCMD, &vConfig)
 	common.AddPayloadOnlyFlag(storageInspectObjCMD, &vPayloadOnly)
+
+	common.AddAddressFlag(storageGetObjCMD, &vAddress)
+	common.AddOutputFileFlag(storageGetObjCMD, &vOut)
+	common.AddConfigFileFlag(storageGetObjCMD, &vConfig)
+	common.AddPayloadOnlyFlag(storageGetObjCMD, &vPayloadOnly)
 }
 
-func inspectObject(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
