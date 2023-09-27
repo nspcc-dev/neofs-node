@@ -41,7 +41,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -446,7 +445,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	// create morph listener
-	server.morphListener, err = createListener(ctx, server.morphClient, morphChain)
+	server.morphListener, err = createListener(server.morphClient, morphChain)
 	if err != nil {
 		return nil, err
 	}
@@ -480,13 +479,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, err
 		}
 
-		// create mainnet listener, retry with a different node if current one is not up to date
-		for {
-			server.mainnetListener, err = createListener(ctx, server.mainnetClient, mainnetChain)
-			if !errors.Is(err, subscriber.ErrStaleNode) || !server.mainnetClient.SwitchRPC() {
-				break
-			}
-		}
+		// create mainnet listener
+		server.mainnetListener, err = createListener(server.mainnetClient, mainnetChain)
 		if err != nil {
 			return nil, err
 		}
@@ -959,7 +953,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	return server, nil
 }
 
-func createListener(ctx context.Context, cli *client.Client, p chainParams) (event.Listener, error) {
+func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
 	// listenerPoolCap is a capacity of a
 	// worker pool inside the listener. It
 	// is used to prevent blocking in neo-go:
@@ -968,23 +962,9 @@ func createListener(ctx context.Context, cli *client.Client, p chainParams) (eve
 	// read by another goroutine.
 	const listenerPoolCap = 10
 
-	var (
-		sub subscriber.Subscriber
-		err error
-	)
-
-	sub, err = subscriber.New(ctx, &subscriber.Params{
-		Log:            p.log,
-		StartFromBlock: p.from,
-		Client:         cli,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	listener, err := event.NewListener(event.ListenerParams{
 		Logger:             p.log.With(zap.String("chain", p.name)),
-		Subscriber:         sub,
+		Client:             cli,
 		WorkerPoolCapacity: listenerPoolCap,
 	})
 	if err != nil {
@@ -1024,6 +1004,7 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		client.WithConnLostCallback(func() {
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
+		client.WithMinRequiredBlockHeight(p.from),
 	)
 }
 

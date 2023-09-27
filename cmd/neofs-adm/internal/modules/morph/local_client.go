@@ -60,7 +60,7 @@ func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet
 		return nil, err
 	}
 
-	m := smartcontract.GetDefaultHonestNodeCount(cfg.ProtocolConfiguration.ValidatorsCount)
+	m := smartcontract.GetDefaultHonestNodeCount(int(cfg.ProtocolConfiguration.ValidatorsCount))
 	accounts := make([]*wallet.Account, len(wallets))
 	for i := range accounts {
 		accounts[i], err = getWalletAccount(wallets[i], consensusAccountName)

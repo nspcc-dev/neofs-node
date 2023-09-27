@@ -29,21 +29,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Error functions won't be needed when proper Neo status codes will arrive
-// Track https://github.com/nspcc-dev/neofs-node/issues/2285
-
-func isErrContractNotFound(err error) bool {
-	return strings.Contains(err.Error(), "Unknown contract")
-}
-
-func isErrNotEnoughGAS(err error) bool {
-	return isErrInvalidTransaction(err) && strings.Contains(err.Error(), "insufficient funds")
-}
-
-func isErrInvalidTransaction(err error) bool {
-	return errors.Is(err, neorpc.ErrValidationFailed)
-}
-
 func isErrContractAlreadyUpdated(err error) bool {
 	return strings.Contains(err.Error(), common.ErrAlreadyUpdated)
 }
@@ -180,7 +165,7 @@ func readNNSOnChainState(b Blockchain) (*state.Contract, error) {
 	const nnsContractID = 1
 	res, err := b.GetContractStateByID(nnsContractID)
 	if err != nil {
-		if isErrContractNotFound(err) {
+		if errors.Is(err, neorpc.ErrUnknownContract) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("read contract state by ID=%d: %w", nnsContractID, err)

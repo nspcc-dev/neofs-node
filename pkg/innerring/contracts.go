@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/cast"
@@ -175,9 +176,7 @@ func parseContract(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph
 				break
 			}
 
-			// FIXME: unstable approach, but currently there is no other way
-			//  Track neofs-node#2285
-			if !strings.Contains(err.Error(), "Unknown contract") {
+			if !errors.Is(err, neorpc.ErrUnknownContract) {
 				return
 			}
 

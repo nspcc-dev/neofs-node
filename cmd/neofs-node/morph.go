@@ -15,7 +15,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/subscriber"
 	"go.uber.org/zap"
 )
 
@@ -30,6 +29,12 @@ func initMorphComponents(c *cfg) {
 	var err error
 
 	addresses := morphconfig.Endpoints(c.appCfg)
+
+	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
+	if err != nil {
+		fromSideChainBlock = 0
+		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+	}
 
 	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
@@ -46,6 +51,7 @@ func initMorphComponents(c *cfg) {
 		client.WithConnLostCallback(func() {
 			c.internalErr <- errors.New("morph connection has been lost")
 		}),
+		client.WithMinRequiredBlockHeight(fromSideChainBlock),
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",
@@ -168,27 +174,9 @@ func listenMorphNotifications(c *cfg) {
 	// read by another goroutine.
 	const listenerPoolCap = 10
 
-	var (
-		err  error
-		subs subscriber.Subscriber
-	)
-
-	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
-	if err != nil {
-		fromSideChainBlock = 0
-		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
-	}
-
-	subs, err = subscriber.New(c.ctx, &subscriber.Params{
-		Log:            c.log,
-		StartFromBlock: fromSideChainBlock,
-		Client:         c.cfgMorph.client,
-	})
-	fatalOnErr(err)
-
 	lis, err := event.NewListener(event.ListenerParams{
 		Logger:             c.log,
-		Subscriber:         subs,
+		Client:             c.cfgMorph.client,
 		WorkerPoolCapacity: listenerPoolCap,
 	})
 	fatalOnErr(err)

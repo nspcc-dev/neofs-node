@@ -37,8 +37,8 @@ import (
 // On connection lost tries establishing new connection
 // to the next RPC (if any). If no RPC node available,
 // switches to inactive mode: any RPC call leads to immediate
-// return with ErrConnectionLost error, notification channel
-// returned from Client.NotificationChannel is closed.
+// return with ErrConnectionLost error, every notification
+// consumer passed to any Receive* method is closed.
 //
 // Working client must be created via constructor New.
 // Using the Client that has been created with new(Client)
@@ -67,6 +67,8 @@ type Client struct {
 	// It is taken exclusively during endpoint switch and locked in shared mode
 	// on every normal call.
 	switchLock *sync.RWMutex
+
+	subs subscriptions
 
 	// channel for internal stop
 	closeChan chan struct{}
@@ -466,15 +468,6 @@ func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
 	}
 
 	return state.VoteTo, nil
-}
-
-// NotificationChannel returns channel than receives subscribed
-// notification from the connected RPC node.
-// Channel is closed when connection to the RPC node is lost.
-func (c *Client) NotificationChannel() <-chan rpcclient.Notification {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-	return c.client.Notifications //nolint:staticcheck // SA1019: c.client.Notifications is deprecated
 }
 
 func (c *Client) setActor(act *actor.Actor) {

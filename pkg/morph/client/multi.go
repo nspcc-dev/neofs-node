@@ -17,7 +17,7 @@ func (c *Client) SwitchRPC() bool {
 	c.switchLock.Lock()
 
 	for attempt := 0; attempt < c.cfg.reconnectionRetries; attempt++ {
-		if c.switchPRC() {
+		if c.switchRPC() {
 			c.switchLock.Unlock()
 
 			if c.cfg.rpcSwitchCb != nil {
@@ -45,7 +45,7 @@ func (c *Client) SwitchRPC() bool {
 	return false
 }
 
-func (c *Client) switchPRC() bool {
+func (c *Client) switchRPC() bool {
 	c.client.Close()
 
 	// Iterate endpoints in the order of decreasing priority.

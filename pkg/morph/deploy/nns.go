@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
@@ -174,7 +175,7 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 			},
 		})
 		if err != nil {
-			if isErrNotEnoughGAS(err) {
+			if errors.Is(err, neorpc.ErrInsufficientFunds) {
 				prm.logger.Info("not enough GAS to deploy NNS contract, will try again later")
 			} else {
 				prm.logger.Error("failed to send transaction deploying NNS contract, will try again later", zap.Error(err))
@@ -361,7 +362,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 
 		mainTxID, fallbackTxID, vub, err := committeeActor.Notarize(tx, nil)
 		if err != nil {
-			if isErrNotEnoughGAS(err) {
+			if errors.Is(err, neorpc.ErrInsufficientFunds) {
 				prm.logger.Info("insufficient Notary balance to send new Notary request updating NNS contract, skip")
 			} else {
 				prm.logger.Error("failed to send new Notary request updating NNS contract, skip", zap.Error(err))

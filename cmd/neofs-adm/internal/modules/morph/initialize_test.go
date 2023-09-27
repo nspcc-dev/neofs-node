@@ -97,7 +97,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 	}
 
 	cfg := config.Config{}
-	cfg.ProtocolConfiguration.ValidatorsCount = size
+	cfg.ProtocolConfiguration.ValidatorsCount = uint32(size)
 	cfg.ProtocolConfiguration.TimePerBlock = time.Second
 	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by glagolic letters
 	cfg.ProtocolConfiguration.P2PSigExtensions = true

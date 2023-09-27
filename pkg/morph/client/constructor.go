@@ -8,8 +8,11 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -43,6 +46,8 @@ type cfg struct {
 	inactiveModeCb Callback
 	rpcSwitchCb    Callback
 
+	minRequiredHeight uint32
+
 	reconnectionRetries int
 	reconnectionDelay   time.Duration
 }
@@ -65,6 +70,11 @@ func defaultConfig() *cfg {
 		reconnectionRetries: 5,
 	}
 }
+
+// ErrStaleNodes is returned from [New] when minimal required height
+// requirement specified in [WithMinRequiredBlockHeight] is not
+// satisfied by the given nodes.
+var ErrStaleNodes = errors.New("RPC nodes are not yet up to date")
 
 // New creates, initializes and returns the Client instance.
 // Notary support should be enabled with EnableNotarySupport client
@@ -107,6 +117,18 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		cfg:        *cfg,
 		switchLock: &sync.RWMutex{},
 		closeChan:  make(chan struct{}),
+		subs: subscriptions{
+			notifyChan:             make(chan *state.ContainedNotificationEvent),
+			blockChan:              make(chan *block.Block),
+			notaryChan:             make(chan *result.NotaryRequestEvent),
+			subscribedEvents:       make(map[util.Uint160]struct{}),
+			subscribedNotaryEvents: make(map[util.Uint160]struct{}),
+			subscribedToNewBlocks:  false,
+
+			curNotifyChan: make(chan *state.ContainedNotificationEvent),
+			curBlockChan:  make(chan *block.Block),
+			curNotaryChan: make(chan *result.NotaryRequestEvent),
+		},
 	}
 
 	var err error
@@ -139,14 +161,32 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 	cli.setActor(act)
 
+	for attempt := 0; attempt < cfg.reconnectionRetries; attempt++ {
+		err = cli.reachedHeight(cfg.minRequiredHeight)
+		if !errors.Is(err, ErrStaleNodes) {
+			break
+		}
+
+		if !cli.switchRPC() {
+			return nil, fmt.Errorf("%w: could not switch to the next node", err)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	go cli.routeNotifications()
 	go cli.closeWaiter()
 
 	return cli, nil
 }
 
 func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, error) {
-	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.Options{
-		DialTimeout: c.cfg.dialTimeout,
+	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.WSOptions{
+		Options: rpcclient.Options{
+			DialTimeout: c.cfg.dialTimeout,
+		},
+		CloseNotificationChannelIfFull: true,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client creation: %w", err)
@@ -306,4 +346,36 @@ func WithConnSwitchCallback(cb Callback) Option {
 	return func(c *cfg) {
 		c.rpcSwitchCb = cb
 	}
+}
+
+// WithMinRequiredBlockHeight returns a client constructor
+// option that specifies a minimal chain height that is
+// considered as acceptable. [New] returns [ErrStaleNodes]
+// if the height could not been reached.
+func WithMinRequiredBlockHeight(h uint32) Option {
+	return func(c *cfg) {
+		c.minRequiredHeight = h
+	}
+}
+
+// reachedHeight checks if [Client] has least expected block height and
+// returns error if it is not reached that height.
+// This function is required to avoid connections to unsynced RPC nodes, because
+// they can produce events from the past that should not be processed by
+// NeoFS nodes.
+func (c *Client) reachedHeight(startFrom uint32) error {
+	if startFrom == 0 {
+		return nil
+	}
+
+	height, err := c.BlockCount()
+	if err != nil {
+		return fmt.Errorf("could not get block height: %w", err)
+	}
+
+	if height < startFrom+1 {
+		return fmt.Errorf("%w: expected %d height, got %d count", ErrStaleNodes, startFrom, height)
+	}
+
+	return nil
 }
