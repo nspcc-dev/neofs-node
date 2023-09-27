@@ -86,7 +86,7 @@ func (c *Client) ReceiveBlocks() error {
 		return ErrConnectionLost
 	}
 
-	_, err := c.client.ReceiveBlocks(nil, c.subs.blockChan)
+	_, err := c.client.ReceiveBlocks(nil, c.subs.curBlockChan)
 	if err != nil {
 		return fmt.Errorf("block subscriptions RPC: %w", err)
 	}
