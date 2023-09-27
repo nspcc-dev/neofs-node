@@ -81,8 +81,12 @@ func (c *announceContext) announce() {
 
 	// iterate over all collected metrics and write them to the target
 	err = metricsIterator.Iterate(
-		func(container.SizeEstimation) bool {
-			return true // local metrics don't know about epochs
+		func(a container.SizeEstimation) bool {
+			// local metrics don't know about epochs;
+			// do not try to announce empty containers, it
+			// takes additional network time but absolutely
+			// useless
+			return a.Value() != 0
 		},
 		func(a container.SizeEstimation) error {
 			cnrString := a.Container().EncodeToString()
