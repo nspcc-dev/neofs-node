@@ -25,7 +25,8 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm RangePrm
+	prm          RangePrm
+	prmRangeHash *RangeHashPrm
 
 	statusError
 
@@ -61,6 +62,12 @@ func headOnly() execOption {
 func withPayloadRange(r *objectSDK.Range) execOption {
 	return func(c *execCtx) {
 		c.prm.rng = r
+	}
+}
+
+func withHash(p *RangeHashPrm) execOption {
+	return func(ctx *execCtx) {
+		ctx.prmRangeHash = p
 	}
 }
 
