@@ -118,7 +118,7 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
 
-	uniqueIDs := make(map[string]cid.ID)
+	uniqueIDs := make(map[cid.ID]struct{})
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
@@ -128,9 +128,8 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 		}
 
 		for _, cnr := range res.Containers() {
-			id := cnr.EncodeToString()
-			if _, ok := uniqueIDs[id]; !ok {
-				uniqueIDs[id] = cnr
+			if _, ok := uniqueIDs[cnr]; !ok {
+				uniqueIDs[cnr] = struct{}{}
 			}
 		}
 
@@ -138,8 +137,8 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 	})
 
 	result := make([]cid.ID, 0, len(uniqueIDs))
-	for _, v := range uniqueIDs {
-		result = append(result, v)
+	for cnr := range uniqueIDs {
+		result = append(result, cnr)
 	}
 
 	return ListContainersRes{
