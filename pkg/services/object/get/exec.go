@@ -363,9 +363,9 @@ func (exec execCtx) isForwardingEnabled() bool {
 	return exec.prm.forwarder != nil
 }
 
-// isRangeForwardingEnabled returns true if common execution
+// isRangeHashForwardingEnabled returns true if common execution
 // parameters has GETRANGEHASH request forwarding closure set.
-func (exec execCtx) isRangeForwardingEnabled() bool {
+func (exec execCtx) isRangeHashForwardingEnabled() bool {
 	return exec.prm.rangeForwarder != nil
 }
 
@@ -373,5 +373,5 @@ func (exec execCtx) isRangeForwardingEnabled() bool {
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
 	exec.prm.SetRequestForwarder(nil)
-	exec.prm.SetRangeRequestForwarder(nil)
+	exec.prm.SetRangeHashRequestForwarder(nil)
 }

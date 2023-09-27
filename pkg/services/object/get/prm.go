@@ -146,7 +146,7 @@ func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
 	p.forwarder = f
 }
 
-func (p *commonPrm) SetRangeRequestForwarder(f RangeRequestForwarder) {
+func (p *commonPrm) SetRangeHashRequestForwarder(f RangeRequestForwarder) {
 	p.rangeForwarder = f
 }
 
