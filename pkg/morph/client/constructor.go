@@ -186,7 +186,6 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 		Options: rpcclient.Options{
 			DialTimeout: c.cfg.dialTimeout,
 		},
-		CloseNotificationChannelIfFull: true,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client creation: %w", err)
