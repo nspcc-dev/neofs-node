@@ -85,10 +85,20 @@ func (c *announceContext) announce() {
 			return true // local metrics don't know about epochs
 		},
 		func(a container.SizeEstimation) error {
-			c.log.Debug("sending local metrics", zap.String("cid", a.Container().EncodeToString()))
+			cnrString := a.Container().EncodeToString()
+
+			c.log.Debug("sending local metrics", zap.String("cid", cnrString))
 
 			a.SetEpoch(c.epoch) // set epoch explicitly
-			return targetWriter.Put(a)
+			err := targetWriter.Put(a)
+			if err != nil {
+				c.log.Warn("skip local metric", zap.String("cid", cnrString), zap.Error(err))
+			}
+
+			// estimations are too important to break the whole
+			// process for the whole epoch because of any particular
+			// error
+			return nil
 		},
 	)
 	if err != nil {
