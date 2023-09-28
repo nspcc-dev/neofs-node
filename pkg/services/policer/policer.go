@@ -99,7 +99,7 @@ type cfg struct {
 
 	batchSize, cacheSize uint32
 
-	rebalanceFreq, evictDuration time.Duration
+	rebalanceFreq, evictDuration, repCooldown time.Duration
 
 	network Network
 }
@@ -111,6 +111,7 @@ func defaultCfg() *cfg {
 		cacheSize:     1 << 20, // 1024*1024 * address size = 1MB * 64 = 64 MB
 		rebalanceFreq: 1 * time.Second,
 		evictDuration: 30 * time.Second,
+		repCooldown:   0,
 	}
 }
 

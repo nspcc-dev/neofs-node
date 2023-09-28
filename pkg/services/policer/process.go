@@ -26,6 +26,13 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		err    error
 	)
 
+	t := time.NewTimer(p.repCooldown)
+	defer func() {
+		if !t.Stop() {
+			<-t.C
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -71,6 +78,13 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 					p.log.Warn("pool submission", zap.Error(err))
 				}
 			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			t.Reset(p.repCooldown)
 		}
 	}
 }
