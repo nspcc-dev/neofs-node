@@ -8,12 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
@@ -77,6 +79,57 @@ type Client struct {
 	// establish connection to any of the
 	// provided RPC endpoints
 	inactive bool
+}
+
+// Call calls specified method of the Neo smart contract with provided arguments.
+func (c *Client) Call(contract util.Uint160, method string, args ...any) (*result.Invoke, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.rpcActor.Call(contract, method, args...)
+}
+
+// CallAndExpandIterator calls specified iterating method of the Neo smart
+// contract with provided arguments, and fetches iterator from the response
+// carrying up to limited number of items.
+func (c *Client) CallAndExpandIterator(contract util.Uint160, method string, maxItems int, args ...any) (*result.Invoke, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.rpcActor.CallAndExpandIterator(contract, method, maxItems, args...)
+}
+
+// TerminateSession closes opened session by its ID.
+func (c *Client) TerminateSession(sessionID uuid.UUID) error {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return ErrConnectionLost
+	}
+
+	return c.rpcActor.TerminateSession(sessionID)
+}
+
+// TraverseIterator reads specified number of items from the provided iterator
+// initialized within given session.
+func (c *Client) TraverseIterator(sessionID uuid.UUID, iterator *result.Iterator, num int) ([]stackitem.Item, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.rpcActor.TraverseIterator(sessionID, iterator, num)
 }
 
 type cache struct {
@@ -174,24 +227,17 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 
 // TestInvoke invokes contract method locally in neo-go node. This method should
 // be used to read data from smart-contract.
-func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) (res []stackitem.Item, err error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return nil, ErrConnectionLost
-	}
-
-	val, err := c.rpcActor.Call(contract, method, args...)
+func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) ([]stackitem.Item, error) {
+	resInvoke, err := c.Call(contract, method, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	if val.State != HaltState {
-		return nil, &notHaltStateError{state: val.State, exception: val.FaultException}
+	if resInvoke.State != HaltState {
+		return nil, &notHaltStateError{state: resInvoke.State, exception: resInvoke.FaultException}
 	}
 
-	return val.Stack, nil
+	return resInvoke.Stack, nil
 }
 
 // TestInvokeIterator is the same [Client.TestInvoke] but expands an iterator placed

@@ -111,9 +111,10 @@ func TestNodeSection(t *testing.T) {
 
 		require.Equal(t, true, relay)
 
-		require.Len(t, attributes, 2)
+		require.Len(t, attributes, 3)
 		require.Equal(t, "Price:11", attributes[0])
 		require.Equal(t, "UN-LOCODE:RU MSK", attributes[1])
+		require.Equal(t, "VerifiedNodesDomain:nodes.some-org.neofs", attributes[2])
 
 		require.NotNil(t, wKey)
 		require.Equal(t,

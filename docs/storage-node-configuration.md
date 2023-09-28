@@ -311,7 +311,7 @@ node:
 | `key`                 | `string`                                                      |               | Path to the binary-encoded private key.                                 |
 | `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration. Has no effect if `key` is provided.               |
 | `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                     |
-| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. |
+| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains.|
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                      |
 | `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                           |
 | `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                         |

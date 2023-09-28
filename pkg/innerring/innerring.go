@@ -25,6 +25,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	availabilityvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/availability"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/privatedomains"
 	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/reputation"
@@ -724,6 +725,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
 	netMapCandidateStateValidator.SetNetworkSettings(netSettings)
 
+	nnsContractAddr, err := server.morphClient.NNSHash()
+	if err != nil {
+		return nil, fmt.Errorf("get NeoFS NNS contract address: %w", err)
+	}
+
+	nnsService := newNeoFSNNS(nnsContractAddr, server.morphClient)
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -749,6 +757,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			&netMapCandidateStateValidator,
 			addrvalidator.New(),
 			availabilityvalidator.New(),
+			privatedomains.New(nnsService),
 			locodeValidator,
 		),
 		NodeStateSettings: netSettings,
