@@ -29,7 +29,7 @@ type netMapSrc struct {
 }
 
 // defaultContainerCacheSize is the default size for the container cache.
-const defaultContainerCacheSize = 10
+const defaultContainerCacheSize = 1000
 
 func NewNetworkMapBuilder(nm *netmapSDK.NetMap) Builder {
 	cache, _ := simplelru.NewLRU[string, [][]netmapSDK.NodeInfo](defaultContainerCacheSize, nil) // no error
