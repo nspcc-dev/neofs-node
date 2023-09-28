@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+- Policer's setting to the SN's application configuration (#2600)
+
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
 - `GETRANGEHASH` to a node without an object produced `GETRANGE` or `GET` requests (#2541, #2598)

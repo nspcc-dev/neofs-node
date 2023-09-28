@@ -94,6 +94,11 @@ apiclient:
 
 policer:
   head_timeout: 15s  # timeout for the Policer HEAD remote operation
+  cache_size: 1000001 # recently-handled objects cache size
+  cache_time: 31s # recently-handled objects cache expiration time
+  replication_cooldown: 101ms # cooldown time b/w replication tasks submitting
+  object_batch_size: 11 # replication's objects batch size
+  max_workers: 21 # replication's worker pool's maximum size
 
 replicator:
   put_timeout: 15s  # timeout for the Replicator PUT remote operation (defaults to 1m)

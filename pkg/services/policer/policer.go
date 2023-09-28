@@ -95,7 +95,7 @@ type cfg struct {
 
 	loader nodeLoader
 
-	maxCapacity int
+	maxCapacity uint32
 
 	batchSize, cacheSize uint32
 
@@ -206,7 +206,7 @@ func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
 
 // WithMaxCapacity returns option to set max capacity
 // that can be set to the pool.
-func WithMaxCapacity(capacity int) Option {
+func WithMaxCapacity(capacity uint32) Option {
 	return func(c *cfg) {
 		c.maxCapacity = capacity
 	}
@@ -231,5 +231,38 @@ func WithNodeLoader(l nodeLoader) Option {
 func WithNetwork(n Network) Option {
 	return func(c *cfg) {
 		c.network = n
+	}
+}
+
+// WithObjectCacheTime returns option to set recently-handled
+// objects cache eviction time.
+func WithObjectCacheTime(d time.Duration) Option {
+	return func(c *cfg) {
+		c.evictDuration = d
+	}
+}
+
+// WithObjectCacheSize returns option to set recently-handled
+// objects cache size.
+func WithObjectCacheSize(s uint32) Option {
+	return func(c *cfg) {
+		c.cacheSize = s
+	}
+}
+
+// WithReplicationCooldown returns option to set replication
+// cooldown: the [Policer] will not submit more than one task
+// per a provided time duration.
+func WithReplicationCooldown(d time.Duration) Option {
+	return func(c *cfg) {
+		c.repCooldown = d
+	}
+}
+
+// WithObjectBatchSize returns option to set maximum objects
+// read from the Storage at once.
+func WithObjectBatchSize(s uint32) Option {
+	return func(c *cfg) {
+		c.batchSize = s
 	}
 }

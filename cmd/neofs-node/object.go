@@ -216,10 +216,14 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.cfgObject.pool.replicatorPoolSize),
+		policer.WithMaxCapacity(policerconfig.MaxWorkers(c.appCfg)),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
+		policer.WithObjectCacheSize(policerconfig.CacheSize(c.appCfg)),
+		policer.WithObjectCacheTime(policerconfig.CacheTime(c.appCfg)),
+		policer.WithReplicationCooldown(policerconfig.ReplicationCooldown(c.appCfg)),
+		policer.WithObjectBatchSize(policerconfig.ObjectBatchSize(c.appCfg)),
 	)
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
