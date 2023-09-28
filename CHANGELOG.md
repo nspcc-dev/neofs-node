@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
 - BoltDB open timeout increased from 100ms to 1s (#2499)
+- Default Policer's handled objects cache size (#2600)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)

@@ -108,7 +108,7 @@ func defaultCfg() *cfg {
 	return &cfg{
 		log:           zap.L(),
 		batchSize:     10,
-		cacheSize:     1024, // 1024 * address size = 1024 * 64 = 64 MiB
+		cacheSize:     1 << 20, // 1024*1024 * address size = 1MB * 64 = 64 MB
 		rebalanceFreq: 1 * time.Second,
 		evictDuration: 30 * time.Second,
 	}
