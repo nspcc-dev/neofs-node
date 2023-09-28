@@ -73,7 +73,14 @@ type Network interface {
 }
 
 type cfg struct {
-	headTimeout time.Duration
+	sync.RWMutex
+	// available for runtime reconfiguration
+	headTimeout   time.Duration
+	evictDuration time.Duration
+	repCooldown   time.Duration
+	cacheSize     uint32
+	batchSize     uint32
+	maxCapacity   uint32
 
 	log *zap.Logger
 
@@ -95,11 +102,7 @@ type cfg struct {
 
 	loader nodeLoader
 
-	maxCapacity uint32
-
-	batchSize, cacheSize uint32
-
-	rebalanceFreq, evictDuration, repCooldown time.Duration
+	rebalanceFreq time.Duration
 
 	network Network
 }

@@ -203,6 +203,10 @@ type processPlacementContext struct {
 func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
 	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(ctx.object.Address)
 
+	p.cfg.RLock()
+	headTimeout := p.headTimeout
+	p.cfg.RUnlock()
+
 	// Number of copies that are stored on maintenance nodes.
 	var uncheckedCopies int
 
@@ -262,7 +266,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 				continue
 			}
 
-			callCtx, cancel := context.WithTimeout(ctx, p.headTimeout)
+			callCtx, cancel := context.WithTimeout(ctx, headTimeout)
 
 			_, err := p.remoteHeader.Head(callCtx, prm.WithNodeInfo(nodes[i]))
 

@@ -30,6 +30,7 @@ import (
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/storage"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -56,6 +57,7 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
 	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
+	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
@@ -100,6 +102,15 @@ type applicationConfiguration struct {
 		shardPoolSize  uint32
 		shards         []storage.ShardCfg
 	}
+
+	PolicerCfg struct {
+		maxCapacity         uint32
+		headTimeout         time.Duration
+		cacheSize           uint32
+		cacheTime           time.Duration
+		replicationCooldown time.Duration
+		objectBatchSize     uint32
+	}
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -125,6 +136,15 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	// Logger
 
 	a.LoggerCfg.level = loggerconfig.Level(c)
+
+	// Policer
+
+	a.PolicerCfg.maxCapacity = policerconfig.MaxWorkers(c)
+	a.PolicerCfg.headTimeout = policerconfig.HeadTimeout(c)
+	a.PolicerCfg.cacheSize = policerconfig.CacheSize(c)
+	a.PolicerCfg.cacheTime = policerconfig.CacheTime(c)
+	a.PolicerCfg.replicationCooldown = policerconfig.ReplicationCooldown(c)
+	a.PolicerCfg.objectBatchSize = policerconfig.ObjectBatchSize(c)
 
 	// Storage Engine
 
@@ -303,6 +323,8 @@ type shared struct {
 	cnrClient *containerClient.Client
 
 	respSvc *response.Service
+
+	policer *policer.Policer
 
 	replicator *replicator.Replicator
 
@@ -727,6 +749,19 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 	return shards
 }
 
+func (c *cfg) policerOpts() []policer.Option {
+	pCfg := c.applicationConfiguration.PolicerCfg
+
+	return []policer.Option{
+		policer.WithMaxCapacity(pCfg.maxCapacity),
+		policer.WithHeadTimeout(pCfg.headTimeout),
+		policer.WithObjectCacheSize(pCfg.cacheSize),
+		policer.WithObjectCacheTime(pCfg.cacheTime),
+		policer.WithReplicationCooldown(pCfg.replicationCooldown),
+		policer.WithObjectBatchSize(pCfg.objectBatchSize),
+	}
+}
+
 func (c *cfg) LocalAddress() network.AddressGroup {
 	return c.localAddr
 }
@@ -904,6 +939,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
 			}
+
+			// Policer
+
+			c.shared.policer.Reload(c.policerOpts()...)
 
 			// Storage Engine
 

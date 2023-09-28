@@ -20,13 +20,19 @@ func (p *Policer) Run(ctx context.Context) {
 }
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
+	p.cfg.RLock()
+	evictDuration := p.evictDuration
+	repCooldown := p.repCooldown
+	batchSize := p.batchSize
+	p.cfg.RUnlock()
+
 	var (
 		addrs  []objectcore.AddressWithType
 		cursor *engine.Cursor
 		err    error
 	)
 
-	t := time.NewTimer(p.repCooldown)
+	t := time.NewTimer(repCooldown)
 	defer func() {
 		if !t.Stop() {
 			<-t.C
@@ -40,7 +46,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		default:
 		}
 
-		addrs, cursor, err = p.jobQueue.Select(cursor, p.batchSize)
+		addrs, cursor, err = p.jobQueue.Select(cursor, batchSize)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				time.Sleep(time.Second) // finished whole cycle, sleep a bit
@@ -63,7 +69,7 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 
 				err = p.taskPool.Submit(func() {
 					lastTime, ok := p.cache.Get(addr.Address)
-					if ok && time.Since(lastTime) < p.evictDuration {
+					if ok && time.Since(lastTime) < evictDuration {
 						return
 					}
 
@@ -84,12 +90,18 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			p.cfg.RLock()
 			t.Reset(p.repCooldown)
+			p.cfg.RUnlock()
 		}
 	}
 }
 
 func (p *Policer) poolCapacityWorker(ctx context.Context) {
+	p.cfg.RLock()
+	maxCapacity := p.maxCapacity
+	p.cfg.RUnlock()
+
 	ticker := time.NewTicker(p.rebalanceFreq)
 	for {
 		select {
@@ -98,7 +110,7 @@ func (p *Policer) poolCapacityWorker(ctx context.Context) {
 			return
 		case <-ticker.C:
 			neofsSysLoad := p.loader.ObjectServiceLoad()
-			newCapacity := int((1.0 - neofsSysLoad) * float64(p.maxCapacity))
+			newCapacity := int((1.0 - neofsSysLoad) * float64(maxCapacity))
 			if newCapacity == 0 {
 				newCapacity++
 			}
