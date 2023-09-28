@@ -25,7 +25,8 @@ type execCtx struct {
 
 	ctx context.Context
 
-	prm RangePrm
+	prm          RangePrm
+	prmRangeHash *RangeHashPrm
 
 	statusError
 
@@ -61,6 +62,12 @@ func headOnly() execOption {
 func withPayloadRange(r *objectSDK.Range) execOption {
 	return func(c *execCtx) {
 		c.prm.rng = r
+	}
+}
+
+func withHash(p *RangeHashPrm) execOption {
+	return func(ctx *execCtx) {
+		ctx.prmRangeHash = p
 	}
 }
 
@@ -356,9 +363,9 @@ func (exec execCtx) isForwardingEnabled() bool {
 	return exec.prm.forwarder != nil
 }
 
-// isRangeForwardingEnabled returns true if common execution
+// isRangeHashForwardingEnabled returns true if common execution
 // parameters has GETRANGEHASH request forwarding closure set.
-func (exec execCtx) isRangeForwardingEnabled() bool {
+func (exec execCtx) isRangeHashForwardingEnabled() bool {
 	return exec.prm.rangeForwarder != nil
 }
 
@@ -366,5 +373,5 @@ func (exec execCtx) isRangeForwardingEnabled() bool {
 // parameters, so it won't be inherited in new execution contexts.
 func (exec *execCtx) disableForwarding() {
 	exec.prm.SetRequestForwarder(nil)
-	exec.prm.SetRangeRequestForwarder(nil)
+	exec.prm.SetRangeHashRequestForwarder(nil)
 }

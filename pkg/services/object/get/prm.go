@@ -22,8 +22,6 @@ type RangePrm struct {
 	commonPrm
 
 	rng *object.Range
-
-	forwardedRangeHashResponse [][]byte
 }
 
 var (
@@ -59,6 +57,8 @@ type RangeHashPrm struct {
 	rngs []object.Range
 
 	salt []byte
+
+	forwardedRangeHashResponse [][]byte
 }
 
 type RequestForwarder func(context.Context, coreclient.NodeInfo, coreclient.MultiAddressClient) (*object.Object, error)
@@ -146,7 +146,7 @@ func (p *commonPrm) SetRequestForwarder(f RequestForwarder) {
 	p.forwarder = f
 }
 
-func (p *commonPrm) SetRangeRequestForwarder(f RangeRequestForwarder) {
+func (p *commonPrm) SetRangeHashRequestForwarder(f RangeRequestForwarder) {
 	p.rangeForwarder = f
 }
 

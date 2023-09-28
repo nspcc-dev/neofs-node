@@ -42,14 +42,14 @@ func (s *Service) GetRangeHash(ctx context.Context, prm RangeHashPrm) (*RangeHas
 			hash: util.NewSaltingWriter(h, prm.salt),
 		})
 
-		if err := s.getRange(ctx, rngPrm); err != nil {
+		if err := s.getRange(ctx, rngPrm, withHash(&prm)); err != nil {
 			return nil, err
 		}
 
-		if rngPrm.forwardedRangeHashResponse != nil {
+		if prm.forwardedRangeHashResponse != nil {
 			// forwarder request case; no need to collect the other
 			// parts, the whole response has already been received
-			hashes = rngPrm.forwardedRangeHashResponse
+			hashes = prm.forwardedRangeHashResponse
 			break
 		}
 
