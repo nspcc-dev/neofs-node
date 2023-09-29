@@ -81,14 +81,28 @@ func (c *announceContext) announce() {
 
 	// iterate over all collected metrics and write them to the target
 	err = metricsIterator.Iterate(
-		func(container.SizeEstimation) bool {
-			return true // local metrics don't know about epochs
+		func(a container.SizeEstimation) bool {
+			// local metrics don't know about epochs;
+			// do not try to announce empty containers, it
+			// takes additional network time but absolutely
+			// useless
+			return a.Value() != 0
 		},
 		func(a container.SizeEstimation) error {
-			c.log.Debug("sending local metrics", zap.String("cid", a.Container().EncodeToString()))
+			cnrString := a.Container().EncodeToString()
+
+			c.log.Debug("sending local metrics", zap.String("cid", cnrString))
 
 			a.SetEpoch(c.epoch) // set epoch explicitly
-			return targetWriter.Put(a)
+			err := targetWriter.Put(a)
+			if err != nil {
+				c.log.Warn("skip local metric", zap.String("cid", cnrString), zap.Error(err))
+			}
+
+			// estimations are too important to break the whole
+			// process for the whole epoch because of any particular
+			// error
+			return nil
 		},
 	)
 	if err != nil {

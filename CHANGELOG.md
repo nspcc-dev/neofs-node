@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
 - `GETRANGEHASH` to a node without an object produced `GETRANGE` or `GET` requests (#2541, #2598)
+- Iteration over locally collected container estimation values (#2597)
 
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
