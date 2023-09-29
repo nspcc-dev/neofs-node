@@ -13,18 +13,29 @@ import (
 )
 
 var inspectCMD = &cobra.Command{
-	Use:   "inspect",
+	Use:        "inspect",
+	Short:      "Object inspection",
+	Long:       `Inspect specific object in a metabase.`,
+	Deprecated: "will be removed in the next release. Use `get` instead.",
+	Run:        getFunc,
+}
+
+var getCMD = &cobra.Command{
+	Use:   "get",
 	Short: "Object inspection",
-	Long:  `Inspect specific object in a metabase.`,
-	Run:   inspectFunc,
+	Long:  `Get specific object from a metabase.`,
+	Run:   getFunc,
 }
 
 func init() {
 	common.AddAddressFlag(inspectCMD, &vAddress)
 	common.AddComponentPathFlag(inspectCMD, &vPath)
+
+	common.AddAddressFlag(getCMD, &vAddress)
+	common.AddComponentPathFlag(getCMD, &vPath)
 }
 
-func inspectFunc(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
