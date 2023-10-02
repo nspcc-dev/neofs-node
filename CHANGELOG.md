@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - `GETRANGEHASH` to a node without an object produced `GETRANGE` or `GET` requests (#2541, #2598)
 - Iteration over locally collected container estimation values (#2597)
 - Synchronous objects `PUT` to the local storage (#2607)
+- `copies_number` field was not used in `PUT` request handling (#2607)
 
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)

@@ -31,13 +31,16 @@ type Option func(*cfg)
 type Traverser struct {
 	mtx *sync.RWMutex
 
+	copiesNumber int
+
 	vectors [][]netmap.NodeInfo
 
 	rem []int
 }
 
 type cfg struct {
-	trackCopies bool
+	trackCopies  bool
+	copiesNumber uint32
 
 	flatSuccess *uint32
 
@@ -101,11 +104,18 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		}
 	}
 
-	return &Traverser{
-		mtx:     new(sync.RWMutex),
-		rem:     rem,
-		vectors: ns,
-	}, nil
+	t := &Traverser{
+		mtx:          new(sync.RWMutex),
+		rem:          rem,
+		vectors:      ns,
+		copiesNumber: -1,
+	}
+
+	if cfg.copiesNumber != 0 {
+		t.copiesNumber = int(cfg.copiesNumber)
+	}
+
+	return t, nil
 }
 
 func flatNodes(ns [][]netmap.NodeInfo) [][]netmap.NodeInfo {
@@ -155,6 +165,10 @@ func (t *Traverser) Next() []Node {
 
 	t.skipEmptyVectors()
 
+	if t.copiesNumber == 0 {
+		return nil
+	}
+
 	if len(t.vectors) == 0 {
 		return nil
 	} else if len(t.vectors[0]) < t.rem[0] {
@@ -164,6 +178,9 @@ func (t *Traverser) Next() []Node {
 	count := t.rem[0]
 	if count < 0 {
 		count = len(t.vectors[0])
+	}
+	if t.copiesNumber > 0 && t.copiesNumber < count {
+		count = t.copiesNumber
 	}
 
 	nodes := make([]Node, count)
@@ -203,16 +220,25 @@ func (t *Traverser) skipEmptyVectors() {
 // SubmitSuccess writes single succeeded node operation.
 func (t *Traverser) SubmitSuccess() {
 	t.mtx.Lock()
+	defer t.mtx.Unlock()
+
 	if len(t.rem) > 0 {
 		t.rem[0]--
 	}
-	t.mtx.Unlock()
+
+	if t.copiesNumber > 0 {
+		t.copiesNumber--
+	}
 }
 
 // Success returns true if traversal operation succeeded.
 func (t *Traverser) Success() bool {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
+
+	if t.copiesNumber > 0 {
+		return false
+	}
 
 	for i := range t.rem {
 		if t.rem[i] > 0 {
@@ -263,5 +289,13 @@ func SuccessAfter(v uint32) Option {
 func WithoutSuccessTracking() Option {
 	return func(c *cfg) {
 		c.trackCopies = false
+	}
+}
+
+// WithCopiesNumber defines minimal copies number for operation
+// to be succeeded.
+func WithCopiesNumber(cn uint32) Option {
+	return func(c *cfg) {
+		c.copiesNumber = cn
 	}
 }
