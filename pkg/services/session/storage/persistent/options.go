@@ -19,7 +19,7 @@ type Option func(*cfg)
 func defaultCfg() *cfg {
 	return &cfg{
 		l:       zap.L(),
-		timeout: 100 * time.Millisecond,
+		timeout: time.Second,
 	}
 }
 

@@ -45,7 +45,7 @@ func defaultCfg(c *cfg) {
 		boltDBCfg: boltDBCfg{
 			perm: os.ModePerm, // 0777
 			boltOptions: &bbolt.Options{
-				Timeout: 100 * time.Millisecond,
+				Timeout: time.Second,
 			},
 		},
 		fullSizeLimit: 1 << 30, // 1GB
