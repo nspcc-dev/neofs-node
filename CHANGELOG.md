@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - BoltDB open timeout increased from 100ms to 1s (#2499)
 
 ### Removed
+- deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
