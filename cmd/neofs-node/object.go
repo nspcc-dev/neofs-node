@@ -248,7 +248,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetmapKeys(c),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
-		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote),
+		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
 	)
 

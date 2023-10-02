@@ -440,6 +440,7 @@ type cfgLocalStorage struct {
 
 type cfgObjectRoutines struct {
 	putRemote *ants.Pool
+	putLocal  *ants.Pool
 
 	putRemoteCapacity int
 
@@ -788,6 +789,9 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.putRemoteCapacity = objectconfig.Put(cfg).PoolSizeRemote()
 
 	pool.putRemote, err = ants.NewPool(pool.putRemoteCapacity, optNonBlocking)
+	fatalOnErr(err)
+
+	pool.putLocal, err = ants.NewPool(-1) // -1 stands for an infinite capacity worker
 	fatalOnErr(err)
 
 	pool.replicatorPoolSize = replicatorconfig.PoolSize(cfg)
