@@ -47,7 +47,7 @@ func TestInitializationFailure(t *testing.T) {
 					newStorages(c.blobstor, 1<<20))),
 			shard.WithMetaBaseOptions(
 				meta.WithBoltDBOptions(&bbolt.Options{
-					Timeout: 100 * time.Millisecond,
+					Timeout: time.Second,
 				}),
 				meta.WithPath(c.metabase),
 				meta.WithPermissions(0700),

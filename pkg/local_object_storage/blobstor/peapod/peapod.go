@@ -199,7 +199,7 @@ func (x *Peapod) Open(readOnly bool) error {
 
 	x.bolt, err = bbolt.Open(x.path, x.perm, &bbolt.Options{
 		ReadOnly: readOnly,
-		Timeout:  100 * time.Millisecond, // to handle flock
+		Timeout:  time.Second, // to handle flock
 	})
 	if err != nil {
 		return fmt.Errorf("open BoltDB instance: %w", err)

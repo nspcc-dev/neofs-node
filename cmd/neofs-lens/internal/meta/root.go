@@ -46,7 +46,7 @@ func openMeta(cmd *cobra.Command, readOnly bool) *meta.DB {
 		meta.WithPath(vPath),
 		meta.WithBoltDBOptions(&bbolt.Options{
 			ReadOnly: readOnly,
-			Timeout:  100 * time.Millisecond,
+			Timeout:  time.Second,
 		}),
 		meta.WithEpochState(epochState{}),
 	)

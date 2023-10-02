@@ -106,7 +106,7 @@ func (t *boltForest) Open(readOnly bool) error {
 	opts := *bbolt.DefaultOptions
 	opts.ReadOnly = readOnly
 	opts.NoSync = t.noSync
-	opts.Timeout = 100 * time.Millisecond
+	opts.Timeout = time.Second
 
 	t.db, err = bbolt.Open(t.path, t.perm, &opts)
 	if err != nil {

@@ -246,7 +246,7 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 				meta.WithMaxBatchSize(shCfg.MetaCfg.MaxBatchSize),
 				meta.WithMaxBatchDelay(shCfg.MetaCfg.MaxBatchDelay),
 				meta.WithBoltDBOptions(&bbolt.Options{
-					Timeout: 100 * time.Millisecond,
+					Timeout: time.Second,
 				}),
 
 				meta.WithEpochState(epochState{}),
