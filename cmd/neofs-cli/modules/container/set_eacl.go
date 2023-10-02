@@ -16,8 +16,6 @@ import (
 )
 
 var flagVarsSetEACL struct {
-	noPreCheck bool
-
 	srcPath string
 }
 
@@ -41,7 +39,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		pk := key.GetOrGenerate(cmd)
 		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
 		force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
-		if !(force || flagVarsSetEACL.noPreCheck) {
+		if !force {
 			common.PrintVerbose(cmd, "Validating eACL table...")
 			err := util.ValidateEACLTable(eaclTable)
 			common.ExitOnErr(cmd, "table validation: %w", err)
@@ -151,6 +149,4 @@ func initContainerSetEACLCmd() {
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("block execution until EACL is persisted. "+
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
 	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false, "skip validation checks (ownership, extensibility of the container ACL)")
-	flags.BoolVar(&flagVarsSetEACL.noPreCheck, "no-precheck", false, "do not pre-check the extensibility of the container ACL")
-	_ = flags.MarkDeprecated("no-precheck", "use --force flag instead for skipping validation checks")
 }
