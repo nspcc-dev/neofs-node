@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -440,7 +439,7 @@ func PutObject(ctx context.Context, prm PutObjectPrm) (*PutObjectRes, error) {
 		buf := make([]byte, sz)
 
 		_, err = io.CopyBuffer(wrt, prm.rdr, buf)
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil {
 			return nil, fmt.Errorf("copy data into object stream: %w", err)
 		}
 	}
