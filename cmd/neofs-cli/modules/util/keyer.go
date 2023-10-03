@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -86,7 +87,7 @@ func keyerGenerate(filename string, d *keyer.Dashboard) error {
 
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
-	return !os.IsNotExist(err) && !info.IsDir()
+	return !errors.Is(err, fs.ErrNotExist) && !info.IsDir()
 }
 
 func keyerParseFile(filename string, d *keyer.Dashboard) error {

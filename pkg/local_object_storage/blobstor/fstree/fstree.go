@@ -204,7 +204,7 @@ func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 
 	p, err := t.getPath(prm.Address)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			err = logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 		return common.DeleteRes{}, err
@@ -212,7 +212,7 @@ func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 
 	err = os.Remove(p)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return common.DeleteRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 
@@ -227,7 +227,7 @@ func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 func (t *FSTree) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	_, err := t.getPath(prm.Address)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return common.ExistsRes{Exists: false}, nil
 		}
 
@@ -237,15 +237,13 @@ func (t *FSTree) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	return common.ExistsRes{Exists: true}, nil
 }
 
+// checks whether file for the given object address exists and returns path to
+// the file if so. Returns [fs.ErrNotExist] if file is missing.
 func (t *FSTree) getPath(addr oid.Address) (string, error) {
 	p := t.treePath(addr)
 
 	_, err := os.Stat(p)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", err
-		}
-
 		return "", fmt.Errorf("get filesystem path for object by address: get file stat %q: %w", p, err)
 	}
 
@@ -277,7 +275,7 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	p := t.treePath(prm.Address)
 
-	if _, err := os.Stat(p); os.IsNotExist(err) {
+	if _, err := os.Stat(p); errors.Is(err, fs.ErrNotExist) {
 		return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
