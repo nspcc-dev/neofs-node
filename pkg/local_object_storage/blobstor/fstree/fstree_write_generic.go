@@ -61,7 +61,7 @@ func (w *genericWriter) writeData(p string, data []byte) error {
 	}
 
 	// unreachable, but precaution never hurts, especially 1 day before release.
-	return fmt.Errorf("couldn't read file after %d retries", retryCount)
+	return fmt.Errorf("couldn't write file after %d retries", retryCount)
 }
 
 // writeAndRename opens tmpPath exclusively, writes data to it and renames it to p.
@@ -78,10 +78,16 @@ func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 				return syscall.EEXIST
 			}
 		}
-	} else {
-		err = os.Rename(tmpPath, p)
+
+		return fmt.Errorf("write data into file %q: %w", tmpPath, err)
 	}
-	return err
+
+	err = os.Rename(tmpPath, p)
+	if err != nil {
+		return fmt.Errorf("rename file %q->%q: %w", tmpPath, p, err)
+	}
+
+	return nil
 }
 
 // writeFile writes data to a file with path p.
@@ -89,11 +95,16 @@ func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 func (w *genericWriter) writeFile(p string, data []byte) error {
 	f, err := os.OpenFile(p, w.flags, w.perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("open file with flags %d: %w", w.flags, err)
 	}
 	_, err = f.Write(data)
-	if err1 := f.Close(); err1 != nil && err == nil {
-		err = err1
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("write data to the file: %w", err)
 	}
-	return err
+	err = f.Close()
+	if err != nil {
+		return fmt.Errorf("close file: %w", err)
+	}
+	return nil
 }
