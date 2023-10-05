@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.16.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11
-	github.com/nspcc-dev/tzhash v1.7.0
+	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.4.0
 	github.com/paulmach/orb v0.2.2
@@ -31,7 +31,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.etcd.io/bbolt v1.3.7
 	go.uber.org/zap v1.24.0
-	golang.org/x/sys v0.11.0
+	golang.org/x/sys v0.12.0
 	golang.org/x/term v0.11.0
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
