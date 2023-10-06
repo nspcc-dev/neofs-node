@@ -175,6 +175,8 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		)
 	}
 
+	prm.traverseOpts = append(prm.traverseOpts, placement.WithCopiesNumber(prm.copiesNumber))
+
 	// create placement builder from network map
 	builder := placement.NewNetworkMapBuilder(nm)
 

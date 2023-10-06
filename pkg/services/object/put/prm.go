@@ -17,6 +17,8 @@ type PutInitPrm struct {
 
 	traverseOpts []placement.Option
 
+	copiesNumber uint32
+
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 }
 
@@ -43,6 +45,14 @@ func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.MultiAddressClient) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
+	}
+
+	return p
+}
+
+func (p *PutInitPrm) WithCopiesNumber(cn uint32) *PutInitPrm {
+	if p != nil {
+		p.copiesNumber = cn
 	}
 
 	return p

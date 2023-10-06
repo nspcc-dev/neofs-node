@@ -208,3 +208,82 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		require.True(t, tr.Success())
 	})
 }
+
+func TestCopiesNumber(t *testing.T) {
+	t.Run("copies_less_than_reps", func(t *testing.T) {
+		selectors := []int{1, 2, 3} // 3 vectors with 1, 2, 3 lengths
+		replicas := []int{0, 2, 3}  // REP 0 ... REP 2 ... REP 3
+
+		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodesCopy := copyVectors(nodes)
+
+		tr, err := NewTraverser(
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
+			WithCopiesNumber(1),
+		)
+		require.NoError(t, err)
+
+		// the first vector should be skipped; the second vector should
+		// have only one node because of `WithCopiesNumber(1)`; after
+		// submitting success submitting no additional nodes required
+
+		addrs := tr.Next()
+		require.Len(t, addrs, 1)
+
+		tr.SubmitSuccess()
+
+		addrs = tr.Next()
+		require.Empty(t, addrs)
+	})
+
+	t.Run("copies_more_than_reps", func(t *testing.T) {
+		selectors := []int{1, 1, 1} // 3 vectors with 1, 1, 1 lengths
+		replicas := []int{1, 1, 1}  // REP 1 ... REP 1 ... REP 1
+
+		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodesCopy := copyVectors(nodes)
+
+		tr, err := NewTraverser(
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
+			WithCopiesNumber(4), // 1 + 1 + 1 < 4
+		)
+		require.NoError(t, err)
+
+		for _, rep := range replicas {
+			addrs := tr.Next()
+			require.Len(t, addrs, rep)
+
+			tr.SubmitSuccess()
+		}
+
+		require.False(t, tr.Success())
+	})
+
+	t.Run("success_less_than_required", func(t *testing.T) {
+		selectors := []int{10, 10, 10} // 3 vectors with 10, 10, 10 lengths
+		replicas := []int{1, 2, 3}     // REP 1 ... REP 2 ... REP 3
+
+		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodesCopy := copyVectors(nodes)
+
+		tr, err := NewTraverser(
+			ForContainer(cnr),
+			UseBuilder(&testBuilder{vectors: nodesCopy}),
+			WithCopiesNumber(1),
+		)
+		require.NoError(t, err)
+
+		for addr := tr.Next(); addr != nil; addr = tr.Next() {
+			// return 1 node from the 10 len vector
+			// trying to satisfy the first REP descriptor
+			// one by one
+			require.Len(t, addr, 1)
+
+			// but do not submit success
+		}
+
+		require.False(t, tr.Success())
+	})
+}

@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 - `neofs-cli netmap netinfo` documentation (#2555)
 - `GETRANGEHASH` to a node without an object produced `GETRANGE` or `GET` requests (#2541, #2598)
 - Iteration over locally collected container estimation values (#2597)
+- Synchronous objects `PUT` to the local storage (#2607)
+- `copies_number` field was not used in `PUT` request handling (#2607)
 
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
@@ -20,6 +22,7 @@ Changelog for NeoFS Node
 - Update `neo-go` to `v0.102.0` (#2221, #2309, #2596)
 - `neofs-lens` `inspect` object commands to `get` with `inspect` deprecation (#2548)
 - Update `tzhash` to `v1.7.1`
+- `github.com/panjf2000/ants/v2` to `v2.8.2`
 
 ### Updating from v0.38.1
 
