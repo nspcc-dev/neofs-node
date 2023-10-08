@@ -217,8 +217,6 @@ func initObjectService(c *cfg) {
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
-		policer.WithObjectCacheSize(c.applicationConfiguration.PolicerCfg.cacheSize),
-		policer.WithObjectCacheTime(c.applicationConfiguration.PolicerCfg.cacheTime),
 		policer.WithReplicationCooldown(c.applicationConfiguration.PolicerCfg.replicationCooldown),
 		policer.WithObjectBatchSize(c.applicationConfiguration.PolicerCfg.objectBatchSize),
 	)

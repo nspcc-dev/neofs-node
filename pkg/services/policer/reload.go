@@ -17,10 +17,7 @@ func (p *Policer) Reload(opts ...Option) {
 	defer p.cfg.Unlock()
 
 	p.headTimeout = cfg.headTimeout
-	p.evictDuration = cfg.evictDuration
 	p.repCooldown = cfg.repCooldown
 	p.maxCapacity = cfg.maxCapacity
 	p.batchSize = cfg.batchSize
-
-	p.cache.Resize(int(cfg.cacheSize))
 }

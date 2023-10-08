@@ -12,10 +12,6 @@ const (
 	// HeadTimeoutDefault is a default object.Head request timeout in policer.
 	HeadTimeoutDefault = 5 * time.Second
 
-	// CacheSizeDefault is a default recently-handled objects cache size.
-	CacheSizeDefault = 1000000
-	// CacheSizeDefault is a default recently-handled objects cache expiration time.
-	CacheTimeDefault = 30 * time.Second
 	// ReplicationCooldownDefault is a default cooldown time b/w replication tasks
 	// submitting.
 	ReplicationCooldownDefault = time.Duration(0)
@@ -36,32 +32,6 @@ func HeadTimeout(c *config.Config) time.Duration {
 	}
 
 	return HeadTimeoutDefault
-}
-
-// CacheSize returns the value of "cache_size" config parameter
-// from "policer" section.
-//
-// Returns CacheSizeDefault if a value is not a positive number.
-func CacheSize(c *config.Config) uint32 {
-	v := config.Uint32Safe(c.Sub(subsection), "cache_size")
-	if v > 0 {
-		return v
-	}
-
-	return CacheSizeDefault
-}
-
-// CacheTime returns the value of "cache_time" config parameter
-// from "policer" section.
-//
-// Returns CacheTimeDefault if a value is not a positive duration.
-func CacheTime(c *config.Config) time.Duration {
-	v := config.DurationSafe(c.Sub(subsection), "cache_time")
-	if v > 0 {
-		return v
-	}
-
-	return CacheTimeDefault
 }
 
 // ReplicationCooldown returns the value of "replication_cooldown" config parameter

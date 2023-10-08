@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -52,8 +51,6 @@ func (oiw *objectsInWork) add(addr oid.Address) {
 type Policer struct {
 	*cfg
 
-	cache *lru.Cache[oid.Address, time.Time]
-
 	objsInWork *objectsInWork
 }
 
@@ -75,12 +72,10 @@ type Network interface {
 type cfg struct {
 	sync.RWMutex
 	// available for runtime reconfiguration
-	headTimeout   time.Duration
-	evictDuration time.Duration
-	repCooldown   time.Duration
-	cacheSize     uint32
-	batchSize     uint32
-	maxCapacity   uint32
+	headTimeout time.Duration
+	repCooldown time.Duration
+	batchSize   uint32
+	maxCapacity uint32
 
 	log *zap.Logger
 
@@ -111,9 +106,7 @@ func defaultCfg() *cfg {
 	return &cfg{
 		log:           zap.L(),
 		batchSize:     10,
-		cacheSize:     1 << 20, // 1024*1024 * address size = 1MB * 64 = 64 MB
 		rebalanceFreq: 1 * time.Second,
-		evictDuration: 30 * time.Second,
 		repCooldown:   0,
 	}
 }
@@ -128,14 +121,8 @@ func New(opts ...Option) *Policer {
 
 	c.log = c.log.With(zap.String("component", "Object Policer"))
 
-	cache, err := lru.New[oid.Address, time.Time](int(c.cacheSize))
-	if err != nil {
-		panic(err)
-	}
-
 	return &Policer{
-		cfg:   c,
-		cache: cache,
+		cfg: c,
 		objsInWork: &objectsInWork{
 			objs: make(map[oid.Address]struct{}, c.maxCapacity),
 		},
@@ -234,22 +221,6 @@ func WithNodeLoader(l nodeLoader) Option {
 func WithNetwork(n Network) Option {
 	return func(c *cfg) {
 		c.network = n
-	}
-}
-
-// WithObjectCacheTime returns option to set recently-handled
-// objects cache eviction time.
-func WithObjectCacheTime(d time.Duration) Option {
-	return func(c *cfg) {
-		c.evictDuration = d
-	}
-}
-
-// WithObjectCacheSize returns option to set recently-handled
-// objects cache size.
-func WithObjectCacheSize(s uint32) Option {
-	return func(c *cfg) {
-		c.cacheSize = s
 	}
 }
 

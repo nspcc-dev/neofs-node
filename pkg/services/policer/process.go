@@ -21,7 +21,6 @@ func (p *Policer) Run(ctx context.Context) {
 
 func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	p.cfg.RLock()
-	evictDuration := p.evictDuration
 	repCooldown := p.repCooldown
 	batchSize := p.batchSize
 	p.cfg.RUnlock()
@@ -68,16 +67,10 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 				}
 
 				err = p.taskPool.Submit(func() {
-					lastTime, ok := p.cache.Get(addr.Address)
-					if ok && time.Since(lastTime) < evictDuration {
-						return
-					}
-
 					p.objsInWork.add(addr.Address)
 
 					p.processObject(ctx, addr)
 
-					p.cache.Add(addr.Address, time.Now())
 					p.objsInWork.remove(addr.Address)
 				})
 				if err != nil {

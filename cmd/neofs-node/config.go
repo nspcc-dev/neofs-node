@@ -106,8 +106,6 @@ type applicationConfiguration struct {
 	PolicerCfg struct {
 		maxCapacity         uint32
 		headTimeout         time.Duration
-		cacheSize           uint32
-		cacheTime           time.Duration
 		replicationCooldown time.Duration
 		objectBatchSize     uint32
 	}
@@ -141,8 +139,6 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	a.PolicerCfg.maxCapacity = policerconfig.MaxWorkers(c)
 	a.PolicerCfg.headTimeout = policerconfig.HeadTimeout(c)
-	a.PolicerCfg.cacheSize = policerconfig.CacheSize(c)
-	a.PolicerCfg.cacheTime = policerconfig.CacheTime(c)
 	a.PolicerCfg.replicationCooldown = policerconfig.ReplicationCooldown(c)
 	a.PolicerCfg.objectBatchSize = policerconfig.ObjectBatchSize(c)
 
@@ -755,8 +751,6 @@ func (c *cfg) policerOpts() []policer.Option {
 	return []policer.Option{
 		policer.WithMaxCapacity(pCfg.maxCapacity),
 		policer.WithHeadTimeout(pCfg.headTimeout),
-		policer.WithObjectCacheSize(pCfg.cacheSize),
-		policer.WithObjectCacheTime(pCfg.cacheTime),
 		policer.WithReplicationCooldown(pCfg.replicationCooldown),
 		policer.WithObjectBatchSize(pCfg.objectBatchSize),
 	}

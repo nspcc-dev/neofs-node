@@ -15,8 +15,6 @@ func TestPolicerSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.Equal(t, policerconfig.HeadTimeoutDefault, policerconfig.HeadTimeout(empty))
-		require.Equal(t, uint32(policerconfig.CacheSizeDefault), policerconfig.CacheSize(empty))
-		require.Equal(t, policerconfig.CacheTimeDefault, policerconfig.CacheTime(empty))
 		require.Equal(t, policerconfig.ReplicationCooldownDefault, policerconfig.ReplicationCooldown(empty))
 		require.Equal(t, uint32(policerconfig.ObjectBatchSizeDefault), policerconfig.ObjectBatchSize(empty))
 		require.Equal(t, uint32(policerconfig.MaxWorkersDefault), policerconfig.MaxWorkers(empty))
@@ -26,8 +24,6 @@ func TestPolicerSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 15*time.Second, policerconfig.HeadTimeout(c))
-		require.Equal(t, uint32(1000001), policerconfig.CacheSize(c))
-		require.Equal(t, 31*time.Second, policerconfig.CacheTime(c))
 		require.Equal(t, 101*time.Millisecond, policerconfig.ReplicationCooldown(c))
 		require.Equal(t, uint32(11), policerconfig.ObjectBatchSize(c))
 		require.Equal(t, uint32(21), policerconfig.MaxWorkers(c))

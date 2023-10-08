@@ -378,8 +378,6 @@ Configuration for the Policer service. It ensures that object is stored accordin
 ```yaml
 policer:
   head_timeout: 15s
-  cache_size: 1000000
-  cache_time: 30s
   replication_cooldown: 100ms
   object_batch_size: 10
   max_workers: 20
@@ -388,8 +386,6 @@ policer:
 | Parameter              | Type       | Default value | Description                                         |
 |------------------------|------------|---------------|-----------------------------------------------------|
 | `head_timeout`         | `duration` | `5s`          | Timeout for performing the `HEAD` operation.        |
-| `cache_size`           | `int`      | `1000000`     | Recently-handled objects cache size.                |
-| `cache_time`           | `duration` | `30s`         | Recently-handled objects cache expiration time.     |
 | `replication_cooldown` | `duration` | `0s`          | Cooldown time between replication tasks submitting. |
 | `object_batch_size`    | `int`      | `10`          | Replication's objects batch size.                   |
 | `max_workers`          | `int`      | `20`          | Replication's worker pool's maximum size.           |
