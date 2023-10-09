@@ -107,7 +107,7 @@ func defaultCfg() *cfg {
 		log:           zap.L(),
 		batchSize:     10,
 		rebalanceFreq: 1 * time.Second,
-		repCooldown:   0,
+		repCooldown:   1 * time.Second,
 	}
 }
 

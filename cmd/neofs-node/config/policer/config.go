@@ -14,7 +14,7 @@ const (
 
 	// ReplicationCooldownDefault is a default cooldown time b/w replication tasks
 	// submitting.
-	ReplicationCooldownDefault = time.Duration(0)
+	ReplicationCooldownDefault = 1 * time.Second
 	// ObjectBatchSizeDefault is a default replication's objects batch size.
 	ObjectBatchSizeDefault = 10
 	// MaxWorkersDefault is a default replication's worker pool's maximum size.
