@@ -108,7 +108,12 @@
     "allow_external": true
   },
   "policer": {
-    "head_timeout": "15s"
+    "head_timeout": "15s",
+    "cache_size": "1000001",
+    "cache_time": "31s",
+    "replication_cooldown": "101ms",
+    "object_batch_size": "11",
+    "max_workers": "21"
   },
   "replicator": {
     "pool_size": 10,

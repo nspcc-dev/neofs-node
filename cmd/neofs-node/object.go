@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -190,7 +189,7 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	pol := policer.New(
+	c.policer = policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
 		policer.WithContainerSource(c.cfgObject.cnrSource),
@@ -201,9 +200,7 @@ func initObjectService(c *cfg) {
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
 		policer.WithNetmapKeys(c),
-		policer.WithHeadTimeout(
-			policerconfig.HeadTimeout(c.appCfg),
-		),
+		policer.WithHeadTimeout(c.applicationConfiguration.PolicerCfg.headTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			var inhumePrm engine.InhumePrm
@@ -216,15 +213,17 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.cfgObject.pool.replicatorPoolSize),
+		policer.WithMaxCapacity(c.applicationConfiguration.PolicerCfg.maxCapacity),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
+		policer.WithReplicationCooldown(c.applicationConfiguration.PolicerCfg.replicationCooldown),
+		policer.WithObjectBatchSize(c.applicationConfiguration.PolicerCfg.objectBatchSize),
 	)
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
-	c.workers = append(c.workers, pol)
+	c.workers = append(c.workers, c.policer)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
 		engine: ls,

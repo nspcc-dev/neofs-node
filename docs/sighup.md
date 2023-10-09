@@ -4,6 +4,19 @@
 
 Logger level can be reloaded with a SIGHUP.
 
+## Policer
+
+Available for reconfiguration fields:
+
+```yml
+  head_timeout:
+  cache_size:
+  cache_time:
+  replication_cooldown:
+  object_batch_size:
+  max_workers:
+```
+
 ## Storage engine
 
 Shards can be added, removed or reloaded with SIGHUP.

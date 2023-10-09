@@ -3,6 +3,9 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+- Policer's setting to the SN's application configuration (#2600)
+
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
 - `GETRANGEHASH` to a node without an object produced `GETRANGE` or `GET` requests (#2541, #2598)
@@ -13,9 +16,11 @@ Changelog for NeoFS Node
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
 - BoltDB open timeout increased from 100ms to 1s (#2499)
+- Internal container cache size from 10 to 1000 (#2600)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
+- Recently-handled objects Policer's cache (#2600)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)

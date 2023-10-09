@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -52,8 +51,6 @@ func (oiw *objectsInWork) add(addr oid.Address) {
 type Policer struct {
 	*cfg
 
-	cache *lru.Cache[oid.Address, time.Time]
-
 	objsInWork *objectsInWork
 }
 
@@ -73,7 +70,12 @@ type Network interface {
 }
 
 type cfg struct {
+	sync.RWMutex
+	// available for runtime reconfiguration
 	headTimeout time.Duration
+	repCooldown time.Duration
+	batchSize   uint32
+	maxCapacity uint32
 
 	log *zap.Logger
 
@@ -95,11 +97,7 @@ type cfg struct {
 
 	loader nodeLoader
 
-	maxCapacity int
-
-	batchSize, cacheSize uint32
-
-	rebalanceFreq, evictDuration time.Duration
+	rebalanceFreq time.Duration
 
 	network Network
 }
@@ -108,9 +106,8 @@ func defaultCfg() *cfg {
 	return &cfg{
 		log:           zap.L(),
 		batchSize:     10,
-		cacheSize:     1024, // 1024 * address size = 1024 * 64 = 64 MiB
 		rebalanceFreq: 1 * time.Second,
-		evictDuration: 30 * time.Second,
+		repCooldown:   0,
 	}
 }
 
@@ -124,14 +121,8 @@ func New(opts ...Option) *Policer {
 
 	c.log = c.log.With(zap.String("component", "Object Policer"))
 
-	cache, err := lru.New[oid.Address, time.Time](int(c.cacheSize))
-	if err != nil {
-		panic(err)
-	}
-
 	return &Policer{
-		cfg:   c,
-		cache: cache,
+		cfg: c,
 		objsInWork: &objectsInWork{
 			objs: make(map[oid.Address]struct{}, c.maxCapacity),
 		},
@@ -205,7 +196,7 @@ func WithRedundantCopyCallback(cb RedundantCopyCallback) Option {
 
 // WithMaxCapacity returns option to set max capacity
 // that can be set to the pool.
-func WithMaxCapacity(capacity int) Option {
+func WithMaxCapacity(capacity uint32) Option {
 	return func(c *cfg) {
 		c.maxCapacity = capacity
 	}
@@ -230,5 +221,22 @@ func WithNodeLoader(l nodeLoader) Option {
 func WithNetwork(n Network) Option {
 	return func(c *cfg) {
 		c.network = n
+	}
+}
+
+// WithReplicationCooldown returns option to set replication
+// cooldown: the [Policer] will not submit more than one task
+// per a provided time duration.
+func WithReplicationCooldown(d time.Duration) Option {
+	return func(c *cfg) {
+		c.repCooldown = d
+	}
+}
+
+// WithObjectBatchSize returns option to set maximum objects
+// read from the Storage at once.
+func WithObjectBatchSize(s uint32) Option {
+	return func(c *cfg) {
+		c.batchSize = s
 	}
 }
