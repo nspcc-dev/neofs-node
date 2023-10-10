@@ -75,8 +75,8 @@ func (x *testNNS) CheckDomainRecord(domainName string, record string) error {
 func TestValidator_VerifyAndUpdate(t *testing.T) {
 	const verifiedDomain = "nodes.some-org.neofs"
 	const hNodeKey = "02a70577a832b338772c8cd07e7eaf526cae8d9b025a51b41671de5a4363eafe07"
-	const nodeNeoAddress = "NZ1czz5gkEDamTg6Tiw6cxqp9Me1KLs8ae"
-	const anyOtherNeoAddress = "NfMvD6WmBiCr4erfEnFFLs7jdj4Y5CM7nN"
+	const nodeNeoAddress = "address=NZ1czz5gkEDamTg6Tiw6cxqp9Me1KLs8ae"
+	const anyOtherNeoAddress = "address=NfMvD6WmBiCr4erfEnFFLs7jdj4Y5CM7nN"
 
 	bNodeKey, err := hex.DecodeString(hNodeKey)
 	require.NoError(t, err)

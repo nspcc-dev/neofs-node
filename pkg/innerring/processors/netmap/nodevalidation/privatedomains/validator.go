@@ -77,7 +77,8 @@ func (x *Validator) VerifyAndUpdate(info *netmap.NodeInfo) error {
 	emit.CheckSig(buf.BinWriter, bNodeKey)
 	nodeNeoAddress := address.Uint160ToString(hash.Hash160(buf.Bytes()))
 
-	err := x.nns.CheckDomainRecord(verifiedNodesDomain, nodeNeoAddress)
+	// record format is described in NEP-18 Specification https://github.com/neo-project/proposals/pull/133
+	err := x.nns.CheckDomainRecord(verifiedNodesDomain, "address="+nodeNeoAddress)
 	if err != nil {
 		if errors.Is(err, ErrMissingDomainRecord) {
 			return errAccessDenied

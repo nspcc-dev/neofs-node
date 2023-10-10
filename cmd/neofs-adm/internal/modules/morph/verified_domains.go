@@ -18,6 +18,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// as described in NEP-18 Specification https://github.com/neo-project/proposals/pull/133
+const nnsNeoAddressTextRecordPrefix = "address="
+
 func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	vpr := viper.GetViper()
 
@@ -51,7 +54,13 @@ func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	}
 
 	for i := range records {
-		cmd.Println(records[i])
+		neoAddr := strings.TrimPrefix(records[i], nnsNeoAddressTextRecordPrefix)
+		if len(neoAddr) == len(records[i]) {
+			cmd.Printf("%s (not a Neo address)\n", records[i])
+			continue
+		}
+
+		cmd.Println(neoAddr)
 	}
 
 	return nil
@@ -87,9 +96,9 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 			if err != nil {
 				return fmt.Errorf("address #%d is invalid: %w", i, err)
 			}
-		}
 
-		additionalRecords = strNeoAddresses
+			additionalRecords = append(additionalRecords, nnsNeoAddressTextRecordPrefix+strNeoAddresses[i])
+		}
 	} else {
 		additionalRecords = make([]string, len(strPublicKeys))
 
@@ -105,7 +114,7 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 				return fmt.Errorf("public key #%d is not a HEX-encoded public key: %w", i, err)
 			}
 
-			additionalRecords[i] = address.Uint160ToString(pubKey.GetScriptHash())
+			additionalRecords[i] = nnsNeoAddressTextRecordPrefix + address.Uint160ToString(pubKey.GetScriptHash())
 		}
 	}
 

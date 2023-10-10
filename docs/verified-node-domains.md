@@ -28,7 +28,7 @@ the network map.
 For each public key, a record is created - a structure with at least 3 fields:
 1. `ByteString` with name of the corresponding domain
 2. `Integer` that is `16` for TXT records (other record types are allowed but left unprocessed)
-3. `ByteString` with Neo address of the storage node's public key
+3. `ByteString` with `address=<Neo address>` value described in [NEP-18 Specification](https://github.com/neo-project/proposals/pull/133)
 
 ### Management
 
