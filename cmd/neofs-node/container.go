@@ -682,7 +682,7 @@ func (m morphContainerWriter) PutEACL(eaclInfo containerCore.EACL) error {
 	}
 
 	if m.cacheEnabled {
-		id, _ := eaclInfo.Value.CID()
+		id, _ := eaclInfo.Value.Container()
 		m.eacls.InvalidateEACL(id)
 	}
 

@@ -33,7 +33,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	binTable := e.Table()
 
 	// unmarshal table
-	table := eacl.NewTable()
+	var table eacl.Table
 
 	err := table.Unmarshal(binTable)
 	if err != nil {
@@ -45,7 +45,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("table validation: %w", err)
 	}
 
-	idCnr, ok := table.CID()
+	idCnr, ok := table.Container()
 	if !ok {
 		return errors.New("missing container ID in eACL table")
 	}
@@ -98,12 +98,10 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	}
 }
 
-func validateEACl(t *eacl.Table) error {
+func validateEACl(t eacl.Table) error {
 	for _, record := range t.Records() {
-		for _, target := range record.Targets() {
-			if target.Role() == eacl.RoleSystem {
-				return errors.New("it is prohibited to modify system access")
-			}
+		if record.IsForRole(eacl.RoleSystem) {
+			return errors.New("it is prohibited to modify system access")
 		}
 	}
 

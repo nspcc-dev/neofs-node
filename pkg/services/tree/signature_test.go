@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -202,43 +203,20 @@ func TestMessageSign(t *testing.T) {
 }
 
 func testBearerToken(cid cid.ID, forPutGet, forGet *keys.PublicKey) bearer.Token {
-	tgtGet := eaclSDK.NewTarget()
-	tgtGet.SetRole(eaclSDK.RoleUnknown)
-	tgtGet.SetBinaryKeys([][]byte{forPutGet.Bytes(), forGet.Bytes()})
+	tb := eaclSDK.New([]eaclSDK.Record{
+		eaclSDK.NewRecord(eaclSDK.ActionAllow, acl.OpObjectGet, eaclSDK.NewTargetWithKeys([]neofscrypto.PublicKey{
+			(*neofsecdsa.PublicKeyRFC6979)(forPutGet),
+			(*neofsecdsa.PublicKeyRFC6979)(forGet),
+		})),
+		eaclSDK.NewRecord(eaclSDK.ActionAllow, acl.OpObjectPut, eaclSDK.NewTargetWithKey((*neofsecdsa.PublicKey)(forPutGet))),
+		eaclSDK.NewRecord(eaclSDK.ActionDeny, acl.OpObjectGet, eaclSDK.NewTargetWithRole(eaclSDK.RoleOthers)),
+		eaclSDK.NewRecord(eaclSDK.ActionDeny, acl.OpObjectPut, eaclSDK.NewTargetWithRole(eaclSDK.RoleOthers)),
+	})
 
-	rGet := eaclSDK.NewRecord()
-	rGet.SetAction(eaclSDK.ActionAllow)
-	rGet.SetOperation(eaclSDK.OperationGet)
-	rGet.SetTargets(*tgtGet)
-
-	tgtPut := eaclSDK.NewTarget()
-	tgtPut.SetRole(eaclSDK.RoleUnknown)
-	tgtPut.SetBinaryKeys([][]byte{forPutGet.Bytes()})
-
-	rPut := eaclSDK.NewRecord()
-	rPut.SetAction(eaclSDK.ActionAllow)
-	rPut.SetOperation(eaclSDK.OperationPut)
-	rPut.SetTargets(*tgtPut)
-
-	tb := eaclSDK.NewTable()
-	tb.AddRecord(rGet)
-	tb.AddRecord(rPut)
-
-	tgt := eaclSDK.NewTarget()
-	tgt.SetRole(eaclSDK.RoleOthers)
-
-	for _, op := range []eaclSDK.Operation{eaclSDK.OperationGet, eaclSDK.OperationPut} {
-		r := eaclSDK.NewRecord()
-		r.SetAction(eaclSDK.ActionDeny)
-		r.SetTargets(*tgt)
-		r.SetOperation(op)
-		tb.AddRecord(r)
-	}
-
-	tb.SetCID(cid)
+	tb.LimitByContainer(cid)
 
 	var b bearer.Token
-	b.SetEACLTable(*tb)
+	b.SetEACLTable(tb)
 
 	return b
 }

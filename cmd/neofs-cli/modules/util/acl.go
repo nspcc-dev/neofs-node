@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -12,6 +11,8 @@ import (
 	"github.com/flynn-archive/go-shlex"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -58,7 +59,7 @@ func boolToString(b bool) string {
 }
 
 // PrettyPrintTableEACL print extended ACL in table format.
-func PrettyPrintTableEACL(cmd *cobra.Command, table *eacl.Table) {
+func PrettyPrintTableEACL(cmd *cobra.Command, table eacl.Table) {
 	out := tablewriter.NewWriter(cmd.OutOrStdout())
 	out.SetHeader([]string{"Operation", "Action", "Filters", "Targets"})
 	out.SetAlignment(tablewriter.ALIGN_CENTER)
@@ -68,50 +69,34 @@ func PrettyPrintTableEACL(cmd *cobra.Command, table *eacl.Table) {
 
 	for _, r := range table.Records() {
 		out.Append([]string{
-			r.Operation().String(),
+			r.Op().String(),
 			r.Action().String(),
 			eaclFiltersToString(r.Filters()),
-			eaclTargetsToString(r.Targets()),
+			eaclTargetToString(r),
 		})
 	}
 
 	out.Render()
 }
 
-func eaclTargetsToString(ts []eacl.Target) string {
+func eaclTargetToString(r eacl.Record) string {
 	b := bytes.NewBuffer(nil)
-	for _, t := range ts {
-		keysExists := len(t.BinaryKeys()) > 0
-		switch t.Role() {
-		case eacl.RoleUser:
-			b.WriteString("User")
-			if keysExists {
-				b.WriteString(":    ")
-			}
-		case eacl.RoleSystem:
-			b.WriteString("System")
-			if keysExists {
-				b.WriteString(":  ")
-			}
-		case eacl.RoleOthers:
-			b.WriteString("Others")
-			if keysExists {
-				b.WriteString(":  ")
-			}
-		default:
-			b.WriteString("Unknown")
-			if keysExists {
-				b.WriteString(": ")
-			}
-		}
 
-		for i, pub := range t.BinaryKeys() {
-			if i != 0 {
-				b.WriteString("         ")
-			}
-			b.WriteString(hex.EncodeToString(pub))
-			b.WriteString("\n")
+	switch {
+	case r.IsForRole(eacl.RoleContainerOwner):
+		b.WriteString("User")
+	case r.IsForRole(eacl.RoleSystem):
+		b.WriteString("System")
+	case r.IsForRole(eacl.RoleOthers):
+		b.WriteString("Others")
+	}
+
+	for i, pub := range r.TargetBinaryKeys() {
+		if i != 0 {
+			b.WriteString("         ")
 		}
+		b.WriteString(hex.EncodeToString(pub))
+		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -122,7 +107,7 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 	tw := tabwriter.NewWriter(b, 0, 0, 1, ' ', 0)
 
 	for _, f := range fs {
-		switch f.From() {
+		switch f.HeaderType() {
 		case eacl.HeaderFromObject:
 			_, _ = tw.Write([]byte("O:\t"))
 		case eacl.HeaderFromRequest:
@@ -133,17 +118,16 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 			_, _ = tw.Write([]byte("  \t"))
 		}
 
-		_, _ = tw.Write([]byte(f.Key()))
+		_, _ = tw.Write([]byte(f.HeaderKey()))
 
 		switch f.Matcher() {
 		case eacl.MatchStringEqual:
 			_, _ = tw.Write([]byte("\t==\t"))
 		case eacl.MatchStringNotEqual:
 			_, _ = tw.Write([]byte("\t!=\t"))
-		case eacl.MatchUnknown:
 		}
 
-		_, _ = tw.Write([]byte(f.Value() + "\t"))
+		_, _ = tw.Write([]byte(f.HeaderValue() + "\t"))
 		_, _ = tw.Write([]byte("\n"))
 	}
 
@@ -164,75 +148,91 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 // Uses ParseEACLRule.
 //
 //nolint:godot
-func ParseEACLRules(table *eacl.Table, rules []string) error {
+func ParseEACLRules(rules []string) (eacl.Table, error) {
 	if len(rules) == 0 {
-		return errors.New("no extended ACL rules has been provided")
+		return eacl.Table{}, errors.New("no extended ACL rules has been provided")
 	}
 
+	var records []eacl.Record
+
 	for _, ruleStr := range rules {
-		err := ParseEACLRule(table, ruleStr)
+		rs, err := ParseEACLRule(ruleStr)
 		if err != nil {
-			return fmt.Errorf("can't create extended acl record from rule '%s': %v", ruleStr, err)
+			return eacl.Table{}, fmt.Errorf("can't create extended acl record from rule '%s': %v", ruleStr, err)
 		}
+
+		records = append(records, rs...)
 	}
-	return nil
+
+	return eacl.New(records), nil
 }
 
 // ParseEACLRule parses eACL table from the following form:
 // <action> <operation> [<filter1> ...] [<target1> ...]
 //
 // Examples:
-// allow get req:X-Header=123 obj:Attr=value others:0xkey1,key2 system:key3 user:key4
+// allow get req:X-Header=123 obj:Attr=value user others pubkey:0xkey1,0xkey2
 //
 //nolint:godot
-func ParseEACLRule(table *eacl.Table, rule string) error {
+func ParseEACLRule(rule string) ([]eacl.Record, error) {
 	r, err := shlex.Split(rule)
 	if err != nil {
-		return fmt.Errorf("can't parse rule '%s': %v", rule, err)
+		return nil, fmt.Errorf("can't parse rule '%s': %v", rule, err)
 	}
-	return parseEACLTable(table, r)
+	return parseEACLRecords(r)
 }
 
-func parseEACLTable(tb *eacl.Table, args []string) error {
+func parseEACLRecords(args []string) ([]eacl.Record, error) {
 	if len(args) < 2 {
-		return errors.New("at least 2 arguments must be provided")
+		return nil, errors.New("at least 2 arguments must be provided")
 	}
 
 	var action eacl.Action
-	if !action.DecodeString(strings.ToUpper(args[0])) {
-		return errors.New("invalid action (expected 'allow' or 'deny')")
+
+	switch args[0] {
+	default:
+		return nil, errors.New("invalid action (expected 'allow' or 'deny')")
+	case "allow":
+		action = eacl.ActionAllow
+	case "deny":
+		action = eacl.ActionDeny
 	}
 
-	ops, err := eaclOperationsFromString(args[1])
-	if err != nil {
-		return err
+	ss := strings.Split(args[1], ",")
+	ops := make([]acl.Op, len(ss))
+
+	for i := range ss {
+		switch ss[i] {
+		default:
+			return nil, fmt.Errorf("unsupported operation: %s", ss[i])
+		case "get":
+			ops[i] = acl.OpObjectGet
+		case "head":
+			ops[i] = acl.OpObjectHead
+		case "put":
+			ops[i] = acl.OpObjectPut
+		case "delete":
+			ops[i] = acl.OpObjectDelete
+		case "search":
+			ops[i] = acl.OpObjectSearch
+		case "getrange":
+			ops[i] = acl.OpObjectRange
+		case "getrangehash":
+			ops[i] = acl.OpObjectHash
+		}
 	}
 
-	r, err := parseEACLRecord(args[2:])
-	if err != nil {
-		return err
-	}
+	var records []eacl.Record
+	var roles []eacl.Role
+	var pubKeys []neofscrypto.PublicKey
+	var filters []eacl.Filter
 
-	r.SetAction(action)
-
-	for _, op := range ops {
-		r := *r
-		r.SetOperation(op)
-		tb.AddRecord(&r)
-	}
-
-	return nil
-}
-
-func parseEACLRecord(args []string) (*eacl.Record, error) {
-	r := new(eacl.Record)
-	for i := range args {
-		ss := strings.SplitN(args[i], ":", 2)
-
+	for _, argN := range args[2:] {
+		ss := strings.SplitN(argN, ":", 2)
 		switch prefix := strings.ToLower(ss[0]); prefix {
 		case "req", "obj": // filters
 			if len(ss) != 2 {
-				return nil, fmt.Errorf("invalid filter or target: %s", args[i])
+				return nil, fmt.Errorf("invalid filter or target: %s", argN)
 			}
 
 			i := strings.Index(ss[1], "=")
@@ -241,14 +241,14 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 			}
 
 			var key, value string
-			var op eacl.Match
+			var matcher eacl.Matcher
 
 			if 0 < i && ss[1][i-1] == '!' {
 				key = ss[1][:i-1]
-				op = eacl.MatchStringNotEqual
+				matcher = eacl.MatchStringNotEqual
 			} else {
 				key = ss[1][:i]
-				op = eacl.MatchStringEqual
+				matcher = eacl.MatchStringEqual
 			}
 
 			value = ss[1][i+1:]
@@ -258,50 +258,44 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 				typ = eacl.HeaderFromObject
 			}
 
-			r.AddFilter(typ, op, key, value)
-		case "others", "system", "user", "pubkey": // targets
-			var err error
-
-			var pubs []ecdsa.PublicKey
-			if len(ss) == 2 {
-				pubs, err = parseKeyList(ss[1])
-				if err != nil {
-					return nil, err
-				}
+			filters = append(filters, eacl.NewFilter(typ, key, matcher, value))
+		case "pubkey":
+			if len(ss) < 2 {
+				return nil, errors.New("missing public keys")
 			}
 
-			var role eacl.Role
-			if prefix != "pubkey" {
-				role, err = eaclRoleFromString(prefix)
-				if err != nil {
-					return nil, err
-				}
+			pubs, err := parseKeyList(ss[1])
+			if err != nil {
+				return nil, err
 			}
 
-			eacl.AddFormedTarget(r, role, pubs...)
-
+			pubKeys = append(pubKeys, pubs...)
+		case "user":
+			roles = append(roles, eacl.RoleContainerOwner)
+		case "others":
+			roles = append(roles, eacl.RoleOthers)
+		case "system":
+			return nil, errors.New("system role access must not be modified")
 		default:
 			return nil, fmt.Errorf("invalid prefix: %s", ss[0])
 		}
 	}
 
-	return r, nil
-}
-
-// eaclRoleFromString parses eacl.Role from string.
-func eaclRoleFromString(s string) (eacl.Role, error) {
-	var r eacl.Role
-	if !r.DecodeString(strings.ToUpper(s)) {
-		return r, fmt.Errorf("unexpected role %s", s)
+	if len(roles)+len(pubKeys) == 0 {
+		return nil, errors.New("neither roles nor public keys are specified")
 	}
 
-	return r, nil
+	for i := range ops {
+		records = append(records, eacl.NewRecord(action, ops[i], eacl.NewTarget(roles, pubKeys), filters...))
+	}
+
+	return records, nil
 }
 
 // parseKeyList parses list of hex-encoded public keys separated by comma.
-func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
+func parseKeyList(s string) ([]neofscrypto.PublicKey, error) {
 	ss := strings.Split(s, ",")
-	pubs := make([]ecdsa.PublicKey, len(ss))
+	pubs := make([]neofscrypto.PublicKey, len(ss))
 	for i := range ss {
 		st := strings.TrimPrefix(ss[i], "0x")
 		pub, err := keys.NewPublicKeyFromString(st)
@@ -309,34 +303,18 @@ func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
 			return nil, fmt.Errorf("invalid public key '%s': %w", ss[i], err)
 		}
 
-		pubs[i] = ecdsa.PublicKey(*pub)
+		pubs[i] = (*neofsecdsa.PublicKey)(pub)
 	}
 
 	return pubs, nil
 }
 
-// eaclOperationsFromString parses list of eacl.Operation separated by comma.
-func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
-	ss := strings.Split(s, ",")
-	ops := make([]eacl.Operation, len(ss))
-
-	for i := range ss {
-		if !ops[i].DecodeString(strings.ToUpper(ss[i])) {
-			return nil, fmt.Errorf("invalid operation: %s", ss[i])
-		}
-	}
-
-	return ops, nil
-}
-
 // ValidateEACLTable validates eACL table:
 //   - eACL table must not modify [eacl.RoleSystem] access.
-func ValidateEACLTable(t *eacl.Table) error {
+func ValidateEACLTable(t eacl.Table) error {
 	for _, record := range t.Records() {
-		for _, target := range record.Targets() {
-			if target.Role() == eacl.RoleSystem {
-				return errors.New("it is prohibited to modify system access")
-			}
+		if record.IsForRole(eacl.RoleSystem) {
+			return errors.New("it is prohibited to modify system access")
 		}
 	}
 

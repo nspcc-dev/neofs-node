@@ -71,7 +71,7 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 
 	var res container.EACL
 
-	res.Value = eacl.NewTable()
+	res.Value = new(eacl.Table)
 	if err = res.Value.Unmarshal(rawEACL); err != nil {
 		return nil, err
 	}

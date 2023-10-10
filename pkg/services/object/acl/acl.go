@@ -459,7 +459,7 @@ func (c *Checker) getVerifiedBearerEACL(bearerToken bearer.Token, curEpoch uint6
 		return eACL, newInvalidBearerTokenError(errBearerClientAuth)
 	}
 
-	cnrInToken, isSet := eACL.CID()
+	cnrInToken, isSet := eACL.Container()
 	if isSet && !cnrInToken.Equals(cnrID) {
 		return eACL, newInvalidBearerTokenError(errBearerContainerMismatch)
 	}
@@ -487,37 +487,11 @@ func (c *Checker) checkEACLAccess(eACL eacl.Table, cnr cid.ID, payload Container
 			denyOnMatch = false
 		}
 
-		var op acl.Op
-
-		switch records[i].Operation() {
-		default:
-			return fmt.Errorf("process record #%d: unsupported operation #%d", i, op)
-		case eacl.OperationGet:
-			op = acl.OpObjectGet
-		case eacl.OperationHead:
-			op = acl.OpObjectHead
-		case eacl.OperationPut:
-			op = acl.OpObjectPut
-		case eacl.OperationDelete:
-			op = acl.OpObjectDelete
-		case eacl.OperationSearch:
-			op = acl.OpObjectSearch
-		case eacl.OperationRange:
-			op = acl.OpObjectRange
-		case eacl.OperationRangeHash:
-			op = acl.OpObjectHash
-		}
-
-		if op != payload.op {
+		if !records[i].IsForOp(payload.op) {
 			continue
 		}
 
-		matchesClient, err := ruleMatchesClient(records[i], clientRole, bClientPubKey)
-		if err != nil {
-			return fmt.Errorf("process record #%d: %w", i, err)
-		}
-
-		if !matchesClient {
+		if !ruleMatchesClient(records[i], clientRole, bClientPubKey) {
 			continue
 		}
 
@@ -540,36 +514,26 @@ func (c *Checker) checkEACLAccess(eACL eacl.Table, cnr cid.ID, payload Container
 
 // checks whether given access rule matches client with specified role and
 // binary public key.
-func ruleMatchesClient(rec eacl.Record, clientRole acl.Role, bClientPubKey []byte) (bool, error) {
-	targets := rec.Targets()
-	for i := range targets {
-		if targetKeys := targets[i].BinaryKeys(); len(targetKeys) != 0 {
-			for i := range targetKeys {
-				if bytes.Equal(targetKeys[i], bClientPubKey) {
-					return true, nil
-				}
-			}
-			continue
-		}
-
-		targetRole := targets[i].Role()
-		switch targetRole {
-		default:
-			return false, fmt.Errorf("process target #%d: unsupported subject role #%d", i, targetRole)
-		case eacl.RoleUnknown, eacl.RoleSystem:
-			// system role access modifications have been deprecated
-		case eacl.RoleUser:
-			if clientRole == acl.RoleOwner {
-				return true, nil
-			}
-		case eacl.RoleOthers:
-			if clientRole == acl.RoleOthers {
-				return true, nil
-			}
+func ruleMatchesClient(rec eacl.Record, clientRole acl.Role, bClientPubKey []byte) bool {
+	bKeys := rec.TargetBinaryKeys()
+	for i := range bKeys {
+		if bytes.Equal(bKeys[i], bClientPubKey) {
+			return true
 		}
 	}
 
-	return false, nil
+	switch clientRole {
+	default:
+		panic(fmt.Sprintf("unexpected role %v", clientRole))
+	case acl.RoleContainer, acl.RoleInnerRing:
+	// system role access modifications have been deprecated
+	case acl.RoleOwner:
+		return rec.IsForRole(eacl.RoleContainerOwner)
+	case acl.RoleOthers:
+		return rec.IsForRole(eacl.RoleOthers)
+	}
+
+	return false
 }
 
 // checks whether given access rule matches the resource represented by
@@ -582,20 +546,20 @@ func ruleMatchesResource(rec eacl.Record, objHeaders *objectHeadersContext, reqH
 	for i := range filters {
 		var hdrValue string
 
-		switch hdrType := filters[i].From(); hdrType {
+		switch hdrType := filters[i].HeaderType(); hdrType {
 		default:
 			return false, fmt.Errorf("process filter #%d: unsupported type of headers #%d", i, hdrType)
 		case eacl.HeaderFromService:
 			// ignored by storage nodes
 			continue
 		case eacl.HeaderFromRequest:
-			hdrValue = reqHeaders.GetRequestHeaderByKey(filters[i].Key())
+			hdrValue = reqHeaders.GetRequestHeaderByKey(filters[i].HeaderKey())
 			if hdrValue == "" {
 				continue
 			}
 		case eacl.HeaderFromObject:
 			var err error
-			hdrValue, err = objHeaders.getObjectHeaderByKey(filters[i].Key())
+			hdrValue, err = objHeaders.getObjectHeaderByKey(filters[i].HeaderKey())
 			if err != nil {
 				switch {
 				default:
@@ -616,11 +580,11 @@ func ruleMatchesResource(rec eacl.Record, objHeaders *objectHeadersContext, reqH
 		default:
 			return false, fmt.Errorf("process filter #%d: unsupported matcher #%d", i, matcher)
 		case eacl.MatchStringEqual:
-			if hdrValue == filters[i].Value() {
+			if hdrValue == filters[i].HeaderValue() {
 				matchedFilters++
 			}
 		case eacl.MatchStringNotEqual:
-			if hdrValue != filters[i].Value() {
+			if hdrValue != filters[i].HeaderValue() {
 				matchedFilters++
 			}
 		}

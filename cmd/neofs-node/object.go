@@ -357,12 +357,7 @@ func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*containercore.EACL, error) {
 		return nil, err
 	}
 
-	binTable, err := eaclInfo.Value.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal eACL table: %w", err)
-	}
-
-	if !eaclInfo.Signature.Verify(binTable) {
+	if !eaclInfo.Signature.Verify(eaclInfo.Value.Marshal()) {
 		// TODO(@cthulhu-rider): #1387 use "const" error
 		return nil, errors.New("invalid signature of the eACL table")
 	}
