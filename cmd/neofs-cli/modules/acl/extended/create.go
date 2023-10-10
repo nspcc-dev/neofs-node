@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/spf13/cobra"
 )
 
@@ -84,13 +83,13 @@ func createEACL(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	tb := eacl.NewTable()
-	common.ExitOnErr(cmd, "unable to parse provided rules: %w", util.ParseEACLRules(tb, rules))
+	tb, err := util.ParseEACLRules(rules)
+	common.ExitOnErr(cmd, "unable to parse provided rules: %w", err)
 
 	err = util.ValidateEACLTable(tb)
 	common.ExitOnErr(cmd, "table validation: %w", err)
 
-	tb.SetCID(containerID)
+	tb.LimitByContainer(containerID)
 
 	data, err := tb.MarshalJSON()
 	if err != nil {

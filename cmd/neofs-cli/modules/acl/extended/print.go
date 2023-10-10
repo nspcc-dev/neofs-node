@@ -26,14 +26,15 @@ func init() {
 
 func printEACL(cmd *cobra.Command, _ []string) {
 	file, _ := cmd.Flags().GetString("file")
-	eaclTable := new(eacl.Table)
+	var eaclTable eacl.Table
 	data, err := os.ReadFile(file)
 	common.ExitOnErr(cmd, "can't read file with EACL: %w", err)
 	if strings.HasSuffix(file, ".json") {
 		common.ExitOnErr(cmd, "unable to parse json: %w", eaclTable.UnmarshalJSON(data))
 	} else {
 		rules := strings.Split(strings.TrimSpace(string(data)), "\n")
-		common.ExitOnErr(cmd, "can't parse file with EACL: %w", util.ParseEACLRules(eaclTable, rules))
+		eaclTable, err = util.ParseEACLRules(rules)
+		common.ExitOnErr(cmd, "can't parse file with EACL: %w", err)
 	}
 	util.PrettyPrintTableEACL(cmd, eaclTable)
 }

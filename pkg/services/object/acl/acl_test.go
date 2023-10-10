@@ -1,90 +1,150 @@
 package acl
 
 import (
+	"bytes"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
-	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
-type emptyEACLSource struct{}
+type testNode struct {
+	// for args testing
 
-func (e emptyEACLSource) GetEACL(_ cid.ID) (*container.EACL, error) {
-	return nil, nil
+	tb testing.TB
+
+	clientUsr    user.ID
+	clientPubKey []byte
+
+	requestedCnr cid.ID
+	requestedObj *oid.ID
+
+	// dynamic state
+
+	containerInfoErr error
+	containerInfo    ContainerInfo
+
+	curEpochErr error
+	curEpoch    uint64
+
+	eACLErr error
+	eACL    eacl.Table
+
+	usrErr    error
+	usr       user.ID
+	usrPubKey []byte
+
+	innerRingErr error
+	innerRingKey []byte
+
+	containerNodeErr error
+	containerNodeKey []byte
+
+	localStorageErr    error
+	localStorageHeader object.Object
 }
 
-type emptyNetmapState struct{}
-
-func (e emptyNetmapState) CurrentEpoch() uint64 {
-	return 0
+func newTestNode(tb testing.TB, requestedContainer cid.ID, clientUsr user.ID, clientPubKey []byte) *testNode {
+	return &testNode{
+		tb:           tb,
+		clientUsr:    clientUsr,
+		clientPubKey: clientPubKey,
+		requestedCnr: requestedContainer,
+	}
 }
 
-func TestStickyCheck(t *testing.T) {
-	checker := NewChecker(new(CheckerPrm).
-		SetLocalStorage(&engine.StorageEngine{}).
-		SetValidator(eaclSDK.NewValidator()).
-		SetEACLSource(emptyEACLSource{}).
-		SetNetmapState(emptyNetmapState{}),
-	)
+func (x *testNode) setContainerInfo(info ContainerInfo) {
+	x.containerInfo = info
+	x.containerInfoErr = nil
+}
 
-	t.Run("system role", func(t *testing.T) {
-		var info v2.RequestInfo
+func (x *testNode) setContainerInfoError(err error) {
+	x.containerInfoErr = err
+}
 
-		info.SetSenderKey(make([]byte, 33)) // any non-empty key
-		info.SetRequestRole(acl.RoleContainer)
+func (x *testNode) GetContainerInfo(cnr cid.ID) (ContainerInfo, error) {
+	require.True(x.tb, cnr.Equals(x.requestedCnr), "only requested container's info should be read")
+	return x.containerInfo, x.containerInfoErr
+}
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID(t)))
+func (x *testNode) setEACL(eACL eacl.Table) {
+	x.eACL = eACL
+	x.eACLErr = nil
+}
 
-		var basicACL acl.Basic
-		basicACL.MakeSticky()
+func (x *testNode) setEACLError(err error) {
+	x.eACLErr = err
+}
 
-		info.SetBasicACL(basicACL)
+func (x *testNode) GetExtendedACL(cnr cid.ID) (eacl.Table, error) {
+	require.True(x.tb, cnr.Equals(x.requestedCnr), "only requested container's eACL should be read")
+	return x.eACL, x.eACLErr
+}
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID(t)))
-	})
+func (x *testNode) setCurrentEpoch(epoch uint64) {
+	x.curEpoch = epoch
+	x.curEpochErr = nil
+}
 
-	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
-		var info v2.RequestInfo
+func (x *testNode) setCurrentEpochError(err error) {
+	x.curEpochErr = err
+}
 
-		info.SetRequestRole(acl.RoleOthers) // should be non-system role
+func (x *testNode) CurrentEpoch() (uint64, error) {
+	if x.curEpochErr != nil {
+		return 0, x.curEpochErr
+	}
 
-		assertFn := func(isSticky, withKey, withOwner, expected bool) {
-			info := info
-			if isSticky {
-				var basicACL acl.Basic
-				basicACL.MakeSticky()
+	return x.curEpoch, nil
+}
 
-				info.SetBasicACL(basicACL)
-			}
+func (x *testNode) setUserPublicKey(usr user.ID, bPublicKey []byte) {
+	x.usr = usr
+	x.usrPubKey = bPublicKey
+	x.usrErr = nil
+}
 
-			if withKey {
-				info.SetSenderKey(make([]byte, 33))
-			} else {
-				info.SetSenderKey(nil)
-			}
+func (x *testNode) ResolveUserByPublicKey(bPublicKey []byte) (user.ID, error) {
+	require.Equal(x.tb, x.clientPubKey, bPublicKey, "only client public key must be processed")
+	return x.usr, x.usrErr
+}
 
-			var ownerID user.ID
+func (x *testNode) IsUserPublicKey(usr user.ID, bPublicKey []byte) (bool, error) {
+	require.Equal(x.tb, x.clientUsr, usr, "only client user must be processed")
+	require.Equal(x.tb, x.clientPubKey, bPublicKey, "only client public key must be processed")
+	return bytes.Equal(x.usrPubKey, bPublicKey), x.usrErr
+}
 
-			if withOwner {
-				ownerID = usertest.ID(t)
-			}
+func (x *testNode) IsInnerRingPublicKey(bPublicKey []byte) (bool, error) {
+	require.Equal(x.tb, x.clientPubKey, bPublicKey, "only client public key must be checked as Inner Ring")
+	return bytes.Equal(x.innerRingKey, bPublicKey), x.innerRingErr
+}
 
-			require.Equal(t, expected, checker.StickyBitCheck(info, ownerID))
-		}
+func (x *testNode) IsContainerNodePublicKey(cnr cid.ID, bPublicKey []byte) (bool, error) {
+	require.True(x.tb, cnr.Equals(x.requestedCnr), "only requested container's node keys should be read")
+	require.Equal(x.tb, x.clientPubKey, bPublicKey, "only client public key must be checked as container node")
+	return bytes.Equal(x.containerNodeKey, bPublicKey), x.containerNodeErr
+}
 
-		assertFn(true, false, false, false)
-		assertFn(true, true, false, false)
-		assertFn(true, false, true, false)
-		assertFn(false, false, false, true)
-		assertFn(false, true, false, true)
-		assertFn(false, false, true, true)
-		assertFn(false, true, true, true)
-	})
+func (x *testNode) setLocalObjectHeader(hdr object.Object) {
+	x.localStorageHeader = hdr
+	x.localStorageErr = nil
+}
+
+func (x *testNode) setLocalStorageError(err error) {
+	x.localStorageErr = err
+}
+
+func (x *testNode) ReadLocalObjectHeaders(cnr cid.ID, id oid.ID) (object.Object, error) {
+	require.True(x.tb, cnr.Equals(x.requestedCnr), "only requested container should be read from local storage")
+	require.NotNil(x.tb, x.requestedObj, "only operations with single object context should touch local storage")
+	require.Equal(x.tb, *x.requestedObj, id, "only requested object should be read form local storage")
+	return x.localStorageHeader, x.localStorageErr
+}
+
+func TestNeoFSFailures(t *testing.T) {
 }

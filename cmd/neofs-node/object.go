@@ -18,7 +18,6 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
@@ -36,7 +35,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -172,10 +170,6 @@ func initObjectService(c *cfg) {
 		netState:         c.cfgNetmap.state,
 		trustStorage:     c.cfgReputation.localTrustStorage,
 		basicConstructor: c.putClientCache,
-	}
-
-	irFetcher := &innerRingFetcherWithNotary{
-		sidechain: c.cfgMorph.client,
 	}
 
 	c.replicator = replicator.New(
@@ -326,23 +320,7 @@ func initObjectService(c *cfg) {
 		},
 	)
 
-	aclSvc := v2.New(
-		v2.WithLogger(c.log),
-		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
-		v2.WithNetmapSource(c.netMapSource),
-		v2.WithContainerSource(
-			c.cfgObject.cnrSource,
-		),
-		v2.WithNextService(splitSvc),
-		v2.WithEACLChecker(
-			acl.NewChecker(new(acl.CheckerPrm).
-				SetNetmapState(c.cfgNetmap.state).
-				SetEACLSource(c.cfgObject.eaclSource).
-				SetValidator(eaclSDK.NewValidator()).
-				SetLocalStorage(ls),
-			),
-		),
-	)
+	aclSvc := v2.New(newNode(c), splitSvc)
 
 	var commonSvc objectService.Common
 	commonSvc.Init(&c.internals, aclSvc)
@@ -379,12 +357,7 @@ func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*containercore.EACL, error) {
 		return nil, err
 	}
 
-	binTable, err := eaclInfo.Value.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal eACL table: %w", err)
-	}
-
-	if !eaclInfo.Signature.Verify(binTable) {
+	if !eaclInfo.Signature.Verify(eaclInfo.Value.Marshal()) {
 		// TODO(@cthulhu-rider): #1387 use "const" error
 		return nil, errors.New("invalid signature of the eACL table")
 	}

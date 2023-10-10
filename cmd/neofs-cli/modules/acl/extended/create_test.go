@@ -1,6 +1,7 @@
 package extended
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
@@ -59,32 +60,18 @@ func TestParseTable(t *testing.T) {
 		},
 	}
 
-	eaclTable := eacl.NewTable()
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := util.ParseEACLRule(eaclTable, test.rule)
+			recs, err := util.ParseEACLRule(test.rule)
 			ok := len(test.jsonRecord) > 0
 			require.Equal(t, ok, err == nil, err)
 			if ok {
-				expectedRecord := eacl.NewRecord()
-				err = expectedRecord.UnmarshalJSON([]byte(test.jsonRecord))
+				var expectedTable eacl.Table
+				err = expectedTable.UnmarshalJSON([]byte(fmt.Sprintf(`{"records": [%s]}`, test.jsonRecord)))
 				require.NoError(t, err)
 
-				actualRecord := eaclTable.Records()[len(eaclTable.Records())-1]
-
-				equalRecords(t, expectedRecord, &actualRecord)
+				require.Equal(t, expectedTable.Records(), recs)
 			}
 		})
 	}
-}
-
-func equalRecords(t *testing.T, r1, r2 *eacl.Record) {
-	d1, err := r1.Marshal()
-	require.NoError(t, err)
-
-	d2, err := r2.Marshal()
-	require.NoError(t, err)
-
-	require.Equal(t, d1, d2)
 }

@@ -112,11 +112,11 @@ func createToken(cmd *cobra.Command, _ []string) {
 
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {
-		table := eaclSDK.NewTable()
+		var table eaclSDK.Table
 		raw, err := os.ReadFile(eaclPath)
 		common.ExitOnErr(cmd, "can't read extended ACL file: %w", err)
-		common.ExitOnErr(cmd, "can't parse extended ACL: %w", json.Unmarshal(raw, table))
-		b.SetEACLTable(*table)
+		common.ExitOnErr(cmd, "can't parse extended ACL: %w", json.Unmarshal(raw, &table))
+		b.SetEACLTable(table)
 	}
 
 	var data []byte

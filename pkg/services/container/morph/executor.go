@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -212,11 +213,23 @@ func (s *morphExecutor) SetExtendedACL(_ context.Context, tokV2 *sessionV2.Token
 		return nil, errors.New("missing signature")
 	}
 
-	eaclInfo := containercore.EACL{
-		Value: eaclSDK.NewTableFromV2(body.GetEACL()),
+	eACLV2 := body.GetEACL()
+	if eACLV2 == nil {
+		return nil, errors.New("missing eACL")
 	}
 
-	err := eaclInfo.Signature.ReadFromV2(*sigV2)
+	var eACL eaclSDK.Table
+
+	err := eACL.ReadFromV2(*eACLV2)
+	if err != nil {
+		return nil, fmt.Errorf("decode eACL: %w", err)
+	}
+
+	eaclInfo := containercore.EACL{
+		Value: &eACL,
+	}
+
+	err = eaclInfo.Signature.ReadFromV2(*sigV2)
 	if err != nil {
 		return nil, fmt.Errorf("can't read signature: %w", err)
 	}
@@ -267,8 +280,11 @@ func (s *morphExecutor) GetExtendedACL(_ context.Context, body *container.GetExt
 		eaclInfo.Session.WriteToV2(tokV2)
 	}
 
+	var eACLV2 acl.Table
+	eaclInfo.Value.WriteToV2(&eACLV2)
+
 	res := new(container.GetExtendedACLResponseBody)
-	res.SetEACL(eaclInfo.Value.ToV2())
+	res.SetEACL(&eACLV2)
 	res.SetSignature(&sigV2)
 	res.SetSessionToken(tokV2)
 

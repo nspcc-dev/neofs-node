@@ -31,7 +31,7 @@ func basicACLErr(op acl.Op) error {
 	return fmt.Errorf("access to operation %s is denied by basic ACL check", op)
 }
 
-func eACLErr(op eacl.Operation, err error) error {
+func eACLErr(op acl.Op, err error) error {
 	return fmt.Errorf("access to operation %s is denied by extended ACL check: %w", op, err)
 }
 
@@ -181,12 +181,12 @@ func roleFromReq(cnr *core.Container, req message) (acl.Role, error) {
 	return role, nil
 }
 
-func eACLOp(op acl.Op) eacl.Operation {
+func eACLOp(op acl.Op) acl.Op {
 	switch op {
 	case acl.OpObjectGet:
-		return eacl.OperationGet
+		return acl.OpObjectGet
 	case acl.OpObjectPut:
-		return eacl.OperationPut
+		return acl.OpObjectPut
 	default:
 		panic(fmt.Sprintf("unexpected tree service ACL operation: %s", op))
 	}
@@ -195,7 +195,7 @@ func eACLOp(op acl.Op) eacl.Operation {
 func eACLRole(role acl.Role) eacl.Role {
 	switch role {
 	case acl.RoleOwner:
-		return eacl.RoleUser
+		return eacl.RoleContainerOwner
 	case acl.RoleOthers:
 		return eacl.RoleOthers
 	default:
@@ -213,10 +213,10 @@ var errNoAllowRules = errors.New("not found allowing rules for the request")
 // therefore, filtering leads to unexpected results.
 // The code was copied with the minor updates from the SDK repo:
 // https://github.com/nspcc-dev/neofs-sdk-go/blob/43a57d42dd50dc60465bfd3482f7f12bcfcf3411/eacl/validator.go#L28.
-func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op eacl.Operation) error {
+func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op acl.Op) error {
 	for _, record := range tb.Records() {
 		// check type of operation
-		if record.Operation() != op {
+		if !record.IsForOp(op) {
 			continue
 		}
 
@@ -239,20 +239,12 @@ func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op eacl.Operation) 
 }
 
 func targetMatches(rec eacl.Record, role eacl.Role, signer []byte) bool {
-	for _, target := range rec.Targets() {
-		// check public key match
-		if pubs := target.BinaryKeys(); len(pubs) != 0 {
-			for _, key := range pubs {
-				if bytes.Equal(key, signer) {
-					return true
-				}
-			}
+	if rec.IsForRole(role) {
+		return true
+	}
 
-			continue
-		}
-
-		// check target group match
-		if role == target.Role() {
+	for _, key := range rec.TargetBinaryKeys() {
+		if bytes.Equal(key, signer) {
 			return true
 		}
 	}

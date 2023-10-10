@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
@@ -15,6 +16,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	eacltest "github.com/nspcc-dev/neofs-sdk-go/eacl/test"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
@@ -99,7 +101,13 @@ func TestInvalidToken(t *testing.T) {
 		{
 			name: "setEACL",
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
+				eACL := eacltest.Table(t)
+
+				var eACLV2 acl.Table
+				eACL.WriteToV2(&eACLV2)
+
 				var reqBody container.SetExtendedACLRequestBody
+				reqBody.SetEACL(&eACLV2)
 				reqBody.SetSignature(new(refs.Signature))
 				sign(&reqBody)
 
