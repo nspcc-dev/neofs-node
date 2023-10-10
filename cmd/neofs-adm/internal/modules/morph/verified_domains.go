@@ -32,22 +32,26 @@ func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	}
 
 	domain := vpr.GetString(domainFlag)
+	nnsContract := nnsrpc.NewReader(invoker.New(n3Client, nil), nnsContractAddr)
 
-	err = iterateNNSDomainTextRecords(invoker.New(n3Client, nil), nnsContractAddr, domain, func(rec string) error {
-		cmd.Println(rec)
-		return nil
-	})
+	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		switch {
-		default:
-			return fmt.Errorf("handle domain %q records: %w", domain, err)
-		case errors.Is(err, errDomainNotFound):
+		// Track https://github.com/nspcc-dev/neofs-node/issues/2583.
+		if strings.Contains(err.Error(), "token not found") {
 			cmd.Println("Domain not found.")
 			return nil
-		case errors.Is(err, errMissingDomainRecords):
-			cmd.Println("List is empty.")
-			return nil
 		}
+
+		return fmt.Errorf("get all text records of the NNS domain %q: %w", domain, err)
+	}
+
+	if len(records) == 0 {
+		cmd.Println("List is empty.")
+		return nil
+	}
+
+	for i := range records {
+		cmd.Println(records[i])
 	}
 
 	return nil
@@ -151,40 +155,43 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("init committee actor: %w", err)
 	}
 
+	nnsContract := nnsrpc.New(actr, nnsContractAddr)
 	domain := vpr.GetString(domainFlag)
 	scriptBuilder := smartcontract.NewBuilder()
+
+	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
+	if err != nil {
+		// Track https://github.com/nspcc-dev/neofs-node/issues/2583.
+		if !strings.Contains(err.Error(), "token not found") {
+			return fmt.Errorf("get all text records of the NNS domain %q: %w", domain, err)
+		}
+
+		domainToRegister := domain
+		if labels := strings.Split(domainToRegister, "."); len(labels) > 2 {
+			// we need explicitly register L2 domain like 'some-org.neofs'
+			// and then just add records to inferior domains
+			domainToRegister = labels[len(labels)-2] + "." + labels[len(labels)-1]
+		}
+
+		scriptBuilder.InvokeMethod(nnsContractAddr, "register",
+			domainToRegister, acc.ScriptHash(), "ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+	}
+
 	hasOtherRecord := false
 	mAlreadySetIndices := make(map[int]struct{}, len(additionalRecords))
 
-	err = iterateNNSDomainTextRecords(actr, nnsContractAddr, domain, func(rec string) error {
-		for i := range additionalRecords {
-			if additionalRecords[i] == rec {
+loop:
+	for i := range records {
+		for j := range additionalRecords {
+			if additionalRecords[j] == records[i] {
 				mAlreadySetIndices[i] = struct{}{}
-				return nil
+				continue loop
 			}
 		}
 
 		hasOtherRecord = true
 
-		return errBreakIterator
-	})
-	if err != nil {
-		switch {
-		default:
-			return fmt.Errorf("handle domain %q records: %w", domain, err)
-		case errors.Is(err, errMissingDomainRecords):
-			// domain exists but has no records, that's ok: just going to add new ones
-		case errors.Is(err, errDomainNotFound):
-			domainToRegister := domain
-			if labels := strings.Split(domainToRegister, "."); len(labels) > 2 {
-				// we need explicitly register L2 domain like 'some-org.neofs'
-				// and then just add records to inferior domains
-				domainToRegister = labels[len(labels)-2] + "." + labels[len(labels)-1]
-			}
-
-			scriptBuilder.InvokeMethod(nnsContractAddr, "register",
-				domainToRegister, acc.ScriptHash(), "ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
-		}
+		break
 	}
 
 	if !hasOtherRecord && len(mAlreadySetIndices) == len(additionalRecords) {
