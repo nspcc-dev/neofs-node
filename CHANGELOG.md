@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Policer's setting to the SN's application configuration (#2600)
+- Support of verified domains for the storage nodes (#2280)
 
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
@@ -28,6 +29,7 @@ Changelog for NeoFS Node
 - `neofs-lens` `inspect` object commands to `get` with `inspect` deprecation (#2548)
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
+- `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
 
 ### Updating from v0.38.1
 

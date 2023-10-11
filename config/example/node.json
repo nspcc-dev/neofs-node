@@ -27,6 +27,7 @@
     ],
     "attribute_0": "Price:11",
     "attribute_1": "UN-LOCODE:RU MSK",
+    "attribute_2": "VerifiedNodesDomain:nodes.some-org.neofs",
     "relay": true,
     "persistent_sessions": {
       "path": "/sessions"

@@ -49,8 +49,7 @@ func initSGPutCmd() {
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
-	// with 1.8.0 cobra release we can use this instead of below
-	// sgPutCmd.MarkFlagsOneRequired("expire-at", "lifetime")
+	// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
 	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
