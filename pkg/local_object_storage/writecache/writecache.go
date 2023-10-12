@@ -39,6 +39,7 @@ type Cache interface {
 	Init() error
 	Open(readOnly bool) error
 	Close() error
+	ObjectStatus(address oid.Address) (ObjectStatus, error)
 }
 
 type cache struct {
