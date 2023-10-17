@@ -56,11 +56,7 @@ storage:
           - audio/*
           - video/*
 
-        blobovnicza:
-          size: 1073741824  # approximate size limit of single blobovnicza instance, total size will be: size*width^(depth+1), bytes
-          depth: 1  # max depth of object tree storage in key-value DB
-          width: 4   # max width of object tree storage in key-value DB
-          opened_cache_capacity: 50  # maximum number of opened database files
+        peapod:
 
       gc:
         remover_batch_size: 200  # number of objects to be removed by the garbage collector
