@@ -536,11 +536,18 @@ func initCfg(appCfg *config.Config) *cfg {
 	)
 	fatalOnErr(err)
 
+	var buffers sync.Pool
+	buffers.New = func() any {
+		b := make([]byte, cache.DefaultBufferSize)
+		return &b
+	}
+
 	cacheOpts := cache.ClientCacheOpts{
 		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
 		StreamTimeout:    apiclientconfig.StreamTimeout(appCfg),
 		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
 		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
+		Buffers:          &buffers,
 	}
 	c.shared = shared{
 		key:            key,

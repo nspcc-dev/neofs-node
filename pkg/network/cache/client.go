@@ -26,6 +26,7 @@ type (
 		ReconnectTimeout time.Duration
 		ResponseCallback func(client.ResponseMetaInfo) error
 		AllowExternal    bool
+		Buffers          *sync.Pool
 	}
 )
 
