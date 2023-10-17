@@ -205,18 +205,6 @@ func (x *Peapod) Open(readOnly bool) error {
 		return fmt.Errorf("open BoltDB instance: %w", err)
 	}
 
-	if readOnly {
-		err = x.bolt.View(func(tx *bbolt.Tx) error {
-			if tx.Bucket(rootBucket) == nil {
-				return errMissingRootBucket
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("check root bucket presence in BoltDB instance: %w", err)
-		}
-	}
-
 	x.readOnly = readOnly
 
 	return nil
@@ -227,7 +215,15 @@ func (x *Peapod) Open(readOnly bool) error {
 // interval configured in New.
 func (x *Peapod) Init() error {
 	if x.readOnly {
-		// no extra actions needed in read-only mode
+		err := x.bolt.View(func(tx *bbolt.Tx) error {
+			if tx.Bucket(rootBucket) == nil {
+				return errMissingRootBucket
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("check root bucket presence in BoltDB instance: %w", err)
+		}
 		return nil
 	}
 
