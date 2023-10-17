@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -51,7 +50,7 @@ func getFunc(cmd *cobra.Command, _ []string) {
 	common.ExitOnErr(cmd, common.Errf("could not check if the obj is small: %w", err))
 
 	if id := resStorageID.StorageID(); id != nil {
-		cmd.Printf("Object storageID: %s\n\n", blobovnicza.NewIDFromBytes(id).String())
+		cmd.Printf("Object storageID: %x (%q)\n\n", id, id)
 	} else {
 		cmd.Printf("Object does not contain storageID\n\n")
 	}

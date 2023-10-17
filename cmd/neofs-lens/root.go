@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/meta"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/peapod"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/storage"
@@ -38,7 +37,6 @@ func init() {
 	command.Flags().Bool("version", false, "Application version")
 	command.AddCommand(
 		peapod.Root,
-		blobovnicza.Root,
 		meta.Root,
 		writecache.Root,
 		storage.Root,
