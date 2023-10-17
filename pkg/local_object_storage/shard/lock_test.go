@@ -4,11 +4,12 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -29,10 +30,7 @@ func TestShard_Lock(t *testing.T) {
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
-					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithRootPath(filepath.Join(rootPath, "blob", "blobovnicza")),
-						blobovniczatree.WithBlobovniczaShallowDepth(2),
-						blobovniczatree.WithBlobovniczaShallowWidth(2)),
+					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0600, 10*time.Millisecond),
 					Policy: func(_ *object.Object, data []byte) bool {
 						return len(data) <= 1<<20
 					},

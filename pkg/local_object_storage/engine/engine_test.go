@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -98,11 +99,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 func newStorages(root string, smallSize uint64) []blobstor.SubStorage {
 	return []blobstor.SubStorage{
 		{
-			Storage: blobovniczatree.NewBlobovniczaTree(
-				blobovniczatree.WithRootPath(filepath.Join(root, "blobovnicza")),
-				blobovniczatree.WithBlobovniczaShallowDepth(1),
-				blobovniczatree.WithBlobovniczaShallowWidth(1),
-				blobovniczatree.WithPermissions(0700)),
+			Storage: peapod.New(filepath.Join(root, "peapod.db"), 0600, 10*time.Millisecond),
 			Policy: func(_ *object.Object, data []byte) bool {
 				return uint64(len(data)) < smallSize
 			},

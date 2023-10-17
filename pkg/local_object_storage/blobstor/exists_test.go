@@ -56,10 +56,8 @@ func TestExists(t *testing.T) {
 		de, err := os.ReadDir(dir)
 		require.NoError(t, err)
 		for i := range de {
-			if de[i].Name() != blobovniczaDir {
-				bigDir = filepath.Join(dir, de[i].Name())
-				break
-			}
+			bigDir = filepath.Join(dir, de[i].Name())
+			break
 		}
 		require.NotEmpty(t, bigDir)
 

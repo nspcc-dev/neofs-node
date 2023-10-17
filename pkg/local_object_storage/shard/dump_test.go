@@ -11,10 +11,10 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -40,8 +40,8 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	const (
 		wcSmallObjectSize = 1024          // 1 KiB, goes to write-cache memory
 		wcBigObjectSize   = 4 * 1024      // 4 KiB, goes to write-cache FSTree
-		bsSmallObjectSize = 10 * 1024     // 10 KiB, goes to blobovnicza DB
-		bsBigObjectSize   = 1024*1024 + 1 // > 1 MiB, goes to blobovnicza FSTree
+		bsSmallObjectSize = 10 * 1024     // 10 KiB, goes to peapod DB
+		bsBigObjectSize   = 1024*1024 + 1 // > 1 MiB, goes to FSTree
 	)
 
 	var sh *shard.Shard
@@ -284,7 +284,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	const (
 		wcSmallObjectSize = 512                    // goes to write-cache memory
 		wcBigObjectSize   = wcSmallObjectSize << 1 // goes to write-cache FSTree
-		bsSmallObjectSize = wcSmallObjectSize << 2 // goes to blobovnicza DB
+		bsSmallObjectSize = wcSmallObjectSize << 2 // goes to peapod DB
 
 		objCount   = 10
 		headerSize = 400
@@ -297,11 +297,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 			blobstor.WithCompressObjects(true),
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
-					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithRootPath(filepath.Join(bsPath, "blobovnicza")),
-						blobovniczatree.WithBlobovniczaShallowDepth(1),
-						blobovniczatree.WithBlobovniczaShallowWidth(sw),
-						blobovniczatree.WithOpenedCacheSize(1)),
+					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0600, 10*time.Millisecond),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return len(data) < bsSmallObjectSize
 					},
@@ -372,19 +368,13 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	{
-		// 2. Invalid object in blobovnicza.
-		// 2.1. Invalid blobovnicza.
-		bTree := filepath.Join(bsPath, "blobovnicza")
-		data := make([]byte, 1024)
-		rand.Read(data)
-		require.NoError(t, os.WriteFile(filepath.Join(bTree, "0", "2"), data, 0))
-
-		// 2.2. Invalid object in valid blobovnicza.
-		var prm blobovnicza.PutPrm
-		prm.SetAddress(oid.Address{})
-		prm.SetMarshaledObject(corruptedData)
-		b := blobovnicza.New(blobovnicza.WithPath(filepath.Join(bTree, "1", "2")))
-		require.NoError(t, b.Open())
+		// 2. Invalid object in peapod.
+		var prm common.PutPrm
+		prm.Address = oid.Address{}
+		prm.RawData = corruptedData
+		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0600, 10*time.Millisecond)
+		require.NoError(t, b.Open(false))
+		require.NoError(t, b.Init())
 		_, err := b.Put(prm)
 		require.NoError(t, err)
 		require.NoError(t, b.Close())

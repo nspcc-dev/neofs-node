@@ -5,10 +5,11 @@ import (
 	"math/rand"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -52,11 +53,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 			blobstor.WithLogger(zaptest.NewLogger(t)),
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
-					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithLogger(zaptest.NewLogger(t)),
-						blobovniczatree.WithRootPath(filepath.Join(rootPath, "blob", "blobovnicza")),
-						blobovniczatree.WithBlobovniczaShallowDepth(1),
-						blobovniczatree.WithBlobovniczaShallowWidth(1)),
+					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0600, 10*time.Millisecond),
 					Policy: func(_ *object.Object, data []byte) bool {
 						return len(data) <= 1<<20
 					},
