@@ -23,7 +23,6 @@ import (
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	blobovniczaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/blobovnicza"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
@@ -37,7 +36,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -201,13 +199,6 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			sCfg.Perm = storagesCfg[i].Perm()
 
 			switch storagesCfg[i].Type() {
-			case blobovniczatree.Type:
-				sub := blobovniczaconfig.From((*config.Config)(storagesCfg[i]))
-
-				sCfg.Size = sub.Size()
-				sCfg.Depth = sub.ShallowDepth()
-				sCfg.Width = sub.ShallowWidth()
-				sCfg.OpenedCacheSize = sub.OpenedCacheSize()
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.Depth = sub.Depth()
@@ -662,21 +653,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		var ss []blobstor.SubStorage
 		for _, sRead := range shCfg.SubStorages {
 			switch sRead.Typ {
-			case blobovniczatree.Type:
-				ss = append(ss, blobstor.SubStorage{
-					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithRootPath(sRead.Path),
-						blobovniczatree.WithPermissions(sRead.Perm),
-						blobovniczatree.WithBlobovniczaSize(sRead.Size),
-						blobovniczatree.WithBlobovniczaShallowDepth(sRead.Depth),
-						blobovniczatree.WithBlobovniczaShallowWidth(sRead.Width),
-						blobovniczatree.WithOpenedCacheSize(sRead.OpenedCacheSize),
-
-						blobovniczatree.WithLogger(c.log)),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
-					},
-				})
 			case fstree.Type:
 				ss = append(ss, blobstor.SubStorage{
 					Storage: fstree.New(

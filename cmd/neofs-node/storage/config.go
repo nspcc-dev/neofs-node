@@ -57,14 +57,9 @@ type SubStorageCfg struct {
 	Path string
 	Perm fs.FileMode
 
-	// tree-specific (FS and blobovnicza)
+	// tree-specific (FS)
 	Depth  uint64
 	NoSync bool
-
-	// blobovnicza-specific
-	Size            uint64
-	Width           uint64
-	OpenedCacheSize int
 
 	// Peapod-specific
 	FlushInterval time.Duration

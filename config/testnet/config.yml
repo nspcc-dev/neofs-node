@@ -36,12 +36,9 @@ storage:
         path: /storage/metabase
         perm: 0777
       blobstor:
-        - path: /storage/path/blobovnicza
-          type: blobovnicza
+        - path: /storage/path/peapod.db
+          type: peapod
           perm: 0600
-          opened_cache_capacity: 32
-          depth: 1
-          width: 1
         - path: /storage/path/fstree
           type: fstree
           perm: 0600

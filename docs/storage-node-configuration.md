@@ -169,22 +169,22 @@ The following table describes configuration for each shard.
 | `writecache`                        | [Writecache config](#writecache-subsection) |               | Write-cache configuration.                                                                                                                                                                                        |
 | `metabase`                          | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                                                                                                                                                                                           |
 | `blobstor`                          | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                                                                                                                                                                                           |
-| `small_object_size`                 | `size`                                      | `1M`          | Maximum size of an object stored in blobovnicza tree.                                                                                                                                                             |
+| `small_object_size`                 | `size`                                      | `1M`          | Maximum size of an object stored in peapod.                                                                                                                                                                       |
 | `gc`                                | [GC config](#gc-subsection)                 |               | GC configuration.                                                                                                                                                                                                 |
 
 ### `blobstor` subsection
 
 Contains a list of substorages each with it's own type.
-Currently only 3 types are supported: `fstree`, `blobovnicza` and `peapod`.
+Currently only 2 types are supported: `fstree` and `peapod`.
 
 ```yaml
 blobstor:
-  - type: blobovnicza
-    path: /path/to/blobstor
+  - type: peapod
+    path: /path/to/peapod.db
     depth: 1
     width: 4
   - type: fstree
-    path: /path/to/blobstor/blobovnicza
+    path: /path/to/blobstor
     perm: 0644
     size: 4194304
     depth: 1
@@ -204,16 +204,6 @@ blobstor:
 | `path`              | `string`  |               | Path to the root of the blobstor.                     |
 | `perm`              | file mode | `0660`        | Default permission for created files and directories. |
 | `depth`             | `int`     | `4`           | File-system tree depth.                               |
-
-#### `blobovnicza` type options
-| Parameter               | Type      | Default value | Description                                           |
-|-------------------------|-----------|---------------|-------------------------------------------------------|
-| `path`                  | `string`  |               | Path to the root of the blobstor.                     |
-| `perm`                  | file mode | `0660`        | Default permission for created files and directories. |
-| `size`                  | `size`    | `1 G`         | Maximum size of a single blobovnicza                  |
-| `depth`                 | `int`     | `2`           | Blobovnicza tree depth.                               |
-| `width`                 | `int`     | `16`          | Blobovnicza tree width.                               |
-| `opened_cache_capacity` | `int`     | `16`          | Maximum number of simultaneously opened blobovniczas. |
 
 #### `peapod` type options
 | Parameter           | Type      | Default value | Description                                           |
