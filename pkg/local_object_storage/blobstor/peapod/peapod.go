@@ -251,9 +251,10 @@ func (x *Peapod) Init() error {
 
 // Close syncs data and closes the database.
 func (x *Peapod) Close() error {
-	if !x.readOnly {
+	if !x.readOnly && x.chClose != nil {
 		close(x.chClose)
 		<-x.chFlushDone
+		x.chClose = nil
 	}
 	return x.bolt.Close()
 }
