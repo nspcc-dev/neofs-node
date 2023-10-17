@@ -1,9 +1,10 @@
 package writecache
 
 import (
+	"errors"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/pkg/errors"
 	"go.etcd.io/bbolt"
 )
 
