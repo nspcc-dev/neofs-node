@@ -21,7 +21,7 @@ func (b *BlobStor) SetMode(m mode.Mode) error {
 
 	err := b.Close()
 	if err == nil {
-		if err = b.Open(m.ReadOnly()); err == nil {
+		if err = b.Open(m.ReadOnly()); err == nil && b.inited {
 			err = b.Init()
 		}
 	}

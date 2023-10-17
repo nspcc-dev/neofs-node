@@ -35,6 +35,7 @@ func (b *BlobStor) Init() error {
 			return fmt.Errorf("init substorage %s: %w", b.storage[i].Storage.Type(), err)
 		}
 	}
+	b.inited = true
 	return nil
 }
 
