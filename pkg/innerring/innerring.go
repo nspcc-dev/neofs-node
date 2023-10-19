@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -135,7 +134,6 @@ type (
 		cfg  *viper.Viper
 		key  *keys.PrivateKey
 		name string
-		sgn  *transaction.Signer
 		from uint32 // block height
 	}
 )
@@ -451,7 +449,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 	if err := server.morphClient.SetGroupSignerScope(); err != nil {
-		morphChain.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+		return nil, fmt.Errorf("failed to set group signer scope: %w", err)
 	}
 
 	server.withoutMainNet = cfg.GetBool("without_mainnet")
@@ -465,7 +463,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	} else {
 		mainnetChain := morphChain
 		mainnetChain.name = mainnetPrefix
-		mainnetChain.sgn = &transaction.Signer{Scopes: transaction.CalledByEntry}
 
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
@@ -994,7 +991,6 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
 		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
-		client.WithSigner(p.sgn),
 		client.WithEndpoints(endpoints),
 		client.WithReconnectionRetries(p.cfg.GetInt(p.name+".reconnections_number")),
 		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name+".reconnections_delay")),

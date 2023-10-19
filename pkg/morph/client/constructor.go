@@ -64,7 +64,7 @@ func defaultConfig() *cfg {
 		logger:       zap.L(),
 		waitInterval: defaultWaitInterval,
 		signer: &transaction.Signer{
-			Scopes: transaction.Global,
+			Scopes: transaction.CalledByEntry,
 		},
 		reconnectionDelay:   5 * time.Second,
 		reconnectionRetries: 5,
@@ -86,7 +86,7 @@ var ErrStaleNodes = errors.New("RPC nodes are not yet up to date")
 //   - client context: Background;
 //   - dial timeout: 5s;
 //   - blockchain network type: netmode.PrivNet;
-//   - signer with the global scope;
+//   - signer with the CalledByEntry scope;
 //   - wait interval: 500ms;
 //   - logger: &zap.Logger{Logger: zap.L()}.
 //
@@ -271,20 +271,6 @@ func WithLogger(logger *zap.Logger) Option {
 	return func(c *cfg) {
 		if logger != nil {
 			c.logger = logger
-		}
-	}
-}
-
-// WithSigner returns a client constructor option
-// that specifies the signer and the scope of the transaction.
-//
-// Ignores nil value.
-//
-// If option not provided, signer with global scope is used.
-func WithSigner(signer *transaction.Signer) Option {
-	return func(c *cfg) {
-		if signer != nil {
-			c.signer = signer
 		}
 	}
 }

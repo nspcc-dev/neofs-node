@@ -65,7 +65,8 @@ func initMorphComponents(c *cfg) {
 	c.onShutdown(cli.Close)
 
 	if err := cli.SetGroupSignerScope(); err != nil {
-		c.log.Info("failed to set group signer scope, continue with Global", zap.Error(err))
+		c.log.Info("failed to set group signer scope", zap.Error(err))
+		fatalOnErr(err)
 	}
 
 	c.cfgMorph.client = cli
