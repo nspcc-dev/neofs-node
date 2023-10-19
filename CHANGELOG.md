@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
 - BoltDB open timeout increased from 100ms to 1s (#2499)
 - Internal container cache size from 10 to 1000 (#2600)
+- Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)

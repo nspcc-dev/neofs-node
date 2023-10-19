@@ -37,7 +37,8 @@ type cfg struct {
 
 	waitInterval time.Duration
 
-	signer *transaction.Signer
+	autoSidechainScope bool
+	signer             *transaction.Signer
 
 	endpoints []string
 
@@ -143,6 +144,12 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
 
+		if cfg.autoSidechainScope {
+			err = autoSidechainScope(cfg.singleCli, cfg)
+			if err != nil {
+				return nil, fmt.Errorf("scope setup: %w", err)
+			}
+		}
 		act, err = newActor(cfg.singleCli, acc, *cfg)
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC actor: %w", err)
@@ -200,6 +207,12 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 	err = cli.Init()
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client initialization: %w", err)
+	}
+	if c.cfg.autoSidechainScope {
+		err = autoSidechainScope(cli, &c.cfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("scope setup: %w", err)
+		}
 	}
 
 	act, err := newActor(cli, c.acc, c.cfg)
@@ -341,6 +354,16 @@ func WithConnSwitchCallback(cb Callback) Option {
 func WithMinRequiredBlockHeight(h uint32) Option {
 	return func(c *cfg) {
 		c.minRequiredHeight = h
+	}
+}
+
+// WithAutoSidechainScope returns a client constructor
+// option that sets automatic transaction scope detection to
+// true which overrides the default CalledByEntry to a set of
+// Rules made specifically for the sidechain.
+func WithAutoSidechainScope() Option {
+	return func(c *cfg) {
+		c.autoSidechainScope = true
 	}
 }
 

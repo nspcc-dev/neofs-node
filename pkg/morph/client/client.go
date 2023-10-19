@@ -136,7 +136,6 @@ type cache struct {
 	m *sync.RWMutex
 
 	nnsHash   *util.Uint160
-	gKey      *keys.PublicKey
 	txHeights *lru.Cache[util.Uint256, uint32]
 }
 
@@ -154,26 +153,11 @@ func (c *cache) setNNSHash(nnsHash util.Uint160) {
 	c.nnsHash = &nnsHash
 }
 
-func (c cache) groupKey() *keys.PublicKey {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	return c.gKey
-}
-
-func (c *cache) setGroupKey(groupKey *keys.PublicKey) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.gKey = groupKey
-}
-
 func (c *cache) invalidate() {
 	c.m.Lock()
 	defer c.m.Unlock()
 
 	c.nnsHash = nil
-	c.gKey = nil
 	c.txHeights.Purge()
 }
 

@@ -415,6 +415,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			client.WithContext(ctx),
 			client.WithLogger(log),
 			client.WithSingleClient(wsClient),
+			client.WithAutoSidechainScope(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("init internal morph client: %w", err)
@@ -447,9 +448,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	server.morphListener, err = createListener(server.morphClient, morphChain)
 	if err != nil {
 		return nil, err
-	}
-	if err := server.morphClient.SetGroupSignerScope(); err != nil {
-		return nil, fmt.Errorf("failed to set group signer scope: %w", err)
 	}
 
 	server.withoutMainNet = cfg.GetBool("without_mainnet")
@@ -985,15 +983,13 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
 	}
-
-	return client.New(
-		p.key,
+	var options = []client.Option{
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
-		client.WithDialTimeout(p.cfg.GetDuration(p.name+".dial_timeout")),
+		client.WithDialTimeout(p.cfg.GetDuration(p.name + ".dial_timeout")),
 		client.WithEndpoints(endpoints),
-		client.WithReconnectionRetries(p.cfg.GetInt(p.name+".reconnections_number")),
-		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name+".reconnections_delay")),
+		client.WithReconnectionRetries(p.cfg.GetInt(p.name + ".reconnections_number")),
+		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name + ".reconnections_delay")),
 		client.WithConnSwitchCallback(func() {
 			var err error
 
@@ -1010,7 +1006,12 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
 		}),
 		client.WithMinRequiredBlockHeight(p.from),
-	)
+	}
+	if p.name == morphPrefix {
+		options = append(options, client.WithAutoSidechainScope())
+	}
+
+	return client.New(p.key, options...)
 }
 
 const validatorsConfigKey = "morph.validators"

@@ -39,6 +39,7 @@ func initMorphComponents(c *cfg) {
 	cli, err := client.New(c.key,
 		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
 		client.WithLogger(c.log),
+		client.WithAutoSidechainScope(),
 		client.WithEndpoints(addresses),
 		client.WithReconnectionRetries(morphconfig.ReconnectionRetriesNumber(c.appCfg)),
 		client.WithReconnectionsDelay(morphconfig.ReconnectionRetriesDelay(c.appCfg)),
@@ -63,11 +64,6 @@ func initMorphComponents(c *cfg) {
 	}
 
 	c.onShutdown(cli.Close)
-
-	if err := cli.SetGroupSignerScope(); err != nil {
-		c.log.Info("failed to set group signer scope", zap.Error(err))
-		fatalOnErr(err)
-	}
 
 	c.cfgMorph.client = cli
 

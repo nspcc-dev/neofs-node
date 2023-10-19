@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -36,8 +34,6 @@ const (
 var (
 	// ErrNNSRecordNotFound means that there is no such record in NNS contract.
 	ErrNNSRecordNotFound = errors.New("record has not been found in NNS contract")
-
-	errEmptyResultStack = errors.New("returned result stack is empty")
 )
 
 // NNSAlphabetContractName returns contract name of the alphabet contract in NNS
@@ -90,94 +86,64 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 	return *nnsHash, nil
 }
 
-func nnsResolveItems(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) ([]string, error) {
-	var nnsReader = nns.NewReader(invoker.New(c, nil), nnsHash)
-
-	found, err := exists(nnsReader, domain)
+func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {
+	nnsHash, err := nns.InferHash(ws)
 	if err != nil {
-		return nil, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
+		return fmt.Errorf("InferHash: %w", err)
 	}
 
-	if !found {
-		return nil, ErrNNSRecordNotFound
-	}
+	var nnsReader = nns.NewReader(invoker.New(ws, nil), nnsHash)
 
-	result, err := nnsReader.Resolve(domain, nns.TXT)
+	balanceHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("resolving balance: %w", err)
 	}
-	if len(result) == 0 {
-		return nil, errEmptyResultStack
-	}
-	return result, nil
-}
-
-// exists checks domain presence in the NNS contract with given address by
-// calling `ownerOf` method. Returns true if call succeeded only.
-func exists(nnsReader *nns.ContractReader, domain string) (bool, error) {
-	_, err := nnsReader.OwnerOf([]byte(domain))
-
+	cntHash, err := nnsReader.ResolveFSContract(nns.NameContainer)
 	if err != nil {
-		if strings.Contains(err.Error(), "invocation failed") {
-			err = nil
-		}
-		return false, err
+		return fmt.Errorf("resolving container: %w", err)
 	}
-
-	return true, nil
-}
-
-// SetGroupSignerScope makes the default signer scope include all NeoFS contracts.
-// Should be called for side-chain client only.
-func (c *Client) SetGroupSignerScope() error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
-	pub, err := c.contractGroupKey()
+	netmapHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolving netmap: %w", err)
+	}
+	neofsIDHash, err := nnsReader.ResolveFSContract(nns.NameNeoFSID)
+	if err != nil {
+		return fmt.Errorf("resolving neofsid: %w", err)
 	}
 
-	// Don't change c before everything is OK.
-	cfg := c.cfg
-	cfg.signer = &transaction.Signer{
-		Scopes:        transaction.CustomGroups | transaction.CalledByEntry,
-		AllowedGroups: []*keys.PublicKey{pub},
+	conf.signer = &transaction.Signer{
+		Scopes: transaction.CalledByEntry | transaction.Rules,
+		Rules: []transaction.WitnessRule{{
+			Action: transaction.WitnessAllow,
+			Condition: &transaction.ConditionAnd{
+				(*transaction.ConditionCalledByContract)(&cntHash),
+				(*transaction.ConditionScriptHash)(&balanceHash),
+			},
+		}, {
+			Action: transaction.WitnessAllow,
+			Condition: &transaction.ConditionAnd{
+				(*transaction.ConditionCalledByContract)(&cntHash),
+				(*transaction.ConditionScriptHash)(&nnsHash),
+			},
+		}, {
+			Action: transaction.WitnessAllow,
+			Condition: &transaction.ConditionAnd{
+				(*transaction.ConditionCalledByContract)(&cntHash),
+				(*transaction.ConditionScriptHash)(&neofsIDHash),
+			},
+		}, {
+			Action: transaction.WitnessAllow,
+			Condition: &transaction.ConditionAnd{
+				(*transaction.ConditionCalledByContract)(&netmapHash),
+				(*transaction.ConditionScriptHash)(&cntHash),
+			},
+		}, {
+			Action: transaction.WitnessAllow,
+			Condition: &transaction.ConditionAnd{
+				(*transaction.ConditionCalledByContract)(&netmapHash),
+				(*transaction.ConditionScriptHash)(&balanceHash),
+			},
+		}},
 	}
-	rpcActor, err := newActor(c.client, c.acc, cfg)
-	if err != nil {
-		return err
-	}
-	c.cfg = cfg
-	c.setActor(rpcActor)
 	return nil
-}
-
-// contractGroupKey returns public key designating NeoFS contract group.
-func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
-	if gKey := c.cache.groupKey(); gKey != nil {
-		return gKey, nil
-	}
-
-	nnsHash, err := c.NNSHash()
-	if err != nil {
-		return nil, err
-	}
-
-	items, err := nnsResolveItems(c.client, nnsHash, NNSGroupKeyName)
-	if err != nil {
-		return nil, err
-	}
-
-	pub, err := keys.NewPublicKeyFromString(string(items[0]))
-	if err != nil {
-		return nil, err
-	}
-
-	c.cache.setGroupKey(pub)
-	return pub, nil
 }
