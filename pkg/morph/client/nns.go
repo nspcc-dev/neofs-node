@@ -3,37 +3,32 @@ package client
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-contract/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 )
 
 const (
-	nnsContractID = 1 // NNS contract must be deployed first in the sidechain
-
 	// NNSAuditContractName is a name of the audit contract in NNS.
-	NNSAuditContractName = "audit.neofs"
+	NNSAuditContractName = nns.NameAudit
 	// NNSBalanceContractName is a name of the balance contract in NNS.
-	NNSBalanceContractName = "balance.neofs"
+	NNSBalanceContractName = nns.NameBalance
 	// NNSContainerContractName is a name of the container contract in NNS.
-	NNSContainerContractName = "container.neofs"
+	NNSContainerContractName = nns.NameContainer
 	// NNSNeoFSIDContractName is a name of the neofsid contract in NNS.
-	NNSNeoFSIDContractName = "neofsid.neofs"
+	NNSNeoFSIDContractName = nns.NameNeoFSID
 	// NNSNetmapContractName is a name of the netmap contract in NNS.
-	NNSNetmapContractName = "netmap.neofs"
+	NNSNetmapContractName = nns.NameNetmap
 	// NNSProxyContractName is a name of the proxy contract in NNS.
-	NNSProxyContractName = "proxy.neofs"
+	NNSProxyContractName = nns.NameProxy
 	// NNSReputationContractName is a name of the reputation contract in NNS.
-	NNSReputationContractName = "reputation.neofs"
+	NNSReputationContractName = nns.NameReputation
 	// NNSGroupKeyName is a name for the NeoFS group key record in NNS.
 	NNSGroupKeyName = "group.neofs"
 )
@@ -48,7 +43,7 @@ var (
 // NNSAlphabetContractName returns contract name of the alphabet contract in NNS
 // based on alphabet index.
 func NNSAlphabetContractName(index int) string {
-	return "alphabet" + strconv.Itoa(index) + ".neofs"
+	return nns.NameAlphabetPrefix + strconv.Itoa(index)
 }
 
 // NNSContractAddress returns contract address script hash based on its name
@@ -67,11 +62,9 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 		return util.Uint160{}, err
 	}
 
-	sh, err = nnsResolve(c.client, nnsHash, name)
-	if err != nil {
-		return sh, fmt.Errorf("NNS.resolve: %w", err)
-	}
-	return sh, nil
+	var nnsReader = nns.NewReader(invoker.New(c.client, nil), nnsHash)
+
+	return nnsReader.ResolveFSContract(name)
 }
 
 // NNSHash returns NNS contract hash.
@@ -86,19 +79,21 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 	nnsHash := c.cache.nns()
 
 	if nnsHash == nil {
-		cs, err := c.client.GetContractStateByID(nnsContractID)
+		h, err := nns.InferHash(c.client)
 		if err != nil {
-			return util.Uint160{}, fmt.Errorf("NNS contract state: %w", err)
+			return util.Uint160{}, fmt.Errorf("InferHash: %w", err)
 		}
 
-		c.cache.setNNSHash(cs.Hash)
-		nnsHash = &cs.Hash
+		c.cache.setNNSHash(h)
+		nnsHash = &h
 	}
 	return *nnsHash, nil
 }
 
-func nnsResolveItem(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
-	found, err := exists(c, nnsHash, domain)
+func nnsResolveItems(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) ([]string, error) {
+	var nnsReader = nns.NewReader(invoker.New(c, nil), nnsHash)
+
+	found, err := exists(nnsReader, domain)
 	if err != nil {
 		return nil, fmt.Errorf("could not check presence in NNS contract for %s: %w", domain, err)
 	}
@@ -107,76 +102,29 @@ func nnsResolveItem(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) 
 		return nil, ErrNNSRecordNotFound
 	}
 
-	result, err := c.InvokeFunction(nnsHash, "resolve", []smartcontract.Parameter{
-		{
-			Type:  smartcontract.StringType,
-			Value: domain,
-		},
-		{
-			Type:  smartcontract.IntegerType,
-			Value: big.NewInt(int64(nns.TXT)),
-		},
-	}, nil)
+	result, err := nnsReader.Resolve(domain, nns.TXT)
 	if err != nil {
 		return nil, err
 	}
-	if result.State != vmstate.Halt.String() {
-		return nil, fmt.Errorf("invocation failed: %s", result.FaultException)
-	}
-	if len(result.Stack) == 0 {
+	if len(result) == 0 {
 		return nil, errEmptyResultStack
 	}
-	return result.Stack[0], nil
-}
-
-func nnsResolve(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (util.Uint160, error) {
-	res, err := nnsResolveItem(c, nnsHash, domain)
-	if err != nil {
-		return util.Uint160{}, err
-	}
-
-	// Parse the result of resolving NNS record.
-	// It works with multiple formats (corresponding to multiple NNS versions).
-	// If array of hashes is provided, it returns only the first one.
-	if arr, ok := res.Value().([]stackitem.Item); ok {
-		if len(arr) == 0 {
-			return util.Uint160{}, errors.New("NNS record is missing")
-		}
-		res = arr[0]
-	}
-	bs, err := res.TryBytes()
-	if err != nil {
-		return util.Uint160{}, fmt.Errorf("malformed response: %w", err)
-	}
-
-	// We support several formats for hash encoding, this logic should be maintained in sync
-	// with parseNNSResolveResult from cmd/neofs-adm/internal/modules/morph/initialize_nns.go
-	h, err := util.Uint160DecodeStringLE(string(bs))
-	if err == nil {
-		return h, nil
-	}
-
-	h, err = address.StringToUint160(string(bs))
-	if err == nil {
-		return h, nil
-	}
-
-	return util.Uint160{}, errors.New("no valid hashes are found")
+	return result, nil
 }
 
 // exists checks domain presence in the NNS contract with given address by
 // calling `ownerOf` method. Returns true if call succeeded only.
-func exists(c *rpcclient.WSClient, nnsHash util.Uint160, domain string) (bool, error) {
-	result, err := c.InvokeFunction(nnsHash, "ownerOf", []smartcontract.Parameter{
-		{
-			Type:  smartcontract.ByteArrayType,
-			Value: []byte(domain),
-		},
-	}, nil)
+func exists(nnsReader *nns.ContractReader, domain string) (bool, error) {
+	_, err := nnsReader.OwnerOf([]byte(domain))
+
 	if err != nil {
+		if strings.Contains(err.Error(), "invocation failed") {
+			err = nil
+		}
 		return false, err
 	}
-	return result.State == vmstate.Halt.String(), nil
+
+	return true, nil
 }
 
 // SetGroupSignerScope makes the default signer scope include all NeoFS contracts.
@@ -220,22 +168,12 @@ func (c *Client) contractGroupKey() (*keys.PublicKey, error) {
 		return nil, err
 	}
 
-	item, err := nnsResolveItem(c.client, nnsHash, NNSGroupKeyName)
+	items, err := nnsResolveItems(c.client, nnsHash, NNSGroupKeyName)
 	if err != nil {
 		return nil, err
 	}
 
-	arr, ok := item.Value().([]stackitem.Item)
-	if !ok || len(arr) == 0 {
-		return nil, errors.New("NNS record is missing")
-	}
-
-	bs, err := arr[0].TryBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	pub, err := keys.NewPublicKeyFromString(string(bs))
+	pub, err := keys.NewPublicKeyFromString(string(items[0]))
 	if err != nil {
 		return nil, err
 	}
