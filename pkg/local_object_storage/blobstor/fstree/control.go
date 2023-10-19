@@ -12,7 +12,17 @@ func (t *FSTree) Open(ro bool) error {
 
 // Init implements common.Storage.
 func (t *FSTree) Init() error {
-	return util.MkdirAllX(t.RootPath, t.Permissions)
+	err := util.MkdirAllX(t.RootPath, t.Permissions)
+	if err != nil {
+		return err
+	}
+	if !t.readOnly {
+		f := newSpecificWriteData(t.RootPath, t.Permissions, t.noSync)
+		if f != nil {
+			t.writeData = f
+		}
+	}
+	return nil
 }
 
 // Close implements common.Storage.
