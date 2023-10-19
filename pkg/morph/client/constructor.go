@@ -217,6 +217,7 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 			Scopes:           cfg.signer.Scopes,
 			AllowedContracts: cfg.signer.AllowedContracts,
 			AllowedGroups:    cfg.signer.AllowedGroups,
+			Rules:            cfg.signer.Rules,
 		},
 		Account: acc,
 	}})
