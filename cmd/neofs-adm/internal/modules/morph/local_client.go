@@ -165,11 +165,6 @@ func (l *localClient) InvokeFunction(h util.Uint160, method string, sPrm []smart
 	return invokeFunction(l, h, method, pp, ss)
 }
 
-func (l *localClient) CalculateNotaryFee(_ uint8) (int64, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
-}
-
 func (l *localClient) SignAndPushP2PNotaryRequest(_ *transaction.Transaction, _ []byte, _ int64, _ int64, _ uint32, _ *wallet.Account) (*payload.P2PNotaryRequest, error) {
 	// not used by `morph init` command
 	panic("unexpected call")
@@ -240,27 +235,6 @@ func (l *localClient) CalculateNetworkFee(tx *transaction.Transaction) (int64, e
 	netFee += int64(size) * fee
 
 	return netFee, nil
-}
-
-// AddNetworkFee adds network fee for each witness script and optional extra
-// network fee to transaction. `accs` is an array signer's accounts.
-// Copied from neo-go with minor corrections (no need to support contract signers):
-// https://github.com/nspcc-dev/neo-go/blob/6ff11baa1b9e4c71ef0d1de43b92a8c541ca732c/pkg/rpc/client/rpc.go#L960
-func (l *localClient) AddNetworkFee(tx *transaction.Transaction, extraFee int64, accs ...*wallet.Account) error {
-	if len(tx.Signers) != len(accs) {
-		return errors.New("number of signers must match number of scripts")
-	}
-
-	size := io.GetVarSize(tx)
-	ef := l.bc.GetBaseExecFee()
-	for i := range tx.Signers {
-		netFee, sizeDelta := fee.Calculate(ef, accs[i].Contract.Script)
-		tx.NetworkFee += netFee
-		size += sizeDelta
-	}
-
-	tx.NetworkFee += int64(size)*l.bc.FeePerByte() + extraFee
-	return nil
 }
 
 func (l *localClient) InvokeScript(script []byte, signers []transaction.Signer) (*result.Invoke, error) {
