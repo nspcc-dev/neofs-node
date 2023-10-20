@@ -15,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
@@ -26,9 +25,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/common"
-	"github.com/nspcc-dev/neofs-contract/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	"github.com/spf13/viper"
 )
@@ -111,32 +109,21 @@ func (c *initializeContext) deployNNS(method string) error {
 			return nil
 		}
 	}
-
-	params := getContractDeployParameters(cs, nil)
-	signer := transaction.Signer{
-		Account: c.CommitteeAcc.Contract.ScriptHash(),
-		Scopes:  transaction.CalledByEntry,
+	act, err := actor.NewSimple(c.Client, c.CommitteeAcc)
+	if err != nil {
+		return fmt.Errorf("creating actor: %w", err)
 	}
 
-	invokeHash := management.Hash
+	var tx *transaction.Transaction
 	if method == updateMethodName {
-		invokeHash = nnsCs.Hash
+		var nnsCnt = nns.New(act, nnsCs.Hash)
+		tx, err = nnsCnt.UpdateUnsigned(cs.RawNEF, string(cs.RawManifest), nil)
+	} else {
+		var mgmt = management.New(act)
+		tx, err = mgmt.DeployUnsigned(cs.NEF, cs.Manifest, nil)
 	}
-
-	res, err := invokeFunction(c.Client, invokeHash, method, params, []transaction.Signer{signer})
 	if err != nil {
-		return fmt.Errorf("can't deploy NNS contract: %w", err)
-	}
-	if res.State != vmstate.Halt.String() {
-		return fmt.Errorf("can't deploy NNS contract: %s", res.FaultException)
-	}
-
-	tx, err := c.Client.CreateTxFromScript(res.Script, c.CommitteeAcc, res.GasConsumed, 0, []rpcclient.SignerAccount{{
-		Signer:  signer,
-		Account: c.CommitteeAcc,
-	}})
-	if err != nil {
-		return fmt.Errorf("failed to create deploy tx for %s: %w", nnsContract, err)
+		return fmt.Errorf("creating tx: %w", err)
 	}
 
 	if err := c.multiSignAndSend(tx, committeeAccountName); err != nil {
@@ -243,11 +230,11 @@ func (c *initializeContext) updateContracts() error {
 			}
 			if !ok {
 				w.WriteBytes(script)
-				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
+				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, nns.TXT)
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, int64(nns.TXT), cs.Hash.StringLE())
+					domain, nns.TXT, cs.Hash.StringLE())
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
+					domain, nns.TXT, address.Uint160ToString(cs.Hash))
 			}
 			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}

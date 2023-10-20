@@ -146,34 +146,6 @@ func (l *localClient) GetApplicationLog(h util.Uint256, t *trigger.Type) (*resul
 	return &a, nil
 }
 
-func (l *localClient) CreateTxFromScript(script []byte, acc *wallet.Account, sysFee int64, netFee int64, cosigners []rpcclient.SignerAccount) (*transaction.Transaction, error) {
-	signers, accounts, err := getSigners(acc, cosigners)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct tx signers: %w", err)
-	}
-	if sysFee < 0 {
-		res, err := l.InvokeScript(script, signers)
-		if err != nil {
-			return nil, fmt.Errorf("can't add system fee to transaction: %w", err)
-		}
-		if res.State != "HALT" {
-			return nil, fmt.Errorf("can't add system fee to transaction: bad vm state: %s due to an error: %s", res.State, res.FaultException)
-		}
-		sysFee = res.GasConsumed
-	}
-
-	tx := transaction.New(script, sysFee)
-	tx.Signers = signers
-	tx.ValidUntilBlock = l.bc.BlockHeight() + 2
-
-	err = l.AddNetworkFee(tx, netFee, accounts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add network fee: %w", err)
-	}
-
-	return tx, nil
-}
-
 func (l *localClient) GetCommittee() (keys.PublicKeys, error) {
 	// not used by `morph init` command
 	panic("unexpected call")
@@ -290,35 +262,6 @@ func (l *localClient) AddNetworkFee(tx *transaction.Transaction, extraFee int64,
 
 	tx.NetworkFee += int64(size)*l.bc.FeePerByte() + extraFee
 	return nil
-}
-
-// getSigners returns an array of transaction signers and corresponding accounts from
-// given sender and cosigners. If cosigners list already contains sender, the sender
-// will be placed at the start of the list.
-// Copied from neo-go with minor corrections:
-// https://github.com/nspcc-dev/neo-go/blob/6ff11baa1b9e4c71ef0d1de43b92a8c541ca732c/pkg/rpc/client/rpc.go#L735
-func getSigners(sender *wallet.Account, cosigners []rpcclient.SignerAccount) ([]transaction.Signer, []*wallet.Account, error) {
-	var (
-		signers  []transaction.Signer
-		accounts []*wallet.Account
-	)
-
-	from := sender.Contract.ScriptHash()
-	s := transaction.Signer{
-		Account: from,
-		Scopes:  transaction.None,
-	}
-	for _, c := range cosigners {
-		if c.Signer.Account == from {
-			s = c.Signer
-			continue
-		}
-		signers = append(signers, c.Signer)
-		accounts = append(accounts, c.Account)
-	}
-	signers = append([]transaction.Signer{s}, signers...)
-	accounts = append([]*wallet.Account{sender}, accounts...)
-	return signers, accounts, nil
 }
 
 func (l *localClient) NEP17BalanceOf(h util.Uint160, acc util.Uint160) (int64, error) {

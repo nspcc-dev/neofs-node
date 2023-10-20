@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -49,7 +50,7 @@ func (c *initializeContext) registerCandidates() error {
 		panic(fmt.Sprintf("BUG: %v", w.Err))
 	}
 
-	signers := []rpcclient.SignerAccount{{
+	signers := []actor.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: c.CommitteeAcc.Contract.ScriptHash(),
 			Scopes:  transaction.CalledByEntry,
@@ -57,7 +58,7 @@ func (c *initializeContext) registerCandidates() error {
 		Account: c.CommitteeAcc,
 	}}
 	for i := range c.Accounts {
-		signers = append(signers, rpcclient.SignerAccount{
+		signers = append(signers, actor.SignerAccount{
 			Signer: transaction.Signer{
 				Account:          c.Accounts[i].Contract.ScriptHash(),
 				Scopes:           transaction.CustomContracts,
@@ -66,8 +67,12 @@ func (c *initializeContext) registerCandidates() error {
 			Account: c.Accounts[i],
 		})
 	}
+	act, err := actor.New(c.Client, signers)
+	if err != nil {
+		return fmt.Errorf("creating actor: %w", err)
+	}
 
-	tx, err := c.Client.CreateTxFromScript(w.Bytes(), c.CommitteeAcc, -1, 0, signers)
+	tx, err := act.MakeUnsignedRun(w.Bytes(), nil)
 	if err != nil {
 		return fmt.Errorf("can't create tx: %w", err)
 	}
