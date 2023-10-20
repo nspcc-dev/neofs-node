@@ -27,8 +27,6 @@ const (
 	NNSProxyContractName = nns.NameProxy
 	// NNSReputationContractName is a name of the reputation contract in NNS.
 	NNSReputationContractName = nns.NameReputation
-	// NNSGroupKeyName is a name for the NeoFS group key record in NNS.
-	NNSGroupKeyName = "group.neofs"
 )
 
 var (
@@ -111,7 +109,15 @@ func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {
 		return fmt.Errorf("resolving neofsid: %w", err)
 	}
 
-	conf.signer = &transaction.Signer{
+	conf.signer = GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	return nil
+}
+
+// GetUniversalSignerScope returns a universal (applicable for any valid NeoFS
+// contract call) scope that should be used by IR and SNs. It contains a set of
+// Rules for contracts calling each other and a regular CalledByEntry permission.
+func GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash util.Uint160) *transaction.Signer {
+	return &transaction.Signer{
 		Scopes: transaction.CalledByEntry | transaction.Rules,
 		Rules: []transaction.WitnessRule{{
 			Action: transaction.WitnessAllow,
@@ -145,5 +151,4 @@ func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {
 			},
 		}},
 	}
-	return nil
 }

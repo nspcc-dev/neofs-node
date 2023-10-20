@@ -113,5 +113,4 @@ func setTestCredentials(v *viper.Viper, size int) {
 	for i := 0; i < size; i++ {
 		v.Set("credentials."+innerring.GlagoliticLetter(i).String(), strconv.FormatUint(uint64(i), 10))
 	}
-	v.Set("credentials.contract", testContractPassword)
 }

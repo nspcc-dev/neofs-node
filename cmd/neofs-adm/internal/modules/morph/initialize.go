@@ -11,9 +11,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -22,8 +24,7 @@ import (
 )
 
 type cache struct {
-	nnsCs    *state.Contract
-	groupKey *keys.PublicKey
+	nnsCs *state.Contract
 }
 
 type initializeContext struct {
@@ -34,8 +35,6 @@ type initializeContext struct {
 	// ConsensusAcc is used for retrieving the committee address and the verification script.
 	ConsensusAcc *wallet.Account
 	Wallets      []*wallet.Wallet
-	// ContractWallet is a wallet for providing the contract group signature.
-	ContractWallet *wallet.Wallet
 	// Accounts contains simple signature accounts in the same order as in Wallets.
 	Accounts     []*wallet.Account
 	Contracts    map[string]*contractState
@@ -113,14 +112,6 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		return nil, err
 	}
 
-	var w *wallet.Wallet
-	if cmd.Name() == "update-contracts" || cmd.Name() == "init" {
-		w, err = openContractWallet(v, cmd, walletDir)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	var c Client
 	if v.GetString(localDumpFlag) != "" {
 		if v.GetString(endpointFlag) != "" {
@@ -172,21 +163,14 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 		accounts[i] = acc
 	}
 
-	cliCtx, err := defaultClientContext(c, committeeAcc)
-	if err != nil {
-		return nil, fmt.Errorf("client context: %w", err)
-	}
-
 	initCtx := &initializeContext{
-		clientContext:  *cliCtx,
-		ConsensusAcc:   consensusAcc,
-		CommitteeAcc:   committeeAcc,
-		ContractWallet: w,
-		Wallets:        wallets,
-		Accounts:       accounts,
-		Command:        cmd,
-		Contracts:      make(map[string]*contractState),
-		ContractPath:   ctrPath,
+		ConsensusAcc: consensusAcc,
+		CommitteeAcc: committeeAcc,
+		Wallets:      wallets,
+		Accounts:     accounts,
+		Command:      cmd,
+		Contracts:    make(map[string]*contractState),
+		ContractPath: ctrPath,
 	}
 
 	if needContracts {
@@ -195,6 +179,12 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 			return nil, err
 		}
 	}
+
+	cliCtx, err := defaultClientContext(c, committeeAcc)
+	if err != nil {
+		return nil, fmt.Errorf("client context: %w", err)
+	}
+	initCtx.clientContext = *cliCtx
 
 	return initCtx, nil
 }
@@ -265,37 +255,44 @@ func (c *initializeContext) nnsContractState() (*state.Contract, error) {
 	return cs, nil
 }
 
-func (c *initializeContext) getSigner(tryGroup bool, acc *wallet.Account) transaction.Signer {
-	if tryGroup && c.groupKey != nil {
-		return transaction.Signer{
-			Account:       acc.Contract.ScriptHash(),
-			Scopes:        transaction.CustomGroups,
-			AllowedGroups: keys.PublicKeys{c.groupKey},
-		}
-	}
-
-	signer := transaction.Signer{
+func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) transaction.Signer {
+	var signer = &transaction.Signer{
 		Account: acc.Contract.ScriptHash(),
-		Scopes:  transaction.Global, // Scope is important, as we have nested call to container contract.
+		Scopes:  transaction.CalledByEntry,
 	}
 
-	if !tryGroup {
-		return signer
+	if !fancyScope {
+		return *signer
 	}
 
-	nnsCs, err := c.nnsContractState()
+	nnsHash, err := nns.InferHash(c.Client)
 	if err != nil {
-		return signer
+		return *signer
 	}
 
-	groupKey, err := nnsResolveKey(c.ReadOnlyInvoker, nnsCs.Hash, morphClient.NNSGroupKeyName)
-	if err == nil {
-		c.groupKey = groupKey
+	var nnsReader = nns.NewReader(invoker.New(c.Client, nil), nnsHash)
 
-		signer.Scopes = transaction.CustomGroups
-		signer.AllowedGroups = keys.PublicKeys{groupKey}
+	balanceHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
+	if err != nil && c.Contracts[balanceContract] != nil {
+		balanceHash = c.Contracts[balanceContract].Hash
 	}
-	return signer
+	cntHash, err := nnsReader.ResolveFSContract(nns.NameContainer)
+	if err != nil && c.Contracts[containerContract] != nil {
+		cntHash = c.Contracts[containerContract].Hash
+	}
+	netmapHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
+	if err != nil && c.Contracts[netmapContract] != nil {
+		netmapHash = c.Contracts[netmapContract].Hash
+	}
+	neofsIDHash, err := nnsReader.ResolveFSContract(nns.NameNeoFSID)
+	if err != nil && c.Contracts[neofsIDContract] != nil {
+		neofsIDHash = c.Contracts[neofsIDContract].Hash
+	}
+
+	signer = morphClient.GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	signer.Account = acc.Contract.ScriptHash()
+
+	return *signer
 }
 
 func (c *clientContext) awaitTx(cmd *cobra.Command) error {
@@ -369,34 +366,35 @@ loop:
 }
 
 // sendCommitteeTx creates transaction from script, signs it by committee nodes and sends it to RPC.
-// If tryGroup is false, global scope is used for the signer (useful when
-// working with native contracts).
-func (c *initializeContext) sendCommitteeTx(script []byte, tryGroup bool) error {
-	return c.sendMultiTx(script, tryGroup, false)
+// If fancyScope is true, universal NeoFS scope is used for the signer, otherwise it'll be CalledByEntry.
+func (c *initializeContext) sendCommitteeTx(script []byte, fancyScope bool) error {
+	return c.sendMultiTx(script, fancyScope, false)
 }
 
 // sendConsensusTx creates transaction from script, signs it by alphabet nodes and sends it to RPC.
 // Not that because this is used only after the contracts were initialized and deployed,
-// we always try to have a group scope.
+// we always try to have a fancy scope.
 func (c *initializeContext) sendConsensusTx(script []byte) error {
 	return c.sendMultiTx(script, true, true)
 }
 
-func (c *initializeContext) sendMultiTx(script []byte, tryGroup bool, withConsensus bool) error {
+func (c *initializeContext) sendMultiTx(script []byte, fancyScope bool, withConsensus bool) error {
 	var act *actor.Actor
 	var err error
 
 	withConsensus = withConsensus && !c.ConsensusAcc.Contract.ScriptHash().Equals(c.CommitteeAcc.ScriptHash())
-	if tryGroup {
+	if fancyScope {
 		// Even for consensus signatures we need the committee to pay.
 		signers := make([]actor.SignerAccount, 1, 2)
 		signers[0] = actor.SignerAccount{
-			Signer:  c.getSigner(tryGroup, c.CommitteeAcc),
+			Signer:  c.getSigner(fancyScope, c.CommitteeAcc),
 			Account: c.CommitteeAcc,
 		}
 		if withConsensus {
+			var s = signers[0].Signer
+			s.Account = c.ConsensusAcc.Contract.ScriptHash()
 			signers = append(signers, actor.SignerAccount{
-				Signer:  c.getSigner(tryGroup, c.ConsensusAcc),
+				Signer:  s,
 				Account: c.ConsensusAcc,
 			})
 		}

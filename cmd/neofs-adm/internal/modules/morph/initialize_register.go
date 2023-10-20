@@ -50,7 +50,10 @@ func (c *initializeContext) registerCandidates() error {
 	}
 
 	signers := []rpcclient.SignerAccount{{
-		Signer:  c.getSigner(false, c.CommitteeAcc),
+		Signer: transaction.Signer{
+			Account: c.CommitteeAcc.Contract.ScriptHash(),
+			Scopes:  transaction.CalledByEntry,
+		},
 		Account: c.CommitteeAcc,
 	}}
 	for i := range c.Accounts {

@@ -88,7 +88,7 @@ func defaultClientContext(c Client, committeeAcc *wallet.Account) (*clientContex
 	commAct, err := actor.New(c, []actor.SignerAccount{{
 		Signer: transaction.Signer{
 			Account: committeeAcc.Contract.ScriptHash(),
-			Scopes:  transaction.Global,
+			Scopes:  transaction.Global, // Used for test invocations only, safe to be this way.
 		},
 		Account: committeeAcc,
 	}})

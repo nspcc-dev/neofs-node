@@ -19,8 +19,6 @@ import (
 	"golang.org/x/term"
 )
 
-const testContractPassword = "grouppass"
-
 func TestGenerateAlphabet(t *testing.T) {
 	const size = 4
 
@@ -51,15 +49,6 @@ func TestGenerateAlphabet(t *testing.T) {
 		buf.WriteString("pass\r")
 		require.Error(t, generateAlphabetCreds(cmd, nil))
 	})
-	t.Run("no password for contract group wallet", func(t *testing.T) {
-		buf.Reset()
-		v.Set(alphabetWalletsFlag, walletDir)
-		require.NoError(t, cmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
-		for i := uint64(0); i < size; i++ {
-			buf.WriteString(strconv.FormatUint(i, 10) + "\r")
-		}
-		require.Error(t, generateAlphabetCreds(cmd, nil))
-	})
 
 	buf.Reset()
 	v.Set(alphabetWalletsFlag, walletDir)
@@ -68,7 +57,6 @@ func TestGenerateAlphabet(t *testing.T) {
 		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
 	}
 
-	buf.WriteString(testContractPassword + "\r")
 	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
 	for i := uint64(0); i < size; i++ {
@@ -89,14 +77,6 @@ func TestGenerateAlphabet(t *testing.T) {
 			}
 		}
 	}
-
-	t.Run("check contract group wallet", func(t *testing.T) {
-		p := filepath.Join(walletDir, contractWalletFilename)
-		w, err := wallet.NewWalletFromFile(p)
-		require.NoError(t, err, "contract wallet doesn't exist")
-		require.Equal(t, 1, len(w.Accounts), "contract wallet must have 1 accout")
-		require.NoError(t, w.Accounts[0].Decrypt(testContractPassword, keys.NEP2ScryptParams()))
-	})
 }
 
 func setupTestTerminal(t *testing.T) *bytes.Buffer {

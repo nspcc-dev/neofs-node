@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
 - Recently-handled objects Policer's cache (#2600)
 - deprecated blobovnicza substorage (#2614)
+- Contract group wallet support from `neofs-adm` (#2619)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
@@ -38,6 +39,9 @@ Changelog for NeoFS Node
 Blobovniczas are gone from the node with this release, see 0.38.0 upgrade
 notes for migration instruction (the tool is still provided, but will be gone
 after a couple of minor releases).
+
+neofs-adm no longer creates a contract group wallet and no longer needs it
+for the operation which may affect deployment scripts.
 
 ## [0.38.1] - 2023-09-18
 
