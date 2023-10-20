@@ -33,7 +33,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -262,22 +261,6 @@ func (l *localClient) AddNetworkFee(tx *transaction.Transaction, extraFee int64,
 
 	tx.NetworkFee += int64(size)*l.bc.FeePerByte() + extraFee
 	return nil
-}
-
-func (l *localClient) NEP17BalanceOf(h util.Uint160, acc util.Uint160) (int64, error) {
-	res, err := invokeFunction(l, h, "balanceOf", []interface{}{acc}, nil)
-	if err != nil {
-		return 0, err
-	}
-	if res.State != vmstate.Halt.String() || len(res.Stack) == 0 {
-		return 0, fmt.Errorf("`balance`: invalid response (empty: %t): %s",
-			len(res.Stack) == 0, res.FaultException)
-	}
-	bi, err := res.Stack[0].TryInteger()
-	if err != nil || !bi.IsInt64() {
-		return 0, fmt.Errorf("`balance`: invalid response")
-	}
-	return bi.Int64(), nil
 }
 
 func (l *localClient) InvokeScript(script []byte, signers []transaction.Signer) (*result.Invoke, error) {

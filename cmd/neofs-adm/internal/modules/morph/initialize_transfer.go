@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
@@ -75,8 +76,9 @@ func (c *initializeContext) transferFunds() error {
 func (c *initializeContext) transferFundsFinished() (bool, error) {
 	acc := c.Accounts[0]
 
-	res, err := c.Client.NEP17BalanceOf(gas.Hash, acc.Contract.ScriptHash())
-	return res > initialAlphabetGASAmount/2, err
+	gasR := gas.NewReader(invoker.New(c.Client, nil))
+	res, err := gasR.BalanceOf(acc.Contract.ScriptHash())
+	return res.Int64() > initialAlphabetGASAmount/2, err
 }
 
 func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accType string) error {
@@ -136,8 +138,9 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 func (c *initializeContext) transferGASToProxy() error {
 	proxyCs := c.getContract(proxyContract)
 
-	bal, err := c.Client.NEP17BalanceOf(gas.Hash, proxyCs.Hash)
-	if err != nil || bal > 0 {
+	gasR := gas.NewReader(invoker.New(c.Client, nil))
+	bal, err := gasR.BalanceOf(proxyCs.Hash)
+	if err != nil || bal.Sign() > 0 {
 		return err
 	}
 

@@ -33,7 +33,6 @@ type Client interface {
 	GetNativeContracts() ([]state.NativeContract, error)
 	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
 	GetVersion() (*result.Version, error)
-	NEP17BalanceOf(util.Uint160, util.Uint160) (int64, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
 	GetCommittee() (keys.PublicKeys, error)
 	CalculateNotaryFee(uint8) (int64, error)

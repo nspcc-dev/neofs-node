@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
@@ -91,9 +92,7 @@ func (c *initializeContext) registerCandidates() error {
 }
 
 func (c *initializeContext) transferNEOToAlphabetContracts() error {
-	neoHash := neo.Hash
-
-	ok, err := c.transferNEOFinished(neoHash)
+	ok, err := c.transferNEOFinished()
 	if ok || err != nil {
 		return err
 	}
@@ -104,7 +103,7 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 	bw := io.NewBufBinWriter()
 	for _, acc := range c.Accounts {
 		h := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-		emit.AppCall(bw.BinWriter, neoHash, "transfer", callflag.All,
+		emit.AppCall(bw.BinWriter, neo.Hash, "transfer", callflag.All,
 			c.CommitteeAcc.Contract.ScriptHash(), h, int64(amount), nil)
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 	}
@@ -116,9 +115,10 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 	return c.awaitTx()
 }
 
-func (c *initializeContext) transferNEOFinished(neoHash util.Uint160) (bool, error) {
-	bal, err := c.Client.NEP17BalanceOf(neoHash, c.CommitteeAcc.Contract.ScriptHash())
-	return bal < native.NEOTotalSupply, err
+func (c *initializeContext) transferNEOFinished() (bool, error) {
+	neoR := neo.NewReader(invoker.New(c.Client, nil))
+	bal, err := neoR.BalanceOf(c.CommitteeAcc.Contract.ScriptHash())
+	return bal.Int64() < native.NEOTotalSupply, err
 }
 
 var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
