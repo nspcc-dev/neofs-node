@@ -19,11 +19,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -163,16 +160,6 @@ func (l *localClient) InvokeFunction(h util.Uint160, method string, sPrm []smart
 	}
 
 	return invokeFunction(l, h, method, pp, ss)
-}
-
-func (l *localClient) SignAndPushP2PNotaryRequest(_ *transaction.Transaction, _ []byte, _ int64, _ int64, _ uint32, _ *wallet.Account) (*payload.P2PNotaryRequest, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
-}
-
-func (l *localClient) SignAndPushInvocationTx(_ []byte, _ *wallet.Account, _ int64, _ fixedn.Fixed8, _ []rpcclient.SignerAccount) (util.Uint256, error) {
-	// not used by `morph init` command
-	panic("unexpected call")
 }
 
 func (l *localClient) TerminateSession(_ uuid.UUID) (bool, error) {

@@ -9,9 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
-	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
@@ -36,8 +34,6 @@ type Client interface {
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)
 	GetCommittee() (keys.PublicKeys, error)
 	CalculateNetworkFee(tx *transaction.Transaction) (int64, error)
-	SignAndPushInvocationTx([]byte, *wallet.Account, int64, fixedn.Fixed8, []rpcclient.SignerAccount) (util.Uint256, error)
-	SignAndPushP2PNotaryRequest(*transaction.Transaction, []byte, int64, int64, uint32, *wallet.Account) (*payload.P2PNotaryRequest, error)
 }
 
 type hashVUBPair struct {
