@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/config"
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/chaindump"
@@ -135,10 +134,6 @@ func (l *localClient) GetContractStateByHash(h util.Uint160) (*state.Contract, e
 
 func (l *localClient) GetNativeContracts() ([]state.NativeContract, error) {
 	return l.bc.GetNatives(), nil
-}
-
-func (l *localClient) GetNetwork() (netmode.Magic, error) {
-	return l.bc.GetConfig().Magic, nil
 }
 
 func (l *localClient) GetApplicationLog(h util.Uint256, t *trigger.Type) (*result.ApplicationLog, error) {

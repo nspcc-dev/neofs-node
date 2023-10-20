@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -32,7 +31,6 @@ type Client interface {
 	GetContractStateByID(int32) (*state.Contract, error)
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
 	GetNativeContracts() ([]state.NativeContract, error)
-	GetNetwork() (netmode.Magic, error)
 	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
 	GetVersion() (*result.Version, error)
 	CreateTxFromScript([]byte, *wallet.Account, int64, int64, []rpcclient.SignerAccount) (*transaction.Transaction, error)
