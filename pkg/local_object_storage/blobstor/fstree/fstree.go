@@ -26,6 +26,7 @@ type FSTree struct {
 	*compression.Config
 	Depth      uint64
 	DirNameLen int
+	writeData  func(string, []byte) error
 
 	noSync   bool
 	readOnly bool
@@ -62,6 +63,7 @@ func New(opts ...Option) *FSTree {
 	for i := range opts {
 		opts[i](f)
 	}
+	f.writeData = newGenericWriteData(f.Permissions, f.noSync)
 
 	return f
 }

@@ -4,26 +4,47 @@ package fstree
 
 import (
 	"errors"
+	"io/fs"
 	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"golang.org/x/sys/unix"
 )
 
-func (t *FSTree) writeData(p string, data []byte) error {
-	err := t.writeFile(p, data)
+type linuxWriter struct {
+	root  string
+	perm  uint32
+	flags int
+}
+
+func newSpecificWriteData(root string, perm fs.FileMode, noSync bool) func(string, []byte) error {
+	flags := unix.O_WRONLY | unix.O_TMPFILE | unix.O_CLOEXEC
+	if !noSync {
+		flags |= unix.O_DSYNC
+	}
+	fd, err := unix.Open(root, flags, uint32(perm))
+	if err != nil {
+		return nil // Which means that OS-specific writeData can't be created and FSTree should use the generic one.
+	}
+	_ = unix.Close(fd) // Don't care about error.
+	w := &linuxWriter{
+		root:  root,
+		perm:  uint32(perm),
+		flags: flags,
+	}
+	return w.writeData
+}
+
+func (w *linuxWriter) writeData(p string, data []byte) error {
+	err := w.writeFile(p, data)
 	if errors.Is(err, unix.ENOSPC) {
 		return common.ErrNoSpace
 	}
 	return err
 }
 
-func (t *FSTree) writeFile(p string, data []byte) error {
-	flags := unix.O_WRONLY | unix.O_TMPFILE | unix.O_CLOEXEC
-	if !t.noSync {
-		flags |= unix.O_DSYNC
-	}
-	fd, err := unix.Open(t.RootPath, flags, uint32(t.Permissions))
+func (w *linuxWriter) writeFile(p string, data []byte) error {
+	fd, err := unix.Open(w.root, w.flags, w.perm)
 	if err != nil {
 		return err
 	}
