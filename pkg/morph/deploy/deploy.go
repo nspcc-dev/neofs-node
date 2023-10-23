@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -78,6 +79,8 @@ type NeoFSState struct {
 	CurrentEpoch uint64
 	// Height of the NeoFS Sidechain at which CurrentEpoch began.
 	CurrentEpochBlock uint32
+	// Duration of the single NeoFS epoch measured in Sidechain blocks.
+	EpochDuration uint32
 }
 
 // NeoFS provides access to the running NeoFS network.
@@ -773,7 +776,11 @@ func neoFSRuntimeTransactionModifier(neoFS NeoFS) actor.TransactionCheckerModifi
 		}
 
 		tx.Nonce = uint32(neoFSState.CurrentEpoch)
-		tx.ValidUntilBlock = neoFSState.CurrentEpochBlock + 100
+		if math.MaxUint32-neoFSState.CurrentEpochBlock > neoFSState.EpochDuration {
+			tx.ValidUntilBlock = neoFSState.CurrentEpochBlock + neoFSState.EpochDuration
+		} else {
+			tx.ValidUntilBlock = math.MaxUint32
+		}
 
 		return nil
 	}

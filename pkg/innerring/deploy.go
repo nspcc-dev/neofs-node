@@ -3,6 +3,7 @@ package innerring
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -65,6 +66,17 @@ func (x *neoFSSidechain) CurrentState() (deploy.NeoFSState, error) {
 	if err != nil {
 		return res, fmt.Errorf("get last epoch block from Netmap contract: %w", err)
 	}
+
+	epochDur, err := netmapContract.EpochDuration()
+	if err != nil {
+		return res, fmt.Errorf("get epoch duration from Netmap contract: %w", err)
+	}
+
+	if epochDur > math.MaxUint32 {
+		return res, fmt.Errorf("epoch duration from Netmap contract overflows uint32: %d", epochDur)
+	}
+
+	res.EpochDuration = uint32(epochDur)
 
 	return res, nil
 }
