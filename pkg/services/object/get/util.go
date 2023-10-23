@@ -212,7 +212,9 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		}
 
 		return r.Header(), nil
-	} else if rng := exec.ctxRange(); rng != nil {
+	}
+
+	if rng := exec.ctxRange(); rng != nil {
 		var getRange engine.RngPrm
 		getRange.WithAddress(exec.address())
 		getRange.WithPayloadRange(rng)
@@ -223,17 +225,17 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		}
 
 		return r.Object(), nil
-	} else {
-		var getPrm engine.GetPrm
-		getPrm.WithAddress(exec.address())
-
-		r, err := e.engine.Get(getPrm)
-		if err != nil {
-			return nil, err
-		}
-
-		return r.Object(), nil
 	}
+
+	var getPrm engine.GetPrm
+	getPrm.WithAddress(exec.address())
+
+	r, err := e.engine.Get(getPrm)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Object(), nil
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {
