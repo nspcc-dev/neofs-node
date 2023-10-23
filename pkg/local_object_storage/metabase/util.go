@@ -74,6 +74,7 @@ const (
 	//  Value: marshaled object
 	tombstonePrefix
 	// smallPrefix is used for prefixing buckets mapping objects to the blobovniczas they are stored in.
+	// Not really used now, blobovniczas are gone, but kept for compatibility.
 	//  Key: object ID
 	//  Value: blobovnicza ID
 	smallPrefix

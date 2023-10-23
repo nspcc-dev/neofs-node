@@ -3,7 +3,7 @@ package blobovniczatree
 import (
 	"io/fs"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"go.uber.org/zap"
 )

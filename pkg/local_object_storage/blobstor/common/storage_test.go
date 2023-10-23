@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -18,11 +18,7 @@ func TestCopy(t *testing.T) {
 	dir := t.TempDir()
 	const nObjects = 100
 
-	src := blobovniczatree.NewBlobovniczaTree(
-		blobovniczatree.WithBlobovniczaShallowWidth(2),
-		blobovniczatree.WithBlobovniczaShallowDepth(3),
-		blobovniczatree.WithRootPath(filepath.Join(dir, "blobovnicza")),
-	)
+	src := fstree.New(fstree.WithPath(dir))
 
 	require.NoError(t, src.Open(false))
 	require.NoError(t, src.Init())

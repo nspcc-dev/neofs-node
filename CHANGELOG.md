@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
 - Recently-handled objects Policer's cache (#2600)
+- deprecated blobovnicza substorage (#2614)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
@@ -33,6 +34,9 @@ Changelog for NeoFS Node
 - `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
 
 ### Updating from v0.38.1
+Blobovniczas are gone from the node with this release, see 0.38.0 upgrade
+notes for migration instruction (the tool is still provided, but will be gone
+after a couple of minor releases).
 
 ## [0.38.1] - 2023-09-18
 

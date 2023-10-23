@@ -18,8 +18,7 @@ var ErrNoPlaceFound = logicerr.New("couldn't find a place to store an object")
 // Put saves the object in BLOB storage.
 //
 // If object is "big", BlobStor saves the object in shallow dir.
-// Otherwise, BlobStor saves the object in blobonicza. In this
-// case the identifier of blobovnicza is returned.
+// Otherwise, BlobStor saves the object in peapod.
 //
 // Returns any error encountered that
 // did not allow to completely save the object.

@@ -4,18 +4,18 @@ import (
 	"math"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestShard_GetRange(t *testing.T) {
@@ -68,11 +68,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
 		[]blobstor.Option{blobstor.WithStorages([]blobstor.SubStorage{
 			{
-				Storage: blobovniczatree.NewBlobovniczaTree(
-					blobovniczatree.WithLogger(zaptest.NewLogger(t)),
-					blobovniczatree.WithRootPath(filepath.Join(t.TempDir(), "blob", "blobovnicza")),
-					blobovniczatree.WithBlobovniczaShallowDepth(1),
-					blobovniczatree.WithBlobovniczaShallowWidth(1)),
+				Storage: peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0600, 10*time.Millisecond),
 				Policy: func(_ *objectSDK.Object, data []byte) bool {
 					return len(data) <= smallObjectSize
 				},

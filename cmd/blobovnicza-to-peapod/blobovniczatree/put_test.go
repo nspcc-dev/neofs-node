@@ -3,7 +3,7 @@ package blobovniczatree_test
 import (
 	"testing"
 
-	. "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
+	. "github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"

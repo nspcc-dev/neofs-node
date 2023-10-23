@@ -4,23 +4,20 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
-const blobovniczaDir = "blobovniczas"
-
 func defaultStorages(p string, smallSizeLimit uint64) []SubStorage {
 	return []SubStorage{
 		{
-			Storage: blobovniczatree.NewBlobovniczaTree(
-				blobovniczatree.WithRootPath(filepath.Join(p, "blobovniczas")),
-				blobovniczatree.WithBlobovniczaShallowWidth(1)), // default width is 16, slow init
+			Storage: peapod.New(filepath.Join(p, "peapod.db"), 0600, 10*time.Millisecond),
 			Policy: func(_ *objectSDK.Object, data []byte) bool {
 				return uint64(len(data)) <= smallSizeLimit
 			},
@@ -111,9 +108,7 @@ func TestBlobstor_needsCompression(t *testing.T) {
 			WithUncompressableContentTypes(ct),
 			WithStorages([]SubStorage{
 				{
-					Storage: blobovniczatree.NewBlobovniczaTree(
-						blobovniczatree.WithRootPath(filepath.Join(dir, "blobovnicza")),
-						blobovniczatree.WithBlobovniczaShallowWidth(1)), // default width is 16, slow init
+					Storage: peapod.New(filepath.Join(dir, "peapod.db"), 0600, 10*time.Millisecond),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return uint64(len(data)) < smallSizeLimit
 					},

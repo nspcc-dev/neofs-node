@@ -92,7 +92,7 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 }
 
 // emptyStorageID is an empty storageID that indicates that
-// an object is big (and is stored in an FSTree, not in a blobovnicza).
+// an object is big (and is stored in an FSTree, not in a peapod).
 var emptyStorageID = make([]byte, 0)
 
 // fetchObjectData looks through writeCache and blobStor to find object.
@@ -146,7 +146,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 
 	mExRes, err := s.metaBase.StorageID(mPrm)
 	if err != nil {
-		return nil, true, fmt.Errorf("can't fetch blobovnicza id from metabase: %w", err)
+		return nil, true, fmt.Errorf("can't fetch storage id from metabase: %w", err)
 	}
 
 	storageID := mExRes.StorageID()

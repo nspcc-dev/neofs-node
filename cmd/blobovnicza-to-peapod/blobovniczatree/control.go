@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"go.uber.org/zap"
 )
 

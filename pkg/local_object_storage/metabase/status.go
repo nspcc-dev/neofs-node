@@ -1,7 +1,8 @@
 package meta
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"errors"
+
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -27,9 +28,8 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	storageID.SetAddress(address)
 	resStorageID, err := db.StorageID(storageID)
 	if id := resStorageID.StorageID(); id != nil {
-		res.StorageID = blobovnicza.NewIDFromBytes(id).String()
-	} else {
-		return res, nil
+		res.Error = errors.New("unexpected storage id")
+		return res, res.Error
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

@@ -1,9 +1,9 @@
 package blobovniczaconfig
 
 import (
+	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovniczatree"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	boltdbconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/boltdb"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/blobovniczatree"
 )
 
 // Config is a wrapper over the config section

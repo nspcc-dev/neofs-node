@@ -31,7 +31,7 @@ func (p *DumpPrm) WithStream(r io.Writer) {
 }
 
 // WithIgnoreErrors is an Dump option to allow ignore all errors during iteration.
-// This includes invalid blobovniczas as well as corrupted objects.
+// This includes invalid peapods as well as corrupted objects.
 func (p *DumpPrm) WithIgnoreErrors(ignore bool) {
 	p.ignoreErrors = ignore
 }

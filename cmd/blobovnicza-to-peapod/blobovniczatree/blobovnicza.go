@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/nspcc-dev/hrw"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobovnicza"
+	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"

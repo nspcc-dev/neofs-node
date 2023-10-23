@@ -22,6 +22,7 @@ type BlobStor struct {
 
 	modeMtx sync.RWMutex
 	mode    mode.Mode
+	inited  bool
 }
 
 // Info contains information about blobstor.
