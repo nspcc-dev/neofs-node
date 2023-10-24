@@ -24,6 +24,11 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: false
+  gomodguard:
+    blocked:
+      modules:
+        - github.com/pkg/errors:
+            reason: "Obsolete after the 1.13 release; use the standard `errors` package"
 
 linters:
   enable:
@@ -47,6 +52,7 @@ linters:
     - exportloopref
     - gofmt
     - goimports
+    - gomodguard
     - misspell
     - predeclared
     - reassign
