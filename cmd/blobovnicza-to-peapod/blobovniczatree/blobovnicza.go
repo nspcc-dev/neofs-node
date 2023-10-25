@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
-	"github.com/nspcc-dev/hrw"
+	"github.com/nspcc-dev/hrw/v2"
 	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -208,14 +208,14 @@ func (b *Blobovniczas) updateAndGet(lvlPath string, old *uint64) (blobovniczaWit
 }
 
 // returns hash of the object address.
-func addressHash(addr *oid.Address, path string) uint64 {
+func addressHash(addr *oid.Address, path string) hrw.Hashable {
 	var a string
 
 	if addr != nil {
 		a = addr.EncodeToString()
 	}
 
-	return hrw.Hash([]byte(a + path))
+	return hrw.WrapBytes([]byte(a + path))
 }
 
 // converts uint64 to hex string.

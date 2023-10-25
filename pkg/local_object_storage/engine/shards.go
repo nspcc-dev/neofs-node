@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/google/uuid"
-	"github.com/nspcc-dev/hrw"
+	"github.com/nspcc-dev/hrw/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -210,7 +210,7 @@ func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() s
 		weights = append(weights, e.shardWeight(sh.Shard))
 	}
 
-	hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(objAddr.EncodeToString())))
+	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
 
 	return shards
 }

@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/hrw"
+	"github.com/nspcc-dev/hrw/v2"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -72,6 +72,12 @@ func (x nodeServer) ExternalAddresses() []string {
 	return (apiNetmap.NodeInfo)(x).ExternalAddresses()
 }
 
+type hashableUint uint64
+
+func (h hashableUint) Hash() uint64 {
+	return uint64(h)
+}
+
 // BuildManagers sorts nodes in NetMap with HRW algorithms and
 // takes the next node after the current one as the only manager.
 func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([]ServerInfo, error) {
@@ -92,7 +98,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([
 
 	copy(nodes, nmNodes)
 
-	hrw.SortSliceByValue(nodes, epoch)
+	hrw.Sort(nodes, hashableUint(epoch))
 
 	for i := range nodes {
 		if apireputation.ComparePeerKey(p, nodes[i].PublicKey()) {

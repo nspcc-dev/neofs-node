@@ -1,10 +1,11 @@
 package blobovniczatree
 
 import (
+	"encoding/binary"
 	"fmt"
 	"path/filepath"
 
-	"github.com/nspcc-dev/hrw"
+	"github.com/nspcc-dev/hrw/v2"
 	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -94,17 +95,17 @@ func (b *Blobovniczas) iterateDeepest(addr oid.Address, f func(string) (bool, er
 
 // iterator over particular level of directories.
 func (b *Blobovniczas) iterateSorted(addr *oid.Address, curPath []string, execDepth uint64, f func([]string) (bool, error)) (bool, error) {
-	indices := indexSlice(b.blzShallowWidth)
+	indices := indexHashableSlice(b.blzShallowWidth)
 
-	hrw.SortSliceByValue(indices, addressHash(addr, filepath.Join(curPath...)))
+	hrw.Sort(indices, addressHash(addr, filepath.Join(curPath...)))
 
 	exec := uint64(len(curPath)) == execDepth
 
 	for i := range indices {
 		if i == 0 {
-			curPath = append(curPath, u64ToHexString(indices[i]))
+			curPath = append(curPath, u64ToHexString(indices[i].index()))
 		} else {
-			curPath[len(curPath)-1] = u64ToHexString(indices[i])
+			curPath[len(curPath)-1] = u64ToHexString(indices[i].index())
 		}
 
 		if exec {
@@ -128,12 +129,29 @@ func (b *Blobovniczas) iterateLeaves(f func(string) (bool, error)) error {
 	return b.iterateSortedLeaves(nil, f)
 }
 
-// makes slice of uint64 values from 0 to number-1.
-func indexSlice(number uint64) []uint64 {
-	s := make([]uint64, number)
+type hashableIndex struct {
+	ind  uint64
+	hash uint64
+}
+
+func (hi hashableIndex) Hash() uint64 {
+	return hi.hash
+}
+
+func (hi hashableIndex) index() uint64 {
+	return hi.ind
+}
+
+// makes slice of index hashes from 0 to number-1.
+func indexHashableSlice(number uint64) []hashableIndex {
+	s := make([]hashableIndex, number)
 
 	for i := range s {
-		s[i] = uint64(i)
+		indexU := uint64(i)
+		bytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(bytes, indexU)
+
+		s[i] = hashableIndex{ind: indexU, hash: hrw.WrapBytes(bytes).Hash()}
 	}
 
 	return s
