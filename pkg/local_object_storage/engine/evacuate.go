@@ -96,11 +96,6 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 	}
 	e.mtx.RUnlock()
 
-	weights := make([]float64, 0, len(shards))
-	for i := range shards {
-		weights = append(weights, e.shardWeight(shards[i].Shard))
-	}
-
 	shardMap := make(map[string]*shard.Shard)
 	for i := range sidList {
 		for j := range shards {
@@ -152,7 +147,7 @@ mainLoop:
 					return res, err
 				}
 
-				hrw.SortWeighted(shards, weights, addrHash)
+				hrw.Sort(shards, addrHash)
 				for j := range shards {
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue

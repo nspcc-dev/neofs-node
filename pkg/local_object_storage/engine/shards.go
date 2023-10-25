@@ -192,22 +192,13 @@ func generateShardID() (*shard.ID, error) {
 	return shard.NewIDFromBytes(bin), nil
 }
 
-func (e *StorageEngine) shardWeight(sh *shard.Shard) float64 {
-	weightValues := sh.WeightValues()
-
-	return float64(weightValues.FreeSpace)
-}
-
 func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() string }) []hashedShard {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
 	shards := make([]hashedShard, 0, len(e.shards))
-	weights := make([]float64, 0, len(e.shards))
-
 	for _, sh := range e.shards {
 		shards = append(shards, hashedShard(sh))
-		weights = append(weights, e.shardWeight(sh.Shard))
 	}
 
 	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
