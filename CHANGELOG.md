@@ -30,7 +30,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
-- Update `neo-go` to `v0.102.0` (#2221, #2309, #2596)
+- Update `neo-go` to `v0.103.0` (#2221, #2309, #2596, #2626)
 - `neofs-lens` `inspect` object commands to `get` with `inspect` deprecation (#2548)
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
