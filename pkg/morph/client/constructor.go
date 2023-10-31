@@ -37,7 +37,8 @@ type cfg struct {
 
 	waitInterval time.Duration
 
-	signer *transaction.Signer
+	autoSidechainScope bool
+	signer             *transaction.Signer
 
 	endpoints []string
 
@@ -64,7 +65,7 @@ func defaultConfig() *cfg {
 		logger:       zap.L(),
 		waitInterval: defaultWaitInterval,
 		signer: &transaction.Signer{
-			Scopes: transaction.Global,
+			Scopes: transaction.CalledByEntry,
 		},
 		reconnectionDelay:   5 * time.Second,
 		reconnectionRetries: 5,
@@ -86,7 +87,7 @@ var ErrStaleNodes = errors.New("RPC nodes are not yet up to date")
 //   - client context: Background;
 //   - dial timeout: 5s;
 //   - blockchain network type: netmode.PrivNet;
-//   - signer with the global scope;
+//   - signer with the CalledByEntry scope;
 //   - wait interval: 500ms;
 //   - logger: &zap.Logger{Logger: zap.L()}.
 //
@@ -143,6 +144,12 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		// inactive mode will be enabled
 		cli.client = cfg.singleCli
 
+		if cfg.autoSidechainScope {
+			err = autoSidechainScope(cfg.singleCli, cfg)
+			if err != nil {
+				return nil, fmt.Errorf("scope setup: %w", err)
+			}
+		}
 		act, err = newActor(cfg.singleCli, acc, *cfg)
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC actor: %w", err)
@@ -201,6 +208,12 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 	if err != nil {
 		return nil, nil, fmt.Errorf("WS client initialization: %w", err)
 	}
+	if c.cfg.autoSidechainScope {
+		err = autoSidechainScope(cli, &c.cfg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("scope setup: %w", err)
+		}
+	}
 
 	act, err := newActor(cli, c.acc, c.cfg)
 	if err != nil {
@@ -217,6 +230,7 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 			Scopes:           cfg.signer.Scopes,
 			AllowedContracts: cfg.signer.AllowedContracts,
 			AllowedGroups:    cfg.signer.AllowedGroups,
+			Rules:            cfg.signer.Rules,
 		},
 		Account: acc,
 	}})
@@ -270,20 +284,6 @@ func WithLogger(logger *zap.Logger) Option {
 	return func(c *cfg) {
 		if logger != nil {
 			c.logger = logger
-		}
-	}
-}
-
-// WithSigner returns a client constructor option
-// that specifies the signer and the scope of the transaction.
-//
-// Ignores nil value.
-//
-// If option not provided, signer with global scope is used.
-func WithSigner(signer *transaction.Signer) Option {
-	return func(c *cfg) {
-		if signer != nil {
-			c.signer = signer
 		}
 	}
 }
@@ -354,6 +354,16 @@ func WithConnSwitchCallback(cb Callback) Option {
 func WithMinRequiredBlockHeight(h uint32) Option {
 	return func(c *cfg) {
 		c.minRequiredHeight = h
+	}
+}
+
+// WithAutoSidechainScope returns a client constructor
+// option that sets automatic transaction scope detection to
+// true which overrides the default CalledByEntry to a set of
+// Rules made specifically for the sidechain.
+func WithAutoSidechainScope() Option {
+	return func(c *cfg) {
+		c.autoSidechainScope = true
 	}
 }
 

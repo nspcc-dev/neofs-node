@@ -7,7 +7,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
@@ -59,13 +61,7 @@ func (c *initializeContext) transferFunds() error {
 		},
 	)
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, 0, transfers, []rpcclient.SignerAccount{{
-		Signer: transaction.Signer{
-			Account: c.ConsensusAcc.Contract.ScriptHash(),
-			Scopes:  transaction.CalledByEntry,
-		},
-		Account: c.ConsensusAcc,
-	}})
+	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, transfers)
 	if err != nil {
 		return fmt.Errorf("can't create transfer transaction: %w", err)
 	}
@@ -80,8 +76,9 @@ func (c *initializeContext) transferFunds() error {
 func (c *initializeContext) transferFundsFinished() (bool, error) {
 	acc := c.Accounts[0]
 
-	res, err := c.Client.NEP17BalanceOf(gas.Hash, acc.Contract.ScriptHash())
-	return res > initialAlphabetGASAmount/2, err
+	gasR := gas.NewReader(invoker.New(c.Client, nil))
+	res, err := gasR.BalanceOf(acc.Contract.ScriptHash())
+	return res.Int64() > initialAlphabetGASAmount/2, err
 }
 
 func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accType string) error {
@@ -93,12 +90,7 @@ func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accTyp
 }
 
 func (c *initializeContext) multiSign(tx *transaction.Transaction, accType string) error {
-	network, err := c.Client.GetNetwork()
-	if err != nil {
-		// error appears only if client
-		// has not been initialized
-		panic(err)
-	}
+	network := c.CommitteeAct.GetNetwork()
 
 	// Use parameter context to avoid dealing with signature order.
 	pc := scContext.NewParameterContext("", network, tx)
@@ -146,16 +138,17 @@ func (c *initializeContext) multiSign(tx *transaction.Transaction, accType strin
 func (c *initializeContext) transferGASToProxy() error {
 	proxyCs := c.getContract(proxyContract)
 
-	bal, err := c.Client.NEP17BalanceOf(gas.Hash, proxyCs.Hash)
-	if err != nil || bal > 0 {
+	gasR := gas.NewReader(invoker.New(c.Client, nil))
+	bal, err := gasR.BalanceOf(proxyCs.Hash)
+	if err != nil || bal.Sign() > 0 {
 		return err
 	}
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, 0, []rpcclient.TransferTarget{{
+	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, []rpcclient.TransferTarget{{
 		Token:   gas.Hash,
 		Address: proxyCs.Hash,
 		Amount:  initialProxyGASAmount,
-	}}, nil)
+	}})
 	if err != nil {
 		return err
 	}
@@ -167,10 +160,13 @@ func (c *initializeContext) transferGASToProxy() error {
 	return c.awaitTx()
 }
 
-func createNEP17MultiTransferTx(c Client, acc *wallet.Account, netFee int64,
-	recipients []rpcclient.TransferTarget, cosigners []rpcclient.SignerAccount) (*transaction.Transaction, error) {
+func createNEP17MultiTransferTx(c Client, acc *wallet.Account, recipients []rpcclient.TransferTarget) (*transaction.Transaction, error) {
 	from := acc.Contract.ScriptHash()
 
+	act, err := actor.NewSimple(c, acc)
+	if err != nil {
+		return nil, fmt.Errorf("creating actor: %w", err)
+	}
 	w := io.NewBufBinWriter()
 	for i := range recipients {
 		emit.AppCall(w.BinWriter, recipients[i].Token, "transfer", callflag.All,
@@ -180,11 +176,5 @@ func createNEP17MultiTransferTx(c Client, acc *wallet.Account, netFee int64,
 	if w.Err != nil {
 		return nil, fmt.Errorf("failed to create transfer script: %w", w.Err)
 	}
-	return c.CreateTxFromScript(w.Bytes(), acc, -1, netFee, append([]rpcclient.SignerAccount{{
-		Signer: transaction.Signer{
-			Account: from,
-			Scopes:  transaction.CalledByEntry,
-		},
-		Account: acc,
-	}}, cosigners...))
+	return act.MakeUnsignedRun(w.Bytes(), nil)
 }

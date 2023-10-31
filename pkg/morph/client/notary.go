@@ -565,6 +565,7 @@ func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, comm
 			Scopes:           c.cfg.signer.Scopes,
 			AllowedContracts: c.cfg.signer.AllowedContracts,
 			AllowedGroups:    c.cfg.signer.AllowedGroups,
+			Rules:            c.cfg.signer.Rules,
 		},
 		Account: multiaddrAccount,
 	}
@@ -577,6 +578,7 @@ func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, comm
 				Scopes:           c.cfg.signer.Scopes,
 				AllowedContracts: c.cfg.signer.AllowedContracts,
 				AllowedGroups:    c.cfg.signer.AllowedGroups,
+				Rules:            c.cfg.signer.Rules,
 			},
 			Account: c.acc,
 		})

@@ -1,14 +1,12 @@
 package morph
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
@@ -21,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
 const defaultExpirationTime = 10 * 365 * 24 * time.Hour / time.Second
@@ -70,66 +67,7 @@ func (c *initializeContext) setNNS() error {
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 	}
 
-	groupKey := c.ContractWallet.Accounts[0].PublicKey()
-	err = c.updateNNSGroup(nnsCs.Hash, groupKey)
-	if err != nil {
-		return err
-	}
-	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
-
 	return c.awaitTx()
-}
-
-func (c *initializeContext) updateNNSGroup(nnsHash util.Uint160, pub *keys.PublicKey) error {
-	bw := io.NewBufBinWriter()
-	needUpdate, needRegister, err := c.emitUpdateNNSGroupScript(bw, nnsHash, pub)
-	if !needUpdate || err != nil {
-		return err
-	}
-
-	script := bw.Bytes()
-	if needRegister {
-		w := io.NewBufBinWriter()
-		emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
-		wrapRegisterScriptWithPrice(w, nnsHash, script)
-		script = w.Bytes()
-	}
-
-	return c.sendCommitteeTx(script, true)
-}
-
-// emitUpdateNNSGroupScript emits script for updating group key stored in NNS.
-// First return value is true iff the key is already there and nothing should be done.
-// Second return value is true iff a domain registration code was emitted.
-func (c *initializeContext) emitUpdateNNSGroupScript(bw *io.BufBinWriter, nnsHash util.Uint160, pub *keys.PublicKey) (bool, bool, error) {
-	isAvail, err := nnsIsAvailable(c.Client, nnsHash, morphClient.NNSGroupKeyName)
-	if err != nil {
-		return false, false, err
-	}
-
-	if !isAvail {
-		currentPub, err := nnsResolveKey(c.ReadOnlyInvoker, nnsHash, morphClient.NNSGroupKeyName)
-		if err != nil {
-			return false, false, err
-		}
-
-		if pub.Equal(currentPub) {
-			return true, false, nil
-		}
-	}
-
-	if isAvail {
-		emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
-			morphClient.NNSGroupKeyName, c.CommitteeAcc.Contract.ScriptHash(),
-			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
-		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-	}
-
-	emit.AppCall(bw.BinWriter, nnsHash, "deleteRecords", callflag.All, "group.neofs", int64(nns.TXT))
-	emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
-		"group.neofs", int64(nns.TXT), hex.EncodeToString(pub.Bytes()))
-
-	return false, isAvail, nil
 }
 
 func getAlphabetNNSDomain(i int) string {
@@ -225,27 +163,6 @@ func nnsResolveHash(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (
 
 func nnsResolve(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
 	return unwrap.Item(inv.Call(nnsHash, "resolve", domain, int64(nns.TXT)))
-}
-
-func nnsResolveKey(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (*keys.PublicKey, error) {
-	item, err := nnsResolve(inv, nnsHash, domain)
-	if err != nil {
-		return nil, err
-	}
-	_, ok := item.Value().(stackitem.Null)
-	if ok {
-		return nil, errors.New("NNS record is missing")
-	}
-	arr, ok := item.Value().([]stackitem.Item)
-	if !ok || len(arr) < 1 {
-		return nil, errors.New("malformed response (not an array)")
-	}
-	bs, err := arr[0].TryBytes()
-	if err != nil {
-		return nil, errors.New("malformed response (no bytes)")
-	}
-
-	return keys.NewPublicKeyFromString(string(bs))
 }
 
 // parseNNSResolveResult parses the result of resolving NNS record.

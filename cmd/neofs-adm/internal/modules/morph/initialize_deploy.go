@@ -3,7 +3,6 @@ package morph
 import (
 	"archive/tar"
 	"compress/gzip"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	io2 "github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
@@ -27,11 +25,9 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/common"
-	"github.com/nspcc-dev/neofs-contract/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
-	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 )
 
@@ -101,7 +97,6 @@ const (
 
 func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
-	h := cs.Hash
 
 	nnsCs, err := c.nnsContractState()
 	if err == nil {
@@ -113,39 +108,22 @@ func (c *initializeContext) deployNNS(method string) error {
 			}
 			return nil
 		}
-		h = nnsCs.Hash
 	}
-
-	err = c.addManifestGroup(h, cs)
+	act, err := actor.NewSimple(c.Client, c.CommitteeAcc)
 	if err != nil {
-		return fmt.Errorf("can't sign manifest group: %v", err)
+		return fmt.Errorf("creating actor: %w", err)
 	}
 
-	params := getContractDeployParameters(cs, nil)
-	signer := transaction.Signer{
-		Account: c.CommitteeAcc.Contract.ScriptHash(),
-		Scopes:  transaction.CalledByEntry,
-	}
-
-	invokeHash := management.Hash
+	var tx *transaction.Transaction
 	if method == updateMethodName {
-		invokeHash = nnsCs.Hash
+		var nnsCnt = nns.New(act, nnsCs.Hash)
+		tx, err = nnsCnt.UpdateUnsigned(cs.RawNEF, string(cs.RawManifest), nil)
+	} else {
+		var mgmt = management.New(act)
+		tx, err = mgmt.DeployUnsigned(cs.NEF, cs.Manifest, nil)
 	}
-
-	res, err := invokeFunction(c.Client, invokeHash, method, params, []transaction.Signer{signer})
 	if err != nil {
-		return fmt.Errorf("can't deploy NNS contract: %w", err)
-	}
-	if res.State != vmstate.Halt.String() {
-		return fmt.Errorf("can't deploy NNS contract: %s", res.FaultException)
-	}
-
-	tx, err := c.Client.CreateTxFromScript(res.Script, c.CommitteeAcc, res.GasConsumed, 0, []rpcclient.SignerAccount{{
-		Signer:  signer,
-		Account: c.CommitteeAcc,
-	}})
-	if err != nil {
-		return fmt.Errorf("failed to create deploy tx for %s: %w", nnsContract, err)
+		return fmt.Errorf("creating tx: %w", err)
 	}
 
 	if err := c.multiSignAndSend(tx, committeeAccountName); err != nil {
@@ -174,14 +152,11 @@ func (c *initializeContext) updateContracts() error {
 	// 1. Initialize static slot for alphabet NEF.
 	// 2. Store NEF into the static slot.
 	// 3. Push parameters for each alphabet contract on stack.
-	// 4. Add contract group to the manifest.
 	// 5. For each alphabet contract, invoke `update` using parameters on stack and
 	//    NEF from step 2 and manifest from step 4.
 	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
 	emit.Bytes(w.BinWriter, alphaCs.RawNEF)
 	emit.Opcodes(w.BinWriter, opcode.STSFLD0)
-
-	baseGroups := alphaCs.Manifest.Groups
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
@@ -194,13 +169,6 @@ func (c *initializeContext) updateContracts() error {
 
 		params := c.getAlphabetDeployItems(i, len(c.Wallets))
 		emit.Array(w.BinWriter, params...)
-
-		alphaCs.Manifest.Groups = baseGroups
-		err = c.addManifestGroup(ctrHash, alphaCs)
-		if err != nil {
-			return fmt.Errorf("can't sign manifest group: %v", err)
-		}
-
 		emit.Bytes(w.BinWriter, alphaCs.RawManifest)
 		emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
 		emit.Int(w.BinWriter, 3)
@@ -236,11 +204,6 @@ func (c *initializeContext) updateContracts() error {
 			}
 		}
 
-		err = c.addManifestGroup(ctrHash, cs)
-		if err != nil {
-			return fmt.Errorf("can't sign manifest group: %v", err)
-		}
-
 		invokeHash := management.Hash
 		if method == updateMethodName {
 			invokeHash = ctrHash
@@ -267,29 +230,22 @@ func (c *initializeContext) updateContracts() error {
 			}
 			if !ok {
 				w.WriteBytes(script)
-				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
+				emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, nns.TXT)
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, int64(nns.TXT), cs.Hash.StringLE())
+					domain, nns.TXT, cs.Hash.StringLE())
 				emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-					domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
+					domain, nns.TXT, address.Uint160ToString(cs.Hash))
 			}
 			c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
 		}
 	}
-
-	groupKey := c.ContractWallet.Accounts[0].PublicKey()
-	_, _, err = c.emitUpdateNNSGroupScript(w, nnsHash, groupKey)
-	if err != nil {
-		return err
-	}
-	c.Command.Printf("NNS: Set %s -> %s\n", morphClient.NNSGroupKeyName, hex.EncodeToString(groupKey.Bytes()))
 
 	emit.Opcodes(w.BinWriter, opcode.LDSFLD0)
 	emit.Int(w.BinWriter, 1)
 	emit.Opcodes(w.BinWriter, opcode.PACK)
 	emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
 
-	if err := c.sendCommitteeTx(w.Bytes(), false); err != nil {
+	if err := c.sendCommitteeTx(w.Bytes(), true); err != nil {
 		return err
 	}
 	return c.awaitTx()
@@ -300,20 +256,12 @@ func (c *initializeContext) deployContracts() error {
 
 	var keysParam []interface{}
 
-	baseGroups := alphaCs.Manifest.Groups
-
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
 		ctrHash := state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 		if c.isUpdated(ctrHash, alphaCs) {
 			c.Command.Printf("Alphabet contract #%d is already deployed.\n", i)
 			continue
-		}
-
-		alphaCs.Manifest.Groups = baseGroups
-		err := c.addManifestGroup(ctrHash, alphaCs)
-		if err != nil {
-			return fmt.Errorf("can't sign manifest group: %v", err)
 		}
 
 		keysParam = append(keysParam, acc.PublicKey().Bytes())
@@ -341,18 +289,13 @@ func (c *initializeContext) deployContracts() error {
 			continue
 		}
 
-		err := c.addManifestGroup(ctrHash, cs)
-		if err != nil {
-			return fmt.Errorf("can't sign manifest group: %v", err)
-		}
-
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
 		res, err := c.CommitteeAct.MakeCall(management.Hash, deployMethodName, params...)
 		if err != nil {
 			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
 		}
 
-		if err := c.sendCommitteeTx(res.Script, false); err != nil {
+		if err := c.sendCommitteeTx(res.Script, true); err != nil {
 			return err
 		}
 	}
