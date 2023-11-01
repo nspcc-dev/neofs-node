@@ -936,17 +936,14 @@ func autoReplenishNotaryBalance(ctx context.Context, l *zap.Logger, b Blockchain
 			continue
 		}
 
-		var transferData notary.OnNEP17PaymentData
+		var transferData = new(notary.OnNEP17PaymentData)
 		transferData.Account = &localAccID
 		transferData.Till = math.MaxUint32 // deposit "forever" so we don't have to renew
 
 		l.Info("sending new transaction transferring local account's GAS to the Notary contract...",
 			zap.Stringer("amount", singleNotaryDepositAmount), zap.Uint32("till", transferData.Till))
 
-		// nep17.TokenWriter.Transfer doesn't support notary.OnNEP17PaymentData
-		// directly, so split the args
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2429
-		txID, vub, err := gasContract.Transfer(localAccID, notary.Hash, singleNotaryDepositAmount, []interface{}{transferData.Account, transferData.Till})
+		txID, vub, err := gasContract.Transfer(localAccID, notary.Hash, singleNotaryDepositAmount, transferData)
 		if err != nil {
 			l.Error("failed to send transaction transferring local account's GAS to the Notary contract, will try again later", zap.Error(err))
 			continue

@@ -101,12 +101,13 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 	}
 
 	gasActor := gas.New(act)
+	transferData := &notary.OnNEP17PaymentData{Till: height + uint32(till)}
 
 	txHash, vub, err := gasActor.Transfer(
 		accHash,
 		notary.Hash,
 		big.NewInt(int64(gasAmount)),
-		[]interface{}{nil, int64(height) + till},
+		transferData,
 	)
 	if err != nil {
 		return fmt.Errorf("could not send tx: %w", err)

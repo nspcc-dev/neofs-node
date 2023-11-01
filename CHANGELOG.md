@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Iteration over locally collected container estimation values (#2597)
 - Synchronous objects `PUT` to the local storage (#2607)
 - `copies_number` field was not used in `PUT` request handling (#2607)
+- Neo-go notary deposit data workaround (#2429)
 
 ### Changed
 - FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
