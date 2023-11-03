@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -42,6 +43,7 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
@@ -588,6 +590,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		cfg.GetDuration("indexer.cache_timeout"),
 	)
 
+	var buffers sync.Pool
+	buffers.New = func() any {
+		b := make([]byte, cache.DefaultBufferSize)
+		return &b
+	}
+
 	clientCache := newClientCache(&clientCacheParams{
 		Log:           log,
 		Key:           &server.key.PrivateKey,
@@ -595,6 +603,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		HeadTimeout:   cfg.GetDuration("audit.timeout.head"),
 		RangeTimeout:  cfg.GetDuration("audit.timeout.rangehash"),
 		AllowExternal: cfg.GetBool("audit.allow_external"),
+		Buffers:       &buffers,
 	})
 
 	server.registerNoErrCloser(clientCache.cache.CloseAll)

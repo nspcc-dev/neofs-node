@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"sync"
 	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -40,13 +41,15 @@ type (
 		AllowExternal bool
 
 		SGTimeout, HeadTimeout, RangeTimeout time.Duration
+
+		Buffers *sync.Pool
 	}
 )
 
 func newClientCache(p *clientCacheParams) *ClientCache {
 	return &ClientCache{
 		log:          p.Log,
-		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal}),
+		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal, Buffers: p.Buffers}),
 		key:          p.Key,
 		sgTimeout:    p.SGTimeout,
 		headTimeout:  p.HeadTimeout,

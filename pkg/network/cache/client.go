@@ -8,6 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
+// DefaultBufferSize describes default max GRPC message size. Unfortunately GRPC lib contains this const in private.
+const DefaultBufferSize = 4 * 1024 * 1024 // 4MB
+
 type (
 	// ClientCache is a structure around neofs-sdk-go/client to reuse
 	// already created clients.
@@ -23,6 +26,7 @@ type (
 		ReconnectTimeout time.Duration
 		ResponseCallback func(client.ResponseMetaInfo) error
 		AllowExternal    bool
+		Buffers          *sync.Pool
 	}
 )
 

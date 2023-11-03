@@ -58,6 +58,8 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 		prmDial client.PrmDial
 	)
 
+	prmInit.SetSignMessageBuffers(x.opts.Buffers)
+
 	prmDial.SetServerURI(addr.URIAddr())
 
 	if x.opts.DialTimeout > 0 {
