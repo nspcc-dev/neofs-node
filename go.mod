@@ -15,7 +15,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.0
 	github.com/nats-io/nats.go v1.31.0
 	github.com/nspcc-dev/hrw v1.0.9
-	github.com/nspcc-dev/neo-go v0.102.0
+	github.com/nspcc-dev/neo-go v0.103.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.18.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231011074223-dd4e3e09a100
@@ -41,9 +41,10 @@ require (
 require (
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20221202181307-76fa05c21b12 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.8.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
-	github.com/consensys/gnark-crypto v0.9.1 // indirect
+	github.com/consensys/gnark-crypto v0.12.2-0.20231013160410-1f65e75b6dfb // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
@@ -73,7 +74,7 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/dbft v0.0.0-20230515113611-25db6ba61d5c // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20230919154019-f66abd020d6a // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231020160724-c3955f87d1b5 // indirect
 	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
@@ -94,7 +95,6 @@ require (
 	github.com/twmb/murmur3 v1.1.5 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
 	go.mongodb.org/mongo-driver v1.11.4 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect

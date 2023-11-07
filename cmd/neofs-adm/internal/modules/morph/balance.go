@@ -11,14 +11,12 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/nns"
@@ -126,17 +124,17 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	if dumpAlphabet {
 		alphaList := make([]accBalancePair, len(irList))
 
-		w := io.NewBufBinWriter()
+		b := smartcontract.NewBuilder()
 		for i := range alphaList {
-			emit.AppCall(w.BinWriter, nnsCs.Hash, "resolve", callflag.ReadOnly,
-				getAlphabetNNSDomain(i),
-				int64(nns.TXT))
-		}
-		if w.Err != nil {
-			panic(w.Err)
+			b.InvokeMethod(nnsCs.Hash, "resolve", getAlphabetNNSDomain(i), int64(nns.TXT))
 		}
 
-		alphaRes, err := c.InvokeScript(w.Bytes(), nil)
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("resolving alphabet hashes script: %w", err)
+		}
+
+		alphaRes, err := c.InvokeScript(script, nil)
 		if err != nil {
 			return fmt.Errorf("can't fetch info from NNS: %w", err)
 		}
@@ -194,15 +192,17 @@ func printBalances(cmd *cobra.Command, prefix string, accounts []accBalancePair)
 }
 
 func fetchBalances(c *invoker.Invoker, gasHash util.Uint160, accounts []accBalancePair) error {
-	w := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for i := range accounts {
-		emit.AppCall(w.BinWriter, gasHash, "balanceOf", callflag.ReadStates, accounts[i].scriptHash)
-	}
-	if w.Err != nil {
-		panic(w.Err)
+		b.InvokeMethod(gasHash, "balanceOf", accounts[i].scriptHash)
 	}
 
-	res, err := c.Run(w.Bytes())
+	script, err := b.Script()
+	if err != nil {
+		return fmt.Errorf("reading balances script: %w", err)
+	}
+
+	res, err := c.Run(script)
 	if err != nil || res.State != vmstate.Halt.String() || len(res.Stack) != len(accounts) {
 		return errors.New("can't fetch account balances")
 	}

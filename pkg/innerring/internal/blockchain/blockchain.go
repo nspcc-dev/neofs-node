@@ -363,7 +363,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 
 	cfgBaseApp := &cfgBase.ApplicationConfiguration
 	cfgBaseApp.Relay = true
-	cfgBaseApp.UnlockWallet = cfg.Wallet
 	cfgBaseApp.Consensus.Enabled = true
 	cfgBaseApp.Consensus.UnlockWallet = cfg.Wallet
 	cfgBaseApp.P2PNotary.Enabled = true

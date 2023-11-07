@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
@@ -60,17 +61,20 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 
 	if irSize != 0 {
-		bw.Reset()
+		b.Reset()
 		for i := 0; i < irSize; i++ {
-			emit.AppCall(bw.BinWriter, cs.Hash, "resolve", callflag.ReadOnly,
-				getAlphabetNNSDomain(i),
-				int64(nns.TXT))
+			b.InvokeMethod(cs.Hash, "resolve", getAlphabetNNSDomain(i), int64(nns.TXT))
 		}
 
-		alphaRes, err := c.InvokeScript(bw.Bytes(), nil)
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("resolving alphabet hashes script: %w", err)
+		}
+
+		alphaRes, err := c.InvokeScript(script, nil)
 		if err != nil {
 			return fmt.Errorf("can't fetch info from NNS: %w", err)
 		}
@@ -85,11 +89,15 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	for _, ctrName := range contractList {
-		bw.Reset()
-		emit.AppCall(bw.BinWriter, cs.Hash, "resolve", callflag.ReadOnly,
-			ctrName+".neofs", int64(nns.TXT))
+		b.Reset()
+		b.InvokeMethod(cs.Hash, "resolve", ctrName+".neofs", int64(nns.TXT))
 
-		res, err := c.InvokeScript(bw.Bytes(), nil)
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("resolving neofs contract hashes script: %w", err)
+		}
+
+		res, err := c.InvokeScript(script, nil)
 		if err != nil {
 			return fmt.Errorf("can't fetch info from NNS: %w", err)
 		}

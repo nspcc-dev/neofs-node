@@ -190,11 +190,12 @@ func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) (res util.Uint256, e
 }
 
 func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint256, err error) {
+	acc := c.acc.ScriptHash()
 	txHash, vub, err := c.gasToken.Transfer(
 		c.accAddr,
 		c.notary.notary,
 		big.NewInt(int64(amount)),
-		[]any{c.acc.ScriptHash(), till})
+		&notary.OnNEP17PaymentData{Account: &acc, Till: uint32(till)})
 	if err != nil {
 		if !errors.Is(err, neorpc.ErrAlreadyExists) {
 			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)

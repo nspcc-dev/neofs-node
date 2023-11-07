@@ -2,20 +2,17 @@ package morph
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	scContext "github.com/nspcc-dev/neo-go/pkg/smartcontract/context"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
 )
 
 const (
@@ -35,33 +32,31 @@ func (c *initializeContext) transferFunds() error {
 		return err
 	}
 
-	var transfers []rpcclient.TransferTarget
+	from := c.ConsensusAcc.Contract.ScriptHash()
+	b := smartcontract.NewBuilder()
+
 	for _, acc := range c.Accounts {
-		to := acc.Contract.ScriptHash()
-		transfers = append(transfers,
-			rpcclient.TransferTarget{
-				Token:   gas.Hash,
-				Address: to,
-				Amount:  initialAlphabetGASAmount,
-			},
-		)
+		b.InvokeWithAssert(gas.Hash, "transfer", from, acc.Contract.ScriptHash(), initialAlphabetGASAmount, nil)
 	}
 
 	// It is convenient to have all funds at the committee account.
-	transfers = append(transfers,
-		rpcclient.TransferTarget{
-			Token:   gas.Hash,
-			Address: c.CommitteeAcc.Contract.ScriptHash(),
-			Amount:  (gasInitialTotalSupply - initialAlphabetGASAmount*int64(len(c.Wallets))) / 2,
-		},
-		rpcclient.TransferTarget{
-			Token:   neo.Hash,
-			Address: c.CommitteeAcc.Contract.ScriptHash(),
-			Amount:  native.NEOTotalSupply,
-		},
-	)
+	b.InvokeWithAssert(gas.Hash, "transfer", from, c.CommitteeAcc.Contract.ScriptHash(),
+		(gasInitialTotalSupply-initialAlphabetGASAmount*int64(len(c.Wallets)))/2, nil)
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.ConsensusAcc, transfers)
+	b.InvokeWithAssert(neo.Hash, "transfer", from,
+		c.CommitteeAcc.Contract.ScriptHash(), native.NEOTotalSupply, nil)
+
+	act, err := actor.NewSimple(c.Client, c.ConsensusAcc)
+	if err != nil {
+		return fmt.Errorf("creating actor: %w", err)
+	}
+
+	s, err := b.Script()
+	if err != nil {
+		return fmt.Errorf("multitransfer script creation: %w", err)
+	}
+
+	tx, err := act.MakeUnsignedRun(s, nil)
 	if err != nil {
 		return fmt.Errorf("can't create transfer transaction: %w", err)
 	}
@@ -144,10 +139,13 @@ func (c *initializeContext) transferGASToProxy() error {
 		return err
 	}
 
-	tx, err := createNEP17MultiTransferTx(c.Client, c.CommitteeAcc, []rpcclient.TransferTarget{{
-		Token:   gas.Hash,
-		Address: proxyCs.Hash,
-		Amount:  initialProxyGASAmount,
+	from := c.CommitteeAcc.Contract.ScriptHash()
+
+	gToken := nep17.New(c.CommitteeAct, gas.Hash)
+	tx, err := gToken.MultiTransferUnsigned([]nep17.TransferParameters{{
+		From:   from,
+		To:     proxyCs.Hash,
+		Amount: big.NewInt(initialProxyGASAmount),
 	}})
 	if err != nil {
 		return err
@@ -158,23 +156,4 @@ func (c *initializeContext) transferGASToProxy() error {
 	}
 
 	return c.awaitTx()
-}
-
-func createNEP17MultiTransferTx(c Client, acc *wallet.Account, recipients []rpcclient.TransferTarget) (*transaction.Transaction, error) {
-	from := acc.Contract.ScriptHash()
-
-	act, err := actor.NewSimple(c, acc)
-	if err != nil {
-		return nil, fmt.Errorf("creating actor: %w", err)
-	}
-	w := io.NewBufBinWriter()
-	for i := range recipients {
-		emit.AppCall(w.BinWriter, recipients[i].Token, "transfer", callflag.All,
-			from, recipients[i].Address, recipients[i].Amount, recipients[i].Data)
-		emit.Opcodes(w.BinWriter, opcode.ASSERT)
-	}
-	if w.Err != nil {
-		return nil, fmt.Errorf("failed to create transfer script: %w", w.Err)
-	}
-	return act.MakeUnsignedRun(w.Bytes(), nil)
 }

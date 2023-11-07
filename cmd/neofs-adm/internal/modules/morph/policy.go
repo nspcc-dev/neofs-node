@@ -5,10 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/policy"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -25,7 +23,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't to initialize context: %w", err)
 	}
 
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for i := range args {
 		kv := strings.SplitN(args[i], "=", 2)
 		if len(kv) != 2 {
@@ -43,10 +41,15 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("can't parse parameter value '%s': %w", args[1], err)
 		}
 
-		emit.AppCall(bw.BinWriter, policy.Hash, "set"+kv[0], callflag.All, int64(value))
+		b.InvokeMethod(policy.Hash, "set"+kv[0], int64(value))
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), false); err != nil {
+	script, err := b.Script()
+	if err != nil {
+		return fmt.Errorf("policy setting script: %w", err)
+	}
+
+	if err := wCtx.sendCommitteeTx(script, false); err != nil {
 		return err
 	}
 
