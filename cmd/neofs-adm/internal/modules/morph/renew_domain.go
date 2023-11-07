@@ -2,13 +2,12 @@ package morph
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -56,18 +55,21 @@ func renewDomain(cmd *cobra.Command, _ []string) error {
 		domains = append(domains, dom)
 	}
 
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for i := range domains {
-		emit.AppCall(bw.BinWriter, nns.Hash, "renew", callflag.All, domains[i])
-		if bw.Err != nil {
-			return bw.Err
+		b.InvokeMethod(nns.Hash, "renew", domains[i])
+
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("renew script: %w", err)
 		}
+
 		// Default registration price is 10 GAS, adding more domains
 		// into the script makes test execution to fail.
-		if err := wCtx.sendConsensusTx(bw.Bytes()); err != nil {
+		if err := wCtx.sendConsensusTx(script); err != nil {
 			return err
 		}
-		bw.Reset()
+		b.Reset()
 	}
 	return wCtx.awaitTx()
 }

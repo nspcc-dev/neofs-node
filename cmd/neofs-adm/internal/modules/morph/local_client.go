@@ -27,7 +27,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -315,13 +314,15 @@ func (l *localClient) putTransactions() error {
 }
 
 func invokeFunction(c Client, h util.Uint160, method string, parameters []interface{}, signers []transaction.Signer) (*result.Invoke, error) {
-	w := io.NewBufBinWriter()
-	emit.Array(w.BinWriter, parameters...)
-	emit.AppCallNoArgs(w.BinWriter, h, method, callflag.All)
-	if w.Err != nil {
-		panic(fmt.Sprintf("BUG: invalid parameters for '%s': %v", method, w.Err))
+	b := smartcontract.NewBuilder()
+	b.InvokeMethod(h, method, parameters...)
+
+	script, err := b.Script()
+	if err != nil {
+		return nil, fmt.Errorf("BUG: invalid parameters for '%s': %v", method, err)
 	}
-	return c.InvokeScript(w.Bytes(), signers)
+
+	return c.InvokeScript(script, signers)
 }
 
 var errGetDesignatedByRoleResponse = errors.New("`getDesignatedByRole`: invalid response")

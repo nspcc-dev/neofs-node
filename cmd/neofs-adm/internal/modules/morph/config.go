@@ -10,11 +10,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -116,7 +114,7 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 
 	forceFlag, _ := cmd.Flags().GetBool(forceConfigSet)
 
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for _, arg := range args {
 		k, v, err := parseConfigPair(arg, forceFlag)
 		if err != nil {
@@ -126,13 +124,15 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		// In NeoFS this is done via Notary contract. Here, however, we can form the
 		// transaction locally. The first `nil` argument is required only for notary
 		// disabled environment which is not supported by that command.
-		emit.AppCall(bw.BinWriter, nmHash, "setConfig", callflag.All, nil, k, v)
-		if bw.Err != nil {
-			return fmt.Errorf("can't form raw transaction: %w", bw.Err)
-		}
+		b.InvokeMethod(nmHash, "setConfig", nil, k, v)
 	}
 
-	err = wCtx.sendConsensusTx(bw.Bytes())
+	script, err := b.Script()
+	if err != nil {
+		return fmt.Errorf("config setting script: %w", err)
+	}
+
+	err = wCtx.sendConsensusTx(script)
 	if err != nil {
 		return err
 	}

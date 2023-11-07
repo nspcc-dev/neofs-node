@@ -3,6 +3,7 @@ package morph
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -12,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/neo"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -100,15 +102,25 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 	cs := c.getContract(alphabetContract)
 	amount := initialAlphabetNEOAmount / len(c.Wallets)
 
-	bw := io.NewBufBinWriter()
+	tNeo := nep17.New(c.CommitteeAct, neo.Hash)
+	pp := make([]nep17.TransferParameters, 0, len(c.Accounts))
+
 	for _, acc := range c.Accounts {
 		h := state.CreateContractHash(acc.Contract.ScriptHash(), cs.NEF.Checksum, cs.Manifest.Name)
-		emit.AppCall(bw.BinWriter, neo.Hash, "transfer", callflag.All,
-			c.CommitteeAcc.Contract.ScriptHash(), h, int64(amount), nil)
-		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
+
+		pp = append(pp, nep17.TransferParameters{
+			From:   c.CommitteeAcc.Contract.ScriptHash(),
+			To:     h,
+			Amount: big.NewInt(int64(amount)),
+		})
 	}
 
-	if err := c.sendCommitteeTx(bw.Bytes(), false); err != nil {
+	tx, err := tNeo.MultiTransferUnsigned(pp)
+	if err != nil {
+		return fmt.Errorf("multi-transfer script: %w", err)
+	}
+
+	if err := c.multiSignAndSend(tx, committeeAccountName); err != nil {
 		return err
 	}
 

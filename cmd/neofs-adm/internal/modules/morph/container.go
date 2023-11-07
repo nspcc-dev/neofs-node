@@ -8,12 +8,10 @@ import (
 	"sort"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
@@ -82,15 +80,21 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 	}
 
 	var containers []*Container
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for _, id := range cids {
 		if !isOK(id) {
 			continue
 		}
-		bw.Reset()
-		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, id)
-		emit.AppCall(bw.BinWriter, ch, "eACL", callflag.All, id)
-		res, err := inv.Run(bw.Bytes())
+		b.Reset()
+		b.InvokeMethod(ch, "get", id)
+		b.InvokeMethod(ch, "eACL", id)
+
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("dumping '%s' container script: %w", id, err)
+		}
+
+		res, err := inv.Run(script)
 		if err != nil {
 			return fmt.Errorf("can't get container info: %w", err)
 		}
@@ -190,15 +194,21 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	bw := io.NewBufBinWriter()
+	b := smartcontract.NewBuilder()
 	for _, cnt := range containers {
 		hv := hash.Sha256(cnt.Value)
 		if !isOK(hv[:]) {
 			continue
 		}
-		bw.Reset()
-		emit.AppCall(bw.BinWriter, ch, "get", callflag.All, hv.BytesBE())
-		res, err := wCtx.Client.InvokeScript(bw.Bytes(), nil)
+		b.Reset()
+		b.InvokeMethod(ch, "get", hv.BytesBE())
+
+		script, err := b.Script()
+		if err != nil {
+			return fmt.Errorf("reading container script: %w", err)
+		}
+
+		res, err := wCtx.Client.InvokeScript(script, nil)
 		if err != nil {
 			return fmt.Errorf("can't check if container is already restored: %w", err)
 		}
@@ -217,18 +227,18 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 			continue
 		}
 
-		bw.Reset()
-		emit.AppCall(bw.BinWriter, ch, "put", callflag.All,
-			cnt.Value, cnt.Signature, cnt.PublicKey, cnt.Token)
+		b.Reset()
+		b.InvokeMethod(ch, "put", cnt.Value, cnt.Signature, cnt.PublicKey, cnt.Token)
 		if ea := cnt.EACL; ea != nil {
-			emit.AppCall(bw.BinWriter, ch, "setEACL", callflag.All,
-				ea.Value, ea.Signature, ea.PublicKey, ea.Token)
-		}
-		if bw.Err != nil {
-			panic(bw.Err)
+			b.InvokeMethod(ch, "setEACL", ea.Value, ea.Signature, ea.PublicKey, ea.Token)
 		}
 
-		if err := wCtx.sendConsensusTx(bw.Bytes()); err != nil {
+		script, err = b.Script()
+		if err != nil {
+			return fmt.Errorf("container update script: %w", err)
+		}
+
+		if err := wCtx.sendConsensusTx(script); err != nil {
 			return err
 		}
 	}
