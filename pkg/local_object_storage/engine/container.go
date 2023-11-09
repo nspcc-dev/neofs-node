@@ -1,9 +1,13 @@
 package engine
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // ContainerSizePrm groups parameters of ContainerSize operation.
@@ -144,4 +148,29 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 	return ListContainersRes{
 		containers: result,
 	}, nil
+}
+
+// DeleteContainer deletes container's objects that engine stores.
+func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
+	return e.execIfNotBlocked(func() error {
+		var wg errgroup.Group
+
+		e.iterateOverUnsortedShards(func(hs hashedShard) bool {
+			wg.Go(func() error {
+				err := hs.Shard.DeleteContainer(ctx, cID)
+				if err != nil {
+					err = fmt.Errorf("container cleanup in %s shard: %w", hs.ID(), err)
+					e.log.Warn("container cleanup", zap.Error(err))
+
+					return err
+				}
+
+				return nil
+			})
+
+			return false
+		})
+
+		return wg.Wait()
+	})
 }

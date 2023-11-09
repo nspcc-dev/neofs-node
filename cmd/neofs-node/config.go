@@ -48,6 +48,7 @@ import (
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -752,6 +753,16 @@ func initLocalStorage(c *cfg) {
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		ls.HandleNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
+	})
+
+	subscribeToContainerRemoval(c, func(e event.Event) {
+		ev := e.(containerEvent.DeleteSuccess)
+
+		err := ls.DeleteContainer(c.ctx, ev.ID)
+		if err != nil {
+			c.log.Warn("could clean up container after a chan event",
+				zap.Stringer("cID", ev.ID), zap.Error(err))
+		}
 	})
 
 	// allocate memory for the service;
