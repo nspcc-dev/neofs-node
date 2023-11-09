@@ -1,7 +1,10 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
@@ -103,4 +106,113 @@ func changeContainerSize(tx *bbolt.Tx, id cid.ID, delta uint64, increase bool) e
 	binary.LittleEndian.PutUint64(buf, size)
 
 	return containerVolume.Put(key, buf)
+}
+
+// DeleteContainer removes any information that the metabase has
+// associated with the provided container (its objects) except
+// the graveyard-related one.
+func (db *DB) DeleteContainer(cID cid.ID) error {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return ErrReadOnlyMode
+	}
+
+	cIDRaw := make([]byte, cidSize)
+	cID.Encode(cIDRaw)
+	buff := make([]byte, addressKeySize)
+
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		// Estimations
+		bktEstimations := tx.Bucket(containerVolumeBucketName)
+		err := bktEstimations.Delete(cIDRaw)
+		if err != nil {
+			return fmt.Errorf("estimations bucket cleanup: %w", err)
+		}
+
+		// Locked objects
+		bktLocked := tx.Bucket(bucketNameLocked)
+		err = bktLocked.DeleteBucket(cIDRaw)
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("locked bucket cleanup: %w", err)
+		}
+
+		// Regular objects
+		err = tx.DeleteBucket(primaryBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("regular bucket cleanup: %w", err)
+		}
+
+		// Lock objects
+		err = tx.DeleteBucket(bucketNameLockers(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("lockers bucket cleanup: %w", err)
+		}
+
+		// SG objects
+		err = tx.DeleteBucket(storageGroupBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("storage group bucket cleanup: %w", err)
+		}
+
+		// TS objects
+		err = tx.DeleteBucket(tombstoneBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("tombstone bucket cleanup: %w", err)
+		}
+
+		// Small objects
+		err = tx.DeleteBucket(smallBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("small objects' bucket cleanup: %w", err)
+		}
+
+		// Root objects
+		err = tx.DeleteBucket(rootBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("root object's bucket cleanup: %w", err)
+		}
+
+		// indexes
+
+		err = tx.DeleteBucket(ownerBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("owner index cleanup: %w", err)
+		}
+
+		err = tx.DeleteBucket(payloadHashBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("hash index cleanup: %w", err)
+		}
+
+		err = tx.DeleteBucket(parentBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("parent index cleanup: %w", err)
+		}
+
+		err = tx.DeleteBucket(splitBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("split id index cleanup: %w", err)
+		}
+
+		// Attributes index
+		var keysToDelete [][]byte // see https://github.com/etcd-io/bbolt/issues/146
+		c := tx.Cursor()
+		bktPrefix := attributeBucketName(cID, "", buff)
+		for k, _ := c.Seek(bktPrefix); k != nil && bytes.HasPrefix(k, bktPrefix); k, _ = c.Next() {
+			keysToDelete = append(keysToDelete, k)
+		}
+
+		for _, k := range keysToDelete {
+			err = tx.DeleteBucket(k)
+			if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+				return fmt.Errorf("attributes index cleanup: %w", err)
+			}
+		}
+
+		return nil
+	})
 }
