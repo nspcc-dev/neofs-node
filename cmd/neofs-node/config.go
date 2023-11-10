@@ -617,6 +617,7 @@ func (c *cfg) engineOpts() []engine.Option {
 		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
 		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
 
+		engine.WithContainersSource(c.shared.containerCache),
 		engine.WithLogger(c.log),
 	)
 
@@ -749,6 +750,9 @@ func (c *cfg) LocalAddress() network.AddressGroup {
 }
 
 func initLocalStorage(c *cfg) {
+	// storage needs container, container needs storage, dirty sharing
+	c.shared.cnrClient = new(containerClient.Client)
+
 	ls := engine.New(c.engineOpts()...)
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {

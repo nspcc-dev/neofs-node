@@ -39,6 +39,11 @@ func (e *StorageEngine) Init() error {
 		}
 	}
 
+	err := e.deleteNotFoundContainers()
+	if err != nil {
+		return fmt.Errorf("obsolete containers cleanup: %w", err)
+	}
+
 	e.wg.Add(1)
 	go e.setModeLoop()
 

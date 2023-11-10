@@ -2,9 +2,11 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -173,4 +175,38 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 
 		return wg.Wait()
 	})
+}
+
+func (e *StorageEngine) deleteNotFoundContainers() error {
+	if e.cfg.containerSource == nil {
+		return nil
+	}
+
+	var wg errgroup.Group
+	for i := range e.shards {
+		iCopy := i
+
+		wg.Go(func() error {
+			shID := e.shards[iCopy].ID()
+
+			res, err := e.shards[iCopy].ListContainers(shard.ListContainersPrm{})
+			if err != nil {
+				return fmt.Errorf("fetching containers from '%s' shard: %w", shID, err)
+			}
+
+			for _, cnrStored := range res.Containers() {
+				// in the most loaded scenarios it is a cache
+				if _, err = e.cfg.containerSource.Get(cnrStored); errors.As(err, new(apistatus.ContainerNotFound)) {
+					err = e.shards[iCopy].DeleteContainer(context.Background(), cnrStored)
+					if err != nil {
+						return fmt.Errorf("'%s' container cleanup in '%s' shard: %w", cnrStored, shID, err)
+					}
+				}
+			}
+
+			return nil
+		})
+	}
+
+	return wg.Wait()
 }

@@ -123,18 +123,18 @@ func initAndLog(c *cfg, name string, initializer func(*cfg)) {
 func initApp(c *cfg) {
 	initAndLog(c, "control", initControlService)
 	initLocalStorage(c)
+	initAndLog(c, "gRPC", initGRPC)
 
 	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
+	initAndLog(c, "container", initContainerService)
 	initAndLog(c, "storage engine", func(c *cfg) {
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Init())
 	})
 
-	initAndLog(c, "gRPC", initGRPC)
 	initAndLog(c, "netmap", initNetmapService)
 	initAndLog(c, "accounting", initAccountingService)
-	initAndLog(c, "container", initContainerService)
 	initAndLog(c, "session", initSessionService)
 	initAndLog(c, "reputation", initReputationService)
 	initAndLog(c, "notification", initNotifications)
