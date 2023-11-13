@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Contract group wallet support from `neofs-adm` (#2619)
 - `neofs-cli util locode generate`and `neofs-cli util locode info` commands (#2610)
 - Locode DB configuration options (#2610)
+- `v` prefix in version (#2640)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
