@@ -1,159 +1,22 @@
 package innerring
 
-import "github.com/nspcc-dev/neo-go/pkg/util"
-
-type GlagoliticLetter int8
-
-const (
-	_ GlagoliticLetter = iota - 1
-
-	az
-	buky
-	vedi
-	glagoli
-	dobro
-	yest
-	zhivete
-	dzelo
-	zemlja
-	izhe
-	izhei
-	gerv
-	kako
-	ljudi
-	mislete
-	nash
-	on
-	pokoj
-	rtsi
-	slovo
-	tverdo
-	uk
-	fert
-	kher
-	oht
-	shta
-	tsi
-	cherv
-	sha
-	yer
-	yeri
-	yerj
-	yat
-	jo
-	yu
-	smallYus
-	smallIotatedYus
-	bigYus
-	bigIotatedYus
-	fita
-	izhitsa
-
-	lastLetterNum
+import (
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 )
 
-// String returns l in config-compatible format.
-func (l GlagoliticLetter) String() string {
-	switch l {
-	default:
-		return "unknown"
-	case az:
-		return "az"
-	case buky:
-		return "buky"
-	case vedi:
-		return "vedi"
-	case glagoli:
-		return "glagoli"
-	case dobro:
-		return "dobro"
-	case yest:
-		return "yest"
-	case zhivete:
-		return "zhivete"
-	case dzelo:
-		return "dzelo"
-	case zemlja:
-		return "zemlja"
-	case izhe:
-		return "izhe"
-	case izhei:
-		return "izhei"
-	case gerv:
-		return "gerv"
-	case kako:
-		return "kako"
-	case ljudi:
-		return "ljudi"
-	case mislete:
-		return "mislete"
-	case nash:
-		return "nash"
-	case on:
-		return "on"
-	case pokoj:
-		return "pokoj"
-	case rtsi:
-		return "rtsi"
-	case slovo:
-		return "slovo"
-	case tverdo:
-		return "tverdo"
-	case uk:
-		return "uk"
-	case fert:
-		return "fert"
-	case kher:
-		return "kher"
-	case oht:
-		return "oht"
-	case shta:
-		return "shta"
-	case tsi:
-		return "tsi"
-	case cherv:
-		return "cherv"
-	case sha:
-		return "sha"
-	case yer:
-		return "yer"
-	case yeri:
-		return "yeri"
-	case yerj:
-		return "yerj"
-	case yat:
-		return "yat"
-	case jo:
-		return "jo"
-	case yu:
-		return "yu"
-	case smallYus:
-		return "small.yus"
-	case smallIotatedYus:
-		return "small.iotated.yus"
-	case bigYus:
-		return "big.yus"
-	case bigIotatedYus:
-		return "big.iotated.yus"
-	case fita:
-		return "fita"
-	case izhitsa:
-		return "izhitsa"
-	}
-}
-
-type alphabetContracts map[GlagoliticLetter]util.Uint160
+type alphabetContracts map[int]util.Uint160
 
 func newAlphabetContracts() alphabetContracts {
-	return make(map[GlagoliticLetter]util.Uint160, lastLetterNum)
+	return make(map[int]util.Uint160, glagolitsa.Size)
 }
 
 func (a alphabetContracts) GetByIndex(ind int) (util.Uint160, bool) {
-	if ind < 0 || ind >= int(lastLetterNum) {
+	if ind < 0 || ind >= glagolitsa.Size {
 		return util.Uint160{}, false
 	}
 
-	contract, ok := a[GlagoliticLetter(ind)]
+	contract, ok := a[ind]
 
 	return contract, ok
 }
@@ -162,12 +25,12 @@ func (a alphabetContracts) indexOutOfRange(ind int) bool {
 	return ind < 0 && ind >= len(a)
 }
 
-func (a alphabetContracts) iterate(f func(GlagoliticLetter, util.Uint160)) {
-	for letter, contract := range a {
-		f(letter, contract)
+func (a alphabetContracts) iterate(f func(int, util.Uint160)) {
+	for ind, contract := range a {
+		f(ind, contract)
 	}
 }
 
-func (a *alphabetContracts) set(l GlagoliticLetter, h util.Uint160) {
-	(*a)[l] = h
+func (a *alphabetContracts) set(ind int, h util.Uint160) {
+	(*a)[ind] = h
 }

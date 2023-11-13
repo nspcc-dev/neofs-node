@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -83,7 +83,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 
 	var pubs []string
 	for i := 0; i < size; i++ {
-		p := filepath.Join(dir, innerring.GlagoliticLetter(i).String()+".json")
+		p := filepath.Join(dir, glagolitsa.LetterByIndex(i)+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")
 		for _, acc := range w.Accounts {
@@ -111,6 +111,6 @@ func generateTestData(t *testing.T, dir string, size int) {
 
 func setTestCredentials(v *viper.Viper, size int) {
 	for i := 0; i < size; i++ {
-		v.Set("credentials."+innerring.GlagoliticLetter(i).String(), strconv.FormatUint(uint64(i), 10))
+		v.Set("credentials."+glagolitsa.LetterByIndex(i), strconv.FormatUint(uint64(i), 10))
 	}
 }

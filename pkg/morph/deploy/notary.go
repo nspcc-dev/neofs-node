@@ -125,7 +125,15 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 // initDesignateNotaryRoleToLocalAccountTick returns a function that preserves
 // context of the Notary role designation to the local account between calls.
 func initDesignateNotaryRoleToLocalAccountTick(ctx context.Context, prm enableNotaryPrm) (func(), error) {
-	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(prm.committee))
+	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+
+	err := committeeMultiSigAcc.ConvertMultisig(committeeMultiSigM, prm.committee)
+	if err != nil {
+		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
+	}
+
+	localActor, err := actor.NewSimple(prm.blockchain, committeeMultiSigAcc)
 	if err != nil {
 		return nil, fmt.Errorf("init transaction sender from local account: %w", err)
 	}
@@ -842,10 +850,54 @@ func makeUnsignedDesignateCommitteeNotaryTx(roleContract *rolemgmt.Contract, com
 	return tx, nil
 }
 
-// newCommitteeNotaryActor returns notary.Actor that builds and sends Notary
-// service requests witnessed by the specified committee members to the provided
-// Blockchain. Given local account pays for transactions.
+// newCommitteeNotaryActor calls newCommitteeNotaryActorWithScope with transaction.CalledByEntry
+// witness scope appropriate for most transactions.
 func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys) (*notary.Actor, error) {
+	return newCommitteeNotaryActorWithCustomCommitteeSigner(b, localAcc, committee, func(s *transaction.Signer) {
+		s.Scopes = transaction.CalledByEntry
+	})
+}
+
+// calls newCommitteeNotaryActorWithCustomCommitteeSignerAndPayer with local account
+// set as payer.
+func newCommitteeNotaryActorWithCustomCommitteeSigner(
+	b Blockchain,
+	localAcc *wallet.Account,
+	committee keys.PublicKeys,
+	fCommitteeSigner func(*transaction.Signer),
+) (*notary.Actor, error) {
+	return _newCustomCommitteeNotaryActor(b, localAcc, committee, localAcc, fCommitteeSigner)
+}
+
+// returns notary.Actor that builds and sends Notary service requests witnessed
+// by the specified committee members to the provided Blockchain. Local account
+// should be one of the committee members. Given Proxy contract pays for main
+// transactions. Allows to specify extra transaction signers.
+func newProxyCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee keys.PublicKeys, proxyContract util.Uint160, extraSigners ...actor.SignerAccount) (*notary.Actor, error) {
+	return _newCustomCommitteeNotaryActor(b, localAcc, committee, notary.FakeContractAccount(proxyContract), func(s *transaction.Signer) {
+		s.Scopes = transaction.CalledByEntry
+	}, extraSigners...)
+}
+
+// returns notary.Actor builds and sends Notary service requests witnessed by
+// the specified committee members to the provided Blockchain. Local account
+// should be one of the committee members. Specified account pays for
+// main transactions. Allows to specify extra transaction signers.
+//
+// Transaction signer callback allows to specify committee signer (e.g. tune
+// witness scope). Instance passed to it has Account set to multi-signature
+// account for the parameterized committee.
+//
+// This function is presented to share common code and is expected to be called
+// by helper constructors only.
+func _newCustomCommitteeNotaryActor(
+	b Blockchain,
+	localAcc *wallet.Account,
+	committee keys.PublicKeys,
+	payerAcc *wallet.Account,
+	fCommitteeSigner func(*transaction.Signer),
+	extraSigners ...actor.SignerAccount,
+) (*notary.Actor, error) {
 	committeeMultiSigM := smartcontract.GetMajorityHonestNodeCount(len(committee))
 	committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(localAcc.PrivateKey())
 
@@ -854,22 +906,27 @@ func newCommitteeNotaryActor(b Blockchain, localAcc *wallet.Account, committee k
 		return nil, fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
-	return notary.NewActor(b, []actor.SignerAccount{
+	committeeSignerAcc := actor.SignerAccount{
+		Signer: transaction.Signer{
+			Account: committeeMultiSigAcc.ScriptHash(),
+		},
+		Account: committeeMultiSigAcc,
+	}
+
+	fCommitteeSigner(&committeeSignerAcc.Signer)
+
+	signers := []actor.SignerAccount{
 		{
 			Signer: transaction.Signer{
-				Account: localAcc.ScriptHash(),
+				Account: payerAcc.ScriptHash(),
 				Scopes:  transaction.None,
 			},
-			Account: localAcc,
+			Account: payerAcc,
 		},
-		{
-			Signer: transaction.Signer{
-				Account: committeeMultiSigAcc.ScriptHash(),
-				Scopes:  transaction.CalledByEntry,
-			},
-			Account: committeeMultiSigAcc,
-		},
-	}, localAcc)
+		committeeSignerAcc,
+	}
+
+	return notary.NewActor(b, append(signers, extraSigners...), localAcc)
 }
 
 // Amount of GAS for the single local account's GAS->Notary transfer. Relatively
@@ -964,6 +1021,8 @@ type listenCommitteeNotaryRequestsPrm struct {
 	localAcc *wallet.Account
 
 	committee keys.PublicKeys
+
+	validatorMultiSigAcc *wallet.Account
 }
 
 // listenCommitteeNotaryRequests starts background process listening to incoming
@@ -980,6 +1039,14 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 		return fmt.Errorf("compose committee multi-signature account: %w", err)
 	}
 
+	ver, err := prm.blockchain.GetVersion()
+	if err != nil {
+		return fmt.Errorf("read protocol configuration: %w", err)
+	}
+
+	netMagic := ver.Protocol.Network
+	localAccID := prm.localAcc.ScriptHash()
+	validatorMultiSigAccID := prm.validatorMultiSigAcc.ScriptHash()
 	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
 	chNotaryRequests := make(chan *result.NotaryRequestEvent, 100) // secure from blocking
 	// cache processed operations: when main transaction from received notary
@@ -987,9 +1054,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 	// the channel again
 	mProcessedMainTxs := make(map[util.Uint256]struct{})
 
-	subID, err := prm.blockchain.ReceiveNotaryRequests(&neorpc.TxFilter{
-		Signer: &committeeMultiSigAccID,
-	}, chNotaryRequests)
+	subID, err := prm.blockchain.ReceiveNotaryRequests(nil, chNotaryRequests)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests from committee: %w", err)
 	}
@@ -1004,6 +1069,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 		prm.logger.Info("listening to committee notary requests...")
 
+	upperLoop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -1018,102 +1084,185 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 				// for simplicity, requests are handled one-by one. We could process them in parallel
 				// using worker pool, but actions seem to be relatively lightweight
 
-				const expectedSignersCount = 3 // sender + committee + Notary
 				mainTx := notaryEvent.NotaryRequest.MainTransaction
 				// note: instruction above can throw NPE and it's ok to panic: we confidently
 				// expect that only non-nil pointers will come from the channel (NeoGo
 				// guarantees)
 
 				srcMainTxHash := mainTx.Hash()
+				l := prm.logger.With(zap.Stringer("tx", srcMainTxHash))
 				_, processed := mProcessedMainTxs[srcMainTxHash]
+				if processed {
+					l.Info("main transaction of the notary request has already been processed, skip")
+					continue
+				}
+
+				mProcessedMainTxs[srcMainTxHash] = struct{}{}
 
 				// revise severity level of the messages
 				// https://github.com/nspcc-dev/neofs-node/issues/2419
 				switch {
-				case processed:
-					prm.logger.Info("main transaction of the notary request has already been processed, skip",
-						zap.Stringer("ID", srcMainTxHash))
-					continue
 				case notaryEvent.Type != mempoolevent.TransactionAdded:
-					prm.logger.Info("unsupported type of the notary request event, skip",
+					l.Info("unsupported type of the notary request event, skip",
 						zap.Stringer("got", notaryEvent.Type), zap.Stringer("expect", mempoolevent.TransactionAdded))
 					continue
-				case len(mainTx.Signers) != expectedSignersCount:
-					prm.logger.Info("unsupported number of signers of main transaction from the received notary request, skip",
-						zap.Int("expected", expectedSignersCount), zap.Int("got", len(mainTx.Signers)))
+				case len(mainTx.Scripts) != len(mainTx.Signers):
+					l.Info("different number of signers and scripts of main transaction from the received notary request, skip")
 					continue
-				case !mainTx.HasSigner(committeeMultiSigAccID):
-					prm.logger.Info("committee is not a signer of main transaction from the received notary request, skip")
-					continue
-				case mainTx.HasSigner(prm.localAcc.ScriptHash()):
-					prm.logger.Info("main transaction from the received notary request is signed by a local account, skip")
-					continue
-				case len(mainTx.Scripts) == 0:
-					prm.logger.Info("missing scripts of main transaction from the received notary request, skip")
+				case len(mainTx.Signers) == 0 || !mainTx.Signers[len(mainTx.Signers)-1].Account.Equals(notary.Hash):
+					l.Info("Notary contract is not the last signer of main transaction from the received notary request, skip")
 					continue
 				}
 
-				bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[0].VerificationScript)
-				if !ok {
-					prm.logger.Info("first verification script in main transaction of the received notary request is not a signature one, skip", zap.Error(err))
+				localAccSignerIndex := -1
+				committeeMultiSigSignerIndex := -1
+				validatorMultiSigSignerIndex := -1
+				notaryContractSignerIndex := -1
+
+				for i := range mainTx.Signers {
+					switch mainTx.Signers[i].Account {
+					case notary.Hash:
+						notaryContractSignerIndex = i
+					case localAccID:
+						if len(mainTx.Scripts[i].InvocationScript) > 0 {
+							l.Info("main transaction from the received notary request already has local account's signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						localAccSignerIndex = i
+					case committeeMultiSigAccID:
+						// simplified: we know binary format, so may match faster
+						if bytes.Contains(mainTx.Scripts[i].InvocationScript, committeeMultiSigAcc.SignHashable(netMagic, mainTx)) {
+							l.Info("main transaction from the received notary request already has local account's committee signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						// we cannot differ missing signature from the incorrect one in this case
+
+						committeeMultiSigSignerIndex = i
+					case validatorMultiSigAccID:
+						// simplified: we know binary format, so may match faster
+						if bytes.Contains(mainTx.Scripts[i].InvocationScript, prm.validatorMultiSigAcc.SignHashable(netMagic, mainTx)) {
+							l.Info("main transaction from the received notary request already has local account's committee signature, skip")
+							continue upperLoop // correctness doesn't matter
+						}
+
+						// we cannot differ missing signature from the incorrect one in this case
+
+						validatorMultiSigSignerIndex = i
+					}
+				}
+
+				if notaryContractSignerIndex < 0 {
+					l.Info("Notary contract is not a signer of main transaction of the received notary request, skip")
 					continue
 				}
 
-				senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
-				if err != nil {
-					prm.logger.Info("failed to decode sender's public key from first script of main transaction from the received notary request, skip", zap.Error(err))
+				if localAccSignerIndex < 0 && committeeMultiSigSignerIndex < 0 && validatorMultiSigSignerIndex < 0 {
+					l.Info("local account is not a signer of main transaction of the received notary request, skip")
 					continue
+				}
+
+				signers := make([]actor.SignerAccount, 0, len(mainTx.Signers)-1) // Notary contract added by actor
+
+				for i := range mainTx.Signers {
+					if i == notaryContractSignerIndex {
+						continue
+					}
+
+					var acc *wallet.Account
+					switch i {
+					case localAccSignerIndex:
+						acc = prm.localAcc
+					case committeeMultiSigSignerIndex:
+						acc = committeeMultiSigAcc
+					case validatorMultiSigSignerIndex:
+						acc = prm.validatorMultiSigAcc
+					default:
+						if len(mainTx.Scripts[i].VerificationScript) > 0 {
+							if bSenderKey, ok := vm.ParseSignatureContract(mainTx.Scripts[i].VerificationScript); ok {
+								senderKey, err := keys.NewPublicKeyFromBytes(bSenderKey, elliptic.P256())
+								if err != nil {
+									l.Info("failed to decode public key from simple signature contract verification script of main transaction from the received notary request, skip",
+										zap.Int("script#", i), zap.Error(err))
+									continue
+								}
+
+								acc = notary.FakeSimpleAccount(senderKey)
+							} else if m, bKeys, ok := vm.ParseMultiSigContract(mainTx.Scripts[i].VerificationScript); ok {
+								pKeys := make(keys.PublicKeys, len(bKeys))
+								for j := range bKeys {
+									err := pKeys[j].DecodeBytes(bKeys[j])
+									if err != nil {
+										l.Info("failed to decode public key from multi-sig contract verification script of main transaction from the received notary request, skip",
+											zap.Int("script#", i), zap.Int("key#", j), zap.Error(err))
+										continue
+									}
+								}
+
+								acc, err = notary.FakeMultisigAccount(m, pKeys)
+								if err != nil {
+									l.Info("failed to build fake multi-sig account from verification script of main transaction from the received notary request, skip",
+										zap.Int("script#", i), zap.Error(err))
+									continue
+								}
+							} else {
+								l.Info("got invalid/unsupported verification script in main transaction from the received notary request, skip",
+									zap.Int("script#", i))
+								continue upperLoop
+							}
+						} else {
+							acc = notary.FakeContractAccount(mainTx.Signers[i].Account)
+						}
+					}
+
+					signers = append(signers, actor.SignerAccount{
+						Signer:  mainTx.Signers[i],
+						Account: acc,
+					})
 				}
 
 				// copy transaction to avoid pointer mutation
 				mainTxCp := *mainTx
-				mainTxCp.Scripts = nil
-
 				mainTx = &mainTxCp // source one isn't needed anymore
 
 				// it'd be safer to get into the transaction and analyze what it is trying to do.
 				// For simplicity, now we blindly sign it. Track https://github.com/nspcc-dev/neofs-node/issues/2430
 
-				prm.logger.Info("signing main transaction from the received notary request by the local account...")
+				l.Info("signing main transaction from the received notary request by the local account...")
+
+				// reset all existing script because Notary actor adds itself
+				mainTx.Scripts = nil
 
 				// create new actor for current signers. As a slight optimization, we could also
 				// compare with signers of previously created actor and deduplicate.
 				// See also https://github.com/nspcc-dev/neofs-node/issues/2314
-				notaryActor, err := notary.NewActor(prm.blockchain, []actor.SignerAccount{
-					{
-						Signer:  mainTx.Signers[0],
-						Account: notary.FakeSimpleAccount(senderKey),
-					},
-					{
-						Signer:  mainTx.Signers[1],
-						Account: committeeMultiSigAcc,
-					},
-				}, prm.localAcc)
+				notaryActor, err := notary.NewActor(prm.blockchain, signers, prm.localAcc)
 				if err != nil {
 					// not really expected
-					prm.logger.Error("failed to init Notary request sender with signers from the main transaction of the received notary request", zap.Error(err))
+					l.Error("failed to init Notary request sender with signers from the main transaction of the received notary request", zap.Error(err))
 					continue
 				}
 
 				err = notaryActor.Sign(mainTx)
 				if err != nil {
-					prm.logger.Error("failed to sign main transaction from the received notary request by the local account, skip", zap.Error(err))
+					l.Error("failed to sign main transaction from the received notary request by the local account, skip", zap.Error(err))
 					continue
 				}
 
-				prm.logger.Info("sending new notary request with the main transaction signed by the local account...")
+				l.Info("sending new notary request with the main transaction signed by the local account...")
 
 				_, _, _, err = notaryActor.Notarize(mainTx, nil)
 				if err != nil {
 					if errors.Is(err, neorpc.ErrInsufficientFunds) {
-						prm.logger.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
+						l.Info("insufficient Notary balance to send new Notary request with the main transaction signed by the local account, skip")
 					} else {
-						prm.logger.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
+						l.Error("failed to send new Notary request with the main transaction signed by the local account, skip", zap.Error(err))
 					}
 					continue
 				}
 
-				prm.logger.Info("main transaction from the received notary request has been successfully signed and sent by the local account")
+				l.Info("main transaction from the received notary request has been successfully signed and sent by the local account")
 			}
 		}
 	}()

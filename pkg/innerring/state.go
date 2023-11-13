@@ -10,6 +10,7 @@ import (
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -134,11 +135,11 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 		vubP = &vub
 	}
 
-	s.contracts.alphabet.iterate(func(letter GlagoliticLetter, contract util.Uint160) {
+	s.contracts.alphabet.iterate(func(ind int, contract util.Uint160) {
 		err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
-				zap.Int8("alphabet_index", int8(letter)),
+				zap.Int("alphabet_index", ind),
 				zap.Uint64("epoch", epoch),
 				zap.String("error", err.Error()))
 		}
@@ -149,10 +150,10 @@ func (s *Server) voteForSidechainValidator(prm governance.VoteValidatorPrm) erro
 
 func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 	currentValidators := make(map[keys.PublicKey]struct{}, len(s.contracts.alphabet))
-	for letter, contract := range s.contracts.alphabet {
+	for ind, contract := range s.contracts.alphabet {
 		validator, err := s.morphClient.AccountVote(contract)
 		if err != nil {
-			return false, fmt.Errorf("receiving %s's vote: %w", letter, err)
+			return false, fmt.Errorf("receiving %s's vote: %w", glagolitsa.LetterByIndex(ind), err)
 		}
 
 		if validator == nil {

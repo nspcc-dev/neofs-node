@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -176,7 +177,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 						} else {
 							l.Error("failed to send transaction registering domain in the NNS, will try again later", zap.Error(err))
 						}
-						continue
+						return
 					}
 
 					l.Info("transaction registering domain in the NNS has been successfully sent, will wait for the outcome",
@@ -187,7 +188,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 					continue
 				} else if !errors.Is(err, errMissingDomainRecord) {
 					l.Error("failed to lookup NNS domain record, will try again later", zap.Error(err))
-					continue
+					return
 				}
 
 				l.Info("missing record of the NNS domain, needed to be set")
@@ -222,7 +223,7 @@ func initShareCommitteeGroupKeyAsLeaderTick(ctx context.Context, prm initCommitt
 					} else {
 						l.Error("failed to send transaction setting NNS domain record, will try again later", zap.Error(err))
 					}
-					continue
+					return
 				}
 
 				l.Info("transaction setting NNS domain record has been successfully sent, will wait for the outcome",
@@ -336,4 +337,92 @@ func calculateSharedSecret(localPrivKey *keys.PrivateKey, remotePubKey *keys.Pub
 
 	x, _ := localPrivKey.ScalarMult(remotePubKey.X, remotePubKey.Y, localPrivKey.D.Bytes())
 	return x.Bytes(), nil
+}
+
+// registerCommitteeGroupInNNSPrm groups parameters of committee group's
+// register in the NNS.
+type registerCommitteeGroupInNNSPrm struct {
+	logger *zap.Logger
+
+	blockchain Blockchain
+
+	// based on blockchain
+	monitor *blockchainMonitor
+
+	nnsContract util.Uint160
+	systemEmail string
+
+	localAcc *wallet.Account
+
+	committee         keys.PublicKeys
+	committeeGroupKey *keys.PrivateKey
+}
+
+// registerCommitteeGroupInNNS registers committee group in the NNS.
+func registerCommitteeGroupInNNS(ctx context.Context, prm registerCommitteeGroupInNNSPrm) error {
+	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
+	if err != nil {
+		return fmt.Errorf("init transaction sender from local account: %w", err)
+	}
+
+	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
+	if err != nil {
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
+	}
+
+	// wrap the parent context into the context of the current function so that
+	// transaction wait routines do not leak
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	inv := invoker.New(prm.blockchain, nil)
+	domain := domainCommitteeGroup + "." + domainContractAddresses
+	l := prm.logger.With(zap.String("domain", domain))
+	committeeGroupPubKey := prm.committeeGroupKey.PublicKey()
+	setContractRecordPrm := setNeoFSContractDomainRecordPrm{
+		logger:               l,
+		setRecordTxMonitor:   newTransactionGroupMonitor(localActor),
+		registerTLDTxMonitor: newTransactionGroupMonitor(localActor),
+		nnsContract:          prm.nnsContract,
+		systemEmail:          prm.systemEmail,
+		localActor:           localActor,
+		committeeActor:       committeeActor,
+		domain:               domain,
+		record:               hex.EncodeToString(committeeGroupPubKey.Bytes()),
+	}
+
+	for ; ; prm.monitor.waitForNextBlock(ctx) {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for committee group key to be registered in the NNS: %w", ctx.Err())
+		default:
+		}
+
+		rec, err := lookupNNSDomainRecord(inv, prm.nnsContract, domain)
+		if err != nil {
+			if !errors.Is(err, errMissingDomain) && !errors.Is(err, errMissingDomainRecord) {
+				l.Error("failed to lookup NNS domain record, will try again later")
+				continue
+			}
+
+			setNeoFSContractDomainRecord(ctx, setContractRecordPrm)
+
+			continue
+		}
+
+		pubKeyInNNS, err := keys.NewPublicKeyFromString(rec)
+		if err != nil {
+			l.Error("failed to parse public key of the committee group, will wait for a background fix",
+				zap.Error(err))
+			continue
+		}
+
+		if !pubKeyInNNS.Equal(committeeGroupPubKey) {
+			l.Error("public key of the committee group from the NNS differs with the local one, will wait for a background fix",
+				zap.Stringer("nns", pubKeyInNNS), zap.Stringer("local", committeeGroupPubKey))
+			continue
+		}
+
+		return nil
+	}
 }

@@ -22,8 +22,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/services/notary"
 	"github.com/nspcc-dev/neo-go/pkg/services/rpcsrv"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"go.uber.org/zap"
 )
 
@@ -43,8 +41,6 @@ type Blockchain struct {
 	core      *core.Blockchain
 	netServer *network.Server
 	rpcServer *rpcsrv.Server
-
-	nodeAcc *wallet.Account
 
 	chErr chan error
 }
@@ -234,7 +230,6 @@ type Config struct {
 	Storage StorageConfig
 
 	// NEO wallet of the node. The wallet is used by Consensus and Notary services.
-	// Corresponding private key be accessed via Blockchain.LocalKey.
 	//
 	// Required.
 	Wallet config.Wallet
@@ -327,11 +322,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	}
 	if cfg.P2P.Ping.Timeout == 0 {
 		cfg.P2P.Ping.Timeout = time.Minute
-	}
-
-	nodeAcc, err := utilConfig.LoadAccount(cfg.Wallet.Path, "", cfg.Wallet.Password)
-	if err != nil {
-		return nil, fmt.Errorf("read node account: %w", err)
 	}
 
 	standByCommittee := make([]string, len(cfg.Committee))
@@ -489,7 +479,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	netServer.AddService(&rpcServer)
 
 	return &Blockchain{
-		nodeAcc:   nodeAcc,
 		logger:    cfg.Logger,
 		storage:   bcStorage,
 		core:      bc,
@@ -548,11 +537,6 @@ func (x *Blockchain) Stop() {
 	x.netServer.Shutdown()
 	x.core.Close()
 	close(x.chErr)
-}
-
-// LocalKey returns keys.PrivateKey corresponding to the configured wallet.
-func (x *Blockchain) LocalKey() *keys.PrivateKey {
-	return x.nodeAcc.PrivateKey()
 }
 
 // BuildWSClient initializes rpcclient.WSClient with direct access to the

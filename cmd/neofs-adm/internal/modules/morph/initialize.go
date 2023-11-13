@@ -17,8 +17,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -198,7 +198,7 @@ func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, er
 	var size int
 loop:
 	for i := 0; i < len(walletFiles); i++ {
-		name := innerring.GlagoliticLetter(i).String() + ".json"
+		name := glagolitsa.LetterByIndex(i) + ".json"
 		for j := range walletFiles {
 			if walletFiles[j].Name() == name {
 				size++
@@ -213,7 +213,7 @@ loop:
 
 	wallets := make([]*wallet.Wallet, size)
 	for i := 0; i < size; i++ {
-		letter := innerring.GlagoliticLetter(i).String()
+		letter := glagolitsa.LetterByIndex(i)
 		p := filepath.Join(walletDir, letter+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		if err != nil {

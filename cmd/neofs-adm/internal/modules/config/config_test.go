@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -34,12 +34,12 @@ func TestGenerateConfigExample(t *testing.T) {
 	require.Equal(t, 1000, v.GetInt("network.fee.container"))
 	require.Equal(t, 100000000, v.GetInt("network.fee.withdraw"))
 
-	var i innerring.GlagoliticLetter
-	for i = 0; i < innerring.GlagoliticLetter(n); i++ {
-		key := "credentials." + i.String()
+	var i int
+	for i = 0; i < n; i++ {
+		key := "credentials." + glagolitsa.LetterByIndex(i)
 		require.Equal(t, "password", v.GetString(key))
 	}
 
-	key := "credentials." + i.String()
+	key := "credentials." + glagolitsa.LetterByIndex(i)
 	require.Equal(t, "", v.GetString(key))
 }

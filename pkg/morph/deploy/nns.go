@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
@@ -29,7 +30,27 @@ const (
 	domainDesignateNotaryPrefix = "designate-committee-notary-"
 	domainDesignateNotaryTx     = domainDesignateNotaryPrefix + "tx." + domainBootstrap
 	domainContractAddresses     = "neofs"
+	domainContainers            = "container"
+
+	domainAlphabetFmt = "alphabet%d"
+	domainAudit       = "audit"
+	domainBalance     = "balance"
+	domainContainer   = "container"
+	domainNeoFSID     = "neofsid"
+	domainNetmap      = "netmap"
+	domainProxy       = "proxy"
+	domainReputation  = "reputation"
+
+	domainCommitteeGroup = "group"
 )
+
+func calculateAlphabetContractAddressDomain(index int) string {
+	return fmt.Sprintf(domainAlphabetFmt, index)
+}
+
+func calculateContractAddressDomain(contractDomain string) string {
+	return contractDomain + "." + domainContractAddresses
+}
 
 func designateNotarySignatureDomainForMember(memberIndex int) string {
 	return fmt.Sprintf("%s%d.%s", domainDesignateNotaryPrefix, memberIndex, domainBootstrap)
@@ -41,10 +62,11 @@ func committeeGroupDomainForMember(memberIndex int) string {
 
 // various methods of the NeoFS NNS contract.
 const (
-	methodNNSRegister  = "register"
-	methodNNSResolve   = "resolve"
-	methodNNSAddRecord = "addRecord"
-	methodNNSSetRecord = "setRecord"
+	methodNNSRegister    = "register"
+	methodNNSRegisterTLD = "registerTLD"
+	methodNNSResolve     = "resolve"
+	methodNNSAddRecord   = "addRecord"
+	methodNNSSetRecord   = "setRecord"
 )
 
 // default NNS domain settings. See DNS specification and also
@@ -229,6 +251,8 @@ type updateNNSContractPrm struct {
 
 	blockchain Blockchain
 
+	neoFS NeoFS
+
 	// based on blockchain
 	monitor *blockchainMonitor
 
@@ -244,7 +268,11 @@ type updateNNSContractPrm struct {
 	// constructor of extra arguments to be passed into method updating the
 	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
 	// used).
-	buildVersionedExtraUpdateArgs func(versionOnChain contractVersion) ([]interface{}, error)
+	buildExtraUpdateArgs func() ([]interface{}, error)
+
+	// address of the Proxy contract deployed in the blockchain. The contract
+	// pays for update transactions.
+	proxyContract util.Uint160
 }
 
 // updateNNSContract synchronizes on-chain NNS contract (its presence is a
@@ -269,14 +297,9 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		return fmt.Errorf("encode local manifest of the NNS contract into JSON: %w", err)
 	}
 
-	committeeActor, err := newCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee)
+	committeeActor, err := newProxyCommitteeNotaryActor(prm.blockchain, prm.localAcc, prm.committee, prm.proxyContract)
 	if err != nil {
-		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee: %w", err)
-	}
-
-	localVersion, err := readContractLocalVersion(prm.blockchain, prm.localNEF, prm.localManifest)
-	if err != nil {
-		return fmt.Errorf("read version of the local NNS contract: %w", err)
+		return fmt.Errorf("create Notary service client sending transactions to be signed by the committee and paid by Proxy contract: %w", err)
 	}
 
 	// wrap the parent context into the context of the current function so that
@@ -284,6 +307,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
 	for ; ; prm.monitor.waitForNextBlock(ctx) {
@@ -304,35 +328,10 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			return errors.New("missing required NNS contract on the chain")
 		}
 
-		if nnsOnChainState.NEF.Checksum == prm.localNEF.Checksum {
-			// manifests may differ, but currently we should bump internal contract version
-			// (i.e. change NEF) to make such updates. Right now they are not supported due
-			// to dubious practical need
-			// Track https://github.com/nspcc-dev/neofs-contract/issues/340
-			prm.logger.Info("same local and on-chain checksums of the NNS contract NEF, update is not needed")
-			return nil
-		}
-
-		prm.logger.Info("NEF checksums of the on-chain and local NNS contracts differ, need an update")
-
-		versionOnChain, err := readContractOnChainVersion(prm.blockchain, nnsOnChainState.Hash)
-		if err != nil {
-			prm.logger.Error("failed to read on-chain version of the NNS contract, will try again later", zap.Error(err))
-			continue
-		}
-
-		if v := localVersion.cmp(versionOnChain); v == -1 {
-			prm.logger.Info("local contract version is < than the on-chain one, update is not needed",
-				zap.Stringer("local", localVersion), zap.Stringer("on-chain", versionOnChain))
-			return nil
-		} else if v == 0 {
-			return fmt.Errorf("local and on-chain contracts have different NEF checksums but same version '%s'", versionOnChain)
-		}
-
-		extraUpdateArgs, err := prm.buildVersionedExtraUpdateArgs(versionOnChain)
+		extraUpdateArgs, err := prm.buildExtraUpdateArgs()
 		if err != nil {
 			prm.logger.Error("failed to prepare build extra arguments for NNS contract update, will try again later",
-				zap.Stringer("on-chain version", versionOnChain), zap.Error(err))
+				zap.Error(err))
 			continue
 		}
 
@@ -341,13 +340,11 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 		// we pre-check 'already updated' case via MakeCall in order to not potentially
 		// wait for previously sent transaction to be expired (condition below) and
 		// immediately succeed
-		tx, err := committeeActor.MakeCall(nnsOnChainState.Hash, methodUpdate,
+		tx, err := committeeActor.MakeTunedCall(nnsOnChainState.Hash, methodUpdate, nil, updateTxModifier,
 			bLocalNEF, jLocalManifest, extraUpdateArgs)
 		if err != nil {
 			if isErrContractAlreadyUpdated(err) {
-				// note that we can come here only if local version is > than the on-chain one
-				// (compared above)
-				prm.logger.Info("NNS contract has already been updated, skip")
+				prm.logger.Info("NNS contract is unchanged or has already been updated, skip")
 				return nil
 			}
 
@@ -375,4 +372,89 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 
 		txMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
 	}
+}
+
+// setNeoFSContractDomainRecord groups parameters of setNeoFSContractDomainRecord.
+type setNeoFSContractDomainRecordPrm struct {
+	logger *zap.Logger
+
+	setRecordTxMonitor   *transactionGroupMonitor
+	registerTLDTxMonitor *transactionGroupMonitor
+
+	nnsContract util.Uint160
+	systemEmail string
+
+	localActor *actor.Actor
+
+	committeeActor *notary.Actor
+
+	domain string
+	record string
+}
+
+func setNeoFSContractDomainRecord(ctx context.Context, prm setNeoFSContractDomainRecordPrm) {
+	prm.logger.Info("NNS domain record is missing, registration is needed")
+
+	if prm.setRecordTxMonitor.isPending() {
+		prm.logger.Info("previously sent transaction setting domain in the NNS is still pending, will wait for the outcome")
+		return
+	}
+
+	prm.logger.Info("sending new transaction setting domain in the NNS...")
+
+	resRegister, err := prm.localActor.Call(prm.nnsContract, methodNNSRegister,
+		prm.domain, prm.localActor.Sender(), prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum)
+	if err != nil {
+		prm.logger.Info("test invocation registering domain in the NNS failed, will try again later", zap.Error(err))
+		return
+	}
+
+	resAddRecord, err := prm.localActor.Call(prm.nnsContract, methodNNSAddRecord,
+		prm.domain, int64(nns.TXT), prm.record)
+	if err != nil {
+		prm.logger.Info("test invocation setting domain record in the NNS failed, will try again later", zap.Error(err))
+		return
+	}
+
+	txID, vub, err := prm.localActor.SendRun(append(resRegister.Script, resAddRecord.Script...))
+	if err != nil {
+		switch {
+		default:
+			prm.logger.Error("failed to send transaction setting domain in the NNS, will try again later", zap.Error(err))
+		case errors.Is(err, neorpc.ErrInsufficientFunds):
+			prm.logger.Info("not enough GAS to set domain record in the NNS, will try again later")
+		case isErrTLDNotFound(err):
+			prm.logger.Info("missing TLD, need registration")
+
+			if prm.registerTLDTxMonitor.isPending() {
+				prm.logger.Info("previously sent Notary request registering TLD in the NNS is still pending, will wait for the outcome")
+				return
+			}
+
+			prm.logger.Info("sending new Notary registering TLD in the NNS...")
+
+			mainTxID, fallbackTxID, vub, err := prm.committeeActor.Notarize(prm.committeeActor.MakeCall(prm.nnsContract, methodNNSRegisterTLD,
+				domainContractAddresses, prm.systemEmail, nnsRefresh, nnsRetry, nnsExpire, nnsMinimum))
+			if err != nil {
+				if errors.Is(err, neorpc.ErrInsufficientFunds) {
+					prm.logger.Info("insufficient Notary balance to register TLD in the NNS, will try again later")
+				} else {
+					prm.logger.Error("failed to send Notary request registering TLD in the NNS, will try again later", zap.Error(err))
+				}
+				return
+			}
+
+			prm.logger.Info("Notary request registering TLD in the NNS has been successfully sent, will wait for the outcome",
+				zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
+
+			prm.registerTLDTxMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
+		}
+		return
+	}
+
+	prm.logger.Info("transaction settings domain record in the NNS has been successfully sent, will wait for the outcome",
+		zap.Stringer("tx", txID), zap.Uint32("vub", vub),
+	)
+
+	prm.setRecordTxMonitor.trackPendingTransactionsAsync(ctx, vub, txID)
 }

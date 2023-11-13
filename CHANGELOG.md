@@ -90,6 +90,7 @@ simple Peapod.
 - `neofs-lens storage inspect` CLI command (#1336)
 - `neofs-lens` payload-only flag (#2543)
 - `neofs-lens meta put` CLI command (#1816)
+- Sidechain auto-deployment to the Inner Ring app (#2195)
 
 ### Fixed
 - `neo-go` RPC connection loss handling (#1337)
