@@ -156,10 +156,6 @@ node:
   persistent_state:
     path: .neofs-ir-state # Path to application state file
 
-locode:
-  db:
-    path: /path/to/locode.db # Path to UN/LOCODE database file
-
 fee:
   main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
 

@@ -23,11 +23,9 @@ func init() {
 		signCmd,
 		convertCmd,
 		keyerCmd,
-		locodeCmd,
 	)
 
 	initSignCmd()
 	initConvertCmd()
 	initKeyerCmd()
-	initLocodeCmd()
 }

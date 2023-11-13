@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -312,16 +311,8 @@ func (s *Server) registerNoErrCloser(c func()) {
 	})
 }
 
-func (s *Server) registerIOCloser(c io.Closer) {
-	s.registerCloser(c.Close)
-}
-
 func (s *Server) registerCloser(f func() error) {
 	s.closers = append(s.closers, f)
-}
-
-func (s *Server) registerStarter(f func() error) {
-	s.starters = append(s.starters, f)
 }
 
 // New creates instance of inner ring sever structure.
@@ -773,7 +764,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		settlement.WithLogger(server.log),
 	)
 
-	locodeValidator, err := server.newLocodeValidator(cfg)
+	locodeValidator, err := server.newLocodeValidator()
 	if err != nil {
 		return nil, err
 	}
