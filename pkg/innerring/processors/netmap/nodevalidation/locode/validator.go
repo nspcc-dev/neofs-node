@@ -1,16 +1,8 @@
 package locode
 
-// Prm groups the required parameters of the Validator's constructor.
-//
-// All values must comply with the requirements imposed on them.
-// Passing incorrect parameter values will result in constructor
-// failure (error or panic depending on the implementation).
-type Prm struct {
-	// NeoFS LOCODE database interface.
-	//
-	// Must not be nil.
-	DB DB
-}
+import (
+	"github.com/nspcc-dev/locode-db/pkg/locodedb"
+)
 
 // Validator is a utility that verifies and updates
 // node attributes associated with its geographical location
@@ -21,7 +13,6 @@ type Prm struct {
 // and optional components. After successful creation,
 // the Validator is immediately ready to work through API.
 type Validator struct {
-	db DB
 }
 
 // New creates a new instance of the Validator.
@@ -30,8 +21,19 @@ type Validator struct {
 //
 // The created Validator does not require additional
 // initialization and is completely ready for work.
-func New(prm Prm) *Validator {
-	return &Validator{
-		db: prm.DB,
+func New() *Validator {
+	return &Validator{}
+}
+
+func (v *Validator) Get(lc string) (*locodedb.Key, locodedb.Record, error) {
+	country, location := lc[:2], lc[2:]
+	if lc[2] == ' ' {
+		location = lc[3:]
 	}
+	key, err := locodedb.NewKey(country, location)
+	if err != nil {
+		return nil, locodedb.Record{}, err
+	}
+	rec, err := locodedb.Get(lc)
+	return key, rec, err
 }

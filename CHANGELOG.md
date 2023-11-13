@@ -22,12 +22,15 @@ Changelog for NeoFS Node
 - Internal container cache size from 10 to 1000 (#2600)
 - Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
 - New optimized SDK version is integrated (#2622)
+- IR uses internal LOCODE DB from Go package (#2610)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
 - Recently-handled objects Policer's cache (#2600)
 - deprecated blobovnicza substorage (#2614)
 - Contract group wallet support from `neofs-adm` (#2619)
+- `neofs-cli util locode generate`and `neofs-cli util locode info` commands (#2610)
+- Locode DB configuration options (#2610)
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)

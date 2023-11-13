@@ -15,6 +15,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.0
 	github.com/nats-io/nats.go v1.31.0
 	github.com/nspcc-dev/hrw v1.0.9
+	github.com/nspcc-dev/locode-db v0.4.1-0.20231110164540-a21ea2774f2e
 	github.com/nspcc-dev/neo-go v0.103.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.18.0
@@ -22,7 +23,6 @@ require (
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.8.2
-	github.com/paulmach/orb v0.10.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cast v1.5.1
 	github.com/spf13/cobra v1.7.0
@@ -94,7 +94,6 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210305035536-64b5b1c73954 // indirect
 	github.com/twmb/murmur3 v1.1.5 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
-	go.mongodb.org/mongo-driver v1.11.4 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
