@@ -6,7 +6,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// VerifyAndUpdate validates UN-LOCODE attribute of n
+// Verify validates UN-LOCODE attribute of n
 // and adds a group of related attributes.
 //
 // If n contains at least one of the LOCODE-derived attributes,
@@ -14,9 +14,7 @@ import (
 //
 // If n contains UN-LOCODE attribute and its value does not
 // match the UN/LOCODE format, an error is returned.
-//
-// UN-LOCODE attribute remains untouched.
-func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
+func (v *Validator) Verify(n netmap.NodeInfo) error {
 	if n.LOCODE() == "" {
 		return nil
 	}
@@ -53,7 +51,7 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	return nil
 }
 
-func checkAttribute(n *netmap.NodeInfo, key, expectedVal string) error {
+func checkAttribute(n netmap.NodeInfo, key, expectedVal string) error {
 	val := n.Attribute(key)
 	if val != expectedVal {
 		return fmt.Errorf("wrong '%q' attribute value: want '%q', got '%q'", key, expectedVal, val)

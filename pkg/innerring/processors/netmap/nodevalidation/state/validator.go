@@ -44,18 +44,18 @@ func (x *NetMapCandidateValidator) SetNetworkSettings(netSettings NetworkSetting
 	x.netSettings = netSettings
 }
 
-// VerifyAndUpdate checks state of the network map candidate described by
+// Verify checks state of the network map candidate described by
 // netmap.NodeInfo parameter. Returns no error if status is correct, otherwise
 // returns an error describing a violation of the rules:
 //
 //	status MUST be either ONLINE or MAINTENANCE;
 //	if status is MAINTENANCE, then it SHOULD be allowed by the network.
 //
-// VerifyAndUpdate does not mutate the parameter in a binary format.
+// Verify does not mutate the parameter in a binary format.
 // MUST NOT be called before SetNetworkSettings.
 //
 // See also netmap.NodeInfo.IsOnline/SetOnline and other similar methods.
-func (x *NetMapCandidateValidator) VerifyAndUpdate(node *netmap.NodeInfo) error {
+func (x *NetMapCandidateValidator) Verify(node netmap.NodeInfo) error {
 	if node.IsOnline() {
 		return nil
 	}

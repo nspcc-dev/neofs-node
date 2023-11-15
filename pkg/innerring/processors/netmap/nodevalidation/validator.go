@@ -23,12 +23,12 @@ func New(validators ...netmap.NodeValidator) *CompositeValidator {
 	return &CompositeValidator{validators}
 }
 
-// VerifyAndUpdate passes apinetmap.NodeInfo to wrapped validators.
+// Verify passes apinetmap.NodeInfo to wrapped validators.
 //
 // If error appears, returns it immediately.
-func (c *CompositeValidator) VerifyAndUpdate(ni *apinetmap.NodeInfo) error {
+func (c *CompositeValidator) Verify(ni apinetmap.NodeInfo) error {
 	for _, v := range c.validators {
-		if err := v.VerifyAndUpdate(ni); err != nil {
+		if err := v.Verify(ni); err != nil {
 			return err
 		}
 	}

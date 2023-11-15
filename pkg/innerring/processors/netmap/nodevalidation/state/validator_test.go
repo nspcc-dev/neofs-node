@@ -81,7 +81,7 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 			testCase.validatorPreparer(&v)
 		}
 
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 
 		if testCase.valid {
 			require.NoError(t, err, testCase.name)

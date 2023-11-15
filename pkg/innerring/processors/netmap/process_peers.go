@@ -37,8 +37,8 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		return
 	}
 
-	// validate and update node info
-	err = np.nodeValidator.VerifyAndUpdate(&nodeInfo)
+	// validate node info
+	err = np.nodeValidator.Verify(nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("public_key", hex.EncodeToString(nodeInfo.PublicKey())),
