@@ -1,6 +1,8 @@
 package fstree
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 )
 
@@ -14,7 +16,7 @@ func (t *FSTree) Open(ro bool) error {
 func (t *FSTree) Init() error {
 	err := util.MkdirAllX(t.RootPath, t.Permissions)
 	if err != nil {
-		return err
+		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
 	}
 	if !t.readOnly {
 		f := newSpecificWriteData(t.RootPath, t.Permissions, t.noSync)

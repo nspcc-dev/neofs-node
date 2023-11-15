@@ -4,6 +4,7 @@ package fstree
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"strconv"
 
@@ -46,7 +47,7 @@ func (w *linuxWriter) writeData(p string, data []byte) error {
 func (w *linuxWriter) writeFile(p string, data []byte) error {
 	fd, err := unix.Open(w.root, w.flags, w.perm)
 	if err != nil {
-		return err
+		return fmt.Errorf("unix open: %w", err)
 	}
 	tmpPath := "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10)
 	n, err := unix.Write(fd, data)
@@ -58,12 +59,15 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 				err = nil
 			}
 		} else {
-			err = errors.New("incomplete write")
+			err = errors.New("incomplete unix write")
 		}
 	}
 	errClose := unix.Close(fd)
 	if err != nil {
-		return err // Close() error is ignored, we have a better one.
+		return fmt.Errorf("unix write: %w", err) // Close() error is ignored, we have a better one.
 	}
-	return errClose
+	if errClose != nil {
+		return fmt.Errorf("unix close: %w", errClose)
+	}
+	return nil
 }
