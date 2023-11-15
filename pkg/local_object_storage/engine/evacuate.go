@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/hrw"
+	"github.com/nspcc-dev/hrw/v2"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -96,11 +96,6 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 	}
 	e.mtx.RUnlock()
 
-	weights := make([]float64, 0, len(shards))
-	for i := range shards {
-		weights = append(weights, e.shardWeight(shards[i].Shard))
-	}
-
 	shardMap := make(map[string]*shard.Shard)
 	for i := range sidList {
 		for j := range shards {
@@ -139,6 +134,7 @@ mainLoop:
 		loop:
 			for i := range lst {
 				addr := lst[i].Address
+				addrHash := hrw.WrapBytes([]byte(addr.EncodeToString()))
 
 				var getPrm shard.GetPrm
 				getPrm.SetAddress(addr)
@@ -151,7 +147,7 @@ mainLoop:
 					return res, err
 				}
 
-				hrw.SortSliceByWeightValue(shards, weights, hrw.Hash([]byte(addr.EncodeToString())))
+				hrw.Sort(shards, addrHash)
 				for j := range shards {
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue

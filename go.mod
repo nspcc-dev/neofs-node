@@ -14,12 +14,12 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.12.0
 	github.com/nats-io/nats.go v1.31.0
-	github.com/nspcc-dev/hrw v1.0.9
+	github.com/nspcc-dev/hrw/v2 v2.0.0-20231115095647-bf62f4ad0a43
 	github.com/nspcc-dev/locode-db v0.4.1-0.20231110164540-a21ea2774f2e
 	github.com/nspcc-dev/neo-go v0.103.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.18.0
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231011074223-dd4e3e09a100
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231113180740-3b24af0410c0
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.8.2
@@ -92,11 +92,11 @@ require (
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210305035536-64b5b1c73954 // indirect
-	github.com/twmb/murmur3 v1.1.5 // indirect
+	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
