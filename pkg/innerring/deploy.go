@@ -1,17 +1,13 @@
 package innerring
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sync"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
-	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 )
 
 type neoFSSidechain struct {
@@ -79,77 +75,4 @@ func (x *neoFSSidechain) CurrentState() (deploy.NeoFSState, error) {
 	res.EpochDuration = uint32(epochDur)
 
 	return res, nil
-}
-
-type sidechainKeyStorage struct {
-	persistentStorage *state.PersistentStorage
-}
-
-func newSidechainKeyStorage(persistentStorage *state.PersistentStorage) *sidechainKeyStorage {
-	return &sidechainKeyStorage{
-		persistentStorage: persistentStorage,
-	}
-}
-
-var committeeGroupKey = []byte("committeeGroupKey")
-
-// GetPersistedPrivateKey reads persisted private key from the underlying
-// storage. If key is missing, it's randomized and saved first.
-func (x *sidechainKeyStorage) GetPersistedPrivateKey() (*keys.PrivateKey, error) {
-	b, err := x.persistentStorage.Bytes(committeeGroupKey)
-	if err != nil {
-		return nil, fmt.Errorf("read persistent storage: %w", err)
-	}
-
-	const password = ""
-
-	if b != nil {
-		var wlt wallet.Wallet
-
-		err = json.Unmarshal(b, &wlt)
-		if err != nil {
-			return nil, fmt.Errorf("decode persisted NEO wallet from JSON: %w", err)
-		}
-
-		if len(wlt.Accounts) != 1 {
-			return nil, fmt.Errorf("unexpected number of accounts in the persisted NEO wallet: %d instead of 1", len(wlt.Accounts))
-		}
-
-		err = wlt.Accounts[0].Decrypt(password, keys.NEP2ScryptParams())
-		if err != nil {
-			return nil, fmt.Errorf("unlock 1st NEO account of the persisted NEO wallet: %w", err)
-		}
-
-		return wlt.Accounts[0].PrivateKey(), nil
-	}
-
-	acc, err := wallet.NewAccount()
-	if err != nil {
-		return nil, fmt.Errorf("generate random NEO account: %w", err)
-	}
-
-	scryptPrm := keys.NEP2ScryptParams()
-
-	err = acc.Encrypt(password, scryptPrm)
-	if err != nil {
-		return nil, fmt.Errorf("protect NEO account with password: %w", err)
-	}
-
-	wlt := wallet.Wallet{
-		Version:  "1.0", // copy-paste from wallet package
-		Accounts: []*wallet.Account{acc},
-		Scrypt:   scryptPrm,
-	}
-
-	jWallet, err := json.Marshal(wlt)
-	if err != nil {
-		return nil, fmt.Errorf("encode NEO wallet with randomized NEO account into JSON: %w", err)
-	}
-
-	err = x.persistentStorage.SetBytes(committeeGroupKey, jWallet)
-	if err != nil {
-		return nil, fmt.Errorf("save generated key in the persistent storage: %w", err)
-	}
-
-	return acc.PrivateKey(), nil
 }

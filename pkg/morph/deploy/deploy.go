@@ -65,14 +65,6 @@ type Blockchain interface {
 	Unsubscribe(id string) error
 }
 
-// KeyStorage represents storage of the private keys.
-type KeyStorage interface {
-	// GetPersistedPrivateKey returns singleton private key persisted in the
-	// storage. GetPersistedPrivateKey randomizes the key initially. All subsequent
-	// successful calls return the same key.
-	GetPersistedPrivateKey() (*keys.PrivateKey, error)
-}
-
 // NeoFSState groups information about NeoFS network state processed by Deploy.
 type NeoFSState struct {
 	// Current NeoFS epoch.
@@ -157,9 +149,6 @@ type Prm struct {
 	// participants (must be unlocked).
 	ValidatorMultiSigAccount *wallet.Account
 
-	// Storage for single committee group key.
-	KeyStorage KeyStorage
-
 	// Running NeoFS network for which deployment procedure is performed.
 	NeoFS NeoFS
 
@@ -187,10 +176,9 @@ type Prm struct {
 //  1. NNS contract deployment
 //  2. launch of a notary service for the committee
 //  3. initial GAS distribution between committee members
-//  4. committee group initialization
-//  5. Alphabet initialization (incl. registration as candidates to validators)
-//  6. deployment/update of the NeoFS system contracts
-//  7. distribution of all available NEO between the Alphabet contracts
+//  4. Alphabet initialization (incl. registration as candidates to validators)
+//  5. deployment/update of the NeoFS system contracts
+//  6. distribution of all available NEO between the Alphabet contracts
 //
 // See project documentation for details.
 func Deploy(ctx context.Context, prm Prm) error {
@@ -242,39 +230,20 @@ func Deploy(ctx context.Context, prm Prm) error {
 	defer monitor.stop()
 
 	deployNNSPrm := deployNNSContractPrm{
-		logger:                prm.Logger,
-		blockchain:            prm.Blockchain,
-		monitor:               monitor,
-		localAcc:              prm.LocalAccount,
-		localNEF:              prm.NNS.Common.NEF,
-		localManifest:         prm.NNS.Common.Manifest,
-		systemEmail:           prm.NNS.SystemEmail,
-		initCommitteeGroupKey: nil, // set below
+		logger:        prm.Logger,
+		blockchain:    prm.Blockchain,
+		monitor:       monitor,
+		localAcc:      prm.LocalAccount,
+		localNEF:      prm.NNS.Common.NEF,
+		localManifest: prm.NNS.Common.Manifest,
+		systemEmail:   prm.NNS.SystemEmail,
+		tryDeploy:     localAccCommitteeIndex == 0, // see below
 	}
 
 	// if local node is the first committee member (Az) => deploy NNS contract,
-	// otherwise just wait
-	if localAccCommitteeIndex == 0 {
-		// Why such a centralized approach? There is a need to initialize committee
-		// contract group and share its private key between all committee members (the
-		// latter is done in the current procedure next). Currently, there is no
-		// convenient Neo service for this, and we don't want to use anything but
-		// blockchain, so the key is distributed through domain NNS records. However,
-		// then the chicken-and-egg problem pops up: committee group must be also set
-		// for the NNS contract. To set the group, you need to know the contract hash in
-		// advance, and it is a function from the sender of the deployment transaction.
-		// Summing up all these statements, we come to the conclusion that the one who
-		// deploys the contract creates the group key, and he shares it among the other
-		// members. Technically any committee member could deploy NNS contract, but for
-		// the sake of simplicity, this is a fixed node. This makes the procedure even
-		// more centralized, however, in practice, at the start of the network, all
-		// members are expected to be healthy and active.
-		//
-		// Note that manifest can't be changed w/o NEF change, so it's impossible to set
-		// committee group dynamically right after deployment. See
-		// https://github.com/nspcc-dev/neofs-contract/issues/340
-		deployNNSPrm.initCommitteeGroupKey = prm.KeyStorage.GetPersistedPrivateKey
-	}
+	// otherwise just wait. This will avoid duplication of contracts. This also
+	// makes the procedure more centralized, however, in practice, at the start of
+	// the network, all members are expected to be healthy and active.
 
 	prm.Logger.Info("initializing NNS contract on the chain...")
 
@@ -333,43 +302,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("initial transfer to the committee successfully done")
 
-	prm.Logger.Info("initializing committee group for contract management...")
-
-	committeeGroupKey, err := initCommitteeGroup(ctx, initCommitteeGroupPrm{
-		logger:                 prm.Logger,
-		blockchain:             prm.Blockchain,
-		monitor:                monitor,
-		nnsOnChainAddress:      nnsOnChainAddress,
-		systemEmail:            prm.NNS.SystemEmail,
-		committee:              committee,
-		localAcc:               prm.LocalAccount,
-		localAccCommitteeIndex: localAccCommitteeIndex,
-		keyStorage:             prm.KeyStorage,
-	})
-	if err != nil {
-		return fmt.Errorf("init committee group: %w", err)
-	}
-
-	prm.Logger.Info("committee group successfully initialized", zap.Stringer("public key", committeeGroupKey.PublicKey()))
-
-	prm.Logger.Info("registering committee group in the NNS...")
-
-	err = registerCommitteeGroupInNNS(ctx, registerCommitteeGroupInNNSPrm{
-		logger:            prm.Logger,
-		blockchain:        prm.Blockchain,
-		monitor:           monitor,
-		nnsContract:       nnsOnChainAddress,
-		systemEmail:       prm.NNS.SystemEmail,
-		localAcc:          prm.LocalAccount,
-		committee:         committee,
-		committeeGroupKey: committeeGroupKey,
-	})
-	if err != nil {
-		return fmt.Errorf("regsiter committee group in the NNS: %w", err)
-	}
-
-	prm.Logger.Info("committee group successfully registered in the NNS")
-
 	prm.Logger.Info("initializing NeoFS Alphabet...")
 
 	err = initAlphabet(ctx, initAlphabetPrm{
@@ -394,7 +326,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 		nnsContract:         nnsOnChainAddress,
 		systemEmail:         prm.NNS.SystemEmail,
 		committee:           committee,
-		committeeGroupKey:   committeeGroupKey,
 		simpleLocalActor:    simpleLocalActor,
 		committeeLocalActor: committeeLocalActor,
 	}
@@ -509,7 +440,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 		localManifest:        prm.NNS.Common.Manifest,
 		systemEmail:          prm.NNS.SystemEmail,
 		committee:            committee,
-		committeeGroupKey:    committeeGroupKey,
 		buildExtraUpdateArgs: noExtraUpdateArgs,
 		proxyContract:        proxyContractAddress,
 	})

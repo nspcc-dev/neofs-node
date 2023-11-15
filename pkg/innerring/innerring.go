@@ -460,14 +460,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			log.Info("auto-deployment configured, initializing Sidechain...")
 
 			sidechain := newNeoFSSidechain(server.morphClient)
-			sidechainKeyStorage := newSidechainKeyStorage(server.persistate)
 
 			var deployPrm deploy.Prm
 			deployPrm.Logger = server.log
 			deployPrm.Blockchain = wsClient
 			deployPrm.LocalAccount = singleAcc
 			deployPrm.ValidatorMultiSigAccount = consensusAcc
-			deployPrm.KeyStorage = sidechainKeyStorage
 			deployPrm.NeoFS = sidechain
 
 			nnsCfg, err := parseNNSConfig(cfg)

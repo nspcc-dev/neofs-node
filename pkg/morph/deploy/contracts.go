@@ -22,8 +22,7 @@ import (
 
 // various common methods of the NeoFS contracts.
 const (
-	methodUpdate  = "update"
-	methodVersion = "version"
+	methodUpdate = "update"
 )
 
 // syncNeoFSContractPrm groups parameters of syncNeoFSContract.
@@ -43,8 +42,7 @@ type syncNeoFSContractPrm struct {
 	nnsContract util.Uint160
 	systemEmail string
 
-	committee         keys.PublicKeys
-	committeeGroupKey *keys.PrivateKey
+	committee keys.PublicKeys
 
 	// with localAcc signer only
 	simpleLocalActor *actor.Actor
@@ -128,8 +126,6 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 	// transaction wait routines do not leak
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	setGroupInManifest(&prm.localManifest, prm.localNEF, prm.committeeGroupKey, prm.localAcc.ScriptHash())
 
 	var contractDeployer interface {
 		Sender() util.Uint160
