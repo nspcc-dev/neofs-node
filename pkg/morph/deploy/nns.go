@@ -40,8 +40,6 @@ const (
 	domainNetmap      = "netmap"
 	domainProxy       = "proxy"
 	domainReputation  = "reputation"
-
-	domainCommitteeGroup = "group"
 )
 
 func calculateAlphabetContractAddressDomain(index int) string {
@@ -54,10 +52,6 @@ func calculateContractAddressDomain(contractDomain string) string {
 
 func designateNotarySignatureDomainForMember(memberIndex int) string {
 	return fmt.Sprintf("%s%d.%s", domainDesignateNotaryPrefix, memberIndex, domainBootstrap)
-}
-
-func committeeGroupDomainForMember(memberIndex int) string {
-	return fmt.Sprintf("committee-group-%d.%s", memberIndex, domainBootstrap)
 }
 
 // various methods of the NeoFS NNS contract.
@@ -99,9 +93,7 @@ type deployNNSContractPrm struct {
 	localManifest manifest.Manifest
 	systemEmail   string
 
-	// optional constructor of private key for the committee group. If set, it is
-	// used only when contract is missing.
-	initCommitteeGroupKey func() (*keys.PrivateKey, error)
+	tryDeploy bool
 }
 
 // initNNSContract synchronizes NNS contract with the chain and returns the
@@ -115,7 +107,7 @@ type deployNNSContractPrm struct {
 // previously succeeded actions will be skipped, and execution will be continued
 // from the last failed stage.
 //
-// If contract is missing and deployNNSContractPrm.initCommitteeGroupKey is provided,
+// If contract is missing and deployNNSContractPrm.tryDeploy is set,
 // initNNSContract attempts to deploy local contract.
 func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Uint160, err error) {
 	localActor, err := actor.NewSimple(prm.blockchain, prm.localAcc)
@@ -128,7 +120,6 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var committeeGroupKey *keys.PrivateKey
 	txMonitor := newTransactionGroupMonitor(localActor)
 	managementContract := management.New(localActor)
 
@@ -158,26 +149,12 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 			return stateOnChain.Hash, nil
 		}
 
-		if prm.initCommitteeGroupKey == nil {
+		if !prm.tryDeploy {
 			prm.logger.Info("NNS contract is missing on the chain but attempts to deploy are disabled, will wait for background deployment")
 			continue
 		}
 
 		prm.logger.Info("NNS contract is missing on the chain, contract needs to be deployed")
-
-		if committeeGroupKey == nil {
-			prm.logger.Info("initializing private key for the committee group...")
-
-			committeeGroupKey, err = prm.initCommitteeGroupKey()
-			if err != nil {
-				prm.logger.Error("failed to init committee group key, will try again later", zap.Error(err))
-				continue
-			}
-
-			setGroupInManifest(&prm.localManifest, prm.localNEF, committeeGroupKey, prm.localAcc.ScriptHash())
-
-			prm.logger.Info("private key of the committee group has been initialized", zap.Stringer("public key", committeeGroupKey.PublicKey()))
-		}
 
 		if txMonitor.isPending() {
 			prm.logger.Info("previously sent transaction updating NNS contract is still pending, will wait for the outcome")
@@ -262,8 +239,7 @@ type updateNNSContractPrm struct {
 	localManifest manifest.Manifest
 	systemEmail   string
 
-	committee         keys.PublicKeys
-	committeeGroupKey *keys.PrivateKey
+	committee keys.PublicKeys
 
 	// constructor of extra arguments to be passed into method updating the
 	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
@@ -279,9 +255,6 @@ type updateNNSContractPrm struct {
 // precondition) with the local one represented by compiled executables. If
 // on-chain version is greater or equal to the local one, nothing happens.
 // Otherwise, transaction calling 'update' method is sent.
-//
-// Local manifest is extended with committee group represented by the
-// parameterized private key.
 //
 // Function behaves similar to initNNSContract in terms of context.
 func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
@@ -334,8 +307,6 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 				zap.Error(err))
 			continue
 		}
-
-		setGroupInManifest(&prm.localManifest, prm.localNEF, prm.committeeGroupKey, prm.localAcc.ScriptHash())
 
 		// we pre-check 'already updated' case via MakeCall in order to not potentially
 		// wait for previously sent transaction to be expired (condition below) and

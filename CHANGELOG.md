@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
 - New optimized SDK version is integrated (#2622)
 - IR uses internal LOCODE DB from Go package (#2610)
+- Contract group for the committee is no longer registered/used in the Sidechain auto-deployment (#2642)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)

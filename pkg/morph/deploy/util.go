@@ -10,12 +10,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-contract/common"
 	"go.uber.org/zap"
@@ -27,31 +24,6 @@ func isErrContractAlreadyUpdated(err error) bool {
 
 func isErrTLDNotFound(err error) bool {
 	return strings.Contains(err.Error(), "TLD not found")
-}
-
-func setGroupInManifest(manif *manifest.Manifest, nefFile nef.File, groupPrivKey *keys.PrivateKey, deployerAcc util.Uint160) {
-	contractAddress := state.CreateContractHash(deployerAcc, nefFile.Checksum, manif.Name)
-	sig := groupPrivKey.Sign(contractAddress.BytesBE())
-	groupPubKey := groupPrivKey.PublicKey()
-
-	ind := -1
-
-	for i := range manif.Groups {
-		if manif.Groups[i].PublicKey.Equal(groupPubKey) {
-			ind = i
-			break
-		}
-	}
-
-	if ind >= 0 {
-		manif.Groups[ind].Signature = sig
-		return
-	}
-
-	manif.Groups = append(manif.Groups, manifest.Group{
-		PublicKey: groupPubKey,
-		Signature: sig,
-	})
 }
 
 // blockchainMonitor is a thin utility around Blockchain providing state
