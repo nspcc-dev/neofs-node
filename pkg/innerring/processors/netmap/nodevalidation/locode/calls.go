@@ -25,16 +25,38 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
-	n.SetCountryCode(key.CountryCode().String())
-	n.SetCountryName(record.Country)
-	n.SetLocationName(record.Location)
-	n.SetContinentName(record.Cont.String())
-	if subDivCode := record.SubDivCode; subDivCode != "" {
-		n.SetSubdivisionCode(subDivCode)
+	err = checkAttribute(n, "CountryCode", key.CountryCode().String())
+	if err != nil {
+		return err
+	}
+	err = checkAttribute(n, "Country", record.Country)
+	if err != nil {
+		return err
+	}
+	err = checkAttribute(n, "Location", record.Location)
+	if err != nil {
+		return err
+	}
+	err = checkAttribute(n, "Continent", record.Cont.String())
+	if err != nil {
+		return err
+	}
+	err = checkAttribute(n, "SubDivCode", record.SubDivCode)
+	if err != nil {
+		return err
+	}
+	err = checkAttribute(n, "SubDiv", record.SubDivName)
+	if err != nil {
+		return err
 	}
 
-	if subDivName := record.SubDivName; subDivName != "" {
-		n.SetSubdivisionName(subDivName)
+	return nil
+}
+
+func checkAttribute(n *netmap.NodeInfo, key, expectedVal string) error {
+	val := n.Attribute(key)
+	if val != expectedVal {
+		return fmt.Errorf("wrong '%q' attribute value: want '%q', got '%q'", key, expectedVal, val)
 	}
 
 	return nil

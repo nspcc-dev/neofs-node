@@ -70,18 +70,61 @@ func TestValidator_VerifyAndUpdate(t *testing.T) { // test record with valid but
 			require.Error(t, err)
 		})
 
-		n := nodeInfoWithSomeAttrs()
+		t.Run("correct code", func(t *testing.T) {
+			n := nodeInfoWithSomeAttrs()
+			addLocodeAttr(n, [2]string{k.CountryCode().String(), k.LocationCode().String()})
 
-		addLocodeAttr(n, [2]string{k.CountryCode().String(), k.LocationCode().String()})
+			n.SetAttribute("CountryCode", k.CountryCode().String())
+			n.SetAttribute("Country", r.Country)
+			n.SetAttribute("Location", r.Location)
+			n.SetAttribute("SubDivCode", r.SubDivCode)
+			n.SetAttribute("SubDiv", r.SubDivName)
+			n.SetAttribute("Continent", r.Cont.String())
 
-		err := validator.VerifyAndUpdate(n)
-		require.NoError(t, err)
+			require.NoError(t, validator.VerifyAndUpdate(n))
+		})
 
-		require.Equal(t, k.CountryCode().String(), n.Attribute("CountryCode"))
-		require.Equal(t, r.Country, n.Attribute("Country"))
-		require.Equal(t, r.Location, n.Attribute("Location"))
-		require.Equal(t, r.SubDivCode, n.Attribute("SubDivCode"))
-		require.Equal(t, r.SubDivName, n.Attribute("SubDiv"))
-		require.Equal(t, r.Cont.String(), n.Attribute("Continent"))
+		t.Run("invalid SN expansion", func(t *testing.T) {
+
+			t.Run("invalid Country", func(t *testing.T) {
+				n := nodeInfoWithSomeAttrs()
+				addLocodeAttr(n, [2]string{"RU", "SPB"})
+				n.SetAttribute("CountryCode", r.Country+"bad")
+
+				require.Error(t, validator.VerifyAndUpdate(n))
+			})
+
+			t.Run("invalid Location", func(t *testing.T) {
+				n := nodeInfoWithSomeAttrs()
+				addLocodeAttr(n, [2]string{"RU", "SPB"})
+				n.SetAttribute("Location", r.Location+"bad")
+
+				require.Error(t, validator.VerifyAndUpdate(n))
+			})
+
+			t.Run("invalid SubDivCode", func(t *testing.T) {
+				n := nodeInfoWithSomeAttrs()
+				addLocodeAttr(n, [2]string{"RU", "SPB"})
+				n.SetAttribute("SubDivCode", r.SubDivCode+"bad")
+
+				require.Error(t, validator.VerifyAndUpdate(n))
+			})
+
+			t.Run("invalid SubDivName", func(t *testing.T) {
+				n := nodeInfoWithSomeAttrs()
+				addLocodeAttr(n, [2]string{"RU", "SPB"})
+				n.SetAttribute("SubDivName", r.SubDivName+"bad")
+
+				require.Error(t, validator.VerifyAndUpdate(n))
+			})
+
+			t.Run("invalid Continent", func(t *testing.T) {
+				n := nodeInfoWithSomeAttrs()
+				addLocodeAttr(n, [2]string{"RU", "SPB"})
+				n.SetAttribute("Continent", r.Cont.String()+"bad")
+
+				require.Error(t, validator.VerifyAndUpdate(n))
+			})
+		})
 	})
 }
