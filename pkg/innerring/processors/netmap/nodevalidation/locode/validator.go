@@ -17,8 +17,6 @@ type Validator struct {
 
 // New creates a new instance of the Validator.
 //
-// Panics if at least one value of the parameters is invalid.
-//
 // The created Validator does not require additional
 // initialization and is completely ready for work.
 func New() *Validator {
