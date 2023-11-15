@@ -20,7 +20,7 @@ func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
 	if n.LOCODE() == "" {
 		return nil
 	}
-	key, record, err := v.Get(n.LOCODE())
+	key, record, err := getRecord(n.LOCODE())
 	if err != nil {
 		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
