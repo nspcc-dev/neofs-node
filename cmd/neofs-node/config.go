@@ -422,7 +422,7 @@ type cfgNetmap struct {
 }
 
 type cfgNodeInfo struct {
-	// values from config
+	// values from config; NOT MODIFY AFTER APP INITIALIZATION
 	localInfo netmap.NodeInfo
 }
 
@@ -822,21 +822,15 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 	var res netmapV2.NodeInfo
-
-	ni, ok := c.cfgNetmap.state.getNodeInfo()
-	if ok {
-		ni.WriteToV2(&res)
-	} else {
-		c.cfgNodeInfo.localInfo.WriteToV2(&res)
-	}
+	c.cfgNodeInfo.localInfo.WriteToV2(&res)
 
 	return &res, nil
 }
 
-// handleLocalNodeInfo rewrites local node info from the NeoFS network map.
+// handleLocalNodeInfoFromNetwork rewrites cached node info from the NeoFS network map.
 // Called with nil when storage node is outside the NeoFS network map
 // (before entering the network and after leaving it).
-func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
+func (c *cfg) handleLocalNodeInfoFromNetwork(ni *netmap.NodeInfo) {
 	c.cfgNetmap.state.setNodeInfo(ni)
 	c.localNodeInNetmap.Store(ni != nil)
 }
@@ -845,15 +839,7 @@ func (c *cfg) handleLocalNodeInfo(ni *netmap.NodeInfo) {
 // with the binary-encoded information from the current node's configuration.
 // The state is set using the provided setter which MUST NOT be nil.
 func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
-	var ni netmap.NodeInfo
-	if niAtomic := c.cfgNetmap.state.nodeInfo.Load(); niAtomic != nil {
-		// node has already been bootstrapped successfully
-		ni = niAtomic.(netmap.NodeInfo)
-	} else {
-		// unknown network state
-		ni = c.cfgNodeInfo.localInfo
-	}
-
+	ni := c.cfgNodeInfo.localInfo
 	stateSetter(&ni)
 
 	prm := nmClient.AddPeerPrm{}
