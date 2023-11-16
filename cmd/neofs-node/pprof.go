@@ -1,17 +1,14 @@
 package main
 
 import (
-	"context"
-
 	profilerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/profiler"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
-	"go.uber.org/zap"
 )
 
-func initProfiler(c *cfg) {
+func initProfiler(c *cfg) *httputil.Server {
 	if !profilerconfig.Enabled(c.appCfg) {
 		c.log.Info("pprof is disabled")
-		return
+		return nil
 	}
 
 	var prm httputil.Prm
@@ -25,22 +22,5 @@ func initProfiler(c *cfg) {
 		),
 	)
 
-	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		runAndLog(c, "profiler", false, func(c *cfg) {
-			fatalOnErr(srv.Serve())
-		})
-	}))
-
-	c.closers = append(c.closers, func() {
-		c.log.Debug("shutting down profiling service")
-
-		err := srv.Shutdown()
-		if err != nil {
-			c.log.Debug("could not shutdown pprof server",
-				zap.String("error", err.Error()),
-			)
-		}
-
-		c.log.Debug("profiling service has been stopped")
-	})
+	return srv
 }

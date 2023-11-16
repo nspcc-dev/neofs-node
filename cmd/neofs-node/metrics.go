@@ -1,18 +1,15 @@
 package main
 
 import (
-	"context"
-
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 )
 
-func initMetrics(c *cfg) {
+func initMetrics(c *cfg) *httputil.Server {
 	if !metricsconfig.Enabled(c.appCfg) {
 		c.log.Info("prometheus is disabled")
-		return
+		return nil
 	}
 
 	var prm httputil.Prm
@@ -26,22 +23,5 @@ func initMetrics(c *cfg) {
 		),
 	)
 
-	c.workers = append(c.workers, newWorkerFromFunc(func(context.Context) {
-		runAndLog(c, "metrics", false, func(c *cfg) {
-			fatalOnErr(srv.Serve())
-		})
-	}))
-
-	c.closers = append(c.closers, func() {
-		c.log.Debug("shutting down metrics service")
-
-		err := srv.Shutdown()
-		if err != nil {
-			c.log.Debug("could not shutdown metrics server",
-				zap.String("error", err.Error()),
-			)
-		}
-
-		c.log.Debug("metrics service has been stopped")
-	})
+	return srv
 }
