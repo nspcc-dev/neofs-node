@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"go.uber.org/zap"
 )
 
@@ -57,6 +58,10 @@ func main() {
 
 	c := initCfg(appCfg)
 
+	preRunAndLog(c, "prometheus", initMetrics(c))
+
+	preRunAndLog(c, "pprof", initProfiler(c))
+
 	initApp(c)
 
 	c.setHealthStatus(control.HealthStatus_STARTING)
@@ -70,6 +75,43 @@ func main() {
 	c.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
 
 	shutdown(c)
+}
+
+func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
+	c.log.Info(fmt.Sprintf("initializing %s service...", name))
+	if srv == nil {
+		return
+	}
+
+	ln, err := srv.Listen()
+	if err != nil {
+		c.log.Fatal(fmt.Sprintf("could not init %s service", name),
+			zap.String("error", err.Error()),
+		)
+		return
+	}
+
+	c.log.Info(fmt.Sprintf("%s service is initialized", name))
+	c.wg.Add(1)
+	go func() {
+		runAndLog(c, name, true, func(c *cfg) {
+			fatalOnErr(srv.Serve(ln))
+			c.wg.Done()
+		})
+	}()
+
+	c.closers = append(c.closers, func() {
+		c.log.Debug(fmt.Sprintf("shutting down %s service", name))
+
+		err := srv.Shutdown()
+		if err != nil {
+			c.log.Debug(fmt.Sprintf("could not shutdown  %s server", name),
+				zap.String("error", err.Error()),
+			)
+		}
+
+		c.log.Debug(fmt.Sprintf("%s service has been stopped", name))
+	})
 }
 
 func initAndLog(c *cfg, name string, initializer func(*cfg)) {
@@ -96,8 +138,6 @@ func initApp(c *cfg) {
 	initAndLog(c, "reputation", initReputationService)
 	initAndLog(c, "notification", initNotifications)
 	initAndLog(c, "object", initObjectService)
-	initAndLog(c, "pprof", initProfiler)
-	initAndLog(c, "prometheus", initMetrics)
 	initAndLog(c, "tree", initTreeService)
 	initAndLog(c, "control", initControlService)
 

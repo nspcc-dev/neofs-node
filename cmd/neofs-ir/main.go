@@ -66,17 +66,16 @@ func main() {
 	intErr := make(chan error) // internal inner ring errors
 
 	httpServers := initHTTPServers(cfg, log)
-
-	innerRing, err := innerring.New(ctx, log, cfg, intErr)
-	exitErr(err)
-
 	// start HTTP servers
 	for i := range httpServers {
 		srv := httpServers[i]
 		go func() {
-			exitErr(srv.Serve())
+			exitErr(srv.ListenAndServe())
 		}()
 	}
+
+	innerRing, err := innerring.New(ctx, log, cfg, intErr)
+	exitErr(err)
 
 	// start inner ring
 	err = innerRing.Start(ctx, intErr)
@@ -115,8 +114,8 @@ func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
 		cfgPrefix string
 		handler   func() http.Handler
 	}{
-		{"pprof", httputil.Handler},
 		{"prometheus", promhttp.Handler},
+		{"pprof", httputil.Handler},
 	}
 
 	httpServers := make([]*httputil.Server, 0, len(items))
@@ -126,6 +125,7 @@ func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
 			log.Info(item.cfgPrefix + " is disabled, skip")
 			continue
 		}
+		log.Info(item.cfgPrefix + " is enabled")
 
 		addr := cfg.GetString(item.cfgPrefix + ".address")
 
