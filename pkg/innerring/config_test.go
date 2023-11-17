@@ -67,6 +67,7 @@ const validBlockchainConfigOptions = `
       ping:
         interval: 44s
         timeout: 55s
+    set_roles_in_genesis: true
 `
 
 func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *viper.Viper {
@@ -199,6 +200,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 				4:  1,
 				12: 4,
 			},
+			SetRolesInGenesis: true,
 		}, c)
 	})
 
@@ -280,6 +282,11 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("p2p.peers.max", math.MaxInt32+1)},
 			{kvF("p2p.peers.attempts", -1)},
 			{kvF("p2p.peers.attempts", math.MaxInt32+1)},
+			{kvF("set_roles_in_genesis", "not a boolean")},
+			{kvF("set_roles_in_genesis", 1)},
+			{kvF("set_roles_in_genesis", "True")},
+			{kvF("set_roles_in_genesis", "False")},
+			{kvF("set_roles_in_genesis", "not a boolean")},
 		} {
 			var reportMsg []string
 

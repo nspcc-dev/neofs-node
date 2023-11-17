@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/consensus"
 	"github.com/nspcc-dev/neo-go/pkg/core"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -239,6 +240,13 @@ type Config struct {
 	// must not exceed Committee length. Value for zero key (genesis height) is
 	// required.
 	ValidatorsHistory map[uint32]uint32
+
+	// Whether to designate [noderoles.P2PNotary] and [noderoles.NeoFSAlphabet]
+	// roles to the Committee (keep an eye on ValidatorsHistory) for genesis block
+	// in the RoleManagement contract.
+	//
+	// Optional: by default, roles are unset.
+	SetRolesInGenesis bool
 }
 
 // New returns new Blockchain configured by the specified Config. New panics if
@@ -348,6 +356,16 @@ func New(cfg Config) (res *Blockchain, err error) {
 		}
 	} else {
 		cfgBaseProto.ValidatorsCount = uint32(len(standByCommittee))
+	}
+
+	if cfg.SetRolesInGenesis {
+		// note that ValidatorsHistory or ValidatorsCount field must be set above
+		genesisValidatorsCount := cfgBaseProto.GetNumOfCNs(0)
+		cfgBaseProto.Genesis.Roles = map[noderoles.Role]keys.PublicKeys{
+			// Notary service is always enabled, see below
+			noderoles.P2PNotary:     cfg.Committee[:genesisValidatorsCount],
+			noderoles.NeoFSAlphabet: cfg.Committee[:genesisValidatorsCount],
+		}
 	}
 
 	cfgBaseApp := &cfgBase.ApplicationConfiguration

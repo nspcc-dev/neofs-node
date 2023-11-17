@@ -218,6 +218,11 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
+	c.SetRolesInGenesis, err = parseConfigBool(v, rootSection+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
+	}
+
 	c.Logger = _logger
 
 	return c, nil

@@ -83,6 +83,9 @@ morph:
       ping: # Optional settings of pinging mechanism
         interval: 30s # Optional time period between pings. Defaults to 30s. Must not be negative
         timeout: 90s # Optional time period to wait for pong. Defaults to 1m. Must not be negative
+    set_roles_in_genesis: true # Optional flag for designating P2PNotary and NeoFSAlphabet roles to all
+      # genesis block validators. The validators depend on 'committee' and, if set, 'validators_history'.
+      # Must be 'true' or 'false'.
 
 fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the FS chain. By default,
   # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).
