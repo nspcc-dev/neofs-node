@@ -73,7 +73,15 @@ var listContainerObjectsCmd = &cobra.Command{
 				if err == nil {
 					attrs := resHead.Header().UserAttributes()
 					for i := range attrs {
-						cmd.Printf("  %s: %s\n", attrs[i].Key(), attrs[i].Value())
+						key := attrs[i].Key()
+						val := attrs[i].Value()
+
+						if key == object.AttributeTimestamp {
+							cmd.Printf("  %s: %s (%s)\n", key, val, common.PrettyPrintUnixTime(val))
+							continue
+						}
+
+						cmd.Printf("  %s: %s\n", key, val)
 					}
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)
