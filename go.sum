@@ -245,8 +245,8 @@ github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 h1:n4ZaF
 github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22/go.mod h1:79bEUDEviBHJMFV6Iq6in57FEOCMcRhfQnfaf0ETA5U=
 github.com/nspcc-dev/hrw/v2 v2.0.0-20231115095647-bf62f4ad0a43 h1:zXkCRGTHqhkBRJo+EOSnwfDyv7excpz2qN/RQUknm5A=
 github.com/nspcc-dev/hrw/v2 v2.0.0-20231115095647-bf62f4ad0a43/go.mod h1:BGU4YsuoFXjQddsCfUXpq5uNr2A8W4PrWbiljdD/TpU=
-github.com/nspcc-dev/locode-db v0.4.1-0.20231110164540-a21ea2774f2e h1:mcL78g9av0/CYVrgMgGqRJLwZAfvLdIaoaPnEDLC6n8=
-github.com/nspcc-dev/locode-db v0.4.1-0.20231110164540-a21ea2774f2e/go.mod h1:M+v8C+t9vwYbIVEdTPX/0w2LFRY+FJnYbVUdrzq7iWQ=
+github.com/nspcc-dev/locode-db v0.4.1-0.20231120112844-64febbb63ce3 h1:UM9Cu0g1UxwWiJK6B5SLbC+b/kqX0Z7CfZB2AVD9D2Y=
+github.com/nspcc-dev/locode-db v0.4.1-0.20231120112844-64febbb63ce3/go.mod h1:M+v8C+t9vwYbIVEdTPX/0w2LFRY+FJnYbVUdrzq7iWQ=
 github.com/nspcc-dev/neo-go v0.103.1 h1:BfRBceHUu8jSc1KQy7CzmQ/pa+xzAmgcyteGf0/IGgM=
 github.com/nspcc-dev/neo-go v0.103.1/go.mod h1:MD7MPiyshUwrE5n1/LzxeandbItaa/iLW/bJb6gNs/U=
 github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231020160724-c3955f87d1b5 h1:09CpI5uwsxb1EeFPIKQRwwWlfCmDD/Dwwh01lPiQScM=
