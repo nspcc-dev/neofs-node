@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - IR uses internal LOCODE DB from Go package (#2610)
 - Contract group for the committee is no longer registered/used in the Sidechain auto-deployment (#2642)
 - The priority of metrics service is increased (#2428)
+- The priority of running control service is maximized (#2585)
 
 ### Removed
 - deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
