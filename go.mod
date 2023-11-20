@@ -15,7 +15,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.0
 	github.com/nats-io/nats.go v1.31.0
 	github.com/nspcc-dev/hrw/v2 v2.0.0-20231115095647-bf62f4ad0a43
-	github.com/nspcc-dev/locode-db v0.4.1-0.20231110164540-a21ea2774f2e
+	github.com/nspcc-dev/locode-db v0.4.1-0.20231120112844-64febbb63ce3
 	github.com/nspcc-dev/neo-go v0.103.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.18.0

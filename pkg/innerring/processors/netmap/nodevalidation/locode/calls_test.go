@@ -41,7 +41,7 @@ func TestValidator_VerifyAndUpdate(t *testing.T) { // test record with valid but
 
 	var cont locodedb.Continent = locodedb.ContinentEurope
 
-	r.Cont = &cont
+	r.Cont = cont
 
 	validator := locode.New()
 
