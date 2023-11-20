@@ -23,15 +23,7 @@ func New() *Validator {
 	return &Validator{}
 }
 
-func getRecord(lc string) (*locodedb.Key, locodedb.Record, error) {
-	country, location := lc[:2], lc[2:]
-	if lc[2] == ' ' {
-		location = lc[3:]
-	}
-	key, err := locodedb.NewKey(country, location)
-	if err != nil {
-		return nil, locodedb.Record{}, err
-	}
+func getRecord(lc string) (locodedb.Record, error) {
 	rec, err := locodedb.Get(lc)
-	return key, rec, err
+	return rec, err
 }

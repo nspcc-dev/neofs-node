@@ -3,6 +3,7 @@ package locode
 import (
 	"fmt"
 
+	"github.com/nspcc-dev/locode-db/pkg/locodedb"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
@@ -15,15 +16,16 @@ import (
 // If n contains UN-LOCODE attribute and its value does not
 // match the UN/LOCODE format, an error is returned.
 func (v *Validator) Verify(n netmap.NodeInfo) error {
-	if n.LOCODE() == "" {
+	lAttr := n.LOCODE()
+	if lAttr == "" {
 		return nil
 	}
-	key, record, err := getRecord(n.LOCODE())
+	record, err := getRecord(lAttr)
 	if err != nil {
 		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
-	err = checkAttribute(n, "CountryCode", key.CountryCode().String())
+	err = checkAttribute(n, "CountryCode", lAttr[:locodedb.CountryCodeLen])
 	if err != nil {
 		return err
 	}

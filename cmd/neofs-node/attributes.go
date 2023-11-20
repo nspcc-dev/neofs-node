@@ -24,14 +24,15 @@ func parseAttributes(c *cfg) {
 		return
 	}
 
-	key, record, err := getRecord(locAttr)
+	record, err := getRecord(locAttr)
 	if err != nil {
 		fatalOnErr(fmt.Errorf("could not get locode record from DB: %w", err))
 	}
 
+	countryCode := locAttr[:locodedb.CountryCodeLen]
 	n := &c.cfgNodeInfo.localInfo
 
-	setLocodeAttr(n, "CountryCode", key.CountryCode().String())
+	setLocodeAttr(n, "CountryCode", countryCode)
 	setLocodeAttr(n, "Country", record.Country)
 	setLocodeAttr(n, "Location", record.Location)
 	setLocodeAttr(n, "Continent", record.Cont.String())
@@ -43,17 +44,9 @@ func parseAttributes(c *cfg) {
 	}
 }
 
-func getRecord(lc string) (*locodedb.Key, locodedb.Record, error) {
-	country, location := lc[:2], lc[2:]
-	if lc[2] == ' ' {
-		location = lc[3:]
-	}
-	key, err := locodedb.NewKey(country, location)
-	if err != nil {
-		return nil, locodedb.Record{}, err
-	}
+func getRecord(lc string) (locodedb.Record, error) {
 	rec, err := locodedb.Get(lc)
-	return key, rec, err
+	return rec, err
 }
 
 func setLocodeAttr(ni *netmap.NodeInfo, key, value string) {
