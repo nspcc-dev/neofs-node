@@ -63,12 +63,13 @@ func initControlService(c *cfg) {
 	})
 
 	control.RegisterControlServiceServer(c.cfgControlService.server, ctlSvc)
-
-	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
+	c.wg.Add(1)
+	go func() {
 		runAndLog(c, "control", false, func(c *cfg) {
 			fatalOnErr(c.cfgControlService.server.Serve(lis))
+			c.wg.Done()
 		})
-	}))
+	}()
 }
 
 func (c *cfg) NetmapStatus() control.NetmapStatus {

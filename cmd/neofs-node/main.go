@@ -121,6 +121,7 @@ func initAndLog(c *cfg, name string, initializer func(*cfg)) {
 }
 
 func initApp(c *cfg) {
+	initAndLog(c, "control", initControlService)
 	initLocalStorage(c)
 
 	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -139,7 +140,6 @@ func initApp(c *cfg) {
 	initAndLog(c, "notification", initNotifications)
 	initAndLog(c, "object", initObjectService)
 	initAndLog(c, "tree", initTreeService)
-	initAndLog(c, "control", initControlService)
 
 	initAndLog(c, "morph notifications", listenMorphNotifications)
 

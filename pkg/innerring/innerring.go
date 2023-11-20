@@ -519,6 +519,53 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
+	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
+	if controlSvcEndpoint != "" {
+		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
+		authKeys := make([][]byte, 0, len(authKeysStr))
+
+		for i := range authKeysStr {
+			key, err := hex.DecodeString(authKeysStr[i])
+			if err != nil {
+				return nil, fmt.Errorf("could not parse Control authorized key %s: %w",
+					authKeysStr[i],
+					err,
+				)
+			}
+
+			authKeys = append(authKeys, key)
+		}
+
+		lis, err := net.Listen("tcp", controlSvcEndpoint)
+		if err != nil {
+			return nil, err
+		}
+		var p controlsrv.Prm
+
+		p.SetPrivateKey(*server.key)
+		p.SetHealthChecker(server)
+
+		controlSvc := controlsrv.New(p,
+			controlsrv.WithAllowedKeys(authKeys),
+		)
+
+		grpcControlSrv := grpc.NewServer()
+		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
+
+		go func() {
+			errChan <- grpcControlSrv.Serve(lis)
+		}()
+
+		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
+	} else {
+		log.Info("no Control server endpoint specified, service is disabled")
+	}
+
+	if cfg.GetString("prometheus.address") != "" {
+		m := metrics.NewInnerRingMetrics(misc.Version)
+		server.metrics = &m
+	}
+
 	// create morph listener
 	server.morphListener, err = createListener(server.morphClient, morphChain)
 	if err != nil {
@@ -984,57 +1031,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	})
 
 	server.addBlockTimer(emissionTimer)
-
-	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
-	if controlSvcEndpoint != "" {
-		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
-		authKeys := make([][]byte, 0, len(authKeysStr))
-
-		for i := range authKeysStr {
-			key, err := hex.DecodeString(authKeysStr[i])
-			if err != nil {
-				return nil, fmt.Errorf("could not parse Control authorized key %s: %w",
-					authKeysStr[i],
-					err,
-				)
-			}
-
-			authKeys = append(authKeys, key)
-		}
-
-		var p controlsrv.Prm
-
-		p.SetPrivateKey(*server.key)
-		p.SetHealthChecker(server)
-
-		controlSvc := controlsrv.New(p,
-			controlsrv.WithAllowedKeys(authKeys),
-		)
-
-		grpcControlSrv := grpc.NewServer()
-		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
-
-		server.runners = append(server.runners, func(ch chan<- error) error {
-			lis, err := net.Listen("tcp", controlSvcEndpoint)
-			if err != nil {
-				return err
-			}
-
-			go func() {
-				ch <- grpcControlSrv.Serve(lis)
-			}()
-			return nil
-		})
-
-		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
-	} else {
-		log.Info("no Control server endpoint specified, service is disabled")
-	}
-
-	if cfg.GetString("prometheus.address") != "" {
-		m := metrics.NewInnerRingMetrics(misc.Version)
-		server.metrics = &m
-	}
 
 	return server, nil
 }
