@@ -15,13 +15,19 @@ func (s *Server) RestoreShard(_ context.Context, req *control.RestoreShardReques
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err = s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
 	var prm shard.RestorePrm
 	prm.WithPath(req.GetBody().GetFilepath())
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 
-	err = s.s.RestoreShard(shardID, prm)
+	err = s.storage.RestoreShard(shardID, prm)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

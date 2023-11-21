@@ -15,11 +15,17 @@ func (s *Server) FlushCache(_ context.Context, req *control.FlushCacheRequest) (
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err = s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, shardID := range s.getShardIDList(req.GetBody().GetShard_ID()) {
 		var prm engine.FlushWriteCachePrm
 		prm.SetShardID(shardID)
 
-		_, err = s.s.FlushWriteCache(prm)
+		_, err = s.storage.FlushWriteCache(prm)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}

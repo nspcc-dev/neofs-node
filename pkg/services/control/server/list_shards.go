@@ -16,13 +16,18 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err := s.ready()
+	if err != nil {
+		return nil, err
+	}
 	// create and fill response
 	resp := new(control.ListShardsResponse)
 
 	body := new(control.ListShardsResponse_Body)
 	resp.SetBody(body)
 
-	info := s.s.DumpInfo()
+	info := s.storage.DumpInfo()
 
 	shardInfos := make([]*control.ShardInfo, 0, len(info.Shards))
 

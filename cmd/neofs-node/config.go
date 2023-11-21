@@ -52,6 +52,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
+	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
 	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
@@ -318,6 +319,8 @@ type shared struct {
 	treeService *tree.Service
 
 	metricsCollector *metrics.NodeMetrics
+
+	control *controlSvc.Server
 }
 
 func (s *shared) resetCaches() {

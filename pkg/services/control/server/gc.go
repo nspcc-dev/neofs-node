@@ -23,6 +23,12 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err := s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	binAddrList := req.GetBody().GetAddressList()
 	addrList := make([]oid.Address, len(binAddrList))
 
@@ -41,7 +47,7 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 		prm.WithForceRemoval()
 		prm.WithAddress(addrList[i])
 
-		_, err := s.s.Delete(prm)
+		_, err := s.storage.Delete(prm)
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}

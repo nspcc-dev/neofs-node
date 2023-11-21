@@ -2,6 +2,8 @@ package control
 
 import (
 	"crypto/ecdsa"
+	"fmt"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -13,6 +15,11 @@ import (
 // Server is an entity that serves
 // Control service on storage node.
 type Server struct {
+	// initialization sync; locks any calls except
+	// health checks before [Server.MarkReady] is
+	// called
+	available atomic.Bool
+
 	*cfg
 }
 
@@ -65,89 +72,47 @@ type cfg struct {
 
 	treeService TreeService
 
-	s *engine.StorageEngine
-}
-
-func defaultCfg() *cfg {
-	return &cfg{}
+	storage *engine.StorageEngine
 }
 
 // New creates, initializes and returns new Server instance.
-func New(opts ...Option) *Server {
-	c := defaultCfg()
-
-	for _, opt := range opts {
-		opt(c)
+// Must be marked as available with [Server.MarkReady] when all the
+// components for serving are ready. Before [Server.MarkReady] call
+// only health checks are available.
+func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChecker) *Server {
+	cfg := &cfg{
+		key:           key,
+		allowedKeys:   authorizedKeys,
+		healthChecker: healthChecker,
 	}
 
 	return &Server{
-		cfg: c,
+		cfg: cfg,
 	}
 }
 
-// WithKey returns option to set private key
-// used for signing responses.
-func WithKey(key *ecdsa.PrivateKey) Option {
-	return func(c *cfg) {
-		c.key = key
+// MarkReady marks server available. Before this call none of the other calls
+// are available except for the health checks.
+func (s *Server) MarkReady(e *engine.StorageEngine, nm netmap.Source, c container.Source, r *replicator.Replicator, st NodeState, tr TreeService) {
+	panicOnNil := func(name string, service any) {
+		if service == nil {
+			panic(fmt.Sprintf("'%s' is nil", name))
+		}
 	}
-}
 
-// WithAuthorizedKeys returns option to add list of public
-// keys that have rights to use Control service.
-func WithAuthorizedKeys(keys [][]byte) Option {
-	return func(c *cfg) {
-		c.allowedKeys = append(c.allowedKeys, keys...)
-	}
-}
+	panicOnNil("storage engine", e)
+	panicOnNil("netmap source", nm)
+	panicOnNil("container source", c)
+	panicOnNil("replicator", r)
+	panicOnNil("node state", st)
+	panicOnNil("tree service", st)
 
-// WithHealthChecker returns option to set component
-// to calculate node health status.
-func WithHealthChecker(hc HealthChecker) Option {
-	return func(c *cfg) {
-		c.healthChecker = hc
-	}
-}
+	s.storage = e
+	s.netMapSrc = nm
+	s.cnrSrc = c
+	s.replicator = r
+	s.nodeState = st
+	s.treeService = tr
 
-// WithNetMapSource returns option to set network map storage.
-func WithNetMapSource(netMapSrc netmap.Source) Option {
-	return func(c *cfg) {
-		c.netMapSrc = netMapSrc
-	}
-}
-
-// WithContainerSource returns option to set container storage.
-func WithContainerSource(cnrSrc container.Source) Option {
-	return func(c *cfg) {
-		c.cnrSrc = cnrSrc
-	}
-}
-
-// WithReplicator returns option to set network map storage.
-func WithReplicator(r *replicator.Replicator) Option {
-	return func(c *cfg) {
-		c.replicator = r
-	}
-}
-
-// WithNodeState returns option to set node network state component.
-func WithNodeState(state NodeState) Option {
-	return func(c *cfg) {
-		c.nodeState = state
-	}
-}
-
-// WithLocalStorage returns option to set local storage engine that
-// contains information about shards.
-func WithLocalStorage(engine *engine.StorageEngine) Option {
-	return func(c *cfg) {
-		c.s = engine
-	}
-}
-
-// WithTreeService returns an option to set tree service.
-func WithTreeService(s TreeService) Option {
-	return func(c *cfg) {
-		c.treeService = s
-	}
+	s.available.Store(true)
 }
