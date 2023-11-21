@@ -25,39 +25,28 @@ func (v *Validator) Verify(n netmap.NodeInfo) error {
 		return fmt.Errorf("could not get locode record from DB: %w", err)
 	}
 
-	err = checkAttribute(n, "CountryCode", lAttr[:locodedb.CountryCodeLen])
-	if err != nil {
-		return err
+	if want, got := lAttr[:locodedb.CountryCodeLen], n.CountryCode(); want != got {
+		return wrongLocodeAttrErr("country code", want, got)
 	}
-	err = checkAttribute(n, "Country", record.Country)
-	if err != nil {
-		return err
+	if want, got := record.Country, n.CountryName(); want != got {
+		return wrongLocodeAttrErr("country name", want, got)
 	}
-	err = checkAttribute(n, "Location", record.Location)
-	if err != nil {
-		return err
+	if want, got := record.Location, n.LocationName(); want != got {
+		return wrongLocodeAttrErr("location", want, got)
 	}
-	err = checkAttribute(n, "Continent", record.Cont.String())
-	if err != nil {
-		return err
+	if want, got := record.Cont.String(), n.ContinentName(); want != got {
+		return wrongLocodeAttrErr("continent", want, got)
 	}
-	err = checkAttribute(n, "SubDivCode", record.SubDivCode)
-	if err != nil {
-		return err
+	if want, got := record.SubDivCode, n.SubdivisionCode(); want != got {
+		return wrongLocodeAttrErr("subdivision code", want, got)
 	}
-	err = checkAttribute(n, "SubDiv", record.SubDivName)
-	if err != nil {
-		return err
+	if want, got := record.SubDivName, n.SubdivisionName(); want != got {
+		return wrongLocodeAttrErr("subdivision name", want, got)
 	}
 
 	return nil
 }
 
-func checkAttribute(n netmap.NodeInfo, key, expectedVal string) error {
-	val := n.Attribute(key)
-	if val != expectedVal {
-		return fmt.Errorf("wrong '%q' attribute value: want '%q', got '%q'", key, expectedVal, val)
-	}
-
-	return nil
+func wrongLocodeAttrErr(attrName, want, got string) error {
+	return fmt.Errorf("wrong %q attribute value: want '%q', got '%q'", attrName, want, got)
 }
