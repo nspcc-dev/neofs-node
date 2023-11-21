@@ -36,19 +36,7 @@ func initControlService(c *cfg) {
 		rawPubs = append(rawPubs, pubs[i].Bytes())
 	}
 
-	ctlSvc := controlSvc.New(
-		controlSvc.WithKey(&c.key.PrivateKey),
-		controlSvc.WithAuthorizedKeys(rawPubs),
-		controlSvc.WithHealthChecker(c),
-		controlSvc.WithNetMapSource(c.netMapSource),
-		controlSvc.WithContainerSource(c.cfgObject.cnrSource),
-		controlSvc.WithReplicator(c.replicator),
-		controlSvc.WithNodeState(c),
-		controlSvc.WithLocalStorage(c.cfgObject.cfgLocalStorage.localStorage),
-		controlSvc.WithTreeService(treeSynchronizer{
-			c.treeService,
-		}),
-	)
+	c.shared.control = controlSvc.New(&c.key.PrivateKey, rawPubs, c)
 
 	lis, err := net.Listen("tcp", endpoint)
 	if err != nil {
@@ -62,7 +50,7 @@ func initControlService(c *cfg) {
 		stopGRPC("NeoFS Control API", c.cfgControlService.server, c.log)
 	})
 
-	control.RegisterControlServiceServer(c.cfgControlService.server, ctlSvc)
+	control.RegisterControlServiceServer(c.cfgControlService.server, c.shared.control)
 	c.wg.Add(1)
 	go func() {
 		runAndLog(c, "control", false, func(c *cfg) {

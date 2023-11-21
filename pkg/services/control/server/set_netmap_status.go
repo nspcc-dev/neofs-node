@@ -17,7 +17,12 @@ func (s *Server) SetNetmapStatus(_ context.Context, req *control.SetNetmapStatus
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	var err error
+	// check availability
+	err := s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	bodyReq := req.GetBody()
 	st := bodyReq.GetStatus()
 	force := bodyReq.GetForceMaintenance()

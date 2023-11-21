@@ -144,6 +144,15 @@ func initApp(c *cfg) {
 	initAndLog(c, "morph notifications", listenMorphNotifications)
 
 	c.workers = append(c.workers, newWorkerFromFunc(c.configWatcher))
+
+	c.shared.control.MarkReady(
+		c.cfgObject.cfgLocalStorage.localStorage,
+		c.netMapSource,
+		c.cfgObject.cnrSource,
+		c.replicator,
+		c,
+		treeSynchronizer{c.treeService},
+	)
 }
 
 func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {

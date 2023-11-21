@@ -15,13 +15,19 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err = s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
 	var prm shard.DumpPrm
 	prm.WithPath(req.GetBody().GetFilepath())
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 
-	err = s.s.DumpShard(shardID, prm)
+	err = s.storage.DumpShard(shardID, prm)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -24,12 +24,18 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err = s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	var prm engine.EvacuateShardPrm
 	prm.WithShardIDList(s.getShardIDList(req.GetBody().GetShard_ID()))
 	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
 	prm.WithFaultHandler(s.replicate)
 
-	res, err := s.s.Evacuate(prm)
+	res, err := s.storage.Evacuate(prm)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

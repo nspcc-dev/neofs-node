@@ -20,6 +20,12 @@ func (s *Server) SynchronizeTree(ctx context.Context, req *control.SynchronizeTr
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
+	// check availability
+	err = s.ready()
+	if err != nil {
+		return nil, err
+	}
+
 	if s.treeService == nil {
 		return nil, status.Error(codes.Internal, "tree service is disabled")
 	}
