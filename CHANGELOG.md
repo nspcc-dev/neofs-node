@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Policer's setting to the SN's application configuration (#2600)
 - Support of verified domains for the storage nodes (#2280)
 - `neofs-lens storage status` CLI command (#2550)
+- Human-readable output of objects' creation timestamp to `neofs-cli container list-objects` (#2653)
 
 ### Fixed
 - `neofs-cli netmap netinfo` documentation (#2555)
