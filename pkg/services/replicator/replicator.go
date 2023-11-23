@@ -25,6 +25,8 @@ type cfg struct {
 	remoteSender *putsvc.RemoteSender
 
 	localStorage *engine.StorageEngine
+
+	copyBinObjSingleBuffer bool
 }
 
 func defaultCfg() *cfg {
@@ -71,5 +73,14 @@ func WithRemoteSender(v *putsvc.RemoteSender) Option {
 func WithLocalStorage(v *engine.StorageEngine) Option {
 	return func(c *cfg) {
 		c.localStorage = v
+	}
+}
+
+// CopyBinaryObjectWithSingleBuffer tells [Replicator] whether single message
+// buffer should be allocated when packing binary object into messages for the
+// particular remote node. By default, several buffers may be allocated.
+func CopyBinaryObjectWithSingleBuffer(useSingleBuffer bool) Option {
+	return func(c *cfg) {
+		c.copyBinObjSingleBuffer = useSingleBuffer
 	}
 }

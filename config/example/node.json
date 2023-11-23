@@ -118,7 +118,8 @@
   },
   "replicator": {
     "pool_size": 10,
-    "put_timeout": "15s"
+    "put_timeout": "15s",
+    "use_single_message_buffer": true
   },
   "object": {
     "delete": {

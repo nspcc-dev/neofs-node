@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"path/filepath"
 	"sync"
@@ -313,6 +314,43 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, err
+}
+
+// OpenObjectStream looks up for referenced object in the Peapod and, if the
+// object exists, opens and returns stream with binary-encoded object. Returns
+// [apistatus.ErrObjectNotFound] if object was not found. Resulting stream must
+// be finally closed.
+func (x *Peapod) OpenObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error) {
+	var data []byte
+
+	err := x.bolt.View(func(tx *bbolt.Tx) error {
+		bktRoot := tx.Bucket(rootBucket)
+		if bktRoot == nil {
+			return errMissingRootBucket
+		}
+
+		val := bktRoot.Get(keyForObject(objAddr))
+		if val != nil {
+			data = slice.Copy(val)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+	}
+
+	if data == nil {
+		return nil, apistatus.ErrObjectNotFound
+	}
+
+	// copy-paste from FSTree
+	data, err = x.compress.Decompress(data)
+	if err != nil {
+		return nil, fmt.Errorf("decompress binary object from the BoltDB: %w", err)
+	}
+
+	return util.NewBytesReadSeekCloser(data), err
 }
 
 // GetRange works like Get but reads specific payload range.

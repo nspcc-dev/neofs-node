@@ -187,6 +187,7 @@ func initObjectService(c *cfg) {
 		replicator.WithRemoteSender(
 			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(clientConstructor)),
 		),
+		replicator.CopyBinaryObjectWithSingleBuffer(replicatorconfig.UseSingleMessageBuffer(c.appCfg)),
 	)
 
 	c.policer = policer.New(

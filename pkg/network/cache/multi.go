@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -218,6 +220,25 @@ func (x *multiClient) ObjectPutInit(ctx context.Context, header objectSDK.Object
 	})
 
 	return
+}
+
+func (x *multiClient) CopyBinaryObject(ctx context.Context, src io.ReadSeeker, signer neofscrypto.Signer, opts client.CopyBinaryObjectOptions) error {
+	var errSeek error
+	err := x.iterateClients(ctx, func(c clientcore.Client) error {
+		err := c.CopyBinaryObject(ctx, src, signer, opts)
+		if err != nil {
+			_, errSeek = src.Seek(0, io.SeekStart)
+			if errSeek != nil {
+				return nil
+			}
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	return errSeek
 }
 
 func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error {

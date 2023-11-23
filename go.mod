@@ -17,9 +17,9 @@ require (
 	github.com/nspcc-dev/hrw/v2 v2.0.0-20231115095647-bf62f4ad0a43
 	github.com/nspcc-dev/locode-db v0.4.1-0.20231120112844-64febbb63ce3
 	github.com/nspcc-dev/neo-go v0.103.1
-	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
+	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20231123192948-3118b92f4a4a
 	github.com/nspcc-dev/neofs-contract v0.18.0
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231113180740-3b24af0410c0
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231123193402-a60e899f7b32
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.8.2
@@ -50,7 +50,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
@@ -74,6 +74,7 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/dbft v0.0.0-20230515113611-25db6ba61d5c // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect
+	github.com/nspcc-dev/hrw v1.0.9 // indirect
 	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231020160724-c3955f87d1b5 // indirect
 	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
@@ -110,3 +111,5 @@ retract (
 	v1.22.1 // Contains retraction only.
 	v1.22.0 // Published accidentally.
 )
+
+replace google.golang.org/grpc => github.com/cthulhu-rider/grpc-go v0.0.0-20231123095204-ced09a8c28ff

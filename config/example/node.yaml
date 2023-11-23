@@ -107,6 +107,8 @@ policer:
 replicator:
   put_timeout: 15s  # timeout for the Replicator PUT remote operation (defaults to 1m)
   pool_size: 10     # maximum amount of concurrent replications
+  use_single_message_buffer: true # EXPERIMENTAL: whether single message buffer should be allocated
+    # when packing binary object into messages for replication to the particular remote storage node
 
 object:
   delete:

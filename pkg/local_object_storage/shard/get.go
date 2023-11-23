@@ -1,7 +1,9 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -160,4 +162,46 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 	res, err := cb(s.blobStor, storageID)
 
 	return res, true, err
+}
+
+// OpenObjectStream looks up for referenced object in the Shard and, if the
+// object exists, opens and returns stream with binary-encoded object. Resulting
+// stream must be finally closed. Returns [apistatus.ErrObjectNotFound] if
+// object was not found.
+func (s *Shard) OpenObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var res io.ReadSeekCloser
+	var errCache error
+
+	if s.hasWriteCache() {
+		res, errCache = s.writeCache.OpenObjectStream(objAddr)
+		if errCache == nil {
+			return res, nil
+		}
+	}
+
+	var errBLOB error
+	res, errBLOB = s.blobStor.OpenObjectStream(objAddr)
+	if errBLOB != nil {
+		notFoundInCache := errCache == nil || errors.Is(errCache, apistatus.ErrObjectNotFound)
+		// errCache is nil when write-cache is disabled, but here it doesn't matter
+		if errors.Is(errBLOB, apistatus.ErrObjectNotFound) {
+			if notFoundInCache {
+				return nil, apistatus.ErrObjectNotFound
+			}
+
+			return nil, fmt.Errorf("get object from write-cache: %w", errCache)
+		}
+
+		if notFoundInCache {
+			// no need to report such write-cache error
+			return nil, fmt.Errorf("get object from BLOB storage: %w", errBLOB)
+		}
+
+		return nil, fmt.Errorf("get object from BLOB storage: %w (write-cache failure: %v)", errBLOB, errCache)
+	}
+
+	return res, nil
 }

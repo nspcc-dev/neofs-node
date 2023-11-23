@@ -31,3 +31,9 @@ func PutTimeout(c *config.Config) time.Duration {
 func PoolSize(c *config.Config) int {
 	return int(config.IntSafe(c.Sub(subsection), "pool_size"))
 }
+
+// UseSingleMessageBuffer returns value of the boolean
+// 'use_single_message_buffer' config parameter from 'replicator' section.
+func UseSingleMessageBuffer(c *config.Config) bool {
+	return config.BoolSafe(c.Sub(subsection), "use_single_message_buffer")
+}

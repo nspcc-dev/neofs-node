@@ -3,6 +3,7 @@ package putsvc
 import (
 	"context"
 	"fmt"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -10,6 +11,8 @@ import (
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
@@ -131,6 +134,41 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
+	}
+
+	return nil
+}
+
+// CopyObjectToNode copies binary-encoded NeoFS object from the given
+// [io.ReadSeeker] into local storage of the node described by specified
+// [netmap.NodeInfo]. Parameter useSingleBuffer is set, object will be copied
+// using single buffer.
+func (s *RemoteSender) CopyObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, src io.ReadSeeker, useSingleBuffer bool) error {
+	var nodeInfoForCons clientcore.NodeInfo
+
+	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, netmapCore.Node(nodeInfo))
+	if err != nil {
+		return fmt.Errorf("parse remote node info: %w", err)
+	}
+
+	key, err := s.keyStorage.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("fetch local node's private key: %w", err)
+	}
+
+	c, err := s.clientConstructor.Get(nodeInfoForCons)
+	if err != nil {
+		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
+	}
+
+	var opts client.CopyBinaryObjectOptions
+	if useSingleBuffer {
+		opts.UseSingleMessageBuffer()
+	}
+
+	err = c.CopyBinaryObject(ctx, src, (*neofsecdsa.Signer)(key), opts)
+	if err != nil {
+		return fmt.Errorf("copy object using NeoFS API client of the remote node: %w", err)
 	}
 
 	return nil
