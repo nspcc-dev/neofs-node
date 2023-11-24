@@ -62,7 +62,7 @@ var (
 // access denial or the check cannot be done at the moment.
 //
 // VerifyAndUpdate does not mutate the argument.
-func (x *Validator) VerifyAndUpdate(info *netmap.NodeInfo) error {
+func (x *Validator) Verify(info netmap.NodeInfo) error {
 	verifiedNodesDomain := info.VerifiedNodesDomain()
 	if verifiedNodesDomain == "" {
 		return nil

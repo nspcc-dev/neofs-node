@@ -91,7 +91,7 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 
 		v := New(newTestNNS())
 
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 		require.NoError(t, err)
 	})
 
@@ -102,11 +102,11 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 		v := New(newTestNNS())
 
 		node.SetPublicKey(nil)
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 		require.ErrorIs(t, err, errMissingNodeBinaryKey)
 
 		node.SetPublicKey([]byte{})
-		err = v.VerifyAndUpdate(&node)
+		err = v.Verify(node)
 		require.ErrorIs(t, err, errMissingNodeBinaryKey)
 	})
 
@@ -114,14 +114,14 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 		anyErr := errors.New("any error")
 		v := New(newTestNNSWithStaticErr(anyErr))
 
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 		require.ErrorIs(t, err, anyErr)
 	})
 
 	t.Run("missing domain", func(t *testing.T) {
 		v := New(newTestNNS())
 
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 		require.Error(t, err)
 		require.NotErrorIs(t, err, errAccessDenied)
 	})
@@ -132,19 +132,19 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 
 		nns.registerDomain(verifiedDomain)
 
-		err := v.VerifyAndUpdate(&node)
+		err := v.Verify(node)
 		require.ErrorIs(t, err, errAccessDenied)
 
 		nns.addDomainRecord(verifiedDomain, anyOtherNeoAddress)
-		err = v.VerifyAndUpdate(&node)
+		err = v.Verify(node)
 		require.ErrorIs(t, err, errAccessDenied)
 
 		nns.addDomainRecord(verifiedDomain, nodeNeoAddress)
-		err = v.VerifyAndUpdate(&node)
+		err = v.Verify(node)
 		require.NoError(t, err)
 
 		nns.removeDomainRecord(verifiedDomain, nodeNeoAddress)
-		err = v.VerifyAndUpdate(&node)
+		err = v.Verify(node)
 		require.ErrorIs(t, err, errAccessDenied)
 	})
 }

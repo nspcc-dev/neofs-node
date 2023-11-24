@@ -7,9 +7,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-// VerifyAndUpdate calls network.VerifyAddress.
-func (v *Validator) VerifyAndUpdate(n *netmap.NodeInfo) error {
-	err := network.VerifyMultiAddress(*n)
+// Verify calls network.VerifyAddress.
+func (v *Validator) Verify(n netmap.NodeInfo) error {
+	err := network.VerifyMultiAddress(n)
 	if err != nil {
 		return fmt.Errorf("could not verify multiaddress: %w", err)
 	}

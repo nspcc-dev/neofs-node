@@ -19,7 +19,7 @@ import (
 // the Validator is immediately ready to work through API.
 type Validator struct{}
 
-func (v Validator) VerifyAndUpdate(nodeInfo *netmap.NodeInfo) error {
+func (v Validator) Verify(nodeInfo netmap.NodeInfo) error {
 	var results []*client.ResEndpointInfo
 	var err error
 
@@ -53,7 +53,7 @@ func (v Validator) VerifyAndUpdate(nodeInfo *netmap.NodeInfo) error {
 	}
 
 	for _, res := range results {
-		err = compareNodeInfos(*nodeInfo, res.NodeInfo())
+		err = compareNodeInfos(nodeInfo, res.NodeInfo())
 		if err != nil {
 			return fmt.Errorf("`EndpointInfo` RPC call result differs: %w", err)
 		}

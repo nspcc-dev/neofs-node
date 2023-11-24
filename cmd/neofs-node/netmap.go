@@ -117,19 +117,12 @@ func nodeKeyFromNetmap(c *cfg) []byte {
 }
 
 func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
-	ni, ok := c.cfgNetmap.state.getNodeInfo()
-	if ok {
-		ni.IterateNetworkEndpoints(f)
-	}
+	ni := c.cfgNodeInfo.localInfo
+	ni.IterateNetworkEndpoints(f)
 }
 
 func (c *cfg) addressNum() int {
-	ni, ok := c.cfgNetmap.state.getNodeInfo()
-	if ok {
-		return ni.NumberOfNetworkEndpoints()
-	}
-
-	return 0
+	return c.cfgNodeInfo.localInfo.NumberOfNetworkEndpoints()
 }
 
 func initNetmapService(c *cfg) {
@@ -201,7 +194,7 @@ func initNetmapService(c *cfg) {
 			return
 		}
 
-		c.handleLocalNodeInfo(ni)
+		c.handleLocalNodeInfoFromNetwork(ni)
 	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
@@ -285,7 +278,7 @@ func getNetworkState(c *cfg) (uint64, *netmapSDK.NodeInfo, error) {
 func updateLocalState(c *cfg, epoch uint64, ni *netmapSDK.NodeInfo) {
 	c.cfgNetmap.state.setCurrentEpoch(epoch)
 	c.cfgNetmap.startEpoch = epoch
-	c.handleLocalNodeInfo(ni)
+	c.handleLocalNodeInfoFromNetwork(ni)
 }
 
 func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {

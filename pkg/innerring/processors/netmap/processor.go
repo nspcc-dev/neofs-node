@@ -38,15 +38,10 @@ type (
 	// of information about the node and its finalization for adding
 	// to the network map.
 	NodeValidator interface {
-		// Must verify and optionally update NodeInfo structure.
+		// Verify must verify NodeInfo structure.
 		//
 		// Must return an error if NodeInfo input is invalid.
-		// Must return an error if it is not possible to correctly
-		// change the structure for sending to the network map.
-		//
-		// If no error occurs, the parameter must point to the
-		// ready-made NodeInfo structure.
-		VerifyAndUpdate(*netmap.NodeInfo) error
+		Verify(netmap.NodeInfo) error
 	}
 
 	// Processor of events produced by network map contract
