@@ -24,7 +24,7 @@ Changelog for NeoFS Node
 - Internal container cache size from 10 to 1000 (#2600)
 - Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
 - New optimized SDK version is integrated (#2622)
-- IR uses internal LOCODE DB from Go package (#2610)
+- IR uses internal LOCODE DB from Go package (#2610, #2658)
 - Contract group for the committee is no longer registered/used in the Sidechain auto-deployment (#2642)
 - IR does not change SNs' attributes, SNs expand UN/LOCODE attributes do it themselves (#2612)
 - The priority of metrics service is increased (#2428)
@@ -46,7 +46,7 @@ Changelog for NeoFS Node
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
 - `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
-- `hrw` library to its generic version (#2629)
+- `hrw` library to v2.0.0 version (#2629, #2658)
 
 ### Updating from v0.38.1
 Blobovniczas are gone from the node with this release, see 0.38.0 upgrade
