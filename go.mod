@@ -18,7 +18,7 @@ require (
 	github.com/nspcc-dev/locode-db v0.5.0
 	github.com/nspcc-dev/neo-go v0.104.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
-	github.com/nspcc-dev/neofs-contract v0.18.0
+	github.com/nspcc-dev/neofs-contract v0.19.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231121125354-d72d76ccb0ba
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -100,7 +100,7 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230920204549-e6e6cdab5c13 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
