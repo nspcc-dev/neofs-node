@@ -24,7 +24,7 @@ Changelog for NeoFS Node
 - Internal container cache size from 10 to 1000 (#2600)
 - Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
 - New optimized SDK version is integrated (#2622)
-- IR uses internal LOCODE DB from Go package (#2610)
+- IR uses internal LOCODE DB from Go package (#2610, #2658)
 - Contract group for the committee is no longer registered/used in the Sidechain auto-deployment (#2642)
 - IR does not change SNs' attributes, SNs expand UN/LOCODE attributes do it themselves (#2612)
 - The priority of metrics service is increased (#2428)
