@@ -46,7 +46,7 @@ Changelog for NeoFS Node
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
 - `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
-- `hrw` library to its generic version (#2629)
+- `hrw` library to v2.0.0 version (#2629, #2658)
 
 ### Updating from v0.38.1
 Blobovniczas are gone from the node with this release, see 0.38.0 upgrade
