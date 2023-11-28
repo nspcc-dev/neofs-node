@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -42,17 +41,6 @@ const validBlockchainConfigOptions = `
     validators_history:
       2: 3
       10: 7
-    native_activations:
-      ContractManagement: [0, 1]
-      LedgerContract: [2]
-      NeoToken: [3]
-      GasToken: [4]
-      PolicyContract: [5]
-      OracleContract: [6]
-      RoleManagement: [7]
-      Notary: [8]
-      CryptoLib: [9]
-      StdLib: [10]
     rpc:
       listen:
         - localhost:30000
@@ -206,18 +194,6 @@ func TestParseBlockchainConfig(t *testing.T) {
 				2:  3,
 				10: 7,
 			},
-			NativeActivations: map[string][]uint32{
-				nativenames.Management:  {0, 1},
-				nativenames.Ledger:      {2},
-				nativenames.Neo:         {3},
-				nativenames.Gas:         {4},
-				nativenames.Policy:      {5},
-				nativenames.Oracle:      {6},
-				nativenames.Designation: {7},
-				nativenames.Notary:      {8},
-				nativenames.CryptoLib:   {9},
-				nativenames.StdLib:      {10},
-			},
 		}, c)
 	})
 
@@ -275,12 +251,6 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("validators_history", map[string]interface{}{"-1": 1})},
 			{kvF("validators_history", map[string]interface{}{"1": -1})},
 			{kvF("validators_history", map[string]interface{}{"1": math.MaxInt32 + 1})},
-			{kvF("native_activations", map[string]interface{}{"1": ""})},
-			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): "not an array"})},
-			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{}})},
-			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{"not a number"}})},
-			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{-1}})},
-			{kvF("native_activations", map[string]interface{}{strings.ToLower(nativenames.Gas): []interface{}{math.MaxUint32 + 1}})},
 			{kvF("rpc.listen", []string{"not a TCP address"})},
 			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
@@ -350,50 +320,6 @@ func TestParseBlockchainConfig(t *testing.T) {
 			c, err = parseBlockchainConfig(v, _logger)
 			require.NoError(t, err)
 			require.Equal(t, blockchain.InMemory(), c.Storage)
-		})
-
-		t.Run("native activations", func(t *testing.T) {
-			names := []string{
-				nativenames.Management,
-				nativenames.Ledger,
-				nativenames.Neo,
-				nativenames.Gas,
-				nativenames.Policy,
-				nativenames.Oracle,
-				nativenames.Designation,
-				nativenames.Notary,
-				nativenames.CryptoLib,
-				nativenames.StdLib,
-			}
-
-			v := newValidBlockchainConfig(t, fullConfig)
-
-			setI := func(name string, i int) {
-				v.Set("morph.consensus.native_activations."+strings.ToLower(name), []interface{}{i})
-			}
-
-			for i := range names {
-				setI(names[i], i)
-			}
-
-			c, err := parseBlockchainConfig(v, _logger)
-			require.NoError(t, err)
-
-			for i := range names {
-				v, ok := c.NativeActivations[names[i]]
-				require.True(t, ok, names[i])
-				require.ElementsMatch(t, []uint32{uint32(i)}, v, names[i])
-			}
-
-			resetConfig(t, v, "morph.consensus.native_activations."+strings.ToLower(names[0]))
-			_, err = parseBlockchainConfig(v, _logger)
-			require.Error(t, err)
-
-			setI(names[0], 0)
-			badName := names[0] + "1" // almost definitely incorrect
-			setI(badName, 0)
-			_, err = parseBlockchainConfig(v, _logger)
-			require.Error(t, err)
 		})
 	})
 }

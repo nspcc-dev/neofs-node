@@ -89,16 +89,12 @@ NiMKabp3ddi3xShmLAXhTfbnuWb4cSJT6E (1 out of 1 multisig contract):
 
 Put the list of public keys into `ProtocolConfiguration.StandbyCommittee` 
 section. Specify the wallet path and the password in `ApplicationConfiguration.P2PNotary`
-and `ApplicationConfiguration.UnlockWallet` sections. If config includes
-`ProtocolConfiguration.NativeActivations` section, add notary 
-contract `Notary: [0]`.
+and `ApplicationConfiguration.UnlockWallet` sections.
 
 ```yaml
 ProtocolConfiguration:
   StandbyCommittee:
     - 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
-  NativeActivations:
-    Notary: [0]
 ApplicationConfiguration:
   P2PNotary:
     Enabled: true

@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/consensus"
 	"github.com/nspcc-dev/neo-go/pkg/core"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -239,13 +238,6 @@ type Config struct {
 	// Optional: by default Committee size is used. Each value must not be greater
 	// than math.MaxInt32.
 	ValidatorsHistory map[uint32]uint32
-
-	// Chronology of native contracts updates. Maps name of Neo native contract to
-	// chain heights.
-	//
-	// Optional: by default, all native contracts are active from genesis block.
-	// Keys must be valid native names. Values must not be empty.
-	NativeActivations map[string][]uint32
 }
 
 // New returns new Blockchain configured by the specified Config. New panics if
@@ -285,14 +277,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	for height, num := range cfg.ValidatorsHistory {
 		if num > math.MaxInt32 {
 			panic(fmt.Sprintf("number of validators at height %d is out of allowable range %d", height, num))
-		}
-	}
-
-	for name, heights := range cfg.NativeActivations {
-		if !nativenames.IsValid(name) {
-			panic(fmt.Sprintf("invalid native name %s", name))
-		} else if len(heights) == 0 {
-			panic(fmt.Sprintf("empty height list %s", name))
 		}
 	}
 
@@ -349,7 +333,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	} else {
 		cfgBaseProto.ValidatorsCount = uint32(len(standByCommittee))
 	}
-	cfgBaseProto.NativeUpdateHistories = cfg.NativeActivations
 
 	cfgBaseApp := &cfgBase.ApplicationConfiguration
 	cfgBaseApp.Relay = true

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
@@ -122,65 +121,6 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		})
 		if err != nil {
 			return c, err
-		}
-	}
-
-	const nativeActivationsKey = rootSection + ".native_activations"
-	if v.IsSet(nativeActivationsKey) {
-		requiredContracts := []string{
-			nativenames.Management,
-			nativenames.Ledger,
-			nativenames.Neo,
-			nativenames.Gas,
-			nativenames.Policy,
-			nativenames.Oracle,
-			nativenames.Designation,
-			nativenames.Notary,
-			nativenames.CryptoLib,
-			nativenames.StdLib,
-		}
-		c.NativeActivations = make(map[string][]uint32)
-		err = parseConfigMap(v, nativeActivationsKey, "native update histories", func(name string, val interface{}) error {
-			supported := false
-			for i := range requiredContracts {
-				// TODO: viper lowers YAML keys, so, for example, 'NativeContract' becomes 'nativecontract'
-				//  Track https://github.com/spf13/viper/issues/1014. Until then, keep track of
-				//  new contracts in nativenames package.
-				supported = name == strings.ToLower(requiredContracts[i])
-				if supported {
-					name = requiredContracts[i]
-					break
-				}
-			}
-			if !supported {
-				return fmt.Errorf("unsupported Neo native contract name '%s'", name)
-			}
-			rawHeights, err := cast.ToSliceE(val)
-			if err != nil {
-				return fmt.Errorf("cast value to array '%s': %w", name, err)
-			} else if len(rawHeights) == 0 {
-				return fmt.Errorf("empty array '%s'", name)
-			}
-			heights := make([]uint32, len(rawHeights))
-			for i := range rawHeights {
-				u64, err := cast.ToUint64E(rawHeights[i])
-				if err != nil {
-					return fmt.Errorf("cast element to unsigned integer '%s' #%d: %w", name, i, err)
-				} else if u64 > math.MaxUint32 {
-					return fmt.Errorf("value overflows limit %v", u64)
-				}
-				heights[i] = uint32(u64)
-			}
-			c.NativeActivations[name] = heights
-			return nil
-		})
-		if err != nil {
-			return c, err
-		}
-		for i := range requiredContracts {
-			if _, ok := c.NativeActivations[requiredContracts[i]]; !ok {
-				return c, fmt.Errorf("missing required Neo native contract name '%s' in '%s'", requiredContracts[i], nativeActivationsKey)
-			}
 		}
 	}
 
