@@ -241,11 +241,6 @@ type updateNNSContractPrm struct {
 
 	committee keys.PublicKeys
 
-	// constructor of extra arguments to be passed into method updating the
-	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
-	// used).
-	buildExtraUpdateArgs func() ([]interface{}, error)
-
 	// address of the Proxy contract deployed in the blockchain. The contract
 	// pays for update transactions.
 	proxyContract util.Uint160
@@ -301,18 +296,11 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 			return errors.New("missing required NNS contract on the chain")
 		}
 
-		extraUpdateArgs, err := prm.buildExtraUpdateArgs()
-		if err != nil {
-			prm.logger.Error("failed to prepare build extra arguments for NNS contract update, will try again later",
-				zap.Error(err))
-			continue
-		}
-
 		// we pre-check 'already updated' case via MakeCall in order to not potentially
 		// wait for previously sent transaction to be expired (condition below) and
 		// immediately succeed
 		tx, err := committeeActor.MakeTunedCall(nnsOnChainState.Hash, methodUpdate, nil, updateTxModifier,
-			bLocalNEF, jLocalManifest, extraUpdateArgs)
+			bLocalNEF, jLocalManifest, nil)
 		if err != nil {
 			if isErrContractAlreadyUpdated(err) {
 				prm.logger.Info("NNS contract is unchanged or has already been updated, skip")

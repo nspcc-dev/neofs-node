@@ -68,11 +68,6 @@ type syncNeoFSContractPrm struct {
 	// Ignored if tryDeploy is unset.
 	buildExtraDeployArgs func() ([]interface{}, error)
 
-	// constructor of extra arguments to be passed into method updating the
-	// contract. If returns both nil, no data is passed (noExtraUpdateArgs may be
-	//	used).
-	buildExtraUpdateArgs func() ([]interface{}, error)
-
 	// address of the Proxy contract deployed in the blockchain. The contract
 	// pays for update transactions.
 	proxyContract util.Uint160
@@ -280,13 +275,6 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 				return onChainState.Hash, nil
 			}
 		} else {
-			extraUpdateArgs, err := prm.buildExtraUpdateArgs()
-			if err != nil {
-				l.Error("failed to prepare build extra arguments for the contract update, will try again later",
-					zap.Error(err))
-				continue
-			}
-
 			if prm.isProxy && proxyCommitteeActor == nil {
 				err = initProxyCommitteeActor(onChainState.Hash)
 				if err != nil {
@@ -295,7 +283,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 			}
 
 			tx, err := proxyCommitteeActor.MakeTunedCall(onChainState.Hash, methodUpdate, nil, updateTxModifier,
-				bLocalNEF, jLocalManifest, extraUpdateArgs)
+				bLocalNEF, jLocalManifest, nil)
 			if err != nil {
 				if isErrContractAlreadyUpdated(err) {
 					l.Info("the contract is unchanged or has already been updated")
