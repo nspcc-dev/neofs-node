@@ -16,9 +16,9 @@ require (
 	github.com/nats-io/nats.go v1.31.0
 	github.com/nspcc-dev/hrw/v2 v2.0.0
 	github.com/nspcc-dev/locode-db v0.5.0
-	github.com/nspcc-dev/neo-go v0.103.1
+	github.com/nspcc-dev/neo-go v0.104.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
-	github.com/nspcc-dev/neofs-contract v0.18.0
+	github.com/nspcc-dev/neofs-contract v0.19.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20231121125354-d72d76ccb0ba
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -73,8 +73,8 @@ require (
 	github.com/nats-io/nkeys v0.4.6 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/dbft v0.0.0-20230515113611-25db6ba61d5c // indirect
-	github.com/nspcc-dev/go-ordered-json v0.0.0-20220111165707-25110be27d22 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231020160724-c3955f87d1b5 // indirect
+	github.com/nspcc-dev/go-ordered-json v0.0.0-20231123160306-3374ff1e7a3c // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231121104256-0493ddbd70b2 // indirect
 	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
@@ -100,7 +100,7 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230920204549-e6e6cdab5c13 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

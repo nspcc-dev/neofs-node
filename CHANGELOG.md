@@ -41,12 +41,13 @@ Changelog for NeoFS Node
 
 ### Updated
 - Update minimal supported Go version up to v1.19 (#2485)
-- Update `neo-go` to `v0.103.1` (#2221, #2309, #2596, #2626, #2639)
+- Update `neo-go` to `v0.104.0` (#2221, #2309, #2596, #2626, #2639, #2659)
 - `neofs-lens` `inspect` object commands to `get` with `inspect` deprecation (#2548)
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
 - `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
 - `hrw` library to v2.0.0 version (#2629, #2658)
+- neofs-contract to v0.19.1 (#2659)
 
 ### Updating from v0.38.1
 Blobovniczas are gone from the node with this release, see 0.38.0 upgrade
@@ -55,6 +56,9 @@ after a couple of minor releases).
 
 neofs-adm no longer creates a contract group wallet and no longer needs it
 for the operation which may affect deployment scripts.
+
+`native_activations` subsection of `consensus` IR configuration should be
+removed. It never actually did anything useful anyway.
 
 ## [0.38.1] - 2023-09-18
 

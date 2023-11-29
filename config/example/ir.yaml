@@ -75,22 +75,6 @@ morph:
       ping: # Optional settings of pinging mechanism
         interval: 30s # Optional time period between pings. Defaults to 30s. Must not be negative
         timeout: 90s # Optional time period to wait for pong. Defaults to 1m. Must not be negative
-      native_activations: # Optional chronology of native contracts updates. Maps name of Neo native contract
-        # to height list. Values must not be empty. Each array element in the value must be unsigned integer
-        # not larger than 4294967295.
-        # Attention! Keep a close eye on the list: if some contracts are specified, then the rest of them are
-        # treated as disabled and won't be deployed. Use this option with care, and if you do, the list should
-        # match the one below.
-        ContractManagement: [0]
-        LedgerContract: [0]
-        NeoToken: [0]
-        GasToken: [0]
-        PolicyContract: [0]
-        OracleContract: [0]
-        RoleManagement: [0]
-        Notary: [0]
-        CryptoLib: [0]
-        StdLib: [0]
 
 network_settings: # NeoFS network settings managed in the Netmap contract
   epoch_duration: 240 # Time interval (approximate) between two adjacent NeoFS epochs measured in Sidechain blocks.

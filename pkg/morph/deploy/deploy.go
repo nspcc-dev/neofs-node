@@ -375,7 +375,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.ProxyContract.Common.Manifest
 	syncPrm.domainName = domainProxy
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildExtraUpdateArgs = noExtraUpdateArgs
 	syncPrm.isProxy = true
 
 	prm.Logger.Info("synchronizing Proxy contract with the chain...")
@@ -431,17 +430,16 @@ func Deploy(ctx context.Context, prm Prm) error {
 	prm.Logger.Info("updating on-chain NNS contract...")
 
 	err = updateNNSContract(ctx, updateNNSContractPrm{
-		logger:               prm.Logger,
-		blockchain:           prm.Blockchain,
-		neoFS:                prm.NeoFS,
-		monitor:              monitor,
-		localAcc:             prm.LocalAccount,
-		localNEF:             prm.NNS.Common.NEF,
-		localManifest:        prm.NNS.Common.Manifest,
-		systemEmail:          prm.NNS.SystemEmail,
-		committee:            committee,
-		buildExtraUpdateArgs: noExtraUpdateArgs,
-		proxyContract:        proxyContractAddress,
+		logger:        prm.Logger,
+		blockchain:    prm.Blockchain,
+		neoFS:         prm.NeoFS,
+		monitor:       monitor,
+		localAcc:      prm.LocalAccount,
+		localNEF:      prm.NNS.Common.NEF,
+		localManifest: prm.NNS.Common.Manifest,
+		systemEmail:   prm.NNS.SystemEmail,
+		committee:     committee,
+		proxyContract: proxyContractAddress,
 	})
 	if err != nil {
 		return fmt.Errorf("update NNS contract on the chain: %w", err)
@@ -454,9 +452,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.AuditContract.Common.Manifest
 	syncPrm.domainName = domainAudit
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
 
 	prm.Logger.Info("synchronizing Audit contract with the chain...")
 
@@ -472,9 +467,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.BalanceContract.Common.Manifest
 	syncPrm.domainName = domainBalance
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
 
 	prm.Logger.Info("synchronizing Balance contract with the chain...")
 
@@ -490,9 +482,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.ReputationContract.Common.Manifest
 	syncPrm.domainName = domainReputation
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
 
 	prm.Logger.Info("synchronizing Reputation contract with the chain...")
 
@@ -526,9 +515,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 			netmapContractAddress,
 		}, nil
 	}
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
 
 	prm.Logger.Info("synchronizing NeoFSID contract with the chain...")
 
@@ -557,9 +543,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 			nnsOnChainAddress,
 			domainContainers,
 		}, nil
-	}
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
 	}
 
 	prm.Logger.Info("synchronizing Container contract with the chain...")
@@ -605,9 +588,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 			netConfig,
 		}, nil
 	}
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg, util.Uint160{}, util.Uint160{}, []interface{}(nil), []interface{}(nil)}, nil
-	}
 
 	prm.Logger.Info("synchronizing Netmap contract with the chain...")
 
@@ -621,9 +601,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	// 8. Alphabet
 	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
 	syncPrm.localManifest = prm.AlphabetContract.Common.Manifest
-	syncPrm.buildExtraUpdateArgs = func() ([]interface{}, error) {
-		return []interface{}{notaryDisabledExtraUpdateArg}, nil
-	}
 
 	var alphabetContracts []util.Uint160
 
@@ -673,8 +650,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	return nil
 }
-
-func noExtraUpdateArgs() ([]interface{}, error) { return nil, nil }
 
 func noExtraDeployArgs() ([]interface{}, error) { return nil, nil }
 
