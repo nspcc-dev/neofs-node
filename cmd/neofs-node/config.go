@@ -762,9 +762,9 @@ func initLocalStorage(c *cfg) {
 	subscribeToContainerRemoval(c, func(e event.Event) {
 		ev := e.(containerEvent.DeleteSuccess)
 
-		err := ls.DeleteContainer(c.ctx, ev.ID)
+		err := ls.InhumeContainer(ev.ID)
 		if err != nil {
-			c.log.Warn("could clean up container after a chan event",
+			c.log.Warn("inhuming container after a chain event",
 				zap.Stringer("cID", ev.ID), zap.Error(err))
 		}
 	})

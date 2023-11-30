@@ -197,7 +197,7 @@ func (e *StorageEngine) deleteNotFoundContainers() error {
 			for _, cnrStored := range res.Containers() {
 				// in the most loaded scenarios it is a cache
 				if _, err = e.cfg.containerSource.Get(cnrStored); errors.As(err, new(apistatus.ContainerNotFound)) {
-					err = e.shards[iCopy].DeleteContainer(context.Background(), cnrStored)
+					err = e.shards[iCopy].InhumeContainer(cnrStored)
 					if err != nil {
 						return fmt.Errorf("'%s' container cleanup in '%s' shard: %w", cnrStored, shID, err)
 					}
