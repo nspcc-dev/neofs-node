@@ -17,11 +17,14 @@ var (
 	// from the node and should not be accepted by the node from other
 	// nodes.
 	graveyardBucketName = []byte{graveyardPrefix}
-	// garbageBucketName stores rows with the objects that should be physically
+	// garbageObjectsBucketName stores rows with the objects that should be physically
 	// deleted by the node (Garbage Collector routine).
-	garbageBucketName         = []byte{garbagePrefix}
-	toMoveItBucketName        = []byte{toMoveItPrefix}
-	containerVolumeBucketName = []byte{containerVolumePrefix}
+	garbageObjectsBucketName = []byte{garbageObjectsPrefix}
+	// garbageObjectsBucketName stores rows with the containers that should be physically
+	// deleted by the node (Garbage Collector routine).
+	garbageContainersBucketName = []byte{garbageContainersPrefix}
+	toMoveItBucketName          = []byte{toMoveItPrefix}
+	containerVolumeBucketName   = []byte{containerVolumePrefix}
 
 	zeroValue = []byte{0xFF}
 )
@@ -35,10 +38,10 @@ const (
 	// 	Key: object address
 	// 	Value: tombstone address
 	graveyardPrefix = iota
-	// garbagePrefix is used for the garbage bucket.
+	// garbageObjectsPrefix is used for the garbage objects bucket.
 	// 	Key: object address
 	// 	Value: dummy value
-	garbagePrefix
+	garbageObjectsPrefix
 	// toMoveItPrefix is used for bucket containing IDs of objects that are candidates for moving
 	// to another shard.
 	toMoveItPrefix
@@ -112,6 +115,11 @@ const (
 	//  Key: split ID
 	//  Value: list of object IDs
 	splitPrefix
+
+	// garbageContainersPrefix is used for the garbage containers bucket.
+	// 	Key: container ID
+	// 	Value: dummy value
+	garbageContainersPrefix
 )
 
 const (

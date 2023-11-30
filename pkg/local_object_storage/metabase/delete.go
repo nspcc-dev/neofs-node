@@ -162,14 +162,15 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
 	addrKey := addressKey(addr, key)
-	garbageBKT := tx.Bucket(garbageBucketName)
+	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
+	garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 	graveyardBKT := tx.Bucket(graveyardBucketName)
 
-	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageBKT) == 0
+	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0
 
 	// remove record from the garbage bucket
-	if garbageBKT != nil {
-		err := garbageBKT.Delete(addrKey)
+	if garbageObjectsBKT != nil {
+		err := garbageObjectsBKT.Delete(addrKey)
 		if err != nil {
 			return false, false, 0, fmt.Errorf("could not remove from garbage bucket: %w", err)
 		}

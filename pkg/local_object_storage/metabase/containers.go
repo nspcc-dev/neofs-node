@@ -69,6 +69,14 @@ func (db *DB) containerSize(tx *bbolt.Tx, id cid.ID) (uint64, error) {
 	return parseContainerSize(containerVolume.Get(key)), nil
 }
 
+func resetContainerSize(tx *bbolt.Tx, cID cid.ID) error {
+	containerVolume := tx.Bucket(containerVolumeBucketName)
+	key := make([]byte, cidSize)
+	cID.Encode(key)
+
+	return containerVolume.Put(key, make([]byte, 8))
+}
+
 func parseContainerID(dst *cid.ID, name []byte, ignore map[string]struct{}) bool {
 	if len(name) != bucketKeySize {
 		return false

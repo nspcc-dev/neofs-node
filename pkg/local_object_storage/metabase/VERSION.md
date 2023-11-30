@@ -11,9 +11,13 @@ Numbers stand for a single byte value.
   - Name: `0`
   - Key: object address 
   - Value: tombstone address
-- Garbage bucket
+- Garbage objects bucket
   - Name: `1`
   - Key: object address
+  - Value: dummy value
+- Garbage containers bucket
+  - Name: `17`
+  - Key: container ID
   - Value: dummy value
 - Bucket containing IDs of objects that are candidates for moving
    to another shard.

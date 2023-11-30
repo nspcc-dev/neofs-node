@@ -173,7 +173,7 @@ func (db *DB) iterateDeletedObj(tx *bbolt.Tx, h kvHandler, offset *oid.Address) 
 	case graveyardHandler:
 		bkt = tx.Bucket(graveyardBucketName)
 	case gcHandler:
-		bkt = tx.Bucket(garbageBucketName)
+		bkt = tx.Bucket(garbageObjectsBucketName)
 	default:
 		panic(fmt.Sprintf("metabase: unknown iteration object hadler: %T", t))
 	}

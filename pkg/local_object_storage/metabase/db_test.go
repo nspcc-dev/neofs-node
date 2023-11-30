@@ -81,6 +81,8 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	var csumTZ checksum.Checksum
 	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
 
+	payload := []byte{1, 2, 3, 4, 5}
+
 	obj := object.New()
 	obj.SetID(oidtest.ID())
 	owner := usertest.ID(t)
@@ -89,7 +91,8 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	obj.SetVersion(&ver)
 	obj.SetPayloadChecksum(csum)
 	obj.SetPayloadHomomorphicHash(csumTZ)
-	obj.SetPayload([]byte{1, 2, 3, 4, 5})
+	obj.SetPayload(payload)
+	obj.SetPayloadSize(uint64(len(payload)))
 
 	return obj
 }

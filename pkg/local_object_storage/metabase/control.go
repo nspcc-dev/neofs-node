@@ -100,12 +100,13 @@ func (db *DB) init(reset bool) error {
 	}
 
 	mStaticBuckets := map[string]struct{}{
-		string(containerVolumeBucketName): {},
-		string(graveyardBucketName):       {},
-		string(toMoveItBucketName):        {},
-		string(garbageBucketName):         {},
-		string(shardInfoBucket):           {},
-		string(bucketNameLocked):          {},
+		string(containerVolumeBucketName):   {},
+		string(graveyardBucketName):         {},
+		string(toMoveItBucketName):          {},
+		string(garbageObjectsBucketName):    {},
+		string(garbageContainersBucketName): {},
+		string(shardInfoBucket):             {},
+		string(bucketNameLocked):            {},
 	}
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

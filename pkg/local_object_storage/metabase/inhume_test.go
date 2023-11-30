@@ -1,11 +1,14 @@
 package meta_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -109,6 +112,51 @@ func TestInhumeLocked(t *testing.T) {
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)
+}
+
+func TestInhumeContainer(t *testing.T) {
+	db := newDB(t)
+
+	const numOfObjs = 5
+	cID := cidtest.ID()
+	var oo []*objectsdk.Object
+	var size uint64
+
+	for i := 0; i < numOfObjs; i++ {
+		raw := generateObjectWithCID(t, cID)
+		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
+
+		size += raw.PayloadSize()
+		oo = append(oo, raw)
+
+		err := putBig(db, raw)
+		require.NoError(t, err)
+	}
+
+	cc, err := db.ObjectCounters()
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(numOfObjs), cc.Phy())
+	require.Equal(t, uint64(numOfObjs), cc.Logic())
+
+	removedAvailable, err := db.InhumeContainer(cID)
+	require.NoError(t, err)
+
+	cc, err = db.ObjectCounters()
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(numOfObjs), removedAvailable)
+	require.Equal(t, uint64(numOfObjs), cc.Phy())
+	require.Zero(t, cc.Logic())
+
+	containerSize, err := db.ContainerSize(cID)
+	require.NoError(t, err)
+	require.Zero(t, containerSize)
+
+	for _, o := range oo {
+		_, err = metaGet(db, object.AddressOf(o), false)
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	}
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
