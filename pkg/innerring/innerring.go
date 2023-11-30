@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
@@ -854,7 +855,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, fmt.Errorf("get NeoFS NNS contract address: %w", err)
 	}
 
-	nnsService := newNeoFSNNS(nnsContractAddr, server.morphClient)
+	nnsService := newNeoFSNNS(nnsContractAddr, invoker.New(server.morphClient, nil))
 
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
