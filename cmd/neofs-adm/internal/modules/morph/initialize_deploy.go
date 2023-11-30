@@ -120,7 +120,11 @@ func (c *initializeContext) deployNNS(method string) error {
 		tx, err = nnsCnt.UpdateUnsigned(cs.RawNEF, string(cs.RawManifest), nil)
 	} else {
 		var mgmt = management.New(act)
-		tx, err = mgmt.DeployUnsigned(cs.NEF, cs.Manifest, nil)
+		tx, err = mgmt.DeployUnsigned(cs.NEF, cs.Manifest, []any{
+			[]any{
+				[]any{"neofs", "ops@nspcc.io"},
+			},
+		})
 	}
 	if err != nil {
 		return fmt.Errorf("creating tx: %w", err)
