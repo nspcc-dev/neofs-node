@@ -33,10 +33,20 @@ func (c *initializeContext) setNNS() error {
 	if err != nil {
 		return err
 	} else if !ok {
+		version, err := unwrap.Int64(c.CommitteeAct.Call(nnsCs.Hash, "version"))
+		if err != nil {
+			return err
+		}
+
 		bw := io.NewBufBinWriter()
-		emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
-			"neofs", c.CommitteeAcc.Contract.ScriptHash(),
-			"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+		if version < 18_000 { // 0.18.0
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+				"neofs", c.CommitteeAcc.Contract.ScriptHash(),
+				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+		} else {
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "registerTLD", callflag.All,
+				"neofs", "ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
+		}
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		if err := c.sendCommitteeTx(bw.Bytes(), true); err != nil {
 			return fmt.Errorf("can't add domain root to NNS: %w", err)
