@@ -65,11 +65,11 @@ const (
 
 var (
 	contractList = []string{
+		netmapContract,
 		auditContract,
 		balanceContract,
 		containerContract,
 		neofsIDContract,
-		netmapContract,
 		proxyContract,
 		reputationContract,
 	}
@@ -284,6 +284,7 @@ func (c *initializeContext) deployContracts() error {
 		c.SentTxs = append(c.SentTxs, hashVUBPair{hash: txHash, vub: vub})
 	}
 
+	var sBuilder = smartcontract.NewBuilder()
 	for _, ctrName := range contractList {
 		cs := c.getContract(ctrName)
 
@@ -294,14 +295,18 @@ func (c *initializeContext) deployContracts() error {
 		}
 
 		params := getContractDeployParameters(cs, c.getContractDeployData(ctrHash, ctrName, keysParam))
-		res, err := c.CommitteeAct.MakeCall(management.Hash, deployMethodName, params...)
-		if err != nil {
-			return fmt.Errorf("can't deploy %s contract: %w", ctrName, err)
-		}
+		sBuilder.InvokeWithAssert(management.Hash, deployMethodName, params...) // ASSERT just drop the contract data from the stack.
+	}
+	script, err := sBuilder.Script()
+	if err != nil {
+		return fmt.Errorf("script builder: %w", err)
+	}
+	if len(script) > transaction.MaxScriptLength {
+		return fmt.Errorf("deployment script overflow: %d", len(script))
+	}
 
-		if err := c.sendCommitteeTx(res.Script, true); err != nil {
-			return err
-		}
+	if err := c.sendCommitteeTx(script, true); err != nil {
+		return err
 	}
 
 	return c.awaitTx()

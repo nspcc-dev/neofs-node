@@ -290,6 +290,20 @@ func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) tran
 	}
 
 	signer = morphClient.GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	// Deploy-only rules.
+	signer.Rules = append(signer.Rules, transaction.WitnessRule{
+		Action: transaction.WitnessAllow,
+		Condition: &transaction.ConditionAnd{
+			(*transaction.ConditionCalledByContract)(&balanceHash),
+			(*transaction.ConditionScriptHash)(&netmapHash),
+		}}, transaction.WitnessRule{
+		Action: transaction.WitnessAllow,
+		Condition: &transaction.ConditionAnd{
+			(*transaction.ConditionCalledByContract)(&cntHash),
+			(*transaction.ConditionScriptHash)(&netmapHash),
+		}},
+	)
+
 	signer.Account = acc.Contract.ScriptHash()
 
 	return *signer
