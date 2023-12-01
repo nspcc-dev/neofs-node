@@ -66,30 +66,30 @@ func initializeSideChainCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("deploying NNS: %w", err)
 	}
 
+	cmd.Println("Stage 4: set addresses in NNS.")
+	if err = initCtx.setNNS(); err != nil {
+		return fmt.Errorf("filling NNS with contract hashes: %w", err)
+	}
+
 	// 4. Deploy NeoFS contracts.
-	cmd.Println("Stage 4: deploy NeoFS contracts.")
+	cmd.Println("Stage 5: deploy NeoFS contracts.")
 	if err = initCtx.deployContracts(); err != nil {
 		return fmt.Errorf("deploying NeoFS contracts: %w", err)
 	}
 
-	cmd.Println("Stage 4.1: Transfer GAS to proxy contract.")
+	cmd.Println("Stage 5.1: Transfer GAS to proxy contract.")
 	if err = initCtx.transferGASToProxy(); err != nil {
 		return fmt.Errorf("topping up proxy contract: %w", err)
 	}
 
-	cmd.Println("Stage 5: register candidates.")
+	cmd.Println("Stage 6: register candidates.")
 	if err = initCtx.registerCandidates(); err != nil {
 		return fmt.Errorf("candidate registration: %w", err)
 	}
 
-	cmd.Println("Stage 6: transfer NEO to alphabet contracts.")
+	cmd.Println("Stage 7: transfer NEO to alphabet contracts.")
 	if err = initCtx.transferNEOToAlphabetContracts(); err != nil {
 		return fmt.Errorf(": %w", err)
-	}
-
-	cmd.Println("Stage 7: set addresses in NNS.")
-	if err = initCtx.setNNS(); err != nil {
-		return fmt.Errorf("filling NNS with contract hashes: %w", err)
 	}
 
 	return nil
@@ -290,6 +290,20 @@ func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) tran
 	}
 
 	signer = morphClient.GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	// Deploy-only rules.
+	signer.Rules = append(signer.Rules, transaction.WitnessRule{
+		Action: transaction.WitnessAllow,
+		Condition: &transaction.ConditionAnd{
+			(*transaction.ConditionCalledByContract)(&balanceHash),
+			(*transaction.ConditionScriptHash)(&netmapHash),
+		}}, transaction.WitnessRule{
+		Action: transaction.WitnessAllow,
+		Condition: &transaction.ConditionAnd{
+			(*transaction.ConditionCalledByContract)(&cntHash),
+			(*transaction.ConditionScriptHash)(&netmapHash),
+		}},
+	)
+
 	signer.Account = acc.Contract.ScriptHash()
 
 	return *signer
