@@ -525,12 +525,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localNEF = prm.NeoFSIDContract.Common.NEF
 	syncPrm.localManifest = prm.NeoFSIDContract.Common.Manifest
 	syncPrm.domainName = domainNeoFSID
-	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-		return []interface{}{
-			notaryDisabledExtraUpdateArg,
-			netmapContractAddress,
-		}, nil
-	}
+	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
 
 	prm.Logger.Info("synchronizing NeoFSID contract with the chain...")
 
