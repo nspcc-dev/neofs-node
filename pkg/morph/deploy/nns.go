@@ -46,10 +46,6 @@ func calculateAlphabetContractAddressDomain(index int) string {
 	return fmt.Sprintf(domainAlphabetFmt, index)
 }
 
-func calculateContractAddressDomain(contractDomain string) string {
-	return contractDomain + "." + domainContractAddresses
-}
-
 func designateNotarySignatureDomainForMember(memberIndex int) string {
 	return fmt.Sprintf("%s%d.%s", domainDesignateNotaryPrefix, memberIndex, domainBootstrap)
 }
