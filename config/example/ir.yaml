@@ -76,44 +76,9 @@ morph:
         interval: 30s # Optional time period between pings. Defaults to 30s. Must not be negative
         timeout: 90s # Optional time period to wait for pong. Defaults to 1m. Must not be negative
 
-network_settings: # NeoFS network settings managed in the Netmap contract
-  epoch_duration: 240 # Time interval (approximate) between two adjacent NeoFS epochs measured in Sidechain blocks.
-    # Must be an integer in range [1, 18446744073709551615]
-  max_object_size: 67108864 # [bytes] Maximum size of physically stored NeoFS objects. Note that this applies
-    # only to objects located on storage nodes: user objects have no restrictions and, if necessary, are sliced.
-    # Must be an integer in range [1, 18446744073709551615]
-  require_homomorphic_hashing: true # Toggles the requirement for homomorphic hashing of object payloads.
-    # Must be 'true' or 'false'
-  allow_maintenance_mode: true # Toggles permission to transition storage nodes to maintenance state.
-    # Must be 'true' or 'false'
-  eigen_trust:
-    alpha: 0.1 # Alpha parameter of EigenTrust algorithm used in the Reputation system.
-      # Must be a floating point number in range [0, 1].
-    iterations_number: 4 # Number of EigenTrust algorithm iterations to pass in the Reputation system.
-      # Must be an integer in range [1, 18446744073709551615]
-  price: # Price settings. NEOFS means NeoFS Balance contract tokens (usually GASe-12).
-    storage: 100000000 # [NEOFS] Price for 1GB of data paid every epoch by data owner to storage nodes.
-      # Must be an integer in range [0, 18446744073709551615]
-    fee:
-      ir_candidate: 100 # [GASe-8] Contribution from the new candidate to the Inner Ring. Must be non-negative integer
-        # Must be an integer in range [0, 18446744073709551615]
-      withdraw: 100000000 # [GASe-8] Fee paid by the user account to;
-        # - NeoFS Processing contract (if Notary service is enabled in the NeoFS Mainchain)
-        # - each Alphabet member (otherwise)
-        # Must be an integer in range [0, 18446744073709551615]
-      audit: 10000 # [NEOFS] Fee for data audit paid by storage group owner to the auditor (Inner Ring member).
-        # Must be an integer in range [0, 18446744073709551615]
-      new_container: 1000 # [NEOFS] Fee for new container paid by creator to each Alphabet member.
-        # Must be an integer in range [0, 18446744073709551615]
-      container_domain: 500 # [NEOFS] Fee for container's NNS domain paid by container creator to each Alphabet member.
-        # Must be a non-negative integer
-  custom: # Optional list of custom key-value pairs to be set in the network configuration. Forbidden keys:
-    # [AuditFee, BasicIncomeRate, ContainerAliasFee, ContainerFee, EigenTrustAlpha, EigenTrustIterations, EpochDuration,
-    # HomomorphicHashingDisabled, InnerRingCandidateFee, MaintenanceModeAllowed, MaxObjectSize, WithdrawFee]
-    # Note that this list can be extended in the future, so, to avoid potential collision, it is recommended
-    # to use the most specific keys.
-    - my_custom_key1=val1
-    - my_custom_key2=val2
+fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the FS chain. By default,
+  # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).
+  # If set, must be 'true' or 'false'.
 
 nns:
   system_email: usr@domain.io

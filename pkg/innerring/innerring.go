@@ -445,7 +445,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		sidechainOpts[1] = client.WithLogger(log)
 		sidechainOpts[2] = client.WithSingleClient(wsClient)
 
-		isAutoDeploy := isAutoDeploymentMode(cfg)
+		isAutoDeploy, err := isAutoDeploymentMode(cfg)
+		if err != nil {
+			return nil, err
+		}
 
 		if !isAutoDeploy {
 			sidechainOpts = append(sidechainOpts, client.WithAutoSidechainScope())
@@ -480,10 +483,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 				return nil, err
 			}
 
-			deployPrm.NetmapContract.Config, err = parseNetworkSettingsConfig(cfg)
-			if err != nil {
-				return nil, fmt.Errorf("invalid configuration of network settings: %w", err)
-			}
+			setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
 
 			err = deploy.Deploy(ctx, deployPrm)
 			if err != nil {
