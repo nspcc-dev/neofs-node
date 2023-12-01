@@ -1,10 +1,13 @@
 package meta_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -432,4 +435,52 @@ func TestDB_DropGraves(t *testing.T) {
 	err = db.IterateOverGraveyard(iterGravePRM)
 	require.NoError(t, err)
 	require.Zero(t, counter)
+}
+
+func TestDB_GetGarbage(t *testing.T) {
+	db := newDB(t)
+
+	const numOfObjs = 5
+	cID := cidtest.ID()
+	var oo []*objectsdk.Object
+	var size uint64
+
+	for i := 0; i < numOfObjs; i++ {
+		raw := generateObjectWithCID(t, cID)
+		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
+
+		size += raw.PayloadSize()
+		oo = append(oo, raw)
+
+		err := putBig(db, raw)
+		require.NoError(t, err)
+	}
+
+	// additional object from another container
+	anotherObj := generateObjectWithCID(t, cidtest.ID())
+	err := putBig(db, anotherObj)
+	require.NoError(t, err)
+	oo = append(oo, anotherObj)
+
+	_, err = db.InhumeContainer(cID)
+	require.NoError(t, err)
+
+	for i := 0; i < numOfObjs; i++ {
+		garbageObjs, garbageContainers, err := db.GetGarbage(i + 1)
+		require.NoError(t, err)
+		require.Len(t, garbageObjs, i+1)
+
+		// we inhumed 5 objects container and requested 5 garbage objects
+		// max, so no info about if we have the 6-th one to delete,
+		// so can't say if this container can be deleted totally
+		require.Len(t, garbageContainers, 0)
+	}
+
+	// check the whole container garbage case
+	garbageObjs, garbageContainers, err := db.GetGarbage(numOfObjs + 1)
+	require.NoError(t, err)
+
+	require.Len(t, garbageObjs, numOfObjs) // still only numOfObjs are removed
+	require.Len(t, garbageContainers, 1)   // but container can be deleted now
+	require.Equal(t, garbageContainers[0], cID)
 }

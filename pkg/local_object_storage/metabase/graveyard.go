@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"golang.org/x/exp/maps"
 )
 
 // GarbageObject represents descriptor of the
@@ -258,4 +260,109 @@ func (db *DB) DropGraves(tss []TombstonedObject) error {
 
 		return nil
 	})
+}
+
+// GetGarbage returns garbage according to the metabase state. Garbage includes
+// objects marked with GC mark (expired, tombstoned but not deleted from disk,
+// extra replicated, etc.) and removed containers.
+// The first return value describes garbage objects. These objects should be
+// removed. The second return value describes garbage containers whose _all_
+// garbage objects were included in the first return value and, therefore,
+// these containers can be deleted (if their objects are handled and deleted too).
+func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
+	if limit <= 0 {
+		return nil, nil, nil
+	}
+
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return nil, nil, ErrDegradedMode
+	}
+
+	const reasonableLimit = 1000
+	initCap := reasonableLimit
+	if limit < initCap {
+		initCap = limit
+	}
+
+	var addrBuff oid.Address
+	var cidBuff cid.ID
+	var uniqueObjectsMap map[oid.ID]struct{}
+	alreadyHandledContainers := make(map[cid.ID]struct{})
+	resObjects := make([]oid.Address, 0, initCap)
+	resContainers := make([]cid.ID, 0)
+
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		// start from the deleted containers since
+		// an object can be deleted manually but
+		// also be deleted as a part of non-existing
+		// container so no need to handle it twice
+
+		bkt := tx.Bucket(garbageContainersBucketName)
+		c := bkt.Cursor()
+
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			err := cidBuff.Decode(k)
+			if err != nil {
+				return fmt.Errorf("parsing raw CID: %w", err)
+			}
+
+			// another container, clean the map
+			if uniqueObjectsMap == nil {
+				uniqueObjectsMap = make(map[oid.ID]struct{}, initCap)
+			} else {
+				maps.Clear(uniqueObjectsMap)
+			}
+
+			err = listContainerObjects(tx, cidBuff, uniqueObjectsMap, limit-len(resObjects))
+			if err != nil {
+				return fmt.Errorf("listing objects for %s container: %w", cidBuff, err)
+			}
+
+			addrBuff.SetContainer(cidBuff)
+			for obj := range uniqueObjectsMap {
+				addrBuff.SetObject(obj)
+				resObjects = append(resObjects, addrBuff)
+			}
+
+			alreadyHandledContainers[cidBuff] = struct{}{}
+
+			if len(resObjects) < limit {
+				// all the objects from the container were listed,
+				// container can be removed
+				resContainers = append(resContainers, cidBuff)
+			} else {
+				return nil
+			}
+		}
+
+		// deleted containers are not enough to reach the limit,
+		// check manually deleted objects then
+
+		bkt = tx.Bucket(garbageObjectsBucketName)
+		c = bkt.Cursor()
+
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			err := decodeAddressFromKey(&addrBuff, k)
+			if err != nil {
+				return fmt.Errorf("parsing deleted address: %w", err)
+			}
+
+			if _, handled := alreadyHandledContainers[addrBuff.Container()]; handled {
+				continue
+			}
+
+			resObjects = append(resObjects, addrBuff)
+
+			if len(resObjects) >= limit {
+				return nil
+			}
+		}
+
+		return nil
+	})
+
+	return resObjects, resContainers, err
 }

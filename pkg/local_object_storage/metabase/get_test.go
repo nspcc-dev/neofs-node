@@ -3,6 +3,7 @@ package meta_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"testing"
@@ -285,7 +286,7 @@ func TestDB_GetContainer(t *testing.T) {
 	err = metaInhume(db, object.AddressOf(o1), object.AddressOf(o8))
 	require.NoError(t, err)
 
-	objs, err := db.ListContainerObjects(cID)
+	objs, err := db.ListContainerObjects(cID, math.MaxInt64)
 	require.NoError(t, err)
 
 	require.Len(t, objs, 6)

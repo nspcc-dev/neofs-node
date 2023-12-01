@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"testing"
@@ -249,7 +250,7 @@ func TestDB_DeleteContainer(t *testing.T) {
 		err = db.DeleteContainer(cID)
 		require.NoError(t, err)
 
-		objs, err := db.ListContainerObjects(cID)
+		objs, err := db.ListContainerObjects(cID, math.MaxInt64)
 		require.NoError(t, err)
 
 		require.Len(t, objs, 0)
