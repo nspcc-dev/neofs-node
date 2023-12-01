@@ -490,6 +490,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localNEF = prm.BalanceContract.Common.NEF
 	syncPrm.localManifest = prm.BalanceContract.Common.Manifest
 	syncPrm.domainName = domainBalance
+	syncPrm.committeeDeployRequired = true
+	syncPrm.extraCommitteeDeployAllowedContracts = []util.Uint160{netmapContractAddress}
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
 
 	prm.Logger.Info("synchronizing Balance contract with the chain...")
@@ -500,6 +502,9 @@ func Deploy(ctx context.Context, prm Prm) error {
 	}
 
 	prm.Logger.Info("Balance contract successfully synchronized", zap.Stringer("address", balanceContractAddress))
+
+	syncPrm.committeeDeployRequired = false
+	syncPrm.extraCommitteeDeployAllowedContracts = nil
 
 	// 5. Reputation
 	syncPrm.localNEF = prm.ReputationContract.Common.NEF
@@ -541,6 +546,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localManifest = prm.ContainerContract.Common.Manifest
 	syncPrm.domainName = domainContainer
 	syncPrm.committeeDeployRequired = true
+	syncPrm.extraCommitteeDeployAllowedContracts = []util.Uint160{netmapContractAddress}
 	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
 		return []interface{}{
 			notaryDisabledExtraUpdateArg,
