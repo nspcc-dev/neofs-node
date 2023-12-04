@@ -7,15 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var storageInspectObjCMD = &cobra.Command{
-	Use:        "inspect",
-	Short:      "Get object from the NeoFS node's storage snapshot",
-	Long:       "Get object from the NeoFS node's storage snapshot",
-	Deprecated: "will be removed in the next release. Use `get` instead.",
-	Args:       cobra.NoArgs,
-	Run:        getFunc,
-}
-
 var storageGetObjCMD = &cobra.Command{
 	Use:   "get",
 	Short: "Get object from the NeoFS node's storage snapshot",
@@ -25,11 +16,6 @@ var storageGetObjCMD = &cobra.Command{
 }
 
 func init() {
-	common.AddAddressFlag(storageInspectObjCMD, &vAddress)
-	common.AddOutputFileFlag(storageInspectObjCMD, &vOut)
-	common.AddConfigFileFlag(storageInspectObjCMD, &vConfig)
-	common.AddPayloadOnlyFlag(storageInspectObjCMD, &vPayloadOnly)
-
 	common.AddAddressFlag(storageGetObjCMD, &vAddress)
 	common.AddOutputFileFlag(storageGetObjCMD, &vOut)
 	common.AddConfigFileFlag(storageGetObjCMD, &vConfig)
