@@ -99,10 +99,10 @@ func (c *Client) ReceiveBlocks() error {
 }
 
 // ReceiveNotaryRequests performs subscription for notary request payloads
-// addition or removal events to this instance of client. Passed txSigner is
-// used as filter: subscription is only for the notary requests that must be
-// signed by txSigner. Events are sent to a returned channel.
-// The channel is closed when connection to RPC nodes is lost.
+// addition or removal events to this instance of client. Passed txSigner
+// expands the flow of notary requests to those whose main transaction signers
+// include the specified account. Events are sent to a returned channel. The
+// channel is closed when connection to RPC nodes is lost.
 //
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
