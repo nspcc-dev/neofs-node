@@ -127,7 +127,7 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 
 	_, err := c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &txSigner}, c.subs.curNotaryChan)
 	if err != nil {
-		return fmt.Errorf("block subscriptions RPC: %w", err)
+		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
 	}
 
 	c.subs.subscribedNotaryEvents[txSigner] = struct{}{}
