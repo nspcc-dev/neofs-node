@@ -106,6 +106,8 @@ func (c *Client) ReceiveBlocks() error {
 //
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
+//
+// See also [Client.ReceiveAllNotaryRequests].
 func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
@@ -121,6 +123,10 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	c.subs.Lock()
 	defer c.subs.Unlock()
 
+	if c.subs.subscribedToAllNotaryEvents {
+		return nil
+	}
+
 	if _, ok := c.subs.subscribedNotaryEvents[txSigner]; ok {
 		return nil
 	}
@@ -131,6 +137,40 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	}
 
 	c.subs.subscribedNotaryEvents[txSigner] = struct{}{}
+
+	return nil
+}
+
+// ReceiveAllNotaryRequests subscribes to all notary request events coming from
+// the Neo blockchain the Client connected to. Events are sent to the channel
+// returned from [Client.Notifications].
+//
+// See also [Client.ReceiveNotaryRequests].
+func (c *Client) ReceiveAllNotaryRequests() error {
+	c.switchLock.Lock()
+	defer c.switchLock.Unlock()
+
+	if c.inactive {
+		return ErrConnectionLost
+	}
+
+	c.subs.Lock()
+	defer c.subs.Unlock()
+
+	if c.subs.subscribedToAllNotaryEvents {
+		return nil
+	}
+
+	_, err := c.client.ReceiveNotaryRequests(nil, c.subs.curNotaryChan)
+	if err != nil {
+		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
+	}
+
+	c.subs.subscribedToAllNotaryEvents = true
+
+	for k := range c.subs.subscribedNotaryEvents {
+		delete(c.subs.subscribedNotaryEvents, k)
+	}
 
 	return nil
 }
@@ -181,7 +221,9 @@ type subscriptions struct {
 	curNotaryChan chan *result.NotaryRequestEvent
 
 	// cached subscription information
-	subscribedEvents       map[util.Uint160]struct{}
+	subscribedEvents            map[util.Uint160]struct{}
+	subscribedToAllNotaryEvents bool
+	// particular transaction signers to listen when subscribedToAllNotaryEvents is unset
 	subscribedNotaryEvents map[util.Uint160]struct{}
 	subscribedToNewBlocks  bool
 }
@@ -294,6 +336,16 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 	}
 
 	// notary notification events restoration
+	if c.subs.subscribedToAllNotaryEvents {
+		_, err = c.client.ReceiveNotaryRequests(nil, notaryCh)
+		if err != nil {
+			c.logger.Error("could not restore notary notification subscription after RPC switch",
+				zap.Error(err))
+		}
+		resCh <- err == nil
+		return
+	}
+
 	for signer := range c.subs.subscribedNotaryEvents {
 		_, err = c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &signer}, notaryCh)
 		if err != nil {
