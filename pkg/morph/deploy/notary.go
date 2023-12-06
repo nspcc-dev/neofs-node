@@ -17,7 +17,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
@@ -1046,25 +1045,17 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 	localAccID := prm.localAcc.ScriptHash()
 	validatorMultiSigAccID := prm.validatorMultiSigAcc.ScriptHash()
 	committeeMultiSigAccID := committeeMultiSigAcc.ScriptHash()
-	chNotaryRequests := make(chan *result.NotaryRequestEvent, 100) // secure from blocking
 	// cache processed operations: when main transaction from received notary
 	// request is signed and sent by the local account, we receive the request from
 	// the channel again
 	mProcessedMainTxs := make(map[util.Uint256]struct{})
 
-	subID, err := prm.blockchain.ReceiveNotaryRequests(nil, chNotaryRequests)
+	chNotaryRequests, err := prm.blockchain.SubscribeToNotaryRequests()
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests: %w", err)
 	}
 
 	go func() {
-		defer func() {
-			err := prm.blockchain.Unsubscribe(subID)
-			if err != nil {
-				prm.logger.Warn("failed to cancel subscription to notary requests", zap.Error(err))
-			}
-		}()
-
 		prm.logger.Info("listening to committee notary requests...")
 
 	upperLoop:

@@ -463,11 +463,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		if isAutoDeploy {
 			log.Info("auto-deployment configured, initializing Sidechain...")
 
-			sidechain := newNeoFSSidechain(server.morphClient)
+			sidechain := newNeoFSSidechain(server.morphClient, wsClient)
 
 			var deployPrm deploy.Prm
 			deployPrm.Logger = server.log
-			deployPrm.Blockchain = wsClient
+			deployPrm.Blockchain = sidechain
 			deployPrm.LocalAccount = singleAcc
 			deployPrm.ValidatorMultiSigAccount = consensusAcc
 			deployPrm.NeoFS = sidechain
@@ -490,6 +490,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			if err != nil {
 				return nil, fmt.Errorf("deploy Sidechain: %w", err)
 			}
+
+			sidechain.cancelSubs()
 
 			err = server.morphClient.InitSidechainScope()
 			if err != nil {

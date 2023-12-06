@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -35,14 +34,12 @@ type blockchainMonitor struct {
 
 	blockInterval time.Duration
 
-	subID  string
 	height atomic.Uint32
 
 	chConnLost chan struct{}
 }
 
 // newBlockchainMonitor constructs and runs monitor for the given Blockchain.
-// Resulting blockchainMonitor must be stopped when no longer needed.
 func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{}) (*blockchainMonitor, error) {
 	ver, err := b.GetVersion()
 	if err != nil {
@@ -54,9 +51,7 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{
 		return nil, fmt.Errorf("get current blockchain height: %w", err)
 	}
 
-	blockCh := make(chan *block.Block)
-
-	newBlockSubID, err := b.ReceiveBlocks(nil, blockCh)
+	blockCh, err := b.SubscribeToNewBlocks()
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to new blocks of the chain: %w", err)
 	}
@@ -65,7 +60,6 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{
 		logger:        l,
 		blockchain:    b,
 		blockInterval: time.Duration(ver.Protocol.MillisecondsPerBlock) * time.Millisecond,
-		subID:         newBlockSubID,
 		chConnLost:    make(chan struct{}),
 	}
 
@@ -121,15 +115,6 @@ func (x *blockchainMonitor) waitForNextBlock(ctx context.Context) error {
 				return nil
 			}
 		}
-	}
-}
-
-// stop stops running blockchainMonitor. Stopped blockchainMonitor must not be
-// used anymore.
-func (x *blockchainMonitor) stop() {
-	err := x.blockchain.Unsubscribe(x.subID)
-	if err != nil {
-		x.logger.Warn("failed to cancel subscription to new blocks", zap.Error(err))
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
@@ -48,21 +47,19 @@ type Blockchain interface {
 	// GetContractStateByHash may return non-nil state.Contract along with an error.
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
 
-	// ReceiveBlocks starts background process that forwards new blocks of the
-	// blockchain to the provided channel. The process handles all new blocks when
-	// ReceiveBlocks is called with nil filter. Returns unique identifier to be used
-	// to stop the process via Unsubscribe.
-	ReceiveBlocks(*neorpc.BlockFilter, chan<- *block.Block) (id string, err error)
+	// SubscribeToNewBlocks opens stream of the new blocks persisted in the
+	// blockchain and returns channel to read them. The channel is closed only when
+	// connection to the blockchain is lost and there will be no more events. Caller
+	// subscribes once, regularly reads events from the channel and is resistant to
+	// event replay.
+	SubscribeToNewBlocks() (<-chan *block.Block, error)
 
-	// ReceiveNotaryRequests starts background process that forwards new notary
-	// requests of the blockchain to the provided channel. The process skips
-	// requests that don't match specified filter. Returns unique identifier to be
-	// used to stop the process via Unsubscribe.
-	ReceiveNotaryRequests(*neorpc.TxFilter, chan<- *result.NotaryRequestEvent) (string, error)
-
-	// Unsubscribe stops background process started by ReceiveBlocks or
-	// ReceiveNotaryRequests by ID.
-	Unsubscribe(id string) error
+	// SubscribeToNotaryRequests opens stream of the notary request events from the
+	// blockchain and returns channel to read them. The channel is closed only when
+	// connection to the blockchain is lost and there will be no more events. Caller
+	// subscribes once, regularly reads events from the channel and is resistant to
+	// event replay.
+	SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error)
 }
 
 // NeoFSState groups information about NeoFS network state processed by Deploy.
@@ -226,8 +223,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	if err != nil {
 		return fmt.Errorf("init blockchain monitor: %w", err)
 	}
-
-	defer monitor.stop()
 
 	deployNNSPrm := deployNNSContractPrm{
 		logger:        prm.Logger,

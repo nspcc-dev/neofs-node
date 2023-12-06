@@ -5,6 +5,9 @@ import (
 	"math"
 	"sync"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
@@ -15,11 +18,57 @@ type neoFSSidechain struct {
 
 	netmapContractMtx sync.RWMutex
 	netmapContract    *netmap.Client
+
+	*rpcclient.WSClient
+
+	subsMtx sync.Mutex
+	subs    []string
 }
 
-func newNeoFSSidechain(sidechainClient *client.Client) *neoFSSidechain {
+// cancels all active subscriptions. Must not be called concurrently with
+// subscribe methods.
+func (x *neoFSSidechain) cancelSubs() {
+	for i := range x.subs {
+		_ = x.WSClient.Unsubscribe(x.subs[i])
+	}
+}
+
+// SubscribeToNewBlocks implements [deploy.Blockchain] interface.
+func (x *neoFSSidechain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
+	ch := make(chan *block.Block)
+
+	sub, err := x.WSClient.ReceiveBlocks(nil, ch)
+	if err != nil {
+		return nil, fmt.Errorf("listen new blocks over Neo RPC WebSocket: %w", err)
+	}
+
+	x.subsMtx.Lock()
+	x.subs = append(x.subs, sub)
+	x.subsMtx.Unlock()
+
+	return ch, nil
+}
+
+// SubscribeToNotaryRequests implements [deploy.Blockchain] interface.
+func (x *neoFSSidechain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error) {
+	ch := make(chan *result.NotaryRequestEvent)
+
+	sub, err := x.WSClient.ReceiveNotaryRequests(nil, ch)
+	if err != nil {
+		return nil, fmt.Errorf("listen notary requests over Neo RPC WebSocket: %w", err)
+	}
+
+	x.subsMtx.Lock()
+	x.subs = append(x.subs, sub)
+	x.subsMtx.Unlock()
+
+	return ch, nil
+}
+
+func newNeoFSSidechain(sidechainClient *client.Client, sidechainWSClient *rpcclient.WSClient) *neoFSSidechain {
 	return &neoFSSidechain{
-		client: sidechainClient,
+		client:   sidechainClient,
+		WSClient: sidechainWSClient,
 	}
 }
 
