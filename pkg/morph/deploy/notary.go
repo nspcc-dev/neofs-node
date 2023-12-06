@@ -1056,7 +1056,7 @@ func listenCommitteeNotaryRequests(ctx context.Context, prm listenCommitteeNotar
 
 	subID, err := prm.blockchain.ReceiveNotaryRequests(nil, chNotaryRequests)
 	if err != nil {
-		return fmt.Errorf("subscribe to notary requests from committee: %w", err)
+		return fmt.Errorf("subscribe to notary requests: %w", err)
 	}
 
 	go func() {
