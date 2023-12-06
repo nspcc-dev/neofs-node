@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -139,6 +140,8 @@ type (
 		key  *keys.PrivateKey
 		name string
 		from uint32 // block height
+
+		withAutoSidechainScope bool
 	}
 )
 
@@ -359,40 +362,48 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, fmt.Errorf("can't parse predefined validators list: %w", err)
 	}
 
+	wlt, err := wallet.NewWalletFromFile(walletPath)
+	if err != nil {
+		return nil, fmt.Errorf("read wallet from file '%s': %w", walletPath, err)
+	}
+
+	const singleAccLabel = "single"
+	const consensusAccLabel = "consensus"
+	var singleAcc *wallet.Account
+	var consensusAcc *wallet.Account
+
+	for i := range wlt.Accounts {
+		err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+		switch wlt.Accounts[i].Label {
+		case singleAccLabel:
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPass, err)
+			}
+
+			singleAcc = wlt.Accounts[i]
+		case consensusAccLabel:
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
+			}
+
+			consensusAcc = wlt.Accounts[i]
+		}
+	}
+
+	isAutoDeploy, err := isAutoDeploymentMode(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	isLocalConsensus := isLocalConsensusMode(cfg)
+	var localWSClient *rpcclient.WSClient // set if isLocalConsensus only
+
 	// create morph client
-	if isLocalConsensusMode(cfg) {
+	if isLocalConsensus {
 		// go on a local blockchain
 		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
-		}
-
-		wlt, err := wallet.NewWalletFromFile(walletPath)
-		if err != nil {
-			return nil, fmt.Errorf("read wallet from file '%s': %w", walletPath, err)
-		}
-
-		const singleAccLabel = "single"
-		const consensusAccLabel = "consensus"
-		var singleAcc *wallet.Account
-		var consensusAcc *wallet.Account
-
-		for i := range wlt.Accounts {
-			err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
-			switch wlt.Accounts[i].Label {
-			case singleAccLabel:
-				if err != nil {
-					return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPass, err)
-				}
-
-				singleAcc = wlt.Accounts[i]
-			case consensusAccLabel:
-				if err != nil {
-					return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
-				}
-
-				consensusAcc = wlt.Accounts[i]
-			}
 		}
 
 		if singleAcc == nil {
@@ -434,7 +445,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			}()
 		}
 
-		wsClient, err := server.bc.BuildWSClient(ctx)
+		localWSClient, err = server.bc.BuildWSClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("build WS client on internal blockchain: %w", err)
 		}
@@ -444,12 +455,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		sidechainOpts := make([]client.Option, 3, 4)
 		sidechainOpts[0] = client.WithContext(ctx)
 		sidechainOpts[1] = client.WithLogger(log)
-		sidechainOpts[2] = client.WithSingleClient(wsClient)
-
-		isAutoDeploy, err := isAutoDeploymentMode(cfg)
-		if err != nil {
-			return nil, err
-		}
+		sidechainOpts[2] = client.WithSingleClient(localWSClient)
 
 		if !isAutoDeploy {
 			sidechainOpts = append(sidechainOpts, client.WithAutoSidechainScope())
@@ -458,45 +464,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.morphClient, err = client.New(server.key, sidechainOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("init internal morph client: %w", err)
-		}
-
-		if isAutoDeploy {
-			log.Info("auto-deployment configured, initializing Sidechain...")
-
-			sidechain := newNeoFSSidechain(server.morphClient, wsClient)
-
-			var deployPrm deploy.Prm
-			deployPrm.Logger = server.log
-			deployPrm.Blockchain = sidechain
-			deployPrm.LocalAccount = singleAcc
-			deployPrm.ValidatorMultiSigAccount = consensusAcc
-			deployPrm.NeoFS = sidechain
-
-			nnsCfg, err := parseNNSConfig(cfg)
-			if err != nil {
-				return nil, fmt.Errorf("invalid NNS configuration: %w", err)
-			}
-
-			deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
-
-			err = readEmbeddedContracts(&deployPrm)
-			if err != nil {
-				return nil, err
-			}
-
-			setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
-
-			err = deploy.Deploy(ctx, deployPrm)
-			if err != nil {
-				return nil, fmt.Errorf("deploy Sidechain: %w", err)
-			}
-
-			sidechain.cancelSubs()
-
-			err = server.morphClient.InitSidechainScope()
-			if err != nil {
-				return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
-			}
 		}
 	} else {
 		if len(server.predefinedValidators) == 0 {
@@ -515,10 +482,83 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 		server.key = acc.PrivateKey()
 		morphChain.key = server.key
+		morphChain.withAutoSidechainScope = !isAutoDeploy
 
 		server.morphClient, err = server.createClient(ctx, morphChain, errChan)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if isAutoDeploy {
+		log.Info("auto-deployment configured, initializing Sidechain...")
+
+		var sidechain *neoFSSidechain
+		var clnt *client.Client // set if not isLocalConsensus only
+		if isLocalConsensus {
+			sidechain = newNeoFSSidechain(server.morphClient, localWSClient)
+		} else {
+			// create new client for deployment procedure only. This is done because event
+			// subscriptions can be created only once, but we must cancel them to prevent
+			// stuck
+			//
+			// connection switch/loose callbacks are not needed, so just create
+			// another one-time client instead of server.createClient
+			endpoints := cfg.GetStringSlice(morphChain.name + ".endpoints")
+			if len(endpoints) == 0 {
+				return nil, fmt.Errorf("%s chain client endpoints not provided", morphChain.name)
+			}
+
+			clnt, err = client.New(server.key,
+				client.WithContext(ctx),
+				client.WithLogger(log),
+				client.WithDialTimeout(cfg.GetDuration(morphChain.name+".dial_timeout")),
+				client.WithEndpoints(endpoints),
+				client.WithReconnectionRetries(cfg.GetInt(morphChain.name+".reconnections_number")),
+				client.WithReconnectionsDelay(cfg.GetDuration(morphChain.name+".reconnections_delay")),
+				client.WithMinRequiredBlockHeight(morphChain.from),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("create multi-endpoint client for Sidechain deployment: %w", err)
+			}
+
+			sidechain = newNeoFSSidechain(clnt, nil)
+		}
+
+		var deployPrm deploy.Prm
+		deployPrm.Logger = server.log
+		deployPrm.Blockchain = sidechain
+		deployPrm.LocalAccount = singleAcc
+		deployPrm.ValidatorMultiSigAccount = consensusAcc
+		deployPrm.NeoFS = sidechain
+
+		nnsCfg, err := parseNNSConfig(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid NNS configuration: %w", err)
+		}
+
+		deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
+
+		err = readEmbeddedContracts(&deployPrm)
+		if err != nil {
+			return nil, err
+		}
+
+		setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
+
+		err = deploy.Deploy(ctx, deployPrm)
+		if err != nil {
+			return nil, fmt.Errorf("deploy Sidechain: %w", err)
+		}
+
+		sidechain.cancelSubs()
+		if !isLocalConsensus {
+			clnt.Close()
+		}
+
+		err = server.morphClient.InitSidechainScope()
+		if err != nil {
+			return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
 		}
 	}
 
@@ -585,6 +625,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.mainnetClient = server.morphClient
 	} else {
 		mainnetChain := morphChain
+		mainnetChain.withAutoSidechainScope = false
 		mainnetChain.name = mainnetPrefix
 
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
@@ -1088,7 +1129,7 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		}),
 		client.WithMinRequiredBlockHeight(p.from),
 	}
-	if p.name == morphPrefix {
+	if p.withAutoSidechainScope {
 		options = append(options, client.WithAutoSidechainScope())
 	}
 
