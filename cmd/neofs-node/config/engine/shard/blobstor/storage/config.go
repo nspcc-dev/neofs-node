@@ -9,7 +9,7 @@ import (
 type Config config.Config
 
 // PermDefault are default permission bits for BlobStor data.
-const PermDefault = 0660
+const PermDefault = 0640
 
 func From(x *config.Config) *Config {
 	return (*Config)(x)

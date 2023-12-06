@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- Created files are not group writable (#2589)
 
 ### Removed
 

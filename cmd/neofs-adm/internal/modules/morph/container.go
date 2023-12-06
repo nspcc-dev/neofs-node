@@ -124,7 +124,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filename, out, 0o660)
+	return os.WriteFile(filename, out, 0o640)
 }
 
 func listContainers(cmd *cobra.Command, _ []string) error {

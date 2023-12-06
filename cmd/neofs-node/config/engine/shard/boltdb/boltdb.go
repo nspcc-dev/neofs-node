@@ -13,7 +13,7 @@ type Config config.Config
 
 const (
 	// PermDefault is a default permission bits for metabase file.
-	PermDefault = 0660
+	PermDefault = 0640
 )
 
 // Perm returns the value of "perm" config parameter as a fs.FileMode.
