@@ -37,7 +37,7 @@ func (x *Config) Sub(name string) *Config {
 // recommended.
 //
 // Returns nil if config is nil.
-func (x *Config) Value(name string) interface{} {
+func (x *Config) Value(name string) any {
 	value := x.v.Get(strings.Join(append(x.path, name), separator))
 	if value != nil || x.defaultPath == nil {
 		return value

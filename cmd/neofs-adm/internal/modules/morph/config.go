@@ -140,7 +140,7 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 	return wCtx.awaitTx()
 }
 
-func parseConfigPair(kvStr string, force bool) (key string, val interface{}, err error) {
+func parseConfigPair(kvStr string, force bool) (key string, val any, err error) {
 	kv := strings.SplitN(kvStr, "=", 2)
 	if len(kv) != 2 {
 		return "", nil, fmt.Errorf("invalid parameter format: must be 'key=val', got: %s", kvStr)
