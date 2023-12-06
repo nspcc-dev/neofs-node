@@ -118,14 +118,19 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 		return ErrConnectionLost
 	}
 
+	c.subs.Lock()
+	defer c.subs.Unlock()
+
+	if _, ok := c.subs.subscribedNotaryEvents[txSigner]; ok {
+		return nil
+	}
+
 	_, err := c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &txSigner}, c.subs.curNotaryChan)
 	if err != nil {
 		return fmt.Errorf("block subscriptions RPC: %w", err)
 	}
 
-	c.subs.Lock()
 	c.subs.subscribedNotaryEvents[txSigner] = struct{}{}
-	c.subs.Unlock()
 
 	return nil
 }
