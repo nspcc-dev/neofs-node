@@ -162,11 +162,9 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 		record:               "", // set in for loop
 	}
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return util.Uint160{}, fmt.Errorf("wait for the contract synchronization: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return util.Uint160{}, fmt.Errorf("wait for the contract synchronization: %w", err)
 		}
 
 		l.Info("reading on-chain state of the contract by NNS domain name...")

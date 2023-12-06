@@ -87,11 +87,9 @@ func enableNotary(ctx context.Context, prm enableNotaryPrm) error {
 
 	roleContract := rolemgmt.NewReader(invoker.New(prm.blockchain, nil))
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for Notary service to be enabled for the committee: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for Notary service to be enabled for the committee: %w", err)
 		}
 
 		prm.logger.Info("checking Notary role of the committee members...")

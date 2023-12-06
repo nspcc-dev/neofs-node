@@ -48,11 +48,9 @@ func initAlphabet(ctx context.Context, prm initAlphabetPrm) error {
 	roleContract := rolemgmt.New(committeeActor)
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for NeoFS Alphabet role to be designated for the committee: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for NeoFS Alphabet role to be designated for the committee: %w", err)
 		}
 
 		prm.logger.Info("checking NeoFS Alphabet role of the committee members...")
@@ -149,11 +147,9 @@ func initVoteForAlphabet(ctx context.Context, prm initVoteForAlphabetPrm) error 
 	setRegisterPrice := func(price int64) { scriptBuilder.InvokeMethod(neo.Hash, "setRegisterPrice", price) }
 
 mainLoop:
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for NeoFS Alphabet to be registered as candidates to validators: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for NeoFS Alphabet to be registered as candidates to validators: %w", err)
 		}
 
 		prm.logger.Info("checking registered candidates to validators...")

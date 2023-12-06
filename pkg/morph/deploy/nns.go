@@ -119,11 +119,9 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 	txMonitor := newTransactionGroupMonitor(localActor)
 	managementContract := management.New(localActor)
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return res, fmt.Errorf("wait for NNS contract synchronization: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return res, fmt.Errorf("wait for NNS contract synchronization: %w", err)
 		}
 
 		prm.logger.Info("reading on-chain state of the NNS contract by ID=1")
@@ -274,11 +272,9 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for NNS contract synchronization: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for NNS contract synchronization: %w", err)
 		}
 
 		prm.logger.Info("reading on-chain state of the NNS contract...")
