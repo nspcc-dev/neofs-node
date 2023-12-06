@@ -20,9 +20,15 @@ import (
 )
 
 // checks whether Inner Ring app is configured to initialize underlying NeoFS
-// Sidechain or await for a background deployment.
-func isAutoDeploymentMode(cfg *viper.Viper) bool {
-	return cfg.IsSet("network_settings")
+// Sidechain or await for a background deployment. Returns an error if
+// the configuration format is violated.
+func isAutoDeploymentMode(cfg *viper.Viper) (bool, error) {
+	res, err := parseConfigBool(cfg, "fschain_autodeploy", "flag to auto-deploy the FS chain")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return false, err
+	}
+
+	return res, nil
 }
 
 // checks if Inner Ring app is configured to be launched in local consensus
@@ -209,139 +215,21 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	return c, nil
 }
 
-const networkSettingsConfigSection = "network_settings"
-
-func parseNetworkSettingsConfig(v *viper.Viper) (c netmap.NetworkConfiguration, err error) {
-	if !v.IsSet(networkSettingsConfigSection) {
-		return c, fmt.Errorf("missing root section '%s'", networkSettingsConfigSection)
-	}
-
-	c.EpochDuration, err = parseConfigUint64Range(v, networkSettingsConfigSection+".epoch_duration", "epoch duration", 1, math.MaxUint32)
-	if err != nil {
-		return
-	}
-
-	c.MaxObjectSize, err = parseConfigUint64Range(v, networkSettingsConfigSection+".max_object_size", "max object size", 1, math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	requireHomoHash, err := parseConfigBool(v, networkSettingsConfigSection+".require_homomorphic_hashing", "is homomorphic hashing required")
-	if err != nil {
-		return
-	}
-
-	c.HomomorphicHashingDisabled = !requireHomoHash
-
-	c.MaintenanceModeAllowed, err = parseConfigBool(v, networkSettingsConfigSection+".allow_maintenance_mode", "is maintenance mode allowed")
-	if err != nil {
-		return
-	}
-
-	const eigenTrustSection = networkSettingsConfigSection + ".eigen_trust"
-	if !v.IsSet(eigenTrustSection) {
-		return c, fmt.Errorf("missing EigenTrust section '%s'", eigenTrustSection)
-	}
-
-	c.EigenTrustAlpha, err = parseConfigFloatRange(v, eigenTrustSection+".alpha", "EigenTrust alpha parameter", 0, 1)
-	if err != nil {
-		return
-	}
-
-	c.EigenTrustIterations, err = parseConfigUint64Range(v, eigenTrustSection+".iterations_number", "number of EigenTrust iterations", 1, math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	const priceSection = networkSettingsConfigSection + ".price"
-	if !v.IsSet(priceSection) {
-		return c, fmt.Errorf("missing price section '%s'", priceSection)
-	}
-
-	c.StoragePrice, err = parseConfigUint64Max(v, priceSection+".storage", "storage price", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	const feeSection = priceSection + ".fee"
-	if !v.IsSet(feeSection) {
-		return c, fmt.Errorf("missing fee section '%s'", feeSection)
-	}
-
-	c.IRCandidateFee, err = parseConfigUint64Max(v, feeSection+".ir_candidate", "Inner Ring candidate fee", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	c.WithdrawalFee, err = parseConfigUint64Max(v, feeSection+".withdraw", "withdrawal fee", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	c.AuditFee, err = parseConfigUint64Max(v, feeSection+".audit", "data audit fee", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	c.ContainerFee, err = parseConfigUint64Max(v, feeSection+".new_container", "container creation fee", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	c.ContainerAliasFee, err = parseConfigUint64Max(v, feeSection+".container_domain", "container domain fee", math.MaxUint64)
-	if err != nil {
-		return
-	}
-
-	customSettingsKey := networkSettingsConfigSection + ".custom"
-	if v.IsSet(customSettingsKey) {
-		var sss []string
-		sss, err = parseConfigStrings(v, customSettingsKey, "custom settings")
-		if err != nil {
-			return
-		}
-
-		if len(sss) == 0 {
-			return c, fmt.Errorf("missing custom settings '%s'", customSettingsKey)
-		}
-
-		c.Raw = make([]netmap.RawNetworkParameter, len(sss))
-
-		for i := range sss {
-			const sep = "="
-			ss := strings.Split(sss[i], sep)
-			if len(ss) != 2 {
-				return c, fmt.Errorf("invalid %s '%s' (%s-separated key-value): failed to parse element #%d", customSettingsKey, ss[i], sep, i)
-			}
-
-			switch ss[0] {
-			default:
-				for j := 0; j < i; j++ {
-					if ss[0] == c.Raw[j].Name {
-						return c, fmt.Errorf("duplicated custom network setting '%s' in '%s'", ss[0], customSettingsKey)
-					}
-				}
-			case "AuditFee",
-				"BasicIncomeRate",
-				"ContainerAliasFee",
-				"ContainerFee",
-				"EigenTrustAlpha",
-				"EigenTrustIterations",
-				"EpochDuration",
-				"HomomorphicHashingDisabled",
-				"InnerRingCandidateFee",
-				"MaintenanceModeAllowed",
-				"MaxObjectSize",
-				"WithdrawFee":
-				return c, fmt.Errorf("invalid %s '%s' (%s-separated key-value): key to element #%d is forbidden", customSettingsKey, ss[i], sep, i)
-			}
-
-			c.Raw[i].Name = ss[0]
-			c.Raw[i].Value = []byte(ss[1])
-		}
-	}
-
-	return
+// sets NeoFS network settings to be used for the NeoFS Sidechain
+// auto-deployment.
+func setNetworkSettingsDefaults(netCfg *netmap.NetworkConfiguration) {
+	netCfg.MaxObjectSize = 64 << 20 // in bytes of object payload
+	netCfg.EpochDuration = 240      // in NeoFS Sidechain blocks (e.g. ~1h for 15s block interval)
+	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)
+	netCfg.AuditFee = 0             // in GAS per audit (NeoFS Balance contract's decimals)
+	netCfg.ContainerFee = 1000      // in GAS per container (NeoFS Balance contract's decimals)
+	netCfg.ContainerAliasFee = 500  // in GAS per container (NeoFS Balance contract's decimals)
+	netCfg.IRCandidateFee = 0       // in GAS per candidate (Fixed8)
+	netCfg.WithdrawalFee = 0        // in GAS per withdrawal (Fixed8)
+	netCfg.EigenTrustIterations = 4
+	netCfg.EigenTrustAlpha = 0.1
+	netCfg.HomomorphicHashingDisabled = false
+	netCfg.MaintenanceModeAllowed = false
 }
 
 type nnsConfig struct {
@@ -522,26 +410,6 @@ func parseConfigBool(v *viper.Viper, key, desc string) (bool, error) {
 		case "false":
 		case "true":
 			res = true
-		}
-	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (boolean): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigFloatRange(v *viper.Viper, key, desc string, min, max float64) (float64, error) {
-	var res float64
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		res, err = cast.ToFloat64E(v.Get(key))
-		if err == nil {
-			if res < min || res > max {
-				err = fmt.Errorf("out of allowable range [%.2f:%.2f]", min, max)
-			}
 		}
 	}
 	if err != nil {

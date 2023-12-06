@@ -60,6 +60,8 @@ type syncNeoFSContractPrm struct {
 	tryDeploy bool
 	// is contract must be deployed by the committee
 	committeeDeployRequired bool
+	// additional allowed contracts to be added to the NNS one if committeeDeployRequired
+	extraCommitteeDeployAllowedContracts []util.Uint160
 
 	// optional constructor of extra arguments to be passed into method deploying
 	// the contract. If returns both nil, no data is passed (noExtraDeployArgs can
@@ -129,7 +131,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 	if prm.committeeDeployRequired {
 		deployCommitteeActor, err := newCommitteeNotaryActorWithCustomCommitteeSigner(prm.blockchain, prm.localAcc, prm.committee, func(s *transaction.Signer) {
 			s.Scopes = transaction.CustomContracts
-			s.AllowedContracts = []util.Uint160{prm.nnsContract}
+			s.AllowedContracts = append(prm.extraCommitteeDeployAllowedContracts, prm.nnsContract)
 		})
 		if err != nil {
 			return util.Uint160{}, fmt.Errorf("create Notary service client sending deploy transactions to be signed by the committee: %w", err)
