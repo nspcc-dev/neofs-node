@@ -62,9 +62,9 @@ func listShards(cmd *cobra.Command, _ []string) {
 }
 
 func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) {
-	out := make([]map[string]interface{}, 0, len(ii))
+	out := make([]map[string]any, 0, len(ii))
 	for _, i := range ii {
-		out = append(out, map[string]interface{}{
+		out = append(out, map[string]any{
 			"shard_id":    base58.Encode(i.Shard_ID),
 			"mode":        shardModeToString(i.GetMode()),
 			"metabase":    i.GetMetabasePath(),

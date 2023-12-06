@@ -425,7 +425,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 	tests := []struct {
 		hash   util.Uint160
 		method string
-		args   []interface{}
+		args   []any
 	}{
 		{
 			scriptHash,
@@ -435,10 +435,10 @@ func TestPrepare_CorrectNR(t *testing.T) {
 		{
 			scriptHash,
 			"test2",
-			[]interface{}{
+			[]any{
 				int64(4),
 				"test",
-				[]interface{}{
+				[]any{
 					int64(4),
 					false,
 					true,
@@ -522,7 +522,7 @@ func alphaKeysSource() client.AlphabetKeys {
 	}
 }
 
-func script(hash util.Uint160, method string, args ...interface{}) []byte {
+func script(hash util.Uint160, method string, args ...any) []byte {
 	bw := io.NewBufBinWriter()
 
 	if len(args) > 0 {

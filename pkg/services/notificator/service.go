@@ -51,7 +51,7 @@ type Notificator struct {
 // Panics if any field of the passed Prm structure is not set/set
 // to nil.
 func New(prm *Prm) *Notificator {
-	panicOnNil := func(v interface{}, name string) {
+	panicOnNil := func(v any, name string) {
 		if v == nil {
 			panic(fmt.Sprintf("Notificator constructor: %s is nil\n", name))
 		}

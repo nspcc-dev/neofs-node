@@ -40,7 +40,7 @@ type (
 	}
 )
 
-func panicOnPrmValue(n string, v interface{}) {
+func panicOnPrmValue(n string, v any) {
 	panic(fmt.Sprintf("invalid parameter %s (%T):%v", n, v, v))
 }
 

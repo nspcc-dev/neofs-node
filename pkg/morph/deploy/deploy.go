@@ -445,7 +445,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	// Required for:
 	//  - Balance
 	//  - Container
-	netConfig := []interface{}{
+	netConfig := []any{
 		[]byte(netmap.MaxObjectSizeConfig), encodeUintConfig(prm.NetmapContract.Config.MaxObjectSize),
 		[]byte(netmap.BasicIncomeRateConfig), encodeUintConfig(prm.NetmapContract.Config.StoragePrice),
 		[]byte(netmap.AuditFeeConfig), encodeUintConfig(prm.NetmapContract.Config.AuditFee),
@@ -467,12 +467,12 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localNEF = prm.NetmapContract.Common.NEF
 	syncPrm.localManifest = prm.NetmapContract.Common.Manifest
 	syncPrm.domainName = domainNetmap
-	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-		return []interface{}{
+	syncPrm.buildExtraDeployArgs = func() ([]any, error) {
+		return []any{
 			notaryDisabledExtraUpdateArg,
-			util.Uint160{},     // Balance contract address legacy
-			util.Uint160{},     // Container contract address legacy
-			[]interface{}(nil), // keys, currently unused
+			util.Uint160{}, // Balance contract address legacy
+			util.Uint160{}, // Container contract address legacy
+			[]any(nil),     // keys, currently unused
 			netConfig,
 		}, nil
 	}
@@ -542,8 +542,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.domainName = domainContainer
 	syncPrm.committeeDeployRequired = true
 	syncPrm.extraCommitteeDeployAllowedContracts = []util.Uint160{netmapContractAddress}
-	syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-		return []interface{}{
+	syncPrm.buildExtraDeployArgs = func() ([]any, error) {
+		return []any{
 			notaryDisabledExtraUpdateArg,
 			netmapContractAddress,
 			balanceContractAddress,
@@ -573,8 +573,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
 		syncPrm.tryDeploy = ind == localAccCommitteeIndex // each member deploys its own Alphabet contract
 		syncPrm.domainName = calculateAlphabetContractAddressDomain(ind)
-		syncPrm.buildExtraDeployArgs = func() ([]interface{}, error) {
-			return []interface{}{
+		syncPrm.buildExtraDeployArgs = func() ([]any, error) {
+			return []any{
 				notaryDisabledExtraUpdateArg,
 				netmapContractAddress,
 				proxyContractAddress,
@@ -617,7 +617,7 @@ func Deploy(ctx context.Context, prm Prm) error {
 	return nil
 }
 
-func noExtraDeployArgs() ([]interface{}, error) { return nil, nil }
+func noExtraDeployArgs() ([]any, error) { return nil, nil }
 
 func encodeUintConfig(v uint64) []byte {
 	return stackitem.NewBigInteger(new(big.Int).SetUint64(v)).Bytes()

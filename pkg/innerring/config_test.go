@@ -104,7 +104,7 @@ func resetConfig(tb testing.TB, v *viper.Viper, key string) {
 			// Last part so delete.
 			delete(mAllCp, k)
 		default:
-			m, ok := v.(map[string]interface{})
+			m, ok := v.(map[string]any)
 			require.Truef(tb, ok, "unsupported type: %T for %q", v, strings.Join(parts[0:i], "."))
 			mAllCp = m
 		}
@@ -218,10 +218,10 @@ func TestParseBlockchainConfig(t *testing.T) {
 
 		type kv struct {
 			key string
-			val interface{}
+			val any
 		}
 
-		kvF := func(k string, v interface{}) kv {
+		kvF := func(k string, v any) kv {
 			return kv{k, v}
 		}
 
@@ -241,15 +241,15 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("seed_nodes", []string{"not a TCP address"})},
 			{kvF("seed_nodes", []string{"127.0.0.1"})}, // missing port
 			{kvF("hardforks", "not a dictionary")},
-			{kvF("hardforks", map[string]interface{}{"": 1})},
-			{kvF("hardforks", map[string]interface{}{"name": "not a number"})},
-			{kvF("hardforks", map[string]interface{}{"name": -1})},
-			{kvF("hardforks", map[string]interface{}{"name": math.MaxUint32 + 1})},
-			{kvF("validators_history", map[string]interface{}{"not a number": 1})},
-			{kvF("validators_history", map[string]interface{}{"1": "not a number"})},
-			{kvF("validators_history", map[string]interface{}{"-1": 1})},
-			{kvF("validators_history", map[string]interface{}{"1": -1})},
-			{kvF("validators_history", map[string]interface{}{"1": math.MaxInt32 + 1})},
+			{kvF("hardforks", map[string]any{"": 1})},
+			{kvF("hardforks", map[string]any{"name": "not a number"})},
+			{kvF("hardforks", map[string]any{"name": -1})},
+			{kvF("hardforks", map[string]any{"name": math.MaxUint32 + 1})},
+			{kvF("validators_history", map[string]any{"not a number": 1})},
+			{kvF("validators_history", map[string]any{"1": "not a number"})},
+			{kvF("validators_history", map[string]any{"-1": 1})},
+			{kvF("validators_history", map[string]any{"1": -1})},
+			{kvF("validators_history", map[string]any{"1": math.MaxInt32 + 1})},
 			{kvF("rpc.listen", []string{"not a TCP address"})},
 			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
@@ -397,10 +397,10 @@ func TestParseNNSConfig(t *testing.T) {
 	t.Run("invalid", func(t *testing.T) {
 		type kv struct {
 			key string
-			val interface{}
+			val any
 		}
 
-		kvF := func(k string, v interface{}) kv {
+		kvF := func(k string, v any) kv {
 			return kv{k, v}
 		}
 

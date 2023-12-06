@@ -111,7 +111,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	const validatorsHistoryKey = rootSection + ".validators_history"
 	if v.IsSet(validatorsHistoryKey) {
 		c.ValidatorsHistory = make(map[uint32]uint32)
-		err = parseConfigMap(v, validatorsHistoryKey, "validators history", func(name string, val interface{}) error {
+		err = parseConfigMap(v, validatorsHistoryKey, "validators history", func(name string, val any) error {
 			height, err := strconv.ParseUint(name, 10, 32)
 			if err != nil {
 				return fmt.Errorf("parse unsigned integer: %w", err)
@@ -355,13 +355,13 @@ func parseConfigAddressesTCP(v *viper.Viper, key, desc string) ([]string, error)
 	return ss, nil
 }
 
-func parseConfigMap(v *viper.Viper, key, desc string, f func(name string, val interface{}) error) error {
+func parseConfigMap(v *viper.Viper, key, desc string, f func(name string, val any) error) error {
 	var err error
 	if !v.IsSet(key) {
 		err = errMissingConfig
 	}
 	if err == nil {
-		var m map[string]interface{}
+		var m map[string]any
 		m, err = cast.ToStringMapE(v.Get(key))
 		if err == nil {
 			for name, val := range m {
@@ -381,7 +381,7 @@ func parseConfigMap(v *viper.Viper, key, desc string, f func(name string, val in
 
 func parseConfigMapUint32(v *viper.Viper, key, desc string, limit uint64) (map[string]uint32, error) {
 	res := make(map[string]uint32)
-	return res, parseConfigMap(v, key, desc, func(name string, val interface{}) error {
+	return res, parseConfigMap(v, key, desc, func(name string, val any) error {
 		if name == "" {
 			return errors.New("empty key")
 		}

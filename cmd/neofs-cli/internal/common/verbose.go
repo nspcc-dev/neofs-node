@@ -12,7 +12,7 @@ import (
 )
 
 // PrintVerbose prints to the stdout if the commonflags.Verbose flag is on.
-func PrintVerbose(cmd *cobra.Command, format string, a ...interface{}) {
+func PrintVerbose(cmd *cobra.Command, format string, a ...any) {
 	if viper.GetBool(commonflags.Verbose) {
 		cmd.Printf(format+"\n", a...)
 	}

@@ -163,10 +163,10 @@ func initNNSContract(ctx context.Context, prm deployNNSContractPrm) (res util.Ui
 		nefCp := prm.localNEF
 		manifestCp := prm.localManifest
 
-		txID, vub, err := managementContract.Deploy(&nefCp, &manifestCp, []interface{}{
-			[]interface{}{
-				[]interface{}{domainBootstrap, prm.systemEmail},
-				[]interface{}{domainContractAddresses, prm.systemEmail},
+		txID, vub, err := managementContract.Deploy(&nefCp, &manifestCp, []any{
+			[]any{
+				[]any{domainBootstrap, prm.systemEmail},
+				[]any{domainContractAddresses, prm.systemEmail},
 			},
 		})
 		if err != nil {

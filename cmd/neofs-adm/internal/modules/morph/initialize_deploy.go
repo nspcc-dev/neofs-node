@@ -148,7 +148,7 @@ func (c *initializeContext) updateContracts() error {
 
 	w := io2.NewBufBinWriter()
 
-	var keysParam []interface{}
+	var keysParam []any
 
 	// Update script size for a single-node committee is close to the maximum allowed size of 65535.
 	// Because of this we want to reuse alphabet contract NEF and manifest for different updates.
@@ -258,7 +258,7 @@ func (c *initializeContext) updateContracts() error {
 func (c *initializeContext) deployContracts() error {
 	alphaCs := c.getContract(alphabetContract)
 
-	var keysParam []interface{}
+	var keysParam []any
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
@@ -461,12 +461,12 @@ func readContractsFromArchive(file io.Reader, names []string) (map[string]*contr
 	return m, nil
 }
 
-func getContractDeployParameters(cs *contractState, deployData []interface{}) []interface{} {
-	return []interface{}{cs.RawNEF, cs.RawManifest, deployData}
+func getContractDeployParameters(cs *contractState, deployData []any) []any {
+	return []any{cs.RawNEF, cs.RawManifest, deployData}
 }
 
-func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName string, keysParam []interface{}) []interface{} {
-	items := make([]interface{}, 1, 6)
+func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName string, keysParam []any) []any {
+	items := make([]any, 1, 6)
 	items[0] = false // notaryDisabled is false
 
 	switch ctrName {
@@ -502,7 +502,7 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 			c.Contracts[netmapContract].Hash,
 			c.Contracts[containerContract].Hash)
 	case netmapContract:
-		configParam := []interface{}{}
+		configParam := []any{}
 		for _, kf := range []struct {
 			key  string
 			flag string
@@ -553,8 +553,8 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 	return items
 }
 
-func (c *initializeContext) getAlphabetDeployItems(i, n int) []interface{} {
-	items := make([]interface{}, 6)
+func (c *initializeContext) getAlphabetDeployItems(i, n int) []any {
+	items := make([]any, 6)
 	items[0] = false
 	items[1] = c.Contracts[netmapContract].Hash
 	items[2] = c.Contracts[proxyContract].Hash

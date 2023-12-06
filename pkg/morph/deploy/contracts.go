@@ -68,7 +68,7 @@ type syncNeoFSContractPrm struct {
 	// be used).
 	//
 	// Ignored if tryDeploy is unset.
-	buildExtraDeployArgs func() ([]interface{}, error)
+	buildExtraDeployArgs func() ([]any, error)
 
 	// address of the Proxy contract deployed in the blockchain. The contract
 	// pays for update transactions.

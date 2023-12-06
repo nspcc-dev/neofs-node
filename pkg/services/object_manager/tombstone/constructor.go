@@ -40,7 +40,7 @@ func NewChecker(oo ...Option) *ExpirationChecker {
 		o(cfg)
 	}
 
-	panicOnNil := func(v interface{}, name string) {
+	panicOnNil := func(v any, name string) {
 		if v == nil {
 			panic(fmt.Sprintf("tombstone getter constructor: %s is nil", name))
 		}
