@@ -538,6 +538,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 
 		deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
+		if deployPrm.NNS.SystemEmail == "" {
+			deployPrm.NNS.SystemEmail = "nonexistent@nspcc.io"
+		}
 
 		err = readEmbeddedContracts(&deployPrm)
 		if err != nil {
