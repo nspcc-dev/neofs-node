@@ -38,7 +38,7 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 		o(cfg)
 	}
 
-	db, err := bbolt.Open(path, 0600,
+	db, err := bbolt.Open(path, 0o600,
 		&bbolt.Options{
 			Timeout: cfg.timeout,
 		})

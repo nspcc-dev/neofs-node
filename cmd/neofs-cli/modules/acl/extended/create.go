@@ -110,7 +110,7 @@ func createEACL(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = os.WriteFile(outArg, buf.Bytes(), 0644)
+	err = os.WriteFile(outArg, buf.Bytes(), 0o644)
 	if err != nil {
 		cmd.PrintErrln(err)
 		os.Exit(1)

@@ -61,7 +61,7 @@ func WriteObjectToFile(cmd *cobra.Command, path string, data []byte, payloadOnly
 	}
 
 	ExitOnErr(cmd, Errf("could not write file: %w",
-		os.WriteFile(path, data, 0644)))
+		os.WriteFile(path, data, 0o644)))
 
 	if payloadOnly {
 		cmd.Printf("\nSaved payload to '%s' file\n", path)

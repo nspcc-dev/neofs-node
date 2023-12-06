@@ -130,6 +130,6 @@ func createToken(cmd *cobra.Command, _ []string) {
 	}
 
 	out, _ := cmd.Flags().GetString(outFlag)
-	err = os.WriteFile(out, data, 0644)
+	err = os.WriteFile(out, data, 0o644)
 	common.ExitOnErr(cmd, "can't write token to file: %w", err)
 }

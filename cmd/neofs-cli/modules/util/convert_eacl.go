@@ -48,7 +48,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = os.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0o644)
 	common.ExitOnErr(cmd, "can't write exteded ACL table to file: %w", err)
 
 	cmd.Printf("extended ACL table was successfully dumped to %s\n", to)

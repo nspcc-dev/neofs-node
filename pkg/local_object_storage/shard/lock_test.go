@@ -30,7 +30,7 @@ func TestShard_Lock(t *testing.T) {
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
-					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0600, 10*time.Millisecond),
+					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0o600, 10*time.Millisecond),
 					Policy: func(_ *object.Object, data []byte) bool {
 						return len(data) <= 1<<20
 					},

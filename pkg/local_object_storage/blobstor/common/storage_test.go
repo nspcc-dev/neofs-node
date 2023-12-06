@@ -40,7 +40,7 @@ func TestCopy(t *testing.T) {
 
 	require.NoError(t, src.Close())
 
-	dst := peapod.New(filepath.Join(dir, "peapod.db"), 0600, 10*time.Millisecond)
+	dst := peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond)
 
 	err := common.Copy(dst, src)
 	require.NoError(t, err)

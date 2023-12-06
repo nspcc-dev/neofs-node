@@ -297,7 +297,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 			blobstor.WithCompressObjects(true),
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
-					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0600, 10*time.Millisecond),
+					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0o600, 10*time.Millisecond),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return len(data) < bsSmallObjectSize
 					},
@@ -372,7 +372,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		var prm common.PutPrm
 		prm.Address = oid.Address{}
 		prm.RawData = corruptedData
-		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0600, 10*time.Millisecond)
+		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0o600, 10*time.Millisecond)
 		require.NoError(t, b.Open(false))
 		require.NoError(t, b.Init())
 		_, err := b.Put(prm)

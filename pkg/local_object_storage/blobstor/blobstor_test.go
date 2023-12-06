@@ -17,7 +17,7 @@ import (
 func defaultStorages(p string, smallSizeLimit uint64) []SubStorage {
 	return []SubStorage{
 		{
-			Storage: peapod.New(filepath.Join(p, "peapod.db"), 0600, 10*time.Millisecond),
+			Storage: peapod.New(filepath.Join(p, "peapod.db"), 0o600, 10*time.Millisecond),
 			Policy: func(_ *objectSDK.Object, data []byte) bool {
 				return uint64(len(data)) <= smallSizeLimit
 			},
@@ -108,7 +108,7 @@ func TestBlobstor_needsCompression(t *testing.T) {
 			WithUncompressableContentTypes(ct),
 			WithStorages([]SubStorage{
 				{
-					Storage: peapod.New(filepath.Join(dir, "peapod.db"), 0600, 10*time.Millisecond),
+					Storage: peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return uint64(len(data)) < smallSizeLimit
 					},

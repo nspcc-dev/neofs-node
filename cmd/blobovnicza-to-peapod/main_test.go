@@ -66,7 +66,7 @@ storage:
   shard_ro_error_threshold: 0
 `
 
-	err := os.WriteFile(srcConfigFile, []byte(configYAML), 0600)
+	err := os.WriteFile(srcConfigFile, []byte(configYAML), 0o600)
 	require.NoError(t, err)
 
 	err = migrateConfigToPeapod(filepath.Join(dir, "config_peapod.yaml"), srcConfigFile)

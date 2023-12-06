@@ -22,7 +22,7 @@ func TestVersion(t *testing.T) {
 
 	newDB := func(t *testing.T) *DB {
 		return New(WithPath(filepath.Join(dir, t.Name())),
-			WithPermissions(0600), WithEpochState(epochStateImpl{}))
+			WithPermissions(0o600), WithEpochState(epochStateImpl{}))
 	}
 	check := func(t *testing.T, db *DB) {
 		require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {

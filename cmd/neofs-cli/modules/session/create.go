@@ -97,7 +97,7 @@ func createSession(cmd *cobra.Command, _ []string) {
 	}
 
 	filename, _ := cmd.Flags().GetString(outFlag)
-	err = os.WriteFile(filename, data, 0644)
+	err = os.WriteFile(filename, data, 0o644)
 	common.ExitOnErr(cmd, "can't write token to file: %w", err)
 }
 

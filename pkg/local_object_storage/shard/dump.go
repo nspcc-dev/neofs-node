@@ -61,7 +61,7 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 
 	w := prm.stream
 	if w == nil {
-		f, err := os.OpenFile(prm.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
+		f, err := os.OpenFile(prm.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o640)
 		if err != nil {
 			return DumpRes{}, err
 		}

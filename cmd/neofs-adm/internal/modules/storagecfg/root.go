@@ -207,7 +207,7 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	}
 
 	out := applyTemplate(c)
-	fatalOnErr(os.WriteFile(outPath, out, 0644))
+	fatalOnErr(os.WriteFile(outPath, out, 0o644))
 
 	cmd.Println("Node is ready for work! Run `neofs-node -config " + outPath + "`")
 }

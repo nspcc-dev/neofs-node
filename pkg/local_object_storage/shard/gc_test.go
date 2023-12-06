@@ -38,7 +38,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 				{
 					Storage: peapod.New(
 						filepath.Join(rootPath, "blob", "peapod"),
-						0600,
+						0o600,
 						time.Second,
 					),
 					Policy: func(_ *object.Object, data []byte) bool {
