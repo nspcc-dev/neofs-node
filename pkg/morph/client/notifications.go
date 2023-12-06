@@ -130,21 +130,6 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	return nil
 }
 
-// Unsubscribe performs unsubscription for the given subscription ID.
-//
-// Returns ErrConnectionLost if client has not been able to establish
-// connection to any of passed RPC endpoints.
-func (c *Client) Unsubscribe(subID string) error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
-	return c.client.Unsubscribe(subID)
-}
-
 // UnsubscribeAll removes all active subscriptions of current client.
 //
 // Returns ErrConnectionLost if client has not been able to establish
