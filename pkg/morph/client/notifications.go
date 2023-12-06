@@ -98,7 +98,7 @@ func (c *Client) ReceiveBlocks() error {
 	return nil
 }
 
-// ReceiveNotaryRequests performsn subscription for notary request payloads
+// ReceiveNotaryRequests performs subscription for notary request payloads
 // addition or removal events to this instance of client. Passed txSigner is
 // used as filter: subscription is only for the notary requests that must be
 // signed by txSigner. Events are sent to a returned channel.
