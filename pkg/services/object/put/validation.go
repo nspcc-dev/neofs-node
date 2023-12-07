@@ -8,7 +8,7 @@ import (
 	"hash"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -17,7 +17,7 @@ import (
 
 // validatingTarget validates object format and content.
 type validatingTarget struct {
-	nextTarget transformer.ObjectTarget
+	nextTarget internal.Target
 
 	fmt *object.FormatValidator
 

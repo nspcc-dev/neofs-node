@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -21,14 +21,14 @@ type slicingTarget struct {
 	maxObjSize       uint64
 	homoHashDisabled bool
 
-	nextTarget transformer.ObjectTarget
+	nextTarget internal.Target
 
 	payloadWriter *slicer.PayloadWriter
 }
 
-// returns transformer.ObjectTarget for raw root object streamed by the client
+// returns [objectcore.Target] for raw root object streamed by the client
 // with payload slicing and child objects' formatting. Each ready child object
-// is written into destination target constructed via the given transformer.TargetInitializer.
+// is written into destination target constructed via the given [objectcore.Target].
 func newSlicingTarget(
 	ctx context.Context,
 	maxObjSize uint64,
@@ -36,8 +36,8 @@ func newSlicingTarget(
 	signer user.Signer,
 	sessionToken *session.Object,
 	curEpoch uint64,
-	initNextTarget transformer.ObjectTarget,
-) transformer.ObjectTarget {
+	initNextTarget internal.Target,
+) internal.Target {
 	return &slicingTarget{
 		ctx:              ctx,
 		signer:           signer,
@@ -86,7 +86,7 @@ func (x *slicingTarget) Close() (oid.ID, error) {
 
 // implements slicer.ObjectWriter for ready child objects.
 type readyObjectWriter struct {
-	nextTarget transformer.ObjectTarget
+	nextTarget internal.Target
 }
 
 func (x *readyObjectWriter) ObjectPutInit(_ context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
@@ -102,7 +102,7 @@ func (x *readyObjectWriter) ObjectPutInit(_ context.Context, hdr object.Object, 
 
 // implements client.ObjectWriter for ready child objects.
 type readyObjectPayloadWriter struct {
-	target transformer.ObjectTarget
+	target internal.Target
 }
 
 func (x *readyObjectPayloadWriter) Write(p []byte) (int, error) {

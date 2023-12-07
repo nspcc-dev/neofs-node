@@ -1,4 +1,4 @@
-package transformer
+package internal
 
 import (
 	"io"
@@ -7,8 +7,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// ObjectTarget is an interface of the object writer.
-type ObjectTarget interface {
+// Target is an interface of the object writer.
+type Target interface {
 	// WriteHeader writes object header w/ payload part.
 	// The payload of the object may be incomplete.
 	//

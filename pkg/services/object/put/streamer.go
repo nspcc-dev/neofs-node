@@ -7,9 +7,9 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -20,7 +20,7 @@ type Streamer struct {
 
 	ctx context.Context
 
-	target transformer.ObjectTarget
+	target internal.Target
 
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 
@@ -192,7 +192,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	return nil
 }
 
-func (p *Streamer) newCommonTarget(prm *PutInitPrm) transformer.ObjectTarget {
+func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
