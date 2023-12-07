@@ -23,6 +23,8 @@ morph:
     committee:
       - 02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6
       - 03f87b0a0416e4028bccf7258db3b411412ce1c7426b2c857f54e59d0d23782570
+      - 03d90c07df63e690ce77912e10ab51acc944b66860237b608c4f8f8309e71ee699
+      - 02a7bc55fe8684e0119768d104ba30795bdcc86619e864add26156723ed185cd62
     storage:
       type: boltdb
       path: chain.db
@@ -38,8 +40,9 @@ const validBlockchainConfigOptions = `
     hardforks:
       name: 1730000
     validators_history:
-      2: 3
-      10: 7
+      0: 4
+      4: 1
+      12: 4
     rpc:
       listen:
         - localhost:30000
@@ -64,6 +67,7 @@ const validBlockchainConfigOptions = `
       ping:
         interval: 44s
         timeout: 55s
+    set_roles_in_genesis: true
 `
 
 func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *viper.Viper {
@@ -124,6 +128,8 @@ func TestParseBlockchainConfig(t *testing.T) {
 	validCommittee, err := keys.NewPublicKeysFromStrings([]string{
 		"02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6",
 		"03f87b0a0416e4028bccf7258db3b411412ce1c7426b2c857f54e59d0d23782570",
+		"03d90c07df63e690ce77912e10ab51acc944b66860237b608c4f8f8309e71ee699",
+		"02a7bc55fe8684e0119768d104ba30795bdcc86619e864add26156723ed185cd62",
 	})
 	require.NoError(t, err)
 
@@ -190,9 +196,11 @@ func TestParseBlockchainConfig(t *testing.T) {
 			},
 			Storage: blockchain.BoltDB("chain.db"),
 			ValidatorsHistory: map[uint32]uint32{
-				2:  3,
-				10: 7,
+				0:  4,
+				4:  1,
+				12: 4,
 			},
+			SetRolesInGenesis: true,
 		}, c)
 	})
 
@@ -246,10 +254,12 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("hardforks", map[string]any{"name": -1})},
 			{kvF("hardforks", map[string]any{"name": math.MaxUint32 + 1})},
 			{kvF("validators_history", map[string]any{"not a number": 1})},
-			{kvF("validators_history", map[string]any{"1": "not a number"})},
+			{kvF("validators_history", map[string]any{"0": "not a number"})},
 			{kvF("validators_history", map[string]any{"-1": 1})},
-			{kvF("validators_history", map[string]any{"1": -1})},
-			{kvF("validators_history", map[string]any{"1": math.MaxInt32 + 1})},
+			{kvF("validators_history", map[string]any{"0": -1})},
+			{kvF("validators_history", map[string]any{"0": math.MaxUint32 + 1})},
+			{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
+			{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
 			{kvF("rpc.listen", []string{"not a TCP address"})},
 			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
@@ -272,6 +282,11 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("p2p.peers.max", math.MaxInt32+1)},
 			{kvF("p2p.peers.attempts", -1)},
 			{kvF("p2p.peers.attempts", math.MaxInt32+1)},
+			{kvF("set_roles_in_genesis", "not a boolean")},
+			{kvF("set_roles_in_genesis", 1)},
+			{kvF("set_roles_in_genesis", "True")},
+			{kvF("set_roles_in_genesis", "False")},
+			{kvF("set_roles_in_genesis", "not a boolean")},
 		} {
 			var reportMsg []string
 

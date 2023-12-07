@@ -111,16 +111,24 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	const validatorsHistoryKey = rootSection + ".validators_history"
 	if v.IsSet(validatorsHistoryKey) {
 		c.ValidatorsHistory = make(map[uint32]uint32)
+		committeeSize := uint64(c.Committee.Len())
 		err = parseConfigMap(v, validatorsHistoryKey, "validators history", func(name string, val any) error {
 			height, err := strconv.ParseUint(name, 10, 32)
 			if err != nil {
 				return fmt.Errorf("parse unsigned integer: %w", err)
 			}
+
+			if height%committeeSize != 0 {
+				return fmt.Errorf("height %d is not a multiple of the %q size", height, committeeKey)
+			}
+
 			num, err := cast.ToUint32E(val)
 			if err != nil {
 				return err
-			} else if num > math.MaxInt32 {
+			} else if num <= 0 {
 				return fmt.Errorf("value %d is out of allowable range", num)
+			} else if num > uint32(c.Committee.Len()) {
+				return fmt.Errorf("value exceeds %q size: %d > %d", committeeKey, num, c.Committee.Len())
 			}
 			c.ValidatorsHistory[uint32(height)] = num
 			return nil
@@ -208,6 +216,11 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 				return c, err
 			}
 		}
+	}
+
+	c.SetRolesInGenesis, err = parseConfigBool(v, rootSection+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
 	}
 
 	c.Logger = _logger

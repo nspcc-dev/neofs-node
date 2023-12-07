@@ -21,8 +21,11 @@ morph:
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
   consensus: # Local consensus launch mode activated only when 'endpoint.client' is unset.
     magic: 15405 # Network magic. Must be unsigned integer in range [1:4294967295]
-    committee: # Initial committee
-      - 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2 # Hex-encoded public key
+    committee: # Hex-encoded public keys of the initial committee
+      - 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2
+      - 02103a7f7dd016558597f7960d27c516a4394fd968b9e65155eb4b013e4040406e
+      - 03d90c07df63e690ce77912e10ab51acc944b66860237b608c4f8f8309e71ee699
+      - 02a7bc55fe8684e0119768d104ba30795bdcc86619e864add26156723ed185cd62
     storage: # Blockchain storage
       type: boltdb # One of following storage types:
         # boltdb (local BoltDB)
@@ -41,8 +44,13 @@ morph:
       - node3:20333
     hardforks: # Optional hard-forks
       name: 1730000 # Maps name to chain height. Heights must not be greater than 4294967295
-    validators_history: # Optional number of consensus nodes to use after given height
-      10: 7 # Maps chain height to number of consensus nodes. Values must not be greater than 2147483647
+    validators_history: # Optional number of consensus nodes to use after given height.
+      # Maps chain height to number of consensus nodes. Heights must be multiples of the 'committee' size.
+      # Values must be positive up to 'committee' size.
+      # If specified, value for 0 (genesis) height must be set.
+      0: 4
+      4: 1
+      12: 4
     rpc: # Optional RPC settings
       listen: # Optional list of network addresses to listen Neo RPC on. By default, protocol is not served
         # TCP addresses in 'host:port' format
@@ -75,6 +83,9 @@ morph:
       ping: # Optional settings of pinging mechanism
         interval: 30s # Optional time period between pings. Defaults to 30s. Must not be negative
         timeout: 90s # Optional time period to wait for pong. Defaults to 1m. Must not be negative
+    set_roles_in_genesis: true # Optional flag for designating P2PNotary and NeoFSAlphabet roles to all
+      # genesis block validators. The validators depend on 'committee' and, if set, 'validators_history'.
+      # Must be 'true' or 'false'.
 
 fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the FS chain. By default,
   # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).

@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/consensus"
 	"github.com/nspcc-dev/neo-go/pkg/core"
+	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -235,9 +236,17 @@ type Config struct {
 
 	// Maps chain height to number of consensus nodes.
 	//
-	// Optional: by default Committee size is used. Each value must not be greater
-	// than math.MaxInt32.
+	// Optional: by default Committee size is used. Each value must be positive and
+	// must not exceed Committee length. Value for zero key (genesis height) is
+	// required.
 	ValidatorsHistory map[uint32]uint32
+
+	// Whether to designate [noderoles.P2PNotary] and [noderoles.NeoFSAlphabet]
+	// roles to the Committee (keep an eye on ValidatorsHistory) for genesis block
+	// in the RoleManagement contract.
+	//
+	// Optional: by default, roles are unset.
+	SetRolesInGenesis bool
 }
 
 // New returns new Blockchain configured by the specified Config. New panics if
@@ -274,9 +283,24 @@ func New(cfg Config) (res *Blockchain, err error) {
 		panic("negative proto tick interval")
 	}
 
-	for height, num := range cfg.ValidatorsHistory {
-		if num > math.MaxInt32 {
-			panic(fmt.Sprintf("number of validators at height %d is out of allowable range %d", height, num))
+	if cfg.ValidatorsHistory != nil {
+		_, ok := cfg.ValidatorsHistory[0]
+		if !ok {
+			panic("missing 0 (genesis) height in validators history")
+		}
+
+		committeeSize := uint32(cfg.Committee.Len())
+
+		for height, num := range cfg.ValidatorsHistory {
+			if height%committeeSize != 0 {
+				panic(fmt.Sprintf("validators history's height is not a multiple of the committee size: %d%%%d != 0", height, committeeSize))
+			}
+			if num == 0 {
+				panic(fmt.Sprintf("zero number of validators at height %d", height))
+			}
+			if num > committeeSize {
+				panic(fmt.Sprintf("number of validators at height %d exceeds committee: %d > %d", height, num, committeeSize))
+			}
 		}
 	}
 
@@ -332,6 +356,16 @@ func New(cfg Config) (res *Blockchain, err error) {
 		}
 	} else {
 		cfgBaseProto.ValidatorsCount = uint32(len(standByCommittee))
+	}
+
+	if cfg.SetRolesInGenesis {
+		// note that ValidatorsHistory or ValidatorsCount field must be set above
+		genesisValidatorsCount := cfgBaseProto.GetNumOfCNs(0)
+		cfgBaseProto.Genesis.Roles = map[noderoles.Role]keys.PublicKeys{
+			// Notary service is always enabled, see below
+			noderoles.P2PNotary:     cfg.Committee[:genesisValidatorsCount],
+			noderoles.NeoFSAlphabet: cfg.Committee[:genesisValidatorsCount],
+		}
 	}
 
 	cfgBaseApp := &cfgBase.ApplicationConfiguration
