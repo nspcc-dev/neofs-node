@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -38,28 +37,27 @@ func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMet
 	return nil
 }
 
-func (t *localTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (t *localTarget) Close() (oid.ID, error) {
 	switch t.meta.Type() {
 	case object.TypeTombstone:
 		err := t.storage.Delete(objectCore.AddressOf(t.obj), t.meta.Objects())
 		if err != nil {
-			return nil, fmt.Errorf("could not delete objects from tombstone locally: %w", err)
+			return oid.ID{}, fmt.Errorf("could not delete objects from tombstone locally: %w", err)
 		}
 	case object.TypeLock:
 		err := t.storage.Lock(objectCore.AddressOf(t.obj), t.meta.Objects())
 		if err != nil {
-			return nil, fmt.Errorf("could not lock object from lock objects locally: %w", err)
+			return oid.ID{}, fmt.Errorf("could not lock object from lock objects locally: %w", err)
 		}
 	default:
 		// objects that do not change meta storage
 	}
 
 	if err := t.storage.Put(t.obj); err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to local storage: %w", t, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not put object to local storage: %w", t, err)
 	}
 
 	id, _ := t.obj.ID()
 
-	return new(transformer.AccessIdentifiers).
-		WithSelfID(id), nil
+	return id, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
 )
 
@@ -131,15 +132,15 @@ func (t *validatingTarget) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (t *validatingTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (t *validatingTarget) Close() (oid.ID, error) {
 	if !t.unpreparedObject {
 		// check payload size correctness
 		if t.payloadSz != t.writtenPayload {
-			return nil, ErrWrongPayloadSize
+			return oid.ID{}, ErrWrongPayloadSize
 		}
 
 		if !bytes.Equal(t.hash.Sum(nil), t.checksum) {
-			return nil, fmt.Errorf("(%T) incorrect payload checksum", t)
+			return oid.ID{}, fmt.Errorf("(%T) incorrect payload checksum", t)
 		}
 	}
 

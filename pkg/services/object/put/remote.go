@@ -9,9 +9,9 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type remoteTarget struct {
@@ -49,7 +49,7 @@ func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta)
 	return nil
 }
 
-func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (t *remoteTarget) Close() (oid.ID, error) {
 	var sessionInfo *util.SessionInfo
 
 	if tok := t.commonPrm.SessionToken(); tok != nil {
@@ -61,12 +61,12 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	key, err := t.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
 	c, err := t.clientConstructor.Get(t.nodeInfo)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -81,11 +81,10 @@ func (t *remoteTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 	res, err := internalclient.PutObject(prm)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
+		return oid.ID{}, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
 	}
 
-	return new(transformer.AccessIdentifiers).
-		WithSelfID(res.ID()), nil
+	return res.ID(), nil
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.

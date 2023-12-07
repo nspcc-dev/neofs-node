@@ -266,12 +266,12 @@ func (p *Streamer) Close() (*PutResponse, error) {
 		return nil, errNotInit
 	}
 
-	ids, err := p.target.Close()
+	id, err := p.target.Close()
 	if err != nil {
 		return nil, fmt.Errorf("(%T) could not close object target: %w", p, err)
 	}
 
 	return &PutResponse{
-		id: ids.SelfID(),
+		id: id,
 	}, nil
 }

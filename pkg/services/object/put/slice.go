@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object/slicer"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -74,13 +75,13 @@ func (x *slicingTarget) Write(p []byte) (n int, err error) {
 	return x.payloadWriter.Write(p)
 }
 
-func (x *slicingTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (x *slicingTarget) Close() (oid.ID, error) {
 	err := x.payloadWriter.Close()
 	if err != nil {
-		return nil, fmt.Errorf("finish object slicing: %w", err)
+		return oid.ID{}, fmt.Errorf("finish object slicing: %w", err)
 	}
 
-	return new(transformer.AccessIdentifiers).WithSelfID(x.payloadWriter.ID()), nil
+	return x.payloadWriter.ID(), nil
 }
 
 // implements slicer.ObjectWriter for ready child objects.
