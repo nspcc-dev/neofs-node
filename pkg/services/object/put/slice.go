@@ -20,7 +20,7 @@ type slicingTarget struct {
 	maxObjSize       uint64
 	homoHashDisabled bool
 
-	initNextTarget transformer.TargetInitializer
+	nextTarget transformer.ObjectTarget
 
 	payloadWriter *slicer.PayloadWriter
 }
@@ -35,7 +35,7 @@ func newSlicingTarget(
 	signer user.Signer,
 	sessionToken *session.Object,
 	curEpoch uint64,
-	initNextTarget transformer.TargetInitializer,
+	initNextTarget transformer.ObjectTarget,
 ) transformer.ObjectTarget {
 	return &slicingTarget{
 		ctx:              ctx,
@@ -44,7 +44,7 @@ func newSlicingTarget(
 		currentEpoch:     curEpoch,
 		maxObjSize:       maxObjSize,
 		homoHashDisabled: homoHashDisabled,
-		initNextTarget:   initNextTarget,
+		nextTarget:       initNextTarget,
 	}
 }
 
@@ -61,7 +61,7 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 
 	var err error
 	x.payloadWriter, err = slicer.InitPut(x.ctx, &readyObjectWriter{
-		initNextTarget: x.initNextTarget,
+		nextTarget: x.nextTarget,
 	}, *hdr, x.signer, opts)
 	if err != nil {
 		return fmt.Errorf("init object slicer: %w", err)
@@ -85,19 +85,17 @@ func (x *slicingTarget) Close() (*transformer.AccessIdentifiers, error) {
 
 // implements slicer.ObjectWriter for ready child objects.
 type readyObjectWriter struct {
-	initNextTarget transformer.TargetInitializer
+	nextTarget transformer.ObjectTarget
 }
 
 func (x *readyObjectWriter) ObjectPutInit(_ context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
-	tgt := x.initNextTarget()
-
-	err := tgt.WriteHeader(&hdr)
+	err := x.nextTarget.WriteHeader(&hdr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &readyObjectPayloadWriter{
-		target: tgt,
+		target: x.nextTarget,
 	}, nil
 }
 

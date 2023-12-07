@@ -42,9 +42,6 @@ type ObjectTarget interface {
 	Close() (*AccessIdentifiers, error)
 }
 
-// TargetInitializer represents ObjectTarget constructor.
-type TargetInitializer func() ObjectTarget
-
 // SelfID returns identifier of the written object.
 func (a AccessIdentifiers) SelfID() oid.ID {
 	return a.id

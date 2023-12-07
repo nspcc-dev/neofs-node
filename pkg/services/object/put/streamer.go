@@ -130,9 +130,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			user.NewAutoIDSigner(*sessionKey),
 			sToken,
 			p.networkState.CurrentEpoch(),
-			func() transformer.ObjectTarget {
-				return p.newCommonTarget(prm)
-			},
+			p.newCommonTarget(prm),
 		),
 		homomorphicChecksumRequired: homomorphicChecksumRequired,
 	}
