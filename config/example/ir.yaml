@@ -91,8 +91,9 @@ fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the
   # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).
   # If set, must be 'true' or 'false'.
 
-nns:
-  system_email: usr@domain.io
+nns: # Optional configuration of the NNS domains processed during the FS chain deployment
+  system_email: usr@domain.io # Optional e-mail to be assigned to the registered NNS domains.
+    # Defaults to 'nonexistent@nspcc.io'
 
 mainnet:
   dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled

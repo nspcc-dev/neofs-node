@@ -97,11 +97,9 @@ func makeInitialTransferToCommittee(ctx context.Context, prm makeInitialGASTrans
 	transferTxMonitor := newTransactionGroupMonitor(validatorMultiSigNotaryActor)
 
 upperLoop:
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for distribution of initial funds: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for distribution of initial funds: %w", err)
 		}
 
 		remGAS, err := gasContract.BalanceOf(validatorMultiSigAccAddress)
@@ -274,11 +272,9 @@ func transferGASToProxy(ctx context.Context, prm transferGASToProxyPrm) error {
 	gasContract := gas.New(committeeActor)
 	transferTxMonitor := newTransactionGroupMonitor(committeeActor)
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for distribution of initial funds: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for distribution of initial funds: %w", err)
 		}
 
 		proxyBalance, err := gasContract.BalanceOf(prm.proxyContract)
@@ -399,11 +395,9 @@ func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAl
 	}
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
-	for ; ; prm.monitor.waitForNextBlock(ctx) {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for distribution of NEO between Alphabet contracts: %w", ctx.Err())
-		default:
+	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
+		if err != nil {
+			return fmt.Errorf("wait for distribution of NEO between Alphabet contracts: %w", err)
 		}
 
 		bal, err := neoContract.BalanceOf(committeeMultiSigAccID)

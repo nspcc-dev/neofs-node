@@ -388,6 +388,13 @@ func newValidNNSConfig(tb testing.TB) *viper.Viper {
 }
 
 func TestParseNNSConfig(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		c, err := parseNNSConfig(viper.New())
+		require.NoError(t, err)
+
+		require.Zero(t, c)
+	})
+
 	t.Run("minimal", func(t *testing.T) {
 		v := newValidNNSConfig(t)
 		c, err := parseNNSConfig(v)
@@ -404,8 +411,9 @@ func TestParseNNSConfig(t *testing.T) {
 		} {
 			v := newValidNNSConfig(t)
 			resetConfig(t, v, "nns."+requiredKey)
-			_, err := parseNNSConfig(v)
-			require.Error(t, err, requiredKey)
+			c, err := parseNNSConfig(v)
+			require.NoError(t, err)
+			require.Zero(t, c.systemEmail)
 		}
 	})
 
@@ -420,7 +428,7 @@ func TestParseNNSConfig(t *testing.T) {
 		}
 
 		for _, testCase := range [][]kv{
-			{kvF("system_email", "")},
+			{kvF("system_email", map[string]any{"1": 2})}, // any non-string value
 		} {
 			var reportMsg []string
 

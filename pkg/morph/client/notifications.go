@@ -98,14 +98,16 @@ func (c *Client) ReceiveBlocks() error {
 	return nil
 }
 
-// ReceiveNotaryRequests performsn subscription for notary request payloads
-// addition or removal events to this instance of client. Passed txSigner is
-// used as filter: subscription is only for the notary requests that must be
-// signed by txSigner. Events are sent to a returned channel.
-// The channel is closed when connection to RPC nodes is lost.
+// ReceiveNotaryRequests performs subscription for notary request payloads
+// addition or removal events to this instance of client. Passed txSigner
+// expands the flow of notary requests to those whose main transaction signers
+// include the specified account. Events are sent to a returned channel. The
+// channel is closed when connection to RPC nodes is lost.
 //
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
+//
+// See also [Client.ReceiveAllNotaryRequests].
 func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
@@ -118,23 +120,33 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 		return ErrConnectionLost
 	}
 
-	_, err := c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &txSigner}, c.subs.curNotaryChan)
-	if err != nil {
-		return fmt.Errorf("block subscriptions RPC: %w", err)
+	c.subs.Lock()
+	defer c.subs.Unlock()
+
+	if c.subs.subscribedToAllNotaryEvents {
+		return nil
 	}
 
-	c.subs.Lock()
+	if _, ok := c.subs.subscribedNotaryEvents[txSigner]; ok {
+		return nil
+	}
+
+	_, err := c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &txSigner}, c.subs.curNotaryChan)
+	if err != nil {
+		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
+	}
+
 	c.subs.subscribedNotaryEvents[txSigner] = struct{}{}
-	c.subs.Unlock()
 
 	return nil
 }
 
-// Unsubscribe performs unsubscription for the given subscription ID.
+// ReceiveAllNotaryRequests subscribes to all notary request events coming from
+// the Neo blockchain the Client connected to. Events are sent to the channel
+// returned from [Client.Notifications].
 //
-// Returns ErrConnectionLost if client has not been able to establish
-// connection to any of passed RPC endpoints.
-func (c *Client) Unsubscribe(subID string) error {
+// See also [Client.ReceiveNotaryRequests].
+func (c *Client) ReceiveAllNotaryRequests() error {
 	c.switchLock.Lock()
 	defer c.switchLock.Unlock()
 
@@ -142,7 +154,25 @@ func (c *Client) Unsubscribe(subID string) error {
 		return ErrConnectionLost
 	}
 
-	return c.client.Unsubscribe(subID)
+	c.subs.Lock()
+	defer c.subs.Unlock()
+
+	if c.subs.subscribedToAllNotaryEvents {
+		return nil
+	}
+
+	_, err := c.client.ReceiveNotaryRequests(nil, c.subs.curNotaryChan)
+	if err != nil {
+		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
+	}
+
+	c.subs.subscribedToAllNotaryEvents = true
+
+	for k := range c.subs.subscribedNotaryEvents {
+		delete(c.subs.subscribedNotaryEvents, k)
+	}
+
+	return nil
 }
 
 // UnsubscribeAll removes all active subscriptions of current client.
@@ -191,7 +221,9 @@ type subscriptions struct {
 	curNotaryChan chan *result.NotaryRequestEvent
 
 	// cached subscription information
-	subscribedEvents       map[util.Uint160]struct{}
+	subscribedEvents            map[util.Uint160]struct{}
+	subscribedToAllNotaryEvents bool
+	// particular transaction signers to listen when subscribedToAllNotaryEvents is unset
 	subscribedNotaryEvents map[util.Uint160]struct{}
 	subscribedToNewBlocks  bool
 }
@@ -304,6 +336,16 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 	}
 
 	// notary notification events restoration
+	if c.subs.subscribedToAllNotaryEvents {
+		_, err = c.client.ReceiveNotaryRequests(nil, notaryCh)
+		if err != nil {
+			c.logger.Error("could not restore notary notification subscription after RPC switch",
+				zap.Error(err))
+		}
+		resCh <- err == nil
+		return
+	}
+
 	for signer := range c.subs.subscribedNotaryEvents {
 		_, err = c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &signer}, notaryCh)
 		if err != nil {

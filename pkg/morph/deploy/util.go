@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -35,12 +34,12 @@ type blockchainMonitor struct {
 
 	blockInterval time.Duration
 
-	subID  string
 	height atomic.Uint32
+
+	chConnLost chan struct{}
 }
 
 // newBlockchainMonitor constructs and runs monitor for the given Blockchain.
-// Resulting blockchainMonitor must be stopped when no longer needed.
 func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{}) (*blockchainMonitor, error) {
 	ver, err := b.GetVersion()
 	if err != nil {
@@ -52,9 +51,7 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{
 		return nil, fmt.Errorf("get current blockchain height: %w", err)
 	}
 
-	blockCh := make(chan *block.Block)
-
-	newBlockSubID, err := b.ReceiveBlocks(nil, blockCh)
+	blockCh, err := b.SubscribeToNewBlocks()
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to new blocks of the chain: %w", err)
 	}
@@ -63,7 +60,7 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{
 		logger:        l,
 		blockchain:    b,
 		blockInterval: time.Duration(ver.Protocol.MillisecondsPerBlock) * time.Millisecond,
-		subID:         newBlockSubID,
+		chConnLost:    make(chan struct{}),
 	}
 
 	res.height.Store(initialBlock)
@@ -74,7 +71,8 @@ func newBlockchainMonitor(l *zap.Logger, b Blockchain, chNewBlock chan<- struct{
 			b, ok := <-blockCh
 			if !ok {
 				close(chNewBlock)
-				l.Info("listening to new blocks stopped")
+				close(res.chConnLost)
+				l.Info("new blocks channel is closed, listening stopped")
 				return
 			}
 
@@ -98,8 +96,9 @@ func (x *blockchainMonitor) currentHeight() uint32 {
 }
 
 // waitForNextBlock blocks until blockchainMonitor encounters new block on the
-// chain or provided context is done.
-func (x *blockchainMonitor) waitForNextBlock(ctx context.Context) {
+// chain, underlying connection with the [Blockchain] is lost or provided
+// context is done (returns context error).
+func (x *blockchainMonitor) waitForNextBlock(ctx context.Context) error {
 	initialBlock := x.currentHeight()
 
 	ticker := time.NewTicker(x.blockInterval)
@@ -108,21 +107,14 @@ func (x *blockchainMonitor) waitForNextBlock(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
+		case <-x.chConnLost:
+			return errors.New("connection to the blockchain is lost")
 		case <-ticker.C:
 			if x.height.Load() > initialBlock {
-				return
+				return nil
 			}
 		}
-	}
-}
-
-// stop stops running blockchainMonitor. Stopped blockchainMonitor must not be
-// used anymore.
-func (x *blockchainMonitor) stop() {
-	err := x.blockchain.Unsubscribe(x.subID)
-	if err != nil {
-		x.logger.Warn("failed to cancel subscription to new blocks", zap.Error(err))
 	}
 }
 

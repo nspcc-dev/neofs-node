@@ -252,11 +252,10 @@ type nnsConfig struct {
 func parseNNSConfig(v *viper.Viper) (c nnsConfig, err error) {
 	const rootSection = "nns"
 
-	if !v.IsSet(rootSection) {
-		return c, fmt.Errorf("missing root section '%s'", rootSection)
-	}
-
 	c.systemEmail, err = parseConfigString(v, rootSection+".system_email", "system email for NNS")
+	if errors.Is(err, errMissingConfig) {
+		err = nil
+	}
 
 	return
 }

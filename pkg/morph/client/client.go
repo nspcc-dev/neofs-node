@@ -12,10 +12,12 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/config"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
+	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
@@ -24,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -107,21 +110,25 @@ func (c *Client) CallAndExpandIterator(contract util.Uint160, method string, max
 	return c.rpcActor.CallAndExpandIterator(contract, method, maxItems, args...)
 }
 
-// TerminateSession closes opened session by its ID.
-func (c *Client) TerminateSession(sessionID uuid.UUID) error {
+// TerminateSession closes opened session by its ID on the currently active Neo
+// RPC node the Client connected to. Returns true even if session was not found.
+func (c *Client) TerminateSession(sessionID uuid.UUID) (bool, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
 	if c.inactive {
-		return ErrConnectionLost
+		return false, ErrConnectionLost
 	}
 
-	return c.rpcActor.TerminateSession(sessionID)
+	_, err := c.client.TerminateSession(sessionID)
+	return true, err
 }
 
-// TraverseIterator reads specified number of items from the provided iterator
-// initialized within given session.
-func (c *Client) TraverseIterator(sessionID uuid.UUID, iterator *result.Iterator, num int) ([]stackitem.Item, error) {
+// TraverseIterator returns at most maxItemsCount next values from the
+// referenced iterator opened within specified session with the currently active
+// Neo RPC node the Client connected to. Returns empty result if either there is
+// no more elements or session is closed.
+func (c *Client) TraverseIterator(sessionID, iteratorID uuid.UUID, maxItemsCount int) ([]stackitem.Item, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -129,7 +136,141 @@ func (c *Client) TraverseIterator(sessionID uuid.UUID, iterator *result.Iterator
 		return nil, ErrConnectionLost
 	}
 
-	return c.rpcActor.TraverseIterator(sessionID, iterator, num)
+	return c.client.TraverseIterator(sessionID, iteratorID, maxItemsCount)
+}
+
+// InvokeContractVerify calls 'verify' method of the referenced Neo smart
+// contract deployed in the blockchain the Client connected to and returns the
+// call result.
+func (c *Client) InvokeContractVerify(contract util.Uint160, params []smartcontract.Parameter, signers []transaction.Signer, witnesses ...transaction.Witness) (*result.Invoke, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.InvokeContractVerify(contract, params, signers, witnesses...)
+}
+
+// InvokeFunction calls specified method of the referenced Neo smart contract
+// deployed in the blockchain the Client connected to and returns the call
+// result.
+func (c *Client) InvokeFunction(contract util.Uint160, operation string, params []smartcontract.Parameter, signers []transaction.Signer) (*result.Invoke, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.InvokeFunction(contract, operation, params, signers)
+}
+
+// InvokeScript tests given script on the Neo blockchain the Client connected to
+// and returns the script result.
+func (c *Client) InvokeScript(script []byte, signers []transaction.Signer) (*result.Invoke, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.InvokeScript(script, signers)
+}
+
+// CalculateNetworkFee calculates consensus nodes' fee for given transaction in
+// the blockchain the Client connected to.
+func (c *Client) CalculateNetworkFee(tx *transaction.Transaction) (int64, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return 0, ErrConnectionLost
+	}
+
+	return c.client.CalculateNetworkFee(tx)
+}
+
+// GetBlockCount returns current height of the Neo blockchain the Client
+// connected to.
+func (c *Client) GetBlockCount() (uint32, error) {
+	return c.BlockCount()
+}
+
+// GetVersion returns local settings of the currently active Neo RPC node the
+// Client connected to.
+func (c *Client) GetVersion() (*result.Version, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.GetVersion()
+}
+
+// SendRawTransaction sends specified transaction to the Neo blockchain the
+// Client connected to and returns the transaction hash.
+func (c *Client) SendRawTransaction(tx *transaction.Transaction) (util.Uint256, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint256{}, ErrConnectionLost
+	}
+
+	return c.client.SendRawTransaction(tx)
+}
+
+// SubmitP2PNotaryRequest submits given Notary service request to the Neo
+// blockchain the Client connected to and returns the fallback transaction's
+// hash.
+func (c *Client) SubmitP2PNotaryRequest(req *payload.P2PNotaryRequest) (util.Uint256, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return util.Uint256{}, ErrConnectionLost
+	}
+
+	return c.client.SubmitP2PNotaryRequest(req)
+}
+
+// GetCommittee returns current public keys of the committee of the Neo
+// blockchain the Client connected to.
+func (c *Client) GetCommittee() (keys.PublicKeys, error) {
+	return c.Committee()
+}
+
+// GetContractStateByID returns current state of the identified Neo smart
+// contract deployed in the blockchain the Client connected to. Returns
+// [neorpc.ErrUnknownContract] if requested contract is missing.
+func (c *Client) GetContractStateByID(id int32) (*state.Contract, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.GetContractStateByID(id)
+}
+
+// GetContractStateByHash returns current state of the addressed Neo smart
+// contract deployed in the blockchain the Client connected to. Returns
+// [neorpc.ErrUnknownContract] if requested contract is missing.
+func (c *Client) GetContractStateByHash(addr util.Uint160) (*state.Contract, error) {
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
+
+	if c.inactive {
+		return nil, ErrConnectionLost
+	}
+
+	return c.client.GetContractStateByHash(addr)
 }
 
 type cache struct {
