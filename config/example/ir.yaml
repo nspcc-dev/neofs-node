@@ -14,12 +14,12 @@ morph:
   dial_timeout: 5s # Timeout for RPC client connection to sidechain
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts
-  endpoints: # List of websocket RPC endpoints in sidechain
+  endpoints: # List of websocket RPC endpoints in sidechain. May be omitted if 'consensus' is configured
       - wss://sidechain1.fs.neo.org:30333/ws
       - wss://sidechain2.fs.neo.org:30333/ws
   validators: # List of hex-encoded 33-byte public keys of sidechain validators to vote for at application startup; can be omitted if equals `consensus.committee`
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
-  consensus: # Local consensus launch mode activated only when 'endpoint.client' is unset.
+  consensus: # Local consensus launch mode activated only when 'endpoints' is unset.
     magic: 15405 # Network magic. Must be unsigned integer in range [1:4294967295]
     committee: # Hex-encoded public keys of the initial committee
       - 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2
