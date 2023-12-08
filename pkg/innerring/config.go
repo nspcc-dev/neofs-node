@@ -32,9 +32,15 @@ func isAutoDeploymentMode(cfg *viper.Viper) (bool, error) {
 }
 
 // checks if Inner Ring app is configured to be launched in local consensus
-// mode.
-func isLocalConsensusMode(cfg *viper.Viper) bool {
-	return !cfg.IsSet("morph.endpoints")
+// mode. Returns error if neither NeoFS chain RPC endpoints nor local consensus
+// is configured.
+func isLocalConsensusMode(cfg *viper.Viper) (bool, error) {
+	endpointsUnset := !cfg.IsSet("morph.endpoints")
+	if endpointsUnset && !cfg.IsSet("morph.consensus") {
+		return false, fmt.Errorf("either 'morph.endpoints' or 'morph.consensus' must be configured")
+	}
+
+	return endpointsUnset, nil
 }
 
 func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Config, err error) {

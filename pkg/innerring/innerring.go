@@ -395,7 +395,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 
-	isLocalConsensus := isLocalConsensusMode(cfg)
+	isLocalConsensus, err := isLocalConsensusMode(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("invalid consensus configuration: %w", err)
+	}
+
 	if isLocalConsensus {
 		if singleAcc == nil {
 			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
