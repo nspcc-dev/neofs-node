@@ -19,6 +19,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Various configuration paths.
+const (
+	cfgPathFSChain               = "morph"
+	cfgPathFSChainRPCEndpoints   = cfgPathFSChain + ".endpoints"
+	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
+	cfgPathFSChainValidators     = cfgPathFSChain + ".validators"
+)
+
 // checks whether Inner Ring app is configured to initialize underlying NeoFS
 // Sidechain or await for a background deployment. Returns an error if
 // the configuration format is violated.
@@ -35,28 +43,27 @@ func isAutoDeploymentMode(cfg *viper.Viper) (bool, error) {
 // mode. Returns error if neither NeoFS chain RPC endpoints nor local consensus
 // is configured.
 func isLocalConsensusMode(cfg *viper.Viper) (bool, error) {
-	endpointsUnset := !cfg.IsSet("morph.endpoints")
-	if endpointsUnset && !cfg.IsSet("morph.consensus") {
-		return false, fmt.Errorf("either 'morph.endpoints' or 'morph.consensus' must be configured")
+	endpointsUnset := !cfg.IsSet(cfgPathFSChainRPCEndpoints)
+	if endpointsUnset && !cfg.IsSet(cfgPathFSChainLocalConsensus) {
+		return false, fmt.Errorf("either '%s' or '%s' must be configured",
+			cfgPathFSChainRPCEndpoints, cfgPathFSChainLocalConsensus)
 	}
 
 	return endpointsUnset, nil
 }
 
 func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Config, err error) {
-	const rootSection = "morph.consensus"
-
-	if !v.IsSet(rootSection) {
-		return c, fmt.Errorf("missing root section '%s'", rootSection)
+	if !v.IsSet(cfgPathFSChainLocalConsensus) {
+		return c, fmt.Errorf("missing root section '%s'", cfgPathFSChainLocalConsensus)
 	}
 
-	_uint, err := parseConfigUint64Range(v, rootSection+".magic", "network magic", 1, math.MaxUint32)
+	_uint, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".magic", "network magic", 1, math.MaxUint32)
 	if err != nil {
 		return c, err
 	}
 	c.NetworkMagic = netmode.Magic(_uint)
 
-	const storageSection = rootSection + ".storage"
+	const storageSection = cfgPathFSChainLocalConsensus + ".storage"
 	if !v.IsSet(storageSection) {
 		return c, fmt.Errorf("missing storage section '%s'", storageSection)
 	}
@@ -82,7 +89,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		c.Storage = blockchain.InMemory()
 	}
 
-	const committeeKey = rootSection + ".committee"
+	const committeeKey = cfgPathFSChainLocalConsensus + ".committee"
 	c.Committee, err = parseConfigPublicKeys(v, committeeKey, "committee members")
 	if err != nil {
 		return c, err
@@ -90,23 +97,23 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		return c, fmt.Errorf("empty committee members '%s'", committeeKey)
 	}
 
-	c.BlockInterval, err = parseConfigDurationPositive(v, rootSection+".time_per_block", "block interval")
+	c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
 	if err != nil && !errors.Is(err, errMissingConfig) {
 		return c, err
 	}
 
-	traceableChainLength, err := parseConfigUint64Range(v, rootSection+".max_traceable_blocks", "traceable chain length", 1, math.MaxUint32)
+	traceableChainLength, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".max_traceable_blocks", "traceable chain length", 1, math.MaxUint32)
 	if err != nil && !errors.Is(err, errMissingConfig) {
 		return c, err
 	}
 	c.TraceableChainLength = uint32(traceableChainLength)
 
-	c.SeedNodes, err = parseConfigAddressesTCP(v, rootSection+".seed_nodes", "seed nodes")
+	c.SeedNodes, err = parseConfigAddressesTCP(v, cfgPathFSChainLocalConsensus+".seed_nodes", "seed nodes")
 	if err != nil && !errors.Is(err, errMissingConfig) {
 		return c, err
 	}
 
-	const hardForksKey = rootSection + ".hardforks"
+	const hardForksKey = cfgPathFSChainLocalConsensus + ".hardforks"
 	if v.IsSet(hardForksKey) {
 		c.HardForks, err = parseConfigMapUint32(v, hardForksKey, "hard forks", math.MaxUint32)
 		if err != nil {
@@ -114,7 +121,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	const validatorsHistoryKey = rootSection + ".validators_history"
+	const validatorsHistoryKey = cfgPathFSChainLocalConsensus + ".validators_history"
 	if v.IsSet(validatorsHistoryKey) {
 		c.ValidatorsHistory = make(map[uint32]uint32)
 		committeeSize := uint64(c.Committee.Len())
@@ -144,7 +151,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	const rpcSection = rootSection + ".rpc"
+	const rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
 	if v.IsSet(rpcSection) {
 		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on")
 		if err != nil && !errors.Is(err, errMissingConfig) {
@@ -174,7 +181,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	const p2pSection = rootSection + ".p2p"
+	const p2pSection = cfgPathFSChainLocalConsensus + ".p2p"
 	if v.IsSet(p2pSection) {
 		c.P2P.DialTimeout, err = parseConfigDurationPositive(v, p2pSection+".dial_timeout", "P2P dial timeout")
 		if err != nil && !errors.Is(err, errMissingConfig) {
@@ -224,7 +231,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	c.SetRolesInGenesis, err = parseConfigBool(v, rootSection+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
+	c.SetRolesInGenesis, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
 	if err != nil && !errors.Is(err, errMissingConfig) {
 		return c, err
 	}
