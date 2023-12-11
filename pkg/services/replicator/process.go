@@ -2,11 +2,13 @@ package replicator
 
 import (
 	"context"
+	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TaskResult is a replication result interface.
@@ -25,9 +27,11 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		)
 	}()
 
+	var binObjStream io.ReadSeekCloser // set it task.obj is unset only
+	var err error
+
 	if task.obj == nil {
-		var err error
-		task.obj, err = engine.Get(p.localStorage, task.addr)
+		binObjStream, err = p.localStorage.OpenObjectStream(task.addr)
 		if err != nil {
 			p.log.Error("could not get object from local storage",
 				zap.Stringer("object", task.addr),
@@ -35,6 +39,13 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 			return
 		}
+
+		defer func() {
+			if err := binObjStream.Close(); err != nil {
+				p.log.Debug("failed to close replicated object's binary stream from the local storage",
+					zap.Stringer("object", task.addr), zap.Error(err))
+			}
+		}()
 	}
 
 	prm := new(putsvc.RemotePutPrm).
@@ -47,6 +58,15 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		default:
 		}
 
+		if i > 0 && binObjStream != nil {
+			_, err = binObjStream.Seek(0, io.SeekStart)
+			if err != nil {
+				p.log.Error("failed to seek start of the replicated object's binary stream from the local storage",
+					zap.Stringer("object", task.addr), zap.Error(err))
+				return
+			}
+		}
+
 		log := p.log.With(
 			zap.String("node", netmap.StringifyPublicKey(task.nodes[i])),
 			zap.Stringer("object", task.addr),
@@ -54,7 +74,17 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err := p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		if binObjStream != nil {
+			err = p.remoteSender.ReplicateObjectToNode(ctx, task.nodes[i], binObjStream)
+			// FIXME: temporary workaround, see also
+			// https://github.com/nspcc-dev/neofs-api/issues/201#issuecomment-1891383454
+			if st, ok := status.FromError(err); ok && st.Code() == codes.Unimplemented {
+				log.Debug("node does not support 'Replicate' RPC, fallback to 'Put'")
+				err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+			}
+		} else {
+			err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		}
 
 		cancel()
 
