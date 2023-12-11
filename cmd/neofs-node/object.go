@@ -37,6 +37,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	apiNetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -54,8 +55,12 @@ type objectSvc struct {
 	delete *deletesvcV2.Service
 }
 
+func (c *cfg) maxObjectSize() (uint64, error) {
+	return c.cfgNetmap.wrapper.MaxObjectSize()
+}
+
 func (c *cfg) MaxObjectSize() uint64 {
-	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
+	sz, err := c.maxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
 			zap.String("error", err.Error()),
@@ -362,7 +367,21 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
-	server := objectTransportGRPC.New(firstSvc)
+	replNode := newReplicationNode(c.log, sPut, c.PublicKey, func(id cid.ID) (apiNetmap.PlacementPolicy, error) {
+		cnr, err := c.cfgObject.cnrSource.Get(id)
+		if err != nil {
+			return apiNetmap.PlacementPolicy{}, nil
+		}
+		return cnr.Value.PlacementPolicy(), nil
+	}, c.cfgNetmap.state.CurrentEpoch, func(epoch uint64) (apiNetmap.NetMap, error) {
+		nm, err := c.netMapSource.GetNetMapByEpoch(epoch)
+		if err != nil {
+			return apiNetmap.NetMap{}, err
+		}
+		return *nm, nil
+	})
+
+	server := objectTransportGRPC.New(firstSvc, replNode)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)

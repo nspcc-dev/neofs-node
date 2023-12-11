@@ -9,18 +9,46 @@ import (
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 )
+
+// Node represents NeoFS storage node that is served by [Server].
+type Node interface {
+	// CompliesContainerStoragePolicy checks whether Node complies with the
+	// referenced container's storage policy.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	CompliesContainerStoragePolicy(cid.ID) (bool, error)
+
+	// ClientCompliesContainerStoragePolicy checks whether client authenticated by
+	// the specified binary-encoded public key complies with the referenced
+	// container's storage policy.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	ClientCompliesContainerStoragePolicy(bClientPubKey []byte, _ cid.ID) (bool, error)
+
+	// StoreObject saves given NeoFS object from the referenced container into local
+	// object storage of the Node. StoreObject is called only when the Node complies
+	// with the container's storage policy.
+	StoreObject(cid.ID, objectsdk.Object) error
+}
 
 // Server wraps NeoFS API Object service and
 // provides gRPC Object service server interface.
 type Server struct {
 	srv objectSvc.ServiceServer
+
+	node Node
 }
 
 // New creates, initializes and returns Server instance.
-func New(c objectSvc.ServiceServer) *Server {
+func New(c objectSvc.ServiceServer, node Node) *Server {
 	return &Server{
-		srv: c,
+		srv:  c,
+		node: node,
 	}
 }
 
