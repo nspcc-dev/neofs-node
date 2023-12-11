@@ -2,8 +2,10 @@ package common
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Storage represents key-value object storage.
@@ -26,6 +28,12 @@ type Storage interface {
 	Put(PutPrm) (PutRes, error)
 	Delete(DeletePrm) (DeleteRes, error)
 	Iterate(IteratePrm) (IterateRes, error)
+
+	// OpenObjectStream looks up for referenced object in the Storage and, if the
+	// object exists, opens and returns stream with binary-encoded object. Returns
+	// [apistatus.ErrObjectNotFound] if object was not found. Resulting stream must
+	// be finally closed.
+	OpenObjectStream(oid.Address) (io.ReadSeekCloser, error)
 }
 
 // Copy copies all objects from source Storage into the destination one. If any

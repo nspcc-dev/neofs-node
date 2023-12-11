@@ -1,9 +1,15 @@
 package writecache
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+
 	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -63,4 +69,37 @@ func Get(db *bbolt.DB, key []byte) ([]byte, error) {
 		return nil
 	})
 	return value, err
+}
+
+func (c *cache) OpenObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error) {
+	saddr := objAddr.EncodeToString()
+
+	value, errDB := Get(c.db, []byte(saddr))
+	if errDB == nil {
+		c.flushed.Get(saddr) // copied from cache.Get
+		return util.NewBytesReadSeekCloser(value), nil
+	}
+
+	res, errFS := c.fsTree.OpenObjectStream(objAddr)
+	if errFS != nil {
+		notFoundInDB := errors.Is(errDB, apistatus.ErrObjectNotFound)
+		if errors.Is(errFS, fs.ErrNotExist) {
+			if notFoundInDB {
+				return nil, apistatus.ErrObjectNotFound
+			}
+
+			return nil, fmt.Errorf("get object from DB: %w", errDB)
+		}
+
+		if notFoundInDB {
+			// no need to report such DB error
+			return nil, fmt.Errorf("get object from FS tree: %w", errFS)
+		}
+
+		return nil, fmt.Errorf("get object from FS tree: %w (DB failure: %v)", errFS, errDB)
+	}
+
+	c.flushed.Get(saddr) // copied from cache.Get
+
+	return res, nil
 }

@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
@@ -167,6 +169,56 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 	return GetRes{
 		obj: obj,
 	}, nil
+}
+
+// OpenObjectStream looks up for referenced object in the StorageEngine and, if
+// the object exists, opens and returns stream with binary-encoded object.
+// Resulting stream must be finally closed. Returns
+// [apistatus.ErrObjectNotFound] if object was not found. Fails if data
+// operations are blocked (see [StorageEngine.BlockExecution] for details).
+func (e *StorageEngine) OpenObjectStream(objAddr oid.Address) (res io.ReadSeekCloser, err error) {
+	err = e.execIfNotBlocked(func() error {
+		res, err = e.openObjectStream(objAddr)
+		return err
+	})
+
+	return
+}
+func (e *StorageEngine) openObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetDuration)()
+	}
+
+	var res io.ReadSeekCloser
+	var errFirstNonMissing error
+
+	e.iterateOverSortedShards(objAddr, func(_ int, sh hashedShard) bool {
+		var err error
+		res, err = sh.OpenObjectStream(objAddr)
+		if err == nil {
+			return true // break
+		}
+
+		if !errors.Is(err, apistatus.ErrObjectNotFound) {
+			if errFirstNonMissing == nil {
+				errFirstNonMissing = fmt.Errorf("get object from shard %q: %w", sh.ID(), err)
+			}
+
+			e.reportShardError(sh, "could not get object from shard", err)
+		}
+
+		return false
+	})
+
+	if res != nil {
+		return res, nil
+	}
+
+	if errFirstNonMissing != nil {
+		return nil, errFirstNonMissing
+	}
+
+	return nil, apistatus.ErrObjectNotFound
 }
 
 // Get reads object from local storage by provided address.

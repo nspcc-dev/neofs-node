@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -295,6 +296,21 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, nil
+}
+
+// OpenObjectStream looks up for referenced object in the FSTree and, if the
+// object exists, opens and returns stream with binary-encoded object. Returns
+// [fs.ErrNotExist] if object was not found. Resulting stream must be finally
+// closed.
+func (t *FSTree) OpenObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error) {
+	p := t.treePath(objAddr)
+
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, fmt.Errorf("open object file %q: %w", p, err)
+	}
+
+	return f, nil
 }
 
 // GetRange implements common.Storage.

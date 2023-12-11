@@ -1,6 +1,7 @@
 package writecache
 
 import (
+	"io"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -40,6 +41,12 @@ type Cache interface {
 	Open(readOnly bool) error
 	Close() error
 	ObjectStatus(address oid.Address) (ObjectStatus, error)
+
+	// OpenObjectStream looks up for referenced object in the Cache and, if the
+	// object exists, opens and returns stream with binary-encoded object. Returns
+	// [apistatus.ErrObjectNotFound] if object was not found. Resulting stream must
+	// be finally closed.
+	OpenObjectStream(oid.Address) (io.ReadSeekCloser, error)
 }
 
 type cache struct {
