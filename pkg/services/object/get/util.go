@@ -8,7 +8,7 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	internal "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -35,7 +35,7 @@ type storageEngineWrapper struct {
 type partWriter struct {
 	ObjectWriter
 
-	headWriter HeaderWriter
+	headWriter internal.HeaderWriter
 
 	chunkWriter ChunkWriter
 }
@@ -192,7 +192,7 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 		prm.SetRawFlag()
 	}
 
-	res, err := internal.GetObject(prm)
+	res, err := internalclient.GetObject(prm)
 	if err != nil {
 		return nil, err
 	}

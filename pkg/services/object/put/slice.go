@@ -26,9 +26,9 @@ type slicingTarget struct {
 	payloadWriter *slicer.PayloadWriter
 }
 
-// returns [objectcore.Target] for raw root object streamed by the client
+// returns [internal.Target] for raw root object streamed by the client
 // with payload slicing and child objects' formatting. Each ready child object
-// is written into destination target constructed via the given [objectcore.Target].
+// is written into destination target constructed via the given [internal.Target].
 func newSlicingTarget(
 	ctx context.Context,
 	maxObjSize uint64,

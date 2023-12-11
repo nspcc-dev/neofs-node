@@ -7,6 +7,7 @@ import (
 	"hash"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -93,15 +94,9 @@ type ChunkWriter interface {
 	WriteChunk([]byte) error
 }
 
-// HeaderWriter is an interface of target component
-// to write object header.
-type HeaderWriter interface {
-	WriteHeader(*object.Object) error
-}
-
 // ObjectWriter is an interface of target component to write object.
 type ObjectWriter interface {
-	HeaderWriter
+	internal.HeaderWriter
 	ChunkWriter
 }
 
@@ -166,7 +161,7 @@ func (p *commonPrm) WithCachedSignerKey(signerKey *ecdsa.PrivateKey) {
 }
 
 // SetHeaderWriter sets target component to write the object header.
-func (p *HeadPrm) SetHeaderWriter(w HeaderWriter) {
+func (p *HeadPrm) SetHeaderWriter(w internal.HeaderWriter) {
 	p.objWriter = &partWriter{
 		headWriter: w,
 	}
