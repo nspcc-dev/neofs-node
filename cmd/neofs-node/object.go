@@ -54,8 +54,12 @@ type objectSvc struct {
 	delete *deletesvcV2.Service
 }
 
+func (c *cfg) maxObjectSize() (uint64, error) {
+	return c.cfgNetmap.wrapper.MaxObjectSize()
+}
+
 func (c *cfg) MaxObjectSize() uint64 {
-	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
+	sz, err := c.maxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
 			zap.String("error", err.Error()),
@@ -362,7 +366,10 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
-	server := objectTransportGRPC.New(firstSvc)
+	objNode, err := newNodeForObjects(c.cfgObject.cnrSource, c.netMapSource, sPut, c.IsLocalKey)
+	fatalOnErr(err)
+
+	server := objectTransportGRPC.New(firstSvc, objNode)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -589,4 +596,35 @@ func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) er
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
+}
+
+// object.Node implementation.
+type nodeForObjects struct {
+	putObjectService *putsvc.Service
+	containerNodes   *containerNodes
+	isLocalPubKey    func([]byte) bool
+}
+
+func newNodeForObjects(containers containercore.Source, network netmap.Source, putObjectService *putsvc.Service, isLocalPubKey func([]byte) bool) (*nodeForObjects, error) {
+	cnrNodes, err := newContainerNodes(containers, network)
+	if err != nil {
+		return nil, err
+	}
+	return &nodeForObjects{
+		putObjectService: putObjectService,
+		containerNodes:   cnrNodes,
+		isLocalPubKey:    isLocalPubKey,
+	}, nil
+}
+
+func (x *nodeForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID, f func(pubKey []byte) bool) error {
+	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
+}
+
+func (x *nodeForObjects) IsOwnPublicKey(pubKey []byte) bool {
+	return x.isLocalPubKey(pubKey)
+}
+
+func (x *nodeForObjects) StoreObject(cnr cid.ID, obj objectSDK.Object) error {
+	return x.putObjectService.ValidateAndStoreObjectLocally(cnr, obj)
 }
