@@ -4,6 +4,26 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.39.0
+
+## [0.39.0] - 2023-12-12 - Baegado
+
+Complete contract autodeploy/autoupdate functionality, much simplified SN/IR
+attribute interaction, numerous optimizations and obligatory bug fixes ---
+that's your new NeoFS release in short. Beware of deprecated commands and
+options removal, check your scripts and configurations and update to the
+latest and greatest of NeoFS.
+
+### Added
 - Policer's setting to the SN's application configuration (#2600)
 - Support of verified domains for the storage nodes (#2280)
 - `neofs-lens storage status` CLI command (#2550)
@@ -20,7 +40,7 @@ Changelog for NeoFS Node
 - Error of missing network endpoint in `neofs-cli object` commands when it is set in the file config (#2608)
 
 ### Changed
-- FSTree storage now uses more efficient and safe temporary files under Linux (#2566)
+- FSTree storage now uses more efficient and safe temporary files under Linux (#2566, #2624, #2633)
 - BoltDB open timeout increased from 100ms to 1s (#2499)
 - Internal container cache size from 10 to 1000 (#2600)
 - Transaction witness scope no longer uses CustomGroups relying on more strict Rules now (#2619)
@@ -32,9 +52,9 @@ Changelog for NeoFS Node
 - The priority of running control service is maximized (#2585)
 
 ### Removed
-- deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
+- Deprecated `no-precheck` flag of `neofs-cli container set-eacl` (#2496)
 - Recently-handled objects Policer's cache (#2600)
-- deprecated blobovnicza substorage (#2614)
+- Deprecated blobovnicza substorage (#2614)
 - Contract group wallet support from `neofs-adm` (#2619)
 - `neofs-cli util locode generate`and `neofs-cli util locode info` commands (#2610)
 - Locode DB configuration options (#2610)
@@ -47,7 +67,11 @@ Changelog for NeoFS Node
 - Update `tzhash` to `v1.7.1`
 - `github.com/panjf2000/ants/v2` to `v2.8.2`
 - `github.com/nspcc-dev/neofs-contract` to `v0.18.0` (#2580)
+- `golang.org/x/net` to 0.17.0 (#2621)
+- `github.com/nats-io/nats-server/v2` to 2.9.23 (#2623)
+- UUID, golang-lru, compress, go-multiaddr, nats.go, cobra, grpc and other dependencies (#2632)
 - `hrw` library to v2.0.0 version (#2629, #2658)
+- `github.com/nats-io/nkeys` to 0.4.6 (#2636)
 - neofs-contract to v0.19.1 (#2659)
 
 ### Updating from v0.38.1
@@ -58,8 +82,15 @@ after a couple of minor releases).
 neofs-adm no longer creates a contract group wallet and no longer needs it
 for the operation which may affect deployment scripts.
 
+Pre-0.39.0 storage nodes may not be able to register on the network running
+0.39.0 inner ring nodes unless they provide complete LOCODE data in the
+configuration (0.39.0 SNs add it automatically, so upgrade SNs).
+
 `native_activations` subsection of `consensus` IR configuration should be
 removed. It never actually did anything useful anyway.
+
+Automatic contract deployments and updates require `fschain_autodeploy`
+configuration, currently it's optional an IR behaves as previously by default.
 
 ## [0.38.1] - 2023-09-18
 
@@ -1821,7 +1852,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...master
+[0.39.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...v0.39.0
 [0.38.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.36.1...v0.37.0
