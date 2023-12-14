@@ -253,7 +253,7 @@ func initObjectService(c *cfg) {
 
 	sPutV2 := putsvcV2.NewService(
 		putsvcV2.WithInternalService(sPut),
-		putsvcV2.WithKeyStorage(keyStorage),
+		putsvcV2.WithKey(&c.key.PrivateKey),
 	)
 
 	sSearch := searchsvc.New(
