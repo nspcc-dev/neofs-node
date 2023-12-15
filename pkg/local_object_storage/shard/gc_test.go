@@ -2,6 +2,8 @@ package shard_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,6 +16,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -116,4 +119,65 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		_, err = sh.Get(getPrm)
 		return shard.IsErrNotFound(err)
 	}, 3*time.Second, 1*time.Second, "lock expiration should free object removal")
+}
+
+func TestGC_ContainerCleanup(t *testing.T) {
+	sh := newCustomShard(t, t.TempDir(), true,
+		nil,
+		nil,
+		shard.WithGCRemoverSleepInterval(10*time.Millisecond))
+	defer releaseShard(sh, t)
+
+	const numOfObjs = 10
+	cID := cidtest.ID()
+	oo := make([]oid.Address, 0, numOfObjs)
+
+	for i := 0; i < numOfObjs; i++ {
+		var putPrm shard.PutPrm
+
+		obj := generateObjectWithCID(t, cID)
+		addAttribute(obj, fmt.Sprintf("foo%d", i), fmt.Sprintf("bar%d", i))
+		if i%2 == 0 {
+			addPayload(obj, 1<<5) // small
+		} else {
+			addPayload(obj, 1<<20) // big
+		}
+		putPrm.SetObject(obj)
+
+		_, err := sh.Put(putPrm)
+		require.NoError(t, err)
+
+		oo = append(oo, objectCore.AddressOf(obj))
+	}
+
+	res, err := sh.ListContainers(shard.ListContainersPrm{})
+	require.NoError(t, err)
+	require.Len(t, res.Containers(), 1)
+
+	for _, o := range oo {
+		var getPrm shard.GetPrm
+		getPrm.SetAddress(o)
+
+		_, err = sh.Get(getPrm)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, sh.InhumeContainer(cID))
+
+	require.Eventually(t, func() bool {
+		res, err = sh.ListContainers(shard.ListContainersPrm{})
+		require.NoError(t, err)
+
+		for _, o := range oo {
+			var getPrm shard.GetPrm
+			getPrm.SetAddress(o)
+
+			_, err = sh.Get(getPrm)
+			if !errors.Is(err, apistatus.ObjectNotFound{}) {
+				return false
+			}
+		}
+
+		return len(res.Containers()) == 0
+	}, time.Second, 100*time.Millisecond)
 }

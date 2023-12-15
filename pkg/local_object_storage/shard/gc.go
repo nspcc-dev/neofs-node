@@ -193,34 +193,18 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	buf := make([]oid.Address, 0, s.rmBatchSize)
-
-	var iterPrm meta.GarbageIterationPrm
-	iterPrm.SetHandler(func(g meta.GarbageObject) error {
-		buf = append(buf, g.Address())
-
-		if len(buf) == s.rmBatchSize {
-			return meta.ErrInterruptIterator
-		}
-
-		return nil
-	})
-
-	// iterate over metabase's objects with GC mark
-	// (no more than s.rmBatchSize objects)
-	err := s.metaBase.IterateOverGarbage(iterPrm)
+	gObjs, gContainers, err := s.metaBase.GetGarbage(s.rmBatchSize)
 	if err != nil {
-		s.log.Warn("iterator over metabase graveyard failed",
-			zap.String("error", err.Error()),
+		s.log.Warn("fetching garbage objects",
+			zap.Error(err),
 		)
 
-		return
-	} else if len(buf) == 0 {
 		return
 	}
 
 	var deletePrm DeletePrm
-	deletePrm.SetAddresses(buf...)
+	deletePrm.SetAddresses(gObjs...)
+	deletePrm.skipNotFoundError = true
 
 	// delete accumulated objects
 	_, err = s.delete(deletePrm)
@@ -230,6 +214,18 @@ func (s *Shard) removeGarbage() {
 		)
 
 		return
+	}
+
+	// objects are removed, clean up empty container (all the object
+	// were deleted from the disk) information from the metabase
+	for _, cID := range gContainers {
+		err = s.metaBase.DeleteContainer(cID)
+		if err != nil {
+			s.log.Warn("clean up container in metabase",
+				zap.Stringer("cID", cID),
+				zap.Error(err),
+			)
+		}
 	}
 }
 
