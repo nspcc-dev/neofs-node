@@ -8,15 +8,15 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 type preparedObjectTarget interface {
 	WriteObject(*objectSDK.Object, object.ContentMeta) error
-	Close() (*transformer.AccessIdentifiers, error)
+	Close() (oid.ID, error)
 }
 
 type distributedTarget struct {
@@ -126,7 +126,7 @@ func (t *distributedTarget) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
 		putPayload(t.payload)
 		t.payload = nil
@@ -137,7 +137,7 @@ func (t *distributedTarget) Close() (*transformer.AccessIdentifiers, error) {
 	var err error
 
 	if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
-		return nil, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 
 	if len(t.obj.Children()) > 0 {
@@ -163,14 +163,14 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (*transformer.AccessIdentifiers, error) {
+func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
 
 	traverser, err := placement.NewTraverser(
 		append(t.traversal.opts, placement.ForObject(id))...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
+		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
 	}
 
 	var resErr atomic.Value
@@ -239,7 +239,7 @@ loop:
 
 		err.singleErr, _ = resErr.Load().(error)
 
-		return nil, err
+		return oid.ID{}, err
 	}
 
 	// perform additional container broadcast if needed
@@ -256,6 +256,5 @@ loop:
 
 	id, _ = t.obj.ID()
 
-	return new(transformer.AccessIdentifiers).
-		WithSelfID(id), nil
+	return id, nil
 }

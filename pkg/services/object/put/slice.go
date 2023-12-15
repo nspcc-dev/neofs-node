@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/transformer"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object/slicer"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -20,14 +21,14 @@ type slicingTarget struct {
 	maxObjSize       uint64
 	homoHashDisabled bool
 
-	initNextTarget transformer.TargetInitializer
+	nextTarget internal.Target
 
 	payloadWriter *slicer.PayloadWriter
 }
 
-// returns transformer.ObjectTarget for raw root object streamed by the client
+// returns [internal.Target] for raw root object streamed by the client
 // with payload slicing and child objects' formatting. Each ready child object
-// is written into destination target constructed via the given transformer.TargetInitializer.
+// is written into destination target constructed via the given [internal.Target].
 func newSlicingTarget(
 	ctx context.Context,
 	maxObjSize uint64,
@@ -35,8 +36,8 @@ func newSlicingTarget(
 	signer user.Signer,
 	sessionToken *session.Object,
 	curEpoch uint64,
-	initNextTarget transformer.TargetInitializer,
-) transformer.ObjectTarget {
+	initNextTarget internal.Target,
+) internal.Target {
 	return &slicingTarget{
 		ctx:              ctx,
 		signer:           signer,
@@ -44,7 +45,7 @@ func newSlicingTarget(
 		currentEpoch:     curEpoch,
 		maxObjSize:       maxObjSize,
 		homoHashDisabled: homoHashDisabled,
-		initNextTarget:   initNextTarget,
+		nextTarget:       initNextTarget,
 	}
 }
 
@@ -61,7 +62,7 @@ func (x *slicingTarget) WriteHeader(hdr *object.Object) error {
 
 	var err error
 	x.payloadWriter, err = slicer.InitPut(x.ctx, &readyObjectWriter{
-		initNextTarget: x.initNextTarget,
+		nextTarget: x.nextTarget,
 	}, *hdr, x.signer, opts)
 	if err != nil {
 		return fmt.Errorf("init object slicer: %w", err)
@@ -74,36 +75,34 @@ func (x *slicingTarget) Write(p []byte) (n int, err error) {
 	return x.payloadWriter.Write(p)
 }
 
-func (x *slicingTarget) Close() (*transformer.AccessIdentifiers, error) {
+func (x *slicingTarget) Close() (oid.ID, error) {
 	err := x.payloadWriter.Close()
 	if err != nil {
-		return nil, fmt.Errorf("finish object slicing: %w", err)
+		return oid.ID{}, fmt.Errorf("finish object slicing: %w", err)
 	}
 
-	return new(transformer.AccessIdentifiers).WithSelfID(x.payloadWriter.ID()), nil
+	return x.payloadWriter.ID(), nil
 }
 
 // implements slicer.ObjectWriter for ready child objects.
 type readyObjectWriter struct {
-	initNextTarget transformer.TargetInitializer
+	nextTarget internal.Target
 }
 
 func (x *readyObjectWriter) ObjectPutInit(_ context.Context, hdr object.Object, _ user.Signer, _ client.PrmObjectPutInit) (client.ObjectWriter, error) {
-	tgt := x.initNextTarget()
-
-	err := tgt.WriteHeader(&hdr)
+	err := x.nextTarget.WriteHeader(&hdr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &readyObjectPayloadWriter{
-		target: tgt,
+		target: x.nextTarget,
 	}, nil
 }
 
 // implements client.ObjectWriter for ready child objects.
 type readyObjectPayloadWriter struct {
-	target transformer.ObjectTarget
+	target internal.Target
 }
 
 func (x *readyObjectPayloadWriter) Write(p []byte) (int, error) {
