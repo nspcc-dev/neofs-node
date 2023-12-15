@@ -2,11 +2,11 @@ package putsvc
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 // Service implements Put operation of Object service v2.
@@ -18,8 +18,8 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	svc        *putsvc.Service
-	keyStorage *util.KeyStorage
+	svc *putsvc.Service
+	key *ecdsa.PrivateKey
 }
 
 // NewService constructs Service instance from provided options.
@@ -43,8 +43,8 @@ func (s *Service) Put(ctx context.Context) (object.PutObjectStream, error) {
 	}
 
 	return &streamer{
-		stream:     stream,
-		keyStorage: s.keyStorage,
+		stream: stream,
+		key:    s.key,
 	}, nil
 }
 
@@ -54,8 +54,8 @@ func WithInternalService(v *putsvc.Service) Option {
 	}
 }
 
-func WithKeyStorage(ks *util.KeyStorage) Option {
+func WithKey(k *ecdsa.PrivateKey) Option {
 	return func(c *cfg) {
-		c.keyStorage = ks
+		c.key = k
 	}
 }

@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -13,12 +14,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 )
 
 type streamer struct {
 	stream     *putsvc.Streamer
-	keyStorage *util.KeyStorage
+	key        *ecdsa.PrivateKey
 	saveChunks bool
 	init       *object.PutRequest
 	chunks     []*object.PutRequest
@@ -93,14 +93,7 @@ func (s *streamer) Send(req *object.PutRequest) (err error) {
 	metaHdr.SetOrigin(meta)
 	req.SetMetaHeader(metaHdr)
 
-	// session token should not be used there
-	// otherwise remote nodes won't be able to
-	// process received part of split object
-	key, err := s.keyStorage.GetKey(nil)
-	if err != nil {
-		return err
-	}
-	return signature.SignServiceMessage(key, req)
+	return signature.SignServiceMessage(s.key, req)
 }
 
 func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
