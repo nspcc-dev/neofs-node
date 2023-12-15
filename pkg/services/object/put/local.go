@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"context"
 	"fmt"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -30,7 +31,7 @@ type localTarget struct {
 	meta objectCore.ContentMeta
 }
 
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta) error {
+func (t *localTarget) WriteObject(_ context.Context, obj *object.Object, meta objectCore.ContentMeta) error {
 	t.obj = obj
 	t.meta = meta
 

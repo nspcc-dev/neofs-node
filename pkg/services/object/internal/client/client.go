@@ -383,38 +383,25 @@ func (x PutObjectRes) ID() oid.ID {
 //
 // Returns any error which prevented the operation from completing correctly in error return.
 func PutObject(prm PutObjectPrm) (*PutObjectRes, error) {
-	var prmCli client.PrmObjectPutInit
-
-	prmCli.MarkLocal()
+	var opts client.PutFullObjectToNodeOptions
 
 	if prm.tokenSession != nil {
-		prmCli.WithinSession(*prm.tokenSession)
+		opts.WithinSession(*prm.tokenSession)
 	}
 
 	if prm.tokenBearer != nil {
-		prmCli.WithBearerToken(*prm.tokenBearer)
+		opts.WithBearerToken(*prm.tokenBearer)
 	}
 
-	prmCli.WithXHeaders(prm.xHeaders...)
-
-	w, err := prm.cli.ObjectPutInit(prm.ctx, *prm.obj, prm.signer, prmCli)
+	err := prm.cli.PutFullObjectToNode(prm.ctx, *prm.obj, prm.signer, opts)
 	if err != nil {
-		return nil, fmt.Errorf("init object writing on client: %w", err)
+		return nil, fmt.Errorf("put full object node: %w", err)
 	}
 
-	_, err = w.Write(prm.obj.Payload())
-	if err != nil {
-		return nil, fmt.Errorf("write object payload into stream: %w", err)
-	}
-
-	err = w.Close()
-	if err != nil {
-		ReportError(prm.cli, err)
-		return nil, fmt.Errorf("finish object stream: %w", err)
-	}
+	id, _ := prm.obj.ID()
 
 	return &PutObjectRes{
-		id: w.GetResult().StoredObjectID(),
+		id: id,
 	}, nil
 }
 

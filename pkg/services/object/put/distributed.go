@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -9,17 +10,20 @@ import (
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta) error
+	WriteObject(context.Context, *objectSDK.Object, object.ContentMeta) error
 	Close() (oid.ID, error)
 }
 
 type distributedTarget struct {
+	ctx context.Context
+
 	traversal traversal
 
 	remotePool, localPool util.WorkerPool
@@ -145,17 +149,17 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.traversal.extraBroadcastEnabled = true
 	}
 
-	return t.iteratePlacement(t.sendObject)
+	return t.iteratePlacement(client.NewSharedPutFullObjectContext(t.ctx), t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(node nodeDesc) error {
+func (t *distributedTarget) sendObject(ctx context.Context, node nodeDesc) error {
 	if !node.local && t.relay != nil {
 		return t.relay(node)
 	}
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteObject(t.obj, t.objMeta); err != nil {
+	if err := target.WriteObject(ctx, t.obj, t.objMeta); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
 	} else if _, err := target.Close(); err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
@@ -163,7 +167,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
+func (t *distributedTarget) iteratePlacement(ctx context.Context, f func(context.Context, nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
 
 	traverser, err := placement.NewTraverser(
@@ -207,7 +211,7 @@ loop:
 			if err := workerPool.Submit(func() {
 				defer wg.Done()
 
-				err := f(nodeDesc{local: isLocal, info: addr})
+				err := f(ctx, nodeDesc{local: isLocal, info: addr})
 
 				// mark the container node as processed in order to exclude it
 				// in subsequent container broadcast. Note that we don't
@@ -244,7 +248,7 @@ loop:
 
 	// perform additional container broadcast if needed
 	if t.traversal.submitPrimaryPlacementFinish() {
-		_, err = t.iteratePlacement(f)
+		_, err = t.iteratePlacement(ctx, f)
 		if err != nil {
 			t.log.Error("additional container broadcast failure",
 				zap.Error(err),

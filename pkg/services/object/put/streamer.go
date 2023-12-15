@@ -215,6 +215,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
+		ctx: p.ctx,
 		traversal: traversal{
 			opts: prm.traverseOpts,
 
@@ -231,7 +232,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			}
 
 			rt := &remoteTarget{
-				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
 				clientConstructor: p.clientConstructor,

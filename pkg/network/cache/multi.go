@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -229,6 +230,12 @@ func (x *multiClient) ObjectPutInit(ctx context.Context, header objectSDK.Object
 	})
 
 	return
+}
+
+func (x *multiClient) PutFullObjectToNode(ctx context.Context, obj objectSDK.Object, signer neofscrypto.Signer, opts client.PutFullObjectToNodeOptions) error {
+	return x.iterateClients(ctx, func(c clientcore.Client) error {
+		return c.PutFullObjectToNode(ctx, obj, signer, opts)
+	})
 }
 
 func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error {

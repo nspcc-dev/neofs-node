@@ -43,7 +43,8 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta) error {
+func (t *remoteTarget) WriteObject(ctx context.Context, obj *object.Object, _ objectcore.ContentMeta) error {
+	t.ctx = ctx
 	t.obj = obj
 
 	return nil
@@ -116,7 +117,6 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
-		ctx:               ctx,
 		keyStorage:        s.keyStorage,
 		clientConstructor: s.clientConstructor,
 	}
@@ -126,7 +126,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}); err != nil {
+	if err := t.WriteObject(ctx, p.obj, objectcore.ContentMeta{}); err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
