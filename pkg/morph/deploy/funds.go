@@ -420,7 +420,7 @@ func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAl
 
 		for i := range prm.alphabetContracts {
 			prm.logger.Info("going to transfer NEO from the committee multi-sig account to the Alphabet contract",
-				zap.Stringer("contract", prm.alphabetContracts[i]), zap.Stringer("", singleAmount))
+				zap.Stringer("contract", prm.alphabetContracts[i]), zap.Stringer("amount", singleAmount))
 			transfer(prm.alphabetContracts[i], singleAmount)
 			bal.Sub(bal, singleAmount)
 		}
