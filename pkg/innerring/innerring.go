@@ -396,6 +396,28 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	isLocalConsensus := isLocalConsensusMode(cfg)
+	if isLocalConsensus {
+		if singleAcc == nil {
+			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
+		}
+
+		server.key = singleAcc.PrivateKey()
+	} else {
+		acc, err := utilConfig.LoadAccount(walletPath, cfg.GetString("wallet.address"), walletPass)
+		if err != nil {
+			return nil, fmt.Errorf("ir: %w", err)
+		}
+
+		server.key = acc.PrivateKey()
+	}
+
+	err = serveControl(server, log, cfg, errChan)
+	if err != nil {
+		return nil, err
+	}
+
+	serveMetrics(server, cfg)
+
 	var localWSClient *rpcclient.WSClient // set if isLocalConsensus only
 
 	// create morph client
@@ -404,10 +426,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
-		}
-
-		if singleAcc == nil {
-			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
 		}
 
 		if consensusAcc == nil {
@@ -450,7 +468,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, fmt.Errorf("build WS client on internal blockchain: %w", err)
 		}
 
-		server.key = singleAcc.PrivateKey()
 		morphChain.key = server.key
 		sidechainOpts := make([]client.Option, 3, 4)
 		sidechainOpts[0] = client.WithContext(ctx)
@@ -471,16 +488,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 
 		// fallback to the pure RPC architecture
-		acc, err := utilConfig.LoadAccount(
-			walletPath,
-			cfg.GetString("wallet.address"),
-			walletPass,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("ir: %w", err)
-		}
 
-		server.key = acc.PrivateKey()
 		morphChain.key = server.key
 		morphChain.withAutoSidechainScope = !isAutoDeploy
 
@@ -562,53 +570,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		if err != nil {
 			return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
 		}
-	}
-
-	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
-	if controlSvcEndpoint != "" {
-		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
-		authKeys := make([][]byte, 0, len(authKeysStr))
-
-		for i := range authKeysStr {
-			key, err := hex.DecodeString(authKeysStr[i])
-			if err != nil {
-				return nil, fmt.Errorf("could not parse Control authorized key %s: %w",
-					authKeysStr[i],
-					err,
-				)
-			}
-
-			authKeys = append(authKeys, key)
-		}
-
-		lis, err := net.Listen("tcp", controlSvcEndpoint)
-		if err != nil {
-			return nil, err
-		}
-		var p controlsrv.Prm
-
-		p.SetPrivateKey(*server.key)
-		p.SetHealthChecker(server)
-
-		controlSvc := controlsrv.New(p,
-			controlsrv.WithAllowedKeys(authKeys),
-		)
-
-		grpcControlSrv := grpc.NewServer()
-		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
-
-		go func() {
-			errChan <- grpcControlSrv.Serve(lis)
-		}()
-
-		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
-	} else {
-		log.Info("no Control server endpoint specified, service is disabled")
-	}
-
-	if cfg.GetString("prometheus.address") != "" {
-		m := metrics.NewInnerRingMetrics(misc.Version)
-		server.metrics = &m
 	}
 
 	// create morph listener
@@ -1271,4 +1232,57 @@ func (s *Server) restartMorph() error {
 
 func (s *Server) restartMainChain() error {
 	return nil
+}
+
+func serveControl(server *Server, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) error {
+	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
+	if controlSvcEndpoint != "" {
+		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
+		authKeys := make([][]byte, 0, len(authKeysStr))
+
+		for i := range authKeysStr {
+			key, err := hex.DecodeString(authKeysStr[i])
+			if err != nil {
+				return fmt.Errorf("could not parse Control authorized key %s: %w",
+					authKeysStr[i],
+					err,
+				)
+			}
+
+			authKeys = append(authKeys, key)
+		}
+
+		lis, err := net.Listen("tcp", controlSvcEndpoint)
+		if err != nil {
+			return err
+		}
+		var p controlsrv.Prm
+
+		p.SetPrivateKey(*server.key)
+		p.SetHealthChecker(server)
+
+		controlSvc := controlsrv.New(p,
+			controlsrv.WithAllowedKeys(authKeys),
+		)
+
+		grpcControlSrv := grpc.NewServer()
+		control.RegisterControlServiceServer(grpcControlSrv, controlSvc)
+
+		go func() {
+			errChan <- grpcControlSrv.Serve(lis)
+		}()
+
+		server.registerNoErrCloser(grpcControlSrv.GracefulStop)
+	} else {
+		log.Info("no Control server endpoint specified, service is disabled")
+	}
+
+	return nil
+}
+
+func serveMetrics(server *Server, cfg *viper.Viper) {
+	if cfg.GetString("prometheus.address") != "" {
+		m := metrics.NewInnerRingMetrics(misc.Version)
+		server.metrics = &m
+	}
 }
