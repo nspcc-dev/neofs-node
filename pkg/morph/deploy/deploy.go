@@ -62,22 +62,6 @@ type Blockchain interface {
 	SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error)
 }
 
-// NeoFSState groups information about NeoFS network state processed by Deploy.
-type NeoFSState struct {
-	// Current NeoFS epoch.
-	CurrentEpoch uint64
-	// Height of the NeoFS Sidechain at which CurrentEpoch began.
-	CurrentEpochBlock uint32
-	// Duration of the single NeoFS epoch measured in Sidechain blocks.
-	EpochDuration uint32
-}
-
-// NeoFS provides access to the running NeoFS network.
-type NeoFS interface {
-	// CurrentState returns current state of the NeoFS network.
-	CurrentState() (NeoFSState, error)
-}
-
 // CommonDeployPrm groups common deployment parameters of the smart contract.
 type CommonDeployPrm struct {
 	NEF      nef.File
@@ -145,9 +129,6 @@ type Prm struct {
 	// Validator multi-sig account to spread initial GAS to network
 	// participants (must be unlocked).
 	ValidatorMultiSigAccount *wallet.Account
-
-	// Running NeoFS network for which deployment procedure is performed.
-	NeoFS NeoFS
 
 	NNS NNSPrm
 
@@ -315,7 +296,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm := syncNeoFSContractPrm{
 		logger:              prm.Logger,
 		blockchain:          prm.Blockchain,
-		neoFS:               prm.NeoFS,
 		monitor:             monitor,
 		localAcc:            prm.LocalAccount,
 		nnsContract:         nnsOnChainAddress,
@@ -405,7 +385,6 @@ func Deploy(ctx context.Context, prm Prm) error {
 	err = updateNNSContract(ctx, updateNNSContractPrm{
 		logger:        prm.Logger,
 		blockchain:    prm.Blockchain,
-		neoFS:         prm.NeoFS,
 		monitor:       monitor,
 		localAcc:      prm.LocalAccount,
 		localNEF:      prm.NNS.Common.NEF,
@@ -626,24 +605,25 @@ func encodeBoolConfig(v bool) []byte {
 	return stackitem.NewBool(v).Bytes()
 }
 
-// returns actor.TransactionCheckerModifier which sets current NeoFS epoch as
-// nonce of the transaction and makes it valid 100 blocks after Sidechain block
-// when the epoch began.
-func neoFSRuntimeTransactionModifier(neoFS NeoFS) actor.TransactionCheckerModifier {
+// returns actor.TransactionCheckerModifier which checks that invocation
+// finished with 'HALT' state and, if so, sets transaction's nonce and
+// ValidUntilBlock to 100*N and 100*(N+1) correspondingly, where
+// 100*N <= current height < 100*(N+1).
+func neoFSRuntimeTransactionModifier(getBlockchainHeight func() uint32) actor.TransactionCheckerModifier {
 	return func(r *result.Invoke, tx *transaction.Transaction) error {
 		err := actor.DefaultCheckerModifier(r, tx)
 		if err != nil {
 			return err
 		}
 
-		neoFSState, err := neoFS.CurrentState()
-		if err != nil {
-			return fmt.Errorf("get current NeoFS network state: %w", err)
-		}
+		curHeight := getBlockchainHeight()
+		const span = 100
+		n := curHeight / span
 
-		tx.Nonce = uint32(neoFSState.CurrentEpoch)
-		if math.MaxUint32-neoFSState.CurrentEpochBlock > neoFSState.EpochDuration {
-			tx.ValidUntilBlock = neoFSState.CurrentEpochBlock + neoFSState.EpochDuration
+		tx.Nonce = n * span
+
+		if math.MaxUint32-span > tx.Nonce {
+			tx.ValidUntilBlock = tx.Nonce + span
 		} else {
 			tx.ValidUntilBlock = math.MaxUint32
 		}

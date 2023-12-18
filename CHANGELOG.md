@@ -6,6 +6,8 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Fund transfer deadlock in NeoFS chain auto-deploy/update procedure (#2681)
+- Invalid contracts' update transactions when epochs are stuck during the NeoFS chain update (#2680)
 
 ### Changed
 

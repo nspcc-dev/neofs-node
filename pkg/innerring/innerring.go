@@ -530,7 +530,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		deployPrm.Blockchain = sidechain
 		deployPrm.LocalAccount = singleAcc
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
-		deployPrm.NeoFS = sidechain
 
 		nnsCfg, err := parseNNSConfig(cfg)
 		if err != nil {

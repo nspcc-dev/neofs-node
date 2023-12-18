@@ -31,8 +31,6 @@ type syncNeoFSContractPrm struct {
 
 	blockchain Blockchain
 
-	neoFS NeoFS
-
 	// based on blockchain
 	monitor *blockchainMonitor
 
@@ -147,7 +145,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 	var alreadyUpdated bool
 	domainNameForAddress := prm.domainName + "." + domainContractAddresses
 	l := prm.logger.With(zap.String("contract", prm.localManifest.Name), zap.String("domain", domainNameForAddress))
-	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
+	updateTxModifier := neoFSRuntimeTransactionModifier(prm.monitor.currentHeight)
 	deployTxMonitor := newTransactionGroupMonitor(prm.simpleLocalActor)
 	updateTxMonitor := newTransactionGroupMonitor(prm.simpleLocalActor)
 	setContractRecordPrm := setNeoFSContractDomainRecordPrm{
