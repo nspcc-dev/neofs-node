@@ -390,7 +390,7 @@ func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAl
 
 	neoContract := neo.NewReader(committeeActor)
 	scriptBuilder := smartcontract.NewBuilder()
-	transfer := func(to util.Uint160, amount *big.Int) {
+	transfer := func(to util.Uint160, amount uint64) {
 		scriptBuilder.InvokeWithAssert(neo.Hash, "transfer", committeeMultiSigAccID, to, amount, nil)
 	}
 	txMonitor := newTransactionGroupMonitor(committeeActor)
@@ -411,19 +411,22 @@ func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAl
 			return nil
 		}
 
+		if !bal.IsUint64() {
+			// should never happen since NEO is <=100KK according to https://docs.neo.org/docs/en-us/basic/concept/blockchain/token_model.html
+			// see also https://github.com/nspcc-dev/neo-go/issues/3268
+			return fmt.Errorf("NEO balance exceeds uint64: %v", bal)
+		}
+
 		prm.logger.Info("have available NEO on the committee multi-sig account, going to transfer to the Alphabet contracts",
 			zap.Stringer("balance", bal))
 
-		singleAmount := new(big.Int).Div(bal, big.NewInt(int64(len(prm.alphabetContracts))))
-
 		scriptBuilder.Reset()
 
-		for i := range prm.alphabetContracts {
+		divideFundsEvenly(bal.Uint64(), len(prm.alphabetContracts), func(i int, amount uint64) {
 			prm.logger.Info("going to transfer NEO from the committee multi-sig account to the Alphabet contract",
-				zap.Stringer("contract", prm.alphabetContracts[i]), zap.Stringer("amount", singleAmount))
-			transfer(prm.alphabetContracts[i], singleAmount)
-			bal.Sub(bal, singleAmount)
-		}
+				zap.Stringer("contract", prm.alphabetContracts[i]), zap.Uint64("amount", amount))
+			transfer(prm.alphabetContracts[i], amount)
+		})
 
 		script, err := scriptBuilder.Script()
 		if err != nil {
@@ -446,5 +449,22 @@ func distributeNEOToAlphabetContracts(ctx context.Context, prm distributeNEOToAl
 			zap.Stringer("main tx", mainTxID), zap.Stringer("fallback tx", fallbackTxID), zap.Uint32("vub", vub))
 
 		txMonitor.trackPendingTransactionsAsync(ctx, vub, mainTxID, fallbackTxID)
+	}
+}
+
+func divideFundsEvenly(fullAmount uint64, n int, f func(ind int, amount uint64)) {
+	quot := fullAmount / uint64(n)
+	rem := fullAmount % uint64(n)
+
+	for i := 0; i < n; i++ {
+		amount := quot
+		if rem > 0 {
+			amount++
+			rem--
+		} else if amount == 0 {
+			return
+		}
+
+		f(i, amount)
 	}
 }

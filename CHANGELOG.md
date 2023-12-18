@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Fund transfer deadlock in NeoFS chain auto-deploy/update procedure (#2681)
 
 ### Changed
 
