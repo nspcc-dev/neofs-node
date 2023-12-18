@@ -222,8 +222,6 @@ type updateNNSContractPrm struct {
 
 	blockchain Blockchain
 
-	neoFS NeoFS
-
 	// based on blockchain
 	monitor *blockchainMonitor
 
@@ -269,7 +267,7 @@ func updateNNSContract(ctx context.Context, prm updateNNSContractPrm) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	updateTxModifier := neoFSRuntimeTransactionModifier(prm.neoFS)
+	updateTxModifier := neoFSRuntimeTransactionModifier(prm.monitor.currentHeight)
 	txMonitor := newTransactionGroupMonitor(committeeActor)
 
 	for ; ; err = prm.monitor.waitForNextBlock(ctx) {
