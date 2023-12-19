@@ -3,19 +3,18 @@ package morph
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
-	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep17"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
-	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
@@ -128,81 +127,67 @@ func addMultisigAccount(w *wallet.Wallet, m int, name, password string, pubs key
 }
 
 func generateStorageCreds(cmd *cobra.Command, _ []string) error {
-	return refillGas(cmd, storageGasConfigFlag, true)
-}
-
-func refillGas(cmd *cobra.Command, gasFlag string, createWallet bool) (err error) {
 	// storage wallet path is not part of the config
 	storageWalletPath, _ := cmd.Flags().GetString(storageWalletFlag)
-	// wallet address is not part of the config
-	walletAddress, _ := cmd.Flags().GetString(walletAddressFlag)
-
-	var gasReceiver util.Uint160
-
-	if len(walletAddress) != 0 {
-		gasReceiver, err = address.StringToUint160(walletAddress)
-		if err != nil {
-			return fmt.Errorf("invalid wallet address %s: %w", walletAddress, err)
-		}
-	} else {
-		if storageWalletPath == "" {
-			return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
-		}
-
-		var w *wallet.Wallet
-
-		if createWallet {
-			w, err = wallet.NewWallet(storageWalletPath)
-		} else {
-			w, err = wallet.NewWalletFromFile(storageWalletPath)
-		}
-
-		if err != nil {
-			return fmt.Errorf("can't create wallet: %w", err)
-		}
-
-		if createWallet {
-			var password string
-
-			label, _ := cmd.Flags().GetString(storageWalletLabelFlag)
-			password, err := config.GetStoragePassword(viper.GetViper(), label)
-			if err != nil {
-				return fmt.Errorf("can't fetch password: %w", err)
-			}
-
-			if label == "" {
-				label = singleAccountName
-			}
-
-			if err := w.CreateAccount(label, password); err != nil {
-				return fmt.Errorf("can't create account: %w", err)
-			}
-		}
-
-		gasReceiver = w.Accounts[0].Contract.ScriptHash()
+	if storageWalletPath == "" {
+		return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
 	}
 
-	gasStr := viper.GetString(gasFlag)
+	walletsNumber, err := cmd.Flags().GetUint32(storageWalletsNumber)
+	if err != nil {
+		return err
+	}
+	if walletsNumber == 0 {
+		walletsNumber = 1
+	}
 
-	gasAmount, err := parseGASAmount(gasStr)
+	label, _ := cmd.Flags().GetString(storageWalletLabelFlag)
+	password, err := config.GetStoragePassword(viper.GetViper(), label)
+	if err != nil {
+		return fmt.Errorf("can't fetch password: %w", err)
+	}
+
+	if label == "" {
+		label = singleAccountName
+	}
+
+	hashes, err := createWallets(storageWalletPath, label, password, walletsNumber)
 	if err != nil {
 		return err
 	}
 
+	gasAmount, err := parseGASAmount(viper.GetString(refillGasAmountFlag))
+	if err != nil {
+		return err
+	}
+
+	return refillGas(cmd, int64(gasAmount), hashes)
+}
+
+func refillGas(cmd *cobra.Command, gasAmount int64, receivers []util.Uint160) (err error) {
 	wCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return err
 	}
 
-	bw := io.NewBufBinWriter()
-	emit.AppCall(bw.BinWriter, gas.Hash, "transfer", callflag.All,
-		wCtx.CommitteeAcc.Contract.ScriptHash(), gasReceiver, int64(gasAmount), nil)
-	emit.Opcodes(bw.BinWriter, opcode.ASSERT)
-	if bw.Err != nil {
-		return fmt.Errorf("BUG: invalid transfer arguments: %w", bw.Err)
+	committeeScriptHash := wCtx.CommitteeAcc.Contract.ScriptHash()
+
+	var pp []nep17.TransferParameters
+	for _, receiver := range receivers {
+		pp = append(pp, nep17.TransferParameters{
+			From:   committeeScriptHash,
+			To:     receiver,
+			Amount: big.NewInt(gasAmount),
+		})
 	}
 
-	if err := wCtx.sendCommitteeTx(bw.Bytes(), false); err != nil {
+	gToken := nep17.New(wCtx.CommitteeAct, gas.Hash)
+	tx, err := gToken.MultiTransferUnsigned(pp)
+	if err != nil {
+		return err
+	}
+
+	if err := wCtx.multiSignAndSend(tx, committeeAccountName); err != nil {
 		return err
 	}
 
@@ -218,4 +203,42 @@ func parseGASAmount(s string) (fixedn.Fixed8, error) {
 		return 0, fmt.Errorf("GAS amount must be positive (got %d)", gasAmount)
 	}
 	return gasAmount, nil
+}
+
+func createWallets(fileNameTemplate, label, password string, number uint32) ([]util.Uint160, error) {
+	var res []util.Uint160
+	ext := path.Ext(fileNameTemplate)
+	base := strings.TrimSuffix(fileNameTemplate, ext)
+	walletNumberFormat := fmt.Sprintf("%%0%dd", digitsNum(number))
+
+	for i := 0; i < int(number); i++ {
+		filename := fileNameTemplate
+		if number != 1 {
+			filename = base + "_" + fmt.Sprintf(walletNumberFormat, i) + ext
+		}
+
+		w, err := wallet.NewWallet(filename)
+		if err != nil {
+			return nil, fmt.Errorf("wallet creation: %w", err)
+		}
+
+		err = w.CreateAccount(label, password)
+		if err != nil {
+			return nil, fmt.Errorf("account creation: %w", err)
+		}
+
+		res = append(res, w.Accounts[0].Contract.ScriptHash())
+	}
+
+	return res, nil
+}
+
+func digitsNum(val uint32) int {
+	var res int
+	for val != 0 {
+		val /= 10
+		res++
+	}
+
+	return res
 }

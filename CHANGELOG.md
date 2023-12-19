@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-adm morph generate-storage-wallet` now supports more than one wallet generation per call (#2425)
 
 ### Fixed
 - Fund transfer deadlock in NeoFS chain auto-deploy/update procedure (#2681)
