@@ -6,9 +6,6 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Fund transfer deadlock in NeoFS chain auto-deploy/update procedure (#2681)
-- Invalid contracts' update transactions when epochs are stuck during the NeoFS chain update (#2680)
-- Metrics availability during startup (#2677) 
 
 ### Changed
 
@@ -16,7 +13,14 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.39.0
+### Updating from v0.39.1
+
+## [0.39.1] - 2023-12-19
+
+### Fixed
+- Fund transfer deadlock in NeoFS chain auto-deploy/update procedure (#2681)
+- Invalid contracts' update transactions when epochs are stuck during the NeoFS chain update (#2680)
+- Metrics availability during startup (#2677)
 
 ## [0.39.0] - 2023-12-12 - Baegado
 
@@ -1855,7 +1859,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...master
+[0.39.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...v0.39.0
 [0.38.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.37.0...v0.38.0
