@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Auto-deployment of the Balance and Container contracts (#2695)
 
 ### Changed
 

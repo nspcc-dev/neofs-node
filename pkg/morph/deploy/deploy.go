@@ -464,8 +464,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localNEF = prm.BalanceContract.Common.NEF
 	syncPrm.localManifest = prm.BalanceContract.Common.Manifest
 	syncPrm.domainName = domainBalance
-	syncPrm.committeeDeployRequired = true
-	syncPrm.extraCommitteeDeployAllowedContracts = []util.Uint160{netmapContractAddress}
+	syncPrm.deployWitness = witnessValidators
+	syncPrm.validatorsDeployAllowedContracts = []util.Uint160{netmapContractAddress}
 	syncPrm.buildExtraDeployArgs = noExtraDeployArgs
 
 	prm.Logger.Info("synchronizing Balance contract with the chain...")
@@ -477,8 +477,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Balance contract successfully synchronized", zap.Stringer("address", balanceContractAddress))
 
-	syncPrm.committeeDeployRequired = false
-	syncPrm.extraCommitteeDeployAllowedContracts = nil
+	syncPrm.deployWitness = 0
+	syncPrm.validatorsDeployAllowedContracts = nil
 
 	// 5. Reputation
 	syncPrm.localNEF = prm.ReputationContract.Common.NEF
@@ -514,8 +514,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 	syncPrm.localNEF = prm.ContainerContract.Common.NEF
 	syncPrm.localManifest = prm.ContainerContract.Common.Manifest
 	syncPrm.domainName = domainContainer
-	syncPrm.committeeDeployRequired = true
-	syncPrm.extraCommitteeDeployAllowedContracts = []util.Uint160{netmapContractAddress}
+	syncPrm.deployWitness = witnessValidatorsAndCommittee
+	syncPrm.validatorsDeployAllowedContracts = []util.Uint160{netmapContractAddress}
 	syncPrm.buildExtraDeployArgs = func() ([]any, error) {
 		return []any{
 			notaryDisabledExtraUpdateArg,
@@ -536,7 +536,8 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	prm.Logger.Info("Container contract successfully synchronized", zap.Stringer("address", containerContractAddress))
 
-	syncPrm.committeeDeployRequired = false
+	syncPrm.deployWitness = 0
+	syncPrm.validatorsDeployAllowedContracts = nil
 
 	// 8. Alphabet
 	syncPrm.localNEF = prm.AlphabetContract.Common.NEF
