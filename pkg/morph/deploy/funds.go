@@ -173,6 +173,10 @@ upperLoop:
 				To:     committeeMultiSigAccAddress,
 				Amount: remGAS,
 			})
+
+			prm.logger.Info("going to transfer all remaining GAS from validator multi-sig account to the committee one",
+				zap.Stringer("from", validatorMultiSigAccAddress), zap.Stringer("to", committeeMultiSigAccAddress),
+				zap.Stringer("amount", remGAS))
 		}
 
 		var script []byte
@@ -197,6 +201,10 @@ upperLoop:
 			}
 
 			script = append(script, tx.Script...)
+
+			prm.logger.Info("going to transfer all remaining NEO from validator multi-sig account to the committee one",
+				zap.Stringer("from", validatorMultiSigAccAddress), zap.Stringer("to", committeeMultiSigAccAddress),
+				zap.Stringer("amount", remNEO))
 		}
 
 		if len(script) == 0 {
