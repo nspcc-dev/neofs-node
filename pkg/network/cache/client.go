@@ -6,6 +6,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"go.uber.org/zap"
 )
 
 // DefaultBufferSize describes default max GRPC message size. Unfortunately GRPC lib contains this const in private.
@@ -27,6 +28,7 @@ type (
 		ResponseCallback func(client.ResponseMetaInfo) error
 		AllowExternal    bool
 		Buffers          *sync.Pool
+		Logger           *zap.Logger
 	}
 )
 

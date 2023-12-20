@@ -551,6 +551,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
 		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
 		Buffers:          &buffers,
+		Logger:           c.internals.log,
 	}
 	c.shared = shared{
 		key:            key,

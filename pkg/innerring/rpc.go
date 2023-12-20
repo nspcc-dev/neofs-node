@@ -47,9 +47,18 @@ type (
 )
 
 func newClientCache(p *clientCacheParams) *ClientCache {
+	log := p.Log
+	if log == nil {
+		log = zap.NewNop()
+	}
+
 	return &ClientCache{
-		log:          p.Log,
-		cache:        cache.NewSDKClientCache(cache.ClientCacheOpts{AllowExternal: p.AllowExternal, Buffers: p.Buffers}),
+		log: p.Log,
+		cache: cache.NewSDKClientCache(
+			cache.ClientCacheOpts{
+				AllowExternal: p.AllowExternal,
+				Buffers:       p.Buffers,
+				Logger:        log}),
 		key:          p.Key,
 		sgTimeout:    p.SGTimeout,
 		headTimeout:  p.HeadTimeout,

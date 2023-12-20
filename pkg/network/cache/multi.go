@@ -17,6 +17,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -166,6 +167,7 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 		}
 
 		if err != nil {
+			err = fmt.Errorf("%s node client: %w", addr, err)
 			x.ReportError(err)
 		}
 
@@ -196,10 +198,19 @@ func (x *multiClient) ReportError(err error) {
 	// because `multiClient` doesn't yet provide convenient interface
 	// for reporting individual errors for streaming operations.
 	x.mtx.RLock()
+
+	x.addrMtx.RLock()
+	group := x.addr
+	x.addrMtx.RUnlock()
+
 	for _, sc := range x.clients {
 		sc.invalidate()
 	}
+
 	x.mtx.RUnlock()
+
+	x.opts.Logger.Info("invalidated cached clients to the node caused by the error",
+		zap.Stringers("address group", group), zap.Error(err))
 }
 
 func (s *singleClient) invalidate() {
