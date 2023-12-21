@@ -22,7 +22,7 @@ type classifyResult struct {
 	key  []byte
 }
 
-func (c senderClassifier) classify(
+func (c *senderClassifier) classify(
 	req MetaWithToken,
 	idCnr cid.ID,
 	cnr container.Container) (res *classifyResult, err error) {
@@ -74,7 +74,7 @@ func (c senderClassifier) classify(
 	}, nil
 }
 
-func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
+func (c *senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 	innerRingKeys, err := c.innerRing.InnerRingKeys()
 	if err != nil {
 		return false, err
@@ -90,7 +90,7 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 	return false, nil
 }
 
-func (c senderClassifier) isContainerKey(
+func (c *senderClassifier) isContainerKey(
 	key []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
 	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
@@ -98,7 +98,7 @@ func (c senderClassifier) isContainerKey(
 		return false, err
 	}
 
-	in, err := lookupKeyInContainer(nm, key, idCnr, cnr)
+	in, err := c.lookupKeyInContainer(nm, key, idCnr, cnr)
 	if err != nil {
 		return false, err
 	} else if in {
@@ -112,10 +112,10 @@ func (c senderClassifier) isContainerKey(
 		return false, err
 	}
 
-	return lookupKeyInContainer(nm, key, idCnr, cnr)
+	return c.lookupKeyInContainer(nm, key, idCnr, cnr)
 }
 
-func lookupKeyInContainer(
+func (c *senderClassifier) lookupKeyInContainer(
 	nm *netmap.NetMap,
 	key []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
