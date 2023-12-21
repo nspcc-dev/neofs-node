@@ -121,7 +121,7 @@ fmt:
 # Reformat imports
 imports:
 	@echo "⇒ Processing goimports check"
-	@goimports -w cmd/ pkg/ misc/
+	@goimports -w $$(find . -type f -name '*.go' -not -path '*.pb.go')
 
 # Run Unit Test with go test
 test:
