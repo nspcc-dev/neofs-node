@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Logs on a connection drop in the cache of NeoFS API clients (#2694)
 
 ### Fixed
 - Auto-deployment of the Balance and Container contracts (#2695)
