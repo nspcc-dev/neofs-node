@@ -4,10 +4,8 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
-- Logs on a connection drop in the cache of NeoFS API clients (#2694)
 
 ### Fixed
-- Auto-deployment of the Balance and Container contracts (#2695)
 
 ### Changed
 
@@ -15,7 +13,17 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.39.1
+### Updating from v0.39.2
+
+## [0.39.2] - 2023-12-21
+
+NeoFS chain's auto-deployment fixes with some maintainability improvements.
+
+### Added
+- Logs on a connection drop in the cache of NeoFS API clients (#2694)
+
+### Fixed
+- Auto-deployment of the Balance and Container contracts (#2695)
 
 ## [0.39.1] - 2023-12-19
 
@@ -1861,7 +1869,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...master
+[0.39.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...v0.39.0
 [0.38.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.0...v0.38.1
