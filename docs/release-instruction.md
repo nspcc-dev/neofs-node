@@ -40,7 +40,7 @@ $ git checkout -b release/${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
 Write new revision number into the root `VERSION` file:
 
 ```shell
-$ echo ${NEOFS_TAG_PREFIX}${NEOFS_REVISION} > VERSION
+$ echo ${NEOFS_REVISION} > VERSION
 ```
 
 Update version in Debian package changelog file
