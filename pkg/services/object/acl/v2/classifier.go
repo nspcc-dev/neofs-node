@@ -91,14 +91,14 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 }
 
 func (c senderClassifier) isContainerKey(
-	owner []byte, idCnr cid.ID,
+	key []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
 	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
 	if err != nil {
 		return false, err
 	}
 
-	in, err := lookupKeyInContainer(nm, owner, idCnr, cnr)
+	in, err := lookupKeyInContainer(nm, key, idCnr, cnr)
 	if err != nil {
 		return false, err
 	} else if in {
@@ -112,12 +112,12 @@ func (c senderClassifier) isContainerKey(
 		return false, err
 	}
 
-	return lookupKeyInContainer(nm, owner, idCnr, cnr)
+	return lookupKeyInContainer(nm, key, idCnr, cnr)
 }
 
 func lookupKeyInContainer(
 	nm *netmap.NetMap,
-	owner []byte, idCnr cid.ID,
+	key []byte, idCnr cid.ID,
 	cnr container.Container) (bool, error) {
 	cnrVectors, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
 	if err != nil {
@@ -126,7 +126,7 @@ func lookupKeyInContainer(
 
 	for i := range cnrVectors {
 		for j := range cnrVectors[i] {
-			if bytes.Equal(cnrVectors[i][j].PublicKey(), owner) {
+			if bytes.Equal(cnrVectors[i][j].PublicKey(), key) {
 				return true, nil
 			}
 		}
