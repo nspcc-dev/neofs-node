@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/management"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/manifest"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/nef"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -23,6 +24,12 @@ import (
 // various common methods of the NeoFS contracts.
 const (
 	methodUpdate = "update"
+)
+
+const (
+	_ uint8 = iota
+	witnessValidators
+	witnessValidatorsAndCommittee
 )
 
 // syncNeoFSContractPrm groups parameters of syncNeoFSContract.
@@ -56,10 +63,12 @@ type syncNeoFSContractPrm struct {
 	// if set, syncNeoFSContract attempts to deploy the contract when it's
 	// missing on the chain
 	tryDeploy bool
-	// is contract must be deployed by the committee
-	committeeDeployRequired bool
-	// additional allowed contracts to be added to the NNS one if committeeDeployRequired
-	extraCommitteeDeployAllowedContracts []util.Uint160
+	// 0: committee witness is not needed
+	// witnessValidators: committee 2/3n+1 with validatorsDeployAllowedContracts
+	// witnessValidatorsAndCommittee: witnessValidators + committee n/2+1 with allowed NNS contract calls
+	deployWitness uint8
+	// contracts that are allowed to be called for the validators-witnessed deployment
+	validatorsDeployAllowedContracts []util.Uint160
 
 	// optional constructor of extra arguments to be passed into method deploying
 	// the contract. If returns both nil, no data is passed (noExtraDeployArgs can
@@ -126,11 +135,54 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 		Sender() util.Uint160
 	}
 	var managementContract *management.Contract
-	if prm.committeeDeployRequired {
-		deployCommitteeActor, err := newCommitteeNotaryActorWithCustomCommitteeSigner(prm.blockchain, prm.localAcc, prm.committee, func(s *transaction.Signer) {
-			s.Scopes = transaction.CustomContracts
-			s.AllowedContracts = append(prm.extraCommitteeDeployAllowedContracts, prm.nnsContract)
-		})
+	if prm.deployWitness > 0 {
+		if prm.deployWitness != witnessValidators && prm.deployWitness != witnessValidatorsAndCommittee {
+			panic(fmt.Sprintf("unexpected deploy witness mode value %v", prm.deployWitness))
+		}
+
+		validatorsMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+		err := validatorsMultiSigAcc.ConvertMultisig(smartcontract.GetDefaultHonestNodeCount(len(prm.committee)), prm.committee)
+		if err != nil {
+			return util.Uint160{}, fmt.Errorf("compose validators multi-signature account: %w", err)
+		}
+
+		signers := make([]actor.SignerAccount, 2, 3)
+		// payer
+		signers[0].Account = prm.localAcc
+		signers[0].Signer.Account = prm.localAcc.ScriptHash()
+		signers[0].Signer.Scopes = transaction.None
+		// validators
+		signers[1].Account = validatorsMultiSigAcc
+		signers[1].Signer.Account = validatorsMultiSigAcc.ScriptHash()
+		signers[1].Signer.Scopes = transaction.CustomContracts
+		signers[1].Signer.AllowedContracts = prm.validatorsDeployAllowedContracts
+
+		if prm.deployWitness == witnessValidatorsAndCommittee {
+			committeeMultiSigAcc := wallet.NewAccountFromPrivateKey(prm.localAcc.PrivateKey())
+			err := committeeMultiSigAcc.ConvertMultisig(smartcontract.GetMajorityHonestNodeCount(len(prm.committee)), prm.committee)
+			if err != nil {
+				return util.Uint160{}, fmt.Errorf("compose committee multi-signature account: %w", err)
+			}
+
+			if acc := committeeMultiSigAcc.ScriptHash(); acc.Equals(signers[1].Signer.Account) {
+				signers[1].Account = committeeMultiSigAcc
+				signers[1].Signer.Account = acc
+				signers[1].Signer.Scopes = transaction.CustomContracts
+				signers[1].Signer.AllowedContracts = append(prm.validatorsDeployAllowedContracts, prm.nnsContract)
+			} else {
+				// prevent 'transaction signers should be unique' error
+				signers = append(signers, actor.SignerAccount{
+					Signer: transaction.Signer{
+						Account:          committeeMultiSigAcc.ScriptHash(),
+						Scopes:           transaction.CustomContracts,
+						AllowedContracts: []util.Uint160{prm.nnsContract},
+					},
+					Account: committeeMultiSigAcc,
+				})
+			}
+		}
+
+		deployCommitteeActor, err := notary.NewActor(prm.blockchain, signers, prm.localAcc)
 		if err != nil {
 			return util.Uint160{}, fmt.Errorf("create Notary service client sending deploy transactions to be signed by the committee: %w", err)
 		}
@@ -226,7 +278,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 			nefCp := prm.localNEF
 			manifestCp := prm.localManifest
 
-			if prm.committeeDeployRequired {
+			if prm.deployWitness > 0 {
 				l.Info("contract requires committee witness for deployment, sending Notary request...")
 
 				mainTxID, fallbackTxID, vub, err := prm.committeeLocalActor.Notarize(managementContract.DeployTransaction(&nefCp, &manifestCp, extraDeployArgs))
