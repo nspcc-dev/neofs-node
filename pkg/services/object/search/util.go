@@ -8,8 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -32,8 +30,6 @@ type clientWrapper struct {
 type storageEngineWrapper struct {
 	storage *engine.StorageEngine
 }
-
-type traverseGeneratorWrapper util.TraverserGenerator
 
 type nmSrcWrapper struct {
 	nmSrc netmap.Source
@@ -105,7 +101,7 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 	prm.SetBearerToken(exec.prm.common.BearerToken())
 	prm.SetTTL(exec.prm.common.TTL())
 	prm.SetXHeaders(exec.prm.common.XHeaders())
-	prm.SetNetmapEpoch(exec.curProcEpoch)
+	prm.SetNetmapEpoch(0)
 	prm.SetContainerID(exec.containerID())
 	prm.SetFilters(exec.searchFilters())
 
@@ -138,10 +134,6 @@ func idsFromAddresses(addrs []oid.Address) []oid.ID {
 	}
 
 	return ids
-}
-
-func (e *traverseGeneratorWrapper) generateTraverser(cnr cid.ID, epoch uint64) (*placement.Traverser, error) {
-	return (*util.TraverserGenerator)(e).GenerateTraverser(cnr, nil, epoch)
 }
 
 func (n *nmSrcWrapper) currentEpoch() (uint64, error) {

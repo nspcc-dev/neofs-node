@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
@@ -13,80 +15,68 @@ func (exec *execCtx) executeOnContainer() {
 		return
 	}
 
+	startEpoch := exec.netmapEpoch()
 	lookupDepth := exec.netmapLookupDepth()
 
-	exec.log.Debug("trying to execute in container...",
-		zap.Uint64("netmap lookup depth", lookupDepth),
-	)
-
-	// initialize epoch number
-	ok := exec.initEpoch()
-	if !ok {
-		return
-	}
-
-	for {
-		if exec.processCurrentEpoch() {
-			break
-		}
-
-		// check the maximum depth has been reached
-		if lookupDepth == 0 {
-			break
-		}
-
-		lookupDepth--
-
-		// go to the previous epoch
-		exec.curProcEpoch--
-	}
-}
-
-func (exec *execCtx) processCurrentEpoch() bool {
-	exec.log.Debug("process epoch",
-		zap.Uint64("number", exec.curProcEpoch),
-	)
-
-	traverser, ok := exec.generateTraverser(exec.address())
-	if !ok {
-		return true
+	if startEpoch > 0 {
+		exec.log.Debug("trying to execute in container...",
+			zap.Uint64("start from epoch", startEpoch),
+			zap.Uint64("netmap lookup depth", lookupDepth),
+		)
+	} else {
+		exec.log.Debug("trying to execute in container...",
+			zap.Uint64("netmap lookup depth", lookupDepth),
+		)
 	}
 
 	ctx, cancel := context.WithCancel(exec.context())
 	defer cancel()
 
-	exec.status = statusUndefined
+	err := exec.svc.storagePolicer.ForEachRemoteObjectNode(exec.prm.addr.Container(), exec.prm.addr.Object(), startEpoch, lookupDepth, func(storageNodeInfo netmap.NodeInfo) bool {
+		select {
+		case <-ctx.Done():
+			exec.log.Debug("interrupt reading the object from remote container nodes by context",
+				zap.String("error", ctx.Err().Error()))
+			return false
+		default:
+		}
 
-	for {
-		addrs := traverser.Next()
-		if len(addrs) == 0 {
-			exec.log.Debug("no more nodes, abort placement iteration")
-
+		// TODO: #1142 consider parallel execution
+		// TODO: #1142 consider optimization: if status == SPLIT we can continue until
+		//  we reach the best result - split info with linking object ID.
+		var endpoints network.AddressGroup
+		err := endpoints.FromIterator(network.NodeEndpointsIterator(storageNodeInfo))
+		if err != nil {
+			exec.log.Debug("failed to decode network endpoints of the storage node from the network map, skip search on it",
+				zap.String("public key", netmap.StringifyPublicKey(storageNodeInfo)), zap.Error(err))
 			return false
 		}
 
-		for i := range addrs {
-			select {
-			case <-ctx.Done():
-				exec.log.Debug("interrupt placement iteration by context",
-					zap.String("error", ctx.Err().Error()),
-				)
+		var clientInfo client.NodeInfo
 
-				return true
-			default:
-			}
-
-			// TODO: #1142 consider parallel execution
-			// TODO: #1142 consider optimization: if status == SPLIT we can continue until
-			//  we reach the best result - split info with linking object ID.
-			var info client.NodeInfo
-
-			client.NodeInfoFromNetmapElement(&info, addrs[i])
-
-			if exec.processNode(info) {
-				exec.log.Debug("completing the operation")
-				return true
+		if ext := storageNodeInfo.ExternalAddresses(); len(ext) > 0 {
+			var externalEndpoints network.AddressGroup
+			err = externalEndpoints.FromStringSlice(ext)
+			if err != nil {
+				exec.log.Debug("failed to decode external network endpoints of the storage node from the network map, ignore them",
+					zap.Strings("endpoints", ext), zap.Error(err))
+			} else {
+				clientInfo.SetExternalAddressGroup(externalEndpoints)
 			}
 		}
+
+		clientInfo.SetAddressGroup(endpoints)
+		clientInfo.SetPublicKey(storageNodeInfo.PublicKey())
+
+		if exec.processNode(clientInfo) {
+			exec.log.Debug("completing the operation")
+			return false
+		}
+
+		return true
+	})
+	if err != nil {
+		exec.status = statusUndefined
+		exec.err = err
 	}
 }

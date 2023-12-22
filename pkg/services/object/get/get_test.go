@@ -34,9 +34,10 @@ type testStorage struct {
 	phy map[string]*objectSDK.Object
 }
 
-type testTraverserGenerator struct {
+type testStoragePolicer struct {
 	c container.Container
 	b map[uint64]placement.Builder
+	e uint64
 }
 
 type testPlacementBuilder struct {
@@ -54,12 +55,6 @@ type testClient struct {
 	}
 }
 
-type testEpochReceiver uint64
-
-func (e testEpochReceiver) currentEpoch() (uint64, error) {
-	return uint64(e), nil
-}
-
 func newTestStorage() *testStorage {
 	return &testStorage{
 		inhumed: make(map[string]struct{}),
@@ -68,19 +63,65 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e uint64) (*placement.Traverser, error) {
-	opts := make([]placement.Option, 0, 4)
-	opts = append(opts,
-		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b[e]),
-		placement.SuccessAfter(1),
-	)
-
-	if obj != nil {
-		opts = append(opts, placement.ForObject(*obj))
+func (g *testStoragePolicer) ForEachRemoteObjectNode(cnr cid.ID, obj oid.ID, startEpoch, nPast uint64, f func(netmap.NodeInfo) bool) error {
+	if startEpoch == 0 {
+		startEpoch = g.e
 	}
 
-	return placement.NewTraverser(opts...)
+	for i := uint64(0); i <= nPast; i++ {
+		epoch := startEpoch - nPast
+
+		b, ok := g.b[epoch]
+		if !ok {
+			return nil
+		}
+
+		traverser, err := placement.NewTraverser(
+			placement.ForContainer(g.c),
+			placement.UseBuilder(b),
+			placement.SuccessAfter(1),
+			placement.ForObject(obj),
+		)
+		if err != nil {
+			return fmt.Errorf("generate test placement traverser: %w", err)
+		}
+
+		for {
+			addrs := traverser.Next()
+			if len(addrs) == 0 {
+				return nil
+			}
+
+			for i := range addrs {
+				var storageNodeInfo netmap.NodeInfo
+
+				storageNodeInfo.SetPublicKey(addrs[i].PublicKey())
+
+				var strEndpoints []string
+				addrs[i].Addresses().IterateAddresses(func(address network.Address) bool {
+					strEndpoints = append(strEndpoints, address.String())
+					return false
+				})
+
+				var strExternalEndpoints []string
+				addrs[i].ExternalAddresses().IterateAddresses(func(address network.Address) bool {
+					strEndpoints = append(strEndpoints, address.String())
+					return false
+				})
+
+				storageNodeInfo.SetNetworkEndpoints(strEndpoints...)
+				if len(strExternalEndpoints) > 0 {
+					storageNodeInfo.SetExternalAddresses(strExternalEndpoints...)
+				}
+
+				if !f(storageNodeInfo) {
+					return nil
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
@@ -480,14 +521,14 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		const curEpoch = 13
 
-		svc.traverserGenerator = &testTraverserGenerator{
+		svc.storagePolicer = &testStoragePolicer{
 			c: cnr,
 			b: map[uint64]placement.Builder{
 				curEpoch: b,
 			},
+			e: curEpoch,
 		}
 		svc.clientCache = c
-		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
 	}
@@ -1157,7 +1198,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 
 	const curEpoch = 13
 
-	svc.traverserGenerator = &testTraverserGenerator{
+	svc.storagePolicer = &testStoragePolicer{
 		c: cnr,
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{
@@ -1171,6 +1212,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 				},
 			},
 		},
+		e: curEpoch,
 	}
 
 	svc.clientCache = &testClientCache{
@@ -1181,8 +1223,6 @@ func TestGetFromPastEpoch(t *testing.T) {
 			as[1][1]: c22,
 		},
 	}
-
-	svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 	w := NewSimpleObjectWriter()
 

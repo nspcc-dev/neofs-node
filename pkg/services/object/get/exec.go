@@ -8,7 +8,6 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -39,8 +38,6 @@ type execCtx struct {
 	curOff uint64
 
 	head bool
-
-	curProcEpoch uint64
 }
 
 type execOption func(*execCtx)
@@ -159,50 +156,6 @@ func (exec *execCtx) netmapEpoch() uint64 {
 
 func (exec *execCtx) netmapLookupDepth() uint64 {
 	return exec.prm.common.NetmapLookupDepth()
-}
-
-func (exec *execCtx) initEpoch() bool {
-	exec.curProcEpoch = exec.netmapEpoch()
-	if exec.curProcEpoch > 0 {
-		return true
-	}
-
-	e, err := exec.svc.currentEpochReceiver.currentEpoch()
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not get current epoch number",
-			zap.String("error", err.Error()),
-		)
-
-		return false
-	case err == nil:
-		exec.curProcEpoch = e
-		return true
-	}
-}
-
-func (exec *execCtx) generateTraverser(addr oid.Address) (*placement.Traverser, bool) {
-	obj := addr.Object()
-
-	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr.Container(), &obj, exec.curProcEpoch)
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not generate container traverser",
-			zap.String("error", err.Error()),
-		)
-
-		return nil, false
-	case err == nil:
-		return t, true
-	}
 }
 
 func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {

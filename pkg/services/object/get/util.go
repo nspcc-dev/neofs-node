@@ -6,7 +6,6 @@ import (
 	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
@@ -42,10 +41,6 @@ type partWriter struct {
 
 type hasherWrapper struct {
 	hash io.Writer
-}
-
-type nmSrcWrapper struct {
-	nmSrc netmap.Source
 }
 
 func NewSimpleObjectWriter() *SimpleObjectWriter {
@@ -102,7 +97,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		prm.SetContext(exec.context())
 		prm.SetClient(c.client)
 		prm.SetTTL(exec.prm.common.TTL())
-		prm.SetNetmapEpoch(exec.curProcEpoch)
+		prm.SetNetmapEpoch(0)
 		prm.SetAddress(exec.address())
 		prm.SetPrivateKey(key)
 		prm.SetSessionToken(exec.prm.common.SessionToken())
@@ -134,7 +129,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 		prm.SetContext(exec.context())
 		prm.SetClient(c.client)
 		prm.SetTTL(exec.prm.common.TTL())
-		prm.SetNetmapEpoch(exec.curProcEpoch)
+		prm.SetNetmapEpoch(0)
 		prm.SetAddress(exec.address())
 		prm.SetPrivateKey(key)
 		prm.SetSessionToken(exec.prm.common.SessionToken())
@@ -181,7 +176,7 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 	prm.SetContext(exec.context())
 	prm.SetClient(c.client)
 	prm.SetTTL(exec.prm.common.TTL())
-	prm.SetNetmapEpoch(exec.curProcEpoch)
+	prm.SetNetmapEpoch(0)
 	prm.SetAddress(exec.address())
 	prm.SetPrivateKey(key)
 	prm.SetSessionToken(exec.prm.common.SessionToken())
@@ -256,8 +251,4 @@ func payloadOnlyObject(payload []byte) *object.Object {
 func (h *hasherWrapper) WriteChunk(p []byte) error {
 	_, err := h.hash.Write(p)
 	return err
-}
-
-func (n *nmSrcWrapper) currentEpoch() (uint64, error) {
-	return n.nmSrc.Epoch()
 }

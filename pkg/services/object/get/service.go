@@ -2,11 +2,10 @@ package getsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -15,10 +14,17 @@ import (
 // Service utility serving requests of Object.Get service.
 type Service struct {
 	*cfg
+
+	storagePolicer StoragePolicer
 }
 
 // Option is a Service's constructor option.
 type Option func(*cfg)
+
+// TODO: docs
+type StoragePolicer interface {
+	ForEachRemoteObjectNode(cnr cid.ID, obj oid.ID, startEpoch, nPast uint64, f func(netmapsdk.NodeInfo) bool) error
+}
 
 type getClient interface {
 	getObject(*execCtx, client.NodeInfo) (*object.Object, error)
@@ -37,14 +43,6 @@ type cfg struct {
 		get(client.NodeInfo) (getClient, error)
 	}
 
-	traverserGenerator interface {
-		GenerateTraverser(cid.ID, *oid.ID, uint64) (*placement.Traverser, error)
-	}
-
-	currentEpochReceiver interface {
-		currentEpoch() (uint64, error)
-	}
-
 	keyStore *util.KeyStorage
 }
 
@@ -59,7 +57,7 @@ func defaultCfg() *cfg {
 
 // New creates, initializes and returns utility serving
 // Object.Get service requests.
-func New(opts ...Option) *Service {
+func New(storagePolicer StoragePolicer, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -68,6 +66,8 @@ func New(opts ...Option) *Service {
 
 	return &Service{
 		cfg: c,
+
+		storagePolicer: storagePolicer,
 	}
 }
 
@@ -101,24 +101,6 @@ type ClientConstructor interface {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
-	}
-}
-
-// WithTraverserGenerator returns option to set generator of
-// placement traverser to get the objects from containers.
-func WithTraverserGenerator(t *util.TraverserGenerator) Option {
-	return func(c *cfg) {
-		c.traverserGenerator = t
-	}
-}
-
-// WithNetMapSource returns option to set network
-// map storage to receive current network state.
-func WithNetMapSource(nmSrc netmap.Source) Option {
-	return func(c *cfg) {
-		c.currentEpochReceiver = &nmSrcWrapper{
-			nmSrc: nmSrc,
-		}
 	}
 }
 

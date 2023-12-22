@@ -221,7 +221,7 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.applicationConfiguration.PolicerCfg.objectBatchSize),
 	)
 
-	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
+	// traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
 	c.workers = append(c.workers, c.policer)
 
@@ -256,16 +256,10 @@ func initObjectService(c *cfg) {
 		putsvcV2.WithKey(&c.key.PrivateKey),
 	)
 
-	sSearch := searchsvc.New(
+	sSearch := searchsvc.New(nil, // FIXME
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
-		searchsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.WithoutSuccessTracking(),
-			),
-		),
-		searchsvc.WithNetMapSource(c.netMapSource),
 		searchsvc.WithKeyStorage(keyStorage),
 	)
 
@@ -274,16 +268,10 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sGet := getsvc.New(
+	sGet := getsvc.New(nil, // FIXME
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
-		getsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.SuccessAfter(1),
-			),
-		),
-		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
 	)
 
