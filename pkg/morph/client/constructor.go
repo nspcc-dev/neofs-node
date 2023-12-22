@@ -160,8 +160,14 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		}
 
 		cli.endpoints = cfg.endpoints
+		for _, e := range cli.endpoints {
+			cli.client, act, err = cli.newCli(e)
+			if err != nil {
+				cli.logger.Warn("Neo RPC connection failure", zap.String("endpoint", e), zap.Error(err))
+				continue
+			}
+		}
 
-		cli.client, act, err = cli.newCli(cli.endpoints[0])
 		if err != nil {
 			return nil, fmt.Errorf("could not create RPC client: %w", err)
 		}
