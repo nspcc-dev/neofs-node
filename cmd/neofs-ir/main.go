@@ -27,11 +27,21 @@ const (
 	SuccessReturnCode = 0
 )
 
+// exits with ErrorReturnCode if err != nil.
 func exitErr(err error) {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(ErrorReturnCode)
 	}
+}
+
+// exits with ErrorReturnCode or SuccessReturnCode depending on err.
+func exitWithCode(err error) {
+	if err != nil {
+		os.Exit(ErrorReturnCode)
+	}
+
+	os.Exit(SuccessReturnCode)
 }
 
 func main() {
@@ -87,7 +97,7 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-	case err := <-intErr:
+	case err = <-intErr:
 		log.Info("internal error", zap.String("msg", err.Error()))
 	}
 
@@ -110,9 +120,14 @@ func main() {
 		})
 	}
 
-	_ = shutdownWG.Wait()
+	shutdownErr := shutdownWG.Wait()
+	if err == nil && shutdownErr != nil {
+		err = shutdownErr
+	}
 
 	log.Info("application stopped")
+
+	exitWithCode(err)
 }
 
 func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
