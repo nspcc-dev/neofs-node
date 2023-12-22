@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -93,18 +94,23 @@ func main() {
 	innerRing.Stop()
 
 	// shut down HTTP servers
+	var shutdownWG errgroup.Group
 	for i := range httpServers {
 		srv := httpServers[i]
 
-		go func() {
+		shutdownWG.Go(func() error {
 			err := srv.Shutdown()
 			if err != nil {
 				log.Debug("could not shutdown HTTP server",
 					zap.String("error", err.Error()),
 				)
 			}
-		}()
+
+			return err
+		})
 	}
+
+	_ = shutdownWG.Wait()
 
 	log.Info("application stopped")
 }
