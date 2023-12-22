@@ -1,16 +1,63 @@
 package placement
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
+
+func publicKeyMatchesContainerStoragePolicy(bPubKey []byte, storagePolicy netmapSDK.PlacementPolicy, cnr cid.ID, nm *netmapSDK.NetMap) (bool, error) {
+	cnrNodes, err := nm.ContainerNodes(storagePolicy, cnr)
+	if err != nil {
+		return false, fmt.Errorf("apply storage policy to the netmap: %w", err)
+	}
+
+	for i := range cnrNodes {
+		for j := range cnrNodes[i] {
+			if bytes.Equal(cnrNodes[i][j].PublicKey(), bPubKey) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+type Base struct {
+	containers container.Source
+	netmaps    netmap.Source
+}
+
+func NewBase(containers container.Source, netmaps netmap.Source) *Base {
+	return &Base{containers: containers, netmaps: netmaps}
+}
+
+func (x *Base) ContainerNodes(cnrID cid.ID, epoch uint64) ([][]netmapSDK.NodeInfo, error) {
+	nm, err := x.netmaps.GetNetMapByEpoch(epoch)
+	if err != nil {
+		return nil, fmt.Errorf("read network map for the epoch: %w", err)
+	}
+
+	cnr, err := x.containers.Get(cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("read container by ID: %w", err)
+	}
+
+	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("apply storage policy to the netmap: %w", err)
+	}
+
+	return cnrNodes, nil
+}
 
 type netMapBuilder struct {
 	nmSrc netmap.Source

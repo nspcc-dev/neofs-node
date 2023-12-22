@@ -29,7 +29,7 @@ type Option func(*cfg)
 // Traverser represents utility for controlling
 // traversal of object placement vectors.
 type Traverser struct {
-	mtx *sync.RWMutex
+	mtx sync.RWMutex
 
 	copiesNumber int
 
@@ -105,7 +105,6 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 	}
 
 	t := &Traverser{
-		mtx:          new(sync.RWMutex),
 		rem:          rem,
 		vectors:      ns,
 		copiesNumber: -1,
