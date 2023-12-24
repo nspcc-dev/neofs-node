@@ -1,6 +1,11 @@
 package morph
 
 import (
+	"fmt"
+
+	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -11,6 +16,7 @@ const (
 	endpointFlag                    = "rpc-endpoint"
 	storageWalletFlag               = "storage-wallet"
 	storageWalletLabelFlag          = "label"
+	storageWalletsNumber            = "wallets-number"
 	storageGasCLIFlag               = "initial-gas"
 	storageGasConfigFlag            = "storage.initial_gas"
 	contractsInitFlag               = "contracts"
@@ -106,7 +112,38 @@ var (
 			_ = viper.BindPFlag(refillGasAmountFlag, cmd.Flags().Lookup(refillGasAmountFlag))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return refillGas(cmd, refillGasAmountFlag, false)
+			var gasReceiver util.Uint160
+			var err error
+
+			// wallet address is not part of the config
+			walletAddress, _ := cmd.Flags().GetString(walletAddressFlag)
+
+			if len(walletAddress) != 0 {
+				gasReceiver, err = address.StringToUint160(walletAddress)
+				if err != nil {
+					return fmt.Errorf("invalid wallet address %s: %w", walletAddress, err)
+				}
+			} else {
+				// storage wallet path is not part of the config
+				storageWalletPath, _ := cmd.Flags().GetString(storageWalletFlag)
+				if storageWalletPath == "" {
+					return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
+				}
+
+				w, err := wallet.NewWallet(storageWalletPath)
+				if err != nil {
+					return fmt.Errorf("can't open wallet: %w", err)
+				}
+
+				gasReceiver = w.Accounts[0].Contract.ScriptHash()
+			}
+
+			gasAmount, err := parseGASAmount(viper.GetString(refillGasAmountFlag))
+			if err != nil {
+				return err
+			}
+
+			return refillGas(cmd, int64(gasAmount), []util.Uint160{gasReceiver})
 		},
 	}
 
@@ -319,8 +356,9 @@ func init() {
 	RootCmd.AddCommand(generateStorageCmd)
 	generateStorageCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
 	generateStorageCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
-	generateStorageCmd.Flags().String(storageWalletFlag, "", "Path to new storage node wallet")
+	generateStorageCmd.Flags().String(storageWalletFlag, "", "Path to new storage node wallet(s)")
 	generateStorageCmd.Flags().String(storageGasCLIFlag, "", "Initial amount of GAS to transfer")
+	generateStorageCmd.Flags().Uint32(storageWalletsNumber, 1, "Number of wallets to generate, if more than 1, suffix-number will be added to the filename")
 	generateStorageCmd.Flags().StringP(storageWalletLabelFlag, "l", "", "Wallet label")
 
 	RootCmd.AddCommand(forceNewEpoch)

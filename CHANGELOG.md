@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-adm morph generate-storage-wallet` now supports more than one wallet generation per call (#2425)
 
 ### Fixed
 - IR does not wait for HTTP servers to stop gracefully before exiting (#2704)

@@ -2,9 +2,11 @@ package morph
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -89,4 +91,35 @@ func setupTestTerminal(t *testing.T) *bytes.Buffer {
 	t.Cleanup(func() { input.Terminal = nil })
 
 	return in
+}
+
+func TestCreateWallets(t *testing.T) {
+	dir := t.TempDir()
+
+	const label = "label"
+	const password = "pass"
+
+	hashes, err := createWallets(dir+"/test.json", label, password, 11)
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	for i, entry := range entries {
+		if i < 10 {
+			require.Equal(t, fmt.Sprintf("test_0%d.json", i), entry.Name())
+		} else {
+			require.Equal(t, fmt.Sprintf("test_%d.json", i), entry.Name())
+		}
+	}
+
+	for i, entry := range entries {
+		w, err := wallet.NewWalletFromFile(path.Join(dir, entry.Name()))
+		require.NoError(t, err)
+
+		acc := w.GetAccount(hashes[i])
+		require.NoError(t, acc.Decrypt(password, keys.NEP2ScryptParams()))
+
+		require.Equal(t, label, acc.Label)
+	}
 }
