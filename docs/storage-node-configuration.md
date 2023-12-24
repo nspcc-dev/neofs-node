@@ -196,20 +196,20 @@ blobstor:
 | Parameter                           | Type                                          | Default value | Description                                                                                                                                                                                                       |
 |-------------------------------------|-----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `path`                              | `string`                                      |               | Path to the root of the blobstor.                                                                                                                                                                                 |
-| `perm`                              | file mode                                     | `0660`        | Default permission for created files and directories.                                                                                                                                                             |
+| `perm`                              | file mode                                     | `0640`        | Default permission for created files and directories.                                                                                                                                                             |
 
 #### `fstree` type options
 | Parameter           | Type      | Default value | Description                                           |
 |---------------------|-----------|---------------|-------------------------------------------------------|
 | `path`              | `string`  |               | Path to the root of the blobstor.                     |
-| `perm`              | file mode | `0660`        | Default permission for created files and directories. |
+| `perm`              | file mode | `0640`        | Default permission for created files and directories. |
 | `depth`             | `int`     | `4`           | File-system tree depth.                               |
 
 #### `peapod` type options
 | Parameter           | Type      | Default value | Description                                           |
 |---------------------|-----------|---------------|-------------------------------------------------------|
 | `path`              | `string`  |               | Path to the Peapod database file.                     |
-| `perm`              | file mode | `0660`        | Default permission for created files and directories. |
+| `perm`              | file mode | `0640`        | Default permission for created files and directories. |
 | `flush_interval`    | `duration`| `10ms`        | Time interval between batch writes to disk.           |
 
 ### `gc` subsection
@@ -240,7 +240,7 @@ metabase:
 | Parameter         | Type       | Default value | Description                                                            |
 |-------------------|------------|---------------|------------------------------------------------------------------------|
 | `path`            | `string`   |               | Path to the metabase file.                                             |
-| `perm`            | file mode  | `0660`        | Permissions to set for the database file.                              |
+| `perm`            | file mode  | `0640`        | Permissions to set for the database file.                              |
 | `max_batch_size`  | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction. |
 | `max_batch_delay` | `duration` | `10ms`        | Maximum delay before a batch starts.                                   |
 
@@ -296,16 +296,16 @@ node:
     ca: /path/to/ca.pem
 ```
 
-| Parameter             | Type                                                          | Default value | Description                                                             |
-|-----------------------|---------------------------------------------------------------|---------------|-------------------------------------------------------------------------|
-| `key`                 | `string`                                                      |               | Path to the binary-encoded private key.                                 |
-| `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration. Has no effect if `key` is provided.               |
-| `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                     |
-| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains.|
-| `relay`               | `bool`                                                        |               | Enable relay mode.                                                      |
-| `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                           |
-| `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                         |
-| `notification`        | [Notification config](#notification-subsection)               |               | NATS configuration.                                                     |
+| Parameter             | Type                                                          | Default value | Description                                                                                                          |
+|-----------------------|---------------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| `key`                 | `string`                                                      |               | Path to the binary-encoded private key.                                                                              |
+| `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration. Has no effect if `key` is provided.                                                            |
+| `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                                                                  |
+| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
+| `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |
+| `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                                                                        |
+| `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                                                                      |
+| `notification`        | [Notification config](#notification-subsection)               |               | NATS configuration.                                                                                                  |
 
 
 ## `wallet` subsection

@@ -61,7 +61,7 @@ func validateConfig(c *config.Config) error {
 				return fmt.Errorf("unexpected storage type: %s (shard %d)",
 					blobstor[i].Type(), shardNum)
 			}
-			if blobstor[i].Perm()&0600 != 0600 {
+			if blobstor[i].Perm()&0o600 != 0o600 {
 				return fmt.Errorf("invalid permissions for blobstor component: %s, "+
 					"expected at least rw- for the owner (shard %d)",
 					blobstor[i].Perm(), shardNum)

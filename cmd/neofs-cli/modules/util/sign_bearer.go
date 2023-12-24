@@ -57,7 +57,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = os.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0o644)
 	common.ExitOnErr(cmd, "can't write signed bearer token to file: %w", err)
 
 	cmd.Printf("signed bearer token was successfully dumped to %s\n", to)

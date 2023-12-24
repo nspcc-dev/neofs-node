@@ -81,7 +81,7 @@ func newLocalClient(cmd *cobra.Command, v *viper.Viper, wallets []*wallet.Wallet
 
 	dumpPath := v.GetString(localDumpFlag)
 	if cmd.Name() != "init" {
-		f, err := os.OpenFile(dumpPath, os.O_RDONLY, 0600)
+		f, err := os.OpenFile(dumpPath, os.O_RDONLY, 0o600)
 		if err != nil {
 			return nil, fmt.Errorf("can't open local dump: %w", err)
 		}

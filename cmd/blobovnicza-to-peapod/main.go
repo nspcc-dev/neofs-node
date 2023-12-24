@@ -253,7 +253,7 @@ func migrateConfigToPeapod(dstPath, srcPath string) error {
 		return fmt.Errorf("encode modified config into YAML: %w", err)
 	}
 
-	err = os.WriteFile(dstPath, data, 0640)
+	err = os.WriteFile(dstPath, data, 0o640)
 	if err != nil {
 		return fmt.Errorf("write resulting config to the destination file: %w", err)
 	}

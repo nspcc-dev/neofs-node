@@ -76,7 +76,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	err = os.WriteFile(to, data, 0644)
+	err = os.WriteFile(to, data, 0o644)
 	if err != nil {
 		common.ExitOnErr(cmd, "", fmt.Errorf("can't write signed session token to %s: %w", to, err))
 	}

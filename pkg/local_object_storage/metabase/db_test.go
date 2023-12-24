@@ -51,7 +51,7 @@ func newDB(t testing.TB, opts ...meta.Option) *meta.DB {
 	bdb := meta.New(
 		append([]meta.Option{
 			meta.WithPath(path),
-			meta.WithPermissions(0600),
+			meta.WithPermissions(0o600),
 			meta.WithEpochState(epochState{}),
 		}, opts...)...,
 	)

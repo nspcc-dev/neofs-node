@@ -99,7 +99,7 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 func newStorages(root string, smallSize uint64) []blobstor.SubStorage {
 	return []blobstor.SubStorage{
 		{
-			Storage: peapod.New(filepath.Join(root, "peapod.db"), 0600, 10*time.Millisecond),
+			Storage: peapod.New(filepath.Join(root, "peapod.db"), 0o600, 10*time.Millisecond),
 			Policy: func(_ *object.Object, data []byte) bool {
 				return uint64(len(data)) < smallSize
 			},

@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Zero exit code if IR fails (#2704)
 
 ### Changed
+- Created files are not group writable (#2589)
 
 ### Removed
 

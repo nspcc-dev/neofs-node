@@ -53,12 +53,12 @@ func initConfig(cmd *cobra.Command, _ []string) error {
 	}
 
 	pathDir := filepath.Dir(configPath)
-	err = os.MkdirAll(pathDir, 0700)
+	err = os.MkdirAll(pathDir, 0o700)
 	if err != nil {
 		return fmt.Errorf("create dir %s: %w", pathDir, err)
 	}
 
-	f, err := os.OpenFile(configPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0600)
+	f, err := os.OpenFile(configPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC|os.O_SYNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", configPath, err)
 	}

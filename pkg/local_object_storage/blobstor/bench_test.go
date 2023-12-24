@@ -20,7 +20,7 @@ func testPeapodPath(tb testing.TB) string {
 }
 
 func newTestPeapod(tb testing.TB) common.Storage {
-	return peapod.New(testPeapodPath(tb), 0600, 10*time.Millisecond)
+	return peapod.New(testPeapodPath(tb), 0o600, 10*time.Millisecond)
 }
 
 func newTestFSTree(tb testing.TB) common.Storage {

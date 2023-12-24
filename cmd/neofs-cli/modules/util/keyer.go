@@ -79,7 +79,7 @@ func keyerGenerate(filename string, d *keyer.Dashboard) error {
 	}
 
 	if filename != "" {
-		return os.WriteFile(filename, key, 0600)
+		return os.WriteFile(filename, key, 0o600)
 	}
 
 	return nil

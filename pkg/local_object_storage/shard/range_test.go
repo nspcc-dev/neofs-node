@@ -68,7 +68,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
 		[]blobstor.Option{blobstor.WithStorages([]blobstor.SubStorage{
 			{
-				Storage: peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0600, 10*time.Millisecond),
+				Storage: peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0o600, 10*time.Millisecond),
 				Policy: func(_ *objectSDK.Object, data []byte) bool {
 					return len(data) <= smallObjectSize
 				},
