@@ -377,8 +377,6 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.RPC.StartWhenSynchronized = true
 	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(100)
 	cfgBaseApp.RPC.SessionEnabled = true
-	// MaxIteratorResultItems must be explicitly set for rpcsrv.New because it doesn't set default
-	cfgBaseApp.RPC.MaxIteratorResultItems = config.DefaultMaxIteratorResultItems
 	cfgBaseApp.P2P.Addresses = cfg.P2P.ListenAddresses
 	cfgBaseApp.P2P.DialTimeout = cfg.P2P.DialTimeout
 	cfgBaseApp.P2P.ProtoTickInterval = cfg.P2P.ProtoTickInterval
