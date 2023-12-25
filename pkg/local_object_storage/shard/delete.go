@@ -12,7 +12,8 @@ import (
 
 // DeletePrm groups the parameters of Delete operation.
 type DeletePrm struct {
-	addr []oid.Address
+	addr              []oid.Address
+	skipNotFoundError bool
 }
 
 // DeleteRes groups the resulting values of Delete operation.
@@ -23,6 +24,12 @@ type DeleteRes struct{}
 // Option is required.
 func (p *DeletePrm) SetAddresses(addr ...oid.Address) {
 	p.addr = append(p.addr, addr...)
+}
+
+// SkipNotFoundError is a Delete option to skip errors when an already deleted
+// object is being deleted.
+func (p *DeletePrm) SkipNotFoundError() {
+	p.skipNotFoundError = true
 }
 
 // Delete removes data from the shard's writeCache, metaBase and
@@ -100,6 +107,10 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 
 		_, err = s.blobStor.Delete(delPrm)
 		if err != nil {
+			if IsErrNotFound(err) && prm.skipNotFoundError {
+				continue
+			}
+
 			s.log.Debug("can't remove object from blobStor",
 				zap.Stringer("object_address", prm.addr[i]),
 				zap.String("error", err.Error()))

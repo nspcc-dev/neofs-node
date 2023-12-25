@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -116,4 +117,31 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	}
 
 	return InhumeRes{}, nil
+}
+
+// InhumeContainer marks every object in a container as removed.
+// Any further [StorageEngine.Get] calls will return [apistatus.ObjectNotFound]
+// errors.
+// There is no any LOCKs, forced GC marks and any relations checks,
+// every object that belongs to a provided container will be marked
+// as a removed one.
+func (s *Shard) InhumeContainer(cID cid.ID) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	m := s.info.Mode
+	if m.ReadOnly() {
+		return ErrReadOnlyMode
+	} else if m.NoMetabase() {
+		return ErrDegradedMode
+	}
+
+	removedObjects, err := s.metaBase.InhumeContainer(cID)
+	if err != nil {
+		return fmt.Errorf("mark container as inhumed in metabase: %w", err)
+	}
+
+	s.decObjectCounterBy(logical, removedObjects)
+
+	return nil
 }

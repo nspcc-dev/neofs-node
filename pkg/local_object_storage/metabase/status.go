@@ -43,10 +43,11 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		}
 
 		graveyardBkt := tx.Bucket(graveyardBucketName)
-		garbageBkt := tx.Bucket(garbageBucketName)
+		garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
+		garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
 		addrKey := addressKey(address, make([]byte, addressKeySize))
 
-		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
+		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 
 		if removedStatus != 0 && objectLocked(tx, cID, oID) || inBucket(tx, primaryBucketName(cID, key), objKey) || inBucket(tx, parentBucketName(cID, key), objKey) {
 			res.State = append(res.State, "AVAILABLE")

@@ -131,10 +131,11 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	}
 
 	graveyardBkt := tx.Bucket(graveyardBucketName)
-	garbageBkt := tx.Bucket(garbageBucketName)
+	garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
+	garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
 	addrKey := addressKey(addr, make([]byte, addressKeySize))
 
-	removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageBkt)
+	removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 	if removedStatus != 0 && objectLocked(tx, cID, oID) {
 		return 0
 	}
@@ -142,7 +143,7 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	return removedStatus
 }
 
-func inGraveyardWithKey(addrKey []byte, graveyard, garbageBCK *bbolt.Bucket) uint8 {
+func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
 	if graveyard == nil {
 		// incorrect metabase state, does not make
 		// sense to check garbage bucket
@@ -151,12 +152,16 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageBCK *bbolt.Bucket) uin
 
 	val := graveyard.Get(addrKey)
 	if val == nil {
-		if garbageBCK == nil {
+		if garbageObjectsBCK == nil {
 			// incorrect node state
 			return 0
 		}
 
-		val = garbageBCK.Get(addrKey)
+		val = garbageContainersBCK.Get(addrKey[:cidSize])
+		if val == nil {
+			val = garbageObjectsBCK.Get(addrKey)
+		}
+
 		if val != nil {
 			// object has been marked with GC
 			return 1

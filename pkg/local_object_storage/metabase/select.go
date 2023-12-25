@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -603,7 +604,7 @@ func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid
 	expirationBucketKey := make([]byte, bucketKeySize+len(expAttr))
 
 	res := make([]oid.ID, 0)
-	notHandled := sliceToMap(oIDs)
+	notHandled := util.SliceToMap(oIDs)
 	expirationBucket := tx.Bucket(attributeBucketName(cID, expAttr, expirationBucketKey))
 	if expirationBucket == nil {
 		return nil, nil
@@ -641,13 +642,4 @@ func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid
 	}
 
 	return res, nil
-}
-
-func sliceToMap[V comparable](s []V) map[V]struct{} {
-	res := make(map[V]struct{}, len(s))
-	for _, v := range s {
-		res[v] = struct{}{}
-	}
-
-	return res
 }

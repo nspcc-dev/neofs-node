@@ -7,6 +7,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -113,6 +114,29 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 	}
 
 	return InhumeRes{}, nil
+}
+
+// InhumeContainer marks every object in a container as removed.
+// Any further [StorageEngine.Get] calls will return [apistatus.ObjectNotFound]
+// errors.
+// There is no any LOCKs, forced GC marks and any relations checks,
+// every object that belongs to a provided container will be marked
+// as a removed one.
+func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
+	return e.execIfNotBlocked(func() error {
+		e.iterateOverUnsortedShards(func(sh hashedShard) bool {
+			err := sh.InhumeContainer(cID)
+			if err != nil {
+				e.log.Warn("inhuming container",
+					zap.Stringer("shard", sh.ID()),
+					zap.Error(err))
+			}
+
+			return false
+		})
+
+		return nil
+	})
 }
 
 // Returns ok if object was inhumed during this invocation or before.

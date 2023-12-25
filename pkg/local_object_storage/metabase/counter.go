@@ -42,7 +42,7 @@ func (o ObjectCounters) Phy() uint64 {
 //
 // Returns only the errors that do not allow reading counter
 // in Bolt database.
-func (db *DB) ObjectCounters() (cc ObjectCounters, err error) {
+func (db *DB) ObjectCounters() (ObjectCounters, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -50,24 +50,32 @@ func (db *DB) ObjectCounters() (cc ObjectCounters, err error) {
 		return ObjectCounters{}, ErrDegradedMode
 	}
 
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(shardInfoBucket)
-		if b != nil {
-			data := b.Get(objectPhyCounterKey)
-			if len(data) == 8 {
-				cc.phy = binary.LittleEndian.Uint64(data)
-			}
-
-			data = b.Get(objectLogicCounterKey)
-			if len(data) == 8 {
-				cc.logic = binary.LittleEndian.Uint64(data)
-			}
-		}
-
+	var res ObjectCounters
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		res.phy, res.logic = getCounters(tx)
 		return nil
 	})
 
-	return
+	return res, err
+}
+
+func getCounters(tx *bbolt.Tx) (uint64, uint64) {
+	var phyC, logicC uint64
+
+	b := tx.Bucket(shardInfoBucket)
+	if b != nil {
+		data := b.Get(objectPhyCounterKey)
+		if len(data) == 8 {
+			phyC = binary.LittleEndian.Uint64(data)
+		}
+
+		data = b.Get(objectLogicCounterKey)
+		if len(data) == 8 {
+			logicC = binary.LittleEndian.Uint64(data)
+		}
+	}
+
+	return phyC, logicC
 }
 
 // updateCounter updates the object counter. Tx MUST be writable.
@@ -131,7 +139,8 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 	var logicCounter uint64
 
 	graveyardBKT := tx.Bucket(graveyardBucketName)
-	garbageBKT := tx.Bucket(garbageBucketName)
+	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
+	garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 	key := make([]byte, addressKeySize)
 
 	err = iteratePhyObjects(tx, func(cnr cid.ID, obj oid.ID) error {
@@ -142,7 +151,7 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 
 		// check if an object is available: not with GCMark
 		// and not covered with a tombstone
-		if inGraveyardWithKey(addressKey(addr, key), graveyardBKT, garbageBKT) == 0 {
+		if inGraveyardWithKey(addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
 			logicCounter++
 		}
 

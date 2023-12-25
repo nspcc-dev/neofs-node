@@ -1,9 +1,11 @@
 package meta
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -169,4 +171,128 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
 	}
 
 	return logicerr.Wrap(apistatus.ObjectNotFound{})
+}
+
+// ListContainerObjects returns objects stored in the metabase that
+// belong to the provided container. No more than limit objects per
+// call. Negative limit values make the result empty.
+// Note: metabase can store information about a locked object,
+// but it will not be included to the result if the object is
+// not stored in the metabase (in other words, no information
+// in the regular objects index).
+func (db *DB) ListContainerObjects(cID cid.ID, limit int) ([]oid.ID, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return nil, ErrDegradedMode
+	}
+
+	var err error
+	resMap := make(map[oid.ID]struct{})
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		return listContainerObjects(tx, cID, resMap, limit)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return util.MapToSlice(resMap), nil
+}
+
+func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, limit int) error {
+	buff := make([]byte, bucketKeySize)
+	var err error
+
+	// Regular objects
+	bktRegular := tx.Bucket(primaryBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktRegular, unique, limit)
+	if err != nil {
+		return fmt.Errorf("regular objects iteration: %w", err)
+	}
+
+	// Lock objects
+	bktLockers := tx.Bucket(bucketNameLockers(cID, buff))
+	err = expandObjectsFromBucket(bktLockers, unique, limit)
+	if err != nil {
+		return fmt.Errorf("lockers iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	// SG objects
+	bktSG := tx.Bucket(storageGroupBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktSG, unique, limit)
+	if err != nil {
+		return fmt.Errorf("storage groups iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	// TS objects
+	bktTS := tx.Bucket(tombstoneBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktTS, unique, limit)
+	if err != nil {
+		return fmt.Errorf("tomb stones iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	bktSmall := tx.Bucket(smallBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktSmall, unique, limit)
+	if err != nil {
+		return fmt.Errorf("small objects iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	bktRoot := tx.Bucket(rootBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktRoot, unique, limit)
+	if err != nil {
+		return fmt.Errorf("root objects iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	return nil
+}
+
+var errBreakIter = errors.New("stop it")
+
+func expandObjectsFromBucket(bkt *bbolt.Bucket, resMap map[oid.ID]struct{}, limit int) error {
+	if bkt == nil {
+		return nil
+	}
+
+	var oID oid.ID
+	var err error
+
+	err = bkt.ForEach(func(k, _ []byte) error {
+		err = oID.Decode(k)
+		if err != nil {
+			return fmt.Errorf("object ID parsing: %w", err)
+		}
+
+		resMap[oID] = struct{}{}
+		if len(resMap) == limit {
+			return errBreakIter
+		}
+
+		return nil
+	})
+	if err != nil && !errors.Is(err, errBreakIter) {
+		return err
+	}
+
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -103,7 +104,8 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	var inhumed uint64
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		garbageBKT := tx.Bucket(garbageBucketName)
+		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
+		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
 
 		var (
@@ -134,7 +136,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 
 			value = tombKey
 		} else {
-			bkt = garbageBKT
+			bkt = garbageObjectsBKT
 			value = zeroValue
 		}
 
@@ -164,7 +166,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
-				if inGraveyardWithKey(targetKey, graveyardBKT, garbageBKT) == 0 {
+				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
 					// object is available, decrement the
 					// logical counter
 					inhumed++
@@ -208,7 +210,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 
 				// if tombstone appears object must be
 				// additionally marked with GC
-				err = garbageBKT.Put(targetKey, zeroValue)
+				err = garbageObjectsBKT.Put(targetKey, zeroValue)
 				if err != nil {
 					return err
 				}
@@ -241,4 +243,44 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 	res.availableImhumed = inhumed
 
 	return
+}
+
+// InhumeContainer marks every object in a container as removed.
+// Any further [DB.Get] calls will return [apistatus.ObjectNotFound]
+// errors. Returns number of available objects marked with GC.
+// There is no any LOCKs, forced GC marks and any relations checks,
+// every object that belongs to a provided container will be marked
+// as a removed one.
+func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return 0, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return 0, ErrReadOnlyMode
+	}
+
+	var removedAvailable uint64
+	rawCID := make([]byte, cidSize)
+	cID.Encode(rawCID)
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
+		err := garbageContainersBKT.Put(rawCID, zeroValue)
+		if err != nil {
+			return fmt.Errorf("put GC mark for container: %w", err)
+		}
+
+		_, removedAvailable = getCounters(tx)
+
+		err = db.updateCounter(tx, logical, removedAvailable, false)
+		if err != nil {
+			return fmt.Errorf("logical counter update: %w", err)
+		}
+
+		return resetContainerSize(tx, cID)
+	})
+
+	return removedAvailable, err
 }

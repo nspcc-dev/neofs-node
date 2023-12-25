@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -13,6 +14,9 @@ import (
 )
 
 // StorageEngine represents NeoFS local storage engine.
+// If [WithContainersSource] is used, StorageEngine
+// deletes all stored containers outside
+// [ContainersSource.GetContainers] set.
 type StorageEngine struct {
 	*cfg
 
@@ -201,6 +205,8 @@ type cfg struct {
 	metrics MetricRegister
 
 	shardPoolSize uint32
+
+	containerSource container.Source
 }
 
 func defaultCfg() *cfg {
@@ -254,5 +260,12 @@ func WithShardPoolSize(sz uint32) Option {
 func WithErrorThreshold(sz uint32) Option {
 	return func(c *cfg) {
 		c.errorsThreshold = sz
+	}
+}
+
+// WithContainersSource returns an option to specify container source.
+func WithContainersSource(cs container.Source) Option {
+	return func(c *cfg) {
+		c.containerSource = cs
 	}
 }

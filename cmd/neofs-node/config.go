@@ -48,6 +48,7 @@ import (
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -616,6 +617,7 @@ func (c *cfg) engineOpts() []engine.Option {
 		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
 		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
 
+		engine.WithContainersSource(c.shared.containerCache),
 		engine.WithLogger(c.log),
 	)
 
@@ -748,10 +750,23 @@ func (c *cfg) LocalAddress() network.AddressGroup {
 }
 
 func initLocalStorage(c *cfg) {
+	// storage needs container, container needs storage, dirty sharing
+	c.shared.cnrClient = new(containerClient.Client)
+
 	ls := engine.New(c.engineOpts()...)
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		ls.HandleNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
+	})
+
+	subscribeToContainerRemoval(c, func(e event.Event) {
+		ev := e.(containerEvent.DeleteSuccess)
+
+		err := ls.InhumeContainer(ev.ID)
+		if err != nil {
+			c.log.Warn("inhuming container after a chain event",
+				zap.Stringer("cID", ev.ID), zap.Error(err))
+		}
 	})
 
 	// allocate memory for the service;

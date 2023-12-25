@@ -42,12 +42,16 @@ const (
 )
 
 func initContainerService(c *cfg) {
+	if c.cfgMorph.client == nil {
+		initMorphComponents(c)
+	}
+
 	// container wrapper that invokes notary
 	// requests with the (empty) Alphabet signature
 	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
 	fatalOnErr(err)
 
-	c.shared.cnrClient = wrap
+	*c.shared.cnrClient = *wrap
 
 	// container wrapper that always sends non-notary
 	// requests

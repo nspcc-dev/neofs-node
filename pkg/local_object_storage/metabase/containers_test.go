@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"testing"
@@ -9,7 +10,9 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -191,5 +194,65 @@ func TestDB_ContainerSize(t *testing.T) {
 				require.Equal(t, volume, int(n))
 			}
 		}
+	})
+}
+
+func TestDB_DeleteContainer(t *testing.T) {
+	db := newDB(t)
+	cID := cidtest.ID()
+
+	t.Run("does not exist", func(t *testing.T) {
+		err := db.DeleteContainer(cidtest.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("exist", func(t *testing.T) {
+		var attr objectSDK.Attribute
+		attr.SetKey("test")
+		attr.SetValue("test")
+
+		o1 := generateObjectWithCID(t, cID)
+		o1.SetAttributes(attr)
+		storageID := []byte{1, 2, 3, 4}
+
+		// put one object with storageID and an  attribute
+		err := metaPut(db, o1, storageID)
+		require.NoError(t, err)
+
+		fetchedStorageID, err := metaStorageID(db, object.AddressOf(o1))
+		require.NoError(t, err)
+		require.Equal(t, storageID, fetchedStorageID)
+
+		// put a big one
+		o2 := objecttest.Object(t)
+		o2.SetContainerID(cID)
+		err = putBig(db, &o2)
+		require.NoError(t, err)
+
+		// lockers
+		err = db.Lock(cID, oidtest.ID(), []oid.ID{oidtest.ID()})
+		require.NoError(t, err)
+
+		// SG
+		o3 := objecttest.Object(t)
+		o3.SetContainerID(cID)
+		o3.SetType(objectSDK.TypeStorageGroup)
+		err = putBig(db, &o3)
+		require.NoError(t, err)
+
+		// TS
+		o4 := objecttest.Object(t)
+		o4.SetContainerID(cID)
+		o4.SetType(objectSDK.TypeTombstone)
+		err = metaInhume(db, object.AddressOf(o1), object.AddressOf(&o4))
+		require.NoError(t, err)
+
+		err = db.DeleteContainer(cID)
+		require.NoError(t, err)
+
+		objs, err := db.ListContainerObjects(cID, math.MaxInt64)
+		require.NoError(t, err)
+
+		require.Len(t, objs, 0)
 	})
 }

@@ -41,7 +41,7 @@ func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
 		nil)
 }
 
-func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, bsOpts []blobstor.Option) *shard.Shard {
+func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, bsOpts []blobstor.Option, options ...shard.Option) *shard.Shard {
 	if enableWriteCache {
 		rootPath = filepath.Join(rootPath, "wc")
 	} else {
@@ -66,7 +66,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 		}
 	}
 
-	opts := []shard.Option{
+	opts := append([]shard.Option{
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(bsOpts...),
 		shard.WithMetaBaseOptions(
@@ -80,7 +80,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 				[]writecache.Option{writecache.WithPath(filepath.Join(rootPath, "wcache"))},
 				wcOpts...)...,
 		),
-	}
+	}, options...)
 
 	sh := shard.New(opts...)
 

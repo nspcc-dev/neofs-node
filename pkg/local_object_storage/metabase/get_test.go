@@ -3,6 +3,7 @@ package meta_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"runtime"
 	"testing"
@@ -242,6 +243,53 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 			}
 		}
 	})
+}
+
+func TestDB_GetContainer(t *testing.T) {
+	db := newDB(t)
+	cID := cidtest.ID()
+
+	o1 := generateObjectWithCID(t, cID) // 1
+	err := putBig(db, o1)
+	require.NoError(t, err)
+	o2 := generateObjectWithCID(t, cID) // 2
+	err = putBig(db, o2)
+	require.NoError(t, err)
+	o3 := generateObjectWithCID(t, cID) // 3
+	err = putBig(db, o3)
+	require.NoError(t, err)
+
+	o4 := generateObjectWithCID(t, cID) // 4, lock object
+	o4.SetType(objectSDK.TypeLock)
+	err = metaPut(db, o4, []byte{1, 2, 3, 4})
+	require.NoError(t, err)
+
+	o5 := oidtest.ID()
+	o6 := oidtest.ID()
+
+	id4, _ := o4.ID()
+
+	err = db.Lock(cID, id4, []oid.ID{o5, o6}) // locked object have not been put to meta, no new objects
+	require.NoError(t, err)
+
+	o7 := generateObjectWithCID(t, cID) // 5
+	o7.SetType(objectSDK.TypeStorageGroup)
+	err = metaPut(db, o7, []byte{1, 2, 3, 4})
+	require.NoError(t, err)
+
+	// TS
+	o8 := generateObjectWithCID(t, cID) // 6
+	o8.SetType(objectSDK.TypeTombstone)
+	err = metaPut(db, o8, []byte{1, 2, 3, 4})
+	require.NoError(t, err)
+
+	err = metaInhume(db, object.AddressOf(o1), object.AddressOf(o8))
+	require.NoError(t, err)
+
+	objs, err := db.ListContainerObjects(cID, math.MaxInt64)
+	require.NoError(t, err)
+
+	require.Len(t, objs, 6)
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
