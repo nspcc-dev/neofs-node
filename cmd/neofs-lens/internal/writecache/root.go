@@ -21,7 +21,8 @@ var Root = &cobra.Command{
 }
 
 func init() {
-	Root.AddCommand(listCMD, inspectCMD, getCMD)
+	Root.AddCommand(listCMD)
+	Root.AddCommand(getCMD)
 }
 
 func openWC(cmd *cobra.Command) *bbolt.DB {

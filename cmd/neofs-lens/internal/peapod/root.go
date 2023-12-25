@@ -21,7 +21,8 @@ var Root = &cobra.Command{
 }
 
 func init() {
-	Root.AddCommand(listCMD, inspectCMD, getCMD)
+	Root.AddCommand(listCMD)
+	Root.AddCommand(getCMD)
 }
 
 // open and returns read-only peapod.Peapod located in vPath.

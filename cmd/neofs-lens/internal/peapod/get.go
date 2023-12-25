@@ -6,14 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var inspectCMD = &cobra.Command{
-	Use:        "inspect",
-	Short:      "Object inspection",
-	Long:       `Inspect specific object in a Peapod.`,
-	Deprecated: "will be removed in the next release. Use `get` instead.",
-	Run:        getFunc,
-}
-
 var getCMD = &cobra.Command{
 	Use:   "get",
 	Short: "Get object",
@@ -22,11 +14,6 @@ var getCMD = &cobra.Command{
 }
 
 func init() {
-	common.AddAddressFlag(inspectCMD, &vAddress)
-	common.AddComponentPathFlag(inspectCMD, &vPath)
-	common.AddOutputFileFlag(inspectCMD, &vOut)
-	common.AddPayloadOnlyFlag(inspectCMD, &vPayloadOnly)
-
 	common.AddAddressFlag(getCMD, &vAddress)
 	common.AddComponentPathFlag(getCMD, &vPath)
 	common.AddOutputFileFlag(getCMD, &vOut)

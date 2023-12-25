@@ -14,10 +14,12 @@ Changelog for NeoFS Node
 - Created files are not group writable (#2589)
 
 ### Removed
+- Deprecated `neofs-adm [...] inspect` commands (#2603)
 
 ### Updated
 
 ### Updating from v0.39.2
+`neofs-adm [...] inspect` commands were deleted, use `get` instead.
 
 ## [0.39.2] - 2023-12-21
 
