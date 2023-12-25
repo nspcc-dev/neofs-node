@@ -130,7 +130,7 @@ var (
 					return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
 				}
 
-				w, err := wallet.NewWallet(storageWalletPath)
+				w, err := wallet.NewWalletFromFile(storageWalletPath)
 				if err != nil {
 					return fmt.Errorf("can't open wallet: %w", err)
 				}
