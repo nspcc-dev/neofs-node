@@ -27,6 +27,7 @@ import (
 	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
+	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
@@ -113,6 +114,14 @@ type applicationConfiguration struct {
 		replicationCooldown time.Duration
 		objectBatchSize     uint32
 	}
+
+	MorphCfg struct {
+		endpoints                 []string
+		dialTimeout               time.Duration
+		cacheTTL                  time.Duration
+		reconnectionRetriesNumber int
+		reconnectionRetriesDelay  time.Duration
+	}
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -150,6 +159,14 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	a.EngineCfg.errorThreshold = engineconfig.ShardErrorThreshold(c)
 	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
+
+	// Morph
+
+	a.MorphCfg.endpoints = morphconfig.Endpoints(c)
+	a.MorphCfg.dialTimeout = morphconfig.DialTimeout(c)
+	a.MorphCfg.cacheTTL = morphconfig.CacheTTL(c)
+	a.MorphCfg.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
+	a.MorphCfg.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg

@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -28,7 +27,7 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	addresses := morphconfig.Endpoints(c.appCfg)
+	addresses := c.applicationConfiguration.MorphCfg.endpoints
 
 	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
@@ -37,12 +36,12 @@ func initMorphComponents(c *cfg) {
 	}
 
 	cli, err := client.New(c.key,
-		client.WithDialTimeout(morphconfig.DialTimeout(c.appCfg)),
+		client.WithDialTimeout(c.applicationConfiguration.MorphCfg.dialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoSidechainScope(),
 		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(morphconfig.ReconnectionRetriesNumber(c.appCfg)),
-		client.WithReconnectionsDelay(morphconfig.ReconnectionRetriesDelay(c.appCfg)),
+		client.WithReconnectionRetries(c.applicationConfiguration.MorphCfg.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.MorphCfg.reconnectionRetriesDelay),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
@@ -81,7 +80,7 @@ func initMorphComponents(c *cfg) {
 
 	var netmapSource netmap.Source
 
-	c.cfgMorph.cacheTTL = morphconfig.CacheTTL(c.appCfg)
+	c.cfgMorph.cacheTTL = c.applicationConfiguration.MorphCfg.cacheTTL
 
 	if c.cfgMorph.cacheTTL == 0 {
 		msPerBlock, err := c.cfgMorph.client.MsPerBlock()
