@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	subsection       = "morph"
-	notarySubsection = "notary"
+	subsection = "morph"
 
 	// DialTimeoutDefault is a default dial timeout of morph chain client connection.
 	DialTimeoutDefault = 5 * time.Second
