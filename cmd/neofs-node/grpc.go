@@ -15,7 +15,7 @@ import (
 
 func initGRPC(c *cfg) {
 	var successCount int
-	grpcconfig.IterateEndpoints(c.appCfg, func(sc *grpcconfig.Config) {
+	grpcconfig.IterateEndpoints(c.cfgReader, func(sc *grpcconfig.Config) {
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
 		}

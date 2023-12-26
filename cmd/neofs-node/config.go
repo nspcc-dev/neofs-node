@@ -268,7 +268,7 @@ type internals struct {
 	ctxCancel   func()
 	internalErr chan error // channel for internal application errors at runtime
 
-	appCfg *config.Config
+	cfgReader *config.Config
 
 	logLevel zap.AtomicLevel
 	log      *zap.Logger
@@ -541,7 +541,7 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.internals = internals{
 		ctx:         context.Background(),
-		appCfg:      appCfg,
+		cfgReader:   appCfg,
 		internalErr: make(chan error, 10), // We only need one error, but we can have multiple senders.
 		wg:          new(sync.WaitGroup),
 		apiVersion:  version.Current(),
@@ -618,7 +618,7 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.ownerIDFromKey = user.ResolveFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
-	if metricsconfig.Enabled(c.appCfg) {
+	if metricsconfig.Enabled(c.cfgReader) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
 		netState.metrics = c.metricsCollector
 	}
@@ -929,7 +929,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
-			err := c.readConfig(c.appCfg)
+			err := c.readConfig(c.cfgReader)
 			if err != nil {
 				c.log.Error("configuration reading", zap.Error(err))
 				continue

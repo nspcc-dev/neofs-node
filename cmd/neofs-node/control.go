@@ -22,12 +22,12 @@ func (t treeSynchronizer) Synchronize(ctx context.Context, cnr cid.ID, treeID st
 }
 
 func initControlService(c *cfg) {
-	endpoint := controlconfig.GRPC(c.appCfg).Endpoint()
+	endpoint := controlconfig.GRPC(c.cfgReader).Endpoint()
 	if endpoint == controlconfig.GRPCEndpointDefault {
 		return
 	}
 
-	pubs := controlconfig.AuthorizedKeys(c.appCfg)
+	pubs := controlconfig.AuthorizedKeys(c.cfgReader)
 	rawPubs := make([][]byte, 0, len(pubs)+1) // +1 for node key
 
 	rawPubs = append(rawPubs, c.key.PublicKey().Bytes())

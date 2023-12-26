@@ -181,7 +181,7 @@ func initObjectService(c *cfg) {
 	c.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
-			replicatorconfig.PutTimeout(c.appCfg),
+			replicatorconfig.PutTimeout(c.cfgReader),
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
