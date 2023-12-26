@@ -88,6 +88,10 @@ const notificationHandlerPoolSize = 10
 // values. It should not store any application helpers structs (pointers to shared
 // structs).
 // It must not be used concurrently.
+//
+// REFACTOR IS NOT FINISHED, see:
+//   - https://github.com/nspcc-dev/neofs-node/issues/1770
+//   - https://github.com/nspcc-dev/neofs-node/pull/1815.
 type applicationConfiguration struct {
 	// _read indicated whether a config
 	// has already been read
