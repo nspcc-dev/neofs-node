@@ -90,8 +90,8 @@ func (c *cfg) engineOpts() []engine.Option {
 	opts := make([]engine.Option, 0, 4)
 
 	opts = append(opts,
-		engine.WithShardPoolSize(c.Engine.shardPoolSize),
-		engine.WithErrorThreshold(c.Engine.errorThreshold),
+		engine.WithShardPoolSize(c.engine.shardPoolSize),
+		engine.WithErrorThreshold(c.engine.errorThreshold),
 
 		engine.WithLogger(c.log),
 	)
@@ -115,9 +115,9 @@ type shardOptsWithID struct {
 }
 
 func (c *cfg) shardOpts() []shardOptsWithID {
-	shards := make([]shardOptsWithID, 0, len(c.Engine.shards))
+	shards := make([]shardOptsWithID, 0, len(c.engine.shards))
 
-	for _, shCfg := range c.Engine.shards {
+	for _, shCfg := range c.engine.shards {
 		var writeCacheOpts []writecache.Option
 		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,

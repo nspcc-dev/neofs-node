@@ -178,7 +178,7 @@ func initObjectService(c *cfg) {
 		sidechain: c.cfgMorph.client,
 	}
 
-	c.replicator = replicator.New(
+	c.shared.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
 			replicatorconfig.PutTimeout(c.cfgReader),
@@ -189,7 +189,7 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	c.policer = policer.New(
+	c.shared.policer = policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
 		policer.WithContainerSource(c.cfgObject.cnrSource),
@@ -200,7 +200,7 @@ func initObjectService(c *cfg) {
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
 		policer.WithNetmapKeys(c),
-		policer.WithHeadTimeout(c.applicationConfiguration.Policer.headTimeout),
+		policer.WithHeadTimeout(c.applicationConfiguration.policer.headTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			var inhumePrm engine.InhumePrm
@@ -213,17 +213,17 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.applicationConfiguration.Policer.maxCapacity),
+		policer.WithMaxCapacity(c.applicationConfiguration.policer.maxCapacity),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
-		policer.WithReplicationCooldown(c.applicationConfiguration.Policer.replicationCooldown),
-		policer.WithObjectBatchSize(c.applicationConfiguration.Policer.objectBatchSize),
+		policer.WithReplicationCooldown(c.applicationConfiguration.policer.replicationCooldown),
+		policer.WithObjectBatchSize(c.applicationConfiguration.policer.objectBatchSize),
 	)
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
-	c.workers = append(c.workers, c.policer)
+	c.workers = append(c.workers, c.shared.policer)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
 		engine: ls,

@@ -88,24 +88,24 @@ type applicationConfiguration struct {
 	// has already been read
 	_read bool
 
-	Logger struct {
+	logger struct {
 		level string
 	}
 
-	Engine struct {
+	engine struct {
 		errorThreshold uint32
 		shardPoolSize  uint32
 		shards         []storage.ShardCfg
 	}
 
-	Policer struct {
+	policer struct {
 		maxCapacity         uint32
 		headTimeout         time.Duration
 		replicationCooldown time.Duration
 		objectBatchSize     uint32
 	}
 
-	Morph struct {
+	morph struct {
 		endpoints                 []string
 		dialTimeout               time.Duration
 		cacheTTL                  time.Duration
@@ -113,7 +113,7 @@ type applicationConfiguration struct {
 		reconnectionRetriesDelay  time.Duration
 	}
 
-	Contracts struct {
+	contracts struct {
 		netmap     neogoutil.Uint160
 		balance    neogoutil.Uint160
 		container  neogoutil.Uint160
@@ -144,35 +144,35 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	// Logger
 
-	a.Logger.level = loggerconfig.Level(c)
+	a.logger.level = loggerconfig.Level(c)
 
 	// Policer
 
-	a.Policer.maxCapacity = policerconfig.MaxWorkers(c)
-	a.Policer.headTimeout = policerconfig.HeadTimeout(c)
-	a.Policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
-	a.Policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
+	a.policer.maxCapacity = policerconfig.MaxWorkers(c)
+	a.policer.headTimeout = policerconfig.HeadTimeout(c)
+	a.policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
+	a.policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
 
 	// Storage Engine
 
-	a.Engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
-	a.Engine.shardPoolSize = engineconfig.ShardPoolSize(c)
+	a.engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
+	a.engine.shardPoolSize = engineconfig.ShardPoolSize(c)
 
 	// Morph
 
-	a.Morph.endpoints = morphconfig.Endpoints(c)
-	a.Morph.dialTimeout = morphconfig.DialTimeout(c)
-	a.Morph.cacheTTL = morphconfig.CacheTTL(c)
-	a.Morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
-	a.Morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+	a.morph.endpoints = morphconfig.Endpoints(c)
+	a.morph.dialTimeout = morphconfig.DialTimeout(c)
+	a.morph.cacheTTL = morphconfig.CacheTTL(c)
+	a.morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
+	a.morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
 
 	// Contracts
 
-	a.Contracts.balance = contractsconfig.Balance(c)
-	a.Contracts.container = contractsconfig.Container(c)
-	a.Contracts.netmap = contractsconfig.Netmap(c)
-	a.Contracts.proxy = contractsconfig.Proxy(c)
-	a.Contracts.reputation = contractsconfig.Reputation(c)
+	a.contracts.balance = contractsconfig.Balance(c)
+	a.contracts.container = contractsconfig.Container(c)
+	a.contracts.netmap = contractsconfig.Netmap(c)
+	a.contracts.proxy = contractsconfig.Proxy(c)
+	a.contracts.reputation = contractsconfig.Reputation(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
@@ -258,7 +258,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		sh.GcCfg.RemoverBatchSize = gcCfg.RemoverBatchSize()
 		sh.GcCfg.RemoverSleepInterval = gcCfg.RemoverSleepInterval()
 
-		a.Engine.shards = append(a.Engine.shards, sh)
+		a.engine.shards = append(a.engine.shards, sh)
 
 		return nil
 	})
@@ -559,7 +559,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
-	c.internals.logLevel, err = zap.ParseAtomicLevel(c.Logger.level)
+	c.internals.logLevel, err = zap.ParseAtomicLevel(c.logger.level)
 	fatalOnErr(err)
 
 	logCfg := zap.NewProductionConfig()
@@ -639,7 +639,7 @@ func initCfg(appCfg *config.Config) *cfg {
 func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
 	b := basics{}
 
-	addresses := c.applicationConfiguration.Morph.endpoints
+	addresses := c.applicationConfiguration.morph.endpoints
 
 	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
@@ -648,12 +648,12 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	}
 
 	cli, err := client.New(key,
-		client.WithDialTimeout(c.applicationConfiguration.Morph.dialTimeout),
+		client.WithDialTimeout(c.applicationConfiguration.morph.dialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoSidechainScope(),
 		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(c.applicationConfiguration.Morph.reconnectionRetriesNumber),
-		client.WithReconnectionsDelay(c.applicationConfiguration.Morph.reconnectionRetriesDelay),
+		client.WithReconnectionRetries(c.applicationConfiguration.morph.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.morph.reconnectionRetriesDelay),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
@@ -690,7 +690,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
 	fatalOnErr(err)
 
-	ttl := c.applicationConfiguration.Morph.cacheTTL
+	ttl := c.applicationConfiguration.morph.cacheTTL
 	if ttl == 0 {
 		msPerBlock, err := cli.MsPerBlock()
 		fatalOnErr(err)
@@ -724,7 +724,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 }
 
 func (c *cfg) policerOpts() []policer.Option {
-	pCfg := c.applicationConfiguration.Policer
+	pCfg := c.applicationConfiguration.policer
 
 	return []policer.Option{
 		policer.WithMaxCapacity(pCfg.maxCapacity),
@@ -842,7 +842,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Logger
 
-			err = c.internals.logLevel.UnmarshalText([]byte(c.Logger.level))
+			err = c.internals.logLevel.UnmarshalText([]byte(c.logger.level))
 			if err != nil {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
@@ -883,7 +883,7 @@ func writeSystemAttributes(c *cfg) error {
 	// `Capacity` attribute
 
 	var paths []string
-	for _, sh := range c.applicationConfiguration.Engine.shards {
+	for _, sh := range c.applicationConfiguration.engine.shards {
 		for _, subStorage := range sh.SubStorages {
 			path := subStorage.Path
 
