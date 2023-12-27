@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -48,10 +47,10 @@ func NewSource(p TombstoneSourcePrm) Source {
 }
 
 type headerWriter struct {
-	o *objectSDK.Object
+	o *object.Object
 }
 
-func (h *headerWriter) WriteHeader(o *objectSDK.Object) error {
+func (h *headerWriter) WriteHeader(o *object.Object) error {
 	h.o = o
 	return nil
 }
@@ -76,7 +75,7 @@ func (s Source) Tombstone(ctx context.Context, a oid.Address, _ uint64) (*object
 	default:
 	}
 
-	if hr.o.Type() != objectSDK.TypeTombstone {
+	if hr.o.Type() != object.TypeTombstone {
 		return nil, fmt.Errorf("returned %s object is not a tombstone", a)
 	}
 

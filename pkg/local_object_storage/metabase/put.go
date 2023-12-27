@@ -7,7 +7,6 @@ import (
 	gio "io"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
@@ -86,7 +85,7 @@ func (db *DB) put(
 
 	isParent := si != nil
 
-	exists, err := db.exists(tx, object.AddressOf(obj), currEpoch)
+	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
 
 	if errors.As(err, &splitInfoError) {
 		exists = true // object exists, however it is virtual
@@ -100,14 +99,14 @@ func (db *DB) put(
 		// When storage engine moves objects between different sub-storages,
 		// it calls metabase.Put method with new storage ID, thus triggering this code.
 		if !isParent && id != nil {
-			return updateStorageID(tx, object.AddressOf(obj), id)
+			return updateStorageID(tx, objectCore.AddressOf(obj), id)
 		}
 
 		// when storage already has last object in split hierarchy and there is
 		// a linking object to put (or vice versa), we should update split info
 		// with object ids of these objects
 		if isParent {
-			return updateSplitInfo(tx, object.AddressOf(obj), si)
+			return updateSplitInfo(tx, objectCore.AddressOf(obj), si)
 		}
 
 		return nil
@@ -172,7 +171,7 @@ func putUniqueIndexes(
 	id []byte,
 ) error {
 	isParent := si != nil
-	addr := object.AddressOf(obj)
+	addr := objectCore.AddressOf(obj)
 	cnr := addr.Container()
 	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
 

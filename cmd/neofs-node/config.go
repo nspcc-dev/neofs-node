@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	atomicstd "sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,7 +41,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -318,7 +316,7 @@ type basics struct {
 
 	cli  *client.Client
 	nCli *nmClient.Client
-	cCli *containerClient.Client
+	cCli *cntClient.Client
 
 	ttl time.Duration
 
@@ -353,7 +351,7 @@ type shared struct {
 	ownerIDFromKey user.ID // user ID calculated from key
 
 	// current network map
-	netMap atomicstd.Value // type netmap.NetMap
+	netMap atomic.Value // type netmap.NetMap
 
 	// whether the local node is in the netMap
 	localNodeInNetmap atomic.Bool

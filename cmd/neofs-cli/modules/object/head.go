@@ -13,7 +13,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	oidSDK "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
@@ -116,7 +115,7 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	}
 }
 
-func printObjectID(cmd *cobra.Command, recv func() (oidSDK.ID, bool)) {
+func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
 	var strID string
 
 	id, ok := recv()
