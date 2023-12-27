@@ -7,7 +7,6 @@ import (
 
 	containerContract "github.com/nspcc-dev/neofs-contract/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
-	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -22,7 +21,7 @@ func (x *containerSource) Get(cnr cid.ID) (*containercore.Container, error) {
 
 // AsContainerSource provides container Source interface
 // from Wrapper instance.
-func AsContainerSource(w *Client) core.Source {
+func AsContainerSource(w *Client) containercore.Source {
 	return (*containerSource)(w)
 }
 

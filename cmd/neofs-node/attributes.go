@@ -10,11 +10,11 @@ import (
 )
 
 func parseAttributes(c *cfg) {
-	if nodeconfig.Relay(c.appCfg) {
+	if nodeconfig.Relay(c.cfgReader) {
 		return
 	}
 
-	fatalOnErr(attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, nodeconfig.Attributes(c.appCfg)))
+	fatalOnErr(attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, nodeconfig.Attributes(c.cfgReader)))
 
 	// expand UN/LOCODE attribute if any found; keep user's attributes
 	// if any conflicts appear

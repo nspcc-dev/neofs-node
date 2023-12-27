@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	atomicstd "sync/atomic"
 	"syscall"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
+	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
@@ -35,28 +35,19 @@ import (
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
-	netmap2 "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
-	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
@@ -66,11 +57,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/panjf2000/ants/v2"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -88,26 +77,46 @@ const notificationHandlerPoolSize = 10
 // values. It should not store any application helpers structs (pointers to shared
 // structs).
 // It must not be used concurrently.
+//
+// REFACTOR IS NOT FINISHED, see:
+//   - https://github.com/nspcc-dev/neofs-node/issues/1770
+//   - https://github.com/nspcc-dev/neofs-node/pull/1815.
 type applicationConfiguration struct {
 	// _read indicated whether a config
 	// has already been read
 	_read bool
 
-	LoggerCfg struct {
+	logger struct {
 		level string
 	}
 
-	EngineCfg struct {
+	engine struct {
 		errorThreshold uint32
 		shardPoolSize  uint32
 		shards         []storage.ShardCfg
 	}
 
-	PolicerCfg struct {
+	policer struct {
 		maxCapacity         uint32
 		headTimeout         time.Duration
 		replicationCooldown time.Duration
 		objectBatchSize     uint32
+	}
+
+	morph struct {
+		endpoints                 []string
+		dialTimeout               time.Duration
+		cacheTTL                  time.Duration
+		reconnectionRetriesNumber int
+		reconnectionRetriesDelay  time.Duration
+	}
+
+	contracts struct {
+		netmap     neogoutil.Uint160
+		balance    neogoutil.Uint160
+		container  neogoutil.Uint160
+		reputation neogoutil.Uint160
+		proxy      neogoutil.Uint160
 	}
 }
 
@@ -133,19 +142,35 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	// Logger
 
-	a.LoggerCfg.level = loggerconfig.Level(c)
+	a.logger.level = loggerconfig.Level(c)
 
 	// Policer
 
-	a.PolicerCfg.maxCapacity = policerconfig.MaxWorkers(c)
-	a.PolicerCfg.headTimeout = policerconfig.HeadTimeout(c)
-	a.PolicerCfg.replicationCooldown = policerconfig.ReplicationCooldown(c)
-	a.PolicerCfg.objectBatchSize = policerconfig.ObjectBatchSize(c)
+	a.policer.maxCapacity = policerconfig.MaxWorkers(c)
+	a.policer.headTimeout = policerconfig.HeadTimeout(c)
+	a.policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
+	a.policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
 
 	// Storage Engine
 
-	a.EngineCfg.errorThreshold = engineconfig.ShardErrorThreshold(c)
-	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
+	a.engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
+	a.engine.shardPoolSize = engineconfig.ShardPoolSize(c)
+
+	// Morph
+
+	a.morph.endpoints = morphconfig.Endpoints(c)
+	a.morph.dialTimeout = morphconfig.DialTimeout(c)
+	a.morph.cacheTTL = morphconfig.CacheTTL(c)
+	a.morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
+	a.morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+
+	// Contracts
+
+	a.contracts.balance = contractsconfig.Balance(c)
+	a.contracts.container = contractsconfig.Container(c)
+	a.contracts.netmap = contractsconfig.Netmap(c)
+	a.contracts.proxy = contractsconfig.Proxy(c)
+	a.contracts.reputation = contractsconfig.Reputation(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
@@ -231,7 +256,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		sh.GcCfg.RemoverBatchSize = gcCfg.RemoverBatchSize()
 		sh.GcCfg.RemoverSleepInterval = gcCfg.RemoverSleepInterval()
 
-		a.EngineCfg.shards = append(a.EngineCfg.shards, sh)
+		a.engine.shards = append(a.engine.shards, sh)
 
 		return nil
 	})
@@ -247,7 +272,7 @@ type internals struct {
 	ctxCancel   func()
 	internalErr chan error // channel for internal application errors at runtime
 
-	appCfg *config.Config
+	cfgReader *config.Config
 
 	logLevel zap.AtomicLevel
 	log      *zap.Logger
@@ -282,9 +307,39 @@ func (c *internals) IsMaintenance() bool {
 	return c.isMaintenance.Load()
 }
 
+type basics struct {
+	networkState *networkState
+	netMapSource netmapCore.Source
+
+	key          *keys.PrivateKey
+	binPublicKey []byte
+
+	cli  *client.Client
+	nCli *nmClient.Client
+	cCli *cntClient.Client
+
+	ttl time.Duration
+
+	// caches are non-nil only if ttl > 0
+	containerCache     *ttlContainerStorage
+	eaclCache          *ttlEACLStorage
+	containerListCache *ttlContainerLister
+	netmapCache        *lruNetmapSource
+
+	balanceSH    neogoutil.Uint160
+	containerSH  neogoutil.Uint160
+	netmapSH     neogoutil.Uint160
+	reputationSH neogoutil.Uint160
+	proxySH      neogoutil.Uint160
+}
+
 // shared contains component-specific structs/helpers that should
 // be shared during initialization of the application.
 type shared struct {
+	// shared b/w logical components but does not
+	// depend on them, should be inited first
+	basics
+
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
@@ -293,23 +348,13 @@ type shared struct {
 	putClientCache *cache.ClientCache
 	localAddr      network.AddressGroup
 
-	containerCache     *ttlContainerStorage
-	eaclCache          *ttlEACLStorage
-	containerListCache *ttlContainerLister
-	netmapCache        *lruNetmapSource
-
-	key            *keys.PrivateKey
-	binPublicKey   []byte
 	ownerIDFromKey user.ID // user ID calculated from key
 
 	// current network map
-	netMap       atomicstd.Value // type netmap.NetMap
-	netMapSource netmapCore.Source
+	netMap atomic.Value // type netmap.NetMap
 
 	// whether the local node is in the netMap
 	localNodeInNetmap atomic.Bool
-
-	cnrClient *containerClient.Client
 
 	respSvc *response.Service
 
@@ -348,7 +393,6 @@ type cfg struct {
 	// services
 	cfgGRPC           cfgGRPC
 	cfgMorph          cfgMorph
-	cfgAccounting     cfgAccounting
 	cfgContainer      cfgContainer
 	cfgNodeInfo       cfgNodeInfo
 	cfgNetmap         cfgNetmap
@@ -386,29 +430,19 @@ type cfgGRPC struct {
 type cfgMorph struct {
 	client *client.Client
 
-	// TTL of Sidechain cached values. Non-positive value disables caching.
-	cacheTTL time.Duration
-
 	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 
 	proxyScriptHash neogoutil.Uint160
 }
 
-type cfgAccounting struct {
-	scriptHash neogoutil.Uint160
-}
-
 type cfgContainer struct {
-	scriptHash neogoutil.Uint160
-
 	parsers     map[event.Type]event.NotificationParser
 	subscribers map[event.Type][]event.Handler
 	workerPool  util.WorkerPool // pool for asynchronous handlers
 }
 
 type cfgNetmap struct {
-	scriptHash neogoutil.Uint160
-	wrapper    *nmClient.Client
+	wrapper *nmClient.Client
 
 	parsers map[event.Type]event.NotificationParser
 
@@ -472,8 +506,6 @@ type cfgReputation struct {
 	localTrustStorage *truststorage.Storage
 
 	localTrustCtrl *trustcontroller.Controller
-
-	scriptHash neogoutil.Uint160
 }
 
 var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
@@ -504,8 +536,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
 
-	netState := newNetworkState()
-
 	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
 	fatalOnErr(err)
 
@@ -520,14 +550,14 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.internals = internals{
 		ctx:         context.Background(),
-		appCfg:      appCfg,
+		cfgReader:   appCfg,
 		internalErr: make(chan error, 10), // We only need one error, but we can have multiple senders.
 		wg:          new(sync.WaitGroup),
 		apiVersion:  version.Current(),
 	}
 	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
-	c.internals.logLevel, err = zap.ParseAtomicLevel(c.LoggerCfg.level)
+	c.internals.logLevel, err = zap.ParseAtomicLevel(c.logger.level)
 	fatalOnErr(err)
 
 	logCfg := zap.NewProductionConfig()
@@ -554,26 +584,21 @@ func initCfg(appCfg *config.Config) *cfg {
 		Buffers:          &buffers,
 		Logger:           c.internals.log,
 	}
+	basicSharedConfig := initBasics(c, key, persistate)
 	c.shared = shared{
-		key:            key,
-		binPublicKey:   key.PublicKey().Bytes(),
+		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		respSvc:        response.NewService(response.WithNetworkState(netState)),
+		respSvc:        response.NewService(response.WithNetworkState(basicSharedConfig.networkState)),
 		clientCache:    cache.NewSDKClientCache(cacheOpts),
 		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
 		putClientCache: cache.NewSDKClientCache(cacheOpts),
 		persistate:     persistate,
 	}
-	c.cfgAccounting = cfgAccounting{
-		scriptHash: contractsconfig.Balance(appCfg),
-	}
 	c.cfgContainer = cfgContainer{
-		scriptHash: contractsconfig.Container(appCfg),
 		workerPool: containerWorkerPool,
 	}
 	c.cfgNetmap = cfgNetmap{
-		scriptHash:    contractsconfig.Netmap(appCfg),
-		state:         netState,
+		state:         c.basics.networkState,
 		workerPool:    netmapWorkerPool,
 		needBootstrap: !relayOnly,
 	}
@@ -589,7 +614,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		tombstoneLifetime: objectconfig.TombstoneLifetime(appCfg),
 	}
 	c.cfgReputation = cfgReputation{
-		scriptHash: contractsconfig.Reputation(appCfg),
 		workerPool: reputationWorkerPool,
 	}
 
@@ -597,9 +621,9 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.ownerIDFromKey = user.ResolveFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
-	if metricsconfig.Enabled(c.appCfg) {
+	if metricsconfig.Enabled(c.cfgReader) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
-		netState.metrics = c.metricsCollector
+		c.basics.networkState.metrics = c.metricsCollector
 	}
 
 	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
@@ -610,132 +634,95 @@ func initCfg(appCfg *config.Config) *cfg {
 	return c
 }
 
-func (c *cfg) engineOpts() []engine.Option {
-	opts := make([]engine.Option, 0, 4)
+func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
+	b := basics{}
 
-	opts = append(opts,
-		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
-		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
+	addresses := c.applicationConfiguration.morph.endpoints
 
-		engine.WithContainersSource(c.shared.containerCache),
-		engine.WithLogger(c.log),
-	)
-
-	if c.metricsCollector != nil {
-		opts = append(opts, engine.WithMetrics(c.metricsCollector))
+	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
+	if err != nil {
+		fromSideChainBlock = 0
+		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
 	}
 
-	return opts
-}
-
-type shardOptsWithID struct {
-	configID string
-	shOpts   []shard.Option
-}
-
-func (c *cfg) shardOpts() []shardOptsWithID {
-	shards := make([]shardOptsWithID, 0, len(c.EngineCfg.shards))
-
-	for _, shCfg := range c.EngineCfg.shards {
-		var writeCacheOpts []writecache.Option
-		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
-			writeCacheOpts = append(writeCacheOpts,
-				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxBatchSize(wcRead.MaxBatchSize),
-				writecache.WithMaxBatchDelay(wcRead.MaxBatchDelay),
-				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
-				writecache.WithSmallObjectSize(wcRead.SmallObjectSize),
-				writecache.WithFlushWorkersCount(wcRead.FlushWorkerCount),
-				writecache.WithMaxCacheSize(wcRead.SizeLimit),
-				writecache.WithNoSync(wcRead.NoSync),
-				writecache.WithLogger(c.log),
-			)
-		}
-
-		var piloramaOpts []pilorama.Option
-		if prRead := shCfg.PiloramaCfg; prRead.Enabled {
-			piloramaOpts = append(piloramaOpts,
-				pilorama.WithPath(prRead.Path),
-				pilorama.WithPerm(prRead.Perm),
-				pilorama.WithNoSync(prRead.NoSync),
-				pilorama.WithMaxBatchSize(prRead.MaxBatchSize),
-				pilorama.WithMaxBatchDelay(prRead.MaxBatchDelay),
-			)
-		}
-
-		var ss []blobstor.SubStorage
-		for _, sRead := range shCfg.SubStorages {
-			switch sRead.Typ {
-			case fstree.Type:
-				ss = append(ss, blobstor.SubStorage{
-					Storage: fstree.New(
-						fstree.WithPath(sRead.Path),
-						fstree.WithPerm(sRead.Perm),
-						fstree.WithDepth(sRead.Depth),
-						fstree.WithNoSync(sRead.NoSync)),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return true
-					},
-				})
-			case peapod.Type:
-				ss = append(ss, blobstor.SubStorage{
-					Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
-					},
-				})
-			default:
-				// should never happen, that has already
-				// been handled: when the config was read
+	cli, err := client.New(key,
+		client.WithDialTimeout(c.applicationConfiguration.morph.dialTimeout),
+		client.WithLogger(c.log),
+		client.WithAutoSidechainScope(),
+		client.WithEndpoints(addresses),
+		client.WithReconnectionRetries(c.applicationConfiguration.morph.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.morph.reconnectionRetriesDelay),
+		client.WithConnSwitchCallback(func() {
+			err = c.restartMorph()
+			if err != nil {
+				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
 			}
-		}
+		}),
+		client.WithConnLostCallback(func() {
+			c.internalErr <- errors.New("morph connection has been lost")
+		}),
+		client.WithMinRequiredBlockHeight(fromSideChainBlock),
+	)
+	if err != nil {
+		c.log.Info("failed to create neo RPC client",
+			zap.Any("endpoints", addresses),
+			zap.String("error", err.Error()),
+		)
 
-		var sh shardOptsWithID
-		sh.configID = shCfg.ID()
-		sh.shOpts = []shard.Option{
-			shard.WithLogger(c.log),
-			shard.WithRefillMetabase(shCfg.RefillMetabase),
-			shard.WithMode(shCfg.Mode),
-			shard.WithBlobStorOptions(
-				blobstor.WithCompressObjects(shCfg.Compress),
-				blobstor.WithUncompressableContentTypes(shCfg.UncompressableContentType),
-				blobstor.WithStorages(ss),
-
-				blobstor.WithLogger(c.log),
-			),
-			shard.WithMetaBaseOptions(
-				meta.WithPath(shCfg.MetaCfg.Path),
-				meta.WithPermissions(shCfg.MetaCfg.Perm),
-				meta.WithMaxBatchSize(shCfg.MetaCfg.MaxBatchSize),
-				meta.WithMaxBatchDelay(shCfg.MetaCfg.MaxBatchDelay),
-				meta.WithBoltDBOptions(&bbolt.Options{
-					Timeout: time.Second,
-				}),
-
-				meta.WithLogger(c.log),
-				meta.WithEpochState(c.cfgNetmap.state),
-			),
-			shard.WithPiloramaOptions(piloramaOpts...),
-			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),
-			shard.WithWriteCacheOptions(writeCacheOpts...),
-			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),
-			shard.WithGCRemoverSleepInterval(shCfg.GcCfg.RemoverSleepInterval),
-			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				fatalOnErr(err)
-
-				return pool
-			}),
-		}
-
-		shards = append(shards, sh)
+		fatalOnErr(err)
 	}
 
-	return shards
+	lookupScriptHashesInNNS(cli, c.applicationConfiguration, &b)
+
+	nState := newNetworkState()
+
+	cnrWrap, err := cntClient.NewFromMorph(cli, b.containerSH, 0)
+	fatalOnErr(err)
+
+	cnrSrc := cntClient.AsContainerSource(cnrWrap)
+
+	eACLFetcher := &morphEACLFetcher{
+		w: cnrWrap,
+	}
+
+	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
+	fatalOnErr(err)
+
+	ttl := c.applicationConfiguration.morph.cacheTTL
+	if ttl == 0 {
+		msPerBlock, err := cli.MsPerBlock()
+		fatalOnErr(err)
+		ttl = time.Duration(msPerBlock) * time.Millisecond
+		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", ttl))
+	}
+
+	var netmapSource netmapCore.Source
+	if ttl < 0 {
+		netmapSource = nmWrap
+	} else {
+		b.netmapCache = newCachedNetmapStorage(nState, nmWrap)
+		b.containerCache = newCachedContainerStorage(cnrSrc, ttl)
+		b.eaclCache = newCachedEACLStorage(eACLFetcher, ttl)
+		b.containerListCache = newCachedContainerLister(cnrWrap, ttl)
+
+		// use RPC node as source of netmap (with caching)
+		netmapSource = b.netmapCache
+	}
+
+	b.netMapSource = netmapSource
+	b.networkState = nState
+	b.key = key
+	b.binPublicKey = key.PublicKey().Bytes()
+	b.cli = cli
+	b.nCli = nmWrap
+	b.cCli = cnrWrap
+	b.ttl = ttl
+
+	return b
 }
 
 func (c *cfg) policerOpts() []policer.Option {
-	pCfg := c.applicationConfiguration.PolicerCfg
+	pCfg := c.applicationConfiguration.policer
 
 	return []policer.Option{
 		policer.WithMaxCapacity(pCfg.maxCapacity),
@@ -747,69 +734,6 @@ func (c *cfg) policerOpts() []policer.Option {
 
 func (c *cfg) LocalAddress() network.AddressGroup {
 	return c.localAddr
-}
-
-func initLocalStorage(c *cfg) {
-	// storage needs container, container needs storage, dirty sharing
-	c.shared.cnrClient = new(containerClient.Client)
-
-	ls := engine.New(c.engineOpts()...)
-
-	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		ls.HandleNewEpoch(ev.(netmap2.NewEpoch).EpochNumber())
-	})
-
-	subscribeToContainerRemoval(c, func(e event.Event) {
-		ev := e.(containerEvent.DeleteSuccess)
-
-		err := ls.InhumeContainer(ev.ID)
-		if err != nil {
-			c.log.Warn("inhuming container after a chain event",
-				zap.Stringer("cID", ev.ID), zap.Error(err))
-		}
-	})
-
-	// allocate memory for the service;
-	// service will be created later
-	c.cfgObject.getSvc = new(getsvc.Service)
-
-	var tssPrm tsourse.TombstoneSourcePrm
-	tssPrm.SetGetService(c.cfgObject.getSvc)
-	tombstoneSrc := tsourse.NewSource(tssPrm)
-
-	tombstoneSource := tombstone.NewChecker(
-		tombstone.WithLogger(c.log),
-		tombstone.WithTombstoneSource(tombstoneSrc),
-	)
-
-	var shardsAttached int
-	for _, optsWithMeta := range c.shardOpts() {
-		id, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithTombstoneSource(tombstoneSource))...)
-		if err != nil {
-			c.log.Error("failed to attach shard to engine", zap.Error(err))
-		} else {
-			shardsAttached++
-			c.log.Info("shard attached to engine", zap.Stringer("id", id))
-		}
-	}
-	if shardsAttached == 0 {
-		fatalOnErr(engineconfig.ErrNoShardConfigured)
-	}
-
-	c.cfgObject.cfgLocalStorage.localStorage = ls
-
-	c.onShutdown(func() {
-		c.log.Info("closing components of the storage engine...")
-
-		err := ls.Close()
-		if err != nil {
-			c.log.Info("storage engine closing failure",
-				zap.String("error", err.Error()),
-			)
-		} else {
-			c.log.Info("all components of the storage engine closed successfully")
-		}
-	})
 }
 
 func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
@@ -908,7 +832,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
-			err := c.readConfig(c.appCfg)
+			err := c.readConfig(c.cfgReader)
 			if err != nil {
 				c.log.Error("configuration reading", zap.Error(err))
 				continue
@@ -916,7 +840,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Logger
 
-			err = c.internals.logLevel.UnmarshalText([]byte(c.LoggerCfg.level))
+			err = c.internals.logLevel.UnmarshalText([]byte(c.logger.level))
 			if err != nil {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
@@ -957,7 +881,7 @@ func writeSystemAttributes(c *cfg) error {
 	// `Capacity` attribute
 
 	var paths []string
-	for _, sh := range c.applicationConfiguration.EngineCfg.shards {
+	for _, sh := range c.applicationConfiguration.engine.shards {
 		for _, subStorage := range sh.SubStorages {
 			path := subStorage.Path
 

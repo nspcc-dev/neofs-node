@@ -107,8 +107,8 @@ func (n notificationWriter) Notify(topic string, address oid.Address) {
 }
 
 func initNotifications(c *cfg) {
-	if nodeconfig.Notification(c.appCfg).Enabled() {
-		topic := nodeconfig.Notification(c.appCfg).DefaultTopic()
+	if nodeconfig.Notification(c.cfgReader).Enabled() {
+		topic := nodeconfig.Notification(c.cfgReader).DefaultTopic()
 		pubKey := hex.EncodeToString(c.cfgNodeInfo.localInfo.PublicKey())
 
 		if topic == "" {
@@ -117,12 +117,12 @@ func initNotifications(c *cfg) {
 
 		natsSvc := nats.New(
 			nats.WithConnectionName("NeoFS Storage Node: "+pubKey), // connection name is used in the server side logs
-			nats.WithTimeout(nodeconfig.Notification(c.appCfg).Timeout()),
+			nats.WithTimeout(nodeconfig.Notification(c.cfgReader).Timeout()),
 			nats.WithClientCert(
-				nodeconfig.Notification(c.appCfg).CertPath(),
-				nodeconfig.Notification(c.appCfg).KeyPath(),
+				nodeconfig.Notification(c.cfgReader).CertPath(),
+				nodeconfig.Notification(c.cfgReader).KeyPath(),
 			),
-			nats.WithRootCA(nodeconfig.Notification(c.appCfg).CAPath()),
+			nats.WithRootCA(nodeconfig.Notification(c.cfgReader).CAPath()),
 			nats.WithLogger(c.log),
 		)
 
@@ -159,7 +159,7 @@ func connectNats(c *cfg) {
 		return
 	}
 
-	endpoint := nodeconfig.Notification(c.appCfg).Endpoint()
+	endpoint := nodeconfig.Notification(c.cfgReader).Endpoint()
 	err := c.cfgNotifications.nw.w.Connect(c.ctx, endpoint)
 	if err != nil {
 		panic(fmt.Sprintf("could not connect to a nats endpoint %s: %v", endpoint, err))

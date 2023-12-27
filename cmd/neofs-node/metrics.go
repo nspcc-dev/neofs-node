@@ -7,19 +7,19 @@ import (
 )
 
 func initMetrics(c *cfg) *httputil.Server {
-	if !metricsconfig.Enabled(c.appCfg) {
+	if !metricsconfig.Enabled(c.cfgReader) {
 		c.log.Info("prometheus is disabled")
 		return nil
 	}
 
 	var prm httputil.Prm
 
-	prm.Address = metricsconfig.Address(c.appCfg)
+	prm.Address = metricsconfig.Address(c.cfgReader)
 	prm.Handler = promhttp.Handler()
 
 	srv := httputil.New(prm,
 		httputil.WithShutdownTimeout(
-			metricsconfig.ShutdownTimeout(c.appCfg),
+			metricsconfig.ShutdownTimeout(c.cfgReader),
 		),
 	)
 

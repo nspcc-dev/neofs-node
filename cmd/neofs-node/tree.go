@@ -35,7 +35,7 @@ func (c cnrSource) List() ([]cid.ID, error) {
 }
 
 func initTreeService(c *cfg) {
-	treeConfig := treeconfig.Tree(c.appCfg)
+	treeConfig := treeconfig.Tree(c.cfgReader)
 	if !treeConfig.Enabled() {
 		c.log.Info("tree service is not enabled, skip initialization")
 		return
@@ -44,7 +44,7 @@ func initTreeService(c *cfg) {
 	c.treeService = tree.New(
 		tree.WithContainerSource(cnrSource{
 			src: c.cfgObject.cnrSource,
-			cli: c.shared.cnrClient,
+			cli: c.shared.basics.cCli,
 		}),
 		tree.WithEACLSource(c.cfgObject.eaclSource),
 		tree.WithNetmapSource(c.netMapSource),

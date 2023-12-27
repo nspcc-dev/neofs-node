@@ -32,6 +32,9 @@ linters-settings:
   ireturn:
     reject:
       - empty
+  revive:
+    rules:
+      - name: duplicated-imports
 
 linters:
   enable:
