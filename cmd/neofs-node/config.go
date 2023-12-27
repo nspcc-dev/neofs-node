@@ -46,6 +46,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -122,6 +123,14 @@ type applicationConfiguration struct {
 		reconnectionRetriesNumber int
 		reconnectionRetriesDelay  time.Duration
 	}
+
+	Contracts struct {
+		netmap     neogoutil.Uint160
+		balance    neogoutil.Uint160
+		container  neogoutil.Uint160
+		reputation neogoutil.Uint160
+		proxy      neogoutil.Uint160
+	}
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -167,6 +176,14 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.MorphCfg.cacheTTL = morphconfig.CacheTTL(c)
 	a.MorphCfg.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
 	a.MorphCfg.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+
+	// Contracts
+
+	a.ContractsCfg.balance = contractsconfig.Balance(c)
+	a.ContractsCfg.container = contractsconfig.Container(c)
+	a.ContractsCfg.netmap = contractsconfig.Netmap(c)
+	a.ContractsCfg.proxy = contractsconfig.Proxy(c)
+	a.ContractsCfg.reputation = contractsconfig.Reputation(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
@@ -303,9 +320,39 @@ func (c *internals) IsMaintenance() bool {
 	return c.isMaintenance.Load()
 }
 
+type basics struct {
+	networkState *networkState
+	netMapSource netmapCore.Source
+
+	key          *keys.PrivateKey
+	binPublicKey []byte
+
+	cli  *client.Client
+	nCli *nmClient.Client
+	cCli *containerClient.Client
+
+	ttl time.Duration
+
+	// caches are non-nil only if ttl > 0
+	containerCache     *ttlContainerStorage
+	eaclCache          *ttlEACLStorage
+	containerListCache *ttlContainerLister
+	netmapCache        *lruNetmapSource
+
+	balanceSH    neogoutil.Uint160
+	containerSH  neogoutil.Uint160
+	netmapSH     neogoutil.Uint160
+	reputationSH neogoutil.Uint160
+	proxySH      neogoutil.Uint160
+}
+
 // shared contains component-specific structs/helpers that should
 // be shared during initialization of the application.
 type shared struct {
+	// shared b/w logical components but does not
+	// depend on them, should be inited first
+	basics
+
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
@@ -314,23 +361,13 @@ type shared struct {
 	putClientCache *cache.ClientCache
 	localAddr      network.AddressGroup
 
-	containerCache     *ttlContainerStorage
-	eaclCache          *ttlEACLStorage
-	containerListCache *ttlContainerLister
-	netmapCache        *lruNetmapSource
-
-	key            *keys.PrivateKey
-	binPublicKey   []byte
 	ownerIDFromKey user.ID // user ID calculated from key
 
 	// current network map
-	netMap       atomicstd.Value // type netmap.NetMap
-	netMapSource netmapCore.Source
+	netMap atomicstd.Value // type netmap.NetMap
 
 	// whether the local node is in the netMap
 	localNodeInNetmap atomic.Bool
-
-	cnrClient *containerClient.Client
 
 	respSvc *response.Service
 
@@ -369,7 +406,6 @@ type cfg struct {
 	// services
 	cfgGRPC           cfgGRPC
 	cfgMorph          cfgMorph
-	cfgAccounting     cfgAccounting
 	cfgContainer      cfgContainer
 	cfgNodeInfo       cfgNodeInfo
 	cfgNetmap         cfgNetmap
@@ -407,29 +443,19 @@ type cfgGRPC struct {
 type cfgMorph struct {
 	client *client.Client
 
-	// TTL of Sidechain cached values. Non-positive value disables caching.
-	cacheTTL time.Duration
-
 	eigenTrustTicker *eigenTrustTickers // timers for EigenTrust iterations
 
 	proxyScriptHash neogoutil.Uint160
 }
 
-type cfgAccounting struct {
-	scriptHash neogoutil.Uint160
-}
-
 type cfgContainer struct {
-	scriptHash neogoutil.Uint160
-
 	parsers     map[event.Type]event.NotificationParser
 	subscribers map[event.Type][]event.Handler
 	workerPool  util.WorkerPool // pool for asynchronous handlers
 }
 
 type cfgNetmap struct {
-	scriptHash neogoutil.Uint160
-	wrapper    *nmClient.Client
+	wrapper *nmClient.Client
 
 	parsers map[event.Type]event.NotificationParser
 
@@ -493,8 +519,6 @@ type cfgReputation struct {
 	localTrustStorage *truststorage.Storage
 
 	localTrustCtrl *trustcontroller.Controller
-
-	scriptHash neogoutil.Uint160
 }
 
 var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
@@ -524,8 +548,6 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
 	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
-
-	netState := newNetworkState()
 
 	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
 	fatalOnErr(err)
@@ -575,26 +597,21 @@ func initCfg(appCfg *config.Config) *cfg {
 		Buffers:          &buffers,
 		Logger:           c.internals.log,
 	}
+	basicSharedConfig := initBasics(c, key, persistate)
 	c.shared = shared{
-		key:            key,
-		binPublicKey:   key.PublicKey().Bytes(),
+		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		respSvc:        response.NewService(response.WithNetworkState(netState)),
+		respSvc:        response.NewService(response.WithNetworkState(basicSharedConfig.networkState)),
 		clientCache:    cache.NewSDKClientCache(cacheOpts),
 		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
 		putClientCache: cache.NewSDKClientCache(cacheOpts),
 		persistate:     persistate,
 	}
-	c.cfgAccounting = cfgAccounting{
-		scriptHash: contractsconfig.Balance(appCfg),
-	}
 	c.cfgContainer = cfgContainer{
-		scriptHash: contractsconfig.Container(appCfg),
 		workerPool: containerWorkerPool,
 	}
 	c.cfgNetmap = cfgNetmap{
-		scriptHash:    contractsconfig.Netmap(appCfg),
-		state:         netState,
+		state:         c.basics.networkState,
 		workerPool:    netmapWorkerPool,
 		needBootstrap: !relayOnly,
 	}
@@ -610,7 +627,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		tombstoneLifetime: objectconfig.TombstoneLifetime(appCfg),
 	}
 	c.cfgReputation = cfgReputation{
-		scriptHash: contractsconfig.Reputation(appCfg),
 		workerPool: reputationWorkerPool,
 	}
 
@@ -620,7 +636,7 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	if metricsconfig.Enabled(c.cfgReader) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
-		netState.metrics = c.metricsCollector
+		c.basics.networkState.metrics = c.metricsCollector
 	}
 
 	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
@@ -631,6 +647,93 @@ func initCfg(appCfg *config.Config) *cfg {
 	return c
 }
 
+func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
+	b := basics{}
+
+	addresses := c.applicationConfiguration.MorphCfg.endpoints
+
+	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
+	if err != nil {
+		fromSideChainBlock = 0
+		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+	}
+
+	cli, err := client.New(key,
+		client.WithDialTimeout(c.applicationConfiguration.MorphCfg.dialTimout),
+		client.WithLogger(c.log),
+		client.WithAutoSidechainScope(),
+		client.WithEndpoints(addresses),
+		client.WithReconnectionRetries(c.applicationConfiguration.MorphCfg.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.MorphCfg.reconnectionRetriesDelay),
+		client.WithConnSwitchCallback(func() {
+			err = c.restartMorph()
+			if err != nil {
+				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
+			}
+		}),
+		client.WithConnLostCallback(func() {
+			c.internalErr <- errors.New("morph connection has been lost")
+		}),
+		client.WithMinRequiredBlockHeight(fromSideChainBlock),
+	)
+	if err != nil {
+		c.log.Info("failed to create neo RPC client",
+			zap.Any("endpoints", addresses),
+			zap.String("error", err.Error()),
+		)
+
+		fatalOnErr(err)
+	}
+
+	lookupScriptHashesInNNS(cli, c.applicationConfiguration, &b)
+
+	nState := newNetworkState()
+
+	cnrWrap, err := cntClient.NewFromMorph(cli, b.containerSH, 0)
+	fatalOnErr(err)
+
+	cnrSrc := cntClient.AsContainerSource(cnrWrap)
+
+	eACLFetcher := &morphEACLFetcher{
+		w: cnrWrap,
+	}
+
+	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
+	fatalOnErr(err)
+
+	ttl := c.applicationConfiguration.MorphCfg.cacheTTL
+	if ttl == 0 {
+		msPerBlock, err := cli.MsPerBlock()
+		fatalOnErr(err)
+		ttl = time.Duration(msPerBlock) * time.Millisecond
+		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", ttl))
+	}
+
+	var netmapSource netmapCore.Source
+	if ttl < 0 {
+		netmapSource = nmWrap
+	} else {
+		b.netmapCache = newCachedNetmapStorage(nState, nmWrap)
+		b.containerCache = newCachedContainerStorage(cnrSrc, ttl)
+		b.eaclCache = newCachedEACLStorage(eACLFetcher, ttl)
+		b.containerListCache = newCachedContainerLister(cnrWrap, ttl)
+
+		// use RPC node as source of netmap (with caching)
+		netmapSource = b.netmapCache
+	}
+
+	b.netMapSource = netmapSource
+	b.networkState = nState
+	b.key = key
+	b.binPublicKey = key.PublicKey().Bytes()
+	b.cli = cli
+	b.nCli = nmWrap
+	b.cCli = cnrWrap
+	b.ttl = ttl
+
+	return b
+}
+
 func (c *cfg) engineOpts() []engine.Option {
 	opts := make([]engine.Option, 0, 4)
 
@@ -638,9 +741,14 @@ func (c *cfg) engineOpts() []engine.Option {
 		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
 		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
 
-		engine.WithContainersSource(c.shared.containerCache),
 		engine.WithLogger(c.log),
 	)
+
+	if c.shared.basics.ttl > 0 {
+		opts = append(opts, engine.WithContainersSource(c.shared.basics.containerCache))
+	} else {
+		opts = append(opts, engine.WithContainersSource(cntClient.AsContainerSource(c.shared.basics.cCli)))
+	}
 
 	if c.metricsCollector != nil {
 		opts = append(opts, engine.WithMetrics(c.metricsCollector))
@@ -771,9 +879,6 @@ func (c *cfg) LocalAddress() network.AddressGroup {
 }
 
 func initLocalStorage(c *cfg) {
-	// storage needs container, container needs storage, dirty sharing
-	c.shared.cnrClient = new(containerClient.Client)
-
 	ls := engine.New(c.engineOpts()...)
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {

@@ -4,14 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
@@ -27,79 +24,19 @@ const (
 func initMorphComponents(c *cfg) {
 	var err error
 
-	addresses := c.applicationConfiguration.MorphCfg.endpoints
+	morphCli := c.shared.basics.cli
+	c.cfgMorph.client = morphCli
 
-	fromSideChainBlock, err := c.persistate.UInt32(persistateSideChainLastBlockKey)
-	if err != nil {
-		fromSideChainBlock = 0
-		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
-	}
+	c.onShutdown(morphCli.Close)
 
-	cli, err := client.New(c.key,
-		client.WithDialTimeout(c.applicationConfiguration.MorphCfg.dialTimeout),
-		client.WithLogger(c.log),
-		client.WithAutoSidechainScope(),
-		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(c.applicationConfiguration.MorphCfg.reconnectionRetriesNumber),
-		client.WithReconnectionsDelay(c.applicationConfiguration.MorphCfg.reconnectionRetriesDelay),
-		client.WithConnSwitchCallback(func() {
-			err = c.restartMorph()
-			if err != nil {
-				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
-			}
-		}),
-		client.WithConnLostCallback(func() {
-			c.internalErr <- errors.New("morph connection has been lost")
-		}),
-		client.WithMinRequiredBlockHeight(fromSideChainBlock),
-	)
-	if err != nil {
-		c.log.Info("failed to create neo RPC client",
-			zap.Any("endpoints", addresses),
-			zap.String("error", err.Error()),
-		)
-
-		fatalOnErr(err)
-	}
-
-	c.onShutdown(cli.Close)
-
-	c.cfgMorph.client = cli
-
-	lookupScriptHashesInNNS(c) // smart contract auto negotiation
-
-	err = c.cfgMorph.client.EnableNotarySupport(
+	err = morphCli.EnableNotarySupport(
 		client.WithProxyContract(
 			c.cfgMorph.proxyScriptHash,
 		),
 	)
 	fatalOnErr(err)
 
-	wrap, err := nmClient.NewFromMorph(c.cfgMorph.client, c.cfgNetmap.scriptHash, 0)
-	fatalOnErr(err)
-
-	var netmapSource netmap.Source
-
-	c.cfgMorph.cacheTTL = c.applicationConfiguration.MorphCfg.cacheTTL
-
-	if c.cfgMorph.cacheTTL == 0 {
-		msPerBlock, err := c.cfgMorph.client.MsPerBlock()
-		fatalOnErr(err)
-		c.cfgMorph.cacheTTL = time.Duration(msPerBlock) * time.Millisecond
-		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", c.cfgMorph.cacheTTL))
-	}
-
-	if c.cfgMorph.cacheTTL < 0 {
-		netmapSource = wrap
-	} else {
-		c.shared.netmapCache = newCachedNetmapStorage(c.cfgNetmap.state, wrap)
-
-		// use RPC node as source of netmap (with caching)
-		netmapSource = c.shared.netmapCache
-	}
-
-	c.netMapSource = netmapSource
-	c.cfgNetmap.wrapper = wrap
+	c.cfgNetmap.wrapper = c.shared.basics.nCli
 }
 
 func makeAndWaitNotaryDeposit(c *cfg) {
@@ -193,8 +130,8 @@ func listenMorphNotifications(c *cfg) {
 
 		return res, err
 	})
-	registerNotificationHandlers(c.cfgNetmap.scriptHash, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
-	registerNotificationHandlers(c.cfgContainer.scriptHash, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
+	registerNotificationHandlers(c.shared.basics.netmapSH, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
+	registerNotificationHandlers(c.shared.basics.containerSH, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 
 	registerBlockHandler(lis, func(block *block.Block) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
@@ -243,27 +180,30 @@ func registerBlockHandler(lis event.Listener, handler event.BlockHandler) {
 
 // lookupScriptHashesInNNS looks up for contract script hashes in NNS contract of side
 // chain if they were not specified in config file.
-func lookupScriptHashesInNNS(c *cfg) {
+func lookupScriptHashesInNNS(morphCli *client.Client, cfgRead applicationConfiguration, b *basics) {
 	var (
 		err error
 
 		emptyHash = util.Uint160{}
 		targets   = [...]struct {
-			h       *util.Uint160
-			nnsName string
+			hashRead  util.Uint160
+			finalHash *util.Uint160
+			nnsName   string
 		}{
-			{&c.cfgNetmap.scriptHash, client.NNSNetmapContractName},
-			{&c.cfgAccounting.scriptHash, client.NNSBalanceContractName},
-			{&c.cfgContainer.scriptHash, client.NNSContainerContractName},
-			{&c.cfgReputation.scriptHash, client.NNSReputationContractName},
-			{&c.cfgMorph.proxyScriptHash, client.NNSProxyContractName},
+			{cfgRead.ContractsCfg.balance, &b.balanceSH, client.NNSBalanceContractName},
+			{cfgRead.ContractsCfg.container, &b.containerSH, client.NNSContainerContractName},
+			{cfgRead.ContractsCfg.netmap, &b.netmapSH, client.NNSNetmapContractName},
+			{cfgRead.ContractsCfg.reputation, &b.reputationSH, client.NNSReputationContractName},
+			{cfgRead.ContractsCfg.proxy, &b.proxySH, client.NNSProxyContractName},
 		}
 	)
 
 	for _, t := range targets {
-		if emptyHash.Equals(*t.h) {
-			*t.h, err = c.cfgMorph.client.NNSContractAddress(t.nnsName)
+		if emptyHash.Equals(t.hashRead) {
+			*t.finalHash, err = morphCli.NNSContractAddress(t.nnsName)
 			fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
+		} else {
+			*t.finalHash = t.hashRead
 		}
 	}
 }

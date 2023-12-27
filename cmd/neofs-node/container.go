@@ -46,45 +46,23 @@ func initContainerService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	// container wrapper that invokes notary
-	// requests with the (empty) Alphabet signature
-	wrap, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0)
-	fatalOnErr(err)
-
-	*c.shared.cnrClient = *wrap
-
-	// container wrapper that always sends non-notary
-	// requests
-	wrapperNoNotary, err := cntClient.NewFromMorph(c.cfgMorph.client, c.cfgContainer.scriptHash, 0, cntClient.DisableNotarySigning())
-	fatalOnErr(err)
-
-	cnrSrc := cntClient.AsContainerSource(wrap)
-
-	eACLFetcher := &morphEACLFetcher{
-		w: wrap,
-	}
+	cnrCli := c.shared.basics.cCli
 
 	cnrRdr := new(morphContainerReader)
+	cnrWrt := &morphContainerWriter{neoClient: cnrCli}
+	cnrSrc := cntClient.AsContainerSource(cnrCli)
+	eaclFetcher := &morphEACLFetcher{cnrCli}
 
-	cnrWrt := &morphContainerWriter{
-		neoClient: wrap,
-	}
-
-	if c.cfgMorph.cacheTTL <= 0 {
-		c.cfgObject.eaclSource = eACLFetcher
-		cnrRdr.eacl = eACLFetcher
+	if c.shared.basics.ttl <= 0 {
+		c.cfgObject.eaclSource = eaclFetcher
+		cnrRdr.eacl = eaclFetcher
 		c.cfgObject.cnrSource = cnrSrc
 		cnrRdr.get = cnrSrc
-		cnrRdr.lister = wrap
+		cnrRdr.lister = cnrCli
 	} else {
-		// use RPC node as source of Container contract items (with caching)
-		cachedContainerStorage := newCachedContainerStorage(cnrSrc, c.cfgMorph.cacheTTL)
-		cachedEACLStorage := newCachedEACLStorage(eACLFetcher, c.cfgMorph.cacheTTL)
-		cachedContainerLister := newCachedContainerLister(wrap, c.cfgMorph.cacheTTL)
-
-		c.shared.containerCache = cachedContainerStorage
-		c.shared.eaclCache = cachedEACLStorage
-		c.shared.containerListCache = cachedContainerLister
+		cnrCache := c.shared.basics.containerCache
+		cnrListCache := c.shared.basics.containerListCache
+		eaclCache := c.shared.basics.eaclCache
 
 		subscribeToContainerCreation(c, func(e event.Event) {
 			ev := e.(containerEvent.PutSuccess)
@@ -93,9 +71,9 @@ func initContainerService(c *cfg) {
 			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
 			//  but don't forget about the profit of reading the new container and caching it:
 			//  creation success are most commonly tracked by polling GET op.
-			cnr, err := cachedContainerStorage.Get(ev.ID)
+			cnr, err := cnrCache.Get(ev.ID)
 			if err == nil {
-				cachedContainerLister.update(cnr.Value.Owner(), ev.ID, true)
+				cnrListCache.update(cnr.Value.Owner(), ev.ID, true)
 			} else {
 				// unlike removal, we expect successful receive of the container
 				// after successful creation, so logging can be useful
@@ -117,27 +95,27 @@ func initContainerService(c *cfg) {
 			// It's strange to read already removed container, but we can successfully hit
 			// the cache.
 			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
-			cnr, err := cachedContainerStorage.Get(ev.ID)
+			cnr, err := cnrCache.Get(ev.ID)
 			if err == nil {
-				cachedContainerLister.update(cnr.Value.Owner(), ev.ID, false)
+				cnrListCache.update(cnr.Value.Owner(), ev.ID, false)
 			}
 
-			cachedContainerStorage.handleRemoval(ev.ID)
+			cnrCache.handleRemoval(ev.ID)
 
 			c.log.Debug("container removal event's receipt",
 				zap.Stringer("id", ev.ID),
 			)
 		})
 
-		c.cfgObject.eaclSource = cachedEACLStorage
-		c.cfgObject.cnrSource = cachedContainerStorage
+		c.cfgObject.eaclSource = eaclCache
+		c.cfgObject.cnrSource = cnrCache
 
-		cnrRdr.lister = cachedContainerLister
+		cnrRdr.lister = cnrListCache
 		cnrRdr.eacl = c.cfgObject.eaclSource
 		cnrRdr.get = c.cfgObject.cnrSource
 
 		cnrWrt.cacheEnabled = true
-		cnrWrt.eacls = cachedEACLStorage
+		cnrWrt.eacls = eaclCache
 	}
 
 	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
@@ -151,7 +129,7 @@ func initContainerService(c *cfg) {
 
 	resultWriter := &morphLoadWriter{
 		log:            estimationsLogger,
-		cnrMorphClient: wrapperNoNotary,
+		cnrMorphClient: cnrCli,
 		key:            pubKey,
 	}
 

@@ -13,7 +13,7 @@ func initAccountingService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.cfgAccounting.scriptHash, 0)
+	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.shared.basics.balanceSH, 0)
 	fatalOnErr(err)
 
 	server := accountingTransportGRPC.New(

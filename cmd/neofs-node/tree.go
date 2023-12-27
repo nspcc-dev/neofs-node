@@ -44,7 +44,7 @@ func initTreeService(c *cfg) {
 	c.treeService = tree.New(
 		tree.WithContainerSource(cnrSource{
 			src: c.cfgObject.cnrSource,
-			cli: c.shared.cnrClient,
+			cli: c.shared.basics.cCli,
 		}),
 		tree.WithEACLSource(c.cfgObject.eaclSource),
 		tree.WithNetmapSource(c.netMapSource),
