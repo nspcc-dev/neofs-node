@@ -200,7 +200,7 @@ func initObjectService(c *cfg) {
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
 		policer.WithNetmapKeys(c),
-		policer.WithHeadTimeout(c.applicationConfiguration.PolicerCfg.headTimeout),
+		policer.WithHeadTimeout(c.applicationConfiguration.Policer.headTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			var inhumePrm engine.InhumePrm
@@ -213,12 +213,12 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.applicationConfiguration.PolicerCfg.maxCapacity),
+		policer.WithMaxCapacity(c.applicationConfiguration.Policer.maxCapacity),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
-		policer.WithReplicationCooldown(c.applicationConfiguration.PolicerCfg.replicationCooldown),
-		policer.WithObjectBatchSize(c.applicationConfiguration.PolicerCfg.objectBatchSize),
+		policer.WithReplicationCooldown(c.applicationConfiguration.Policer.replicationCooldown),
+		policer.WithObjectBatchSize(c.applicationConfiguration.Policer.objectBatchSize),
 	)
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)

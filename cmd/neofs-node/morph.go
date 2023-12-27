@@ -190,11 +190,11 @@ func lookupScriptHashesInNNS(morphCli *client.Client, cfgRead applicationConfigu
 			finalHash *util.Uint160
 			nnsName   string
 		}{
-			{cfgRead.ContractsCfg.balance, &b.balanceSH, client.NNSBalanceContractName},
-			{cfgRead.ContractsCfg.container, &b.containerSH, client.NNSContainerContractName},
-			{cfgRead.ContractsCfg.netmap, &b.netmapSH, client.NNSNetmapContractName},
-			{cfgRead.ContractsCfg.reputation, &b.reputationSH, client.NNSReputationContractName},
-			{cfgRead.ContractsCfg.proxy, &b.proxySH, client.NNSProxyContractName},
+			{cfgRead.Contracts.balance, &b.balanceSH, client.NNSBalanceContractName},
+			{cfgRead.Contracts.container, &b.containerSH, client.NNSContainerContractName},
+			{cfgRead.Contracts.netmap, &b.netmapSH, client.NNSNetmapContractName},
+			{cfgRead.Contracts.reputation, &b.reputationSH, client.NNSReputationContractName},
+			{cfgRead.Contracts.proxy, &b.proxySH, client.NNSProxyContractName},
 		}
 	)
 

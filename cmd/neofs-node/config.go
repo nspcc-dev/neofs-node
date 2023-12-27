@@ -99,24 +99,24 @@ type applicationConfiguration struct {
 	// has already been read
 	_read bool
 
-	LoggerCfg struct {
+	Logger struct {
 		level string
 	}
 
-	EngineCfg struct {
+	Engine struct {
 		errorThreshold uint32
 		shardPoolSize  uint32
 		shards         []storage.ShardCfg
 	}
 
-	PolicerCfg struct {
+	Policer struct {
 		maxCapacity         uint32
 		headTimeout         time.Duration
 		replicationCooldown time.Duration
 		objectBatchSize     uint32
 	}
 
-	MorphCfg struct {
+	Morph struct {
 		endpoints                 []string
 		dialTimeout               time.Duration
 		cacheTTL                  time.Duration
@@ -155,35 +155,35 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	// Logger
 
-	a.LoggerCfg.level = loggerconfig.Level(c)
+	a.Logger.level = loggerconfig.Level(c)
 
 	// Policer
 
-	a.PolicerCfg.maxCapacity = policerconfig.MaxWorkers(c)
-	a.PolicerCfg.headTimeout = policerconfig.HeadTimeout(c)
-	a.PolicerCfg.replicationCooldown = policerconfig.ReplicationCooldown(c)
-	a.PolicerCfg.objectBatchSize = policerconfig.ObjectBatchSize(c)
+	a.Policer.maxCapacity = policerconfig.MaxWorkers(c)
+	a.Policer.headTimeout = policerconfig.HeadTimeout(c)
+	a.Policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
+	a.Policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
 
 	// Storage Engine
 
-	a.EngineCfg.errorThreshold = engineconfig.ShardErrorThreshold(c)
-	a.EngineCfg.shardPoolSize = engineconfig.ShardPoolSize(c)
+	a.Engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
+	a.Engine.shardPoolSize = engineconfig.ShardPoolSize(c)
 
 	// Morph
 
-	a.MorphCfg.endpoints = morphconfig.Endpoints(c)
-	a.MorphCfg.dialTimeout = morphconfig.DialTimeout(c)
-	a.MorphCfg.cacheTTL = morphconfig.CacheTTL(c)
-	a.MorphCfg.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
-	a.MorphCfg.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+	a.Morph.endpoints = morphconfig.Endpoints(c)
+	a.Morph.dialTimeout = morphconfig.DialTimeout(c)
+	a.Morph.cacheTTL = morphconfig.CacheTTL(c)
+	a.Morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
+	a.Morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
 
 	// Contracts
 
-	a.ContractsCfg.balance = contractsconfig.Balance(c)
-	a.ContractsCfg.container = contractsconfig.Container(c)
-	a.ContractsCfg.netmap = contractsconfig.Netmap(c)
-	a.ContractsCfg.proxy = contractsconfig.Proxy(c)
-	a.ContractsCfg.reputation = contractsconfig.Reputation(c)
+	a.Contracts.balance = contractsconfig.Balance(c)
+	a.Contracts.container = contractsconfig.Container(c)
+	a.Contracts.netmap = contractsconfig.Netmap(c)
+	a.Contracts.proxy = contractsconfig.Proxy(c)
+	a.Contracts.reputation = contractsconfig.Reputation(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
@@ -269,7 +269,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		sh.GcCfg.RemoverBatchSize = gcCfg.RemoverBatchSize()
 		sh.GcCfg.RemoverSleepInterval = gcCfg.RemoverSleepInterval()
 
-		a.EngineCfg.shards = append(a.EngineCfg.shards, sh)
+		a.Engine.shards = append(a.Engine.shards, sh)
 
 		return nil
 	})
@@ -570,7 +570,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
-	c.internals.logLevel, err = zap.ParseAtomicLevel(c.LoggerCfg.level)
+	c.internals.logLevel, err = zap.ParseAtomicLevel(c.Logger.level)
 	fatalOnErr(err)
 
 	logCfg := zap.NewProductionConfig()
@@ -650,7 +650,7 @@ func initCfg(appCfg *config.Config) *cfg {
 func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
 	b := basics{}
 
-	addresses := c.applicationConfiguration.MorphCfg.endpoints
+	addresses := c.applicationConfiguration.Morph.endpoints
 
 	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
@@ -659,12 +659,12 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	}
 
 	cli, err := client.New(key,
-		client.WithDialTimeout(c.applicationConfiguration.MorphCfg.dialTimout),
+		client.WithDialTimeout(c.applicationConfiguration.Morph.dialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoSidechainScope(),
 		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(c.applicationConfiguration.MorphCfg.reconnectionRetriesNumber),
-		client.WithReconnectionsDelay(c.applicationConfiguration.MorphCfg.reconnectionRetriesDelay),
+		client.WithReconnectionRetries(c.applicationConfiguration.Morph.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.Morph.reconnectionRetriesDelay),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
@@ -701,7 +701,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
 	fatalOnErr(err)
 
-	ttl := c.applicationConfiguration.MorphCfg.cacheTTL
+	ttl := c.applicationConfiguration.Morph.cacheTTL
 	if ttl == 0 {
 		msPerBlock, err := cli.MsPerBlock()
 		fatalOnErr(err)
@@ -738,8 +738,8 @@ func (c *cfg) engineOpts() []engine.Option {
 	opts := make([]engine.Option, 0, 4)
 
 	opts = append(opts,
-		engine.WithShardPoolSize(c.EngineCfg.shardPoolSize),
-		engine.WithErrorThreshold(c.EngineCfg.errorThreshold),
+		engine.WithShardPoolSize(c.Engine.shardPoolSize),
+		engine.WithErrorThreshold(c.Engine.errorThreshold),
 
 		engine.WithLogger(c.log),
 	)
@@ -763,9 +763,9 @@ type shardOptsWithID struct {
 }
 
 func (c *cfg) shardOpts() []shardOptsWithID {
-	shards := make([]shardOptsWithID, 0, len(c.EngineCfg.shards))
+	shards := make([]shardOptsWithID, 0, len(c.Engine.shards))
 
-	for _, shCfg := range c.EngineCfg.shards {
+	for _, shCfg := range c.Engine.shards {
 		var writeCacheOpts []writecache.Option
 		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
@@ -864,7 +864,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 }
 
 func (c *cfg) policerOpts() []policer.Option {
-	pCfg := c.applicationConfiguration.PolicerCfg
+	pCfg := c.applicationConfiguration.Policer
 
 	return []policer.Option{
 		policer.WithMaxCapacity(pCfg.maxCapacity),
@@ -1042,7 +1042,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Logger
 
-			err = c.internals.logLevel.UnmarshalText([]byte(c.LoggerCfg.level))
+			err = c.internals.logLevel.UnmarshalText([]byte(c.Logger.level))
 			if err != nil {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
@@ -1083,7 +1083,7 @@ func writeSystemAttributes(c *cfg) error {
 	// `Capacity` attribute
 
 	var paths []string
-	for _, sh := range c.applicationConfiguration.EngineCfg.shards {
+	for _, sh := range c.applicationConfiguration.Engine.shards {
 		for _, subStorage := range sh.SubStorages {
 			path := subStorage.Path
 
