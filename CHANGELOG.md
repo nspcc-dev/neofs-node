@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - IR does not wait for HTTP servers to stop gracefully before exiting (#2704)
 - Zero exit code if IR fails (#2704)
+- Neo RPC client failure when the first endpoint is unavailable even if there are more endpoints to try (#2703)
 
 ### Changed
 - Created files are not group writable (#2589)
