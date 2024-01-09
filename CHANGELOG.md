@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Zero exit code if IR fails (#2704)
 - Neo RPC client failure when the first endpoint is unavailable even if there are more endpoints to try (#2703)
 - Incorrect address mapping of the Alphabet contracts in NNS produced by deployment procedure (#2713)
+- IR compares and logs public keys difference, not hash of keys difference at SN verification check (#2711)
 
 ### Changed
 - Created files are not group writable (#2589)
