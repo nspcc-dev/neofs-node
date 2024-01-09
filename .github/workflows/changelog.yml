@@ -17,7 +17,7 @@ jobs:
 
       - name: Get changed CHANGELOG
         id: changelog-diff
-        uses: tj-actions/changed-files@v29
+        uses: tj-actions/changed-files@v41
         with:
           files: CHANGELOG.md
 
