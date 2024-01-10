@@ -69,6 +69,9 @@ type syncNeoFSContractPrm struct {
 	deployWitness uint8
 	// contracts that are allowed to be called for the validators-witnessed deployment
 	validatorsDeployAllowedContracts []util.Uint160
+	// additional option for unset tryDeploy to specify deployer of the contract
+	// designated globally. Has no effect if tryDeploy is set.
+	designatedDeployer *util.Uint160
 
 	// optional constructor of extra arguments to be passed into method deploying
 	// the contract. If returns both nil, no data is passed (noExtraDeployArgs can
@@ -238,15 +241,29 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 				continue
 			}
 
+			var deployerAcc util.Uint160
+			if prm.tryDeploy {
+				deployerAcc = contractDeployer.Sender()
+			} else {
+				if prm.designatedDeployer == nil {
+					// contract address is pre-calculated only when deployer is designated globally
+					// to prevent domain record corruption.
+					l.Info("domain record for the contract is missing, will try again later")
+					continue
+				}
+				deployerAcc = *prm.designatedDeployer
+			}
+
 			l.Info("domain record for the contract is missing, trying by pre-calculated address...")
 
-			preCalculatedAddr := state.CreateContractHash(contractDeployer.Sender(), prm.localNEF.Checksum, prm.localManifest.Name)
+			preCalculatedAddr := state.CreateContractHash(deployerAcc, prm.localNEF.Checksum, prm.localManifest.Name)
 
 			onChainState, err = prm.blockchain.GetContractStateByHash(preCalculatedAddr)
 			if err != nil {
 				if !errors.Is(err, neorpc.ErrUnknownContract) {
 					l.Error("failed to read on-chain state of the contract by pre-calculated address, will try again later",
-						zap.Stringer("address", preCalculatedAddr), zap.Error(err))
+						zap.Stringer("address", preCalculatedAddr), zap.Stringer("deployer", deployerAcc),
+						zap.Error(err))
 					continue
 				}
 

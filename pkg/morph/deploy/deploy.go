@@ -547,6 +547,10 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 	for ind := 0; ind < len(committee) && ind < glagolitsa.Size; ind++ {
 		syncPrm.tryDeploy = ind == localAccCommitteeIndex // each member deploys its own Alphabet contract
+		if !syncPrm.tryDeploy {
+			temp := committee[ind].GetScriptHash()
+			syncPrm.designatedDeployer = &temp
+		}
 		syncPrm.domainName = calculateAlphabetContractAddressDomain(ind)
 		syncPrm.buildExtraDeployArgs = func() ([]any, error) {
 			return []any{
@@ -571,6 +575,10 @@ func Deploy(ctx context.Context, prm Prm) error {
 
 		alphabetContracts = append(alphabetContracts, alphabetContractAddress)
 	}
+
+	// note: this instruction has no effect anymore, but saves future code added
+	// below from potential problems
+	syncPrm.designatedDeployer = nil
 
 	prm.Logger.Info("distributing NEO to the Alphabet contracts...")
 
