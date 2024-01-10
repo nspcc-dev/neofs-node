@@ -238,7 +238,7 @@ func syncNeoFSContract(ctx context.Context, prm syncNeoFSContractPrm) (util.Uint
 				continue
 			}
 
-			l.Info("could not read on-chain state of the contract by NNS domain name, trying by pre-calculated address...")
+			l.Info("domain record for the contract is missing, trying by pre-calculated address...")
 
 			preCalculatedAddr := state.CreateContractHash(contractDeployer.Sender(), prm.localNEF.Checksum, prm.localManifest.Name)
 
