@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -116,6 +117,18 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 	}
 }
 
+func txCopy(tx *transaction.Transaction) *transaction.Transaction {
+	cp := *tx
+	cp.Scripts = make([]transaction.Witness, len(tx.Scripts))
+	for i := range cp.Scripts {
+		cp.Scripts[i] = transaction.Witness{
+			InvocationScript:   slice.Copy(tx.Scripts[i].InvocationScript),
+			VerificationScript: slice.Copy(tx.Scripts[i].VerificationScript),
+		}
+	}
+	return &cp
+}
+
 // Prepare converts raw notary requests to NotaryEvent.
 //
 // Returns ErrTXAlreadyHandled if transaction shouldn't be
@@ -155,6 +168,14 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		bytes.Equal(nr.MainTransaction.Scripts[1].InvocationScript, p.dummyInvocationScript)) { // compatibility with old version
 		return nil, ErrTXAlreadyHandled
 	}
+
+	// Make a copy of request and main transaction, we will modify them and
+	// this is not safe to do for subscribers (can affect shared structures
+	// leading to data corruption like broken notary request in our case).
+	var newR = new(payload.P2PNotaryRequest)
+	*newR = *nr
+	newR.MainTransaction = txCopy(nr.MainTransaction)
+	nr = newR
 
 	currentAlphabet, err := p.alphaKeys()
 	if err != nil {
