@@ -471,12 +471,7 @@ func (l *listener) EnableNotarySupport(mainTXSigner util.Uint160, alphaKeys clie
 	l.notaryMainTXSigner = mainTXSigner
 	l.notaryHandlers = make(map[notaryRequestTypes]Handler)
 	l.notaryParsers = make(map[notaryRequestTypes]NotaryParser)
-	l.notaryEventsPreparator = notaryPreparator(
-		PreparatorPrm{
-			AlphaKeys:    alphaKeys,
-			BlockCounter: bc,
-		},
-	)
+	l.notaryEventsPreparator = notaryPreparator(alphaKeys, bc)
 }
 
 // SetNotaryParser sets the parser of particular notary request event.

@@ -59,12 +59,7 @@ func (b blockCounter) BlockCount() (res uint32, err error) {
 }
 
 func TestPrepare_IncorrectScript(t *testing.T) {
-	preparator := notaryPreparator(
-		PreparatorPrm{
-			alphaKeysSource(),
-			blockCounter{100, nil},
-		},
-	)
+	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
 
 	preparator.allowNotaryEvent(notaryScriptWithHash{
 		notaryRequestType: notaryRequestType{contractMethod},
@@ -397,12 +392,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 	}
 
-	preparator := notaryPreparator(
-		PreparatorPrm{
-			alphaKeysSource(),
-			blockCounter{100, nil},
-		},
-	)
+	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
 
 	var (
 		incorrectNR payload.P2PNotaryRequest
@@ -447,12 +437,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 		},
 	}
 
-	preparator := notaryPreparator(
-		PreparatorPrm{
-			alphaKeysSource(),
-			blockCounter{100, nil},
-		},
-	)
+	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
 
 	for _, test := range tests {
 		for i := 0; i < 1; i++ { // run tests against 3 and 4 witness NR
@@ -503,12 +488,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 }
 
 func TestNotAllowedEvents(t *testing.T) {
-	preparator := notaryPreparator(
-		PreparatorPrm{
-			alphaKeysSource(),
-			blockCounter{100, nil},
-		},
-	)
+	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
 
 	nr := correctNR(script(scriptHash, "test1", nil), false, false)
 

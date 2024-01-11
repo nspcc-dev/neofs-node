@@ -56,15 +56,6 @@ type BlockCounter interface {
 	BlockCount() (res uint32, err error)
 }
 
-// PreparatorPrm groups the required parameters of the preparator constructor.
-type PreparatorPrm struct {
-	AlphaKeys client.AlphabetKeys
-
-	// BlockCount must return block count of the network
-	// from which notary requests are received.
-	BlockCounter BlockCounter
-}
-
 // preparator constructs NotaryEvent
 // from the NotaryRequest event.
 type preparator struct {
@@ -90,14 +81,7 @@ type preparator struct {
 //
 // Considered to be used for preparing notary request
 // for parsing it by event.Listener.
-func notaryPreparator(prm PreparatorPrm) preparator {
-	switch {
-	case prm.AlphaKeys == nil:
-		panic("alphabet keys source must not be nil")
-	case prm.BlockCounter == nil:
-		panic("block counter must not be nil")
-	}
-
+func notaryPreparator(alphaKeys client.AlphabetKeys, bc BlockCounter) preparator {
 	contractSysCall := make([]byte, 4)
 	binary.LittleEndian.PutUint32(contractSysCall, interopnames.ToID([]byte(interopnames.SystemContractCall)))
 
@@ -109,8 +93,8 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
-		alphaKeys:             prm.AlphaKeys,
-		blockCounter:          prm.BlockCounter,
+		alphaKeys:             alphaKeys,
+		blockCounter:          bc,
 		alreadyHandledTXs:     cache,
 		m:                     &sync.RWMutex{},
 		allowedEvents:         make(map[notaryScriptWithHash]struct{}),
