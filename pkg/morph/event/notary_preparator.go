@@ -64,13 +64,14 @@ type preparator struct {
 	// dummyInvocationScript is invocation script from TX that is not signed.
 	dummyInvocationScript []byte
 
+	localAcc  util.Uint160
 	alphaKeys client.AlphabetKeys
 
 	blockCounter BlockCounter
 
-	// cache for TX recursion; size limited because it is
-	// just an optimization, already handled TX are not gonna
-	// be signed once more anyway
+	// cache for TX recursion; it's limited, so we can technically
+	// react to the same transaction multiple times, but it's not a
+	// big problem.
 	alreadyHandledTXs *lru.Cache[util.Uint256, struct{}]
 
 	m             *sync.RWMutex
@@ -81,7 +82,7 @@ type preparator struct {
 //
 // Considered to be used for preparing notary request
 // for parsing it by event.Listener.
-func notaryPreparator(alphaKeys client.AlphabetKeys, bc BlockCounter) preparator {
+func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc BlockCounter) preparator {
 	contractSysCall := make([]byte, 4)
 	binary.LittleEndian.PutUint32(contractSysCall, interopnames.ToID([]byte(interopnames.SystemContractCall)))
 
@@ -93,6 +94,7 @@ func notaryPreparator(alphaKeys client.AlphabetKeys, bc BlockCounter) preparator
 	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
+		localAcc:              localAcc,
 		alphaKeys:             alphaKeys,
 		blockCounter:          bc,
 		alreadyHandledTXs:     cache,
@@ -141,15 +143,11 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	}
 	invokerWitness := ln == 4
 
-	// alphabet node should handle only notary requests that do not yet have inner
-	// ring multisignature filled => such main TXs either have empty invocation script
-	// of the inner ring witness (in case if Notary Actor is used to create request)
-	// or have it filled with dummy bytes (if request was created manually with the old
-	// neo-go API)
-	//
-	// this check prevents notary flow recursion
-	if !(len(nr.MainTransaction.Scripts[1].InvocationScript) == 0 ||
-		bytes.Equal(nr.MainTransaction.Scripts[1].InvocationScript, p.dummyInvocationScript)) { // compatibility with old version
+	// We do receive requests made by the node itself, but these must never
+	// be reacted upon, otherwise we'll never end sending these requests
+	// (at least not until the main tx is ready). Valid fallbacks (pool
+	// doesn't accept invalid ones) always have this signer.
+	if p.localAcc.Equals(nr.FallbackTransaction.Signers[1].Account) {
 		return nil, ErrTXAlreadyHandled
 	}
 

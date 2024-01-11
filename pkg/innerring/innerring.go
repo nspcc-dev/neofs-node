@@ -637,7 +637,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
 	}
 
-	server.morphListener.EnableNotarySupport(server.contracts.proxy, server.morphClient.Committee, server.morphClient)
+	server.morphListener.EnableNotarySupport(server.contracts.proxy, server.key.PublicKey().GetScriptHash(),
+		server.morphClient.Committee, server.morphClient)
 
 	if !server.mainNotaryConfig.disabled {
 		// enable notary support in the main client

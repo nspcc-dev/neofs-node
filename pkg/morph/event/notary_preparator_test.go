@@ -59,7 +59,7 @@ func (b blockCounter) BlockCount() (res uint32, err error) {
 }
 
 func TestPrepare_IncorrectScript(t *testing.T) {
-	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
+	preparator := notaryPreparator(alphaKeys[0].GetScriptHash(), alphaKeysSource(), blockCounter{100, nil})
 
 	preparator.allowNotaryEvent(notaryScriptWithHash{
 		notaryRequestType: notaryRequestType{contractMethod},
@@ -107,6 +107,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			attrs   []transaction.Attribute
 		}
 		fbTX struct {
+			sigs  []transaction.Signer
 			attrs []transaction.Attribute
 		}
 	)
@@ -122,6 +123,10 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 
 		if m.attrs != nil {
 			nr.MainTransaction.Attributes = m.attrs
+		}
+
+		if f.sigs != nil {
+			nr.FallbackTransaction.Signers = f.sigs
 		}
 
 		if f.attrs != nil {
@@ -150,16 +155,12 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			expErr: errUnexpectedWitnessAmount,
 		},
 		{
-			name: "not dummy invocation script",
+			name: "our own fallback",
 			addW: false,
-			mTX: mTX{
-				scripts: []transaction.Witness{
-					{},
-					{
-						InvocationScript: wrongDummyInvocationScript,
-					},
-					{},
-				},
+			fbTX: fbTX{
+				sigs: []transaction.Signer{{}, {
+					Account: alphaKeys[0].GetScriptHash(),
+				}},
 			},
 			expErr: ErrTXAlreadyHandled,
 		},
@@ -330,7 +331,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 			name: "expired fb TX",
 			addW: false,
 			fbTX: fbTX{
-				[]transaction.Attribute{
+				attrs: []transaction.Attribute{
 					{},
 					{
 						Type: transaction.NotValidBeforeT,
@@ -392,7 +393,7 @@ func TestPrepare_IncorrectNR(t *testing.T) {
 		},
 	}
 
-	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
+	preparator := notaryPreparator(alphaKeys[0].GetScriptHash(), alphaKeysSource(), blockCounter{100, nil})
 
 	var (
 		incorrectNR payload.P2PNotaryRequest
@@ -437,7 +438,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 		},
 	}
 
-	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
+	preparator := notaryPreparator(alphaKeys[0].GetScriptHash(), alphaKeysSource(), blockCounter{100, nil})
 
 	for _, test := range tests {
 		for i := 0; i < 1; i++ { // run tests against 3 and 4 witness NR
@@ -488,7 +489,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 }
 
 func TestNotAllowedEvents(t *testing.T) {
-	preparator := notaryPreparator(alphaKeysSource(), blockCounter{100, nil})
+	preparator := notaryPreparator(alphaKeys[0].GetScriptHash(), alphaKeysSource(), blockCounter{100, nil})
 
 	nr := correctNR(script(scriptHash, "test1", nil), false, false)
 
@@ -571,6 +572,7 @@ func correctNR(script []byte, dummyMultisig, additionalWitness bool) *payload.P2
 			Script: script,
 		},
 		FallbackTransaction: &transaction.Transaction{
+			Signers: []transaction.Signer{{}, {}},
 			Attributes: []transaction.Attribute{
 				{},
 				{

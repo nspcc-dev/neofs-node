@@ -22,6 +22,7 @@ import (
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
@@ -475,8 +476,16 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		return fmt.Errorf("faield to sign notary request: %w", err)
 	}
 
-	mainH, fbH, untilActual, err := nAct.Notarize(mainTx, nil)
+	// Adjust nonce to always have a single fallback (and notary request)
+	// for the same main tx.
+	fbTx, err := nAct.FbActor.MakeUnsignedRun([]byte{byte(opcode.RET)}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create fallback tx: %w", err)
+	}
+	var mainH = mainTx.Hash()
+	fbTx.Nonce = binary.BigEndian.Uint32(mainH[:])
 
+	mainH, fbH, untilActual, err := nAct.SendRequest(mainTx, fbTx)
 	if err != nil && !alreadyOnChainError(err) {
 		return err
 	}

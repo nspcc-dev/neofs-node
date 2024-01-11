@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 ### Changed
 - Created files are not group writable (#2589)
 - IR does not create new notary requests for the SN's bootstraps but signs the received ones instead (#2717)
+- IR can handle third-party notary requests without reliance on receiving the original one (#2715)
 
 ### Removed
 - Deprecated `neofs-adm [...] inspect` commands (#2603)
