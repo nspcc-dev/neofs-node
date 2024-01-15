@@ -85,8 +85,8 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 
 	var err error
 
-	if exp, got := niExp.Hash(), niGot.Hash(); exp != got {
-		return fmt.Errorf("hash: got %d, expect %d", got, exp)
+	if exp, got := niExp.PublicKey(), niGot.PublicKey(); !bytes.Equal(exp, got) {
+		return fmt.Errorf("public key: got %x, expect %x", got, exp)
 	}
 
 	if exp, got := niExp.NumberOfAttributes(), niGot.NumberOfAttributes(); exp != got {
