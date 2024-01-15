@@ -3,7 +3,6 @@ package netmap
 import (
 	"encoding/hex"
 
-	netmapclient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -62,26 +61,9 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		prm := netmapclient.AddPeerPrm{}
-		prm.SetNodeInfo(nodeInfo)
-
-		// In notary environments we call AddPeerIR method instead of AddPeer.
-		// It differs from AddPeer only by name, so we can do this in the same form.
-		// See https://github.com/nspcc-dev/neofs-contract/issues/154.
-		const methodAddPeerNotary = "addPeerIR"
-
-		// create new notary request with the original nonce
-		err = np.netmapClient.Morph().NotaryInvoke(
-			np.netmapClient.ContractAddress(),
-			0,
-			originalRequest.MainTransaction.Nonce,
-			nil,
-			methodAddPeerNotary,
-			nodeInfoBinary,
-		)
-
+		err = np.netmapClient.Morph().NotarySignAndInvokeTX(tx)
 		if err != nil {
-			np.log.Error("can't invoke netmap.AddPeer", zap.Error(err))
+			np.log.Error("can't sign and send notary request calling netmap.AddPeer", zap.Error(err))
 		}
 	}
 }
