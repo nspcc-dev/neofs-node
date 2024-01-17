@@ -85,6 +85,7 @@ For example, `attr>=100` or `attr=` are now processed differently. See `-h` for 
 - Incorrect handling of notary request leading to inability to collect signatures in some cases (#2715)
 - Deadlock in autodeploy routine (#2720)
 - SN now validates session tokens attached to objects (#1159)
+- Object search server no longer wastes system resources sending empty intermediate messages to the stream (#2722)
 
 ### Changed
 - Created files are not group writable (#2589)
