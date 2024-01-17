@@ -117,7 +117,11 @@ func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) 
 }
 
 func (exec *execCtx) writeIDList(ids []oid.ID) {
-	err := exec.prm.writer.WriteIDs(ids)
+	var err error
+
+	if len(ids) > 0 {
+		err = exec.prm.writer.WriteIDs(ids)
+	}
 
 	switch {
 	default:
