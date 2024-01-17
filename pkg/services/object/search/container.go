@@ -27,8 +27,10 @@ func (exec *execCtx) executeOnContainer() {
 		return
 	}
 
+	mProcessedNodes := make(map[string]struct{})
+
 	for {
-		if exec.processCurrentEpoch() {
+		if exec.processCurrentEpoch(mProcessedNodes) {
 			break
 		}
 
@@ -47,7 +49,7 @@ func (exec *execCtx) executeOnContainer() {
 	exec.err = nil
 }
 
-func (exec *execCtx) processCurrentEpoch() bool {
+func (exec *execCtx) processCurrentEpoch(mProcessedNodes map[string]struct{}) bool {
 	exec.log.Debug("process epoch",
 		zap.Uint64("number", exec.curProcEpoch),
 	)
@@ -71,6 +73,13 @@ func (exec *execCtx) processCurrentEpoch() bool {
 		var mtx sync.Mutex
 
 		for i := range addrs {
+			strKey := string(addrs[i].PublicKey())
+			if _, ok = mProcessedNodes[strKey]; ok {
+				continue
+			}
+
+			mProcessedNodes[strKey] = struct{}{}
+
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
