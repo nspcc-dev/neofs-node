@@ -37,6 +37,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -256,15 +257,10 @@ func initObjectService(c *cfg) {
 		putsvcV2.WithKey(&c.key.PrivateKey),
 	)
 
-	sSearch := searchsvc.New(
+	sSearch := searchsvc.New(c,
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
-		searchsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.WithoutSuccessTracking(),
-			),
-		),
 		searchsvc.WithNetMapSource(c.netMapSource),
 		searchsvc.WithKeyStorage(keyStorage),
 	)
@@ -589,4 +585,34 @@ func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) er
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
+}
+
+// GetContainerNodesAtEpoch reads storage policy of the referenced container
+// from the underlying container storage, reads network map at the specified
+// epoch from the underlying storage, applies the storage policy to it and
+// returns sets of selected storage nodes.
+//
+// GetContainerNodesAtEpoch implements [searchsvc.Node].
+func (c *cfg) GetContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error) {
+	cnr, err := c.cfgObject.cnrSource.Get(cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("read container by ID: %w", err)
+	}
+
+	networkMap, err := c.netMapSource.GetNetMapByEpoch(epoch)
+	if err != nil {
+		return nil, fmt.Errorf("read network map by epoch: %w", err)
+	}
+
+	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("apply container's storage policy to the network map: %w", err)
+	}
+
+	return nodeSets, nil
+}
+
+// IsLocalPublicKey implements [searchsvc.Node].
+func (c *cfg) IsLocalPublicKey(bPubKey []byte) bool {
+	return c.IsLocalKey(bPubKey)
 }

@@ -5,8 +5,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -15,6 +15,8 @@ import (
 // of Object.Search service.
 type Service struct {
 	*cfg
+
+	node Node
 }
 
 // Option is a Service's constructor option.
@@ -24,6 +26,21 @@ type searchClient interface {
 	// searchObjects searches objects on the specified node.
 	// MUST NOT modify execCtx as it can be accessed concurrently.
 	searchObjects(*execCtx, client.NodeInfo) ([]oid.ID, error)
+}
+
+// Node represents local NeoFS storage node within which [Service] operates.
+type Node interface {
+	// GetContainerNodesAtEpoch returns storage nodes matching storage policy of the
+	// referenced container in a given NeoFS epoch. Nodes are identified by their
+	// public keys and can be repeated in different sets.
+	//
+	// Returns [apistatus.ContainerNotFound] if specified container is missing in
+	// the network.
+	GetContainerNodesAtEpoch(cnr cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error)
+
+	// IsLocalPublicKey checks whether given binary-encoded public key is announced
+	// by the Node in the NeoFS network map.
+	IsLocalPublicKey(bPubKey []byte) bool
 }
 
 type ClientConstructor interface {
@@ -41,10 +58,6 @@ type cfg struct {
 		get(client.NodeInfo) (searchClient, error)
 	}
 
-	traverserGenerator interface {
-		generateTraverser(cid.ID, uint64) (*placement.Traverser, error)
-	}
-
 	currentEpochReceiver interface {
 		currentEpoch() (uint64, error)
 	}
@@ -60,8 +73,8 @@ func defaultCfg() *cfg {
 }
 
 // New creates, initializes and returns utility serving
-// Object.Get service requests.
-func New(opts ...Option) *Service {
+// Object.Search service requests for the given [Node].
+func New(node Node, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -69,7 +82,8 @@ func New(opts ...Option) *Service {
 	}
 
 	return &Service{
-		cfg: c,
+		cfg:  c,
+		node: node,
 	}
 }
 
@@ -94,14 +108,6 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientConstructor.(*clientConstructorWrapper).constructor = v
-	}
-}
-
-// WithTraverserGenerator returns option to set generator of
-// placement traverser to get the objects from containers.
-func WithTraverserGenerator(t *util.TraverserGenerator) Option {
-	return func(c *cfg) {
-		c.traverserGenerator = (*traverseGeneratorWrapper)(t)
 	}
 }
 
