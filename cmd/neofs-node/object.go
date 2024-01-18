@@ -222,8 +222,6 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.applicationConfiguration.policer.objectBatchSize),
 	)
 
-	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
-
 	c.workers = append(c.workers, c.shared.policer)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
@@ -270,15 +268,10 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sGet := getsvc.New(
+	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
-		getsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.SuccessAfter(1),
-			),
-		),
 		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
 	)
@@ -587,32 +580,72 @@ func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
 }
 
+func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
+	nodeSets [][]netmapsdk.NodeInfo,
+	storagePolicy netmapsdk.PlacementPolicy,
+	networkMap *netmapsdk.NetMap,
+	err error,
+) {
+	cnr, err := c.cfgObject.cnrSource.Get(cnrID)
+	if err != nil {
+		err = fmt.Errorf("read container by ID: %w", err)
+		return
+	}
+
+	networkMap, err = c.netMapSource.GetNetMapByEpoch(epoch)
+	if err != nil {
+		err = fmt.Errorf("read network map by epoch: %w", err)
+		return
+	}
+
+	storagePolicy = cnr.Value.PlacementPolicy()
+
+	nodeSets, err = networkMap.ContainerNodes(storagePolicy, cnrID)
+	if err != nil {
+		err = fmt.Errorf("apply container's storage policy to the network map: %w", err)
+	}
+
+	return
+}
+
 // GetContainerNodesAtEpoch reads storage policy of the referenced container
 // from the underlying container storage, reads network map at the specified
 // epoch from the underlying storage, applies the storage policy to it and
 // returns sets of selected storage nodes.
 //
 // GetContainerNodesAtEpoch implements [searchsvc.Node].
-func (c *cfg) GetContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error) {
-	cnr, err := c.cfgObject.cnrSource.Get(cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("read container by ID: %w", err)
-	}
-
-	networkMap, err := c.netMapSource.GetNetMapByEpoch(epoch)
-	if err != nil {
-		return nil, fmt.Errorf("read network map by epoch: %w", err)
-	}
-
-	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("apply container's storage policy to the network map: %w", err)
-	}
-
-	return nodeSets, nil
+func (c *cfg) GetContainerNodesAtEpoch(cnr cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error) {
+	nodeSets, _, _, err := c.getContainerNodesAtEpoch(cnr, epoch)
+	return nodeSets, err
 }
 
-// IsLocalPublicKey implements [searchsvc.Node].
+// IsLocalPublicKey implements [searchsvc.Node], [getsvc.Node].
 func (c *cfg) IsLocalPublicKey(bPubKey []byte) bool {
 	return c.IsLocalKey(bPubKey)
+}
+
+// GetObjectNodesAtEpoch reads storage policy of the referenced container from
+// the underlying container storage, reads network map at the specified epoch
+// from the underlying storage, applies the storage policy to it and returns
+// sorted lists of selected storage nodes along with the numbers of primary
+// object holders.
+//
+// GetObjectNodesAtEpoch implements [getsvc.Node].
+func (c *cfg) GetObjectNodesAtEpoch(addr oid.Address, epoch uint64) ([][]netmapsdk.NodeInfo, []uint32, error) {
+	nodeLists, storagePolicy, networkMap, err := c.getContainerNodesAtEpoch(addr.Container(), epoch)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nodeLists, err = networkMap.PlacementVectors(nodeLists, addr.Object())
+	if err != nil {
+		return nil, nil, fmt.Errorf("apply object's storage policy to the network map: %w", err)
+	}
+
+	primaryNums := make([]uint32, storagePolicy.NumberOfReplicas())
+	for i := range primaryNums {
+		primaryNums[i] = storagePolicy.ReplicaNumberByIndex(i)
+	}
+
+	return nodeLists, primaryNums, nil
 }
