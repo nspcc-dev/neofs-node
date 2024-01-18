@@ -395,7 +395,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 
-	isLocalConsensus := isLocalConsensusMode(cfg)
+	isLocalConsensus, err := isLocalConsensusMode(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("invalid consensus configuration: %w", err)
+	}
+
 	if isLocalConsensus {
 		if singleAcc == nil {
 			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
@@ -484,7 +488,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	} else {
 		if len(server.predefinedValidators) == 0 {
-			return nil, fmt.Errorf("empty '%s' list in config", validatorsConfigKey)
+			return nil, fmt.Errorf("empty '%s' list in config", cfgPathFSChainValidators)
 		}
 
 		// fallback to the pure RPC architecture
@@ -512,9 +516,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			//
 			// connection switch/loose callbacks are not needed, so just create
 			// another one-time client instead of server.createClient
-			endpoints := cfg.GetStringSlice(morphChain.name + ".endpoints")
+			endpoints := cfg.GetStringSlice(cfgPathFSChainRPCEndpoints)
 			if len(endpoints) == 0 {
-				return nil, fmt.Errorf("%s chain client endpoints not provided", morphChain.name)
+				return nil, fmt.Errorf("configuration of FS chain RPC endpoints '%s' is missing or empty", cfgPathFSChainRPCEndpoints)
 			}
 
 			clnt, err = client.New(server.key,
@@ -1099,10 +1103,8 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 	return client.New(p.key, options...)
 }
 
-const validatorsConfigKey = "morph.validators"
-
 func parsePredefinedValidators(cfg *viper.Viper) (keys.PublicKeys, error) {
-	publicKeyStrings := cfg.GetStringSlice(validatorsConfigKey)
+	publicKeyStrings := cfg.GetStringSlice(cfgPathFSChainValidators)
 
 	return ParsePublicKeysFromStrings(publicKeyStrings)
 }

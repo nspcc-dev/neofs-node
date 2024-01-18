@@ -101,26 +101,26 @@ func (c *Client) InitSidechainScope() error {
 func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {
 	nnsHash, err := nns.InferHash(ws)
 	if err != nil {
-		return fmt.Errorf("InferHash: %w", err)
+		return fmt.Errorf("resolve NNS contract address: %w", err)
 	}
 
 	var nnsReader = nns.NewReader(invoker.New(ws, nil), nnsHash)
 
 	balanceHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
 	if err != nil {
-		return fmt.Errorf("resolving balance: %w", err)
+		return fmt.Errorf("resolve Balance contract address by NNS domain name %q: %w", nns.NameBalance, err)
 	}
 	cntHash, err := nnsReader.ResolveFSContract(nns.NameContainer)
 	if err != nil {
-		return fmt.Errorf("resolving container: %w", err)
+		return fmt.Errorf("resolve Container contract address by NNS domain name %q: %w", nns.NameContainer, err)
 	}
 	netmapHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
-		return fmt.Errorf("resolving netmap: %w", err)
+		return fmt.Errorf("resolve Netmap contract address by NNS domain name %q: %w", nns.NameNetmap, err)
 	}
 	neofsIDHash, err := nnsReader.ResolveFSContract(nns.NameNeoFSID)
 	if err != nil {
-		return fmt.Errorf("resolving neofsid: %w", err)
+		return fmt.Errorf("resolve NeoFS ID contract address by NNS domain name %q: %w", nns.NameNeoFSID, err)
 	}
 
 	conf.signer = GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)

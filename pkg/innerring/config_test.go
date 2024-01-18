@@ -345,17 +345,64 @@ func TestIsLocalConsensusMode(t *testing.T) {
 		v.SetEnvPrefix("neofs_ir")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-		const envKey = "NEOFS_IR_MORPH_ENDPOINTS"
+		const envKeyEndpoints = "NEOFS_IR_MORPH_ENDPOINTS"
+		const envKeyConsensus = "NEOFS_IR_MORPH_CONSENSUS"
+		var err error
 
-		err := os.Unsetenv(envKey)
-		require.NoError(t, err)
+		for _, tc := range []struct {
+			setEndpoints bool
+			setConsensus bool
+			expected     uint8 // 0:false, 1:true, 2:error
+		}{
+			{
+				setEndpoints: true,
+				setConsensus: true,
+				expected:     0,
+			},
+			{
+				setEndpoints: true,
+				setConsensus: false,
+				expected:     0,
+			},
+			{
+				setEndpoints: false,
+				setConsensus: true,
+				expected:     1,
+			},
+			{
+				setEndpoints: false,
+				setConsensus: false,
+				expected:     2,
+			},
+		} {
+			if tc.setEndpoints {
+				err = os.Setenv(envKeyEndpoints, "any")
+			} else {
+				err = os.Unsetenv(envKeyEndpoints)
+			}
+			require.NoError(t, err, tc)
 
-		require.True(t, isLocalConsensusMode(v))
+			if tc.setConsensus {
+				err = os.Setenv(envKeyConsensus, "any")
+			} else {
+				err = os.Unsetenv(envKeyConsensus)
+			}
+			require.NoError(t, err, tc)
 
-		err = os.Setenv(envKey, "any string")
-		require.NoError(t, err)
-
-		require.False(t, isLocalConsensusMode(v))
+			res, err := isLocalConsensusMode(v)
+			switch tc.expected {
+			default:
+				t.Fatalf("unexpected result value %v", tc.expected)
+			case 0:
+				require.NoError(t, err, tc)
+				require.False(t, res, tc)
+			case 1:
+				require.NoError(t, err, tc)
+				require.True(t, res, tc)
+			case 2:
+				require.Error(t, err, tc)
+			}
+		}
 	})
 
 	t.Run("YAML", func(t *testing.T) {
@@ -368,11 +415,20 @@ morph:
 `))
 		require.NoError(t, err)
 
-		require.False(t, isLocalConsensusMode(v))
+		res, err := isLocalConsensusMode(v)
+		require.NoError(t, err)
+		require.False(t, res)
 
 		resetConfig(t, v, "morph.endpoints")
 
-		require.True(t, isLocalConsensusMode(v))
+		_, err = isLocalConsensusMode(v)
+		require.Error(t, err)
+
+		v.Set("morph.consensus", "any")
+
+		res, err = isLocalConsensusMode(v)
+		require.NoError(t, err)
+		require.True(t, res)
 	})
 }
 
