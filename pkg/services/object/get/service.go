@@ -2,19 +2,39 @@ package getsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
+// NeoFSNetwork provides access to the NeoFS network to get information
+// necessary for the [Service] to work.
+type NeoFSNetwork interface {
+	// GetNodesForObject returns descriptors of storage nodes matching storage
+	// policy of the referenced object for now. Nodes are identified by their public
+	// keys and can be repeated in different lists. The second value specifies the
+	// number (N) of primary object holders for each list (L) so:
+	//  - size of each L >= N;
+	//  - first N nodes of each L are primary data holders while others (if any)
+	//    are backup.
+	//
+	// GetContainerNodes does not change resulting slices and their elements.
+	//
+	// Returns [apistatus.ContainerNotFound] if requested container is missing in
+	// the network.
+	GetNodesForObject(oid.Address) ([][]netmapsdk.NodeInfo, []uint, error)
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node providing [Service].
+	IsLocalNodePublicKey([]byte) bool
+}
+
 // Service utility serving requests of Object.Get service.
 type Service struct {
 	*cfg
+	neoFSNet NeoFSNetwork
 }
 
 // Option is a Service's constructor option.
@@ -37,14 +57,6 @@ type cfg struct {
 		get(client.NodeInfo) (getClient, error)
 	}
 
-	traverserGenerator interface {
-		GenerateTraverser(cid.ID, *oid.ID, uint64) (*placement.Traverser, error)
-	}
-
-	currentEpochReceiver interface {
-		currentEpoch() (uint64, error)
-	}
-
 	keyStore *util.KeyStorage
 }
 
@@ -59,7 +71,7 @@ func defaultCfg() *cfg {
 
 // New creates, initializes and returns utility serving
 // Object.Get service requests.
-func New(opts ...Option) *Service {
+func New(neoFSNet NeoFSNetwork, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -67,7 +79,8 @@ func New(opts ...Option) *Service {
 	}
 
 	return &Service{
-		cfg: c,
+		cfg:      c,
+		neoFSNet: neoFSNet,
 	}
 }
 
@@ -101,24 +114,6 @@ type ClientConstructor interface {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientCache.(*clientCacheWrapper).cache = v
-	}
-}
-
-// WithTraverserGenerator returns option to set generator of
-// placement traverser to get the objects from containers.
-func WithTraverserGenerator(t *util.TraverserGenerator) Option {
-	return func(c *cfg) {
-		c.traverserGenerator = t
-	}
-}
-
-// WithNetMapSource returns option to set network
-// map storage to receive current network state.
-func WithNetMapSource(nmSrc netmap.Source) Option {
-	return func(c *cfg) {
-		c.currentEpochReceiver = &nmSrcWrapper{
-			nmSrc: nmSrc,
-		}
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // storagePolicyRes structures persistent storage policy application result for
@@ -151,4 +152,48 @@ func (x *containerPolicyContext) applyAtEpoch(epoch uint64, cache *lru.Cache[con
 	result.nodeSets, result.err = networkMap.ContainerNodes(x.cnr.Value.PlacementPolicy(), x.id)
 	cache.Add(cacheKey, result)
 	return result, nil
+}
+
+// getNodesForObject reads storage policy of the referenced container from the
+// underlying container storage, reads network map at the specified epoch from
+// the underlying storage, applies the storage policy to it and returns sorted
+// lists of selected storage nodes along with the per-list numbers of primary
+// object holders. Resulting slices must not be changed.
+func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
+	epoch, err := x.network.Epoch()
+	if err != nil {
+		return nil, nil, fmt.Errorf("read current NeoFS epoch: %w", err)
+	}
+	cnrID := addr.Container()
+	cnr, err := x.containers.Get(cnrID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read container by ID: %w", err)
+	}
+	networkMap, err := x.network.GetNetMapByEpoch(epoch)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read network map at epoch #%d: %w", epoch, err)
+	}
+
+	policy := cnr.Value.PlacementPolicy()
+	nodeLists, err := networkMap.ContainerNodes(policy, cnrID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("apply container's storage policy to the network map at epoch #%d: %w", epoch, err)
+	}
+	if nodeLists, err = networkMap.PlacementVectors(nodeLists, addr.Object()); err != nil {
+		return nil, nil, fmt.Errorf("sort container nodes from the network map at epoch #%d: %w", epoch, err)
+	}
+	if len(nodeLists) != policy.NumberOfReplicas() {
+		return nil, nil, fmt.Errorf("invalid result of container's storage policy application to the network map at epoch #%d: "+
+			"diff number of storage node lists (%d) and required replica descriptors (%d)", epoch, len(nodeLists), policy.NumberOfReplicas())
+	}
+
+	primaryCounts := make([]uint, len(nodeLists))
+	for i := range nodeLists {
+		if primaryCounts[i] = uint(policy.ReplicaNumberByIndex(i)); primaryCounts[i] > uint(len(nodeLists[i])) {
+			return nil, nil, fmt.Errorf("invalid result of container's storage policy application to the network map at epoch #%d: "+
+				"invalid storage node list #%d: number of nodes (%d) is less than minimum required by the container policy (%d)",
+				epoch, i, len(nodeLists), policy.NumberOfReplicas())
+		}
+	}
+	return nodeLists, primaryCounts, nil
 }
