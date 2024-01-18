@@ -25,8 +25,10 @@ func (exec *execCtx) executeOnContainer() {
 		return
 	}
 
+	mProcessedNodes := make(map[string]struct{})
+
 	for {
-		if exec.processCurrentEpoch() {
+		if exec.processCurrentEpoch(mProcessedNodes) {
 			break
 		}
 
@@ -42,7 +44,7 @@ func (exec *execCtx) executeOnContainer() {
 	}
 }
 
-func (exec *execCtx) processCurrentEpoch() bool {
+func (exec *execCtx) processCurrentEpoch(mProcessedNodes map[string]struct{}) bool {
 	exec.log.Debug("process epoch",
 		zap.Uint64("number", exec.curProcEpoch),
 	)
@@ -75,6 +77,13 @@ func (exec *execCtx) processCurrentEpoch() bool {
 				return true
 			default:
 			}
+
+			strKey := string(addrs[i].PublicKey())
+			if _, ok = mProcessedNodes[strKey]; ok {
+				continue
+			}
+
+			mProcessedNodes[strKey] = struct{}{}
 
 			// TODO: #1142 consider parallel execution
 			// TODO: #1142 consider optimization: if status == SPLIT we can continue until
