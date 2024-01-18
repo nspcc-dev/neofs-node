@@ -13,10 +13,12 @@ Changelog for NeoFS Node
 - Neo RPC client failure when the first endpoint is unavailable even if there are more endpoints to try (#2703)
 - Incorrect address mapping of the Alphabet contracts in NNS produced by deployment procedure (#2713)
 - IR compares and logs public keys difference, not hash of keys difference at SN verification check (#2711)
+- Incorrect handling of notary request leading to inability to collect signatures in some cases (#2715)
 
 ### Changed
 - Created files are not group writable (#2589)
 - IR does not create new notary requests for the SN's bootstraps but signs the received ones instead (#2717)
+- IR can handle third-party notary requests without reliance on receiving the original one (#2715)
 
 ### Removed
 - Deprecated `neofs-adm [...] inspect` commands (#2603)

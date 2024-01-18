@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -55,15 +56,6 @@ type BlockCounter interface {
 	BlockCount() (res uint32, err error)
 }
 
-// PreparatorPrm groups the required parameters of the preparator constructor.
-type PreparatorPrm struct {
-	AlphaKeys client.AlphabetKeys
-
-	// BlockCount must return block count of the network
-	// from which notary requests are received.
-	BlockCounter BlockCounter
-}
-
 // preparator constructs NotaryEvent
 // from the NotaryRequest event.
 type preparator struct {
@@ -72,13 +64,14 @@ type preparator struct {
 	// dummyInvocationScript is invocation script from TX that is not signed.
 	dummyInvocationScript []byte
 
+	localAcc  util.Uint160
 	alphaKeys client.AlphabetKeys
 
 	blockCounter BlockCounter
 
-	// cache for TX recursion; size limited because it is
-	// just an optimization, already handled TX are not gonna
-	// be signed once more anyway
+	// cache for TX recursion; it's limited, so we can technically
+	// react to the same transaction multiple times, but it's not a
+	// big problem.
 	alreadyHandledTXs *lru.Cache[util.Uint256, struct{}]
 
 	m             *sync.RWMutex
@@ -89,14 +82,7 @@ type preparator struct {
 //
 // Considered to be used for preparing notary request
 // for parsing it by event.Listener.
-func notaryPreparator(prm PreparatorPrm) preparator {
-	switch {
-	case prm.AlphaKeys == nil:
-		panic("alphabet keys source must not be nil")
-	case prm.BlockCounter == nil:
-		panic("block counter must not be nil")
-	}
-
+func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc BlockCounter) preparator {
 	contractSysCall := make([]byte, 4)
 	binary.LittleEndian.PutUint32(contractSysCall, interopnames.ToID([]byte(interopnames.SystemContractCall)))
 
@@ -108,12 +94,25 @@ func notaryPreparator(prm PreparatorPrm) preparator {
 	return preparator{
 		contractSysCall:       contractSysCall,
 		dummyInvocationScript: dummyInvocationScript,
-		alphaKeys:             prm.AlphaKeys,
-		blockCounter:          prm.BlockCounter,
+		localAcc:              localAcc,
+		alphaKeys:             alphaKeys,
+		blockCounter:          bc,
 		alreadyHandledTXs:     cache,
 		m:                     &sync.RWMutex{},
 		allowedEvents:         make(map[notaryScriptWithHash]struct{}),
 	}
+}
+
+func txCopy(tx *transaction.Transaction) *transaction.Transaction {
+	cp := *tx
+	cp.Scripts = make([]transaction.Witness, len(tx.Scripts))
+	for i := range cp.Scripts {
+		cp.Scripts[i] = transaction.Witness{
+			InvocationScript:   slice.Copy(tx.Scripts[i].InvocationScript),
+			VerificationScript: slice.Copy(tx.Scripts[i].VerificationScript),
+		}
+	}
+	return &cp
 }
 
 // Prepare converts raw notary requests to NotaryEvent.
@@ -144,17 +143,21 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	}
 	invokerWitness := ln == 4
 
-	// alphabet node should handle only notary requests that do not yet have inner
-	// ring multisignature filled => such main TXs either have empty invocation script
-	// of the inner ring witness (in case if Notary Actor is used to create request)
-	// or have it filled with dummy bytes (if request was created manually with the old
-	// neo-go API)
-	//
-	// this check prevents notary flow recursion
-	if !(len(nr.MainTransaction.Scripts[1].InvocationScript) == 0 ||
-		bytes.Equal(nr.MainTransaction.Scripts[1].InvocationScript, p.dummyInvocationScript)) { // compatibility with old version
+	// We do receive requests made by the node itself, but these must never
+	// be reacted upon, otherwise we'll never end sending these requests
+	// (at least not until the main tx is ready). Valid fallbacks (pool
+	// doesn't accept invalid ones) always have this signer.
+	if p.localAcc.Equals(nr.FallbackTransaction.Signers[1].Account) {
 		return nil, ErrTXAlreadyHandled
 	}
+
+	// Make a copy of request and main transaction, we will modify them and
+	// this is not safe to do for subscribers (can affect shared structures
+	// leading to data corruption like broken notary request in our case).
+	var newR = new(payload.P2PNotaryRequest)
+	*newR = *nr
+	newR.MainTransaction = txCopy(nr.MainTransaction)
+	nr = newR
 
 	currentAlphabet, err := p.alphaKeys()
 	if err != nil {

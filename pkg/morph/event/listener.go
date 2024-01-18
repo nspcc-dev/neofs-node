@@ -43,12 +43,13 @@ type Listener interface {
 	// Must ignore nil handlers.
 	RegisterNotificationHandler(NotificationHandlerInfo)
 
-	// EnableNotarySupport enables notary request listening. Passed hash is
-	// notary mainTX signer. In practise, it means that listener will subscribe
-	// for only notary requests that are going to be paid with passed hash.
+	// EnableNotarySupport enables notary request listening. Passed hashes are
+	// notary mainTX signer and local key account. In practice, it means that listener
+	// will subscribe only for notary requests that are going to be paid with passed
+	// mainTX hash.
 	//
 	// Must not be called after Listen or ListenWithError.
-	EnableNotarySupport(util.Uint160, client.AlphabetKeys, BlockCounter)
+	EnableNotarySupport(mainSigner util.Uint160, localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc BlockCounter)
 
 	// SetNotaryParser must set the parser of particular notary request event.
 	//
@@ -463,7 +464,7 @@ func (l *listener) RegisterNotificationHandler(hi NotificationHandlerInfo) {
 // for only notary requests that are going to be paid with passed hash.
 //
 // Must not be called after Listen or ListenWithError.
-func (l *listener) EnableNotarySupport(mainTXSigner util.Uint160, alphaKeys client.AlphabetKeys, bc BlockCounter) {
+func (l *listener) EnableNotarySupport(mainTXSigner util.Uint160, localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc BlockCounter) {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 
@@ -471,12 +472,7 @@ func (l *listener) EnableNotarySupport(mainTXSigner util.Uint160, alphaKeys clie
 	l.notaryMainTXSigner = mainTXSigner
 	l.notaryHandlers = make(map[notaryRequestTypes]Handler)
 	l.notaryParsers = make(map[notaryRequestTypes]NotaryParser)
-	l.notaryEventsPreparator = notaryPreparator(
-		PreparatorPrm{
-			AlphaKeys:    alphaKeys,
-			BlockCounter: bc,
-		},
-	)
+	l.notaryEventsPreparator = notaryPreparator(localAcc, alphaKeys, bc)
 }
 
 // SetNotaryParser sets the parser of particular notary request event.
