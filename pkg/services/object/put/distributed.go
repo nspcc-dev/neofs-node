@@ -1,14 +1,17 @@
 package putsvc
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -20,7 +23,9 @@ type preparedObjectTarget interface {
 }
 
 type distributedTarget struct {
-	traversal traversal
+	// whether to perform additional best-effort of sending the object replica to
+	// all reserve nodes of the container
+	broadcast bool
 
 	remotePool, localPool util.WorkerPool
 
@@ -31,72 +36,28 @@ type distributedTarget struct {
 
 	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
 
-	isLocalKey func([]byte) bool
+	node Node
 
 	relay func(nodeDesc) error
 
 	fmt *object.FormatValidator
 
 	log *zap.Logger
-}
 
-// parameters and state of container traversal.
-type traversal struct {
-	opts []placement.Option
+	objStoragePolicy ObjectStoragePolicy
 
-	// need of additional broadcast after the object is saved
-	extraBroadcastEnabled bool
+	// when non-zero, this setting simplifies the object's storage policy
+	// requirements to a fixed number of object replicas to be retained
+	linearReplNum uint32
 
-	// mtx protects mExclude map.
-	mtx sync.RWMutex
-
-	// container nodes which was processed during the primary object placement
-	mExclude map[string]struct{}
-}
-
-// updates traversal parameters after the primary placement finish and
-// returns true if additional container broadcast is needed.
-func (x *traversal) submitPrimaryPlacementFinish() bool {
-	if x.extraBroadcastEnabled {
-		// do not track success during container broadcast (best-effort)
-		x.opts = append(x.opts, placement.WithoutSuccessTracking())
-
-		// avoid 2nd broadcast
-		x.extraBroadcastEnabled = false
-
-		return true
-	}
-
-	return false
-}
-
-// marks the container node as processed during the primary object placement.
-func (x *traversal) submitProcessed(n placement.Node) {
-	if x.extraBroadcastEnabled {
-		key := string(n.PublicKey())
-
-		x.mtx.Lock()
-		if x.mExclude == nil {
-			x.mExclude = make(map[string]struct{}, 1)
-		}
-
-		x.mExclude[key] = struct{}{}
-		x.mtx.Unlock()
-	}
-}
-
-// checks if specified node was processed during the primary object placement.
-func (x *traversal) processed(n placement.Node) bool {
-	x.mtx.RLock()
-	_, ok := x.mExclude[string(n.PublicKey())]
-	x.mtx.RUnlock()
-	return ok
+	// when set, the object is saved on the local node only
+	localOnly bool
 }
 
 type nodeDesc struct {
 	local bool
 
-	info placement.Node
+	info client.NodeInfo
 }
 
 // errIncompletePut is returned if processing on a container fails.
@@ -142,7 +103,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	if len(t.obj.Children()) > 0 {
 		// enabling extra broadcast for linking objects
-		t.traversal.extraBroadcastEnabled = true
+		t.broadcast = true
 	}
 
 	return t.iteratePlacement(t.sendObject)
@@ -163,98 +124,264 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	return nil
 }
 
+func (t *distributedTarget) convertNodeInfo(nodeInfo netmap.NodeInfo) (client.NodeInfo, error) {
+	var res client.NodeInfo
+
+	var endpoints network.AddressGroup
+	err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeInfo))
+	if err != nil {
+		return res, err
+	}
+
+	if ext := nodeInfo.ExternalAddresses(); len(ext) > 0 {
+		var externalEndpoints network.AddressGroup
+		err = externalEndpoints.FromStringSlice(ext)
+		if err != nil {
+			// less critical since the main ones must work, but also important
+			t.log.Warn("failed to decode external network endpoints of the storage node from the network map, ignore them",
+				zap.String("public key", netmap.StringifyPublicKey(nodeInfo)),
+				zap.Strings("endpoints", ext), zap.Error(err))
+		} else {
+			res.SetExternalAddressGroup(externalEndpoints)
+		}
+	}
+
+	res.SetAddressGroup(endpoints)
+	res.SetPublicKey(nodeInfo.PublicKey())
+
+	return res, nil
+}
+
 func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
 
-	traverser, err := placement.NewTraverser(
-		append(t.traversal.opts, placement.ForObject(id))...,
-	)
+	nodeLists, primaryNodeNums, err := t.objStoragePolicy.StorageNodesForObject(id)
 	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
+		return oid.ID{}, fmt.Errorf("sort container nodes for the object: %w", err)
 	}
+
+	if t.localOnly {
+		localNodeInLists := false
+	loop:
+		for i := range nodeLists {
+			for j := range nodeLists[i] {
+				if localNodeInLists = t.node.IsLocalPublicKey(nodeLists[i][j].PublicKey()); localNodeInLists {
+					if t.linearReplNum > 1 {
+						return oid.ID{}, errors.New("more than one replica is requested in a local operation")
+					}
+
+					nodeLists = [][]netmap.NodeInfo{{nodeLists[i][j]}}
+					primaryNodeNums = []uint32{1}
+
+					break loop
+				}
+			}
+		}
+
+		if !localNodeInLists {
+			return oid.ID{}, errors.New("local node does not comply with container storage policy")
+		}
+	} else if t.linearReplNum > 0 {
+		var sumLen int
+		for i := range nodeLists {
+			sumLen += len(nodeLists[i])
+		}
+
+		flatList := make([]netmap.NodeInfo, 0, sumLen)
+
+		for i := range nodeLists {
+			flatList = append(flatList, nodeLists[i]...)
+		}
+
+		nodeLists = [][]netmap.NodeInfo{flatList}
+		primaryNodeNums = []uint32{t.linearReplNum}
+		// FIXME: current approach works from the client POV, but may be quite
+		//  suboptimal from a system POV. For example, consider following node lists:
+		//   1 replica in [N1, N2]
+		//   1 replica in [N3, N4]
+		//  and t.linearReplNum = 2. If everything is OK with nodes, in current
+		//  implementation the object will be stored on {}N1, N2} nodes. At the same
+		//  time, N2 is a reserve node while N3 is a primary one in terms of the storage
+		//  policy. This behavior provokes the system in advance to background recording
+		//  of an object on node N3 and subsequent deletion from the N2 one
+		//  (policer+replicator components).
+	}
+
+	// container nodes on which a replica of the current object has already been saved.
+	// Values indicate whether the operation was successful.
+	processedNodes := make(map[string]bool)
+	var processedNodesMtx sync.Mutex
 
 	var resErr atomic.Value
 
-loop:
-	for {
-		addrs := traverser.Next()
-		if len(addrs) == 0 {
-			break
-		}
+nextNodeList:
+	for i := range nodeLists {
+		var savedReplicas uint32
+		// legit cast since list length is >= then primary num
+		needReplNum := int(primaryNodeNums[i])
+		// nodes to which the object record is parallelized per iteration
+		curNodeGroup := make([]nodeDesc, 0, needReplNum)
+		// TODO: processing lists in ascending size can potentially reduce failure latency
+		//  and volume of "unfinished" data
 
-		wg := new(sync.WaitGroup)
+		for nAlreadyProcessed := 0; ; {
+			curNodeGroup = curNodeGroup[:0]
 
-		for i := range addrs {
-			if t.traversal.processed(addrs[i]) {
-				// it can happen only during additional container broadcast
-				continue
-			}
-
-			wg.Add(1)
-
-			addr := addrs[i]
-
-			isLocal := t.isLocalKey(addr.PublicKey())
-
-			var workerPool util.WorkerPool
-
-			if isLocal {
-				workerPool = t.localPool
-			} else {
-				workerPool = t.remotePool
-			}
-
-			if err := workerPool.Submit(func() {
-				defer wg.Done()
-
-				err := f(nodeDesc{local: isLocal, info: addr})
-
-				// mark the container node as processed in order to exclude it
-				// in subsequent container broadcast. Note that we don't
-				// process this node during broadcast if primary placement
-				// on it failed.
-				t.traversal.submitProcessed(addr)
-
-				if err != nil {
-					resErr.Store(err)
-					svcutil.LogServiceError(t.log, "PUT", addr.Addresses(), err)
-					return
+			for j := nAlreadyProcessed; j < len(nodeLists[i]) && int(savedReplicas)+len(curNodeGroup) < needReplNum; nAlreadyProcessed, j = nAlreadyProcessed+1, j+1 {
+				// condition here makes no sense for the 1st iteration, but it makes code simpler:
+				// otherwise, we should check this before each 'continue' below
+				if int(savedReplicas)+len(curNodeGroup)+len(nodeLists[i])-j < needReplNum {
+					lastRespNodeErr, _ := resErr.Load().(error)
+					return oid.ID{}, errIncompletePut{singleErr: lastRespNodeErr}
 				}
 
-				traverser.SubmitSuccess()
-			}); err != nil {
-				wg.Done()
+				bNodePubKey := nodeLists[i][j].PublicKey()
+				strNodePubKey := string(bNodePubKey)
+				if succeeded, ok := processedNodes[strNodePubKey]; ok {
+					if succeeded {
+						savedReplicas++
+						if int(savedReplicas) == needReplNum {
+							continue nextNodeList
+						}
+					}
+					continue
+				}
 
-				svcutil.LogWorkerPoolError(t.log, "PUT", err)
+				var node nodeDesc
+				node.local = t.node.IsLocalPublicKey(bNodePubKey)
 
-				break loop
+				if !node.local {
+					node.info, err = t.convertNodeInfo(nodeLists[i][j])
+					if err != nil {
+						// critical error that may ultimately block the storage service. Normally it
+						// should not appear because entry into the network map under strict control.
+						t.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+							zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(err))
+						processedNodes[strNodePubKey] = false
+						continue
+					}
+				}
+
+				curNodeGroup = append(curNodeGroup, node)
+			}
+
+			// we check this in loop above, but not for the last element of the list
+			if int(savedReplicas)+len(curNodeGroup) < needReplNum {
+				lastRespNodeErr, _ := resErr.Load().(error)
+				return oid.ID{}, errIncompletePut{singleErr: lastRespNodeErr}
+			}
+
+			var wg sync.WaitGroup
+
+			// send object to the prepared group of storage nodes in parallel
+			for j := range curNodeGroup {
+				var workerPool util.WorkerPool
+				if curNodeGroup[j].local {
+					workerPool = t.localPool
+				} else {
+					workerPool = t.remotePool
+				}
+
+				jCp := j
+				wg.Add(1)
+
+				if err := workerPool.Submit(func() {
+					defer wg.Done()
+
+					err := f(curNodeGroup[jCp])
+
+					processedNodesMtx.Lock()
+					processedNodes[string(curNodeGroup[jCp].info.PublicKey())] = err == nil
+					processedNodesMtx.Unlock()
+
+					if err != nil {
+						resErr.Store(err)
+						svcutil.LogServiceError(t.log, "PUT", curNodeGroup[jCp].info.AddressGroup(), err)
+						return
+					}
+
+					atomic.AddUint32(&savedReplicas, 1)
+				}); err != nil {
+					svcutil.LogWorkerPoolError(t.log, "PUT", err)
+					// FIXME: service must be denied if the local pool is overloaded while the
+					//  remote one is free
+					// TODO: check all running jobs are interrupted in this case (they must be)
+					// TODO: this case is worth to be distinguished from general 'incomplete' one.
+					//  HTTP '503 Service Unavailable'-like status would be nice
+					lastRespNodeErr, _ := resErr.Load().(error)
+					return oid.ID{}, errIncompletePut{singleErr: lastRespNodeErr}
+				}
+			}
+
+			wg.Wait()
+
+			if int(savedReplicas) == needReplNum {
+				break
+			}
+		}
+	}
+
+	// FIXME: the main operation has already been completed, server should
+	//  immediately notify the client about this
+
+	if t.broadcast {
+		var wg sync.WaitGroup
+
+	broadcast:
+		for i := range nodeLists {
+			for j := range nodeLists[i] {
+				bNodePubKey := nodeLists[i][j].PublicKey()
+				strNodePubKey := string(bNodePubKey)
+				if _, ok := processedNodes[strNodePubKey]; ok {
+					continue
+				}
+
+				var node nodeDesc
+				node.local = t.node.IsLocalPublicKey(bNodePubKey)
+
+				if !node.local {
+					node.info, err = t.convertNodeInfo(nodeLists[i][j])
+					if err != nil {
+						// critical error that may ultimately block the storage service. Normally it
+						// should not appear because entry into the network map under strict control.
+						t.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+							zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(err))
+						processedNodes[strNodePubKey] = false
+						continue
+					}
+				}
+
+				var workerPool util.WorkerPool
+				if node.local {
+					workerPool = t.localPool
+				} else {
+					workerPool = t.remotePool
+				}
+
+				wg.Add(1)
+				if err := workerPool.Submit(func() {
+					defer wg.Done()
+
+					err := f(node)
+
+					processedNodesMtx.Lock()
+					processedNodes[strNodePubKey] = err == nil
+					processedNodesMtx.Unlock()
+
+					if err != nil {
+						svcutil.LogServiceError(t.log, "PUT BROADCAST", node.info.AddressGroup(), err)
+						return
+					}
+				}); err != nil {
+					wg.Done()
+					svcutil.LogWorkerPoolError(t.log, "PUT BROADCAST", err)
+					break broadcast
+				}
 			}
 		}
 
 		wg.Wait()
 	}
-
-	if !traverser.Success() {
-		var err errIncompletePut
-
-		err.singleErr, _ = resErr.Load().(error)
-
-		return oid.ID{}, err
-	}
-
-	// perform additional container broadcast if needed
-	if t.traversal.submitPrimaryPlacementFinish() {
-		_, err = t.iteratePlacement(f)
-		if err != nil {
-			t.log.Error("additional container broadcast failure",
-				zap.Error(err),
-			)
-
-			// we don't fail primary operation because of broadcast failure
-		}
-	}
-
-	id, _ = t.obj.ID()
 
 	return id, nil
 }

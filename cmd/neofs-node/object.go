@@ -237,14 +237,12 @@ func initObjectService(c *cfg) {
 		}
 	}
 
-	sPut := putsvc.NewService(
+	sPut := putsvc.NewService(c,
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(os),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
-		putsvc.WithNetworkMapSource(c.netMapSource),
-		putsvc.WithNetmapKeys(c),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
@@ -580,21 +578,14 @@ func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
 }
 
-func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
+func (c *cfg) getContainerNodesFromNetworkMap(networkMap *netmapsdk.NetMap, cnrID cid.ID) (
 	nodeSets [][]netmapsdk.NodeInfo,
 	storagePolicy netmapsdk.PlacementPolicy,
-	networkMap *netmapsdk.NetMap,
 	err error,
 ) {
 	cnr, err := c.cfgObject.cnrSource.Get(cnrID)
 	if err != nil {
 		err = fmt.Errorf("read container by ID: %w", err)
-		return
-	}
-
-	networkMap, err = c.netMapSource.GetNetMapByEpoch(epoch)
-	if err != nil {
-		err = fmt.Errorf("read network map by epoch: %w", err)
 		return
 	}
 
@@ -604,6 +595,23 @@ func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
 	if err != nil {
 		err = fmt.Errorf("apply container's storage policy to the network map: %w", err)
 	}
+
+	return
+}
+
+func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
+	nodeSets [][]netmapsdk.NodeInfo,
+	storagePolicy netmapsdk.PlacementPolicy,
+	networkMap *netmapsdk.NetMap,
+	err error,
+) {
+	networkMap, err = c.netMapSource.GetNetMapByEpoch(epoch)
+	if err != nil {
+		err = fmt.Errorf("read network map by epoch: %w", err)
+		return
+	}
+
+	nodeSets, storagePolicy, err = c.getContainerNodesFromNetworkMap(networkMap, cnrID)
 
 	return
 }
@@ -648,4 +656,44 @@ func (c *cfg) GetObjectNodesAtEpoch(addr oid.Address, epoch uint64) ([][]netmaps
 	}
 
 	return nodeLists, primaryNums, nil
+}
+
+// TODO: docs
+func (c *cfg) ObjectStoragePolicyForContainer(cnrID cid.ID) (putsvc.ObjectStoragePolicy, error) {
+	networkMap, err := netmap.GetLatestNetworkMap(c.netMapSource)
+	if err != nil {
+		return nil, fmt.Errorf("read current network map: %w", err)
+	}
+
+	nodeSets, storagePolicy, err := c.getContainerNodesFromNetworkMap(networkMap, cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("get storage nodes for the container in the current network map: %w", err)
+	}
+
+	primaryNodeNums := make([]uint32, storagePolicy.NumberOfReplicas())
+	for i := range primaryNodeNums {
+		primaryNodeNums[i] = storagePolicy.ReplicaNumberByIndex(i)
+	}
+
+	return containerStoragePolicy{
+		networkMap:      networkMap,
+		nodeSets:        nodeSets,
+		primaryNodeNums: primaryNodeNums,
+	}, nil
+}
+
+type containerStoragePolicy struct {
+	networkMap      *netmapsdk.NetMap
+	nodeSets        [][]netmapsdk.NodeInfo
+	primaryNodeNums []uint32
+}
+
+// TODO: docs
+func (x containerStoragePolicy) StorageNodesForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, []uint32, error) {
+	nodeLists, err := x.networkMap.PlacementVectors(x.nodeSets, obj)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sort container nodes for the object: %w", err)
+	}
+
+	return nodeLists, x.primaryNodeNums, nil
 }

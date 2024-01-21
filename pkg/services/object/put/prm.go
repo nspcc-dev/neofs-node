@@ -3,7 +3,6 @@ package putsvc
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
@@ -15,11 +14,11 @@ type PutInitPrm struct {
 
 	cnr containerSDK.Container
 
-	traverseOpts []placement.Option
-
 	copiesNumber uint32
 
 	relay func(client.NodeInfo, client.MultiAddressClient) error
+
+	objStoragePolicy ObjectStoragePolicy
 }
 
 type PutChunkPrm struct {
