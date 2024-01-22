@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Created files are not group writable (#2589)
 - IR does not create new notary requests for the SN's bootstraps but signs the received ones instead (#2717)
 - IR can handle third-party notary requests without reliance on receiving the original one (#2715)
+- SN validates container session token's issuer to be container's owner (#2466)
 
 ### Removed
 - Deprecated `neofs-adm [...] inspect` commands (#2603)

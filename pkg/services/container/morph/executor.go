@@ -1,13 +1,16 @@
 package container
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-api-go/v2/util/signature"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -80,6 +83,11 @@ func (s *morphExecutor) Put(_ context.Context, tokV2 *sessionV2.Token, body *con
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
+
+		err = s.validateToken(tokV2, nil, sessionV2.ContainerVerbPut)
+		if err != nil {
+			return nil, fmt.Errorf("session token validation: %w", err)
+		}
 	}
 
 	idCnr, err := s.wrt.Put(cnr)
@@ -119,6 +127,11 @@ func (s *morphExecutor) Delete(_ context.Context, tokV2 *sessionV2.Token, body *
 		err := tok.ReadFromV2(*tokV2)
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
+		}
+
+		err = s.validateToken(tokV2, body.GetContainerID(), sessionV2.ContainerVerbDelete)
+		if err != nil {
+			return nil, fmt.Errorf("session token validation: %w", err)
 		}
 	}
 
@@ -228,6 +241,11 @@ func (s *morphExecutor) SetExtendedACL(_ context.Context, tokV2 *sessionV2.Token
 		if err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
+
+		err = s.validateToken(tokV2, body.GetEACL().GetContainerID(), sessionV2.ContainerVerbSetEACL)
+		if err != nil {
+			return nil, fmt.Errorf("session token validation: %w", err)
+		}
 	}
 
 	err = s.wrt.PutEACL(eaclInfo)
@@ -273,4 +291,73 @@ func (s *morphExecutor) GetExtendedACL(_ context.Context, body *container.GetExt
 	res.SetSessionToken(tokV2)
 
 	return res, nil
+}
+
+type sessionDataSource struct {
+	t    *sessionV2.Token
+	size int
+}
+
+func (d sessionDataSource) ReadSignedData(buff []byte) ([]byte, error) {
+	if len(buff) < d.size {
+		buff = make([]byte, d.size)
+	}
+
+	res := d.t.GetBody().StableMarshal(buff)
+
+	return res[:d.size], nil
+}
+
+func (d sessionDataSource) SignedDataSize() int {
+	return d.size
+}
+
+func newDataSource(t *sessionV2.Token) sessionDataSource {
+	return sessionDataSource{
+		t:    t,
+		size: t.GetBody().StableSize(),
+	}
+}
+
+func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerID, op sessionV2.ContainerSessionVerb) error {
+	c := t.GetBody().GetContext()
+	cc, ok := c.(*sessionV2.ContainerSessionContext)
+	if !ok {
+		return errors.New("session is not container-related")
+	}
+
+	if verb := cc.Verb(); verb != op {
+		return fmt.Errorf("wrong container session operation: %s", verb)
+	}
+
+	err := signature.VerifyDataWithSource(newDataSource(t), t.GetSignature)
+	if err != nil {
+		return fmt.Errorf("incorrect token signature: %w", err)
+	}
+
+	if cIDV2 == nil { // can be nil for PUT or wildcard may be true
+		return nil
+	}
+
+	if sessionCID := cc.ContainerID().GetValue(); !bytes.Equal(sessionCID, cIDV2.GetValue()) {
+		return fmt.Errorf("wrong container: %s", base58.Encode(sessionCID))
+	}
+
+	var cID cid.ID
+
+	err = cID.ReadFromV2(*cIDV2)
+	if err != nil {
+		return fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	cnr, err := s.rdr.Get(cID)
+	if err != nil {
+		return fmt.Errorf("reading container from the network: %w", err)
+	}
+
+	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(cnr.Value.Owner().WalletBytes(), issuer) {
+		return fmt.Errorf("session was not issued by the container owner, issuer: %q", issuer)
+	}
+
+	return nil
 }
