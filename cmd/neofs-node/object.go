@@ -16,6 +16,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -236,6 +238,20 @@ func initObjectService(c *cfg) {
 			defaultTopic: c.cfgNotifications.defaultTopic,
 		}
 	}
+
+	var err error
+	c.cfgObject.containerNodesBuilder, err = newContainerNodesBuilder(c.netMapSource, c.cfgObject.cnrSource, c.networkState.CurrentEpoch(), func(err error) {
+		c.log.Warn("internal failure of the containers' storage policy processor, the cost of system resources for processing object operations may increase",
+			zap.Error(err))
+	})
+	fatalOnErrDetails("init cached builder of the container nodes", err)
+
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		epoch := ev.(netmapevents.NewEpoch).EpochNumber()
+		c.log.Debug("switching to new epoch in the container node builder", zap.Uint64("epoch", epoch))
+		c.cfgObject.containerNodesBuilder.setCurrentEpoch(epoch)
+		c.log.Debug("container node builder successfully switched to the new epoch", zap.Uint64("epoch", epoch))
+	})
 
 	sPut := putsvc.NewService(c,
 		putsvc.WithKeyStorage(keyStorage),
@@ -599,23 +615,6 @@ func (c *cfg) getContainerNodesFromNetworkMap(networkMap *netmapsdk.NetMap, cnrI
 	return
 }
 
-func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
-	nodeSets [][]netmapsdk.NodeInfo,
-	storagePolicy netmapsdk.PlacementPolicy,
-	networkMap *netmapsdk.NetMap,
-	err error,
-) {
-	networkMap, err = c.netMapSource.GetNetMapByEpoch(epoch)
-	if err != nil {
-		err = fmt.Errorf("read network map by epoch: %w", err)
-		return
-	}
-
-	nodeSets, storagePolicy, err = c.getContainerNodesFromNetworkMap(networkMap, cnrID)
-
-	return
-}
-
 // GetContainerNodesAtEpoch reads storage policy of the referenced container
 // from the underlying container storage, reads network map at the specified
 // epoch from the underlying storage, applies the storage policy to it and
@@ -623,8 +622,8 @@ func (c *cfg) getContainerNodesAtEpoch(cnrID cid.ID, epoch uint64) (
 //
 // GetContainerNodesAtEpoch implements [searchsvc.Node].
 func (c *cfg) GetContainerNodesAtEpoch(cnr cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error) {
-	nodeSets, _, _, err := c.getContainerNodesAtEpoch(cnr, epoch)
-	return nodeSets, err
+	cnrNodes, _, err := c.cfgObject.containerNodesBuilder.getForEpoch(cnr, epoch)
+	return cnrNodes.nodeSets, err
 }
 
 // IsLocalPublicKey implements [searchsvc.Node], [getsvc.Node].
@@ -640,60 +639,40 @@ func (c *cfg) IsLocalPublicKey(bPubKey []byte) bool {
 //
 // GetObjectNodesAtEpoch implements [getsvc.Node].
 func (c *cfg) GetObjectNodesAtEpoch(addr oid.Address, epoch uint64) ([][]netmapsdk.NodeInfo, []uint32, error) {
-	nodeLists, storagePolicy, networkMap, err := c.getContainerNodesAtEpoch(addr.Container(), epoch)
+	cnrNodes, err := c.cfgObject.containerNodesBuilder.getForObjectAtEpoch(addr, epoch)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nodeLists, err = networkMap.PlacementVectors(nodeLists, addr.Object())
-	if err != nil {
-		return nil, nil, fmt.Errorf("apply object's storage policy to the network map: %w", err)
-	}
-
-	primaryNums := make([]uint32, storagePolicy.NumberOfReplicas())
-	for i := range primaryNums {
-		primaryNums[i] = storagePolicy.ReplicaNumberByIndex(i)
-	}
-
-	return nodeLists, primaryNums, nil
+	return cnrNodes.nodeSets, cnrNodes.primaryNodesNums, nil
 }
 
 // TODO: docs
 func (c *cfg) ObjectStoragePolicyForContainer(cnrID cid.ID) (putsvc.ObjectStoragePolicy, error) {
-	networkMap, err := netmap.GetLatestNetworkMap(c.netMapSource)
+	cnrNodes, networkMap, cache, err := c.cfgObject.containerNodesBuilder._getForEpoch(cnrID, 0)
 	if err != nil {
-		return nil, fmt.Errorf("read current network map: %w", err)
+		return nil, err
 	}
 
-	nodeSets, storagePolicy, err := c.getContainerNodesFromNetworkMap(networkMap, cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("get storage nodes for the container in the current network map: %w", err)
-	}
-
-	primaryNodeNums := make([]uint32, storagePolicy.NumberOfReplicas())
-	for i := range primaryNodeNums {
-		primaryNodeNums[i] = storagePolicy.ReplicaNumberByIndex(i)
-	}
-
-	return containerStoragePolicy{
-		networkMap:      networkMap,
-		nodeSets:        nodeSets,
-		primaryNodeNums: primaryNodeNums,
+	return &containerStoragePolicy{
+		networkMap: networkMap,
+		cnrNodes:   cnrNodes,
+		cache:      cache,
 	}, nil
 }
 
 type containerStoragePolicy struct {
-	networkMap      *netmapsdk.NetMap
-	nodeSets        [][]netmapsdk.NodeInfo
-	primaryNodeNums []uint32
+	networkMap *netmapsdk.NetMap
+	cnrNodes   containerNodes
+	cache      *containerNodesCacheItem
 }
 
 // TODO: docs
-func (x containerStoragePolicy) StorageNodesForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, []uint32, error) {
-	nodeLists, err := x.networkMap.PlacementVectors(x.nodeSets, obj)
+func (x *containerStoragePolicy) StorageNodesForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, []uint32, error) {
+	nodeLists, err := sortContainerNodesForObjectAtEpoch(x.cnrNodes.nodeSets, x.networkMap, x.cache, obj)
 	if err != nil {
-		return nil, nil, fmt.Errorf("sort container nodes for the object: %w", err)
+		return nil, nil, err
 	}
 
-	return nodeLists, x.primaryNodeNums, nil
+	return nodeLists, x.cnrNodes.primaryNodesNums, nil
 }
