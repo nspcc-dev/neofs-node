@@ -206,8 +206,6 @@ func (c *Client) Notifications() (<-chan *state.ContainedNotificationEvent, <-ch
 }
 
 type subscriptions struct {
-	sync.RWMutex
-
 	// notification consumers (Client sends
 	// notifications to these channels)
 	notifyChan chan *state.ContainedNotificationEvent
@@ -219,6 +217,8 @@ type subscriptions struct {
 	curNotifyChan chan *state.ContainedNotificationEvent
 	curBlockChan  chan *block.Block
 	curNotaryChan chan *result.NotaryRequestEvent
+
+	sync.RWMutex // for subscription fields only
 
 	// cached subscription information
 	subscribedEvents            map[util.Uint160]struct{}
@@ -237,11 +237,11 @@ func (c *Client) routeNotifications() {
 routeloop:
 	for {
 		var connLost bool
-		c.subs.RLock()
+		c.switchLock.RLock()
 		notifCh := c.subs.curNotifyChan
 		blCh := c.subs.curBlockChan
 		notaryCh := c.subs.curNotaryChan
-		c.subs.RUnlock()
+		c.switchLock.RUnlock()
 		select {
 		case <-c.closeChan:
 			break routeloop
