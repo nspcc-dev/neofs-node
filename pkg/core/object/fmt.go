@@ -137,7 +137,22 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("missing signature")
 	}
 
-	// FIXME: #1159 perform token verification
+	token := obj.SessionToken()
+	if token == nil {
+		return nil
+	}
+
+	if !token.AssertAuthKey(sig.PublicKey()) {
+		return errors.New("session token is not for object's signer")
+	}
+
+	if !token.VerifySignature() {
+		return errors.New("incorrect session token signature")
+	}
+
+	if issuer, owner := token.Issuer(), obj.OwnerID(); !issuer.Equals(*owner) { // nil check was performed above
+		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
+	}
 
 	return nil
 }
