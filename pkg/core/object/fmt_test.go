@@ -6,13 +6,14 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,14 +90,51 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		obj := object.New()
 		obj.SetContainerID(cidtest.ID())
-		tok := sessiontest.ObjectSigned(signer)
+		tok := sessiontest.Object()
+		tok.SetAuthKey((*neofsecdsa.PublicKey)(&ownerKey.PrivateKey.PublicKey))
+		require.NoError(t, tok.Sign(signer))
 		obj.SetSessionToken(&tok)
-		owner := usertest.ID(t)
+		owner := signer.UserID()
 		obj.SetOwnerID(&owner)
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
 
 		require.NoError(t, v.Validate(obj, false))
+	})
+
+	t.Run("incorrect session token", func(t *testing.T) {
+		signer := user.NewAutoIDSignerRFC6979(ownerKey.PrivateKey)
+
+		obj := object.New()
+		obj.SetContainerID(cidtest.ID())
+		tok := sessiontest.ObjectSigned(signer)
+		obj.SetSessionToken(&tok)
+		owner := signer.UserID()
+		obj.SetOwnerID(&owner)
+
+		t.Run("wrong signature", func(t *testing.T) {
+			require.NoError(t, obj.SetIDWithSignature(signer))
+
+			obj.SetSignature(&neofscrypto.Signature{})
+			require.Error(t, v.Validate(obj, false))
+		})
+
+		t.Run("wrong owner", func(t *testing.T) {
+			obj.SetOwnerID(&user.ID{})
+
+			require.NoError(t, obj.SetIDWithSignature(signer))
+			require.Error(t, v.Validate(obj, false))
+		})
+
+		t.Run("wrong signer", func(t *testing.T) {
+			wrongOwner, err := keys.NewPrivateKey()
+			require.NoError(t, err)
+
+			wrongSigner := user.NewAutoIDSignerRFC6979(wrongOwner.PrivateKey)
+
+			require.NoError(t, obj.SetIDWithSignature(wrongSigner))
+			require.Error(t, v.Validate(obj, false))
+		})
 	})
 
 	t.Run("correct w/o session token", func(t *testing.T) {

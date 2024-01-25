@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - IR compares and logs public keys difference, not hash of keys difference at SN verification check (#2711)
 - Incorrect handling of notary request leading to inability to collect signatures in some cases (#2715)
 - Deadlock in autodeploy routine (#2720)
+- SN now validates session tokens attached to objects (#1159)
 
 ### Changed
 - Created files are not group writable (#2589)
