@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -26,6 +27,18 @@ type containerNodes struct {
 	// TODO: try storing indices of immutable list to reduce memory consumption
 	//  see also https://github.com/nspcc-dev/neofs-sdk-go/issues/541
 	nodeSets [][]netmapsdk.NodeInfo
+}
+
+func (x containerNodes) hasNodeWithPublicKey(bPubKey []byte) bool {
+	for i := range x.nodeSets {
+		for j := range x.nodeSets[i] {
+			if bytes.Equal(x.nodeSets[i][j].PublicKey(), bPubKey) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 type containerNodesBuildRes struct {
@@ -141,7 +154,7 @@ func (x *containerNodesBuilder) setCurrentEpoch(curEpoch uint64) {
 	x.curEpoch = curEpoch
 }
 
-func (x *containerNodesBuilder) _getForEpoch(cnrID cid.ID, epoch uint64) (containerNodes, *netmapsdk.NetMap, *containerNodesCacheItem, error) {
+func (x *containerNodesBuilder) _getForEpochAndPolicy(cnrID cid.ID, epoch uint64, storagePolicyOpt *netmapsdk.PlacementPolicy) (containerNodes, *netmapsdk.NetMap, *containerNodesCacheItem, error) {
 	var cache *containerNodesCache
 
 	x.curEpochMtx.RLock()
@@ -186,12 +199,17 @@ func (x *containerNodesBuilder) _getForEpoch(cnrID cid.ID, epoch uint64) (contai
 		}
 	}
 
-	cnr, err := x.containers.Get(cnrID)
-	if err != nil {
-		return containerNodes{}, nil, nil, fmt.Errorf("read container by ID: %w", err)
-	}
+	var storagePolicy netmapsdk.PlacementPolicy
+	if storagePolicyOpt != nil {
+		storagePolicy = *storagePolicyOpt
+	} else {
+		cnr, err := x.containers.Get(cnrID)
+		if err != nil {
+			return containerNodes{}, nil, nil, fmt.Errorf("read container by ID: %w", err)
+		}
 
-	storagePolicy := cnr.Value.PlacementPolicy()
+		storagePolicy = cnr.Value.PlacementPolicy()
+	}
 
 	if cached {
 		cache.lruMtx.Lock()
@@ -251,6 +269,9 @@ func (x *containerNodesBuilder) _getForEpoch(cnrID cid.ID, epoch uint64) (contai
 	}
 
 	return res, networkMap, cachedVal, nil
+}
+func (x *containerNodesBuilder) _getForEpoch(cnrID cid.ID, epoch uint64) (containerNodes, *netmapsdk.NetMap, *containerNodesCacheItem, error) {
+	return x._getForEpochAndPolicy(cnrID, epoch, nil)
 }
 
 func (x *containerNodesBuilder) getForEpoch(cnrID cid.ID, epoch uint64) (containerNodes, *netmapsdk.NetMap, error) {

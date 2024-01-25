@@ -329,7 +329,7 @@ func initObjectService(c *cfg) {
 		},
 	)
 
-	aclSvc := v2.New(
+	aclSvc := v2.New(c,
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapSource(c.netMapSource),
@@ -675,4 +675,28 @@ func (x *containerStoragePolicy) StorageNodesForObject(obj oid.ID) ([][]netmapsd
 	}
 
 	return nodeLists, x.cnrNodes.primaryNodesNums, nil
+}
+
+// TODO: docs
+func (c *cfg) AuthContainerNode(bPubKey []byte, cnr cid.ID, storagePolicy netmapsdk.PlacementPolicy) (bool, error) {
+	cnrNodes, networkMap, _, err := c.cfgObject.containerNodesBuilder._getForEpochAndPolicy(cnr, 0, &storagePolicy)
+	if err != nil {
+		return false, err
+	}
+
+	if cnrNodes.hasNodeWithPublicKey(bPubKey) {
+		return true, nil
+	}
+
+	curEpoch := networkMap.Epoch()
+	if curEpoch > 0 {
+		cnrNodes, _, _, err = c.cfgObject.containerNodesBuilder._getForEpochAndPolicy(cnr, curEpoch-1, &storagePolicy)
+		if err != nil {
+			return false, err
+		}
+
+		return cnrNodes.hasNodeWithPublicKey(bPubKey), nil
+	}
+
+	return false, nil
 }
