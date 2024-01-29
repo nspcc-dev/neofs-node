@@ -16,7 +16,7 @@ require (
 	github.com/nats-io/nats.go v1.31.0
 	github.com/nspcc-dev/hrw/v2 v2.0.0
 	github.com/nspcc-dev/locode-db v0.5.0
-	github.com/nspcc-dev/neo-go v0.104.0
+	github.com/nspcc-dev/neo-go v0.105.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.0
 	github.com/nspcc-dev/neofs-contract v0.19.1
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20240130073207-03ed6db7e1cd
@@ -29,7 +29,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
-	go.etcd.io/bbolt v1.3.7
+	go.etcd.io/bbolt v1.3.8
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/sync v0.3.0
@@ -75,8 +75,8 @@ require (
 	github.com/nats-io/nkeys v0.4.6 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nspcc-dev/dbft v0.0.0-20230515113611-25db6ba61d5c // indirect
-	github.com/nspcc-dev/go-ordered-json v0.0.0-20231123160306-3374ff1e7a3c // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231121104256-0493ddbd70b2 // indirect
+	github.com/nspcc-dev/go-ordered-json v0.0.0-20240112074137-296698a162ae // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20231127165613-b35f351f0ba0 // indirect
 	github.com/nspcc-dev/neofs-crypto v0.4.0 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect

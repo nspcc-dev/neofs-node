@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Deprecated `neofs-adm [...] inspect` commands (#2603)
 
 ### Updated
+- `neo-go` to `v0.105.1` (#2725)
 
 ### Updating from v0.39.2
 `neofs-adm [...] inspect` commands were deleted, use `get` instead.
