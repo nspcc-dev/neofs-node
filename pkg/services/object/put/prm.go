@@ -15,7 +15,8 @@ type PutInitPrm struct {
 
 	cnr containerSDK.Container
 
-	traverseOpts []placement.Option
+	placementBuilder placement.Builder
+	traverseOpts     []placement.Option
 
 	copiesNumber uint32
 

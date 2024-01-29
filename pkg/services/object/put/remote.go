@@ -14,9 +14,17 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type remoteTarget struct {
+	log *zap.Logger
+
+	// if *binReplicationContext, server attempts to send objects via NeoFS API
+	// ObjectService.Replicate RPC. If particular remote node does not support
+	// Replicate op, the object is sent via default Put to the node.
 	ctx context.Context
 
 	keyStorage *util.KeyStorage
@@ -45,19 +53,25 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta) error {
+func (t *remoteTarget) WriteObject(ctx context.Context, obj *object.Object, _ objectcore.ContentMeta) error {
+	t.ctx = ctx
 	t.obj = obj
 
 	return nil
 }
 
 func (t *remoteTarget) Close() (oid.ID, error) {
+	binReplicationCtx, isBinReplication := t.ctx.(*binReplicationContext)
 	var sessionInfo *util.SessionInfo
 
-	if tok := t.commonPrm.SessionToken(); tok != nil {
-		sessionInfo = &util.SessionInfo{
-			ID:    tok.ID(),
-			Owner: tok.Issuer(),
+	if !isBinReplication {
+		// ObjectService.Replicate request must be signed by the container node,
+		// so we must not use session private key
+		if tok := t.commonPrm.SessionToken(); tok != nil {
+			sessionInfo = &util.SessionInfo{
+				ID:    tok.ID(),
+				Owner: tok.Issuer(),
+			}
 		}
 	}
 
@@ -69,6 +83,24 @@ func (t *remoteTarget) Close() (oid.ID, error) {
 	c, err := t.clientConstructor.Get(t.nodeInfo)
 	if err != nil {
 		return oid.ID{}, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
+	}
+
+	if isBinReplication {
+		err = c.ReplicateObject(t.ctx, binReplicationCtx.b, (*neofsecdsa.Signer)(key))
+		if err == nil {
+			id, _ := t.obj.ID()
+			return id, nil
+		}
+
+		// FIXME: temporary workaround, see also
+		//  https://github.com/nspcc-dev/neofs-api/issues/201#issuecomment-1891383454
+		if st, ok := status.FromError(err); !ok || st.Code() != codes.Unimplemented {
+			return oid.ID{}, err
+		}
+
+		if t.log != nil {
+			t.log.Debug("node does not support 'Replicate' RPC, fallback to 'Put'")
+		}
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -118,7 +150,6 @@ func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
 // PutObject sends object to remote node.
 func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 	t := &remoteTarget{
-		ctx:               ctx,
 		keyStorage:        s.keyStorage,
 		clientConstructor: s.clientConstructor,
 	}
@@ -128,7 +159,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}); err != nil {
+	if err := t.WriteObject(ctx, p.obj, objectcore.ContentMeta{}); err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)

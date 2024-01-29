@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ type localTarget struct {
 	meta objectCore.ContentMeta
 }
 
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta) error {
+func (t *localTarget) WriteObject(_ context.Context, obj *object.Object, meta objectCore.ContentMeta) error {
 	t.obj = obj
 	t.meta = meta
 

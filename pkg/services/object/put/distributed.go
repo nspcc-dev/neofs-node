@@ -1,7 +1,10 @@
 package putsvc
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -9,17 +12,27 @@ import (
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta) error
+	WriteObject(context.Context, *objectSDK.Object, object.ContentMeta) error
 	Close() (oid.ID, error)
 }
 
+type binReplicationContext struct {
+	context.Context
+	b io.ReadSeeker
+}
+
 type distributedTarget struct {
+	ctx context.Context
+
 	traversal traversal
 
 	remotePool, localPool util.WorkerPool
@@ -42,6 +55,8 @@ type distributedTarget struct {
 
 // parameters and state of container traversal.
 type traversal struct {
+	placementBuilder placement.Builder
+
 	opts []placement.Option
 
 	// need of additional broadcast after the object is saved
@@ -145,17 +160,17 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.traversal.extraBroadcastEnabled = true
 	}
 
-	return t.iteratePlacement(t.sendObject)
+	return t.iteratePlacement(t.ctx, t.sendObject)
 }
 
-func (t *distributedTarget) sendObject(node nodeDesc) error {
+func (t *distributedTarget) sendObject(ctx context.Context, node nodeDesc) error {
 	if !node.local && t.relay != nil {
 		return t.relay(node)
 	}
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteObject(t.obj, t.objMeta); err != nil {
+	if err := target.WriteObject(ctx, t.obj, t.objMeta); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
 	} else if _, err := target.Close(); err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
@@ -163,14 +178,38 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	return nil
 }
 
-func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
+func (t *distributedTarget) iteratePlacement(ctx context.Context, f func(context.Context, nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
 
+	placementBuilder := t.traversal.placementBuilder
+	var placementIntrcpt *placementInterceptor
+
+	if _, ok := ctx.(*binReplicationContext); !ok {
+		placementIntrcpt = &placementInterceptor{
+			base:       t.traversal.placementBuilder,
+			isLocalKey: t.isLocalKey,
+		}
+
+		placementBuilder = placementIntrcpt
+	}
+
 	traverser, err := placement.NewTraverser(
-		append(t.traversal.opts, placement.ForObject(id))...,
+		append(t.traversal.opts, placement.UseBuilder(placementBuilder), placement.ForObject(id))...,
 	)
 	if err != nil {
 		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
+	}
+
+	if placementIntrcpt != nil && placementIntrcpt.withLocalAndRemoteNodes {
+		bObj, err := t.obj.Marshal()
+		if err != nil {
+			return oid.ID{}, fmt.Errorf("encode object into binary: %w", err)
+		}
+
+		ctx = &binReplicationContext{
+			Context: ctx,
+			b:       client.DemuxReplicatedObject(bytes.NewReader(bObj)),
+		}
 	}
 
 	var resErr atomic.Value
@@ -207,7 +246,7 @@ loop:
 			if err := workerPool.Submit(func() {
 				defer wg.Done()
 
-				err := f(nodeDesc{local: isLocal, info: addr})
+				err := f(ctx, nodeDesc{local: isLocal, info: addr})
 
 				// mark the container node as processed in order to exclude it
 				// in subsequent container broadcast. Note that we don't
@@ -244,7 +283,7 @@ loop:
 
 	// perform additional container broadcast if needed
 	if t.traversal.submitPrimaryPlacementFinish() {
-		_, err = t.iteratePlacement(f)
+		_, err = t.iteratePlacement(ctx, f)
 		if err != nil {
 			t.log.Error("additional container broadcast failure",
 				zap.Error(err),
@@ -257,4 +296,42 @@ loop:
 	id, _ = t.obj.ID()
 
 	return id, nil
+}
+
+type placementInterceptor struct {
+	base placement.Builder
+
+	isLocalKey func([]byte) bool
+
+	withLocalAndRemoteNodes bool
+}
+
+func (x *placementInterceptor) BuildPlacement(cnr cid.ID, obj *oid.ID, storagepolicy netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
+	cnrNodesSets, err := x.base.BuildPlacement(cnr, obj, storagepolicy)
+	if err != nil {
+		return nil, err
+	}
+
+	var foundLocal, foundRemote bool
+	for i := range cnrNodesSets {
+		for j := range cnrNodesSets[i] {
+			pubKey := cnrNodesSets[i][j].PublicKey()
+			isLocal := x.isLocalKey(pubKey)
+
+			if !foundLocal {
+				foundLocal = isLocal
+			}
+
+			if !foundRemote {
+				foundRemote = !isLocal
+			}
+
+			if foundLocal && foundRemote {
+				x.withLocalAndRemoteNodes = true
+				return cnrNodesSets, nil
+			}
+		}
+	}
+
+	return cnrNodesSets, nil
 }

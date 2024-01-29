@@ -187,7 +187,7 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// set placement builder
-	prm.traverseOpts = append(prm.traverseOpts, placement.UseBuilder(builder))
+	prm.placementBuilder = builder
 
 	return nil
 }
@@ -215,7 +215,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
+		ctx: p.ctx,
 		traversal: traversal{
+			placementBuilder: prm.placementBuilder,
+
 			opts: prm.traverseOpts,
 
 			extraBroadcastEnabled: withBroadcast,
@@ -231,10 +234,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 			}
 
 			rt := &remoteTarget{
-				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
 				clientConstructor: p.clientConstructor,
+				log:               p.log,
 			}
 
 			client.NodeInfoFromNetmapElement(&rt.nodeInfo, node.info)
