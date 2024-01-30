@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 - IR does not create new notary requests for the SN's bootstraps but signs the received ones instead (#2717)
 - IR can handle third-party notary requests without reliance on receiving the original one (#2715)
 - SN validates container session token's issuer to be container's owner (#2466)
+- Storage node now consumes much less memory when slicing small data of a fixed size (#2719)
 
 ### Removed
 - Deprecated `neofs-adm [...] inspect` commands (#2603)

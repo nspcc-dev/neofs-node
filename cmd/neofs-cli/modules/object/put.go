@@ -93,6 +93,11 @@ func putObject(cmd *cobra.Command, _ []string) {
 		cnr, _ = objTemp.ContainerID()
 		ownerID = *objTemp.OwnerID()
 	} else {
+		fi, err := f.Stat()
+		common.ExitOnErr(cmd, "read file stat: %w", err)
+
+		obj.SetPayloadSize(uint64(fi.Size()))
+
 		readCID(cmd, &cnr)
 		ownerID = user.ResolveFromECDSAPublicKey(pk.PublicKey)
 	}
