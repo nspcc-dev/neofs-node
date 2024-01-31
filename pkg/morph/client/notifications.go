@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
@@ -131,7 +132,10 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 		return nil
 	}
 
-	_, err := c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &txSigner}, c.subs.curNotaryChan)
+	nrAddedType := mempoolevent.TransactionAdded
+	filter := &neorpc.NotaryRequestFilter{Signer: &txSigner, Type: &nrAddedType}
+
+	_, err := c.client.ReceiveNotaryRequests(filter, c.subs.curNotaryChan)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
 	}
@@ -347,7 +351,10 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 	}
 
 	for signer := range c.subs.subscribedNotaryEvents {
-		_, err = c.client.ReceiveNotaryRequests(&neorpc.TxFilter{Signer: &signer}, notaryCh)
+		nrAddedType := mempoolevent.TransactionAdded
+		filter := &neorpc.NotaryRequestFilter{Signer: &signer, Type: &nrAddedType}
+
+		_, err = c.client.ReceiveNotaryRequests(filter, notaryCh)
 		if err != nil {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err),

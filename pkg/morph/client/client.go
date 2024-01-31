@@ -367,7 +367,9 @@ func (c *Client) TestInvoke(contract util.Uint160, method string, args ...any) (
 
 // TestInvokeIterator is the same [Client.TestInvoke] but expands an iterator placed
 // on the stack. Returned values are the values an iterator provides.
-func (c *Client) TestInvokeIterator(contract util.Uint160, method string, args ...any) (res []stackitem.Item, err error) {
+// If prefetchElements > 0, that many elements are tried to be placed on stack without
+// additional network communication (without the iterator expansion).
+func (c *Client) TestInvokeIterator(contract util.Uint160, method string, prefetchElements int, args ...any) (res []stackitem.Item, err error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -375,15 +377,33 @@ func (c *Client) TestInvokeIterator(contract util.Uint160, method string, args .
 		return nil, ErrConnectionLost
 	}
 
-	sid, iter, err := unwrap.SessionIterator(c.rpcActor.Call(contract, method, args...))
-	if err != nil {
-		return nil, fmt.Errorf("iterator expansion: %w", err)
+	var sid uuid.UUID
+	var iter result.Iterator
+	var items []stackitem.Item
+
+	if prefetchElements > 0 {
+		script, err := smartcontract.CreateCallAndPrefetchIteratorScript(contract, method, prefetchElements, args...)
+		if err != nil {
+			return nil, fmt.Errorf("building prefetching script: %w", err)
+		}
+
+		items, sid, iter, err = unwrap.ArrayAndSessionIterator(c.rpcActor.Run(script))
+		if err != nil {
+			return nil, fmt.Errorf("iterator expansion: %w", err)
+		}
+	} else {
+		sid, iter, err = unwrap.SessionIterator(c.rpcActor.Call(contract, method, args...))
+		if err != nil {
+			return nil, fmt.Errorf("iterator expansion: %w", err)
+		}
 	}
+
 	defer func() {
-		_ = c.rpcActor.TerminateSession(sid)
+		if (sid != uuid.UUID{}) {
+			_ = c.rpcActor.TerminateSession(sid)
+		}
 	}()
 
-	items := make([]stackitem.Item, 0)
 	for {
 		ii, err := c.rpcActor.TraverseIterator(sid, &iter, config.DefaultMaxIteratorResultItems)
 		if err != nil {

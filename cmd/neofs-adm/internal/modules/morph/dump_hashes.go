@@ -152,7 +152,12 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 		})
 	}
 
-	sessionID, iter, err := unwrap.SessionIterator(inv.Call(nnsHash, "tokens"))
+	script, err := smartcontract.CreateCallAndPrefetchIteratorScript(nnsHash, "tokens", nnsMaxTokens)
+	if err != nil {
+		return fmt.Errorf("building prefetching script: %w", err)
+	}
+
+	items, sessionID, iter, err := unwrap.ArrayAndSessionIterator(inv.Run(script))
 	if err != nil {
 		if errors.Is(err, unwrap.ErrNoSessionID) {
 			items, err := unwrap.Array(inv.CallAndExpandIterator(nnsHash, "tokens", nnsMaxTokens))
@@ -169,6 +174,10 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 			return err
 		}
 	} else {
+		for _, item := range items {
+			processItem(item)
+		}
+
 		defer func() {
 			_ = inv.TerminateSession(sessionID)
 		}()
