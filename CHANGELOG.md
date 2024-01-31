@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Support of numeric object search queries (#2733)
+- Support of `GT`, `GE`, `LT` and `LE` numeric comparison operators in CLI (#2733)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
