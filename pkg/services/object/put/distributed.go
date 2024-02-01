@@ -206,10 +206,14 @@ func (t *distributedTarget) iteratePlacement(ctx context.Context, f func(context
 			return oid.ID{}, fmt.Errorf("encode object into binary: %w", err)
 		}
 
+		dem := client.DemuxReplicatedObject(bytes.NewReader(bObj))
+
 		ctx = &binReplicationContext{
 			Context: ctx,
-			b:       client.DemuxReplicatedObject(bytes.NewReader(bObj)),
+			b:       dem,
 		}
+
+		defer dem.Release()
 	}
 
 	var resErr atomic.Value

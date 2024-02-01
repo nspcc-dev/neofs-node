@@ -71,11 +71,12 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		}
 
 		if len(task.nodes) > 1 {
-			rs := client.DemuxReplicatedObject(binObjStream)
+			dem := client.DemuxReplicatedObject(binObjStream)
+			defer dem.Release()
 			// since in this case we read object once it's worth to close the stream insta
 			// after reading finish so that no longer used resources do not hang up
 			binObjStream = &readSeekerClosedOnEOF{
-				rs: rs,
+				rs: dem,
 				c:  binObjStream,
 			}
 		}
