@@ -9,6 +9,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -22,12 +25,37 @@ type MaxSizeSource interface {
 
 type Service struct {
 	*cfg
+
+	node Node
 }
 
 type Option func(*cfg)
 
 type ClientConstructor interface {
 	Get(client.NodeInfo) (client.MultiAddressClient, error)
+}
+
+// ObjectStoragePolicy contains rules for storing objects in the NeoFS network.
+type ObjectStoragePolicy interface {
+	// StorageNodesForObject applies rules related to the referenced object and
+	// returns ordered lists of nodes to store the object: first N (second return)
+	// nodes in each list are primary object holders while others (if any) are
+	// backup.
+	StorageNodesForObject(oid.ID) ([][]netmapsdk.NodeInfo, []uint32, error)
+}
+
+// Node represents local NeoFS storage node within which [Service] operates.
+type Node interface {
+	// ObjectStoragePolicyForContainer returns [ObjectStoragePolicy] for objects
+	// bound to the referenced container.
+	//
+	// Returns [apistatus.ContainerNotFound] if specified container is missing in
+	// the network.
+	ObjectStoragePolicyForContainer(cid.ID) (ObjectStoragePolicy, error)
+
+	// IsLocalPublicKey checks whether given binary-encoded public key is announced
+	// by the Node in the NeoFS network map.
+	IsLocalPublicKey(bPubKey []byte) bool
 }
 
 type cfg struct {
@@ -39,11 +67,7 @@ type cfg struct {
 
 	cnrSrc container.Source
 
-	netMapSrc netmap.Source
-
 	remotePool, localPool util.WorkerPool
-
-	netmapKeys netmap.AnnouncedKeys
 
 	fmtValidator *object.FormatValidator
 
@@ -64,7 +88,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(opts ...Option) *Service {
+func NewService(node Node, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -74,14 +98,15 @@ func NewService(opts ...Option) *Service {
 	c.fmtValidator = object.NewFormatValidator(c.fmtValidatorOpts...)
 
 	return &Service{
-		cfg: c,
+		cfg:  c,
+		node: node,
 	}
 }
 
 func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 	return &Streamer{
-		cfg: p.cfg,
-		ctx: ctx,
+		Service: p,
+		ctx:     ctx,
 	}, nil
 }
 
@@ -110,22 +135,10 @@ func WithContainerSource(v container.Source) Option {
 	}
 }
 
-func WithNetworkMapSource(v netmap.Source) Option {
-	return func(c *cfg) {
-		c.netMapSrc = v
-	}
-}
-
 func WithWorkerPools(remote, local util.WorkerPool) Option {
 	return func(c *cfg) {
 		c.remotePool = remote
 		c.localPool = local
-	}
-}
-
-func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
-	return func(c *cfg) {
-		c.netmapKeys = v
 	}
 }
 

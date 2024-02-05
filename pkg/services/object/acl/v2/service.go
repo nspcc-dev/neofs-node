@@ -12,11 +12,20 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
+
+// Node represents local NeoFS storage node within which [Service] operates.
+type Node interface {
+	// AuthContainerNode authenticates storage node by binary-encoded public key and
+	// checks whether the node matches given storage policy of the referenced
+	// container.
+	AuthContainerNode(bPubKey []byte, cnrID cid.ID, storagePolicy netmapsdk.PlacementPolicy) (bool, error)
+}
 
 // Service checks basic ACL rules.
 type Service struct {
@@ -78,7 +87,7 @@ func defaultCfg() *cfg {
 }
 
 // New is a constructor for object ACL checking service.
-func New(opts ...Option) Service {
+func New(node Node, opts ...Option) Service {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -102,7 +111,7 @@ func New(opts ...Option) Service {
 		c: senderClassifier{
 			log:       cfg.log,
 			innerRing: cfg.irFetcher,
-			netmap:    cfg.nm,
+			node:      node,
 		},
 	}
 }

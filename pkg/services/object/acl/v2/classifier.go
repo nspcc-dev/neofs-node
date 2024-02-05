@@ -3,18 +3,16 @@ package v2
 import (
 	"bytes"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
 
 type senderClassifier struct {
 	log       *zap.Logger
 	innerRing InnerRingFetcher
-	netmap    core.Source
+	node      Node
 }
 
 type classifyResult struct {
@@ -53,7 +51,7 @@ func (c senderClassifier) classify(
 		}, nil
 	}
 
-	isContainerNode, err := c.isContainerKey(ownerKey, idCnr, cnr)
+	isContainerNode, err := c.node.AuthContainerNode(ownerKey, idCnr, cnr.PlacementPolicy())
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
@@ -84,51 +82,6 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 	for i := range innerRingKeys {
 		if bytes.Equal(innerRingKeys[i], owner) {
 			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (c senderClassifier) isContainerKey(
-	owner []byte, idCnr cid.ID,
-	cnr container.Container) (bool, error) {
-	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
-	if err != nil {
-		return false, err
-	}
-
-	in, err := lookupKeyInContainer(nm, owner, idCnr, cnr)
-	if err != nil {
-		return false, err
-	} else if in {
-		return true, nil
-	}
-
-	// then check previous netmap, this can happen in-between epoch change
-	// when node migrates data from last epoch container
-	nm, err = core.GetPreviousNetworkMap(c.netmap)
-	if err != nil {
-		return false, err
-	}
-
-	return lookupKeyInContainer(nm, owner, idCnr, cnr)
-}
-
-func lookupKeyInContainer(
-	nm *netmap.NetMap,
-	owner []byte, idCnr cid.ID,
-	cnr container.Container) (bool, error) {
-	cnrVectors, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
-	if err != nil {
-		return false, err
-	}
-
-	for i := range cnrVectors {
-		for j := range cnrVectors[i] {
-			if bytes.Equal(cnrVectors[i][j].PublicKey(), owner) {
-				return true, nil
-			}
 		}
 	}
 

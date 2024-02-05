@@ -3,7 +3,6 @@ package searchsvc
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -98,26 +97,12 @@ func (exec *execCtx) initEpoch() bool {
 	}
 }
 
-func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) {
-	t, err := exec.svc.traverserGenerator.generateTraverser(cnr, exec.curProcEpoch)
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not generate container traverser",
-			zap.String("error", err.Error()),
-		)
-
-		return nil, false
-	case err == nil:
-		return t, true
-	}
-}
-
 func (exec *execCtx) writeIDList(ids []oid.ID) {
-	err := exec.prm.writer.WriteIDs(ids)
+	var err error
+
+	if len(ids) > 0 {
+		err = exec.prm.writer.WriteIDs(ids)
+	}
 
 	switch {
 	default:

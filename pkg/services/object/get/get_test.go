@@ -34,7 +34,7 @@ type testStorage struct {
 	phy map[string]*objectSDK.Object
 }
 
-type testTraverserGenerator struct {
+type testNode struct {
 	c container.Container
 	b map[uint64]placement.Builder
 }
@@ -68,19 +68,26 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e uint64) (*placement.Traverser, error) {
-	opts := make([]placement.Option, 0, 4)
-	opts = append(opts,
-		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b[e]),
-		placement.SuccessAfter(1),
-	)
+func (g *testNode) IsLocalPublicKey([]byte) bool { return false }
 
-	if obj != nil {
-		opts = append(opts, placement.ForObject(*obj))
+func (g *testNode) GetObjectNodesAtEpoch(addr oid.Address, epoch uint64) ([][]netmap.NodeInfo, []int, error) {
+	b, ok := g.b[epoch]
+	if !ok {
+		return nil, nil, errors.New("missing data for the epoch")
 	}
 
-	return placement.NewTraverser(opts...)
+	obj := addr.Object()
+	nodeLists, err := b.BuildPlacement(addr.Container(), &obj, netmap.PlacementPolicy{}) // policy is ignored in this test
+	if err != nil {
+		return nil, nil, err
+	}
+
+	primaryNums := make([]int, len(nodeLists))
+	for i := range primaryNums {
+		primaryNums[i] = 1
+	}
+
+	return nodeLists, primaryNums, nil
 }
 
 func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
@@ -408,8 +415,12 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 				strconv.Itoa(60000+j),
 			)
 
+			bPubKey := make([]byte, 33)
+			rand.Read(bPubKey)
+
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)
+			ni.SetPublicKey(bPubKey)
 
 			var na network.AddressGroup
 
@@ -480,7 +491,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		const curEpoch = 13
 
-		svc.traverserGenerator = &testTraverserGenerator{
+		svc.node = &testNode{
 			c: cnr,
 			b: map[uint64]placement.Builder{
 				curEpoch: b,
@@ -1157,7 +1168,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 
 	const curEpoch = 13
 
-	svc.traverserGenerator = &testTraverserGenerator{
+	svc.node = &testNode{
 		c: cnr,
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{

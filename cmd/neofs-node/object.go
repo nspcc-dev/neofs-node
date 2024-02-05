@@ -16,6 +16,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapevents "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	objectTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -37,6 +39,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -221,8 +224,6 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.applicationConfiguration.policer.objectBatchSize),
 	)
 
-	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
-
 	c.workers = append(c.workers, c.shared.policer)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
@@ -238,14 +239,26 @@ func initObjectService(c *cfg) {
 		}
 	}
 
-	sPut := putsvc.NewService(
+	var err error
+	c.cfgObject.containerNodesBuilder, err = newContainerNodesBuilder(c.netMapSource, c.cfgObject.cnrSource, c.networkState.CurrentEpoch(), func(err error) {
+		c.log.Warn("internal failure of the containers' storage policy processor, the cost of system resources for processing object operations may increase",
+			zap.Error(err))
+	})
+	fatalOnErrDetails("init cached builder of the container nodes", err)
+
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		epoch := ev.(netmapevents.NewEpoch).EpochNumber()
+		c.log.Debug("switching to new epoch in the container node builder", zap.Uint64("epoch", epoch))
+		c.cfgObject.containerNodesBuilder.setCurrentEpoch(epoch)
+		c.log.Debug("container node builder successfully switched to the new epoch", zap.Uint64("epoch", epoch))
+	})
+
+	sPut := putsvc.NewService(c,
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(os),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
-		putsvc.WithNetworkMapSource(c.netMapSource),
-		putsvc.WithNetmapKeys(c),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
@@ -256,15 +269,10 @@ func initObjectService(c *cfg) {
 		putsvcV2.WithKey(&c.key.PrivateKey),
 	)
 
-	sSearch := searchsvc.New(
+	sSearch := searchsvc.New(c,
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
-		searchsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.WithoutSuccessTracking(),
-			),
-		),
 		searchsvc.WithNetMapSource(c.netMapSource),
 		searchsvc.WithKeyStorage(keyStorage),
 	)
@@ -274,15 +282,10 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sGet := getsvc.New(
+	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
-		getsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.SuccessAfter(1),
-			),
-		),
 		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
 	)
@@ -326,7 +329,7 @@ func initObjectService(c *cfg) {
 		},
 	)
 
-	aclSvc := v2.New(
+	aclSvc := v2.New(c,
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapSource(c.netMapSource),
@@ -589,4 +592,111 @@ func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) er
 
 func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
+}
+
+func (c *cfg) getContainerNodesFromNetworkMap(networkMap *netmapsdk.NetMap, cnrID cid.ID) (
+	nodeSets [][]netmapsdk.NodeInfo,
+	storagePolicy netmapsdk.PlacementPolicy,
+	err error,
+) {
+	cnr, err := c.cfgObject.cnrSource.Get(cnrID)
+	if err != nil {
+		err = fmt.Errorf("read container by ID: %w", err)
+		return
+	}
+
+	storagePolicy = cnr.Value.PlacementPolicy()
+
+	nodeSets, err = networkMap.ContainerNodes(storagePolicy, cnrID)
+	if err != nil {
+		err = fmt.Errorf("apply container's storage policy to the network map: %w", err)
+	}
+
+	return
+}
+
+// GetContainerNodesAtEpoch reads storage policy of the referenced container
+// from the underlying container storage, reads network map at the specified
+// epoch from the underlying storage, applies the storage policy to it and
+// returns sets of selected storage nodes.
+//
+// GetContainerNodesAtEpoch implements [searchsvc.Node].
+func (c *cfg) GetContainerNodesAtEpoch(cnr cid.ID, epoch uint64) ([][]netmapsdk.NodeInfo, error) {
+	cnrNodes, _, err := c.cfgObject.containerNodesBuilder.getForEpoch(cnr, epoch)
+	return cnrNodes.nodeSets, err
+}
+
+// IsLocalPublicKey implements [searchsvc.Node], [getsvc.Node].
+func (c *cfg) IsLocalPublicKey(bPubKey []byte) bool {
+	return c.IsLocalKey(bPubKey)
+}
+
+// GetObjectNodesAtEpoch reads storage policy of the referenced container from
+// the underlying container storage, reads network map at the specified epoch
+// from the underlying storage, applies the storage policy to it and returns
+// sorted lists of selected storage nodes along with the numbers of primary
+// object holders.
+//
+// GetObjectNodesAtEpoch implements [getsvc.Node].
+func (c *cfg) GetObjectNodesAtEpoch(addr oid.Address, epoch uint64) ([][]netmapsdk.NodeInfo, []uint32, error) {
+	cnrNodes, err := c.cfgObject.containerNodesBuilder.getForObjectAtEpoch(addr, epoch)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cnrNodes.nodeSets, cnrNodes.primaryNodesNums, nil
+}
+
+// TODO: docs
+func (c *cfg) ObjectStoragePolicyForContainer(cnrID cid.ID) (putsvc.ObjectStoragePolicy, error) {
+	cnrNodes, networkMap, cache, err := c.cfgObject.containerNodesBuilder._getForEpoch(cnrID, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return &containerStoragePolicy{
+		networkMap: networkMap,
+		cnrNodes:   cnrNodes,
+		cache:      cache,
+	}, nil
+}
+
+type containerStoragePolicy struct {
+	networkMap *netmapsdk.NetMap
+	cnrNodes   containerNodes
+	cache      *containerNodesCacheItem
+}
+
+// TODO: docs
+func (x *containerStoragePolicy) StorageNodesForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, []uint32, error) {
+	nodeLists, err := sortContainerNodesForObjectAtEpoch(x.cnrNodes.nodeSets, x.networkMap, x.cache, obj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return nodeLists, x.cnrNodes.primaryNodesNums, nil
+}
+
+// TODO: docs
+func (c *cfg) AuthContainerNode(bPubKey []byte, cnr cid.ID, storagePolicy netmapsdk.PlacementPolicy) (bool, error) {
+	cnrNodes, networkMap, _, err := c.cfgObject.containerNodesBuilder._getForEpochAndPolicy(cnr, 0, &storagePolicy)
+	if err != nil {
+		return false, err
+	}
+
+	if cnrNodes.hasNodeWithPublicKey(bPubKey) {
+		return true, nil
+	}
+
+	curEpoch := networkMap.Epoch()
+	if curEpoch > 0 {
+		cnrNodes, _, _, err = c.cfgObject.containerNodesBuilder._getForEpochAndPolicy(cnr, curEpoch-1, &storagePolicy)
+		if err != nil {
+			return false, err
+		}
+
+		return cnrNodes.hasNodeWithPublicKey(bPubKey), nil
+	}
+
+	return false, nil
 }

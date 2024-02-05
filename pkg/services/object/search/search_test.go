@@ -32,10 +32,12 @@ type testStorage struct {
 	items map[string]idsErr
 }
 
-type testTraverserGenerator struct {
+type testNode struct {
 	c container.Container
 	b map[uint64]placement.Builder
 }
+
+func (g *testNode) IsLocalPublicKey([]byte) bool { return false }
 
 type testPlacementBuilder struct {
 	vectors map[string][][]netmap.NodeInfo
@@ -66,12 +68,13 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ cid.ID, epoch uint64) (*placement.Traverser, error) {
-	return placement.NewTraverser(
-		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b[epoch]),
-		placement.WithoutSuccessTracking(),
-	)
+func (g *testNode) GetContainerNodesAtEpoch(cnr cid.ID, epoch uint64) ([][]netmap.NodeInfo, error) {
+	b, ok := g.b[epoch]
+	if !ok {
+		return nil, errors.New("missing data for the epoch")
+	}
+
+	return b.BuildPlacement(cnr, nil, netmap.PlacementPolicy{}) // policy is ignored in this test
 }
 
 func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
@@ -208,8 +211,12 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 				strconv.Itoa(60000+j),
 			)
 
+			bPubKey := make([]byte, 33)
+			rand.Read(bPubKey)
+
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)
+			ni.SetPublicKey(bPubKey)
 
 			var na network.AddressGroup
 
@@ -254,7 +261,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		const curEpoch = 13
 
-		svc.traverserGenerator = &testTraverserGenerator{
+		svc.node = &testNode{
 			c: cnr,
 			b: map[uint64]placement.Builder{
 				curEpoch: b,
@@ -363,7 +370,7 @@ func TestGetFromPastEpoch(t *testing.T) {
 
 	const curEpoch = 13
 
-	svc.traverserGenerator = &testTraverserGenerator{
+	svc.node = &testNode{
 		c: cnr,
 		b: map[uint64]placement.Builder{
 			curEpoch: &testPlacementBuilder{

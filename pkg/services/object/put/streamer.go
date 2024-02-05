@@ -6,17 +6,15 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 type Streamer struct {
-	*cfg
+	*Service
 
 	ctx context.Context
 
@@ -139,14 +137,6 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 }
 
 func (p *Streamer) preparePrm(prm *PutInitPrm) error {
-	var err error
-
-	// get latest network map
-	nm, err := netmap.GetLatestNetworkMap(p.netMapSrc)
-	if err != nil {
-		return fmt.Errorf("(%T) could not get latest network map: %w", p, err)
-	}
-
 	idCnr, ok := prm.hdr.ContainerID()
 	if !ok {
 		return errors.New("missing container ID")
@@ -158,36 +148,12 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
 
+	prm.objStoragePolicy, err = p.node.ObjectStoragePolicyForContainer(idCnr)
+	if err != nil {
+		return fmt.Errorf("select storage nodes for the container: %w", err)
+	}
+
 	prm.cnr = cnrInfo.Value
-
-	// add common options
-	prm.traverseOpts = append(prm.traverseOpts,
-		// set processing container
-		placement.ForContainer(prm.cnr),
-	)
-
-	if id, ok := prm.hdr.ID(); ok {
-		prm.traverseOpts = append(prm.traverseOpts,
-			// set identifier of the processing object
-			placement.ForObject(id),
-		)
-	}
-
-	prm.traverseOpts = append(prm.traverseOpts, placement.WithCopiesNumber(prm.copiesNumber))
-
-	// create placement builder from network map
-	builder := placement.NewNetworkMapBuilder(nm)
-
-	if prm.common.LocalOnly() {
-		// restrict success count to 1 stored copy (to local storage)
-		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
-
-		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, p.netmapKeys)
-	}
-
-	// set placement builder
-	prm.traverseOpts = append(prm.traverseOpts, placement.UseBuilder(builder))
 
 	return nil
 }
@@ -196,16 +162,12 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
-			var info client.NodeInfo
-
-			client.NodeInfoFromNetmapElement(&info, node.info)
-
-			c, err := p.clientConstructor.Get(info)
+			c, err := p.clientConstructor.Get(node.info)
 			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", info.AddressGroup(), err)
+				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
 			}
 
-			return p.relay(info, c)
+			return p.relay(node.info, c)
 		}
 	}
 
@@ -215,11 +177,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
-		traversal: traversal{
-			opts: prm.traverseOpts,
-
-			extraBroadcastEnabled: withBroadcast,
-		},
+		broadcast:  withBroadcast,
 		payload:    getPayload(),
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
@@ -234,10 +192,9 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
+				nodeInfo:          node.info,
 				clientConstructor: p.clientConstructor,
 			}
-
-			client.NodeInfoFromNetmapElement(&rt.nodeInfo, node.info)
 
 			return rt
 		},
@@ -245,7 +202,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		fmt:   p.fmtValidator,
 		log:   p.log,
 
-		isLocalKey: p.netmapKeys.IsLocalKey,
+		node:             p.node,
+		objStoragePolicy: prm.objStoragePolicy,
+		linearReplNum:    prm.copiesNumber,
+		localOnly:        prm.common.LocalOnly(),
 	}
 }
 

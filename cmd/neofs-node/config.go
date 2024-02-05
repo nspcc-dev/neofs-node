@@ -473,6 +473,8 @@ type cfgObject struct {
 	cfgLocalStorage cfgLocalStorage
 
 	tombstoneLifetime uint64
+
+	containerNodesBuilder *containerNodesBuilder
 }
 
 type cfgNotifications struct {
