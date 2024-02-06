@@ -120,7 +120,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
 	_, err = fsTree.Delete(common.DeletePrm{Address: addr})
 	require.NoError(t, err)
-	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
+	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: [][]byte{[]byte("not an object")}})
 	require.NoError(t, err)
 
 	sh = New(

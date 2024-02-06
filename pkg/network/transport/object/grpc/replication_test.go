@@ -1,10 +1,12 @@
 package object_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"testing"
 
@@ -19,10 +21,11 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 func randECDSAPrivateKey(tb testing.TB) *ecdsa.PrivateKey {
@@ -71,7 +74,7 @@ func (x *noCallTestNode) CompliesContainerStoragePolicy(cid.ID) (bool, error) {
 	panic("must not be called")
 }
 
-func (x *noCallTestNode) StoreObject(cid.ID, object.Object) error {
+func (x *noCallTestNode) StoreObject(cid.ID, object.Object, []byte, []byte, int) error {
 	panic("must not be called")
 }
 
@@ -81,7 +84,7 @@ type testNode struct {
 	// request data
 	clientPubKey []byte
 	cnr          cid.ID
-	obj          *objectgrpc.Object
+	obj          object.Object
 
 	// return
 	compliesPolicy    bool
@@ -93,7 +96,7 @@ type testNode struct {
 	storeErr error
 }
 
-func newTestNode(tb testing.TB, clientPubKey []byte, cnr cid.ID, obj *objectgrpc.Object) *testNode {
+func newTestNode(tb testing.TB, clientPubKey []byte, cnr cid.ID, obj object.Object) *testNode {
 	return &testNode{
 		tb:           tb,
 		clientPubKey: clientPubKey,
@@ -113,49 +116,64 @@ func (x *testNode) CompliesContainerStoragePolicy(cnr cid.ID) (bool, error) {
 	return x.compliesPolicy, x.compliesPolicyErr
 }
 
-func (x *testNode) StoreObject(cnr cid.ID, obj object.Object) error {
-	require.Equal(x.tb, x.obj, obj.ToV2().ToGRPCMessage().(*objectgrpc.Object))
+func (x *testNode) StoreObject(cnr cid.ID, hdr object.Object, hdrBin, pldBin []byte, pldOff int) error {
+	require.Equal(x.tb, *x.obj.CutPayload(), hdr)
 	require.Equal(x.tb, x.cnr, cnr)
+
+	var obj2 object.Object
+	require.NoError(x.tb, obj2.Unmarshal(append(hdrBin, pldBin...)))
+	require.Equal(x.tb, x.obj, obj2)
 	return x.storeErr
 }
 
-func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) *objectgrpc.ReplicateRequest {
-	obj := objecttest.Object(tb)
+func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID) (b []byte, obj object.Object) {
+	var s neofscrypto.Signature
+	obj.SetSignature(&s)
+	require.NoError(tb, s.Calculate(signer, []byte("does not matter")))
+
+	obj = objecttest.Object(tb)
+	obj.SetSignature(&s)
 	obj.SetContainerID(cnr)
+	objID := oidtest.ID()
 	obj.SetID(objID)
 
-	bObj, err := obj.Marshal()
+	var bObjID [sha256.Size]byte
+	objID.Encode(bObjID[:])
+
+	sig, err := signer.Sign(bObjID[:])
 	require.NoError(tb, err)
 
-	sig, err := signer.Sign(bObj)
-	require.NoError(tb, err)
-
-	req := &objectgrpc.ReplicateRequest{
-		Object: obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
-		Signature: &refs.Signature{
-			Key:  neofscrypto.PublicKeyBytes(signer.Public()),
-			Sign: sig,
-		},
+	sigField := &refs.Signature{
+		Key:  neofscrypto.PublicKeyBytes(signer.Public()),
+		Sign: sig,
 	}
 
 	switch signer.Scheme() {
 	default:
 		tb.Fatalf("unsupported scheme %v", signer.Scheme())
 	case neofscrypto.ECDSA_SHA512:
-		req.Signature.Scheme = refs.SignatureScheme_ECDSA_SHA512
+		sigField.Scheme = refs.SignatureScheme_ECDSA_SHA512
 	case neofscrypto.ECDSA_DETERMINISTIC_SHA256:
-		req.Signature.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256
+		sigField.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256
 	case neofscrypto.ECDSA_WALLETCONNECT:
-		req.Signature.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT
+		sigField.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT
 	}
 
-	return req
+	req := &objectgrpc.ReplicateRequest{
+		Object:    obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
+		Signature: sigField,
+	}
+
+	b, err = proto.Marshal(req)
+	require.NoError(tb, err)
+
+	return b, obj
 }
 
 func TestServer_Replicate(t *testing.T) {
 	var noCallNode noCallTestNode
 	var noCallObjSvc noCallObjectService
-	noCallSrv := New(noCallObjSvc, &noCallNode)
+	noCallSrv := New(noCallObjSvc, &noCallNode, zap.NewNop())
 
 	t.Run("invalid/unsupported signature format", func(t *testing.T) {
 		// note: verification is tested separately
@@ -169,7 +187,7 @@ func TestServer_Replicate(t *testing.T) {
 				name:         "missing object signature field",
 				fSig:         func() *refs.Signature { return nil },
 				expectedCode: 1024,
-				expectedMsg:  "missing object signature field",
+				expectedMsg:  "missing required field #2 (object signature)",
 			},
 			{
 				name: "missing public key field in the signature field",
@@ -181,37 +199,42 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "public key field is missing/empty in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): missing required field #1 (public key)",
 			},
 			{
 				name: "missing value field in the signature field",
 				fSig: func() *refs.Signature {
 					return &refs.Signature{
-						Key:    []byte("any non-empty"),
+						Key:    make([]byte, 33), // any 33B
 						Sign:   []byte{},
 						Scheme: refs.SignatureScheme_ECDSA_SHA512, // any supported
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "signature value is missing/empty in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): missing required field #2 (value)",
 			},
 			{
 				name: "unsupported scheme in the signature field",
 				fSig: func() *refs.Signature {
 					return &refs.Signature{
-						Key:    []byte("any non-empty"),
+						Key:    make([]byte, 33), // any 33B
 						Sign:   []byte("any non-empty"),
 						Scheme: 3,
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "unsupported scheme in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): unsupported field #3 (scheme) enum value",
 			},
 		} {
-			resp, err := noCallSrv.Replicate(context.Background(), &objectgrpc.ReplicateRequest{
-				Object:    new(objectgrpc.Object),
+			obj := objecttest.Object(t)
+			req := &objectgrpc.ReplicateRequest{
+				Object:    obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
 				Signature: tc.fSig(),
-			})
+			}
+			b, err := proto.Marshal(req)
+			require.NoError(t, err)
+
+			resp, err := noCallSrv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 			require.NoError(t, err, tc.name)
 			require.EqualValues(t, tc.expectedCode, resp.GetStatus().GetCode(), tc.name)
 			require.Equal(t, tc.expectedMsg, resp.GetStatus().GetMessage(), tc.name)
@@ -230,13 +253,13 @@ func TestServer_Replicate(t *testing.T) {
 				name: "ECDSA SHA-512: invalid public key",
 				fSig: func(_ []byte) *refs.Signature {
 					return &refs.Signature{
-						Key:    []byte("not ECDSA key"),
+						Key:    []byte("any len != 33"),
 						Sign:   []byte("any non-empty"),
 						Scheme: refs.SignatureScheme_ECDSA_SHA512,
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "invalid ECDSA public key in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): invalid field #1 (public key): length != 33",
 			},
 			{
 				name: "ECDSA SHA-512: signature mismatch",
@@ -248,7 +271,7 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "signature mismatch in the object signature field",
+				expectedMsg:  "object signature mismatch",
 			},
 			{
 				name: "ECDSA SHA-256 deterministic: invalid public key",
@@ -260,7 +283,7 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "invalid ECDSA public key in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): invalid field #1 (public key): length != 33",
 			},
 			{
 				name: "ECDSA SHA-256 deterministic: signature mismatch",
@@ -272,7 +295,7 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "signature mismatch in the object signature field",
+				expectedMsg:  "object signature mismatch",
 			},
 			{
 				name: "ECDSA SHA-256 WalletConnect: invalid public key",
@@ -284,7 +307,7 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "invalid ECDSA public key in the object signature field",
+				expectedMsg:  "invalid field #2 (object signature): invalid field #1 (public key): length != 33",
 			},
 			{
 				name: "ECDSA SHA-256 WalletConnect: signature mismatch",
@@ -296,17 +319,21 @@ func TestServer_Replicate(t *testing.T) {
 					}
 				},
 				expectedCode: 1024,
-				expectedMsg:  "signature mismatch in the object signature field",
+				expectedMsg:  "object signature mismatch",
 			},
 		} {
 			obj := objecttest.Object(t)
 			bObj, err := obj.Marshal()
 			require.NoError(t, err)
 
-			resp, err := noCallSrv.Replicate(context.Background(), &objectgrpc.ReplicateRequest{
+			req := &objectgrpc.ReplicateRequest{
 				Object:    obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
 				Signature: tc.fSig(bObj),
-			})
+			}
+			b, err := proto.Marshal(req)
+			require.NoError(t, err)
+
+			resp, err := noCallSrv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 			require.NoError(t, err, tc.name)
 			require.EqualValues(t, tc.expectedCode, resp.GetStatus().GetCode(), tc.name)
 			require.Equal(t, tc.expectedMsg, resp.GetStatus().GetMessage(), tc.name)
@@ -317,16 +344,15 @@ func TestServer_Replicate(t *testing.T) {
 		signer := test.RandomSigner(t)
 		clientPubKey := neofscrypto.PublicKeyBytes(signer.Public())
 		cnr := cidtest.ID()
-		objID := oidtest.ID()
-		req := anyValidRequest(t, signer, cnr, objID)
+		b, obj := anyValidRequest(t, signer, cnr)
 
-		node := newTestNode(t, clientPubKey, cnr, req.Object)
+		node := newTestNode(t, clientPubKey, cnr, obj)
 
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, node, zap.NewNop())
 
 		node.compliesPolicyErr = errors.New("any error")
 
-		resp, err := srv.Replicate(context.Background(), req)
+		resp, err := srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
 		require.Equal(t, "failed to check server's compliance to object's storage policy: any error", resp.GetStatus().GetMessage())
@@ -334,7 +360,7 @@ func TestServer_Replicate(t *testing.T) {
 		node.compliesPolicyErr = nil
 		node.compliesPolicy = false
 
-		resp, err = srv.Replicate(context.Background(), req)
+		resp, err = srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
 		require.Equal(t, "server does not match the object's storage policy", resp.GetStatus().GetMessage())
@@ -344,18 +370,17 @@ func TestServer_Replicate(t *testing.T) {
 		signer := test.RandomSigner(t)
 		clientPubKey := neofscrypto.PublicKeyBytes(signer.Public())
 		cnr := cidtest.ID()
-		objID := oidtest.ID()
-		req := anyValidRequest(t, signer, cnr, objID)
+		b, obj := anyValidRequest(t, signer, cnr)
 
-		node := newTestNode(t, clientPubKey, cnr, req.Object)
+		node := newTestNode(t, clientPubKey, cnr, obj)
 
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, node, zap.NewNop())
 
 		node.compliesPolicy = true
 		node.compliesPolicyErr = nil
 		node.clientCompliesPolicyErr = errors.New("any error")
 
-		resp, err := srv.Replicate(context.Background(), req)
+		resp, err := srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
 		require.Equal(t, "failed to check client's compliance to object's storage policy: any error", resp.GetStatus().GetMessage())
@@ -363,7 +388,7 @@ func TestServer_Replicate(t *testing.T) {
 		node.clientCompliesPolicy = false
 		node.clientCompliesPolicyErr = nil
 
-		resp, err = srv.Replicate(context.Background(), req)
+		resp, err = srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 2048, resp.GetStatus().GetCode())
 		require.Equal(t, "client does not match the object's storage policy", resp.GetStatus().GetMessage())
@@ -373,12 +398,11 @@ func TestServer_Replicate(t *testing.T) {
 		signer := test.RandomSigner(t)
 		clientPubKey := neofscrypto.PublicKeyBytes(signer.Public())
 		cnr := cidtest.ID()
-		objID := oidtest.ID()
-		req := anyValidRequest(t, signer, cnr, objID)
+		b, obj := anyValidRequest(t, signer, cnr)
 
-		node := newTestNode(t, clientPubKey, cnr, req.Object)
+		node := newTestNode(t, clientPubKey, cnr, obj)
 
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, node, zap.NewNop())
 
 		node.compliesPolicy = true
 		node.compliesPolicyErr = nil
@@ -387,7 +411,7 @@ func TestServer_Replicate(t *testing.T) {
 
 		node.storeErr = errors.New("any error")
 
-		resp, err := srv.Replicate(context.Background(), req)
+		resp, err := srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 1024, resp.GetStatus().GetCode())
 	})
@@ -396,12 +420,11 @@ func TestServer_Replicate(t *testing.T) {
 		signer := test.RandomSigner(t)
 		clientPubKey := neofscrypto.PublicKeyBytes(signer.Public())
 		cnr := cidtest.ID()
-		objID := oidtest.ID()
-		req := anyValidRequest(t, signer, cnr, objID)
+		b, obj := anyValidRequest(t, signer, cnr)
 
-		node := newTestNode(t, clientPubKey, cnr, req.Object)
+		node := newTestNode(t, clientPubKey, cnr, obj)
 
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, node, zap.NewNop())
 
 		node.compliesPolicy = true
 		node.compliesPolicyErr = nil
@@ -410,7 +433,7 @@ func TestServer_Replicate(t *testing.T) {
 
 		node.storeErr = nil
 
-		resp, err := srv.Replicate(context.Background(), req)
+		resp, err := srv.ServeReplicateGRPC(context.Background(), len(b), bytes.NewReader(b))
 		require.NoError(t, err)
 		require.EqualValues(t, 0, resp.GetStatus().GetCode())
 		require.Empty(t, resp.GetStatus().GetMessage())
@@ -427,7 +450,7 @@ func (x nopNode) ClientCompliesContainerStoragePolicy(_ []byte, _ cid.ID) (bool,
 	return true, nil
 }
 
-func (x nopNode) StoreObject(cid.ID, object.Object) error {
+func (x nopNode) StoreObject(cid.ID, object.Object, []byte, []byte, int) error {
 	return nil
 }
 
@@ -435,7 +458,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var node nopNode
 
-	srv := New(nil, node)
+	srv := New(nil, node, zap.NewNop())
 
 	for _, tc := range []struct {
 		name      string
@@ -461,13 +484,13 @@ func BenchmarkServer_Replicate(b *testing.B) {
 		},
 	} {
 		b.Run(tc.name, func(b *testing.B) {
-			req := anyValidRequest(b, tc.newSigner(b), cidtest.ID(), oidtest.ID())
+			buf, _ := anyValidRequest(b, tc.newSigner(b), cidtest.ID())
 
 			b.ReportAllocs()
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				resp, err := srv.Replicate(ctx, req)
+				resp, err := srv.ServeReplicateGRPC(ctx, len(buf), bytes.NewReader(buf))
 				require.NoError(b, err)
 				require.Zero(b, resp.GetStatus().GetCode())
 			}

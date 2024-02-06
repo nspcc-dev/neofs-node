@@ -102,7 +102,7 @@ func (c *cache) flushDB() {
 
 				m = append(m, objectInfo{
 					addr: string(k),
-					data: slice.Copy(v),
+					data: [][]byte{slice.Copy(v)},
 				})
 			}
 			return nil
@@ -115,7 +115,7 @@ func (c *cache) flushDB() {
 			}
 
 			obj := object.New()
-			if err := obj.Unmarshal(m[i].data); err != nil {
+			if err := obj.Unmarshal(m[i].data[0]); err != nil {
 				continue
 			}
 
@@ -252,7 +252,9 @@ func (c *cache) flushObject(obj *object.Object, data []byte) error {
 
 	var prm common.PutPrm
 	prm.Object = obj
-	prm.RawData = data
+	if data != nil {
+		prm.RawData = [][]byte{data}
+	}
 
 	res, err := c.blobstor.Put(prm)
 	if err != nil {

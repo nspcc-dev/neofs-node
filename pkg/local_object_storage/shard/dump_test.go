@@ -298,8 +298,15 @@ func TestDumpIgnoreErrors(t *testing.T) {
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
 					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return len(data) < bsSmallObjectSize
+					Policy: func(_ *objectSDK.Object, data [][]byte) bool {
+						var s uint64
+						for i := range data {
+							s += uint64(len(data[i]))
+							if s >= bsSmallObjectSize {
+								return false
+							}
+						}
+						return true
 					},
 				},
 				{
@@ -371,7 +378,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		// 2. Invalid object in peapod.
 		var prm common.PutPrm
 		prm.Address = oid.Address{}
-		prm.RawData = corruptedData
+		prm.RawData = [][]byte{corruptedData}
 		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0o600, 10*time.Millisecond)
 		require.NoError(t, b.Open(false))
 		require.NoError(t, b.Init())

@@ -9,7 +9,7 @@ import (
 type PutPrm struct {
 	Address      oid.Address
 	Object       *objectSDK.Object
-	RawData      []byte
+	RawData      [][]byte
 	DontCompress bool
 }
 

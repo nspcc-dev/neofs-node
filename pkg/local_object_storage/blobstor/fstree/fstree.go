@@ -27,7 +27,7 @@ type FSTree struct {
 	*compression.Config
 	Depth      uint64
 	DirNameLen int
-	writeData  func(string, []byte) error
+	writeData  func(string, [][]byte) error
 
 	noSync   bool
 	readOnly bool
@@ -263,7 +263,23 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 		return common.PutRes{}, fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
 	if !prm.DontCompress {
-		prm.RawData = t.Compress(prm.RawData)
+		// TODO: compress homomorphic?
+		var s int
+		for i := range prm.RawData {
+			s += len(prm.RawData[i])
+		}
+		var d []byte
+		if s > 0 {
+			if len(prm.RawData) == 1 {
+				d = prm.RawData[0]
+			} else {
+				d = make([]byte, 0, s)
+				for i := range prm.RawData {
+					d = append(d, prm.RawData[i]...)
+				}
+			}
+		}
+		prm.RawData = [][]byte{t.Compress(d)}
 	}
 	err := t.writeData(p, prm.RawData)
 	if err != nil {
@@ -307,6 +323,9 @@ func (t *FSTree) OpenObjectStream(objAddr oid.Address) (io.ReadSeekCloser, error
 
 	f, err := os.Open(p)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
 		return nil, fmt.Errorf("open object file %q: %w", p, err)
 	}
 

@@ -23,9 +23,12 @@ func (c *cache) Put(prm common.PutPrm) (common.PutRes, error) {
 		return common.PutRes{}, ErrReadOnly
 	}
 
-	sz := uint64(len(prm.RawData))
-	if sz > c.maxObjectSize {
-		return common.PutRes{}, ErrBigObject
+	var sz uint64
+	for i := range prm.RawData {
+		sz += uint64(len(prm.RawData[i]))
+		if sz > c.maxObjectSize {
+			return common.PutRes{}, ErrBigObject
+		}
 	}
 
 	oi := objectInfo{
@@ -48,9 +51,21 @@ func (c *cache) putSmall(obj objectInfo) error {
 		return ErrOutOfSpace
 	}
 
+	var s int
+	for i := range obj.data {
+		s += len(obj.data[i])
+	}
+	var d []byte
+	if s > 0 {
+		d = make([]byte, 0, s)
+		for i := range obj.data {
+			d = append(d, obj.data[i]...)
+		}
+	}
+
 	err := c.db.Batch(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
-		return b.Put([]byte(obj.addr), obj.data)
+		return b.Put([]byte(obj.addr), d)
 	})
 	if err == nil {
 		storagelog.Write(c.log,

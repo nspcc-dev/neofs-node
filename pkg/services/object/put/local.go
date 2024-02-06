@@ -19,7 +19,9 @@ import (
 type ObjectStorage interface {
 	// Put must save passed object
 	// and return any appeared error.
-	Put(*object.Object) error
+	//
+	// Optional binary parameters could be passed when object is encoded in advance.
+	Put(obj *object.Object, hdrBin []byte, pldBin []byte) error
 	// Delete must delete passed objects
 	// and return any appeared error.
 	Delete(tombstone oid.Address, toDelete []oid.ID) error
@@ -33,19 +35,26 @@ type ObjectStorage interface {
 type localTarget struct {
 	storage ObjectStorage
 
-	obj  *object.Object
-	meta objectCore.ContentMeta
+	obj    *object.Object
+	meta   objectCore.ContentMeta
+	hdrBin []byte
+	pldBin []byte
 }
 
-func (t *localTarget) WriteObject(_ context.Context, obj *object.Object, meta objectCore.ContentMeta) error {
+func (t *localTarget) WriteObject(ctx context.Context, obj *object.Object, meta objectCore.ContentMeta) error {
 	t.obj = obj
 	t.meta = meta
+
+	if b, ok := ctx.(*binReplicationContext); ok {
+		t.hdrBin = b.hdr
+		t.pldBin = b.pldFld
+	}
 
 	return nil
 }
 
 func (t *localTarget) Close() (oid.ID, error) {
-	err := putObjectLocally(t.storage, t.obj, t.meta)
+	err := putObjectLocally(t.storage, t.obj, t.meta, t.hdrBin, t.pldBin)
 	if err != nil {
 		return oid.ID{}, err
 	}
@@ -55,7 +64,7 @@ func (t *localTarget) Close() (oid.ID, error) {
 	return id, nil
 }
 
-func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta) error {
+func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, hdrBin []byte, pldBin []byte) error {
 	switch meta.Type() {
 	case object.TypeTombstone:
 		err := storage.Delete(objectCore.AddressOf(obj), meta.Objects())
@@ -71,7 +80,7 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 		// objects that do not change meta storage
 	}
 
-	if err := storage.Put(obj); err != nil {
+	if err := storage.Put(obj, hdrBin, pldBin); err != nil {
 		return fmt.Errorf("could not put object to local storage: %w", err)
 	}
 
@@ -81,8 +90,8 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 // ValidateAndStoreObjectLocally checks format of given object associated with
 // the referenced container and, if correct, stores it in the local object
 // storage. Serves operation the same as local 'ObjectService.Put' one.
-func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object) error {
-	cs, csSet := obj.PayloadChecksum()
+func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, hdr object.Object, hdrBin []byte, pldBin []byte, pldDataOff int) error {
+	cs, csSet := hdr.PayloadChecksum()
 	if !csSet {
 		return errors.New("missing payload checksum")
 	}
@@ -101,8 +110,8 @@ func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object)
 		return errors.New("failed to obtain max payload size setting")
 	}
 
-	payload := obj.Payload()
-	payloadSz := obj.PayloadSize()
+	payloadSz := hdr.PayloadSize()
+	payload := pldBin[pldDataOff:]
 	if payloadSz != uint64(len(payload)) {
 		return ErrWrongPayloadSize
 	}
@@ -117,7 +126,7 @@ func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object)
 	}
 
 	if !cnr.Value.IsHomomorphicHashingDisabled() {
-		csHomo, csHomoSet := obj.PayloadHomomorphicHash()
+		csHomo, csHomoSet := hdr.PayloadHomomorphicHash()
 		switch {
 		case !csHomoSet:
 			return errors.New("missing homomorphic payload checksum")
@@ -129,11 +138,12 @@ func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object)
 		}
 	}
 
-	if err := p.fmtValidator.Validate(&obj, false); err != nil {
+	if err := p.fmtValidator.Validate(&hdr, false); err != nil {
 		return fmt.Errorf("validate object format: %w", err)
 	}
 
-	objMeta, err := p.fmtValidator.ValidateContent(&obj)
+	hdr.SetPayload(payload)
+	objMeta, err := p.fmtValidator.ValidateContent(&hdr)
 	if err != nil {
 		return fmt.Errorf("validate payload content: %w", err)
 	}
@@ -151,5 +161,5 @@ func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object)
 		}
 	}
 
-	return putObjectLocally(p.localStore, &obj, objMeta)
+	return putObjectLocally(p.localStore, &hdr, objMeta, hdrBin, pldBin)
 }

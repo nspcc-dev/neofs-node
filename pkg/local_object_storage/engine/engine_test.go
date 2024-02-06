@@ -100,8 +100,15 @@ func newStorages(root string, smallSize uint64) []blobstor.SubStorage {
 	return []blobstor.SubStorage{
 		{
 			Storage: peapod.New(filepath.Join(root, "peapod.db"), 0o600, 10*time.Millisecond),
-			Policy: func(_ *object.Object, data []byte) bool {
-				return uint64(len(data)) < smallSize
+			Policy: func(_ *object.Object, data [][]byte) bool {
+				var s uint64
+				for i := range data {
+					s += uint64(len(data[i]))
+					if s >= smallSize {
+						return false
+					}
+				}
+				return true
 			},
 		},
 		{

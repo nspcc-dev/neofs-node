@@ -12,7 +12,7 @@ import (
 type PutPrm struct {
 	addr oid.Address
 
-	objData []byte
+	objData [][]byte
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -29,7 +29,7 @@ func (p *PutPrm) SetAddress(addr oid.Address) {
 }
 
 // SetMarshaledObject sets binary representation of the object.
-func (p *PutPrm) SetMarshaledObject(data []byte) {
+func (p *PutPrm) SetMarshaledObject(data [][]byte) {
 	p.objData = data
 }
 
@@ -48,8 +48,22 @@ func (p *PutPrm) SetMarshaledObject(data []byte) {
 //
 // Should not be called in read-only configuration.
 func (b *Blobovnicza) Put(prm PutPrm) (PutRes, error) {
-	sz := uint64(len(prm.objData))
-	bucketName := bucketForSize(sz)
+	var sz int
+	for i := range prm.objData {
+		sz += len(prm.objData[i])
+	}
+	var d []byte
+	if sz > 0 {
+		if len(prm.objData) == 1 {
+			d = prm.objData[0]
+		} else {
+			d = make([]byte, 0, sz)
+			for i := range prm.objData {
+				d = append(d, prm.objData[i]...)
+			}
+		}
+	}
+	bucketName := bucketForSize(uint64(sz))
 	key := addressKey(prm.addr)
 
 	err := b.boltDB.Batch(func(tx *bbolt.Tx) error {
@@ -66,14 +80,14 @@ func (b *Blobovnicza) Put(prm PutPrm) (PutRes, error) {
 		}
 
 		// save the object in bucket
-		if err := buck.Put(key, prm.objData); err != nil {
+		if err := buck.Put(key, d); err != nil {
 			return fmt.Errorf("(%T) could not save object in bucket: %w", b, err)
 		}
 
 		return nil
 	})
 	if err == nil {
-		b.incSize(sz)
+		b.incSize(uint64(sz))
 	}
 
 	return PutRes{}, err

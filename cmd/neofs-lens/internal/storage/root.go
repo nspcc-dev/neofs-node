@@ -192,15 +192,22 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 						fstree.WithPerm(sRead.Perm),
 						fstree.WithDepth(sRead.Depth),
 						fstree.WithNoSync(sRead.NoSync)),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
+					Policy: func(_ *objectSDK.Object, data [][]byte) bool {
 						return true
 					},
 				})
 			case peapod.Type:
 				ss = append(ss, blobstor.SubStorage{
 					Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
+					Policy: func(_ *objectSDK.Object, data [][]byte) bool {
+						var sz uint64
+						for i := range data {
+							sz += uint64(len(data[i]))
+							if sz >= shCfg.SmallSizeObjectLimit {
+								return false
+							}
+						}
+						return true
 					},
 				})
 			default:

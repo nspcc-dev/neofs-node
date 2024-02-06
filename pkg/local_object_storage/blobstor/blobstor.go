@@ -13,7 +13,7 @@ import (
 // SubStorage represents single storage component with some storage policy.
 type SubStorage struct {
 	Storage common.Storage
-	Policy  func(*objectSDK.Object, []byte) bool
+	Policy  func(*objectSDK.Object, [][]byte) bool
 }
 
 // BlobStor represents NeoFS local BLOB storage.

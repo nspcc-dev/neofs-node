@@ -65,7 +65,7 @@ func prepare(t *testing.T, count int, s common.Storage, min, max uint64) []objec
 		var prm common.PutPrm
 		prm.Address = objects[i].addr
 		prm.Object = objects[i].obj
-		prm.RawData = objects[i].raw
+		prm.RawData = [][]byte{objects[i].raw}
 
 		putRes, err := s.Put(prm)
 		require.NoError(t, err)

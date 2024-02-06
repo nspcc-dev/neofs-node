@@ -1,7 +1,9 @@
 package putsvc
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -10,6 +12,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -61,10 +64,10 @@ func (t *remoteTarget) WriteObject(ctx context.Context, obj *object.Object, _ ob
 }
 
 func (t *remoteTarget) Close() (oid.ID, error) {
-	binReplicationCtx, isBinReplication := t.ctx.(*binReplicationContext)
+	brc, isBin := t.ctx.(*binReplicationContext)
 	var sessionInfo *util.SessionInfo
 
-	if !isBinReplication {
+	if !isBin {
 		// ObjectService.Replicate request must be signed by the container node,
 		// so we must not use session private key
 		if tok := t.commonPrm.SessionToken(); tok != nil {
@@ -85,10 +88,16 @@ func (t *remoteTarget) Close() (oid.ID, error) {
 		return oid.ID{}, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
 	}
 
-	if isBinReplication {
-		err = c.ReplicateObject(t.ctx, binReplicationCtx.b, (*neofsecdsa.Signer)(key))
+	if isBin {
+		id, ok := t.obj.ID()
+		if !ok {
+			return oid.ID{}, errors.New("missing ID in outgoing ready object")
+		}
+
+		ro := client.ReplicateFromReader(len(brc.hdr)+len(brc.pldFld),
+			io.MultiReader(bytes.NewReader(brc.hdr), bytes.NewReader(brc.pldFld)))
+		err = c.ReplicateObject(t.ctx, id, ro, (*neofsecdsa.Signer)(key))
 		if err == nil {
-			id, _ := t.obj.ID()
 			return id, nil
 		}
 
@@ -171,7 +180,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 // ReplicateObjectToNode copies binary-encoded NeoFS object from the given
 // [io.ReadSeeker] into local storage of the node described by specified
 // [netmap.NodeInfo].
-func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, src io.ReadSeeker) error {
+func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, nodeInfo netmap.NodeInfo, id oid.ID, src io.ReadSeeker) error {
 	var nodeInfoForCons clientcore.NodeInfo
 
 	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, netmapCore.Node(nodeInfo))
@@ -189,7 +198,7 @@ func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, nodeInfo netma
 		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
 	}
 
-	err = c.ReplicateObject(ctx, src, (*neofsecdsa.Signer)(key))
+	err = c.ReplicateObject(ctx, id, client.ReplicateFromReadSeeker(src), (*neofsecdsa.Signer)(key))
 	if err != nil {
 		return fmt.Errorf("copy object using NeoFS API client of the remote node: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -43,6 +44,7 @@ import (
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type objectSvc struct {
@@ -381,10 +383,30 @@ func initObjectService(c *cfg) {
 		return *nm, nil
 	})
 
-	server := objectTransportGRPC.New(firstSvc, replNode)
+	server := objectTransportGRPC.New(firstSvc, replNode, c.log)
+
+	// FIXME: docs do not recommended such actions
+	objSvcDesc := objectGRPC.ObjectService_ServiceDesc
+	objSvcDesc.Methods = make([]grpc.MethodDesc, len(objectGRPC.ObjectService_ServiceDesc.Methods))
+	copy(objSvcDesc.Methods, objectGRPC.ObjectService_ServiceDesc.Methods)
+	replicateMethodInd := -1
+	for i := range objSvcDesc.Methods {
+		if objSvcDesc.Methods[i].MethodName == "Replicate" {
+			replicateMethodInd = i
+			break
+		}
+	}
+	if replicateMethodInd < 0 {
+		objSvcDesc.Methods = append(objSvcDesc.Methods, grpc.MethodDesc{MethodName: "Replicate"})
+		replicateMethodInd = len(objSvcDesc.Methods) - 1
+	}
+
+	objSvcDesc.Methods[replicateMethodInd].BinHandler = func(ctx context.Context, ln int, r io.Reader) (any, error) {
+		return server.ServeReplicateGRPC(ctx, ln, r)
+	}
 
 	for _, srv := range c.cfgGRPC.servers {
-		objectGRPC.RegisterObjectServiceServer(srv, server)
+		srv.RegisterService(&objSvcDesc, server)
 	}
 }
 
@@ -558,8 +580,8 @@ func (e engineWithNotifications) Lock(locker oid.Address, toLock []oid.ID) error
 	return e.base.Lock(locker, toLock)
 }
 
-func (e engineWithNotifications) Put(o *objectSDK.Object) error {
-	if err := e.base.Put(o); err != nil {
+func (e engineWithNotifications) Put(o *objectSDK.Object, hdrBin []byte, pldBin []byte) error {
+	if err := e.base.Put(o, hdrBin, pldBin); err != nil {
 		return err
 	}
 
@@ -606,6 +628,10 @@ func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) er
 	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
-func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
-	return engine.Put(e.engine, o)
+func (e engineWithoutNotifications) Put(o *objectSDK.Object, hdrBin []byte, pldBin []byte) error {
+	var prm engine.PutPrm
+	prm.WithObject(o)
+	prm.WithObjectBinary(hdrBin, pldBin)
+	_, err := e.engine.Put(prm)
+	return err
 }

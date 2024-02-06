@@ -34,7 +34,7 @@ func (x *mockWriter) SetCompressor(*compression.Config) {}
 func TestBlobStor_Put_Overflow(t *testing.T) {
 	sub1 := &mockWriter{full: true}
 	sub2 := &mockWriter{full: false}
-	policyMismatch := blobstor.SubStorage{Storage: sub1, Policy: func(*object.Object, []byte) bool { return false }}
+	policyMismatch := blobstor.SubStorage{Storage: sub1, Policy: func(*object.Object, [][]byte) bool { return false }}
 	bs := blobstor.New(blobstor.WithStorages(
 		[]blobstor.SubStorage{
 			policyMismatch,

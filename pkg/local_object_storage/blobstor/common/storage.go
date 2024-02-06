@@ -76,7 +76,7 @@ func Copy(dst, src Storage) error {
 
 			_, err = dst.Put(PutPrm{
 				Address: el.Address,
-				RawData: el.ObjectData,
+				RawData: [][]byte{el.ObjectData},
 			})
 			if err != nil {
 				return fmt.Errorf("put object %s into destination sub-storage: %w", el.Address, err)

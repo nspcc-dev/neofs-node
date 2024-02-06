@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"io"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -21,7 +20,7 @@ import (
 type Client interface {
 	ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error
 	ObjectPutInit(ctx context.Context, header object.Object, signer user.Signer, prm client.PrmObjectPutInit) (client.ObjectWriter, error)
-	ReplicateObject(ctx context.Context, src io.ReadSeeker, signer neofscrypto.Signer) error
+	ReplicateObject(ctx context.Context, id oid.ID, ro client.ReplicatedObject, signer neofscrypto.Signer) error
 	ObjectDelete(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectDelete) (oid.ID, error)
 	ObjectGetInit(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectGet) (object.Object, *client.PayloadReader, error)
 	ObjectHead(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHead) (*object.Object, error)

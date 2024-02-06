@@ -37,7 +37,7 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	rand.Read(data)
 
 	prm := common.PutPrm{
-		RawData: data,
+		RawData: [][]byte{data},
 	}
 
 	b.ResetTimer()

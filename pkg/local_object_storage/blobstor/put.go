@@ -35,7 +35,7 @@ func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
 		if err != nil {
 			return common.PutRes{}, fmt.Errorf("could not marshal the object: %w", err)
 		}
-		prm.RawData = data
+		prm.RawData = [][]byte{data}
 	}
 
 	var overflow bool

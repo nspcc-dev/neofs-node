@@ -19,7 +19,18 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	}
 
 	if !prm.DontCompress {
-		prm.RawData = b.compression.Compress(prm.RawData)
+		var s int
+		for i := range prm.RawData {
+			s += len(prm.RawData[i])
+		}
+		var d []byte
+		if s > 0 {
+			d = make([]byte, 0, s)
+			for i := range prm.RawData {
+				d = append(d, prm.RawData[i]...)
+			}
+		}
+		prm.RawData = [][]byte{b.compression.Compress(d)}
 	}
 
 	var putPrm blobovnicza.PutPrm

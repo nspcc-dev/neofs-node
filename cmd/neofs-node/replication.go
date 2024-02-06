@@ -122,6 +122,6 @@ func (x *replicationNode) ClientCompliesContainerStoragePolicy(bClientPubKey []b
 }
 
 // StoreObject processes object same way as `ObjectService.Put` RPC with TTL=1.
-func (x *replicationNode) StoreObject(cnr cid.ID, obj object.Object) error {
-	return x.putObjectService.ValidateAndStoreObjectLocally(cnr, obj)
+func (x *replicationNode) StoreObject(cnr cid.ID, hdr object.Object, hdrBin []byte, pldBin []byte, pldDataOff int) error {
+	return x.putObjectService.ValidateAndStoreObjectLocally(cnr, hdr, hdrBin, pldBin, pldDataOff)
 }

@@ -2,11 +2,9 @@ package replicator
 
 import (
 	"context"
-	"errors"
 	"io"
 
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -20,34 +18,6 @@ type TaskResult interface {
 	SubmitSuccessfulReplication(netmap.NodeInfo)
 }
 
-type readSeekerClosedOnEOF struct {
-	closed bool
-
-	rs io.ReadSeeker
-	c  io.Closer
-}
-
-func (x *readSeekerClosedOnEOF) Read(p []byte) (int, error) {
-	n, err := x.rs.Read(p)
-	if errors.Is(err, io.EOF) {
-		x.closed = true
-		_ = x.c.Close()
-	}
-	return n, err
-}
-
-func (x *readSeekerClosedOnEOF) Seek(offset int64, whence int) (int64, error) {
-	return x.rs.Seek(offset, whence)
-}
-
-func (x *readSeekerClosedOnEOF) Close() error {
-	if !x.closed {
-		x.closed = true
-		return x.c.Close()
-	}
-	return nil
-}
-
 // HandleTask executes replication task inside invoking goroutine.
 // Passes all the nodes that accepted the replication to the TaskResult.
 func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) {
@@ -59,28 +29,14 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 	var binObjStream io.ReadSeekCloser // set it task.obj is unset only
 	var err error
-
 	if task.obj == nil {
 		binObjStream, err = p.localStorage.OpenObjectStream(task.addr)
 		if err != nil {
 			p.log.Error("could not get object from local storage",
 				zap.Stringer("object", task.addr),
 				zap.Error(err))
-
 			return
 		}
-
-		if len(task.nodes) > 1 {
-			dem := client.DemuxReplicatedObject(binObjStream)
-			defer dem.Release()
-			// since in this case we read object once it's worth to close the stream insta
-			// after reading finish so that no longer used resources do not hang up
-			binObjStream = &readSeekerClosedOnEOF{
-				rs: dem,
-				c:  binObjStream,
-			}
-		}
-
 		defer func() {
 			if err := binObjStream.Close(); err != nil {
 				p.log.Debug("failed to close replicated object's binary stream from the local storage",
@@ -116,10 +72,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
 		if binObjStream != nil {
-			err = p.remoteSender.ReplicateObjectToNode(ctx, task.nodes[i], binObjStream)
-			// note that we don't need to reset binObjStream because it always read once:
-			//  - if len(task.nodes) == 1, we won't come here again
-			//  - otherwise, we use client.DemuxReplicatedObject (see above)
+			err = p.remoteSender.ReplicateObjectToNode(callCtx, task.nodes[i], task.addr.Object(), binObjStream)
 			// FIXME: temporary workaround, see also
 			// https://github.com/nspcc-dev/neofs-api/issues/201#issuecomment-1891383454
 			if st, ok := status.FromError(err); ok && st.Code() == codes.Unimplemented {

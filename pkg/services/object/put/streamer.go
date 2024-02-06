@@ -223,7 +223,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 
 			extraBroadcastEnabled: withBroadcast,
 		},
-		payload:    getPayload(),
+		pldFld:     getPayload(), // TODO: size will be known after WriteHeader, replace alloc there
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
 		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {

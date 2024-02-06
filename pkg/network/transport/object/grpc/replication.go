@@ -1,212 +1,161 @@
 package object
 
 import (
+	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
-	objectv2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	status "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
-// Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
-func (s *Server) Replicate(_ context.Context, req *objectGRPC.ReplicateRequest) (*objectGRPC.ReplicateResponse, error) {
-	const codeInternal = uint32(1024*status.Section_SECTION_FAILURE_COMMON) + uint32(status.CommonFail_INTERNAL)
-	const codeAccessDenied = uint32(1024*status.Section_SECTION_OBJECT) + uint32(status.Object_ACCESS_DENIED)
-	const codeContainerNotFound = uint32(1024*status.Section_SECTION_CONTAINER) + uint32(status.Container_CONTAINER_NOT_FOUND)
-
-	if req.Object == nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code: codeInternal, Message: "binary object field is missing/empty",
-		}}, nil
+// ServeReplicateGRPC serves neo.fs.v2.object.ObjectService/Replicate RPC
+// according to the gRPC protocol.
+func (s *Server) ServeReplicateGRPC(_ context.Context, ln int, r io.Reader) (*objectGRPC.ReplicateResponse, error) {
+	// TODO(@cthulhu-rider): limit ln?
+	bufSize := ln
+	if ln > gRPCMaxDataFrameSize {
+		bufSize = gRPCMaxDataFrameSize
 	}
 
-	if req.Signature == nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code: codeInternal, Message: "missing object signature field",
-		}}, nil
+	// context is ignored for 2 reasons:
+	// 1. r is bound to it and will fail on abort
+	// 2. if object replica is received, we continue processing regardless of
+	// subsequent context for data safety: this could be critical if client was the
+	// only replica holder but encountered an accident broken the connection
+	code, msg := s.replicate(bufio.NewReaderSize(r, bufSize))
+	// TODO: bufio.NewReaderSize does internal allocation visible during storm
+	//  of tiny objects. Consider pool for such sizes and bytes.Reader
+
+	// drain unknown fields asap to not clog the transport channel with transit data
+	//
+	// TODO(@cthulhu-rider): any better way to discard remaining unknown fields w/o
+	// network transmission?
+	//
+	// TODO(@cthulhu-rider): do this inside gRPC lib
+	_, errDiscard := io.Copy(io.Discard, r)
+	if errDiscard != nil {
+		s.log.Debug("failed to drain Replicate gRPC data frame stream", zap.Error(errDiscard))
 	}
 
-	if len(req.Signature.Key) == 0 {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code: codeInternal, Message: "public key field is missing/empty in the object signature field",
-		}}, nil
-	}
+	return &objectGRPC.ReplicateResponse{Status: &status.Status{
+		Code:    code,
+		Message: msg,
+	}}, nil
+}
 
-	if len(req.Signature.Sign) == 0 {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code: codeInternal, Message: "signature value is missing/empty in the object signature field",
-		}}, nil
-	}
+// replicate reads neo.fs.v2.object.ObjectService/Replicate request from r and
+// serves it.
+//
+// TODO(@cthulhu-rider): pool all buffers
+// TODO(@cthulhu-rider): support field merging
+func (s *Server) replicate(r io.Reader) (uint32, string) {
+	const (
+		fieldNumObject    = 1
+		fieldNumSignature = 2
+	)
 
-	switch scheme := req.Signature.Scheme; scheme {
-	default:
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: "unsupported scheme in the object signature field",
-		}}, nil
-	case
-		refs.SignatureScheme_ECDSA_SHA512,
-		refs.SignatureScheme_ECDSA_RFC6979_SHA256,
-		refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
-	}
+	var decodedSig bool
+	var sig decodedSignature
+	var decodedObj bool
+	var obj decodedObject
+	br := bufio.NewReaderSize(r, binary.MaxVarintLen64)
 
-	hdr := req.Object.GetHeader()
-	if hdr == nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: "missing header field in the object field",
-		}}, nil
-	}
+	defer func() {
+		obj.releaseBuffers()
+		sig.releaseBuffers()
+	}()
 
-	gCnrMsg := hdr.GetContainerId()
-	if gCnrMsg == nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: "missing container ID field in the object header field",
-		}}, nil
-	}
-
-	var cnr cid.ID
-	var cnrMsg refsv2.ContainerID
-	err := cnrMsg.FromGRPCMessage(gCnrMsg)
-	if err == nil {
-		err = cnr.ReadFromV2(cnrMsg)
-	}
-	if err != nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("invalid container ID in the object header field: %v", err),
-		}}, nil
-	}
-
-	// TODO(@cthulhu-rider): avoid decoding the object completely
-	obj, err := objectFromMessage(req.Object)
-	if err != nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("invalid object field: %v", err),
-		}}, nil
-	}
-
-	switch req.Signature.Scheme {
-	// other cases already checked above
-	case refs.SignatureScheme_ECDSA_SHA512:
-		var pubKey neofsecdsa.PublicKey
-		err := pubKey.Decode(req.Signature.Key)
+	for {
+		num, typ, err := readFieldTag(br)
 		if err != nil {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return codeInternal, fmt.Sprintf("invalid field tag: %v", err)
 		}
-
-		bObj, _ := obj.Marshal()
-		if !pubKey.Verify(bObj, req.Signature.Sign) {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "signature mismatch in the object signature field",
-			}}, nil
+		switch num {
+		default:
+			err = discardField(br, typ)
+			if err != nil {
+				return codeInternal, fmt.Sprintf("invalid field #%d (unknown): %v", num, err)
+			}
+		case fieldNumObject: // TODO: fast check if object signature decoded
+			if decodedObj {
+				return codeInternal, fmt.Sprintf("repeated field #%d (object)", num)
+			}
+			if typ != protowire.BytesType {
+				return codeInternal, fmt.Sprintf("field #%d (object) is not of bytes type", num)
+			}
+			obj, err = decodeObject(br)
+			if err != nil {
+				return codeInternal, fmt.Sprintf("invalid field #%d (object): %v", num, err)
+			}
+			decodedObj = true
+		case fieldNumSignature: // TODO: fast check if object already decoded
+			if decodedSig {
+				return codeInternal, fmt.Sprintf("repeated field #%d (object signature)", num)
+			}
+			if typ != protowire.BytesType {
+				return codeInternal, fmt.Sprintf("field #%d (object signature) is not of bytes type", num)
+			}
+			sig, err = readSignatureField(br)
+			if err != nil {
+				return codeInternal, fmt.Sprintf("invalid field #%d (object signature): %v", num, err)
+			}
+			decodedSig = true
 		}
-	case refs.SignatureScheme_ECDSA_RFC6979_SHA256:
-		var pubKey neofsecdsa.PublicKeyRFC6979
-		err := pubKey.Decode(req.Signature.Key)
-		if err != nil {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
-		}
-
-		bObj, _ := obj.Marshal()
-		if !pubKey.Verify(bObj, req.Signature.Sign) {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "signature mismatch in the object signature field",
-			}}, nil
-		}
-	case refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
-		var pubKey neofsecdsa.PublicKeyWalletConnect
-		err := pubKey.Decode(req.Signature.Key)
-		if err != nil {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
-		}
-
-		bObj, _ := obj.Marshal()
-		if !pubKey.Verify(bObj, req.Signature.Sign) {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeInternal,
-				Message: "signature mismatch in the object signature field",
-			}}, nil
+		if decodedObj && decodedSig {
+			break // ignore all possible unknown fields
 		}
 	}
 
+	if !decodedObj {
+		return codeInternal, fmt.Sprintf("%v #%d (object)", errMissingField, fieldNumObject)
+	} else if !decodedSig {
+		return codeInternal, fmt.Sprintf("%v #%d (object signature)", errMissingField, fieldNumSignature)
+	}
+
+	// TODO(@cthulhu-rider): discard unknown fields asap?
+
+	if !sig.pubKey.Verify(obj.id, sig.value) {
+		return codeInternal, "object signature mismatch"
+	}
+
+	cnr, ok := obj.hdr.ContainerID()
+	if !ok {
+		return codeInternal, "invalid object: missing container ID field"
+	}
 	ok, err := s.node.CompliesContainerStoragePolicy(cnr)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check server's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return codeContainerNotFound, "failed to check server's compliance to object's storage policy: object's container not found"
 		}
-
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to check server's compliance to object's storage policy: %v", err),
-		}}, nil
+		return codeInternal, fmt.Sprintf("failed to check server's compliance to object's storage policy: %v", err)
 	} else if !ok {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code: codeInternal, Message: "server does not match the object's storage policy",
-		}}, nil
+		return codeInternal, "server does not match the object's storage policy"
 	}
 
-	ok, err = s.node.ClientCompliesContainerStoragePolicy(req.Signature.Key, cnr)
+	ok, err = s.node.ClientCompliesContainerStoragePolicy(sig.pubKeyBuf, cnr)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrContainerNotFound) {
-			return &objectGRPC.ReplicateResponse{Status: &status.Status{
-				Code:    codeContainerNotFound,
-				Message: "failed to check client's compliance to object's storage policy: object's container not found",
-			}}, nil
+			return codeContainerNotFound, "failed to check client's compliance to object's storage policy: object's container not found"
 		}
-
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to check client's compliance to object's storage policy: %v", err),
-		}}, nil
+		return codeInternal, fmt.Sprintf("failed to check client's compliance to object's storage policy: %v", err)
 	} else if !ok {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeAccessDenied,
-			Message: "client does not match the object's storage policy",
-		}}, nil
+		return codeAccessDenied, "client does not match the object's storage policy"
 	}
 
-	err = s.node.StoreObject(cnr, *obj)
+	err = s.node.StoreObject(cnr, obj.hdr, obj.hdrFld, obj.pldFld, obj.pldDataOff)
 	if err != nil {
-		return &objectGRPC.ReplicateResponse{Status: &status.Status{
-			Code:    codeInternal,
-			Message: fmt.Sprintf("failed to store object locally: %v", err),
-		}}, nil
+		return codeInternal, fmt.Sprintf("failed to store object locally: %v", err)
 	}
 
-	return new(objectGRPC.ReplicateResponse), nil
-}
-
-func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
-	var msg objectv2.Object
-	err := msg.FromGRPCMessage(gMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	return object.NewFromV2(&msg), nil
+	return 0, ""
 }

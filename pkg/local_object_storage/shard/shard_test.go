@@ -54,8 +54,15 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 			blobstor.WithStorages([]blobstor.SubStorage{
 				{
 					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *object.Object, data []byte) bool {
-						return len(data) <= 1<<20
+					Policy: func(_ *object.Object, data [][]byte) bool {
+						var s int
+						for i := range data {
+							s += len(data[i])
+							if s > 1<<20 {
+								return false
+							}
+						}
+						return true
 					},
 				},
 				{

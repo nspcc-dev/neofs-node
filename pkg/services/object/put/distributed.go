@@ -1,10 +1,8 @@
 package putsvc
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"sync"
 	"sync/atomic"
 
@@ -12,12 +10,12 @@ import (
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type preparedObjectTarget interface {
@@ -27,7 +25,8 @@ type preparedObjectTarget interface {
 
 type binReplicationContext struct {
 	context.Context
-	b io.ReadSeeker
+	hdr    []byte
+	pldFld []byte
 }
 
 type distributedTarget struct {
@@ -40,7 +39,8 @@ type distributedTarget struct {
 	obj     *objectSDK.Object
 	objMeta object.ContentMeta
 
-	payload []byte
+	pldFld []byte
+	pldOff int // after field tag prefix
 
 	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
 
@@ -136,18 +136,28 @@ func (t *distributedTarget) WriteHeader(obj *objectSDK.Object) error {
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
-	t.payload = append(t.payload, p...)
+	if t.pldOff == 0 {
+		sz := t.obj.PayloadSize()
+		if sz > 0 {
+			t.pldFld = protowire.AppendTag(t.pldFld, 4, protowire.BytesType)
+			t.pldFld = protowire.AppendVarint(t.pldFld, sz)
+			t.pldOff = len(t.pldFld)
+		}
+	}
+	t.pldFld = append(t.pldFld, p...)
 
 	return len(p), nil
 }
 
 func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
-		putPayload(t.payload)
-		t.payload = nil
+		// TODO: keep using the buffer during slicing
+		putPayload(t.pldFld)
+		t.pldFld = nil
+		t.pldOff = 0
 	}()
 
-	t.obj.SetPayload(t.payload)
+	t.obj.SetPayload(t.pldFld[t.pldOff:])
 
 	var err error
 
@@ -189,7 +199,6 @@ func (t *distributedTarget) iteratePlacement(ctx context.Context, f func(context
 			base:       t.traversal.placementBuilder,
 			isLocalKey: t.isLocalKey,
 		}
-
 		placementBuilder = placementIntrcpt
 	}
 
@@ -201,19 +210,12 @@ func (t *distributedTarget) iteratePlacement(ctx context.Context, f func(context
 	}
 
 	if placementIntrcpt != nil && placementIntrcpt.withLocalAndRemoteNodes {
-		bObj, err := t.obj.Marshal()
-		if err != nil {
-			return oid.ID{}, fmt.Errorf("encode object into binary: %w", err)
-		}
-
-		dem := client.DemuxReplicatedObject(bytes.NewReader(bObj))
-
+		hdr := noPayloadProtobuf(t.obj)
 		ctx = &binReplicationContext{
 			Context: ctx,
-			b:       dem,
+			hdr:     hdr,
+			pldFld:  t.pldFld,
 		}
-
-		defer dem.Release()
 	}
 
 	var resErr atomic.Value
@@ -300,6 +302,50 @@ loop:
 	id, _ = t.obj.ID()
 
 	return id, nil
+}
+
+func noPayloadProtobuf(obj *objectSDK.Object) []byte {
+	objV2 := obj.CutPayload().ToV2()
+	id := objV2.GetObjectID()
+	sig := objV2.GetSignature()
+	hdr := objV2.GetHeader()
+
+	const (
+		fieldNumID        = 1
+		fieldNumSignature = 2
+		fieldNumHeader    = 3
+		fieldNumPayload   = 4
+	)
+
+	idSize := id.StableSize()
+	sigSize := sig.StableSize()
+	hdrSize := hdr.StableSize()
+
+	s := protowire.SizeTag(fieldNumID) + protowire.SizeBytes(idSize) +
+		protowire.SizeTag(fieldNumSignature) + protowire.SizeBytes(sigSize) +
+		protowire.SizeTag(fieldNumHeader) + protowire.SizeBytes(hdrSize)
+	// protowire.SizeTag(fieldNumPayload) + protowire.SizeVarint(uint64(ps))
+
+	// TODO: separate buffer
+	b := make([]byte, 0, s)
+
+	b = protowire.AppendTag(b, fieldNumID, protowire.BytesType)
+	b = protowire.AppendVarint(b, uint64(idSize))
+	b = b[:len(b)+idSize]
+	id.StableMarshal(b[len(b)-idSize:])
+	b = protowire.AppendTag(b, fieldNumSignature, protowire.BytesType)
+	b = protowire.AppendVarint(b, uint64(sigSize))
+	b = b[:len(b)+sigSize]
+	sig.StableMarshal(b[len(b)-sigSize:])
+	b = protowire.AppendTag(b, fieldNumHeader, protowire.BytesType)
+	b = protowire.AppendVarint(b, uint64(hdrSize))
+	b = b[:len(b)+hdrSize]
+	hdr.StableMarshal(b[len(b)-hdrSize:])
+	// pldOff := len(b)
+	// b = protowire.AppendTag(b, fieldNumPayload, protowire.BytesType)
+	// b = protowire.AppendVarint(b, uint64(ps))
+
+	return b
 }
 
 type placementInterceptor struct {

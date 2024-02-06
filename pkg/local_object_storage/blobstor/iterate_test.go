@@ -63,7 +63,7 @@ func TestIterateObjects(t *testing.T) {
 	}
 
 	for _, v := range mObjs {
-		_, err := blobStor.Put(common.PutPrm{Address: v.addr, RawData: v.data})
+		_, err := blobStor.Put(common.PutPrm{Address: v.addr, RawData: [][]byte{v.data}})
 		require.NoError(t, err)
 	}
 

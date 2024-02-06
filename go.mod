@@ -7,7 +7,7 @@ require (
 	github.com/chzyer/readline v1.5.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/google/go-github/v39 v39.2.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.17.2
 	github.com/mitchellh/go-homedir v1.1.0
@@ -17,9 +17,9 @@ require (
 	github.com/nspcc-dev/hrw/v2 v2.0.0
 	github.com/nspcc-dev/locode-db v0.5.0
 	github.com/nspcc-dev/neo-go v0.104.0
-	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240125143754-70b1ffbd8141
+	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240213103452-8737ea8d7acb
 	github.com/nspcc-dev/neofs-contract v0.19.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20240201110450-4125612bd6c4
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20240213103822-bc7f896153f7
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.8.2
@@ -32,7 +32,7 @@ require (
 	go.etcd.io/bbolt v1.3.7
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.15.0
 	golang.org/x/term v0.15.0
 	google.golang.org/grpc v1.59.0
@@ -52,7 +52,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
@@ -98,7 +98,7 @@ require (
 	github.com/urfave/cli v1.22.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -110,3 +110,5 @@ retract (
 	v1.22.1 // Contains retraction only.
 	v1.22.0 // Published accidentally.
 )
+
+replace google.golang.org/grpc => github.com/cthulhu-rider/grpc-go v0.0.0-20240216093649-d7aa2311054a

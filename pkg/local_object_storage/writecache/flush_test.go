@@ -196,7 +196,7 @@ func TestFlush(t *testing.T) {
 
 				var prm common.PutPrm
 				prm.Address = objectCore.AddressOf(obj)
-				prm.RawData = data
+				prm.RawData = [][]byte{data}
 
 				_, err := c.fsTree.Put(prm)
 				require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestFlush(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
 				var prm common.PutPrm
 				prm.Address = oidtest.Address()
-				prm.RawData = []byte{1, 2, 3}
+				prm.RawData = [][]byte{{1, 2, 3}}
 				_, err := c.fsTree.Put(prm)
 				require.NoError(t, err)
 			})
@@ -288,7 +288,7 @@ func putObject(t *testing.T, c Cache, size int) objectPair {
 	var prm common.PutPrm
 	prm.Address = objectCore.AddressOf(obj)
 	prm.Object = obj
-	prm.RawData = data
+	prm.RawData = [][]byte{data}
 
 	_, err := c.Put(prm)
 	require.NoError(t, err)

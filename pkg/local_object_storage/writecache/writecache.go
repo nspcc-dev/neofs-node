@@ -79,7 +79,7 @@ const wcStorageType = "write-cache"
 
 type objectInfo struct {
 	addr string
-	data []byte
+	data [][]byte
 	obj  *object.Object
 }
 

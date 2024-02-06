@@ -33,7 +33,7 @@ func TestCopy(t *testing.T) {
 
 		_, err := src.Put(common.PutPrm{
 			Address: addr,
-			RawData: data,
+			RawData: [][]byte{data},
 		})
 		require.NoError(t, err)
 	}

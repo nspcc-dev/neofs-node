@@ -12,7 +12,9 @@ import (
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *object.Object
+	obj    *object.Object
+	hdrBin []byte
+	pldBin []byte
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -21,6 +23,11 @@ type PutRes struct{}
 // SetObject is a Put option to set object to save.
 func (p *PutPrm) SetObject(obj *object.Object) {
 	p.obj = obj
+}
+
+// SetObjectBinary allows to attach already marshaled object.
+func (p *PutPrm) SetObjectBinary(hdrBin []byte, pldBin []byte) {
+	p.hdrBin, p.pldBin = hdrBin, pldBin
 }
 
 // Put saves the object in shard.
@@ -38,9 +45,16 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
-	data, err := prm.obj.Marshal()
-	if err != nil {
-		return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+	var data [][]byte
+	if prm.hdrBin != nil {
+		data = [][]byte{prm.hdrBin, prm.pldBin}
+	}
+	if data == nil {
+		b, err := prm.obj.Marshal()
+		if err != nil {
+			return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+		}
+		data = [][]byte{b}
 	}
 
 	var putPrm common.PutPrm // form Put parameters
@@ -49,6 +63,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	putPrm.Address = objectCore.AddressOf(prm.obj)
 
 	var res common.PutRes
+	var err error
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
@@ -72,6 +87,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		var pPrm meta.PutPrm
 		pPrm.SetObject(prm.obj)
 		pPrm.SetStorageID(res.StorageID)
+		pPrm.SetBinHeader(prm.hdrBin)
 		if _, err := s.metaBase.Put(pPrm); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor

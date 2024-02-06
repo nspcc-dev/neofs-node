@@ -57,7 +57,7 @@ func newTestPeapodReadOnly(tb testing.TB) (*peapod.Peapod, oid.Address) {
 
 	_, err := ppd.Put(common.PutPrm{
 		Address:      addr,
-		RawData:      []byte("Hello, world!"),
+		RawData:      [][]byte{[]byte("Hello, world!")},
 		DontCompress: false,
 	})
 	require.NoError(tb, err)
@@ -93,7 +93,7 @@ func TestPeapod_Get(t *testing.T) {
 
 	_, err = ppd.Put(common.PutPrm{
 		Address: addr,
-		RawData: data,
+		RawData: [][]byte{data},
 	})
 	require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestPeapod_Exists(t *testing.T) {
 
 	_, err = ppd.Put(common.PutPrm{
 		Address: addr,
-		RawData: data,
+		RawData: [][]byte{data},
 	})
 	require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestPeapod_Iterate(t *testing.T) {
 	for addr, data := range mSrc {
 		_, err = ppd.Put(common.PutPrm{
 			Address: addr,
-			RawData: data,
+			RawData: [][]byte{data},
 		})
 		require.NoError(t, err)
 	}
@@ -174,7 +174,7 @@ func TestPeapod_Put(t *testing.T) {
 
 	_, err = ppd.Put(common.PutPrm{
 		Address: addr,
-		RawData: data,
+		RawData: [][]byte{data},
 	})
 	require.NoError(t, err)
 
@@ -190,7 +190,7 @@ func TestPeapod_Put(t *testing.T) {
 
 		_, err := ppd.Put(common.PutPrm{
 			Address: addr,
-			RawData: data,
+			RawData: [][]byte{data},
 		})
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
@@ -211,7 +211,7 @@ func TestPeapod_Delete(t *testing.T) {
 
 	_, err = ppd.Put(common.PutPrm{
 		Address: addr,
-		RawData: data,
+		RawData: [][]byte{data},
 	})
 	require.NoError(t, err)
 

@@ -16,7 +16,7 @@ type genericWriter struct {
 	flags int
 }
 
-func newGenericWriteData(perm fs.FileMode, noSync bool) func(string, []byte) error {
+func newGenericWriteData(perm fs.FileMode, noSync bool) func(string, [][]byte) error {
 	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC | os.O_EXCL
 	if !noSync {
 		flags |= os.O_SYNC
@@ -28,7 +28,7 @@ func newGenericWriteData(perm fs.FileMode, noSync bool) func(string, []byte) err
 	return w.writeData
 }
 
-func (w *genericWriter) writeData(p string, data []byte) error {
+func (w *genericWriter) writeData(p string, data [][]byte) error {
 	// Here is a situation:
 	// Feb 09 13:10:37 buky neofs-node[32445]: 2023-02-09T13:10:37.161Z        info        log/log.go:13        local object storage operation        {"shard_id": "SkT8BfjouW6t93oLuzQ79s", "address": "7NxFz4SruSi8TqXacr2Ae22nekMhgYk1sfkddJo9PpWk/5enyUJGCyU1sfrURDnHEjZFdbGqANVhayYGfdSqtA6wA", "op": "PUT", "type": "fstree", "storage_id": ""}
 	// Feb 09 13:10:37 buky neofs-node[32445]: 2023-02-09T13:10:37.183Z        info        log/log.go:13        local object storage operation        {"shard_id": "SkT8BfjouW6t93oLuzQ79s", "address": "7NxFz4SruSi8TqXacr2Ae22nekMhgYk1sfkddJo9PpWk/5enyUJGCyU1sfrURDnHEjZFdbGqANVhayYGfdSqtA6wA", "op": "metabase PUT"}
@@ -65,7 +65,7 @@ func (w *genericWriter) writeData(p string, data []byte) error {
 }
 
 // writeAndRename opens tmpPath exclusively, writes data to it and renames it to p.
-func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
+func (w *genericWriter) writeAndRename(tmpPath, p string, data [][]byte) error {
 	err := w.writeFile(tmpPath, data)
 	if err != nil {
 		var pe *fs.PathError
@@ -92,15 +92,17 @@ func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 
 // writeFile writes data to a file with path p.
 // The code is copied from `os.WriteFile` with minor corrections for flags.
-func (w *genericWriter) writeFile(p string, data []byte) error {
+func (w *genericWriter) writeFile(p string, data [][]byte) error {
 	f, err := os.OpenFile(p, w.flags, w.perm)
 	if err != nil {
 		return fmt.Errorf("open file with flags %d: %w", w.flags, err)
 	}
-	_, err = f.Write(data)
-	if err != nil {
-		_ = f.Close()
-		return fmt.Errorf("write data to the file: %w", err)
+	for i := range data {
+		_, err = f.Write(data[i])
+		if err != nil {
+			_ = f.Close()
+			return fmt.Errorf("write data to the file: %w", err)
+		}
 	}
 	err = f.Close()
 	if err != nil {

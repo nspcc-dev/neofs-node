@@ -44,8 +44,15 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 						0o600,
 						time.Second,
 					),
-					Policy: func(_ *object.Object, data []byte) bool {
-						return len(data) <= 1<<20
+					Policy: func(_ *object.Object, data [][]byte) bool {
+						var s int
+						for i := range data {
+							s += len(data[i])
+							if s > 1<<20 {
+								return false
+							}
+						}
+						return true
 					},
 				},
 				{
