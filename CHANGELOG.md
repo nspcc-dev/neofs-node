@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.40.0
+
+## [0.40.0] - 2024-02-09 - Maldo
+
+### Added
 - `neofs-adm morph generate-storage-wallet` now supports more than one wallet generation per call (#2425)
 - Missing containers cleanup (#1663)
 
@@ -1887,7 +1901,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...master
+[0.40.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...v0.40.0
 [0.39.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.38.1...v0.39.0
