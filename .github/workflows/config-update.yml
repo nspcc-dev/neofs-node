@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     name: config-check
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Get changed config-related files
         id: config-diff
-        uses: tj-actions/changed-files@v41
+        uses: tj-actions/changed-files@v42
         with:
           files: |
             config/**
@@ -25,13 +25,13 @@ jobs:
 
       - name: Get changed doc files
         id: docs-diff
-        uses: tj-actions/changed-files@v41
+        uses: tj-actions/changed-files@v42
         with:
           files: docs/**
 
       - name: Fail if config files are changed but the documentation is not updated
         if: steps.config-diff.outputs.any_changed == 'true' && steps.docs-diff.outputs.any_changed == 'false'
-        uses: actions/github-script@v3
+        uses: actions/github-script@v7
         with:
           script: |
             core.setFailed('Documentation has not been updated')
