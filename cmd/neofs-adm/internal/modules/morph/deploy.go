@@ -126,8 +126,8 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		} else if !ok {
 			needRecord = true
 
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
-				zone, c.CommitteeAcc.Contract.ScriptHash(),
+			emit.AppCall(bw.BinWriter, nnsCs.Hash, "registerTLD", callflag.All,
+				zone,
 				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 			emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 

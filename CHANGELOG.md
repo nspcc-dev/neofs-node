@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Inability to deploy contract with non-standard zone via neofs-adm
 
 ### Changed
 
