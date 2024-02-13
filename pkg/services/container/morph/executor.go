@@ -3,6 +3,7 @@ package container
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
@@ -14,6 +15,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -335,28 +337,42 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 		return fmt.Errorf("incorrect token signature: %w", err)
 	}
 
-	if cIDV2 == nil { // can be nil for PUT or wildcard may be true
+	if cIDV2 == nil { // can be nil for PUT
 		return nil
 	}
 
-	if sessionCID := cc.ContainerID().GetValue(); !bytes.Equal(sessionCID, cIDV2.GetValue()) {
-		return fmt.Errorf("wrong container: %s", base58.Encode(sessionCID))
-	}
+	var cIDRequested cid.ID
 
-	var cID cid.ID
-
-	err = cID.ReadFromV2(*cIDV2)
+	err = cIDRequested.ReadFromV2(*cIDV2)
 	if err != nil {
 		return fmt.Errorf("invalid container ID: %w", err)
 	}
 
-	cnr, err := s.rdr.Get(cID)
+	cnr, err := s.rdr.Get(cIDRequested)
 	if err != nil {
 		return fmt.Errorf("reading container from the network: %w", err)
 	}
 
 	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(cnr.Value.Owner().WalletBytes(), issuer) {
 		return fmt.Errorf("session was not issued by the container owner, issuer: %q", issuer)
+	}
+
+	var keyFromToken neofsecdsa.PublicKey
+
+	err = keyFromToken.Decode(t.GetSignature().GetKey())
+	if err != nil {
+		return errors.New("error while decoding public key from the token's signer")
+	}
+
+	userFromToken := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(keyFromToken))
+	if !cnr.Value.Owner().Equals(userFromToken) {
+		return fmt.Errorf("session token signer differs container owner: signer: %s, owner: %s", userFromToken, cnr.Value.Owner())
+	}
+
+	if !cc.Wildcard() {
+		if sessionCID := cc.ContainerID().GetValue(); !bytes.Equal(sessionCID, cIDV2.GetValue()) {
+			return fmt.Errorf("wrong container: %s", base58.Encode(sessionCID))
+		}
 	}
 
 	return nil
