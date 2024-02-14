@@ -40,7 +40,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
 
-	err = validateEACl(table)
+	err = validateEACL(table)
 	if err != nil {
 		return fmt.Errorf("table validation: %w", err)
 	}
@@ -98,7 +98,7 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	}
 }
 
-func validateEACl(t *eacl.Table) error {
+func validateEACL(t *eacl.Table) error {
 	for _, record := range t.Records() {
 		for _, target := range record.Targets() {
 			if target.Role() == eacl.RoleSystem {
