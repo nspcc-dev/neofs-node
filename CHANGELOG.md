@@ -6,12 +6,14 @@ Changelog for NeoFS Node
 ### Added
 - Support of numeric object search queries (#2733)
 - Support of `GT`, `GE`, `LT` and `LE` numeric comparison operators in CLI (#2733)
+- SN eACL processing of NULL and numeric operators (#2742)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
 - Storage nodes no longer reject GET w/ TTL=1 requests to read complex objects (#2447)
 
 ### Changed
+- IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
 
 ### Removed
 - Object notifications incl. NATS (#2750)

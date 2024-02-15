@@ -3,6 +3,7 @@ package container
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -99,10 +100,25 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 }
 
 func validateEACL(t *eacl.Table) error {
+	var b big.Int
 	for _, record := range t.Records() {
 		for _, target := range record.Targets() {
 			if target.Role() == eacl.RoleSystem {
 				return errors.New("it is prohibited to modify system access")
+			}
+		}
+		for _, f := range record.Filters() {
+			//nolint:exhaustive
+			switch f.Matcher() {
+			case eacl.MatchNotPresent:
+				if len(f.Value()) != 0 {
+					return errors.New("non-empty value in absence filter")
+				}
+			case eacl.MatchNumGT, eacl.MatchNumGE, eacl.MatchNumLT, eacl.MatchNumLE:
+				_, ok := b.SetString(f.Value(), 10)
+				if !ok {
+					return errors.New("numeric filter with non-decimal value")
+				}
 			}
 		}
 	}
