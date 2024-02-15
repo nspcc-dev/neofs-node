@@ -14,6 +14,7 @@ import (
 // Server wraps NeoFS API Object service and
 // provides gRPC Object service server interface.
 type Server struct {
+	objectGRPC.UnimplementedObjectServiceServer
 	srv objectSvc.ServiceServer
 }
 

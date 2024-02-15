@@ -11,6 +11,7 @@ import (
 // Server wraps NeoFS API Session service and
 // provides gRPC Session service server interface.
 type Server struct {
+	sessionGRPC.UnimplementedSessionServiceServer
 	srv sessionsvc.Server
 }
 

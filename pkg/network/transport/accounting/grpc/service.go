@@ -11,6 +11,7 @@ import (
 // Server wraps NeoFS API Accounting service and
 // provides gRPC Accounting service server interface.
 type Server struct {
+	accountingGRPC.UnimplementedAccountingServiceServer
 	srv accountingsvc.Server
 }
 

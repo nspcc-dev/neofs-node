@@ -4,13 +4,14 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/reputation"
-	reputation2 "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
+	reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
 	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
 )
 
 // Server wraps NeoFS API v2 Reputation service server
 // and provides gRPC Reputation service server interface.
 type Server struct {
+	reputationgrpc.UnimplementedReputationServiceServer
 	srv reputationrpc.Server
 }
 
@@ -21,7 +22,7 @@ func New(srv reputationrpc.Server) *Server {
 	}
 }
 
-func (s *Server) AnnounceLocalTrust(ctx context.Context, r *reputation2.AnnounceLocalTrustRequest) (*reputation2.AnnounceLocalTrustResponse, error) {
+func (s *Server) AnnounceLocalTrust(ctx context.Context, r *reputationgrpc.AnnounceLocalTrustRequest) (*reputationgrpc.AnnounceLocalTrustResponse, error) {
 	req := new(reputation.AnnounceLocalTrustRequest)
 	if err := req.FromGRPCMessage(r); err != nil {
 		return nil, err
@@ -32,10 +33,10 @@ func (s *Server) AnnounceLocalTrust(ctx context.Context, r *reputation2.Announce
 		return nil, err
 	}
 
-	return resp.ToGRPCMessage().(*reputation2.AnnounceLocalTrustResponse), nil
+	return resp.ToGRPCMessage().(*reputationgrpc.AnnounceLocalTrustResponse), nil
 }
 
-func (s *Server) AnnounceIntermediateResult(ctx context.Context, r *reputation2.AnnounceIntermediateResultRequest) (*reputation2.AnnounceIntermediateResultResponse, error) {
+func (s *Server) AnnounceIntermediateResult(ctx context.Context, r *reputationgrpc.AnnounceIntermediateResultRequest) (*reputationgrpc.AnnounceIntermediateResultResponse, error) {
 	req := new(reputation.AnnounceIntermediateResultRequest)
 	if err := req.FromGRPCMessage(r); err != nil {
 		return nil, err
@@ -46,5 +47,5 @@ func (s *Server) AnnounceIntermediateResult(ctx context.Context, r *reputation2.
 		return nil, err
 	}
 
-	return resp.ToGRPCMessage().(*reputation2.AnnounceIntermediateResultResponse), nil
+	return resp.ToGRPCMessage().(*reputationgrpc.AnnounceIntermediateResultResponse), nil
 }
