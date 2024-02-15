@@ -235,23 +235,10 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 				return nil, fmt.Errorf("invalid filter or target: %s", args[i])
 			}
 
-			i := strings.Index(ss[1], "=")
-			if i < 0 {
-				return nil, fmt.Errorf("invalid filter key-value pair: %s", ss[1])
+			key, value, op, err := parseKVWithOp(ss[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid filter key-value pair %s: %w", ss[1], err)
 			}
-
-			var key, value string
-			var op eacl.Match
-
-			if 0 < i && ss[1][i-1] == '!' {
-				key = ss[1][:i-1]
-				op = eacl.MatchStringNotEqual
-			} else {
-				key = ss[1][:i]
-				op = eacl.MatchStringEqual
-			}
-
-			value = ss[1][i+1:]
 
 			typ := eacl.HeaderFromRequest
 			if ss[0] == "obj" {
@@ -286,6 +273,28 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 	}
 
 	return r, nil
+}
+
+func parseKVWithOp(s string) (string, string, eacl.Match, error) {
+	i := strings.Index(s, "=")
+	if i < 0 {
+		return "", "", 0, errors.New("missing op")
+	}
+
+	var key, value string
+	var op eacl.Match
+
+	if 0 < i && s[i-1] == '!' {
+		key = s[:i-1]
+		op = eacl.MatchStringNotEqual
+	} else {
+		key = s[:i]
+		op = eacl.MatchStringEqual
+	}
+
+	value = s[i+1:]
+
+	return key, value, op, nil
 }
 
 // eaclRoleFromString parses eacl.Role from string.
