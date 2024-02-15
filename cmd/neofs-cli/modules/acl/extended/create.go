@@ -31,8 +31,11 @@ Filter consists of <typ>:<key><match><value>
     Well-known system object headers start with '$Object:' prefix.
     User defined headers start without prefix.
     Read more about filter keys at github.com/nspcc-dev/neofs-api/blob/master/proto-docs/acl.md#message-eaclrecordfilter
-  Match is '=' for matching and '!=' for non-matching filter.
-  Value is a valid unicode string corresponding to object or request header value.
+  Match is:
+    '=' for string equality or, if no value, attribute absence;
+    '!=' for string inequality;
+    '>' | '>=' | '<' | '<=' for integer comparison.
+  Value is a valid unicode string corresponding to object or request header value. Numeric filters must have base-10 integer values.
 
 Target is 
   'user' for container owner, 
@@ -43,7 +46,7 @@ Target is
 When both '--rule' and '--file' arguments are used, '--rule' records will be placed higher in resulting extended ACL table.
 `,
 	Example: `neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -f rules.txt --out table.json
-neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -r 'allow get obj:Key=Value others' -r 'deny put others'`,
+neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -r 'allow get obj:Key=Value others' -r 'deny put others' -r 'deny put obj:$Object:payloadLength<4096 others' -r 'deny get obj:Quality>=100 others'`,
 	Args: cobra.NoArgs,
 	Run:  createEACL,
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"text/tabwriter"
 
@@ -140,6 +141,16 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 			_, _ = tw.Write([]byte("\t==\t"))
 		case eacl.MatchStringNotEqual:
 			_, _ = tw.Write([]byte("\t!=\t"))
+		case eacl.MatchNumGT:
+			_, _ = tw.Write([]byte("\t>\t"))
+		case eacl.MatchNumGE:
+			_, _ = tw.Write([]byte("\t>=\t"))
+		case eacl.MatchNumLT:
+			_, _ = tw.Write([]byte("\t<\t"))
+		case eacl.MatchNumLE:
+			_, _ = tw.Write([]byte("\t<=\t"))
+		case eacl.MatchNotPresent:
+			_, _ = tw.Write([]byte("\tNULL\t"))
 		case eacl.MatchUnknown:
 		}
 
@@ -278,23 +289,52 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 func parseKVWithOp(s string) (string, string, eacl.Match, error) {
 	i := strings.Index(s, "=")
 	if i < 0 {
+		if i = strings.Index(s, "<"); i >= 0 {
+			if !validateDecimal(s[i+1:]) {
+				return "", "", 0, fmt.Errorf("invalid base-10 integer value %q for attribute %q", s[i+1:], s[:i])
+			}
+			return s[:i], s[i+1:], eacl.MatchNumLT, nil
+		} else if i = strings.Index(s, ">"); i >= 0 {
+			if !validateDecimal(s[i+1:]) {
+				return "", "", 0, fmt.Errorf("invalid base-10 integer value %q for attribute %q", s[i+1:], s[:i])
+			}
+			return s[:i], s[i+1:], eacl.MatchNumGT, nil
+		}
+
 		return "", "", 0, errors.New("missing op")
 	}
 
-	var key, value string
-	var op eacl.Match
-
-	if 0 < i && s[i-1] == '!' {
-		key = s[:i-1]
-		op = eacl.MatchStringNotEqual
-	} else {
-		key = s[:i]
-		op = eacl.MatchStringEqual
+	if len(s[i+1:]) == 0 {
+		return s[:i], "", eacl.MatchNotPresent, nil
 	}
 
-	value = s[i+1:]
+	value := s[i+1:]
 
-	return key, value, op, nil
+	if i == 0 {
+		return "", value, eacl.MatchStringEqual, nil
+	}
+
+	switch s[i-1] {
+	case '!':
+		return s[:i-1], value, eacl.MatchStringNotEqual, nil
+	case '<':
+		if !validateDecimal(value) {
+			return "", "", 0, fmt.Errorf("invalid base-10 integer value %q for attribute %q", value, s[:i-1])
+		}
+		return s[:i-1], value, eacl.MatchNumLE, nil
+	case '>':
+		if !validateDecimal(value) {
+			return "", "", 0, fmt.Errorf("invalid base-10 integer value %q for attribute %q", value, s[:i-1])
+		}
+		return s[:i-1], value, eacl.MatchNumGE, nil
+	default:
+		return s[:i], value, eacl.MatchStringEqual, nil
+	}
+}
+
+func validateDecimal(s string) bool {
+	_, ok := new(big.Int).SetString(s, 10)
+	return ok
 }
 
 // eaclRoleFromString parses eacl.Role from string.
@@ -341,10 +381,25 @@ func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 // ValidateEACLTable validates eACL table:
 //   - eACL table must not modify [eacl.RoleSystem] access.
 func ValidateEACLTable(t *eacl.Table) error {
+	var b big.Int
 	for _, record := range t.Records() {
 		for _, target := range record.Targets() {
 			if target.Role() == eacl.RoleSystem {
 				return errors.New("it is prohibited to modify system access")
+			}
+		}
+		for _, f := range record.Filters() {
+			//nolint:exhaustive
+			switch f.Matcher() {
+			case eacl.MatchNotPresent:
+				if len(f.Value()) != 0 {
+					return errors.New("non-empty value in absence filter")
+				}
+			case eacl.MatchNumGT, eacl.MatchNumGE, eacl.MatchNumLT, eacl.MatchNumLE:
+				_, ok := b.SetString(f.Value(), 10)
+				if !ok {
+					return errors.New("numeric filter with non-decimal value")
+				}
 			}
 		}
 	}
