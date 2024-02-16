@@ -230,7 +230,7 @@ func initObjectService(c *cfg) {
 
 	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
 
-	c.workers = append(c.workers, c.shared.policer)
+	// c.workers = append(c.workers, c.shared.policer)
 
 	var os putsvc.ObjectStorage = engineWithoutNotifications{
 		engine: ls,

@@ -585,13 +585,14 @@ func initCfg(appCfg *config.Config) *cfg {
 		Logger:           c.internals.log,
 	}
 	basicSharedConfig := initBasics(c, key, persistate)
+	cc := cache.NewSDKClientCache(cacheOpts)
 	c.shared = shared{
 		basics:         basicSharedConfig,
 		localAddr:      netAddr,
 		respSvc:        response.NewService(response.WithNetworkState(basicSharedConfig.networkState)),
-		clientCache:    cache.NewSDKClientCache(cacheOpts),
-		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
-		putClientCache: cache.NewSDKClientCache(cacheOpts),
+		clientCache:    cc,
+		bgClientCache:  cc,
+		putClientCache: cc,
 		persistate:     persistate,
 	}
 	c.cfgContainer = cfgContainer{
