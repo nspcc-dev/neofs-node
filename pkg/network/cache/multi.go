@@ -204,13 +204,13 @@ func (x *multiClient) ReportError(err error) {
 	group := x.addr
 	x.addrMtx.RUnlock()
 
-	for _, sc := range x.clients {
-		sc.invalidate()
-	}
+	// for _, sc := range x.clients {
+	// 	sc.invalidate()
+	// }
 
 	x.mtx.RUnlock()
 
-	x.opts.Logger.Info("invalidated cached clients to the node caused by the error",
+	x.opts.Logger.Info("skip connection close to the node caused by the error",
 		zap.Stringers("address group", group), zap.Error(err))
 }
 
