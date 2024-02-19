@@ -2,9 +2,13 @@ package container_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-api-go/v2/container"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -17,6 +21,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -32,11 +37,11 @@ func (m mock) Get(_ cid.ID) (*containerCore.Container, error) {
 	return &containerCore.Container{Value: m.cnr}, nil
 }
 
-func (m mock) GetEACL(id cid.ID) (*containerCore.EACL, error) {
+func (m mock) GetEACL(_ cid.ID) (*containerCore.EACL, error) {
 	return nil, nil
 }
 
-func (m mock) List(id *user.ID) ([]cid.ID, error) {
+func (m mock) List(_ *user.ID) ([]cid.ID, error) {
 	return nil, nil
 }
 
@@ -278,6 +283,44 @@ func TestValidateToken(t *testing.T) {
 
 		_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
 		require.Error(t, err)
+	})
+
+	t.Run("wildcard support", func(t *testing.T) {
+		var reqBody container.DeleteRequestBody
+		reqBody.SetContainerID(&cIDV2)
+
+		var tok sessionsdk.Container
+
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		tok.SetExp(11)
+		tok.SetNbf(22)
+		tok.SetIat(33)
+		tok.ForVerb(sessionsdk.VerbContainerDelete)
+		tok.SetID(uuid.New())
+		tok.SetAuthKey((*neofsecdsa.PublicKey)(&priv.PublicKey))
+		require.NoError(t, tok.Sign(signer))
+
+		var tokV2 session.Token
+		tok.WriteToV2(&tokV2)
+
+		m := &mock{cnr: cnr}
+		e := containerSvcMorph.NewExecutor(m, m)
+
+		t.Run("wrong owner", func(t *testing.T) {
+			m.cnr = containertest.Container(t)
+
+			_, err := e.Delete(context.TODO(), &tokV2, &reqBody)
+			require.Error(t, err)
+		})
+
+		t.Run("correct owner", func(t *testing.T) {
+			m.cnr = cnr
+
+			_, err := e.Delete(context.TODO(), &tokV2, &reqBody)
+			require.NoError(t, err)
+		})
 	})
 }
 
