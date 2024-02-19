@@ -24,7 +24,6 @@ func TestControl(t *testing.T, cons Constructor, min, max uint64) {
 		var prm common.GetPrm
 		prm.Address = objects[i].addr
 		prm.StorageID = objects[i].storageID
-		prm.Raw = true
 
 		_, err := s.Get(prm)
 		require.NoError(t, err)

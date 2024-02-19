@@ -73,7 +73,6 @@ func TestDelete(t *testing.T, cons Constructor, min, max uint64) {
 	t.Run("non-deleted object is still available", func(t *testing.T) {
 		var prm common.GetPrm
 		prm.Address = objects[3].addr
-		prm.Raw = true
 
 		res, err := s.Get(prm)
 		require.NoError(t, err)

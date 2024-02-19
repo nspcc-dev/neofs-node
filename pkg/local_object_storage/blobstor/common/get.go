@@ -8,7 +8,6 @@ import (
 type GetPrm struct {
 	Address   oid.Address
 	StorageID []byte
-	Raw       bool
 }
 
 type GetRes struct {

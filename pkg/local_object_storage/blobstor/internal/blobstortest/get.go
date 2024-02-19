@@ -41,7 +41,6 @@ func TestGet(t *testing.T, cons Constructor, min, max uint64) {
 
 		// With raw flag.
 		gPrm.StorageID = objects[i].storageID
-		gPrm.Raw = true
 
 		res, err = s.Get(gPrm)
 		require.NoError(t, err)
