@@ -71,12 +71,22 @@ func (c *Config) NeedsCompression(obj *objectSDK.Object) bool {
 	return c.Enabled
 }
 
+// IsCompressed checks whether given data is compressed.
+func (c *Config) IsCompressed(data []byte) bool {
+	return len(data) >= 4 && bytes.Equal(data[:4], zstdFrameMagic)
+}
+
 // Decompress decompresses data if it starts with the magic
 // and returns data untouched otherwise.
 func (c *Config) Decompress(data []byte) ([]byte, error) {
-	if len(data) < 4 || !bytes.Equal(data[:4], zstdFrameMagic) {
+	if !c.IsCompressed(data) {
 		return data, nil
 	}
+	return c.DecompressForce(data)
+}
+
+// DecompressForce decompresses given compressed data.
+func (c *Config) DecompressForce(data []byte) ([]byte, error) {
 	return c.decoder.DecodeAll(data, nil)
 }
 

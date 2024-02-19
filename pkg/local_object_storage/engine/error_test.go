@@ -22,7 +22,7 @@ import (
 
 const errSmallSize = 256
 
-func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) (*StorageEngine, string, [2]*shard.ID) {
+func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string, [2]*shard.ID) {
 	if dir == "" {
 		var err error
 
@@ -31,10 +31,7 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 		t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	}
 
-	e := New(
-		WithLogger(zaptest.NewLogger(t)),
-		WithShardPoolSize(1),
-		WithErrorThreshold(errThreshold))
+	e := New(append([]Option{WithShardPoolSize(1)}, opts...)...)
 
 	var ids [2]*shard.ID
 	var err error
@@ -58,6 +55,10 @@ func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) 
 	require.NoError(t, e.Init())
 
 	return e, dir, ids
+}
+
+func newEngineWithErrorThreshold(t testing.TB, dir string, errThreshold uint32) (*StorageEngine, string, [2]*shard.ID) {
+	return newEngine(t, dir, WithLogger(zaptest.NewLogger(t)), WithErrorThreshold(errThreshold))
 }
 
 func TestErrorReporting(t *testing.T) {

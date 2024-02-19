@@ -21,6 +21,7 @@ type Info struct {
 // Cache represents write-cache for objects.
 type Cache interface {
 	Get(address oid.Address) (*object.Object, error)
+	GetBytes(address oid.Address, alloc func(ln int) []byte) ([]byte, error)
 	Head(oid.Address) (*object.Object, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be

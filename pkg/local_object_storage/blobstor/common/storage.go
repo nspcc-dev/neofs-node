@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Storage represents key-value object storage.
@@ -20,6 +21,10 @@ type Storage interface {
 	// This function MUST be called before Open.
 	SetReportErrorFunc(f func(string, error))
 
+	// TODO: docs
+	// GetBytes reads object by address and returns it in a canonical NeoFS binary
+	// format. Optional allocation func allows to replace the built-in make one.
+	GetBytes(addr oid.Address, alloc func(ln int) []byte) ([]byte, error)
 	Get(GetPrm) (GetRes, error)
 	GetRange(GetRangePrm) (GetRangeRes, error)
 	Exists(ExistsPrm) (ExistsRes, error)

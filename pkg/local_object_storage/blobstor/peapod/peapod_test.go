@@ -274,3 +274,38 @@ func TestPeapod_IterateAddresses(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mSrc, mDst)
 }
+
+func TestPeapod_GetBytes(t *testing.T) {
+	ppd := newTestPeapod(t)
+	addr := oidtest.Address()
+	obj := objecttest.Object(t)
+
+	objBin, err := obj.Marshal()
+	require.NoError(t, err)
+
+	b, err := ppd.GetBytes(addr, nil /* make */)
+	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+	require.Nil(t, b)
+
+	_, err = ppd.Put(common.PutPrm{
+		Address: addr,
+		RawData: objBin,
+	})
+	require.NoError(t, err)
+
+	b, err = ppd.GetBytes(addr, nil /* make */)
+	require.NoError(t, err)
+	require.Equal(t, objBin, b)
+
+	b2, err := ppd.GetBytes(addr, func(ln int) []byte {
+		if cap(b) >= ln {
+			return b[:ln]
+		}
+		return make([]byte, ln)
+	})
+	require.NoError(t, err)
+	require.Equal(t, objBin, b2)
+	if len(b) > 0 {
+		require.Equal(t, &b[0], &b2[0])
+	}
+}

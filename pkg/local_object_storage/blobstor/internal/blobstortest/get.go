@@ -45,5 +45,22 @@ func TestGet(t *testing.T, cons Constructor, min, max uint64) {
 		res, err = s.Get(gPrm)
 		require.NoError(t, err)
 		require.Equal(t, objects[i].raw, res.RawData)
+
+		// Binary.
+		b, err := s.GetBytes(objects[i].addr, nil /* make */)
+		require.NoError(t, err)
+		require.Equal(t, objects[i].raw, b)
+
+		b2, err := s.GetBytes(objects[i].addr, func(ln int) []byte {
+			if cap(b) >= ln {
+				return b[:ln]
+			}
+			return make([]byte, ln)
+		})
+		require.NoError(t, err)
+		require.Equal(t, objects[i].raw, b2)
+		if len(b) > 0 {
+			require.Equal(t, &b[0], &b2[0])
+		}
 	}
 }

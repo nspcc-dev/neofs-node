@@ -315,6 +315,53 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 	return common.GetRes{Object: obj, RawData: data}, err
 }
 
+// TODO: docs
+func (x *Peapod) GetBytes(addr oid.Address, alloc func(ln int) []byte) ([]byte, error) {
+	var b []byte
+
+	err := x.bolt.View(func(tx *bbolt.Tx) error {
+		bktRoot := tx.Bucket(rootBucket)
+		if bktRoot == nil {
+			return errMissingRootBucket
+		}
+
+		val := bktRoot.Get(keyForObject(addr))
+		if val == nil {
+			return apistatus.ErrObjectNotFound
+		}
+
+		if alloc != nil {
+			b = alloc(len(val))
+		} else {
+			b = make([]byte, len(val))
+		}
+		copy(b, val)
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			return nil, logicerr.Wrap(err)
+		}
+		return nil, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+	}
+
+	// copy-paste from FSTree
+	if !x.compress.IsCompressed(b) {
+		return b, nil
+	}
+
+	dec, err := x.compress.DecompressForce(b)
+	if err != nil {
+		if cap(dec) > cap(b) {
+			b = dec
+		}
+		return b, fmt.Errorf("decompress object BoltDB data: %w", err)
+	}
+
+	return dec, nil
+}
+
 // GetRange works like Get but reads specific payload range.
 func (x *Peapod) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
 	// copy-paste from FSTree

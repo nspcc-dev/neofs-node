@@ -1,6 +1,7 @@
 package blobovniczatree
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -140,4 +142,8 @@ func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.G
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, nil
+}
+
+func (b *Blobovniczas) GetBytes(_ oid.Address, _ func(ln int) []byte) ([]byte, error) {
+	return nil, errors.New("unimplemented Blobovniczas.GetBytes")
 }
