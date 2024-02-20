@@ -82,58 +82,45 @@ $ git push <remote> release/${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
 Open pull request to the main branch of the origin repository so that the
 maintainers check the changes. Remove release branch after the merge.
 
-## Tag the release
+## Create a GitHub release and a tag
 
-Pull the main branch with release commit created in previous step. Tag the commit
-with PGP signature.
+Use "Draft a new release" button in the "Releases" section. Create a new
+`vX.Y.Z` tag for it following the semantic versioning standard. Put change log
+for this release into the description. Do not attach any binaries at this step.
+Set the "Set as the latest release" checkbox if this is the latest stable
+release or "Set as a pre-release" if this is an unstable pre-release.
+Press the "Publish release" button.
 
-```shell
-$ git checkout master && git pull
-$ git tag -s ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
-```
+## Add automatically-built binaries
 
-## Push the release tag
+New release created at the previous step triggers automatic builds (if not,
+start them manually from the Build GitHub workflow), so wait for them to
+finish. Built binaries should be automatically attached to the release as an
+asset, check it on the release page. If binaries weren't attached after building
+workflow completion, then submit the bug, download currently supported binaries
+from the building job artifacts, unpack archive and add them to the
+previously created release via "Edit release" button.
 
-```shell
-$ git push origin ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
-```
+Docker image builds are triggered automatically as well, check they're successful
+or upload manualy if that's not the case.
 
 ## Post-release
 
-### Prepare and push images to a Docker Hub (if not automated)
+### Close GitHub milestone
 
-Create Docker images for all applications and push them into Docker Hub
-(requires [organization](https://hub.docker.com/u/nspccdev) privileges)
-
-```shell
-$ git checkout ${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
-$ make images
-$ docker push nspccdev/neofs-storage:${NEOFS_REVISION}
-$ docker push nspccdev/neofs-storage-testnet:${NEOFS_REVISION}
-$ docker push nspccdev/neofs-ir:${NEOFS_REVISION}
-$ docker push nspccdev/neofs-cli:${NEOFS_REVISION}
-$ docker push nspccdev/neofs-adm:${NEOFS_REVISION}
-```
-
-### Make a proper GitHub release (if not automated)
-
-Edit an automatically-created release on GitHub, copy things from `CHANGELOG.md`.
-Build and tar release binaries with `make prepare-release`, attach them to
-the release. Publish the release.
+Look up GitHub [milestones](https://github.com/nspcc-dev/neofs-node/milestones) and close the release one if exists.
 
 ### Update NeoFS Developer Environment
 
 Prepare pull-request in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv)
 with new versions.
 
-### Close GitHub milestone
+### Announcements
 
-Look up GitHub [milestones](https://github.com/nspcc-dev/neofs-node/milestones) and close the release one if exists.
+Copy the GitHub release page link to:
+ * Discord channel
+ * Element (Matrix) channel
 
-### Rebuild NeoFS LOCODE database
+### Deployment
 
-If new release contains LOCODE-related changes, rebuild NeoFS LOCODE database via NeoFS CLI
-
-```shell
-$ neofs-cli util locode generate ...
-```
+Deploy the updated version to the mainnet/testnet.
