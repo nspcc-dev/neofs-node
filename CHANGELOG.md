@@ -18,7 +18,9 @@ Changelog for NeoFS Node
 ### Updating from v0.40.0
 We no longer provide .tag.gz binaries in releases, they always were just
 duplicates, but if you're using them in some scripts please update to fetch
-raw binaries.
+raw binaries. All binaries have OS in their names as well now, following
+regular naming used throughout NSPCC, so instead of neofs-cli-amd64 you get
+neofs-cli-linux-amd64 now.
 
 ## [0.40.0] - 2024-02-09 - Maldo
 
