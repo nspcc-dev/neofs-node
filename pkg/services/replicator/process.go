@@ -55,14 +55,24 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 			objLen := objv2.StableSize()
 
 			reqLayout = unaryReplicateRequestLayoutForObject(blankReq, objLen)
-			req = make([]byte, objLen, reqLayout.fullLen)
+			if task.alloc != nil {
+				req = task.alloc(reqLayout.fullLen)[:objLen]
+			} else {
+				req = make([]byte, objLen, reqLayout.fullLen)
+			}
 			objv2.StableMarshal(req)
 		} else {
 			req, err = p.localStorage.GetBytes(task.addr, func(ln int) []byte {
 				reqLayout = unaryReplicateRequestLayoutForObject(blankReq, ln)
+				if task.alloc != nil {
+					return task.alloc(reqLayout.fullLen)[:ln]
+				}
 				return make([]byte, ln, reqLayout.fullLen)
 			})
 			if err != nil {
+				if reusedCtx != nil {
+					reusedCtx.Request = req
+				}
 				p.log.Error("could not get object from local storage",
 					zap.Stringer("object", task.addr),
 					zap.Error(err))

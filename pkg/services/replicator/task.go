@@ -15,6 +15,8 @@ type Task struct {
 	obj *objectSDK.Object
 
 	nodes []netmap.NodeInfo
+
+	alloc func(ln int) []byte
 }
 
 // SetCopiesNumber sets number of copies to replicate.
@@ -35,4 +37,9 @@ func (t *Task) SetObject(obj *objectSDK.Object) {
 // SetNodes sets a list of potential object holders.
 func (t *Task) SetNodes(v []netmap.NodeInfo) {
 	t.nodes = v
+}
+
+// SetAllocFunc allows to specify function for buffer allocation.
+func (t *Task) SetAllocFunc(alloc func(ln int) []byte) {
+	t.alloc = alloc
 }

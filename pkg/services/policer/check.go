@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 // tracks Policer's check progress.
@@ -76,6 +77,8 @@ func (n nodeCache) atLeastOneHolder() bool {
 	return false
 }
 
+var bufferPool = grpc.NewSharedBufferPool()
+
 func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.AddressWithType) {
 	addr := addrWithType.Address
 	idCnr := addr.Container()
@@ -117,6 +120,11 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	}
 
 	objCtx := replicator.NewReusedObjectContext(ctx)
+	defer func() {
+		if objCtx.Request != nil {
+			bufferPool.Put(&objCtx.Request)
+		}
+	}()
 	c := &processPlacementContext{
 		Context:      objCtx,
 		object:       addrWithType,
@@ -305,6 +313,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		task.SetObjectAddress(ctx.object.Address)
 		task.SetNodes(nodes)
 		task.SetCopiesNumber(shortage)
+		task.SetAllocFunc(bufferPool.Get)
 
 		p.replicator.HandleTask(ctx.Context, task, ctx.checkedNodes)
 	} else if uncheckedCopies > 0 {
