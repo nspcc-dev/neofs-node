@@ -14,6 +14,18 @@ type TaskResult interface {
 	SubmitSuccessfulReplication(netmap.NodeInfo)
 }
 
+type ReusedObjectContext struct {
+	context.Context
+	Request []byte
+}
+
+// TODO: docs.
+func NewReusedObjectContext(parent context.Context) *ReusedObjectContext {
+	return &ReusedObjectContext{
+		Context: parent,
+	}
+}
+
 // HandleTask executes replication task inside invoking goroutine.
 // Passes all the nodes that accepted the replication to the TaskResult.
 func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) {
@@ -23,38 +35,47 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		)
 	}()
 
-	blankReq, err := newBlankUnaryReplicateRequest(task.addr.Object(), p.signer)
-	if err != nil {
-		p.log.Error("failed to prepare replication request",
-			zap.Stringer("object", task.addr), zap.Error(err))
-		return
-	}
-
-	// prepare in-memory replication request
-	var reqLayout unaryReplicateRequestLayout
 	var req []byte
-	if task.obj != nil {
-		objv2 := task.obj.ToV2()
-		objLen := objv2.StableSize()
-
-		reqLayout = unaryReplicateRequestLayoutForObject(blankReq, objLen)
-		req = make([]byte, objLen, reqLayout.fullLen)
-		objv2.StableMarshal(req)
+	reusedCtx, _ := ctx.(*ReusedObjectContext)
+	if reusedCtx != nil && reusedCtx.Request != nil {
+		req = reusedCtx.Request
 	} else {
-		req, err = p.localStorage.GetBytes(task.addr, func(ln int) []byte {
-			reqLayout = unaryReplicateRequestLayoutForObject(blankReq, ln)
-			return make([]byte, ln, reqLayout.fullLen)
-		})
+		// prepare in-memory replication request
+		blankReq, err := newBlankUnaryReplicateRequest(task.addr.Object(), p.signer)
 		if err != nil {
-			p.log.Error("could not get object from local storage",
-				zap.Stringer("object", task.addr),
-				zap.Error(err))
-
+			p.log.Error("failed to prepare replication request",
+				zap.Stringer("object", task.addr), zap.Error(err))
 			return
 		}
-	}
 
-	req = encodeUnaryReplicateRequestWithObject(reqLayout, req)
+		// prepare in-memory replication request
+		var reqLayout unaryReplicateRequestLayout
+		if task.obj != nil {
+			objv2 := task.obj.ToV2()
+			objLen := objv2.StableSize()
+
+			reqLayout = unaryReplicateRequestLayoutForObject(blankReq, objLen)
+			req = make([]byte, objLen, reqLayout.fullLen)
+			objv2.StableMarshal(req)
+		} else {
+			req, err = p.localStorage.GetBytes(task.addr, func(ln int) []byte {
+				reqLayout = unaryReplicateRequestLayoutForObject(blankReq, ln)
+				return make([]byte, ln, reqLayout.fullLen)
+			})
+			if err != nil {
+				p.log.Error("could not get object from local storage",
+					zap.Stringer("object", task.addr),
+					zap.Error(err))
+
+				return
+			}
+		}
+
+		req = encodeUnaryReplicateRequestWithObject(reqLayout, req)
+		if reusedCtx != nil {
+			reusedCtx.Request = req
+		}
+	}
 
 	for i := 0; task.quantity > 0 && i < len(task.nodes); i++ {
 		select {

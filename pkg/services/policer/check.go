@@ -116,8 +116,9 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		return
 	}
 
+	objCtx := replicator.NewReusedObjectContext(ctx)
 	c := &processPlacementContext{
-		Context:      ctx,
+		Context:      objCtx,
 		object:       addrWithType,
 		checkedNodes: newNodeCache(),
 	}
@@ -305,7 +306,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		task.SetNodes(nodes)
 		task.SetCopiesNumber(shortage)
 
-		p.replicator.HandleTask(ctx, task, ctx.checkedNodes)
+		p.replicator.HandleTask(ctx.Context, task, ctx.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
