@@ -361,7 +361,7 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 
 	err = keyFromToken.Decode(t.GetSignature().GetKey())
 	if err != nil {
-		return errors.New("error while decoding public key from the token's signer")
+		return fmt.Errorf("decoding key from signature: %w", err)
 	}
 
 	userFromToken := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(keyFromToken))
