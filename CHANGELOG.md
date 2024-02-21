@@ -7,7 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Inability to deploy contract with non-standard zone via neofs-adm (#2740)
-- Container session token's `wildcard` field support (#2741) 
+- Container session token's `wildcard` field support (#2741)
 
 ### Changed
 
