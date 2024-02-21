@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Access to `PUT` objects no longer grants `DELETE` rights (#2261)
 
 ### Changed
 

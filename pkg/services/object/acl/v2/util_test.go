@@ -65,7 +65,7 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) 
 func TestIsVerbCompatible(t *testing.T) {
 	// Source: https://nspcc.ru/upload/neofs-spec-latest.pdf#page=28
 	table := map[aclsdk.Op][]sessionSDK.ObjectVerb{
-		aclsdk.OpObjectPut:    {sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete},
+		aclsdk.OpObjectPut:    {sessionSDK.VerbObjectPut},
 		aclsdk.OpObjectDelete: {sessionSDK.VerbObjectDelete},
 		aclsdk.OpObjectGet:    {sessionSDK.VerbObjectGet},
 		aclsdk.OpObjectHead: {

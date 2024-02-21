@@ -159,7 +159,7 @@ func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
 	//nolint:exhaustive
 	switch op {
 	case acl.OpObjectPut:
-		return tok.AssertVerb(sessionSDK.VerbObjectPut, sessionSDK.VerbObjectDelete)
+		return tok.AssertVerb(sessionSDK.VerbObjectPut)
 	case acl.OpObjectDelete:
 		return tok.AssertVerb(sessionSDK.VerbObjectDelete)
 	case acl.OpObjectGet:
