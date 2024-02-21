@@ -354,7 +354,7 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 	}
 
 	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(cnr.Value.Owner().WalletBytes(), issuer) {
-		return fmt.Errorf("session was not issued by the container owner, issuer: %q", issuer)
+		return fmt.Errorf("session was not issued by the container owner, issuer: %s", base58.Encode(issuer))
 	}
 
 	var keyFromToken neofsecdsa.PublicKey
