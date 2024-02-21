@@ -3,8 +3,6 @@ package replicator
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
@@ -25,9 +23,28 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		)
 	}()
 
-	if task.obj == nil {
-		var err error
-		task.obj, err = engine.Get(p.localStorage, task.addr)
+	blankReq, err := newBlankUnaryReplicateRequest(task.addr.Object(), p.signer)
+	if err != nil {
+		p.log.Error("failed to prepare replication request",
+			zap.Stringer("object", task.addr), zap.Error(err))
+		return
+	}
+
+	// prepare in-memory replication request
+	var reqLayout unaryReplicateRequestLayout
+	var req []byte
+	if task.obj != nil {
+		objv2 := task.obj.ToV2()
+		objLen := objv2.StableSize()
+
+		reqLayout = unaryReplicateRequestLayoutForObject(blankReq, objLen)
+		req = make([]byte, objLen, reqLayout.fullLen)
+		objv2.StableMarshal(req)
+	} else {
+		req, err = p.localStorage.GetBytes(task.addr, func(ln int) []byte {
+			reqLayout = unaryReplicateRequestLayoutForObject(blankReq, ln)
+			return make([]byte, ln, reqLayout.fullLen)
+		})
 		if err != nil {
 			p.log.Error("could not get object from local storage",
 				zap.Stringer("object", task.addr),
@@ -37,8 +54,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		}
 	}
 
-	prm := new(putsvc.RemotePutPrm).
-		WithObject(task.obj)
+	req = encodeUnaryReplicateRequestWithObject(reqLayout, req)
 
 	for i := 0; task.quantity > 0 && i < len(task.nodes); i++ {
 		select {
@@ -54,7 +70,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err := p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		err := p.transport.ReplicateToNode(callCtx, req, task.nodes[i])
 
 		cancel()
 

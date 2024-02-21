@@ -36,6 +36,7 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -182,15 +183,14 @@ func initObjectService(c *cfg) {
 		sidechain: c.cfgMorph.client,
 	}
 
-	c.shared.replicator = replicator.New(
+	c.shared.replicator = replicator.New(neofsecdsa.Signer(c.key.PrivateKey), &api{
+		clients: (*coreClientConstructor)(clientConstructor),
+	},
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
 			replicatorconfig.PutTimeout(c.cfgReader),
 		),
 		replicator.WithLocalStorage(ls),
-		replicator.WithRemoteSender(
-			putsvc.NewRemoteSender(keyStorage, (*coreClientConstructor)(clientConstructor)),
-		),
 	)
 
 	c.shared.policer = policer.New(

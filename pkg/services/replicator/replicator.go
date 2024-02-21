@@ -1,17 +1,26 @@
 package replicator
 
 import (
+	"context"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
+
+// TODO: docs.
+type Transport interface {
+	ReplicateToNode(ctx context.Context, req []byte, node netmap.NodeInfo) error
+}
 
 // Replicator represents the utility that replicates
 // local objects to remote nodes.
 type Replicator struct {
 	*cfg
+	signer    neofscrypto.Signer
+	transport Transport
 }
 
 // Option is an option for Policer constructor.
@@ -22,8 +31,6 @@ type cfg struct {
 
 	log *zap.Logger
 
-	remoteSender *putsvc.RemoteSender
-
 	localStorage *engine.StorageEngine
 }
 
@@ -32,7 +39,7 @@ func defaultCfg() *cfg {
 }
 
 // New creates, initializes and returns Replicator instance.
-func New(opts ...Option) *Replicator {
+func New(signer neofscrypto.Signer, transport Transport, opts ...Option) *Replicator {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -42,7 +49,9 @@ func New(opts ...Option) *Replicator {
 	c.log = c.log.With(zap.String("component", "Object Replicator"))
 
 	return &Replicator{
-		cfg: c,
+		cfg:       c,
+		signer:    signer,
+		transport: transport,
 	}
 }
 
@@ -57,13 +66,6 @@ func WithPutTimeout(v time.Duration) Option {
 func WithLogger(v *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = v
-	}
-}
-
-// WithRemoteSender returns option to set remote object sender of Replicator.
-func WithRemoteSender(v *putsvc.RemoteSender) Option {
-	return func(c *cfg) {
-		c.remoteSender = v
 	}
 }
 

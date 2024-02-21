@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -24,14 +23,6 @@ type remoteTarget struct {
 	nodeInfo clientcore.NodeInfo
 
 	obj *object.Object
-
-	clientConstructor ClientConstructor
-}
-
-// RemoteSender represents utility for
-// sending an object to a remote host.
-type RemoteSender struct {
-	keyStorage *util.KeyStorage
 
 	clientConstructor ClientConstructor
 }
@@ -85,52 +76,4 @@ func (t *remoteTarget) Close() (oid.ID, error) {
 	}
 
 	return res.ID(), nil
-}
-
-// NewRemoteSender creates, initializes and returns new RemoteSender instance.
-func NewRemoteSender(keyStorage *util.KeyStorage, cons ClientConstructor) *RemoteSender {
-	return &RemoteSender{
-		keyStorage:        keyStorage,
-		clientConstructor: cons,
-	}
-}
-
-// WithNodeInfo sets information about the remote node.
-func (p *RemotePutPrm) WithNodeInfo(v netmap.NodeInfo) *RemotePutPrm {
-	if p != nil {
-		p.node = v
-	}
-
-	return p
-}
-
-// WithObject sets transferred object.
-func (p *RemotePutPrm) WithObject(v *object.Object) *RemotePutPrm {
-	if p != nil {
-		p.obj = v
-	}
-
-	return p
-}
-
-// PutObject sends object to remote node.
-func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
-	t := &remoteTarget{
-		ctx:               ctx,
-		keyStorage:        s.keyStorage,
-		clientConstructor: s.clientConstructor,
-	}
-
-	err := clientcore.NodeInfoFromRawNetmapElement(&t.nodeInfo, netmapCore.Node(p.node))
-	if err != nil {
-		return fmt.Errorf("parse client node info: %w", err)
-	}
-
-	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}); err != nil {
-		return fmt.Errorf("(%T) could not send object header: %w", s, err)
-	} else if _, err := t.Close(); err != nil {
-		return fmt.Errorf("(%T) could not send object: %w", s, err)
-	}
-
-	return nil
 }
