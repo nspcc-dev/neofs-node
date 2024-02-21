@@ -52,6 +52,7 @@ func initGRPC(c *cfg) {
 	grpcconfig.IterateEndpoints(c.cfgReader, func(sc *grpcconfig.Config) {
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
+			grpc.RecvBufferPool(grpc.NewSharedBufferPool()),
 		}
 
 		if maxRecvMsgSizeOpt != nil {
