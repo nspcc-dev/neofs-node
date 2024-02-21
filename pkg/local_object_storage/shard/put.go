@@ -12,7 +12,9 @@ import (
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *object.Object
+	obj    *object.Object
+	objBin []byte
+	hdrLen int
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -21,6 +23,11 @@ type PutRes struct{}
 // SetObject is a Put option to set object to save.
 func (p *PutPrm) SetObject(obj *object.Object) {
 	p.obj = obj
+}
+
+// TODO: docs
+func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
+	p.objBin, p.hdrLen = objBin, hdrLen
 }
 
 // Put saves the object in shard.
@@ -38,9 +45,13 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
-	data, err := prm.obj.Marshal()
-	if err != nil {
-		return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+	var err error
+	data := prm.objBin
+	if data == nil {
+		data, err = prm.obj.Marshal()
+		if err != nil {
+			return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+		}
 	}
 
 	var putPrm common.PutPrm // form Put parameters
@@ -71,6 +82,9 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if !m.NoMetabase() {
 		var pPrm meta.PutPrm
 		pPrm.SetObject(prm.obj)
+		if prm.objBin != nil {
+			pPrm.SetHeaderBinary(prm.objBin[:prm.hdrLen])
+		}
 		pPrm.SetStorageID(res.StorageID)
 		if _, err := s.metaBase.Put(pPrm); err != nil {
 			// may we need to handle this case in a special way

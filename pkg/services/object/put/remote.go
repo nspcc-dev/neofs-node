@@ -23,8 +23,10 @@ type remoteTarget struct {
 	nodeInfo clientcore.NodeInfo
 
 	obj *object.Object
+	enc encodedObject
 
 	clientConstructor ClientConstructor
+	transport         Transport
 }
 
 // RemotePutPrm groups remote put operation parameters.
@@ -34,13 +36,22 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta) error {
+func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) error {
 	t.obj = obj
-
+	t.enc = enc
 	return nil
 }
 
 func (t *remoteTarget) Close() (oid.ID, error) {
+	if t.enc.hdrOff > 0 {
+		err := t.transport.ReplicateToNode(t.ctx, t.enc.b, t.nodeInfo)
+		if err != nil {
+			return oid.ID{}, fmt.Errorf("replicate object: %w", err)
+		}
+		id, _ := t.obj.ID()
+		return id, nil
+	}
+
 	var sessionInfo *util.SessionInfo
 
 	if tok := t.commonPrm.SessionToken(); tok != nil {

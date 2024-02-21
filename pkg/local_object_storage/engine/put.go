@@ -15,7 +15,9 @@ import (
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	obj *objectSDK.Object
+	obj    *objectSDK.Object
+	objBin []byte
+	hdrLen int
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -28,6 +30,11 @@ var errPutShard = errors.New("could not put object to any shard")
 // Option is required.
 func (p *PutPrm) WithObject(obj *objectSDK.Object) {
 	p.obj = obj
+}
+
+// TODO: docs
+func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
+	p.objBin, p.hdrLen = objBin, hdrLen
 }
 
 // Put saves the object to local storage.
@@ -72,7 +79,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 			return false
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, prm.obj)
+		putDone, exists := e.putToShard(sh, ind, pool, addr, prm.obj, prm.objBin, prm.hdrLen)
 		finished = putDone || exists
 		return finished
 	})
@@ -87,7 +94,8 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) (bool, bool) {
+func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object,
+	objBin []byte, hdrLen int) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})
@@ -129,6 +137,7 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 		var putPrm shard.PutPrm
 		putPrm.SetObject(obj)
+		putPrm.SetObjectBinary(objBin, hdrLen)
 
 		_, err = sh.Put(putPrm)
 		if err != nil {

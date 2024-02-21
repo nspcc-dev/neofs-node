@@ -22,9 +22,15 @@ type MaxSizeSource interface {
 
 type Service struct {
 	*cfg
+	transport Transport
 }
 
 type Option func(*cfg)
+
+// TODO: docs.
+type Transport interface {
+	ReplicateToNode(ctx context.Context, req []byte, node client.NodeInfo) error
+}
 
 type ClientConstructor interface {
 	Get(client.NodeInfo) (client.MultiAddressClient, error)
@@ -64,7 +70,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(opts ...Option) *Service {
+func NewService(transport Transport, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -74,14 +80,16 @@ func NewService(opts ...Option) *Service {
 	c.fmtValidator = object.NewFormatValidator(c.fmtValidatorOpts...)
 
 	return &Service{
-		cfg: c,
+		cfg:       c,
+		transport: transport,
 	}
 }
 
 func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 	return &Streamer{
-		cfg: p.cfg,
-		ctx: ctx,
+		cfg:       p.cfg,
+		ctx:       ctx,
+		transport: p.transport,
 	}, nil
 }
 

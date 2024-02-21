@@ -4,17 +4,20 @@ import (
 	"sync"
 )
 
-const defaultAllocSize = 1024
+var buffers sync.Pool
 
-var putBytesPool = &sync.Pool{
-	New: func() any { return make([]byte, 0, defaultAllocSize) },
+func getBuffer(cp int) []byte {
+	b, ok := buffers.Get().([]byte)
+	if ok {
+		if cap(b) >= cp {
+			return b
+		}
+		buffers.Put(b)
+	}
+	return make([]byte, 0, cp)
 }
 
-func getPayload() []byte {
-	return putBytesPool.Get().([]byte)
-}
-
-func putPayload(p []byte) {
+func putBuffer(p []byte) {
 	//nolint:staticcheck
-	putBytesPool.Put(p[:0])
+	buffers.Put(p[:0])
 }

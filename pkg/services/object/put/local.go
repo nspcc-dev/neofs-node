@@ -18,7 +18,8 @@ import (
 type ObjectStorage interface {
 	// Put must save passed object
 	// and return any appeared error.
-	Put(*object.Object) error
+	// Optional objBin represents obj in a canonical NeoFS format.
+	Put(obj *object.Object, objBin []byte, hdrLen int) error
 	// Delete must delete passed objects
 	// and return any appeared error.
 	Delete(tombstone oid.Address, toDelete []oid.ID) error
@@ -34,17 +35,19 @@ type localTarget struct {
 
 	obj  *object.Object
 	meta objectCore.ContentMeta
+	enc  encodedObject
 }
 
-func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta) error {
+func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMeta, enc encodedObject) error {
 	t.obj = obj
 	t.meta = meta
+	t.enc = enc
 
 	return nil
 }
 
 func (t *localTarget) Close() (oid.ID, error) {
-	err := putObjectLocally(t.storage, t.obj, t.meta)
+	err := putObjectLocally(t.storage, t.obj, t.meta, &t.enc)
 	if err != nil {
 		return oid.ID{}, err
 	}
@@ -54,7 +57,7 @@ func (t *localTarget) Close() (oid.ID, error) {
 	return id, nil
 }
 
-func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta) error {
+func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
 	switch meta.Type() {
 	case object.TypeTombstone:
 		err := storage.Delete(objectCore.AddressOf(obj), meta.Objects())
@@ -70,7 +73,14 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 		// objects that do not change meta storage
 	}
 
-	if err := storage.Put(obj); err != nil {
+	var objBin []byte
+	var hdrLen int
+	if enc != nil && enc.pldOff > 0 {
+		objBin = enc.b[enc.hdrOff:]
+		hdrLen = enc.pldFldOff - enc.hdrOff
+	}
+
+	if err := storage.Put(obj, objBin, hdrLen); err != nil {
 		return fmt.Errorf("could not put object to local storage: %w", err)
 	}
 
@@ -150,5 +160,5 @@ func (p *Service) ValidateAndStoreObjectLocally(cnrID cid.ID, obj object.Object)
 		}
 	}
 
-	return putObjectLocally(p.localStore, &obj, objMeta)
+	return putObjectLocally(p.localStore, &obj, objMeta, nil)
 }

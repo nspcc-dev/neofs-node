@@ -20,6 +20,8 @@ type api struct {
 	clients *coreClientConstructor
 }
 
+type apiAdapter api
+
 // TODO: docs.
 func (x *api) ReplicateToNode(ctx context.Context, req []byte, node netmap.NodeInfo) error {
 	var n coreclient.NodeInfo
@@ -28,7 +30,12 @@ func (x *api) ReplicateToNode(ctx context.Context, req []byte, node netmap.NodeI
 		return fmt.Errorf("parse info about storage node from the network map: %w", err)
 	}
 
-	mc, err := x.clients.Get(n)
+	return (*apiAdapter)(x).ReplicateToNode(ctx, req, n)
+}
+
+// TODO: docs.
+func (x *apiAdapter) ReplicateToNode(ctx context.Context, req []byte, node coreclient.NodeInfo) error {
+	mc, err := x.clients.Get(node)
 	if err != nil {
 		return fmt.Errorf("connect to node: %w", err)
 	}

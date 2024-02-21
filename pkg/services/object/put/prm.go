@@ -5,6 +5,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -20,6 +21,9 @@ type PutInitPrm struct {
 	copiesNumber uint32
 
 	relay func(client.NodeInfo, client.MultiAddressClient) error
+
+	localNodeInContainer bool
+	localNodeSigner      neofscrypto.Signer
 }
 
 type PutChunkPrm struct {

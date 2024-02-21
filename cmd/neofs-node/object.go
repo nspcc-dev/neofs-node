@@ -242,7 +242,7 @@ func initObjectService(c *cfg) {
 		}
 	}
 
-	sPut := putsvc.NewService(
+	sPut := putsvc.NewService(&apiAdapter{clients: putConstructor},
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
@@ -546,8 +546,8 @@ func (e engineWithNotifications) Lock(locker oid.Address, toLock []oid.ID) error
 	return e.base.Lock(locker, toLock)
 }
 
-func (e engineWithNotifications) Put(o *objectSDK.Object) error {
-	if err := e.base.Put(o); err != nil {
+func (e engineWithNotifications) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
+	if err := e.base.Put(o, objBin, hdrLen); err != nil {
 		return err
 	}
 
@@ -594,8 +594,12 @@ func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) er
 	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
-func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
-	return engine.Put(e.engine, o)
+func (e engineWithoutNotifications) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
+	var putPrm engine.PutPrm
+	putPrm.WithObject(o)
+	putPrm.SetObjectBinary(objBin, hdrLen)
+	_, err := e.engine.Put(putPrm)
+	return err
 }
 
 // object.Node implementation.
