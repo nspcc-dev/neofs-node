@@ -6,14 +6,20 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Inability to deploy contract with non-standard zone via neofs-adm (#2740)
-- Container session token's `wildcard` field support (#2741)
 
 ### Changed
 
 ### Removed
 
 ### Updated
+
+### Updating from v0.40.1
+
+## [0.40.1] - 2024-02-22
+
+### Fixed
+- Inability to deploy contract with non-standard zone via neofs-adm (#2740)
+- Container session token's `wildcard` field support (#2741)
 
 ### Updating from v0.40.0
 We no longer provide .tag.gz binaries in releases, they always were just
@@ -1908,7 +1914,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...master
+[0.40.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...v0.40.0
 [0.39.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.0...v0.39.1
