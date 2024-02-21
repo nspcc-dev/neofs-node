@@ -16,6 +16,9 @@ Changelog for NeoFS Node
 ### Updated
 
 ### Updating from v0.40.0
+We no longer provide .tag.gz binaries in releases, they always were just
+duplicates, but if you're using them in some scripts please update to fetch
+raw binaries.
 
 ## [0.40.0] - 2024-02-09 - Maldo
 
