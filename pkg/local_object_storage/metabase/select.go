@@ -504,7 +504,7 @@ func (db *DB) selectObjectID(
 			// copy-paste from DB.selectAllFrom
 			bkt := tx.Bucket(bucketName)
 			if bkt == nil {
-				return
+				continue
 			}
 
 			err := fMatch.matchBucket(bkt, f.Header(), f.Value(), func(k, v []byte) error {

@@ -1075,3 +1075,29 @@ func TestNumericSelect(t *testing.T) {
 		}
 	})
 }
+
+func TestSelectNotFilledBucket(t *testing.T) {
+	db := newDB(t)
+	cnr := cidtest.ID()
+
+	raw1 := generateObjectWithCID(t, cnr)
+	raw1.SetType(objectSDK.TypeRegular)
+	addAttribute(raw1, "attr", "value")
+	oID1, _ := raw1.ID()
+
+	raw2 := generateObjectWithCID(t, cnr)
+	raw2.SetType(objectSDK.TypeTombstone)
+	addAttribute(raw1, "attr", "value1")
+
+	err := putBig(db, raw1)
+	require.NoError(t, err)
+
+	err = putBig(db, raw2)
+	require.NoError(t, err)
+
+	// it should find 2nd object despite the missing object buckets;
+	// see the commit's fix
+	fs := objectSDK.SearchFilters{}
+	fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, oID1)
+	testSelect(t, db, cnr, fs, object.AddressOf(raw2))
+}
