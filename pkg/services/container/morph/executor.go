@@ -354,14 +354,14 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 	}
 
 	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(cnr.Value.Owner().WalletBytes(), issuer) {
-		return fmt.Errorf("session was not issued by the container owner, issuer: %q", issuer)
+		return fmt.Errorf("session was not issued by the container owner, issuer: %s", base58.Encode(issuer))
 	}
 
 	var keyFromToken neofsecdsa.PublicKey
 
 	err = keyFromToken.Decode(t.GetSignature().GetKey())
 	if err != nil {
-		return errors.New("error while decoding public key from the token's signer")
+		return fmt.Errorf("decoding key from signature: %w", err)
 	}
 
 	userFromToken := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(keyFromToken))
