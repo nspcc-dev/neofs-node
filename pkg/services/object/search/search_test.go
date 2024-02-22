@@ -11,6 +11,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
@@ -19,6 +20,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -424,4 +426,21 @@ func TestGetFromPastEpoch(t *testing.T) {
 	err = svc.Search(ctx, p)
 	require.NoError(t, err)
 	assertContains(ids11, ids12, ids21, ids22)
+}
+
+func TestNumericFilters(t *testing.T) {
+	var s Service
+	ctx := context.Background()
+	var prm Prm
+
+	for _, op := range []objectsdk.SearchMatchType{} {
+		var query objectsdk.SearchFilters
+		query.AddFilter("any_key", "1.0", op)
+
+		prm.WithSearchFilters(query)
+
+		err := s.Search(ctx, prm)
+		require.ErrorIs(t, err, object.ErrInvalidSearchQuery, op)
+		require.ErrorContains(t, err, "numeric filter with non-decimal value", op)
+	}
 }

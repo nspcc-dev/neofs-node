@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"errors"
+
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -64,6 +67,10 @@ func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
+			if errors.Is(err, objectcore.ErrInvalidSearchQuery) {
+				outError = err
+				return true
+			}
 			e.reportShardError(sh, "could not select objects from shard", err)
 			return false
 		}

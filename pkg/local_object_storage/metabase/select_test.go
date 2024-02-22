@@ -3,6 +3,8 @@ package meta_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -863,4 +865,213 @@ func metaSelect(db *meta.DB, cnr cidSDK.ID, fs objectSDK.SearchFilters) ([]oid.A
 
 	res, err := db.Select(prm)
 	return res.AddressList(), err
+}
+
+func numQuery(key string, op objectSDK.SearchMatchType, val string) (res objectSDK.SearchFilters) {
+	res.AddFilter(key, val, op)
+	return
+}
+
+var allNumOps = []objectSDK.SearchMatchType{
+	objectSDK.MatchNumGT,
+	objectSDK.MatchNumGE,
+	objectSDK.MatchNumLT,
+	objectSDK.MatchNumLE,
+}
+
+func TestNumericSelect(t *testing.T) {
+	db := newDB(t)
+	cnr := cidtest.ID()
+
+	for i, testAttr := range []struct {
+		key string
+		set func(obj *objectSDK.Object, val uint64)
+	}{
+		{key: "$Object:creationEpoch", set: func(obj *objectSDK.Object, val uint64) { obj.SetCreationEpoch(val) }},
+		{key: "$Object:payloadLength", set: func(obj *objectSDK.Object, val uint64) { obj.SetPayloadSize(val) }},
+		{key: "any_user_attr", set: func(obj *objectSDK.Object, val uint64) {
+			addAttribute(obj, "any_user_attr", strconv.FormatUint(val, 10))
+		}},
+	} {
+		cnr := cidtest.ID()
+		obj1 := generateObjectWithCID(t, cnr)
+		addr1 := object.AddressOf(obj1)
+		obj2 := generateObjectWithCID(t, cnr)
+		addr2 := object.AddressOf(obj2)
+
+		const smallNum = 10
+		const midNum = 11
+		const bigNum = 12
+
+		testAttr.set(obj1, smallNum)
+		testAttr.set(obj2, bigNum)
+
+		require.NoError(t, putBig(db, obj1), i)
+		require.NoError(t, putBig(db, obj2), i)
+
+		for j, testCase := range []struct {
+			op  objectSDK.SearchMatchType
+			num uint64
+			exp []oid.Address
+		}{
+			{op: objectSDK.MatchNumLT, num: smallNum - 1, exp: nil},
+			{op: objectSDK.MatchNumLT, num: smallNum, exp: nil},
+			{op: objectSDK.MatchNumLT, num: midNum, exp: []oid.Address{addr1}},
+			{op: objectSDK.MatchNumLT, num: bigNum, exp: []oid.Address{addr1}},
+			{op: objectSDK.MatchNumLT, num: bigNum + 1, exp: []oid.Address{addr1, addr2}},
+
+			{op: objectSDK.MatchNumLE, num: smallNum - 1, exp: nil},
+			{op: objectSDK.MatchNumLE, num: smallNum, exp: []oid.Address{addr1}},
+			{op: objectSDK.MatchNumLE, num: midNum, exp: []oid.Address{addr1}},
+			{op: objectSDK.MatchNumLE, num: bigNum, exp: []oid.Address{addr1, addr2}},
+			{op: objectSDK.MatchNumLE, num: bigNum + 1, exp: []oid.Address{addr1, addr2}},
+
+			{op: objectSDK.MatchNumGE, num: smallNum - 1, exp: []oid.Address{addr1, addr2}},
+			{op: objectSDK.MatchNumGE, num: smallNum, exp: []oid.Address{addr1, addr2}},
+			{op: objectSDK.MatchNumGE, num: midNum, exp: []oid.Address{addr2}},
+			{op: objectSDK.MatchNumGE, num: bigNum, exp: []oid.Address{addr2}},
+			{op: objectSDK.MatchNumGE, num: bigNum + 1, exp: nil},
+
+			{op: objectSDK.MatchNumGT, num: smallNum - 1, exp: []oid.Address{addr1, addr2}},
+			{op: objectSDK.MatchNumGT, num: smallNum, exp: []oid.Address{addr2}},
+			{op: objectSDK.MatchNumGT, num: midNum, exp: []oid.Address{addr2}},
+			{op: objectSDK.MatchNumGT, num: bigNum, exp: nil},
+			{op: objectSDK.MatchNumGT, num: bigNum + 1, exp: nil},
+		} {
+			query := numQuery(testAttr.key, testCase.op, strconv.FormatUint(testCase.num, 10))
+
+			res, err := metaSelect(db, cnr, query)
+			require.NoError(t, err, [2]any{i, j})
+			require.Len(t, res, len(testCase.exp), [2]any{i, j})
+
+			for i := range testCase.exp {
+				require.Contains(t, res, testCase.exp[i], [2]any{i, j})
+			}
+		}
+	}
+
+	// negative values
+	cnrNeg := cidtest.ID()
+	obj = generateObjectWithCID(t, cnrNeg)
+	const objVal = int64(-10)
+	const negAttr = "negative_attr"
+	addAttribute(obj, negAttr, strconv.FormatInt(objVal, 10))
+	addr := object.AddressOf(obj)
+
+	require.NoError(t, putBig(db, obj))
+
+	val := objVal - 1
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGT, strconv.FormatInt(val, 10)), addr)
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGE, strconv.FormatInt(val, 10)), addr)
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLT, strconv.FormatInt(val, 10)))
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLE, strconv.FormatInt(val, 10)))
+	val = objVal
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGT, strconv.FormatInt(val, 10)))
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGE, strconv.FormatInt(val, 10)), addr)
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLT, strconv.FormatInt(val, 10)))
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLE, strconv.FormatInt(val, 10)), addr)
+	val = objVal + 1
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGT, strconv.FormatInt(val, 10)))
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumGE, strconv.FormatInt(val, 10)))
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLT, strconv.FormatInt(val, 10)), addr)
+	testSelect(t, db, cnrNeg, numQuery(negAttr, objectSDK.MatchNumLE, strconv.FormatInt(val, 10)), addr)
+
+	// uint64 overflow
+	for _, attr := range []string{
+		"$Object:creationEpoch",
+		"$Object:payloadLength",
+	} {
+		b := new(big.Int).SetUint64(math.MaxUint64)
+		b.Add(b, big.NewInt(1))
+		filterVal := b.String()
+
+		testSelect(t, db, cnrNeg, numQuery(attr, objectSDK.MatchNumGT, filterVal))
+		testSelect(t, db, cnrNeg, numQuery(attr, objectSDK.MatchNumGE, filterVal))
+		testSelect(t, db, cnrNeg, numQuery(attr, objectSDK.MatchNumLT, filterVal), addr)
+		testSelect(t, db, cnrNeg, numQuery(attr, objectSDK.MatchNumLE, filterVal), addr)
+	}
+
+	t.Run("invalid filtering value format", func(t *testing.T) {
+		for _, op := range allNumOps {
+			query := numQuery("any_key", op, "1.0")
+
+			_, err := metaSelect(db, cnr, query)
+			require.ErrorIs(t, err, object.ErrInvalidSearchQuery, op)
+			require.ErrorContains(t, err, "numeric filter with non-decimal value", op)
+		}
+	})
+
+	t.Run("non-numeric system attributes", func(t *testing.T) {
+		for _, attr := range []string{
+			"$Object:version",
+			"$Object:objectID",
+			"$Object:containerID",
+			"$Object:ownerID",
+			"$Object:payloadHash",
+			"$Object:objectType",
+			"$Object:homomorphicHash",
+			"$Object:split.parent",
+			"$Object:split.splitID",
+			"$Object:ROOT",
+			"$Object:PHY",
+		} {
+			for _, op := range allNumOps {
+				query := numQuery(attr, op, "123")
+
+				_, err := metaSelect(db, cnr, query)
+				require.ErrorIs(t, err, object.ErrInvalidSearchQuery, [2]any{attr, op})
+				require.ErrorContains(t, err, "numeric filter with non-numeric system object attribute", [2]any{attr, op})
+			}
+		}
+	})
+
+	t.Run("unsupported system attribute", func(t *testing.T) {
+		for _, op := range allNumOps {
+			query := numQuery("$Object:definitelyUnknown", op, "123")
+
+			res, err := metaSelect(db, cnr, query)
+			require.NoError(t, err, op)
+			require.Empty(t, res, op)
+		}
+	})
+
+	t.Run("non-numeric user attributes", func(t *testing.T) {
+		// unlike system attributes, the user cannot always guarantee that the filtered
+		// attribute will be correct in all objects. This should not cause a denial of
+		// service, so such objects are simply not included in the result
+		obj1 := generateObjectWithCID(t, cnr)
+		addr1 := object.AddressOf(obj1)
+		obj2 := generateObjectWithCID(t, cnr)
+		addr2 := object.AddressOf(obj2)
+
+		const attr = "any_user_attribute"
+		addAttribute(obj1, attr, "123")
+		addAttribute(obj2, attr, "any_non_num")
+
+		require.NoError(t, putBig(db, obj1))
+		require.NoError(t, putBig(db, obj2))
+
+		var query objectSDK.SearchFilters
+
+		testSelect(t, db, cnr, query,
+			addr1, addr2)
+
+		for _, testCase := range []struct {
+			op  objectSDK.SearchMatchType
+			val string
+		}{
+			{op: objectSDK.MatchNumGT, val: "122"},
+			{op: objectSDK.MatchNumGE, val: "122"},
+			{op: objectSDK.MatchNumGE, val: "123"},
+			{op: objectSDK.MatchNumLE, val: "123"},
+			{op: objectSDK.MatchNumLE, val: "124"},
+			{op: objectSDK.MatchNumLT, val: "124"},
+		} {
+			query = numQuery(attr, testCase.op, testCase.val)
+
+			res, err := metaSelect(db, cnr, query)
+			require.NoError(t, err, testCase)
+			require.Equal(t, []oid.Address{addr1}, res, testCase)
+		}
+	})
 }
