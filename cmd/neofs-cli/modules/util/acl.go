@@ -135,7 +135,6 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 		}
 
 		_, _ = tw.Write([]byte(f.Key()))
-
 		switch f.Matcher() {
 		case eacl.MatchStringEqual:
 			_, _ = tw.Write([]byte("\t==\t"))
