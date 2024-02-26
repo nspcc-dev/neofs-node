@@ -11,6 +11,7 @@ import (
 // Server wraps NeoFS API Netmap service and
 // provides gRPC Netmap service server interface.
 type Server struct {
+	netmapGRPC.UnimplementedNetmapServiceServer
 	srv netmapsvc.Server
 }
 

@@ -11,6 +11,7 @@ import (
 // Server wraps NeoFS API Container service and
 // provides gRPC Container service server interface.
 type Server struct {
+	containerGRPC.UnimplementedContainerServiceServer
 	srv containersvc.Server
 }
 
