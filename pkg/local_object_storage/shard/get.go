@@ -14,10 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// storFetcher is a type to unify object fetching mechanism in `fetchObjectData`
-// method. It represents generalization of `getSmall` and `getBig` methods.
-type storFetcher = func(stor *blobstor.BlobStor, id []byte) (*objectSDK.Object, error)
-
 // GetPrm groups the parameters of Get operation.
 type GetPrm struct {
 	addr     oid.Address
@@ -65,38 +61,48 @@ func (s *Shard) Get(prm GetPrm) (GetRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	cb := func(stor *blobstor.BlobStor, id []byte) (*objectSDK.Object, error) {
+	var res GetRes
+
+	cb := func(stor *blobstor.BlobStor, id []byte) error {
 		var getPrm common.GetPrm
 		getPrm.Address = prm.addr
 		getPrm.StorageID = id
 
-		res, err := stor.Get(getPrm)
+		r, err := stor.Get(getPrm)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		return res.Object, nil
+		res.obj = r.Object
+		return nil
 	}
 
-	wc := func(c writecache.Cache) (*objectSDK.Object, error) {
-		return c.Get(prm.addr)
+	wc := func(c writecache.Cache) error {
+		o, err := c.Get(prm.addr)
+		if err != nil {
+			return err
+		}
+		res.obj = o
+		return nil
 	}
 
 	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	var err error
+	res.hasMeta, err = s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
-	return GetRes{
-		obj:     obj,
-		hasMeta: hasMeta,
-	}, err
+	return res, err
 }
 
 // emptyStorageID is an empty storageID that indicates that
 // an object is big (and is stored in an FSTree, not in a peapod).
 var emptyStorageID = make([]byte, 0)
 
-// fetchObjectData looks through writeCache and blobStor to find object.
-func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher, wc func(w writecache.Cache) (*objectSDK.Object, error)) (*objectSDK.Object, bool, error) {
+// fetchObjectData looks through writeCache and blobStor to find object. Returns
+// true iff skipMeta flag is unset && referenced object is found in the
+// underlying metaBase.
+func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
+	blobFunc func(bs *blobstor.BlobStor, subStorageID []byte) error,
+	wc func(w writecache.Cache) error,
+) (bool, error) {
 	var (
 		mErr error
 		mRes meta.ExistsRes
@@ -109,15 +115,15 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 
 		mRes, mErr = s.metaBase.Exists(mPrm)
 		if mErr != nil && !s.info.Mode.NoMetabase() {
-			return nil, false, mErr
+			return false, mErr
 		}
 		exists = mRes.Exists()
 	}
 
 	if s.hasWriteCache() {
-		res, err := wc(s.writeCache)
+		err := wc(s.writeCache)
 		if err == nil || IsErrOutOfRange(err) {
-			return res, false, err
+			return false, err
 		}
 
 		if IsErrNotFound(err) {
@@ -133,12 +139,12 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 	}
 
 	if skipMeta || mErr != nil {
-		res, err := cb(s.blobStor, nil)
-		return res, false, err
+		err := blobFunc(s.blobStor, nil)
+		return false, err
 	}
 
 	if !exists {
-		return nil, false, logicerr.Wrap(apistatus.ObjectNotFound{})
+		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	var mPrm meta.StorageIDPrm
@@ -146,7 +152,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 
 	mExRes, err := s.metaBase.StorageID(mPrm)
 	if err != nil {
-		return nil, true, fmt.Errorf("can't fetch storage id from metabase: %w", err)
+		return true, fmt.Errorf("can't fetch storage id from metabase: %w", err)
 	}
 
 	storageID := mExRes.StorageID()
@@ -157,7 +163,37 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool, cb storFetcher,
 		storageID = emptyStorageID
 	}
 
-	res, err := cb(s.blobStor, storageID)
+	return true, blobFunc(s.blobStor, storageID)
+}
 
-	return res, true, err
+// GetBytes reads object from the Shard by address into memory buffer in a
+// canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
+// is missing.
+func (s *Shard) GetBytes(addr oid.Address) ([]byte, error) {
+	b, _, err := s.getBytesWithMetadataLookup(addr, true)
+	return b, err
+}
+
+// GetBytesWithMetadataLookup works similar to [shard.GetBytes], but pre-checks
+// object presence in the underlying metabase: if object cannot be accessed from
+// the metabase, GetBytesWithMetadataLookup returns an error.
+func (s *Shard) GetBytesWithMetadataLookup(addr oid.Address) ([]byte, bool, error) {
+	return s.getBytesWithMetadataLookup(addr, false)
+}
+
+func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]byte, bool, error) {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	var b []byte
+	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(bs *blobstor.BlobStor, subStorageID []byte) error {
+		var err error
+		b, err = bs.GetBytes(addr, subStorageID)
+		return err
+	}, func(w writecache.Cache) error {
+		var err error
+		b, err = w.GetBytes(addr)
+		return err
+	})
+	return b, hasMeta, err
 }

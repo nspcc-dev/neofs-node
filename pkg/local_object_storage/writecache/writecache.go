@@ -21,6 +21,10 @@ type Info struct {
 // Cache represents write-cache for objects.
 type Cache interface {
 	Get(address oid.Address) (*object.Object, error)
+	// GetBytes reads object from the Cache by address into memory buffer in a
+	// canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
+	// is missing.
+	GetBytes(oid.Address) ([]byte, error)
 	Head(oid.Address) (*object.Object, error)
 	// Delete removes object referenced by the given oid.Address from the
 	// Cache. Returns any error encountered that prevented the object to be

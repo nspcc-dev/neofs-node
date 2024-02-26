@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -140,4 +141,17 @@ func (b *Blobovniczas) getObject(blz *blobovnicza.Blobovnicza, prm blobovnicza.G
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, nil
+}
+
+// GetBytes reads object from the Blobovniczas by address into memory buffer in
+// a canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
+// is missing.
+func (b *Blobovniczas) GetBytes(addr oid.Address) ([]byte, error) {
+	// Blobovniczas component is not used in production since #2453.
+	// So, we don't care about performance while still provide the service.
+	res, err := b.Get(common.GetPrm{Address: addr})
+	if err != nil {
+		return nil, err
+	}
+	return res.Object.Marshal()
 }

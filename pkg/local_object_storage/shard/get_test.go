@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -35,17 +36,22 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		obj := generateObject(t)
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
+		addr := object.AddressOf(obj)
 
 		putPrm.SetObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.SetAddress(object.AddressOf(obj))
+		getPrm.SetAddress(addr)
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
+
+		objBin, err := obj.Marshal()
+		require.NoError(t, err)
+		testGetBytes(t, sh, addr, objBin)
 	})
 
 	t.Run("big object", func(t *testing.T) {
@@ -53,17 +59,22 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		obj.SetID(oidtest.ID())
 		addPayload(obj, 1<<20) // big obj
+		addr := object.AddressOf(obj)
 
 		putPrm.SetObject(obj)
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.SetAddress(object.AddressOf(obj))
+		getPrm.SetAddress(addr)
 
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
+
+		objBin, err := obj.Marshal()
+		require.NoError(t, err)
+		testGetBytes(t, sh, addr, objBin)
 	})
 
 	t.Run("parent object", func(t *testing.T) {
@@ -120,6 +131,16 @@ func testGet(t *testing.T, sh *shard.Shard, getPrm shard.GetPrm, hasWriteCache b
 		}, time.Second, time.Millisecond*100)
 	}
 	return res, err
+}
+
+func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte) {
+	b, err := sh.GetBytes(addr)
+	require.NoError(t, err)
+	require.Equal(t, objBin, b)
+
+	b, _, err = sh.GetBytesWithMetadataLookup(addr)
+	require.NoError(t, err)
+	require.Equal(t, objBin, b)
 }
 
 // binary equal is used when object contains empty lists in the structure and

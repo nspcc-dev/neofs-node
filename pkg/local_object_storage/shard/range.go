@@ -70,47 +70,47 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	cb := func(stor *blobstor.BlobStor, id []byte) (*object.Object, error) {
+	var res RngRes
+
+	cb := func(stor *blobstor.BlobStor, id []byte) error {
 		var getRngPrm common.GetRangePrm
 		getRngPrm.Address = prm.addr
 		getRngPrm.Range.SetOffset(prm.off)
 		getRngPrm.Range.SetLength(prm.ln)
 		getRngPrm.StorageID = id
 
-		res, err := stor.GetRange(getRngPrm)
+		r, err := stor.GetRange(getRngPrm)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		obj := object.New()
-		obj.SetPayload(res.Data)
+		res.obj = object.New()
+		res.obj.SetPayload(r.Data)
 
-		return obj, nil
+		return nil
 	}
 
-	wc := func(c writecache.Cache) (*object.Object, error) {
-		res, err := c.Get(prm.addr)
+	wc := func(c writecache.Cache) error {
+		o, err := c.Get(prm.addr)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		payload := res.Payload()
+		payload := o.Payload()
 		from := prm.off
 		to := from + prm.ln
 		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-			return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
+			return logicerr.Wrap(apistatus.ObjectOutOfRange{})
 		}
 
-		obj := object.New()
-		obj.SetPayload(payload[from:to])
-		return obj, nil
+		res.obj = object.New()
+		res.obj.SetPayload(payload[from:to])
+		return nil
 	}
 
 	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
-	obj, hasMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	var err error
+	res.hasMeta, err = s.fetchObjectData(prm.addr, skipMeta, cb, wc)
 
-	return RngRes{
-		obj:     obj,
-		hasMeta: hasMeta,
-	}, err
+	return res, err
 }

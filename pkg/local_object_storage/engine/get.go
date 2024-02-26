@@ -44,21 +44,30 @@ func (r GetRes) Object() *objectSDK.Object {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Get(prm GetPrm) (res GetRes, err error) {
+	var sp shard.GetPrm
+	sp.SetAddress(prm.addr)
 	err = e.execIfNotBlocked(func() error {
-		res, err = e.get(prm)
-		return err
+		return e.get(prm.addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
+			sp.SetIgnoreMeta(ignoreMetadata)
+			sr, err := s.Get(sp)
+			if err != nil {
+				return sr.HasMeta(), err
+			}
+			res.obj = sr.Object()
+			return sr.HasMeta(), nil
+		})
 	})
 
 	return
 }
 
-func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
+func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error)) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
 
 	var (
-		obj   *objectSDK.Object
+		ok    bool
 		siErr *objectSDK.SplitInfoError
 
 		errNotFound apistatus.ObjectNotFound
@@ -70,21 +79,16 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 		metaError     error
 	)
 
-	var shPrm shard.GetPrm
-	shPrm.SetAddress(prm.addr)
-
 	var hasDegraded bool
 	var objectExpired bool
 
-	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		noMeta := sh.GetMode().NoMetabase()
-		shPrm.SetIgnoreMeta(noMeta)
-
 		hasDegraded = hasDegraded || noMeta
 
-		res, err := sh.Get(shPrm)
+		hasMetadata, err := shardFunc(sh.Shard, noMeta)
 		if err != nil {
-			if res.HasMeta() {
+			if hasMetadata {
 				shardWithMeta = sh
 				metaError = err
 			}
@@ -122,51 +126,47 @@ func (e *StorageEngine) get(prm GetPrm) (GetRes, error) {
 			}
 		}
 
-		obj = res.Object()
+		ok = true
 
 		return true
 	})
 
 	if outSI != nil {
-		return GetRes{}, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+		return logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
 	}
 
 	if objectExpired {
-		return GetRes{}, errNotFound
+		return errNotFound
 	}
 
-	if obj == nil {
+	if !ok {
 		if !hasDegraded && shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
-			return GetRes{}, outError
+			return outError
 		}
 
 		// If the object is not found but is present in metabase,
 		// try to fetch it from blobstor directly. If it is found in any
 		// blobstor, increase the error counter for the shard which contains the meta.
-		shPrm.SetIgnoreMeta(true)
-
-		e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+		e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 			if sh.GetMode().NoMetabase() {
 				// Already visited.
 				return false
 			}
 
-			res, err := sh.Get(shPrm)
-			obj = res.Object()
-			return err == nil
+			_, err := shardFunc(sh.Shard, true)
+			ok = err == nil
+			return ok
 		})
-		if obj == nil {
-			return GetRes{}, outError
+		if !ok {
+			return outError
 		}
 		if shardWithMeta.Shard != nil {
 			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-				metaError, zap.Stringer("address", prm.addr))
+				metaError, zap.Stringer("address", addr))
 		}
 	}
 
-	return GetRes{
-		obj: obj,
-	}, nil
+	return nil
 }
 
 // Get reads object from local storage by provided address.
@@ -180,4 +180,22 @@ func Get(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
 	}
 
 	return res.Object(), nil
+}
+
+// GetBytes reads object from the StorageEngine by address into memory buffer in
+// a canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
+// is missing.
+func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
+	var b []byte
+	err := e.execIfNotBlocked(func() error {
+		return e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
+			if ignoreMetadata {
+				b, err = s.GetBytes(addr)
+			} else {
+				b, hasMetadata, err = s.GetBytesWithMetadataLookup(addr)
+			}
+			return
+		})
+	})
+	return b, err
 }
