@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -14,8 +13,6 @@ const maxLocalTTL = 1
 
 type CommonPrm struct {
 	local bool
-
-	netmapEpoch, netmapLookupDepth uint64
 
 	token *sessionsdk.Object
 
@@ -76,28 +73,6 @@ func (p *CommonPrm) BearerToken() *bearer.Token {
 	return nil
 }
 
-func (p *CommonPrm) NetmapEpoch() uint64 {
-	if p != nil {
-		return p.netmapEpoch
-	}
-
-	return 0
-}
-
-func (p *CommonPrm) NetmapLookupDepth() uint64 {
-	if p != nil {
-		return p.netmapLookupDepth
-	}
-
-	return 0
-}
-
-func (p *CommonPrm) SetNetmapLookupDepth(v uint64) {
-	if p != nil {
-		p.netmapLookupDepth = v
-	}
-}
-
 // ForgetTokens forgets all the tokens read from the request's
 // meta information before.
 func (p *CommonPrm) ForgetTokens() {
@@ -148,24 +123,7 @@ func CommonPrmFromV2(req interface {
 	}
 
 	for i := range xHdrs {
-		switch key := xHdrs[i].GetKey(); key {
-		case session.XHeaderNetmapEpoch:
-			var err error
-
-			prm.netmapEpoch, err = strconv.ParseUint(xHdrs[i].GetValue(), 10, 64)
-			if err != nil {
-				return nil, err
-			}
-		case session.XHeaderNetmapLookupDepth:
-			var err error
-
-			prm.netmapLookupDepth, err = strconv.ParseUint(xHdrs[i].GetValue(), 10, 64)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			prm.xhdrs = append(prm.xhdrs, key, xHdrs[i].GetValue())
-		}
+		prm.xhdrs = append(prm.xhdrs, xHdrs[i].GetKey(), xHdrs[i].GetValue())
 	}
 
 	return prm, nil

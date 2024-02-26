@@ -25,8 +25,6 @@ type execCtx struct {
 	statusError
 
 	log *zap.Logger
-
-	curProcEpoch uint64
 }
 
 const (
@@ -66,40 +64,8 @@ func (exec *execCtx) searchFilters() object.SearchFilters {
 	return exec.prm.filters
 }
 
-func (exec *execCtx) netmapEpoch() uint64 {
-	return exec.prm.common.NetmapEpoch()
-}
-
-func (exec *execCtx) netmapLookupDepth() uint64 {
-	return exec.prm.common.NetmapLookupDepth()
-}
-
-func (exec *execCtx) initEpoch() bool {
-	exec.curProcEpoch = exec.netmapEpoch()
-	if exec.curProcEpoch > 0 {
-		return true
-	}
-
-	e, err := exec.svc.currentEpochReceiver.currentEpoch()
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not get current epoch number",
-			zap.String("error", err.Error()),
-		)
-
-		return false
-	case err == nil:
-		exec.curProcEpoch = e
-		return true
-	}
-}
-
-func (exec *execCtx) generateTraverser(cnr cid.ID) (*placement.Traverser, bool) {
-	t, err := exec.svc.traverserGenerator.generateTraverser(cnr, exec.curProcEpoch)
+func (exec *execCtx) generateTraverser(cnr cid.ID, epoch uint64) (*placement.Traverser, bool) {
+	t, err := exec.svc.traverserGenerator.generateTraverser(cnr, epoch)
 
 	switch {
 	default:

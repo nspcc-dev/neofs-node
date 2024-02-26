@@ -15,44 +15,29 @@ func (exec *execCtx) executeOnContainer() {
 		return
 	}
 
-	lookupDepth := exec.netmapLookupDepth()
-
-	exec.log.Debug("trying to execute in container...",
-		zap.Uint64("netmap lookup depth", lookupDepth),
-	)
+	exec.log.Debug("trying to execute in container...")
 
 	// initialize epoch number
-	ok := exec.initEpoch()
-	if !ok {
+	epoch, err := exec.svc.currentEpochReceiver.currentEpoch()
+	if err != nil {
+		exec.status = statusUndefined
+		exec.err = err
+		exec.log.Debug("could not get current epoch number", zap.Error(err))
 		return
 	}
 
-	for {
-		if exec.processCurrentEpoch() {
-			break
-		}
-
-		// check the maximum depth has been reached
-		if lookupDepth == 0 {
-			break
-		}
-
-		lookupDepth--
-
-		// go to the previous epoch
-		exec.curProcEpoch--
-	}
+	exec.processEpoch(epoch)
 
 	exec.status = statusOK
 	exec.err = nil
 }
 
-func (exec *execCtx) processCurrentEpoch() bool {
+func (exec *execCtx) processEpoch(epoch uint64) bool {
 	exec.log.Debug("process epoch",
-		zap.Uint64("number", exec.curProcEpoch),
+		zap.Uint64("number", epoch),
 	)
 
-	traverser, ok := exec.generateTraverser(exec.containerID())
+	traverser, ok := exec.generateTraverser(exec.containerID(), epoch)
 	if !ok {
 		return true
 	}

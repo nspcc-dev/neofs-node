@@ -86,13 +86,6 @@ type readPrmCommon struct {
 	commonPrm
 }
 
-// SetNetmapEpoch sets the epoch number to be used to locate the object.
-//
-// By default current epoch on the server will be used.
-func (x *readPrmCommon) SetNetmapEpoch(_ uint64) {
-	// FIXME: (neofs-node#1194) not supported by client
-}
-
 // GetObjectPrm groups parameters of GetObject operation.
 type GetObjectPrm struct {
 	readPrmCommon

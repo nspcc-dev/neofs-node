@@ -36,7 +36,7 @@ type testStorage struct {
 
 type testTraverserGenerator struct {
 	c container.Container
-	b map[uint64]placement.Builder
+	b placement.Builder
 }
 
 type testPlacementBuilder struct {
@@ -68,10 +68,10 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ cid.ID, epoch uint64) (*placement.Traverser, error) {
+func (g *testTraverserGenerator) generateTraverser(_ cid.ID, _ uint64) (*placement.Traverser, error) {
 	return placement.NewTraverser(
 		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b[epoch]),
+		placement.UseBuilder(g.b),
 		placement.WithoutSuccessTracking(),
 	)
 }
@@ -258,9 +258,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		svc.traverserGenerator = &testTraverserGenerator{
 			c: cnr,
-			b: map[uint64]placement.Builder{
-				curEpoch: b,
-			},
+			b: b,
 		}
 		svc.clientConstructor = c
 		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
@@ -316,116 +314,6 @@ func TestGetRemoteSmall(t *testing.T) {
 			require.Contains(t, w.ids, id)
 		}
 	})
-}
-
-func TestGetFromPastEpoch(t *testing.T) {
-	ctx := context.Background()
-
-	placementDim := []int{2, 2}
-
-	rs := make([]netmap.ReplicaDescriptor, len(placementDim))
-
-	for i := range placementDim {
-		rs[i].SetNumberOfObjects(uint32(placementDim[i]))
-	}
-
-	var pp netmap.PlacementPolicy
-	pp.AddReplicas(rs...)
-
-	var cnr container.Container
-	cnr.SetPlacementPolicy(pp)
-
-	var idCnr cid.ID
-	cnr.CalculateID(&idCnr)
-
-	var addr oid.Address
-	addr.SetContainer(idCnr)
-
-	ns, as := testNodeMatrix(t, placementDim)
-
-	c11 := newTestStorage()
-	ids11 := generateIDs(10)
-	c11.addResult(idCnr, ids11, nil)
-
-	c12 := newTestStorage()
-	ids12 := generateIDs(10)
-	c12.addResult(idCnr, ids12, nil)
-
-	c21 := newTestStorage()
-	ids21 := generateIDs(10)
-	c21.addResult(idCnr, ids21, nil)
-
-	c22 := newTestStorage()
-	ids22 := generateIDs(10)
-	c22.addResult(idCnr, ids22, nil)
-
-	svc := &Service{cfg: new(cfg)}
-	svc.log = test.NewLogger(false)
-	svc.localStorage = newTestStorage()
-
-	const curEpoch = 13
-
-	svc.traverserGenerator = &testTraverserGenerator{
-		c: cnr,
-		b: map[uint64]placement.Builder{
-			curEpoch: &testPlacementBuilder{
-				vectors: map[string][][]netmap.NodeInfo{
-					addr.EncodeToString(): ns[:1],
-				},
-			},
-			curEpoch - 1: &testPlacementBuilder{
-				vectors: map[string][][]netmap.NodeInfo{
-					addr.EncodeToString(): ns[1:],
-				},
-			},
-		},
-	}
-
-	svc.clientConstructor = &testClientCache{
-		clients: map[string]*testStorage{
-			as[0][0]: c11,
-			as[0][1]: c12,
-			as[1][0]: c21,
-			as[1][1]: c22,
-		},
-	}
-
-	svc.currentEpochReceiver = testEpochReceiver(curEpoch)
-
-	w := new(simpleIDWriter)
-
-	p := Prm{}
-	p.WithContainerID(idCnr)
-	p.SetWriter(w)
-
-	commonPrm := new(util.CommonPrm)
-	p.SetCommonParameters(commonPrm)
-
-	assertContains := func(idsList ...[]oid.ID) {
-		var sz int
-
-		for _, ids := range idsList {
-			sz += len(ids)
-
-			for _, id := range ids {
-				require.Contains(t, w.ids, id)
-			}
-		}
-
-		require.Len(t, w.ids, sz)
-	}
-
-	err := svc.Search(ctx, p)
-	require.NoError(t, err)
-	assertContains(ids11, ids12)
-
-	commonPrm.SetNetmapLookupDepth(1)
-	w = new(simpleIDWriter)
-	p.SetWriter(w)
-
-	err = svc.Search(ctx, p)
-	require.NoError(t, err)
-	assertContains(ids11, ids12, ids21, ids22)
 }
 
 func TestNumericFilters(t *testing.T) {

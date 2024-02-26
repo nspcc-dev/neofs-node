@@ -39,8 +39,6 @@ type execCtx struct {
 	curOff uint64
 
 	head bool
-
-	curProcEpoch uint64
 }
 
 type execOption func(*execCtx)
@@ -153,42 +151,10 @@ func (exec *execCtx) headOnly() bool {
 	return exec.head
 }
 
-func (exec *execCtx) netmapEpoch() uint64 {
-	return exec.prm.common.NetmapEpoch()
-}
-
-func (exec *execCtx) netmapLookupDepth() uint64 {
-	return exec.prm.common.NetmapLookupDepth()
-}
-
-func (exec *execCtx) initEpoch() bool {
-	exec.curProcEpoch = exec.netmapEpoch()
-	if exec.curProcEpoch > 0 {
-		return true
-	}
-
-	e, err := exec.svc.currentEpochReceiver.currentEpoch()
-
-	switch {
-	default:
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not get current epoch number",
-			zap.String("error", err.Error()),
-		)
-
-		return false
-	case err == nil:
-		exec.curProcEpoch = e
-		return true
-	}
-}
-
-func (exec *execCtx) generateTraverser(addr oid.Address) (*placement.Traverser, bool) {
+func (exec *execCtx) generateTraverser(addr oid.Address, epoch uint64) (*placement.Traverser, bool) {
 	obj := addr.Object()
 
-	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr.Container(), &obj, exec.curProcEpoch)
+	t, err := exec.svc.traverserGenerator.GenerateTraverser(addr.Container(), &obj, epoch)
 
 	switch {
 	default:
