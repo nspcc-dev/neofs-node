@@ -22,8 +22,7 @@ import (
 )
 
 const (
-	noProgressFlag   = "no-progress"
-	notificationFlag = "notify"
+	noProgressFlag = "no-progress"
 )
 
 var putExpiredOn uint64
@@ -55,7 +54,6 @@ func initObjectPutCmd() {
 	flags.Uint64P(commonflags.Lifetime, "l", 0, "Number of epochs for object to stay valid")
 	flags.Bool(noProgressFlag, false, "Do not show progress bar")
 
-	flags.String(notificationFlag, "", "Object notification in the form of *epoch*:*topic*; '-' topic means using default")
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
@@ -139,13 +137,6 @@ func putObject(cmd *cobra.Command, _ []string) {
 	obj.SetOwnerID(&ownerID)
 	obj.SetAttributes(attrs...)
 
-	notificationInfo, err := parseObjectNotifications(cmd)
-	common.ExitOnErr(cmd, "can't parse object notification information: %w", err)
-
-	if notificationInfo != nil {
-		obj.SetNotification(*notificationInfo)
-	}
-
 	var prm internalclient.PutObjectPrm
 	prm.SetPrivateKey(*pk)
 	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, nil)
@@ -223,40 +214,4 @@ func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 	}
 
 	return attrs, nil
-}
-
-func parseObjectNotifications(cmd *cobra.Command) (*object.NotificationInfo, error) {
-	const (
-		separator       = ":"
-		useDefaultTopic = "-"
-	)
-
-	raw := cmd.Flag(notificationFlag).Value.String()
-	if raw == "" {
-		return nil, nil
-	}
-
-	rawSlice := strings.SplitN(raw, separator, 2)
-	if len(rawSlice) != 2 {
-		return nil, fmt.Errorf("notification must be in the form of: *epoch*%s*topic*, got %s", separator, raw)
-	}
-
-	ni := new(object.NotificationInfo)
-
-	epoch, err := strconv.ParseUint(rawSlice[0], 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse notification epoch %s: %w", rawSlice[0], err)
-	}
-
-	ni.SetEpoch(epoch)
-
-	if rawSlice[1] == "" {
-		return nil, fmt.Errorf("incorrect empty topic: use %s to force using default topic", useDefaultTopic)
-	}
-
-	if rawSlice[1] != useDefaultTopic {
-		ni.SetTopic(rawSlice[1])
-	}
-
-	return ni, nil
 }

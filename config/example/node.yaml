@@ -33,14 +33,6 @@ node:
     path: /sessions  # path to persistent session tokens file of Storage node (default: in-memory sessions)
   persistent_state:
     path: /state  # path to persistent state file of Storage node
-  notification:
-    enabled: true  # turn on object notification service
-    endpoint: "tls://localhost:4222"  # notification server endpoint
-    timeout: "6s"  # timeout for object notification client connection
-    default_topic: "topic"  # default topic for object notifications if not found in object's meta
-    certificate: "/cert/path"  # path to TLS certificate
-    key: "/key/path"  # path to TLS key
-    ca: "/ca/path"  # path to optional CA certificate
 
 grpc:
   - endpoint: s01.neofs.devenv:8080  # endpoint for gRPC server

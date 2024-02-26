@@ -34,15 +34,6 @@
     },
     "persistent_state": {
       "path": "/state"
-    },
-    "notification": {
-      "enabled": true,
-      "endpoint": "tls://localhost:4222",
-      "timeout": "6s",
-      "default_topic": "topic",
-      "certificate": "/cert/path",
-      "key": "/key/path",
-      "ca": "/ca/path"
     }
   },
   "grpc": {

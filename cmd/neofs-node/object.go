@@ -12,7 +12,6 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -225,24 +224,11 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, c.shared.policer)
 
-	var os putsvc.ObjectStorage = engineWithoutNotifications{
-		engine: ls,
-	}
-
-	if c.cfgNotifications.enabled {
-		os = engineWithNotifications{
-			base:         os,
-			nw:           c.cfgNotifications.nw,
-			ns:           c.cfgNetmap.state,
-			defaultTopic: c.cfgNotifications.defaultTopic,
-		}
-	}
-
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
-		putsvc.WithObjectStorage(os),
+		putsvc.WithObjectStorage(storageEngine{engine: ls}),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
 		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetmapKeys(c),
@@ -519,56 +505,15 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 	return cl, nil
 }
 
-type engineWithNotifications struct {
-	base putsvc.ObjectStorage
-	nw   notificationWriter
-	ns   netmap.State
-
-	defaultTopic string
-}
-
-func (e engineWithNotifications) IsLocked(address oid.Address) (bool, error) {
-	return e.base.IsLocked(address)
-}
-
-func (e engineWithNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {
-	return e.base.Delete(tombstone, toDelete)
-}
-
-func (e engineWithNotifications) Lock(locker oid.Address, toLock []oid.ID) error {
-	return e.base.Lock(locker, toLock)
-}
-
-func (e engineWithNotifications) Put(o *objectSDK.Object) error {
-	if err := e.base.Put(o); err != nil {
-		return err
-	}
-
-	ni, err := o.NotificationInfo()
-	if err == nil {
-		if epoch := ni.Epoch(); epoch == 0 || epoch == e.ns.CurrentEpoch() {
-			topic := ni.Topic()
-
-			if topic == "" {
-				topic = e.defaultTopic
-			}
-
-			e.nw.Notify(topic, objectCore.AddressOf(o))
-		}
-	}
-
-	return nil
-}
-
-type engineWithoutNotifications struct {
+type storageEngine struct {
 	engine *engine.StorageEngine
 }
 
-func (e engineWithoutNotifications) IsLocked(address oid.Address) (bool, error) {
+func (e storageEngine) IsLocked(address oid.Address) (bool, error) {
 	return e.engine.IsLocked(address)
 }
 
-func (e engineWithoutNotifications) Delete(tombstone oid.Address, toDelete []oid.ID) error {
+func (e storageEngine) Delete(tombstone oid.Address, toDelete []oid.ID) error {
 	var prm engine.InhumePrm
 
 	addrs := make([]oid.Address, len(toDelete))
@@ -583,10 +528,10 @@ func (e engineWithoutNotifications) Delete(tombstone oid.Address, toDelete []oid
 	return err
 }
 
-func (e engineWithoutNotifications) Lock(locker oid.Address, toLock []oid.ID) error {
+func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
-func (e engineWithoutNotifications) Put(o *objectSDK.Object) error {
+func (e storageEngine) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
 }

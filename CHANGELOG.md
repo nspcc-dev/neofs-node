@@ -12,10 +12,15 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- Object notifications incl. NATS (#2750)
 
 ### Updated
 
 ### Updating from v0.40.1
+Remove `notification` section from all SN configuration files: it is no longer
+supported. All NATS servers running for this purpose only are no longer needed.
+If your app depends on notifications transmitted to NATS, do not update and
+create an issue please.
 
 ## [0.40.1] - 2024-02-22
 

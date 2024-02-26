@@ -286,14 +286,6 @@ node:
     path: /sessions
   persistent_state:
     path: /state
-  notification:
-    enabled: true
-    endpoint: tls://localhost:4222
-    timeout: 6s
-    default_topic: topic
-    certificate: /path/to/cert.pem
-    key: /path/to/key.pem
-    ca: /path/to/ca.pem
 ```
 
 | Parameter             | Type                                                          | Default value | Description                                                                                                          |
@@ -305,7 +297,6 @@ node:
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |
 | `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                                                                        |
 | `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                                                                      |
-| `notification`        | [Notification config](#notification-subsection)               |               | NATS configuration.                                                                                                  |
 
 
 ## `wallet` subsection
@@ -332,19 +323,6 @@ It is used to correctly handle node restarts or crashes.
 | Parameter | Type     | Default value          | Description            |
 |-----------|----------|------------------------|------------------------|
 | `path`    | `string` | `.neofs-storage-state` | Path to the database.  |
-
-## `notification` subsection
-This is an advanced section, use with caution.
-
-| Parameter       | Type       | Default value     | Description                                                       |
-|-----------------|------------|-------------------|-------------------------------------------------------------------|
-| `enabled`       | `bool`     | `false`           | Flag to enable the service.                                       |
-| `endpoint`      | `string`   |                   | NATS endpoint to connect to.                                      |
-| `timeout`       | `duration` | `5s`              | Timeout for the object notification operation.                    |
-| `default_topic` | `string`   | node's public key | Default topic to use if an object has no corresponding attribute. |
-| `certificate`   | `string`   |                   | Path to the client certificate.                                   |
-| `key`           | `string`   |                   | Path to the client key.                                           |
-| `ca`            | `string`   |                   | Override root CA used to verify server certificates.              |
 
 # `apiclient` section
 Configuration for the NeoFS API client used for communication with other NeoFS nodes.
