@@ -16,6 +16,7 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 	expected := make([]netmap.NodeInfo, 4)
 	for i := range expected {
 		pub := make([]byte, 33)
+		//nolint:staticcheck
 		rand.Read(pub)
 
 		switch i % 3 {

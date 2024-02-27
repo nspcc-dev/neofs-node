@@ -15,6 +15,7 @@ import (
 func testPutGet(t *testing.T, blz *Blobovnicza, addr oid.Address, sz uint64, assertErrPut, assertErrGet func(error) bool) oid.Address {
 	// create binary object
 	data := make([]byte, sz)
+	//nolint:staticcheck
 	rand.Read(data)
 
 	var pPut PutPrm
@@ -52,6 +53,7 @@ func testGet(t *testing.T, blz *Blobovnicza, addr oid.Address, expObj []byte, as
 }
 
 func TestBlobovnicza(t *testing.T) {
+	//nolint:staticcheck
 	rand.Seed(1024)
 
 	p := "./test_blz"

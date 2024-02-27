@@ -25,6 +25,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 		size = smallSize / 2
 		// }
 		data := make([]byte, size)
+		//nolint:staticcheck
 		rand.Read(data)
 
 		objects[i] = generateObjectWithPayload(t, cidtest.ID(), data)

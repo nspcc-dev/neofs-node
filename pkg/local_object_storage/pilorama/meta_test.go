@@ -55,6 +55,7 @@ func TestMeta_GetAttr(t *testing.T) {
 		make([]byte, 10),
 	}
 	for i := range attr {
+		//nolint:staticcheck
 		rand.Read(attr[i])
 	}
 

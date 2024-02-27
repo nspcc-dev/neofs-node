@@ -42,6 +42,7 @@ func Test_decodeList(t *testing.T) {
 		expected := make([][]byte, 20)
 		for i := range expected {
 			expected[i] = make([]byte, rand.Uint32()%10)
+			//nolint:staticcheck
 			rand.Read(expected[i])
 		}
 

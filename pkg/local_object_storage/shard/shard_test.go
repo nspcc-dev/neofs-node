@@ -100,6 +100,7 @@ func generateObject(t *testing.T) *object.Object {
 
 func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
 	data := make([]byte, 32)
+	//nolint:staticcheck
 	rand.Read(data)
 	return generateObjectWithPayload(t, cnr, data)
 }
@@ -140,6 +141,7 @@ func addAttribute(obj *object.Object, key, val string) {
 
 func addPayload(obj *object.Object, size int) {
 	buf := make([]byte, size)
+	//nolint:staticcheck
 	_, _ = rand.Read(buf)
 
 	obj.SetPayload(buf)
