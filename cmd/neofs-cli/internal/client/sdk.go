@@ -74,11 +74,7 @@ func GetSDKClient(ctx context.Context, addr network.Address) (*client.Client, er
 		// This behavior is going to be fixed on SDK side.
 		//
 		// Track https://github.com/nspcc-dev/neofs-node/issues/2477
-		wErr := err
-		for e := errors.Unwrap(wErr); e != nil; e = errors.Unwrap(wErr) {
-			wErr = e
-		}
-		if status.Code(wErr) == codes.Unimplemented {
+		if status.Code(err) == codes.Unimplemented {
 			return c, nil
 		}
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
