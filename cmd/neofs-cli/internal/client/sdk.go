@@ -32,7 +32,7 @@ func getSDKClientByFlag(ctx context.Context, endpointFlag string) (*client.Clien
 
 	err := addr.FromString(viper.GetString(endpointFlag))
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errInvalidEndpoint, err)
+		return nil, fmt.Errorf("%w: %w", errInvalidEndpoint, err)
 	}
 	return GetSDKClient(ctx, addr)
 }

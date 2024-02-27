@@ -123,7 +123,7 @@ func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err er
 		return
 	}
 
-	if isLogical(err) {
+	if errors.Is(err, logicerr.Error) {
 		e.log.Warn(msg,
 			zap.Stringer("shard_id", sh.ID()),
 			zap.String("error", err.Error()))
@@ -141,7 +141,7 @@ func (e *StorageEngine) reportShardError(
 	msg string,
 	err error,
 	fields ...zap.Field) {
-	if isLogical(err) {
+	if errors.Is(err, logicerr.Error) {
 		e.log.Warn(msg,
 			zap.Stringer("shard_id", sh.ID()),
 			zap.String("error", err.Error()))
@@ -188,10 +188,6 @@ func (e *StorageEngine) reportShardErrorWithFlags(
 				zap.Uint32("error_count", errCount))
 		}
 	}
-}
-
-func isLogical(err error) bool {
-	return errors.As(err, &logicerr.Logical{})
 }
 
 // Option represents StorageEngine's constructor option.

@@ -19,8 +19,6 @@ func TestError(t *testing.T) {
 		ee = Wrap(e2)
 		require.ErrorIs(t, ee, e1)
 		require.ErrorIs(t, ee, e2)
-
-		require.Equal(t, errors.Unwrap(ee), e2)
 	})
 
 	t.Run("errors.As", func(t *testing.T) {
@@ -31,11 +29,6 @@ func TestError(t *testing.T) {
 			var actual testError
 			require.ErrorAs(t, ee, &actual)
 			require.Equal(t, e1.data, actual.data)
-		}
-		{
-			var actual Logical
-			require.ErrorAs(t, ee, &actual)
-			require.Equal(t, e1, actual.err)
 		}
 
 		e2 := fmt.Errorf("wrap: %w", e1)

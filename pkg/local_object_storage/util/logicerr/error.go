@@ -1,28 +1,19 @@
 package logicerr
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-// Logical is a wrapper for logical errors.
-type Logical struct {
-	err error
-}
+// Error is wrapped to highlight the business logic errors.
+var Error = errors.New("logical error")
 
 // New returns simple error with a provided error message.
-func New(msg string) Logical {
+func New(msg string) error {
 	return Wrap(errors.New(msg))
 }
 
-// Error implements the error interface.
-func (e Logical) Error() string {
-	return e.err.Error()
-}
-
 // Wrap wraps arbitrary error into a logical one.
-func Wrap(err error) Logical {
-	return Logical{err: err}
-}
-
-// Unwrap returns underlying error.
-func (e Logical) Unwrap() error {
-	return e.err
+func Wrap(err error) error {
+	return fmt.Errorf("%w: %w", Error, err)
 }

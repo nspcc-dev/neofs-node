@@ -39,9 +39,9 @@ func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		var perr = new(*os.PathError)
 		if errors.As(err, perr) {
-			return nil, fmt.Errorf("%w: %v", ErrFs, err)
+			return nil, fmt.Errorf("%w: %w", ErrFs, err)
 		}
-		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidKey, err)
 	}
 	return FromWallet(cmd, w, viper.GetString(commonflags.Account))
 }
@@ -71,7 +71,7 @@ func getOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 
 	priv, err := keys.NewPrivateKey()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errCantGenerateKey, err)
+		return nil, fmt.Errorf("%w: %w", errCantGenerateKey, err)
 	}
 
 	common.PrintVerbose(cmd, "Private key generated successfully. Public key: %s", priv.PublicKey())
