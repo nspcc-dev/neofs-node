@@ -1,9 +1,9 @@
 package blobovnicza
 
 import (
+	"bytes"
 	"errors"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -52,7 +52,7 @@ func (b *Blobovnicza) Get(prm GetPrm) (GetRes, error) {
 				return nil
 			}
 
-			data = slice.Copy(data)
+			data = bytes.Clone(data)
 
 			return errInterruptForEach
 		})

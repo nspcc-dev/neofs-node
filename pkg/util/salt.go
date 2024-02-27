@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"io"
 )
 
@@ -12,18 +13,17 @@ func SaltXOR(data, salt []byte) []byte {
 
 // SaltXOROffset xors bits of data with salt starting from off byte
 // repeating salt if necessary.
-func SaltXOROffset(data, salt []byte, off int) (result []byte) {
-	result = make([]byte, len(data))
+func SaltXOROffset(data, salt []byte, off int) []byte {
 	ls := len(salt)
 	if ls == 0 {
-		copy(result, data)
-		return
+		return bytes.Clone(data)
 	}
 
+	result := make([]byte, len(data))
 	for i := range result {
 		result[i] = data[i] ^ salt[(i+off)%ls]
 	}
-	return
+	return result
 }
 
 type saltWriter struct {

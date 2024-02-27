@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"bytes"
+
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -138,8 +140,7 @@ loop:
 	if offset != nil {
 		// new slice is much faster but less memory efficient
 		// we need to copy, because offset exists during bbolt tx
-		cursor.inBucketOffset = make([]byte, len(offset))
-		copy(cursor.inBucketOffset, offset)
+		cursor.inBucketOffset = bytes.Clone(offset)
 	}
 
 	if len(result) == 0 {
@@ -148,8 +149,7 @@ loop:
 
 	// new slice is much faster but less memory efficient
 	// we need to copy, because bucketName exists during bbolt tx
-	cursor.bucketName = make([]byte, len(bucketName))
-	copy(cursor.bucketName, bucketName)
+	cursor.bucketName = bytes.Clone(bucketName)
 
 	return result, cursor, nil
 }

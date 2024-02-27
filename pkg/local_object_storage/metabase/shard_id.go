@@ -1,7 +1,8 @@
 package meta
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"bytes"
+
 	"go.etcd.io/bbolt"
 )
 
@@ -24,7 +25,7 @@ func (db *DB) ReadShardID() ([]byte, error) {
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(shardInfoBucket)
 		if b != nil {
-			id = slice.Copy(b.Get(shardIDKey))
+			id = bytes.Clone(b.Get(shardIDKey))
 		}
 		return nil
 	})

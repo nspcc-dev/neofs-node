@@ -1,7 +1,8 @@
 package writecache
 
 import (
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
+	"bytes"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -59,7 +60,7 @@ func Get(db *bbolt.DB, key []byte) ([]byte, error) {
 		if value == nil {
 			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
-		value = slice.Copy(value)
+		value = bytes.Clone(value)
 		return nil
 	})
 	return value, err
