@@ -511,9 +511,26 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			src:     request,
 		}
 
-		reqInfo, err := p.source.findRequestInfo(req, cnr, acl.OpObjectPut)
+		verb := acl.OpObjectPut
+		tombstone := part.GetHeader().GetObjectType() == objectV2.TypeTombstone
+		if tombstone {
+			// such objects are specific - saving them is essentially the removal of other
+			// objects
+			verb = acl.OpObjectDelete
+		}
+
+		reqInfo, err := p.source.findRequestInfo(req, cnr, verb)
 		if err != nil {
 			return err
+		}
+
+		if tombstone {
+			// the only exception when writing tombstone should not be treated as deletion
+			// is intra-container replication: container nodes must be able to replicate
+			// such objects while deleting is prohibited
+			if reqInfo.requestRole == acl.RoleContainer && request.GetMetaHeader().GetTTL() == 1 {
+				reqInfo.operation = acl.OpObjectPut
+			}
 		}
 
 		reqInfo.obj = obj
