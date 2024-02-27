@@ -277,7 +277,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 				continue
 			}
 
-			if isClientErrMaintenance(err) {
+			if errors.Is(err, apistatus.ErrNodeUnderMaintenance) {
 				handleMaintenance(nodes[i])
 			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
@@ -313,29 +313,4 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		p.log.Debug("some of the copies are stored on nodes under maintenance, save local copy",
 			zap.Int("count", uncheckedCopies))
 	}
-}
-
-// isClientErrMaintenance checks if err corresponds to NeoFS status return
-// which tells that node is currently under maintenance. Supports wrapped
-// errors.
-//
-// Similar to client.IsErr___ errors, consider replacing to NeoFS SDK.
-func isClientErrMaintenance(err error) bool {
-	switch unwrapErr(err).(type) {
-	default:
-		return false
-	case
-		apistatus.NodeUnderMaintenance,
-		*apistatus.NodeUnderMaintenance:
-		return true
-	}
-}
-
-// unwrapErr unwraps error using errors.Unwrap.
-func unwrapErr(err error) error {
-	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(err) {
-		err = e
-	}
-
-	return err
 }
