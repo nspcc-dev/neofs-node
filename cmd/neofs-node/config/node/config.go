@@ -24,17 +24,10 @@ type PersistentStateConfig struct {
 	cfg *config.Config
 }
 
-// NotificationConfig is a wrapper over "notification" config section
-// which provides access to object notification configuration of node.
-type NotificationConfig struct {
-	cfg *config.Config
-}
-
 const (
 	subsection                   = "node"
 	persistentSessionsSubsection = "persistent_sessions"
 	persistentStateSubsection    = "persistent_state"
-	notificationSubsection       = "notification"
 
 	attributePrefix = "attribute"
 
@@ -175,73 +168,4 @@ func (p PersistentStateConfig) Path() string {
 	}
 
 	return PersistentStatePathDefault
-}
-
-// Notification returns structure that provides access to "notification"
-// subsection of "node" section.
-func Notification(c *config.Config) NotificationConfig {
-	return NotificationConfig{
-		c.Sub(subsection).Sub(notificationSubsection),
-	}
-}
-
-// Enabled returns the value of "enabled" config parameter from "notification"
-// subsection of "node" section.
-//
-// Returns false if the value is not presented.
-func (n NotificationConfig) Enabled() bool {
-	return config.BoolSafe(n.cfg, "enabled")
-}
-
-// DefaultTopic returns the value of "default_topic" config parameter from
-// "notification" subsection of "node" section.
-//
-// Returns empty string if the value is not presented.
-func (n NotificationConfig) DefaultTopic() string {
-	return config.StringSafe(n.cfg, "default_topic")
-}
-
-// Endpoint returns the value of "endpoint" config parameter from "notification"
-// subsection of "node" section.
-//
-// Returns empty string if the value is not presented.
-func (n NotificationConfig) Endpoint() string {
-	return config.StringSafe(n.cfg, "endpoint")
-}
-
-// Timeout returns the value of "timeout" config parameter from "notification"
-// subsection of "node" section.
-//
-// Returns NotificationTimeoutDefault if the value is not positive.
-func (n NotificationConfig) Timeout() time.Duration {
-	v := config.DurationSafe(n.cfg, "timeout")
-	if v > 0 {
-		return v
-	}
-
-	return NotificationTimeoutDefault
-}
-
-// CertPath returns the value of "certificate_path" config parameter from "notification"
-// subsection of "node" section.
-//
-// Returns empty string if the value is not presented.
-func (n NotificationConfig) CertPath() string {
-	return config.StringSafe(n.cfg, "certificate")
-}
-
-// KeyPath returns the value of "key_path" config parameter from
-// "notification" subsection of "node" section.
-//
-// Returns empty string if the value is not presented.
-func (n NotificationConfig) KeyPath() string {
-	return config.StringSafe(n.cfg, "key")
-}
-
-// CAPath returns the value of "ca_path" config parameter from
-// "notification" subsection of "node" section.
-//
-// Returns empty string if the value is not presented.
-func (n NotificationConfig) CAPath() string {
-	return config.StringSafe(n.cfg, "ca")
 }

@@ -399,7 +399,6 @@ type cfg struct {
 	cfgControlService cfgControlService
 	cfgReputation     cfgReputation
 	cfgObject         cfgObject
-	cfgNotifications  cfgNotifications
 }
 
 // ReadCurrentNetMap reads network map which has been cached at the
@@ -473,12 +472,6 @@ type cfgObject struct {
 	cfgLocalStorage cfgLocalStorage
 
 	tombstoneLifetime uint64
-}
-
-type cfgNotifications struct {
-	enabled      bool
-	nw           notificationWriter
-	defaultTopic string
 }
 
 type cfgLocalStorage struct {

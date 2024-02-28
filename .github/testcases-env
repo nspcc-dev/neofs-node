@@ -25,10 +25,6 @@ IR_IMAGE=nspccdev/neofs-ir
 NODE_VERSION=_TAG_
 NODE_IMAGE=nspccdev/neofs-storage
 
-# NATS Server
-NATS_VERSION=2.7.2
-NATS_IMAGE=nats
-
 # HTTP Gate
 HTTP_GW_VERSION=0.28.0
 HTTP_GW_IMAGE=nspccdev/neofs-http-gw

@@ -2,7 +2,6 @@ package nodeconfig
 
 import (
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -33,25 +32,11 @@ func TestNodeSection(t *testing.T) {
 		relay := Relay(empty)
 		persisessionsPath := PersistentSessions(empty).Path()
 		persistatePath := PersistentState(empty).Path()
-		notificationDefaultEnabled := Notification(empty).Enabled()
-		notificationDefaultEndpoint := Notification(empty).Endpoint()
-		notificationDefaultTimeout := Notification(empty).Timeout()
-		notificationDefaultTopic := Notification(empty).DefaultTopic()
-		notificationDefaultCertPath := Notification(empty).CertPath()
-		notificationDefaultKeyPath := Notification(empty).KeyPath()
-		notificationDefaultCAPath := Notification(empty).CAPath()
 
 		require.Empty(t, attribute)
 		require.Equal(t, false, relay)
 		require.Equal(t, "", persisessionsPath)
 		require.Equal(t, PersistentStatePathDefault, persistatePath)
-		require.Equal(t, false, notificationDefaultEnabled)
-		require.Equal(t, "", notificationDefaultEndpoint)
-		require.Equal(t, NotificationTimeoutDefault, notificationDefaultTimeout)
-		require.Equal(t, "", notificationDefaultTopic)
-		require.Equal(t, "", notificationDefaultCertPath)
-		require.Equal(t, "", notificationDefaultKeyPath)
-		require.Equal(t, "", notificationDefaultCAPath)
 	})
 
 	const path = "../../../../config/example/node"
@@ -64,13 +49,6 @@ func TestNodeSection(t *testing.T) {
 		wKey := Wallet(c)
 		persisessionsPath := PersistentSessions(c).Path()
 		persistatePath := PersistentState(c).Path()
-		notificationEnabled := Notification(c).Enabled()
-		notificationEndpoint := Notification(c).Endpoint()
-		notificationTimeout := Notification(c).Timeout()
-		notificationDefaultTopic := Notification(c).DefaultTopic()
-		notificationCertPath := Notification(c).CertPath()
-		notificationKeyPath := Notification(c).KeyPath()
-		notificationCAPath := Notification(c).CAPath()
 
 		expectedAddr := []struct {
 			str  string
@@ -123,13 +101,6 @@ func TestNodeSection(t *testing.T) {
 
 		require.Equal(t, "/sessions", persisessionsPath)
 		require.Equal(t, "/state", persistatePath)
-		require.Equal(t, true, notificationEnabled)
-		require.Equal(t, "tls://localhost:4222", notificationEndpoint)
-		require.Equal(t, 6*time.Second, notificationTimeout)
-		require.Equal(t, "topic", notificationDefaultTopic)
-		require.Equal(t, "/cert/path", notificationCertPath)
-		require.Equal(t, "/key/path", notificationKeyPath)
-		require.Equal(t, "/ca/path", notificationCAPath)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

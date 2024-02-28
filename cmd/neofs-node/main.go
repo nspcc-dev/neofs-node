@@ -137,7 +137,6 @@ func initApp(c *cfg) {
 	initAndLog(c, "accounting", initAccountingService)
 	initAndLog(c, "session", initSessionService)
 	initAndLog(c, "reputation", initReputationService)
-	initAndLog(c, "notification", initNotifications)
 	initAndLog(c, "object", initObjectService)
 	initAndLog(c, "tree", initTreeService)
 
@@ -165,7 +164,6 @@ func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
 }
 
 func bootUp(c *cfg) {
-	runAndLog(c, "NATS", true, connectNats)
 	runAndLog(c, "gRPC", false, serveGRPC)
 	runAndLog(c, "notary", true, makeAndWaitNotaryDeposit)
 
