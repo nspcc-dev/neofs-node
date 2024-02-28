@@ -135,6 +135,7 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 		}
 
 		_, _ = tw.Write([]byte(f.Key()))
+		//nolint:exhaustive
 		switch f.Matcher() {
 		case eacl.MatchStringEqual:
 			_, _ = tw.Write([]byte("\t==\t"))
@@ -150,7 +151,6 @@ func eaclFiltersToString(fs []eacl.Filter) string {
 			_, _ = tw.Write([]byte("\t<=\t"))
 		case eacl.MatchNotPresent:
 			_, _ = tw.Write([]byte("\tNULL\t"))
-		case eacl.MatchUnknown:
 		}
 
 		_, _ = tw.Write([]byte(f.Value() + "\t"))
