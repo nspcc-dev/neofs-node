@@ -185,6 +185,10 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 		cmd.Printf("Split PreviousID: %s\n", prev)
 	}
 
+	if first, ok := obj.FirstID(); ok {
+		cmd.Printf("Split FirstID: %s\n", first)
+	}
+
 	for _, child := range obj.Children() {
 		cmd.Printf("Split ChildID: %s\n", child.String())
 	}
