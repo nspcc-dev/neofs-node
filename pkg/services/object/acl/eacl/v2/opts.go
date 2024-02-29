@@ -20,6 +20,12 @@ func WithLocalObjectStorage(v *engine.StorageEngine) Option {
 	}
 }
 
+func WithHeaderSource(hs HeaderSource) Option {
+	return func(c *cfg) {
+		c.headerSource = hs
+	}
+}
+
 func WithServiceRequest(v Request) Option {
 	return func(c *cfg) {
 		c.msg = requestXHeaderSource{

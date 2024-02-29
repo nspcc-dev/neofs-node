@@ -140,7 +140,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 	}
 
-	if len(t.obj.Children()) > 0 {
+	if len(t.obj.Children()) > 0 || t.obj.Type() == objectSDK.TypeLink {
 		// enabling extra broadcast for linking objects
 		t.traversal.extraBroadcastEnabled = true
 	}

@@ -184,6 +184,12 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("root object's bucket cleanup: %w", err)
 		}
 
+		// Link objects
+		err = tx.DeleteBucket(linkObjectsBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("link objects' bucket cleanup: %w", err)
+		}
+
 		// indexes
 
 		err = tx.DeleteBucket(ownerBucketName(cID, buff))

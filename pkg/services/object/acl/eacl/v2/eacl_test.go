@@ -9,10 +9,12 @@ import (
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,6 +26,14 @@ type testLocalStorage struct {
 	obj *object.Object
 
 	err error
+}
+
+type testHeaderSource struct {
+	header object.Object
+}
+
+func (t *testHeaderSource) Head(_ oid.Address) (*object.Object, error) {
+	return &t.header, nil
 }
 
 func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
@@ -162,4 +172,93 @@ func checkDefaultAction(t *testing.T, v *eaclSDK.Validator, u *eaclSDK.Validatio
 	actual, fromRule := v.CalculateAction(u)
 	require.False(t, fromRule)
 	require.Equal(t, eaclSDK.ActionAllow, actual)
+}
+
+func TestV2Split(t *testing.T) {
+	attrKey := "allow"
+	attrVal := "me"
+
+	var restrictedAttr object.Attribute
+	restrictedAttr.SetKey(attrKey)
+	restrictedAttr.SetValue(attrVal)
+
+	originalObject := objecttest.Object(t)
+	originalObject.SetAttributes(restrictedAttr)
+	originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
+	originalObject.SetSignature(&neofscrypto.Signature{})
+
+	firstObject := objecttest.Object(t)
+	firstObject.SetSplitID(nil) // not V1 split
+	firstObject.SetParent(&originalObject)
+	require.NoError(t, firstObject.CalculateAndSetID())
+
+	var firstIDV2 refs.ObjectID
+	firstID, _ := firstObject.ID()
+	firstID.WriteToV2(&firstIDV2)
+
+	splitV2 := new(objectV2.SplitHeader)
+	splitV2.SetFirst(&firstIDV2)
+	headerV2 := new(objectV2.Header)
+	headerV2.SetSplit(splitV2)
+
+	objPart := new(objectV2.PutObjectPartInit)
+	objPart.SetHeader(headerV2)
+
+	body := new(objectV2.PutRequestBody)
+	body.SetObjectPart(objPart)
+
+	meta := new(session.RequestMetaHeader)
+
+	req := new(objectV2.PutRequest)
+	req.SetMetaHeader(meta)
+	req.SetBody(body)
+
+	priv, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+	senderKey := priv.PublicKey()
+
+	r := eaclSDK.NewRecord()
+	r.SetOperation(eaclSDK.OperationPut)
+	r.SetAction(eaclSDK.ActionDeny)
+	r.AddFilter(eaclSDK.HeaderFromObject, eaclSDK.MatchStringEqual, attrKey, attrVal)
+	eaclSDK.AddFormedTarget(r, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+
+	table := new(eaclSDK.Table)
+	table.AddRecord(r)
+
+	hdrSrc := &testHeaderSource{header: firstObject}
+
+	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
+		hdrSrc, err := NewMessageHeaderSource(
+			WithHeaderSource(hdrSrc),
+			WithServiceRequest(req),
+		)
+		require.NoError(t, err)
+		return hdrSrc
+	}
+
+	unit := new(eaclSDK.ValidationUnit).
+		WithOperation(eaclSDK.OperationPut).
+		WithEACLTable(table).
+		WithSenderKey(senderKey.Bytes())
+
+	validator := eaclSDK.NewValidator()
+
+	t.Run("denied by parent's attribute", func(t *testing.T) {
+		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+	})
+
+	t.Run("allow cause no restricted attribute found", func(t *testing.T) {
+		originalObjectNoRestrictedAttr := objecttest.Object(t)
+		originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
+		originalObject.SetSignature(&neofscrypto.Signature{})
+
+		firstObject.SetParent(&originalObjectNoRestrictedAttr)
+		require.NoError(t, firstObject.CalculateAndSetID())
+
+		hdrSrc.header = firstObject
+
+		// allow an object whose first obj does not have the restricted attribute
+		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+	})
 }

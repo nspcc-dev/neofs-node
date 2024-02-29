@@ -455,7 +455,9 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			return err
 		}
 
-		idV2 := part.GetHeader().GetOwnerID()
+		header := part.GetHeader()
+
+		idV2 := header.GetOwnerID()
 		if idV2 == nil {
 			return errors.New("missing object owner")
 		}

@@ -120,6 +120,11 @@ const (
 	// 	Key: container ID
 	// 	Value: dummy value
 	garbageContainersPrefix
+
+	// linkObjectsPrefix is used for prefixing buckets containing objects of LINK type.
+	//  Key: object ID
+	//  Value: marshaled object
+	linkObjectsPrefix
 )
 
 const (
@@ -155,6 +160,11 @@ func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
 // smallBucketName returns <CID>_small.
 func smallBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, smallPrefix, key)
+}
+
+// linkObjectsBucketName returns link objects bucket key (`18<CID>`).
+func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, linkObjectsPrefix, key)
 }
 
 // attributeBucketName returns <CID>_attr_<attributeKey>.
@@ -240,7 +250,7 @@ func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object
 		panic("empty object list in firstIrregularObjectType")
 	}
 
-	var keys [3][1 + cidSize]byte
+	var keys [4][1 + cidSize]byte
 
 	irregularTypeBuckets := [...]struct {
 		typ  object.Type
@@ -249,6 +259,7 @@ func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object
 		{object.TypeTombstone, tombstoneBucketName(idCnr, keys[0][:])},
 		{object.TypeStorageGroup, storageGroupBucketName(idCnr, keys[1][:])},
 		{object.TypeLock, bucketNameLockers(idCnr, keys[2][:])},
+		{object.TypeLink, linkObjectsBucketName(idCnr, keys[3][:])},
 	}
 
 	for i := range objs {

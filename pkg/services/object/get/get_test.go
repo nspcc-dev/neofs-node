@@ -193,6 +193,11 @@ func (s *testStorage) inhume(addr oid.Address) {
 	s.inhumed[addr.EncodeToString()] = struct{}{}
 }
 
+const (
+	splitV1 = iota
+	splitV2
+)
+
 func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
 	obj := objectSDK.New()
 	obj.SetContainerID(addr.Container())
@@ -359,38 +364,51 @@ func TestGetLocalOnly(t *testing.T) {
 
 		p := newPrm(true, nil)
 
-		addr := oidtest.Address()
+		testSplit := func(addr oid.Address, si *objectSDK.SplitInfo) {
+			p.WithAddress(addr)
 
-		splitInfo := objectSDK.NewSplitInfo()
-		splitInfo.SetSplitID(objectSDK.NewSplitID())
-		splitInfo.SetLink(oidtest.ID())
-		splitInfo.SetLastPart(oidtest.ID())
+			storage.addVirtual(addr, si)
 
-		p.WithAddress(addr)
+			err := svc.Get(ctx, p)
 
-		storage.addVirtual(addr, splitInfo)
+			errSplit := objectSDK.NewSplitInfoError(objectSDK.NewSplitInfo())
 
-		err := svc.Get(ctx, p)
+			require.True(t, errors.As(err, &errSplit))
 
-		errSplit := objectSDK.NewSplitInfoError(objectSDK.NewSplitInfo())
+			require.Equal(t, si, errSplit.SplitInfo())
 
-		require.True(t, errors.As(err, &errSplit))
+			rngPrm := newRngPrm(true, nil, 0, 0)
+			rngPrm.WithAddress(addr)
 
-		require.Equal(t, splitInfo, errSplit.SplitInfo())
+			err = svc.Get(ctx, p)
 
-		rngPrm := newRngPrm(true, nil, 0, 0)
-		rngPrm.WithAddress(addr)
+			require.True(t, errors.As(err, &errSplit))
 
-		err = svc.Get(ctx, p)
+			headPrm := newHeadPrm(true, nil)
+			headPrm.WithAddress(addr)
 
-		require.True(t, errors.As(err, &errSplit))
+			err = svc.Head(ctx, headPrm)
+			require.True(t, errors.As(err, &errSplit))
+			require.Equal(t, si, errSplit.SplitInfo())
+		}
 
-		headPrm := newHeadPrm(true, nil)
-		headPrm.WithAddress(addr)
+		t.Run("V1 split", func(t *testing.T) {
+			splitInfo := objectSDK.NewSplitInfo()
+			splitInfo.SetSplitID(objectSDK.NewSplitID())
+			splitInfo.SetLink(oidtest.ID())
+			splitInfo.SetLastPart(oidtest.ID())
 
-		err = svc.Head(ctx, headPrm)
-		require.True(t, errors.As(err, &errSplit))
-		require.Equal(t, splitInfo, errSplit.SplitInfo())
+			testSplit(oidtest.Address(), splitInfo)
+		})
+
+		t.Run("V2 split", func(t *testing.T) {
+			splitInfo := objectSDK.NewSplitInfo()
+			splitInfo.SetLink(oidtest.ID())
+			splitInfo.SetLastPart(oidtest.ID())
+			splitInfo.SetFirstPart(oidtest.ID())
+
+			testSplit(oidtest.Address(), splitInfo)
+		})
 	})
 }
 
@@ -698,6 +716,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
@@ -753,6 +772,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				children, childIDs, _ := generateChain(2, idCnr)
 
@@ -827,6 +847,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLink(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				children, childIDs, payload := generateChain(2, idCnr)
 				srcObj.SetPayload(payload)
@@ -914,6 +935,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
@@ -969,6 +991,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				children, _, _ := generateChain(2, idCnr)
 
@@ -1036,6 +1059,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				splitInfo := objectSDK.NewSplitInfo()
 				splitInfo.SetLastPart(oidtest.ID())
+				splitInfo.SetSplitID(objectSDK.NewSplitID())
 
 				children, _, payload := generateChain(2, idCnr)
 				srcObj.SetPayloadSize(uint64(len(payload)))

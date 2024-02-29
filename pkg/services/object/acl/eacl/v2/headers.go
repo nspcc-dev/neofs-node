@@ -18,7 +18,8 @@ import (
 type Option func(*cfg)
 
 type cfg struct {
-	storage ObjectStorage
+	storage      ObjectStorage
+	headerSource HeaderSource
 
 	msg xHeaderSource
 
@@ -27,6 +28,12 @@ type cfg struct {
 }
 
 type ObjectStorage interface {
+	Head(oid.Address) (*object.Object, error)
+}
+
+// HeaderSource represents a source of the object headers.
+type HeaderSource interface {
+	// Head returns object (may be with or be without payload) by its address.
 	Head(oid.Address) (*object.Object, error)
 }
 
@@ -129,11 +136,39 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
-				oV2 := new(objectV2.Object)
-				oV2.SetObjectID(v.GetObjectID())
-				oV2.SetHeader(v.GetHeader())
+				if v.GetHeader().GetSplit().GetSplitID() != nil {
+					// V1 split scheme, only the received object's header
+					// can be checked
+					oV2 := new(objectV2.Object)
+					oV2.SetObjectID(v.GetObjectID())
+					oV2.SetHeader(v.GetHeader())
 
-				dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+					dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+
+					break
+				}
+
+				if first := v.GetHeader().GetSplit().GetFirst(); first != nil {
+					// that is an object part from the V2 split scheme, check
+					// the original object header instead
+
+					var firstID oid.ID
+					err := firstID.ReadFromV2(*first)
+					if err != nil {
+						return fmt.Errorf("converting first object ID: %w", err)
+					}
+
+					var addr oid.Address
+					addr.SetObject(firstID)
+					addr.SetContainer(h.cnr)
+
+					firstObject, err := h.headerSource.Head(addr)
+					if err != nil {
+						return fmt.Errorf("fetching first object header: %w", err)
+					}
+
+					dst.objectHeaders = headersFromObject(firstObject.Parent(), h.cnr, h.obj)
+				}
 			}
 		case *objectV2.SearchRequest:
 			cnrV2 := req.GetBody().GetContainerID()

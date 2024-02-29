@@ -264,6 +264,10 @@ func mergeSplitInfo(dst, src *objectSDK.SplitInfo) {
 		dst.SetLink(link)
 	}
 
+	if first, ok := src.FirstPart(); ok {
+		dst.SetFirstPart(first)
+	}
+
 	if splitID := src.SplitID(); splitID != nil {
 		dst.SetSplitID(splitID)
 	}

@@ -550,6 +550,17 @@ func TestDB_SelectObjectID(t *testing.T) {
 		fs = objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringNotEqual, id)
 
+		_, err = metaGet(db, object.AddressOf(regular), false)
+		require.NoError(t, err)
+		_, err = metaGet(db, object.AddressOf(parent), false)
+		require.NoError(t, err)
+		_, err = metaGet(db, object.AddressOf(sg), false)
+		require.NoError(t, err)
+		_, err = metaGet(db, object.AddressOf(ts), false)
+		require.NoError(t, err)
+		_, err = metaGet(db, object.AddressOf(lock), false)
+		require.NoError(t, err)
+
 		testSelect(t, db, cnr, fs,
 			object.AddressOf(regular),
 			object.AddressOf(parent),

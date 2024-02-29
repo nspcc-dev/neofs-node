@@ -44,6 +44,14 @@ func (exec *execCtx) assemble() {
 		}
 	}
 
+	if splitInfo.SplitID() == nil {
+		exec.log.Debug("handling V2 split")
+		exec.processV2Split(splitInfo)
+		return
+	}
+
+	exec.log.Debug("handling V1 split")
+
 	prev, children := exec.initFromChild(childID)
 
 	if len(children) > 0 {
