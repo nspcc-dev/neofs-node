@@ -6,12 +6,16 @@ Changelog for NeoFS Node
 ### Added
 - Support of numeric object search queries (#2733)
 - Support of `GT`, `GE`, `LT` and `LE` numeric comparison operators in CLI (#2733)
+- SN eACL processing of NULL and numeric operators (#2742)
+- CLI now allows to create and print eACL with numeric filters (#2742)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
 - Storage nodes no longer reject GET w/ TTL=1 requests to read complex objects (#2447)
 
 ### Changed
+- IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
+- Empty filter value is now treated as `NOT_PRESENT` op by CLI `acl extended create` cmd (#2742)
 
 ### Removed
 - Object notifications incl. NATS (#2750)
@@ -36,6 +40,9 @@ duplicates, but if you're using them in some scripts please update to fetch
 raw binaries. All binaries have OS in their names as well now, following
 regular naming used throughout NSPCC, so instead of neofs-cli-amd64 you get
 neofs-cli-linux-amd64 now.
+
+CLI command `acl extended create` changed and extended input format for filters.
+For example, `attr>=100` or `attr=` are now processed differently. See `-h` for details.
 
 ## [0.40.0] - 2024-02-09 - Maldo
 
