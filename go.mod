@@ -7,9 +7,9 @@ require (
 	github.com/chzyer/readline v1.5.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/google/go-github/v39 v39.2.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.17.2
+	github.com/klauspost/compress v1.17.6
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.12.0
@@ -18,7 +18,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.105.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240213170208-cfca09b5acbe
 	github.com/nspcc-dev/neofs-contract v0.19.1
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20240221185518-cbaf23c6aa7a
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.11.0.20240227143352-846741cb85a3
 	github.com/nspcc-dev/tzhash v1.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.8.2
@@ -32,8 +32,8 @@ require (
 	go.uber.org/zap v1.26.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.15.0
-	golang.org/x/term v0.15.0
+	golang.org/x/sys v0.17.0
+	golang.org/x/term v0.17.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -94,7 +94,7 @@ require (
 	github.com/twmb/murmur3 v1.1.8 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect

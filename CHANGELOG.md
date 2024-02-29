@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 ### Changed
 - IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
 - Empty filter value is now treated as `NOT_PRESENT` op by CLI `acl extended create` cmd (#2742)
+- Storage nodes no longer accept objects with header larger than 16KB (#2749)
 
 ### Removed
 - Object notifications incl. NATS (#2750)
