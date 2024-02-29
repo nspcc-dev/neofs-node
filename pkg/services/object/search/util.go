@@ -105,7 +105,6 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 	prm.SetBearerToken(exec.prm.common.BearerToken())
 	prm.SetTTL(exec.prm.common.TTL())
 	prm.SetXHeaders(exec.prm.common.XHeaders())
-	prm.SetNetmapEpoch(exec.curProcEpoch)
 	prm.SetContainerID(exec.containerID())
 	prm.SetFilters(exec.searchFilters())
 

@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - Object notifications incl. NATS (#2750)
+- Supporting of `__NEOFS__NETMAP*` X-headers (#2751)
 
 ### Updated
 
@@ -27,6 +28,9 @@ Remove `notification` section from all SN configuration files: it is no longer
 supported. All NATS servers running for this purpose only are no longer needed.
 If your app depends on notifications transmitted to NATS, do not update and
 create an issue please.
+
+Stop attaching `__NEOFS__NETMAP*` X-headers to NeoFS API requests. If your app
+is somehow tied to them, do not update and create an issue please.
 
 ## [0.40.1] - 2024-02-22
 
