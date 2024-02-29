@@ -39,6 +39,8 @@ func (r SelectRes) AddressList() []oid.Address {
 //
 // Returns any error encountered that
 // did not allow to completely select the objects.
+//
+// Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
 func (s *Shard) Select(prm SelectPrm) (SelectRes, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()

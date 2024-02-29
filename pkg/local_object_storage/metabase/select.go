@@ -4,9 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -56,6 +58,12 @@ func (r SelectRes) AddressList() []oid.Address {
 }
 
 // Select returns list of addresses of objects that match search filters.
+//
+// Only creation epoch, payload size, user attributes and unknown system ones
+// are allowed with numeric operators. Values of numeric filters must be base-10
+// integers.
+//
+// Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
 func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -265,12 +273,18 @@ func (db *DB) selectFromFKBT(
 	f object.SearchFilter, // filter for operation and value
 	to map[string]int, // resulting cache
 	fNum int, // index of filter
-) { //
-	matchFunc, ok := db.matchers[f.Operation()]
-	if !ok {
-		db.log.Debug("missing matcher", zap.Uint32("operation", uint32(f.Operation())))
+) {
+	var nonNumMatcher matcher
+	op := f.Operation()
 
-		return
+	isNumOp := isNumericOp(op)
+	if !isNumOp {
+		var ok bool
+		nonNumMatcher, ok = db.matchers[op]
+		if !ok {
+			db.log.Debug("missing matcher", zap.Uint32("operation", uint32(op)))
+			return
+		}
 	}
 
 	fkbtRoot := tx.Bucket(name)
@@ -278,7 +292,56 @@ func (db *DB) selectFromFKBT(
 		return
 	}
 
-	err := matchFunc.matchBucket(fkbtRoot, f.Header(), f.Value(), func(k, _ []byte) error {
+	if isNumOp {
+		// TODO: big math takes less code but inefficient
+		filterNum, ok := new(big.Int).SetString(f.Value(), 10)
+		if !ok {
+			db.log.Debug("unexpected non-decimal numeric filter", zap.String("value", f.Value()))
+			return
+		}
+
+		var objNum big.Int
+
+		err := fkbtRoot.ForEach(func(objVal, _ []byte) error {
+			if len(objVal) == 0 {
+				return nil
+			}
+
+			_, ok := objNum.SetString(string(objVal), 10)
+			if !ok {
+				return nil
+			}
+
+			switch objNum.Cmp(filterNum) {
+			case -1:
+				ok = op == object.MatchNumLT || op == object.MatchNumLE
+			case 0:
+				ok = op == object.MatchNumLE || op == object.MatchNumGE
+			case 1:
+				ok = op == object.MatchNumGT || op == object.MatchNumGE
+			}
+			if !ok {
+				return nil
+			}
+
+			fkbtLeaf := fkbtRoot.Bucket(objVal)
+			if fkbtLeaf == nil {
+				return nil
+			}
+
+			return fkbtLeaf.ForEach(func(objAddr, _ []byte) error {
+				markAddressInCache(to, fNum, string(objAddr))
+				return nil
+			})
+		})
+		if err != nil {
+			db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
+		}
+
+		return
+	}
+
+	err := nonNumMatcher.matchBucket(fkbtRoot, f.Header(), f.Value(), func(k, _ []byte) error {
 		fkbtLeaf := fkbtRoot.Bucket(k)
 		if fkbtLeaf == nil {
 			return nil
@@ -473,6 +536,71 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFi
 	}
 
 	for i := range f {
+		op := f[i].Operation()
+		if isNumericOp(op) {
+			attr := f[i].Header()
+			if attr != object.FilterCreationEpoch && attr != object.FilterPayloadSize {
+				break
+			}
+
+			// filter by creation epoch or payload size, both uint64
+			filterVal := f[i].Value()
+			if len(filterVal) == 0 {
+				return false
+			}
+
+			if filterVal[0] == '-' {
+				if op == object.MatchNumLT || op == object.MatchNumLE {
+					return false
+				}
+				continue
+			}
+
+			if len(filterVal) > 20 { // max uint64 strlen
+				if op == object.MatchNumGT || op == object.MatchNumGE {
+					return false
+				}
+				continue
+			}
+
+			num, err := strconv.ParseUint(filterVal, 10, 64)
+			if err != nil {
+				if errors.Is(err, strconv.ErrRange) {
+					if op == object.MatchNumGT || op == object.MatchNumGE {
+						return false
+					}
+					continue
+				}
+				// has already been checked
+				db.log.Debug("unexpected failure to parse numeric filter uint value", zap.Error(err))
+				return false
+			}
+
+			var objVal uint64
+			if attr == object.FilterPayloadSize {
+				objVal = obj.PayloadSize()
+			} else {
+				objVal = obj.CreationEpoch()
+			}
+
+			switch {
+			case objVal > num:
+				if op == object.MatchNumLT || op == object.MatchNumLE {
+					return false
+				}
+			case objVal == num:
+				if op == object.MatchNumLT || op == object.MatchNumGT {
+					return false
+				}
+			case objVal < num:
+				if op == object.MatchNumGT || op == object.MatchNumGE {
+					return false
+				}
+			}
+
+			continue
+		}
+
 		matchFunc, ok := db.matchers[f[i].Operation()]
 		if !ok {
 			return false
@@ -514,7 +642,37 @@ func groupFilters(filters object.SearchFilters) (filterGroup, error) {
 	}
 
 	for i := range filters {
-		switch filters[i].Header() {
+		hdr := filters[i].Header()
+		if isNumericOp(filters[i].Operation()) {
+			switch hdr {
+			case
+				object.FilterVersion,
+				object.FilterID,
+				object.FilterContainerID,
+				object.FilterOwnerID,
+				object.FilterPayloadChecksum,
+				object.FilterType,
+				object.FilterPayloadHomomorphicHash,
+				object.FilterParentID,
+				object.FilterSplitID,
+				object.FilterRoot,
+				object.FilterPhysical:
+				// only object.FilterCreationEpoch and object.PayloadSize are numeric system
+				// object attributes now. Unsupported system attributes will lead to an empty
+				// results rather than a denial of service.
+				return res, fmt.Errorf("%w: invalid filter #%d: numeric filter with non-numeric system object attribute",
+					objectcore.ErrInvalidSearchQuery, i)
+			}
+
+			// TODO: big math takes less code but inefficient
+			_, ok := new(big.Int).SetString(filters[i].Value(), 10)
+			if !ok {
+				return res, fmt.Errorf("%w: invalid filter #%d: numeric filter with non-decimal value",
+					objectcore.ErrInvalidSearchQuery, i)
+			}
+		}
+
+		switch hdr {
 		case object.FilterContainerID: // support deprecated field
 			err := res.cnr.DecodeString(filters[i].Value())
 			if err != nil {
@@ -642,4 +800,8 @@ func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid
 	}
 
 	return res, nil
+}
+
+func isNumericOp(op object.SearchMatchType) bool {
+	return op == object.MatchNumGT || op == object.MatchNumGE || op == object.MatchNumLT || op == object.MatchNumLE
 }

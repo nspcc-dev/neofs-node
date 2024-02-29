@@ -85,6 +85,10 @@ var searchBinaryOpVocabulary = map[string]object.SearchMatchType{
 	"EQ":            object.MatchStringEqual,
 	"NE":            object.MatchStringNotEqual,
 	"COMMON_PREFIX": object.MatchCommonPrefix,
+	"GT":            object.MatchNumGT,
+	"GE":            object.MatchNumGE,
+	"LE":            object.MatchNumLE,
+	"LT":            object.MatchNumLT,
 }
 
 func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
