@@ -12,6 +12,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -541,8 +542,8 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 			// should not prevent the replication of objects created before.
 			// See also https://github.com/nspcc-dev/neofs-api/issues/293
 			hdrLen := part.GetHeader().StableSize()
-			if hdrLen > 16<<10 {
-				return fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, 16<<10)
+			if hdrLen > objectsdk.MaxHeaderLen {
+				return fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, objectsdk.MaxHeaderLen)
 			}
 		}
 
