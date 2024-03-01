@@ -215,6 +215,11 @@ jobs:
           source venv.local-pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir="$ALLURE_RESULTS_DIR" pytest_tests/testsuites
         working-directory: neofs-testcases
 
+      - name: Add github run url to Allure report
+        if: always() && steps.prepare_test_env.outcome == 'success'
+        run: 
+          echo "TEST_RUN_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $ALLURE_RESULTS_DIR/environment.properties
+
       - name: Run all tests for other events
         timeout-minutes: 480
         if: github.event_name != 'pull_request'
