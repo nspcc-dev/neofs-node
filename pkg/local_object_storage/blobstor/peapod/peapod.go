@@ -1,6 +1,7 @@
 package peapod
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -10,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -290,7 +290,7 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 			return apistatus.ErrObjectNotFound
 		}
 
-		data = slice.Copy(val)
+		data = bytes.Clone(val)
 
 		return nil
 	})

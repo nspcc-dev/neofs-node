@@ -1,12 +1,12 @@
 package shard_test
 
 import (
+	"bytes"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -87,7 +87,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			addPayload(obj, tc.payloadSize)
 
 			addr := object.AddressOf(obj)
-			payload := slice.Copy(obj.Payload())
+			payload := bytes.Clone(obj.Payload())
 
 			var putPrm shard.PutPrm
 			putPrm.SetObject(obj)

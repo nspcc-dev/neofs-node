@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/cmd/blobovnicza-to-peapod/blobovnicza"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
@@ -35,7 +36,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 	fn = func(p string) (bool, error) {
 		active, err := b.getActivated(p)
 		if err != nil {
-			if !isLogical(err) {
+			if !errors.Is(err, logicerr.Error) {
 				b.reportError("could not get active blobovnicza", err)
 			} else {
 				b.log.Debug("could not get active blobovnicza",
@@ -56,7 +57,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 				}
 
 				if err := b.updateActive(p, &active.ind); err != nil {
-					if !isLogical(err) {
+					if !errors.Is(err, logicerr.Error) {
 						b.reportError("could not update active blobovnicza", err)
 					} else {
 						b.log.Debug("could not update active blobovnicza",
@@ -71,7 +72,7 @@ func (b *Blobovniczas) Put(prm common.PutPrm) (common.PutRes, error) {
 			}
 
 			allFull = false
-			if !isLogical(err) {
+			if !errors.Is(err, logicerr.Error) {
 				b.reportError("could not put object to active blobovnicza", err)
 			} else {
 				b.log.Debug("could not put object to active blobovnicza",

@@ -203,7 +203,7 @@ func (db *DB) Reload(opts ...Option) (bool, error) {
 		db.mode = mode.Degraded
 		db.info.Path = c.info.Path
 		if err := db.openBolt(); err != nil {
-			return false, fmt.Errorf("%w: %v", ErrDegradedMode, err)
+			return false, fmt.Errorf("%w: %w", ErrDegradedMode, err)
 		}
 
 		db.mode = mode.ReadWrite

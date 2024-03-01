@@ -84,6 +84,7 @@ func NewObject(sz uint64) *objectSDK.Object {
 	raw.SetContainerID(cidtest.ID())
 
 	payload := make([]byte, sz)
+	//nolint:staticcheck
 	rand.Read(payload)
 	raw.SetPayload(payload)
 

@@ -1,9 +1,9 @@
 package meta
 
 import (
+	"bytes"
 	"errors"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -59,7 +59,7 @@ func (db *DB) storageID(tx *bbolt.Tx, addr oid.Address) ([]byte, error) {
 		return nil, nil
 	}
 
-	return slice.Copy(storageID), nil
+	return bytes.Clone(storageID), nil
 }
 
 // UpdateStorageIDPrm groups the parameters of UpdateStorageID operation.

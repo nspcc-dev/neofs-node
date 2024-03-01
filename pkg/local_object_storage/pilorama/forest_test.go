@@ -683,6 +683,7 @@ func prepareRandomTree(nodeCount, opCount int) []Move {
 			},
 			Child: uint64(i) + 1,
 		}
+		//nolint:staticcheck
 		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 
@@ -701,6 +702,7 @@ func prepareRandomTree(nodeCount, opCount int) []Move {
 		if rand.Uint32()%5 == 0 {
 			ops[i].Parent = TrashID
 		}
+		//nolint:staticcheck
 		rand.Read(ops[i].Meta.Items[1].Value)
 	}
 
@@ -739,6 +741,7 @@ func compareForests(t *testing.T, expected, actual Forest, cid cidSDK.ID, treeID
 }
 
 func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest, batchSize, opCount, iterCount int) {
+	//nolint:staticcheck
 	rand.Seed(42)
 
 	const nodeCount = 5
@@ -782,6 +785,7 @@ func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ 
 }
 
 func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest) {
+	//nolint:staticcheck
 	rand.Seed(42)
 
 	const (
@@ -885,6 +889,7 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 }
 
 func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
+	//nolint:staticcheck
 	rand.Seed(42)
 
 	ops := genFunc(b.N)

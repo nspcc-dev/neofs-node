@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
@@ -97,12 +96,12 @@ func (c *cache) flushDB() {
 				if len(lastKey) == len(k) {
 					copy(lastKey, k)
 				} else {
-					lastKey = slice.Copy(k)
+					lastKey = bytes.Clone(k)
 				}
 
 				m = append(m, objectInfo{
 					addr: string(k),
-					data: slice.Copy(v),
+					data: bytes.Clone(v),
 				})
 			}
 			return nil

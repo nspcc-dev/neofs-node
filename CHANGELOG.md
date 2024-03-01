@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Supporting of `__NEOFS__NETMAP*` X-headers (#2751)
 
 ### Updated
+- Minimum required version of Go to 1.20
 
 ### Updating from v0.40.1
 Remove `notification` section from all SN configuration files: it is no longer

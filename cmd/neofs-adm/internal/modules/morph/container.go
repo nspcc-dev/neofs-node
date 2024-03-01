@@ -42,7 +42,7 @@ func getContainerContractHash(cmd *cobra.Command, inv *invoker.Invoker, c Client
 func getContainersList(inv *invoker.Invoker, ch util.Uint160) ([][]byte, error) {
 	res, err := inv.Call(ch, "list", "")
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+		return nil, fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 	}
 	itm, err := unwrap.Item(res, err)
 	if _, ok := itm.(stackitem.Null); !ok {
@@ -71,7 +71,7 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 
 	cids, err := getContainersList(inv, ch)
 	if err != nil {
-		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+		return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 	}
 
 	isOK, err := getCIDFilterFunc(cmd)
@@ -105,13 +105,13 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		cnt := new(Container)
 		err = cnt.FromStackItem(res.Stack[0])
 		if err != nil {
-			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+			return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 		}
 
 		ea := new(EACL)
 		err = ea.FromStackItem(res.Stack[1])
 		if err != nil {
-			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+			return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 		}
 		if len(ea.Value) != 0 {
 			cnt.EACL = ea
@@ -142,7 +142,7 @@ func listContainers(cmd *cobra.Command, _ []string) error {
 
 	cids, err := getContainersList(inv, ch)
 	if err != nil {
-		return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+		return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 	}
 
 	for _, id := range cids {
@@ -218,7 +218,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 
 		old := new(Container)
 		if err := old.FromStackItem(res.Stack[0]); err != nil {
-			return fmt.Errorf("%w: %v", errInvalidContainerResponse, err)
+			return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 		}
 		if len(old.Value) != 0 {
 			var id cid.ID

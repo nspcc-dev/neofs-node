@@ -1,10 +1,10 @@
 package state
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"go.etcd.io/bbolt"
 )
 
@@ -97,7 +97,7 @@ func (p PersistentStorage) SetBytes(key []byte, value []byte) error {
 func (p PersistentStorage) Bytes(key []byte) (res []byte, err error) {
 	err = p.lookup(key, func(v []byte) error {
 		if v != nil {
-			res = slice.Copy(v)
+			res = bytes.Clone(v)
 		}
 		return nil
 	})

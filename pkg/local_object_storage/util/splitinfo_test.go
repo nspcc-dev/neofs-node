@@ -21,11 +21,11 @@ func TestMergeSplitInfo(t *testing.T) {
 	var rawLinkID, rawLastID [32]byte
 	var linkID oid.ID
 	var lastID oid.ID
-
+	//nolint:staticcheck
 	_, err = rand.Read(rawLinkID[:])
 	require.NoError(t, err)
 	linkID.SetSHA256(rawLinkID)
-
+	//nolint:staticcheck
 	_, err = rand.Read(rawLastID[:])
 	require.NoError(t, err)
 	lastID.SetSHA256(rawLastID)

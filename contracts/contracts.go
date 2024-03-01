@@ -150,12 +150,12 @@ func readContractFromFiles(_fs fs.FS, filePrefix string) (c Contract, err error)
 	bReader := io.NewBinReaderFromIO(fNEF)
 	c.NEF.DecodeBinary(bReader)
 	if bReader.Err != nil {
-		return c, fmt.Errorf("%w: %v", errInvalidNEF, bReader.Err)
+		return c, fmt.Errorf("%w: %w", errInvalidNEF, bReader.Err)
 	}
 
 	err = json.NewDecoder(fManifest).Decode(&c.Manifest)
 	if err != nil {
-		return c, fmt.Errorf("%w: %v", errInvalidManifest, err)
+		return c, fmt.Errorf("%w: %w", errInvalidManifest, err)
 	}
 
 	return

@@ -95,6 +95,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			size = bsBigObjectSize - headerSize
 		}
 		data := make([]byte, size)
+		//nolint:staticcheck
 		rand.Read(data)
 		obj := generateObjectWithPayload(t, cnr, data)
 		objects[i] = obj

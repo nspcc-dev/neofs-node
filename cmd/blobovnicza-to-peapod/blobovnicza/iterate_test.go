@@ -1,11 +1,11 @@
 package blobovnicza
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -29,7 +29,7 @@ func TestBlobovniczaIterate(t *testing.T) {
 
 	seen := make([][]byte, 0, 2)
 	inc := func(e IterationElement) error {
-		seen = append(seen, slice.Copy(e.data))
+		seen = append(seen, bytes.Clone(e.data))
 		return nil
 	}
 

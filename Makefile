@@ -7,7 +7,7 @@ VERSION ?= $(shell set -o pipefail; git describe --tags --dirty --match "v*" --a
 HUB_IMAGE ?= nspccdev/neofs
 HUB_TAG ?= $(VERSION)
 
-GO_VERSION ?= 1.21
+GO_VERSION ?= 1.22
 LINT_VERSION ?= 1.55.0
 ARCH = amd64
 
