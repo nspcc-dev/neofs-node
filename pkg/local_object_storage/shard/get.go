@@ -123,7 +123,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 	if s.hasWriteCache() {
 		err := wc(s.writeCache)
 		if err == nil || IsErrOutOfRange(err) {
-			return false, err
+			return exists, err
 		}
 
 		if IsErrNotFound(err) {
