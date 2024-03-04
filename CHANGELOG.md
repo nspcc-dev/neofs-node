@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
 - Storage nodes no longer reject GET w/ TTL=1 requests to read complex objects (#2447)
+- Response exceeding the deadline for TLS errors (#2561)
 
 ### Changed
 - IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
