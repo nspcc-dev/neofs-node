@@ -31,6 +31,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	m.cliM.RUnlock()
 
 	if len(res.Application) == 0 {
+		l.Debug("no notifications for block")
 		return nil
 	}
 
