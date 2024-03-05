@@ -7,21 +7,54 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	status "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 )
+
+// Various NeoFS protocol status codes.
+const (
+	codeInternal          = uint32(1024*status.Section_SECTION_FAILURE_COMMON) + uint32(status.CommonFail_INTERNAL)
+	codeAccessDenied      = uint32(1024*status.Section_SECTION_OBJECT) + uint32(status.Object_ACCESS_DENIED)
+	codeContainerNotFound = uint32(1024*status.Section_SECTION_CONTAINER) + uint32(status.Container_CONTAINER_NOT_FOUND)
+)
+
+// Node represents NeoFS storage node that is served by [Server].
+type Node interface {
+	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
+	// the referenced container's storage policy at the current and the previous
+	// NeoFS epochs, and passes their public keys into f. IterateContainerNodeKeys
+	// breaks without an error when f returns false. Keys may be repeated.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
+
+	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
+	// network map.
+	IsOwnPublicKey(pubKey []byte) bool
+
+	// VerifyAndStoreObject checks whether given object has correct format and, if
+	// so, saves it into local object storage of the Node. StoreObject is called
+	// only when the Node complies with the container's storage policy.
+	VerifyAndStoreObject(objectsdk.Object) error
+}
 
 // Server wraps NeoFS API Object service and
 // provides gRPC Object service server interface.
 type Server struct {
-	objectGRPC.UnimplementedObjectServiceServer
 	srv objectSvc.ServiceServer
+
+	node Node
 }
 
 // New creates, initializes and returns Server instance.
-func New(c objectSvc.ServiceServer) *Server {
+func New(c objectSvc.ServiceServer, node Node) *Server {
 	return &Server{
-		srv: c,
+		srv:  c,
+		node: node,
 	}
 }
 

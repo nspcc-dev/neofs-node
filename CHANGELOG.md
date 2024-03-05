@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - CLI now allows to create and print eACL with numeric filters (#2742)
 - gRPC connection limits per endpoint (#1240)
 - `neofs-lens object link` command for the new link object inspection (#2799)
+- Storage nodes serve new `ObjectService.Replicate` RPC (#2674)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
