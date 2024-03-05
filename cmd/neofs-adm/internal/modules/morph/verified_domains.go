@@ -1,7 +1,6 @@
 package morph
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -71,11 +70,6 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 
 	strNeoAddresses := vpr.GetStringSlice(neoAddressesFlag)
 	strPublicKeys := vpr.GetStringSlice(publicKeysFlag)
-	if len(strNeoAddresses)+len(strPublicKeys) == 0 {
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
-		return errors.New("neither Neo addresses nor public keys are set")
-	}
-
 	if len(strNeoAddresses)*len(strPublicKeys) != 0 {
 		// just to make sure
 		panic("mutually exclusive flags bypassed Cobra")

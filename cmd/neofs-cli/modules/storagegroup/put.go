@@ -45,16 +45,13 @@ func initSGPutCmd() {
 
 	flags.Uint64(commonflags.Lifetime, 0, "Storage group lifetime in epochs")
 	flags.Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch of the storage group")
-	sgPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
+	sgPutCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func putSG(cmd *cobra.Command, _ []string) {
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
 	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
-	if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
-		common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
-	}
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 

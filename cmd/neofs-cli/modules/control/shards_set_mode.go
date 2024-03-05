@@ -97,7 +97,7 @@ func initControlSetShardModeCmd() {
 	)
 	flags.Bool(shardClearErrorsFlag, false, "Set shard error count to 0")
 
-	setShardModeCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
+	setShardModeCmd.MarkFlagsOneRequired(shardIDFlag, shardAllFlag)
 }
 
 func setShardMode(cmd *cobra.Command, _ []string) {
@@ -155,9 +155,8 @@ func getShardIDList(cmd *cobra.Command) [][]byte {
 	}
 
 	sidList, _ := cmd.Flags().GetStringSlice(shardIDFlag)
-	if len(sidList) == 0 {
-		common.ExitOnErr(cmd, "", fmt.Errorf("either --%s or --%s flag must be provided", shardIDFlag, shardAllFlag))
-	}
+	// if shardAllFlag is unset, shardIDFlag flag presence is guaranteed by
+	// MarkFlagsOneRequired
 
 	// We can sort the ID list and perform this check without additional allocations,
 	// but preserving the user order is a nice thing to have.
