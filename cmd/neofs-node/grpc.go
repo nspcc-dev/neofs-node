@@ -45,7 +45,6 @@ func initGRPC(c *cfg) {
 				}
 			}
 			creds := credentials.NewTLS(&tls.Config{
-				MinVersion:   tls.VersionTLS12,
 				CipherSuites: cipherSuites,
 				Certificates: []tls.Certificate{cert},
 			})
