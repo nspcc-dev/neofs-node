@@ -35,6 +35,11 @@ create an issue please.
 Stop attaching `__NEOFS__NETMAP*` X-headers to NeoFS API requests. If your app
 is somehow tied to them, do not update and create an issue please.
 
+Notice that this is the last release containing `blobovnicza-to-peapod`
+migration utility. Blobovniczas were removed from the node since 0.39.0, so
+if you're using any current NeoFS node version it's not a problem. If you're
+using 0.38.0 or lower with blobovniczas configured, please migrate ASAP.
+
 ## [0.40.1] - 2024-02-22
 
 ### Fixed
