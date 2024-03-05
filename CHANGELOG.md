@@ -22,6 +22,7 @@ Changelog for NeoFS Node
 ### Removed
 - Object notifications incl. NATS (#2750)
 - Supporting of `__NEOFS__NETMAP*` X-headers (#2751)
+- Option to use insecure TLS cipher suites (#2755)
 
 ### Updated
 - Minimum required version of Go to 1.20
@@ -39,6 +40,8 @@ Notice that this is the last release containing `blobovnicza-to-peapod`
 migration utility. Blobovniczas were removed from the node since 0.39.0, so
 if you're using any current NeoFS node version it's not a problem. If you're
 using 0.38.0 or lower with blobovniczas configured, please migrate ASAP.
+
+Remove `grpc.tls.use_insecure_crypto` from any storage node configuration.
 
 ## [0.40.1] - 2024-02-22
 

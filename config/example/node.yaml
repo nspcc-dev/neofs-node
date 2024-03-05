@@ -47,7 +47,6 @@ grpc:
   - endpoint: s03.neofs.devenv:8080
     tls:
       enabled: true
-      use_insecure_crypto: true # allow using insecure ciphers with TLS 1.2
 
 tree:
   enabled: true
