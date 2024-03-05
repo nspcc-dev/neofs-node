@@ -1,10 +1,12 @@
 package replicator
 
 import (
+	"bytes"
 	"context"
+	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
@@ -25,9 +27,12 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 		)
 	}()
 
-	if task.obj == nil {
-		var err error
-		task.obj, err = engine.Get(p.localStorage, task.addr)
+	var err error
+	var prm *putsvc.RemotePutPrm
+	var stream io.ReadSeeker
+	binReplication := task.obj == nil
+	if binReplication {
+		b, err := p.localStorage.GetBytes(task.addr)
 		if err != nil {
 			p.log.Error("could not get object from local storage",
 				zap.Stringer("object", task.addr),
@@ -35,10 +40,13 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 			return
 		}
+		stream = bytes.NewReader(b)
+		if len(task.nodes) > 1 {
+			stream = client.DemuxReplicatedObject(stream)
+		}
+	} else {
+		prm = new(putsvc.RemotePutPrm).WithObject(task.obj)
 	}
-
-	prm := new(putsvc.RemotePutPrm).
-		WithObject(task.obj)
 
 	for i := 0; task.quantity > 0 && i < len(task.nodes); i++ {
 		select {
@@ -54,7 +62,13 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		callCtx, cancel := context.WithTimeout(ctx, p.putTimeout)
 
-		err := p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		if binReplication {
+			err = p.remoteSender.ReplicateObjectToNode(callCtx, task.addr.Object(), stream, task.nodes[i])
+			// note that we don't need to reset stream because it is used exactly once
+			// according to the client.DemuxReplicatedObject above
+		} else {
+			err = p.remoteSender.PutObject(callCtx, prm.WithNodeInfo(task.nodes[i]))
+		}
 
 		cancel()
 

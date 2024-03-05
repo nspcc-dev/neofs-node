@@ -3,12 +3,14 @@ package putsvc
 import (
 	"context"
 	"fmt"
+	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -130,6 +132,35 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
+	}
+
+	return nil
+}
+
+// ReplicateObjectToNode copies binary-encoded NeoFS object from the given
+// [io.ReadSeeker] into local storage of the node described by specified
+// [netmap.NodeInfo].
+func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src io.ReadSeeker, nodeInfo netmap.NodeInfo) error {
+	var nodeInfoForCons clientcore.NodeInfo
+
+	err := clientcore.NodeInfoFromRawNetmapElement(&nodeInfoForCons, netmapCore.Node(nodeInfo))
+	if err != nil {
+		return fmt.Errorf("parse remote node info: %w", err)
+	}
+
+	key, err := s.keyStorage.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("fetch local node's private key: %w", err)
+	}
+
+	c, err := s.clientConstructor.Get(nodeInfoForCons)
+	if err != nil {
+		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
+	}
+
+	err = c.ReplicateObject(ctx, id, src, (*neofsecdsa.Signer)(key))
+	if err != nil {
+		return fmt.Errorf("copy object using NeoFS API client of the remote node: %w", err)
 	}
 
 	return nil
