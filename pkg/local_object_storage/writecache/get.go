@@ -50,18 +50,39 @@ func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in db.
 func Get(db *bbolt.DB, key []byte) ([]byte, error) {
+	return get(db, key)
+}
+
+func get(db *bbolt.DB, key []byte) ([]byte, error) {
 	var value []byte
 	err := db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultBucket)
 		if b == nil {
 			return ErrNoDefaultBucket
 		}
-		value = b.Get(key)
-		if value == nil {
+		v := b.Get(key)
+		if v == nil {
 			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
-		value = bytes.Clone(value)
+		value = bytes.Clone(v)
 		return nil
 	})
 	return value, err
+}
+
+func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
+	saddr := addr.EncodeToString()
+	b, err := get(c.db, []byte(saddr))
+	if err == nil {
+		c.flushed.Get(saddr)
+		return b, nil
+	}
+
+	b, err = c.fsTree.GetBytes(addr)
+	if err != nil {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	c.flushed.Get(saddr)
+	return b, nil
 }

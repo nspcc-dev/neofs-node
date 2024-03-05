@@ -9,7 +9,6 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -37,33 +36,7 @@ func TestFlush(t *testing.T) {
 	)
 
 	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
-		dir := t.TempDir()
-		mb := meta.New(
-			meta.WithPath(filepath.Join(dir, "meta")),
-			meta.WithEpochState(dummyEpoch{}))
-		require.NoError(t, mb.Open(false))
-		require.NoError(t, mb.Init())
-
-		fsTree := fstree.New(
-			fstree.WithPath(filepath.Join(dir, "blob")),
-			fstree.WithDepth(0),
-			fstree.WithDirNameLen(1))
-		bs := blobstor.New(blobstor.WithStorages([]blobstor.SubStorage{
-			{Storage: fsTree},
-		}))
-		require.NoError(t, bs.Open(false))
-		require.NoError(t, bs.Init())
-
-		wc := New(
-			append([]Option{
-				WithLogger(zaptest.NewLogger(t)),
-				WithPath(filepath.Join(dir, "writecache")),
-				WithSmallObjectSize(smallSize),
-				WithMetabase(mb),
-				WithBlobstor(bs),
-			}, opts...)...)
-		require.NoError(t, wc.Open(false))
-		require.NoError(t, wc.Init())
+		wc, bs, mb := newCache(t, smallSize, append(opts, WithLogger(zaptest.NewLogger(t)))...)
 
 		// First set mode for metabase and blobstor to prevent background flushes.
 		require.NoError(t, mb.SetMode(mode.ReadOnly))

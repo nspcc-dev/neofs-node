@@ -21,6 +21,8 @@ func TestGet(t *testing.T, cons Constructor, min, max uint64) {
 		gPrm := common.GetPrm{Address: oidtest.Address()}
 		_, err := s.Get(gPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+		_, err = s.GetBytes(gPrm.Address)
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
 	for i := range objects {
@@ -46,5 +48,10 @@ func TestGet(t *testing.T, cons Constructor, min, max uint64) {
 		res, err = s.Get(gPrm)
 		require.NoError(t, err)
 		require.Equal(t, objects[i].raw, res.RawData)
+
+		// Binary.
+		b, err := s.GetBytes(objects[i].addr)
+		require.NoError(t, err)
+		require.Equal(t, objects[i].raw, b)
 	}
 }
