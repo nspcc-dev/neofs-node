@@ -52,7 +52,6 @@ grpc:
   - endpoint: external.ip:8080
     tls:
       enabled: true
-      use_insecure_crypto: true
 ```
 Contains an array of gRPC endpoint configurations. The following table describes the format of each
 element.
@@ -69,7 +68,6 @@ element.
 | `enabled`             | `bool`   | `false`       | Address that control service listener binds to.                           |
 | `certificate`         | `string` |               | Path to the TLS certificate.                                              |
 | `key`                 | `string` |               | Path to the key.                                                          |
-| `use_insecure_crypto` | `bool`   | `false`       | If true, ciphers considered insecure by Go stdlib are allowed to be used. |
 
 # `pprof` section
 
