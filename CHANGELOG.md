@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Storage nodes no longer accept objects with header larger than 16KB (#2749)
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
 - Big objects are split with the new split scheme (#2667)
+- Background replicator transfers objects using new `ObjectService.Replicate` RPC (#2317)
 
 ### Removed
 - Object notifications incl. NATS (#2750)
