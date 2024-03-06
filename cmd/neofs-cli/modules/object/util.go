@@ -380,24 +380,23 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 	if idLinking, ok := splitInfo.Link(); ok {
 		common.PrintVerbose(cmd, "Collecting split members using linking object %s...", idLinking)
 
+		var children []oid.ID
 		addrObj.SetObject(idLinking)
-		prmHead.SetAddress(addrObj)
-		prmHead.SetRawFlag(false)
-		// client is already set
 
-		res, err := internal.HeadObject(ctx, prmHead)
+		if splitInfo.SplitID() == nil {
+			children, err = getChildrenFromV2Link(ctx, cmd, cli, key, addrObj)
+		} else {
+			children, err = getChildrenFromV1Link(ctx, cmd, cli, key, addrObj)
+		}
+
 		if err == nil {
-			children := res.Header().Children()
-
-			common.PrintVerbose(cmd, "Received split members from the linking object: %v", children)
-
 			// include linking object
 			return append(children, idLinking)
 		}
 
 		// linking object is not required for
 		// object collecting
-		common.PrintVerbose(cmd, "failed to get linking object's header: %w", err)
+		common.PrintVerbose(cmd, "failed to get children from the link object: %w", err)
 	}
 
 	if idSplit := splitInfo.SplitID(); idSplit != nil {
@@ -482,4 +481,64 @@ func collectObjectRelatives(ctx context.Context, cmd *cobra.Command, cli *client
 	}
 
 	return chain
+}
+
+type payloadWriter struct {
+	payload []byte
+}
+
+func (pw *payloadWriter) Write(p []byte) (n int, err error) {
+	pw.payload = append(pw.payload, p...)
+	return len(p), nil
+}
+
+func getChildrenFromV2Link(ctx context.Context, cmd *cobra.Command, cli *client.Client, key *ecdsa.PrivateKey, linkAddr oid.Address) ([]oid.ID, error) {
+	var prmGet internal.GetObjectPrm
+	pw := &payloadWriter{}
+
+	prmGet.SetClient(cli)
+	prmGet.SetPrivateKey(*key)
+	prmGet.SetAddress(linkAddr)
+	prmGet.SetPayloadWriter(pw)
+	Prepare(cmd, &prmGet)
+
+	_, err := internal.GetObject(ctx, prmGet)
+	if err != nil {
+		return nil, fmt.Errorf("link object getting: %w", err)
+	}
+
+	var link object.Link
+	err = link.Unmarshal(pw.payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode linking object's payload: %w", err)
+	}
+
+	res := make([]oid.ID, 0, len(link.Objects()))
+	for _, child := range link.Objects() {
+		res = append(res, child.ObjectID())
+	}
+
+	common.PrintVerbose(cmd, "Received split members from the linking object: %v", res)
+
+	return res, nil
+}
+
+func getChildrenFromV1Link(ctx context.Context, cmd *cobra.Command, cli *client.Client, key *ecdsa.PrivateKey, linkAddr oid.Address) ([]oid.ID, error) {
+	var prmHead internal.HeadObjectPrm
+
+	prmHead.SetClient(cli)
+	prmHead.SetPrivateKey(*key)
+	prmHead.SetAddress(linkAddr)
+	Prepare(cmd, &prmHead)
+
+	res, err := internal.HeadObject(ctx, prmHead)
+	if err == nil {
+		children := res.Header().Children()
+
+		common.PrintVerbose(cmd, "Received split members from the linking object: %v", children)
+
+		return children, nil
+	}
+
+	return nil, fmt.Errorf("receiving link object's header: %w", err)
 }
