@@ -156,7 +156,7 @@ func generateStorageCreds(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	gasAmount, err := parseGASAmount(viper.GetString(refillGasAmountFlag))
+	gasAmount, err := parseGASAmount(viper.GetString(storageGasConfigFlag))
 	if err != nil {
 		return err
 	}
