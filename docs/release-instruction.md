@@ -9,7 +9,7 @@ These should run successfully:
 * `make lint` (should not change any files);
 * `make fmts` (should not change any files);
 * `go mod tidy` (should not change any files);
-* integration tests in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv).
+* integration tests in [neofs-devenv](https://github.com/nspcc-dev/neofs-dev-env).
 
 ## Make release commit
 
@@ -40,7 +40,7 @@ $ git checkout -b release/${NEOFS_TAG_PREFIX}${NEOFS_REVISION}
 Write new revision number into the root `VERSION` file:
 
 ```shell
-$ echo ${NEOFS_TAG_PREFIX}${NEOFS_REVISION} > VERSION
+$ echo ${NEOFS_REVISION} > VERSION
 ```
 
 Update version in Debian package changelog file
@@ -112,7 +112,7 @@ Look up GitHub [milestones](https://github.com/nspcc-dev/neofs-node/milestones) 
 
 ### Update NeoFS Developer Environment
 
-Prepare pull-request in [neofs-devenv](https://github.com/nspcc-dev/neofs-devenv)
+Prepare pull-request in [neofs-devenv](https://github.com/nspcc-dev/neofs-dev-env)
 with new versions.
 
 ### Announcements
