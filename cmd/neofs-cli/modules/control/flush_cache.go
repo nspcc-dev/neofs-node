@@ -50,5 +50,5 @@ func initControlFlushCacheCmd() {
 	ff.StringSlice(shardIDFlag, nil, "List of shard IDs in base58 encoding")
 	ff.Bool(shardAllFlag, false, "Process all shards")
 
-	flushCacheCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
+	flushCacheCmd.MarkFlagsOneRequired(shardIDFlag, shardAllFlag)
 }

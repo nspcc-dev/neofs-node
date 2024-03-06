@@ -54,5 +54,5 @@ func initControlEvacuateShardCmd() {
 	flags.Bool(shardAllFlag, false, "Process all shards")
 	flags.Bool(dumpIgnoreErrorsFlag, false, "Skip invalid/unreadable objects")
 
-	evacuateShardCmd.MarkFlagsMutuallyExclusive(shardIDFlag, shardAllFlag)
+	evacuateShardCmd.MarkFlagsOneRequired(shardIDFlag, shardAllFlag)
 }

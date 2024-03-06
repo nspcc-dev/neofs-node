@@ -3,7 +3,6 @@ package bearer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -56,7 +55,7 @@ func init() {
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), notValidBeforeFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), ownerFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
-	createCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
+	createCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func createToken(cmd *cobra.Command, _ []string) {
@@ -66,9 +65,6 @@ func createToken(cmd *cobra.Command, _ []string) {
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	exp, expRelative, err := common.ParseEpoch(cmd, commonflags.ExpireAt)
 	common.ExitOnErr(cmd, "can't parse --"+commonflags.ExpireAt+" flag: %w", err)
-	if exp == 0 && lifetime == 0 {
-		common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
-	}
 
 	nvb, nvbRelative, err := common.ParseEpoch(cmd, notValidBeforeFlag)
 	common.ExitOnErr(cmd, "can't parse --"+notValidBeforeFlag+" flag: %w", err)

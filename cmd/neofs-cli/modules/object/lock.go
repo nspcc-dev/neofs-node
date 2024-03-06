@@ -2,7 +2,6 @@ package object
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -52,9 +51,6 @@ var objectLockCmd = &cobra.Command{
 
 		exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 		lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
-		if exp == 0 && lifetime == 0 { // mutual exclusion is ensured by cobra
-			common.ExitOnErr(cmd, "", errors.New("expiration epoch or lifetime period is required"))
-		}
 
 		if lifetime != 0 {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -110,5 +106,5 @@ func initCommandObjectLock() {
 	ff.Uint64P(commonflags.ExpireAt, "e", 0, "The last active epoch for the lock")
 
 	ff.Uint64(commonflags.Lifetime, 0, "Lock lifetime")
-	objectLockCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
+	objectLockCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }

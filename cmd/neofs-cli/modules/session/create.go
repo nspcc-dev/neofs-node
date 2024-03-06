@@ -56,7 +56,7 @@ func init() {
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.WalletPath)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), outFlag)
 	_ = cobra.MarkFlagRequired(createCmd.Flags(), commonflags.RPC)
-	createCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
+	createCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
 func createSession(cmd *cobra.Command, _ []string) {

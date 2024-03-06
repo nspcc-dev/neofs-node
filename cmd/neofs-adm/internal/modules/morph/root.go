@@ -126,9 +126,6 @@ var (
 			} else {
 				// storage wallet path is not part of the config
 				storageWalletPath, _ := cmd.Flags().GetString(storageWalletFlag)
-				if storageWalletPath == "" {
-					return fmt.Errorf("missing wallet path (use '--%s <out.json>')", storageWalletFlag)
-				}
 
 				w, err := wallet.NewWalletFromFile(storageWalletPath)
 				if err != nil {
@@ -429,7 +426,7 @@ func init() {
 	refillGasCmd.Flags().String(storageWalletFlag, "", "Path to storage node wallet")
 	refillGasCmd.Flags().String(walletAddressFlag, "", "Address of wallet")
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "Additional amount of GAS to transfer")
-	refillGasCmd.MarkFlagsMutuallyExclusive(walletAddressFlag, storageWalletFlag)
+	refillGasCmd.MarkFlagsOneRequired(walletAddressFlag, storageWalletFlag)
 
 	RootCmd.AddCommand(depositNotaryCmd)
 	depositNotaryCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
@@ -462,7 +459,7 @@ func init() {
 	_ = cmd.MarkFlagRequired(domainFlag)
 	fs.StringSlice(neoAddressesFlag, nil, "Neo addresses resolved from public keys of the storage nodes")
 	fs.StringSlice(publicKeysFlag, nil, "HEX-encoded public keys of the storage nodes")
-	cmd.MarkFlagsMutuallyExclusive(publicKeysFlag, neoAddressesFlag)
+	cmd.MarkFlagsOneRequired(publicKeysFlag, neoAddressesFlag)
 
 	verifiedNodesDomainCmd.AddCommand(cmd)
 
