@@ -16,6 +16,10 @@ type mockedObjects struct {
 	hdr *object.Object
 }
 
+func (x *mockedObjects) Get(address oid.Address) (object.Object, error) {
+	return *x.hdr, nil
+}
+
 func (x *mockedObjects) Head(_ oid.Address) (any, error) {
 	return x.hdr, nil
 }

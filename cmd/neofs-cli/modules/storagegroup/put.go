@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -80,6 +81,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 		headPrm   internalclient.HeadObjectPrm
 		putPrm    internalclient.PutObjectPrm
 		getCnrPrm internalclient.GetContainerPrm
+		getPrm    internalclient.GetObjectPrm
 	)
 
 	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
@@ -96,12 +98,19 @@ func putSG(cmd *cobra.Command, _ []string) {
 	headPrm.SetClient(cli)
 	headPrm.SetPrivateKey(*pk)
 
+	headPrm.SetRawFlag(true)
+	getPrm.SetClient(cli)
+	getPrm.SetPrivateKey(*pk)
+	objectCli.Prepare(cmd, &getPrm)
+
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		ctx:     ctx,
 		cmd:     cmd,
 		key:     pk,
 		ownerID: &ownerID,
-		prm:     headPrm,
+		prmHead: headPrm,
+		cli:     cli,
+		getPrm:  getPrm,
 	}, cnr, members, !resGetCnr.Container().IsHomomorphicHashingDisabled())
 	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
 
@@ -138,13 +147,40 @@ type sgHeadReceiver struct {
 	cmd     *cobra.Command
 	key     *ecdsa.PrivateKey
 	ownerID *user.ID
-	prm     internalclient.HeadObjectPrm
+	prmHead internalclient.HeadObjectPrm
+	cli     *client.Client
+	getPrm  internalclient.GetObjectPrm
+}
+
+type payloadWriter struct {
+	payload []byte
+}
+
+func (pw *payloadWriter) Write(p []byte) (n int, err error) {
+	pw.payload = append(pw.payload, p...)
+	return len(p), nil
+}
+
+func (c sgHeadReceiver) Get(addr oid.Address) (object.Object, error) {
+	pw := &payloadWriter{}
+	c.getPrm.SetPayloadWriter(pw)
+	c.getPrm.SetAddress(addr)
+
+	res, err := internalclient.GetObject(c.ctx, c.getPrm)
+	if err != nil {
+		return object.Object{}, fmt.Errorf("rpc error: %w", err)
+	}
+
+	obj := res.Header()
+	obj.SetPayload(pw.payload)
+
+	return *obj, nil
 }
 
 func (c sgHeadReceiver) Head(addr oid.Address) (any, error) {
-	c.prm.SetAddress(addr)
+	c.prmHead.SetAddress(addr)
 
-	res, err := internalclient.HeadObject(c.ctx, c.prm)
+	res, err := internalclient.HeadObject(c.ctx, c.prmHead)
 
 	var errSplitInfo *object.SplitInfoError
 

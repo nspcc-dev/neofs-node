@@ -20,10 +20,10 @@ var (
 )
 
 // CollectMembers creates new storage group structure and fills it
-// with information about members collected via HeadReceiver.
+// with information about members collected via ObjectSource.
 //
 // Resulting storage group consists of physically stored objects only.
-func CollectMembers(r objutil.HeadReceiver, cnr cid.ID, members []oid.ID, calcHomoHash bool) (*storagegroup.StorageGroup, error) {
+func CollectMembers(r objutil.ObjectSource, cnr cid.ID, members []oid.ID, calcHomoHash bool) (*storagegroup.StorageGroup, error) {
 	var (
 		sumPhySize uint64
 		phyMembers []oid.ID
