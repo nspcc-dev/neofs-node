@@ -20,6 +20,10 @@ on:
         description: 'neofs-node ref. Default: master/PR. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name'
         required: false
         default: ''
+      neofs_testcases_ref:
+        description: 'neofs-testcases ref. Default: master. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name'
+        required: false
+        default: 'master'
 
 permissions: write-all
 
@@ -35,7 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nspcc-dev/neofs-testcases
-          ref: 'master'
+          ref: ${{ github.event.inputs.neofs_testcases_ref }}
           path: neofs-testcases
 
       - name: Checkout neofs-node repository
