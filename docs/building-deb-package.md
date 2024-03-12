@@ -4,7 +4,7 @@
 
 For now, we're assuming building for Debian 11 (stable) x86_64.
 
-Go version 18.4 or later should already be installed, i.e. this runs
+Go should already be installed (version from `go.mod` or later), i.e. this runs
 successfully:
 
 * `make all`
