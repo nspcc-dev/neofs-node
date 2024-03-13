@@ -22,22 +22,13 @@ func (a *AddPeerPrm) SetNodeInfo(nodeInfo netmap.NodeInfo) {
 // AddPeer registers peer in NeoFS network through
 // Netmap contract call.
 func (c *Client) AddPeer(p AddPeerPrm) error {
-	var method = addPeerMethod
-
-	if c.client.IsAlpha() {
-		// Alphabet node must call AddPeerIR method instead of AddPeer.
-		// It differs from AddPeer only by name, so we can do this in the same form.
-		// See https://github.com/nspcc-dev/neofs-contract/issues/154.
-		method += "IR"
-	}
-
 	prm := client.InvokePrm{}
-	prm.SetMethod(method)
+	prm.SetMethod(addPeerMethod)
 	prm.SetArgs(p.nodeInfo.Marshal())
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", method, err)
+		return fmt.Errorf("could not invoke method (%s): %w", addPeerMethod, err)
 	}
 	return nil
 }
