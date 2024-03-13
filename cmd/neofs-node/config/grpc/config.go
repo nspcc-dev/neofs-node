@@ -31,6 +31,20 @@ func (x *Config) Endpoint() string {
 	return v
 }
 
+// ConnectionLimit returns the value of "conn_limit" config parameter.
+//
+// Returns 0 if the value is not a positive integer.
+func (x *Config) ConnectionLimit() int {
+	v := config.IntSafe(
+		(*config.Config)(x),
+		"conn_limit")
+	if v < 0 {
+		return 0
+	}
+
+	return int(v)
+}
+
 // TLS returns "tls" subsection as a TLSConfig.
 //
 // Returns nil if "enabled" value of "tls" subsection is false.

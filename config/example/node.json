@@ -39,6 +39,7 @@
   "grpc": {
     "0": {
       "endpoint": "s01.neofs.devenv:8080",
+      "conn_limit": 1,
       "tls": {
         "enabled": true,
         "certificate": "/path/to/cert",
@@ -47,6 +48,7 @@
     },
     "1": {
       "endpoint": "s02.neofs.devenv:8080",
+      "conn_limit": -1,
       "tls": {
         "enabled": false
       }
