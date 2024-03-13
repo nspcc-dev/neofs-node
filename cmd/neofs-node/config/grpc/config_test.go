@@ -42,6 +42,8 @@ func TestGRPCSection(t *testing.T) {
 				require.NotNil(t, tls)
 			}
 		})
+
+		require.Equal(t, 3, num)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
