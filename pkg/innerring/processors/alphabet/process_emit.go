@@ -77,6 +77,13 @@ func (ap *Processor) processEmit() {
 				zap.Int64("amount", int64(gasPerNode)),
 				zap.String("error", err.Error()),
 			)
+
+			continue
 		}
+
+		ap.log.Debug("sent gas to storage node",
+			zap.String("receiver", key.Address()),
+			zap.Int64("amount", int64(gasPerNode)),
+		)
 	}
 }
