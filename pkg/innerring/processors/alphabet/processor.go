@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -82,14 +83,37 @@ func New(p *Params) (*Processor, error) {
 	}, nil
 }
 
+// newEpochNotification is the new epoch event name.
+const newEpochNotification = "NewEpoch"
+
 // ListenerNotificationParsers for the 'event.Listener' event producer.
 func (ap *Processor) ListenerNotificationParsers() []event.NotificationParserInfo {
-	return nil
+	parsers := make([]event.NotificationParserInfo, 0, 1)
+
+	var p event.NotificationParserInfo
+	p.SetScriptHash(ap.netmapClient.ContractAddress())
+
+	// new epoch event
+	p.SetType(newEpochNotification)
+	p.SetParser(netmapEvent.ParseNewEpoch)
+	parsers = append(parsers, p)
+
+	return parsers
 }
 
 // ListenerNotificationHandlers for the 'event.Listener' event producer.
 func (ap *Processor) ListenerNotificationHandlers() []event.NotificationHandlerInfo {
-	return nil
+	handlers := make([]event.NotificationHandlerInfo, 0, 1)
+
+	var i event.NotificationHandlerInfo
+	i.SetScriptHash(ap.netmapClient.ContractAddress())
+
+	// new epoch handler
+	i.SetType(newEpochNotification)
+	i.SetHandler(ap.HandleGasEmission)
+	handlers = append(handlers, i)
+
+	return handlers
 }
 
 // ListenerNotaryParsers for the 'event.Listener' event producer.

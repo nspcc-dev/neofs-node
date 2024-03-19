@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
 - Empty filter value is now treated as `NOT_PRESENT` op by CLI `acl extended create` cmd (#2742)
 - Storage nodes no longer accept objects with header larger than 16KB (#2749)
+- IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
 
 ### Removed
 - Object notifications incl. NATS (#2750)
@@ -43,6 +44,8 @@ if you're using any current NeoFS node version it's not a problem. If you're
 using 0.38.0 or lower with blobovniczas configured, please migrate ASAP.
 
 Remove `grpc.tls.use_insecure_crypto` from any storage node configuration.
+
+Remove `timers.emit` from any inner ring configuration.
 
 ## [0.40.1] - 2024-02-22
 
