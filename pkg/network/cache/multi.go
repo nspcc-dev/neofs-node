@@ -11,6 +11,7 @@ import (
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -183,6 +184,11 @@ func (x *multiClient) ReportError(err error) {
 	}
 
 	if status.Code(err) == codes.Canceled || errors.Is(err, context.Canceled) {
+		return
+	}
+
+	// NeoFS status responses mean connection is OK
+	if errors.Is(err, apistatus.Error) {
 		return
 	}
 
