@@ -4,9 +4,7 @@ import (
 	"context"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/alphabet"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
-	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
@@ -40,12 +38,6 @@ type (
 
 		collectBasicIncome    subEpochEventHandler
 		distributeBasicIncome subEpochEventHandler
-	}
-
-	emitTimerArgs struct {
-		ap *alphabet.Processor // to handle new emission tick
-
-		emitDuration uint32 // in blocks
 	}
 
 	depositor func() (util.Uint256, error)
@@ -138,13 +130,4 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 		})
 
 	return epochTimer
-}
-
-func newEmissionTimer(args *emitTimerArgs) *timer.BlockTimer {
-	return timer.NewBlockTimer(
-		timer.StaticBlockMeter(args.emitDuration),
-		func() {
-			args.ap.HandleGasEmission(timerEvent.NewAlphabetEmitTick{})
-		},
-	)
 }

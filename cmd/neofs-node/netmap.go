@@ -135,6 +135,8 @@ func initNetmapService(c *cfg) {
 		initMorphComponents(c)
 	}
 
+	c.cfgNetmap.wrapper = c.shared.basics.nCli
+
 	initNetmapState(c)
 
 	server := netmapTransportGRPC.New(

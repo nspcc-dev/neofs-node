@@ -1036,14 +1036,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 	server.addBlockTimer(server.epochTimer)
 
-	// initialize emission timer
-	emissionTimer := newEmissionTimer(&emitTimerArgs{
-		ap:           alphabetProcessor,
-		emitDuration: cfg.GetUint32("timers.emit"),
-	})
-
-	server.addBlockTimer(emissionTimer)
-
 	return server, nil
 }
 

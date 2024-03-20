@@ -121,7 +121,6 @@ fee:
   main_chain: 50000000                 # Fixed8 value of extra GAS fee for mainchain contract invocation; ignore if notary is enabled in mainchain
 
 timers:
-  emit: 240 # Number of sidechain blocks between GAS emission cycles; disabled by default
   stop_estimation:
     mul: 1 # Multiplier in x/y relation of when to stop basic income estimation within the epoch
     div: 4 # Divider in x/y relation of when to stop basic income estimation within the epoch

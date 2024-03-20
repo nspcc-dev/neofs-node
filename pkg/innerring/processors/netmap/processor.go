@@ -91,10 +91,7 @@ type (
 	}
 )
 
-const (
-	newEpochNotification   = "NewEpoch"
-	removeNodeNotification = "RemoveNode"
-)
+const newEpochNotification = "NewEpoch"
 
 // New creates network map contract processor instance.
 func New(p *Params) (*Processor, error) {

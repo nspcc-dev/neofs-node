@@ -35,8 +35,6 @@ func initMorphComponents(c *cfg) {
 		),
 	)
 	fatalOnErr(err)
-
-	c.cfgNetmap.wrapper = c.shared.basics.nCli
 }
 
 func makeAndWaitNotaryDeposit(c *cfg) {

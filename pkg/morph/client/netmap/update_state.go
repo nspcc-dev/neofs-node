@@ -37,21 +37,12 @@ func (u *UpdatePeerPrm) SetMaintenance() {
 
 // UpdatePeerState changes peer status through Netmap contract call.
 func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
-	method := updateStateMethod
-
-	if c.client.IsAlpha() {
-		// Alphabet nodes must call UpdateStateIR method instead of UpdateState.
-		// It differs from UpdateState only by name, so we can do this in the same form.
-		// See https://github.com/nspcc-dev/neofs-contract/issues/225.
-		method += "IR"
-	}
-
 	if p.state == 0 {
 		p.state = netmap.NodeStateOffline
 	}
 
 	prm := client.InvokePrm{}
-	prm.SetMethod(method)
+	prm.SetMethod(updateStateMethod)
 	prm.SetArgs(int64(p.state), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 

@@ -1,14 +1,15 @@
 package alphabet
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"go.uber.org/zap"
 )
 
 func (ap *Processor) HandleGasEmission(ev event.Event) {
-	_ = ev.(timers.NewAlphabetEmitTick)
-	ap.log.Info("tick", zap.String("type", "alphabet gas emit"))
+	ne := ev.(netmapEvent.NewEpoch)
+
+	ap.log.Info("gas emission", zap.Uint64("epoch", ne.EpochNumber()))
 
 	// send event to the worker pool
 
