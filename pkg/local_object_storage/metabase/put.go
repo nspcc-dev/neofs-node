@@ -113,14 +113,16 @@ func (db *DB) put(
 	}
 
 	if par := obj.Parent(); par != nil && !isParent { // limit depth by two
-		parentSI, err := splitInfoFromObject(obj)
-		if err != nil {
-			return err
-		}
+		if _, set := par.ID(); set { // skip the first object without useful info
+			parentSI, err := splitInfoFromObject(obj)
+			if err != nil {
+				return err
+			}
 
-		err = db.put(tx, par, id, parentSI, currEpoch)
-		if err != nil {
-			return err
+			err = db.put(tx, par, id, parentSI, currEpoch)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -187,6 +189,8 @@ func putUniqueIndexes(
 			bucketName = storageGroupBucketName(cnr, bucketName)
 		case objectSDK.TypeLock:
 			bucketName = bucketNameLockers(cnr, bucketName)
+		case objectSDK.TypeLink:
+			bucketName = linkObjectsBucketName(cnr, bucketName)
 		default:
 			return ErrUnknownObjectType
 		}
@@ -498,6 +502,10 @@ func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
 	info := objectSDK.NewSplitInfo()
 	info.SetSplitID(obj.SplitID())
 
+	if firstID, set := obj.FirstID(); set {
+		info.SetFirstPart(firstID)
+	}
+
 	switch {
 	case isLinkObject(obj):
 		id, ok := obj.ID()
@@ -520,14 +528,36 @@ func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
 	return info, nil
 }
 
-// isLinkObject returns true if object contains parent header and list
-// of children.
+// isLinkObject returns true if
+// V1: object contains parent header and list
+// of children
+// V2: object is LINK typed.
 func isLinkObject(obj *objectSDK.Object) bool {
+	// V2 split
+	if obj.Type() == objectSDK.TypeLink {
+		return true
+	}
+
+	// V1 split
 	return len(obj.Children()) > 0 && obj.Parent() != nil
 }
 
-// isLastObject returns true if object contains only parent header without list
-// of children.
+// isLastObject returns true if an object has parent and
+// V1: object has children in the object's header
+// V2: there is no split ID, object's type is LINK, and it has first part's ID.
 func isLastObject(obj *objectSDK.Object) bool {
-	return len(obj.Children()) == 0 && obj.Parent() != nil
+	par := obj.Parent()
+	if par == nil {
+		return false
+	}
+
+	_, hasFirstObjID := obj.FirstID()
+
+	// V2 split
+	if obj.SplitID() == nil && (obj.Type() != objectSDK.TypeLink && hasFirstObjID) {
+		return true
+	}
+
+	// V1 split
+	return len(obj.Children()) == 0
 }

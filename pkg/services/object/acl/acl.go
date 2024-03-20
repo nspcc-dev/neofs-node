@@ -25,6 +25,7 @@ type CheckerPrm struct {
 	validator    *eaclSDK.Validator
 	localStorage *engine.StorageEngine
 	state        netmap.State
+	headerSource eaclV2.HeaderSource
 }
 
 func (c *CheckerPrm) SetEACLSource(v container.EACLSource) *CheckerPrm {
@@ -47,6 +48,11 @@ func (c *CheckerPrm) SetNetmapState(v netmap.State) *CheckerPrm {
 	return c
 }
 
+func (c *CheckerPrm) SetHeaderSource(hs eaclV2.HeaderSource) *CheckerPrm {
+	c.headerSource = hs
+	return c
+}
+
 // Checker implements v2.ACLChecker interfaces and provides
 // ACL/eACL validation functionality.
 type Checker struct {
@@ -54,6 +60,7 @@ type Checker struct {
 	validator    *eaclSDK.Validator
 	localStorage *engine.StorageEngine
 	state        netmap.State
+	headerSource eaclV2.HeaderSource
 }
 
 // Various EACL check errors.
@@ -79,12 +86,14 @@ func NewChecker(prm *CheckerPrm) *Checker {
 	panicOnNil("EACLValidator", prm.validator)
 	panicOnNil("LocalStorageEngine", prm.localStorage)
 	panicOnNil("NetmapState", prm.state)
+	panicOnNil("HeaderSource", prm.headerSource)
 
 	return &Checker{
 		eaclSrc:      prm.eaclSrc,
 		validator:    prm.validator,
 		localStorage: prm.localStorage,
 		state:        prm.state,
+		headerSource: prm.headerSource,
 	}
 }
 
@@ -154,6 +163,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		eaclV2.WithLocalObjectStorage(c.localStorage),
 		eaclV2.WithCID(cnr),
 		eaclV2.WithOID(reqInfo.ObjectID()),
+		eaclV2.WithHeaderSource(c.headerSource),
 	)
 
 	if req, ok := msg.(eaclV2.Request); ok {

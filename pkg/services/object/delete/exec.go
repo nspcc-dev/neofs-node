@@ -105,17 +105,17 @@ func (exec *execCtx) collectMembers() (ok bool) {
 	}
 
 	if _, withLink := exec.splitInfo.Link(); withLink {
-		ok = exec.collectChildren()
+		if exec.collectChildren() {
+			return true
+		}
 	}
 
-	if !ok {
-		if _, withLast := exec.splitInfo.LastPart(); withLast {
-			ok = exec.collectChain()
-			if !ok {
-				return
-			}
+	if _, withLast := exec.splitInfo.LastPart(); withLast {
+		if exec.collectChain() {
+			return true
 		}
-	} // may be fail if neither right nor linking ID is set?
+	}
+	// may be fail if neither right nor linking ID is set?
 
 	return exec.supplementBySplitID()
 }

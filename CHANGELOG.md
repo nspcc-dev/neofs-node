@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Empty filter value is now treated as `NOT_PRESENT` op by CLI `acl extended create` cmd (#2742)
 - Storage nodes no longer accept objects with header larger than 16KB (#2749)
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
+- Big objects are split with the new split scheme (#2667)
 
 ### Removed
 - Object notifications incl. NATS (#2750)

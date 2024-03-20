@@ -17,5 +17,9 @@ func MergeSplitInfo(from, to *object.SplitInfo) *object.SplitInfo {
 		to.SetLink(link)
 	}
 
+	if init, ok := from.FirstPart(); ok {
+		to.SetFirstPart(init)
+	}
+
 	return to
 }

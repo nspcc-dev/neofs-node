@@ -152,6 +152,7 @@ func (db *DB) selectAll(tx *bbolt.Tx, cnr cid.ID, to map[string]int) {
 	selectAllFromBucket(tx, storageGroupBucketName(cnr, bucketName), to, 0)
 	selectAllFromBucket(tx, parentBucketName(cnr, bucketName), to, 0)
 	selectAllFromBucket(tx, bucketNameLockers(cnr, bucketName), to, 0)
+	selectAllFromBucket(tx, linkObjectsBucketName(cnr, bucketName), to, 0)
 }
 
 // selectAllFromBucket goes through all keys in bucket and adds them in a
@@ -206,6 +207,7 @@ func (db *DB) selectFastFilter(
 		selectAllFromBucket(tx, tombstoneBucketName(cnr, bucketName), to, fNum)
 		selectAllFromBucket(tx, storageGroupBucketName(cnr, bucketName), to, fNum)
 		selectAllFromBucket(tx, bucketNameLockers(cnr, bucketName), to, fNum)
+		selectAllFromBucket(tx, linkObjectsBucketName(cnr, bucketName), to, fNum)
 	default: // user attribute
 		bucketName := attributeBucketName(cnr, f.Header(), bucketName)
 
@@ -222,6 +224,7 @@ var mBucketNaming = map[string][]func(cid.ID, []byte) []byte{
 	object.TypeTombstone.EncodeToString():    {tombstoneBucketName},
 	object.TypeStorageGroup.EncodeToString(): {storageGroupBucketName},
 	object.TypeLock.EncodeToString():         {bucketNameLockers},
+	object.TypeLink.EncodeToString():         {linkObjectsBucketName},
 }
 
 func allBucketNames(cnr cid.ID) (names [][]byte) {
@@ -504,7 +507,7 @@ func (db *DB) selectObjectID(
 			// copy-paste from DB.selectAllFrom
 			bkt := tx.Bucket(bucketName)
 			if bkt == nil {
-				return
+				continue
 			}
 
 			err := fMatch.matchBucket(bkt, f.Header(), f.Value(), func(k, v []byte) error {

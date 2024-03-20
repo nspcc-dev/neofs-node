@@ -109,6 +109,12 @@ func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw b
 		return obj, obj.Unmarshal(data)
 	}
 
+	// if not found then check in link objects index
+	data = getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), key)
+	if len(data) != 0 {
+		return obj, obj.Unmarshal(data)
+	}
+
 	// if not found then check if object is a virtual
 	return getVirtualObject(tx, cnr, key, raw)
 }
@@ -241,6 +247,16 @@ func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, 
 	err = expandObjectsFromBucket(bktTS, unique, limit)
 	if err != nil {
 		return fmt.Errorf("tomb stones iteration: %w", err)
+	}
+	if len(unique) >= limit {
+		return nil
+	}
+
+	// link objects
+	bktInit := tx.Bucket(linkObjectsBucketName(cID, buff))
+	err = expandObjectsFromBucket(bktInit, unique, limit)
+	if err != nil {
+		return fmt.Errorf("link objects iteration: %w", err)
 	}
 	if len(unique) >= limit {
 		return nil

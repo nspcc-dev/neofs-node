@@ -1,6 +1,7 @@
 package object
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -23,6 +24,7 @@ type FormatValidatorOption func(*cfg)
 type cfg struct {
 	netState netmap.State
 	e        LockSource
+	sv       SplitVerifier
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -47,6 +49,18 @@ type Locker interface {
 	// Returns apistatus.LockNonRegularObject if at least object in locked
 	// list is irregular (not type of REGULAR).
 	Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
+}
+
+// SplitVerifier represent split validation unit. It verifies V2 split
+// chains based on the link object's payload (list of ID+ObjectSize pairs).
+type SplitVerifier interface {
+	// VerifySplit must verify split hierarchy and return any error that did
+	// not allow processing the chain. Must break (if possible) any internal
+	// computations if context is done. The second and the third args are the
+	// first part's address used as a chain unique identifier that also must
+	// be checked. The fourth arg is guaranteed to be the full list from the
+	// link's payload without item order change.
+	VerifySplit(context.Context, cid.ID, oid.ID, []object.MeasuredObject) error
 }
 
 var errNilObject = errors.New("object is nil")
@@ -103,6 +117,41 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return err
 	}
 
+	_, firstSet := obj.FirstID()
+	splitID := obj.SplitID()
+	par := obj.Parent()
+
+	if obj.HasParent() {
+		if splitID != nil {
+			// V1 split
+			if firstSet {
+				return errors.New("v1 split: first object ID is set")
+			}
+		} else {
+			// V2 split
+
+			if !firstSet {
+				// first part only
+				if obj.Parent() == nil {
+					return errors.New("v2 split: first object part does not have parent header")
+				}
+			} else {
+				// 2nd+ parts
+
+				typ := obj.Type()
+
+				// link object only
+				if typ == object.TypeLink && (par == nil || par.Signature() == nil) {
+					return errors.New("v2 split: incorrect link object's parent header")
+				}
+
+				if _, hasPrevious := obj.PreviousID(); typ != object.TypeLink && !hasPrevious {
+					return errors.New("v2 split: middle part does not have previous object ID")
+				}
+			}
+		}
+	}
+
 	if err := v.checkAttributes(obj); err != nil {
 		return fmt.Errorf("invalid attributes: %w", err)
 	}
@@ -121,9 +170,9 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		}
 	}
 
-	if obj = obj.Parent(); obj != nil {
+	if par != nil && (firstSet || splitID != nil) {
 		// Parent object already exists.
-		return v.Validate(obj, false)
+		return v.Validate(par, false)
 	}
 
 	return nil
@@ -161,6 +210,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 // is one of:
 //   - object.TypeTombstone;
 //   - object.TypeStorageGroup;
+//   - object.TypeLink;
 //   - object.TypeLock.
 type ContentMeta struct {
 	typ object.Type
@@ -191,6 +241,32 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 	switch o.Type() {
 	case object.TypeRegular:
 		// ignore regular objects, they do not need payload formatting
+	case object.TypeLink:
+		if len(o.Payload()) == 0 {
+			return ContentMeta{}, fmt.Errorf("(%T) empty payload in the link object", v)
+		}
+
+		firstObjID, set := o.FirstID()
+		if !set {
+			return ContentMeta{}, errors.New("link object does not have first object ID")
+		}
+
+		cnr, set := o.ContainerID()
+		if !set {
+			return ContentMeta{}, errors.New("link object does not have container ID")
+		}
+
+		var testLink object.Link
+
+		err := o.ReadLink(&testLink)
+		if err != nil {
+			return ContentMeta{}, fmt.Errorf("reading link object's payload: %w", err)
+		}
+
+		err = v.sv.VerifySplit(context.Background(), cnr, firstObjID, testLink.Objects())
+		if err != nil {
+			return ContentMeta{}, fmt.Errorf("link object's split chain verification: %w", err)
+		}
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
 			return ContentMeta{}, fmt.Errorf("(%T) empty payload in tombstone", v)
@@ -390,5 +466,12 @@ func WithNetState(netState netmap.State) FormatValidatorOption {
 func WithLockSource(e LockSource) FormatValidatorOption {
 	return func(c *cfg) {
 		c.e = e
+	}
+}
+
+// WithSplitVerifier returns option to set a SplitVerifier.
+func WithSplitVerifier(sv SplitVerifier) FormatValidatorOption {
+	return func(c *cfg) {
+		c.sv = sv
 	}
 }

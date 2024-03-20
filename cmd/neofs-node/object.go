@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
@@ -28,6 +29,7 @@ import (
 	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
@@ -224,6 +226,26 @@ func initObjectService(c *cfg) {
 
 	c.workers = append(c.workers, c.shared.policer)
 
+	sGet := getsvc.New(
+		getsvc.WithLogger(c.log),
+		getsvc.WithLocalStorageEngine(ls),
+		getsvc.WithClientConstructor(coreConstructor),
+		getsvc.WithTraverserGenerator(
+			traverseGen.WithTraverseOptions(
+				placement.SuccessAfter(1),
+			),
+		),
+		getsvc.WithNetMapSource(c.netMapSource),
+		getsvc.WithKeyStorage(keyStorage),
+	)
+
+	*c.cfgObject.getSvc = *sGet // need smth better
+
+	sGetV2 := getsvcV2.NewService(
+		getsvcV2.WithInternalService(sGet),
+		getsvcV2.WithKeyStorage(keyStorage),
+	)
+
 	sPut := putsvc.NewService(
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
@@ -235,6 +257,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
+		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
 	)
 
 	sPutV2 := putsvcV2.NewService(
@@ -258,26 +281,6 @@ func initObjectService(c *cfg) {
 	sSearchV2 := searchsvcV2.NewService(
 		searchsvcV2.WithInternalService(sSearch),
 		searchsvcV2.WithKeyStorage(keyStorage),
-	)
-
-	sGet := getsvc.New(
-		getsvc.WithLogger(c.log),
-		getsvc.WithLocalStorageEngine(ls),
-		getsvc.WithClientConstructor(coreConstructor),
-		getsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.SuccessAfter(1),
-			),
-		),
-		getsvc.WithNetMapSource(c.netMapSource),
-		getsvc.WithKeyStorage(keyStorage),
-	)
-
-	*c.cfgObject.getSvc = *sGet // need smth better
-
-	sGetV2 := getsvcV2.NewService(
-		getsvcV2.WithInternalService(sGet),
-		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
 	sDelete := deletesvc.New(
@@ -312,6 +315,13 @@ func initObjectService(c *cfg) {
 		},
 	)
 
+	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme
+	// expects the first part of the chain to hold a user-defined header of the original
+	// object which should be treated as a header to use for the eACL rules check; so
+	// every object part in every chain will try to refer to the first part, so caching
+	// should help a lot here
+	const cachedFirstObjectsNumber = 1000
+
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
@@ -325,7 +335,8 @@ func initObjectService(c *cfg) {
 				SetNetmapState(c.cfgNetmap.state).
 				SetEACLSource(c.cfgObject.eaclSource).
 				SetValidator(eaclSDK.NewValidator()).
-				SetLocalStorage(ls),
+				SetLocalStorage(ls).
+				SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber)),
 			),
 		),
 	)
@@ -534,4 +545,59 @@ func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 
 func (e storageEngine) Put(o *objectSDK.Object) error {
 	return engine.Put(e.engine, o)
+}
+
+func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int) headerSource {
+	hs := headerSource{getsvc: getSvc}
+
+	if cacheSize > 0 {
+		var err error
+		hs.cache, err = lru.New[oid.Address, *objectSDK.Object](cacheSize)
+		if err != nil {
+			panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+		}
+	}
+
+	return hs
+}
+
+type headerSource struct {
+	getsvc *getsvc.Service
+	cache  *lru.Cache[oid.Address, *objectSDK.Object]
+}
+
+type headerWriter struct {
+	h *objectSDK.Object
+}
+
+func (h *headerWriter) WriteHeader(o *objectSDK.Object) error {
+	h.h = o
+	return nil
+}
+
+func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
+	if h.cache != nil {
+		head, ok := h.cache.Get(address)
+		if ok {
+			return head, nil
+		}
+	}
+
+	var hw headerWriter
+
+	// no custom common prms since a caller is expected to be a container
+	// participant so no additional headers, access tokens, etc
+	var prm getsvc.HeadPrm
+	prm.SetHeaderWriter(&hw)
+	prm.WithAddress(address)
+	prm.WithRawFlag(true)
+
+	err := h.getsvc.Head(context.Background(), prm)
+	if err != nil {
+		return nil, fmt.Errorf("reading header: %w", err)
+	}
+
+	h.cache.Add(address, hw.h)
+
+	return hw.h, nil
 }

@@ -336,6 +336,8 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 			bucketName = storageGroupBucketName(cnr, bucketName)
 		case objectSDK.TypeLock:
 			bucketName = bucketNameLockers(cnr, bucketName)
+		case objectSDK.TypeLink:
+			bucketName = linkObjectsBucketName(cnr, bucketName)
 		default:
 			return ErrUnknownObjectType
 		}

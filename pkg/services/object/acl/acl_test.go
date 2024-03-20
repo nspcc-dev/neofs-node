@@ -9,6 +9,8 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
@@ -22,6 +24,12 @@ func (e emptyEACLSource) GetEACL(_ cid.ID) (*container.EACL, error) {
 
 type emptyNetmapState struct{}
 
+type emptyHeaderSource struct{}
+
+func (e emptyHeaderSource) Head(address oid.Address) (*object.Object, error) {
+	return nil, nil
+}
+
 func (e emptyNetmapState) CurrentEpoch() uint64 {
 	return 0
 }
@@ -31,7 +39,8 @@ func TestStickyCheck(t *testing.T) {
 		SetLocalStorage(&engine.StorageEngine{}).
 		SetValidator(eaclSDK.NewValidator()).
 		SetEACLSource(emptyEACLSource{}).
-		SetNetmapState(emptyNetmapState{}),
+		SetNetmapState(emptyNetmapState{}).
+		SetHeaderSource(emptyHeaderSource{}),
 	)
 
 	t.Run("system role", func(t *testing.T) {

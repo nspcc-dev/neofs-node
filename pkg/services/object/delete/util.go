@@ -2,6 +2,7 @@ package deletesvc
 
 import (
 	"errors"
+	"fmt"
 
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
@@ -53,9 +54,32 @@ func (w *headSvcWrapper) splitInfo(exec *execCtx) (*object.SplitInfo, error) {
 }
 
 func (w *headSvcWrapper) children(exec *execCtx) ([]oid.ID, error) {
-	link, _ := exec.splitInfo.Link()
+	linkID, _ := exec.splitInfo.Link()
 
-	a := exec.newAddress(link)
+	if exec.splitInfo.SplitID() == nil {
+		// V2 split
+		linkObj, err := w.getChild(exec, linkID)
+		if err != nil {
+			return nil, fmt.Errorf("receiving link object: %w", err)
+		}
+
+		var link object.Link
+		err = linkObj.ReadLink(&link)
+		if err != nil {
+			return nil, fmt.Errorf("parsing link object: %w", err)
+		}
+
+		res := make([]oid.ID, 0, len(link.Objects()))
+		for _, child := range link.Objects() {
+			res = append(res, child.ObjectID())
+		}
+
+		return res, nil
+	}
+
+	// V1 split
+
+	a := exec.newAddress(linkID)
 
 	linking, err := w.headAddress(exec, a)
 	if err != nil {
@@ -79,6 +103,24 @@ func (w *headSvcWrapper) previous(exec *execCtx, id oid.ID) (*oid.ID, error) {
 	}
 
 	return nil, nil
+}
+
+func (w *headSvcWrapper) getChild(exec *execCtx, oID oid.ID) (*object.Object, error) {
+	a := exec.newAddress(oID)
+	wr := getsvc.NewSimpleObjectWriter()
+
+	p := getsvc.Prm{}
+	p.SetCommonParameters(exec.commonParameters())
+	p.SetObjectWriter(wr)
+	p.WithRawFlag(true)
+	p.WithAddress(a)
+
+	err := (*getsvc.Service)(w).Get(exec.context(), p)
+	if err != nil {
+		return nil, err
+	}
+
+	return wr.Object(), nil
 }
 
 func (w *searchSvcWrapper) splitMembers(exec *execCtx) ([]oid.ID, error) {

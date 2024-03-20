@@ -136,6 +136,12 @@ func WithNetworkState(v netmap.State) Option {
 	}
 }
 
+func WithSplitChainVerifier(sv object.SplitVerifier) Option {
+	return func(c *cfg) {
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithSplitVerifier(sv))
+	}
+}
+
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientConstructor = v

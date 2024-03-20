@@ -1,10 +1,12 @@
 package object
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -341,6 +343,61 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			err := v.checkAttributes(obj)
 			require.Equal(t, errEmptyAttrVal, err)
+		})
+	})
+}
+
+type testSplitVerifier struct {
+}
+
+func (t *testSplitVerifier) VerifySplit(ctx context.Context, cID cid.ID, firstID oid.ID, children []object.MeasuredObject) error {
+	return nil
+}
+
+func TestLinkObjectSplitV2(t *testing.T) {
+	verifier := new(testSplitVerifier)
+
+	v := NewFormatValidator(
+		WithSplitVerifier(verifier),
+	)
+
+	ownerKey, err := keys.NewPrivateKey()
+	require.NoError(t, err)
+
+	signer := user.NewAutoIDSigner(ownerKey.PrivateKey)
+	obj := blankValidObject(signer)
+	obj.SetParent(object.New())
+	obj.SetSplitID(object.NewSplitID())
+	obj.SetFirstID(oidtest.ID())
+
+	t.Run("V1 split, first is set", func(t *testing.T) {
+		require.ErrorContains(t, v.Validate(obj, true), "first object ID is set")
+	})
+
+	t.Run("V2 split", func(t *testing.T) {
+		obj.ResetRelations()
+		obj.SetParent(object.New())
+
+		t.Run("first object is not set", func(t *testing.T) {
+			require.ErrorContains(t, v.Validate(obj, true), "first object part does not have parent header")
+		})
+
+		t.Run("link object without finished parent", func(t *testing.T) {
+			obj.ResetRelations()
+			obj.SetParent(object.New())
+			obj.SetFirstID(oidtest.ID())
+			obj.SetType(object.TypeLink)
+
+			require.ErrorContains(t, v.Validate(obj, true), "incorrect link object's parent header")
+		})
+
+		t.Run("middle child does not have previous object ID", func(t *testing.T) {
+			obj.ResetRelations()
+			obj.SetParent(object.New())
+			obj.SetFirstID(oidtest.ID())
+			obj.SetType(object.TypeRegular)
+
+			require.ErrorContains(t, v.Validate(obj, true), "middle part does not have previous object ID")
 		})
 	})
 }

@@ -57,6 +57,10 @@ Numbers stand for a single byte value.
   - Name: container ID + `9`
   - Key: object ID
   - Value: marshaled object
+- Buckets containing object or LINK type
+  - Name: container ID + `18`
+  - Key: object ID
+  - Value: marshaled object
 - Buckets mapping objects to the storage ID they are stored in
   - Name: container ID + `10`
   - Key: object ID
