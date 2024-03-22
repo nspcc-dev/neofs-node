@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Storage nodes no longer reject GET w/ TTL=1 requests to read complex objects (#2447)
 - Response exceeding the deadline for TLS errors (#2561)
 - `neofs-adm morph generate-storage-wallet` was not able to read `--initial-gas` flag (#2766)
+- Inter-node connections closed on any status response (#2767)
 
 ### Changed
 - IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
