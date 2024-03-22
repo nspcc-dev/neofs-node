@@ -136,9 +136,10 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
 		case *objectV2.PutRequest:
 			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
-				if v.GetHeader().GetSplit().GetSplitID() != nil {
-					// V1 split scheme, only the received object's header
-					// can be checked
+				splitHeader := v.GetHeader().GetSplit()
+				if splitHeader == nil || splitHeader.GetSplitID() != nil {
+					// V1 split scheme or small object, only the received
+					// object's header can be checked
 					oV2 := new(objectV2.Object)
 					oV2.SetObjectID(v.GetObjectID())
 					oV2.SetHeader(v.GetHeader())
