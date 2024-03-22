@@ -83,7 +83,10 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 		opts[i](exec)
 	}
 
-	exec.setLogger(s.log)
+	// allow overwriting by explicit option
+	if exec.log == nil {
+		exec.setLogger(s.log)
+	}
 
 	exec.execute()
 

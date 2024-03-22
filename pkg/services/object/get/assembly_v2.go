@@ -116,7 +116,7 @@ func (exec *execCtx) rangeFromLink(link objectSDK.Link) bool {
 				rngPerChild.SetOffset(uint64(firstOffset))
 			}
 			if i == last {
-				rngPerChild.SetLength(uint64(child.ObjectSize()) - uint64(lastBound+firstOffset))
+				rngPerChild.SetLength(uint64(lastBound) - rngPerChild.GetOffset())
 			}
 		}
 

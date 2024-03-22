@@ -3,6 +3,7 @@ package getsvc
 import (
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"io"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -257,4 +258,8 @@ func (h *hasherWrapper) WriteChunk(p []byte) error {
 
 func (n *nmSrcWrapper) currentEpoch() (uint64, error) {
 	return n.nmSrc.Epoch()
+}
+
+func prettyRange(rng *object.Range) string {
+	return fmt.Sprintf("[%d:%d]", rng.GetOffset(), rng.GetLength())
 }

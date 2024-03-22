@@ -69,22 +69,33 @@ func withHash(p *RangeHashPrm) execOption {
 	}
 }
 
-func (exec *execCtx) setLogger(l *zap.Logger) {
-	req := "GET"
-	if exec.headOnly() {
-		req = "HEAD"
-	} else if exec.ctxRange() != nil {
-		req = "GET_RANGE"
+func withLogger(l *zap.Logger) execOption {
+	return func(ctx *execCtx) {
+		ctx.log = l
 	}
+}
 
-	exec.log = l.With(
-		zap.String("request", req),
+func (exec *execCtx) setLogger(l *zap.Logger) {
+	reqFields := []zap.Field{
 		zap.Stringer("address", exec.address()),
 		zap.Bool("raw", exec.isRaw()),
 		zap.Bool("local", exec.isLocal()),
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
-	)
+	}
+
+	switch {
+	case exec.headOnly():
+		reqFields = append(reqFields, zap.String("request", "HEAD"))
+	case exec.ctxRange() != nil:
+		reqFields = append(reqFields,
+			zap.String("request", "GET_RANGE"),
+			zap.String("original range", prettyRange(exec.ctxRange())))
+	default:
+		reqFields = append(reqFields, zap.String("request", "GET"))
+	}
+
+	exec.log = l.With(reqFields...)
 }
 
 func (exec execCtx) context() context.Context {
@@ -172,6 +183,11 @@ func (exec *execCtx) generateTraverser(addr oid.Address, epoch uint64) (*placeme
 }
 
 func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*objectSDK.Object, bool) {
+	log := exec.log
+	if rng != nil {
+		log = log.With(zap.String("child range", prettyRange(rng)))
+	}
+
 	w := NewSimpleObjectWriter()
 
 	p := exec.prm
@@ -182,7 +198,7 @@ func (exec *execCtx) getChild(id oid.ID, rng *objectSDK.Range, withHdr bool) (*o
 	p.addr.SetContainer(exec.containerID())
 	p.addr.SetObject(id)
 
-	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng))
+	exec.statusError = exec.svc.get(exec.context(), p.commonPrm, withPayloadRange(rng), withLogger(log))
 
 	child := w.Object()
 	ok := exec.status == statusOK
