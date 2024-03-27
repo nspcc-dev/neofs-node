@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -152,13 +153,23 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	// but later list might be sorted so first or last value can be more
 	// prioritized to choose
 	virtualOID := relativeLst[len(relativeLst)-1]
-	data := getFromBucket(tx, primaryBucketName(cnr, bucketName), virtualOID)
+
+	// we should have a link object
+	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), virtualOID)
+	if len(data) == 0 {
+		// no link object, so we may have the last object with parent header
+		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), virtualOID)
+	}
+
+	if len(data) == 0 {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
 
 	child := objectSDK.New()
 
 	err = child.Unmarshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal child with parent: %w", err)
+		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", base58.Encode(virtualOID), base58.Encode(key), err)
 	}
 
 	par := child.Parent()
