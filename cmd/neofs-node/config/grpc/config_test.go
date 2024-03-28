@@ -42,7 +42,7 @@ func TestGRPCSection(t *testing.T) {
 			case 2:
 				require.Equal(t, "s03.neofs.devenv:8080", sc.Endpoint())
 				require.Equal(t, 0, sc.ConnectionLimit())
-				require.NotNil(t, tls)
+				require.Nil(t, tls)
 			}
 		})
 

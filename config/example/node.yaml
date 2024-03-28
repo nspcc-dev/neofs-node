@@ -47,8 +47,6 @@ grpc:
     tls:
       enabled: false  # use TLS for a gRPC connection
   - endpoint: s03.neofs.devenv:8080
-    tls:
-      enabled: true
 
 tree:
   enabled: true

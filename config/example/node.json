@@ -54,10 +54,7 @@
       }
     },
     "2": {
-      "endpoint": "s03.neofs.devenv:8080",
-      "tls": {
-        "enabled": true
-      }
+      "endpoint": "s03.neofs.devenv:8080"
     }
   },
   "tree": {
