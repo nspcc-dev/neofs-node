@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -77,7 +76,7 @@ func TestMessageSign(t *testing.T) {
 	cid1 := cidtest.ID()
 	cid2 := cidtest.ID()
 
-	signer := neofsecdsa.SignerRFC6979(privs[0].PrivateKey)
+	signer := user.NewAutoIDSignerRFC6979(privs[0].PrivateKey)
 
 	ownerID := user.ResolveFromECDSAPublicKey(privs[0].PrivateKey.PublicKey)
 
