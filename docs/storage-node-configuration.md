@@ -35,10 +35,11 @@ control:
   grpc:
     endpoint: 127.0.0.1:8090
 ```
-| Parameter         | Type           | Default value | Description                                                                      |
-|-------------------|----------------|---------------|----------------------------------------------------------------------------------|
-| `authorized_keys` | `[]public key` | empty         | List of public keys which are used to authorize requests to the control service. |
-| `grpc.endpoint`   | `string`       | empty         | Address that control service listener binds to.                                  |
+| Parameter         | Type           | Default value | Description                                                                                                                                                                                |
+|-------------------|----------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `authorized_keys` | `[]public key` | empty         | List of public keys which are used to authorize requests to the control service.                                                                                                           |
+| `grpc.endpoint`   | `string`       | empty         | Address that control service listener binds to.                                                                                                                                            |
+| `grpc.conn_limit` | `int`          | 0             | Number of accepted connections at a time, non-positive values keep connections unlimited. Connections that exceed limitation are accepted but not handled until some connection is closed. |
 
 # `grpc` section
 ```yaml

@@ -9,6 +9,7 @@ import (
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"go.uber.org/zap"
+	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -40,6 +41,10 @@ func initGRPC(c *cfg) {
 		if err != nil {
 			c.log.Error("can't listen gRPC endpoint", zap.Error(err))
 			return
+		}
+
+		if connLimit := sc.ConnectionLimit(); connLimit > 0 {
+			lis = netutil.LimitListener(lis, connLimit)
 		}
 
 		c.cfgGRPC.listeners = append(c.cfgGRPC.listeners, lis)
