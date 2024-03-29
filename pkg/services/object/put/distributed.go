@@ -254,7 +254,5 @@ loop:
 		}
 	}
 
-	id, _ = t.obj.ID()
-
 	return id, nil
 }
