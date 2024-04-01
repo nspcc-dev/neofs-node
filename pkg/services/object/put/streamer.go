@@ -215,7 +215,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
-		traversal: traversal{
+		traversalState: traversal{
 			opts: prm.traverseOpts,
 
 			extraBroadcastEnabled: withBroadcast,

@@ -20,7 +20,8 @@ type preparedObjectTarget interface {
 }
 
 type distributedTarget struct {
-	traversal traversal
+	traversalState traversal
+	traverser      *placement.Traverser
 
 	remotePool, localPool util.WorkerPool
 
@@ -134,18 +135,46 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	t.obj.SetPayload(t.payload)
 
-	var err error
-
-	if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
-	}
-
 	if len(t.obj.Children()) > 0 || t.obj.Type() == objectSDK.TypeLink {
 		// enabling extra broadcast for linking objects
-		t.traversal.extraBroadcastEnabled = true
+		t.traversalState.extraBroadcastEnabled = true
+	}
+
+	id, _ := t.obj.ID()
+	t.traversalState.opts = append(t.traversalState.opts, placement.ForObject(id))
+	var err error
+
+	t.traverser, err = placement.NewTraverser(t.traversalState.opts...)
+	if err != nil {
+		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
+	}
+
+	// v2 split link object validation is an expensive routine and useless if
+	// the node does not belong to the container, since another node is responsible
+	// for the link validation and may decline it, does not matter what this node
+	// thinks about it
+	if t.obj.Type() != objectSDK.TypeLink || t.nodeInPlacement() {
+		if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
+			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
+		}
 	}
 
 	return t.iteratePlacement(t.sendObject)
+}
+
+func (t *distributedTarget) nodeInPlacement() bool {
+	var shouldStoreObject bool
+
+	t.traverser.IterateContainerKeys(func(key []byte) bool {
+		if t.isLocalKey(key) {
+			shouldStoreObject = true
+			return true
+		}
+
+		return false
+	})
+
+	return shouldStoreObject
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
@@ -165,19 +194,11 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
-
-	traverser, err := placement.NewTraverser(
-		append(t.traversal.opts, placement.ForObject(id))...,
-	)
-	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
-	}
-
 	var resErr atomic.Value
 
 loop:
 	for {
-		addrs := traverser.Next()
+		addrs := t.traverser.Next()
 		if len(addrs) == 0 {
 			break
 		}
@@ -185,7 +206,7 @@ loop:
 		wg := new(sync.WaitGroup)
 
 		for i := range addrs {
-			if t.traversal.processed(addrs[i]) {
+			if t.traversalState.processed(addrs[i]) {
 				// it can happen only during additional container broadcast
 				continue
 			}
@@ -213,7 +234,7 @@ loop:
 				// in subsequent container broadcast. Note that we don't
 				// process this node during broadcast if primary placement
 				// on it failed.
-				t.traversal.submitProcessed(addr)
+				t.traversalState.submitProcessed(addr)
 
 				if err != nil {
 					resErr.Store(err)
@@ -221,7 +242,7 @@ loop:
 					return
 				}
 
-				traverser.SubmitSuccess()
+				t.traverser.SubmitSuccess()
 			}); err != nil {
 				wg.Done()
 
@@ -234,7 +255,7 @@ loop:
 		wg.Wait()
 	}
 
-	if !traverser.Success() {
+	if !t.traverser.Success() {
 		var err errIncompletePut
 
 		err.singleErr, _ = resErr.Load().(error)
@@ -243,7 +264,14 @@ loop:
 	}
 
 	// perform additional container broadcast if needed
-	if t.traversal.submitPrimaryPlacementFinish() {
+	if t.traversalState.submitPrimaryPlacementFinish() {
+		// reset traversal progress
+		var err error
+		t.traverser, err = placement.NewTraverser(t.traversalState.opts...)
+		if err != nil {
+			return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
+		}
+
 		_, err = t.iteratePlacement(f)
 		if err != nil {
 			t.log.Error("additional container broadcast failure",
@@ -253,8 +281,6 @@ loop:
 			// we don't fail primary operation because of broadcast failure
 		}
 	}
-
-	id, _ = t.obj.ID()
 
 	return id, nil
 }
