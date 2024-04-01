@@ -32,7 +32,7 @@ Numbers stand for a single byte value.
   - Name: `4` 
   - Key: container ID
   - Value: bucket mapping objects locked to the list of corresponding LOCK objects
-- Bucket containing auxilliary information. All keys are custom and are not connected to the container
+- Bucket containing auxiliary information. All keys are custom and are not connected to the container
   - Name: `5`
   - Keys and values
     - `id` -> shard id as bytes
