@@ -8,7 +8,8 @@ Changelog for NeoFS Node
 - Support of `GT`, `GE`, `LT` and `LE` numeric comparison operators in CLI (#2733)
 - SN eACL processing of NULL and numeric operators (#2742)
 - CLI now allows to create and print eACL with numeric filters (#2742)
-- gRPC connection limits per endpoint (#1240) 
+- gRPC connection limits per endpoint (#1240)
+- `neofs-lens object link` command for the new link object inspection (#2799)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
