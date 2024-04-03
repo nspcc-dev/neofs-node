@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"time"
 
 	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
@@ -15,10 +17,49 @@ import (
 )
 
 func initGRPC(c *cfg) {
+	if c.cfgMorph.client == nil {
+		initMorphComponents(c)
+	}
+
+	// limit max size of single messages received by the gRPC servers up to max
+	// object size setting of the NeoFS network: this is needed to serve
+	// ObjectService.Replicate RPC transmitting the entire stored object in one
+	// message
+	maxObjSize, err := c.nCli.MaxObjectSize()
+	fatalOnErrDetails("read max object size network setting to determine gRPC recv message limit", err)
+
+	maxRecvSize := maxObjSize
+	// don't forget about meta fields
+	if maxRecvSize < uint64(math.MaxUint64-object.MaxHeaderLen) { // just in case, always true in practice
+		maxRecvSize += object.MaxHeaderLen
+	} else {
+		maxRecvSize = math.MaxUint64
+	}
+
+	var maxRecvMsgSizeOpt grpc.ServerOption
+	if maxRecvSize > maxMsgSize { // do not decrease default value
+		if maxRecvSize > math.MaxInt {
+			// ^2GB for 32-bit systems which is currently enough in practice. If at some
+			// point this is not enough, we'll need to expand the option
+			fatalOnErr(fmt.Errorf("cannot serve NeoFS API over gRPC: object of max size is bigger than gRPC server is able to support %d>%d",
+				maxRecvSize, math.MaxInt))
+		}
+		maxRecvMsgSizeOpt = grpc.MaxRecvMsgSize(int(maxRecvSize))
+		c.log.Debug("limit max recv gRPC message size to fit max stored objects",
+			zap.Uint64("max object size", maxObjSize), zap.Uint64("max recv msg", maxRecvSize))
+	}
+
 	var successCount int
 	grpcconfig.IterateEndpoints(c.cfgReader, func(sc *grpcconfig.Config) {
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
+		}
+		if maxRecvMsgSizeOpt != nil {
+			// TODO(@cthulhu-rider): the setting can be server-global only now, support
+			//  per-RPC limits
+			// TODO(@cthulhu-rider): max object size setting may change in general,
+			//  but server configuration is static now
+			serverOpts = append(serverOpts, maxRecvMsgSizeOpt)
 		}
 
 		tlsCfg := sc.TLS()

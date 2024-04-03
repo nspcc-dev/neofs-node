@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - CLI now allows to create and print eACL with numeric filters (#2742)
 - gRPC connection limits per endpoint (#1240)
 - `neofs-lens object link` command for the new link object inspection (#2799)
+- Storage nodes serve new `ObjectService.Replicate` RPC (#2674)
 
 ### Fixed
 - Access to `PUT` objects no longer grants `DELETE` rights (#2261)
@@ -24,6 +25,7 @@ Changelog for NeoFS Node
 - Storage nodes no longer accept objects with header larger than 16KB (#2749)
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
 - Big objects are split with the new split scheme (#2667)
+- Background replicator transfers objects using new `ObjectService.Replicate` RPC (#2317)
 
 ### Removed
 - Object notifications incl. NATS (#2750)

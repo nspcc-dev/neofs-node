@@ -359,7 +359,10 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
-	server := objectTransportGRPC.New(firstSvc)
+	objNode, err := newNodeForObjects(c.cfgObject.cnrSource, c.netMapSource, sPut, c.IsLocalKey)
+	fatalOnErr(err)
+
+	server := objectTransportGRPC.New(firstSvc, objNode)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -600,4 +603,48 @@ func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
 	h.cache.Add(address, hw.h)
 
 	return hw.h, nil
+}
+
+// nodeForObjects represents NeoFS storage node for object storage.
+type nodeForObjects struct {
+	putObjectService *putsvc.Service
+	containerNodes   *containerNodes
+	isLocalPubKey    func([]byte) bool
+}
+
+func newNodeForObjects(containers containercore.Source, network netmap.Source, putObjectService *putsvc.Service, isLocalPubKey func([]byte) bool) (*nodeForObjects, error) {
+	cnrNodes, err := newContainerNodes(containers, network)
+	if err != nil {
+		return nil, err
+	}
+	return &nodeForObjects{
+		putObjectService: putObjectService,
+		containerNodes:   cnrNodes,
+		isLocalPubKey:    isLocalPubKey,
+	}, nil
+}
+
+// ForEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
+// of each node match the referenced container's storage policy at two latest
+// epochs into f. When f returns false, nil is returned instantly.
+//
+// Implements [object.Node] interface.
+func (x *nodeForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID, f func(pubKey []byte) bool) error {
+	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
+}
+
+// IsOwnPublicKey checks whether given binary-encoded public key is assigned to
+// local storage node in the network map.
+//
+// Implements [object.Node] interface.
+func (x *nodeForObjects) IsOwnPublicKey(pubKey []byte) bool {
+	return x.isLocalPubKey(pubKey)
+}
+
+// VerifyAndStoreObject checks given object's format and, if it is correct,
+// saves the object in the node's local object storage.
+//
+// Implements [object.Node] interface.
+func (x *nodeForObjects) VerifyAndStoreObject(obj objectSDK.Object) error {
+	return x.putObjectService.ValidateAndStoreObjectLocally(obj)
 }
