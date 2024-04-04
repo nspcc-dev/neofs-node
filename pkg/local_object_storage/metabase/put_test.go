@@ -12,13 +12,13 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
 func prepareObjects(t testing.TB, n int) []*objectSDK.Object {
 	cnr := cidtest.ID()
-	parentID := objecttest.ID()
+	parentID := oidtest.ID()
 	objs := make([]*objectSDK.Object, n)
 	for i := range objs {
 		objs[i] = generateObjectWithCID(t, cnr)
