@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Object notifications incl. NATS (#2750)
 - Supporting of `__NEOFS__NETMAP*` X-headers (#2751)
 - Option to use insecure TLS cipher suites (#2755)
+- Counter metrics that were deprecated since v0.38.0 (#2798)
 
 ### Updated
 - Minimum required version of Go to 1.20

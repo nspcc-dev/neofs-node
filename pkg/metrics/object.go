@@ -37,14 +37,6 @@ type (
 
 		shardMetrics   *prometheus.GaugeVec
 		shardsReadonly *prometheus.GaugeVec
-
-		getDurationCounter       prometheus.Counter
-		putDurationCounter       prometheus.Counter
-		headDurationCounter      prometheus.Counter
-		searchDurationCounter    prometheus.Counter
-		deleteDurationCounter    prometheus.Counter
-		rangeDurationCounter     prometheus.Counter
-		rangeHashDurationCounter prometheus.Counter
 	}
 )
 
@@ -145,57 +137,6 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		})
 	)
 
-	var ( // Request duration metrics (deprecated).
-		getDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "get_req_duration",
-			Help:      "Accumulated 'get' request process duration [DEPRECATED]",
-		})
-
-		putDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "put_req_duration",
-			Help:      "Accumulated 'put' request process duration [DEPRECATED]",
-		})
-
-		headDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "head_req_duration",
-			Help:      "Accumulated 'head' request process duration [DEPRECATED]",
-		})
-
-		searchDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "search_req_duration",
-			Help:      "Accumulated 'search' request process duration [DEPRECATED]",
-		})
-
-		deleteDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "delete_req_duration",
-			Help:      "Accumulated 'delete' request process duration [DEPRECATED]",
-		})
-
-		rangeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "range_req_duration",
-			Help:      "Accumulated 'range' request process duration [DEPRECATED]",
-		})
-
-		rangeHashDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: objectSubsystem,
-			Name:      "range_hash_req_duration",
-			Help:      "Accumulated 'range hash' request process duration [DEPRECATED]",
-		})
-	)
-
 	var ( // Object payload metrics.
 		putPayload = prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: storageNodeNameSpace,
@@ -249,14 +190,6 @@ func newObjectServiceMetrics() objectServiceMetrics {
 		getPayload:        getPayload,
 		shardMetrics:      shardsMetrics,
 		shardsReadonly:    shardsReadonly,
-
-		getDurationCounter:       getDurationCounter,
-		putDurationCounter:       putDurationCounter,
-		headDurationCounter:      headDurationCounter,
-		searchDurationCounter:    searchDurationCounter,
-		deleteDurationCounter:    deleteDurationCounter,
-		rangeDurationCounter:     rangeDurationCounter,
-		rangeHashDurationCounter: rangeHashDurationCounter,
 	}
 }
 
@@ -282,14 +215,6 @@ func (m objectServiceMetrics) register() {
 
 	prometheus.MustRegister(m.shardMetrics)
 	prometheus.MustRegister(m.shardsReadonly)
-
-	prometheus.MustRegister(m.getDurationCounter)
-	prometheus.MustRegister(m.putDurationCounter)
-	prometheus.MustRegister(m.headDurationCounter)
-	prometheus.MustRegister(m.searchDurationCounter)
-	prometheus.MustRegister(m.deleteDurationCounter)
-	prometheus.MustRegister(m.rangeDurationCounter)
-	prometheus.MustRegister(m.rangeHashDurationCounter)
 }
 
 func (m objectServiceMetrics) IncGetReqCounter(success bool) {
@@ -321,37 +246,30 @@ func (m objectServiceMetrics) IncRangeHashReqCounter(success bool) {
 }
 
 func (m objectServiceMetrics) AddGetReqDuration(d time.Duration) {
-	m.getDurationCounter.Add(float64(d))
 	m.getDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddPutReqDuration(d time.Duration) {
-	m.putDurationCounter.Add(float64(d))
 	m.putDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddHeadReqDuration(d time.Duration) {
-	m.headDurationCounter.Add(float64(d))
 	m.headDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddSearchReqDuration(d time.Duration) {
-	m.searchDurationCounter.Add(float64(d))
 	m.searchDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddDeleteReqDuration(d time.Duration) {
-	m.deleteDurationCounter.Add(float64(d))
 	m.deleteDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddRangeReqDuration(d time.Duration) {
-	m.rangeDurationCounter.Add(float64(d))
 	m.rangeDuration.Observe(d.Seconds())
 }
 
 func (m objectServiceMetrics) AddRangeHashReqDuration(d time.Duration) {
-	m.rangeHashDurationCounter.Add(float64(d))
 	m.rangeHashDuration.Observe(d.Seconds())
 }
 
