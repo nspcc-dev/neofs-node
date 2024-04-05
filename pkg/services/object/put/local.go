@@ -153,6 +153,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return fmt.Errorf("validate payload content: %w", err)
 	}
 
+	//nolint:exhaustive
 	switch csType {
 	case checksum.SHA256:
 		h := sha256.Sum256(payload)
