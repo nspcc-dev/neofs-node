@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - neofs-cli allows several objects deletion at a time (#2774)
+- `ObjectService.Put` server of in-container node places objects using new `ObjectService.Replicate` RPC (#2802)
 
 ### Removed
 

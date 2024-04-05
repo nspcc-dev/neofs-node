@@ -156,24 +156,6 @@ func (x Node) PublicKey() []byte {
 	return x.key
 }
 
-// IterateContainerKeys iterates placement nodes' keys. Interrupts if passed function
-// returns `true`.
-// Keys may be passed twice if some node belongs to more than one placement vector.
-func (t *Traverser) IterateContainerKeys(f func(key []byte) bool) {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-
-	t.skipEmptyVectors()
-
-	for _, vector := range t.vectors {
-		for _, nodeInfo := range vector {
-			if f(nodeInfo.PublicKey()) {
-				break
-			}
-		}
-	}
-}
-
 // Next returns next unprocessed address of the object placement.
 //
 // Returns nil if no nodes left or traversal operation succeeded.
