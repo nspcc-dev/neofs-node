@@ -13,6 +13,10 @@ import (
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
 	obj *object.Object
+
+	binSet bool
+	objBin []byte
+	hdrLen int
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -21,6 +25,16 @@ type PutRes struct{}
 // SetObject is a Put option to set object to save.
 func (p *PutPrm) SetObject(obj *object.Object) {
 	p.obj = obj
+}
+
+// SetObjectBinary allows to provide the already encoded object in [Shard]
+// format. Object header must be a prefix with specified length. If provided,
+// the encoding step is skipped. It's the caller's responsibility to ensure that
+// the data matches the object structure being processed.
+func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
+	p.binSet = true
+	p.objBin = objBin
+	p.hdrLen = hdrLen
 }
 
 // Put saves the object in shard.
@@ -38,9 +52,18 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 		return PutRes{}, ErrReadOnlyMode
 	}
 
-	data, err := prm.obj.Marshal()
-	if err != nil {
-		return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+	var data []byte
+	var err error
+	if prm.binSet {
+		data = prm.objBin
+	} else {
+		data, err = prm.obj.Marshal()
+		if err != nil {
+			return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
+		}
+		// TODO: currently, we don't need to calculate prm.hdrLen in this case.
+		//  If you do this, then underlying code below for accessing the metabase could
+		//  reuse already encoded header.
 	}
 
 	var putPrm common.PutPrm // form Put parameters
@@ -71,6 +94,9 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if !m.NoMetabase() {
 		var pPrm meta.PutPrm
 		pPrm.SetObject(prm.obj)
+		if prm.binSet {
+			pPrm.SetHeaderBinary(data[:prm.hdrLen])
+		}
 		pPrm.SetStorageID(res.StorageID)
 		if _, err := s.metaBase.Put(pPrm); err != nil {
 			// may we need to handle this case in a special way

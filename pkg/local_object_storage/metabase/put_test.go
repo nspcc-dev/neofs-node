@@ -13,6 +13,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -121,4 +122,49 @@ func metaPut(db *meta.DB, obj *objectSDK.Object, id []byte) error {
 	_, err := db.Put(putPrm)
 
 	return err
+}
+
+func TestDB_PutBinary(t *testing.T) {
+	addr := oidtest.Address()
+
+	obj := objecttest.Object(t)
+	hdr := obj.CutPayload()
+	hdr.SetContainerID(addr.Container())
+	hdr.SetID(addr.Object())
+
+	obj = objecttest.Object(t)
+	hdrEnc := obj.CutPayload()
+	require.NotEqual(t, hdrEnc, hdr)
+	hdrEnc.SetContainerID(addr.Container())
+	hdrEnc.SetID(addr.Object())
+	hdrBin, err := hdrEnc.Marshal()
+	require.NoError(t, err)
+	// although the distinction between a struct and a blob is not the correct
+	// usage, this is how we make the test meaningful. Otherwise, the test will pass
+	// even if implementation completely ignores the binary: header would be encoded
+	// dynamically and the parameter would have no effect. At the same time, for Get
+	// to work we need a match at the address.
+
+	db := newDB(t)
+
+	var putPrm meta.PutPrm
+	putPrm.SetObject(hdr)
+	putPrm.SetHeaderBinary(hdrBin)
+	_, err = db.Put(putPrm)
+	require.NoError(t, err)
+
+	res, err := metaGet(db, addr, false)
+	require.NoError(t, err)
+	require.Equal(t, hdrEnc, res) // exactly encoded
+
+	// now place some garbage
+	addr.SetObject(oidtest.ID())
+	hdr.SetID(addr.Object()) // to avoid 'already exists' outcome
+	putPrm.SetObject(hdr)
+	putPrm.SetHeaderBinary([]byte("definitely not an object"))
+	_, err = db.Put(putPrm)
+	require.NoError(t, err)
+
+	_, err = metaGet(db, addr, false)
+	require.Error(t, err)
 }

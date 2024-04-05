@@ -16,6 +16,10 @@ import (
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
 	obj *objectSDK.Object
+
+	binSet bool
+	objBin []byte
+	hdrLen int
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -28,6 +32,16 @@ var errPutShard = errors.New("could not put object to any shard")
 // Option is required.
 func (p *PutPrm) WithObject(obj *objectSDK.Object) {
 	p.obj = obj
+}
+
+// SetObjectBinary allows to provide the already encoded object in
+// [StorageEngine] format. Object header must be a prefix with specified length.
+// If provided, the encoding step is skipped. It's the caller's responsibility
+// to ensure that the data matches the object structure being processed.
+func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
+	p.binSet = true
+	p.objBin = objBin
+	p.hdrLen = hdrLen
 }
 
 // Put saves the object to local storage.
@@ -72,7 +86,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 			return false
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, prm.obj)
+		putDone, exists := e.putToShard(sh, ind, pool, addr, prm)
 		finished = putDone || exists
 		return finished
 	})
@@ -87,7 +101,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object) (bool, bool) {
+func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})
@@ -128,7 +142,10 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 		}
 
 		var putPrm shard.PutPrm
-		putPrm.SetObject(obj)
+		putPrm.SetObject(prm.obj)
+		if prm.binSet {
+			putPrm.SetObjectBinary(prm.objBin, prm.hdrLen)
+		}
 
 		_, err = sh.Put(putPrm)
 		if err != nil {
