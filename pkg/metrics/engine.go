@@ -120,85 +120,6 @@ func newEngineMetrics() engineMetrics {
 	)
 
 	var (
-		listContainersDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "list_containers_duration",
-			Help:      "Accumulated duration of engine 'list containers' operations [DEPRECATED]",
-		})
-
-		estimateContainerSizeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "estimate_container_size_duration",
-			Help:      "Accumulated duration of engine 'container size estimate' operations [DEPRECATED]",
-		})
-
-		deleteDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "delete_duration",
-			Help:      "Accumulated duration of engine 'delete' operations [DEPRECATED]",
-		})
-
-		existsDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "exists_duration",
-			Help:      "Accumulated duration of engine 'exists' operations [DEPRECATED]",
-		})
-
-		getDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "get_duration",
-			Help:      "Accumulated duration of engine 'get' operations [DEPRECATED]",
-		})
-
-		headDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "head_duration",
-			Help:      "Accumulated duration of engine 'head' operations [DEPRECATED]",
-		})
-
-		inhumeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "inhume_duration",
-			Help:      "Accumulated duration of engine 'inhume' operations [DEPRECATED]",
-		})
-
-		putDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "put_duration",
-			Help:      "Accumulated duration of engine 'put' operations [DEPRECATED]",
-		})
-
-		rangeDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "range_duration",
-			Help:      "Accumulated duration of engine 'range' operations [DEPRECATED]",
-		})
-
-		searchDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "search_duration",
-			Help:      "Accumulated duration of engine 'search' operations [DEPRECATED]",
-		})
-
-		listObjectsDurationCounter = prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: storageNodeNameSpace,
-			Subsystem: engineSubsystem,
-			Name:      "list_objects_duration",
-			Help:      "Accumulated duration of engine 'list objects' operations [DEPRECATED]",
-		})
-	)
-
-	var (
 		containerSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: storageNodeNameSpace,
 			Subsystem: engineSubsystem,
@@ -228,18 +149,6 @@ func newEngineMetrics() engineMetrics {
 		listObjectsDuration:           listObjectsDuration,
 		containerSize:                 *containerSize,
 		payloadSize:                   *payloadSize,
-
-		listContainersDurationCounter:        listContainersDurationCounter,
-		estimateContainerSizeDurationCounter: estimateContainerSizeDurationCounter,
-		deleteDurationCounter:                deleteDurationCounter,
-		existsDurationCounter:                existsDurationCounter,
-		getDurationCounter:                   getDurationCounter,
-		headDurationCounter:                  headDurationCounter,
-		inhumeDurationCounter:                inhumeDurationCounter,
-		putDurationCounter:                   putDurationCounter,
-		rangeDurationCounter:                 rangeDurationCounter,
-		searchDurationCounter:                searchDurationCounter,
-		listObjectsDurationCounter:           listObjectsDurationCounter,
 	}
 }
 
