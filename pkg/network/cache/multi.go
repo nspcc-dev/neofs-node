@@ -329,8 +329,10 @@ func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, epoch uint6
 	})
 }
 
-func (x *multiClient) ExecRaw(_ func(client *rawclient.Client) error) error {
-	panic("multiClient.ExecRaw() must not be called")
+func (x *multiClient) ExecRaw(f func(client *rawclient.Client) error) error {
+	return x.iterateClients(context.Background(), func(c clientcore.Client) error {
+		return c.ExecRaw(f)
+	})
 }
 
 func (x *multiClient) Close() error {
