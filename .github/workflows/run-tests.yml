@@ -104,7 +104,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neofs-s3-gw'
-          version: 'tags/v0.29.0'
+          version: 'tags/v0.30.0'
           file: 'neofs-s3-gw-linux-amd64'
           target: 'neofs-testcases/neofs-s3-gw'
 
@@ -112,7 +112,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neofs-s3-gw'
-          version: 'tags/v0.29.0'
+          version: 'tags/v0.30.0'
           file: 'neofs-s3-authmate-linux-amd64'
           target: 'neofs-testcases/neofs-s3-authmate'
 
