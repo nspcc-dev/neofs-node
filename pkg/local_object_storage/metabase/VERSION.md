@@ -93,6 +93,10 @@ Numbers stand for a single byte value.
   - Name: container ID + `16`
   - Key: split ID
   - Value: list of object IDs
+- Bucket mapping first object ID to a list of objects IDs
+  - Name: container ID + `19`
+  - Key: first object ID
+  - Value: objects for corresponding split chain
 
 # History
 

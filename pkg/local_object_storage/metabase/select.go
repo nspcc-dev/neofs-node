@@ -200,6 +200,9 @@ func (db *DB) selectFastFilter(
 	case object.FilterSplitID:
 		bucketName := splitBucketName(cnr, bucketName)
 		db.selectFromList(tx, bucketName, f, to, fNum)
+	case object.FilterFirstSplitObject:
+		bucketName := firstObjectIDBucketName(cnr, bucketName)
+		db.selectFromList(tx, bucketName, f, to, fNum)
 	case object.FilterRoot:
 		selectAllFromBucket(tx, rootBucketName(cnr, bucketName), to, fNum)
 	case object.FilterPhysical:
