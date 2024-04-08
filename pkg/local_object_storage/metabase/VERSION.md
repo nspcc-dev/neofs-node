@@ -5,6 +5,7 @@ This file describes changes between the metabase versions.
 ## Current
 
 Numbers stand for a single byte value.
+The lowest not used bucket index: 20.
 
 ### Primary buckets
 - Graveyard bucket
