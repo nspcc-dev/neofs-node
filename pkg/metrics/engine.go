@@ -8,18 +8,6 @@ import (
 
 type (
 	engineMetrics struct {
-		listContainersDurationCounter        prometheus.Counter
-		estimateContainerSizeDurationCounter prometheus.Counter
-		deleteDurationCounter                prometheus.Counter
-		existsDurationCounter                prometheus.Counter
-		getDurationCounter                   prometheus.Counter
-		headDurationCounter                  prometheus.Counter
-		inhumeDurationCounter                prometheus.Counter
-		putDurationCounter                   prometheus.Counter
-		rangeDurationCounter                 prometheus.Counter
-		searchDurationCounter                prometheus.Counter
-		listObjectsDurationCounter           prometheus.Counter
-
 		listContainersDuration        prometheus.Histogram
 		estimateContainerSizeDuration prometheus.Histogram
 		deleteDuration                prometheus.Histogram
@@ -166,72 +154,49 @@ func (m engineMetrics) register() {
 	prometheus.MustRegister(m.listObjectsDuration)
 	prometheus.MustRegister(m.containerSize)
 	prometheus.MustRegister(m.payloadSize)
-
-	prometheus.MustRegister(m.listContainersDurationCounter)
-	prometheus.MustRegister(m.estimateContainerSizeDurationCounter)
-	prometheus.MustRegister(m.deleteDurationCounter)
-	prometheus.MustRegister(m.existsDurationCounter)
-	prometheus.MustRegister(m.getDurationCounter)
-	prometheus.MustRegister(m.headDurationCounter)
-	prometheus.MustRegister(m.inhumeDurationCounter)
-	prometheus.MustRegister(m.putDurationCounter)
-	prometheus.MustRegister(m.rangeDurationCounter)
-	prometheus.MustRegister(m.searchDurationCounter)
-	prometheus.MustRegister(m.listObjectsDurationCounter)
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
-	m.listObjectsDurationCounter.Add(float64(d))
 	m.listObjectsDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddEstimateContainerSizeDuration(d time.Duration) {
-	m.estimateContainerSizeDurationCounter.Add(float64(d))
 	m.estimateContainerSizeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddDeleteDuration(d time.Duration) {
-	m.deleteDurationCounter.Add(float64(d))
 	m.deleteDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddExistsDuration(d time.Duration) {
-	m.existsDurationCounter.Add(float64(d))
 	m.existsDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddGetDuration(d time.Duration) {
-	m.getDurationCounter.Add(float64(d))
 	m.getDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddHeadDuration(d time.Duration) {
-	m.headDurationCounter.Add(float64(d))
 	m.headDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddInhumeDuration(d time.Duration) {
-	m.inhumeDurationCounter.Add(float64(d))
 	m.inhumeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddPutDuration(d time.Duration) {
-	m.putDurationCounter.Add(float64(d))
 	m.putDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddRangeDuration(d time.Duration) {
-	m.rangeDurationCounter.Add(float64(d))
 	m.rangeDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddSearchDuration(d time.Duration) {
-	m.searchDurationCounter.Add(float64(d))
 	m.searchDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddListObjectsDuration(d time.Duration) {
-	m.listObjectsDurationCounter.Add(float64(d))
 	m.listObjectsDuration.Observe(d.Seconds())
 }
 
