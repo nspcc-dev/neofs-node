@@ -22,24 +22,16 @@ func newContainerNodes(containers container.Source, network netmap.Source) (*con
 	}, nil
 }
 
-// forEachNodePubKeyInSets passes binary-encoded public key of each node into f.
-// When f returns false, forEachNodePubKeyInSets returns false instantly.
-// Otherwise, true is returned.
-func forEachNodePubKeyInSets(nodeSets [][]netmapsdk.NodeInfo, f func(pubKey []byte) bool) bool {
-	for i := range nodeSets {
-		for j := range nodeSets[i] {
-			if !f(nodeSets[i][j].PublicKey()) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 // forEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
 // of each node match the referenced container's storage policy at two latest
 // epochs into f. When f returns false, nil is returned instantly.
 func (x *containerNodes) forEachContainerNodePublicKeyInLastTwoEpochs(cnrID cid.ID, f func(pubKey []byte) bool) error {
+	return x.forEachContainerNode(cnrID, true, func(node netmapsdk.NodeInfo) bool {
+		return f(node.PublicKey())
+	})
+}
+
+func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, f func(netmapsdk.NodeInfo) bool) error {
 	epoch, err := x.network.Epoch()
 	if err != nil {
 		return fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -61,7 +53,15 @@ func (x *containerNodes) forEachContainerNodePublicKeyInLastTwoEpochs(cnrID cid.
 		return fmt.Errorf("apply container's storage policy to the network map at epoch #%d: %w", epoch, err)
 	}
 
-	if !forEachNodePubKeyInSets(ns, f) || epoch == 0 {
+	for i := range ns {
+		for j := range ns[i] {
+			if !f(ns[i][j]) {
+				return nil
+			}
+		}
+	}
+
+	if !withPrevEpoch || epoch == 0 {
 		return nil
 	}
 
@@ -77,7 +77,13 @@ func (x *containerNodes) forEachContainerNodePublicKeyInLastTwoEpochs(cnrID cid.
 		return fmt.Errorf("apply container's storage policy to the network map at epoch #%d: %w", epoch, err)
 	}
 
-	forEachNodePubKeyInSets(ns, f)
+	for i := range ns {
+		for j := range ns[i] {
+			if !f(ns[i][j]) {
+				return nil
+			}
+		}
+	}
 
 	return nil
 }

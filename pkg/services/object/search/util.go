@@ -4,12 +4,9 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -31,12 +28,6 @@ type clientWrapper struct {
 
 type storageEngineWrapper struct {
 	storage *engine.StorageEngine
-}
-
-type traverseGeneratorWrapper util.TraverserGenerator
-
-type nmSrcWrapper struct {
-	nmSrc netmap.Source
 }
 
 func newUniqueAddressWriter(w IDListWriter) IDListWriter {
@@ -137,12 +128,4 @@ func idsFromAddresses(addrs []oid.Address) []oid.ID {
 	}
 
 	return ids
-}
-
-func (e *traverseGeneratorWrapper) generateTraverser(cnr cid.ID, epoch uint64) (*placement.Traverser, error) {
-	return (*util.TraverserGenerator)(e).GenerateTraverser(cnr, nil, epoch)
-}
-
-func (n *nmSrcWrapper) currentEpoch() (uint64, error) {
-	return n.nmSrc.Epoch()
 }

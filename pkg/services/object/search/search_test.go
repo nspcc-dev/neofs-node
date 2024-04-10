@@ -34,7 +34,7 @@ type testStorage struct {
 	items map[string]idsErr
 }
 
-type testTraverserGenerator struct {
+type testContainers struct {
 	c container.Container
 	b placement.Builder
 }
@@ -51,12 +51,6 @@ type simpleIDWriter struct {
 	ids []oid.ID
 }
 
-type testEpochReceiver uint64
-
-func (e testEpochReceiver) currentEpoch() (uint64, error) {
-	return uint64(e), nil
-}
-
 func (s *simpleIDWriter) WriteIDs(ids []oid.ID) error {
 	s.ids = append(s.ids, ids...)
 	return nil
@@ -68,12 +62,20 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) generateTraverser(_ cid.ID, _ uint64) (*placement.Traverser, error) {
-	return placement.NewTraverser(
-		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b),
-		placement.WithoutSuccessTracking(),
-	)
+func (g *testContainers) ForEachRemoteContainerNode(cnr cid.ID, f func(info netmap.NodeInfo)) error {
+	var anyPolicy netmap.PlacementPolicy // policy is ignored in this test
+	nodeSets, err := g.b.BuildPlacement(cnr, nil, anyPolicy)
+	if err != nil {
+		return err
+	}
+
+	for i := range nodeSets {
+		for j := range nodeSets[i] {
+			f(nodeSets[i][j])
+		}
+	}
+
+	return nil
 }
 
 func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
@@ -258,14 +260,11 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.log = test.NewLogger(false)
 		svc.localStorage = newTestStorage()
 
-		const curEpoch = 13
-
-		svc.traverserGenerator = &testTraverserGenerator{
+		svc.containers = &testContainers{
 			c: cnr,
 			b: b,
 		}
 		svc.clientConstructor = c
-		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
 	}
