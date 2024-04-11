@@ -41,6 +41,7 @@ func (exec *execCtx) processEpoch(epoch uint64) bool {
 	defer cancel()
 
 	exec.status = statusUndefined
+	mProcessedNodes := make(map[string]struct{})
 
 	for {
 		addrs := traverser.Next()
@@ -60,6 +61,13 @@ func (exec *execCtx) processEpoch(epoch uint64) bool {
 				return true
 			default:
 			}
+
+			strKey := string(addrs[i].PublicKey())
+			if _, ok = mProcessedNodes[strKey]; ok {
+				continue
+			}
+
+			mProcessedNodes[strKey] = struct{}{}
 
 			// TODO: #1142 consider parallel execution
 			// TODO: #1142 consider optimization: if status == SPLIT we can continue until

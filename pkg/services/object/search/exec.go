@@ -83,7 +83,11 @@ func (exec *execCtx) generateTraverser(cnr cid.ID, epoch uint64) (*placement.Tra
 }
 
 func (exec *execCtx) writeIDList(ids []oid.ID) {
-	err := exec.prm.writer.WriteIDs(ids)
+	var err error
+
+	if len(ids) > 0 {
+		err = exec.prm.writer.WriteIDs(ids)
+	}
 
 	switch {
 	default:

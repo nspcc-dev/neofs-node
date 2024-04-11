@@ -45,6 +45,8 @@ func (exec *execCtx) processEpoch(epoch uint64) bool {
 	ctx, cancel := context.WithCancel(exec.context())
 	defer cancel()
 
+	mProcessedNodes := make(map[string]struct{})
+
 	for {
 		addrs := traverser.Next()
 		if len(addrs) == 0 {
@@ -56,6 +58,13 @@ func (exec *execCtx) processEpoch(epoch uint64) bool {
 		var mtx sync.Mutex
 
 		for i := range addrs {
+			strKey := string(addrs[i].PublicKey())
+			if _, ok = mProcessedNodes[strKey]; ok {
+				continue
+			}
+
+			mProcessedNodes[strKey] = struct{}{}
+
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()

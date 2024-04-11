@@ -210,8 +210,12 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 				strconv.Itoa(60000+j),
 			)
 
+			bPubKey := make([]byte, 33)
+			rand.Read(bPubKey)
+
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)
+			ni.SetPublicKey(bPubKey)
 
 			var na network.AddressGroup
 
