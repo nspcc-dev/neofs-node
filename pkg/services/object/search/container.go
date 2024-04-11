@@ -2,7 +2,6 @@ package searchsvc
 
 import (
 	"context"
-	"encoding/hex"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -35,13 +34,15 @@ func (exec *execCtx) executeOnContainer() {
 
 		mProcessedNodes[strKey] = struct{}{}
 
+		lg := exec.log.With(zap.String("public key", netmap.StringifyPublicKey(node)))
+
 		var endpoints network.AddressGroup
 		err := endpoints.FromIterator(network.NodeEndpointsIterator(node))
 		if err != nil {
 			// critical error that may ultimately block the storage service. Normally it
 			// should not appear because entry into the network map under strict control.
-			exec.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
-				zap.String("public key", netmap.StringifyPublicKey(node)), zap.Error(err))
+			lg.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+				zap.Error(err))
 			return
 		}
 
@@ -53,8 +54,7 @@ func (exec *execCtx) executeOnContainer() {
 			err = externalEndpoints.FromStringSlice(ext)
 			if err != nil {
 				// less critical since the main ones must work, but also important
-				exec.log.Warn("failed to decode external network endpoints of the storage node from the network map, ignore them",
-					zap.String("public key", netmap.StringifyPublicKey(node)),
+				lg.Warn("failed to decode external network endpoints of the storage node from the network map, ignore them",
 					zap.Strings("endpoints", ext), zap.Error(err))
 			} else {
 				info.SetExternalAddressGroup(externalEndpoints)
@@ -66,13 +66,13 @@ func (exec *execCtx) executeOnContainer() {
 			defer wg.Done()
 			select {
 			case <-ctx.Done():
-				exec.log.Debug("interrupt placement iteration by context",
+				lg.Debug("interrupt placement iteration by context",
 					zap.String("error", ctx.Err().Error()))
 				return
 			default:
 			}
 
-			exec.log.Debug("processing node...", zap.String("public key", hex.EncodeToString(node.PublicKey())))
+			lg.Debug("processing node...")
 
 			c, err := exec.svc.clientConstructor.get(info)
 			if err != nil {
@@ -81,13 +81,13 @@ func (exec *execCtx) executeOnContainer() {
 				exec.err = err
 				mtx.Unlock()
 
-				exec.log.Debug("could not construct remote node client")
+				lg.Debug("could not construct remote node client")
 				return
 			}
 
 			ids, err := c.searchObjects(exec, info)
 			if err != nil {
-				exec.log.Debug("remote operation failed",
+				lg.Debug("remote operation failed",
 					zap.String("error", err.Error()))
 
 				return
