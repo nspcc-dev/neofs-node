@@ -26,6 +26,8 @@ type PutPrm struct {
 	obj *objectSDK.Object
 
 	id []byte
+
+	hdrBin []byte
 }
 
 // PutRes groups the resulting values of Put operation.
@@ -39,6 +41,14 @@ func (p *PutPrm) SetObject(obj *objectSDK.Object) {
 // SetStorageID is a Put option to set storage ID to save.
 func (p *PutPrm) SetStorageID(id []byte) {
 	p.id = id
+}
+
+// SetHeaderBinary allows to provide the already encoded object header in [DB]
+// format. If provided, the encoding step is skipped. It's the caller's
+// responsibility to ensure that the data matches the object structure being
+// processed.
+func (p *PutPrm) SetHeaderBinary(hdrBin []byte) {
+	p.hdrBin = hdrBin
 }
 
 var (
@@ -64,7 +74,7 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, prm.obj, prm.id, nil, currEpoch)
+		return db.put(tx, prm.obj, prm.id, nil, currEpoch, prm.hdrBin)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -77,7 +87,7 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object, id []byte,
-	si *objectSDK.SplitInfo, currEpoch uint64) error {
+	si *objectSDK.SplitInfo, currEpoch uint64, hdrBin []byte) error {
 	cnr, ok := obj.ContainerID()
 	if !ok {
 		return errors.New("missing container in object")
@@ -119,14 +129,14 @@ func (db *DB) put(
 				return err
 			}
 
-			err = db.put(tx, par, id, parentSI, currEpoch)
+			err = db.put(tx, par, id, parentSI, currEpoch, nil)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	err = putUniqueIndexes(tx, obj, si, id)
+	err = putUniqueIndexes(tx, obj, si, id, hdrBin)
 	if err != nil {
 		return fmt.Errorf("can't put unique indexes: %w", err)
 	}
@@ -171,6 +181,7 @@ func putUniqueIndexes(
 	obj *objectSDK.Object,
 	si *objectSDK.SplitInfo,
 	id []byte,
+	hdrBin []byte,
 ) error {
 	isParent := si != nil
 	addr := objectCore.AddressOf(obj)
@@ -195,15 +206,18 @@ func putUniqueIndexes(
 			return ErrUnknownObjectType
 		}
 
-		rawObject, err := obj.CutPayload().Marshal()
-		if err != nil {
-			return fmt.Errorf("can't marshal object header: %w", err)
+		var err error
+		if hdrBin == nil {
+			hdrBin, err = obj.CutPayload().Marshal()
+			if err != nil {
+				return fmt.Errorf("can't marshal object header: %w", err)
+			}
 		}
 
 		err = putUniqueIndexItem(tx, namedBucketItem{
 			name: bucketName,
 			key:  objKey,
-			val:  rawObject,
+			val:  hdrBin,
 		})
 		if err != nil {
 			return err
