@@ -56,7 +56,7 @@ func testContainer(owner user.ID) container.Container {
 	r.SetNumberOfObjects(1)
 
 	var pp netmapSDK.PlacementPolicy
-	pp.AddReplicas(r)
+	pp.SetReplicas([]netmapSDK.ReplicaDescriptor{r})
 
 	var cnt container.Container
 	cnt.SetOwner(owner)
