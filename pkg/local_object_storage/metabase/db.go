@@ -258,7 +258,7 @@ func unknownMatcherBucket(_ *bbolt.Bucket, _ string, _ string, _ func([]byte, []
 // in boltDB. Useful for getting filter values from unique and list indexes.
 func bucketKeyHelper(hdr string, val string) []byte {
 	switch hdr {
-	case object.FilterParentID:
+	case object.FilterParentID, object.FilterFirstSplitObject:
 		v, err := base58.Decode(val)
 		if err != nil {
 			return nil

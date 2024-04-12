@@ -212,6 +212,11 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("split id index cleanup: %w", err)
 		}
 
+		err = tx.DeleteBucket(firstObjectIDBucketName(cID, buff))
+		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			return fmt.Errorf("first object id index cleanup: %w", err)
+		}
+
 		// Attributes index
 		var keysToDelete [][]byte // see https://github.com/etcd-io/bbolt/issues/146
 		c := tx.Cursor()

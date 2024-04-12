@@ -163,8 +163,11 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	err = putBig(db, sg)
 	require.NoError(t, err)
 
+	firstChild := oidtest.ID()
+
 	leftChild := generateObjectWithCID(t, cnr)
 	leftChild.InitRelations()
+	leftChild.SetFirstID(firstChild)
 	err = putBig(db, leftChild)
 	require.NoError(t, err)
 
@@ -177,6 +180,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 
 	rightChild := generateObjectWithCID(t, cnr)
 	rightChild.SetParent(parent)
+	rightChild.SetFirstID(firstChild)
 	idParent, _ := parent.ID()
 	rightChild.SetParentID(idParent)
 	err = putBig(db, rightChild)
@@ -185,6 +189,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	link := generateObjectWithCID(t, cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
+	link.SetFirstID(firstChild)
 	idLeftChild, _ := leftChild.ID()
 	idRightChild, _ := rightChild.ID()
 	link.SetChildren(idLeftChild, idRightChild)
@@ -297,6 +302,15 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 		fs = objectSDK.SearchFilters{}
 		fs.AddFilter(objectSDK.FilterParentID, "", objectSDK.MatchNotPresent)
 		testSelect(t, db, cnr, fs)
+
+		fs = objectSDK.SearchFilters{}
+		fs.AddFirstSplitObjectFilter(objectSDK.MatchStringEqual, firstChild)
+
+		testSelect(t, db, cnr, fs,
+			object.AddressOf(leftChild),
+			object.AddressOf(rightChild),
+			object.AddressOf(link),
+		)
 	})
 
 	t.Run("all objects", func(t *testing.T) {

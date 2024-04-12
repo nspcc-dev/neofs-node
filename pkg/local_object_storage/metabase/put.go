@@ -295,6 +295,21 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 		}
 	}
 
+	// index first object id
+	if firstID, set := obj.FirstID(); set {
+		rawFirstID := make([]byte, objectKeySize)
+		firstID.Encode(rawFirstID)
+
+		err := f(tx, namedBucketItem{
+			name: firstObjectIDBucketName(cnr, bucketName),
+			key:  rawFirstID,
+			val:  objKey,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

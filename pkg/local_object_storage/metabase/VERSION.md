@@ -5,6 +5,7 @@ This file describes changes between the metabase versions.
 ## Current
 
 Numbers stand for a single byte value.
+The lowest not used bucket index: 20.
 
 ### Primary buckets
 - Graveyard bucket
@@ -41,58 +42,62 @@ Numbers stand for a single byte value.
     - `logic_counter` -> shard's logical object counter as little-endian uint64
 
 ### Unique index buckets
-- Buckets containing objects of REGULAR type
+- Bucket containing objects of REGULAR type
   - Name: container ID
   - Key: object ID
   - Value: marshalled object
-- Buckets containing objects of LOCK type
+- Bucket containing objects of LOCK type
   - Name: container ID + `7`
   - Key: object ID
   - Value: marshalled object
-- Buckets containing objects of STORAGEGROUP type
+- Bucket containing objects of STORAGEGROUP type
   - Name: container ID + 8
   - Key: object ID
   - Value: marshaled object
-- Buckets containing objects of TOMBSTONE type
+- Bucket containing objects of TOMBSTONE type
   - Name: container ID + `9`
   - Key: object ID
   - Value: marshaled object
-- Buckets containing object or LINK type
+- Bucket containing object or LINK type
   - Name: container ID + `18`
   - Key: object ID
   - Value: marshaled object
-- Buckets mapping objects to the storage ID they are stored in
+- Bucket mapping objects to the storage ID they are stored in
   - Name: container ID + `10`
   - Key: object ID
   - Value: storage ID
-- Buckets for mapping parent object to the split info
+- Bucket for mapping parent object to the split info
   - Name: container ID + `11`
   - Key: object ID
   - Value: split info
 
 ### FKBT index buckets
-- Buckets mapping owner to object IDs
+- Bucket mapping owner to object IDs
   - Name: containerID + `12`
   - Key: owner ID as base58 string
   - Value: bucket containing object IDs as keys
-- Buckets containing objects attributes indexes
+- Bucket containing objects attributes indexes
   - Name: containerID + `13` + attribute key
   - Key: attribute value
   - Value: bucket containing object IDs as keys
 
 ### List index buckets
-- Buckets mapping payload hash to a list of object IDs
+- Bucket mapping payload hash to a list of object IDs
   - Name: container ID + `14`
   - Key: payload hash
   - Value: list of object IDs
-- Buckets mapping parent ID to a list of children IDs
+- Bucket mapping parent ID to a list of children IDs
   - Name: container ID + `15`
   - Key: parent ID
   - Value: list of children object IDs
-- Buckets mapping split ID to a list of object IDs
+- Bucket mapping split ID to a list of object IDs
   - Name: container ID + `16`
   - Key: split ID
   - Value: list of object IDs
+- Bucket mapping first object ID to a list of objects IDs
+  - Name: container ID + `19`
+  - Key: first object ID
+  - Value: objects for corresponding split chain
 
 # History
 

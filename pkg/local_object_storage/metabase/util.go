@@ -125,6 +125,11 @@ const (
 	//  Key: object ID
 	//  Value: marshaled object
 	linkObjectsPrefix
+
+	// firstObjectIDPrefix is used for prefixing List index buckets mapping first object ID to a list of objects IDs.
+	//  Key: first object ID
+	//  Value: list of object IDs
+	firstObjectIDPrefix
 )
 
 const (
@@ -206,6 +211,10 @@ func parentBucketName(cnr cid.ID, key []byte) []byte {
 // splitBucketName returns <CID>_splitid.
 func splitBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, splitPrefix, key)
+}
+
+func firstObjectIDBucketName(cnr cid.ID, key []byte) []byte {
+	return bucketName(cnr, firstObjectIDPrefix, key)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.
