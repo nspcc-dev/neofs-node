@@ -245,7 +245,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	}
 
 	var pp netmap.PlacementPolicy
-	pp.AddReplicas(rs...)
+	pp.SetReplicas(rs)
 
 	var cnr container.Container
 	cnr.SetPlacementPolicy(pp)

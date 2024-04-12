@@ -62,7 +62,7 @@ func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, container.C
 	}
 
 	var policy netmap.PlacementPolicy
-	policy.AddReplicas(replicas...)
+	policy.SetReplicas(replicas)
 
 	var cnr container.Container
 	cnr.SetPlacementPolicy(policy)
