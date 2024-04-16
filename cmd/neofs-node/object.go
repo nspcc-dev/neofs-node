@@ -287,8 +287,6 @@ func initObjectService(c *cfg) {
 
 	sDelete := deletesvc.New(
 		deletesvc.WithLogger(c.log),
-		deletesvc.WithHeadService(sGet),
-		deletesvc.WithSearchService(sSearch),
 		deletesvc.WithPutService(sPut),
 		deletesvc.WithNetworkInfo(&delNetInfo{
 			State:      c.cfgNetmap.state,

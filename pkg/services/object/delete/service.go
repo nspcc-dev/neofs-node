@@ -2,11 +2,8 @@ package deletesvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -35,20 +32,6 @@ type NetworkInfo interface {
 
 type cfg struct {
 	log *zap.Logger
-
-	header interface {
-		// must return (nil, nil) for PHY objects
-		splitInfo(*execCtx) (*object.SplitInfo, error)
-
-		children(*execCtx) ([]oid.ID, error)
-
-		// must return (nil, nil) for 1st object in chain
-		previous(*execCtx, oid.ID) (*oid.ID, error)
-	}
-
-	searcher interface {
-		splitMembers(*execCtx) ([]oid.ID, error)
-	}
 
 	placer interface {
 		put(*execCtx) (*oid.ID, error)
@@ -83,21 +66,6 @@ func New(opts ...Option) *Service {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l.With(zap.String("component", "Object.Delete service"))
-	}
-}
-
-// WithHeadService returns option to set Head service
-// to work with object headers.
-func WithHeadService(h *getsvc.Service) Option {
-	return func(c *cfg) {
-		c.header = (*headSvcWrapper)(h)
-	}
-}
-
-// WithSearchService returns option to set search service.
-func WithSearchService(s *searchsvc.Service) Option {
-	return func(c *cfg) {
-		c.searcher = (*searchSvcWrapper)(s)
 	}
 }
 
