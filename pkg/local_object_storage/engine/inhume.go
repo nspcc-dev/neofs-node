@@ -141,11 +141,96 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 
 // Returns ok if object was inhumed during this invocation or before.
 func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (bool, error) {
-	root := false
 	var errLocked apistatus.ObjectLocked
 	var existPrm shard.ExistsPrm
 	var retErr error
 	var ok bool
+
+	var root bool
+	var children []oid.Address
+
+	// see if the object is root
+	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+		existPrm.SetAddress(addr)
+
+		_, err := sh.Exists(existPrm)
+		if err != nil {
+			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
+				// inhumed once - no need to be inhumed again
+				ok = true
+				return true
+			}
+
+			var siErr *objectSDK.SplitInfoError
+			if !errors.As(err, &siErr) {
+				e.reportShardError(sh, "could not check for presents in shard", err)
+				return
+			}
+
+			root = true
+
+			// object is root; every container node is expected to store
+			// link object and link object existence (root object upload
+			// has been finished) should be ensured on the upper levels
+			linkID, set := siErr.SplitInfo().Link()
+			if !set {
+				// keep searching for the link object
+				return false
+			}
+
+			var linkAddr oid.Address
+			linkAddr.SetContainer(addr.Container())
+			linkAddr.SetObject(linkID)
+
+			var getPrm GetPrm
+			getPrm.WithAddress(linkAddr)
+
+			res, err := e.Get(getPrm)
+			if err != nil {
+				e.log.Error("inhuming root object but no link object is found", zap.Error(err))
+
+				// nothing can be done here, so just returning ok
+				// to continue handling other addresses
+				ok = true
+
+				return true
+			}
+
+			linkObj := res.Object()
+
+			// v2 split
+			if linkObj.Type() == objectSDK.TypeLink {
+				var link objectSDK.Link
+				err := linkObj.ReadLink(&link)
+				if err != nil {
+					e.log.Error("inhuming root object but link object cannot be read", zap.Error(err))
+
+					// nothing can be done here, so just returning ok
+					// to continue handling other addresses
+					ok = true
+
+					return true
+				}
+
+				children = measuredObjsToAddresses(addr.Container(), link.Objects())
+			} else {
+				// v1 split
+				children = oIDsToAddresses(addr.Container(), linkObj.Children())
+			}
+
+			children = append(children, linkAddr)
+
+			return true
+		}
+
+		return false
+	})
+
+	if ok {
+		return true, nil
+	}
+
+	prm.SetTargets(append(children, addr)...)
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
@@ -155,28 +240,6 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 				stop = false
 			}
 		}()
-
-		if checkExists {
-			existPrm.SetAddress(addr)
-			exRes, err := sh.Exists(existPrm)
-			if err != nil {
-				if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
-					// inhumed once - no need to be inhumed again
-					ok = true
-					return true
-				}
-
-				var siErr *objectSDK.SplitInfoError
-				if !errors.As(err, &siErr) {
-					e.reportShardError(sh, "could not check for presents in shard", err)
-					return
-				}
-
-				root = true
-			} else if !exRes.Exists() {
-				return
-			}
-		}
 
 		_, err := sh.Inhume(prm)
 		if err != nil {
@@ -278,4 +341,30 @@ func (e *StorageEngine) processDeletedLocks(ctx context.Context, lockers []oid.A
 			return false
 		}
 	})
+}
+
+func measuredObjsToAddresses(cID cid.ID, mm []objectSDK.MeasuredObject) []oid.Address {
+	var addr oid.Address
+	addr.SetContainer(cID)
+
+	res := make([]oid.Address, 0, len(mm))
+	for i := range mm {
+		addr.SetObject(mm[i].ObjectID())
+		res = append(res, addr)
+	}
+
+	return res
+}
+
+func oIDsToAddresses(cID cid.ID, oo []oid.ID) []oid.Address {
+	var addr oid.Address
+	addr.SetContainer(cID)
+
+	res := make([]oid.Address, 0, len(oo))
+	for _, o := range oo {
+		addr.SetObject(o)
+		res = append(res, addr)
+	}
+
+	return res
 }

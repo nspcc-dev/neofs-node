@@ -6,8 +6,10 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,8 +79,36 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
 
-		addrs, err := Select(e, cnr, fs)
-		require.NoError(t, err)
-		require.Empty(t, addrs)
+		t.Run("empty search should fail", func(t *testing.T) {
+			addrs, err := Select(e, cnr, objectSDK.SearchFilters{})
+			require.NoError(t, err)
+			require.Empty(t, addrs)
+		})
+
+		t.Run("root search should fail", func(t *testing.T) {
+			addrs, err := Select(e, cnr, fs)
+			require.NoError(t, err)
+			require.Empty(t, addrs)
+		})
+
+		t.Run("child get should claim deletion", func(t *testing.T) {
+			var addr oid.Address
+			addr.SetContainer(cnr)
+			addr.SetObject(idChild)
+
+			_, err = Get(e, addr)
+			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+
+			linkID, _ := link.ID()
+			addr.SetObject(linkID)
+
+			_, err = Get(e, addr)
+			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+		})
+
+		t.Run("parent get should claim deletion", func(t *testing.T) {
+			_, err = Get(e, object.AddressOf(parent))
+			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
+		})
 	})
 }
