@@ -288,7 +288,6 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, errTombstoneExpiration
 		}
 
-		// mark all objects from the tombstone body as removed in the storage engine
 		_, ok := o.ContainerID()
 		if !ok {
 			return ContentMeta{}, errors.New("missing container ID")
