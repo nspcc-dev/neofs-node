@@ -99,17 +99,12 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}
 
-		ok, err := e.inhumeAddr(prm.addrs[i], shPrm, true)
+		ok, err := e.inhumeAddr(prm.addrs[i], shPrm)
 		if err != nil {
 			return InhumeRes{}, err
 		}
 		if !ok {
-			ok, err := e.inhumeAddr(prm.addrs[i], shPrm, false)
-			if err != nil {
-				return InhumeRes{}, err
-			} else if !ok {
-				return InhumeRes{}, errInhumeFailure
-			}
+			return InhumeRes{}, errInhumeFailure
 		}
 	}
 
@@ -140,7 +135,7 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkExists bool) (bool, error) {
+func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool, error) {
 	var errLocked apistatus.ObjectLocked
 	var existPrm shard.ExistsPrm
 	var retErr error
@@ -236,7 +231,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm, checkE
 		defer func() {
 			// if object is root we continue since information about it
 			// can be presented in other shards
-			if checkExists && root {
+			if root {
 				stop = false
 			}
 		}()
