@@ -94,7 +94,7 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 		}
 
 		if prm.tombstone != nil {
-			shPrm.SetTarget(*prm.tombstone, prm.addrs[i])
+			shPrm.InhumeByTomb(*prm.tombstone, prm.addrs[i])
 		} else {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}

@@ -21,19 +21,21 @@ type InhumePrm struct {
 // InhumeRes encapsulates results of inhume operation.
 type InhumeRes struct{}
 
-// SetTarget sets a list of objects that should be inhumed and tombstone address
+// InhumeByTomb sets a list of objects that should be inhumed and tombstone address
 // as the reason for inhume operation.
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) SetTarget(tombstone oid.Address, addrs ...oid.Address) {
-	p.target = addrs
-	p.tombstone = &tombstone
+func (p *InhumePrm) InhumeByTomb(tombstone oid.Address, addrs ...oid.Address) {
+	if p != nil {
+		p.target = addrs
+		p.tombstone = &tombstone
+	}
 }
 
 // MarkAsGarbage marks object to be physically removed from shard.
 //
-// Should not be called along with SetTarget.
+// Should not be called along with InhumeByTomb.
 func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) {
 	if p != nil {
 		p.target = addr
@@ -47,6 +49,13 @@ func (p *InhumePrm) ForceRemoval() {
 	if p != nil {
 		p.tombstone = nil
 		p.forceRemoval = true
+	}
+}
+
+// SetTargets sets targets and does not change inhuming operation (GC or Tombstone).
+func (p *InhumePrm) SetTargets(addrs ...oid.Address) {
+	if p != nil {
+		p.target = addrs
 	}
 }
 
