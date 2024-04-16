@@ -142,6 +142,12 @@ func WithSplitChainVerifier(sv object.SplitVerifier) Option {
 	}
 }
 
+func WithTombstoneVerifier(tv object.TombVerifier) Option {
+	return func(c *cfg) {
+		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithTombVerifier(tv))
+	}
+}
+
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientConstructor = v

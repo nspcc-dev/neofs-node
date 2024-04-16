@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Response exceeding the deadline for TLS errors (#2561)
 - `neofs-adm morph generate-storage-wallet` was not able to read `--initial-gas` flag (#2766)
 - Inter-node connections closed on any status response (#2767)
+- Child objects were available for deletion despite any lock relations (#2093)
 
 ### Changed
 - IR now checks format of NULL and numeric eACL filters specified in the protocol (#2742)
@@ -26,6 +27,7 @@ Changelog for NeoFS Node
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
 - Big objects are split with the new split scheme (#2667)
 - Background replicator transfers objects using new `ObjectService.Replicate` RPC (#2317)
+- Tombstone objects are not allowed to store child objects (incomplete puts are exceptional) (#2810)  
 
 ### Removed
 - Object notifications incl. NATS (#2750)

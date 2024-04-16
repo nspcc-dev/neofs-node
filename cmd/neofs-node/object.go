@@ -30,6 +30,7 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
@@ -246,25 +247,6 @@ func initObjectService(c *cfg) {
 		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sPut := putsvc.NewService(
-		putsvc.WithKeyStorage(keyStorage),
-		putsvc.WithClientConstructor(putConstructor),
-		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
-		putsvc.WithObjectStorage(storageEngine{engine: ls}),
-		putsvc.WithContainerSource(c.cfgObject.cnrSource),
-		putsvc.WithNetworkMapSource(c.netMapSource),
-		putsvc.WithNetmapKeys(c),
-		putsvc.WithNetworkState(c.cfgNetmap.state),
-		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
-		putsvc.WithLogger(c.log),
-		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
-	)
-
-	sPutV2 := putsvcV2.NewService(
-		putsvcV2.WithInternalService(sPut),
-		putsvcV2.WithKey(&c.key.PrivateKey),
-	)
-
 	sSearch := searchsvc.New(
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
@@ -281,6 +263,26 @@ func initObjectService(c *cfg) {
 	sSearchV2 := searchsvcV2.NewService(
 		searchsvcV2.WithInternalService(sSearch),
 		searchsvcV2.WithKeyStorage(keyStorage),
+	)
+
+	sPut := putsvc.NewService(
+		putsvc.WithKeyStorage(keyStorage),
+		putsvc.WithClientConstructor(putConstructor),
+		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
+		putsvc.WithObjectStorage(storageEngine{engine: ls}),
+		putsvc.WithContainerSource(c.cfgObject.cnrSource),
+		putsvc.WithNetworkMapSource(c.netMapSource),
+		putsvc.WithNetmapKeys(c),
+		putsvc.WithNetworkState(c.cfgNetmap.state),
+		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
+		putsvc.WithLogger(c.log),
+		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
+		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
+	)
+
+	sPutV2 := putsvcV2.NewService(
+		putsvcV2.WithInternalService(sPut),
+		putsvcV2.WithKey(&c.key.PrivateKey),
 	)
 
 	sDelete := deletesvc.New(
@@ -647,4 +649,47 @@ func (x *nodeForObjects) IsOwnPublicKey(pubKey []byte) bool {
 // Implements [object.Node] interface.
 func (x *nodeForObjects) VerifyAndStoreObject(obj objectSDK.Object) error {
 	return x.putObjectService.ValidateAndStoreObjectLocally(obj)
+}
+
+type objectSource struct {
+	get    *getsvc.Service
+	search *searchsvc.Service
+}
+
+type searchWriter struct {
+	ids []oid.ID
+}
+
+func (w *searchWriter) WriteIDs(ids []oid.ID) error {
+	w.ids = append(w.ids, ids...)
+	return nil
+}
+
+func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Object, error) {
+	var hw headerWriter
+
+	var hPrm getsvc.HeadPrm
+	hPrm.SetHeaderWriter(&hw)
+	hPrm.WithAddress(addr)
+	hPrm.WithRawFlag(true)
+
+	err := o.get.Head(ctx, hPrm)
+
+	return hw.h, err
+}
+
+func (o objectSource) Search(ctx context.Context, cnr cid.ID, filters objectSDK.SearchFilters) ([]oid.ID, error) {
+	var sw searchWriter
+
+	var sPrm searchsvc.Prm
+	sPrm.SetWriter(&sw)
+	sPrm.WithSearchFilters(filters)
+	sPrm.WithContainerID(cnr)
+
+	err := o.search.Search(ctx, sPrm)
+	if err != nil {
+		return nil, err
+	}
+
+	return sw.ids, nil
 }
