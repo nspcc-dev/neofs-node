@@ -5,7 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-contract/netmap"
+	"github.com/nspcc-dev/neofs-contract/contracts/netmap"
 )
 
 type UpdatePeer struct {

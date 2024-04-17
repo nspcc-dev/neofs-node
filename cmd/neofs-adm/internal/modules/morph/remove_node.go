@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	netmapcontract "github.com/nspcc-dev/neofs-contract/netmap"
+	netmapcontract "github.com/nspcc-dev/neofs-contract/contracts/netmap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

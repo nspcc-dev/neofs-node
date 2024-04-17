@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	containerContract "github.com/nspcc-dev/neofs-contract/container"
+	containerContract "github.com/nspcc-dev/neofs-contract/contracts/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"

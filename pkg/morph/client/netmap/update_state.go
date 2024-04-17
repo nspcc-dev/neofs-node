@@ -3,7 +3,7 @@ package netmap
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-contract/netmap"
+	"github.com/nspcc-dev/neofs-contract/contracts/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
