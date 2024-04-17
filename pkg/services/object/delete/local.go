@@ -38,24 +38,6 @@ func (exec *execCtx) formTombstone() (ok bool) {
 	)
 	exec.addMembers([]oid.ID{exec.address().Object()})
 
-	exec.log.Debug("forming split info...")
-
-	ok = exec.formSplitInfo()
-	if !ok {
-		return
-	}
-
-	exec.log.Debug("split info successfully formed, collecting members...")
-
-	exec.tombstone.SetSplitID(exec.splitInfo.SplitID())
-
-	ok = exec.collectMembers()
-	if !ok {
-		return
-	}
-
-	exec.log.Debug("members successfully collected")
-
 	ok = exec.initTombstoneObject()
 	if !ok {
 		return

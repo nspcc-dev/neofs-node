@@ -225,10 +225,11 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		)
 	}
 
-	if ctx.object.Type == object.TypeLock {
-		// all nodes of a container must store the `LOCK` objects
-		// for correct object removal protection:
-		//   - `LOCK` objects are broadcast on their PUT requests;
+	if ctx.object.Type == object.TypeLock || ctx.object.Type == object.TypeLink {
+		// all nodes of a container must store the `LOCK` and `LINK` objects
+		// for correct object relations handling:
+		//   - `LINK` objects allows treating all children as root object;
+		//   - `LOCK` and `LINK` objects are broadcast on their PUT requests;
 		//   - `LOCK` object removal is a prohibited action in the GC.
 		shortage = uint32(len(nodes))
 	}

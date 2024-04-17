@@ -25,6 +25,7 @@ type cfg struct {
 	netState netmap.State
 	e        LockSource
 	sv       SplitVerifier
+	tv       TombVerifier
 }
 
 // DeleteHandler is an interface of delete queue processor.
@@ -61,6 +62,14 @@ type SplitVerifier interface {
 	// be checked. The fourth arg is guaranteed to be the full list from the
 	// link's payload without item order change.
 	VerifySplit(context.Context, cid.ID, oid.ID, []object.MeasuredObject) error
+}
+
+// TombVerifier represents tombstone validation unit. It verifies tombstone
+// object received by the node.
+type TombVerifier interface {
+	// VerifyTomb must verify tombstone payload. Must break (if possible) any internal
+	// computations if context is done.
+	VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error
 }
 
 var errNilObject = errors.New("object is nil")
@@ -288,10 +297,14 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, errTombstoneExpiration
 		}
 
-		// mark all objects from the tombstone body as removed in the storage engine
-		_, ok := o.ContainerID()
+		cnr, ok := o.ContainerID()
 		if !ok {
 			return ContentMeta{}, errors.New("missing container ID")
+		}
+
+		err = v.tv.VerifyTomb(context.Background(), cnr, *tombstone)
+		if err != nil {
+			return ContentMeta{}, fmt.Errorf("tombstone verification: %w", err)
 		}
 
 		idList := tombstone.Members()
@@ -473,5 +486,12 @@ func WithLockSource(e LockSource) FormatValidatorOption {
 func WithSplitVerifier(sv SplitVerifier) FormatValidatorOption {
 	return func(c *cfg) {
 		c.sv = sv
+	}
+}
+
+// WithTombVerifier returns option to set a TombVerifier.
+func WithTombVerifier(tv TombVerifier) FormatValidatorOption {
+	return func(c *cfg) {
+		c.tv = tv
 	}
 }

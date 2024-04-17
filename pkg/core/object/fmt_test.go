@@ -45,6 +45,13 @@ func (t testLockSource) IsLocked(address oid.Address) (bool, error) {
 	return t.m[address], nil
 }
 
+type tombstoneVerifier struct {
+}
+
+func (t2 tombstoneVerifier) VerifyTomb(_ context.Context, _ cid.ID, _ object.Tombstone) error {
+	return nil
+}
+
 func TestFormatValidator_Validate(t *testing.T) {
 	const curEpoch = 13
 
@@ -57,6 +64,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			epoch: curEpoch,
 		}),
 		WithLockSource(ls),
+		WithTombVerifier(tombstoneVerifier{}),
 	)
 
 	ownerKey, err := keys.NewPrivateKey()
