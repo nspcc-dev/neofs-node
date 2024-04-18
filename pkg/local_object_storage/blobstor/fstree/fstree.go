@@ -342,11 +342,7 @@ func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 		return nil, fmt.Errorf("extract object from %q: %w", p, err)
 	}
 
-	if !t.IsCompressed(b) {
-		return b, nil
-	}
-
-	dec, err := t.DecompressForce(b)
+	dec, err := t.Decompress(b)
 	if err != nil {
 		return nil, fmt.Errorf("decompress object file data %q: %w", p, err)
 	}
