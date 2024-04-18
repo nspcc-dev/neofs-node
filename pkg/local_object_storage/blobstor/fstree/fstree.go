@@ -152,14 +152,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 
 		if prm.LazyHandler != nil {
 			err = prm.LazyHandler(*addr, func() ([]byte, error) {
-				data, err := os.ReadFile(filepath.Join(curPath...))
-				if err != nil {
-					if errors.Is(err, fs.ErrNotExist) {
-						return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-					}
-					return nil, err
-				}
-				return extractCombinedObject(addr.Object(), data)
+				return getRawObjectBytes(addr.Object(), filepath.Join(curPath...))
 			})
 		} else {
 			var data []byte
@@ -292,30 +285,14 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 
 // Get returns an object from the storage by address.
 func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
-	p := t.treePath(prm.Address)
-
-	data, err := os.ReadFile(p)
+	data, err := t.getObjBytes(prm.Address)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
-		}
-		return common.GetRes{}, fmt.Errorf("read file %q: %w", p, err)
-	}
-	data, err = extractCombinedObject(prm.Address.Object(), data)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
-		}
-		return common.GetRes{}, fmt.Errorf("extract object from %q: %w", p, err)
-	}
-	data, err = t.Decompress(data)
-	if err != nil {
-		return common.GetRes{}, fmt.Errorf("decompress file data %q: %w", p, err)
+		return common.GetRes{}, err
 	}
 
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRes{}, fmt.Errorf("decode object from file %q: %w", p, err)
+		return common.GetRes{}, fmt.Errorf("decode object: %w", err)
 	}
 
 	return common.GetRes{Object: obj, RawData: data}, nil
@@ -325,29 +302,41 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 // canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 // is missing.
 func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
-	p := t.treePath(addr)
+	return t.getObjBytes(addr)
+}
 
-	b, err := os.ReadFile(p)
+// getObjBytes extracts object bytes from the storage by address.
+func (t *FSTree) getObjBytes(addr oid.Address) ([]byte, error) {
+	p := t.treePath(addr)
+	data, err := getRawObjectBytes(addr.Object(), p)
+	if err != nil {
+		return nil, err
+	}
+	data, err = t.Decompress(data)
+	if err != nil {
+		return nil, fmt.Errorf("decompress file data %q: %w", p, err)
+	}
+	return data, nil
+}
+
+// getRawObjectBytes extracts raw object bytes from the storage by path. No
+// decompression is performed.
+func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
+	data, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 		return nil, fmt.Errorf("read file %q: %w", p, err)
 	}
-	b, err = extractCombinedObject(addr.Object(), b)
+	data, err = extractCombinedObject(id, data)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 		return nil, fmt.Errorf("extract object from %q: %w", p, err)
 	}
-
-	dec, err := t.Decompress(b)
-	if err != nil {
-		return nil, fmt.Errorf("decompress object file data %q: %w", p, err)
-	}
-
-	return dec, nil
+	return data, nil
 }
 
 func extractCombinedObject(id oid.ID, data []byte) ([]byte, error) {
