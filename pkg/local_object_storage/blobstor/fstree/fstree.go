@@ -6,9 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -329,35 +327,13 @@ func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 func (t *FSTree) GetBytes(addr oid.Address) ([]byte, error) {
 	p := t.treePath(addr)
 
-	f, err := os.Open(p)
+	b, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
-		return nil, fmt.Errorf("open object file %q: %w", p, err)
+		return nil, fmt.Errorf("read file %q: %w", p, err)
 	}
-
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("stat object file %q: %w", p, err)
-	}
-	sz := fi.Size()
-	if sz > math.MaxInt {
-		return nil, fmt.Errorf("too big object file %d > %d", sz, math.MaxInt)
-	}
-	if sz == 0 {
-		return nil, nil
-	}
-
-	b := make([]byte, sz)
-	_, err = io.ReadFull(f, b)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			err = io.ErrUnexpectedEOF
-		}
-		return nil, fmt.Errorf("read all %d bytes from object file %q: %w", sz, p, err)
-	}
-
 	b, err = extractCombinedObject(addr.Object(), b)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
