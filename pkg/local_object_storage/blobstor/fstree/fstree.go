@@ -296,12 +296,11 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
 	p := t.treePath(prm.Address)
 
-	if _, err := os.Stat(p); errors.Is(err, fs.ErrNotExist) {
-		return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
 	data, err := os.ReadFile(p)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return common.GetRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
+		}
 		return common.GetRes{}, fmt.Errorf("read file %q: %w", p, err)
 	}
 	data, err = extractCombinedObject(prm.Address.Object(), data)
