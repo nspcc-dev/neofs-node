@@ -67,6 +67,7 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 	}
 
 	opts := append([]shard.Option{
+		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(bsOpts...),
 		shard.WithMetaBaseOptions(
