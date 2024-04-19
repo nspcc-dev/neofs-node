@@ -135,8 +135,10 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	t.obj.SetPayload(t.payload)
 
-	if len(t.obj.Children()) > 0 || t.obj.Type() == objectSDK.TypeLink {
-		// enabling extra broadcast for linking objects
+	tombOrLink := t.obj.Type() == objectSDK.TypeLink || t.obj.Type() == objectSDK.TypeTombstone
+
+	if len(t.obj.Children()) > 0 || tombOrLink {
+		// enabling extra broadcast for linking and tomb objects
 		t.traversalState.extraBroadcastEnabled = true
 	}
 
@@ -149,11 +151,11 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		return oid.ID{}, fmt.Errorf("(%T) could not create object placement traverser: %w", t, err)
 	}
 
-	// v2 split link object validation is an expensive routine and useless if
-	// the node does not belong to the container, since another node is responsible
-	// for the link validation and may decline it, does not matter what this node
-	// thinks about it
-	if t.obj.Type() != objectSDK.TypeLink || t.nodeInPlacement() {
+	// v2 split link object and tombstone validations are expensive routines
+	// and are useless if the node does not belong to the container, since
+	// another node is responsible for the validation and may decline it,
+	// does not matter what this node thinks about it
+	if !tombOrLink || t.nodeInPlacement() {
 		if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
