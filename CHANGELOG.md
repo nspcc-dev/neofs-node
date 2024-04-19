@@ -4,6 +4,24 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.41.0
+
+## [0.41.0] - 2024-04-19 - Daebudo
+
+A very important release bringing a number of protocol changes. We have not
+changed the protocol for more than a year, but now we're doing that to add
+support for new functionality as well as fix long-standing issues.
+
+### Added
 - Support of numeric object search queries (#2733)
 - Support of `GT`, `GE`, `LT` and `LE` numeric comparison operators in CLI (#2733)
 - SN eACL processing of NULL and numeric operators (#2742)
@@ -25,7 +43,7 @@ Changelog for NeoFS Node
 - Empty filter value is now treated as `NOT_PRESENT` op by CLI `acl extended create` cmd (#2742)
 - Storage nodes no longer accept objects with header larger than 16KB (#2749)
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
-- Big objects are split with the new split scheme (#2667)
+- Big objects are split with the new split scheme (#2667, #2782, #2784, #2788, #2792, #2807)
 - Background replicator transfers objects using new `ObjectService.Replicate` RPC (#2317)
 - Tombstone objects are not allowed to store child objects (incomplete puts are exceptional) (#2810)
 
@@ -36,7 +54,8 @@ Changelog for NeoFS Node
 - Counter metrics that were deprecated since v0.38.0 (#2798)
 
 ### Updated
-- Minimum required version of Go to 1.20
+- Minimum required version of Go to 1.20 (#2754)
+- All dependencies (#2754, #2778, #2787, #2809)
 
 ### Updating from v0.40.1
 Remove `notification` section from all SN configuration files: it is no longer
@@ -1959,7 +1978,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.0...master
+[0.41.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...v0.40.0
 [0.39.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.1...v0.39.2
