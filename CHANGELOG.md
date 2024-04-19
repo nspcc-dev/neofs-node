@@ -27,7 +27,7 @@ Changelog for NeoFS Node
 - IR sends NeoFS chain GAS to netmap nodes every epoch, not per a configurable blocks number (#2777)
 - Big objects are split with the new split scheme (#2667)
 - Background replicator transfers objects using new `ObjectService.Replicate` RPC (#2317)
-- Tombstone objects are not allowed to store child objects (incomplete puts are exceptional) (#2810)  
+- Tombstone objects are not allowed to store child objects (incomplete puts are exceptional) (#2810)
 
 ### Removed
 - Object notifications incl. NATS (#2750)
