@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Attribute ACL checks for the first split object (#2820)
 
 ### Changed
 

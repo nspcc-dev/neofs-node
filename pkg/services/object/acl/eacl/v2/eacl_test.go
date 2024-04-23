@@ -29,11 +29,11 @@ type testLocalStorage struct {
 }
 
 type testHeaderSource struct {
-	header object.Object
+	header *object.Object
 }
 
 func (t *testHeaderSource) Head(_ oid.Address) (*object.Object, error) {
-	return &t.header, nil
+	return t.header, nil
 }
 
 func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
@@ -187,6 +187,8 @@ func TestV2Split(t *testing.T) {
 	originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
 	originalObject.SetSignature(&neofscrypto.Signature{})
 
+	originalObjectV2 := originalObject.ToV2()
+
 	firstObject := objecttest.Object(t)
 	firstObject.SetSplitID(nil) // not V1 split
 	firstObject.SetParent(&originalObject)
@@ -198,6 +200,7 @@ func TestV2Split(t *testing.T) {
 
 	splitV2 := new(objectV2.SplitHeader)
 	splitV2.SetFirst(&firstIDV2)
+	splitV2.SetParentHeader(originalObjectV2.GetHeader())
 	headerV2 := new(objectV2.Header)
 	headerV2.SetSplit(splitV2)
 
@@ -226,7 +229,7 @@ func TestV2Split(t *testing.T) {
 	table := new(eaclSDK.Table)
 	table.AddRecord(r)
 
-	hdrSrc := &testHeaderSource{header: firstObject}
+	hdrSrc := &testHeaderSource{}
 
 	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
@@ -244,19 +247,28 @@ func TestV2Split(t *testing.T) {
 
 	validator := eaclSDK.NewValidator()
 
-	t.Run("denied by parent's attribute", func(t *testing.T) {
+	t.Run("denied by parent's attribute; first object", func(t *testing.T) {
+		// ensure fetching the first object is not possible, only already attached information
+		// is available
+		hdrSrc.header = nil
+
+		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+	})
+
+	t.Run("denied by parent's attribute; non-first object", func(t *testing.T) {
+		// get the first object from the "network"
+		hdrSrc.header = &firstObject
+		headerV2.GetSplit().SetParent(nil)
+
 		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 	})
 
 	t.Run("allow cause no restricted attribute found", func(t *testing.T) {
 		originalObjectNoRestrictedAttr := objecttest.Object(t)
-		originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
-		originalObject.SetSignature(&neofscrypto.Signature{})
+		originalObjectNoRestrictedAttr.SetID(oid.ID{}) // no object ID for an original object in the first object
+		originalObjectNoRestrictedAttr.SetSignature(&neofscrypto.Signature{})
 
-		firstObject.SetParent(&originalObjectNoRestrictedAttr)
-		require.NoError(t, firstObject.CalculateAndSetID())
-
-		hdrSrc.header = firstObject
+		splitV2.SetParentHeader(originalObjectNoRestrictedAttr.ToV2().GetHeader())
 
 		// allow an object whose first obj does not have the restricted attribute
 		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
