@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Container estimations inspector to neofs-adm (#2826)
 - Metabase object lister to neofs-lens (#2834)
 - Shard ID from metabase reader to neofs-lens (#2834)
+- `neofs-cli bearer print` command for reading binary bearer tokens (#2829)
 
 ### Fixed
 - Attribute ACL checks for the first split object (#2820)
