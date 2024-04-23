@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Container estimations inspector to neofs-adm (#2826)
 
 ### Fixed
 
