@@ -149,26 +149,39 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					break
 				}
 
-				if first := v.GetHeader().GetSplit().GetFirst(); first != nil {
-					// that is an object part from the V2 split scheme, check
-					// the original object header instead
+				// V2 split case
 
-					var firstID oid.ID
-					err := firstID.ReadFromV2(*first)
-					if err != nil {
-						return fmt.Errorf("converting first object ID: %w", err)
+				parentHeader := splitHeader.GetParentHeader()
+				if parentHeader != nil {
+					var parentObjectV2 objectV2.Object
+					parentObjectV2.SetObjectID(splitHeader.GetParent())
+					parentObjectV2.SetSignature(splitHeader.GetParentSignature())
+					parentObjectV2.SetHeader(parentHeader)
+
+					dst.objectHeaders = headersFromObject(object.NewFromV2(&parentObjectV2), h.cnr, h.obj)
+				} else {
+					// middle object, parent header should
+					// be received via the first object
+					if first := v.GetHeader().GetSplit().GetFirst(); first != nil {
+						var firstID oid.ID
+						err := firstID.ReadFromV2(*first)
+						if err != nil {
+							return fmt.Errorf("converting first object ID: %w", err)
+						}
+
+						var addr oid.Address
+						addr.SetObject(firstID)
+						addr.SetContainer(h.cnr)
+
+						firstObject, err := h.headerSource.Head(addr)
+						if err != nil {
+							return fmt.Errorf("fetching first object header: %w", err)
+						}
+
+						dst.objectHeaders = headersFromObject(firstObject.Parent(), h.cnr, h.obj)
 					}
 
-					var addr oid.Address
-					addr.SetObject(firstID)
-					addr.SetContainer(h.cnr)
-
-					firstObject, err := h.headerSource.Head(addr)
-					if err != nil {
-						return fmt.Errorf("fetching first object header: %w", err)
-					}
-
-					dst.objectHeaders = headersFromObject(firstObject.Parent(), h.cnr, h.obj)
+					// first object not defined, unexpected, do not attach any header
 				}
 			}
 		case *objectV2.SearchRequest:
