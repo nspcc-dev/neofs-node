@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // ExpiredObject is a descriptor of expired object from DB.
@@ -65,7 +66,8 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 		var cnrID cid.ID
 		err := cnrID.Decode(cidBytes)
 		if err != nil {
-			return fmt.Errorf("could not parse container ID of expired bucket: %w", err)
+			db.log.Error("could not parse container ID of expired bucket", zap.Error(err))
+			return nil
 		}
 
 		return b.ForEach(func(expKey, _ []byte) error {
@@ -76,7 +78,8 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 
 			expiresAfter, err := strconv.ParseUint(string(expKey), 10, 64)
 			if err != nil {
-				return fmt.Errorf("could not parse expiration epoch: %w", err)
+				db.log.Error("could not parse expiration epoch", zap.Error(err))
+				return nil
 			} else if expiresAfter >= epoch {
 				return nil
 			}
@@ -86,7 +89,8 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler)
 
 				err = id.Decode(idKey)
 				if err != nil {
-					return fmt.Errorf("could not parse ID of expired object: %w", err)
+					db.log.Error("could not parse ID of expired object", zap.Error(err))
+					return nil
 				}
 
 				// Ignore locked objects.
