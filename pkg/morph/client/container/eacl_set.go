@@ -30,6 +30,7 @@ func PutEACL(c *Client, eaclInfo containercore.EACL) error {
 
 	prm.SetKey(eaclInfo.Signature.PublicKeyBytes())
 	prm.SetSignature(eaclInfo.Signature.Value())
+	prm.RequireAlphabetSignature()
 
 	return c.PutEACL(prm)
 }
@@ -77,6 +78,11 @@ func (c *Client) PutEACL(p PutEACLPrm) error {
 	prm.SetMethod(setEACLMethod)
 	prm.SetArgs(p.table, p.sig, p.key, p.token)
 	prm.InvokePrmOptional = p.InvokePrmOptional
+
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
 
 	err := c.client.Invoke(prm)
 	if err != nil {

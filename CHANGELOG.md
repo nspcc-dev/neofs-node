@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Attribute ACL checks for the first split object (#2820)
+- Container size estimation contract writing (#2819)
 
 ### Changed
 

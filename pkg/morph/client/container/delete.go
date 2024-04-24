@@ -20,6 +20,7 @@ func Delete(c *Client, witness core.RemovalWitness) error {
 
 	prm.SetCID(binCnr)
 	prm.SetSignature(witness.Signature())
+	prm.RequireAlphabetSignature()
 
 	if tok := witness.SessionToken(); tok != nil {
 		prm.SetToken(tok.Marshal())
@@ -66,6 +67,11 @@ func (c *Client) Delete(p DeletePrm) error {
 	prm.SetMethod(deleteMethod)
 	prm.SetArgs(p.cnr, p.signature, p.token)
 	prm.InvokePrmOptional = p.InvokePrmOptional
+
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
 
 	err := c.client.Invoke(prm)
 	if err != nil {
