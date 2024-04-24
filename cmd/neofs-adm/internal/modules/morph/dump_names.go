@@ -42,7 +42,10 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 	for toks, err := tokIter.Next(10); len(toks) != 0 && err == nil; toks, err = tokIter.Next(10) {
 		for i := range toks {
 			var name = string(toks[i])
-			if zone != "" && name != zone && !strings.HasSuffix(name, "."+zone) {
+			if !strings.ContainsRune(name, '.') {
+				continue // TLD, can't get properties.
+			}
+			if zone != "" && !strings.HasSuffix(name, "."+zone) {
 				continue
 			}
 			props, err := n11r.Properties(toks[i])

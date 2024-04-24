@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Attribute ACL checks for the first split object (#2820)
 - Container size estimation contract writing (#2819)
 - Custom contract deployment with custom zone via neofs-adm (#2827)
+- Errors in neofs-adm morph dump-names output (#2831)
 
 ### Changed
 
