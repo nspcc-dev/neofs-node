@@ -86,24 +86,11 @@ type opts struct {
 	feePutNamedSet bool
 	feePutNamed    fixedn.Fixed8
 
-	disableNotarySigning bool
-
 	staticOpts []client.StaticClientOption
 }
 
 func defaultOpts() *opts {
 	return new(opts)
-}
-
-// DisableNotarySigning returns option to disable
-// notary request signing. With that option, every
-// call will be created, signed with provided key
-// (a single regular sign) and sent to the side
-// chain.
-func DisableNotarySigning() Option {
-	return func(o *opts) {
-		o.disableNotarySigning = true
-	}
 }
 
 // AsAlphabet returns option to sign main TX
