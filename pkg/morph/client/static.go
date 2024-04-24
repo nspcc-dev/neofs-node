@@ -87,6 +87,8 @@ type InvokePrmOptional struct {
 	// `validUntilBlock` values by all notification
 	// receivers.
 	hash *util.Uint256
+
+	signByAlphabet bool
 }
 
 // SetHash sets optional hash of the transaction.
@@ -95,6 +97,14 @@ type InvokePrmOptional struct {
 // calculation.
 func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
 	i.hash = &hash
+}
+
+// RequireAlphabetSignature makes client send notary request instead of a
+// regular signed transaction. Such a request should be received and signed by
+// the Alphabet, otherwise the plug (empty) transaction will be added to the
+// chain.
+func (i *InvokePrmOptional) RequireAlphabetSignature() {
+	i.signByAlphabet = true
 }
 
 // Invoke calls Invoke method of Client with static internal script hash and fee.
@@ -109,7 +119,7 @@ func (i *InvokePrmOptional) SetHash(hash util.Uint256) {
 func (s StaticClient) Invoke(prm InvokePrm) error {
 	fee := s.fees.feeForMethod(prm.method)
 
-	if s.tryNotary {
+	if s.tryNotary || prm.signByAlphabet {
 		if s.alpha {
 			var (
 				nonce uint32 = 1

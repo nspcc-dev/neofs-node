@@ -34,6 +34,11 @@ func (c *Client) StartEstimation(p StartEstimationPrm) error {
 	prm.SetArgs(p.epoch)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
+
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", startEstimationMethod, err)
 	}
@@ -46,6 +51,11 @@ func (c *Client) StopEstimation(p StopEstimationPrm) error {
 	prm.SetMethod(stopEstimationMethod)
 	prm.SetArgs(p.epoch)
 	prm.InvokePrmOptional = p.InvokePrmOptional
+
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
 
 	if err := c.client.Invoke(prm); err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", stopEstimationMethod, err)

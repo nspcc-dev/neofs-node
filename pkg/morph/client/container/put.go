@@ -108,6 +108,11 @@ func (c *Client) Put(p PutPrm) error {
 	prm.SetMethod(method)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
+
 	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", method, err)

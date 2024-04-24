@@ -60,10 +60,6 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		o.staticOpts = append(o.staticOpts, client.WithCustomFee(putNamedMethod, o.feePutNamed))
 	}
 
-	if !o.disableNotarySigning {
-		o.staticOpts = append(o.staticOpts, client.TryNotary())
-	}
-
 	sc, err := client.NewStatic(cli, contract, fee, o.staticOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
