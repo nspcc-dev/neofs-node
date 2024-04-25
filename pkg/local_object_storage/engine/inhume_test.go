@@ -111,4 +111,46 @@ func TestStorageEngine_Inhume(t *testing.T) {
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 	})
+
+	t.Run("object is on wrong shard", func(t *testing.T) {
+		obj := generateObjectWithCID(t, cnr)
+		addr := object.AddressOf(obj)
+
+		e := testNewEngineWithShardNum(t, 2)
+		defer e.Close()
+
+		var wrongShardID string
+
+		e.iterateOverSortedShards(addr, func(i int, h hashedShard) (stop bool) {
+			if i != 0 {
+				wrongShardID = h.ID().String()
+			}
+
+			return false
+		})
+
+		wrongShard := e.getShard(wrongShardID)
+
+		var putPrm shard.PutPrm
+		putPrm.SetObject(obj)
+
+		var getPrm shard.GetPrm
+		getPrm.SetAddress(addr)
+
+		_, err := wrongShard.Put(putPrm)
+		require.NoError(t, err)
+
+		_, err = wrongShard.Get(getPrm)
+		require.NoError(t, err)
+
+		var inhumePrm InhumePrm
+		inhumePrm.MarkAsGarbage(addr)
+
+		_, err = e.Inhume(inhumePrm)
+		require.NoError(t, err)
+
+		// object was on the wrong (according to hash sorting) shard but is removed anyway
+		_, err = wrongShard.Get(getPrm)
+		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	})
 }

@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Custom contract deployment with custom zone via neofs-adm (#2827)
 - Errors in neofs-adm morph dump-names output (#2831)
 - GC stops if any non-critical "content" errors happen (#2823)
+- Endless GC cycle if an object is stored on an unexpected shard (#2821)
 
 ### Changed
 

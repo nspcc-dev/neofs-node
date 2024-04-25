@@ -235,6 +235,13 @@ func (e *StorageEngine) iterateOverUnsortedShards(handler func(hashedShard) (sto
 	}
 }
 
+func (e *StorageEngine) getShard(id string) shardWrapper {
+	e.mtx.RLock()
+	defer e.mtx.RUnlock()
+
+	return e.shards[id]
+}
+
 // SetShardMode sets mode of the shard with provided identifier.
 //
 // Returns an error if shard mode was not set, or shard was not found in storage engine.
