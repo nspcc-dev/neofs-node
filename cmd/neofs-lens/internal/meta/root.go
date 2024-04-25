@@ -30,6 +30,7 @@ var Root = &cobra.Command{
 
 func init() {
 	Root.AddCommand(
+		listCMD,
 		listGraveyardCMD,
 		listGarbageCMD,
 		writeObjectCMD,
