@@ -10,6 +10,7 @@ var getCMD = &cobra.Command{
 	Use:   "get",
 	Short: "Get object",
 	Long:  `Get specific object from a Peapod.`,
+	Args:  cobra.NoArgs,
 	Run:   getFunc,
 }
 

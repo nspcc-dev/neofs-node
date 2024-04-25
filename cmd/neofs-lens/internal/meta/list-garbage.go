@@ -10,6 +10,7 @@ var listGarbageCMD = &cobra.Command{
 	Use:   "list-garbage",
 	Short: "Garbage listing",
 	Long:  `List all the objects that have received GC Mark.`,
+	Args:  cobra.NoArgs,
 	Run:   listGarbageFunc,
 }
 
