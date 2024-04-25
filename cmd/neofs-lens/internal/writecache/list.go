@@ -14,6 +14,7 @@ var listCMD = &cobra.Command{
 	Use:   "list",
 	Short: "Object listing",
 	Long:  `List all objects stored in a write-cache.`,
+	Args:  cobra.NoArgs,
 	Run:   listFunc,
 }
 

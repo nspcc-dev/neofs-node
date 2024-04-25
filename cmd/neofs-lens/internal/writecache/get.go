@@ -11,6 +11,7 @@ var getCMD = &cobra.Command{
 	Use:   "get",
 	Short: "Object inspection",
 	Long:  `Get specific object from a write-cache.`,
+	Args:  cobra.NoArgs,
 	Run:   getFunc,
 }
 

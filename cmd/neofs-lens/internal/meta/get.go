@@ -15,6 +15,7 @@ var getCMD = &cobra.Command{
 	Use:   "get",
 	Short: "Object inspection",
 	Long:  `Get specific object from a metabase.`,
+	Args:  cobra.NoArgs,
 	Run:   getFunc,
 }
 

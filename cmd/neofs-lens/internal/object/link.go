@@ -13,6 +13,7 @@ import (
 var linkCMD = &cobra.Command{
 	Use:   "link",
 	Short: "Inspect link object",
+	Args:  cobra.NoArgs,
 	Run:   linkFunc,
 }
 

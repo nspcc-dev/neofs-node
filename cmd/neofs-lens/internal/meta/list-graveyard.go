@@ -10,6 +10,7 @@ var listGraveyardCMD = &cobra.Command{
 	Use:   "list-graveyard",
 	Short: "Graveyard listing",
 	Long:  `List all the objects that have been covered with a Tomb Stone.`,
+	Args:  cobra.NoArgs,
 	Run:   listGraveyardFunc,
 }
 
