@@ -3,11 +3,15 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+A set of fixes and small utility improvements. We're providing darwin and
+arm64 binaries for you as well now.
+
 ### Added
 - Container estimations inspector to neofs-adm (#2826)
 - Metabase object lister to neofs-lens (#2834)
 - Shard ID from metabase reader to neofs-lens (#2834)
 - `neofs-cli bearer print` command for reading binary bearer tokens (#2829)
+- linux-arm64, darwin-amd64 and darwin-arm64 binaries, linux-arm64 Docker images (#2835)
 
 ### Fixed
 - Attribute ACL checks for the first split object (#2820)
