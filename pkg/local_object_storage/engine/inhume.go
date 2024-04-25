@@ -6,6 +6,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -140,6 +141,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 	var existPrm shard.ExistsPrm
 	var retErr error
 	var ok bool
+	var shardWithObject string
 
 	var root bool
 	var children []oid.Address
@@ -148,7 +150,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		existPrm.SetAddress(addr)
 
-		_, err := sh.Exists(existPrm)
+		res, err := sh.Exists(existPrm)
 		if err != nil {
 			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 				// inhumed once - no need to be inhumed again
@@ -218,6 +220,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 			return true
 		}
 
+		if res.Exists() {
+			shardWithObject = sh.ID().String()
+			return true
+		}
+
 		return false
 	})
 
@@ -226,6 +233,23 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 	}
 
 	prm.SetTargets(append(children, addr)...)
+
+	if shardWithObject != "" {
+		sh := e.getShard(shardWithObject)
+
+		_, err := sh.Inhume(prm)
+		if err != nil {
+			if !errors.Is(err, logicerr.Error) {
+				e.reportShardError(hashedShard(sh), "could not inhume object in shard", err)
+			}
+
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	// has not found the object on any shard, so mark it as inhumed on the most probable one
 
 	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		defer func() {
