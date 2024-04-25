@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Container size estimation contract writing (#2819)
 - Custom contract deployment with custom zone via neofs-adm (#2827)
 - Errors in neofs-adm morph dump-names output (#2831)
+- GC stops if any non-critical "content" errors happen (#2823)
 
 ### Changed
 
