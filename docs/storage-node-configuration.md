@@ -198,6 +198,7 @@ blobstor:
 | `path`              | `string`  |               | Path to the root of the blobstor.                     |
 | `perm`              | file mode | `0640`        | Default permission for created files and directories. |
 | `depth`             | `int`     | `4`           | File-system tree depth.                               |
+| `no_sync`           | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss. |
 
 #### `peapod` type options
 | Parameter           | Type      | Default value | Description                                           |
