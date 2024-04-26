@@ -180,15 +180,10 @@ Currently only 2 types are supported: `fstree` and `peapod`.
 blobstor:
   - type: peapod
     path: /path/to/peapod.db
-    depth: 1
-    width: 4
   - type: fstree
     path: /path/to/blobstor
     perm: 0644
-    size: 4194304
     depth: 1
-    width: 4
-    opened_cache_capacity: 50
 ```
 
 #### Common options for sub-storages
