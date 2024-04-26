@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -32,6 +33,11 @@ type FSTree struct {
 
 	noSync   bool
 	readOnly bool
+
+	combinedCountLimit    int
+	combinedSizeLimit     int
+	combinedSizeThreshold int
+	combinedWriteInterval time.Duration
 }
 
 // Info groups the information about file storage.
@@ -73,6 +79,11 @@ func New(opts ...Option) *FSTree {
 		Config:     nil,
 		Depth:      4,
 		DirNameLen: DirNameLen,
+
+		combinedCountLimit:    128,
+		combinedSizeLimit:     8 * 1024 * 1024,
+		combinedSizeThreshold: 128 * 1024,
+		combinedWriteInterval: 10 * time.Millisecond,
 	}
 	for i := range opts {
 		opts[i](f)
