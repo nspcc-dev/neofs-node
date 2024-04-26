@@ -19,7 +19,7 @@ func (t *FSTree) Init() error {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
 	}
 	if !t.readOnly {
-		var w = newSpecificWriter(t.RootPath, t.Permissions, t.noSync)
+		var w = newSpecificWriter(t)
 		if w != nil {
 			t.writer = w
 		}

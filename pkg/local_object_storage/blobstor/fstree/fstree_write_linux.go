@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/fs"
 	"strconv"
 	"sync"
 	"time"
@@ -16,19 +15,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	defaultTick        = 10 * time.Millisecond
-	combinedSizeThresh = 128 * 1024
-	combinedSizeLimit  = 8 * 1024 * 1024
-	combinedCountLimit = 128
-)
-
 type linuxWriter struct {
 	root   string
 	perm   uint32
 	flags  int
 	bFlags int
 	noSync bool
+
+	combinedCountLimit    int
+	combinedSizeLimit     int
+	combinedSizeThreshold int
+	combinedWriteInterval time.Duration
 
 	batchLock sync.Mutex
 	batch     *syncBatch
@@ -46,23 +43,28 @@ type syncBatch struct {
 	err      error
 }
 
-func newSpecificWriter(root string, perm fs.FileMode, noSync bool) writer {
+func newSpecificWriter(t *FSTree) writer {
 	flags := unix.O_WRONLY | unix.O_TMPFILE | unix.O_CLOEXEC
 	bFlags := flags
-	if !noSync {
+	if !t.noSync {
 		flags |= unix.O_DSYNC
 	}
-	fd, err := unix.Open(root, flags, uint32(perm))
+	fd, err := unix.Open(t.RootPath, flags, uint32(t.Permissions))
 	if err != nil {
 		return nil // Which means that OS-specific writeData can't be created and FSTree should use the generic one.
 	}
 	_ = unix.Close(fd) // Don't care about error.
 	w := &linuxWriter{
-		root:   root,
-		perm:   uint32(perm),
+		root:   t.RootPath,
+		perm:   uint32(t.Permissions),
 		flags:  flags,
 		bFlags: bFlags,
-		noSync: noSync,
+		noSync: t.noSync,
+
+		combinedCountLimit:    t.combinedCountLimit,
+		combinedSizeLimit:     t.combinedSizeLimit,
+		combinedSizeThreshold: t.combinedSizeThreshold,
+		combinedWriteInterval: t.combinedWriteInterval,
 	}
 	return w
 }
@@ -79,7 +81,7 @@ func (w *linuxWriter) newSyncBatch() (*syncBatch, error) {
 		noSync:   w.noSync,
 	}
 	sb.lock.Lock()
-	sb.timer = time.AfterFunc(defaultTick, sb.sync)
+	sb.timer = time.AfterFunc(w.combinedWriteInterval, sb.sync)
 	return sb, nil
 }
 
@@ -165,7 +167,7 @@ func (w *linuxWriter) finalize() error {
 
 func (w *linuxWriter) writeData(id oid.ID, p string, data []byte) error {
 	var err error
-	if len(data) > combinedSizeThresh {
+	if len(data) > w.combinedSizeThreshold || w.combinedCountLimit < 2 {
 		err = w.writeFile(p, data)
 	} else {
 		err = w.writeCombinedFile(id, p, data)
@@ -202,7 +204,7 @@ func (w *linuxWriter) writeCombinedFile(id oid.ID, p string, data []byte) error 
 		return err
 	}
 	err = sb.write(id, p, data)
-	if err == nil && sb.cnt >= combinedCountLimit || sb.size >= combinedSizeLimit {
+	if err == nil && sb.cnt >= w.combinedCountLimit || sb.size >= w.combinedSizeLimit {
 		sb.intSync()
 	}
 	sb.lock.Unlock()

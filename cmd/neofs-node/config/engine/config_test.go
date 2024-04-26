@@ -9,7 +9,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
@@ -87,11 +86,10 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 102400, sc.SmallSizeLimit())
 
 				require.Equal(t, 2, len(ss))
-				ppd := peapodconfig.From((*config.Config)(ss[0]))
 				require.Equal(t, "tmp/0/blob/peapod.db", ss[0].Path())
 				require.EqualValues(t, 0644, ss[0].Perm())
 				require.EqualValues(t, peapod.Type, ss[0].Type())
-				require.EqualValues(t, 10*time.Millisecond, ppd.FlushInterval())
+				require.EqualValues(t, 10*time.Millisecond, ss[0].FlushInterval())
 
 				require.Equal(t, "tmp/0/blob", ss[1].Path())
 				require.EqualValues(t, 0644, ss[1].Perm())
@@ -131,11 +129,10 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 102400, sc.SmallSizeLimit())
 
 				require.Equal(t, 2, len(ss))
-				ppd := peapodconfig.From((*config.Config)(ss[0]))
 				require.Equal(t, "tmp/1/blob/peapod.db", ss[0].Path())
 				require.EqualValues(t, 0644, ss[0].Perm())
 				require.EqualValues(t, peapod.Type, ss[0].Type())
-				require.EqualValues(t, 30*time.Millisecond, ppd.FlushInterval())
+				require.EqualValues(t, 30*time.Millisecond, ss[0].FlushInterval())
 
 				require.Equal(t, "tmp/1/blob", ss[1].Path())
 				require.EqualValues(t, 0644, ss[1].Perm())

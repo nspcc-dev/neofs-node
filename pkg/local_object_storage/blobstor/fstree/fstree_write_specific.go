@@ -2,10 +2,6 @@
 
 package fstree
 
-import (
-	"io/fs"
-)
-
-func newSpecificWriter(_ string, _ fs.FileMode, _ bool) writer {
+func newSpecificWriter(_ *FSTree) writer {
 	return nil
 }

@@ -199,7 +199,11 @@
             "path": "tmp/1/blob",
             "no_sync": true,
             "perm": "0644",
-            "depth": 5
+            "depth": 5,
+            "flush_interval": "20ms",
+            "combined_count_limit": 64,
+            "combined_size_limit": "16M",
+            "combined_size_threshold": "512K"
           }
         ],
         "pilorama": {

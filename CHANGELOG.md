@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- More effective FSTree writer for HDDs, new configuration options for it (#2814)
 
 ### Fixed
 

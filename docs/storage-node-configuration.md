@@ -191,21 +191,24 @@ blobstor:
 |-------------------------------------|-----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `path`                              | `string`                                      |               | Path to the root of the blobstor.                                                                                                                                                                                 |
 | `perm`                              | file mode                                     | `0640`        | Default permission for created files and directories.                                                                                                                                                             |
+| `flush_interval`                    | `duration`                                    | `10ms`        | Time interval between batch writes to disk.                                                                                                                                                                       |
 
 #### `fstree` type options
-| Parameter           | Type      | Default value | Description                                           |
-|---------------------|-----------|---------------|-------------------------------------------------------|
-| `path`              | `string`  |               | Path to the root of the blobstor.                     |
-| `perm`              | file mode | `0640`        | Default permission for created files and directories. |
-| `depth`             | `int`     | `4`           | File-system tree depth.                               |
-| `no_sync`           | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss. |
+| Parameter                 | Type      | Default value | Description                                                                                                                  |
+|---------------------------|-----------|---------------|------------------------------------------------------------------------------------------------------------------------------|
+| `path`                    | `string`  |               | Path to the root of the blobstor.                                                                                            |
+| `perm`                    | file mode | `0640`        | Default permission for created files and directories.                                                                        |
+| `depth`                   | `int`     | `4`           | File-system tree depth.                                                                                                      |
+| `no_sync`                 | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                               |
+| `combined_count_limit`    | `int`     | `128`         | Maximum number of objects to write into a single file, 0 or 1 disables combined writing (disabling is recommended for SSDs). |
+| `combined_size_limit`     | `size`    | `8M`          | Maximum size of a multi-object file.                                                                                         |
+| `combined_size_threshold` | `size`    | `128K`        | Minimum size of object that won't be combined with others when writing to disk.                                              |
 
 #### `peapod` type options
 | Parameter           | Type      | Default value | Description                                           |
 |---------------------|-----------|---------------|-------------------------------------------------------|
 | `path`              | `string`  |               | Path to the Peapod database file.                     |
 | `perm`              | file mode | `0640`        | Default permission for created files and directories. |
-| `flush_interval`    | `duration`| `10ms`        | Time interval between batch writes to disk.           |
 
 ### `gc` subsection
 
