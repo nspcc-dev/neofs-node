@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - Errors in neofs-adm morph dump-names output (#2831)
 - GC stops if any non-critical "content" errors happen (#2823)
 - Endless GC cycle if an object is stored on an unexpected shard (#2821)
+- Storage node searches for objects even if local state prohibits operation (#1709) 
 
 ### Changed
 

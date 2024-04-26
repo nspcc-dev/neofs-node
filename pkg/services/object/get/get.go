@@ -107,13 +107,12 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	switch exec.status {
 	case statusOK:
 		exec.log.Debug("operation finished successfully")
-	case statusINHUMED:
-		exec.log.Debug("requested object was marked as removed")
 	case statusVIRTUAL:
 		exec.log.Debug("requested object is virtual")
 		exec.assemble()
-	case statusOutOfRange:
-		exec.log.Debug("requested range is out of object bounds")
+	case statusAPIResponse:
+		exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
+		return
 	default:
 		exec.log.Debug("operation finished with error",
 			zap.String("error", exec.err.Error()),
