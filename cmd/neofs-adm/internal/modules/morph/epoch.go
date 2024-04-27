@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -19,12 +20,13 @@ func forceNewEpochCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't to initialize context: %w", err)
 	}
 
-	cs, err := wCtx.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(wCtx.Client)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract info: %w", err)
+		return fmt.Errorf("can't get NNS hash: %w", err)
 	}
+	var nnsReader = nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
-	nmHash, err := nnsResolveHash(wCtx.ReadOnlyInvoker, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,12 +29,13 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	cs, err := c.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(c)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract info: %w", err)
+		return fmt.Errorf("can't find NNS hash: %w", err)
 	}
+	nnsReader := nns.NewReader(inv, nnsHash)
 
-	nmHash, err := nnsResolveHash(inv, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}
@@ -102,12 +104,13 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't initialize context: %w", err)
 	}
 
-	cs, err := wCtx.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(wCtx.Client)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract info: %w", err)
+		return fmt.Errorf("can't get NNS contract hash: %w", err)
 	}
+	nnsReader := nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
-	nmHash, err := nnsResolveHash(wCtx.ReadOnlyInvoker, cs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}

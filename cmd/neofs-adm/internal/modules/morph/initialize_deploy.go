@@ -98,7 +98,7 @@ const (
 func (c *initializeContext) deployNNS(method string) error {
 	cs := c.getContract(nnsContract)
 
-	nnsCs, err := c.nnsContractState()
+	nnsCs, err := c.Client.GetContractStateByID(nns.ID)
 	if err == nil {
 		if nnsCs.NEF.Checksum == cs.NEF.Checksum {
 			if method == deployMethodName {
@@ -140,11 +140,10 @@ func (c *initializeContext) deployNNS(method string) error {
 func (c *initializeContext) updateContracts() error {
 	alphaCs := c.getContract(alphabetContract)
 
-	nnsCs, err := c.nnsContractState()
+	nnsHash, nnsReader, err := c.nnsReader()
 	if err != nil {
 		return err
 	}
-	nnsHash := nnsCs.Hash
 
 	w := io2.NewBufBinWriter()
 
@@ -164,7 +163,7 @@ func (c *initializeContext) updateContracts() error {
 
 	// alphabet contracts should be deployed by individual nodes to get different hashes.
 	for i, acc := range c.Accounts {
-		ctrHash, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, getAlphabetNNSDomain(i))
+		ctrHash, err := nnsReader.ResolveFSContract(getAlphabetNNSDomain(i))
 		if err != nil {
 			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
@@ -198,7 +197,7 @@ func (c *initializeContext) updateContracts() error {
 		cs := c.getContract(ctrName)
 
 		method := updateMethodName
-		ctrHash, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, ctrName+".neofs")
+		ctrHash, err := nnsReader.ResolveFSContract(ctrName)
 		if err != nil {
 			if errors.Is(err, errMissingNNSRecord) {
 				// if contract not found we deploy it instead of update
@@ -487,7 +486,7 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 	case containerContract:
 		// In case if NNS is updated multiple times, we can't calculate
 		// it's actual hash based on local data, thus query chain.
-		nnsCs, err := c.Client.GetContractStateByID(1)
+		nnsHash, err := nns.InferHash(c.Client)
 		if err != nil {
 			panic("NNS is not yet deployed")
 		}
@@ -495,7 +494,7 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 			c.Contracts[netmapContract].Hash,
 			c.Contracts[balanceContract].Hash,
 			c.Contracts[neofsIDContract].Hash,
-			nnsCs.Hash,
+			nnsHash,
 			"container")
 	case neofsIDContract:
 		items = append(items,

@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
@@ -19,7 +18,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-contract/contracts/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,7 +41,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 		dumpStorage, _  = cmd.Flags().GetBool(dumpBalancesStorageFlag)
 		dumpAlphabet, _ = cmd.Flags().GetBool(dumpBalancesAlphabetFlag)
 		dumpProxy, _    = cmd.Flags().GetBool(dumpBalancesProxyFlag)
-		nnsCs           *state.Contract
+		nnsReader       *nns.ContractReader
 		nmHash          util.Uint160
 	)
 
@@ -54,12 +53,13 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	inv := invoker.New(c, nil)
 
 	if dumpStorage || dumpAlphabet || dumpProxy {
-		nnsCs, err = c.GetContractStateByID(1)
+		nnsHash, err := nns.InferHash(c)
 		if err != nil {
-			return fmt.Errorf("can't get NNS contract info: %w", err)
+			return fmt.Errorf("can't get NNS contract hash: %w", err)
 		}
+		nnsReader = nns.NewReader(inv, nnsHash)
 
-		nmHash, err = nnsResolveHash(inv, nnsCs.Hash, netmapContract+".neofs")
+		nmHash, err = nnsReader.ResolveFSContract(nns.NameNetmap)
 		if err != nil {
 			return fmt.Errorf("can't get netmap contract hash: %w", err)
 		}
@@ -109,7 +109,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	}
 
 	if dumpProxy {
-		h, err := nnsResolveHash(inv, nnsCs.Hash, proxyContract+".neofs")
+		h, err := nnsReader.ResolveFSContract(nns.NameProxy)
 		if err != nil {
 			return fmt.Errorf("can't get hash of the proxy contract: %w", err)
 		}
@@ -124,23 +124,8 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	if dumpAlphabet {
 		alphaList := make([]accBalancePair, len(irList))
 
-		b := smartcontract.NewBuilder()
 		for i := range alphaList {
-			b.InvokeMethod(nnsCs.Hash, "resolve", getAlphabetNNSDomain(i), int64(nns.TXT))
-		}
-
-		script, err := b.Script()
-		if err != nil {
-			return fmt.Errorf("resolving alphabet hashes script: %w", err)
-		}
-
-		alphaRes, err := c.InvokeScript(script, nil)
-		if err != nil {
-			return fmt.Errorf("can't fetch info from NNS: %w", err)
-		}
-
-		for i := range alphaList {
-			h, err := parseNNSResolveResult(alphaRes.Stack[i])
+			h, err := nnsReader.ResolveFSContract(getAlphabetNNSDomain(i))
 			if err != nil {
 				return fmt.Errorf("can't fetch the alphabet contract #%d hash: %w", i, err)
 			}

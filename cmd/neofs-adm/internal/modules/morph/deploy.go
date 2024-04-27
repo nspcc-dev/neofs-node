@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neofs-contract/contracts/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -76,9 +76,9 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	nnsCs, err := c.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(c.Client)
 	if err != nil {
-		return fmt.Errorf("can't fetch NNS contract state: %w", err)
+		return fmt.Errorf("can't fetch NNS contract hash: %w", err)
 	}
 
 	callHash := management.Hash
@@ -87,7 +87,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 	domain := ctrName + "." + zone
 	isUpdate, _ := cmd.Flags().GetBool(updateFlag)
 	if isUpdate {
-		cs.Hash, err = nnsResolveHash(c.ReadOnlyInvoker, nnsCs.Hash, domain)
+		cs.Hash, err = nnsResolveHash(c.ReadOnlyInvoker, nnsHash, domain)
 		if err != nil {
 			return fmt.Errorf("can't fetch contract hash from NNS: %w", err)
 		}
@@ -113,28 +113,28 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 	if !isUpdate {
 		bw := io.NewBufBinWriter()
 		emit.Instruction(bw.BinWriter, opcode.INITSSLOT, []byte{1})
-		emit.AppCall(bw.BinWriter, nnsCs.Hash, "getPrice", callflag.All)
+		emit.AppCall(bw.BinWriter, nnsHash, "getPrice", callflag.All)
 		emit.Opcodes(bw.BinWriter, opcode.STSFLD0)
-		emit.AppCall(bw.BinWriter, nnsCs.Hash, "setPrice", callflag.All, 1)
+		emit.AppCall(bw.BinWriter, nnsHash, "setPrice", callflag.All, 1)
 
 		start := bw.Len()
 		needRecord := false
 
-		ok, err := c.nnsRootRegistered(nnsCs.Hash, zone)
+		ok, err := c.nnsRootRegistered(nnsHash, zone)
 		if err != nil {
 			return err
 		} else if !ok {
 			needRecord = true
 
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "registerTLD", callflag.All,
+			emit.AppCall(bw.BinWriter, nnsHash, "registerTLD", callflag.All,
 				zone,
 				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+			emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 				domain, c.CommitteeAcc.Contract.ScriptHash(),
 				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 			emit.Opcodes(bw.BinWriter, opcode.ASSERT)
 		} else {
-			s, ok, err := c.nnsRegisterDomainScript(nnsCs.Hash, cs.Hash, domain)
+			s, ok, err := c.nnsRegisterDomainScript(nnsHash, cs.Hash, domain)
 			if err != nil {
 				return err
 			}
@@ -144,9 +144,9 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if needRecord {
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "addRecord", callflag.All,
-				domain, int64(nns.TXT), address.Uint160ToString(cs.Hash))
+			emit.AppCall(bw.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, nns.TXT)
+			emit.AppCall(bw.BinWriter, nnsHash, "addRecord", callflag.All,
+				domain, nns.TXT, address.Uint160ToString(cs.Hash))
 		}
 
 		if bw.Err != nil {
@@ -154,7 +154,7 @@ func deployContractCmd(cmd *cobra.Command, args []string) error {
 		} else if bw.Len() != start {
 			w.WriteBytes(bw.Bytes())
 			emit.Opcodes(w.BinWriter, opcode.LDSFLD0, opcode.PUSH1, opcode.PACK)
-			emit.AppCallNoArgs(w.BinWriter, nnsCs.Hash, "setPrice", callflag.All)
+			emit.AppCallNoArgs(w.BinWriter, nnsHash, "setPrice", callflag.All)
 
 			if needRecord {
 				c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())

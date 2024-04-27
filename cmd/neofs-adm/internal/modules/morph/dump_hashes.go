@@ -19,7 +19,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-contract/contracts/nns"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -39,21 +39,23 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
 
-	cs, err := c.GetContractStateByID(1)
+	inv := invoker.New(c, nil)
+	nnsHash, err := nns.InferHash(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't get NNS contract hash: %w", err)
 	}
+	nnsReader := nns.NewReader(inv, nnsHash)
 
 	zone, _ := cmd.Flags().GetString(customZoneFlag)
 	if zone != "" {
-		return dumpCustomZoneHashes(cmd, cs.Hash, zone, c)
+		return dumpCustomZoneHashes(cmd, nnsHash, zone, c)
 	}
 
-	infos := []contractDumpInfo{{name: nnsContract, hash: cs.Hash}}
+	infos := []contractDumpInfo{{name: nnsContract, hash: nnsHash}}
 
 	irSize := 0
 	for ; irSize < lastGlagoliticLetter; irSize++ {
-		ok, err := nnsIsAvailable(c, cs.Hash, getAlphabetNNSDomain(irSize))
+		ok, err := nnsReader.IsAvailable(getAlphabetNNSDomain(irSize) + "." + nns.ContractTLD)
 		if err != nil {
 			return err
 		} else if ok {
@@ -61,54 +63,20 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	b := smartcontract.NewBuilder()
-
-	if irSize != 0 {
-		b.Reset()
-		for i := 0; i < irSize; i++ {
-			b.InvokeMethod(cs.Hash, "resolve", getAlphabetNNSDomain(i), int64(nns.TXT))
-		}
-
-		script, err := b.Script()
-		if err != nil {
-			return fmt.Errorf("resolving alphabet hashes script: %w", err)
-		}
-
-		alphaRes, err := c.InvokeScript(script, nil)
-		if err != nil {
-			return fmt.Errorf("can't fetch info from NNS: %w", err)
-		}
-
-		for i := 0; i < irSize; i++ {
-			info := contractDumpInfo{name: fmt.Sprintf("alphabet %d", i)}
-			if h, err := parseNNSResolveResult(alphaRes.Stack[i]); err == nil {
-				info.hash = h
-			}
-			infos = append(infos, info)
-		}
+	var contracts = make([]string, 0, irSize+len(contractList))
+	for i := 0; i < irSize; i++ {
+		contracts = append(contracts, getAlphabetNNSDomain(i))
+	}
+	for _, ctrName := range contractList {
+		contracts = append(contracts, ctrName)
 	}
 
-	for _, ctrName := range contractList {
-		b.Reset()
-		b.InvokeMethod(cs.Hash, "resolve", ctrName+".neofs", int64(nns.TXT))
-
-		script, err := b.Script()
+	for _, ctrName := range contracts {
+		h, err := nnsReader.ResolveFSContract(ctrName)
 		if err != nil {
-			return fmt.Errorf("resolving neofs contract hashes script: %w", err)
+			return fmt.Errorf("can't resolve %s contract: %w", ctrName, err)
 		}
-
-		res, err := c.InvokeScript(script, nil)
-		if err != nil {
-			return fmt.Errorf("can't fetch info from NNS: %w", err)
-		}
-
-		info := contractDumpInfo{name: ctrName}
-		if len(res.Stack) != 0 {
-			if h, err := parseNNSResolveResult(res.Stack[0]); err == nil {
-				info.hash = h
-			}
-		}
-		infos = append(infos, info)
+		infos = append(infos, contractDumpInfo{name: ctrName, hash: h})
 	}
 
 	fillContractVersion(cmd, c, infos)

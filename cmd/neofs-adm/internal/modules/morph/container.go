@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -27,13 +28,15 @@ func getContainerContractHash(cmd *cobra.Command, inv *invoker.Invoker, c Client
 		ch, err = util.Uint160DecodeStringLE(s)
 	}
 	if err != nil {
-		nnsCs, err := c.GetContractStateByID(1)
+		nnsHash, err := nns.InferHash(c)
 		if err != nil {
-			return util.Uint160{}, fmt.Errorf("can't get NNS contract state: %w", err)
+			return ch, fmt.Errorf("can't get NNS contract hash: %w", err)
 		}
-		ch, err = nnsResolveHash(inv, nnsCs.Hash, containerContract+".neofs")
+		nnsReader := nns.NewReader(inv, nnsHash)
+
+		ch, err = nnsReader.ResolveFSContract(nns.NameContainer)
 		if err != nil {
-			return util.Uint160{}, err
+			return ch, fmt.Errorf("can't fetch container contract hash: %w", err)
 		}
 	}
 	return ch, nil
@@ -168,12 +171,13 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 	}
 	defer wCtx.close()
 
-	nnsCs, err := wCtx.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(wCtx.Client)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract state: %w", err)
+		return fmt.Errorf("can't get NNS contract hash: %w", err)
 	}
+	nnsReader := nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
-	ch, err := nnsResolveHash(wCtx.ReadOnlyInvoker, nnsCs.Hash, containerContract+".neofs")
+	ch, err := nnsReader.ResolveFSContract(nns.NameContainer)
 	if err != nil {
 		return fmt.Errorf("can't fetch container contract hash: %w", err)
 	}

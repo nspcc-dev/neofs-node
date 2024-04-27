@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/spf13/cobra"
@@ -45,10 +46,11 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	nnsState, err := c.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't get NNS hash: %w", err)
 	}
+	var nnsReader = nns.NewReader(inv, nnsHash)
 
 	epoch, err := cmd.Flags().GetInt64(estimationsEpochFlag)
 	if err != nil {
@@ -56,7 +58,7 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 	}
 
 	if epoch <= 0 {
-		netmapHash, err := nnsResolveHash(inv, nnsState.Hash, netmapContract+".neofs")
+		netmapHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 		if err != nil {
 			return fmt.Errorf("netmap contract hash resolution: %w", err)
 		}
@@ -69,7 +71,7 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 		epoch = epochFromContract + epoch // epoch is negative here
 	}
 
-	cnrHash, err := nnsResolveHash(inv, nnsState.Hash, containerContract+".neofs")
+	cnrHash, err := nnsReader.ResolveFSContract(nns.NameContainer)
 	if err != nil {
 		return fmt.Errorf("container contract hash resolution: %w", err)
 	}

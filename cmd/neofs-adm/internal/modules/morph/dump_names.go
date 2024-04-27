@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,12 +28,12 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
-	cs, err := c.GetContractStateByID(1) // NNS.
+	nnsHash, err := nns.InferHash(c)
 	if err != nil {
 		return err
 	}
-	var n11r = nep11.NewNonDivisibleReader(invoker.New(c, nil), cs.Hash)
-	tokIter, err := n11r.Tokens()
+	var nnsReader = nns.NewReader(invoker.New(c, nil), nnsHash)
+	tokIter, err := nnsReader.Tokens()
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 			if zone != "" && !strings.HasSuffix(name, "."+zone) {
 				continue
 			}
-			props, err := n11r.Properties(toks[i])
+			props, err := nnsReader.Properties(toks[i])
 			if err != nil {
 				cmd.PrintErrf("Error getting properties for %s: %v\n", name, err)
 				continue
