@@ -21,6 +21,7 @@ arm64 binaries for you as well now.
 - GC stops if any non-critical "content" errors happen (#2823)
 - Endless GC cycle if an object is stored on an unexpected shard (#2821)
 - Storage node searches for objects even if local state prohibits operation (#1709) 
+- First object in a split chain can de deleted (#2839)
 
 ### Changed
 

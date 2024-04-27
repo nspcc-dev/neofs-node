@@ -20,8 +20,9 @@ type headRes struct {
 }
 
 type testObjectSource struct {
-	search []oid.ID
-	head   map[oid.Address]headRes
+	searchV1 map[object.SplitID][]oid.ID
+	searchV2 map[oid.ID][]oid.ID
+	head     map[oid.Address]headRes
 }
 
 func (t *testObjectSource) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
@@ -29,8 +30,37 @@ func (t *testObjectSource) Head(_ context.Context, addr oid.Address) (*object.Ob
 	return res.h, res.err
 }
 
-func (t *testObjectSource) Search(_ context.Context, _ cid.ID, _ object.SearchFilters) ([]oid.ID, error) {
-	return t.search, nil
+func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchFilters) ([]oid.ID, error) {
+	f := ff[0]
+
+	switch f.Header() {
+	case object.FilterSplitID:
+		if t.searchV1 == nil {
+			return nil, nil
+		}
+
+		var splitID object.SplitID
+		err := splitID.Parse(f.Value())
+		if err != nil {
+			panic(err)
+		}
+
+		return t.searchV1[splitID], nil
+	case object.FilterFirstSplitObject:
+		if t.searchV2 == nil {
+			return nil, nil
+		}
+
+		var firstObject oid.ID
+		err := firstObject.DecodeString(f.Value())
+		if err != nil {
+			panic(err)
+		}
+
+		return t.searchV2[firstObject], nil
+	default:
+		panic("unexpected search call")
+	}
 }
 
 func TestVerifier_VerifyTomb(t *testing.T) {
@@ -72,6 +102,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		cnr := cidtest.ID()
 		child := objectWithCnr(t, cnr, true)
 		childID, _ := child.ID()
+		splitID := child.SplitID()
 
 		var addr oid.Address
 		addr.SetContainer(cnr)
@@ -108,7 +139,9 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 							h: &link,
 						},
 					},
-					search: []oid.ID{linkID},
+					searchV1: map[object.SplitID][]oid.ID{
+						*splitID: {linkID},
+					},
 				}
 
 				err := v.VerifyTomb(ctx, cnr, tomb)
@@ -118,8 +151,27 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		})
 
 		t.Run("V2", func(t *testing.T) {
-			child.SetFirstID(oidtest.ID())
 			child.SetSplitID(nil)
+
+			t.Run("removing first object", func(t *testing.T) {
+				*os = testObjectSource{
+					head: map[oid.Address]headRes{
+						addr: {
+							h: &child,
+						},
+					},
+					searchV2: map[oid.ID][]oid.ID{
+						childID: {oidtest.ID()}, // the first object is a chain ID in itself
+					},
+				}
+
+				err := v.VerifyTomb(ctx, cnr, tomb)
+				require.ErrorContains(t, err, "V2")
+				require.ErrorContains(t, err, "found link object")
+			})
+
+			firstObject := oidtest.ID()
+			child.SetFirstID(firstObject)
 
 			t.Run("LINKs can not be found", func(t *testing.T) {
 				*os = testObjectSource{
@@ -140,7 +192,9 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 							h: &child,
 						},
 					},
-					search: []oid.ID{oidtest.ID()},
+					searchV2: map[oid.ID][]oid.ID{
+						firstObject: {oidtest.ID()},
+					},
 				}
 
 				err := v.VerifyTomb(ctx, cnr, tomb)
