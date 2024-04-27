@@ -3,6 +3,20 @@ Changelog for NeoFS Node
 
 ## [Unreleased]
 
+### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.41.1
+
+## [0.41.1] - 2024-04-27
+
 A set of fixes and small utility improvements. We're providing darwin and
 arm64 binaries for you as well now.
 
@@ -22,14 +36,6 @@ arm64 binaries for you as well now.
 - Endless GC cycle if an object is stored on an unexpected shard (#2821)
 - Storage node searches for objects even if local state prohibits operation (#1709)
 - First object in a split chain can de deleted (#2839)
-
-### Changed
-
-### Removed
-
-### Updated
-
-### Updating from v0.41.0
 
 ## [0.41.0] - 2024-04-19 - Daebudo
 
@@ -1994,7 +2000,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...master
+[0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.41.1
 [0.41.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...v0.40.0
