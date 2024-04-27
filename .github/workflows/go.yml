@@ -45,7 +45,18 @@ jobs:
     name: Unit tests
     strategy:
       matrix:
-        go: [ '1.20.x', '1.21.x' ]
+        os: [ubuntu-22.04, macos-14]
+        go: [ '1.20.x', '1.21.x', '1.22' ]
+        exclude:
+          # Only the latest Go version MacOS.
+          - os: macos-14
+            go: '1.20.x'
+          - os: macos-14
+            go: '1.21.x'
+          # Exclude the latest Go version for Ubuntu as Coverage uses it.
+          - os: ubuntu-22.04
+            go: '1.22'
+
     steps:
       - name: Setup go
         uses: actions/setup-go@v5
