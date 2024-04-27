@@ -11,10 +11,15 @@ Changelog for NeoFS Node
 
 ### Removed
 - IR contracts deployment code. Moved to the contracts repo (#2812)
+- `blobovnicza-to-peapod` migration utility (#2842)
 
 ### Updated
 
 ### Updating from v0.41.1
+Notice that `blobovnicza-to-peapod` migration utility is gone. Blobovniczas
+were removed from the node since 0.39.0, so if you're using any current NeoFS
+node version it's not a problem. If you're using 0.38.0 or lower with
+blobovniczas configured, please migrate using earlier releases.
 
 ## [0.41.1] - 2024-04-27
 
