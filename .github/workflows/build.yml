@@ -37,8 +37,8 @@ jobs:
     runs-on: ${{matrix.os.name}}
     strategy:
       matrix:
-        os: [{ name: ubuntu-22.04, bin-name: linux }] # { name: windows-2022, bin-name: windows }, { name: macos-12, bin-name: darwin }
-        arch: [amd64] # arm64
+        os: [{ name: ubuntu-22.04, bin-name: linux }, { name: macos-14, bin-name: darwin }] # { name: windows-2022, bin-name: windows }
+        arch: [amd64, arm64]
 
     steps:
       - uses: actions/checkout@v4
@@ -116,7 +116,7 @@ jobs:
           context: .
           file: .docker/Dockerfile.${{matrix.image}}
           push: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.push_image == 'true') }}
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           build-args: |
             REPO=github.com/${{ github.repository }}
             VERSION=${{ steps.setver.outputs.version }}
