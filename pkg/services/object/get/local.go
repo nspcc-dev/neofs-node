@@ -14,8 +14,6 @@ func (exec *execCtx) executeLocal() {
 	exec.collectedObject, err = exec.svc.localStorage.get(exec)
 
 	var errSplitInfo *objectSDK.SplitInfoError
-	var errRemoved apistatus.ObjectAlreadyRemoved
-	var errOutOfRange apistatus.ObjectOutOfRange
 
 	switch {
 	default:
@@ -29,15 +27,19 @@ func (exec *execCtx) executeLocal() {
 		exec.status = statusOK
 		exec.err = nil
 		exec.writeCollectedObject()
-	case errors.As(err, &errRemoved):
-		exec.status = statusINHUMED
-		exec.err = errRemoved
+	case errors.Is(err, apistatus.Error):
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			exec.status = statusNotFound
+			exec.err = err
+
+			return
+		}
+
+		exec.status = statusAPIResponse
+		exec.err = err
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL
 		mergeSplitInfo(exec.splitInfo(), errSplitInfo.SplitInfo())
 		exec.err = objectSDK.NewSplitInfoError(exec.infoSplit)
-	case errors.As(err, &errOutOfRange):
-		exec.status = statusOutOfRange
-		exec.err = errOutOfRange
 	}
 }

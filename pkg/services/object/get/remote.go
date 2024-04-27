@@ -42,11 +42,8 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 			exec.collectedObject = obj
 			exec.writeCollectedObject()
 		}
-	case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
-		exec.status = statusINHUMED
-		exec.err = err
-	case errors.Is(err, apistatus.ErrObjectOutOfRange):
-		exec.status = statusOutOfRange
+	case errors.Is(err, apistatus.Error) && !errors.Is(err, apistatus.ErrObjectNotFound):
+		exec.status = statusAPIResponse
 		exec.err = err
 	case errors.As(err, &errSplitInfo):
 		exec.status = statusVIRTUAL

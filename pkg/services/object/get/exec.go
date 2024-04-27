@@ -46,9 +46,9 @@ type execOption func(*execCtx)
 const (
 	statusUndefined int = iota
 	statusOK
-	statusINHUMED
 	statusVIRTUAL
-	statusOutOfRange
+	statusAPIResponse
+	statusNotFound
 )
 
 func headOnly() execOption {

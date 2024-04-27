@@ -92,7 +92,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 		var errOutOfRange apistatus.ObjectOutOfRange
 
 		exec.err = &errOutOfRange
-		exec.status = statusOutOfRange
+		exec.status = statusAPIResponse
 
 		// the operation has failed but no need to continue so `true` here
 		return true

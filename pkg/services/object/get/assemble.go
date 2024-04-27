@@ -118,7 +118,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 			var errOutOfRange apistatus.ObjectOutOfRange
 
 			exec.err = &errOutOfRange
-			exec.status = statusOutOfRange
+			exec.status = statusAPIResponse
 
 			return
 		}
