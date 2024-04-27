@@ -20,7 +20,7 @@ arm64 binaries for you as well now.
 - Errors in neofs-adm morph dump-names output (#2831)
 - GC stops if any non-critical "content" errors happen (#2823)
 - Endless GC cycle if an object is stored on an unexpected shard (#2821)
-- Storage node searches for objects even if local state prohibits operation (#1709) 
+- Storage node searches for objects even if local state prohibits operation (#1709)
 - First object in a split chain can de deleted (#2839)
 
 ### Changed
