@@ -104,6 +104,13 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 			return fmt.Errorf("verify V1 split: %w", err)
 		}
 	} else {
+		if !firstSet {
+			// checks above say that this is a (non-V1) split object and also
+			// a first object is the only part that does not have a first object
+			// field set, obviously
+			firstChild = addr.Object()
+		}
+
 		err = v.verifyV2Child(ctx, cnr, firstChild)
 		if err != nil {
 			return fmt.Errorf("verify V2 split: %w", err)
