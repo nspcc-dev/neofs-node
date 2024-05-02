@@ -461,14 +461,13 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 	// bbolt.Bucket.Put MUST NOT be called concurrently. This is not obvious from
 	// the docs, but panic occurs in practice
 	currentBatch.bktRootMtx.Lock()
+	currentBatch.nonIdle = true
 	err := fBktRoot(currentBatch.bktRoot)
 	currentBatch.bktRootMtx.Unlock()
 	if err != nil {
 		x.currentBatchMtx.RUnlock()
 		return fmt.Errorf("put object into BoltDB bucket for container: %w", err)
 	}
-
-	currentBatch.nonIdle = true
 
 	x.currentBatchMtx.RUnlock()
 
