@@ -54,3 +54,13 @@ const Size = 41
 func LetterByIndex(ind int) string {
 	return script[ind]
 }
+
+// Glagolitsa implement [github.com/nspcc-dev/neofs-contract/deploy.Glagolitsa].
+type Glagolitsa struct{}
+
+func (g *Glagolitsa) Size() int {
+	return Size
+}
+func (g *Glagolitsa) LetterByIndex(ind int) string {
+	return LetterByIndex(ind)
+}

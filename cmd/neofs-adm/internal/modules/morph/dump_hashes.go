@@ -19,7 +19,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
-	"github.com/nspcc-dev/neofs-contract/nns"
+	"github.com/nspcc-dev/neofs-contract/contracts/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

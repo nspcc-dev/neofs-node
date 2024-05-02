@@ -12,8 +12,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -243,7 +243,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 
 // sets NeoFS network settings to be used for the NeoFS Sidechain
 // auto-deployment.
-func setNetworkSettingsDefaults(netCfg *netmap.NetworkConfiguration) {
+func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.MaxObjectSize = 64 << 20 // in bytes of object payload
 	netCfg.EpochDuration = 240      // in NeoFS Sidechain blocks (e.g. ~1h for 15s block interval)
 	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)

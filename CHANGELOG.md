@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- IR contracts deployment code. Moved to the contracts repo (#2812)
 
 ### Updated
 

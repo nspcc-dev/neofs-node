@@ -9,9 +9,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-contract/deploy"
 	embeddedcontracts "github.com/nspcc-dev/neofs-node/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"

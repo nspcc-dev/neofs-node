@@ -15,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
+	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
@@ -43,7 +44,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
@@ -53,6 +53,7 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
+	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
@@ -542,20 +543,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		deployPrm.Blockchain = sidechain
 		deployPrm.LocalAccount = singleAcc
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
+		deployPrm.Glagolitsa = &glagolitsa.Glagolitsa{}
 
 		nnsCfg, err := parseNNSConfig(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid NNS configuration: %w", err)
 		}
 
-		deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
-		if deployPrm.NNS.SystemEmail == "" {
-			deployPrm.NNS.SystemEmail = "nonexistent@nspcc.io"
-		}
-
 		err = readEmbeddedContracts(&deployPrm)
 		if err != nil {
 			return nil, err
+		}
+
+		deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
+		if deployPrm.NNS.SystemEmail == "" {
+			deployPrm.NNS.SystemEmail = "nonexistent@nspcc.io"
 		}
 
 		setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
@@ -574,6 +576,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		if err != nil {
 			return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
 		}
+
+		server.log.Info("autodeploy completed")
 	}
 
 	// create morph listener
