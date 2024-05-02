@@ -73,6 +73,7 @@ func TestFlush(t *testing.T) {
 
 	t.Run("no errors", func(t *testing.T) {
 		wc, bs, mb := newCache(t)
+		defer wc.Close()
 		objects := putObjects(t, wc)
 
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
@@ -98,6 +99,7 @@ func TestFlush(t *testing.T) {
 
 	t.Run("flush on moving to degraded mode", func(t *testing.T) {
 		wc, bs, mb := newCache(t)
+		defer wc.Close()
 		objects := putObjects(t, wc)
 
 		// Blobstor is read-only, so we expect en error from `flush` here.
@@ -132,6 +134,7 @@ func TestFlush(t *testing.T) {
 			wc, bs, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
 				errCount.Add(1)
 			}))
+			defer wc.Close()
 			objects := putObjects(t, wc)
 			f(wc.(*cache))
 
@@ -195,6 +198,7 @@ func TestFlush(t *testing.T) {
 
 	t.Run("on init", func(t *testing.T) {
 		wc, bs, mb := newCache(t)
+		defer wc.Close()
 		objects := []objectPair{
 			// removed
 			putObject(t, wc, 1),
