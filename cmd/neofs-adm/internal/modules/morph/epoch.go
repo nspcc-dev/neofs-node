@@ -20,11 +20,10 @@ func forceNewEpochCmd(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't to initialize context: %w", err)
 	}
 
-	nnsHash, err := nns.InferHash(wCtx.Client)
+	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
 	if err != nil {
-		return fmt.Errorf("can't get NNS hash: %w", err)
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	var nnsReader = nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
 	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
