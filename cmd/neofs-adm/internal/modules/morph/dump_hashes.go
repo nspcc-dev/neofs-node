@@ -67,9 +67,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	for i := 0; i < irSize; i++ {
 		contracts = append(contracts, getAlphabetNNSDomain(i))
 	}
-	for _, ctrName := range contractList {
-		contracts = append(contracts, ctrName)
-	}
+	contracts = append(contracts, contractList...)
 
 	for _, ctrName := range contracts {
 		h, err := nnsReader.ResolveFSContract(ctrName)
