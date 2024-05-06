@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -199,12 +198,7 @@ func (c *initializeContext) updateContracts() error {
 		method := updateMethodName
 		ctrHash, err := nnsReader.ResolveFSContract(ctrName)
 		if err != nil {
-			if errors.Is(err, errMissingNNSRecord) {
-				// if contract not found we deploy it instead of update
-				method = deployMethodName
-			} else {
-				return fmt.Errorf("can't resolve hash for contract update: %w", err)
-			}
+			return fmt.Errorf("can't resolve hash for contract update: %w", err)
 		}
 
 		invokeHash := management.Hash

@@ -160,9 +160,6 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string)
 	return res.State == vmstate.Halt.String(), nil
 }
 
-var errMissingNNSRecord = errors.New("missing NNS record")
-
-// Returns errMissingNNSRecord if invocation fault exception contains "token not found".
 func nnsResolveHash(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (util.Uint160, error) {
 	item, err := nnsResolve(inv, nnsHash, domain)
 	if err != nil {
