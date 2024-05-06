@@ -88,6 +88,7 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 	const nnsMaxTokens = 100
 
 	inv := invoker.New(c, nil)
+	nnsReader := nns.NewReader(inv, nnsHash)
 
 	if !strings.HasPrefix(zone, ".") {
 		zone = "." + zone
@@ -106,7 +107,7 @@ func dumpCustomZoneHashes(cmd *cobra.Command, nnsHash util.Uint160, zone string,
 			return
 		}
 
-		h, err := nnsResolveHash(inv, nnsHash, string(bs))
+		h, err := nnsResolveHash(nnsReader, string(bs))
 		if err != nil {
 			cmd.PrintErrf("Could not resolve name %s: %v\n", string(bs), err)
 			return
