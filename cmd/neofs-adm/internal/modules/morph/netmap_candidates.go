@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/spf13/cobra"
@@ -18,12 +19,13 @@ func listNetmapCandidatesNodes(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	nnsCs, err := c.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(c)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract info: %w", err)
+		return fmt.Errorf("can't get NNS hash: %w", err)
 	}
+	var nnsReader = nns.NewReader(inv, nnsHash)
 
-	nmHash, err := nnsResolveHash(inv, nnsCs.Hash, netmapContract+".neofs")
+	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
 		return fmt.Errorf("can't get netmap contract hash: %w", err)
 	}

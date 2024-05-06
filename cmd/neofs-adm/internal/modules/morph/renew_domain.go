@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,14 +26,14 @@ func renewDomain(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	defer wCtx.close()
-	nns, err := wCtx.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(wCtx.Client)
 	if err != nil {
 		return err
 	}
+	nnsReader := nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 	var domains = make([]string, 0, 1)
 	if recursive {
-		var n11r = nep11.NewNonDivisibleReader(wCtx.ReadOnlyInvoker, nns.Hash)
-		tokIter, err := n11r.Tokens()
+		tokIter, err := nnsReader.Tokens()
 		if err != nil {
 			return err
 		}
@@ -48,7 +47,7 @@ func renewDomain(cmd *cobra.Command, _ []string) error {
 			}
 		}
 	} else {
-		avail, err := unwrap.Bool(wCtx.ReadOnlyInvoker.Call(nns.Hash, "isAvailable"))
+		avail, err := nnsReader.IsAvailable(dom)
 		if err == nil && avail {
 			return errors.New("domain is not registered or expired")
 		}
@@ -57,7 +56,7 @@ func renewDomain(cmd *cobra.Command, _ []string) error {
 
 	b := smartcontract.NewBuilder()
 	for i := range domains {
-		b.InvokeMethod(nns.Hash, "renew", domains[i])
+		b.InvokeMethod(nnsHash, "renew", domains[i])
 
 		script, err := b.Script()
 		if err != nil {

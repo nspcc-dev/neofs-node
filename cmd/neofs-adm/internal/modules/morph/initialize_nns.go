@@ -9,9 +9,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nns"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
@@ -19,32 +17,33 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 )
 
 const defaultExpirationTime = 10 * 365 * 24 * time.Hour / time.Second
 
 func (c *initializeContext) setNNS() error {
-	nnsCs, err := c.Client.GetContractStateByID(1)
+	nnsHash, err := nns.InferHash(c.Client)
 	if err != nil {
 		return err
 	}
 
-	ok, err := c.nnsRootRegistered(nnsCs.Hash, "neofs")
+	ok, err := c.nnsRootRegistered(nnsHash, "neofs")
 	if err != nil {
 		return err
 	} else if !ok {
-		version, err := unwrap.Int64(c.CommitteeAct.Call(nnsCs.Hash, "version"))
+		version, err := unwrap.Int64(c.CommitteeAct.Call(nnsHash, "version"))
 		if err != nil {
 			return err
 		}
 
 		bw := io.NewBufBinWriter()
 		if version < 18_000 { // 0.18.0
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "register", callflag.All,
+			emit.AppCall(bw.BinWriter, nnsHash, "register", callflag.All,
 				"neofs", c.CommitteeAcc.Contract.ScriptHash(),
 				"ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		} else {
-			emit.AppCall(bw.BinWriter, nnsCs.Hash, "registerTLD", callflag.All,
+			emit.AppCall(bw.BinWriter, nnsHash, "registerTLD", callflag.All,
 				"neofs", "ops@nspcc.ru", int64(3600), int64(600), int64(defaultExpirationTime), int64(3600))
 		}
 		emit.Opcodes(bw.BinWriter, opcode.ASSERT)
@@ -60,8 +59,8 @@ func (c *initializeContext) setNNS() error {
 	for i, acc := range c.Accounts {
 		alphaCs.Hash = state.CreateContractHash(acc.Contract.ScriptHash(), alphaCs.NEF.Checksum, alphaCs.Manifest.Name)
 
-		domain := getAlphabetNNSDomain(i)
-		if err := c.nnsRegisterDomain(nnsCs.Hash, alphaCs.Hash, domain); err != nil {
+		domain := getAlphabetNNSDomain(i) + "." + nns.ContractTLD
+		if err := c.nnsRegisterDomain(nnsHash, alphaCs.Hash, domain); err != nil {
 			return err
 		}
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, alphaCs.Hash.StringLE())
@@ -71,7 +70,7 @@ func (c *initializeContext) setNNS() error {
 		cs := c.getContract(ctrName)
 
 		domain := ctrName + ".neofs"
-		if err := c.nnsRegisterDomain(nnsCs.Hash, cs.Hash, domain); err != nil {
+		if err := c.nnsRegisterDomain(nnsHash, cs.Hash, domain); err != nil {
 			return err
 		}
 		c.Command.Printf("NNS: Set %s -> %s\n", domain, cs.Hash.StringLE())
@@ -81,7 +80,7 @@ func (c *initializeContext) setNNS() error {
 }
 
 func getAlphabetNNSDomain(i int) string {
-	return alphabetContract + strconv.FormatUint(uint64(i), 10) + ".neofs"
+	return nns.NameAlphabetPrefix + strconv.FormatUint(uint64(i), 10)
 }
 
 // wrapRegisterScriptWithPrice wraps a given script with `getPrice`/`setPrice` calls for NNS.
@@ -108,7 +107,8 @@ func wrapRegisterScriptWithPrice(w *io.BufBinWriter, nnsHash util.Uint160, s []b
 }
 
 func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.Uint160, domain string) ([]byte, bool, error) {
-	ok, err := nnsIsAvailable(c.Client, nnsHash, domain)
+	nnsReader := nns.NewReader(c.ReadOnlyInvoker, nnsHash)
+	ok, err := nnsReader.IsAvailable(domain)
 	if err != nil {
 		return nil, false, err
 	}
@@ -143,11 +143,11 @@ func (c *initializeContext) nnsRegisterDomain(nnsHash, expectedHash util.Uint160
 	emit.Instruction(w.BinWriter, opcode.INITSSLOT, []byte{1})
 	wrapRegisterScriptWithPrice(w, nnsHash, script)
 
-	emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, int64(nns.TXT))
+	emit.AppCall(w.BinWriter, nnsHash, "deleteRecords", callflag.All, domain, nns.TXT)
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-		domain, int64(nns.TXT), expectedHash.StringLE())
+		domain, nns.TXT, expectedHash.StringLE())
 	emit.AppCall(w.BinWriter, nnsHash, "addRecord", callflag.All,
-		domain, int64(nns.TXT), address.Uint160ToString(expectedHash))
+		domain, nns.TXT, address.Uint160ToString(expectedHash))
 	return c.sendCommitteeTx(w.Bytes(), true)
 }
 
@@ -172,7 +172,7 @@ func nnsResolveHash(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (
 }
 
 func nnsResolve(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
-	return unwrap.Item(inv.Call(nnsHash, "resolve", domain, int64(nns.TXT)))
+	return unwrap.Item(inv.Call(nnsHash, "resolve", domain, nns.TXT))
 }
 
 // parseNNSResolveResult parses the result of resolving NNS record.
@@ -205,20 +205,4 @@ func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
 		}
 	}
 	return util.Uint160{}, errors.New("no valid hashes are found")
-}
-
-func nnsIsAvailable(c Client, nnsHash util.Uint160, name string) (bool, error) {
-	switch c.(type) {
-	case *rpcclient.Client:
-		invkr := invoker.New(c, nil)
-		reader := nns.NewReader(invkr, nnsHash)
-		return reader.IsAvailable(name)
-	default:
-		b, err := unwrap.Bool(invokeFunction(c, nnsHash, "isAvailable", []any{name}, nil))
-		if err != nil {
-			return false, fmt.Errorf("`isAvailable`: invalid response: %w", err)
-		}
-
-		return b, nil
-	}
 }

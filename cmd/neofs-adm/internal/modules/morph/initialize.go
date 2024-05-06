@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
@@ -24,7 +24,8 @@ import (
 )
 
 type cache struct {
-	nnsCs *state.Contract
+	nnsHash     util.Uint160
+	nnsContract *nns.ContractReader
 }
 
 type initializeContext struct {
@@ -241,18 +242,16 @@ func (c *initializeContext) awaitTx() error {
 	return c.clientContext.awaitTx(c.Command)
 }
 
-func (c *initializeContext) nnsContractState() (*state.Contract, error) {
-	if c.nnsCs != nil {
-		return c.nnsCs, nil
+func (c *initializeContext) nnsReader() (util.Uint160, *nns.ContractReader, error) {
+	if c.nnsContract == nil {
+		h, err := nns.InferHash(c.Client)
+		if err != nil {
+			return util.Uint160{}, nil, err
+		}
+		c.nnsHash = h
+		c.nnsContract = nns.NewReader(invoker.New(c.Client, nil), h)
 	}
-
-	cs, err := c.Client.GetContractStateByID(1)
-	if err != nil {
-		return nil, err
-	}
-
-	c.nnsCs = cs
-	return cs, nil
+	return c.nnsHash, c.nnsContract, nil
 }
 
 func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) transaction.Signer {
@@ -265,12 +264,10 @@ func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) tran
 		return *signer
 	}
 
-	nnsHash, err := nns.InferHash(c.Client)
+	nnsHash, nnsReader, err := c.nnsReader()
 	if err != nil {
 		return *signer
 	}
-
-	var nnsReader = nns.NewReader(invoker.New(c.Client, nil), nnsHash)
 
 	balanceHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
 	if err != nil && c.Contracts[balanceContract] != nil {
