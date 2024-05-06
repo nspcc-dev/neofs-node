@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- SN API server responds with status message even to old clients from now (#2846)
 
 ### Removed
 - IR contracts deployment code. Moved to the contracts repo (#2812)
