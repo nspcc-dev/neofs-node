@@ -28,11 +28,10 @@ func getContainerContractHash(cmd *cobra.Command, inv *invoker.Invoker, c Client
 		ch, err = util.Uint160DecodeStringLE(s)
 	}
 	if err != nil {
-		nnsHash, err := nns.InferHash(c)
+		nnsReader, err := nns.NewInferredReader(c, inv)
 		if err != nil {
-			return ch, fmt.Errorf("can't get NNS contract hash: %w", err)
+			return ch, fmt.Errorf("can't find NNS contract: %w", err)
 		}
-		nnsReader := nns.NewReader(inv, nnsHash)
 
 		ch, err = nnsReader.ResolveFSContract(nns.NameContainer)
 		if err != nil {
@@ -171,11 +170,10 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 	}
 	defer wCtx.close()
 
-	nnsHash, err := nns.InferHash(wCtx.Client)
+	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract hash: %w", err)
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	nnsReader := nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
 	ch, err := nnsReader.ResolveFSContract(nns.NameContainer)
 	if err != nil {

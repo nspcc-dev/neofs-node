@@ -46,11 +46,10 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	nnsHash, err := nns.InferHash(c)
+	nnsReader, err := nns.NewInferredReader(c, inv)
 	if err != nil {
-		return fmt.Errorf("can't get NNS hash: %w", err)
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	var nnsReader = nns.NewReader(inv, nnsHash)
 
 	epoch, err := cmd.Flags().GetInt64(estimationsEpochFlag)
 	if err != nil {

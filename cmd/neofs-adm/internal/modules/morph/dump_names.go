@@ -28,11 +28,10 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
 	}
-	nnsHash, err := nns.InferHash(c)
+	nnsReader, err := nns.NewInferredReader(c, invoker.New(c, nil))
 	if err != nil {
-		return err
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	var nnsReader = nns.NewReader(invoker.New(c, nil), nnsHash)
 	tokIter, err := nnsReader.Tokens()
 	if err != nil {
 		return err

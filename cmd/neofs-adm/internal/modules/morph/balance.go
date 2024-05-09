@@ -53,11 +53,10 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	inv := invoker.New(c, nil)
 
 	if dumpStorage || dumpAlphabet || dumpProxy {
-		nnsHash, err := nns.InferHash(c)
+		nnsReader, err = nns.NewInferredReader(c, inv)
 		if err != nil {
-			return fmt.Errorf("can't get NNS contract hash: %w", err)
+			return fmt.Errorf("can't find NNS contract: %w", err)
 		}
-		nnsReader = nns.NewReader(inv, nnsHash)
 
 		nmHash, err = nnsReader.ResolveFSContract(nns.NameNetmap)
 		if err != nil {

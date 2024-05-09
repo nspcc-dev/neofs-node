@@ -1,7 +1,6 @@
 package morph
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -9,13 +8,11 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/io"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
-	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 )
@@ -126,7 +123,7 @@ func (c *initializeContext) nnsRegisterDomainScript(nnsHash, expectedHash util.U
 		return bw.Bytes(), false, nil
 	}
 
-	s, err := nnsResolveHash(c.ReadOnlyInvoker, nnsHash, domain)
+	s, err := nnsResolveHash(nnsReader, domain)
 	if err != nil {
 		return nil, false, err
 	}
@@ -160,49 +157,10 @@ func (c *initializeContext) nnsRootRegistered(nnsHash util.Uint160, zone string)
 	return res.State == vmstate.Halt.String(), nil
 }
 
-var errMissingNNSRecord = errors.New("missing NNS record")
-
-// Returns errMissingNNSRecord if invocation fault exception contains "token not found".
-func nnsResolveHash(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (util.Uint160, error) {
-	item, err := nnsResolve(inv, nnsHash, domain)
+func nnsResolveHash(nnsReader *nns.ContractReader, domain string) (util.Uint160, error) {
+	itms, err := nnsReader.Resolve(domain, nns.TXT)
 	if err != nil {
 		return util.Uint160{}, err
 	}
-	return parseNNSResolveResult(item)
-}
-
-func nnsResolve(inv *invoker.Invoker, nnsHash util.Uint160, domain string) (stackitem.Item, error) {
-	return unwrap.Item(inv.Call(nnsHash, "resolve", domain, nns.TXT))
-}
-
-// parseNNSResolveResult parses the result of resolving NNS record.
-// It works with multiple formats (corresponding to multiple NNS versions).
-// If array of hashes is provided, it returns only the first one.
-func parseNNSResolveResult(res stackitem.Item) (util.Uint160, error) {
-	arr, ok := res.Value().([]stackitem.Item)
-	if !ok {
-		arr = []stackitem.Item{res}
-	}
-	if _, ok := res.Value().(stackitem.Null); ok || len(arr) == 0 {
-		return util.Uint160{}, errors.New("NNS record is missing")
-	}
-	for i := range arr {
-		bs, err := arr[i].TryBytes()
-		if err != nil {
-			continue
-		}
-
-		// We support several formats for hash encoding, this logic should be maintained in sync
-		// with nnsResolve from pkg/morph/client/nns.go
-		h, err := util.Uint160DecodeStringLE(string(bs))
-		if err == nil {
-			return h, nil
-		}
-
-		h, err = address.StringToUint160(string(bs))
-		if err == nil {
-			return h, nil
-		}
-	}
-	return util.Uint160{}, errors.New("no valid hashes are found")
+	return nns.AddressFromRecords(itms)
 }

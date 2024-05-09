@@ -29,11 +29,10 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 	inv := invoker.New(c, nil)
 
-	nnsHash, err := nns.InferHash(c)
+	nnsReader, err := nns.NewInferredReader(c, inv)
 	if err != nil {
-		return fmt.Errorf("can't find NNS hash: %w", err)
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	nnsReader := nns.NewReader(inv, nnsHash)
 
 	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
@@ -104,11 +103,10 @@ func setConfigCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("can't initialize context: %w", err)
 	}
 
-	nnsHash, err := nns.InferHash(wCtx.Client)
+	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
 	if err != nil {
-		return fmt.Errorf("can't get NNS contract hash: %w", err)
+		return fmt.Errorf("can't find NNS contract: %w", err)
 	}
-	nnsReader := nns.NewReader(wCtx.ReadOnlyInvoker, nnsHash)
 
 	nmHash, err := nnsReader.ResolveFSContract(nns.NameNetmap)
 	if err != nil {
