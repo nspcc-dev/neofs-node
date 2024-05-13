@@ -2,11 +2,10 @@ package searchsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -15,6 +14,7 @@ import (
 // of Object.Search service.
 type Service struct {
 	*cfg
+	containers Containers
 }
 
 // Option is a Service's constructor option.
@@ -24,6 +24,18 @@ type searchClient interface {
 	// searchObjects searches objects on the specified node.
 	// MUST NOT modify execCtx as it can be accessed concurrently.
 	searchObjects(*execCtx, client.NodeInfo) ([]oid.ID, error)
+}
+
+// Containers provides information about NeoFS containers necessary for the
+// [Service] to work.
+type Containers interface {
+	// ForEachRemoteContainerNode iterates over all remote nodes matching the
+	// referenced container's storage policy for now and passes their descriptors
+	// into f. Elements may be repeated.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	ForEachRemoteContainerNode(cnr cid.ID, f func(netmapsdk.NodeInfo)) error
 }
 
 type ClientConstructor interface {
@@ -41,14 +53,6 @@ type cfg struct {
 		get(client.NodeInfo) (searchClient, error)
 	}
 
-	traverserGenerator interface {
-		generateTraverser(cid.ID, uint64) (*placement.Traverser, error)
-	}
-
-	currentEpochReceiver interface {
-		currentEpoch() (uint64, error)
-	}
-
 	keyStore *util.KeyStorage
 }
 
@@ -60,8 +64,8 @@ func defaultCfg() *cfg {
 }
 
 // New creates, initializes and returns utility serving
-// Object.Get service requests.
-func New(opts ...Option) *Service {
+// Object.Search service requests.
+func New(containers Containers, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -69,7 +73,8 @@ func New(opts ...Option) *Service {
 	}
 
 	return &Service{
-		cfg: c,
+		cfg:        c,
+		containers: containers,
 	}
 }
 
@@ -94,24 +99,6 @@ func WithLocalStorageEngine(e *engine.StorageEngine) Option {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientConstructor.(*clientConstructorWrapper).constructor = v
-	}
-}
-
-// WithTraverserGenerator returns option to set generator of
-// placement traverser to get the objects from containers.
-func WithTraverserGenerator(t *util.TraverserGenerator) Option {
-	return func(c *cfg) {
-		c.traverserGenerator = (*traverseGeneratorWrapper)(t)
-	}
-}
-
-// WithNetMapSource returns option to set network
-// map storage to receive current network state.
-func WithNetMapSource(nmSrc netmap.Source) Option {
-	return func(c *cfg) {
-		c.currentEpochReceiver = &nmSrcWrapper{
-			nmSrc: nmSrc,
-		}
 	}
 }
 

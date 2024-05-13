@@ -39,6 +39,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
@@ -247,16 +248,13 @@ func initObjectService(c *cfg) {
 		getsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sSearch := searchsvc.New(
+	cnrNodes, err := newContainerNodes(c.cfgObject.cnrSource, c.netMapSource)
+	fatalOnErr(err)
+
+	sSearch := searchsvc.New(newRemoteContainerNodes(cnrNodes, c.IsLocalKey),
 		searchsvc.WithLogger(c.log),
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
-		searchsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.WithoutSuccessTracking(),
-			),
-		),
-		searchsvc.WithNetMapSource(c.netMapSource),
 		searchsvc.WithKeyStorage(keyStorage),
 	)
 
@@ -359,8 +357,7 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
-	objNode, err := newNodeForObjects(c.cfgObject.cnrSource, c.netMapSource, sPut, c.IsLocalKey)
-	fatalOnErr(err)
+	objNode := newNodeForObjects(cnrNodes, sPut, c.IsLocalKey)
 
 	server := objectTransportGRPC.New(firstSvc, objNode)
 
@@ -605,6 +602,35 @@ func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
 	return hw.h, nil
 }
 
+type remoteContainerNodes struct {
+	*containerNodes
+	isLocalPubKey func([]byte) bool
+}
+
+func newRemoteContainerNodes(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool) *remoteContainerNodes {
+	return &remoteContainerNodes{
+		containerNodes: cnrNodes,
+		isLocalPubKey:  isLocalPubKey,
+	}
+}
+
+// ForEachRemoteContainerNode iterates over all remote nodes matching the
+// referenced container's storage policy in the current epoch and passes their
+// descriptors into f. Elements may be repeated.
+//
+// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+// found.
+//
+// Implements [searchsvc.Containers] interface.
+func (x *remoteContainerNodes) ForEachRemoteContainerNode(cnr cid.ID, f func(netmapsdk.NodeInfo)) error {
+	return x.forEachContainerNode(cnr, false, func(node netmapsdk.NodeInfo) bool {
+		if !x.isLocalPubKey(node.PublicKey()) {
+			f(node)
+		}
+		return true
+	})
+}
+
 // nodeForObjects represents NeoFS storage node for object storage.
 type nodeForObjects struct {
 	putObjectService *putsvc.Service
@@ -612,16 +638,12 @@ type nodeForObjects struct {
 	isLocalPubKey    func([]byte) bool
 }
 
-func newNodeForObjects(containers containercore.Source, network netmap.Source, putObjectService *putsvc.Service, isLocalPubKey func([]byte) bool) (*nodeForObjects, error) {
-	cnrNodes, err := newContainerNodes(containers, network)
-	if err != nil {
-		return nil, err
-	}
+func newNodeForObjects(cnrNodes *containerNodes, putObjectService *putsvc.Service, isLocalPubKey func([]byte) bool) *nodeForObjects {
 	return &nodeForObjects{
 		putObjectService: putObjectService,
 		containerNodes:   cnrNodes,
 		isLocalPubKey:    isLocalPubKey,
-	}, nil
+	}
 }
 
 // ForEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
