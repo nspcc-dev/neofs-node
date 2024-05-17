@@ -77,6 +77,10 @@ func Test_RequiredChildren(t *testing.T) {
 					rightBound = lastChildBound
 				}
 
+				if len(payloads[i]) > 0 {
+					require.NotZero(t, rightBound-leftBound, "do not ask for empty payload ever")
+				}
+
 				payloadFromChild := payloads[i][leftBound:rightBound]
 				res = append(res, payloadFromChild...)
 			}

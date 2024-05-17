@@ -156,7 +156,7 @@ func requiredChildren(rng *objectSDK.Range, children []objectSDK.MeasuredObject)
 		size := uint64(child.ObjectSize())
 		bytesSeen += size
 
-		if bytesSeen < leftBound {
+		if bytesSeen <= leftBound {
 			continue
 		}
 
