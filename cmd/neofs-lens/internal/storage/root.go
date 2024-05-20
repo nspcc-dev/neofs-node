@@ -43,6 +43,7 @@ var Root = &cobra.Command{
 func init() {
 	Root.AddCommand(
 		storageGetObjCMD,
+		storageListObjsCMD,
 		storageStatusObjCMD,
 	)
 }

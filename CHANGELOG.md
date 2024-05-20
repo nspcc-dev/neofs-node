@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- "storage list" command to neofs-lens (#2852)
 
 ### Fixed
 
