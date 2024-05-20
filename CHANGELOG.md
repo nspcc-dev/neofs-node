@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- GETRANGE request may fail in certain cases (#2849)
 
 ### Changed
 - SN API server responds with status message even to old clients from now (#2846)
