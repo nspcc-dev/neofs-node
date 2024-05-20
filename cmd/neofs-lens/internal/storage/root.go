@@ -36,7 +36,7 @@ var (
 
 var Root = &cobra.Command{
 	Use:   "storage",
-	Short: "Operations with an object",
+	Short: "Operations with blobstor",
 	Args:  cobra.NoArgs,
 }
 
