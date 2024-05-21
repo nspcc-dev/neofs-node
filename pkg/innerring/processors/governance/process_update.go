@@ -2,7 +2,6 @@ package governance
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"sort"
 	"strings"
 
@@ -133,7 +132,7 @@ func prettyKeys(keys keys.PublicKeys) string {
 
 	sb := strings.Builder{}
 	for _, key := range keys {
-		sb.WriteString(hex.EncodeToString(key.Bytes()))
+		sb.WriteString(key.StringCompressed())
 		sb.WriteString(delimiter)
 	}
 
