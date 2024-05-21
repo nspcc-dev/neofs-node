@@ -1,6 +1,7 @@
 package morph
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
@@ -19,6 +21,9 @@ import (
 
 // as described in NEP-18 Specification https://github.com/neo-project/proposals/pull/133
 const nnsNeoAddressTextRecordPrefix = "address="
+
+// tokenNotFound is the exception returned from NNS contract for unregistered domains.
+const tokenNotFound = "token not found"
 
 func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 	vpr := viper.GetViper()
@@ -38,8 +43,8 @@ func verifiedNodesDomainAccessList(cmd *cobra.Command, _ []string) error {
 
 	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2583.
-		if strings.Contains(err.Error(), "token not found") {
+		var ex unwrap.Exception
+		if errors.As(err, &ex) && strings.Contains(string(ex), tokenNotFound) {
 			cmd.Println("Domain not found.")
 			return nil
 		}
@@ -164,8 +169,8 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 
 	records, err := nnsContract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2583.
-		if !strings.Contains(err.Error(), "token not found") {
+		var ex unwrap.Exception
+		if !errors.As(err, &ex) || !strings.Contains(string(ex), tokenNotFound) {
 			return fmt.Errorf("get all text records of the NNS domain %q: %w", domain, err)
 		}
 
