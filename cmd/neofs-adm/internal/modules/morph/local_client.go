@@ -127,7 +127,7 @@ func (l *localClient) GetContractStateByHash(h util.Uint160) (*state.Contract, e
 	return nil, storage.ErrKeyNotFound
 }
 
-func (l *localClient) GetNativeContracts() ([]state.NativeContract, error) {
+func (l *localClient) GetNativeContracts() ([]state.Contract, error) {
 	return l.bc.GetNatives(), nil
 }
 
