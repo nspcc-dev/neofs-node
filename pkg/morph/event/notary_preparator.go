@@ -102,18 +102,6 @@ func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc B
 	}
 }
 
-func txCopy(tx *transaction.Transaction) *transaction.Transaction {
-	cp := *tx
-	cp.Scripts = make([]transaction.Witness, len(tx.Scripts))
-	for i := range cp.Scripts {
-		cp.Scripts[i] = transaction.Witness{
-			InvocationScript:   bytes.Clone(tx.Scripts[i].InvocationScript),
-			VerificationScript: bytes.Clone(tx.Scripts[i].VerificationScript),
-		}
-	}
-	return &cp
-}
-
 // Prepare converts raw notary requests to NotaryEvent.
 //
 // Returns ErrTXAlreadyHandled if transaction shouldn't be
@@ -153,10 +141,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	// Make a copy of request and main transaction, we will modify them and
 	// this is not safe to do for subscribers (can affect shared structures
 	// leading to data corruption like broken notary request in our case).
-	var newR = new(payload.P2PNotaryRequest)
-	*newR = *nr
-	newR.MainTransaction = txCopy(nr.MainTransaction)
-	nr = newR
+	nr = nr.Copy()
 
 	currentAlphabet, err := p.alphaKeys()
 	if err != nil {
