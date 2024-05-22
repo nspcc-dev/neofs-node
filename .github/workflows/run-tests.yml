@@ -36,7 +36,11 @@ env:
 
 jobs:
   run_system_tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [{runner: 'ubuntu-latest', binary: 'linux-amd64'}, {runner: 'macos-14', binary: 'darwin-arm64'}]
     timeout-minutes: 500
     steps:
       - name: Checkout neofs-testcases repository
@@ -133,7 +137,7 @@ jobs:
         with:
           repo: 'nspcc-dev/neo-go'
           version: 'tags/v0.104.0'
-          file: 'neo-go-linux-amd64'
+          file: 'neo-go-${{ matrix.os.binary }}'
           target: 'neofs-testcases/neo-go'
 
       - name: Copy built binaries
@@ -234,7 +238,7 @@ jobs:
       - name: Publish to NeoFS
         id: put_report
         if: always() && steps.prepare_venv.outcome == 'success'
-        uses: nspcc-dev/gh-push-allure-report-to-neofs@master
+        uses: nspcc-dev/gh-push-allure-report-to-neofs@v0.1.1
         with:
           NEOFS_WALLET: ${{ secrets.TEST_RESULTS_WALLET }}
           NEOFS_WALLET_PASSWORD: ${{ secrets.TEST_RESULTS_PASSWORD }}
@@ -257,7 +261,7 @@ jobs:
         uses: Sibz/github-status-action@v1
         with:
           authToken: ${{secrets.GITHUB_TOKEN}}
-          context: 'Test report'
+          context: 'Test report ${{ matrix.os.runner }}'
           state: 'success'
           sha: ${{github.event.pull_request.head.sha || github.sha}}
           target_url: ${{ env.REPORT_NEOFS_URL }}
