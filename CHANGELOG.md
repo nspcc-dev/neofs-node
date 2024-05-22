@@ -2030,7 +2030,7 @@ First public review release.
 
 [Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...master
 [0.42.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...v0.42.0
-[0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.41.1
+[0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.40.1
 [0.40.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.39.2...v0.40.0
