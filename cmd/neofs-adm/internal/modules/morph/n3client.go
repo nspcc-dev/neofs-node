@@ -28,7 +28,7 @@ type Client interface {
 	GetBlockCount() (uint32, error)
 	GetContractStateByID(int32) (*state.Contract, error)
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
-	GetNativeContracts() ([]state.NativeContract, error)
+	GetNativeContracts() ([]state.Contract, error)
 	GetApplicationLog(util.Uint256, *trigger.Type) (*result.ApplicationLog, error)
 	GetVersion() (*result.Version, error)
 	SendRawTransaction(*transaction.Transaction) (util.Uint256, error)

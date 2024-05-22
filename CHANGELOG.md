@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - neofs-contract dependency (#2847)
+- NeoGo dependency to 0.106.0 (#2854)
 
 ### Updating from v0.41.1
 Notice that `blobovnicza-to-peapod` migration utility is gone. Blobovniczas

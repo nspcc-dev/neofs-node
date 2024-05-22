@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -334,7 +333,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 
 	standByCommittee := make([]string, len(cfg.Committee))
 	for i := range cfg.Committee {
-		standByCommittee[i] = hex.EncodeToString(cfg.Committee[i].Bytes())
+		standByCommittee[i] = cfg.Committee[i].StringCompressed()
 	}
 
 	var cfgBase config.Config

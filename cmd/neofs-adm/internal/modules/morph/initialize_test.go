@@ -66,7 +66,7 @@ func testInitialize(t *testing.T, committeeSize int) {
 		pk, err := keys.NewPrivateKey()
 		require.NoError(t, err)
 
-		pub := hex.EncodeToString(pk.PublicKey().Bytes())
+		pub := pk.PublicKey().StringCompressed()
 		require.NoError(t, removeNodesCmd(removeNodes, []string{pub}))
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/nep11"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	nnsrpc "github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/privatedomains"
@@ -39,8 +40,8 @@ var errDomainNotFound = errors.New("domain not found")
 func (x *neoFSNNS) CheckDomainRecord(domain string, record string) error {
 	records, err := x.contract.Resolve(domain, nnsrpc.TXT)
 	if err != nil {
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2583.
-		if strings.Contains(err.Error(), "token not found") {
+		var ex unwrap.Exception
+		if errors.As(err, &ex) && strings.Contains(string(ex), "token not found") {
 			return errDomainNotFound
 		}
 

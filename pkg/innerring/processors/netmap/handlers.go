@@ -1,8 +1,6 @@
 package netmap
 
 import (
-	"encoding/hex"
-
 	timerEvent "github.com/nspcc-dev/neofs-node/pkg/innerring/timers"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -64,7 +62,7 @@ func (np *Processor) handleUpdateState(ev event.Event) {
 	updPeer := ev.(netmapEvent.UpdatePeer)
 	np.log.Info("notification",
 		zap.String("type", "update peer state"),
-		zap.String("key", hex.EncodeToString(updPeer.PublicKey().Bytes())))
+		zap.String("key", updPeer.PublicKey().StringCompressed()))
 
 	// send event to the worker pool
 
