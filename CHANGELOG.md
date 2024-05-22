@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- "storage list" command to neofs-lens (#2852)
 
 ### Fixed
 - GETRANGE request may fail in certain cases (#2849)
