@@ -4,6 +4,23 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.42.0
+
+## [0.42.0] - 2024-05-22 - Dokdo
+
+This release adds compatibility with the Neo N3 Cockatrice hardfork, so
+while other changes are minor it's still an important update.
+
+### Added
 - "storage list" command to neofs-lens (#2852)
 
 ### Fixed
@@ -2011,7 +2028,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...master
+[0.42.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...v0.42.0
 [0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.41.1
 [0.41.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...v0.41.0
 [0.40.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.0...v0.40.1
