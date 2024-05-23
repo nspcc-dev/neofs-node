@@ -121,6 +121,16 @@ func resetConfig(tb testing.TB, v *viper.Viper, key string) {
 	}
 }
 
+func commiteeN(t testing.TB, n int) []string {
+	res := make([]string, n)
+	for i := range res {
+		k, err := keys.NewPrivateKey()
+		require.NoError(t, err)
+		res[i] = k.PublicKey().StringCompressed()
+	}
+	return res
+}
+
 func TestParseBlockchainConfig(t *testing.T) {
 	fullConfig := true
 	_logger := zap.NewNop()
@@ -143,6 +153,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 			NetworkMagic: 15405,
 			Committee:    validCommittee,
 			Storage:      blockchain.BoltDB("chain.db"),
+			P2P:          blockchain.P2PConfig{MinPeers: 2},
 		}, c)
 	})
 
@@ -568,5 +579,55 @@ fschain_autodeploy: true
 		b, err = isAutoDeploymentMode(v)
 		require.NoError(t, err)
 		require.False(t, b)
+	})
+}
+
+func TestP2PMinPeers(t *testing.T) {
+	l := zap.NewNop()
+	assert := func(t testing.TB, v *viper.Viper, exp uint) {
+		c, err := parseBlockchainConfig(v, l)
+		require.NoError(t, err)
+		require.EqualValues(t, exp, c.P2P.MinPeers)
+	}
+
+	v := newValidBlockchainConfig(t, true)
+	v.Set("morph.consensus.p2p.peers.min", 123)
+	assert(t, v, 123)
+
+	t.Run("explicit zero", func(t *testing.T) {
+		v := newValidBlockchainConfig(t, false)
+		v.Set("morph.consensus.p2p.peers.min", 0)
+		assert(t, v, 0)
+	})
+	t.Run("default", func(t *testing.T) {
+		assertDefault := func(t testing.TB, v *viper.Viper) {
+			setCommitteeN := func(n int) {
+				v.Set("morph.consensus.committee", commiteeN(t, n))
+				resetConfig(t, v, "morph.consensus.validators_history") // checked against committee size
+			}
+			setCommitteeN(4)
+			assert(t, v, 2)
+			setCommitteeN(7)
+			assert(t, v, 4)
+			setCommitteeN(21)
+			assert(t, v, 14)
+		}
+		t.Run("missing P2P section", func(t *testing.T) {
+			v := newValidBlockchainConfig(t, true)
+			resetConfig(t, v, "morph.consensus.p2p")
+			assertDefault(t, v)
+		})
+		t.Run("missing peers section", func(t *testing.T) {
+			v := newValidBlockchainConfig(t, true)
+			resetConfig(t, v, "morph.consensus.p2p.peers")
+			require.True(t, v.IsSet("morph.consensus.p2p"))
+			assertDefault(t, v)
+		})
+		t.Run("missing config itself", func(t *testing.T) {
+			v := newValidBlockchainConfig(t, true)
+			resetConfig(t, v, "morph.consensus.p2p.peers.min")
+			require.True(t, v.IsSet("morph.consensus.p2p.peers"))
+			assertDefault(t, v)
+		})
 	})
 }

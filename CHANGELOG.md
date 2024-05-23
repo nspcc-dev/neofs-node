@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Unenforced IR `morph.consensus.p2p.peers.min` config default (#2856)
 
 ### Changed
 

@@ -181,6 +181,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
+	minPeersConfigured := false
 	const p2pSection = cfgPathFSChainLocalConsensus + ".p2p"
 	if v.IsSet(p2pSection) {
 		c.P2P.DialTimeout, err = parseConfigDurationPositive(v, p2pSection+".dial_timeout", "P2P dial timeout")
@@ -202,11 +203,12 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 				if !errors.Is(err, errMissingConfig) {
 					return c, err
 				}
-				// we calculate default here since explicit 0 is also a valid setting
-				n := uint64(len(c.Committee))
-				minPeers = n - (n-1)/3 - 1
+				// defaults below
+			} else {
+				c.P2P.MinPeers = uint(minPeers)
+				// zero can be set explicitly, so prevent overriding it
+				minPeersConfigured = true
 			}
-			c.P2P.MinPeers = uint(minPeers)
 			maxPeers, err := parseConfigUint64Range(v, p2pPeersSection+".max", "maximum number of P2P peers", 1, math.MaxInt32)
 			if err != nil && !errors.Is(err, errMissingConfig) {
 				return c, err
@@ -229,6 +231,10 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 				return c, err
 			}
 		}
+	}
+	if !minPeersConfigured {
+		n := uint(len(c.Committee))
+		c.P2P.MinPeers = n - (n-1)/3 - 1
 	}
 
 	c.SetRolesInGenesis, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
