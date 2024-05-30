@@ -395,7 +395,7 @@ func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 		return err
 	}
 
-	if exp < v.netState.CurrentEpoch() {
+	if currEpoch := v.netState.CurrentEpoch(); exp < currEpoch {
 		// an object could be expired but locked;
 		// put such an object is a correct operation
 
@@ -412,7 +412,7 @@ func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 		}
 
 		if !locked {
-			return errExpired
+			return fmt.Errorf("%w: attribute: %d, current: %d", errExpired, exp, currEpoch)
 		}
 	}
 
