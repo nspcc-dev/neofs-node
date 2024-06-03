@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nspcc-dev/neofs-s3-gw
-          ref: v0.30.0
+          ref: c03a980232a19f2150c540b7f4e7034a4367ab7d
           path: neofs-s3-gw
 
       - name: Checkout neofs-rest-gw repository
