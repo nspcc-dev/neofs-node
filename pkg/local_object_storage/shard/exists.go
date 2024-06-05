@@ -8,7 +8,8 @@ import (
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr oid.Address
+	addr             oid.Address
+	ignoreExpiration bool
 }
 
 // ExistsRes groups the resulting values of Exists operation.
@@ -19,6 +20,11 @@ type ExistsRes struct {
 // SetAddress is an Exists option to set object checked for existence.
 func (p *ExistsPrm) SetAddress(addr oid.Address) {
 	p.addr = addr
+}
+
+// IgnoreExpiration returns existence status despite the expiration status.
+func (p *ExistsPrm) IgnoreExpiration() {
+	p.ignoreExpiration = true
 }
 
 // Exists returns the fact that the object is in the shard.
@@ -50,6 +56,9 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 	} else {
 		var existsPrm meta.ExistsPrm
 		existsPrm.SetAddress(prm.addr)
+		if prm.ignoreExpiration {
+			existsPrm.IgnoreExpiration()
+		}
 
 		var res meta.ExistsRes
 		res, err = s.metaBase.Exists(existsPrm)

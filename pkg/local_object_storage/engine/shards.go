@@ -100,6 +100,7 @@ func (e *StorageEngine) createShard(opts []shard.Option) (*shard.Shard, error) {
 
 	sh := shard.New(append(opts,
 		shard.WithID(id),
+		shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 		shard.WithExpiredTombstonesCallback(e.processExpiredTombstones),
 		shard.WithExpiredLocksCallback(e.processExpiredLocks),
 		shard.WithDeletedLockCallback(e.processDeletedLocks),

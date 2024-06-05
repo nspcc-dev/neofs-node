@@ -14,7 +14,8 @@ import (
 
 // ExistsPrm groups the parameters of Exists operation.
 type ExistsPrm struct {
-	addr oid.Address
+	addr             oid.Address
+	ignoreExpiration bool
 }
 
 // ExistsRes groups the resulting values of Exists operation.
@@ -27,6 +28,11 @@ var ErrLackSplitInfo = logicerr.New("no split info on parent object")
 // SetAddress is an Exists option to set object checked for existence.
 func (p *ExistsPrm) SetAddress(addr oid.Address) {
 	p.addr = addr
+}
+
+// IgnoreExpiration returns existence status despite the expiration status.
+func (p *ExistsPrm) IgnoreExpiration() {
+	p.ignoreExpiration = true
 }
 
 // Exists returns the fact that the object is in the metabase.
@@ -47,7 +53,10 @@ func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
 		return res, ErrDegradedMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
+	var currEpoch uint64
+	if !prm.ignoreExpiration {
+		currEpoch = db.epochState.CurrentEpoch()
+	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.exists, err = db.exists(tx, prm.addr, currEpoch)

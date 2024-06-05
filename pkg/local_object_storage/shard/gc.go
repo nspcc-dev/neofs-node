@@ -230,39 +230,26 @@ func (s *Shard) removeGarbage() {
 }
 
 func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
+	epoch := e.(newEpoch).epoch
+	log := s.log.With(zap.Uint64("epoch", epoch))
+
+	log.Debug("started expired objects handling")
+
 	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
 		return typ != object.TypeTombstone && typ != object.TypeLock
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			s.log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
+			log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
 		}
 		return
 	}
 
-	s.m.RLock()
-	defer s.m.RUnlock()
+	log.Debug("collected expired objects", zap.Int("num", len(expired)))
 
-	if s.info.Mode.NoMetabase() {
-		return
-	}
+	s.expiredObjectsCallback(ctx, expired)
 
-	var inhumePrm meta.InhumePrm
-
-	inhumePrm.SetAddresses(expired...)
-	inhumePrm.SetGCMark()
-
-	// inhume the collected objects
-	res, err := s.metaBase.Inhume(inhumePrm)
-	if err != nil {
-		s.log.Warn("could not inhume the objects",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
+	log.Debug("finished expired objects handling")
 }
 
 func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {

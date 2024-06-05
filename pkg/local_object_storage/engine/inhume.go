@@ -149,6 +149,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 	// see if the object is root
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		existPrm.SetAddress(addr)
+		existPrm.IgnoreExpiration()
 
 		res, err := sh.Exists(existPrm)
 		if err != nil {
@@ -319,6 +320,16 @@ func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	}
 
 	return locked, outErr
+}
+
+func (e *StorageEngine) processExpiredObjects(_ context.Context, addrs []oid.Address) {
+	var prm InhumePrm
+	prm.MarkAsGarbage(addrs...)
+
+	_, err := e.Inhume(prm)
+	if err != nil {
+		e.log.Warn("handling expired objects", zap.Error(err))
+	}
 }
 
 func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []meta.TombstonedObject) {

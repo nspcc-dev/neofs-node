@@ -94,6 +94,8 @@ type cfg struct {
 
 	gcCfg gcCfg
 
+	expiredObjectsCallback ExpiredObjectsCallback
+
 	expiredTombstonesCallback ExpiredTombstonesCallback
 
 	expiredLocksCallback ExpiredObjectsCallback
@@ -238,6 +240,14 @@ func WithGCWorkerPoolInitializer(wpInit func(int) util.WorkerPool) Option {
 func WithGCRemoverSleepInterval(dur time.Duration) Option {
 	return func(c *cfg) {
 		c.gcCfg.removerInterval = dur
+	}
+}
+
+// WithExpiredObjectsCallback returns option to specify callback
+// of the expired objects handler.
+func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
+	return func(c *cfg) {
+		c.expiredObjectsCallback = cb
 	}
 }
 
