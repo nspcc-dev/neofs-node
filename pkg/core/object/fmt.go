@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -77,8 +76,6 @@ var errNilObject = errors.New("object is nil")
 var errNilID = errors.New("missing identifier")
 
 var errNilCID = errors.New("missing container identifier")
-
-var errNoExpirationEpoch = errors.New("missing expiration epoch attribute")
 
 var errTombstoneExpiration = errors.New("tombstone body and header contain different expiration values")
 
@@ -170,7 +167,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
 		}
 
-		if err := v.checkExpiration(obj); err != nil {
+		if err := v.checkExpiration(*obj); err != nil {
 			return fmt.Errorf("object did not pass expiration check: %w", err)
 		}
 
@@ -288,7 +285,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		}
 
 		// check if the tombstone has the same expiration in the body and the header
-		exp, err := expirationEpochAttribute(o)
+		exp, err := Expiration(*o)
 		if err != nil {
 			return ContentMeta{}, err
 		}
@@ -353,7 +350,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		}
 
 		// check that LOCK object has correct expiration epoch
-		lockExp, err := expirationEpochAttribute(o)
+		lockExp, err := Expiration(*o)
 		if err != nil {
 			return ContentMeta{}, fmt.Errorf("lock object expiration epoch: %w", err)
 		}
@@ -385,10 +382,10 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 
 var errExpired = errors.New("object has expired")
 
-func (v *FormatValidator) checkExpiration(obj *object.Object) error {
-	exp, err := expirationEpochAttribute(obj)
+func (v *FormatValidator) checkExpiration(obj object.Object) error {
+	exp, err := Expiration(obj)
 	if err != nil {
-		if errors.Is(err, errNoExpirationEpoch) {
+		if errors.Is(err, ErrNoExpiration) {
 			return nil // objects without expiration attribute are valid
 		}
 
@@ -417,18 +414,6 @@ func (v *FormatValidator) checkExpiration(obj *object.Object) error {
 	}
 
 	return nil
-}
-
-func expirationEpochAttribute(obj *object.Object) (uint64, error) {
-	for _, a := range obj.Attributes() {
-		if a.Key() != object.AttributeExpirationEpoch {
-			continue
-		}
-
-		return strconv.ParseUint(a.Value(), 10, 64)
-	}
-
-	return 0, errNoExpirationEpoch
 }
 
 var (
