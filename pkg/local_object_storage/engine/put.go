@@ -114,6 +114,11 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 		exists, err := sh.Exists(existPrm)
 		if err != nil {
+			e.log.Warn("object put: check object existence",
+				zap.Stringer("addr", addr),
+				zap.Stringer("shard", sh.ID()),
+				zap.Error(err))
+
 			if shard.IsErrObjectExpired(err) {
 				// object is already found but
 				// expired => do nothing with it
@@ -137,6 +142,10 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 					)
 				}
 			}
+
+			e.log.Debug("object put: object already exists",
+				zap.Stringer("shard", sh.ID()),
+				zap.Stringer("addr", addr))
 
 			return
 		}
@@ -163,6 +172,7 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 		putSuccess = true
 	}); err != nil {
+		e.log.Warn("object put: pool task submitting", zap.Error(err))
 		close(exitCh)
 	}
 

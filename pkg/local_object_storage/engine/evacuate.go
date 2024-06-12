@@ -164,6 +164,8 @@ mainLoop:
 						}
 						continue loop
 					}
+
+					e.log.Debug("could not put to shard, trying another", zap.String("shard", shards[j].ID().String()))
 				}
 
 				if prm.handler == nil {
