@@ -2,8 +2,10 @@ package morph
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
+	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/spf13/cobra"
@@ -54,6 +56,8 @@ const (
 	walletFlag                      = "wallet"
 	estimationsEpochFlag            = "epoch"
 	estimationsContainerFlag        = "cid"
+	mintNeofsAmountFlag             = "amount"
+	mintTxHashFlag                  = "deposit-tx"
 )
 
 var (
@@ -143,6 +147,36 @@ var (
 			}
 
 			return refillGas(cmd, int64(gasAmount), []util.Uint160{gasReceiver})
+		},
+	}
+
+	mintBalanceCmd = &cobra.Command{
+		Use:   "mint-balance",
+		Short: "Mint new NEOFS tokens in the morph network",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+			_ = viper.BindPFlag(mintNeofsAmountFlag, cmd.Flags().Lookup(mintNeofsAmountFlag))
+			_ = viper.BindPFlag(mintTxHashFlag, cmd.Flags().Lookup(mintTxHashFlag))
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// wallet address is not part of the config
+			walletAddress, _ := cmd.Flags().GetString(walletAddressFlag)
+
+			receiver, err := address.StringToUint160(walletAddress)
+			if err != nil {
+				return fmt.Errorf("invalid wallet address %s: %w", walletAddress, err)
+			}
+
+			amount, err := fixedn.FromString(viper.GetString(mintNeofsAmountFlag), 12)
+			if err != nil {
+				return err
+			}
+			h, err := util.Uint256DecodeStringLE(strings.TrimPrefix(viper.GetString(mintTxHashFlag), "0x"))
+			if err != nil {
+				return err
+			}
+			return depositGas(cmd, amount.Int64(), receiver, h)
 		},
 	}
 
@@ -429,6 +463,13 @@ func init() {
 	refillGasCmd.Flags().String(walletAddressFlag, "", "Address of wallet")
 	refillGasCmd.Flags().String(refillGasAmountFlag, "", "Additional amount of GAS to transfer")
 	refillGasCmd.MarkFlagsOneRequired(walletAddressFlag, storageWalletFlag)
+
+	RootCmd.AddCommand(mintBalanceCmd)
+	mintBalanceCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
+	mintBalanceCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	mintBalanceCmd.Flags().String(walletAddressFlag, "", "Address of recipient")
+	mintBalanceCmd.Flags().String(mintNeofsAmountFlag, "", "Amount of NEOFS token to issue (fixed12, GAS * 10000)")
+	mintBalanceCmd.Flags().String(mintTxHashFlag, "", "Deposit transaction hash")
 
 	RootCmd.AddCommand(depositNotaryCmd)
 	depositNotaryCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")

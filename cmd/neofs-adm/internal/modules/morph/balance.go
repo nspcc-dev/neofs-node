@@ -7,9 +7,11 @@ import (
 	"math/big"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
@@ -18,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
+	"github.com/nspcc-dev/neofs-contract/rpc/balance"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/spf13/cobra"
@@ -199,4 +202,42 @@ func fetchBalances(c *invoker.Invoker, gasHash util.Uint160, accounts []accBalan
 		accounts[i].balance = bal
 	}
 	return nil
+}
+
+func depositGas(cmd *cobra.Command, gasAmount int64, receiver util.Uint160, txHash util.Uint256) error {
+	wCtx, err := newInitializeContext(cmd, viper.GetViper())
+	if err != nil {
+		return err
+	}
+
+	nnsReader, err := nns.NewInferredReader(wCtx.Client, wCtx.ReadOnlyInvoker)
+	if err != nil {
+		return fmt.Errorf("can't find NNS contract: %w", err)
+	}
+	bHash, err := nnsReader.ResolveFSContract(nns.NameBalance)
+	if err != nil {
+		return fmt.Errorf("can't find balance contract: %w", err)
+	}
+	a, err := actor.New(wCtx.Client, []actor.SignerAccount{{
+		Signer: transaction.Signer{
+			Account: wCtx.ConsensusAcc.Contract.ScriptHash(),
+			Scopes:  transaction.Global, // Used for test invocations only, safe to be this way.
+		},
+		Account: wCtx.ConsensusAcc,
+	}})
+	if err != nil {
+		return fmt.Errorf("can't init consensus actor: %w", err)
+	}
+	b := balance.New(a, bHash)
+
+	tx, err := b.MintUnsigned(receiver, big.NewInt(gasAmount), txHash.BytesBE())
+	if err != nil {
+		return err
+	}
+
+	if err := wCtx.multiSignAndSend(tx, consensusAccountName); err != nil {
+		return err
+	}
+
+	return wCtx.awaitTx()
 }
