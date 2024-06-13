@@ -6,17 +6,28 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Unenforced IR `morph.consensus.p2p.peers.min` config default (#2856)
-- Object parts do not expire (#2858)
 
 ### Changed
 
 ### Removed
 
 ### Updated
-- NeoGo dependency to 0.106.2 (#2869)
 
-### Updating from v0.42.0
+### Updating from v0.42.1
+
+## [0.42.1] - 2024-06-13
+
+A tiny update that adds compatibility with the Neo N3 Domovoi hardfork.
+
+### Added
+- "morph mint-balance" command to neofs-adm (#2867)
+
+### Fixed
+- Unenforced IR `morph.consensus.p2p.peers.min` config default (#2856)
+- Object parts do not expire (#2858)
+
+### Updated
+- NeoGo dependency to 0.106.2 (#2869)
 
 ## [0.42.0] - 2024-05-22 - Dokdo
 
@@ -25,7 +36,6 @@ while other changes are minor it's still an important update.
 
 ### Added
 - "storage list" command to neofs-lens (#2852)
-- "morph mint-balance" command to neofs-adm (#2867)
 
 ### Fixed
 - GETRANGE request may fail in certain cases (#2849)
@@ -2032,7 +2042,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.1...master
+[0.42.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...v0.42.1
 [0.42.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...v0.42.0
 [0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.0...v0.41.1
 [0.41.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.40.1...v0.41.0
