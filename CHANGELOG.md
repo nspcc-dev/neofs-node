@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- "morph mint-balance" command to neofs-adm (#2867)
 
 ### Fixed
 - Unenforced IR `morph.consensus.p2p.peers.min` config default (#2856)
@@ -25,7 +26,6 @@ while other changes are minor it's still an important update.
 
 ### Added
 - "storage list" command to neofs-lens (#2852)
-- "morph mint-balance" command to neofs-adm (#2867)
 
 ### Fixed
 - GETRANGE request may fail in certain cases (#2849)
