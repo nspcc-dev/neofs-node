@@ -14,6 +14,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -28,10 +29,12 @@ import (
 	"go.uber.org/zap"
 )
 
-type epochState struct{}
+type epochState struct {
+	e uint64
+}
 
 func (s epochState) CurrentEpoch() uint64 {
-	return 0
+	return s.e
 }
 
 func BenchmarkExists(b *testing.B) {
@@ -128,7 +131,15 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
 			meta.WithEpochState(epochState{}),
-		))
+		),
+		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+			pool, err := ants.NewPool(sz)
+			if err != nil {
+				panic(err)
+			}
+
+			return pool
+		}))
 
 	require.NoError(t, s.Open())
 	require.NoError(t, s.Init())
@@ -152,6 +163,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 			),
 			shard.WithPiloramaOptions(
 				pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("pilorama%d", i)))),
+			shard.WithExpiredObjectsCallback(engine.processExpiredObjects),
 		}, extraOpts...)...)
 		require.NoError(t, err)
 	}

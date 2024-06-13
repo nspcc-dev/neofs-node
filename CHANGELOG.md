@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Unenforced IR `morph.consensus.p2p.peers.min` config default (#2856)
+- Object parts do not expire (#2858)
 
 ### Changed
 
