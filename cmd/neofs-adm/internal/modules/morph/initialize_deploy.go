@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -372,11 +373,23 @@ func (c *initializeContext) readContracts(names []string) error {
 func readContract(ctrPath, ctrName string) (*contractState, error) {
 	rawNef, err := os.ReadFile(filepath.Join(ctrPath, ctrName+"_contract.nef"))
 	if err != nil {
-		return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+		}
+		rawNef, err = os.ReadFile(filepath.Join(ctrPath, "contract.nef"))
+		if err != nil {
+			return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
+		}
 	}
 	rawManif, err := os.ReadFile(filepath.Join(ctrPath, "config.json"))
 	if err != nil {
-		return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+		}
+		rawManif, err = os.ReadFile(filepath.Join(ctrPath, "manifest.json"))
+		if err != nil {
+			return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
+		}
 	}
 
 	cs := &contractState{
@@ -429,12 +442,13 @@ func readContractsFromArchive(file io.Reader, names []string) (map[string]*contr
 		}
 
 		switch {
-		case strings.HasSuffix(h.Name, filepath.Join(ctrName, ctrName+"_contract.nef")):
+		case strings.HasSuffix(h.Name, "contract.nef"):
 			cs.RawNEF, err = io.ReadAll(r)
 			if err != nil {
 				return nil, fmt.Errorf("can't read NEF file for %s contract: %w", ctrName, err)
 			}
-		case strings.HasSuffix(h.Name, "config.json"):
+		case strings.HasSuffix(h.Name, "config.json") ||
+			strings.HasSuffix(h.Name, "manifest.json"):
 			cs.RawManifest, err = io.ReadAll(r)
 			if err != nil {
 				return nil, fmt.Errorf("can't read manifest file for %s contract: %w", ctrName, err)
