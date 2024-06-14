@@ -168,6 +168,8 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		return oid.ID{}, err
 	}
 
+	t.obj.CutPayload()
+
 	err = t.metaStorage.WriteMeta(*t.obj)
 	if err != nil {
 		return oid.ID{}, fmt.Errorf("saving meta info: %w", err)
