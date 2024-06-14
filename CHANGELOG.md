@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for 0.20.0+ neofs-contract archive format (#2872)
 
 ### Fixed
 
