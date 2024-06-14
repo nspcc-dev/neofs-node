@@ -272,9 +272,12 @@ func initObjectService(c *cfg) {
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
 	)
 
+	metaStorage := chainMetaStorage{c: c.basics.cli}
+
 	sPutV2 := putsvcV2.NewService(
 		putsvcV2.WithInternalService(sPut),
 		putsvcV2.WithKey(&c.key.PrivateKey),
+		putsvcV2.WithMetaStorage(metaStorage),
 	)
 
 	sDelete := deletesvc.New(
@@ -291,6 +294,7 @@ func initObjectService(c *cfg) {
 
 	sDeleteV2 := deletesvcV2.NewService(
 		deletesvcV2.WithInternalService(sDelete),
+		deletesvcV2.WithMetaStorage(metaStorage),
 	)
 
 	// build service pipeline
@@ -759,4 +763,12 @@ func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 	}
 
 	return serverInContainer, nil
+}
+
+type chainMetaStorage struct {
+	c *morphClient.Client
+}
+
+func (c chainMetaStorage) WriteMeta(o objectSDK.Object) error {
+	return c.c.SendObjectHeader(o)
 }

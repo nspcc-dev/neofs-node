@@ -1,6 +1,7 @@
 package deletesvc
 
 import (
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -17,6 +18,7 @@ type Prm struct {
 	addr oid.Address
 
 	tombAddrWriter TombstoneAddressWriter
+	metaStorage    objectcore.MetaStorage
 }
 
 // SetCommonParameters sets common parameters of the operation.
@@ -32,4 +34,9 @@ func (p *Prm) WithAddress(addr oid.Address) {
 // WithTombstoneAddressTarget sets tombstone address destination.
 func (p *Prm) WithTombstoneAddressTarget(w TombstoneAddressWriter) {
 	p.tombAddrWriter = w
+}
+
+// WithMetaStorage sets meta data storage.
+func (p *Prm) WithMetaStorage(ms objectcore.MetaStorage) {
+	p.metaStorage = ms
 }

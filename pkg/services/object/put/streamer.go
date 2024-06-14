@@ -274,6 +274,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		localOnly:            localOnly,
 		localNodeInContainer: prm.localNodeInContainer,
 		localNodeSigner:      prm.localNodeSigner,
+
+		metaStorage: prm.metaStorage,
 	}
 }
 

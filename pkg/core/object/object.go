@@ -8,6 +8,10 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
+type MetaStorage interface {
+	WriteMeta(object.Object) error
+}
+
 // ErrInvalidSearchQuery is returned when some object search query is invalid.
 var ErrInvalidSearchQuery = errors.New("invalid search query")
 

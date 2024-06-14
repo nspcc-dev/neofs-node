@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 )
@@ -18,8 +19,9 @@ type Service struct {
 type Option func(*cfg)
 
 type cfg struct {
-	svc *putsvc.Service
-	key *ecdsa.PrivateKey
+	svc         *putsvc.Service
+	key         *ecdsa.PrivateKey
+	metaStorage objectcore.MetaStorage
 }
 
 // NewService constructs Service instance from provided options.
@@ -43,8 +45,9 @@ func (s *Service) Put(ctx context.Context) (object.PutObjectStream, error) {
 	}
 
 	return &streamer{
-		stream: stream,
-		key:    s.key,
+		stream:      stream,
+		key:         s.key,
+		metaStorage: s.metaStorage,
 	}, nil
 }
 
@@ -57,5 +60,11 @@ func WithInternalService(v *putsvc.Service) Option {
 func WithKey(k *ecdsa.PrivateKey) Option {
 	return func(c *cfg) {
 		c.key = k
+	}
+}
+
+func WithMetaStorage(ms objectcore.MetaStorage) Option {
+	return func(c *cfg) {
+		c.metaStorage = ms
 	}
 }

@@ -47,6 +47,8 @@ type distributedTarget struct {
 	fmt *object.FormatValidator
 
 	log *zap.Logger
+
+	metaStorage object.MetaStorage
 }
 
 // parameters and state of container traversal.
@@ -193,7 +195,17 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		}
 	}
 
-	return t.iteratePlacement(t.sendObject)
+	oID, err := t.iteratePlacement(t.sendObject)
+	if err != nil {
+		return oid.ID{}, err
+	}
+
+	err = t.metaStorage.WriteMeta(*t.obj.CutPayload())
+	if err != nil {
+		return oid.ID{}, fmt.Errorf("saving meta info: %w", err)
+	}
+
+	return oID, nil
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {

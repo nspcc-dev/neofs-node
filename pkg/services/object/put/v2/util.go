@@ -25,7 +25,8 @@ func (s *streamer) toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.Put
 		).
 		WithRelay(s.relayRequest).
 		WithCommonPrm(commonPrm).
-		WithCopiesNumber(part.GetCopiesNumber()), nil
+		WithCopiesNumber(part.GetCopiesNumber()).
+		WithMetaStorage(s.metaStorage), nil
 }
 
 func toChunkPrm(req *objectV2.PutObjectPartChunk) *putsvc.PutChunkPrm {

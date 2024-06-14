@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -24,6 +25,8 @@ type PutInitPrm struct {
 
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
+
+	metaStorage objectcore.MetaStorage
 }
 
 type PutChunkPrm struct {
@@ -41,6 +44,14 @@ func (p *PutInitPrm) WithCommonPrm(v *util.CommonPrm) *PutInitPrm {
 func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 	if p != nil {
 		p.hdr = v
+	}
+
+	return p
+}
+
+func (p *PutInitPrm) WithMetaStorage(ms objectcore.MetaStorage) *PutInitPrm {
+	if p != nil {
+		p.metaStorage = ms
 	}
 
 	return p
