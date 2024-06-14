@@ -10,6 +10,7 @@ import (
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
@@ -22,6 +23,8 @@ type streamer struct {
 	saveChunks bool
 	init       *object.PutRequest
 	chunks     []*object.PutRequest
+
+	metaStorage objectcore.MetaStorage
 
 	*sizes // only for relay streams
 }

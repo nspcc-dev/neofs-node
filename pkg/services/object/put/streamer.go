@@ -246,6 +246,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		log:   p.log,
 
 		isLocalKey: p.netmapKeys.IsLocalKey,
+
+		metaStorage: prm.metaStorage,
 	}
 }
 

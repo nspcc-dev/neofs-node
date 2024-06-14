@@ -281,6 +281,7 @@ func initObjectService(c *cfg) {
 	sPutV2 := putsvcV2.NewService(
 		putsvcV2.WithInternalService(sPut),
 		putsvcV2.WithKey(&c.key.PrivateKey),
+		putsvcV2.WithMetaStorage(chainMetaStorage{c: c.basics.cli}),
 	)
 
 	sDelete := deletesvc.New(
@@ -712,4 +713,12 @@ func (o objectSource) Search(ctx context.Context, cnr cid.ID, filters objectSDK.
 	}
 
 	return sw.ids, nil
+}
+
+type chainMetaStorage struct {
+	c *morphClient.Client
+}
+
+func (c chainMetaStorage) WriteMeta(o objectSDK.Object) error {
+	return c.c.SendObjectHeader(o)
 }
