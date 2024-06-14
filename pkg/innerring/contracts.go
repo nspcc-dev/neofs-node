@@ -9,8 +9,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	embeddedcontracts "github.com/nspcc-dev/neofs-contract/contracts"
 	"github.com/nspcc-dev/neofs-contract/deploy"
-	embeddedcontracts "github.com/nspcc-dev/neofs-node/contracts"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cast"
@@ -207,7 +207,7 @@ func parseContract(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph
 }
 
 func readEmbeddedContracts(deployPrm *deploy.Prm) error {
-	cs, err := embeddedcontracts.Read()
+	cs, err := embeddedcontracts.GetFS()
 	if err != nil {
 		return fmt.Errorf("read embedded contracts: %w", err)
 	}

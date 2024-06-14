@@ -21,6 +21,8 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- neofs-contract dependency to 0.20.0 (#2872)
+- NeoGo dependency to 0.106.3 (#2872)
 
 ### Updating from v0.42.1
 
