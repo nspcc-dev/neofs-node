@@ -17,7 +17,7 @@ require (
 	github.com/nspcc-dev/locode-db v0.6.0
 	github.com/nspcc-dev/neo-go v0.106.2
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240305074711-35bc78d84dc4
-	github.com/nspcc-dev/neofs-contract v0.19.2-0.20240614095443-f16f0f4b0418
+	github.com/nspcc-dev/neofs-contract v0.19.2-0.20240614154820-21ced72d1624
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.12
 	github.com/nspcc-dev/tzhash v1.8.0
 	github.com/olekukonko/tablewriter v0.0.5
