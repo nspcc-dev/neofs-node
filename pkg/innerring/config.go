@@ -97,10 +97,12 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		return c, fmt.Errorf("empty committee members '%s'", committeeKey)
 	}
 
-	c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
+	c.BlockInterval = 100 * time.Millisecond
+
+	// c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
+	// if err != nil && !errors.Is(err, errMissingConfig) {
+	// 	return c, err
+	// }
 
 	traceableChainLength, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".max_traceable_blocks", "traceable chain length", 1, math.MaxUint32)
 	if err != nil && !errors.Is(err, errMissingConfig) {
@@ -251,7 +253,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 // auto-deployment.
 func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.MaxObjectSize = 64 << 20 // in bytes of object payload
-	netCfg.EpochDuration = 240      // in NeoFS Sidechain blocks (e.g. ~1h for 15s block interval)
+	netCfg.EpochDuration = 10000    // in NeoFS Sidechain blocks (e.g. ~1h for 15s block interval)
 	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)
 	netCfg.AuditFee = 0             // in GAS per audit (NeoFS Balance contract's decimals)
 	netCfg.ContainerFee = 1000      // in GAS per container (NeoFS Balance contract's decimals)
