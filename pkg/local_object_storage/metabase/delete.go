@@ -11,6 +11,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -54,6 +55,8 @@ func (p *DeletePrm) SetAddresses(addrs ...oid.Address) {
 }
 
 // Delete removed object records from metabase indexes.
+// Does not stop on an error if there are more objects to handle requested;
+// returns the first error appeared with a number of deleted objects wrapped.
 func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -99,11 +102,19 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 
 	var rawDeleted uint64
 	var availableDeleted uint64
+	var errorCount int
+	var firstErr error
 
 	for i := range addrs {
 		removed, available, size, err := db.delete(tx, addrs[i], currEpoch)
 		if err != nil {
-			return 0, 0, err // maybe log and continue?
+			errorCount++
+			db.log.Warn("failed to delete object", zap.Stringer("addr", addrs[i]), zap.Error(err))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s object delete fail: %w", addrs[i], err)
+			}
+
+			continue
 		}
 
 		if removed {
@@ -114,6 +125,12 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 		if available {
 			availableDeleted++
 		}
+	}
+
+	if firstErr != nil {
+		all := len(addrs)
+		success := all - errorCount
+		return 0, 0, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
 	}
 
 	if rawDeleted > 0 {
