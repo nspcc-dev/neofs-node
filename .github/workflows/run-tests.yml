@@ -136,7 +136,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neo-go'
-          version: 'tags/v0.104.0'
+          version: 'tags/v0.106.2'
           file: 'neo-go-${{ matrix.os.binary }}'
           target: 'neofs-testcases/neo-go'
 
