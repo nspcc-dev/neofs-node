@@ -57,13 +57,6 @@ jobs:
           ref: 4137b0292401e49d7b0069a55c70e0cdcd632512
           path: neofs-s3-gw
 
-      - name: Checkout neofs-rest-gw repository
-        uses: actions/checkout@v4
-        with:
-          repository: nspcc-dev/neofs-rest-gw
-          ref: master
-          path: neofs-rest-gw
-
       - name: Checkout neofs-node repository
         uses: actions/checkout@v4
         with:
@@ -123,14 +116,15 @@ jobs:
           echo "$(pwd)/bin" >> $GITHUB_PATH
         working-directory: neofs-s3-gw
 
-      - name: Build neofs-rest-gw
-        timeout-minutes: 5
-        run: |
-          make all
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-        working-directory: neofs-rest-gw
-
 ################################################################
+
+      - name: Download latest stable neofs-rest-gw
+        uses: dsaltares/fetch-gh-release-asset@1.1.1
+        with:
+          repo: 'nspcc-dev/neofs-rest-gw'
+          version: 'tags/v0.10.0'
+          file: 'neofs-rest-gw-${{ matrix.os.binary }}'
+          target: 'neofs-testcases/neofs-rest-gw'
 
       - name: Download latest stable neo-go
         uses: dsaltares/fetch-gh-release-asset@1.1.1
@@ -146,7 +140,6 @@ jobs:
           ls -la ../neofs-node/bin
           cp ../neofs-s3-gw/bin/neofs-s3-gw .
           cp ../neofs-s3-gw/bin/neofs-s3-authmate .
-          cp ../neofs-rest-gw/bin/neofs-rest-gw .
           cp ../neofs-node/bin/neofs-adm .
           cp ../neofs-node/bin/neofs-cli .
           cp ../neofs-node/bin/neofs-ir .
