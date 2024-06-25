@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- neofs-cli allows several objects deletion at a time (#2774)
 
 ### Removed
 
