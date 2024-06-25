@@ -91,7 +91,7 @@ func putSG(cmd *cobra.Command, _ []string) {
 	resGetCnr, err := internalclient.GetContainer(ctx, getCnrPrm)
 	common.ExitOnErr(cmd, "get container RPC call: %w", err)
 
-	objectCli.OpenSessionViaClient(ctx, cmd, &putPrm, cli, pk, cnr, nil)
+	objectCli.OpenSessionViaClient(ctx, cmd, &putPrm, cli, pk, cnr)
 	objectCli.Prepare(cmd, &headPrm, &putPrm)
 
 	headPrm.SetRawFlag(true)

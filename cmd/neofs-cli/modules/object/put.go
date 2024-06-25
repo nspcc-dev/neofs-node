@@ -139,7 +139,7 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PutObjectPrm
 	prm.SetPrivateKey(*pk)
-	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, nil)
+	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr)
 	Prepare(cmd, &prm)
 	prm.SetHeader(obj)
 

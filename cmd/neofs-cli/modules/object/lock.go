@@ -79,7 +79,7 @@ var objectLockCmd = &cobra.Command{
 
 		var prm internalclient.PutObjectPrm
 		prm.SetPrivateKey(*key)
-		ReadOrOpenSession(ctx, cmd, &prm, key, cnr, nil)
+		ReadOrOpenSession(ctx, cmd, &prm, key, cnr)
 		Prepare(cmd, &prm)
 		prm.SetHeader(obj)
 

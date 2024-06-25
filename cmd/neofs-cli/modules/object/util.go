@@ -208,25 +208,20 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 }
 
 // ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
-func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
 	cli := internal.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
-	ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
+	ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
 }
 
 // ReadOrOpenSessionViaClient tries to read session from the file specified in
 // commonflags.SessionToken flag, finalizes structures of the decoded token
 // and write the result into provided SessionPrm. If file is missing,
 // ReadOrOpenSessionViaClient calls OpenSessionViaClient.
-func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
 	tok := getSession(cmd)
 	if tok == nil {
-		OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
+		OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
 		return
-	}
-
-	var objs []oid.ID
-	if obj != nil {
-		objs = []oid.ID{*obj}
 	}
 
 	finalizeSession(cmd, dst, tok, key, cnr, objs...)
@@ -234,9 +229,9 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 }
 
 // OpenSession opens client connection and calls OpenSessionViaClient with it.
-func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
+func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
 	cli := internal.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
-	OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, obj)
+	OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
 }
 
 // OpenSessionViaClient opens object session with the remote node, finalizes
@@ -250,13 +245,7 @@ func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *e
 //
 // If provided SessionPrm is of type internal.DeleteObjectPrm, OpenSessionViaClient
 // spreads the session to all object's relatives.
-func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, obj *oid.ID) {
-	var objs []oid.ID
-
-	if obj != nil {
-		objs = []oid.ID{*obj}
-	}
-
+func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
 	var tok session.Object
 
 	const sessionLifetime = 10 // in NeoFS epochs
