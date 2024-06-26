@@ -31,6 +31,9 @@ func initObjectDeleteCmd() {
 	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
 	flags.Bool(binaryFlag, false, "Deserialize object structure from given file.")
 	flags.String(fileFlag, "", "File with object payload")
+
+	_ = objectDelCmd.MarkFlagRequired(commonflags.CIDFlag)
+	_ = objectDelCmd.MarkFlagRequired(commonflags.OIDFlag)
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) {
@@ -49,16 +52,6 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 		}
 		objAddr = readObjectAddressBin(cmd, &cnr, &obj, filename)
 	} else {
-		cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
-		if cidVal == "" {
-			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag))
-		}
-
-		oidVal, _ := cmd.Flags().GetString(commonflags.OIDFlag)
-		if oidVal == "" {
-			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.OIDFlag))
-		}
-
 		objAddr = readObjectAddress(cmd, &cnr, &obj)
 	}
 
