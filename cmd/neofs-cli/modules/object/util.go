@@ -242,9 +242,6 @@ func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *e
 //
 //	*internal.PutObjectPrm
 //	*internal.DeleteObjectPrm
-//
-// If provided SessionPrm is of type internal.DeleteObjectPrm, OpenSessionViaClient
-// spreads the session to all object's relatives.
 func OpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) {
 	var tok session.Object
 
