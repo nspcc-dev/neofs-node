@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Control service's Drop call does not clean metabase (#2822)
 
 ### Changed
+- neofs-cli allows several objects deletion at a time (#2774)
 
 ### Removed
 
