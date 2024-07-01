@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Control service's Drop call does not clean metabase (#2822)
 
 ### Changed
 

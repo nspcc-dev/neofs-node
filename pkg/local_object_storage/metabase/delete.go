@@ -11,6 +11,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // DeletePrm groups the parameters of Delete operation.
@@ -53,17 +54,9 @@ func (p *DeletePrm) SetAddresses(addrs ...oid.Address) {
 	p.addrs = addrs
 }
 
-type referenceNumber struct {
-	all, cur int
-
-	addr oid.Address
-
-	obj *objectSDK.Object
-}
-
-type referenceCounter map[string]*referenceNumber
-
 // Delete removed object records from metabase indexes.
+// Does not stop on an error if there are more objects to handle requested;
+// returns the first error appeared with a number of deleted objects wrapped.
 func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
@@ -105,16 +98,23 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 // removed number: objects that were available (without Tombstones, GCMarks
 // non-expired, etc.)
 func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (uint64, uint64, error) {
-	refCounter := make(referenceCounter, len(addrs))
 	currEpoch := db.epochState.CurrentEpoch()
 
 	var rawDeleted uint64
 	var availableDeleted uint64
+	var errorCount int
+	var firstErr error
 
 	for i := range addrs {
-		removed, available, size, err := db.delete(tx, addrs[i], refCounter, currEpoch)
+		removed, available, size, err := db.delete(tx, addrs[i], currEpoch)
 		if err != nil {
-			return 0, 0, err // maybe log and continue?
+			errorCount++
+			db.log.Warn("failed to delete object", zap.Stringer("addr", addrs[i]), zap.Error(err))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s object delete fail: %w", addrs[i], err)
+			}
+
+			continue
 		}
 
 		if removed {
@@ -125,6 +125,12 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 		if available {
 			availableDeleted++
 		}
+	}
+
+	if firstErr != nil {
+		all := len(addrs)
+		success := all - errorCount
+		return 0, 0, fmt.Errorf("deleted %d out of %d objects, first error: %w", success, all, firstErr)
 	}
 
 	if rawDeleted > 0 {
@@ -141,25 +147,15 @@ func (db *DB) deleteGroup(tx *bbolt.Tx, addrs []oid.Address, sizes []uint64) (ui
 		}
 	}
 
-	for _, refNum := range refCounter {
-		if refNum.cur == refNum.all {
-			err := db.deleteObject(tx, refNum.obj, true)
-			if err != nil {
-				return rawDeleted, availableDeleted, err // maybe log and continue?
-			}
-		}
-	}
-
 	return rawDeleted, availableDeleted, nil
 }
 
-// delete removes object indexes from the metabase. Counts the references
-// of the object that is being removed.
+// delete removes object indexes from the metabase.
 // The first return value indicates if an object has been removed. (removing a
 // non-exist object is error-free). The second return value indicates if an
 // object was available before the removal (for calculating the logical object
 // counter). The third return value is removed object payload size.
-func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter, currEpoch uint64) (bool, bool, uint64, error) {
+func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bool, uint64, error) {
 	key := make([]byte, addressKeySize)
 	addrKey := addressKey(addr, key)
 	garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
@@ -191,22 +187,15 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, refCounter referenceCounter
 
 	// if object is an only link to a parent, then remove parent
 	if parent := obj.Parent(); parent != nil {
-		parAddr := object.AddressOf(parent)
-		sParAddr := addressKey(parAddr, key)
-		k := string(sParAddr)
-
-		nRef, ok := refCounter[k]
-		if !ok {
-			nRef = &referenceNumber{
-				all:  parentLength(tx, parAddr),
-				addr: parAddr,
-				obj:  parent,
-			}
-
-			refCounter[k] = nRef
+		if _, fullParent := parent.ID(); !fullParent {
+			// unfinished header from the first part
+			return false, false, 0, nil
 		}
 
-		nRef.cur++
+		err = db.deleteObject(tx, obj, true)
+		if err != nil {
+			return false, false, 0, fmt.Errorf("could not remove parent object: %w", err)
+		}
 	}
 
 	// remove object
@@ -239,23 +228,6 @@ func (db *DB) deleteObject(
 	}
 
 	return nil
-}
-
-// parentLength returns amount of available children from parentid index.
-func parentLength(tx *bbolt.Tx, addr oid.Address) int {
-	bucketName := make([]byte, bucketKeySize)
-
-	bkt := tx.Bucket(parentBucketName(addr.Container(), bucketName[:]))
-	if bkt == nil {
-		return 0
-	}
-
-	lst, err := decodeList(bkt.Get(objectKey(addr.Object(), bucketName[:])))
-	if err != nil {
-		return 0
-	}
-
-	return len(lst)
 }
 
 func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
