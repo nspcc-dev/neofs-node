@@ -2,6 +2,7 @@ package meta
 
 import (
 	"errors"
+	"fmt"
 
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -27,6 +28,11 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	storageID := StorageIDPrm{}
 	storageID.SetAddress(address)
 	resStorageID, err := db.StorageID(storageID)
+	if err != nil {
+		res.Error = fmt.Errorf("reading storage ID: %w", err)
+		return res, res.Error
+	}
+
 	if id := resStorageID.StorageID(); id != nil {
 		res.Error = errors.New("unexpected storage id")
 		return res, res.Error
