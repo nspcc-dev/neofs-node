@@ -7,7 +7,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -34,10 +34,7 @@ func TestAuditResults(t *testing.T) {
 
 	id := cidtest.ID()
 
-	var auditRes auditAPI.Result
-	auditRes.ForEpoch(epoch)
-	auditRes.SetAuditorKey(key.PublicKey().Bytes())
-	auditRes.ForContainer(id)
+	auditRes := audit.NewResult(key.PublicKey().Bytes(), epoch, id)
 
 	prm := PutPrm{}
 	prm.SetResult(&auditRes)

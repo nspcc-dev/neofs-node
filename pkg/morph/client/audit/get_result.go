@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 )
 
 // GetAuditResult returns audit result structure stored in audit contract.
-func (c *Client) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
+func (c *Client) GetAuditResult(id ResultID) (*audit.Result, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(getResultMethod)
 	prm.SetArgs([]byte(id))
@@ -25,7 +25,7 @@ func (c *Client) GetAuditResult(id ResultID) (*auditAPI.Result, error) {
 		return nil, fmt.Errorf("could not get byte array from stack item (%s): %w", getResultMethod, err)
 	}
 
-	var auditRes auditAPI.Result
+	var auditRes audit.Result
 	if err := auditRes.Unmarshal(value); err != nil {
 		return nil, fmt.Errorf("could not unmarshal audit result structure: %w", err)
 	}

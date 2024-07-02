@@ -9,7 +9,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	"github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -104,7 +104,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 func (c *Calculator) processResult(ctx *singleResultCtx) {
 	ctx.log = ctx.log.With(
 		zap.Stringer("cid", ctx.containerID()),
-		zap.Uint64("audit epoch", ctx.auditResult.Epoch()),
+		zap.Uint64("audit epoch", ctx.auditResult.AuditEpoch),
 	)
 
 	ctx.log.Debug("reading information about the container")
@@ -141,15 +141,8 @@ func (c *Calculator) processResult(ctx *singleResultCtx) {
 }
 
 func (c *Calculator) readContainerInfo(ctx *singleResultCtx) bool {
-	cnr, ok := ctx.auditResult.Container()
-	if !ok {
-		ctx.log.Error("missing container in audit result")
-		return false
-	}
-
 	var err error
-
-	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(cnr)
+	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(ctx.auditResult.Container)
 	if err != nil {
 		ctx.log.Error("could not get container info",
 			zap.String("error", err.Error()),
@@ -181,25 +174,24 @@ func (c *Calculator) collectPassNodes(ctx *singleResultCtx) bool {
 	ctx.passNodes = make(map[string]common.NodeInfo)
 
 	for _, cnrNode := range ctx.cnrNodes {
-		// TODO(@cthulhu-rider): neofs-sdk-go#241 use dedicated method
-		ctx.auditResult.IteratePassedStorageNodes(func(passNode []byte) bool {
-			if !bytes.Equal(cnrNode.PublicKey(), passNode) {
-				return true
+		cnrNodeKey := cnrNode.PublicKey()
+		for _, passNode := range ctx.auditResult.PDP.PassedStorageNodes {
+			if !bytes.Equal(cnrNodeKey, passNode) {
+				continue
 			}
 
 			failed := false
-
-			ctx.auditResult.IterateFailedStorageNodes(func(failNode []byte) bool {
-				failed = bytes.Equal(cnrNode.PublicKey(), failNode)
-				return !failed
-			})
-
+			for _, failNode := range ctx.auditResult.PDP.FailedStorageNodes {
+				if failed = bytes.Equal(cnrNodeKey, failNode); failed {
+					break
+				}
+			}
 			if !failed {
 				ctx.passNodes[hex.EncodeToString(passNode)] = cnrNode
 			}
 
-			return false
-		})
+			break
+		}
 	}
 
 	empty := len(ctx.passNodes) == 0
@@ -212,12 +204,10 @@ func (c *Calculator) collectPassNodes(ctx *singleResultCtx) bool {
 
 func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 	sumPassSGSize := uint64(0)
-	fail := false
-
 	var addr oid.Address
 	addr.SetContainer(ctx.containerID())
 
-	ctx.auditResult.IteratePassedStorageGroups(func(id oid.ID) bool {
+	for _, id := range ctx.auditResult.PoR.PassedStorageGroups {
 		addr.SetObject(id)
 
 		sgInfo, err := c.prm.SGStorage.SGInfo(addr)
@@ -227,18 +217,10 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 				zap.String("error", err.Error()),
 			)
 
-			fail = true
-
 			return false // we also can continue and calculate at least some part
 		}
 
 		sumPassSGSize += sgInfo.Size()
-
-		return true
-	})
-
-	if fail {
-		return false
 	}
 
 	if sumPassSGSize == 0 {
@@ -288,11 +270,11 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	}
 
 	// add txs to pay inner ring node for audit result
-	auditorKey, err := keys.NewPublicKeyFromBytes(ctx.auditResult.AuditorKey(), elliptic.P256())
+	auditorKey, err := keys.NewPublicKeyFromBytes(ctx.auditResult.AuditorPublicKey, elliptic.P256())
 	if err != nil {
 		ctx.log.Error("could not parse public key of the inner ring node",
 			zap.String("error", err.Error()),
-			zap.String("key", hex.EncodeToString(ctx.auditResult.AuditorKey())),
+			zap.String("key", hex.EncodeToString(ctx.auditResult.AuditorPublicKey)),
 		)
 
 		return false
@@ -310,13 +292,12 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 }
 
 func (c *singleResultCtx) containerID() cid.ID {
-	cnr, _ := c.auditResult.Container()
-	return cnr
+	return c.auditResult.Container
 }
 
 func (c *singleResultCtx) auditEpoch() uint64 {
 	if c.eAudit == 0 {
-		c.eAudit = c.auditResult.Epoch()
+		c.eAudit = c.auditResult.AuditEpoch
 	}
 
 	return c.eAudit

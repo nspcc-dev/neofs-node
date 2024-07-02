@@ -2,7 +2,7 @@ package audit
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
-	"github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
