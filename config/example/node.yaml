@@ -196,6 +196,10 @@ storage:
         - type: fstree
           path: tmp/1/blob  # blobstor path
           no_sync: true
+          flush_interval: 20ms # time interval between combined file writes to disk (defaults to 10ms)
+          combined_count_limit: 64 # number of small objects to write into a single file (defaults to 128)
+          combined_size_limit: 16M # limit for the multi-object file size (defaults to 8M)
+          combined_size_threshold: 512K # threshold for combined object writing (defaults to 128K)
 
       pilorama:
         path: tmp/1/blob/pilorama.db

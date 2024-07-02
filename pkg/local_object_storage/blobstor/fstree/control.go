@@ -19,13 +19,15 @@ func (t *FSTree) Init() error {
 		return fmt.Errorf("mkdir all for %q: %w", t.RootPath, err)
 	}
 	if !t.readOnly {
-		f := newSpecificWriteData(t.RootPath, t.Permissions, t.noSync)
-		if f != nil {
-			t.writeData = f
+		var w = newSpecificWriter(t)
+		if w != nil {
+			t.writer = w
 		}
 	}
 	return nil
 }
 
 // Close implements common.Storage.
-func (*FSTree) Close() error { return nil }
+func (t *FSTree) Close() error {
+	return t.writer.finalize()
+}

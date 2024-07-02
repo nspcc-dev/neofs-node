@@ -23,7 +23,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
 	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
@@ -224,15 +223,18 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 			sCfg.Typ = storagesCfg[i].Type()
 			sCfg.Path = storagesCfg[i].Path()
 			sCfg.Perm = storagesCfg[i].Perm()
+			sCfg.FlushInterval = storagesCfg[i].FlushInterval()
 
 			switch storagesCfg[i].Type() {
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.Depth = sub.Depth()
 				sCfg.NoSync = sub.NoSync()
+				sCfg.CombinedCountLimit = sub.CombinedCountLimit()
+				sCfg.CombinedSizeLimit = sub.CombinedSizeLimit()
+				sCfg.CombinedSizeThreshold = sub.CombinedSizeThreshold()
 			case peapod.Type:
-				peapodCfg := peapodconfig.From((*config.Config)(storagesCfg[i]))
-				sCfg.FlushInterval = peapodCfg.FlushInterval()
+				// No specific configs, but it's a valid storage type.
 			default:
 				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
 			}

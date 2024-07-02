@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type genericWriter struct {
@@ -16,7 +17,7 @@ type genericWriter struct {
 	flags int
 }
 
-func newGenericWriteData(perm fs.FileMode, noSync bool) func(string, []byte) error {
+func newGenericWriter(perm fs.FileMode, noSync bool) writer {
 	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC | os.O_EXCL
 	if !noSync {
 		flags |= os.O_SYNC
@@ -25,10 +26,14 @@ func newGenericWriteData(perm fs.FileMode, noSync bool) func(string, []byte) err
 		perm:  perm,
 		flags: flags,
 	}
-	return w.writeData
+	return w
 }
 
-func (w *genericWriter) writeData(p string, data []byte) error {
+func (w *genericWriter) finalize() error {
+	return nil
+}
+
+func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	// Here is a situation:
 	// Feb 09 13:10:37 buky neofs-node[32445]: 2023-02-09T13:10:37.161Z        info        log/log.go:13        local object storage operation        {"shard_id": "SkT8BfjouW6t93oLuzQ79s", "address": "7NxFz4SruSi8TqXacr2Ae22nekMhgYk1sfkddJo9PpWk/5enyUJGCyU1sfrURDnHEjZFdbGqANVhayYGfdSqtA6wA", "op": "PUT", "type": "fstree", "storage_id": ""}
 	// Feb 09 13:10:37 buky neofs-node[32445]: 2023-02-09T13:10:37.183Z        info        log/log.go:13        local object storage operation        {"shard_id": "SkT8BfjouW6t93oLuzQ79s", "address": "7NxFz4SruSi8TqXacr2Ae22nekMhgYk1sfkddJo9PpWk/5enyUJGCyU1sfrURDnHEjZFdbGqANVhayYGfdSqtA6wA", "op": "metabase PUT"}
