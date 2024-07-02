@@ -18,7 +18,7 @@ import (
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	containerClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
-	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	auditsvc "github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	containerAPI "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapAPI "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -88,13 +88,13 @@ func (c containerWrapper) Owner() user.ID {
 	return (containerAPI.Container)(c).Owner()
 }
 
-func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditAPI.Result, error) {
+func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditsvc.Result, error) {
 	idList, err := s.auditClient.ListAuditResultIDByEpoch(epoch)
 	if err != nil {
 		return nil, fmt.Errorf("could not list audit results in sidechain: %w", err)
 	}
 
-	res := make([]*auditAPI.Result, 0, len(idList))
+	res := make([]*auditsvc.Result, 0, len(idList))
 
 	for i := range idList {
 		r, err := s.auditClient.GetAuditResult(idList[i])

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	auditAPI "github.com/nspcc-dev/neofs-sdk-go/audit"
+	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 )
 
 // ResultID is an identity of audit result inside audit contract.
@@ -12,13 +12,13 @@ type ResultID []byte
 
 // PutPrm groups parameters of PutAuditResult operation.
 type PutPrm struct {
-	result *auditAPI.Result
+	result *audit.Result
 
 	client.InvokePrmOptional
 }
 
 // SetResult sets audit result.
-func (p *PutPrm) SetResult(result *auditAPI.Result) {
+func (p *PutPrm) SetResult(result *audit.Result) {
 	p.result = result
 }
 
