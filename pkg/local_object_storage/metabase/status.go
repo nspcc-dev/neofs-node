@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"errors"
 	"fmt"
 
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -34,8 +33,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	}
 
 	if id := resStorageID.StorageID(); id != nil {
-		res.Error = errors.New("unexpected storage id")
-		return res, res.Error
+		res.StorageID = string(id)
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
