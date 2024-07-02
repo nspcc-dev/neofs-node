@@ -25,6 +25,8 @@ type Streamer struct {
 	relay func(client.NodeInfo, client.MultiAddressClient) error
 
 	maxPayloadSz uint64 // network config
+
+	transport Transport
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -141,6 +143,11 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	var err error
 
+	localNodeKey, err := p.keyStorage.GetKey(nil)
+	if err != nil {
+		return fmt.Errorf("get local node's private key: %w", err)
+	}
+
 	// get latest network map
 	nm, err := netmap.GetLatestNetworkMap(p.netMapSrc)
 	if err != nil {
@@ -186,8 +193,24 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		builder = util.NewLocalPlacement(builder, p.netmapKeys)
 	}
 
+	nodeSets, err := builder.BuildPlacement(idCnr, nil, cnrInfo.Value.PlacementPolicy())
+	if err != nil {
+		return fmt.Errorf("apply container's storage policy to current network map: %w", err)
+	}
+nextSet:
+	for i := range nodeSets {
+		for j := range nodeSets[i] {
+			prm.localNodeInContainer = p.netmapKeys.IsLocalKey(nodeSets[i][j].PublicKey())
+			if prm.localNodeInContainer {
+				break nextSet
+			}
+		}
+	}
+
 	// set placement builder
 	prm.traverseOpts = append(prm.traverseOpts, placement.UseBuilder(builder))
+
+	prm.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
 
 	return nil
 }
@@ -212,7 +235,8 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	// enable additional container broadcast on non-local operation
 	// if object has TOMBSTONE or LOCK type.
 	typ := prm.hdr.Type()
-	withBroadcast := !prm.common.LocalOnly() && (typ == object.TypeTombstone || typ == object.TypeLock)
+	localOnly := prm.common.LocalOnly()
+	withBroadcast := !localOnly && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
 		traversalState: traversal{
@@ -220,7 +244,6 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 
 			extraBroadcastEnabled: withBroadcast,
 		},
-		payload:    getPayload(),
 		remotePool: p.remotePool,
 		localPool:  p.localPool,
 		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
@@ -235,6 +258,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
 				clientConstructor: p.clientConstructor,
+				transport:         p.transport,
 			}
 
 			client.NodeInfoFromNetmapElement(&rt.nodeInfo, node.info)
@@ -246,6 +270,10 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		log:   p.log,
 
 		isLocalKey: p.netmapKeys.IsLocalKey,
+
+		localOnly:            localOnly,
+		localNodeInContainer: prm.localNodeInContainer,
+		localNodeSigner:      prm.localNodeSigner,
 	}
 }
 

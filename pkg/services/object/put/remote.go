@@ -26,8 +26,10 @@ type remoteTarget struct {
 	nodeInfo clientcore.NodeInfo
 
 	obj *object.Object
+	enc encodedObject
 
 	clientConstructor ClientConstructor
+	transport         Transport
 }
 
 // RemoteSender represents utility for
@@ -45,13 +47,22 @@ type RemotePutPrm struct {
 	obj *object.Object
 }
 
-func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta) error {
+func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta, enc encodedObject) error {
 	t.obj = obj
-
+	t.enc = enc
 	return nil
 }
 
 func (t *remoteTarget) Close() (oid.ID, error) {
+	if t.enc.hdrOff > 0 {
+		err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
+		if err != nil {
+			return oid.ID{}, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
+		}
+		id, _ := t.obj.ID()
+		return id, nil
+	}
+
 	var sessionInfo *util.SessionInfo
 
 	if tok := t.commonPrm.SessionToken(); tok != nil {
@@ -128,7 +139,7 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}); err != nil {
+	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{}); err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
 	} else if _, err := t.Close(); err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
