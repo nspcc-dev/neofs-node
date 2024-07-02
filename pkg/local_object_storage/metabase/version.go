@@ -59,3 +59,15 @@ func updateVersion(tx *bbolt.Tx, version uint64) error {
 	}
 	return b.Put(versionKey, data)
 }
+
+func getVersion(tx *bbolt.Tx) uint64 {
+	b := tx.Bucket(shardInfoBucket)
+	if b != nil {
+		data := b.Get(versionKey)
+		if len(data) == 8 {
+			return binary.LittleEndian.Uint64(data)
+		}
+	}
+
+	return 0
+}
