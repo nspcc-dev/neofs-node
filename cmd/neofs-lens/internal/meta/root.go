@@ -35,6 +35,7 @@ func init() {
 		listGarbageCMD,
 		writeObjectCMD,
 		getCMD,
+		statCMD,
 	)
 }
 

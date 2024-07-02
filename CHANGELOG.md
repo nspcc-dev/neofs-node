@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Indexes inspection command to neofs-lens (#2882)
 
 ### Fixed
 - Control service's Drop call does not clean metabase (#2822)
