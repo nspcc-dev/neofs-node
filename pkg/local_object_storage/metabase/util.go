@@ -251,6 +251,12 @@ func objectKey(obj oid.ID, key []byte) []byte {
 	return key[:objectKeySize]
 }
 
+// containerKey returns key for K-V tables when key is a container ID.
+func containerKey(cID cid.ID, key []byte) []byte {
+	cID.Encode(key)
+	return key[:cidSize]
+}
+
 // if meets irregular object container in objs - returns its type, otherwise returns object.TypeRegular.
 //
 // firstIrregularObjectType(tx, cnr, obj) usage allows getting object type.

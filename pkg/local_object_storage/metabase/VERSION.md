@@ -47,55 +47,55 @@ The lowest not used bucket index: 20.
   - Key: object ID
   - Value: marshalled object
 - Bucket containing objects of LOCK type
-  - Name: container ID + `7`
+  - Name: `7` + container ID
   - Key: object ID
   - Value: marshalled object
 - Bucket containing objects of STORAGEGROUP type
-  - Name: container ID + 8
+  - Name: `8` + container ID
   - Key: object ID
   - Value: marshaled object
 - Bucket containing objects of TOMBSTONE type
-  - Name: container ID + `9`
+  - Name: `9` + container ID
   - Key: object ID
   - Value: marshaled object
 - Bucket containing object or LINK type
-  - Name: container ID + `18`
+  - Name: `18` + container ID
   - Key: object ID
   - Value: marshaled object
 - Bucket mapping objects to the storage ID they are stored in
-  - Name: container ID + `10`
+  - Name: `10` + container ID
   - Key: object ID
   - Value: storage ID
 - Bucket for mapping parent object to the split info
-  - Name: container ID + `11`
+  - Name: `11` + container ID
   - Key: object ID
   - Value: split info
 
 ### FKBT index buckets
 - Bucket mapping owner to object IDs
-  - Name: containerID + `12`
+  - Name: `12` + container ID
   - Key: owner ID as base58 string
   - Value: bucket containing object IDs as keys
 - Bucket containing objects attributes indexes
-  - Name: containerID + `13` + attribute key
+  - Name: `13` + container ID + attribute key
   - Key: attribute value
   - Value: bucket containing object IDs as keys
 
 ### List index buckets
 - Bucket mapping payload hash to a list of object IDs
-  - Name: container ID + `14`
+  - Name: `14` + container ID
   - Key: payload hash
   - Value: list of object IDs
 - Bucket mapping parent ID to a list of children IDs
-  - Name: container ID + `15`
+  - Name: `15` + container ID
   - Key: parent ID
   - Value: list of children object IDs
 - Bucket mapping split ID to a list of object IDs
-  - Name: container ID + `16`
+  - Name: `16` + container ID
   - Key: split ID
   - Value: list of object IDs
 - Bucket mapping first object ID to a list of objects IDs
-  - Name: container ID + `19`
+  - Name: `19` + container ID
   - Key: first object ID
   - Value: objects for corresponding split chain
 
