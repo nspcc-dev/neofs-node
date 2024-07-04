@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -9,13 +10,14 @@ import (
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 type preparedObjectTarget interface {
-	WriteObject(*objectSDK.Object, object.ContentMeta) error
+	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) error
 	Close() (oid.ID, error)
 }
 
@@ -28,7 +30,13 @@ type distributedTarget struct {
 	obj     *objectSDK.Object
 	objMeta object.ContentMeta
 
-	payload []byte
+	localOnly            bool
+	localNodeInContainer bool
+	localNodeSigner      neofscrypto.Signer
+	// - object if localOnly
+	// - replicate request if localNodeInContainer
+	// - payload otherwise
+	encodedObject encodedObject
 
 	nodeTargetInitializer func(nodeDesc) preparedObjectTarget
 
@@ -115,25 +123,49 @@ func (x errIncompletePut) Error() string {
 	return commonMsg
 }
 
-func (t *distributedTarget) WriteHeader(obj *objectSDK.Object) error {
-	t.obj = obj
+func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
+	payloadLen := hdr.PayloadSize()
+	if payloadLen > math.MaxInt {
+		return fmt.Errorf("too big payload of physically stored for this server %d > %d", payloadLen, math.MaxInt)
+	}
+
+	if t.localNodeInContainer {
+		var err error
+		if t.localOnly {
+			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
+		} else {
+			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen))
+		}
+		if err != nil {
+			return fmt.Errorf("encode object into binary: %w", err)
+		}
+	} else if payloadLen > 0 {
+		b := getPayload()
+		if cap(b) < int(payloadLen) {
+			putPayload(b)
+			b = make([]byte, 0, payloadLen)
+		}
+		t.encodedObject = encodedObject{b: b}
+	}
+
+	t.obj = hdr
 
 	return nil
 }
 
 func (t *distributedTarget) Write(p []byte) (n int, err error) {
-	t.payload = append(t.payload, p...)
+	t.encodedObject.b = append(t.encodedObject.b, p...)
 
 	return len(p), nil
 }
 
 func (t *distributedTarget) Close() (oid.ID, error) {
 	defer func() {
-		putPayload(t.payload)
-		t.payload = nil
+		putPayload(t.encodedObject.b)
+		t.encodedObject.b = nil
 	}()
 
-	t.obj.SetPayload(t.payload)
+	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
 
 	tombOrLink := t.obj.Type() == objectSDK.TypeLink || t.obj.Type() == objectSDK.TypeTombstone
 
@@ -155,28 +187,13 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	// and are useless if the node does not belong to the container, since
 	// another node is responsible for the validation and may decline it,
 	// does not matter what this node thinks about it
-	if !tombOrLink || t.nodeInPlacement() {
+	if !tombOrLink || t.localNodeInContainer {
 		if t.objMeta, err = t.fmt.ValidateContent(t.obj); err != nil {
 			return oid.ID{}, fmt.Errorf("(%T) could not validate payload content: %w", t, err)
 		}
 	}
 
 	return t.iteratePlacement(t.sendObject)
-}
-
-func (t *distributedTarget) nodeInPlacement() bool {
-	var shouldStoreObject bool
-
-	t.traverser.IterateContainerKeys(func(key []byte) bool {
-		if t.isLocalKey(key) {
-			shouldStoreObject = true
-			return true
-		}
-
-		return false
-	})
-
-	return shouldStoreObject
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
@@ -186,7 +203,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteObject(t.obj, t.objMeta); err != nil {
+	if err := target.WriteObject(t.obj, t.objMeta, t.encodedObject); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
 	} else if _, err := target.Close(); err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)

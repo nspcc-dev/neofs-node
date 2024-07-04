@@ -263,7 +263,7 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sPut := putsvc.NewService(
+	sPut := putsvc.NewService(&transport{clients: putConstructor},
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
@@ -543,8 +543,14 @@ func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 	return e.engine.Lock(locker.Container(), locker.Object(), toLock)
 }
 
-func (e storageEngine) Put(o *objectSDK.Object) error {
-	return engine.Put(e.engine, o)
+func (e storageEngine) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
+	var putPrm engine.PutPrm
+	putPrm.WithObject(o)
+	if objBin != nil {
+		putPrm.SetObjectBinary(objBin, hdrLen)
+	}
+	_, err := e.engine.Put(putPrm)
+	return err
 }
 
 func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int) headerSource {
