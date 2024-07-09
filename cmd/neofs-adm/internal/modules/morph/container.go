@@ -57,6 +57,11 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid filename: %w", err)
 	}
 
+	requestedIDs, err := getCIDs(cmd)
+	if err != nil {
+		return err
+	}
+
 	c, err := getN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
@@ -69,27 +74,12 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("unable to get contaract hash: %w", err)
 	}
 
-	rawIDs, err := getContainersList(inv, ch)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
-	}
-
-	requested, err := getCIDs(cmd)
-	if err != nil {
-		return err
-	}
-
 	var containers []*Container
-	var dec cid.ID
 	b := smartcontract.NewBuilder()
-	for _, id := range rawIDs {
-		copy(dec[:], id)
-		if _, ok := requested[dec]; !ok {
-			continue
-		}
+	for id := range requestedIDs {
 		b.Reset()
-		b.InvokeMethod(ch, "get", id)
-		b.InvokeMethod(ch, "eACL", id)
+		b.InvokeMethod(ch, "get", id[:])
+		b.InvokeMethod(ch, "eACL", id[:])
 
 		script, err := b.Script()
 		if err != nil {
