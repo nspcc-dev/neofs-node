@@ -70,7 +70,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 			netmapEpochKey, netmapInnerRingCandidateFeeKey,
 			netmapMaxObjectSizeKey, netmapWithdrawFeeKey:
 			nbuf := make([]byte, 8)
-			copy(nbuf[:], v)
+			copy(nbuf, v)
 			n := binary.LittleEndian.Uint64(nbuf)
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
 		case netmapEigenTrustAlphaKey:
