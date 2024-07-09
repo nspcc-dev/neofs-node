@@ -80,9 +80,7 @@ func CollectMembers(r objutil.ObjectSource, cnr cid.ID, members []oid.ID, calcHo
 		}
 
 		var cs checksum.Checksum
-		tzHash := [64]byte{}
-		copy(tzHash[:], sumHash)
-		cs.SetTillichZemor(tzHash)
+		cs.SetTillichZemor([tz.Size]byte(sumHash))
 
 		sg.SetValidationDataHash(cs)
 	}
