@@ -374,8 +374,7 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	require.NoError(t, err)
 
 	cs, _ := raw1.PayloadChecksum()
-	var payloadHash [sha256.Size]byte
-	copy(payloadHash[:], cs.Value())
+	payloadHash := [sha256.Size]byte(cs.Value())
 
 	fs := objectSDK.SearchFilters{}
 	fs.AddPayloadHashFilter(objectSDK.MatchStringEqual, payloadHash)
@@ -444,8 +443,7 @@ func TestDB_SelectWithSlowFilters(t *testing.T) {
 
 	t.Run("object with TZHash", func(t *testing.T) {
 		cs, _ := raw1.PayloadHomomorphicHash()
-		var homoHash [tz.Size]byte
-		copy(homoHash[:], cs.Value())
+		homoHash := [tz.Size]byte(cs.Value())
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddHomomorphicHashFilter(objectSDK.MatchStringEqual, homoHash)

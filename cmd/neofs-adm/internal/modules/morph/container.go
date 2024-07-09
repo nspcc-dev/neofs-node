@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/invoker"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
@@ -59,6 +57,11 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid filename: %w", err)
 	}
 
+	requestedIDs, err := getCIDs(cmd)
+	if err != nil {
+		return err
+	}
+
 	c, err := getN3Client(viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("can't create N3 client: %w", err)
@@ -71,25 +74,12 @@ func dumpContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("unable to get contaract hash: %w", err)
 	}
 
-	cids, err := getContainersList(inv, ch)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
-	}
-
-	isOK, err := getCIDFilterFunc(cmd)
-	if err != nil {
-		return err
-	}
-
 	var containers []*Container
 	b := smartcontract.NewBuilder()
-	for _, id := range cids {
-		if !isOK(id) {
-			continue
-		}
+	for id := range requestedIDs {
 		b.Reset()
-		b.InvokeMethod(ch, "get", id)
-		b.InvokeMethod(ch, "eACL", id)
+		b.InvokeMethod(ch, "get", id[:])
+		b.InvokeMethod(ch, "eACL", id[:])
 
 		script, err := b.Script()
 		if err != nil {
@@ -191,19 +181,20 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't parse dump file: %w", err)
 	}
 
-	isOK, err := getCIDFilterFunc(cmd)
+	requested, err := getCIDs(cmd)
 	if err != nil {
 		return err
 	}
 
+	var id cid.ID
 	b := smartcontract.NewBuilder()
 	for _, cnt := range containers {
-		hv := hash.Sha256(cnt.Value)
-		if !isOK(hv[:]) {
+		id.FromBinary(cnt.Value)
+		if _, ok := requested[id]; !ok {
 			continue
 		}
 		b.Reset()
-		b.InvokeMethod(ch, "get", hv.BytesBE())
+		b.InvokeMethod(ch, "get", id[:])
 
 		script, err := b.Script()
 		if err != nil {
@@ -223,8 +214,6 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 		}
 		if len(old.Value) != 0 {
-			var id cid.ID
-			id.SetSHA256(hv)
 			cmd.Printf("Container %s is already deployed.\n", id)
 			continue
 		}
@@ -353,33 +342,20 @@ func (c *EACL) FromStackItem(item stackitem.Item) error {
 	return nil
 }
 
-// getCIDFilterFunc returns filtering function for container IDs.
-// Raw byte slices are used because it works with structures returned
-// from contract.
-func getCIDFilterFunc(cmd *cobra.Command) (func([]byte) bool, error) {
+// returns set of cid.ID specified via the 'cid' command flag. Function allows
+// duplicates.
+func getCIDs(cmd *cobra.Command) (map[cid.ID]struct{}, error) {
 	rawIDs, err := cmd.Flags().GetStringSlice(containerIDsFlag)
 	if err != nil {
 		return nil, err
 	}
-	if len(rawIDs) == 0 {
-		return func([]byte) bool { return true }, nil
-	}
-
+	var id cid.ID
+	res := make(map[cid.ID]struct{}, len(rawIDs))
 	for i := range rawIDs {
-		err := new(cid.ID).DecodeString(rawIDs[i])
-		if err != nil {
+		if err = id.DecodeString(rawIDs[i]); err != nil {
 			return nil, fmt.Errorf("can't parse CID %s: %w", rawIDs[i], err)
 		}
+		res[id] = struct{}{}
 	}
-	sort.Strings(rawIDs)
-	return func(rawID []byte) bool {
-		var v [32]byte
-		copy(v[:], rawID)
-
-		var id cid.ID
-		id.SetSHA256(v)
-		idStr := id.EncodeToString()
-		n := sort.Search(len(rawIDs), func(i int) bool { return rawIDs[i] >= idStr })
-		return n < len(rawIDs) && rawIDs[n] == idStr
-	}, nil
+	return res, nil
 }

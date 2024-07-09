@@ -1,6 +1,7 @@
 package intermediate
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"fmt"
 
@@ -80,11 +81,8 @@ func (fw FinalWriter) WriteIntermediateTrust(t eigentrust.IterationTrust) error 
 	apiTrust.SetValue(t.Value().Float64())
 	apiTrust.SetPeer(t.Peer())
 
-	var managerPublicKey [33]byte
-	copy(managerPublicKey[:], fw.pubKey)
-
 	var apiMangerPeerID apireputation.PeerID
-	apiMangerPeerID.SetPublicKey(managerPublicKey[:])
+	apiMangerPeerID.SetPublicKey(bytes.Clone(fw.pubKey))
 
 	var gTrust apireputation.GlobalTrust
 	gTrust.SetTrust(apiTrust)
