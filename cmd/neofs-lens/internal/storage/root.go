@@ -45,6 +45,7 @@ func init() {
 		storageGetObjCMD,
 		storageListObjsCMD,
 		storageStatusObjCMD,
+		storageSanityCMD,
 	)
 }
 
