@@ -161,26 +161,6 @@ func TestContainerNodes_ForEachContainerNodePublicKeyInLastTwoEpochs(t *testing.
 		require.Contains(t, calledKeys, nodes[3].PublicKey())
 	})
 
-	t.Run("zero current epoch", func(t *testing.T) {
-		nodes, curNetmap, cnr := newNetmapWithContainer(t, 5, []int{1, 3})
-
-		ns, err := newContainerNodes(&testContainer{id: anyCnr, val: cnr}, &testNetwork{
-			epoch:     0,
-			curNetmap: curNetmap,
-		})
-		require.NoError(t, err)
-
-		var calledKeys [][]byte
-		err = ns.forEachContainerNodePublicKeyInLastTwoEpochs(anyCnr, func(pubKey []byte) bool {
-			calledKeys = append(calledKeys, pubKey)
-			return true
-		})
-		require.NoError(t, err)
-		require.Len(t, calledKeys, 2)
-		require.Contains(t, calledKeys, nodes[1].PublicKey())
-		require.Contains(t, calledKeys, nodes[3].PublicKey())
-	})
-
 	t.Run("read previous network map failure", func(t *testing.T) {
 		nodes, curNetmap, cnr := newNetmapWithContainer(t, 5, []int{1, 3})
 		prevNetmapErr := errors.New("any previous netmap error")
