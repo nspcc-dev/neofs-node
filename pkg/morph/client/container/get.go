@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	containerContract "github.com/nspcc-dev/neofs-contract/contracts/container"
+	"github.com/nspcc-dev/neofs-contract/contracts/container/containerconst"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -45,7 +45,7 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 
 	res, err := c.client.TestInvoke(prm)
 	if err != nil {
-		if strings.Contains(err.Error(), containerContract.NotFoundError) {
+		if strings.Contains(err.Error(), containerconst.NotFoundError) {
 			var errNotFound apistatus.ContainerNotFound
 
 			return nil, errNotFound

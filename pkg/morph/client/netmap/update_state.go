@@ -3,7 +3,7 @@ package netmap
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-contract/contracts/netmap"
+	"github.com/nspcc-dev/neofs-contract/contracts/netmap/nodestate"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -11,7 +11,7 @@ import (
 type UpdatePeerPrm struct {
 	key []byte
 
-	state netmap.NodeState
+	state nodestate.Type
 
 	client.InvokePrmOptional
 }
@@ -25,20 +25,20 @@ func (u *UpdatePeerPrm) SetKey(key []byte) {
 //
 // Zero UpdatePeerPrm marks node as "offline".
 func (u *UpdatePeerPrm) SetOnline() {
-	u.state = netmap.NodeStateOnline
+	u.state = nodestate.Online
 }
 
 // SetMaintenance marks node to be switched into "maintenance" state.
 //
 // Zero UpdatePeerPrm marks node as "offline".
 func (u *UpdatePeerPrm) SetMaintenance() {
-	u.state = netmap.NodeStateMaintenance
+	u.state = nodestate.Maintenance
 }
 
 // UpdatePeerState changes peer status through Netmap contract call.
 func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
 	if p.state == 0 {
-		p.state = netmap.NodeStateOffline
+		p.state = nodestate.Offline
 	}
 
 	prm := client.InvokePrm{}

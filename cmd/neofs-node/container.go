@@ -11,7 +11,7 @@ import (
 
 	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
 	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	containercontract "github.com/nspcc-dev/neofs-contract/contracts/container"
+	"github.com/nspcc-dev/neofs-contract/contracts/container/containerconst"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -133,7 +133,7 @@ func initContainerService(c *cfg) {
 		key:            pubKey,
 	}
 
-	loadAccumulator := loadstorage.New(containercontract.CleanupDelta)
+	loadAccumulator := loadstorage.New(containerconst.CleanupDelta)
 
 	addNewEpochAsyncNotificationHandler(c, func(e event.Event) {
 		ev := e.(netmapEv.NewEpoch)
