@@ -376,6 +376,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.RPC.StartWhenSynchronized = true
 	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(100)
 	cfgBaseApp.RPC.SessionEnabled = true
+	cfgBaseApp.RPC.SessionExpirationTime = int(time.Minute)
 	cfgBaseApp.P2P.Addresses = cfg.P2P.ListenAddresses
 	cfgBaseApp.P2P.DialTimeout = cfg.P2P.DialTimeout
 	cfgBaseApp.P2P.ProtoTickInterval = cfg.P2P.ProtoTickInterval
