@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
 	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
-	netmapcontract "github.com/nspcc-dev/neofs-contract/contracts/netmap"
+	"github.com/nspcc-dev/neofs-contract/contracts/netmap/nodestate"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,7 +47,7 @@ func removeNodesCmd(cmd *cobra.Command, args []string) error {
 	bw := io.NewBufBinWriter()
 	for i := range nodeKeys {
 		emit.AppCall(bw.BinWriter, nmHash, "updateStateIR", callflag.All,
-			int64(netmapcontract.NodeStateOffline), nodeKeys[i].Bytes())
+			int64(nodestate.Offline), nodeKeys[i].Bytes())
 	}
 
 	if err := emitNewEpochCall(bw, wCtx, nmHash); err != nil {
