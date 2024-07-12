@@ -97,12 +97,10 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		return c, fmt.Errorf("empty committee members '%s'", committeeKey)
 	}
 
-	c.BlockInterval = 100 * time.Millisecond
-
-	// c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
-	// if err != nil && !errors.Is(err, errMissingConfig) {
-	// 	return c, err
-	// }
+	c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
+	}
 
 	traceableChainLength, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".max_traceable_blocks", "traceable chain length", 1, math.MaxUint32)
 	if err != nil && !errors.Is(err, errMissingConfig) {
