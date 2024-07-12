@@ -89,7 +89,8 @@
     "endpoints": [
       "wss://rpc1.morph.fs.neo.org:40341/ws",
       "wss://rpc2.morph.fs.neo.org:40341/ws"
-    ]
+    ],
+    "conns_per_host": 1
   },
   "apiclient": {
     "dial_timeout": "15s",

@@ -109,6 +109,7 @@ type applicationConfiguration struct {
 		cacheTTL                  time.Duration
 		reconnectionRetriesNumber int
 		reconnectionRetriesDelay  time.Duration
+		connsPerHost              uint32
 	}
 
 	contracts struct {
@@ -163,6 +164,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.morph.cacheTTL = morphconfig.CacheTTL(c)
 	a.morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
 	a.morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+	a.morph.connsPerHost = morphconfig.MaxConnPerHost(c)
 
 	// Contracts
 
@@ -650,6 +652,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 		client.WithEndpoints(addresses),
 		client.WithReconnectionRetries(c.applicationConfiguration.morph.reconnectionRetriesNumber),
 		client.WithReconnectionsDelay(c.applicationConfiguration.morph.reconnectionRetriesDelay),
+		client.WithMaxConnectionPerHost(c.applicationConfiguration.morph.connsPerHost),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
