@@ -39,6 +39,11 @@ const (
 	cachedObjectNodesNum = 10000
 )
 
+type (
+	getContainerNodesFunc  = func(netmapsdk.NetMap, netmapsdk.PlacementPolicy, cid.ID) ([][]netmapsdk.NodeInfo, error)
+	sortContainerNodesFunc = func(netmapsdk.NetMap, [][]netmapsdk.NodeInfo, oid.ID) ([][]netmapsdk.NodeInfo, error)
+)
+
 // containerNodes wraps NeoFS network state to apply container storage policies.
 //
 // Since policy application results are consistent for fixed container and
@@ -50,6 +55,10 @@ type containerNodes struct {
 
 	cache    *lru.Cache[containerNodesCacheKey, storagePolicyRes]
 	objCache *lru.Cache[objectNodesCacheKey, storagePolicyRes]
+
+	// for testing
+	getContainerNodesFunc  getContainerNodesFunc
+	sortContainerNodesFunc sortContainerNodesFunc
 }
 
 func newContainerNodes(containers container.Source, network netmap.Source) (*containerNodes, error) {
@@ -62,10 +71,12 @@ func newContainerNodes(containers container.Source, network netmap.Source) (*con
 		return nil, fmt.Errorf("create LRU container node cache for objects: %w", err)
 	}
 	return &containerNodes{
-		containers: containers,
-		network:    network,
-		cache:      l,
-		objCache:   lo,
+		containers:             containers,
+		network:                network,
+		cache:                  l,
+		objCache:               lo,
+		getContainerNodesFunc:  netmapsdk.NetMap.ContainerNodes,
+		sortContainerNodesFunc: netmapsdk.NetMap.PlacementVectors,
 	}, nil
 }
 
@@ -84,7 +95,7 @@ func (x *containerNodes) forEachContainerNode(cnrID cid.ID, withPrevEpoch bool, 
 		return fmt.Errorf("read current NeoFS epoch: %w", err)
 	}
 
-	cnrCtx := containerPolicyContext{id: cnrID, containers: x.containers, network: x.network}
+	cnrCtx := containerPolicyContext{id: cnrID, containers: x.containers, network: x.network, getNodesFunc: x.getContainerNodesFunc}
 
 	resCur, err := cnrCtx.applyAtEpoch(curEpoch, x.cache)
 	if err != nil {
@@ -151,9 +162,10 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 		return res.nodeSets, res.repCounts, res.err
 	}
 	cnrRes, networkMap, err := (&containerPolicyContext{
-		id:         addr.Container(),
-		containers: x.containers,
-		network:    x.network,
+		id:           addr.Container(),
+		containers:   x.containers,
+		network:      x.network,
+		getNodesFunc: x.getContainerNodesFunc,
 	}).applyToNetmap(curEpoch, x.cache)
 	if err != nil || cnrRes.err != nil {
 		if err == nil {
@@ -168,7 +180,7 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 		}
 	}
 	res.repCounts = cnrRes.repCounts
-	res.nodeSets, res.err = networkMap.PlacementVectors(cnrRes.nodeSets, addr.Object())
+	res.nodeSets, res.err = x.sortContainerNodesFunc(*networkMap, cnrRes.nodeSets, addr.Object())
 	if res.err != nil {
 		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
 	}
@@ -179,9 +191,10 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 // preserves context of storage policy processing for the particular container.
 type containerPolicyContext struct {
 	// static
-	id         cid.ID
-	containers container.Source
-	network    netmap.Source
+	id           cid.ID
+	containers   container.Source
+	network      netmap.Source
+	getNodesFunc getContainerNodesFunc
 	// dynamic
 	cnr *container.Container
 }
@@ -218,7 +231,7 @@ func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[co
 		return result, nil, fmt.Errorf("read network map by epoch: %w", err)
 	}
 	policy := x.cnr.Value.PlacementPolicy()
-	result.nodeSets, result.err = networkMap.ContainerNodes(policy, x.id)
+	result.nodeSets, result.err = x.getNodesFunc(*networkMap, policy, x.id)
 	if result.err == nil {
 		// ContainerNodes should control following, but still better to double-check
 		if policyNum := policy.NumberOfReplicas(); len(result.nodeSets) != policyNum {
