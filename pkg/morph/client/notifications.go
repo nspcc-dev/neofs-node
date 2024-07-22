@@ -54,6 +54,8 @@ func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
 		if err != nil {
 			// if there is some error, undo all subscriptions and return error
 			for _, id := range notifyIDs {
+
+				fmt.Printf("unsubscribing %s in `ReceiveExecutionNotifications`, err: %s\n", id, err)
 				_ = c.client.Unsubscribe(id)
 			}
 
@@ -192,6 +194,9 @@ func (c *Client) UnsubscribeAll() error {
 	}
 
 	err := c.client.UnsubscribeAll()
+
+	fmt.Printf("unsubscribing all in `UnsubscribeAll`, err: %s\n", err)
+
 	if err != nil {
 		return err
 	}

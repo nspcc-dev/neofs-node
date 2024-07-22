@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -78,7 +79,10 @@ func (c *Client) closeWaiter() {
 	case <-c.cfg.ctx.Done():
 	case <-c.closeChan:
 	}
+
 	_ = c.UnsubscribeAll()
+	fmt.Println("unsubscribing ALL in `closeWaiter`")
+
 	c.close()
 }
 
