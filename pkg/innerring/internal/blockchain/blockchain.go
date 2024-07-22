@@ -203,7 +203,7 @@ type Config struct {
 
 	// Length of the chain accessible to smart contracts.
 	//
-	// Optional: defaults to 2102400.
+	// Optional: defaults to 17280.
 	TraceableChainLength uint32
 
 	// Maps hard-fork's name to the appearance chain height.
@@ -322,7 +322,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 		cfg.P2P.ProtoTickInterval = 2 * time.Second
 	}
 	if cfg.TraceableChainLength == 0 {
-		cfg.TraceableChainLength = 2102400
+		cfg.TraceableChainLength = 17280
 	}
 	if cfg.P2P.Ping.Interval == 0 {
 		cfg.P2P.Ping.Interval = 30 * time.Second
