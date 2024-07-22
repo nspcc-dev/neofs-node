@@ -36,7 +36,7 @@ morph:
       path: ./db/morph.bolt # File system path to the storage. Ignored for 'inmemory' storage.
     time_per_block: 1s # Optional time period (approximate) between two adjacent blocks. Defaults to 15s.
       # Must not be negative
-    max_traceable_blocks: 2102400 # Optional length of the chain accessible to smart contracts. Defaults to 2102400.
+    max_traceable_blocks: 11520 # Optional length of the chain accessible to smart contracts. Defaults to 17280.
       # Must not be greater than 4294967295
     seed_nodes: # Optional list of existing nodes to communicate with over Neo P2P protocol. By default, node runs as standalone
       # Same format as 'p2p.listen'
