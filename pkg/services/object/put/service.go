@@ -9,6 +9,9 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -23,6 +26,7 @@ type MaxSizeSource interface {
 type Service struct {
 	*cfg
 	transport Transport
+	neoFSNet  NeoFSNetwork
 }
 
 type Option func(*cfg)
@@ -38,6 +42,41 @@ type ClientConstructor interface {
 	Get(client.NodeInfo) (client.MultiAddressClient, error)
 }
 
+// ContainerNodes provides access to storage nodes matching storage policy of
+// the particular container.
+type ContainerNodes interface {
+	// Unsorted returns unsorted descriptor set corresponding to the storage nodes
+	// matching storage policy of the container. Nodes are identified by their
+	// public keys and can be repeated in different sets.
+	//
+	// Unsorted callers do not change resulting slices and their elements.
+	Unsorted() [][]netmapsdk.NodeInfo
+	// SortForObject sorts container nodes for the referenced object's storage.
+	//
+	// SortForObject callers do not change resulting slices and their elements.
+	SortForObject(oid.ID) ([][]netmapsdk.NodeInfo, error)
+	// PrimaryCounts returns number (N) of primary object holders for each sorted
+	// list (L) so:
+	//  - size of each L >= N;
+	//  - first N nodes of each L are primary data holders while others (if any)
+	//    are backup.
+	PrimaryCounts() []uint
+}
+
+// NeoFSNetwork provides access to the NeoFS network to get information
+// necessary for the [Service] to work.
+type NeoFSNetwork interface {
+	// GetContainerNodes selects storage nodes matching storage policy of the
+	// referenced container for now and provides [ContainerNodes] interface.
+	//
+	// Returns [apistatus.ContainerNotFound] if requested container is missing in
+	// the network.
+	GetContainerNodes(cid.ID) (ContainerNodes, error)
+	// IsLocalNodePublicKey checks whether given binary-encoded public key is
+	// assigned in the network map to a local storage node providing [Service].
+	IsLocalNodePublicKey([]byte) bool
+}
+
 type cfg struct {
 	keyStorage *objutil.KeyStorage
 
@@ -50,8 +89,6 @@ type cfg struct {
 	netMapSrc netmap.Source
 
 	remotePool, localPool util.WorkerPool
-
-	netmapKeys netmap.AnnouncedKeys
 
 	fmtValidator *object.FormatValidator
 
@@ -72,7 +109,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -84,6 +121,7 @@ func NewService(transport Transport, opts ...Option) *Service {
 	return &Service{
 		cfg:       c,
 		transport: transport,
+		neoFSNet:  neoFSNet,
 	}
 }
 
@@ -92,6 +130,7 @@ func (p *Service) Put(ctx context.Context) (*Streamer, error) {
 		cfg:       p.cfg,
 		ctx:       ctx,
 		transport: p.transport,
+		neoFSNet:  p.neoFSNet,
 	}, nil
 }
 
@@ -130,12 +169,6 @@ func WithWorkerPools(remote, local util.WorkerPool) Option {
 	return func(c *cfg) {
 		c.remotePool = remote
 		c.localPool = local
-	}
-}
-
-func WithNetmapKeys(v netmap.AnnouncedKeys) Option {
-	return func(c *cfg) {
-		c.netmapKeys = v
 	}
 }
 
