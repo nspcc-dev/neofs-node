@@ -134,6 +134,8 @@ func TestSizeInBytes(t *testing.T) {
 		require.EqualValues(t, tb/2, config.SizeInBytesSafe(c, "size_float"))
 		require.EqualValues(t, uint64(14*gb+(gb*123/1000/mb*mb)), config.SizeInBytesSafe(c, "size_float_big"))
 		require.EqualValues(t, 2048, config.SizeInBytesSafe(c, "size_bytes"))
+		require.EqualValues(t, 1, config.SizeInBytesSafe(c, "size_bytes_single_char"))
+		require.EqualValues(t, 1, config.SizeInBytesSafe(c, "size_bytes_single_char_no_space"))
 		require.EqualValues(t, 123456, config.SizeInBytesSafe(c, "size_bytes_no_suffix"))
 	})
 }

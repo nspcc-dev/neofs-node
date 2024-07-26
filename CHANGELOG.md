@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Control service's Drop call does not clean metabase (#2822)
+- It was impossible to specify memory amount as "1b" (one byte) in config, default was used instead (#2899)
 
 ### Changed
 - neofs-cli allows several objects deletion at a time (#2774)

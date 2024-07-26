@@ -199,7 +199,7 @@ func parseSizeInBytes(sizeStr string) uint64 {
 		if sizeStr[lastChar] == 'b' || sizeStr[lastChar] == 'B' {
 			lastChar--
 		}
-		if lastChar > 0 {
+		if lastChar >= 0 {
 			switch unicode.ToLower(rune(sizeStr[lastChar])) {
 			case 'k':
 				multiplier = 1 << 10
