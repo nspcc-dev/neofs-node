@@ -6,10 +6,8 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -27,6 +25,7 @@ type Streamer struct {
 	maxPayloadSz uint64 // network config
 
 	transport Transport
+	neoFSNet  NeoFSNetwork
 }
 
 var errNotInit = errors.New("stream not initialized")
@@ -148,12 +147,6 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("get local node's private key: %w", err)
 	}
 
-	// get latest network map
-	nm, err := netmap.GetLatestNetworkMap(p.netMapSrc)
-	if err != nil {
-		return fmt.Errorf("(%T) could not get latest network map: %w", p, err)
-	}
-
 	idCnr, ok := prm.hdr.ContainerID()
 	if !ok {
 		return errors.New("missing container ID")
@@ -167,48 +160,27 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 
 	prm.cnr = cnrInfo.Value
 
-	// add common options
-	prm.traverseOpts = append(prm.traverseOpts,
-		// set processing container
-		placement.ForContainer(prm.cnr),
-	)
-
-	if id, ok := prm.hdr.ID(); ok {
-		prm.traverseOpts = append(prm.traverseOpts,
-			// set identifier of the processing object
-			placement.ForObject(id),
-		)
-	}
-
-	prm.traverseOpts = append(prm.traverseOpts, placement.WithCopiesNumber(prm.copiesNumber))
-
-	// create placement builder from network map
-	builder := placement.NewNetworkMapBuilder(nm)
-
-	if prm.common.LocalOnly() {
-		// restrict success count to 1 stored copy (to local storage)
-		prm.traverseOpts = append(prm.traverseOpts, placement.SuccessAfter(1))
-
-		// use local-only placement builder
-		builder = util.NewLocalPlacement(builder, p.netmapKeys)
-	}
-
-	nodeSets, err := builder.BuildPlacement(idCnr, nil, cnrInfo.Value.PlacementPolicy())
+	prm.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
 	if err != nil {
-		return fmt.Errorf("apply container's storage policy to current network map: %w", err)
+		return fmt.Errorf("select storage nodes for the container: %w", err)
 	}
+	cnrNodes := prm.containerNodes.Unsorted()
 nextSet:
-	for i := range nodeSets {
-		for j := range nodeSets[i] {
-			prm.localNodeInContainer = p.netmapKeys.IsLocalKey(nodeSets[i][j].PublicKey())
+	for i := range cnrNodes {
+		for j := range cnrNodes[i] {
+			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
 			if prm.localNodeInContainer {
+				if prm.copiesNumber > 0 {
+					return errors.New("storage of multiple object replicas is requested for a local operation")
+				}
+				prm.localNodePos[0], prm.localNodePos[1] = i, j
 				break nextSet
 			}
 		}
 	}
-
-	// set placement builder
-	prm.traverseOpts = append(prm.traverseOpts, placement.UseBuilder(builder))
+	if !prm.localNodeInContainer && prm.common.LocalOnly() {
+		return errors.New("local operation on the node not compliant with the container storage policy")
+	}
 
 	prm.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
 
@@ -219,16 +191,12 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	var relay func(nodeDesc) error
 	if p.relay != nil {
 		relay = func(node nodeDesc) error {
-			var info client.NodeInfo
-
-			client.NodeInfoFromNetmapElement(&info, node.info)
-
-			c, err := p.clientConstructor.Get(info)
+			c, err := p.clientConstructor.Get(node.info)
 			if err != nil {
-				return fmt.Errorf("could not create SDK client %s: %w", info.AddressGroup(), err)
+				return fmt.Errorf("could not create SDK client %s: %w", node.info.AddressGroup(), err)
 			}
 
-			return p.relay(info, c)
+			return p.relay(node.info, c)
 		}
 	}
 
@@ -239,13 +207,17 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !localOnly && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
-		traversalState: traversal{
-			opts: prm.traverseOpts,
-
-			extraBroadcastEnabled: withBroadcast,
+		placementIterator: placementIterator{
+			log:            p.log,
+			neoFSNet:       p.neoFSNet,
+			localPool:      p.localPool,
+			remotePool:     p.remotePool,
+			containerNodes: prm.containerNodes,
+			localOnly:      localOnly,
+			localNodePos:   prm.localNodePos,
+			linearReplNum:  uint(prm.copiesNumber),
+			broadcast:      withBroadcast,
 		},
-		remotePool: p.remotePool,
-		localPool:  p.localPool,
 		nodeTargetInitializer: func(node nodeDesc) preparedObjectTarget {
 			if node.local {
 				return &localTarget{
@@ -257,21 +229,15 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 				ctx:               p.ctx,
 				keyStorage:        p.keyStorage,
 				commonPrm:         prm.common,
+				nodeInfo:          node.info,
 				clientConstructor: p.clientConstructor,
 				transport:         p.transport,
 			}
 
-			client.NodeInfoFromNetmapElement(&rt.nodeInfo, node.info)
-
 			return rt
 		},
-		relay: relay,
-		fmt:   p.fmtValidator,
-		log:   p.log,
-
-		isLocalKey: p.netmapKeys.IsLocalKey,
-
-		localOnly:            localOnly,
+		relay:                relay,
+		fmt:                  p.fmtValidator,
 		localNodeInContainer: prm.localNodeInContainer,
 		localNodeSigner:      prm.localNodeSigner,
 	}
