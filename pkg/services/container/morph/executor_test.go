@@ -16,6 +16,7 @@ import (
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	containerSvcMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -29,8 +30,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	iat = 10
+	nbf = 20
+	exp = 30
+)
+
 type mock struct {
-	cnr containerSDK.Container
+	cnr   containerSDK.Container
+	epoch uint64
+}
+
+func (m mock) CurrentEpoch() uint64 {
+	return m.epoch
 }
 
 func (m mock) Get(_ cid.ID) (*containerCore.Container, error) {
@@ -81,6 +93,10 @@ func TestExecutor(t *testing.T) {
 	}
 
 	tok := sessiontest.Container()
+	// sdk generates broken chronologic
+	tok.SetIat(iat)
+	tok.SetNbf(nbf)
+	tok.SetExp(exp)
 	tok.ApplyOnlyTo(cnr)
 	require.NoError(t, tok.Sign(signer))
 
@@ -90,8 +106,8 @@ func TestExecutor(t *testing.T) {
 	realContainer := containertest.Container(t)
 	realContainer.SetOwner(tok.Issuer())
 
-	m := mock{cnr: realContainer}
-	e := containerSvcMorph.NewExecutor(m, m)
+	m := mock{cnr: realContainer, epoch: 25}
+	e := containerSvcMorph.NewExecutor(m, m, m)
 
 	tests := []struct {
 		name string
@@ -173,6 +189,10 @@ func TestValidateToken(t *testing.T) {
 	signer := user.NewAutoIDSigner(priv.PrivateKey)
 
 	tok := sessiontest.Container()
+	// sdk generates broken chronologic
+	tok.SetIat(iat)
+	tok.SetNbf(nbf)
+	tok.SetExp(exp)
 	tok.ApplyOnlyTo(cID)
 	tok.ForVerb(sessionsdk.VerbContainerDelete)
 	require.NoError(t, tok.Sign(signer))
@@ -183,8 +203,8 @@ func TestValidateToken(t *testing.T) {
 	var cnrV2 container.Container
 	cnr.WriteToV2(&cnrV2)
 
-	m := mock{cnr: cnr}
-	e := containerSvcMorph.NewExecutor(m, m)
+	m := &mock{cnr: cnr}
+	e := containerSvcMorph.NewExecutor(m, m, m)
 
 	t.Run("non-container token", func(t *testing.T) {
 		var reqBody container.DeleteRequestBody
@@ -294,9 +314,9 @@ func TestValidateToken(t *testing.T) {
 		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)
 
-		tok.SetExp(11)
-		tok.SetNbf(22)
-		tok.SetIat(33)
+		tok.SetIat(iat)
+		tok.SetNbf(nbf)
+		tok.SetExp(exp)
 		tok.ForVerb(sessionsdk.VerbContainerDelete)
 		tok.SetID(uuid.New())
 		tok.SetAuthKey((*neofsecdsa.PublicKey)(&priv.PublicKey))
@@ -305,8 +325,8 @@ func TestValidateToken(t *testing.T) {
 		var tokV2 session.Token
 		tok.WriteToV2(&tokV2)
 
-		m := &mock{cnr: cnr}
-		e := containerSvcMorph.NewExecutor(m, m)
+		m := &mock{cnr: cnr, epoch: 25}
+		e := containerSvcMorph.NewExecutor(m, m, m)
 
 		t.Run("wrong owner", func(t *testing.T) {
 			m.cnr = containertest.Container(t)
@@ -320,6 +340,35 @@ func TestValidateToken(t *testing.T) {
 
 			_, err := e.Delete(context.TODO(), &tokV2, &reqBody)
 			require.NoError(t, err)
+		})
+	})
+
+	t.Run("token lifetime", func(t *testing.T) {
+		var reqBody container.DeleteRequestBody
+		reqBody.SetContainerID(&cIDV2)
+
+		var tokV2 session.Token
+		tok.WriteToV2(&tokV2)
+
+		t.Run("IAt too big", func(t *testing.T) {
+			m.epoch = iat - 1
+
+			_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
+			require.ErrorContains(t, err, "should not be issued yet")
+		})
+
+		t.Run("NBf too small", func(t *testing.T) {
+			m.epoch = nbf - 1
+
+			_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
+			require.ErrorContains(t, err, "not valid yet")
+		})
+
+		t.Run("expired", func(t *testing.T) {
+			m.epoch = exp + 1
+
+			_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
+			require.ErrorAs(t, err, new(apistatus.SessionTokenExpired))
 		})
 	})
 }
