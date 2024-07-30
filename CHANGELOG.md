@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Indexes inspection command to neofs-lens (#2882)
 - Add objects sanity checker to neofs-lens (#2506)
+- Support for 0.20.0+ neofs-contract archive format (#2872)
 
 ### Fixed
 - Control service's Drop call does not clean metabase (#2822)
@@ -20,6 +21,8 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- neofs-contract dependency to 0.20.0 (#2872)
+- NeoGo dependency to 0.106.3 (#2872)
 
 ### Updating from v0.42.1
 

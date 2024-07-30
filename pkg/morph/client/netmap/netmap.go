@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	netmapcontract "github.com/nspcc-dev/neofs-contract/contracts/netmap"
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
@@ -102,29 +102,14 @@ func decodeNodeList(itemNodes stackitem.Item) ([]netmap.NodeInfo, error) {
 }
 
 func decodeNodeInfo(dst *netmap.NodeInfo, itemNode stackitem.Item) error {
-	nodeFields, err := client.ArrayFromStackItem(itemNode)
+	var (
+		err  error
+		node netmaprpc.NetmapNode
+	)
+
+	err = node.FromStackItem(itemNode)
 	if err != nil {
-		return fmt.Errorf("decode item array of node fields: %w", err)
-	}
-
-	var node netmapcontract.Node
-
-	if len(nodeFields) > 0 {
-		node.BLOB, err = client.BytesFromStackItem(nodeFields[0])
-		if err != nil {
-			return fmt.Errorf("decode node info BLOB: %w", err)
-		}
-	}
-
-	node.State = netmapcontract.NodeStateOnline
-
-	if len(nodeFields) > 1 {
-		state, err := client.IntFromStackItem(nodeFields[1])
-		if err != nil {
-			return fmt.Errorf("decode integer from 2nd item: %w", err)
-		}
-
-		node.State = netmapcontract.NodeState(state)
+		return fmt.Errorf("decode node item: %w", err)
 	}
 
 	err = dst.Unmarshal(node.BLOB)
@@ -132,14 +117,14 @@ func decodeNodeInfo(dst *netmap.NodeInfo, itemNode stackitem.Item) error {
 		return fmt.Errorf("decode node info: %w", err)
 	}
 
-	switch node.State {
+	switch node.State.Int64() {
 	default:
 		return fmt.Errorf("unsupported state %v", node.State)
-	case netmapcontract.NodeStateOnline:
+	case netmaprpc.NodeStateOnline.Int64():
 		dst.SetOnline()
-	case netmapcontract.NodeStateOffline:
+	case netmaprpc.NodeStateOffline.Int64():
 		dst.SetOffline()
-	case netmapcontract.NodeStateMaintenance:
+	case netmaprpc.NodeStateMaintenance.Int64():
 		dst.SetMaintenance()
 	}
 

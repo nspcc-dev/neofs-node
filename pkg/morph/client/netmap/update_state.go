@@ -2,8 +2,9 @@ package netmap
 
 import (
 	"fmt"
+	"math/big"
 
-	"github.com/nspcc-dev/neofs-contract/contracts/netmap"
+	"github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
@@ -11,7 +12,7 @@ import (
 type UpdatePeerPrm struct {
 	key []byte
 
-	state netmap.NodeState
+	state *big.Int
 
 	client.InvokePrmOptional
 }
@@ -37,13 +38,13 @@ func (u *UpdatePeerPrm) SetMaintenance() {
 
 // UpdatePeerState changes peer status through Netmap contract call.
 func (c *Client) UpdatePeerState(p UpdatePeerPrm) error {
-	if p.state == 0 {
+	if p.state == nil || p.state.Sign() == 0 {
 		p.state = netmap.NodeStateOffline
 	}
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(updateStateMethod)
-	prm.SetArgs(int64(p.state), p.key)
+	prm.SetArgs(p.state, p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	if err := c.client.Invoke(prm); err != nil {

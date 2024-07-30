@@ -5,13 +5,13 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-contract/contracts/netmap"
+	"github.com/nspcc-dev/neofs-contract/contracts/netmap/nodestate"
 )
 
 type UpdatePeer struct {
 	publicKey *keys.PublicKey
 
-	state netmap.NodeState
+	state nodestate.Type
 
 	// For notary notifications only.
 	// Contains raw transactions of notary request.
@@ -24,13 +24,13 @@ func (UpdatePeer) MorphEvent() {}
 // Online returns true if node's state is requested to be switched
 // to "online".
 func (s UpdatePeer) Online() bool {
-	return s.state == netmap.NodeStateOnline
+	return s.state == nodestate.Online
 }
 
 // Maintenance returns true if node's state is requested to be switched
 // to "maintenance".
 func (s UpdatePeer) Maintenance() bool {
-	return s.state == netmap.NodeStateMaintenance
+	return s.state == nodestate.Maintenance
 }
 
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
@@ -44,13 +44,13 @@ func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
 }
 
 func (s *UpdatePeer) decodeState(state int64) error {
-	switch s.state = netmap.NodeState(state); s.state {
+	switch s.state = nodestate.Type(state); s.state {
 	default:
 		return fmt.Errorf("unsupported node state %d", state)
 	case
-		netmap.NodeStateOffline,
-		netmap.NodeStateOnline,
-		netmap.NodeStateMaintenance:
+		nodestate.Offline,
+		nodestate.Online,
+		nodestate.Maintenance:
 		return nil
 	}
 }
