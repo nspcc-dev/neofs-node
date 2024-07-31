@@ -42,6 +42,7 @@ func (s *Service) toPrm(req *objectV2.DeleteRequest, respBody *objectV2.DeleteRe
 	p.WithTombstoneAddressTarget(&tombstoneBodyWriter{
 		body: respBody,
 	})
+	p.WithMetaStorage(s.ms)
 
 	return p, nil
 }

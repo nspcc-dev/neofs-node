@@ -278,10 +278,12 @@ func initObjectService(c *cfg) {
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
 	)
 
+	metaStorage := chainMetaStorage{c: c.basics.cli}
+
 	sPutV2 := putsvcV2.NewService(
 		putsvcV2.WithInternalService(sPut),
 		putsvcV2.WithKey(&c.key.PrivateKey),
-		putsvcV2.WithMetaStorage(chainMetaStorage{c: c.basics.cli}),
+		putsvcV2.WithMetaStorage(metaStorage),
 	)
 
 	sDelete := deletesvc.New(
@@ -298,6 +300,7 @@ func initObjectService(c *cfg) {
 
 	sDeleteV2 := deletesvcV2.NewService(
 		deletesvcV2.WithInternalService(sDelete),
+		deletesvcV2.WithMetaStorage(metaStorage),
 	)
 
 	// build service pipeline

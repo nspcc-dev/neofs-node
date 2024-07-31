@@ -4,6 +4,7 @@ import (
 	"context"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 )
 
@@ -17,6 +18,7 @@ type Option func(*cfg)
 
 type cfg struct {
 	svc *deletesvc.Service
+	ms  objectcore.MetaStorage
 }
 
 // NewService constructs Service instance from provided options.
@@ -55,5 +57,11 @@ func (s *Service) Delete(ctx context.Context, req *objectV2.DeleteRequest) (*obj
 func WithInternalService(v *deletesvc.Service) Option {
 	return func(c *cfg) {
 		c.svc = v
+	}
+}
+
+func WithMetaStorage(ms objectcore.MetaStorage) Option {
+	return func(c *cfg) {
+		c.ms = ms
 	}
 }
