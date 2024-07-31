@@ -193,7 +193,7 @@ func initContainerService(c *cfg) {
 			&c.key.PrivateKey,
 			containerService.NewResponseService(
 				&usedSpaceService{
-					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrRdr, cnrWrt)),
+					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrRdr, cnrWrt, c.networkState)),
 					loadWriterProvider:   loadRouter,
 					loadPlacementBuilder: loadPlacementBuilder,
 					routeBuilder:         routeBuilder,

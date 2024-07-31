@@ -13,7 +13,9 @@ import (
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/util/signature"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -22,8 +24,9 @@ import (
 )
 
 type morphExecutor struct {
-	rdr Reader
-	wrt Writer
+	rdr     Reader
+	wrt     Writer
+	epocher netmap.State
 }
 
 // Reader is an interface of read-only container storage.
@@ -47,10 +50,11 @@ type Writer interface {
 	PutEACL(containercore.EACL) error
 }
 
-func NewExecutor(rdr Reader, wrt Writer) containerSvc.ServiceExecutor {
+func NewExecutor(rdr Reader, wrt Writer, epocher netmap.State) containerSvc.ServiceExecutor {
 	return &morphExecutor{
-		rdr: rdr,
-		wrt: wrt,
+		rdr:     rdr,
+		wrt:     wrt,
+		epocher: epocher,
 	}
 }
 
@@ -335,6 +339,25 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 	err := signature.VerifyDataWithSource(newDataSource(t), t.GetSignature)
 	if err != nil {
 		return fmt.Errorf("incorrect token signature: %w", err)
+	}
+
+	lt := t.GetBody().GetLifetime()
+	if lt == nil {
+		return errors.New("lifetime not set")
+	}
+
+	currEpoch := s.epocher.CurrentEpoch()
+	exp := lt.GetExp()
+	iat := lt.GetIat()
+	nbf := lt.GetNbf()
+
+	switch {
+	case exp < currEpoch:
+		return apistatus.SessionTokenExpired{}
+	case iat > currEpoch:
+		return fmt.Errorf("token should not be issued yet: IAt: %d, current epoch: %d", iat, currEpoch)
+	case nbf > currEpoch:
+		return fmt.Errorf("token is not valid yet: NBf: %d, current epoch: %d", nbf, currEpoch)
 	}
 
 	if cIDV2 == nil { // can be nil for PUT
