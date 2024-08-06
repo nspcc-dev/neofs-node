@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -124,8 +121,6 @@ func initApp(c *cfg) {
 	initAndLog(c, "control", initControlService)
 	initLocalStorage(c)
 	initAndLog(c, "gRPC", initGRPC)
-
-	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	initAndLog(c, "container", initContainerService)
 	initAndLog(c, "storage engine", func(c *cfg) {
