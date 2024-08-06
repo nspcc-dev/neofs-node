@@ -10,7 +10,12 @@ import (
 )
 
 func (exec *execCtx) processNode(info client.NodeInfo) bool {
-	exec.log.Debug("processing node...")
+	l := exec.log.With(
+		zap.Stringers("address group", info.AddressGroup()),
+		zap.Stringers("external address group", info.ExternalAddressGroup()),
+	)
+
+	l.Debug("processing node...")
 
 	client, ok := exec.remoteClient(info)
 	if !ok {
@@ -26,7 +31,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		exec.status = statusUndefined
 		exec.err = apistatus.ErrObjectNotFound
 
-		exec.log.Debug("remote call failed",
+		l.Debug("remote call failed",
 			zap.String("error", err.Error()),
 		)
 	case err == nil:
