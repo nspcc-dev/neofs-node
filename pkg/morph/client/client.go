@@ -1,12 +1,10 @@
 package client
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -440,52 +438,6 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 		zap.Uint32("vub", vub))
 
 	return nil
-}
-
-// Wait function blocks routing execution until there
-// are `n` new blocks in the chain.
-//
-// Returns only connection errors.
-func (c *Client) Wait(ctx context.Context, n uint32) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
-	var (
-		err               error
-		height, newHeight uint32
-	)
-
-	height, err = c.rpcActor.GetBlockCount()
-	if err != nil {
-		c.logger.Error("can't get blockchain height",
-			zap.String("error", err.Error()))
-		return nil
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		newHeight, err = c.rpcActor.GetBlockCount()
-		if err != nil {
-			c.logger.Error("can't get blockchain height",
-				zap.String("error", err.Error()))
-			return nil
-		}
-
-		if newHeight >= height+n {
-			return nil
-		}
-
-		time.Sleep(c.cfg.waitInterval)
-	}
 }
 
 // GasBalance returns GAS amount in the client's wallet.

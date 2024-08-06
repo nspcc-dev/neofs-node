@@ -165,7 +165,7 @@ func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
 
 func bootUp(c *cfg) {
 	runAndLog(c, "gRPC", false, serveGRPC)
-	runAndLog(c, "notary", true, makeAndWaitNotaryDeposit)
+	runAndLog(c, "notary", true, initNotary)
 
 	bootstrapNode(c)
 	startWorkers(c)

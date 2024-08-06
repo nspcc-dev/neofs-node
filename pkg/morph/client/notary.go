@@ -136,15 +136,15 @@ func (c *Client) ProbeNotary() (res bool) {
 // with notary contract. It used by notary contract in to produce fallback tx
 // if main tx failed to create. Deposit isn't last forever, so it should
 // be called periodically. Notary support should be enabled in client to
-// use this function.
+// use this function. Blocks until transaction is persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uint256, err error) {
+func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
 	if c.inactive {
-		return util.Uint256{}, ErrConnectionLost
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -153,12 +153,12 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 
 	bc, err := c.rpcActor.GetBlockCount()
 	if err != nil {
-		return util.Uint256{}, fmt.Errorf("can't get blockchain height: %w", err)
+		return fmt.Errorf("can't get blockchain height: %w", err)
 	}
 
 	currentTill, err := c.depositExpirationOf()
 	if err != nil {
-		return util.Uint256{}, fmt.Errorf("can't get previous expiration value: %w", err)
+		return fmt.Errorf("can't get previous expiration value: %w", err)
 	}
 
 	till := int64(bc + delta)
@@ -171,15 +171,16 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) (res util.Uin
 
 // DepositEndlessNotary calls notary deposit method. Unlike `DepositNotary`,
 // this method sets notary deposit till parameter to a maximum possible value.
-// This allows to avoid ValidAfterDeposit failures.
+// This allows to avoid ValidAfterDeposit failures. Blocks until transaction is
+// persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) (res util.Uint256, err error) {
+func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) error {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
 	if c.inactive {
-		return util.Uint256{}, ErrConnectionLost
+		return ErrConnectionLost
 	}
 
 	if c.notary == nil {
@@ -190,7 +191,7 @@ func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) (res util.Uint256, e
 	return c.depositNotary(amount, math.MaxUint32)
 }
 
-func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint256, err error) {
+func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) error {
 	acc := c.acc.ScriptHash()
 	txHash, vub, err := c.gasToken.Transfer(
 		c.accAddr,
@@ -199,7 +200,7 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint2
 		&notary.OnNEP17PaymentData{Account: &acc, Till: uint32(till)})
 	if err != nil {
 		if !errors.Is(err, neorpc.ErrAlreadyExists) {
-			return util.Uint256{}, fmt.Errorf("can't make notary deposit: %w", err)
+			return fmt.Errorf("can't make notary deposit: %w", err)
 		}
 
 		// Transaction is already in mempool waiting to be processed.
@@ -209,7 +210,12 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint2
 			zap.Int64("expire_at", till),
 			zap.Uint32("vub", vub),
 			zap.Error(err))
-		return util.Uint256{}, nil
+		return nil
+	}
+
+	_, err = c.rpcActor.WaitSuccess(txHash, vub, nil)
+	if err != nil {
+		return fmt.Errorf("waiting for %s TX (%d vub) to be persisted: %w", txHash.Reverse(), vub, err)
 	}
 
 	c.logger.Debug("notary deposit invoke",
@@ -218,7 +224,7 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) (res util.Uint2
 		zap.Uint32("vub", vub),
 		zap.Stringer("tx_hash", txHash.Reverse()))
 
-	return txHash, nil
+	return nil
 }
 
 // GetNotaryDeposit returns deposit of client's account in notary contract.

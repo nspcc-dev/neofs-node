@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -16,9 +15,6 @@ import (
 
 const (
 	newEpochNotification = "NewEpoch"
-
-	// amount of tries(blocks) before notary deposit timeout.
-	notaryDepositRetriesAmount = 300
 )
 
 func initMorphComponents(c *cfg) {
@@ -37,15 +33,11 @@ func initMorphComponents(c *cfg) {
 	fatalOnErr(err)
 }
 
-func makeAndWaitNotaryDeposit(c *cfg) {
-	tx, err := makeNotaryDeposit(c)
-	fatalOnErr(err)
-
-	err = waitNotaryDeposit(c, tx)
-	fatalOnErr(err)
+func initNotary(c *cfg) {
+	fatalOnErr(makeNotaryDeposit(c))
 }
 
-func makeNotaryDeposit(c *cfg) (util.Uint256, error) {
+func makeNotaryDeposit(c *cfg) error {
 	const (
 		// gasMultiplier defines how many times more the notary
 		// balance must be compared to the GAS balance of the node:
@@ -59,41 +51,10 @@ func makeNotaryDeposit(c *cfg) (util.Uint256, error) {
 
 	depositAmount, err := client.CalculateNotaryDepositAmount(c.cfgMorph.client, gasMultiplier, gasDivisor)
 	if err != nil {
-		return util.Uint256{}, fmt.Errorf("could not calculate notary deposit: %w", err)
+		return fmt.Errorf("could not calculate notary deposit: %w", err)
 	}
 
 	return c.cfgMorph.client.DepositEndlessNotary(depositAmount)
-}
-
-var (
-	errNotaryDepositFail    = errors.New("notary deposit tx has faulted")
-	errNotaryDepositTimeout = errors.New("notary deposit tx has not appeared in the network")
-)
-
-func waitNotaryDeposit(c *cfg, tx util.Uint256) error {
-	for i := 0; i < notaryDepositRetriesAmount; i++ {
-		select {
-		case <-c.ctx.Done():
-			return c.ctx.Err()
-		default:
-		}
-
-		ok, err := c.cfgMorph.client.TxHalt(tx)
-		if err == nil {
-			if ok {
-				return nil
-			}
-
-			return errNotaryDepositFail
-		}
-
-		err = c.cfgMorph.client.Wait(c.ctx, 1)
-		if err != nil {
-			return fmt.Errorf("could not wait for one block in chain: %w", err)
-		}
-	}
-
-	return errNotaryDepositTimeout
 }
 
 func listenMorphNotifications(c *cfg) {
