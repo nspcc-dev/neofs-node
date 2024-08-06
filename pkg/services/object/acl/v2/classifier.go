@@ -31,6 +31,8 @@ func (c senderClassifier) classify(
 		return nil, err
 	}
 
+	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", ownerID))
+
 	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
@@ -44,7 +46,7 @@ func (c senderClassifier) classify(
 	isInnerRingNode, err := c.isInnerRingKey(ownerKey)
 	if err != nil {
 		// do not throw error, try best case matching
-		c.log.Debug("can't check if request from inner ring",
+		l.Debug("can't check if request from inner ring",
 			zap.String("error", err.Error()))
 	} else if isInnerRingNode {
 		return &classifyResult{
@@ -58,7 +60,7 @@ func (c senderClassifier) classify(
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
 		// do not throw error, try best case matching
-		c.log.Debug("can't check if request from container node",
+		l.Debug("can't check if request from container node",
 			zap.String("error", err.Error()))
 	} else if isContainerNode {
 		return &classifyResult{
