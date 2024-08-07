@@ -327,7 +327,7 @@ func initObjectService(c *cfg) {
 				SetEACLSource(c.cfgObject.eaclSource).
 				SetValidator(eaclSDK.NewValidator()).
 				SetLocalStorage(ls).
-				SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber)),
+				SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 			),
 		),
 	)
@@ -546,8 +546,11 @@ func (e storageEngine) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error
 	return err
 }
 
-func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int) headerSource {
-	hs := headerSource{getsvc: getSvc}
+func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) headerSource {
+	hs := headerSource{
+		getsvc: getSvc,
+		l:      l.With(zap.String("service", "cached header source"), zap.Int("cache capacity", cacheSize)),
+	}
 
 	if cacheSize > 0 {
 		var err error
@@ -563,6 +566,7 @@ func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int) headerSource {
 type headerSource struct {
 	getsvc *getsvc.Service
 	cache  *lru.Cache[oid.Address, *objectSDK.Object]
+	l      *zap.Logger
 }
 
 type headerWriter struct {
@@ -575,9 +579,13 @@ func (h *headerWriter) WriteHeader(o *objectSDK.Object) error {
 }
 
 func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
+	l := h.l.With(zap.Stringer("address", address))
+	l.Debug("requesting header")
+
 	if h.cache != nil {
 		head, ok := h.cache.Get(address)
 		if ok {
+			l.Debug("returning header from cache")
 			return head, nil
 		}
 	}
@@ -597,6 +605,8 @@ func (h headerSource) Head(address oid.Address) (*objectSDK.Object, error) {
 	}
 
 	h.cache.Add(address, hw.h)
+
+	l.Debug("returning header from network")
 
 	return hw.h, nil
 }
