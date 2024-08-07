@@ -215,14 +215,14 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) error {
 
 	_, err = c.rpcActor.WaitSuccess(txHash, vub, nil)
 	if err != nil {
-		return fmt.Errorf("waiting for %s TX (%d vub) to be persisted: %w", txHash.Reverse(), vub, err)
+		return fmt.Errorf("waiting for %s TX (%d vub) to be persisted: %w", txHash.StringLE(), vub, err)
 	}
 
 	c.logger.Debug("notary deposit invoke",
 		zap.Int64("amount", int64(amount)),
 		zap.Int64("expire_at", till),
 		zap.Uint32("vub", vub),
-		zap.Stringer("tx_hash", txHash.Reverse()))
+		zap.String("tx_hash", txHash.StringLE()))
 
 	return nil
 }

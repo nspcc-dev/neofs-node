@@ -343,7 +343,7 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 	c.logger.Debug("neo client invoke",
 		zap.String("method", method),
 		zap.Uint32("vub", vub),
-		zap.Stringer("tx_hash", txHash.Reverse()))
+		zap.String("tx_hash", txHash.StringLE()))
 
 	return nil
 }
@@ -434,7 +434,7 @@ func (c *Client) TransferGas(receiver util.Uint160, amount fixedn.Fixed8) error 
 
 	c.logger.Debug("native gas transfer invoke",
 		zap.String("to", receiver.StringLE()),
-		zap.Stringer("tx_hash", txHash.Reverse()),
+		zap.String("tx_hash", txHash.StringLE()),
 		zap.Uint32("vub", vub))
 
 	return nil
