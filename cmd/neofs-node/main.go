@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/misc"
@@ -125,8 +122,6 @@ func initApp(c *cfg) {
 	initLocalStorage(c)
 	initAndLog(c, "gRPC", initGRPC)
 
-	c.ctx, c.ctxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-
 	initAndLog(c, "container", initContainerService)
 	initAndLog(c, "storage engine", func(c *cfg) {
 		fatalOnErr(c.cfgObject.cfgLocalStorage.localStorage.Open())
@@ -165,7 +160,7 @@ func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
 
 func bootUp(c *cfg) {
 	runAndLog(c, "gRPC", false, serveGRPC)
-	runAndLog(c, "notary", true, makeAndWaitNotaryDeposit)
+	runAndLog(c, "notary", true, initNotary)
 
 	bootstrapNode(c)
 	startWorkers(c)

@@ -200,7 +200,7 @@ func initNetmapService(c *cfg) {
 	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		_, err := makeNotaryDeposit(c)
+		err := makeNotaryDeposit(c)
 		if err != nil {
 			c.log.Error("could not make notary deposit",
 				zap.String("error", err.Error()),

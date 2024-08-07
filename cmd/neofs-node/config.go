@@ -505,6 +505,7 @@ var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
 
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
+	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	err := c.readConfig(appCfg)
 	if err != nil {
@@ -542,7 +543,8 @@ func initCfg(appCfg *config.Config) *cfg {
 	fatalOnErr(err)
 
 	c.internals = internals{
-		ctx:         context.Background(),
+		ctx:         ctx,
+		ctxCancel:   ctxCancel,
 		cfgReader:   appCfg,
 		internalErr: make(chan error, 10), // We only need one error, but we can have multiple senders.
 		wg:          new(sync.WaitGroup),
@@ -639,6 +641,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	}
 
 	cli, err := client.New(key,
+		client.WithContext(c.internals.ctx),
 		client.WithDialTimeout(c.applicationConfiguration.morph.dialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoSidechainScope(),

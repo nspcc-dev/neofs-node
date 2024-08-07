@@ -1,9 +1,6 @@
 package innerring
 
 import (
-	"context"
-
-	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -39,9 +36,6 @@ type (
 		collectBasicIncome    subEpochEventHandler
 		distributeBasicIncome subEpochEventHandler
 	}
-
-	depositor func() (util.Uint256, error)
-	awaiter   func(context.Context, util.Uint256) error
 )
 
 func (s *Server) addBlockTimer(t *timer.BlockTimer) {

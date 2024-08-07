@@ -3,7 +3,6 @@ package innerring
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -154,13 +153,6 @@ const (
 	// there won't be any blocks without deposited assets in notary contract;
 	// make sure it is bigger than any extra rounding value in notary client.
 	notaryExtraBlocks = 300
-	// amount of tries before notary deposit timeout.
-	notaryDepositTimeout = 100
-)
-
-var (
-	errDepositTimeout = errors.New("notary deposit didn't appear in the network")
-	errDepositFail    = errors.New("notary tx has faulted")
 )
 
 // Start runs all event providers.
@@ -184,24 +176,20 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	}
 
 	if !s.mainNotaryConfig.disabled {
-		err = s.initNotary(ctx,
-			s.depositMainNotary,
-			s.awaitMainNotaryDeposit,
-			"waiting to accept main notary deposit",
-		)
+		err = s.depositMainNotary()
 		if err != nil {
-			return err
+			return fmt.Errorf("main notary deposit: %w", err)
 		}
+
+		s.log.Info("made main chain notary deposit successfully")
 	}
 
-	err = s.initNotary(ctx,
-		s.depositSideNotary,
-		s.awaitSideNotaryDeposit,
-		"waiting to accept side notary deposit",
-	)
+	err = s.depositSideNotary()
 	if err != nil {
-		return err
+		return fmt.Errorf("fs chain notary deposit: %w", err)
 	}
+
+	s.log.Info("made fs chain notary deposit successfully")
 
 	prm := governance.VoteValidatorPrm{}
 	prm.Validators = s.predefinedValidators
