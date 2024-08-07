@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -11,8 +13,12 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
+
+const anyEpoch = 42
 
 type testContainer struct {
 	id  cid.ID
@@ -84,9 +90,8 @@ func (x *testNetwork) Epoch() (uint64, error) {
 	return x.epoch, x.epochErr
 }
 
-func newNetmapWithContainer(tb testing.TB, nodeNum int, selected []int) ([]netmap.NodeInfo, *netmap.NetMap, container.Container) {
+func newNetmapWithContainer(tb testing.TB, nodeNum int, selected ...[]int) ([]netmap.NodeInfo, *netmap.NetMap, container.Container) {
 	nodes := make([]netmap.NodeInfo, nodeNum)
-nextNode:
 	for i := range nodes {
 		key := make([]byte, 33)
 		_, err := rand.Read(key)
@@ -94,28 +99,36 @@ nextNode:
 		nodes[i].SetPublicKey(key)
 
 		for j := range selected {
-			if i == selected[j] {
-				nodes[i].SetAttribute("attr", "true")
-				continue nextNode
+			for k := range selected[j] {
+				if i == selected[j][k] {
+					nodes[i].SetAttribute("attr"+strconv.Itoa(j), "true")
+					break
+				}
 			}
 		}
-
-		nodes[i].SetAttribute("attr", "false")
 	}
 
 	var networkMap netmap.NetMap
 	networkMap.SetNodes(nodes)
 
+	var sbRpl, sbSlc, sbFlt strings.Builder
+	for i := range selected {
+		sbFlt.WriteString(fmt.Sprintf("FILTER attr%d EQ true AS F%d\n", i, i))
+		sbSlc.WriteString(fmt.Sprintf("SELECT %d FROM F%d AS S%d\n", len(selected[i]), i, i))
+		sbRpl.WriteString(fmt.Sprintf("REP %d IN S%d\n", len(selected[i]), i))
+	}
 	var policy netmap.PlacementPolicy
-	strPolicy := fmt.Sprintf("REP %d CBF 1 SELECT %d FROM F FILTER attr EQ true AS F", len(selected), len(selected))
-	require.NoError(tb, policy.DecodeString(strPolicy))
+	strPolicy := fmt.Sprintf("%sCBF 1\n%s%s", &sbRpl, &sbSlc, &sbFlt)
+	require.NoError(tb, policy.DecodeString(strPolicy), strPolicy)
 
 	nodeSets, err := networkMap.ContainerNodes(policy, cidtest.ID())
 	require.NoError(tb, err)
-	require.Len(tb, nodeSets, 1)
-	require.Len(tb, nodeSets[0], len(selected))
+	require.Len(tb, nodeSets, len(selected))
 	for i := range selected {
-		require.Contains(tb, nodeSets[0], nodes[selected[i]], i)
+		require.Len(tb, nodeSets[i], len(selected[i]), i)
+		for j := range selected[i] {
+			require.Contains(tb, nodeSets[i], nodes[selected[i][j]], [2]int{i, j})
+		}
 	}
 
 	var cnr container.Container
@@ -497,6 +510,215 @@ func TestContainerNodes_ForEachContainerNodePublicKeyInLastTwoEpochs(t *testing.
 				require.Len(t, network.callsNetmap, 2+len(tc.extraReadNetmap))
 				require.Equal(t, tc.extraReadNetmap, network.callsNetmap[2:])
 			})
+		}
+	})
+}
+
+func TestContainerNodes_GetNodesForObject(t *testing.T) {
+	anyAddr := oidtest.Address()
+	t.Run("read current epoch failure", func(t *testing.T) {
+		epochErr := errors.New("any epoch error")
+		network := &testNetwork{epochErr: epochErr}
+		ns, err := newContainerNodes(new(testContainer), network)
+		require.NoError(t, err)
+
+		for n := 1; n < 10; n++ {
+			_, _, err = ns.getNodesForObject(anyAddr)
+			require.ErrorIs(t, err, epochErr)
+			require.EqualError(t, err, "read current NeoFS epoch: any epoch error")
+			// such error must not be cached
+			network.assertEpochCallCount(t, n)
+		}
+	})
+	t.Run("read container failure", func(t *testing.T) {
+		cnrErr := errors.New("any container error")
+		cnrs := &testContainer{id: anyAddr.Container(), err: cnrErr}
+		ns, err := newContainerNodes(cnrs, &testNetwork{epoch: anyEpoch})
+		require.NoError(t, err)
+
+		for n := 1; n < 10; n++ {
+			_, _, err = ns.getNodesForObject(anyAddr)
+			require.ErrorIs(t, err, cnrErr)
+			require.EqualError(t, err, "select container nodes for current epoch #42: read container by ID: any container error")
+			// such error must not be cached
+			cnrs.assertCalledNTimesWith(t, n, anyAddr.Container())
+		}
+	})
+	t.Run("read netmap failure", func(t *testing.T) {
+		curNetmapErr := errors.New("any current netmap error")
+		network := &testNetwork{epoch: anyEpoch, curNetmapErr: curNetmapErr}
+		ns, err := newContainerNodes(&testContainer{id: anyAddr.Container()}, network)
+		require.NoError(t, err)
+
+		for n := 1; n <= 10; n++ {
+			_, _, err = ns.getNodesForObject(anyAddr)
+			require.ErrorIs(t, err, curNetmapErr)
+			require.EqualError(t, err, "select container nodes for current epoch #42: read network map by epoch: any current netmap error")
+			network.assertEpochCallCount(t, n)
+			// such error must not be cached
+			network.assertNetmapCalledNTimes(t, n, network.epoch)
+		}
+	})
+	t.Run("apply policy failures", func(t *testing.T) {
+		t.Run("select container nodes", func(t *testing.T) {
+			_, _, cnr := newNetmapWithContainer(t, 5, []int{1, 3})
+			failNetmap := new(netmap.NetMap)
+			_, policyErr := failNetmap.ContainerNodes(cnr.PlacementPolicy(), anyAddr.Container())
+			require.Error(t, policyErr)
+
+			cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+			network := &testNetwork{epoch: anyEpoch, curNetmap: failNetmap}
+			ns, err := newContainerNodes(cnrs, network)
+			require.NoError(t, err)
+
+			for n := 1; n <= 10; n++ {
+				_, _, err = ns.getNodesForObject(anyAddr)
+				require.EqualError(t, err, fmt.Sprintf("select container nodes for current epoch #42: %v", policyErr))
+				network.assertEpochCallCount(t, n)
+				// assert results are cached
+				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+				require.Len(t, network.callsNetmap, 1)
+				require.EqualValues(t, network.epoch, network.callsNetmap[0])
+			}
+		})
+		t.Run("diff num of node lists and replica descriptors", func(t *testing.T) {
+			_, networkMap, cnr := newNetmapWithContainer(t, 5, []int{1, 3}, []int{3, 4})
+			cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+			network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
+			ns, err := newContainerNodes(cnrs, network)
+			require.NoError(t, err)
+			ns.getContainerNodesFunc = func(nm netmap.NetMap, policy netmap.PlacementPolicy, cnrID cid.ID) ([][]netmap.NodeInfo, error) {
+				require.Equal(t, *networkMap, nm)
+				require.Equal(t, cnr.PlacementPolicy(), policy)
+				require.Equal(t, anyAddr.Container(), cnrID)
+				return make([][]netmap.NodeInfo, 4), nil
+			}
+
+			for n := 1; n <= 10; n++ {
+				_, _, err = ns.getNodesForObject(anyAddr)
+				require.EqualError(t, err, "select container nodes for current epoch #42: "+
+					"invalid result of container's storage policy application to the network map: "+
+					"diff number of storage node sets (4) and required replica descriptors (2)")
+				network.assertEpochCallCount(t, n)
+				// assert results are cached
+				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+				require.Len(t, network.callsNetmap, 1)
+				require.EqualValues(t, network.epoch, network.callsNetmap[0])
+			}
+		})
+
+		t.Run("not enough nodes in some list", func(t *testing.T) {
+			_, networkMap, cnr := newNetmapWithContainer(t, 5, []int{1, 3}, []int{3, 4})
+			cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+			network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
+			ns, err := newContainerNodes(cnrs, network)
+			require.NoError(t, err)
+			ns.getContainerNodesFunc = func(nm netmap.NetMap, policy netmap.PlacementPolicy, cnrID cid.ID) ([][]netmap.NodeInfo, error) {
+				require.Equal(t, *networkMap, nm)
+				require.Equal(t, cnr.PlacementPolicy(), policy)
+				require.Equal(t, anyAddr.Container(), cnrID)
+				nodeLists, err := nm.ContainerNodes(policy, cnrID)
+				require.NoError(t, err)
+				res := make([][]netmap.NodeInfo, len(nodeLists))
+				copy(res, nodeLists)
+				res[1] = res[1][:len(res[1])-1]
+				return res, nil
+			}
+
+			for n := 1; n <= 10; n++ {
+				_, _, err = ns.getNodesForObject(anyAddr)
+				require.EqualError(t, err, "select container nodes for current epoch #42: "+
+					"invalid result of container's storage policy application to the network map: "+
+					"invalid storage node set #1: number of nodes (1) is less than minimum required by the container policy (2)")
+				network.assertEpochCallCount(t, n)
+				// assert results are cached
+				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+				require.Len(t, network.callsNetmap, 1)
+				require.EqualValues(t, network.epoch, network.callsNetmap[0])
+			}
+		})
+		t.Run("diff num of node lists and replica descriptors", func(t *testing.T) {
+			_, networkMap, cnr := newNetmapWithContainer(t, 5, []int{1, 3}, []int{3, 4})
+			cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+			network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
+			ns, err := newContainerNodes(cnrs, network)
+			require.NoError(t, err)
+			ns.getContainerNodesFunc = func(nm netmap.NetMap, policy netmap.PlacementPolicy, cnrID cid.ID) ([][]netmap.NodeInfo, error) {
+				require.Equal(t, *networkMap, nm)
+				require.Equal(t, cnr.PlacementPolicy(), policy)
+				require.Equal(t, anyAddr.Container(), cnrID)
+				return make([][]netmap.NodeInfo, 4), nil
+			}
+
+			for n := 1; n <= 10; n++ {
+				_, _, err = ns.getNodesForObject(anyAddr)
+				require.EqualError(t, err, "select container nodes for current epoch #42: "+
+					"invalid result of container's storage policy application to the network map: "+
+					"diff number of storage node sets (4) and required replica descriptors (2)")
+				network.assertEpochCallCount(t, n)
+				// assert results are cached
+				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+				require.Len(t, network.callsNetmap, 1)
+				require.EqualValues(t, network.epoch, network.callsNetmap[0])
+			}
+		})
+
+		t.Run("sort nodes failure", func(t *testing.T) {
+			nodes, networkMap, cnr := newNetmapWithContainer(t, 5, []int{1, 3})
+			cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+			network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
+			ns, err := newContainerNodes(cnrs, network)
+			require.NoError(t, err)
+			ns.sortContainerNodesFunc = func(nm netmap.NetMap, ns [][]netmap.NodeInfo, id oid.ID) ([][]netmap.NodeInfo, error) {
+				require.Equal(t, *networkMap, nm)
+				require.Equal(t, anyAddr.Object(), id)
+				for i := range ns {
+					for j := range ns[i] {
+						require.Contains(t, nodes, ns[i][j], [2]int{i, j})
+					}
+				}
+				return nil, errors.New("any sort error")
+			}
+
+			for n := 1; n <= 10; n++ {
+				_, _, err = ns.getNodesForObject(anyAddr)
+				require.EqualError(t, err, "sort container nodes for object: any sort error")
+				network.assertEpochCallCount(t, n)
+				// assert results are cached
+				cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+				require.Len(t, network.callsNetmap, 1)
+				require.EqualValues(t, network.epoch, network.callsNetmap[0])
+			}
+		})
+	})
+	t.Run("OK", func(t *testing.T) {
+		nodes, networkMap, cnr := newNetmapWithContainer(t, 10, [][]int{
+			{1, 3},
+			{2, 4, 6},
+			{5},
+			{0, 1, 7, 8, 9},
+		}...)
+		cnrs := &testContainer{id: anyAddr.Container(), val: cnr}
+		network := &testNetwork{epoch: anyEpoch, curNetmap: networkMap}
+		ns, err := newContainerNodes(cnrs, network)
+		require.NoError(t, err)
+
+		for n := 1; n <= 10; n++ {
+			nodeLists, primCounts, err := ns.getNodesForObject(anyAddr)
+			require.NoError(t, err)
+			require.Len(t, primCounts, 4)
+			require.Len(t, nodeLists, 4)
+			require.EqualValues(t, 2, primCounts[0])
+			require.ElementsMatch(t, []netmap.NodeInfo{nodes[1], nodes[3]}, nodeLists[0])
+			require.EqualValues(t, 3, primCounts[1])
+			require.ElementsMatch(t, []netmap.NodeInfo{nodes[2], nodes[4], nodes[6]}, nodeLists[1])
+			require.EqualValues(t, 1, primCounts[2])
+			require.ElementsMatch(t, []netmap.NodeInfo{nodes[5]}, nodeLists[2])
+			require.EqualValues(t, 5, primCounts[3])
+			require.ElementsMatch(t, []netmap.NodeInfo{nodes[0], nodes[1], nodes[7], nodes[8], nodes[9]}, nodeLists[3])
+			cnrs.assertCalledNTimesWith(t, 1, anyAddr.Container())
+			require.Len(t, network.callsNetmap, 1)
+			require.EqualValues(t, network.epoch, network.callsNetmap[0])
 		}
 	})
 }

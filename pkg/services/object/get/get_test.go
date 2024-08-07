@@ -34,9 +34,9 @@ type testStorage struct {
 	phy map[string]*objectSDK.Object
 }
 
-type testTraverserGenerator struct {
+type testNeoFS struct {
 	c container.Container
-	b map[uint64]placement.Builder
+	b placement.Builder
 }
 
 type testPlacementBuilder struct {
@@ -68,19 +68,21 @@ func newTestStorage() *testStorage {
 	}
 }
 
-func (g *testTraverserGenerator) GenerateTraverser(cnr cid.ID, obj *oid.ID, e uint64) (*placement.Traverser, error) {
-	opts := make([]placement.Option, 0, 4)
-	opts = append(opts,
-		placement.ForContainer(g.c),
-		placement.UseBuilder(g.b[e]),
-		placement.SuccessAfter(1),
-	)
+func (g *testNeoFS) IsLocalNodePublicKey([]byte) bool { return false }
 
-	if obj != nil {
-		opts = append(opts, placement.ForObject(*obj))
+func (g *testNeoFS) GetNodesForObject(addr oid.Address) ([][]netmap.NodeInfo, []uint, error) {
+	obj := addr.Object()
+	nodeLists, err := g.b.BuildPlacement(addr.Container(), &obj, netmap.PlacementPolicy{}) // policy is ignored in this test
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return placement.NewTraverser(opts...)
+	primaryNums := make([]uint, len(nodeLists))
+	for i := range primaryNums {
+		primaryNums[i] = 1
+	}
+
+	return nodeLists, primaryNums, nil
 }
 
 func (p *testPlacementBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, _ netmap.PlacementPolicy) ([][]netmap.NodeInfo, error) {
@@ -500,16 +502,11 @@ func TestGetRemoteSmall(t *testing.T) {
 		svc.localStorage = newTestStorage()
 		svc.assembly = true
 
-		const curEpoch = 13
-
-		svc.traverserGenerator = &testTraverserGenerator{
+		svc.neoFSNet = &testNeoFS{
 			c: cnr,
-			b: map[uint64]placement.Builder{
-				curEpoch: b,
-			},
+			b: b,
 		}
 		svc.clientCache = c
-		svc.currentEpochReceiver = testEpochReceiver(curEpoch)
 
 		return svc
 	}

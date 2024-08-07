@@ -224,20 +224,12 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.applicationConfiguration.policer.objectBatchSize),
 	)
 
-	traverseGen := util.NewTraverserGenerator(c.netMapSource, c.cfgObject.cnrSource, c)
-
 	c.workers = append(c.workers, c.shared.policer)
 
-	sGet := getsvc.New(
+	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
-		getsvc.WithTraverserGenerator(
-			traverseGen.WithTraverseOptions(
-				placement.SuccessAfter(1),
-			),
-		),
-		getsvc.WithNetMapSource(c.netMapSource),
 		getsvc.WithKeyStorage(keyStorage),
 	)
 
@@ -250,6 +242,7 @@ func initObjectService(c *cfg) {
 
 	cnrNodes, err := newContainerNodes(c.cfgObject.cnrSource, c.netMapSource)
 	fatalOnErr(err)
+	c.cfgObject.containerNodes = cnrNodes
 
 	sSearch := searchsvc.New(newRemoteContainerNodes(cnrNodes, c.IsLocalKey),
 		searchsvc.WithLogger(c.log),
@@ -718,4 +711,21 @@ func (o objectSource) Search(ctx context.Context, cnr cid.ID, filters objectSDK.
 	}
 
 	return sw.ids, nil
+}
+
+// IsLocalNodePublicKey checks whether given binary-encoded public key is
+// assigned in the network map to a local storage node.
+//
+// IsLocalNodePublicKey implements [getsvc.NeoFSNetwork].
+func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
+
+// GetNodesForObject reads storage policy of the referenced container from the
+// underlying container storage, reads network map at the specified epoch from
+// the underlying storage, applies the storage policy to it and returns sorted
+// lists of selected storage nodes along with the per-list numbers of primary
+// object holders. Resulting slices must not be changed.
+//
+// GetNodesForObject implements [getsvc.NeoFSNetwork].
+func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
+	return c.cfgObject.containerNodes.getNodesForObject(addr)
 }
