@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Indexes inspection command to neofs-lens (#2882)
 - Add objects sanity checker to neofs-lens (#2506)
 - Support for 0.20.0+ neofs-contract archive format (#2872)
+- Check the account alongside the public key in ACL (#2883)
 
 ### Fixed
 - Control service's Drop call does not clean metabase (#2822)

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
 
@@ -18,8 +19,9 @@ type senderClassifier struct {
 }
 
 type classifyResult struct {
-	role acl.Role
-	key  []byte
+	role    acl.Role
+	key     []byte
+	account *user.ID
 }
 
 func (c senderClassifier) classify(
@@ -38,8 +40,9 @@ func (c senderClassifier) classify(
 	// if request owner is the same as container owner, return RoleUser
 	if ownerID.Equals(cnr.Owner()) {
 		return &classifyResult{
-			role: acl.RoleOwner,
-			key:  ownerKey,
+			role:    acl.RoleOwner,
+			key:     ownerKey,
+			account: ownerID,
 		}, nil
 	}
 
@@ -50,8 +53,9 @@ func (c senderClassifier) classify(
 			zap.String("error", err.Error()))
 	} else if isInnerRingNode {
 		return &classifyResult{
-			role: acl.RoleInnerRing,
-			key:  ownerKey,
+			role:    acl.RoleInnerRing,
+			key:     ownerKey,
+			account: ownerID,
 		}, nil
 	}
 
@@ -64,15 +68,17 @@ func (c senderClassifier) classify(
 			zap.String("error", err.Error()))
 	} else if isContainerNode {
 		return &classifyResult{
-			role: acl.RoleContainer,
-			key:  ownerKey,
+			role:    acl.RoleContainer,
+			key:     ownerKey,
+			account: ownerID,
 		}, nil
 	}
 
 	// if none of above, return RoleOthers
 	return &classifyResult{
-		role: acl.RoleOthers,
-		key:  ownerKey,
+		role:    acl.RoleOthers,
+		key:     ownerKey,
+		account: ownerID,
 	}, nil
 }
 
