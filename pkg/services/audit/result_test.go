@@ -263,42 +263,42 @@ func TestResultUnmarshalingFailures(t *testing.T) {
 			}},
 			{name: "invalid passed SG/nil value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
-				ids[2].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
+				ids[2].SetValue(randomObjectID())
 				r.SetPassSG(ids)
 			}},
 			{name: "invalid passed SG/empty value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
 				ids[1].SetValue([]byte{})
-				ids[2].SetValue(make([]byte, 32))
+				ids[2].SetValue(randomObjectID())
 				r.SetPassSG(ids)
 			}},
 			{name: "invalid passed SG/wrong length", err: "invalid passed storage group #1: invalid length 31", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
 				ids[1].SetValue(make([]byte, 31))
-				ids[2].SetValue(make([]byte, 32))
+				ids[2].SetValue(randomObjectID())
 				r.SetPassSG(ids)
 			}},
 			{name: "invalid failed SG/nil value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
-				ids[2].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
+				ids[2].SetValue(randomObjectID())
 				r.SetFailSG(ids)
 			}},
 			{name: "invalid failed SG/empty value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
 				ids[1].SetValue([]byte{})
-				ids[2].SetValue(make([]byte, 32))
+				ids[2].SetValue(randomObjectID())
 				r.SetFailSG(ids)
 			}},
 			{name: "invalid failed SG/wrong length", err: "invalid failed storage group #1: invalid length 31", corrupt: func(r *apiaudit.DataAuditResult) {
 				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(make([]byte, 32))
+				ids[0].SetValue(randomObjectID())
 				ids[1].SetValue(make([]byte, 31))
-				ids[2].SetValue(make([]byte, 32))
+				ids[2].SetValue(randomObjectID())
 				r.SetFailSG(ids)
 			}},
 		} {
@@ -313,4 +313,9 @@ func TestResultUnmarshalingFailures(t *testing.T) {
 			})
 		}
 	})
+}
+
+func randomObjectID() []byte {
+	o := oidtest.ID()
+	return o[:]
 }
