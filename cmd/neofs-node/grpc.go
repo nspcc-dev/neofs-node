@@ -29,9 +29,13 @@ func initGRPC(c *cfg) {
 	fatalOnErrDetails("read max object size network setting to determine gRPC recv message limit", err)
 
 	maxRecvSize := maxObjSize
-	// don't forget about meta fields
-	if maxRecvSize < uint64(math.MaxUint64-object.MaxHeaderLen) { // just in case, always true in practice
-		maxRecvSize += object.MaxHeaderLen
+	// don't forget about meta fields: object header + other ObjectService.Replicate
+	// request fields. For the latter, less is needed now, but it is still better to
+	// take with a reserve for potential protocol extensions. Anyway, 1 KB is
+	// nothing IRL.
+	const maxMetadataSize = object.MaxHeaderLen + 1<<10
+	if maxRecvSize < uint64(math.MaxUint64-maxMetadataSize) { // just in case, always true in practice
+		maxRecvSize += maxMetadataSize
 	} else {
 		maxRecvSize = math.MaxUint64
 	}
