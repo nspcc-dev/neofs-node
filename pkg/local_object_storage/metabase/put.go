@@ -208,10 +208,7 @@ func putUniqueIndexes(
 
 		var err error
 		if hdrBin == nil {
-			hdrBin, err = obj.CutPayload().Marshal()
-			if err != nil {
-				return fmt.Errorf("can't marshal object header: %w", err)
-			}
+			hdrBin = obj.CutPayload().Marshal()
 		}
 
 		err = putUniqueIndexItem(tx, namedBucketItem{
@@ -244,10 +241,7 @@ func putUniqueIndexes(
 		)
 
 		if isParent {
-			splitInfo, err = si.Marshal()
-			if err != nil {
-				return fmt.Errorf("can't marshal split info: %w", err)
-			}
+			splitInfo = si.Marshal()
 		}
 
 		err = putUniqueIndexItem(tx, namedBucketItem{
@@ -513,12 +507,7 @@ func updateSplitInfo(tx *bbolt.Tx, addr oid.Address, from *objectSDK.SplitInfo) 
 
 	result := util.MergeSplitInfo(from, to)
 
-	rawSplitInfo, err = result.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marhsal merged split info: %w", err)
-	}
-
-	return bkt.Put(objectKey, rawSplitInfo)
+	return bkt.Put(objectKey, result.Marshal())
 }
 
 // splitInfoFromObject returns split info based on last or linkin object.

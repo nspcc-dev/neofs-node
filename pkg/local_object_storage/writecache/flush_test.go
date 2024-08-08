@@ -279,7 +279,7 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	ver := versionSDK.Current()
 
 	obj.SetID(oidtest.ID())
-	owner := usertest.ID(t)
+	owner := usertest.ID()
 	obj.SetOwnerID(&owner)
 	obj.SetContainerID(cidtest.ID())
 	obj.SetType(object.TypeRegular)
@@ -288,9 +288,7 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	obj.SetPayloadHomomorphicHash(checksumtest.Checksum())
 	obj.SetPayload(make([]byte, size))
 
-	data, err := obj.Marshal()
-	require.NoError(t, err)
-	return obj, data
+	return obj, obj.Marshal()
 }
 
 type dummyEpoch struct{}

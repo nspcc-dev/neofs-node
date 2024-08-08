@@ -39,8 +39,7 @@ func convertEACLTable(cmd *cobra.Command, _ []string) {
 		data, err = table.MarshalJSON()
 		common.ExitOnErr(cmd, "can't JSON encode extended ACL table: %w", err)
 	} else {
-		data, err = table.Marshal()
-		common.ExitOnErr(cmd, "can't binary encode extended ACL table: %w", err)
+		data = table.Marshal()
 	}
 
 	if len(to) == 0 {

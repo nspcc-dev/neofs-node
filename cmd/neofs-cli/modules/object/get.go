@@ -122,8 +122,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 		objToStore := res.Header()
 		// TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
 		objToStore.SetPayload(payloadBuffer.Bytes())
-		objBytes, err := objToStore.Marshal()
-		common.ExitOnErr(cmd, "", err)
+		objBytes := objToStore.Marshal()
 		_, err = out.Write(objBytes)
 		common.ExitOnErr(cmd, "unable to write binary object in out: %w ", err)
 	}

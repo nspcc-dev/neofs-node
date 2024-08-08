@@ -154,17 +154,7 @@ func TestDB_Get(t *testing.T) {
 // binary equal is used when object contains empty lists in the structure and
 // requre.Equal fails on comparing <nil> and []{} lists.
 func binaryEqual(a, b *objectSDK.Object) bool {
-	binaryA, err := a.Marshal()
-	if err != nil {
-		return false
-	}
-
-	binaryB, err := b.Marshal()
-	if err != nil {
-		return false
-	}
-
-	return bytes.Equal(binaryA, binaryB)
+	return bytes.Equal(a.Marshal(), b.Marshal())
 }
 
 func BenchmarkGet(b *testing.B) {

@@ -614,10 +614,7 @@ func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *
 					return nil, errors.New("missing signature")
 				}
 
-				binID, err := objAddr.Object().Marshal()
-				if err != nil {
-					return nil, fmt.Errorf("marshal ID: %w", err)
-				}
+				binID := objAddr.Object().Marshal()
 
 				var sig neofscrypto.Signature
 				if err := sig.ReadFromV2(*idSig); err != nil {

@@ -99,8 +99,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
 
 		if containerAwait {
-			exp, err := eaclTable.Marshal()
-			common.ExitOnErr(cmd, "broken EACL table: %w", err)
+			exp := eaclTable.Marshal()
 
 			cmd.Println("awaiting...")
 
@@ -124,10 +123,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				if err == nil {
 					// compare binary values because EACL could have been set already
 					table := res.EACL()
-					got, err := table.Marshal()
-					if err != nil {
-						continue
-					}
+					got := table.Marshal()
 
 					if bytes.Equal(exp, got) {
 						cmd.Println("EACL has been persisted on sidechain")

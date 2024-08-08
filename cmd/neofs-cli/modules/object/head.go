@@ -109,7 +109,7 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	case toJSON:
 		return hdr.MarshalJSON()
 	case toProto:
-		return hdr.Marshal()
+		return hdr.Marshal(), nil
 	default:
 		return nil, nil
 	}

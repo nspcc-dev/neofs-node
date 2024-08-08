@@ -224,7 +224,7 @@ func TestDB_DeleteContainer(t *testing.T) {
 		require.Equal(t, storageID, fetchedStorageID)
 
 		// put a big one
-		o2 := objecttest.Object(t)
+		o2 := objecttest.Object()
 		o2.SetContainerID(cID)
 		err = putBig(db, &o2)
 		require.NoError(t, err)
@@ -234,14 +234,14 @@ func TestDB_DeleteContainer(t *testing.T) {
 		require.NoError(t, err)
 
 		// SG
-		o3 := objecttest.Object(t)
+		o3 := objecttest.Object()
 		o3.SetContainerID(cID)
 		o3.SetType(objectSDK.TypeStorageGroup)
 		err = putBig(db, &o3)
 		require.NoError(t, err)
 
 		// TS
-		o4 := objecttest.Object(t)
+		o4 := objecttest.Object()
 		o4.SetContainerID(cID)
 		o4.SetType(objectSDK.TypeTombstone)
 		err = metaInhume(db, object.AddressOf(o1), object.AddressOf(&o4))
