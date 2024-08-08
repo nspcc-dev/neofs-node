@@ -446,12 +446,28 @@ type ttlMaxObjectSizeCache struct {
 	lastUpdated time.Time
 	lastSize    uint64
 	src         putsvc.MaxSizeSource
+	onChange    func(uint64)
 }
 
-func newCachedMaxObjectSizeSource(src putsvc.MaxSizeSource) putsvc.MaxSizeSource {
+func newCachedMaxObjectSizeSource(src putsvc.MaxSizeSource, onChange func(uint64)) *ttlMaxObjectSizeCache {
 	return &ttlMaxObjectSizeCache{
-		src: src,
+		src:      src,
+		onChange: onChange,
 	}
+}
+
+func (c *ttlMaxObjectSizeCache) updateLastSize(sz uint64) {
+	if c.lastSize != sz {
+		c.onChange(sz)
+	}
+	c.lastSize = sz
+	c.lastUpdated = time.Now()
+}
+
+func (c *ttlMaxObjectSizeCache) handleNewMaxObjectPayloadSize(sz uint64) {
+	c.mtx.Lock()
+	c.updateLastSize(sz)
+	c.mtx.Unlock()
 }
 
 func (c *ttlMaxObjectSizeCache) MaxObjectSize() uint64 {
@@ -469,9 +485,9 @@ func (c *ttlMaxObjectSizeCache) MaxObjectSize() uint64 {
 	c.mtx.Lock()
 	size = c.lastSize
 	if !c.lastUpdated.After(prevUpdated) {
-		size = c.src.MaxObjectSize()
-		c.lastSize = size
-		c.lastUpdated = time.Now()
+		newSize := c.src.MaxObjectSize()
+		c.updateLastSize(newSize)
+		size = newSize
 	}
 	c.mtx.Unlock()
 

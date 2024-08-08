@@ -256,10 +256,13 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
+	cachedMaxObjPayloadSizeSrc := newCachedMaxObjectSizeSource(c, c.handleNewMaxObjectPayloadSize)
+	go listenMaxObjectPayloadSizeChanges(c.ctx, c.nCli, c.log, cachedMaxObjPayloadSizeSrc.handleNewMaxObjectPayloadSize)
+
 	sPut := putsvc.NewService(&transport{clients: putConstructor},
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
-		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
+		putsvc.WithMaxSizeSource(cachedMaxObjPayloadSizeSrc),
 		putsvc.WithObjectStorage(storageEngine{engine: ls}),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
 		putsvc.WithNetworkMapSource(c.netMapSource),
