@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -444,4 +446,27 @@ func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 	}
 
 	return &ni, nil
+}
+
+func listenMaxObjectPayloadSizeChanges(ctx context.Context, cli *nmClient.Client, lg *zap.Logger, f func(uint64)) {
+	// config rarely changes, but when it does - we do not want to wait long.
+	// Notification events would help https://github.com/nspcc-dev/neofs-contract/issues/427
+	const pollInterval = time.Minute
+	t := time.NewTimer(pollInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			lg.Debug("stop max object payload size net config poller by context", zap.Error(ctx.Err()))
+			return
+		case <-t.C:
+			lg.Info("rereading max object payload size net config by timer", zap.Duration("interval", pollInterval))
+			if sz, err := cli.MaxObjectSize(); err == nil {
+				f(sz)
+			} else {
+				lg.Error("failed to read max object payload size net config", zap.Error(err))
+			}
+			t.Reset(pollInterval)
+		}
+	}
 }

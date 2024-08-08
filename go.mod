@@ -105,3 +105,5 @@ retract (
 	v1.22.1 // Contains retraction only.
 	v1.22.0 // Published accidentally.
 )
+
+replace google.golang.org/grpc => github.com/cthulhu-rider/grpc-go v0.0.0-20240808123512-00d000d30657
