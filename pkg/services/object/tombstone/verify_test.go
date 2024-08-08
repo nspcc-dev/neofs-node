@@ -256,7 +256,7 @@ func objectsToOIDs(oo []object.Object) []oid.ID {
 }
 
 func objectWithCnr(t *testing.T, cnr cid.ID, hasParent bool) object.Object {
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	obj.SetContainerID(cnr)
 
 	if !hasParent {

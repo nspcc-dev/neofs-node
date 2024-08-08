@@ -43,8 +43,7 @@ var getExtendedACLCmd = &cobra.Command{
 			data, err = eaclTable.MarshalJSON()
 			common.ExitOnErr(cmd, "can't encode to JSON: %w", err)
 		} else {
-			data, err = eaclTable.Marshal()
-			common.ExitOnErr(cmd, "can't encode to binary: %w", err)
+			data = eaclTable.Marshal()
 		}
 
 		cmd.Println("dumping data to file:", containerPathTo)

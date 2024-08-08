@@ -49,14 +49,14 @@ func TestStickyCheck(t *testing.T) {
 		info.SetSenderKey(make([]byte, 33)) // any non-empty key
 		info.SetRequestRole(acl.RoleContainer)
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID(t)))
+		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 
 		var basicACL acl.Basic
 		basicACL.MakeSticky()
 
 		info.SetBasicACL(basicACL)
 
-		require.True(t, checker.StickyBitCheck(info, usertest.ID(t)))
+		require.True(t, checker.StickyBitCheck(info, usertest.ID()))
 	})
 
 	t.Run("owner ID and/or public key emptiness", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestStickyCheck(t *testing.T) {
 			var ownerID user.ID
 
 			if withOwner {
-				ownerID = usertest.ID(t)
+				ownerID = usertest.ID()
 			}
 
 			require.Equal(t, expected, checker.StickyBitCheck(info, ownerID))

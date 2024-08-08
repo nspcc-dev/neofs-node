@@ -13,10 +13,9 @@ func TestStorageEngine_GetBytes(t *testing.T) {
 	obj := generateObjectWithCID(t, cidtest.ID())
 	addr := object.AddressOf(obj)
 
-	objBin, err := obj.Marshal()
-	require.NoError(t, err)
+	objBin := obj.Marshal()
 
-	err = Put(e, obj)
+	err := Put(e, obj)
 	require.NoError(t, err)
 
 	b, err := e.GetBytes(addr)

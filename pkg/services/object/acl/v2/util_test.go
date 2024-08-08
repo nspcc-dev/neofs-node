@@ -23,7 +23,7 @@ func TestOriginalTokens(t *testing.T) {
 	signer := user.NewAutoIDSigner(*pk)
 
 	sToken := sessiontest.ObjectSigned(signer)
-	bToken := bearertest.Token(t)
+	bToken := bearertest.Token()
 
 	require.NoError(t, bToken.Sign(signer))
 

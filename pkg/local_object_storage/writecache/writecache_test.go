@@ -25,7 +25,7 @@ func TestCache_InitReadOnly(t *testing.T) {
 	err = wc.Init()
 	require.NoError(t, err)
 
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 
 	_, err = wc.Put(common.PutPrm{
 		Address: objectcore.AddressOf(&obj),

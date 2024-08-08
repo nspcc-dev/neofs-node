@@ -57,10 +57,7 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	if prm.binSet {
 		data = prm.objBin
 	} else {
-		data, err = prm.obj.Marshal()
-		if err != nil {
-			return PutRes{}, fmt.Errorf("cannot marshal object: %w", err)
-		}
+		data = prm.obj.Marshal()
 		// TODO: currently, we don't need to calculate prm.hdrLen in this case.
 		//  If you do this, then underlying code below for accessing the metabase could
 		//  reuse already encoded header.
