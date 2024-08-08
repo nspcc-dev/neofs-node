@@ -29,7 +29,8 @@ type RequestInfo struct {
 	// e.g. Put, Search
 	obj *oid.ID
 
-	senderKey []byte
+	senderKey     []byte
+	senderAccount *user.ID
 
 	bearer *bearer.Token // bearer token of request
 
@@ -86,6 +87,11 @@ func (r RequestInfo) BasicACL() acl.Basic {
 // SenderKey returns public key of the request's sender.
 func (r RequestInfo) SenderKey() []byte {
 	return r.senderKey
+}
+
+// SenderAccount returns account of the request's sender.
+func (r RequestInfo) SenderAccount() *user.ID {
+	return r.senderAccount
 }
 
 // Operation returns request's operation.

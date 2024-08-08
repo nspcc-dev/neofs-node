@@ -103,7 +103,7 @@ func TestExecutor(t *testing.T) {
 	var tokV2 session.Token
 	tok.WriteToV2(&tokV2)
 
-	realContainer := containertest.Container(t)
+	realContainer := containertest.Container()
 	realContainer.SetOwner(tok.Issuer())
 
 	m := mock{cnr: realContainer, epoch: 25}
@@ -118,7 +118,7 @@ func TestExecutor(t *testing.T) {
 			op: func(e containerSvc.ServiceExecutor, tokV2 *session.Token) (err error) {
 				var reqBody container.PutRequestBody
 
-				cnr := containertest.Container(t)
+				cnr := containertest.Container()
 
 				var cnrV2 container.Container
 				cnr.WriteToV2(&cnrV2)
@@ -197,7 +197,7 @@ func TestValidateToken(t *testing.T) {
 	tok.ForVerb(sessionsdk.VerbContainerDelete)
 	require.NoError(t, tok.Sign(signer))
 
-	cnr := containertest.Container(t)
+	cnr := containertest.Container()
 	cnr.SetOwner(tok.Issuer())
 
 	var cnrV2 container.Container
@@ -282,7 +282,7 @@ func TestValidateToken(t *testing.T) {
 		tok.WriteToV2(&tokV2)
 
 		var ownerV2Wrong refs.OwnerID
-		ownerWrong := usertest.ID(t)
+		ownerWrong := usertest.ID()
 		ownerWrong.WriteToV2(&ownerV2Wrong)
 
 		tokV2.GetBody().SetOwnerID(&ownerV2Wrong)
@@ -329,7 +329,7 @@ func TestValidateToken(t *testing.T) {
 		e := containerSvcMorph.NewExecutor(m, m, m)
 
 		t.Run("wrong owner", func(t *testing.T) {
-			m.cnr = containertest.Container(t)
+			m.cnr = containertest.Container()
 
 			_, err := e.Delete(context.TODO(), &tokV2, &reqBody)
 			require.Error(t, err)

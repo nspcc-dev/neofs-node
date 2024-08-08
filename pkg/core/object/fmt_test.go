@@ -167,20 +167,14 @@ func TestFormatValidator_Validate(t *testing.T) {
 		content := object.NewTombstone()
 		content.SetMembers([]oid.ID{oidtest.ID()})
 
-		data, err := content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		_, err = v.ValidateContent(obj)
 		require.Error(t, err) // no members in tombstone
 
 		content.SetMembers([]oid.ID{oidtest.ID()})
 
-		data, err = content.Marshal()
-		require.NoError(t, err)
-
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		_, err = v.ValidateContent(obj)
 		require.Error(t, err) // no expiration epoch in tombstone
@@ -198,10 +192,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 		content.SetExpirationEpoch(10)
 		content.SetMembers([]oid.ID{id})
-		data, err = content.Marshal()
-		require.NoError(t, err)
 
-		obj.SetPayload(data)
+		obj.SetPayload(content.Marshal())
 
 		contentGot, err := v.ValidateContent(obj)
 		require.NoError(t, err) // all good
@@ -223,10 +215,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		content.SetExpirationEpoch(1) // some non-default value
 
 		t.Run("empty members", func(t *testing.T) {
-			data, err := content.Marshal()
-			require.NoError(t, err)
-
-			obj.SetPayload(data)
+			obj.SetPayload(content.Marshal())
 
 			_, err = v.ValidateContent(obj)
 			require.ErrorIs(t, err, errEmptySGMembers)
@@ -237,10 +226,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			content.SetMembers([]oid.ID{id, id})
 
-			data, err := content.Marshal()
-			require.NoError(t, err)
-
-			obj.SetPayload(data)
+			obj.SetPayload(content.Marshal())
 
 			_, err = v.ValidateContent(obj)
 			require.Error(t, err)
@@ -250,10 +236,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			ids := []oid.ID{oidtest.ID(), oidtest.ID()}
 			content.SetMembers(ids)
 
-			data, err := content.Marshal()
-			require.NoError(t, err)
-
-			obj.SetPayload(data)
+			obj.SetPayload(content.Marshal())
 
 			content, err := v.ValidateContent(obj)
 			require.NoError(t, err)

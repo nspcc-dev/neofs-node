@@ -81,14 +81,13 @@ func _newTestPeapod(tb testing.TB, path string, readOnly bool) *peapod.Peapod {
 func TestPeapod_Get(t *testing.T) {
 	ppd := newTestPeapod(t)
 	addr := oidtest.Address()
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 
-	data, err := obj.Marshal()
-	require.NoError(t, err)
+	data := obj.Marshal()
 
 	getPrm := common.GetPrm{Address: addr}
 
-	_, err = ppd.Get(getPrm)
+	_, err := ppd.Get(getPrm)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	_, err = ppd.Put(common.PutPrm{
@@ -167,12 +166,11 @@ func TestPeapod_Iterate(t *testing.T) {
 func TestPeapod_Put(t *testing.T) {
 	ppd := newTestPeapod(t)
 	addr := oidtest.Address()
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 
-	data, err := obj.Marshal()
-	require.NoError(t, err)
+	data := obj.Marshal()
 
-	_, err = ppd.Put(common.PutPrm{
+	_, err := ppd.Put(common.PutPrm{
 		Address: addr,
 		RawData: data,
 	})
@@ -199,12 +197,11 @@ func TestPeapod_Put(t *testing.T) {
 func TestPeapod_Delete(t *testing.T) {
 	ppd := newTestPeapod(t)
 	addr := oidtest.Address()
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 
-	data, err := obj.Marshal()
-	require.NoError(t, err)
+	data := obj.Marshal()
 
-	_, err = ppd.Delete(common.DeletePrm{
+	_, err := ppd.Delete(common.DeletePrm{
 		Address: addr,
 	})
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)

@@ -86,7 +86,7 @@ func testObject(sz uint64) *objectSDK.Object {
 	raw.SetPayload(make([]byte, sz))
 
 	// fit the binary size to the required
-	data, _ := raw.Marshal()
+	data := raw.Marshal()
 	if ln := uint64(len(data)); ln > sz {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}

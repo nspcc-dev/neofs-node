@@ -39,7 +39,6 @@ func getFunc(cmd *cobra.Command, _ []string) {
 		common.WriteObjectToFile(cmd, vOut, obj.Payload(), true)
 		return
 	}
-	data, err := obj.Marshal()
-	common.ExitOnErr(cmd, common.Errf("could not marshal object: %w", err))
+	data := obj.Marshal()
 	common.WriteObjectToFile(cmd, vOut, data, false)
 }

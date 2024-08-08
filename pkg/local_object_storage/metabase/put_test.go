@@ -127,18 +127,17 @@ func metaPut(db *meta.DB, obj *objectSDK.Object, id []byte) error {
 func TestDB_PutBinary(t *testing.T) {
 	addr := oidtest.Address()
 
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	hdr := obj.CutPayload()
 	hdr.SetContainerID(addr.Container())
 	hdr.SetID(addr.Object())
 
-	obj = objecttest.Object(t)
+	obj = objecttest.Object()
 	hdrEnc := obj.CutPayload()
 	require.NotEqual(t, hdrEnc, hdr)
 	hdrEnc.SetContainerID(addr.Container())
 	hdrEnc.SetID(addr.Object())
-	hdrBin, err := hdrEnc.Marshal()
-	require.NoError(t, err)
+	hdrBin := hdrEnc.Marshal()
 	// although the distinction between a struct and a blob is not the correct
 	// usage, this is how we make the test meaningful. Otherwise, the test will pass
 	// even if implementation completely ignores the binary: header would be encoded
@@ -150,7 +149,7 @@ func TestDB_PutBinary(t *testing.T) {
 	var putPrm meta.PutPrm
 	putPrm.SetObject(hdr)
 	putPrm.SetHeaderBinary(hdrBin)
-	_, err = db.Put(putPrm)
+	_, err := db.Put(putPrm)
 	require.NoError(t, err)
 
 	res, err := metaGet(db, addr, false)

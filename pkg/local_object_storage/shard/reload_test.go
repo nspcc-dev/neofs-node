@@ -143,7 +143,7 @@ func newObject(t testing.TB) *objectSDK.Object {
 	x.SetSessionToken(&tok)
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	owner := usertest.ID(t)
+	owner := usertest.ID()
 	x.SetOwnerID(&owner)
 	x.SetContainerID(cidtest.ID())
 	x.SetType(objectSDK.TypeRegular)

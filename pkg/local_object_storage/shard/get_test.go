@@ -50,9 +50,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		require.Equal(t, obj, res.Object())
 		require.True(t, res.HasMeta())
 
-		objBin, err := obj.Marshal()
-		require.NoError(t, err)
-		testGetBytes(t, sh, addr, objBin)
+		testGetBytes(t, sh, addr, obj.Marshal())
 	})
 
 	t.Run("big object", func(t *testing.T) {
@@ -74,9 +72,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		require.Equal(t, obj, res.Object())
 		require.True(t, res.HasMeta())
 
-		objBin, err := obj.Marshal()
-		require.NoError(t, err)
-		testGetBytes(t, sh, addr, objBin)
+		testGetBytes(t, sh, addr, obj.Marshal())
 	})
 
 	t.Run("parent object", func(t *testing.T) {
@@ -149,15 +145,5 @@ func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte
 // binary equal is used when object contains empty lists in the structure and
 // requre.Equal fails on comparing <nil> and []{} lists.
 func binaryEqual(a, b *objectSDK.Object) bool {
-	binaryA, err := a.Marshal()
-	if err != nil {
-		return false
-	}
-
-	binaryB, err := b.Marshal()
-	if err != nil {
-		return false
-	}
-
-	return bytes.Equal(binaryA, binaryB)
+	return bytes.Equal(a.Marshal(), b.Marshal())
 }

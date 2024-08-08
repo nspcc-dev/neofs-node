@@ -12,18 +12,16 @@ import (
 func TestShard_PutBinary(t *testing.T) {
 	addr := oidtest.Address()
 
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	obj.SetContainerID(addr.Container())
 	obj.SetID(addr.Object())
 
-	obj2 := objecttest.Object(t)
+	obj2 := objecttest.Object()
 	require.NotEqual(t, obj, obj2)
 	obj2.SetContainerID(addr.Container())
 	obj2.SetID(addr.Object())
-	objBin, err := obj.Marshal()
-	require.NoError(t, err)
-	hdrBin, err := obj.CutPayload().Marshal()
-	require.NoError(t, err)
+	objBin := obj.Marshal()
+	hdrBin := obj.CutPayload().Marshal()
 	hdrLen := len(hdrBin) // no easier way for now
 	// although the distinction between a struct and a blob is not the correct
 	// usage, this is how we make the test meaningful. Otherwise, the test will pass
@@ -36,7 +34,7 @@ func TestShard_PutBinary(t *testing.T) {
 	var putPrm shard.PutPrm
 	putPrm.SetObject(&obj)
 	putPrm.SetObjectBinary(objBin, hdrLen)
-	_, err = sh.Put(putPrm)
+	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 
 	var getPrm shard.GetPrm

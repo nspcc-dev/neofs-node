@@ -91,22 +91,10 @@ func (exec *execCtx) addMembers(incoming []oid.ID) {
 }
 
 func (exec *execCtx) initTombstoneObject() bool {
-	payload, err := exec.tombstone.Marshal()
-	if err != nil {
-		exec.status = statusUndefined
-		exec.err = err
-
-		exec.log.Debug("could not marshal tombstone structure",
-			zap.String("error", err.Error()),
-		)
-
-		return false
-	}
-
 	exec.tombstoneObj = object.New()
 	exec.tombstoneObj.SetContainerID(exec.containerID())
 	exec.tombstoneObj.SetType(object.TypeTombstone)
-	exec.tombstoneObj.SetPayload(payload)
+	exec.tombstoneObj.SetPayload(exec.tombstone.Marshal())
 
 	tokenSession := exec.commonParameters().SessionToken()
 	if tokenSession != nil {

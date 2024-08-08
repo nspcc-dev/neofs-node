@@ -55,10 +55,7 @@ func prepare(t *testing.T, count int, s common.Storage, min, max uint64) []objec
 	for i := range objects {
 		objects[i].obj = NewObject(min + uint64(rand.Intn(int(max-min+1)))) // not too large
 		objects[i].addr = objectCore.AddressOf(objects[i].obj)
-
-		raw, err := objects[i].obj.Marshal()
-		require.NoError(t, err)
-		objects[i].raw = raw
+		objects[i].raw = objects[i].obj.Marshal()
 	}
 
 	for i := range objects {
@@ -89,7 +86,7 @@ func NewObject(sz uint64) *objectSDK.Object {
 	raw.SetPayload(payload)
 
 	// fit the binary size to the required
-	data, _ := raw.Marshal()
+	data := raw.Marshal()
 	if ln := uint64(len(data)); ln > sz {
 		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
 	}
