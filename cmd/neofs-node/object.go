@@ -786,23 +786,49 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 	for i := range repCounts {
 		repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
 	}
-	return containerNodesSorter{
+	return &containerNodesSorter{
 		policy: storagePolicyRes{
 			nodeSets:  nodeSets,
 			repCounts: repCounts,
 		},
-		networkMap: networkMap,
+		networkMap:     networkMap,
+		cnrID:          cnrID,
+		curEpoch:       curEpoch,
+		containerNodes: c.cfgObject.containerNodes,
 	}, nil
 }
 
 // implements [putsvc.ContainerNodes].
 type containerNodesSorter struct {
-	policy     storagePolicyRes
-	networkMap *netmapsdk.NetMap
+	policy         storagePolicyRes
+	networkMap     *netmapsdk.NetMap
+	cnrID          cid.ID
+	curEpoch       uint64
+	containerNodes *containerNodes
 }
 
-func (x containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
-func (x containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
-func (x containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
-	return x.networkMap.PlacementVectors(x.policy.nodeSets, obj)
+func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
+func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
+func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
+	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
+	cacheKey.addr.SetContainer(x.cnrID)
+	cacheKey.addr.SetObject(obj)
+	res, ok := x.containerNodes.objCache.Get(cacheKey)
+	if ok {
+		return res.nodeSets, res.err
+	}
+	if x.networkMap == nil {
+		var err error
+		if x.networkMap, err = x.containerNodes.network.GetNetMapByEpoch(x.curEpoch); err != nil {
+			// non-persistent error => do not cache
+			return nil, fmt.Errorf("read network map by epoch: %w", err)
+		}
+	}
+	res.repCounts = x.policy.repCounts
+	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
+	if res.err != nil {
+		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
+	}
+	x.containerNodes.objCache.Add(cacheKey, res)
+	return res.nodeSets, res.err
 }
