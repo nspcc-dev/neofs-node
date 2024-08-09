@@ -20,7 +20,7 @@ Changelog for NeoFS Node
 ### Changed
 - neofs-cli allows several objects deletion at a time (#2774)
 - `ObjectService.Put` server of in-container node places objects using new `ObjectService.Replicate` RPC (#2802)
-- `ObjectService`'s `Put` and `Replicate` RPC handlers cache up to 1000 lists of container nodes (#2892)
+- `ObjectService`'s `Search` and `Replicate` RPC handlers cache up to 1000 lists of container nodes (#2892)
 - Default max_traceable_blocks Morph setting lowered to 17280 from 2102400 (#2897)
 - `ObjectService`'s `Get`/`Head`/`GetRange` RPC handlers cache up to 10K lists of per-object sorted container nodes (#2896)
 
