@@ -37,6 +37,9 @@ service ControlService {
 
     // FlushCache moves all data from one shard to the others.
     rpc FlushCache (FlushCacheRequest) returns (FlushCacheResponse);
+
+    // ObjectStatus requests object status in the storage engine.
+    rpc ObjectStatus (ObjectStatusRequest) returns (ObjectStatusResponse);
 }
 
 // Health check request.
@@ -343,5 +346,51 @@ message FlushCacheResponse {
     }
 
     Body body = 1;
+    Signature signature = 2;
+}
+
+// ObjectStatus request.
+message ObjectStatusRequest {
+    // Request body structure.
+    message Body {
+        // Requested object.
+        string object_address = 1;
+    }
+
+    // Body of object status request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// ObjectStatus response.
+message ObjectStatusResponse {
+    // Response body structure.
+    message Body {
+        // Information about an object from a single shard.
+        message Shard {
+            // Status from a single shard's component.
+            message Status {
+                // Component identification.
+                string type = 1;
+                // Object's status in a free form (human readable).
+                string status = 2;
+            }
+
+            // String presentation of shard ID.
+            string shard_id = 1;
+            // Shard's storages (metabase, write-cache, FSTree, etc).
+            repeated Status storages = 2;
+        }
+
+        // Engine's shards that know something about an object.
+        repeated Shard shards = 1;
+    }
+
+    // Body of object status response message.
+    Body body = 1;
+
+    // Body signature.
     Signature signature = 2;
 }
