@@ -746,44 +746,54 @@ func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uin
 //
 // GetContainerNodes implements [putsvc.NeoFSNetwork].
 func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
-	cnr, err := c.cfgObject.containerNodes.containers.Get(cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("read container by ID: %w", err)
-	}
 	curEpoch, err := c.cfgObject.containerNodes.network.Epoch()
 	if err != nil {
 		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
 	}
-	networkMap, err := c.cfgObject.containerNodes.network.GetNetMapByEpoch(curEpoch)
+	policy, networkMap, err := c.cfgObject.containerNodes.getForCurrentEpoch(curEpoch, cnrID)
 	if err != nil {
-		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
-	}
-	policy := cnr.Value.PlacementPolicy()
-	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
-	if err != nil {
-		return nil, fmt.Errorf("apply container storage policy to the network map at current epoch #%d: %w", curEpoch, err)
-	}
-	repCounts := make([]uint, policy.NumberOfReplicas())
-	for i := range repCounts {
-		repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
+		return nil, err
 	}
 	return &containerNodesSorter{
-		policy: storagePolicyRes{
-			nodeSets:  nodeSets,
-			repCounts: repCounts,
-		},
-		networkMap: networkMap,
+		policy:         policy,
+		networkMap:     networkMap,
+		cnrID:          cnrID,
+		curEpoch:       curEpoch,
+		containerNodes: c.cfgObject.containerNodes,
 	}, nil
 }
 
 // implements [putsvc.ContainerNodes].
 type containerNodesSorter struct {
-	policy     storagePolicyRes
-	networkMap *netmapsdk.NetMap
+	policy         storagePolicyRes
+	networkMap     *netmapsdk.NetMap
+	cnrID          cid.ID
+	curEpoch       uint64
+	containerNodes *containerNodes
 }
 
 func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
 func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
 func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
-	return x.networkMap.PlacementVectors(x.policy.nodeSets, obj)
+	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
+	cacheKey.addr.SetContainer(x.cnrID)
+	cacheKey.addr.SetObject(obj)
+	res, ok := x.containerNodes.objCache.Get(cacheKey)
+	if ok {
+		return res.nodeSets, res.err
+	}
+	if x.networkMap == nil {
+		var err error
+		if x.networkMap, err = x.containerNodes.network.GetNetMapByEpoch(x.curEpoch); err != nil {
+			// non-persistent error => do not cache
+			return nil, fmt.Errorf("read network map by epoch: %w", err)
+		}
+	}
+	res.repCounts = x.policy.repCounts
+	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
+	if res.err != nil {
+		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
+	}
+	x.containerNodes.objCache.Add(cacheKey, res)
+	return res.nodeSets, res.err
 }

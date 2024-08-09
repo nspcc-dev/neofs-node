@@ -161,17 +161,9 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 	if ok {
 		return res.nodeSets, res.repCounts, res.err
 	}
-	cnrRes, networkMap, err := (&containerPolicyContext{
-		id:           addr.Container(),
-		containers:   x.containers,
-		network:      x.network,
-		getNodesFunc: x.getContainerNodesFunc,
-	}).applyToNetmap(curEpoch, x.cache)
-	if err != nil || cnrRes.err != nil {
-		if err == nil {
-			err = cnrRes.err // cached in x.cache, no need to store in x.objCache
-		}
-		return nil, nil, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
+	cnrRes, networkMap, err := x.getForCurrentEpoch(curEpoch, addr.Container())
+	if err != nil {
+		return nil, nil, err
 	}
 	if networkMap == nil {
 		if networkMap, err = x.network.GetNetMapByEpoch(curEpoch); err != nil {
@@ -186,6 +178,22 @@ func (x *containerNodes) getNodesForObject(addr oid.Address) ([][]netmapsdk.Node
 	}
 	x.objCache.Add(cacheKey, res)
 	return res.nodeSets, res.repCounts, res.err
+}
+
+func (x *containerNodes) getForCurrentEpoch(curEpoch uint64, cnr cid.ID) (storagePolicyRes, *netmapsdk.NetMap, error) {
+	policy, networkMap, err := (&containerPolicyContext{
+		id:           cnr,
+		containers:   x.containers,
+		network:      x.network,
+		getNodesFunc: x.getContainerNodesFunc,
+	}).applyToNetmap(curEpoch, x.cache)
+	if err != nil || policy.err != nil {
+		if err == nil {
+			err = policy.err // cached in x.cache, no need to store in x.objCache
+		}
+		return storagePolicyRes{}, nil, fmt.Errorf("select container nodes for current epoch #%d: %w", curEpoch, err)
+	}
+	return policy, networkMap, nil
 }
 
 // preserves context of storage policy processing for the particular container.
