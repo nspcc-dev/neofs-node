@@ -27,12 +27,17 @@ const (
 )
 
 func init() {
+	objectCmd.AddCommand(
+		objectStatusCmd,
+	)
+
 	Cmd.AddCommand(
 		healthCheckCmd,
 		setNetmapStatusCmd,
 		dropObjectsCmd,
 		shardsCmd,
 		synchronizeTreeCmd,
+		objectCmd,
 	)
 
 	initControlHealthCheckCmd()
@@ -40,4 +45,5 @@ func init() {
 	initControlDropObjectsCmd()
 	initControlShardsCmd()
 	initControlSynchronizeTreeCmd()
+	initObjectStatusFlags()
 }
