@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -312,11 +313,12 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
+	objNode := newNodeForObjects(cnrNodes, sPut, c.IsLocalKey)
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
-		v2.WithNetmapSource(c.netMapSource),
+		v2.WithNetmapper(netmapSourceWithNodes{Source: c.netMapSource, n: objNode}),
 		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
@@ -349,8 +351,6 @@ func initObjectService(c *cfg) {
 	if c.metricsCollector != nil {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
-
-	objNode := newNodeForObjects(cnrNodes, sPut, c.IsLocalKey)
 
 	server := objectTransportGRPC.New(firstSvc, objNode)
 
@@ -738,4 +738,30 @@ func (c *cfg) IsLocalNodePublicKey(b []byte) bool { return c.IsLocalKey(b) }
 // GetNodesForObject implements [getsvc.NeoFSNetwork].
 func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uint, error) {
 	return c.cfgObject.containerNodes.getNodesForObject(addr)
+}
+
+type netmapSourceWithNodes struct {
+	netmap.Source
+	n *nodeForObjects
+}
+
+func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
+	var serverInContainer bool
+	err := n.n.ForEachContainerNodePublicKeyInLastTwoEpochs(cID, func(pubKey []byte) bool {
+		if n.n.isLocalPubKey(pubKey) {
+			serverInContainer = true
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		// https://github.com/nspcc-dev/neofs-sdk-go/pull/615
+		if strings.Contains(err.Error(), "not enough nodes to SELECT from") {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return serverInContainer, nil
 }

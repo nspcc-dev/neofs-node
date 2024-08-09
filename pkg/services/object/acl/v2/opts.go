@@ -2,7 +2,6 @@ package v2
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"go.uber.org/zap"
 )
@@ -14,9 +13,9 @@ func WithLogger(v *zap.Logger) Option {
 	}
 }
 
-// WithNetmapSource return option to set
+// WithNetmapper return option to set
 // netmap source.
-func WithNetmapSource(v netmap.Source) Option {
+func WithNetmapper(v Netmapper) Option {
 	return func(c *cfg) {
 		c.nm = v
 	}

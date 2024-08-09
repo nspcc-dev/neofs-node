@@ -58,6 +58,15 @@ type searchStreamBasicChecker struct {
 // Option represents Service constructor option.
 type Option func(*cfg)
 
+// Netmapper must provide network map information.
+type Netmapper interface {
+	netmap.Source
+	// ServerInContainer checks if current node belongs to requested container.
+	// Any unknown state must be returned as `(false, error.New("explanation"))`,
+	// not `(false, nil)`.
+	ServerInContainer(cid.ID) (bool, error)
+}
+
 type cfg struct {
 	log *zap.Logger
 
@@ -67,7 +76,7 @@ type cfg struct {
 
 	irFetcher InnerRingFetcher
 
-	nm netmap.Source
+	nm Netmapper
 
 	next object.ServiceServer
 }
@@ -457,6 +466,27 @@ func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
 		}
 
 		header := part.GetHeader()
+
+		cIDV2 := header.GetContainerID().GetValue()
+		var cID cid.ID
+		err = cID.Decode(cIDV2)
+		if err != nil {
+			return fmt.Errorf("invalid container ID: %w", err)
+		}
+
+		inContainer, err := p.source.nm.ServerInContainer(cID)
+		if err != nil {
+			return fmt.Errorf("checking if node in container: %w", err)
+		}
+
+		if header.GetSplit() != nil && !inContainer {
+			// skip ACL checks for split objects if it is not a container
+			// node, since it requires additional object operations (e.g.,
+			// requesting the other split parts) that may (or may not) be
+			// prohibited by ACL rules; this node is not going to store such
+			// objects anyway
+			return p.next.Send(request)
+		}
 
 		idV2 := header.GetOwnerID()
 		if idV2 == nil {
