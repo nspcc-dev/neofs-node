@@ -1548,3 +1548,231 @@ func (x *FlushCacheResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *FlushCacheResponse) SetSignature(sig *Signature) {
 	x.Signature = sig
 }
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusRequest_Body) StableSize() (size int) {
+	size += proto.StringSize(1, x.ObjectAddress)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusRequest_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.ObjectAddress)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusRequest) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusRequest) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *ObjectStatusRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *ObjectStatusRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *ObjectStatusRequest) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusResponse_Body_Shard_Status) StableSize() (size int) {
+	size += proto.StringSize(1, x.Type)
+	size += proto.StringSize(2, x.Status)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusResponse_Body_Shard_Status) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.Type)
+	offset += proto.StringMarshal(2, buf[offset:], x.Status)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusResponse_Body_Shard) StableSize() (size int) {
+	size += proto.StringSize(1, x.ShardId)
+	for i := range x.Storages {
+		size += proto.NestedStructureSize(2, x.Storages[i])
+	}
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusResponse_Body_Shard) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.ShardId)
+	for i := range x.Storages {
+		offset += proto.NestedStructureMarshal(2, buf[offset:], x.Storages[i])
+	}
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusResponse_Body) StableSize() (size int) {
+	for i := range x.Shards {
+		size += proto.NestedStructureSize(1, x.Shards[i])
+	}
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusResponse_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	for i := range x.Shards {
+		offset += proto.NestedStructureMarshal(1, buf[offset:], x.Shards[i])
+	}
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *ObjectStatusResponse) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *ObjectStatusResponse) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *ObjectStatusResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *ObjectStatusResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *ObjectStatusResponse) SetSignature(sig *Signature) {
+	x.Signature = sig
+}

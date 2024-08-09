@@ -200,3 +200,21 @@ func (w *flushCacheResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	w.FlushCacheResponse = r
 	return nil
 }
+
+type objectStatusResponseWrapper struct {
+	*ObjectStatusResponse
+}
+
+func (w *objectStatusResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.ObjectStatusResponse
+}
+
+func (w *objectStatusResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	r, ok := m.(*ObjectStatusResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, (*ObjectStatusResponse)(nil))
+	}
+
+	w.ObjectStatusResponse = r
+	return nil
+}

@@ -18,6 +18,7 @@ const (
 	rpcSynchronizeTree = "SynchronizeTree"
 	rpcEvacuateShard   = "EvacuateShard"
 	rpcFlushCache      = "FlushCache"
+	rpcObjectStatus    = "ObjectStatus"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -190,4 +191,17 @@ func FlushCache(cli *client.Client, req *FlushCacheRequest, opts ...client.CallO
 	}
 
 	return wResp.FlushCacheResponse, nil
+}
+
+// ObjectStatus executes ControlService.ObjectStatus RPC.
+func ObjectStatus(cli *client.Client, req *ObjectStatusRequest, opts ...client.CallOption) (*ObjectStatusResponse, error) {
+	wResp := &objectStatusResponseWrapper{new(ObjectStatusResponse)}
+	wReq := &requestWrapper{m: req}
+
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcObjectStatus), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.ObjectStatusResponse, nil
 }
