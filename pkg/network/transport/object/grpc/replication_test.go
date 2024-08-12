@@ -18,7 +18,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
-	"github.com/nspcc-dev/neofs-sdk-go/crypto/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -128,7 +128,7 @@ func (x *testNode) VerifyAndStoreObject(obj object.Object) error {
 }
 
 func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) *objectgrpc.ReplicateRequest {
-	obj := objecttest.Object(tb)
+	obj := objecttest.Object()
 	obj.SetContainerID(cnr)
 	obj.SetID(objID)
 
@@ -161,9 +161,9 @@ func TestServer_Replicate(t *testing.T) {
 	var noCallNode noCallTestNode
 	var noCallObjSvc noCallObjectService
 	noCallSrv := New(noCallObjSvc, &noCallNode)
-	clientSigner := test.RandomSigner(t)
+	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
-	serverPubKey := neofscrypto.PublicKeyBytes(test.RandomSigner(t).Public())
+	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
 	cnr := cidtest.ID()
 	objID := oidtest.ID()
 	req := anyValidRequest(t, clientSigner, cnr, objID)
@@ -219,7 +219,7 @@ func TestServer_Replicate(t *testing.T) {
 				expectedMsg:  "unsupported scheme in the object signature field",
 			},
 		} {
-			req := anyValidRequest(t, test.RandomSigner(t), cidtest.ID(), oidtest.ID())
+			req := anyValidRequest(t, neofscryptotest.Signer(), cidtest.ID(), oidtest.ID())
 			req.Signature = tc.fSig()
 			resp, err := noCallSrv.Replicate(context.Background(), req)
 			require.NoError(t, err, tc.name)
@@ -309,9 +309,8 @@ func TestServer_Replicate(t *testing.T) {
 				expectedMsg:  "signature mismatch in the object signature field",
 			},
 		} {
-			obj := objecttest.Object(t)
-			bObj, err := obj.Marshal()
-			require.NoError(t, err)
+			obj := objecttest.Object()
+			bObj := obj.Marshal()
 
 			resp, err := noCallSrv.Replicate(context.Background(), &objectgrpc.ReplicateRequest{
 				Object:    obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),

@@ -106,7 +106,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	obj.SetType(objectSDK.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
@@ -176,7 +176,7 @@ func TestRefillMetabase(t *testing.T) {
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
 	for i := uint64(0); i < objNum; i++ {
-		obj := objecttest.Object(t)
+		obj := objecttest.Object()
 		obj.SetType(objectSDK.TypeRegular)
 
 		if len(locked) < 2 {
@@ -193,13 +193,12 @@ func TestRefillMetabase(t *testing.T) {
 		}
 	}
 
-	tombObj := objecttest.Object(t)
+	tombObj := objecttest.Object()
 	tombObj.SetType(objectSDK.TypeTombstone)
 
 	tombstone := objecttest.Tombstone()
 
-	tombData, err := tombstone.Marshal()
-	require.NoError(t, err)
+	tombData := tombstone.Marshal()
 
 	tombObj.SetPayload(tombData)
 
@@ -226,14 +225,14 @@ func TestRefillMetabase(t *testing.T) {
 
 	putPrm.SetObject(&tombObj)
 
-	_, err = sh.Put(putPrm)
+	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 
 	// LOCK object handling
 	var lock objectSDK.Lock
 	lock.WriteMembers(locked)
 
-	lockObj := objecttest.Object(t)
+	lockObj := objecttest.Object()
 	lockObj.SetContainerID(cnrLocked)
 	lockObj.WriteLock(lock)
 

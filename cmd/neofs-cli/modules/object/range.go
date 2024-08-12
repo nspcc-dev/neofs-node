@@ -135,7 +135,7 @@ func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error
 	case toJSON:
 		return info.MarshalJSON()
 	case toProto:
-		return info.Marshal()
+		return info.Marshal(), nil
 	default:
 		b := bytes.NewBuffer(nil)
 		if splitID := info.SplitID(); splitID != nil {

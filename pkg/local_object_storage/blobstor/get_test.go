@@ -76,10 +76,9 @@ func TestBlobStor_GetBytes(t *testing.T) {
 		return &BlobStor{cfg: cfg{log: zap.NewNop(), storage: subs}}
 	}
 
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	addr := object.AddressOf(&obj)
-	objBin, err := obj.Marshal()
-	require.NoError(t, err)
+	objBin := obj.Marshal()
 
 	bs := newBlobStorWithStorages(new(getBytesOnlySubStorage), &getBytesOnlySubStorage{
 		m: map[oid.Address][]byte{addr: objBin},

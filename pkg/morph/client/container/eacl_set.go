@@ -16,13 +16,8 @@ func PutEACL(c *Client, eaclInfo containercore.EACL) error {
 		return errNilArgument
 	}
 
-	data, err := eaclInfo.Value.Marshal()
-	if err != nil {
-		return fmt.Errorf("can't marshal eacl table: %w", err)
-	}
-
 	var prm PutEACLPrm
-	prm.SetTable(data)
+	prm.SetTable(eaclInfo.Value.Marshal())
 
 	if eaclInfo.Session != nil {
 		prm.SetToken(eaclInfo.Session.Marshal())

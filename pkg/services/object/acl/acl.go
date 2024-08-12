@@ -194,14 +194,19 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		eaclRole = eaclSDK.RoleOthers
 	}
 
-	action, _ := c.validator.CalculateAction(new(eaclSDK.ValidationUnit).
+	vu := new(eaclSDK.ValidationUnit).
 		WithRole(eaclRole).
 		WithOperation(eaclSDK.Operation(reqInfo.Operation())).
 		WithContainerID(&cnr).
 		WithSenderKey(reqInfo.SenderKey()).
 		WithHeaderSource(hdrSrc).
-		WithEACLTable(&table),
-	)
+		WithEACLTable(&table)
+
+	if sa := reqInfo.SenderAccount(); sa != nil && !sa.IsZero() {
+		vu.WithAccount(*sa)
+	}
+
+	action, _ := c.validator.CalculateAction(vu)
 
 	if action != eaclSDK.ActionAllow {
 		return errEACLDeniedByRule

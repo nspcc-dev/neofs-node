@@ -8,7 +8,7 @@ import (
 	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	"github.com/nspcc-dev/neofs-sdk-go/crypto/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -20,13 +20,13 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	// prepare replicated object
 	payload := make([]byte, 1024)
 	rand.Read(payload)
-	obj := objecttest.Object(t)
+	obj := objecttest.Object()
 	obj.SetPayload(payload)
 	id := oidtest.ID()
 	obj.SetID(id)
 	hdr := *obj.CutPayload()
 	obj.SetPayloadSize(uint64(len(payload)))
-	signer := test.RandomSigner(t)
+	signer := neofscryptotest.Signer()
 
 	// prepare request
 	r, err := encodeReplicateRequestWithoutPayload(signer, hdr, len(payload))

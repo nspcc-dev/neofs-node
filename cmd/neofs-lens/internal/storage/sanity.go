@@ -207,11 +207,7 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 func checkObject(objHeader object.Object, storage commonb.Storage) error {
 	// header len check
 
-	raw, err := objHeader.Marshal()
-	if err != nil {
-		return fmt.Errorf("object from metabase cannot be marshaled: %w", err)
-	}
-
+	raw := objHeader.Marshal()
 	if lenRead := len(raw); lenRead > object.MaxHeaderLen {
 		return fmt.Errorf("header cannot be larger than %d bytes, read %d", object.MaxHeaderLen, lenRead)
 	}
@@ -226,12 +222,7 @@ func checkObject(objHeader object.Object, storage commonb.Storage) error {
 		return fmt.Errorf("object get from %s storage: %w", storage.Type(), err)
 	}
 
-	storageRaw, err := res.Object.CutPayload().Marshal()
-	if err != nil {
-		return fmt.Errorf("object from %s storage cannot be marshaled: %w", storage.Type(), err)
-	}
-
-	if !bytes.Equal(raw, storageRaw) {
+	if !bytes.Equal(raw, res.Object.CutPayload().Marshal()) {
 		return errors.New("object from metabase does not match object from storage")
 	}
 

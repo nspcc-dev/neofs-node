@@ -182,14 +182,14 @@ func TestV2Split(t *testing.T) {
 	restrictedAttr.SetKey(attrKey)
 	restrictedAttr.SetValue(attrVal)
 
-	originalObject := objecttest.Object(t)
+	originalObject := objecttest.Object()
 	originalObject.SetAttributes(restrictedAttr)
 	originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
 	originalObject.SetSignature(&neofscrypto.Signature{})
 
 	originalObjectV2 := originalObject.ToV2()
 
-	firstObject := objecttest.Object(t)
+	firstObject := objecttest.Object()
 	firstObject.SetSplitID(nil) // not V1 split
 	firstObject.SetParent(&originalObject)
 	require.NoError(t, firstObject.CalculateAndSetID())
@@ -264,7 +264,7 @@ func TestV2Split(t *testing.T) {
 	})
 
 	t.Run("allow cause no restricted attribute found", func(t *testing.T) {
-		originalObjectNoRestrictedAttr := objecttest.Object(t)
+		originalObjectNoRestrictedAttr := objecttest.Object()
 		originalObjectNoRestrictedAttr.SetID(oid.ID{}) // no object ID for an original object in the first object
 		originalObjectNoRestrictedAttr.SetSignature(&neofscrypto.Signature{})
 

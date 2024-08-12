@@ -628,6 +628,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	// it is assumed that at the moment the key will be valid,
 	// otherwise the request would not pass validation
 	info.senderKey = res.key
+	info.senderAccount = res.account
 
 	// add bearer token if it is present in request
 	info.bearer = req.bearer

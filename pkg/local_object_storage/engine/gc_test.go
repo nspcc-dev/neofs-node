@@ -26,7 +26,7 @@ func TestChildrenExpiration(t *testing.T) {
 	const numOfShards = 5
 	const currEpoch = 10
 	es := &epochState{e: currEpoch}
-	owner := usertest.ID(t)
+	owner := usertest.ID()
 
 	e := New()
 	for i := 0; i < numOfShards; i++ {

@@ -231,8 +231,15 @@ func (s *morphExecutor) SetExtendedACL(_ context.Context, tokV2 *sessionV2.Token
 		return nil, errors.New("missing signature")
 	}
 
+	var table eaclSDK.Table
+	if eacl := body.GetEACL(); eacl != nil {
+		if err := table.ReadFromV2(*body.GetEACL()); err != nil {
+			return nil, fmt.Errorf("invalid eACL: %w", err)
+		}
+	}
+
 	eaclInfo := containercore.EACL{
-		Value: eaclSDK.NewTableFromV2(body.GetEACL()),
+		Value: &table,
 	}
 
 	err := eaclInfo.Signature.ReadFromV2(*sigV2)
