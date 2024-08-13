@@ -36,7 +36,7 @@ func (c *Client) SendObjectHeader(o object.Object) error {
 	_, err = c.rpcActor.Wait(tx, vub, err)
 	waitingTook := time.Since(start)
 
-	c.logger.Debug("meta time", zap.Duration("sending", sendingTook), zap.Duration("waiting", waitingTook))
+	c.logger.Info("meta time", zap.Duration("sending", sendingTook), zap.Duration("waiting", waitingTook))
 
 	return err
 }
