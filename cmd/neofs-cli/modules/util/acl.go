@@ -14,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -276,7 +277,24 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 			}
 
 			eacl.AddFormedTarget(r, role, pubs...)
+		case "address": // targets
+			var (
+				err      error
+				accounts []user.ID
+			)
 
+			if len(ss) != 2 {
+				return nil, fmt.Errorf("invalid address: %s", args[i])
+			}
+
+			accounts, err = parseAccountList(ss[1])
+			if err != nil {
+				return nil, err
+			}
+
+			t := eacl.NewTarget()
+			t.SetAccounts(accounts)
+			eacl.AddRecordTarget(r, t)
 		default:
 			return nil, fmt.Errorf("invalid prefix: %s", ss[0])
 		}
@@ -361,6 +379,23 @@ func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
 	}
 
 	return pubs, nil
+}
+
+func parseAccountList(s string) ([]user.ID, error) {
+	parts := strings.Split(s, ",")
+	accounts := make([]user.ID, len(parts))
+
+	for i := range parts {
+		st := strings.TrimSpace(parts[i])
+		acc, err := user.DecodeString(st)
+		if err != nil {
+			return nil, fmt.Errorf("invalid account %q: %w", parts[i], err)
+		}
+
+		accounts[i] = acc
+	}
+
+	return accounts, nil
 }
 
 // eaclOperationsFromString parses list of eacl.Operation separated by comma.

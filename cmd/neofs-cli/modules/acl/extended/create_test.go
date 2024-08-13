@@ -30,6 +30,11 @@ func TestParseTable(t *testing.T) {
 			jsonRecord: `{"operation":"GETRANGE","action":"DENY","filters":[],"targets":[{"role":"ROLE_UNSPECIFIED","keys":["A2QQq7Jgu72on2HAytZaT6FaxcuDs8Or+K7kA4Vvz2Xt"]}]}`,
 		},
 		{
+			name:       "valid rule with account",
+			rule:       "deny getrange address:NWcSSzMkw5Vuq3gFmcih5yfCNxfXjWdKz8",
+			jsonRecord: `{"operation":"GETRANGE","action":"DENY","filters":[],"targets":[{"role":"ROLE_UNSPECIFIED","keys":["NXVYp24sheVFxW8PazdLtZEvUM/gLAhtqQ=="]}]}`,
+		},
+		{
 			name: "missing action",
 			rule: "get obj:a=b others",
 		},
@@ -56,6 +61,10 @@ func TestParseTable(t *testing.T) {
 		{
 			name: "invalid public key",
 			rule: "deny get obj:a=b pubkey:0123",
+		},
+		{
+			name: "invalid account",
+			rule: "deny get obj:a=b account:1234",
 		},
 	}
 

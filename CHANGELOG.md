@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Support for 0.20.0+ neofs-contract archive format (#2872)
 - `neofs-cli control object status` command (#2886)
 - Check the account alongside the public key in ACL (#2883)
+- Allow addresses to be used in EACLs created from CLI (#2914)
 
 ### Fixed
 - Control service's Drop call does not clean metabase (#2822)

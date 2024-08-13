@@ -41,7 +41,8 @@ Target is
   'user' for container owner, 
   'system' for Storage nodes in container and Inner Ring nodes,
   'others' for all other request senders, 
-  'pubkey:<key1>,<key2>,...' for exact request sender, where <key> is a hex-encoded 33-byte public key.
+  'pubkey:<key1>,<key2>,...' for exact request sender, where <key> is a hex-encoded 33-byte public key,
+  'address:<adr1>,<adr2>,...' for exact request sender, where <adr> is a base58 25-byte address. Example: NSiVJYZej4XsxG5CUpdwn7VRQk8iiiDMPM.
 
 When both '--rule' and '--file' arguments are used, '--rule' records will be placed higher in resulting extended ACL table.
 `,
