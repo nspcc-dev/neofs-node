@@ -34,9 +34,7 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	binTable := e.Table()
 
 	// unmarshal table
-	table := eacl.NewTable()
-
-	err := table.Unmarshal(binTable)
+	table, err := eacl.Unmarshal(binTable)
 	if err != nil {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
@@ -99,7 +97,7 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	}
 }
 
-func validateEACL(t *eacl.Table) error {
+func validateEACL(t eacl.Table) error {
 	var b big.Int
 	for _, record := range t.Records() {
 		for _, target := range record.Targets() {

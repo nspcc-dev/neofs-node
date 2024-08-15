@@ -90,7 +90,7 @@ func TestValidateEACL(t *testing.T) {
 		tb := anyValidEACL()
 		tb.AddRecord(&r)
 
-		err := ValidateEACLTable(&tb)
+		err := ValidateEACLTable(tb)
 		require.ErrorContains(t, err, "non-empty value in absence filter")
 
 		r = eacl.Record{}
@@ -98,7 +98,7 @@ func TestValidateEACL(t *testing.T) {
 		tb = anyValidEACL()
 		tb.AddRecord(&r)
 
-		err = ValidateEACLTable(&tb)
+		err = ValidateEACLTable(tb)
 		require.NoError(t, err)
 	})
 
@@ -124,7 +124,7 @@ func TestValidateEACL(t *testing.T) {
 				tb := anyValidEACL()
 				tb.AddRecord(&r)
 
-				err := ValidateEACLTable(&tb)
+				err := ValidateEACLTable(tb)
 				if tc.ok {
 					require.NoError(t, err, [2]any{m, tc})
 				} else {
