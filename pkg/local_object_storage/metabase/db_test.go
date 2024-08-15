@@ -1,13 +1,13 @@
 package meta_test
 
 import (
+	"crypto/rand"
 	"os"
 	"strconv"
 	"testing"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -16,7 +16,6 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,12 +75,14 @@ func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
 	ver.SetMajor(2)
 	ver.SetMinor(1)
 
-	csum := checksumtest.Checksum()
+	payload := make([]byte, 10)
+	_, err := rand.Read(payload)
+	require.NoError(t, err)
 
-	var csumTZ checksum.Checksum
-	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
-
-	payload := []byte{1, 2, 3, 4, 5}
+	csum, err := checksum.NewFromData(checksum.SHA256, payload)
+	require.NoError(t, err)
+	csumTZ, err := checksum.NewFromData(checksum.TillichZemor, payload)
+	require.NoError(t, err)
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
