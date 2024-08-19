@@ -94,6 +94,20 @@ jobs:
           sudo python ./tools/src/openssl_config_fix.py
         working-directory: neofs-testcases
 
+      - name: Checkout xk6-neofs repository
+        uses: actions/checkout@v4
+        with:
+          repository: nspcc-dev/xk6-neofs
+          ref: master
+          path: xk6-neofs
+
+      - name: Build xk6-neofs
+        timeout-minutes: 5
+        run: |
+          make install_xk6
+          make build
+        working-directory: xk6-neofs
+
 ################################################################
       - name: Build neofs-node
         timeout-minutes: 5
