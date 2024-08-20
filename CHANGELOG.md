@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.43.0
+
+## [0.43.0] - 2024-08-20 - Jukdo
+
+### Added
 - Indexes inspection command to neofs-lens (#2882)
 - Add objects sanity checker to neofs-lens (#2506)
 - Support for 0.20.0+ neofs-contract archive format (#2872)
@@ -24,13 +38,9 @@ Changelog for NeoFS Node
 - Default max_traceable_blocks Morph setting lowered to 17280 from 2102400 (#2897)
 - `ObjectService`'s `Get`/`Head`/`GetRange` RPC handlers cache up to 10K lists of per-object sorted container nodes (#2896)
 
-### Removed
-
 ### Updated
 - neofs-contract dependency to 0.20.0 (#2872)
 - NeoGo dependency to 0.106.3 (#2872)
-
-### Updating from v0.42.1
 
 ## [0.42.1] - 2024-06-13
 
@@ -2059,7 +2069,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.43.0...master
+[0.43.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.1...v0.43.0
 [0.42.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...v0.42.1
 [0.42.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...v0.42.0
 [0.41.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.0...v0.41.1
