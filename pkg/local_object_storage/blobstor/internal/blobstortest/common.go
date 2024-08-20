@@ -25,21 +25,21 @@ type objectDesc struct {
 	storageID []byte
 }
 
-func TestAll(t *testing.T, cons Constructor, min, max uint64) {
+func TestAll(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("get", func(t *testing.T) {
-		TestGet(t, cons, min, max)
+		TestGet(t, cons, minSize, maxSize)
 	})
 	t.Run("get range", func(t *testing.T) {
-		TestGetRange(t, cons, min, max)
+		TestGetRange(t, cons, minSize, maxSize)
 	})
 	t.Run("delete", func(t *testing.T) {
-		TestDelete(t, cons, min, max)
+		TestDelete(t, cons, minSize, maxSize)
 	})
 	t.Run("exists", func(t *testing.T) {
-		TestExists(t, cons, min, max)
+		TestExists(t, cons, minSize, maxSize)
 	})
 	t.Run("iterate", func(t *testing.T) {
-		TestIterate(t, cons, min, max)
+		TestIterate(t, cons, minSize, maxSize)
 	})
 }
 
@@ -49,11 +49,11 @@ func TestInfo(t *testing.T, cons Constructor, expectedType string, expectedPath 
 	require.Equal(t, expectedPath, s.Path())
 }
 
-func prepare(t *testing.T, count int, s common.Storage, min, max uint64) []objectDesc {
+func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64) []objectDesc {
 	objects := make([]objectDesc, count)
 
 	for i := range objects {
-		objects[i].obj = NewObject(min + uint64(rand.Intn(int(max-min+1)))) // not too large
+		objects[i].obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1)))) // not too large
 		objects[i].addr = objectCore.AddressOf(objects[i].obj)
 		objects[i].raw = objects[i].obj.Marshal()
 	}

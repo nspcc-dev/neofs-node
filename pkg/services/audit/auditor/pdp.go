@@ -90,11 +90,11 @@ func (c *Context) splitPayload(id oid.ID) []uint64 {
 
 	for i := uint64(0); i < hashRangeNumber; i++ {
 		if i < hashRangeNumber-1 {
-			max := size - prev - (hashRangeNumber - i)
-			if max == 0 {
+			maxL := size - prev - (hashRangeNumber - i)
+			if maxL == 0 {
 				prev++
 			} else {
-				prev += rand.Uint64()%max + 1
+				prev += rand.Uint64()%maxL + 1
 			}
 		} else {
 			prev = size

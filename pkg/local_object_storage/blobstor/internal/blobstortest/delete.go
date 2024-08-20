@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDelete(t *testing.T, cons Constructor, min, max uint64) {
+func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
 	require.NoError(t, s.Init())
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	objects := prepare(t, 4, s, min, max)
+	objects := prepare(t, 4, s, minSize, maxSize)
 
 	t.Run("delete non-existent", func(t *testing.T) {
 		var prm common.DeletePrm

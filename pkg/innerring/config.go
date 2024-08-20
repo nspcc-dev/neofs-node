@@ -305,17 +305,17 @@ func parseConfigUint64Condition(v *viper.Viper, key, desc string, cond func(uint
 	return res, nil
 }
 
-func parseConfigUint64Range(v *viper.Viper, key, desc string, min, max uint64) (uint64, error) {
+func parseConfigUint64Range(v *viper.Viper, key, desc string, minV, maxV uint64) (uint64, error) {
 	return parseConfigUint64Condition(v, key, desc, func(val uint64) error {
-		if val < min || val > max {
-			return fmt.Errorf("out of allowable range [%d:%d]", min, max)
+		if val < minV || val > maxV {
+			return fmt.Errorf("out of allowable range [%d:%d]", minV, maxV)
 		}
 		return nil
 	})
 }
 
-func parseConfigUint64Max(v *viper.Viper, key, desc string, max uint64) (uint64, error) {
-	return parseConfigUint64Range(v, key, desc, 0, max)
+func parseConfigUint64Max(v *viper.Viper, key, desc string, maxV uint64) (uint64, error) {
+	return parseConfigUint64Range(v, key, desc, 0, maxV)
 }
 
 func parseConfigDurationCondition(v *viper.Viper, key, desc string, cond func(time.Duration) error) (time.Duration, error) {
