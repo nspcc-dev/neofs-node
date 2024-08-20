@@ -637,8 +637,8 @@ func (c *Client) notaryTxValidationLimit() (uint32, error) {
 		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
 	}
 
-	min := bc + c.notary.txValidTime
-	rounded := (min/c.notary.roundTime + 1) * c.notary.roundTime
+	minIndex := bc + c.notary.txValidTime
+	rounded := (minIndex/c.notary.roundTime + 1) * c.notary.roundTime
 
 	return rounded, nil
 }

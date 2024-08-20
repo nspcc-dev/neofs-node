@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGet(t *testing.T, cons Constructor, min, max uint64) {
+func TestGet(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
 	require.NoError(t, s.Init())
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	objects := prepare(t, 2, s, min, max)
+	objects := prepare(t, 2, s, minSize, maxSize)
 
 	t.Run("missing object", func(t *testing.T) {
 		gPrm := common.GetPrm{Address: oidtest.Address()}

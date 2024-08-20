@@ -128,10 +128,10 @@ func TestEvacuateShard(t *testing.T) {
 func TestEvacuateNetwork(t *testing.T) {
 	var errReplication = errors.New("handler error")
 
-	acceptOneOf := func(objects []*objectSDK.Object, max int) func(oid.Address, *objectSDK.Object) error {
+	acceptOneOf := func(objects []*objectSDK.Object, maxIter int) func(oid.Address, *objectSDK.Object) error {
 		var n int
 		return func(addr oid.Address, obj *objectSDK.Object) error {
-			if n == max {
+			if n == maxIter {
 				return errReplication
 			}
 

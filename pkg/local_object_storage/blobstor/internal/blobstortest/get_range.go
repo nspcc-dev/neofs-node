@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetRange(t *testing.T, cons Constructor, min, max uint64) {
+func TestGetRange(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
 	require.NoError(t, s.Init())
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	objects := prepare(t, 1, s, min, max)
+	objects := prepare(t, 1, s, minSize, maxSize)
 
 	t.Run("missing object", func(t *testing.T) {
 		gPrm := common.GetRangePrm{Address: oidtest.Address()}

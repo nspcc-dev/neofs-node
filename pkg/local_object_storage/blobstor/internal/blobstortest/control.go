@@ -11,12 +11,12 @@ import (
 
 // TestControl checks correctness of a read-only mode.
 // cons must return a storage which is NOT opened.
-func TestControl(t *testing.T, cons Constructor, min, max uint64) {
+func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
 	require.NoError(t, s.Init())
 
-	objects := prepare(t, 10, s, min, max)
+	objects := prepare(t, 10, s, minSize, maxSize)
 	require.NoError(t, s.Close())
 
 	require.NoError(t, s.Open(true))
@@ -32,7 +32,7 @@ func TestControl(t *testing.T, cons Constructor, min, max uint64) {
 
 	t.Run("put fails", func(t *testing.T) {
 		var prm common.PutPrm
-		prm.Object = NewObject(min + uint64(rand.Intn(int(max-min+1))))
+		prm.Object = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 		prm.Address = objectCore.AddressOf(prm.Object)
 
 		_, err := s.Put(prm)

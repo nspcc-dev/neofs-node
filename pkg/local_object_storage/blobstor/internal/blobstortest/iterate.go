@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIterate(t *testing.T, cons Constructor, min, max uint64) {
+func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	s := cons(t)
 	require.NoError(t, s.Open(false))
 	require.NoError(t, s.Init())
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	objects := prepare(t, 10, s, min, max)
+	objects := prepare(t, 10, s, minSize, maxSize)
 
 	// Delete random object to ensure it is not iterated over.
 	const delID = 2
