@@ -209,8 +209,8 @@ func parseEACLTable(tb *eacl.Table, args []string) error {
 		return errors.New("at least 2 arguments must be provided")
 	}
 
-	var action eacl.Action
-	if !action.DecodeString(strings.ToUpper(args[0])) {
+	action, ok := eacl.ActionFromString(strings.ToUpper(args[0]))
+	if !ok {
 		return errors.New("invalid action (expected 'allow' or 'deny')")
 	}
 
@@ -226,29 +226,37 @@ func parseEACLTable(tb *eacl.Table, args []string) error {
 
 	r.SetAction(action)
 
+	records := make([]eacl.Record, 0, len(ops))
+
 	for _, op := range ops {
-		r := *r
-		r.SetOperation(op)
-		tb.AddRecord(&r)
+		var record eacl.Record
+		r.CopyTo(&record)
+
+		record.SetOperation(op)
+		records = append(records, record)
 	}
+
+	tb.SetRecords(records)
 
 	return nil
 }
 
-func parseEACLRecord(args []string) (*eacl.Record, error) {
-	r := new(eacl.Record)
+func parseEACLRecord(args []string) (eacl.Record, error) {
+	var filters []eacl.Filter
+	var targets []eacl.Target
+
 	for i := range args {
 		ss := strings.SplitN(args[i], ":", 2)
 
 		switch prefix := strings.ToLower(ss[0]); prefix {
 		case "req", "obj": // filters
 			if len(ss) != 2 {
-				return nil, fmt.Errorf("invalid filter or target: %s", args[i])
+				return eacl.Record{}, fmt.Errorf("invalid filter or target: %s", args[i])
 			}
 
 			key, value, op, err := parseKVWithOp(ss[1])
 			if err != nil {
-				return nil, fmt.Errorf("invalid filter key-value pair %s: %w", ss[1], err)
+				return eacl.Record{}, fmt.Errorf("invalid filter key-value pair %s: %w", ss[1], err)
 			}
 
 			typ := eacl.HeaderFromRequest
@@ -256,27 +264,31 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 				typ = eacl.HeaderFromObject
 			}
 
-			r.AddFilter(typ, op, key, value)
+			filters = append(filters, eacl.ConstructFilter(typ, key, op, value))
 		case "others", "system", "user", "pubkey": // targets
 			var err error
 
-			var pubs []ecdsa.PublicKey
+			var pubs []*ecdsa.PublicKey
 			if len(ss) == 2 {
 				pubs, err = parseKeyList(ss[1])
 				if err != nil {
-					return nil, err
+					return eacl.Record{}, err
 				}
 			}
 
-			var role eacl.Role
 			if prefix != "pubkey" {
-				role, err = eaclRoleFromString(prefix)
+				role, err := eaclRoleFromString(prefix)
 				if err != nil {
-					return nil, err
+					return eacl.Record{}, err
 				}
+
+				targets = append(targets, eacl.NewTargetByRole(role))
+				continue
 			}
 
-			eacl.AddFormedTarget(r, role, pubs...)
+			var target eacl.Target
+			eacl.SetTargetECDSAKeys(&target, pubs...)
+			targets = append(targets, target)
 		case "address": // targets
 			var (
 				err      error
@@ -284,23 +296,21 @@ func parseEACLRecord(args []string) (*eacl.Record, error) {
 			)
 
 			if len(ss) != 2 {
-				return nil, fmt.Errorf("invalid address: %s", args[i])
+				return eacl.Record{}, fmt.Errorf("invalid address: %s", args[i])
 			}
 
 			accounts, err = parseAccountList(ss[1])
 			if err != nil {
-				return nil, err
+				return eacl.Record{}, err
 			}
 
-			t := eacl.NewTarget()
-			t.SetAccounts(accounts)
-			eacl.AddRecordTarget(r, t)
+			targets = append(targets, eacl.NewTargetByAccounts(accounts))
 		default:
-			return nil, fmt.Errorf("invalid prefix: %s", ss[0])
+			return eacl.Record{}, fmt.Errorf("invalid prefix: %s", ss[0])
 		}
 	}
 
-	return r, nil
+	return eacl.ConstructRecord(eacl.ActionUnspecified, eacl.OperationUnspecified, targets, filters...), nil
 }
 
 func parseKVWithOp(s string) (string, string, eacl.Match, error) {
@@ -356,8 +366,8 @@ func validateDecimal(s string) bool {
 
 // eaclRoleFromString parses eacl.Role from string.
 func eaclRoleFromString(s string) (eacl.Role, error) {
-	var r eacl.Role
-	if !r.DecodeString(strings.ToUpper(s)) {
+	r, ok := eacl.RoleFromString(strings.ToUpper(s))
+	if !ok {
 		return r, fmt.Errorf("unexpected role %s", s)
 	}
 
@@ -365,9 +375,9 @@ func eaclRoleFromString(s string) (eacl.Role, error) {
 }
 
 // parseKeyList parses list of hex-encoded public keys separated by comma.
-func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
+func parseKeyList(s string) ([]*ecdsa.PublicKey, error) {
 	ss := strings.Split(s, ",")
-	pubs := make([]ecdsa.PublicKey, len(ss))
+	pubs := make([]*ecdsa.PublicKey, len(ss))
 	for i := range ss {
 		st := strings.TrimPrefix(ss[i], "0x")
 		pub, err := keys.NewPublicKeyFromString(st)
@@ -375,7 +385,7 @@ func parseKeyList(s string) ([]ecdsa.PublicKey, error) {
 			return nil, fmt.Errorf("invalid public key '%s': %w", ss[i], err)
 		}
 
-		pubs[i] = ecdsa.PublicKey(*pub)
+		pubs[i] = (*ecdsa.PublicKey)(pub)
 	}
 
 	return pubs, nil
@@ -402,9 +412,10 @@ func parseAccountList(s string) ([]user.ID, error) {
 func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 	ss := strings.Split(s, ",")
 	ops := make([]eacl.Operation, len(ss))
+	var ok bool
 
 	for i := range ss {
-		if !ops[i].DecodeString(strings.ToUpper(ss[i])) {
+		if ops[i], ok = eacl.OperationFromString(strings.ToUpper(ss[i])); !ok {
 			return nil, fmt.Errorf("invalid operation: %s", ss[i])
 		}
 	}
@@ -414,7 +425,7 @@ func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 
 // ValidateEACLTable validates eACL table:
 //   - eACL table must not modify [eacl.RoleSystem] access.
-func ValidateEACLTable(t *eacl.Table) error {
+func ValidateEACLTable(t eacl.Table) error {
 	var b big.Int
 	for _, record := range t.Records() {
 		for _, target := range record.Targets() {

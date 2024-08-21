@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -750,8 +749,7 @@ func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 		return true
 	})
 	if err != nil {
-		// https://github.com/nspcc-dev/neofs-sdk-go/pull/615
-		if strings.Contains(err.Error(), "not enough nodes to SELECT from") {
+		if errors.Is(err, netmapsdk.ErrNotEnoughNodes) {
 			return false, nil
 		}
 

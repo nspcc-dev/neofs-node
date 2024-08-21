@@ -86,7 +86,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 		var setEACLPrm internalclient.SetEACLPrm
 		setEACLPrm.SetClient(cli)
-		setEACLPrm.SetTable(*eaclTable)
+		setEACLPrm.SetTable(eaclTable)
 		setEACLPrm.SetPrivateKey(*pk)
 
 		if tok != nil {

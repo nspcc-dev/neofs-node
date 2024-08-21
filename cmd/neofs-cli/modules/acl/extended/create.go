@@ -88,8 +88,8 @@ func createEACL(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	tb := eacl.NewTable()
-	common.ExitOnErr(cmd, "unable to parse provided rules: %w", util.ParseEACLRules(tb, rules))
+	var tb eacl.Table
+	common.ExitOnErr(cmd, "unable to parse provided rules: %w", util.ParseEACLRules(&tb, rules))
 
 	err = util.ValidateEACLTable(tb)
 	common.ExitOnErr(cmd, "table validation: %w", err)

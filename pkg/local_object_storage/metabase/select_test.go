@@ -376,32 +376,40 @@ func TestDB_SelectPayloadHash(t *testing.T) {
 	cs, _ := raw1.PayloadChecksum()
 	payloadHash := [sha256.Size]byte(cs.Value())
 
-	fs := objectSDK.SearchFilters{}
-	fs.AddPayloadHashFilter(objectSDK.MatchStringEqual, payloadHash)
+	t.Run("equal filter", func(t *testing.T) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddPayloadHashFilter(objectSDK.MatchStringEqual, payloadHash)
 
-	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
+	})
 
-	fs = objectSDK.SearchFilters{}
-	fs.AddFilter(objectSDK.FilterPayloadChecksum,
-		hex.EncodeToString(payloadHash[:len(payloadHash)-1]),
-		objectSDK.MatchCommonPrefix)
+	t.Run("common prefix filter", func(t *testing.T) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(objectSDK.FilterPayloadChecksum,
+			hex.EncodeToString(payloadHash[:len(payloadHash)-1]),
+			objectSDK.MatchCommonPrefix)
 
-	testSelect(t, db, cnr, fs, object.AddressOf(raw1))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw1))
+	})
 
-	fs = objectSDK.SearchFilters{}
-	fs.AddPayloadHashFilter(objectSDK.MatchStringNotEqual, payloadHash)
+	t.Run("not equal filter", func(t *testing.T) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddPayloadHashFilter(objectSDK.MatchStringNotEqual, payloadHash)
 
-	testSelect(t, db, cnr, fs, object.AddressOf(raw2))
+		testSelect(t, db, cnr, fs, object.AddressOf(raw2))
+	})
 
-	fs = objectSDK.SearchFilters{}
-	fs.AddFilter(objectSDK.FilterPayloadChecksum,
-		"",
-		objectSDK.MatchNotPresent)
+	t.Run("not present filter", func(t *testing.T) {
+		fs := objectSDK.SearchFilters{}
+		fs.AddFilter(objectSDK.FilterPayloadChecksum,
+			"",
+			objectSDK.MatchNotPresent)
 
-	testSelect(t, db, cnr, fs)
+		testSelect(t, db, cnr, fs)
+	})
 
 	t.Run("invalid hashes", func(t *testing.T) {
-		fs = objectSDK.SearchFilters{}
+		fs := objectSDK.SearchFilters{}
 		otherHash := payloadHash
 		otherHash[0]++
 		fs.AddPayloadHashFilter(objectSDK.MatchStringNotEqual, otherHash)

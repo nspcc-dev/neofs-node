@@ -71,10 +71,11 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 
 	var res container.EACL
 
-	res.Value = eacl.NewTable()
-	if err = res.Value.Unmarshal(rawEACL); err != nil {
+	t, err := eacl.Unmarshal(rawEACL)
+	if err != nil {
 		return nil, err
 	}
+	res.Value = &t
 
 	if len(binToken) > 0 {
 		res.Session = new(session.Container)
