@@ -424,6 +424,8 @@ type cfgGRPC struct {
 	maxChunkSize uint64
 
 	maxAddrAmount uint64
+
+	maxRecvMsgSize atomic.Value // int
 }
 
 type cfgMorph struct {
