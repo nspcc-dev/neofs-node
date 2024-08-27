@@ -168,15 +168,12 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 		} else {
 			var data []byte
 			p := filepath.Join(curPath...)
-			data, err = os.ReadFile(p)
-			if err != nil && errors.Is(err, fs.ErrNotExist) {
+			data, err = getRawObjectBytes(addr.Object(), p)
+			if err != nil && errors.Is(err, apistatus.ObjectNotFound{}) {
 				continue
 			}
 			if err == nil {
-				data, err = extractCombinedObject(addr.Object(), data)
-				if err == nil {
-					data, err = t.Decompress(data)
-				}
+				data, err = t.Decompress(data)
 			}
 			if err != nil {
 				if prm.IgnoreErrors {
