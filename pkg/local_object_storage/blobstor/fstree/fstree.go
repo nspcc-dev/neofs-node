@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -330,14 +332,15 @@ func (t *FSTree) getObjBytes(addr oid.Address) ([]byte, error) {
 // getRawObjectBytes extracts raw object bytes from the storage by path. No
 // decompression is performed.
 func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
-	data, err := os.ReadFile(p)
+	f, err := os.Open(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 		return nil, fmt.Errorf("read file %q: %w", p, err)
 	}
-	data, err = extractCombinedObject(id, data)
+	defer f.Close()
+	data, err := extractCombinedObject(id, f)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -347,7 +350,7 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 	return data, nil
 }
 
-func extractCombinedObject(id oid.ID, data []byte) ([]byte, error) {
+func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 	const (
 		prefixSize = 1
 		idSize     = sha256.Size
@@ -358,25 +361,55 @@ func extractCombinedObject(id oid.ID, data []byte) ([]byte, error) {
 		dataOff   = lengthOff + lengthSize
 	)
 
-	var notFound bool
+	var (
+		comBuf     [dataOff]byte
+		data       []byte
+		isCombined bool
+	)
 
-	for len(data) > dataOff && data[0] == combinedPrefix {
-		notFound = true // The file _is_ combined, so the object _must_ be there.
-		var l = binary.BigEndian.Uint32(data[lengthOff:dataOff])
-		if bytes.Equal(data[idOff:lengthOff], id[:]) {
-			data = data[dataOff : dataOff+int(l)]
-			notFound = false
-			break
+	for {
+		n, err := io.ReadFull(f, comBuf[:])
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				if !isCombined {
+					return comBuf[:n], nil
+				}
+				return nil, fs.ErrNotExist
+			}
+			return nil, err
 		}
-		if len(data) < dataOff+int(l) {
-			break
+		if comBuf[0] != combinedPrefix {
+			st, err := f.Stat()
+			if err != nil {
+				return nil, err
+			}
+			sz := st.Size()
+			if sz > math.MaxInt {
+				return nil, errors.New("too large file")
+			}
+			data = make([]byte, int(sz))
+			copy(data, comBuf[:])
+			_, err = io.ReadFull(f, data[len(comBuf):])
+			if err != nil {
+				return nil, err
+			}
+			return data, nil
 		}
-		data = data[dataOff+int(l):]
+		isCombined = true
+		var l = binary.BigEndian.Uint32(comBuf[lengthOff:dataOff])
+		if bytes.Equal(comBuf[idOff:lengthOff], id[:]) {
+			data = make([]byte, l)
+			_, err = io.ReadFull(f, data)
+			if err != nil {
+				return nil, err
+			}
+			return data, nil
+		}
+		_, err = f.Seek(int64(l), 1)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if notFound {
-		return nil, fs.ErrNotExist // Quite similar in meaning.
-	}
-	return data, nil
 }
 
 // GetRange implements common.Storage.
