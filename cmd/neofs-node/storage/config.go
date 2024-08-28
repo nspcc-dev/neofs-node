@@ -53,16 +53,17 @@ type ShardCfg struct {
 }
 type SubStorageCfg struct {
 	// common for all storages
-	Typ  string
-	Path string
-	Perm fs.FileMode
+	Typ           string
+	Path          string
+	Perm          fs.FileMode
+	FlushInterval time.Duration
 
 	// tree-specific (FS)
-	Depth  uint64
-	NoSync bool
-
-	// Peapod-specific
-	FlushInterval time.Duration
+	Depth                 uint64
+	NoSync                bool
+	CombinedCountLimit    int
+	CombinedSizeLimit     int
+	CombinedSizeThreshold int
 }
 
 // ID returns persistent id of a shard. It is different from the ID used in runtime

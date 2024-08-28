@@ -13,7 +13,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	commonb "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -77,8 +76,7 @@ func sanityCheck(cmd *cobra.Command, _ []string) {
 			default:
 				return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type())
 			case peapod.Type:
-				peapodCfg := peapodconfig.From((*config.Config)(subCfg))
-				sh.p = peapod.New(subCfg.Path(), subCfg.Perm(), peapodCfg.FlushInterval())
+				sh.p = peapod.New(subCfg.Path(), subCfg.Perm(), subCfg.FlushInterval())
 
 				var compressCfg compression.Config
 				err := compressCfg.Init()

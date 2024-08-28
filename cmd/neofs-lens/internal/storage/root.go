@@ -9,7 +9,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	peapodconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -119,15 +118,18 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 			sCfg.Typ = storagesCfg[i].Type()
 			sCfg.Path = storagesCfg[i].Path()
 			sCfg.Perm = storagesCfg[i].Perm()
+			sCfg.FlushInterval = storagesCfg[i].FlushInterval()
 
 			switch storagesCfg[i].Type() {
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
 				sCfg.Depth = sub.Depth()
 				sCfg.NoSync = sub.NoSync()
+				sCfg.CombinedCountLimit = sub.CombinedCountLimit()
+				sCfg.CombinedSizeLimit = sub.CombinedSizeLimit()
+				sCfg.CombinedSizeThreshold = sub.CombinedSizeThreshold()
 			case peapod.Type:
-				peapodCfg := peapodconfig.From((*config.Config)(storagesCfg[i]))
-				sCfg.FlushInterval = peapodCfg.FlushInterval()
+				// Nothing peapod-specific, but it should work.
 			default:
 				return fmt.Errorf("can't initiate storage. invalid storage type: %s", storagesCfg[i].Type())
 			}
@@ -193,7 +195,11 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 						fstree.WithPath(sRead.Path),
 						fstree.WithPerm(sRead.Perm),
 						fstree.WithDepth(sRead.Depth),
-						fstree.WithNoSync(sRead.NoSync)),
+						fstree.WithNoSync(sRead.NoSync),
+						fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
+						fstree.WithCombinedSizeLimit(sRead.CombinedSizeLimit),
+						fstree.WithCombinedSizeThreshold(sRead.CombinedSizeThreshold),
+						fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
 					},

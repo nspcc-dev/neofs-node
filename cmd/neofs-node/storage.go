@@ -153,7 +153,11 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 						fstree.WithPath(sRead.Path),
 						fstree.WithPerm(sRead.Perm),
 						fstree.WithDepth(sRead.Depth),
-						fstree.WithNoSync(sRead.NoSync)),
+						fstree.WithNoSync(sRead.NoSync),
+						fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
+						fstree.WithCombinedSizeLimit(sRead.CombinedSizeLimit),
+						fstree.WithCombinedSizeThreshold(sRead.CombinedSizeThreshold),
+						fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
 					},
