@@ -3,6 +3,7 @@ package control_test
 import (
 	"bytes"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -96,10 +97,8 @@ func equalNodeInfos(n1, n2 *control.NodeInfo) bool {
 		return false
 	}
 
-	for i := range na1 {
-		if na1[i] != na2[i] {
-			return false
-		}
+	if slices.Compare(na1, na2) != 0 {
+		return false
 	}
 
 	a1, a2 := n1.GetAttributes(), n2.GetAttributes()
@@ -119,10 +118,8 @@ func equalNodeInfos(n1, n2 *control.NodeInfo) bool {
 			return false
 		}
 
-		for j := range p1 {
-			if p1[j] != p2[j] {
-				return false
-			}
+		if slices.Compare(p1, p2) != 0 {
+			return false
 		}
 	}
 
