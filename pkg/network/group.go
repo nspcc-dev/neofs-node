@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -108,12 +109,7 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) error {
 		return errors.New("missing network addresses")
 	}
 
-	if cap(as) >= addrNum {
-		as = as[:0]
-	} else {
-		as = make(AddressGroup, 0, addrNum)
-	}
-
+	as = slices.Grow(as, addrNum)[:0]
 	err := iterateParsedAddresses(iter, func(a Address) error {
 		as = append(as, a)
 		return nil
