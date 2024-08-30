@@ -3,6 +3,7 @@ package morph
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
@@ -188,13 +189,10 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 	hasOtherRecord := false
 	mAlreadySetIndices := make(map[int]struct{}, len(additionalRecords))
 
-loop:
 	for i := range records {
-		for j := range additionalRecords {
-			if additionalRecords[j] == records[i] {
-				mAlreadySetIndices[i] = struct{}{}
-				continue loop
-			}
+		if slices.Contains(additionalRecords, records[i]) {
+			mAlreadySetIndices[i] = struct{}{}
+			continue
 		}
 
 		hasOtherRecord = true
