@@ -1,6 +1,7 @@
 package control
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -110,7 +111,7 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 
 	mode, ok := lookUpShardModeFromString(strMode)
 	if !ok {
-		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported mode %s", strMode))
+		common.ExitOnErr(cmd, "", fmt.Errorf("%w: setting %s mode", errors.ErrUnsupported, strMode))
 	}
 
 	req := new(control.SetShardModeRequest)

@@ -1,6 +1,7 @@
 package object
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -116,14 +117,14 @@ func parseSearchFilters(cmd *cobra.Command) (object.SearchFilters, error) {
 		case 2:
 			m, ok := searchUnaryOpVocabulary[words[1]]
 			if !ok {
-				return nil, fmt.Errorf("unsupported unary op: %s", words[1])
+				return nil, fmt.Errorf("%w: unary op: %s", errors.ErrUnsupported, words[1])
 			}
 
 			fs.AddFilter(words[0], "", m)
 		case 3:
 			m, ok := searchBinaryOpVocabulary[words[1]]
 			if !ok {
-				return nil, fmt.Errorf("unsupported binary op: %s", words[1])
+				return nil, fmt.Errorf("%w: binary op: %s", errors.ErrUnsupported, words[1])
 			}
 
 			fs.AddFilter(words[0], words[2], m)
