@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"slices"
 	"sort"
 	"testing"
 
@@ -60,8 +61,7 @@ func TestNewAlphabetList(t *testing.T) {
 		orig := keys.PublicKeys{k[1], k[2], k[3], k[4]}
 		main := keys.PublicKeys{k[1], k[2], k[5], k[4]}
 
-		exp := make(keys.PublicKeys, len(main))
-		copy(exp, main)
+		exp := slices.Clone(main)
 		sort.Sort(exp)
 
 		got, err := newAlphabetList(orig, main)

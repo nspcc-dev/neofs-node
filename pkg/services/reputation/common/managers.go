@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/hrw/v2"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -94,9 +95,7 @@ func (mb *managerBuilder) BuildManagers(epoch uint64, p apireputation.PeerID) ([
 	nmNodes := nm.Nodes()
 
 	// make a copy to keep order consistency of the origin netmap after sorting
-	nodes := make([]apiNetmap.NodeInfo, len(nmNodes))
-
-	copy(nodes, nmNodes)
+	nodes := slices.Clone(nmNodes)
 
 	hrw.Sort(nodes, hashableUint(epoch))
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"strings"
 )
 
@@ -50,6 +51,5 @@ func (x *Config) Value(name string) any {
 // It supports only one level of nesting and is intended to be used
 // to provide default values.
 func (x *Config) SetDefault(from *Config) {
-	x.defaultPath = make([]string, len(from.path))
-	copy(x.defaultPath, from.path)
+	x.defaultPath = slices.Clone(from.path)
 }

@@ -1,6 +1,7 @@
 package pilorama
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -78,8 +79,7 @@ func (f *memoryForest) TreeAddByPath(d CIDDescriptor, treeID string, attr string
 		s.operations = append(s.operations, op)
 	}
 
-	mCopy := make([]KeyValue, len(m))
-	copy(mCopy, m)
+	mCopy := slices.Clone(m)
 	op := s.do(&Move{
 		Parent: node,
 		Meta: Meta{
@@ -161,9 +161,7 @@ func (f *memoryForest) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID Node
 		return nil, nil
 	}
 
-	res := make([]Node, len(children))
-	copy(res, children)
-	return res, nil
+	return slices.Clone(children), nil
 }
 
 // TreeGetOpLog implements the pilorama.Forest interface.

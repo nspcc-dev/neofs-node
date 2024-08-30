@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -619,8 +620,7 @@ func TestContainerNodes_GetNodesForObject(t *testing.T) {
 				require.Equal(t, anyAddr.Container(), cnrID)
 				nodeLists, err := nm.ContainerNodes(policy, cnrID)
 				require.NoError(t, err)
-				res := make([][]netmap.NodeInfo, len(nodeLists))
-				copy(res, nodeLists)
+				res := slices.Clone(nodeLists)
 				res[1] = res[1][:len(res[1])-1]
 				return res, nil
 			}
