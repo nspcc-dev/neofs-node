@@ -1,6 +1,7 @@
 package pilorama
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -185,11 +186,9 @@ func (f *memoryForest) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64)
 func (f *memoryForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 	cidStr := cid.String()
 	if treeID == "" {
-		for k := range f.treeMap {
-			if strings.HasPrefix(k, cidStr) {
-				delete(f.treeMap, k)
-			}
-		}
+		maps.DeleteFunc(f.treeMap, func(k string, _ *state) bool {
+			return strings.HasPrefix(k, cidStr)
+		})
 	} else {
 		fullID := cidStr + "/" + treeID
 		_, ok := f.treeMap[fullID]

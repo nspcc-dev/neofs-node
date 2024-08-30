@@ -1,6 +1,7 @@
 package loadstorage
 
 import (
+	"maps"
 	"slices"
 	"sync"
 
@@ -126,11 +127,9 @@ func (s *Storage) EpochEvent(e uint64) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	for k := range s.mItems {
-		if k.epoch+s.estLifeCycle < e {
-			delete(s.mItems, k)
-		}
-	}
+	maps.DeleteFunc(s.mItems, func(k storageKey, _ *usedSpaceEstimations) bool {
+		return k.epoch+s.estLifeCycle < e
+	})
 }
 
 func finalEstimation(vals []uint64) uint64 {

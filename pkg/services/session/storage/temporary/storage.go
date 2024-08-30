@@ -1,6 +1,7 @@
 package temporary
 
 import (
+	"maps"
 	"sync"
 
 	"github.com/mr-tron/base58"
@@ -52,9 +53,7 @@ func (s *TokenStore) RemoveOld(epoch uint64) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	for k, tok := range s.tokens {
-		if tok.ExpiredAt() <= epoch {
-			delete(s.tokens, k)
-		}
-	}
+	maps.DeleteFunc(s.tokens, func(_ key, tok *storage.PrivateToken) bool {
+		return tok.ExpiredAt() <= epoch
+	})
 }
