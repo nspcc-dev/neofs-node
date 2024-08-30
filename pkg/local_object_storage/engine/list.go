@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"sort"
+	"slices"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -74,9 +74,7 @@ func (e *StorageEngine) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes
 		return ListWithCursorRes{}, ErrEndOfListing
 	}
 
-	sort.Slice(shardIDs, func(i, j int) bool {
-		return shardIDs[i] < shardIDs[j]
-	})
+	slices.Sort(shardIDs)
 
 	// 2. Prepare cursor object.
 	cursor := prm.cursor

@@ -1,7 +1,7 @@
 package loadstorage
 
 import (
-	"sort"
+	"slices"
 	"sync"
 
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -134,9 +134,7 @@ func (s *Storage) EpochEvent(e uint64) {
 }
 
 func finalEstimation(vals []uint64) uint64 {
-	sort.Slice(vals, func(i, j int) bool {
-		return vals[i] < vals[j]
-	})
+	slices.Sort(vals)
 
 	const (
 		lowerRank = 10
