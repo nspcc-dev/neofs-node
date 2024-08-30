@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
 
 ### Removed
 

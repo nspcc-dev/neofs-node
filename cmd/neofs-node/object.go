@@ -256,14 +256,13 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
-	sPut := putsvc.NewService(&transport{clients: putConstructor},
+	sPut := putsvc.NewService(&transport{clients: putConstructor}, c,
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(storageEngine{engine: ls}),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
 		putsvc.WithNetworkMapSource(c.netMapSource),
-		putsvc.WithNetmapKeys(c),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
@@ -757,4 +756,79 @@ func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 	}
 
 	return serverInContainer, nil
+}
+
+// GetContainerNodes reads storage policy of the referenced container from the
+// underlying container storage, reads current network map from the underlying
+// storage, applies the storage policy to it, gathers storage nodes matching the
+// policy and returns sort interface.
+//
+// GetContainerNodes implements [putsvc.NeoFSNetwork].
+func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
+	cnr, err := c.cfgObject.containerNodes.containers.Get(cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("read container by ID: %w", err)
+	}
+	curEpoch, err := c.cfgObject.containerNodes.network.Epoch()
+	if err != nil {
+		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
+	}
+	networkMap, err := c.cfgObject.containerNodes.network.GetNetMapByEpoch(curEpoch)
+	if err != nil {
+		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
+	}
+	policy := cnr.Value.PlacementPolicy()
+	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
+	if err != nil {
+		return nil, fmt.Errorf("apply container storage policy to the network map at current epoch #%d: %w", curEpoch, err)
+	}
+	repCounts := make([]uint, policy.NumberOfReplicas())
+	for i := range repCounts {
+		repCounts[i] = uint(policy.ReplicaNumberByIndex(i))
+	}
+	return &containerNodesSorter{
+		policy: storagePolicyRes{
+			nodeSets:  nodeSets,
+			repCounts: repCounts,
+		},
+		networkMap:     networkMap,
+		cnrID:          cnrID,
+		curEpoch:       curEpoch,
+		containerNodes: c.cfgObject.containerNodes,
+	}, nil
+}
+
+// implements [putsvc.ContainerNodes].
+type containerNodesSorter struct {
+	policy         storagePolicyRes
+	networkMap     *netmapsdk.NetMap
+	cnrID          cid.ID
+	curEpoch       uint64
+	containerNodes *containerNodes
+}
+
+func (x *containerNodesSorter) Unsorted() [][]netmapsdk.NodeInfo { return x.policy.nodeSets }
+func (x *containerNodesSorter) PrimaryCounts() []uint            { return x.policy.repCounts }
+func (x *containerNodesSorter) SortForObject(obj oid.ID) ([][]netmapsdk.NodeInfo, error) {
+	cacheKey := objectNodesCacheKey{epoch: x.curEpoch}
+	cacheKey.addr.SetContainer(x.cnrID)
+	cacheKey.addr.SetObject(obj)
+	res, ok := x.containerNodes.objCache.Get(cacheKey)
+	if ok {
+		return res.nodeSets, res.err
+	}
+	if x.networkMap == nil {
+		var err error
+		if x.networkMap, err = x.containerNodes.network.GetNetMapByEpoch(x.curEpoch); err != nil {
+			// non-persistent error => do not cache
+			return nil, fmt.Errorf("read network map by epoch: %w", err)
+		}
+	}
+	res.repCounts = x.policy.repCounts
+	res.nodeSets, res.err = x.containerNodes.sortContainerNodesFunc(*x.networkMap, x.policy.nodeSets, obj)
+	if res.err != nil {
+		res.err = fmt.Errorf("sort container nodes for object: %w", res.err)
+	}
+	x.containerNodes.objCache.Add(cacheKey, res)
+	return res.nodeSets, res.err
 }
