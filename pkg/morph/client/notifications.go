@@ -172,9 +172,7 @@ func (c *Client) ReceiveAllNotaryRequests() error {
 
 	c.subs.subscribedToAllNotaryEvents = true
 
-	for k := range c.subs.subscribedNotaryEvents {
-		delete(c.subs.subscribedNotaryEvents, k)
-	}
+	clear(c.subs.subscribedNotaryEvents)
 
 	return nil
 }

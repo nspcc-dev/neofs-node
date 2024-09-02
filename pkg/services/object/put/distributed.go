@@ -3,6 +3,7 @@ package putsvc
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -231,11 +232,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 				}
 				return errIncompletePut{singleErr: err}
 			}
-			if uint(cap(nextNodeGroupKeys)) < replRem {
-				nextNodeGroupKeys = make([]string, 0, replRem)
-			} else {
-				nextNodeGroupKeys = nextNodeGroupKeys[:0]
-			}
+			nextNodeGroupKeys = slices.Grow(nextNodeGroupKeys, int(replRem))[:0]
 			for ; nodesCounters[listInd].processed < listLen && uint(len(nextNodeGroupKeys)) < replRem; nodesCounters[listInd].processed++ {
 				j := nodesCounters[listInd].processed
 				pk := nodeLists[listInd][j].PublicKey()

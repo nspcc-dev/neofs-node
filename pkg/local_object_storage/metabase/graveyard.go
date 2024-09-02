@@ -8,7 +8,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
-	"golang.org/x/exp/maps"
 )
 
 // GarbageObject represents descriptor of the
@@ -313,7 +312,7 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 			if uniqueObjectsMap == nil {
 				uniqueObjectsMap = make(map[oid.ID]struct{}, initCap)
 			} else {
-				maps.Clear(uniqueObjectsMap)
+				clear(uniqueObjectsMap)
 			}
 
 			err = listContainerObjects(tx, cidBuff, uniqueObjectsMap, limit-len(resObjects))

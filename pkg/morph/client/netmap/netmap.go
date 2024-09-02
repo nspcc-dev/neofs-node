@@ -1,6 +1,7 @@
 package netmap
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -119,7 +120,7 @@ func decodeNodeInfo(dst *netmap.NodeInfo, itemNode stackitem.Item) error {
 
 	switch node.State.Int64() {
 	default:
-		return fmt.Errorf("unsupported state %v", node.State)
+		return fmt.Errorf("%w: state %v", errors.ErrUnsupported, node.State)
 	case netmaprpc.NodeStateOnline.Int64():
 		dst.SetOnline()
 	case netmaprpc.NodeStateOffline.Int64():

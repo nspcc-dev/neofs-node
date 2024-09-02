@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -393,8 +394,7 @@ func initClient(rpc []string) *rpcclient.Client {
 	var c *rpcclient.Client
 	var err error
 
-	shuffled := make([]string, len(rpc))
-	copy(shuffled, rpc)
+	shuffled := slices.Clone(rpc)
 	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 
 	for _, endpoint := range shuffled {

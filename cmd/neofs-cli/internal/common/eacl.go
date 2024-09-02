@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/version"
@@ -10,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errUnsupportedEACLFormat = errors.New("unsupported eACL format")
+var errUnsupportedEACLFormat = fmt.Errorf("%w: unsupported eACL format", errors.ErrUnsupported)
 
 // ReadEACL reads extended ACL table from eaclPath.
 func ReadEACL(cmd *cobra.Command, eaclPath string) eacl.Table {

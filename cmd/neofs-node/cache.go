@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -345,8 +346,7 @@ func (s *ttlContainerLister) List(id *user.ID) ([]cid.ID, error) {
 	}
 
 	val.mtx.RLock()
-	res := make([]cid.ID, len(val.list))
-	copy(res, val.list)
+	res := slices.Clone(val.list)
 	val.mtx.RUnlock()
 
 	return res, nil

@@ -1,7 +1,8 @@
 package loadstorage
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
@@ -126,17 +127,13 @@ func (s *Storage) EpochEvent(e uint64) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	for k := range s.mItems {
-		if k.epoch+s.estLifeCycle < e {
-			delete(s.mItems, k)
-		}
-	}
+	maps.DeleteFunc(s.mItems, func(k storageKey, _ *usedSpaceEstimations) bool {
+		return k.epoch+s.estLifeCycle < e
+	})
 }
 
 func finalEstimation(vals []uint64) uint64 {
-	sort.Slice(vals, func(i, j int) bool {
-		return vals[i] < vals[j]
-	})
+	slices.Sort(vals)
 
 	const (
 		lowerRank = 10

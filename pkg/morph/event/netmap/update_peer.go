@@ -1,6 +1,7 @@
 package netmap
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -46,7 +47,7 @@ func (s UpdatePeer) NotaryRequest() *payload.P2PNotaryRequest {
 func (s *UpdatePeer) decodeState(state int64) error {
 	switch s.state = nodestate.Type(state); s.state {
 	default:
-		return fmt.Errorf("unsupported node state %d", state)
+		return fmt.Errorf("%w: node state %d", errors.ErrUnsupported, state)
 	case
 		nodestate.Offline,
 		nodestate.Online,

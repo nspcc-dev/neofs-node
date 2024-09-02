@@ -1,7 +1,6 @@
 package keyer
 
 import (
-	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -45,7 +44,7 @@ func (d Dashboard) PrettyPrint(uncompressed, useHex bool) {
 
 	if d.pubKey != nil {
 		if uncompressed {
-			data = elliptic.Marshal(elliptic.P256(), d.pubKey.X, d.pubKey.Y)
+			data = d.pubKey.UncompressedBytes()
 		} else {
 			data = d.pubKey.Bytes()
 		}

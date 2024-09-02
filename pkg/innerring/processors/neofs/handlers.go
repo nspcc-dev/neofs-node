@@ -2,8 +2,8 @@ package neofs
 
 import (
 	"encoding/hex"
+	"slices"
 
-	"github.com/nspcc-dev/neo-go/pkg/util/slice"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
 	"go.uber.org/zap"
@@ -13,7 +13,7 @@ func (np *Processor) handleDeposit(ev event.Event) {
 	deposit := ev.(neofsEvent.Deposit)
 	np.log.Info("notification",
 		zap.String("type", "deposit"),
-		zap.String("id", hex.EncodeToString(slice.CopyReverse(deposit.ID()))))
+		zap.String("id", hex.EncodeToString(copyReverse(deposit.ID()))))
 
 	// send event to the worker pool
 
@@ -29,7 +29,7 @@ func (np *Processor) handleWithdraw(ev event.Event) {
 	withdraw := ev.(neofsEvent.Withdraw)
 	np.log.Info("notification",
 		zap.String("type", "withdraw"),
-		zap.String("id", hex.EncodeToString(slice.CopyReverse(withdraw.ID()))))
+		zap.String("id", hex.EncodeToString(copyReverse(withdraw.ID()))))
 
 	// send event to the worker pool
 
@@ -104,4 +104,11 @@ func (np *Processor) handleUnbind(ev event.Event) {
 		np.log.Warn("neofs processor worker pool drained",
 			zap.Int("capacity", np.pool.Cap()))
 	}
+}
+
+func copyReverse(v []byte) []byte {
+	vCopy := slices.Clone(v)
+	slices.Reverse(vCopy)
+
+	return vCopy
 }
