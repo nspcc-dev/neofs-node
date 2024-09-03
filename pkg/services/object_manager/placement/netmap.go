@@ -3,6 +3,7 @@ package placement
 import (
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -99,17 +100,5 @@ func BuildObjectPlacement(nm *netmapSDK.NetMap, cnrNodes [][]netmapSDK.NodeInfo,
 
 // FlattenNodes appends each row to the flat list.
 func FlattenNodes(ns [][]netmapSDK.NodeInfo) []netmapSDK.NodeInfo {
-	var sz int
-
-	for i := range ns {
-		sz += len(ns[i])
-	}
-
-	result := make([]netmapSDK.NodeInfo, 0, sz)
-
-	for i := range ns {
-		result = append(result, ns[i]...)
-	}
-
-	return result
+	return slices.Concat(ns...)
 }

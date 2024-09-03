@@ -189,14 +189,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 			return fmt.Errorf("sort container nodes for the object: %w", err)
 		}
 		if x.linearReplNum > 0 {
-			var n int
-			for i := range nodeLists {
-				n += len(nodeLists[i])
-			}
-			ns := make([]netmap.NodeInfo, 0, n)
-			for i := range nodeLists {
-				ns = append(ns, nodeLists[i]...)
-			}
+			ns := slices.Concat(nodeLists...)
 			nodeLists = [][]netmap.NodeInfo{ns}
 			replCounts = []uint{x.linearReplNum}
 		} else {

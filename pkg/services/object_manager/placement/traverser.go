@@ -3,6 +3,7 @@ package placement
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -119,17 +120,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 }
 
 func flatNodes(ns [][]netmap.NodeInfo) [][]netmap.NodeInfo {
-	sz := 0
-	for i := range ns {
-		sz += len(ns[i])
-	}
-
-	flat := make([]netmap.NodeInfo, 0, sz)
-	for i := range ns {
-		flat = append(flat, ns[i]...)
-	}
-
-	return [][]netmap.NodeInfo{flat}
+	return [][]netmap.NodeInfo{slices.Concat(ns...)}
 }
 
 // Node is a descriptor of storage node with information required for intra-container communication.

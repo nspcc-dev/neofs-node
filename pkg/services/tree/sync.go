@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"slices"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -365,10 +366,7 @@ func randomizeNodeOrder(cnrNodes []netmap.NodeInfo, pos int) []netmap.NodeInfo {
 		return nil
 	}
 
-	nodes := make([]netmap.NodeInfo, len(cnrNodes)-1)
-	n := copy(nodes, cnrNodes[:pos])
-	copy(nodes[n:], cnrNodes[pos+1:])
-
+	nodes := slices.Concat(cnrNodes[:pos], cnrNodes[pos+1:])
 	rand.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})
