@@ -305,7 +305,6 @@ func (s *Service) syncLoop(ctx context.Context) {
 			var wg sync.WaitGroup
 			for _, cnr := range cnrsToSync {
 				wg.Add(1)
-				cnr := cnr
 				err := s.syncPool.Submit(func() {
 					defer wg.Done()
 					s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))

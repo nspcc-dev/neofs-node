@@ -56,7 +56,6 @@ func (v *Verifier) VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombston
 	wg.SetLimit(maxConcurrentChecks)
 
 	for _, member := range t.Members() {
-		member := member
 		wg.Go(func() error {
 			err := v.verifyMember(ctx, cnr, member)
 			if err != nil {
