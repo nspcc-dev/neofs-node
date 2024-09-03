@@ -14,7 +14,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
-- Go to 1.21 version (#2517)
+- Go to 1.22 version (#2517, #2738)
 
 ### Updating from v0.43.0
 
