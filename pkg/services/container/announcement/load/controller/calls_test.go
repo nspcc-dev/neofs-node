@@ -117,7 +117,7 @@ func TestSimpleScenario(t *testing.T) {
 	// create 2 random values for processing epoch and 1 for some different
 	announces := make([]container.SizeEstimation, 0, goodNum)
 
-	for i := 0; i < goodNum; i++ {
+	for range goodNum {
 		a := randAnnouncement()
 		a.SetEpoch(processEpoch)
 

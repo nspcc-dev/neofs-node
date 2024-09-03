@@ -773,7 +773,7 @@ func BenchmarkSelect(b *testing.B) {
 	db := newDB(b)
 	cid := cidtest.ID()
 
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		var attr objectSDK.Attribute
 		attr.SetKey("myHeader")
 		attr.SetValue(strconv.Itoa(i))
@@ -878,7 +878,7 @@ func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.Sear
 	prm.SetContainerID(cid)
 	prm.SetFilters(fs)
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		res, err := db.Select(prm)
 		if err != nil {
 			b.Fatal(err)

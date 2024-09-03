@@ -27,7 +27,7 @@ func TestListWithCursor(t *testing.T) {
 	expected := make([]object.AddressWithType, 0, total)
 	got := make([]object.AddressWithType, 0, total)
 
-	for i := 0; i < total; i++ {
+	for range total {
 		containerID := cidtest.ID()
 		obj := generateObjectWithCID(t, containerID)
 

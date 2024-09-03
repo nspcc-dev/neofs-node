@@ -426,7 +426,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				resp, err := srv.Replicate(ctx, req)
 				require.NoError(b, err)
 				require.Zero(b, resp.GetStatus().GetCode())

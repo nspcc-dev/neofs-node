@@ -78,7 +78,7 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 
 	nodes := placement.FlattenNodes(ns)
 	bs := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
-	for i := 0; i < len(nodes); i++ {
+	for i := range nodes {
 		if bytes.Equal(nodes[i].PublicKey(), bs) {
 			copy(nodes[i:], nodes[i+1:])
 			nodes = nodes[:len(nodes)-1]

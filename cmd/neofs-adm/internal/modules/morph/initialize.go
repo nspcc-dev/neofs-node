@@ -198,7 +198,7 @@ func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, er
 
 	var size int
 loop:
-	for i := 0; i < len(walletFiles); i++ {
+	for i := range walletFiles {
 		name := glagolitsa.LetterByIndex(i) + ".json"
 		for j := range walletFiles {
 			if walletFiles[j].Name() == name {
@@ -213,7 +213,7 @@ loop:
 	}
 
 	wallets := make([]*wallet.Wallet, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		letter := glagolitsa.LetterByIndex(i)
 		p := filepath.Join(walletDir, letter+".json")
 		w, err := wallet.NewWalletFromFile(p)

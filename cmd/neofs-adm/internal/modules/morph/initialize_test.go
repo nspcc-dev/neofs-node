@@ -82,7 +82,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
 	var pubs []string
-	for i := 0; i < size; i++ {
+	for i := range size {
 		p := filepath.Join(dir, glagolitsa.LetterByIndex(i)+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")
@@ -110,7 +110,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 }
 
 func setTestCredentials(v *viper.Viper, size int) {
-	for i := 0; i < size; i++ {
+	for i := range size {
 		v.Set("credentials."+glagolitsa.LetterByIndex(i), strconv.FormatUint(uint64(i), 10))
 	}
 }

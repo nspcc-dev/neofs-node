@@ -463,7 +463,7 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 	ids := make([]oid.ID, 0, ln)
 	payload := make([]byte, 0, ln*10)
 
-	for i := 0; i < ln; i++ {
+	for i := range ln {
 		ids = append(ids, curID)
 		addr.SetObject(curID)
 

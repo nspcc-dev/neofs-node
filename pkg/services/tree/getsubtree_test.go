@@ -57,7 +57,7 @@ func TestGetSubTree(t *testing.T) {
 	loop:
 		for i := 1; i < len(acc.seen); i++ {
 			parent := acc.seen[i].Body.ParentId
-			for j := 0; j < i; j++ {
+			for j := range i {
 				if acc.seen[j].Body.NodeId == parent {
 					continue loop
 				}

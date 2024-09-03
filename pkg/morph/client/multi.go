@@ -16,7 +16,7 @@ type Endpoint struct {
 func (c *Client) SwitchRPC() bool {
 	c.switchLock.Lock()
 
-	for attempt := 0; attempt < c.cfg.reconnectionRetries; attempt++ {
+	for range c.cfg.reconnectionRetries {
 		if c.switchRPC() {
 			c.switchLock.Unlock()
 

@@ -51,7 +51,7 @@ func BenchmarkExists(b *testing.B) {
 
 func benchmarkExists(b *testing.B, shardNum int) {
 	shards := make([]*shard.Shard, shardNum)
-	for i := 0; i < shardNum; i++ {
+	for i := range shardNum {
 		shards[i] = testNewShard(b, i)
 	}
 
@@ -62,7 +62,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 	})
 
 	addr := oidtest.Address()
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		obj := generateObjectWithCID(b, cidtest.ID())
 		err := Put(e, obj)
 		if err != nil {
@@ -72,7 +72,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		ok, err := e.exists(addr)
 		if err != nil || ok {
 			b.Fatalf("%t %v", ok, err)
@@ -149,7 +149,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 
 func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *StorageEngine {
 	engine := New()
-	for i := 0; i < num; i++ {
+	for i := range num {
 		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(
@@ -210,7 +210,7 @@ func addAttribute(obj *object.Object, key, val string) {
 func testNewEngineWithShardNum(t *testing.T, num int) *StorageEngine {
 	shards := make([]*shard.Shard, 0, num)
 
-	for i := 0; i < num; i++ {
+	for i := range num {
 		shards = append(shards, testNewShard(t, i))
 	}
 

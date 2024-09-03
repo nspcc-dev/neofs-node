@@ -95,7 +95,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		replNum := cfg.policy.NumberOfReplicas()
 		rem = make([]int, 0, replNum)
 
-		for i := 0; i < replNum; i++ {
+		for i := range replNum {
 			if cfg.trackCopies {
 				rem = append(rem, int(cfg.policy.ReplicaNumberByIndex(i)))
 			} else {
@@ -185,7 +185,7 @@ func (t *Traverser) Next() []Node {
 
 	nodes := make([]Node, count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		err := nodes[i].addresses.FromIterator(network.NodeEndpointsIterator(t.vectors[0][i]))
 		if err != nil {
 			return nil

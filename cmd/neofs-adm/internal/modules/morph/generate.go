@@ -211,7 +211,7 @@ func createWallets(fileNameTemplate, label, password string, number uint32) ([]u
 	base := strings.TrimSuffix(fileNameTemplate, ext)
 	walletNumberFormat := fmt.Sprintf("%%0%dd", digitsNum(number))
 
-	for i := 0; i < int(number); i++ {
+	for i := range int(number) {
 		filename := fileNameTemplate
 		if number != 1 {
 			filename = base + "_" + fmt.Sprintf(walletNumberFormat, i) + ext

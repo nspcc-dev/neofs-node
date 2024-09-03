@@ -441,7 +441,7 @@ func TestPrepare_CorrectNR(t *testing.T) {
 	preparator := notaryPreparator(alphaKeys[0].GetScriptHash(), alphaKeysSource(), blockCounter{100, nil})
 
 	for _, test := range tests {
-		for i := 0; i < 1; i++ { // run tests against 3 and 4 witness NR
+		for i := range 1 { // run tests against 3 and 4 witness NR
 			for j, dummyMultisig := range []bool{true, false} { // run tests against empty and dummy multisig/Notary witness
 				method := test.method + strconv.FormatInt(int64(j), 10)
 				preparator.allowNotaryEvent(notaryScriptWithHash{

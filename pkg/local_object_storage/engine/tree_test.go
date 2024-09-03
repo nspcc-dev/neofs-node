@@ -27,7 +27,7 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 	d := pilorama.CIDDescriptor{CID: cid, Position: 0, Size: 1}
 	treeID := "someTree"
 
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		obj := generateObjectWithCID(b, cid)
 		addAttribute(obj, pilorama.AttributeFilename, strconv.Itoa(i))
 		err := Put(e, obj)
@@ -49,7 +49,7 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 		fs.AddFilter(pilorama.AttributeFilename, strconv.Itoa(objCount/2), object.MatchStringEqual)
 		prm.WithFilters(fs)
 
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			res, err := e.Select(prm)
 			if err != nil {
 				b.Fatal(err)
@@ -60,7 +60,7 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 		}
 	})
 	b.Run("TreeGetByPath", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			nodes, err := e.TreeGetByPath(cid, treeID, pilorama.AttributeFilename, []string{strconv.Itoa(objCount / 2)}, true)
 			if err != nil {
 				b.Fatal(err)

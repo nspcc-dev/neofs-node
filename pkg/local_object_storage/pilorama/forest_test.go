@@ -671,7 +671,7 @@ func TestForest_ParallelApply(t *testing.T) {
 // The operations are guaranteed to be applied and returned sorted by `Time`.
 func prepareRandomTree(nodeCount, opCount int) []Move {
 	ops := make([]Move, nodeCount+opCount)
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		ops[i] = Move{
 			Parent: 0,
 			Meta: Meta{
@@ -757,14 +757,14 @@ func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ 
 		require.NoError(t, expected.TreeApply(d, treeID, &ops[i], false))
 	}
 
-	for i := 0; i < iterCount; i++ {
+	for range iterCount {
 		// Shuffle random operations, leave initialization in place.
 		rand.Shuffle(len(ops), func(i, j int) { ops[i], ops[j] = ops[j], ops[i] })
 
 		actual := constructor(t, WithMaxBatchSize(batchSize))
 		wg := new(sync.WaitGroup)
 		ch := make(chan *Move, 0)
-		for i := 0; i < batchSize; i++ {
+		for range batchSize {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -805,7 +805,7 @@ func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB, _ ..
 	}
 
 	const iterCount = 200
-	for i := 0; i < iterCount; i++ {
+	for range iterCount {
 		// Shuffle random operations, leave initialization in place.
 		rand.Shuffle(len(ops), func(i, j int) { ops[i], ops[j] = ops[j], ops[i] })
 
@@ -897,7 +897,7 @@ func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
 	d := CIDDescriptor{cid, 0, 1}
 	treeID := "version"
 	ch := make(chan int, b.N)
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ch <- i
 	}
 
@@ -943,7 +943,7 @@ func testTreeGetByPath(t *testing.T, s Forest) {
 	if mf, ok := s.(*memoryForest); ok {
 		single := mf.treeMap[cid.String()+"/"+treeID]
 		t.Run("test meta", func(t *testing.T) {
-			for i := 0; i < 6; i++ {
+			for i := range 6 {
 				require.Equal(t, uint64(i), single.infoMap[Node(i+1)].Meta.Time)
 			}
 		})

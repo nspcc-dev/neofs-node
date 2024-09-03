@@ -327,7 +327,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 
 		uniqueFilter := make(map[oid.ID]struct{}, lenMM)
 
-		for i := 0; i < lenMM; i++ {
+		for i := range lenMM {
 			if _, alreadySeen := uniqueFilter[mm[i]]; alreadySeen {
 				return ContentMeta{}, fmt.Errorf("storage group contains non-unique member: %s", mm[i])
 			}

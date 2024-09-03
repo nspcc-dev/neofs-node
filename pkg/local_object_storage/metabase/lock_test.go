@@ -149,7 +149,7 @@ func TestDB_Lock(t *testing.T) {
 
 		inhumePrm.SetGCMark()
 
-		for i := 0; i < objsNum; i++ {
+		for i := range objsNum {
 			inhumePrm.SetAddresses(objectcore.AddressOf(objs[i]))
 
 			res, err = db.Inhume(inhumePrm)
@@ -243,7 +243,7 @@ func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Ob
 	lockedObjs := make([]*object.Object, 0, numOfLockedObjs)
 	lockedObjIDs := make([]oid.ID, 0, numOfLockedObjs)
 
-	for i := 0; i < numOfLockedObjs; i++ {
+	for range numOfLockedObjs {
 		obj := generateObjectWithCID(t, cnr)
 		err := putBig(db, obj)
 		require.NoError(t, err)

@@ -185,7 +185,7 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 		)
 		addrs := make([]oid.Address, 0, numOfObj)
 
-		for i := 0; i < numOfObj; i++ {
+		for range numOfObj {
 			raw := generateObject(b)
 			addrs = append(addrs, object.AddressOf(raw))
 
@@ -223,7 +223,7 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 
 	b.Run("serial", func(b *testing.B) {
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			var getPrm meta.GetPrm
 			getPrm.SetAddress(addrs[i%len(addrs)])
 

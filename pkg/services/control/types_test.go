@@ -27,7 +27,7 @@ func generateNetmap() *control.Netmap {
 
 	nodes := make([]*control.NodeInfo, 0, nodeCount)
 
-	for i := 0; i < nodeCount; i++ {
+	for range nodeCount {
 		n := new(control.NodeInfo)
 		n.SetPublicKey(testData(33))
 		n.SetAddresses([]string{testString(), testString()})
@@ -37,7 +37,7 @@ func generateNetmap() *control.Netmap {
 
 		attrs := make([]*control.NodeInfo_Attribute, 0, attrCount)
 
-		for j := 0; j < attrCount; j++ {
+		for range attrCount {
 			a := new(control.NodeInfo_Attribute)
 			a.SetKey(testString())
 			a.SetValue(testString())
@@ -46,7 +46,7 @@ func generateNetmap() *control.Netmap {
 
 			parents := make([]string, 0, parentsCount)
 
-			for k := 0; k < parentsCount; k++ {
+			for range parentsCount {
 				parents = append(parents, testString())
 			}
 

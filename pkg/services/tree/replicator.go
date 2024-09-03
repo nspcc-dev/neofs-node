@@ -93,7 +93,7 @@ func (s *Service) replicationWorker() {
 }
 
 func (s *Service) replicateLoop(ctx context.Context) {
-	for i := 0; i < s.replicatorWorkerCount; i++ {
+	for range s.replicatorWorkerCount {
 		go s.replicationWorker()
 		go s.localReplicationWorker()
 	}

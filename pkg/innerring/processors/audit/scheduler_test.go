@@ -21,7 +21,7 @@ func TestSelect(t *testing.T) {
 
 		m := hitMap(cids)
 
-		for i := 0; i < irSize; i++ {
+		for i := range irSize {
 			s := audit.Select(cids, 0, uint64(i), irSize)
 			require.Equal(t, len(cids)/irSize, len(s))
 
@@ -41,7 +41,7 @@ func TestSelect(t *testing.T) {
 
 		m := hitMap(cids)
 
-		for i := 0; i < irSize; i++ {
+		for i := range irSize {
 			s := audit.Select(cids, 0, uint64(i), irSize)
 
 			for _, id := range s {
@@ -60,7 +60,7 @@ func TestSelect(t *testing.T) {
 
 		m := hitMap(cids)
 
-		for i := 0; i < irSize; i++ {
+		for i := range irSize {
 			s := audit.Select(cids, uint64(i), 0, irSize)
 
 			for _, id := range s {
@@ -78,7 +78,7 @@ func TestSelect(t *testing.T) {
 func generateContainers(n int) []cid.ID {
 	result := make([]cid.ID, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		result[i] = cidtest.ID()
 	}
 

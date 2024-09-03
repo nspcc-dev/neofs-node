@@ -45,10 +45,10 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		var wg sync.WaitGroup
 
-		for i := 0; i < nThreads; i++ {
+		for range nThreads {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -140,7 +140,7 @@ func BenchmarkGet(b *testing.B) {
 					}
 
 					var ach = make(chan oid.Address)
-					for i := 0; i < 100; i++ {
+					for range 100 {
 						go func() {
 							for j := 0; j < nObjects/100; j++ {
 								prm := prm
@@ -153,16 +153,16 @@ func BenchmarkGet(b *testing.B) {
 							}
 						}()
 					}
-					for i := 0; i < nObjects; i++ {
+					for range nObjects {
 						a := <-ach
 						objs = append(objs, a)
 					}
 
 					b.ResetTimer()
-					for n := 0; n < b.N; n++ {
+					for n := range b.N {
 						var wg sync.WaitGroup
 
-						for i := 0; i < tc.nThreads; i++ {
+						for i := range tc.nThreads {
 							wg.Add(1)
 							go func(ind int) {
 								defer wg.Done()

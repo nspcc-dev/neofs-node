@@ -49,7 +49,7 @@ func TestCompression(t *testing.T) {
 
 	bigObj := make([]*objectSDK.Object, objCount)
 	smallObj := make([]*objectSDK.Object, objCount)
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		bigObj[i] = testObject(smallSizeLimit * 2)
 		smallObj[i] = testObject(smallSizeLimit / 2)
 	}

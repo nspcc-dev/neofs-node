@@ -49,7 +49,7 @@ func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		res, err := db.ListWithCursor(prm)
 		if err != nil {
 			if err != meta.ErrEndOfListing {
@@ -75,7 +75,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 	expected := make([]object.AddressWithType, 0, total)
 
 	// fill metabase with objects
-	for i := 0; i < containers; i++ {
+	for range containers {
 		containerID := cidtest.ID()
 
 		// add one regular object
@@ -144,7 +144,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 				expectedIterations--
 			}
 
-			for i := 0; i < expectedIterations; i++ {
+			for range expectedIterations {
 				res, cursor, err = metaListWithCursor(db, uint32(countPerReq), cursor)
 				require.NoError(t, err, "count:%d", countPerReq)
 				got = append(got, res...)
@@ -172,7 +172,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	expected := make(map[string]int, total)
 
 	// fill metabase with objects
-	for i := 0; i < total; i++ {
+	for range total {
 		obj := generateObject(t)
 		err := putBig(db, obj)
 		require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	}
 
 	// add new objects
-	for i := 0; i < total; i++ {
+	for range total {
 		obj := generateObject(t)
 		err = putBig(db, obj)
 		require.NoError(t, err)

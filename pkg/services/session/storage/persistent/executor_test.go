@@ -39,7 +39,7 @@ func TestTokenStore(t *testing.T) {
 
 	tokens := make([]tok, 0, tokenNumber)
 
-	for i := 0; i < tokenNumber; i++ {
+	for i := range tokenNumber {
 		req.SetExpiration(uint64(i))
 
 		res, err := ts.Create(context.Background(), req)

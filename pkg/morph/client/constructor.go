@@ -174,7 +174,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	}
 	cli.setActor(act)
 
-	for attempt := 0; attempt < cfg.reconnectionRetries; attempt++ {
+	for range cfg.reconnectionRetries {
 		err = cli.reachedHeight(cfg.minRequiredHeight)
 		if !errors.Is(err, ErrStaleNodes) {
 			break

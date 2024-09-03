@@ -50,7 +50,7 @@ func TestNewAlphabetList(t *testing.T) {
 		}
 		ln := len(rounds)
 
-		for i := 0; i < ln; i++ {
+		for i := range ln {
 			list, err = newAlphabetList(list, exp)
 			require.NoError(t, err)
 			require.True(t, equalPublicKeyLists(list, rounds[i]))
@@ -132,7 +132,7 @@ func TestUpdateInnerRing(t *testing.T) {
 func generateKeys(n int) (keys.PublicKeys, error) {
 	pubKeys := make(keys.PublicKeys, 0, n)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		privKey, err := keys.NewPrivateKey()
 		if err != nil {
 			return nil, err

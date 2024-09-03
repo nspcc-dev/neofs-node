@@ -121,7 +121,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Vip
 		num = glagolitsa.Size
 	}
 
-	for ind := 0; ind < num; ind++ {
+	for ind := range num {
 		letter := glagolitsa.LetterByIndex(ind)
 		contractHash, err := parseContract(ctx, _logger, cfg, morph,
 			"contracts.alphabet."+letter,

@@ -30,7 +30,7 @@ const (
 
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
-	for i := 0; i < c.workersCount; i++ {
+	for i := range c.workersCount {
 		c.wg.Add(1)
 		go c.flushWorker(i)
 	}
