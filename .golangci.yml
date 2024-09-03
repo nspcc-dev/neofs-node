@@ -58,6 +58,7 @@ linters:
     - gofmt
     - goimports
     - gomodguard
+    - intrange
     - misspell
     - predeclared
     - reassign
