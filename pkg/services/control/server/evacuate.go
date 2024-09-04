@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -78,12 +79,9 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 
 	nodes := placement.FlattenNodes(ns)
 	bs := (*keys.PublicKey)(&s.key.PublicKey).Bytes()
-	for i := range nodes {
-		if bytes.Equal(nodes[i].PublicKey(), bs) {
-			copy(nodes[i:], nodes[i+1:])
-			nodes = nodes[:len(nodes)-1]
-		}
-	}
+	nodes = slices.DeleteFunc(nodes, func(info netmap.NodeInfo) bool {
+		return bytes.Equal(info.PublicKey(), bs)
+	})
 
 	var res replicatorResult
 	var task replicator.Task
