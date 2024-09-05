@@ -445,7 +445,7 @@ func TestDB_GetGarbage(t *testing.T) {
 	var oo []*objectsdk.Object
 	var size uint64
 
-	for i := 0; i < numOfObjs; i++ {
+	for i := range numOfObjs {
 		raw := generateObjectWithCID(t, cID)
 		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
 
@@ -465,7 +465,7 @@ func TestDB_GetGarbage(t *testing.T) {
 	_, err = db.InhumeContainer(cID)
 	require.NoError(t, err)
 
-	for i := 0; i < numOfObjs; i++ {
+	for i := range numOfObjs {
 		garbageObjs, garbageContainers, err := db.GetGarbage(i + 1)
 		require.NoError(t, err)
 		require.Len(t, garbageObjs, i+1)

@@ -35,7 +35,7 @@ func PrettyPrintTableBACL(cmd *cobra.Command, bacl *acl.Basic) {
 	fmt.Fprintln(w, strings.Join(bits, "\t"))
 	// Footer
 	footer := []string{"X F"}
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		footer = append(footer, "U S O B")
 	}
 	fmt.Fprintln(w, strings.Join(footer, "\t"))

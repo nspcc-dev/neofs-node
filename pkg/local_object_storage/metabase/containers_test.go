@@ -23,7 +23,7 @@ func TestDB_Containers(t *testing.T) {
 
 	cids := make(map[string]int, N)
 
-	for i := 0; i < N; i++ {
+	for range N {
 		obj := generateObject(t)
 
 		cnr, _ := obj.ContainerID()
@@ -109,7 +109,7 @@ func TestDB_ContainersCount(t *testing.T) {
 	expected := make([]cid.ID, 0, R+T+SG+L)
 
 	for _, upload := range uploadObjects {
-		for i := 0; i < upload.amount; i++ {
+		for range upload.amount {
 			obj := generateObject(t)
 			obj.SetType(upload.typ)
 
@@ -146,11 +146,11 @@ func TestDB_ContainerSize(t *testing.T) {
 	cids := make(map[cid.ID]int, C)
 	objs := make(map[cid.ID][]*objectSDK.Object, C*N)
 
-	for i := 0; i < C; i++ {
+	for range C {
 		cnr := cidtest.ID()
 		cids[cnr] = 0
 
-		for j := 0; j < N; j++ {
+		for range N {
 			size := rand.Intn(1024)
 
 			parent := generateObjectWithCID(t, cnr)

@@ -33,7 +33,7 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 		_ = e.Close()
 	})
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := e.AddShard(
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(newStorages(filepath.Join(path, strconv.Itoa(i)), errSmallSize))),

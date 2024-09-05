@@ -117,7 +117,7 @@ func BootstrapAddresses(c *config.Config) (addr network.AddressGroup) {
 func Attributes(c *config.Config) (attrs []string) {
 	const maxAttributes = 100
 
-	for i := 0; i < maxAttributes; i++ {
+	for i := range maxAttributes {
 		attr := config.StringSafe(c.Sub(subsection), attributePrefix+"_"+strconv.Itoa(i))
 		if attr == "" {
 			return

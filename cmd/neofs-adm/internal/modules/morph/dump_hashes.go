@@ -64,7 +64,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	}
 
 	var contracts = make([]string, 0, irSize+len(contractList))
-	for i := 0; i < irSize; i++ {
+	for i := range irSize {
 		contracts = append(contracts, getAlphabetNNSDomain(i))
 	}
 	contracts = append(contracts, contractList...)

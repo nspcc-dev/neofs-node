@@ -50,7 +50,7 @@ func TestFixedTimer_Tick(t *testing.T) {
 
 			require.NoError(t, err)
 
-			for i := 0; i < int(test.duration); i++ {
+			for range test.duration {
 				if !timer.Tick() {
 					break
 				}

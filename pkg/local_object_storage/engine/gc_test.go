@@ -29,7 +29,7 @@ func TestChildrenExpiration(t *testing.T) {
 	owner := usertest.ID()
 
 	e := New()
-	for i := 0; i < numOfShards; i++ {
+	for i := range numOfShards {
 		_, err := e.AddShard(
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(

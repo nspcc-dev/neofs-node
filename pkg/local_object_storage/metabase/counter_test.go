@@ -28,13 +28,13 @@ func TestCounters(t *testing.T) {
 
 	t.Run("put", func(t *testing.T) {
 		oo := make([]*object.Object, 0, objCount)
-		for i := 0; i < objCount; i++ {
+		for range objCount {
 			oo = append(oo, generateObject(t))
 		}
 
 		var prm meta.PutPrm
 
-		for i := 0; i < objCount; i++ {
+		for i := range objCount {
 			prm.SetObject(oo[i])
 
 			_, err = db.Put(prm)
@@ -106,7 +106,7 @@ func TestCounters(t *testing.T) {
 
 		// put objects and check that parent info
 		// does not affect the counter
-		for i := 0; i < objCount; i++ {
+		for i := range objCount {
 			o := generateObject(t)
 			if i < objCount/2 { // half of the objs will have the parent
 				o.SetParent(parObj)
@@ -274,7 +274,7 @@ func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Ob
 	parent := generateObject(t)
 
 	oo := make([]*object.Object, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		o := generateObject(t)
 		if withParent {
 			o.SetParent(parent)

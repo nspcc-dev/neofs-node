@@ -36,7 +36,7 @@ func TestOriginalTokens(t *testing.T) {
 	var sTokenV2 session.Token
 	sToken.WriteToV2(&sTokenV2)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		metaHeaders := testGenerateMetaHeader(uint32(i), &bTokenV2, &sTokenV2)
 		res, err := originalSessionToken(metaHeaders)
 		require.NoError(t, err)

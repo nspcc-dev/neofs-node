@@ -34,10 +34,10 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	objs := make(map[string]int)
 	var putPrm shard.PutPrm
 
-	for i := 0; i < C; i++ {
+	for range C {
 		cnr := cidtest.ID()
 
-		for j := 0; j < N; j++ {
+		for range N {
 			obj := generateObjectWithCID(t, cnr)
 			addPayload(obj, 1<<2)
 

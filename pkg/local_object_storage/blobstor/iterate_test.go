@@ -144,7 +144,7 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	//require.NoError(t, b.Init())
 	//
 	//var p string
-	//for i := 0; i < 2; i++ {
+	//for i := range 2 {
 	//	bp := filepath.Join(bs.rootPath, "1", strconv.FormatUint(uint64(i), 10))
 	//	if _, ok := bs.blobovniczas.opened.Get(bp); !ok {
 	//		p = bp

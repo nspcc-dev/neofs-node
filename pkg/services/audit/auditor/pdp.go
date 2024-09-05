@@ -47,7 +47,7 @@ func (c *Context) distributeRanges(p *gamePair) {
 	p.rn1 = make([]*object.Range, hashRangeNumber-1)
 	p.rn2 = make([]*object.Range, hashRangeNumber-1)
 
-	for i := 0; i < hashRangeNumber-1; i++ {
+	for i := range hashRangeNumber - 1 {
 		p.rn1[i] = object.NewRange()
 		p.rn2[i] = object.NewRange()
 	}
@@ -88,7 +88,7 @@ func (c *Context) splitPayload(id oid.ID) []uint64 {
 		notches = make([]uint64, 0, hashRangeNumber)
 	)
 
-	for i := uint64(0); i < hashRangeNumber; i++ {
+	for i := range uint64(hashRangeNumber) {
 		if i < hashRangeNumber-1 {
 			maxL := size - prev - (hashRangeNumber - i)
 			if maxL == 0 {

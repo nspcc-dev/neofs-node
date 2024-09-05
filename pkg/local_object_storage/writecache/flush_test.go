@@ -84,7 +84,7 @@ func TestFlush(t *testing.T) {
 
 		require.NoError(t, wc.Flush(false))
 
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			var mPrm meta.GetPrm
 			mPrm.SetAddress(objects[i].addr)
 			_, err := mb.Get(mPrm)
@@ -115,7 +115,7 @@ func TestFlush(t *testing.T) {
 
 		require.NoError(t, wc.SetMode(mode.Degraded))
 
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			var mPrm meta.GetPrm
 			mPrm.SetAddress(objects[i].addr)
 			_, err := mb.Get(mPrm)

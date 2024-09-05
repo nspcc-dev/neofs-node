@@ -126,7 +126,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	}
 	tmpl.AlphabetDir = filepath.Join(appDir, "alphabet-wallets")
 
-	for i := 0; i < credSize; i++ {
+	for i := range credSize {
 		tmpl.Glagolitics = append(tmpl.Glagolitics, glagolitsa.LetterByIndex(i))
 	}
 

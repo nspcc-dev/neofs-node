@@ -81,7 +81,7 @@ func TestCounters(t *testing.T) {
 
 	const objNumber = 10
 	oo := make([]*object.Object, objNumber)
-	for i := 0; i < objNumber; i++ {
+	for i := range objNumber {
 		oo[i] = generateObject(t)
 	}
 
@@ -105,7 +105,7 @@ func TestCounters(t *testing.T) {
 	t.Run("put", func(t *testing.T) {
 		var prm shard.PutPrm
 
-		for i := 0; i < objNumber; i++ {
+		for i := range objNumber {
 			prm.SetObject(oo[i])
 
 			_, err := sh.Put(prm)
@@ -122,7 +122,7 @@ func TestCounters(t *testing.T) {
 		var prm shard.InhumePrm
 		inhumedNumber := objNumber / 4
 
-		for i := 0; i < inhumedNumber; i++ {
+		for i := range inhumedNumber {
 			prm.MarkAsGarbage(objectcore.AddressOf(oo[i]))
 
 			_, err := sh.Inhume(prm)
@@ -226,7 +226,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 func addrFromObjs(oo []*object.Object) []oid.Address {
 	aa := make([]oid.Address, len(oo))
 
-	for i := 0; i < len(oo); i++ {
+	for i := range len(oo) {
 		aa[i] = objectcore.AddressOf(oo[i])
 	}
 

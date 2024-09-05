@@ -132,7 +132,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 	cID := cidtest.ID()
 	oo := make([]oid.Address, 0, numOfObjs)
 
-	for i := 0; i < numOfObjs; i++ {
+	for i := range numOfObjs {
 		var putPrm shard.PutPrm
 
 		obj := generateObjectWithCID(t, cID)

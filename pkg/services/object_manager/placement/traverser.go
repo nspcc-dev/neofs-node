@@ -3,6 +3,7 @@ package placement
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -95,7 +96,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 		replNum := cfg.policy.NumberOfReplicas()
 		rem = make([]int, 0, replNum)
 
-		for i := 0; i < replNum; i++ {
+		for i := range replNum {
 			if cfg.trackCopies {
 				rem = append(rem, int(cfg.policy.ReplicaNumberByIndex(i)))
 			} else {
@@ -119,17 +120,7 @@ func NewTraverser(opts ...Option) (*Traverser, error) {
 }
 
 func flatNodes(ns [][]netmap.NodeInfo) [][]netmap.NodeInfo {
-	sz := 0
-	for i := range ns {
-		sz += len(ns[i])
-	}
-
-	flat := make([]netmap.NodeInfo, 0, sz)
-	for i := range ns {
-		flat = append(flat, ns[i]...)
-	}
-
-	return [][]netmap.NodeInfo{flat}
+	return [][]netmap.NodeInfo{slices.Concat(ns...)}
 }
 
 // Node is a descriptor of storage node with information required for intra-container communication.
@@ -185,7 +176,7 @@ func (t *Traverser) Next() []Node {
 
 	nodes := make([]Node, count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		err := nodes[i].addresses.FromIterator(network.NodeEndpointsIterator(t.vectors[0][i]))
 		if err != nil {
 			return nil

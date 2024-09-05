@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"slices"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -305,7 +306,6 @@ func (s *Service) syncLoop(ctx context.Context) {
 			var wg sync.WaitGroup
 			for _, cnr := range cnrsToSync {
 				wg.Add(1)
-				cnr := cnr
 				err := s.syncPool.Submit(func() {
 					defer wg.Done()
 					s.log.Debug("syncing container trees...", zap.Stringer("cid", cnr))
@@ -366,10 +366,7 @@ func randomizeNodeOrder(cnrNodes []netmap.NodeInfo, pos int) []netmap.NodeInfo {
 		return nil
 	}
 
-	nodes := make([]netmap.NodeInfo, len(cnrNodes)-1)
-	n := copy(nodes, cnrNodes[:pos])
-	copy(nodes[n:], cnrNodes[pos+1:])
-
+	nodes := slices.Concat(cnrNodes[:pos], cnrNodes[pos+1:])
 	rand.Shuffle(len(nodes), func(i, j int) {
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	})

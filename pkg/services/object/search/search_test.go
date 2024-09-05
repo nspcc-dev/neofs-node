@@ -139,7 +139,7 @@ func testSHA256() (cs [sha256.Size]byte) {
 func generateIDs(num int) []oid.ID {
 	res := make([]oid.ID, num)
 
-	for i := 0; i < num; i++ {
+	for i := range num {
 		res[i].SetSHA256(testSHA256())
 	}
 

@@ -122,7 +122,7 @@ func TestInhumeContainer(t *testing.T) {
 	var oo []*objectsdk.Object
 	var size uint64
 
-	for i := 0; i < numOfObjs; i++ {
+	for i := range numOfObjs {
 		raw := generateObjectWithCID(t, cID)
 		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
 

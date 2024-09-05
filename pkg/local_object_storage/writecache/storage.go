@@ -111,7 +111,7 @@ func (c *cache) deleteFromDB(keys []string) []string {
 		}
 		return nil
 	})
-	for i := 0; i < errorIndex; i++ {
+	for i := range errorIndex {
 		c.objCounters.DecDB()
 		storagelog.Write(c.log,
 			storagelog.AddressField(keys[i]),

@@ -81,7 +81,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	const headerSize = 400
 
 	objects := make([]*objectSDK.Object, objCount)
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		cnr := cidtest.ID()
 		var size int
 		switch i % 6 {
@@ -225,7 +225,7 @@ func TestStream(t *testing.T) {
 
 	const objCount = 5
 	objects := make([]*objectSDK.Object, objCount)
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		cnr := cidtest.ID()
 		obj := generateObjectWithCID(t, cnr)
 		objects[i] = obj
@@ -320,7 +320,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	sh := newCustomShard(t, dir, true, wcOpts, bsOpts(2))
 
 	objects := make([]*objectSDK.Object, objCount)
-	for i := 0; i < objCount; i++ {
+	for i := range objCount {
 		size := (wcSmallObjectSize << (i % 4)) - headerSize
 		obj := generateObjectWithPayload(t, cidtest.ID(), make([]byte, size))
 		objects[i] = obj

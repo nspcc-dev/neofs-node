@@ -70,7 +70,7 @@ func BenchmarkPut(b *testing.B) {
 		objs := prepareObjects(b, b.N)
 		b.ResetTimer()
 		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if err := metaPut(db, objs[index.Add(1)], nil); err != nil {
 				b.Fatal(err)
 			}

@@ -57,7 +57,7 @@ func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	// In a very rare situation we can have multiple partially written copies on disk,
 	// this will be fixed in another issue (we should remove garbage on start).
 	const retryCount = 5
-	for i := 0; i < retryCount; i++ {
+	for i := range retryCount {
 		tmpPath := p + "#" + strconv.FormatUint(uint64(i), 10)
 		err := w.writeAndRename(tmpPath, p, data)
 		if err != syscall.EEXIST || i == retryCount-1 {
