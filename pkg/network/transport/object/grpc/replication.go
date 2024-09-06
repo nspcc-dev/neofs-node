@@ -11,11 +11,13 @@ import (
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	status "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
@@ -178,7 +180,18 @@ func (s *Server) Replicate(_ context.Context, req *objectGRPC.ReplicateRequest) 
 		}}, nil
 	}
 
-	return new(objectGRPC.ReplicateResponse), nil
+	resp := new(objectGRPC.ReplicateResponse)
+	if req.GetSignObject() {
+		resp.ObjectSignature, err = s.metaInfoSignature(*obj)
+		if err != nil {
+			return &objectGRPC.ReplicateResponse{Status: &status.Status{
+				Code:    codeInternal,
+				Message: fmt.Sprintf("failed to sign object meta information: %v", err),
+			}}, nil
+		}
+	}
+
+	return resp, nil
 }
 
 func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
@@ -189,4 +202,42 @@ func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
 	}
 
 	return object.NewFromV2(&msg), nil
+}
+
+func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
+	var deleted []oid.ID
+	var locked []oid.ID
+	switch o.Type() {
+	case object.TypeTombstone:
+		var t object.Tombstone
+		err := t.Unmarshal(o.Payload())
+		if err != nil {
+			return nil, fmt.Errorf("reading tombstoned objects: %w", err)
+		}
+
+		deleted = t.Members()
+	case object.TypeLock:
+		var l object.Lock
+		err := l.Unmarshal(o.Payload())
+		if err != nil {
+			return nil, fmt.Errorf("reading locked objects: %w", err)
+		}
+
+		locked = make([]oid.ID, l.NumberOfMembers())
+		l.ReadMembers(locked)
+	default:
+	}
+
+	metaInfo := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, o.CreationEpoch())
+
+	var sig neofscrypto.Signature
+	err := sig.Calculate(s.signer, metaInfo)
+	if err != nil {
+		return nil, fmt.Errorf("signature failure: %w", err)
+	}
+
+	sigV2 := new(refsv2.Signature)
+	sig.WriteToV2(sigV2)
+
+	return sigV2.StableMarshal(nil), nil
 }

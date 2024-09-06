@@ -10,6 +10,7 @@ import (
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -35,7 +36,7 @@ type Option func(*cfg)
 type Transport interface {
 	// SendReplicationRequestToNode sends a prepared replication request message to
 	// the specified remote node.
-	SendReplicationRequestToNode(ctx context.Context, req []byte, node client.NodeInfo) error
+	SendReplicationRequestToNode(ctx context.Context, req []byte, node client.NodeInfo) (*neofscrypto.Signature, error)
 }
 
 type ClientConstructor interface {
