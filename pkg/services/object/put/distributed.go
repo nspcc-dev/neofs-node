@@ -29,9 +29,10 @@ type preparedObjectTarget interface {
 type distributedTarget struct {
 	placementIterator placementIterator
 
-	obj           *objectSDK.Object
-	objMeta       object.ContentMeta
-	objSharedMeta []byte
+	obj                *objectSDK.Object
+	objMeta            object.ContentMeta
+	networkMagicNumber uint32
+	objSharedMeta      []byte
 
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
@@ -140,7 +141,8 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	default:
 	}
 
-	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs, lockedObjs, t.obj.CreationEpoch())
+	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
+		lockedObjs, t.obj.CreationEpoch(), t.networkMagicNumber)
 	id, _ := t.obj.ID()
 	return id, t.placementIterator.iterateNodesForObject(id, t.sendObject)
 }

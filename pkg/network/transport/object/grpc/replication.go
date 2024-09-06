@@ -228,7 +228,8 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	default:
 	}
 
-	metaInfo := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, o.CreationEpoch())
+	metaInfo := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked,
+		o.CreationEpoch(), s.mNumber)
 
 	var sig neofscrypto.Signature
 	err := sig.Calculate(s.signer, metaInfo)

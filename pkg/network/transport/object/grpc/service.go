@@ -48,16 +48,18 @@ type Node interface {
 type Server struct {
 	srv objectSvc.ServiceServer
 
-	node   Node
-	signer neofscrypto.Signer
+	node    Node
+	signer  neofscrypto.Signer
+	mNumber uint32
 }
 
 // New creates, initializes and returns Server instance.
-func New(c objectSvc.ServiceServer, node Node, signer neofscrypto.Signer) *Server {
+func New(c objectSvc.ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer) *Server {
 	return &Server{
-		srv:    c,
-		node:   node,
-		signer: signer,
+		srv:     c,
+		node:    node,
+		signer:  signer,
+		mNumber: magicNumber,
 	}
 }
 

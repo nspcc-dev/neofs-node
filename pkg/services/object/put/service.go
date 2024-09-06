@@ -100,6 +100,8 @@ type cfg struct {
 	clientConstructor ClientConstructor
 
 	log *zap.Logger
+
+	networkMagic uint32
 }
 
 func defaultCfg() *cfg {
@@ -201,5 +203,11 @@ func WithClientConstructor(v ClientConstructor) Option {
 func WithLogger(l *zap.Logger) Option {
 	return func(c *cfg) {
 		c.log = l
+	}
+}
+
+func WithNetworkMagic(m uint32) Option {
+	return func(c *cfg) {
+		c.networkMagic = m
 	}
 }

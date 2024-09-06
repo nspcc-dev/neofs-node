@@ -257,7 +257,11 @@ func initObjectService(c *cfg) {
 		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
+	mNumber, err := c.shared.basics.cli.MagicNumber()
+	fatalOnErr(err)
+
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c,
+		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
@@ -351,7 +355,7 @@ func initObjectService(c *cfg) {
 		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
 	}
 
-	server := objectTransportGRPC.New(firstSvc, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey))
+	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey))
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
