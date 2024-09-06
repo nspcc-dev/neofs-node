@@ -388,7 +388,7 @@ type netInfo struct {
 	netState netmap.State
 
 	magic interface {
-		MagicNumber() (uint64, error)
+		MagicNumber() (uint32, error)
 	}
 
 	morphClientNetMap *nmClient.Client
@@ -404,7 +404,7 @@ func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 
 	var ni netmapSDK.NetworkInfo
 	ni.SetCurrentEpoch(n.netState.CurrentEpoch())
-	ni.SetMagicNumber(magic)
+	ni.SetMagicNumber(uint64(magic))
 
 	netInfoMorph, err := n.morphClientNetMap.ReadNetworkConfiguration()
 	if err != nil {

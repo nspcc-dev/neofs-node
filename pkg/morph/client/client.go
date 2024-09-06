@@ -533,7 +533,7 @@ func (c *Client) roleList(r noderoles.Role) (keys.PublicKeys, error) {
 
 // MagicNumber returns the magic number of the network
 // to which the underlying RPC node client is connected.
-func (c *Client) MagicNumber() (uint64, error) {
+func (c *Client) MagicNumber() (uint32, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -541,7 +541,7 @@ func (c *Client) MagicNumber() (uint64, error) {
 		return 0, ErrConnectionLost
 	}
 
-	return uint64(c.rpcActor.GetNetwork()), nil
+	return uint32(c.rpcActor.GetNetwork()), nil
 }
 
 // BlockCount returns block count of the network
