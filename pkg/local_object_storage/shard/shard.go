@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -34,10 +33,10 @@ type Shard struct {
 type Option func(*cfg)
 
 // ExpiredTombstonesCallback is a callback handling list of expired tombstones.
-type ExpiredTombstonesCallback func(context.Context, []meta.TombstonedObject)
+type ExpiredTombstonesCallback func([]meta.TombstonedObject)
 
 // ExpiredObjectsCallback is a callback handling list of expired objects.
-type ExpiredObjectsCallback func(context.Context, []oid.Address)
+type ExpiredObjectsCallback func([]oid.Address)
 
 // DeletedLockCallback is a callback handling list of deleted LOCK objects.
 type DeletedLockCallback func([]oid.Address)

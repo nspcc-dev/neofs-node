@@ -141,7 +141,6 @@ func (s *Shard) Init() error {
 		eventChan:   make(chan Event),
 		mEventHandler: map[eventType]*eventHandlers{
 			eventNewEpoch: {
-				cancelFunc: func() {},
 				handlers: []eventHandler{
 					s.collectExpiredObjects,
 					s.collectExpiredTombstones,
