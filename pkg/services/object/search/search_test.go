@@ -115,7 +115,7 @@ func (s *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) searchObjects(exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
+func (c *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
 	v, ok := c.items[exec.containerID().EncodeToString()]
 	if !ok {
 		return nil, nil

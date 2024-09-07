@@ -1,8 +1,6 @@
 package searchsvc
 
 import (
-	"context"
-
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -16,8 +14,6 @@ type statusError struct {
 
 type execCtx struct {
 	svc *Service
-
-	ctx context.Context
 
 	prm Prm
 
@@ -45,10 +41,6 @@ func (exec *execCtx) setLogger(l *zap.Logger) {
 		zap.Bool("with session", exec.prm.common.SessionToken() != nil),
 		zap.Bool("with bearer", exec.prm.common.BearerToken() != nil),
 	)
-}
-
-func (exec execCtx) context() context.Context {
-	return exec.ctx
 }
 
 func (exec execCtx) isLocal() bool {

@@ -1,6 +1,7 @@
 package searchsvc
 
 import (
+	"context"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -68,7 +69,7 @@ func (c *clientConstructorWrapper) get(info client.NodeInfo) (searchClient, erro
 	}, nil
 }
 
-func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
+func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info client.NodeInfo) ([]oid.ID, error) {
 	if exec.prm.forwarder != nil {
 		return exec.prm.forwarder(info, c.client)
 	}
@@ -89,7 +90,7 @@ func (c *clientWrapper) searchObjects(exec *execCtx, info client.NodeInfo) ([]oi
 
 	var prm internalclient.SearchObjectsPrm
 
-	prm.SetContext(exec.context())
+	prm.SetContext(ctx)
 	prm.SetClient(c.client)
 	prm.SetPrivateKey(key)
 	prm.SetSessionToken(exec.prm.common.SessionToken())

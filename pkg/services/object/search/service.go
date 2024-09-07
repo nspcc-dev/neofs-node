@@ -1,6 +1,8 @@
 package searchsvc
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -23,7 +25,7 @@ type Option func(*cfg)
 type searchClient interface {
 	// searchObjects searches objects on the specified node.
 	// MUST NOT modify execCtx as it can be accessed concurrently.
-	searchObjects(*execCtx, client.NodeInfo) ([]oid.ID, error)
+	searchObjects(context.Context, *execCtx, client.NodeInfo) ([]oid.ID, error)
 }
 
 // Containers provides information about NeoFS containers necessary for the

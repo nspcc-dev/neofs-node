@@ -25,7 +25,6 @@ func (s *Service) Search(ctx context.Context, prm Prm) error {
 
 	exec := &execCtx{
 		svc: s,
-		ctx: ctx,
 		prm: prm,
 	}
 
@@ -33,21 +32,21 @@ func (s *Service) Search(ctx context.Context, prm Prm) error {
 
 	exec.setLogger(s.log)
 
-	exec.execute()
+	exec.execute(ctx)
 
 	return exec.statusError.err
 }
 
-func (exec *execCtx) execute() {
+func (exec *execCtx) execute(ctx context.Context) {
 	exec.log.Debug("serving request...")
 
 	// perform local operation
 	exec.executeLocal()
 
-	exec.analyzeStatus(true)
+	exec.analyzeStatus(ctx, true)
 }
 
-func (exec *execCtx) analyzeStatus(execCnr bool) {
+func (exec *execCtx) analyzeStatus(ctx context.Context, execCnr bool) {
 	// analyze local result
 	switch exec.status {
 	default:
@@ -59,8 +58,8 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	}
 
 	if execCnr {
-		exec.executeOnContainer()
-		exec.analyzeStatus(false)
+		exec.executeOnContainer(ctx)
+		exec.analyzeStatus(ctx, false)
 	}
 }
 
