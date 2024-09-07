@@ -88,7 +88,7 @@ func (s *Service) get(ctx context.Context, prm commonPrm, opts ...execOption) st
 		exec.setLogger(s.log)
 	}
 
-	exec.execute()
+	exec.execute() //nolint:contextcheck // It is in fact passed via execCtx
 
 	return exec.statusError
 }
