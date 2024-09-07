@@ -52,10 +52,12 @@ func (s *Service) localReplicationWorker() {
 	}
 }
 
-func (s *Service) replicationWorker() {
+func (s *Service) replicationWorker(ctx context.Context) {
 	for {
 		select {
 		case <-s.closeCh:
+			return
+		case <-ctx.Done():
 			return
 		case task := <-s.replicationTasks:
 			var lastErr error
@@ -64,13 +66,13 @@ func (s *Service) replicationWorker() {
 			task.n.IterateNetworkEndpoints(func(addr string) bool {
 				lastAddr = addr
 
-				c, err := s.cache.get(context.Background(), addr)
+				c, err := s.cache.get(ctx, addr)
 				if err != nil {
 					lastErr = fmt.Errorf("can't create client: %w", err)
 					return false
 				}
 
-				ctx, cancel := context.WithTimeout(context.Background(), s.replicatorTimeout)
+				ctx, cancel := context.WithTimeout(ctx, s.replicatorTimeout)
 				_, lastErr = c.Apply(ctx, task.req)
 				cancel()
 
@@ -94,7 +96,7 @@ func (s *Service) replicationWorker() {
 
 func (s *Service) replicateLoop(ctx context.Context) {
 	for range s.replicatorWorkerCount {
-		go s.replicationWorker()
+		go s.replicationWorker(ctx)
 		go s.localReplicationWorker()
 	}
 	defer func() {
