@@ -42,7 +42,7 @@ type ExpiredTombstonesCallback func(context.Context, []meta.TombstonedObject)
 type ExpiredObjectsCallback func(context.Context, []oid.Address)
 
 // DeletedLockCallback is a callback handling list of deleted LOCK objects.
-type DeletedLockCallback func(context.Context, []oid.Address)
+type DeletedLockCallback func([]oid.Address)
 
 // MetricsWriter is an interface that must store shard's metrics.
 type MetricsWriter interface {

@@ -1,7 +1,6 @@
 package shard_test
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -45,7 +44,7 @@ func TestShard_Lock(t *testing.T) {
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
 		),
-		shard.WithDeletedLockCallback(func(_ context.Context, addresses []oid.Address) {
+		shard.WithDeletedLockCallback(func(addresses []oid.Address) {
 			sh.HandleDeletedLocks(addresses)
 		}),
 	}

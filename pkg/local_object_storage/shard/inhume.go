@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -122,7 +121,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	s.decObjectCounterBy(logical, res.AvailableInhumed())
 
 	if deletedLockObjs := res.DeletedLockObjects(); len(deletedLockObjs) != 0 {
-		s.deletedLockCallBack(context.Background(), deletedLockObjs)
+		s.deletedLockCallBack(deletedLockObjs)
 	}
 
 	return InhumeRes{}, nil
