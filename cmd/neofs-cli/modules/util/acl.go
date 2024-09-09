@@ -236,7 +236,7 @@ func parseEACLTable(tb *eacl.Table, args []string) error {
 		records = append(records, record)
 	}
 
-	tb.SetRecords(records)
+	tb.SetRecords(append(tb.Records(), records...))
 
 	return nil
 }
