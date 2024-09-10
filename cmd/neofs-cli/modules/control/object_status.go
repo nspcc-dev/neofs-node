@@ -13,11 +13,6 @@ import (
 
 const objectFlag = "object"
 
-var objectCmd = &cobra.Command{
-	Use:   "object",
-	Short: "Direct object operations with storage engine",
-}
-
 var objectStatusCmd = &cobra.Command{
 	Use:          "status",
 	Short:        "Check current object status",
