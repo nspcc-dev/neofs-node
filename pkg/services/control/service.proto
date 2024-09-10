@@ -20,6 +20,9 @@ service ControlService {
     // Returns list that contains information about all shards of a node.
     rpc ListShards (ListShardsRequest) returns (ListShardsResponse);
 
+    // Returns list that contains information about all objects in a node.
+    rpc ListObjects (ListObjectsRequest) returns (stream ListObjectsResponse);
+
     // Sets mode of the shard.
     rpc SetShardMode (SetShardModeRequest) returns (SetShardModeResponse);
 
@@ -158,6 +161,34 @@ message ListShardsResponse {
     message Body {
         // List of the node's shards.
         repeated ShardInfo shards = 1;
+    }
+
+    // Body of the response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// Request to list all objects in the node.
+message ListObjectsRequest {
+    // Request body structure.
+    message Body {
+    }
+
+    // Body of the request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// ListObjects response.
+message ListObjectsResponse {
+    // Response body structure.
+    message Body {
+        // Addresses of the object.
+        repeated bytes object_address = 1;
     }
 
     // Body of the response message.

@@ -1,6 +1,9 @@
 package control
 
 import (
+	"errors"
+	"io"
+
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/common"
 )
@@ -12,6 +15,7 @@ const (
 	rpcSetNetmapStatus = "SetNetmapStatus"
 	rpcDropObjects     = "DropObjects"
 	rpcListShards      = "ListShards"
+	rpcListObjects     = "ListObjects"
 	rpcSetShardMode    = "SetShardMode"
 	rpcDumpShard       = "DumpShard"
 	rpcRestoreShard    = "RestoreShard"
@@ -105,6 +109,39 @@ func ListShards(
 	}
 
 	return wResp.m, nil
+}
+
+// ListObjects executes ControlService.ListObjects RPC.
+func ListObjects(
+	cli *client.Client,
+	req *ListObjectsRequest,
+	handleResp func(*ListObjectsResponse),
+	opts ...client.CallOption,
+) error {
+	wReq := &requestWrapper{
+		m: req,
+	}
+
+	stream, err := client.OpenServerStream(cli, common.CallMethodInfoServerStream(serviceName, rpcListObjects), wReq, opts...)
+	if err != nil {
+		return err
+	}
+
+	for {
+		wResp := &listObjectsResponseWrapper{
+			m: new(ListObjectsResponse),
+		}
+		err = stream.ReadMessage(wResp)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		handleResp(wResp.m)
+	}
+
+	return nil
 }
 
 // SetShardMode executes ControlService.SetShardMode RPC.

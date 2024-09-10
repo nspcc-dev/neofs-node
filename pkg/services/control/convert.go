@@ -92,6 +92,25 @@ func (w *listShardsResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	return nil
 }
 
+type listObjectsResponseWrapper struct {
+	m *ListObjectsResponse
+}
+
+func (w *listObjectsResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *listObjectsResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*ListObjectsResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}
+
 type setShardModeResponseWrapper struct {
 	m *SetShardModeResponse
 }
