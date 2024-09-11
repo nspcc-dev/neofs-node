@@ -201,6 +201,9 @@ func (s *Server) ResetEpochTimer(h uint32) error {
 
 func (s *Server) setHealthStatus(hs control.HealthStatus) {
 	s.healthStatus.Store(hs)
+	if s.metrics != nil {
+		s.metrics.SetHealthCheck(int32(hs))
+	}
 }
 
 // HealthStatus returns the current health status of the IR application.
