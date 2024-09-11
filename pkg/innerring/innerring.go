@@ -550,6 +550,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 		setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
 
+		server.setHealthStatus(control.HealthStatus_INITIALIZING_NETWORK)
 		err = deploy.Deploy(ctx, deployPrm)
 		if err != nil {
 			return nil, fmt.Errorf("deploy Sidechain: %w", err)
