@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (exec *execCtx) executeOnContainer() {
+func (exec *execCtx) executeOnContainer(ectx context.Context) {
 	if exec.isLocal() {
 		exec.log.Debug("return result directly")
 		return
@@ -18,7 +18,7 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.log.Debug("trying to execute in container...")
 
-	ctx, cancel := context.WithCancel(exec.context())
+	ctx, cancel := context.WithCancel(ectx)
 	defer cancel()
 
 	mProcessedNodes := make(map[string]struct{})
@@ -85,7 +85,7 @@ func (exec *execCtx) executeOnContainer() {
 				return
 			}
 
-			ids, err := c.searchObjects(exec, info)
+			ids, err := c.searchObjects(ctx, exec, info)
 			if err != nil {
 				lg.Debug("remote operation failed",
 					zap.String("error", err.Error()))

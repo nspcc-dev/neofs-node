@@ -58,7 +58,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epoch),
 		),
-		shard.WithDeletedLockCallback(func(_ context.Context, aa []oid.Address) {
+		shard.WithDeletedLockCallback(func(aa []oid.Address) {
 			sh.HandleDeletedLocks(aa)
 		}),
 		shard.WithExpiredLocksCallback(func(_ context.Context, aa []oid.Address) {

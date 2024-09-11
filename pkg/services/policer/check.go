@@ -117,7 +117,6 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	}
 
 	c := &processPlacementContext{
-		Context:      ctx,
 		object:       addrWithType,
 		checkedNodes: newNodeCache(),
 	}
@@ -129,7 +128,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		default:
 		}
 
-		p.processNodes(c, nn[i], policy.ReplicaNumberByIndex(i))
+		p.processNodes(ctx, c, nn[i], policy.ReplicaNumberByIndex(i))
 	}
 
 	// if context is done, needLocalCopy might not be able to calculate
@@ -182,8 +181,6 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 }
 
 type processPlacementContext struct {
-	context.Context
-
 	// whether the local node is in the object container
 	localNodeInContainer bool
 
@@ -200,8 +197,8 @@ type processPlacementContext struct {
 	checkedNodes *nodeCache
 }
 
-func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
-	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(ctx.object.Address)
+func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext, nodes []netmap.NodeInfo, shortage uint32) {
+	prm := new(headsvc.RemoteHeadPrm).WithObjectAddress(plc.object.Address)
 
 	p.cfg.RLock()
 	headTimeout := p.headTimeout
@@ -216,7 +213,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		// prevent spam with new replicas.
 		// However, additional copies should not be removed in this case,
 		// because we can remove the only copy this way.
-		ctx.checkedNodes.submitReplicaHolder(node)
+		plc.checkedNodes.submitReplicaHolder(node)
 		shortage--
 		uncheckedCopies++
 
@@ -225,7 +222,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		)
 	}
 
-	if ctx.object.Type == object.TypeLock || ctx.object.Type == object.TypeLink {
+	if plc.object.Type == object.TypeLock || plc.object.Type == object.TypeLink {
 		// all nodes of a container must store the `LOCK` and `LINK` objects
 		// for correct object relations handling:
 		//   - `LINK` objects allows treating all children as root object;
@@ -234,7 +231,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 		shortage = uint32(len(nodes))
 	}
 
-	for i := 0; (!ctx.localNodeInContainer || shortage > 0) && i < len(nodes); i++ {
+	for i := 0; (!plc.localNodeInContainer || shortage > 0) && i < len(nodes); i++ {
 		select {
 		case <-ctx.Done():
 			return
@@ -243,20 +240,20 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 
 		isLocalNode := p.netmapKeys.IsLocalKey(nodes[i].PublicKey())
 
-		if !ctx.localNodeInContainer {
-			ctx.localNodeInContainer = isLocalNode
+		if !plc.localNodeInContainer {
+			plc.localNodeInContainer = isLocalNode
 		}
 
 		if shortage == 0 {
 			continue
 		} else if isLocalNode {
-			ctx.needLocalCopy = true
+			plc.needLocalCopy = true
 
 			shortage--
 		} else if nodes[i].IsMaintenance() {
 			handleMaintenance(nodes[i])
 		} else {
-			if status := ctx.checkedNodes.processStatus(nodes[i]); status >= 0 {
+			if status := plc.checkedNodes.processStatus(nodes[i]); status >= 0 {
 				if status == 0 {
 					// node already contains replica, no need to replicate
 					nodes = append(nodes[:i], nodes[i+1:]...)
@@ -274,7 +271,7 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 			cancel()
 
 			if errors.Is(err, apistatus.ErrObjectNotFound) {
-				ctx.checkedNodes.submitReplicaCandidate(nodes[i])
+				plc.checkedNodes.submitReplicaCandidate(nodes[i])
 				continue
 			}
 
@@ -282,12 +279,12 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 				handleMaintenance(nodes[i])
 			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
-					zap.Stringer("object", ctx.object.Address),
+					zap.Stringer("object", plc.object.Address),
 					zap.String("error", err.Error()),
 				)
 			} else {
 				shortage--
-				ctx.checkedNodes.submitReplicaHolder(nodes[i])
+				plc.checkedNodes.submitReplicaHolder(nodes[i])
 			}
 		}
 
@@ -297,20 +294,20 @@ func (p *Policer) processNodes(ctx *processPlacementContext, nodes []netmap.Node
 
 	if shortage > 0 {
 		p.log.Debug("shortage of object copies detected",
-			zap.Stringer("object", ctx.object.Address),
+			zap.Stringer("object", plc.object.Address),
 			zap.Uint32("shortage", shortage),
 		)
 
 		var task replicator.Task
-		task.SetObjectAddress(ctx.object.Address)
+		task.SetObjectAddress(plc.object.Address)
 		task.SetNodes(nodes)
 		task.SetCopiesNumber(shortage)
 
-		p.replicator.HandleTask(ctx, task, ctx.checkedNodes)
+		p.replicator.HandleTask(ctx, task, plc.checkedNodes)
 	} else if uncheckedCopies > 0 {
 		// If we have more copies than needed, but some of them are from the maintenance nodes,
 		// save the local copy.
-		ctx.needLocalCopy = true
+		plc.needLocalCopy = true
 		p.log.Debug("some of the copies are stored on nodes under maintenance, save local copy",
 			zap.Int("count", uncheckedCopies))
 	}
