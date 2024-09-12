@@ -75,8 +75,9 @@ func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
 // TombstonedObject represents descriptor of the
 // object that has been covered with tombstone.
 type TombstonedObject struct {
-	addr oid.Address
-	tomb oid.Address
+	addr           oid.Address
+	tomb           oid.Address
+	tombExpiration uint64
 }
 
 // Address returns tombstoned object address.
@@ -88,6 +89,13 @@ func (g TombstonedObject) Address() oid.Address {
 // covers object.
 func (g TombstonedObject) Tombstone() oid.Address {
 	return g.tomb
+}
+
+// TombstoneExpiration returns tombstone's expiration. It can be zero if
+// metabase version does not support expiration indexing or if TS does not
+// expire.
+func (g TombstonedObject) TombstoneExpiration() uint64 {
+	return g.tombExpiration
 }
 
 // TombstonedHandler is a TombstonedObject handling function.
@@ -220,10 +228,18 @@ func garbageFromKV(k []byte) (res GarbageObject, err error) {
 }
 
 func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
-	if err = decodeAddressFromKey(&res.addr, k); err != nil {
-		err = fmt.Errorf("decode tombstone target from key: %w", err)
-	} else if err = decodeAddressFromKey(&res.tomb, v[:addressKeySize]); err != nil {
-		err = fmt.Errorf("decode tombstone address from value: %w", err)
+	err = decodeAddressFromKey(&res.addr, k)
+	if err != nil {
+		return res, fmt.Errorf("decode tombstone target from key: %w", err)
+	}
+
+	err = decodeAddressFromKey(&res.tomb, v[:addressKeySize])
+	if err != nil {
+		return res, fmt.Errorf("decode tombstone address from value: %w", err)
+	}
+
+	if len(v) == addressKeySize+8 {
+		res.tombExpiration = binary.LittleEndian.Uint64(v[addressKeySize:])
 	}
 
 	return
