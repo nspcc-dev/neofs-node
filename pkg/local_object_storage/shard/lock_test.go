@@ -86,7 +86,7 @@ func TestShard_Lock(t *testing.T) {
 		ts := generateObjectWithCID(t, cnr)
 
 		var inhumePrm shard.InhumePrm
-		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), objectcore.AddressOf(obj))
+		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
 
 		_, err = sh.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -100,7 +100,7 @@ func TestShard_Lock(t *testing.T) {
 		ts := generateObjectWithCID(t, cnr)
 
 		var inhumePrm shard.InhumePrm
-		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), objectcore.AddressOf(lock))
+		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
 
 		_, err = sh.Inhume(inhumePrm)
 		require.Error(t, err)

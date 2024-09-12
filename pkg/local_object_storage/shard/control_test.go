@@ -244,7 +244,7 @@ func TestRefillMetabase(t *testing.T) {
 	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
 	var inhumePrm InhumePrm
-	inhumePrm.InhumeByTomb(object.AddressOf(&tombObj), tombMembers...)
+	inhumePrm.InhumeByTomb(object.AddressOf(&tombObj), 0, tombMembers...)
 
 	_, err = sh.Inhume(inhumePrm)
 	require.NoError(t, err)

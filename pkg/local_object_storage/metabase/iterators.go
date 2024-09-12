@@ -146,7 +146,7 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 
 	err := bktGraveyard.ForEach(func(k, v []byte) error {
 		var addr oid.Address
-		if err := decodeAddressFromKey(&addr, v); err != nil {
+		if err := decodeAddressFromKey(&addr, v[:addressKeySize]); err != nil {
 			return err
 		}
 		if _, ok := tss[addr.EncodeToString()]; ok {

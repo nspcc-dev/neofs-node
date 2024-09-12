@@ -40,10 +40,16 @@ Changelog for NeoFS Node
 - `ObjectService`'s `Search` and `Replicate` RPC handlers cache up to 1000 lists of container nodes (#2892)
 - Default max_traceable_blocks Morph setting lowered to 17280 from 2102400 (#2897)
 - `ObjectService`'s `Get`/`Head`/`GetRange` RPC handlers cache up to 10K lists of per-object sorted container nodes (#2896)
+- Metabase graveyard scheme (#2929)
 
 ### Updated
 - neofs-contract dependency to 0.20.0 (#2872)
 - NeoGo dependency to 0.106.3 (#2872)
+
+### Updating from v0.42.1
+It is required to resynchronize metabases due to changed metabase scheme; any
+starts with old metabases will fail. See storage node's config documentation
+for details.
 
 ## [0.42.1] - 2024-06-13
 

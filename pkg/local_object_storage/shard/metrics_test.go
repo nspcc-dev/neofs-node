@@ -145,7 +145,7 @@ func TestCounters(t *testing.T) {
 		logic := mm.objectCounters[logical]
 
 		inhumedNumber := int(phy / 4)
-		prm.InhumeByTomb(ts, addrFromObjs(oo[:inhumedNumber])...)
+		prm.InhumeByTomb(ts, 0, addrFromObjs(oo[:inhumedNumber])...)
 
 		_, err := sh.Inhume(prm)
 		require.NoError(t, err)

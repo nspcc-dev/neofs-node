@@ -35,7 +35,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	putPrm.SetObject(obj)
 
 	var inhPrm shard.InhumePrm
-	inhPrm.InhumeByTomb(object.AddressOf(ts), object.AddressOf(obj))
+	inhPrm.InhumeByTomb(object.AddressOf(ts), 0, object.AddressOf(obj))
 
 	var getPrm shard.GetPrm
 	getPrm.SetAddress(object.AddressOf(obj))

@@ -176,6 +176,10 @@ func (s *Shard) refillMetabase() error {
 		switch obj.Type() {
 		case objectSDK.TypeTombstone:
 			tombstone := objectSDK.NewTombstone()
+			exp, err := object.Expiration(*obj)
+			if err != nil && !errors.Is(err, object.ErrNoExpiration) {
+				return fmt.Errorf("tombstone's expiration: %w", err)
+			}
 
 			if err := tombstone.Unmarshal(obj.Payload()); err != nil {
 				return fmt.Errorf("could not unmarshal tombstone content: %w", err)
@@ -194,7 +198,7 @@ func (s *Shard) refillMetabase() error {
 
 			var inhumePrm meta.InhumePrm
 
-			inhumePrm.SetTombstoneAddress(tombAddr)
+			inhumePrm.SetTombstone(tombAddr, exp)
 			inhumePrm.SetAddresses(tombMembers...)
 
 			_, err = s.metaBase.Inhume(inhumePrm)
