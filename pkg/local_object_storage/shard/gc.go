@@ -252,69 +252,19 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	log.Debug("finished expired objects handling")
 }
 
-func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
+func (s *Shard) collectExpiredTombstones(_ context.Context, e Event) {
 	epoch := e.(newEpoch).epoch
 	log := s.log.With(zap.Uint64("epoch", epoch))
 
 	log.Debug("started expired tombstones handling")
 
-	const tssDeleteBatch = 50
-	tss := make([]meta.TombstonedObject, 0, tssDeleteBatch)
-	tssExp := make([]meta.TombstonedObject, 0, tssDeleteBatch)
-
-	var iterPrm meta.GraveyardIterationPrm
-	iterPrm.SetHandler(func(deletedObject meta.TombstonedObject) error {
-		tss = append(tss, deletedObject)
-
-		if len(tss) == tssDeleteBatch {
-			return meta.ErrInterruptIterator
-		}
-
-		return nil
-	})
-
-	for {
-		log.Debug("iterating tombstones")
-
-		s.m.RLock()
-
-		if s.info.Mode.NoMetabase() {
-			s.log.Debug("shard is in a degraded mode, skip collecting expired tombstones")
-			s.m.RUnlock()
-
-			return
-		}
-
-		err := s.metaBase.IterateOverGraveyard(iterPrm)
-		if err != nil {
-			log.Error("iterator over graveyard failed", zap.Error(err))
-			s.m.RUnlock()
-
-			return
-		}
-
-		s.m.RUnlock()
-
-		tssLen := len(tss)
-		if tssLen == 0 {
-			break
-		}
-
-		for _, ts := range tss {
-			if !s.tsSource.IsTombstoneAvailable(ctx, ts.Tombstone(), epoch) {
-				tssExp = append(tssExp, ts)
-			}
-		}
-
-		log.Debug("handling expired tombstones batch", zap.Int("number", len(tssExp)))
-		s.expiredTombstonesCallback(ctx, tssExp)
-
-		iterPrm.SetOffset(tss[tssLen-1].Address())
-		tss = tss[:0]
-		tssExp = tssExp[:0]
+	dropped, err := s.metaBase.DropExpiredTSMarks(epoch)
+	if err != nil {
+		log.Error("cleaning graveyard up failed", zap.Error(err))
+		return
 	}
 
-	log.Debug("finished expired tombstones handling")
+	log.Debug("finished expired tombstones handling", zap.Int("dropped marks", dropped))
 }
 
 func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {

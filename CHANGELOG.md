@@ -33,6 +33,7 @@ Changelog for NeoFS Node
 - It was impossible to specify memory amount as "1b" (one byte) in config, default was used instead (#2899)
 - Container session token's lifetime was not checked (#2898)
 - ACL checks for split objects could be forced by a node than might lack access (#2909)
+- Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
 
 ### Changed
 - neofs-cli allows several objects deletion at a time (#2774)

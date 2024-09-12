@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -259,6 +260,52 @@ func (db *DB) DropGraves(tss []TombstonedObject) error {
 
 		return nil
 	})
+}
+
+// DropExpiredTSMarks run through the graveyard and drops tombstone marks with
+// tombstones whose expiration is _less_ than provided epoch.
+// Returns number of marks dropped.
+func (db *DB) DropExpiredTSMarks(epoch uint64) (int, error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return -1, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return -1, ErrReadOnlyMode
+	}
+
+	var counter int
+
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket(graveyardBucketName)
+		c := bkt.Cursor()
+		k, v := c.First()
+
+		for k != nil {
+			if binary.LittleEndian.Uint64(v[addressKeySize:]) < epoch {
+				err := c.Delete()
+				if err != nil {
+					return fmt.Errorf("cleared %d TS marks in %d epoch and got error: %w", counter, epoch, err)
+				}
+
+				counter++
+
+				// see https://github.com/etcd-io/bbolt/pull/614; there is not
+				// much we can do with such an unfixed behavior
+				k, v = c.Seek(k)
+			} else {
+				k, v = c.Next()
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, fmt.Errorf("db call: %w", err)
+	}
+
+	return counter, nil
 }
 
 // GetGarbage returns garbage according to the metabase state. Garbage includes
