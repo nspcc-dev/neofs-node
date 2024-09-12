@@ -11,6 +11,7 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -47,14 +48,18 @@ type Node interface {
 type Server struct {
 	srv objectSvc.ServiceServer
 
-	node Node
+	node    Node
+	signer  neofscrypto.Signer
+	mNumber uint32
 }
 
 // New creates, initializes and returns Server instance.
-func New(c objectSvc.ServiceServer, node Node) *Server {
+func New(c objectSvc.ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer) *Server {
 	return &Server{
-		srv:  c,
-		node: node,
+		srv:     c,
+		node:    node,
+		signer:  signer,
+		mNumber: magicNumber,
 	}
 }
 

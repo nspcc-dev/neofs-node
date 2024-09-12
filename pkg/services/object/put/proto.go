@@ -30,6 +30,7 @@ const (
 	_ = iota
 	fieldNumReplicateObject
 	fieldNumReplicateSignature
+	fieldSignObjectMeta
 )
 
 type encodedObject struct {
@@ -66,7 +67,7 @@ func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, e
 	return res, nil
 }
 
-func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.Object, pldLen int) (encodedObject, error) {
+func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.Object, pldLen int, signObjectMeta bool) (encodedObject, error) {
 	var res encodedObject
 	id, ok := hdr.ID()
 	if !ok {
@@ -98,6 +99,7 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 		return res, fmt.Errorf("replicate request exceeds server limit %d", math.MaxInt)
 	}
 	fullLen += protowire.SizeBytes(objFldLen)
+	fullLen += protowire.SizeTag(fieldSignObjectMeta) + protowire.SizeVarint(protowire.EncodeBool(signObjectMeta))
 
 	res.b = getPayload()
 	if cap(res.b) < fullLen {
@@ -105,6 +107,9 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 		res.b = make([]byte, 0, fullLen)
 	}
 
+	// meta signature extension flag
+	res.b = protowire.AppendTag(res.b, fieldSignObjectMeta, protowire.VarintType)
+	res.b = protowire.AppendVarint(res.b, protowire.EncodeBool(signObjectMeta))
 	// signature
 	res.b = protowire.AppendTag(res.b, fieldNumReplicateSignature, protowire.BytesType)
 	res.b = protowire.AppendVarint(res.b, uint64(sigFldLen))

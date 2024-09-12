@@ -1,6 +1,7 @@
 package putsvc
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -21,14 +23,16 @@ import (
 
 type preparedObjectTarget interface {
 	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) error
-	Close() (oid.ID, error)
+	Close() (oid.ID, *neofscrypto.Signature, error)
 }
 
 type distributedTarget struct {
 	placementIterator placementIterator
 
-	obj     *objectSDK.Object
-	objMeta object.ContentMeta
+	obj                *objectSDK.Object
+	objMeta            object.ContentMeta
+	networkMagicNumber uint32
+	objSharedMeta      []byte
 
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
@@ -76,7 +80,7 @@ func (t *distributedTarget) WriteHeader(hdr *objectSDK.Object) error {
 		if t.placementIterator.localOnly {
 			t.encodedObject, err = encodeObjectWithoutPayload(*hdr, int(payloadLen))
 		} else {
-			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen))
+			t.encodedObject, err = encodeReplicateRequestWithoutPayload(t.localNodeSigner, *hdr, int(payloadLen), true)
 		}
 		if err != nil {
 			return fmt.Errorf("encode object into binary: %w", err)
@@ -127,6 +131,18 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		}
 	}
 
+	var deletedObjs []oid.ID
+	var lockedObjs []oid.ID
+	switch t.objMeta.Type() {
+	case objectSDK.TypeTombstone:
+		deletedObjs = t.objMeta.Objects()
+	case objectSDK.TypeLock:
+		lockedObjs = t.objMeta.Objects()
+	default:
+	}
+
+	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
+		lockedObjs, t.obj.CreationEpoch(), t.networkMagicNumber)
 	id, _ := t.obj.ID()
 	return id, t.placementIterator.iterateNodesForObject(id, t.sendObject)
 }
@@ -138,11 +154,31 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteObject(t.obj, t.objMeta, t.encodedObject); err != nil {
+	err := target.WriteObject(t.obj, t.objMeta, t.encodedObject)
+	if err != nil {
 		return fmt.Errorf("could not write header: %w", err)
-	} else if _, err := target.Close(); err != nil {
+	}
+
+	_, sig, err := target.Close()
+	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
+
+	if t.localNodeInContainer && !node.local {
+		if sig == nil {
+			return fmt.Errorf("%w: missing object meta signature", apistatus.ErrSignatureVerification)
+		}
+
+		if !bytes.Equal(sig.PublicKeyBytes(), node.info.PublicKey()) {
+			return fmt.Errorf("%w: public key differs in object meta signature", apistatus.ErrSignatureVerification)
+		}
+
+		if !sig.Verify(t.objSharedMeta) {
+			return fmt.Errorf("%w: %s node did not pass the meta information verification",
+				apistatus.ErrSignatureVerification, network.StringifyGroup(node.info.AddressGroup()))
+		}
+	}
+
 	return nil
 }
 

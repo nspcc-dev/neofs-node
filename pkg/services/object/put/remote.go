@@ -10,6 +10,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -53,14 +54,13 @@ func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta,
 	return nil
 }
 
-func (t *remoteTarget) Close() (oid.ID, error) {
+func (t *remoteTarget) Close() (oid.ID, *neofscrypto.Signature, error) {
 	if t.enc.hdrOff > 0 {
-		err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
+		sig, err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
 		if err != nil {
-			return oid.ID{}, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
+			return oid.ID{}, nil, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
 		}
-		id, _ := t.obj.ID()
-		return id, nil
+		return t.obj.GetID(), sig, nil
 	}
 
 	var sessionInfo *util.SessionInfo
@@ -74,12 +74,12 @@ func (t *remoteTarget) Close() (oid.ID, error) {
 
 	key, err := t.keyStorage.GetKey(sessionInfo)
 	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not receive private key: %w", t, err)
+		return oid.ID{}, nil, fmt.Errorf("(%T) could not receive private key: %w", t, err)
 	}
 
 	c, err := t.clientConstructor.Get(t.nodeInfo)
 	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
+		return oid.ID{}, nil, fmt.Errorf("(%T) could not create SDK client %s: %w", t, t.nodeInfo, err)
 	}
 
 	var prm internalclient.PutObjectPrm
@@ -94,10 +94,10 @@ func (t *remoteTarget) Close() (oid.ID, error) {
 
 	res, err := internalclient.PutObject(prm)
 	if err != nil {
-		return oid.ID{}, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
+		return oid.ID{}, nil, fmt.Errorf("(%T) could not put object to %s: %w", t, t.nodeInfo.AddressGroup(), err)
 	}
 
-	return res.ID(), nil
+	return res.ID(), nil, nil
 }
 
 // NewRemoteSender creates, initializes and returns new RemoteSender instance.
@@ -139,9 +139,13 @@ func (s *RemoteSender) PutObject(ctx context.Context, p *RemotePutPrm) error {
 		return fmt.Errorf("parse client node info: %w", err)
 	}
 
-	if err := t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{}); err != nil {
+	err = t.WriteObject(p.obj, objectcore.ContentMeta{}, encodedObject{})
+	if err != nil {
 		return fmt.Errorf("(%T) could not send object header: %w", s, err)
-	} else if _, err := t.Close(); err != nil {
+	}
+
+	_, _, err = t.Close()
+	if err != nil {
 		return fmt.Errorf("(%T) could not send object: %w", s, err)
 	}
 

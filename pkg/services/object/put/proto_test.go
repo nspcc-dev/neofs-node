@@ -29,7 +29,7 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	signer := neofscryptotest.Signer()
 
 	// prepare request
-	r, err := encodeReplicateRequestWithoutPayload(signer, hdr, len(payload))
+	r, err := encodeReplicateRequestWithoutPayload(signer, hdr, len(payload), true)
 	require.NoError(t, err)
 	require.Equal(t, len(payload), cap(r.b)-r.pldOff)
 	require.Equal(t, len(payload), cap(r.b)-len(r.b))
@@ -55,4 +55,7 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	require.NoError(t, objv2.FromGRPCMessage(req.Object))
 	obj2 := *object.NewFromV2(&objv2)
 	require.Equal(t, obj, obj2)
+
+	// check meta signature flag
+	require.True(t, req.GetSignObject())
 }

@@ -11,7 +11,9 @@ import (
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	. "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -127,8 +129,9 @@ func (x *testNode) VerifyAndStoreObject(obj object.Object) error {
 	return x.storeErr
 }
 
-func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) *objectgrpc.ReplicateRequest {
+func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*objectgrpc.ReplicateRequest, object.Object) {
 	obj := objecttest.Object()
+	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
 	obj.SetID(objID)
 
@@ -141,6 +144,7 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 			Key:  neofscrypto.PublicKeyBytes(signer.Public()),
 			Sign: sig,
 		},
+		SignObject: false,
 	}
 
 	switch signer.Scheme() {
@@ -154,19 +158,19 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 		req.Signature.Scheme = refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT
 	}
 
-	return req
+	return req, obj
 }
 
 func TestServer_Replicate(t *testing.T) {
 	var noCallNode noCallTestNode
 	var noCallObjSvc noCallObjectService
-	noCallSrv := New(noCallObjSvc, &noCallNode)
+	noCallSrv := New(noCallObjSvc, 0, &noCallNode, neofscryptotest.Signer())
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
 	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
 	cnr := cidtest.ID()
 	objID := oidtest.ID()
-	req := anyValidRequest(t, clientSigner, cnr, objID)
+	req, _ := anyValidRequest(t, clientSigner, cnr, objID)
 
 	t.Run("invalid/unsupported signature format", func(t *testing.T) {
 		// note: verification is tested separately
@@ -219,7 +223,7 @@ func TestServer_Replicate(t *testing.T) {
 				expectedMsg:  "unsupported scheme in the object signature field",
 			},
 		} {
-			req := anyValidRequest(t, neofscryptotest.Signer(), cidtest.ID(), oidtest.ID())
+			req, _ := anyValidRequest(t, neofscryptotest.Signer(), cidtest.ID(), oidtest.ID())
 			req.Signature = tc.fSig()
 			resp, err := noCallSrv.Replicate(context.Background(), req)
 			require.NoError(t, err, tc.name)
@@ -324,7 +328,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("apply storage policy failure", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer())
 
 		node.cnrErr = errors.New("any error")
 
@@ -336,7 +340,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("client or server mismatches object's storage policy", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer())
 
 		node.serverOutsideCnr = true
 		node.clientOutsideCnr = true
@@ -356,7 +360,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("local storage failure", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer())
 
 		node.storeErr = errors.New("any error")
 
@@ -366,9 +370,44 @@ func TestServer_Replicate(t *testing.T) {
 		require.Equal(t, "failed to verify and store object locally: any error", resp.GetStatus().GetMessage())
 	})
 
+	t.Run("meta information signature", func(t *testing.T) {
+		var mNumber uint32 = 123
+		signer := neofscryptotest.Signer()
+		reqForSignature, o := anyValidRequest(t, clientSigner, cnr, objID)
+		node := newTestNode(t, serverPubKey, clientPubKey, cnr, reqForSignature.Object)
+		srv := New(noCallObjSvc, mNumber, node, signer)
+
+		t.Run("signature not requested", func(t *testing.T) {
+			resp, err := srv.Replicate(context.Background(), reqForSignature)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, resp.GetStatus().GetCode())
+			require.Empty(t, resp.GetStatus().GetMessage())
+			require.Empty(t, resp.GetObjectSignature())
+		})
+
+		t.Run("signature is requested", func(t *testing.T) {
+			reqForSignature.SignObject = true
+
+			resp, err := srv.Replicate(context.Background(), reqForSignature)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, resp.GetStatus().GetCode())
+			require.Empty(t, resp.GetStatus().GetMessage())
+			require.NotNil(t, resp.GetObjectSignature())
+
+			var sigV2 refsv2.Signature
+			require.NoError(t, sigV2.Unmarshal(resp.GetObjectSignature()))
+
+			var sig neofscrypto.Signature
+			require.NoError(t, sig.ReadFromV2(sigV2))
+
+			require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
+			require.True(t, sig.Verify(objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), nil, nil, o.CreationEpoch(), mNumber)))
+		})
+	})
+
 	t.Run("OK", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, node)
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer())
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -395,7 +434,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var node nopNode
 
-	srv := New(nil, node)
+	srv := New(nil, 0, node, neofscryptotest.Signer())
 
 	for _, tc := range []struct {
 		name      string
@@ -421,7 +460,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 		},
 	} {
 		b.Run(tc.name, func(b *testing.B) {
-			req := anyValidRequest(b, tc.newSigner(b), cidtest.ID(), oidtest.ID())
+			req, _ := anyValidRequest(b, tc.newSigner(b), cidtest.ID(), oidtest.ID())
 
 			b.ReportAllocs()
 			b.ResetTimer()
