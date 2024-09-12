@@ -51,7 +51,6 @@ func TestLockUserScenario(t *testing.T) {
 
 			return pool
 		}),
-		shard.WithTombstoneSource(tss{lockerExpiresAfter}),
 	})
 
 	t.Cleanup(func() {

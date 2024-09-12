@@ -386,59 +386,6 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	require.False(t, iWasCalled)
 }
 
-func TestDB_DropGraves(t *testing.T) {
-	db := newDB(t)
-
-	// generate and put 2 objects
-	obj1 := generateObject(t)
-	obj2 := generateObject(t)
-
-	var err error
-
-	err = putBig(db, obj1)
-	require.NoError(t, err)
-
-	err = putBig(db, obj2)
-	require.NoError(t, err)
-
-	// inhume with tombstone
-	addrTombstone := oidtest.Address()
-
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.SetTombstone(addrTombstone, 0)
-
-	_, err = db.Inhume(inhumePrm)
-	require.NoError(t, err)
-
-	buriedTS := make([]meta.TombstonedObject, 0)
-	var iterGravePRM meta.GraveyardIterationPrm
-	var counter int
-	iterGravePRM.SetHandler(func(tomstoned meta.TombstonedObject) error {
-		buriedTS = append(buriedTS, tomstoned)
-		counter++
-
-		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGravePRM)
-	require.NoError(t, err)
-	require.Equal(t, 2, counter)
-
-	err = db.DropGraves(buriedTS)
-	require.NoError(t, err)
-
-	counter = 0
-	iterGravePRM.SetHandler(func(_ meta.TombstonedObject) error {
-		counter++
-		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGravePRM)
-	require.NoError(t, err)
-	require.Zero(t, counter)
-}
-
 func TestDB_GetGarbage(t *testing.T) {
 	db := newDB(t)
 
