@@ -433,7 +433,7 @@ func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, ms []*M
 		key, value = c.Prev()
 	}
 
-	for i := range len(ms) {
+	for i := range ms {
 		// Loop invariant: key represents the next stored timestamp after ms[i].Time.
 
 		// 2. Insert the operation.
