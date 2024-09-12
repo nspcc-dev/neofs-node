@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - More effective FSTree writer for HDDs, new configuration options for it (#2814)
 
 ### Fixed
+- Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)

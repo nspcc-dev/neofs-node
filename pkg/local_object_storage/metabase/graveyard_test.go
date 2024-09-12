@@ -1,11 +1,13 @@
 package meta_test
 
 import (
+	"math"
 	"strconv"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -483,4 +485,56 @@ func TestDB_GetGarbage(t *testing.T) {
 	require.Len(t, garbageObjs, numOfObjs) // still only numOfObjs are removed
 	require.Len(t, garbageContainers, 1)   // but container can be deleted now
 	require.Equal(t, garbageContainers[0], cID)
+}
+
+func TestDropExpiredTSMarks(t *testing.T) {
+	epoch := uint64(math.MaxUint64 / 2)
+	db := newDB(t)
+	droppedObjects := oidtest.Addresses(1024)
+	tombstone := oidtest.Address()
+
+	var pInh meta.InhumePrm
+	pInh.SetTombstone(tombstone, epoch)
+	pInh.SetAddresses(droppedObjects[:len(droppedObjects)/2]...)
+	_, err := db.Inhume(pInh)
+	require.NoError(t, err)
+
+	pInh.SetTombstone(tombstone, epoch+1)
+	pInh.SetAddresses(droppedObjects[len(droppedObjects)/2:]...)
+	_, err = db.Inhume(pInh)
+	require.NoError(t, err)
+
+	for _, o := range droppedObjects {
+		var pGet meta.GetPrm
+		pGet.SetAddress(o)
+		_, err = db.Get(pGet)
+		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+	}
+
+	res, err := db.DropExpiredTSMarks(epoch + 1)
+	require.NoError(t, err)
+	require.EqualValues(t, len(droppedObjects)/2, res) // first half with epoch + 1 expiration
+
+	for i, o := range droppedObjects {
+		var pGet meta.GetPrm
+		pGet.SetAddress(o)
+
+		_, err = db.Get(pGet)
+		if i < len(droppedObjects)/2 {
+			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+		} else {
+			require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
+		}
+	}
+
+	res, err = db.DropExpiredTSMarks(epoch + 2)
+	require.NoError(t, err)
+	require.EqualValues(t, len(droppedObjects)/2, res) // second half with epoch + 2 expiration
+
+	for _, o := range droppedObjects {
+		var pGet meta.GetPrm
+		pGet.SetAddress(o)
+		_, err = db.Get(pGet)
+		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
+	}
 }
