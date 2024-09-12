@@ -13,15 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TombstoneSource is an interface that checks
-// tombstone status in the NeoFS network.
-type TombstoneSource interface {
-	// IsTombstoneAvailable must return boolean value that means
-	// provided tombstone's presence in the NeoFS network at the
-	// time of the passed epoch.
-	IsTombstoneAvailable(ctx context.Context, addr oid.Address, epoch uint64) bool
-}
-
 // Event represents class of external events.
 type Event interface {
 	typ() eventType
@@ -306,46 +297,6 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond fu
 		return nil, err
 	}
 	return expired, ctx.Err()
-}
-
-// HandleExpiredTombstones marks tombstones themselves as garbage
-// and clears up corresponding graveyard records.
-//
-// Does not modify tss.
-func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
-	if s.GetMode().NoMetabase() {
-		return
-	}
-
-	// Mark tombstones as garbage.
-	var pInhume meta.InhumePrm
-
-	tsAddrs := make([]oid.Address, 0, len(tss))
-	for _, ts := range tss {
-		tsAddrs = append(tsAddrs, ts.Tombstone())
-	}
-
-	pInhume.SetGCMark()
-	pInhume.SetAddresses(tsAddrs...)
-
-	// inhume tombstones
-	res, err := s.metaBase.Inhume(pInhume)
-	if err != nil {
-		s.log.Warn("could not mark tombstones as garbage",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
-
-	// drop just processed expired tombstones
-	// from graveyard
-	err = s.metaBase.DropGraves(tss)
-	if err != nil {
-		s.log.Warn("could not drop expired grave records", zap.Error(err))
-	}
 }
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.

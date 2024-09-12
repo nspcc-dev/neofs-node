@@ -229,39 +229,6 @@ func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
 	return
 }
 
-// DropGraves deletes tombstoned objects from the
-// graveyard bucket.
-//
-// Returns any error appeared during deletion process.
-func (db *DB) DropGraves(tss []TombstonedObject) error {
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return ErrDegradedMode
-	} else if db.mode.ReadOnly() {
-		return ErrReadOnlyMode
-	}
-
-	buf := make([]byte, addressKeySize)
-
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		bkt := tx.Bucket(graveyardBucketName)
-		if bkt == nil {
-			return nil
-		}
-
-		for _, ts := range tss {
-			err := bkt.Delete(addressKey(ts.Address(), buf))
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
 // DropExpiredTSMarks run through the graveyard and drops tombstone marks with
 // tombstones whose expiration is _less_ than provided epoch.
 // Returns number of marks dropped.

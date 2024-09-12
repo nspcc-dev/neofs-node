@@ -334,19 +334,6 @@ func (e *StorageEngine) processExpiredObjects(_ context.Context, addrs []oid.Add
 	}
 }
 
-func (e *StorageEngine) processExpiredTombstones(ctx context.Context, addrs []meta.TombstonedObject) {
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
-		sh.HandleExpiredTombstones(addrs)
-
-		select {
-		case <-ctx.Done():
-			return true
-		default:
-			return false
-		}
-	})
-}
-
 func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []oid.Address) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		sh.HandleExpiredLocks(lockers)
