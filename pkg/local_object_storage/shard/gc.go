@@ -236,7 +236,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	log.Debug("started expired objects handling")
 
 	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ != object.TypeTombstone && typ != object.TypeLock
+		return typ != object.TypeLock
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {

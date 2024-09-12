@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -180,4 +183,84 @@ func TestGC_ContainerCleanup(t *testing.T) {
 
 		return len(res.Containers()) == 0
 	}, time.Second, 100*time.Millisecond)
+}
+
+func TestExpiration(t *testing.T) {
+	rootPath := t.TempDir()
+	var sh *shard.Shard
+
+	opts := []shard.Option{
+		shard.WithLogger(zap.NewNop()),
+		shard.WithBlobStorOptions(
+			blobstor.WithStorages([]blobstor.SubStorage{
+				{
+					Storage: fstree.New(
+						fstree.WithPath(filepath.Join(rootPath, "blob"))),
+					Policy: func(_ *objectSDK.Object, _ []byte) bool { return true },
+				},
+			}),
+		),
+		shard.WithMetaBaseOptions(
+			meta.WithPath(filepath.Join(rootPath, "meta")),
+			meta.WithEpochState(epochState{Value: math.MaxUint64 / 2}),
+		),
+		shard.WithExpiredObjectsCallback(
+			func(_ context.Context, addresses []oid.Address) {
+				var p shard.InhumePrm
+				p.MarkAsGarbage(addresses...)
+				_, err := sh.Inhume(p)
+				require.NoError(t, err)
+			},
+		),
+		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
+			pool, err := ants.NewPool(sz)
+			require.NoError(t, err)
+
+			return pool
+		}),
+	}
+
+	sh = shard.New(opts...)
+	require.NoError(t, sh.Open())
+	require.NoError(t, sh.Init())
+
+	t.Cleanup(func() {
+		releaseShard(sh, t)
+	})
+	ch := sh.NotificationChannel()
+
+	var expAttr objectSDK.Attribute
+	expAttr.SetKey(objectV2.SysAttributeExpEpoch)
+
+	obj := generateObject(t)
+
+	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink, objectSDK.TypeStorageGroup} {
+		t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
+			exp := uint64(i * 10)
+
+			expAttr.SetValue(strconv.FormatUint(exp, 10))
+			obj.SetAttributes(expAttr)
+			obj.SetType(typ)
+			require.NoError(t, obj.SetIDWithSignature(neofscryptotest.Signer()))
+
+			var putPrm shard.PutPrm
+			putPrm.SetObject(obj)
+
+			_, err := sh.Put(putPrm)
+			require.NoError(t, err)
+
+			var getPrm shard.GetPrm
+			getPrm.SetAddress(objectCore.AddressOf(obj))
+
+			_, err = sh.Get(getPrm)
+			require.NoError(t, err)
+
+			ch <- shard.EventNewEpoch(exp + 1)
+
+			require.Eventually(t, func() bool {
+				_, err = sh.Get(getPrm)
+				return shard.IsErrNotFound(err)
+			}, 3*time.Second, 100*time.Millisecond, "lock expiration should free object removal")
+		})
+	}
 }
