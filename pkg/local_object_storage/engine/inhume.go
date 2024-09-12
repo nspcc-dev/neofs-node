@@ -16,8 +16,9 @@ import (
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	tombstone *oid.Address
-	addrs     []oid.Address
+	tombstone      *oid.Address
+	tombExpiration uint64
+	addrs          []oid.Address
 
 	forceRemoval bool
 }
@@ -25,19 +26,20 @@ type InhumePrm struct {
 // InhumeRes encapsulates results of inhume operation.
 type InhumeRes struct{}
 
-// WithTarget sets a list of objects that should be inhumed and tombstone address
+// WithTombstone sets a list of objects that should be inhumed and tombstone address
 // as the reason for inhume operation.
 //
-// tombstone should not be nil, addr should not be empty.
+// addrs should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTarget(tombstone oid.Address, addrs ...oid.Address) {
+func (p *InhumePrm) WithTombstone(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) {
 	p.addrs = addrs
 	p.tombstone = &tombstone
+	p.tombExpiration = tombExpiration
 }
 
 // MarkAsGarbage marks an object to be physically removed from local storage.
 //
-// Should not be called along with WithTarget.
+// Should not be called along with WithTombstone.
 func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) {
 	p.addrs = addrs
 	p.tombstone = nil
@@ -95,7 +97,7 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 		}
 
 		if prm.tombstone != nil {
-			shPrm.InhumeByTomb(*prm.tombstone, prm.addrs[i])
+			shPrm.InhumeByTomb(*prm.tombstone, prm.tombExpiration, prm.addrs[i])
 		} else {
 			shPrm.MarkAsGarbage(prm.addrs[i])
 		}

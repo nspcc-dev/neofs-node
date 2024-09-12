@@ -24,7 +24,7 @@ type ObjectStorage interface {
 	Put(obj *object.Object, objBin []byte, hdrLen int) error
 	// Delete must delete passed objects
 	// and return any appeared error.
-	Delete(tombstone oid.Address, toDelete []oid.ID) error
+	Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error
 	// Lock must lock passed objects
 	// and return any appeared error.
 	Lock(locker oid.Address, toLock []oid.ID) error
@@ -62,7 +62,12 @@ func (t *localTarget) Close() (oid.ID, *neofscrypto.Signature, error) {
 func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore.ContentMeta, enc *encodedObject) error {
 	switch meta.Type() {
 	case object.TypeTombstone:
-		err := storage.Delete(objectCore.AddressOf(obj), meta.Objects())
+		exp, err := objectCore.Expiration(*obj)
+		if err != nil && !errors.Is(err, objectCore.ErrNoExpiration) {
+			return fmt.Errorf("reading tombstone expiration: %w", err)
+		}
+
+		err = storage.Delete(objectCore.AddressOf(obj), exp, meta.Objects())
 		if err != nil {
 			return fmt.Errorf("could not delete objects from tombstone locally: %w", err)
 		}

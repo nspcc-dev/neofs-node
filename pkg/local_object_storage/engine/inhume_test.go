@@ -46,7 +46,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		require.NoError(t, err)
 
 		var inhumePrm InhumePrm
-		inhumePrm.WithTarget(tombstoneID, object.AddressOf(parent))
+		inhumePrm.WithTombstone(tombstoneID, 0, object.AddressOf(parent))
 
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		require.NoError(t, err)
 
 		var inhumePrm InhumePrm
-		inhumePrm.WithTarget(tombstoneID, object.AddressOf(parent))
+		inhumePrm.WithTombstone(tombstoneID, 0, object.AddressOf(parent))
 
 		_, err = e.Inhume(inhumePrm)
 		require.NoError(t, err)

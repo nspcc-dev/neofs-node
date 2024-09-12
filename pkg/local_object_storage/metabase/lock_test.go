@@ -67,7 +67,7 @@ func TestDB_Lock(t *testing.T) {
 		_, err := db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.SetTombstoneAddress(oidtest.Address())
+		inhumePrm.SetTombstone(oidtest.Address(), 0)
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
@@ -83,7 +83,7 @@ func TestDB_Lock(t *testing.T) {
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.SetTombstoneAddress(oidtest.Address())
+		inhumePrm.SetTombstone(oidtest.Address(), 0)
 		_, err = db.Inhume(inhumePrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})

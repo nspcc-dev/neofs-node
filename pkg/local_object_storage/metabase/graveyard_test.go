@@ -138,7 +138,7 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	addrTombstone := oidtest.Address()
 
 	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.SetTombstoneAddress(addrTombstone)
+	inhumePrm.SetTombstone(addrTombstone, 0)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	inhumePrm.SetAddresses(
 		object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.SetTombstoneAddress(addrTombstone)
+	inhumePrm.SetTombstone(addrTombstone, 0)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -404,7 +404,7 @@ func TestDB_DropGraves(t *testing.T) {
 
 	var inhumePrm meta.InhumePrm
 	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.SetTombstoneAddress(addrTombstone)
+	inhumePrm.SetTombstone(addrTombstone, 0)
 
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)

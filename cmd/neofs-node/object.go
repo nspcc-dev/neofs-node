@@ -515,7 +515,7 @@ func (e storageEngine) IsLocked(address oid.Address) (bool, error) {
 	return e.engine.IsLocked(address)
 }
 
-func (e storageEngine) Delete(tombstone oid.Address, toDelete []oid.ID) error {
+func (e storageEngine) Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error {
 	var prm engine.InhumePrm
 
 	addrs := make([]oid.Address, len(toDelete))
@@ -524,7 +524,7 @@ func (e storageEngine) Delete(tombstone oid.Address, toDelete []oid.ID) error {
 		addrs[i].SetObject(toDelete[i])
 	}
 
-	prm.WithTarget(tombstone, addrs...)
+	prm.WithTombstone(tombstone, tombExpiration, addrs...)
 
 	_, err := e.engine.Inhume(prm)
 	return err

@@ -4,14 +4,14 @@ This file describes changes between the metabase versions.
 
 ## Current
 
-Numbers stand for a single byte value.
+Numbers stand for a single byte value unless otherwise stated.
 The lowest not used bucket index: 20.
 
 ### Primary buckets
 - Graveyard bucket
   - Name: `0`
   - Key: object address 
-  - Value: tombstone address
+  - Value: tombstone address + little-endian uint64 tombstone expiration epoch
 - Garbage objects bucket
   - Name: `1`
   - Key: object address

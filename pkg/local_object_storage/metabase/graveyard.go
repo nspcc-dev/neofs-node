@@ -221,7 +221,7 @@ func garbageFromKV(k []byte) (res GarbageObject, err error) {
 func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
 	if err = decodeAddressFromKey(&res.addr, k); err != nil {
 		err = fmt.Errorf("decode tombstone target from key: %w", err)
-	} else if err = decodeAddressFromKey(&res.tomb, v); err != nil {
+	} else if err = decodeAddressFromKey(&res.tomb, v[:addressKeySize]); err != nil {
 		err = fmt.Errorf("decode tombstone address from value: %w", err)
 	}
 

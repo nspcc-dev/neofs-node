@@ -49,7 +49,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	)
 
 	inhumePrm.SetAddresses(addr1)
-	inhumePrm.SetTombstoneAddress(addr2)
+	inhumePrm.SetTombstone(addr2, 0)
 
 	// inhume addr1 via addr2
 	_, err = db.Inhume(inhumePrm)
@@ -62,7 +62,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	inhumePrm.SetAddresses(addr3)
-	inhumePrm.SetTombstoneAddress(addr1)
+	inhumePrm.SetTombstone(addr1, 0)
 
 	// try to inhume addr3 via addr1
 	_, err = db.Inhume(inhumePrm)
@@ -82,7 +82,7 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	inhumePrm.SetAddresses(addr1)
-	inhumePrm.SetTombstoneAddress(oidtest.Address())
+	inhumePrm.SetTombstone(oidtest.Address(), 0)
 
 	// try to inhume addr1 (which is already a tombstone in graveyard)
 	_, err = db.Inhume(inhumePrm)
@@ -162,7 +162,7 @@ func TestInhumeContainer(t *testing.T) {
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
 	var inhumePrm meta.InhumePrm
 	inhumePrm.SetAddresses(target)
-	inhumePrm.SetTombstoneAddress(tomb)
+	inhumePrm.SetTombstone(tomb, 0)
 
 	_, err := db.Inhume(inhumePrm)
 	return err

@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
+- Metabase graveyard scheme (#2929)
 
 ### Removed
 
@@ -17,6 +18,9 @@ Changelog for NeoFS Node
 - Go to 1.22 version (#2517, #2738)
 
 ### Updating from v0.43.0
+It is required to resynchronize metabases due to changed metabase scheme; any
+starts with old metabases will fail. See storage node's config documentation
+for details.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 
