@@ -19,9 +19,9 @@ Changelog for NeoFS Node
 - Go to 1.22 version (#2517, #2738)
 
 ### Updating from v0.43.0
-It is required to resynchronize metabases due to changed metabase scheme; any
-starts with old metabases will fail. See storage node's config documentation
-for details.
+Metabase version has been increased, auto migrating will be performed once
+a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
+not be undone. No additional work should be done.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 
