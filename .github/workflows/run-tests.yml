@@ -230,7 +230,7 @@ jobs:
         env:
           ALLURE_RESULTS_DIR: ${{ env.ALLURE_RESULTS_DIR }}
         run: |
-          source venv.pytest/bin/activate && pytest --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/tests
+          source venv.pytest/bin/activate && pytest -n 3 --show-capture=no -m "sanity" --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/tests
         working-directory: neofs-testcases
 
       - name: Run all tests
@@ -239,7 +239,7 @@ jobs:
         env:
           ALLURE_RESULTS_DIR: ${{ env.ALLURE_RESULTS_DIR }}
         run: |
-          source venv.pytest/bin/activate && pytest --show-capture=no --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/tests
+          source venv.pytest/bin/activate && pytest -n 3 --show-capture=no --alluredir=${GITHUB_WORKSPACE}/allure-results pytest_tests/tests
         working-directory: neofs-testcases
 
       - name: Publish to NeoFS
