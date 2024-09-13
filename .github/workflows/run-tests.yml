@@ -138,7 +138,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neofs-rest-gw'
-          version: 'tags/v0.10.0'
+          version: 'tags/v0.11.0'
           file: 'neofs-rest-gw-${{ matrix.os.binary }}'
           target: 'neofs-testcases/neofs-rest-gw'
 
