@@ -54,7 +54,7 @@ func getByPath(cmd *cobra.Command, _ []string) {
 
 	tid, _ := cmd.Flags().GetString(treeIDFlagKey)
 
-	cli, err := _client(ctx)
+	cli, err := _client()
 	common.ExitOnErr(cmd, "client: %w", err)
 
 	rawCID := make([]byte, sha256.Size)

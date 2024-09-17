@@ -66,7 +66,7 @@ func (s *Service) replicationWorker(ctx context.Context) {
 			task.n.IterateNetworkEndpoints(func(addr string) bool {
 				lastAddr = addr
 
-				c, err := s.cache.get(ctx, addr)
+				c, err := s.cache.get(addr)
 				if err != nil {
 					lastErr = fmt.Errorf("can't create client: %w", err)
 					return false

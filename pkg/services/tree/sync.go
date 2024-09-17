@@ -156,7 +156,7 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 				return false
 			}
 
-			cc, err := grpc.DialContext(ctx, a.URIAddr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			cc, err := grpc.NewClient(a.URIAddr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				// Failed to connect, try the next address.
 				return false

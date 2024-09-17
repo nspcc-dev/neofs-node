@@ -50,7 +50,7 @@ func add(cmd *cobra.Command, _ []string) {
 	meta, err := parseMeta(cmd)
 	common.ExitOnErr(cmd, "meta data parsing: %w", err)
 
-	cli, err := _client(ctx)
+	cli, err := _client()
 	common.ExitOnErr(cmd, "client: %w", err)
 
 	rawCID := make([]byte, sha256.Size)
