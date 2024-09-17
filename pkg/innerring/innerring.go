@@ -308,7 +308,7 @@ func (s *Server) registerCloser(f func() error) {
 	s.closers = append(s.closers, f)
 }
 
-// New creates instance of inner ring sever structure.
+// New creates instance of inner ring server structure.
 func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
 	var err error
 	server := &Server{log: log}
@@ -550,6 +550,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 		setNetworkSettingsDefaults(&deployPrm.NetmapContract.Config)
 
+		server.setHealthStatus(control.HealthStatus_INITIALIZING_NETWORK)
 		err = deploy.Deploy(ctx, deployPrm)
 		if err != nil {
 			return nil, fmt.Errorf("deploy Sidechain: %w", err)

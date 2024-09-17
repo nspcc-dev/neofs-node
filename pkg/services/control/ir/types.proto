@@ -26,4 +26,7 @@ enum HealthStatus {
 
     // IR application is shutting down.
     SHUTTING_DOWN = 3;
+
+    // Initializing Neo network
+    INITIALIZING_NETWORK = 4;
 }
