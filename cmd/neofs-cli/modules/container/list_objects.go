@@ -1,6 +1,8 @@
 package container
 
 import (
+	"fmt"
+
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -26,17 +28,26 @@ var listContainerObjectsCmd = &cobra.Command{
 	Short: "List existing objects in container",
 	Long:  `List existing objects in container`,
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		id := parseContainerID(cmd)
+		id, err := parseContainerID()
+		if err != nil {
+			return err
+		}
 
 		filters := new(object.SearchFilters)
 		filters.AddRootFilter() // search only user created objects
 
-		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		pk, err := key.GetOrGenerate(cmd)
+		if err != nil {
+			return err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prmSearch internalclient.SearchObjectsPrm
 		var prmHead internalclient.HeadObjectPrm
@@ -46,9 +57,15 @@ var listContainerObjectsCmd = &cobra.Command{
 		if flagVarListObjectsPrintAttr {
 			prmHead.SetClient(cli)
 			prmHead.SetPrivateKey(*pk)
-			objectCli.Prepare(cmd, &prmSearch, &prmHead)
+			err = objectCli.Prepare(cmd, &prmSearch, &prmHead)
+			if err != nil {
+				return err
+			}
 		} else {
-			objectCli.Prepare(cmd, &prmSearch)
+			err = objectCli.Prepare(cmd, &prmSearch)
+			if err != nil {
+				return err
+			}
 		}
 
 		prmSearch.SetPrivateKey(*pk)
@@ -56,7 +73,9 @@ var listContainerObjectsCmd = &cobra.Command{
 		prmSearch.SetFilters(*filters)
 
 		res, err := internalclient.SearchObjects(ctx, prmSearch)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		objectIDs := res.IDList()
 
@@ -88,6 +107,7 @@ var listContainerObjectsCmd = &cobra.Command{
 				}
 			}
 		}
+		return nil
 	},
 }
 

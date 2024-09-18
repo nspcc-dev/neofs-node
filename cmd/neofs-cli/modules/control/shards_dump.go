@@ -1,8 +1,9 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -19,17 +20,24 @@ var dumpShardCmd = &cobra.Command{
 	Short: "Dump objects from shard",
 	Long:  "Dump objects from shard to a file",
 	Args:  cobra.NoArgs,
-	Run:   dumpShard,
+	RunE:  dumpShard,
 }
 
-func dumpShard(cmd *cobra.Command, _ []string) {
+func dumpShard(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	body := new(control.DumpShardRequest_Body)
-	body.SetShardID(getShardID(cmd))
+	id, err := getShardID(cmd)
+	if err != nil {
+		return err
+	}
+	body.SetShardID(id)
 
 	p, _ := cmd.Flags().GetString(dumpFilepathFlag)
 	body.SetFilepath(p)
@@ -40,21 +48,29 @@ func dumpShard(cmd *cobra.Command, _ []string) {
 	req := new(control.DumpShardRequest)
 	req.SetBody(body)
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.DumpShardResponse
-	var err error
 	err = cli.ExecRaw(func(client *client.Client) error {
 		resp, err = control.DumpShard(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
 
 	cmd.Println("Shard has been dumped successfully.")
+	return nil
 }
 
 func initControlDumpShardCmd() {

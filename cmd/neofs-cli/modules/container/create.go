@@ -35,36 +35,48 @@ var createContainerCmd = &cobra.Command{
 	Long: `Create new container and register it in the NeoFS. 
 It will be stored in sidechain when inner ring will accepts it.`,
 	Args: cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
 		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
-		common.ExitOnErr(cmd, "", err)
+		if err != nil {
+			return err
+		}
 
-		key := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		key, err := key.Get(cmd)
+		if err != nil {
+			return err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		if !force {
 			var prm internalclient.NetMapSnapshotPrm
 			prm.SetClient(cli)
 
 			resmap, err := internalclient.NetMapSnapshot(ctx, prm)
-			common.ExitOnErr(cmd, "unable to get netmap snapshot to validate container placement, "+
-				"use --force option to skip this check: %w", err)
+			if err != nil {
+				return fmt.Errorf("unable to get netmap snapshot to validate container placement, "+
+					"use --force option to skip this check: %w", err)
+			}
 
 			nodesByRep, err := resmap.NetMap().ContainerNodes(*placementPolicy, cid.ID{})
-			common.ExitOnErr(cmd, "could not build container nodes based on given placement policy, "+
-				"use --force option to skip this check: %w", err)
+			if err != nil {
+				return fmt.Errorf("could not build container nodes based on given placement policy, "+
+					"use --force option to skip this check: %w", err)
+			}
 
 			for i, nodes := range nodesByRep {
 				if placementPolicy.ReplicaNumberByIndex(i) > uint32(len(nodes)) {
-					common.ExitOnErr(cmd, "", fmt.Errorf(
+					return fmt.Errorf(
 						"the number of nodes '%d' in selector is not enough for the number of replicas '%d', "+
 							"use --force option to skip this check",
 						len(nodes),
 						placementPolicy.ReplicaNumberByIndex(i),
-					))
+					)
 				}
 			}
 		}
@@ -73,12 +85,19 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		cnr.Init()
 
 		err = parseAttributes(&cnr, containerAttributes)
-		common.ExitOnErr(cmd, "", err)
+		if err != nil {
+			return err
+		}
 
 		var basicACL acl.Basic
-		common.ExitOnErr(cmd, "decode basic ACL string: %w", basicACL.DecodeString(containerACL))
+		if err := basicACL.DecodeString(containerACL); err != nil {
+			return fmt.Errorf("decode basic ACL string: %w", err)
+		}
 
-		tok := getSession(cmd)
+		tok, err := getSession(cmd)
+		if err != nil {
+			return err
+		}
 
 		if tok != nil {
 			issuer := tok.Issuer()
@@ -95,7 +114,9 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		syncContainerPrm.SetContainer(&cnr)
 
 		_, err = internalclient.SyncContainerSettings(ctx, syncContainerPrm)
-		common.ExitOnErr(cmd, "syncing container's settings rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("syncing container's settings rpc error: %w", err)
+		}
 
 		var putPrm internalclient.PutContainerPrm
 		putPrm.SetClient(cli)
@@ -107,7 +128,9 @@ It will be stored in sidechain when inner ring will accepts it.`,
 		}
 
 		res, err := internalclient.PutContainer(ctx, putPrm)
-		common.ExitOnErr(cmd, "put container rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("put container rpc error: %w", err)
+		}
 
 		id := res.ID()
 
@@ -129,17 +152,18 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "container creation: %s", common.ErrAwaitTimeout)
+					return fmt.Errorf("container creation: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err == nil {
 					cmd.Println("container has been persisted on sidechain")
-					return
+					return nil
 				}
 			}
 		}
+		return nil
 	},
 }
 

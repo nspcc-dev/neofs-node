@@ -19,16 +19,28 @@ var deleteContainerCmd = &cobra.Command{
 	Long: `Delete existing container. 
 Only owner of the container has a permission to remove container.`,
 	Args: cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
-		id := parseContainerID(cmd)
+		id, err := parseContainerID()
+		if err != nil {
+			return err
+		}
 
-		tok := getSession(cmd)
+		tok, err := getSession(cmd)
+		if err != nil {
+			return err
+		}
 
-		pk := key.Get(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		pk, err := key.Get(cmd)
+		if err != nil {
+			return err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
@@ -38,7 +50,9 @@ Only owner of the container has a permission to remove container.`,
 			getPrm.SetContainer(id)
 
 			resGet, err := internalclient.GetContainer(ctx, getPrm)
-			common.ExitOnErr(cmd, "can't get the container: %w", err)
+			if err != nil {
+				return fmt.Errorf("can't get the container: %w", err)
+			}
 
 			owner := resGet.Container().Owner()
 
@@ -46,7 +60,7 @@ Only owner of the container has a permission to remove container.`,
 				common.PrintVerbose(cmd, "Checking session issuer...")
 
 				if !tok.Issuer().Equals(owner) {
-					common.ExitOnErr(cmd, "", fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer()))
+					return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
 				}
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
@@ -54,7 +68,7 @@ Only owner of the container has a permission to remove container.`,
 				acc := user.ResolveFromECDSAPublicKey(pk.PublicKey)
 
 				if !acc.Equals(owner) {
-					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))
+					return fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc)
 				}
 			}
 
@@ -76,12 +90,13 @@ Only owner of the container has a permission to remove container.`,
 				common.PrintVerbose(cmd, "Searching for LOCK objects...")
 
 				res, err := internalclient.SearchObjects(ctx, searchPrm)
-				common.ExitOnErr(cmd, "can't search for LOCK objects: %w", err)
+				if err != nil {
+					return fmt.Errorf("can't search for LOCK objects: %w", err)
+				}
 
 				if len(res.IDList()) != 0 {
-					common.ExitOnErr(cmd, "",
-						fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
-							"Use --%s flag to remove anyway.", commonflags.ForceFlag))
+					return fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
+						"Use --%s flag to remove anyway.", commonflags.ForceFlag)
 				}
 			}
 		}
@@ -95,8 +110,10 @@ Only owner of the container has a permission to remove container.`,
 			delPrm.WithinSession(*tok)
 		}
 
-		_, err := internalclient.DeleteContainer(ctx, delPrm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		_, err = internalclient.DeleteContainer(ctx, delPrm)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		cmd.Println("container removal request accepted for processing (the operation may not be completed yet)")
 
@@ -115,17 +132,18 @@ Only owner of the container has a permission to remove container.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "container deletion: %s", common.ErrAwaitTimeout)
+					return fmt.Errorf("container deletion: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 
 				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err != nil {
 					cmd.Println("container has been removed:", containerID)
-					return
+					return nil
 				}
 			}
 		}
+		return nil
 	},
 }
 

@@ -1,9 +1,10 @@
 package object
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -22,40 +23,57 @@ var objectNodesCmd = &cobra.Command{
 	Short: "Show nodes for an object",
 	Long:  "Show nodes taking part in an object placement at the current epoch.",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
 		var cnrID cid.ID
-		readCID(cmd, &cnrID)
+		err := readCID(cmd, &cnrID)
+		if err != nil {
+			return err
+		}
 
 		var oID oid.ID
-		readOID(cmd, &oID)
+		err = readOID(cmd, &oID)
+		if err != nil {
+			return err
+		}
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prmSnap internalclient.NetMapSnapshotPrm
 		prmSnap.SetClient(cli)
 
 		resmap, err := internalclient.NetMapSnapshot(ctx, prmSnap)
-		common.ExitOnErr(cmd, "could not get netmap snapshot", err)
+		if err != nil {
+			return fmt.Errorf("could not get netmap snapshot: %w", err)
+		}
 
 		var prmCnr internalclient.GetContainerPrm
 		prmCnr.SetClient(cli)
 		prmCnr.SetContainer(cnrID)
 
 		res, err := internalclient.GetContainer(ctx, prmCnr)
-		common.ExitOnErr(cmd, "could not get container: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not get container: %w", err)
+		}
 
 		cnr := res.Container()
 		policy := cnr.PlacementPolicy()
 
 		var cnrNodes [][]netmap.NodeInfo
 		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, cnrID)
-		common.ExitOnErr(cmd, "could not build container nodes for the given container: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not build container nodes for the given container: %w", err)
+		}
 
 		placementNodes, err := resmap.NetMap().PlacementVectors(cnrNodes, oID)
-		common.ExitOnErr(cmd, "could not build placement nodes for the given container: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not build placement nodes for the given container: %w", err)
+		}
 
 		short, _ := cmd.Flags().GetBool(shortFlag)
 
@@ -65,6 +83,8 @@ var objectNodesCmd = &cobra.Command{
 				cmdprinter.PrettyPrintNodeInfo(cmd, placementNodes[i][j], j, "\t", short)
 			}
 		}
+
+		return nil
 	},
 }
 

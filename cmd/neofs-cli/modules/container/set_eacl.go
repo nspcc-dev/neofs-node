@@ -25,24 +25,41 @@ var setExtendedACLCmd = &cobra.Command{
 	Long: `Set new extended ACL table for container.
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Args: cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
-		id := parseContainerID(cmd)
-		eaclTable := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
+		id, err := parseContainerID()
+		if err != nil {
+			return err
+		}
+		eaclTable, err := common.ReadEACL(cmd, flagVarsSetEACL.srcPath)
+		if err != nil {
+			return err
+		}
 
-		tok := getSession(cmd)
+		tok, err := getSession(cmd)
+		if err != nil {
+			return err
+		}
 
 		eaclTable.SetCID(id)
 
-		pk := key.GetOrGenerate(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		pk, err := key.GetOrGenerate(cmd)
+		if err != nil {
+			return err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 		force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 		if !force {
 			common.PrintVerbose(cmd, "Validating eACL table...")
 			err := util.ValidateEACLTable(eaclTable)
-			common.ExitOnErr(cmd, "table validation: %w", err)
+			if err != nil {
+				return fmt.Errorf("table validation: %w", err)
+			}
 
 			cmd.Println("Checking the ability to modify access rights in the container...")
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
@@ -52,7 +69,9 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			getPrm.SetContainer(id)
 
 			resGet, err := internalclient.GetContainer(ctx, getPrm)
-			common.ExitOnErr(cmd, "can't get the container: %w", err)
+			if err != nil {
+				return fmt.Errorf("can't get the container: %w", err)
+			}
 
 			cnr := resGet.Container()
 			owner := cnr.Owner()
@@ -61,7 +80,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				common.PrintVerbose(cmd, "Checking session issuer...")
 
 				if !tok.Issuer().Equals(owner) {
-					common.ExitOnErr(cmd, "", fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer()))
+					return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
 				}
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
@@ -69,7 +88,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 				acc := user.ResolveFromECDSAPublicKey(pk.PublicKey)
 
 				if !acc.Equals(owner) {
-					common.ExitOnErr(cmd, "", fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc))
+					return fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc)
 				}
 			}
 
@@ -78,7 +97,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			extendable := cnr.BasicACL().Extendable()
 
 			if !extendable {
-				common.ExitOnErr(cmd, "", errors.New("container ACL is immutable"))
+				return errors.New("container ACL is immutable")
 			}
 
 			cmd.Println("ACL extension is enabled in the container, continue processing.")
@@ -93,8 +112,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			setEACLPrm.WithinSession(*tok)
 		}
 
-		_, err := internalclient.SetEACL(ctx, setEACLPrm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		_, err = internalclient.SetEACL(ctx, setEACLPrm)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		cmd.Println("eACL modification request accepted for processing (the operation may not be completed yet)")
 
@@ -115,7 +136,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					common.ExitOnErr(cmd, "eACL setting: %s", common.ErrAwaitTimeout)
+					return fmt.Errorf("eACL setting: %s", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 
@@ -127,12 +148,13 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 
 					if bytes.Equal(exp, got) {
 						cmd.Println("EACL has been persisted on sidechain")
-						return
+						return nil
 					}
 				}
 			}
 
 		}
+		return nil
 	},
 }
 

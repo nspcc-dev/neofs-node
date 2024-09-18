@@ -1,10 +1,10 @@
 package extended
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/spf13/cobra"
@@ -14,7 +14,7 @@ var printEACLCmd = &cobra.Command{
 	Use:   "print",
 	Short: "Pretty print extended ACL from the file(in text or json format) or for given container.",
 	Args:  cobra.NoArgs,
-	Run:   printEACL,
+	RunE:  printEACL,
 }
 
 func init() {
@@ -24,16 +24,24 @@ func init() {
 	_ = printEACLCmd.MarkFlagRequired("file")
 }
 
-func printEACL(cmd *cobra.Command, _ []string) {
+func printEACL(cmd *cobra.Command, _ []string) error {
 	file, _ := cmd.Flags().GetString("file")
 	eaclTable := new(eacl.Table)
 	data, err := os.ReadFile(file)
-	common.ExitOnErr(cmd, "can't read file with EACL: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't read file with EACL: %w", err)
+	}
+
 	if strings.HasSuffix(file, ".json") {
-		common.ExitOnErr(cmd, "unable to parse json: %w", eaclTable.UnmarshalJSON(data))
+		if err := eaclTable.UnmarshalJSON(data); err != nil {
+			return fmt.Errorf("unable to parse json: %w", err)
+		}
 	} else {
 		rules := strings.Split(strings.TrimSpace(string(data)), "\n")
-		common.ExitOnErr(cmd, "can't parse file with EACL: %w", util.ParseEACLRules(eaclTable, rules))
+		if err := util.ParseEACLRules(eaclTable, rules); err != nil {
+			return fmt.Errorf("can't parse file with EACL: %w", err)
+		}
 	}
 	util.PrettyPrintTableEACL(cmd, eaclTable)
+	return nil
 }

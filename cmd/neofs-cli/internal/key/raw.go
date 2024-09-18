@@ -19,10 +19,12 @@ var errCantGenerateKey = errors.New("can't generate new private key")
 // Get returns private key from wallet or binary file.
 // Ideally we want to touch file-system on the last step.
 // This function assumes that all flags were bind to viper in a `PersistentPreRun`.
-func Get(cmd *cobra.Command) *ecdsa.PrivateKey {
+func Get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	pk, err := get(cmd)
-	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
-	return pk
+	if err != nil {
+		return nil, fmt.Errorf("can't fetch private key: %w", err)
+	}
+	return pk, nil
 }
 
 var errMissingFlag = errors.New("missing key flag")
@@ -47,10 +49,12 @@ func get(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 }
 
 // GetOrGenerate is similar to get but generates a new key if commonflags.GenerateKey is set.
-func GetOrGenerate(cmd *cobra.Command) *ecdsa.PrivateKey {
+func GetOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	pk, err := getOrGenerate(cmd)
-	common.ExitOnErr(cmd, "can't fetch private key: %w", err)
-	return pk
+	if err != nil {
+		return nil, fmt.Errorf("can't fetch private key: %w", err)
+	}
+	return pk, nil
 }
 
 func getOrGenerate(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {

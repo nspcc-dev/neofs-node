@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/pkg/util/keyer"
 	"github.com/spf13/cobra"
 )
@@ -15,7 +14,7 @@ import (
 var keyerCmd = &cobra.Command{
 	Use:   "keyer",
 	Short: "Generate or print information about keys",
-	Run:   processKeyer,
+	RunE:  processKeyer,
 }
 
 var errKeyerSingleArgument = errors.New("pass only one argument at a time")
@@ -27,7 +26,7 @@ func initKeyerCmd() {
 	keyerCmd.Flags().BoolP("multisig", "m", false, "Calculate multisig address from public keys")
 }
 
-func processKeyer(cmd *cobra.Command, args []string) {
+func processKeyer(cmd *cobra.Command, args []string) error {
 	var (
 		err error
 
@@ -42,7 +41,7 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		err = result.ParseMultiSig(args)
 	} else {
 		if len(args) > 1 {
-			common.ExitOnErr(cmd, "", errKeyerSingleArgument)
+			return errKeyerSingleArgument
 		}
 
 		var argument string
@@ -60,9 +59,13 @@ func processKeyer(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 
 	result.PrettyPrint(uncompressed, useHex)
+
+	return nil
 }
 
 func keyerGenerate(filename string, d *keyer.Dashboard) error {

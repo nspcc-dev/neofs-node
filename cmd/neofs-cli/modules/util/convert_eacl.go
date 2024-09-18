@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -12,7 +13,7 @@ var convertEACLCmd = &cobra.Command{
 	Use:   "eacl",
 	Short: "Convert representation of extended ACL table",
 	Args:  cobra.NoArgs,
-	Run:   convertEACLTable,
+	RunE:  convertEACLTable,
 }
 
 func initConvertEACLCmd() {
@@ -26,29 +27,37 @@ func initConvertEACLCmd() {
 	flags.Bool(commonflags.JSON, false, "Dump extended ACL table in JSON encoding")
 }
 
-func convertEACLTable(cmd *cobra.Command, _ []string) {
+func convertEACLTable(cmd *cobra.Command, _ []string) error {
 	pathFrom := cmd.Flag("from").Value.String()
 	to := cmd.Flag("to").Value.String()
 	jsonFlag, _ := cmd.Flags().GetBool(commonflags.JSON)
 
-	table := common.ReadEACL(cmd, pathFrom)
+	table, err := common.ReadEACL(cmd, pathFrom)
+	if err != nil {
+		return err
+	}
 
 	var data []byte
-	var err error
 	if jsonFlag || len(to) == 0 {
 		data, err = table.MarshalJSON()
-		common.ExitOnErr(cmd, "can't JSON encode extended ACL table: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't JSON encode extended ACL table: %w", err)
+		}
 	} else {
 		data = table.Marshal()
 	}
 
 	if len(to) == 0 {
 		common.PrettyPrintJSON(cmd, table, "eACL")
-		return
+		return nil
 	}
 
 	err = os.WriteFile(to, data, 0o644)
-	common.ExitOnErr(cmd, "can't write exteded ACL table to file: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't write exteded ACL table to file: %w", err)
+	}
 
 	cmd.Printf("extended ACL table was successfully dumped to %s\n", to)
+
+	return nil
 }

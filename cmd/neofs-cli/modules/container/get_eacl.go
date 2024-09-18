@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"os"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -14,19 +15,27 @@ var getExtendedACLCmd = &cobra.Command{
 	Short: "Get extended ACL table of container",
 	Long:  `Get extended ACL table of container`,
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		id := parseContainerID(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		id, err := parseContainerID()
+		if err != nil {
+			return err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var eaclPrm internalclient.EACLPrm
 		eaclPrm.SetClient(cli)
 		eaclPrm.SetContainer(id)
 
 		res, err := internalclient.EACL(ctx, eaclPrm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		eaclTable := res.EACL()
 
@@ -34,14 +43,16 @@ var getExtendedACLCmd = &cobra.Command{
 			cmd.Println("eACL: ")
 			common.PrettyPrintJSON(cmd, &eaclTable, "eACL")
 
-			return
+			return nil
 		}
 
 		var data []byte
 
 		if containerJSON {
 			data, err = eaclTable.MarshalJSON()
-			common.ExitOnErr(cmd, "can't encode to JSON: %w", err)
+			if err != nil {
+				return fmt.Errorf("can't encode to JSON: %w", err)
+			}
 		} else {
 			data = eaclTable.Marshal()
 		}
@@ -49,7 +60,10 @@ var getExtendedACLCmd = &cobra.Command{
 		cmd.Println("dumping data to file:", containerPathTo)
 
 		err = os.WriteFile(containerPathTo, data, 0644)
-		common.ExitOnErr(cmd, "could not write eACL to file: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not write eACL to file: %w", err)
+		}
+		return nil
 	},
 }
 

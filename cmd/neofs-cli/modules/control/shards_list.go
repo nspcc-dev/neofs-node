@@ -8,7 +8,6 @@ import (
 
 	"github.com/mr-tron/base58"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -20,7 +19,7 @@ var listShardsCmd = &cobra.Command{
 	Short: "List shards of the storage node",
 	Long:  "List shards of the storage node",
 	Args:  cobra.NoArgs,
-	Run:   listShards,
+	RunE:  listShards,
 }
 
 func initControlShardsListCmd() {
@@ -30,38 +29,54 @@ func initControlShardsListCmd() {
 	flags.Bool(commonflags.JSON, false, "Print shard info as a JSON array")
 }
 
-func listShards(cmd *cobra.Command, _ []string) {
+func listShards(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	req := new(control.ListShardsRequest)
 	req.SetBody(new(control.ListShardsRequest_Body))
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.ListShardsResponse
-	var err error
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.ListShards(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	isJSON, _ := cmd.Flags().GetBool(commonflags.JSON)
 	if isJSON {
-		prettyPrintShardsJSON(cmd, resp.GetBody().GetShards())
+		if err := prettyPrintShardsJSON(cmd, resp.GetBody().GetShards()); err != nil {
+			return err
+		}
 	} else {
 		prettyPrintShards(cmd, resp.GetBody().GetShards())
 	}
+	return nil
 }
 
-func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) {
+func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) error {
 	out := make([]map[string]any, 0, len(ii))
 	for _, i := range ii {
 		out = append(out, map[string]any{
@@ -77,9 +92,12 @@ func prettyPrintShardsJSON(cmd *cobra.Command, ii []*control.ShardInfo) {
 	buf := bytes.NewBuffer(nil)
 	enc := json.NewEncoder(buf)
 	enc.SetIndent("", "  ")
-	common.ExitOnErr(cmd, "cannot shard info to JSON: %w", enc.Encode(out))
+	if err := enc.Encode(out); err != nil {
+		return fmt.Errorf("cannot shard info to JSON: %w", err)
+	}
 
 	cmd.Print(buf.String()) // pretty printer emits newline, to no need for Println
+	return nil
 }
 
 func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {

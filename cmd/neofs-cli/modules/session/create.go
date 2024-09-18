@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -37,7 +36,7 @@ Default lifetime of session token is ` + strconv.Itoa(defaultLifetime) + ` epoch
 if none of --` + commonflags.ExpireAt + ` or --` + commonflags.Lifetime + ` flags is specified. 
 `,
 	Args: cobra.NoArgs,
-	Run:  createSession,
+	RunE: createSession,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		_ = viper.BindPFlag(commonflags.WalletPath, cmd.Flags().Lookup(commonflags.WalletPath))
 		_ = viper.BindPFlag(commonflags.Account, cmd.Flags().Lookup(commonflags.Account))
@@ -59,21 +58,30 @@ func init() {
 	createCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
-func createSession(cmd *cobra.Command, _ []string) {
+func createSession(cmd *cobra.Command, _ []string) error {
 	ctx := context.Background()
 
-	privKey := key.Get(cmd)
+	privKey, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	var netAddr network.Address
 	addrStr, _ := cmd.Flags().GetString(commonflags.RPC)
-	common.ExitOnErr(cmd, "can't parse endpoint: %w", netAddr.FromString(addrStr))
+	if err := netAddr.FromString(addrStr); err != nil {
+		return fmt.Errorf("can't parse endpoint: %w", err)
+	}
 
 	c, err := internalclient.GetSDKClient(ctx, netAddr)
-	common.ExitOnErr(cmd, "can't create client: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't create client: %w", err)
+	}
 
 	endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 	currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
-	common.ExitOnErr(cmd, "can't get current epoch: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't get current epoch: %w", err)
+	}
 
 	var exp uint64
 	if exp, _ = cmd.Flags().GetUint64(commonflags.ExpireAt); exp == 0 {
@@ -81,24 +89,32 @@ func createSession(cmd *cobra.Command, _ []string) {
 		exp = currEpoch + lifetime
 	}
 	if exp <= currEpoch {
-		common.ExitOnErr(cmd, "", errors.New("expiration epoch must be greater than current epoch"))
+		return errors.New("expiration epoch must be greater than current epoch")
 	}
 	var tok session.Object
 	err = CreateSession(ctx, &tok, c, *privKey, exp, currEpoch)
-	common.ExitOnErr(cmd, "can't create session: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't create session: %w", err)
+	}
 
 	var data []byte
 
 	if toJSON, _ := cmd.Flags().GetBool(jsonFlag); toJSON {
 		data, err = tok.MarshalJSON()
-		common.ExitOnErr(cmd, "can't decode session token JSON: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't decode session token JSON: %w", err)
+		}
 	} else {
 		data = tok.Marshal()
 	}
 
 	filename, _ := cmd.Flags().GetString(outFlag)
 	err = os.WriteFile(filename, data, 0o644)
-	common.ExitOnErr(cmd, "can't write token to file: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't write token to file: %w", err)
+	}
+
+	return nil
 }
 
 // CreateSession opens a new communication with NeoFS storage node using client connection.

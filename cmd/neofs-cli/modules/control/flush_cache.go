@@ -1,8 +1,9 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -14,33 +15,50 @@ var flushCacheCmd = &cobra.Command{
 	Short: "Flush objects from the write-cache to the main storage",
 	Long:  "Flush objects from the write-cache to the main storage",
 	Args:  cobra.NoArgs,
-	Run:   flushCache,
+	RunE:  flushCache,
 }
 
-func flushCache(cmd *cobra.Command, _ []string) {
+func flushCache(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	req := &control.FlushCacheRequest{Body: new(control.FlushCacheRequest_Body)}
-	req.Body.Shard_ID = getShardIDList(cmd)
+	req.Body.Shard_ID, err = getShardIDList(cmd)
+	if err != nil {
+		return err
+	}
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.FlushCacheResponse
-	var err error
 	err = cli.ExecRaw(func(client *client.Client) error {
 		resp, err = control.FlushCache(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	cmd.Println("Write-cache has been flushed.")
+	return nil
 }
 
 func initControlFlushCacheCmd() {

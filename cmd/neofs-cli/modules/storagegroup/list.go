@@ -1,8 +1,9 @@
 package storagegroup
 
 import (
+	"fmt"
+
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
@@ -16,7 +17,7 @@ var sgListCmd = &cobra.Command{
 	Short: "List storage groups in NeoFS container",
 	Long:  "List storage groups in NeoFS container",
 	Args:  cobra.NoArgs,
-	Run:   listSG,
+	RunE:  listSG,
 }
 
 func initSGListCmd() {
@@ -26,26 +27,40 @@ func initSGListCmd() {
 	_ = sgListCmd.MarkFlagRequired(commonflags.CIDFlag)
 }
 
-func listSG(cmd *cobra.Command, _ []string) {
+func listSG(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
-	readCID(cmd, &cnr)
+	err := readCID(cmd, &cnr)
+	if err != nil {
+		return err
+	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.SearchObjectsPrm
-	objectCli.Prepare(cmd, &prm)
+	err = objectCli.Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
 	prm.SetContainerID(cnr)
 	prm.SetFilters(storagegroup.SearchQuery())
 
 	res, err := internalclient.SearchObjects(ctx, prm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	ids := res.IDList()
 
@@ -54,4 +69,6 @@ func listSG(cmd *cobra.Command, _ []string) {
 	for i := range ids {
 		cmd.Println(ids[i].String())
 	}
+
+	return nil
 }

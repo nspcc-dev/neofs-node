@@ -3,9 +3,9 @@ package control
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -24,7 +24,7 @@ var synchronizeTreeCmd = &cobra.Command{
 	Short: "Synchronize log for the tree",
 	Long:  "Synchronize log for the tree in an object tree service.",
 	Args:  cobra.NoArgs,
-	Run:   synchronizeTree,
+	RunE:  synchronizeTree,
 }
 
 func initControlSynchronizeTreeCmd() {
@@ -36,19 +36,21 @@ func initControlSynchronizeTreeCmd() {
 	flags.Uint64(synchronizeTreeHeightFlag, 0, "Starting height")
 }
 
-func synchronizeTree(cmd *cobra.Command, _ []string) {
+func synchronizeTree(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
 
 	var cnr cid.ID
 	cidStr, _ := cmd.Flags().GetString(commonflags.CIDFlag)
-	common.ExitOnErr(cmd, "can't decode container ID: %w", cnr.DecodeString(cidStr))
+	if err := cnr.DecodeString(cidStr); err != nil {
+		return fmt.Errorf("can't decode container ID: %w", err)
+	}
 
 	treeID, _ := cmd.Flags().GetString("tree-id")
 	if treeID == "" {
-		common.ExitOnErr(cmd, "", errors.New("tree ID must not be empty"))
+		return errors.New("tree ID must not be empty")
 	}
 
 	height, _ := cmd.Flags().GetUint64("height")
@@ -64,19 +66,30 @@ func synchronizeTree(cmd *cobra.Command, _ []string) {
 		},
 	}
 
-	err := controlSvc.SignMessage(pk, req)
-	common.ExitOnErr(cmd, "could not sign request: %w", err)
+	err = controlSvc.SignMessage(pk, req)
+	if err != nil {
+		return fmt.Errorf("could not sign request: %w", err)
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.SynchronizeTreeResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.SynchronizeTree(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	cmd.Println("Tree has been synchronized successfully.")
+	return nil
 }

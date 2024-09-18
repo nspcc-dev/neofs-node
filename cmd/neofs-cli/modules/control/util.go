@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -23,34 +23,35 @@ func initControlFlags(cmd *cobra.Command) {
 	ff.DurationP(commonflags.Timeout, commonflags.TimeoutShorthand, commonflags.TimeoutDefault, commonflags.TimeoutUsage)
 }
 
-func signRequest(cmd *cobra.Command, pk *ecdsa.PrivateKey, req controlSvc.SignedMessage) {
+func signRequest(pk *ecdsa.PrivateKey, req controlSvc.SignedMessage) error {
 	err := controlSvc.SignMessage(pk, req)
-	common.ExitOnErr(cmd, "could not sign request: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not sign request: %w", err)
+	}
+	return nil
 }
 
-func verifyResponse(cmd *cobra.Command,
-	sigControl interface {
-		GetKey() []byte
-		GetSign() []byte
-	},
-	body interface {
-		StableMarshal([]byte) []byte
-	},
-) {
+func verifyResponse(sigControl interface {
+	GetKey() []byte
+	GetSign() []byte
+}, body interface{ StableMarshal([]byte) []byte }) error {
 	if sigControl == nil {
-		common.ExitOnErr(cmd, "", errors.New("missing response signature"))
+		return errors.New("missing response signature")
 	}
 
 	var pubKey neofsecdsa.PublicKey
-	common.ExitOnErr(cmd, "decode public key from signature: %w", pubKey.Decode(sigControl.GetKey()))
+	if err := pubKey.Decode(sigControl.GetKey()); err != nil {
+		return fmt.Errorf("decode public key from signature: %w", err)
+	}
 
 	sig := neofscrypto.NewSignature(neofscrypto.ECDSA_SHA512, &pubKey, sigControl.GetSign())
 
 	if !sig.Verify(body.StableMarshal(nil)) {
-		common.ExitOnErr(cmd, "", errors.New("invalid response signature"))
+		return errors.New("invalid response signature")
 	}
+	return nil
 }
 
-func getClient(ctx context.Context, cmd *cobra.Command) *client.Client {
-	return internalclient.GetSDKClientByFlag(ctx, cmd, controlRPC)
+func getClient(ctx context.Context) (*client.Client, error) {
+	return internalclient.GetSDKClientByFlag(ctx, controlRPC)
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	accountingCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/accounting"
@@ -44,14 +45,13 @@ of neofs-api and some useful utilities for compiling ACL rules from JSON
 notation, managing container access through protocol gates, querying network map
 and much more!`,
 	Args: cobra.NoArgs,
-	Run:  entryPoint,
+	RunE: entryPoint,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.Execute()
-	common.ExitOnErr(rootCmd, "", err)
+func Execute() error {
+	return rootCmd.Execute()
 }
 
 func init() {
@@ -87,15 +87,15 @@ func init() {
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 
-func entryPoint(cmd *cobra.Command, _ []string) {
+func entryPoint(cmd *cobra.Command, _ []string) error {
 	printVersion, _ := cmd.Flags().GetBool("version")
 	if printVersion {
 		cmd.Print(misc.BuildInfo("NeoFS CLI"))
 
-		return
+		return nil
 	}
 
-	_ = cmd.Usage()
+	return cmd.Usage()
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -106,7 +106,7 @@ func initConfig() {
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()
-		common.ExitOnErr(rootCmd, "", err)
+		cmderr.ExitOnErr(err)
 
 		// Search config in `$HOME/.config/neofs-cli/` with name "config.yaml"
 		viper.AddConfigPath(filepath.Join(home, ".config", "neofs-cli"))

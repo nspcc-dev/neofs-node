@@ -1,8 +1,9 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -14,36 +15,53 @@ var evacuateShardCmd = &cobra.Command{
 	Short: "Evacuate objects from shard",
 	Long:  "Evacuate objects from shard to other shards",
 	Args:  cobra.NoArgs,
-	Run:   evacuateShard,
+	RunE:  evacuateShard,
 }
 
-func evacuateShard(cmd *cobra.Command, _ []string) {
+func evacuateShard(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	req := &control.EvacuateShardRequest{Body: new(control.EvacuateShardRequest_Body)}
-	req.Body.Shard_ID = getShardIDList(cmd)
+	req.Body.Shard_ID, err = getShardIDList(cmd)
+	if err != nil {
+		return err
+	}
 	req.Body.IgnoreErrors, _ = cmd.Flags().GetBool(dumpIgnoreErrorsFlag)
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.EvacuateShardResponse
-	var err error
 	err = cli.ExecRaw(func(client *client.Client) error {
 		resp, err = control.EvacuateShard(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	cmd.Printf("Objects moved: %d\n", resp.GetBody().GetCount())
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	cmd.Println("Shard has successfully been evacuated.")
+	return nil
 }
 
 func initControlEvacuateShardCmd() {

@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -24,7 +23,7 @@ var objectRangeCmd = &cobra.Command{
 	Short: "Get payload range data of an object",
 	Long:  "Get payload range data of an object",
 	Args:  cobra.NoArgs,
-	Run:   getObjectRange,
+	RunE:  getObjectRange,
 }
 
 func initObjectRangeCmd() {
@@ -44,20 +43,25 @@ func initObjectRangeCmd() {
 	flags.Bool(rawFlag, false, rawFlagDesc)
 }
 
-func getObjectRange(cmd *cobra.Command, _ []string) {
+func getObjectRange(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr := readObjectAddress(cmd, &cnr, &obj)
+	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	if err != nil {
+		return err
+	}
 
 	ranges, err := getRangeList(cmd)
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 
 	if len(ranges) != 1 {
-		common.ExitOnErr(cmd, "", fmt.Errorf("exactly one range must be specified, got: %d", len(ranges)))
+		return fmt.Errorf("exactly one range must be specified, got: %d", len(ranges))
 	}
 
 	var out io.Writer
@@ -68,7 +72,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 		if err != nil {
-			common.ExitOnErr(cmd, "", fmt.Errorf("can't open file '%s': %w", filename, err))
+			return fmt.Errorf("can't open file '%s': %w", filename, err)
 		}
 
 		defer f.Close()
@@ -76,15 +80,27 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 		out = f
 	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.PayloadRangePrm
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
-	Prepare(cmd, &prm)
-	readSession(cmd, &prm, pk, cnr, obj)
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
+	err = readSession(cmd, &prm, pk, cnr, obj)
+	if err != nil {
+		return err
+	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	prm.SetRawFlag(raw)
@@ -94,36 +110,45 @@ func getObjectRange(cmd *cobra.Command, _ []string) {
 
 	_, err = internalclient.PayloadRange(ctx, prm)
 	if err != nil {
-		if ok := printSplitInfoErr(cmd, err); ok {
-			return
+		if ok, err := printSplitInfoErr(cmd, err); ok {
+			return err
 		}
 
-		common.ExitOnErr(cmd, "can't get object payload range: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't get object payload range: %w", err)
+		}
 	}
 
 	if filename != "" {
 		cmd.Printf("[%s] Payload successfully saved\n", filename)
 	}
+
+	return nil
 }
 
-func printSplitInfoErr(cmd *cobra.Command, err error) bool {
+func printSplitInfoErr(cmd *cobra.Command, err error) (bool, error) {
 	var errSplitInfo *object.SplitInfoError
 
 	ok := errors.As(err, &errSplitInfo)
 
 	if ok {
 		cmd.PrintErrln("Object is complex, split information received.")
-		printSplitInfo(cmd, errSplitInfo.SplitInfo())
+		if err := printSplitInfo(cmd, errSplitInfo.SplitInfo()); err != nil {
+			return false, err
+		}
 	}
 
-	return ok
+	return ok, nil
 }
 
-func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) {
+func printSplitInfo(cmd *cobra.Command, info *object.SplitInfo) error {
 	bs, err := marshalSplitInfo(cmd, info)
-	common.ExitOnErr(cmd, "can't marshal split info: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't marshal split info: %w", err)
+	}
 
 	cmd.Println(string(bs))
+	return nil
 }
 
 func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error) {

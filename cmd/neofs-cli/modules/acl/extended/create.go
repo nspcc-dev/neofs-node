@@ -3,10 +3,11 @@ package extended
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -49,7 +50,7 @@ When both '--rule' and '--file' arguments are used, '--rule' records will be pla
 	Example: `neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -f rules.txt --out table.json
 neofs-cli acl extended create --cid EutHBsdT1YCzHxjCfQHnLPL1vFrkSyLSio4vkphfnEk -r 'allow get obj:Key=Value others' -r 'deny put others' -r 'deny put obj:$Object:payloadLength<4096 others' -r 'deny get obj:Quality>=100 others'`,
 	Args: cobra.NoArgs,
-	Run:  createEACL,
+	RunE: createEACL,
 }
 
 func init() {
@@ -62,7 +63,7 @@ func init() {
 	_ = cobra.MarkFlagFilename(createCmd.Flags(), "out")
 }
 
-func createEACL(cmd *cobra.Command, _ []string) {
+func createEACL(cmd *cobra.Command, _ []string) error {
 	rules, _ := cmd.Flags().GetStringArray("rule")
 	fileArg, _ := cmd.Flags().GetString("file")
 	outArg, _ := cmd.Flags().GetString("out")
@@ -71,54 +72,54 @@ func createEACL(cmd *cobra.Command, _ []string) {
 	var containerID cid.ID
 	if cidArg != "" {
 		if err := containerID.DecodeString(cidArg); err != nil {
-			cmd.PrintErrf("invalid container ID: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("invalid container ID: %v\n", err)
 		}
 	}
 
 	rulesFile, err := getRulesFromFile(fileArg)
 	if err != nil {
-		cmd.PrintErrf("can't read rules from file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("can't read rules from file: %v\n", err)
 	}
 
 	rules = append(rules, rulesFile...)
 	if len(rules) == 0 {
-		cmd.PrintErrln("no extended ACL rules has been provided")
-		os.Exit(1)
+		return errors.New("no extended ACL rules has been provided")
 	}
 
 	var tb eacl.Table
-	common.ExitOnErr(cmd, "unable to parse provided rules: %w", util.ParseEACLRules(&tb, rules))
+	if err := util.ParseEACLRules(&tb, rules); err != nil {
+		return fmt.Errorf("unable to parse provided rules: %w", err)
+	}
 
 	err = util.ValidateEACLTable(tb)
-	common.ExitOnErr(cmd, "table validation: %w", err)
+	if err != nil {
+		return fmt.Errorf("table validation: %w", err)
+	}
 
 	tb.SetCID(containerID)
 
 	data, err := tb.MarshalJSON()
 	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
+		return err
 	}
 
 	buf := new(bytes.Buffer)
 	err = json.Indent(buf, data, "", "  ")
 	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
+		return err
 	}
 
 	if len(outArg) == 0 {
 		cmd.Println(buf)
-		return
+		return nil
 	}
 
 	err = os.WriteFile(outArg, buf.Bytes(), 0o644)
 	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }
 
 func getRulesFromFile(filename string) ([]string, error) {

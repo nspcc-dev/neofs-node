@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -28,7 +27,7 @@ var objectHashCmd = &cobra.Command{
 	Short: "Get object hash",
 	Long:  "Get object hash",
 	Args:  cobra.NoArgs,
-	Run:   getObjectHash,
+	RunE:  getObjectHash,
 }
 
 func initObjectHashCmd() {
@@ -48,27 +47,42 @@ func initObjectHashCmd() {
 	flags.String(getRangeHashSaltFlag, "", "Salt in hex format")
 }
 
-func getObjectHash(cmd *cobra.Command, _ []string) {
+func getObjectHash(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr := readObjectAddress(cmd, &cnr, &obj)
+	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	if err != nil {
+		return err
+	}
 
 	ranges, err := getRangeList(cmd)
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 	typ, err := getHashType(cmd)
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 
 	strSalt := strings.TrimPrefix(cmd.Flag(getRangeHashSaltFlag).Value.String(), "0x")
 
 	salt, err := hex.DecodeString(strSalt)
-	common.ExitOnErr(cmd, "could not decode salt: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not decode salt: %w", err)
+	}
 
-	pk := key.GetOrGenerate(cmd)
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	tz := typ == hashTz
 	fullHash := len(ranges) == 0
@@ -76,12 +90,17 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		var headPrm internalclient.HeadObjectPrm
 		headPrm.SetPrivateKey(*pk)
 		headPrm.SetClient(cli)
-		Prepare(cmd, &headPrm)
+		err = Prepare(cmd, &headPrm)
+		if err != nil {
+			return err
+		}
 		headPrm.SetAddress(objAddr)
 
 		// get hash of full payload through HEAD (may be user can do it through dedicated command?)
 		res, err := internalclient.HeadObject(ctx, headPrm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		var cs checksum.Checksum
 		var csSet bool
@@ -98,14 +117,20 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 			cmd.Println("Missing checksum in object header.")
 		}
 
-		return
+		return nil
 	}
 
 	var hashPrm internalclient.HashPayloadRangesPrm
 	hashPrm.SetClient(cli)
 	hashPrm.SetPrivateKey(*pk)
-	Prepare(cmd, &hashPrm)
-	readSession(cmd, &hashPrm, pk, cnr, obj)
+	err = Prepare(cmd, &hashPrm)
+	if err != nil {
+		return err
+	}
+	err = readSession(cmd, &hashPrm, pk, cnr, obj)
+	if err != nil {
+		return err
+	}
 	hashPrm.SetAddress(objAddr)
 	hashPrm.SetSalt(salt)
 	hashPrm.SetRanges(ranges)
@@ -115,7 +140,9 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 	}
 
 	res, err := internalclient.HashPayloadRanges(ctx, hashPrm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	hs := res.HashList()
 
@@ -123,6 +150,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) {
 		cmd.Printf("Offset=%d (Length=%d)\t: %s\n", ranges[i].GetOffset(), ranges[i].GetLength(),
 			hex.EncodeToString(hs[i]))
 	}
+	return nil
 }
 
 func getHashType(cmd *cobra.Command) (string, error) {

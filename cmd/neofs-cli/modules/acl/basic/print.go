@@ -1,7 +1,8 @@
 package basic
 
 import (
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/spf13/cobra"
@@ -17,12 +18,16 @@ Container have access to the operations of the data replication mechanism:
     Get, Head, Put, Search, Hash.
 InnerRing members are allowed to data audit ops only:
     Get, Head, Hash, Search.`,
-	Run:  printACL,
+	RunE: printACL,
 	Args: cobra.ExactArgs(1),
 }
 
-func printACL(cmd *cobra.Command, args []string) {
+func printACL(cmd *cobra.Command, args []string) error {
 	var bacl acl.Basic
-	common.ExitOnErr(cmd, "unable to parse basic acl: %w", bacl.DecodeString(args[0]))
+	if err := bacl.DecodeString(args[0]); err != nil {
+		return fmt.Errorf("unable to parse basic acl: %w", err)
+	}
+
 	util.PrettyPrintTableBACL(cmd, &bacl)
+	return nil
 }

@@ -25,7 +25,10 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 	addressRaw, err := cmd.Flags().GetString(objectFlag)
 	if err != nil {
 		return fmt.Errorf("reading %s flag: %w", objectFlag, err)
@@ -43,9 +46,15 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 			ObjectAddress: addressRaw,
 		},
 	}
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.ObjectStatus(client, req)
@@ -55,7 +64,10 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("rpc error: %w", err)
 	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	shards := resp.GetBody().GetShards()
 	if len(shards) == 0 {

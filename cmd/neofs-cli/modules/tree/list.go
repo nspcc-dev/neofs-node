@@ -2,8 +2,8 @@ package tree
 
 import (
 	"crypto/sha256"
+	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
@@ -15,7 +15,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Get tree IDs",
 	Args:  cobra.NoArgs,
-	Run:   list,
+	RunE:  list,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)
 	},
@@ -31,19 +31,26 @@ func initListCmd() {
 	_ = cobra.MarkFlagRequired(ff, commonflags.RPC)
 }
 
-func list(cmd *cobra.Command, _ []string) {
+func list(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 	cidString, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
-	err := cnr.DecodeString(cidString)
-	common.ExitOnErr(cmd, "decode container ID string: %w", err)
+	err = cnr.DecodeString(cidString)
+	if err != nil {
+		return fmt.Errorf("decode container ID string: %w", err)
+	}
 
 	cli, err := _client()
-	common.ExitOnErr(cmd, "client: %w", err)
+	if err != nil {
+		return fmt.Errorf("client: %w", err)
+	}
 
 	rawCID := make([]byte, sha256.Size)
 	cnr.Encode(rawCID)
@@ -54,12 +61,18 @@ func list(cmd *cobra.Command, _ []string) {
 		},
 	}
 
-	common.ExitOnErr(cmd, "message signing: %w", tree.SignMessage(req, pk))
+	if err := tree.SignMessage(req, pk); err != nil {
+		return fmt.Errorf("message signing: %w", err)
+	}
 
 	resp, err := cli.TreeList(ctx, req)
-	common.ExitOnErr(cmd, "rpc call: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc call: %w", err)
+	}
 
 	for _, treeID := range resp.GetBody().GetIds() {
 		cmd.Println(treeID)
 	}
+
+	return nil
 }

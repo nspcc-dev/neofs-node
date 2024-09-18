@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
@@ -30,7 +29,7 @@ var sgPutCmd = &cobra.Command{
 	Short: "Put storage group to NeoFS",
 	Long:  "Put storage group to NeoFS",
 	Args:  cobra.NoArgs,
-	Run:   putSG,
+	RunE:  putSG,
 }
 
 func initSGPutCmd() {
@@ -49,29 +48,37 @@ func initSGPutCmd() {
 	sgPutCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
-func putSG(cmd *cobra.Command, _ []string) {
+func putSG(cmd *cobra.Command, _ []string) error {
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
 	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	ownerID := user.ResolveFromECDSAPublicKey(pk.PublicKey)
 
 	var cnr cid.ID
-	readCID(cmd, &cnr)
+	err = readCID(cmd, &cnr)
+	if err != nil {
+		return err
+	}
 
 	members := make([]oid.ID, len(sgMembers))
 	uniqueFilter := make(map[oid.ID]struct{}, len(sgMembers))
 
 	for i := range sgMembers {
 		err := members[i].DecodeString(sgMembers[i])
-		common.ExitOnErr(cmd, "could not parse object ID: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not parse object ID: %w", err)
+		}
 
 		if _, alreadyExists := uniqueFilter[members[i]]; alreadyExists {
-			common.ExitOnErr(cmd, "", fmt.Errorf("%s member in not unique", members[i]))
+			return fmt.Errorf("%s member in not unique", members[i])
 		}
 
 		uniqueFilter[members[i]] = struct{}{}
@@ -84,15 +91,26 @@ func putSG(cmd *cobra.Command, _ []string) {
 		getPrm    internalclient.GetObjectPrm
 	)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 	getCnrPrm.SetClient(cli)
 	getCnrPrm.SetContainer(cnr)
 
 	resGetCnr, err := internalclient.GetContainer(ctx, getCnrPrm)
-	common.ExitOnErr(cmd, "get container RPC call: %w", err)
+	if err != nil {
+		return fmt.Errorf("get container RPC call: %w", err)
+	}
 
-	objectCli.OpenSessionViaClient(ctx, cmd, &putPrm, cli, pk, cnr)
-	objectCli.Prepare(cmd, &headPrm, &putPrm)
+	err = objectCli.OpenSessionViaClient(ctx, cmd, &putPrm, cli, pk, cnr)
+	if err != nil {
+		return err
+	}
+	err = objectCli.Prepare(cmd, &headPrm, &putPrm)
+	if err != nil {
+		return err
+	}
 
 	headPrm.SetRawFlag(true)
 	headPrm.SetClient(cli)
@@ -101,7 +119,10 @@ func putSG(cmd *cobra.Command, _ []string) {
 	headPrm.SetRawFlag(true)
 	getPrm.SetClient(cli)
 	getPrm.SetPrivateKey(*pk)
-	objectCli.Prepare(cmd, &getPrm)
+	err = objectCli.Prepare(cmd, &getPrm)
+	if err != nil {
+		return err
+	}
 
 	sg, err := storagegroup.CollectMembers(sgHeadReceiver{
 		ctx:     ctx,
@@ -112,14 +133,18 @@ func putSG(cmd *cobra.Command, _ []string) {
 		cli:     cli,
 		getPrm:  getPrm,
 	}, cnr, members, !resGetCnr.Container().IsHomomorphicHashingDisabled())
-	common.ExitOnErr(cmd, "could not collect storage group members: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not collect storage group members: %w", err)
+	}
 
 	if lifetime != 0 {
 		var netInfoPrm internalclient.NetworkInfoPrm
 		netInfoPrm.SetClient(cli)
 
 		ni, err := internalclient.NetworkInfo(ctx, netInfoPrm)
-		common.ExitOnErr(cmd, "can't fetch network info: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't fetch network info: %w", err)
+		}
 		currEpoch := ni.NetworkInfo().CurrentEpoch()
 		exp = currEpoch + lifetime
 	}
@@ -136,10 +161,14 @@ func putSG(cmd *cobra.Command, _ []string) {
 	putPrm.SetHeader(obj)
 
 	res, err := internalclient.PutObject(ctx, putPrm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	cmd.Println("Storage group successfully stored")
 	cmd.Printf("  ID: %s\n  CID: %s\n", res.ID(), cnr)
+
+	return nil
 }
 
 type sgHeadReceiver struct {
