@@ -13,7 +13,7 @@ var statCMD = &cobra.Command{
 	Short: "Object status information",
 	Long:  `Get metabase's indexes related to an object.`,
 	Args:  cobra.NoArgs,
-	Run:   statusFunc,
+	RunE:  statusFunc,
 }
 
 func init() {
@@ -21,17 +21,25 @@ func init() {
 	common.AddComponentPathFlag(statCMD, &vPath)
 }
 
-func statusFunc(cmd *cobra.Command, _ []string) {
+func statusFunc(cmd *cobra.Command, _ []string) error {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
-	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
+	if err != nil {
+		return fmt.Errorf("invalid address argument: %w", err)
+	}
 
-	db := openMeta(cmd, true)
+	db, err := openMeta(true)
+	if err != nil {
+		return err
+	}
+
 	defer db.Close()
 
 	res, err := db.ObjectStatus(addr)
-	common.ExitOnErr(cmd, common.Errf("reading object status: %w", err))
+	if err != nil {
+		return fmt.Errorf("reading object status: %w", err)
+	}
 
 	const emptyValPlaceholder = "<empty>"
 	storageID := res.StorageID
@@ -52,4 +60,6 @@ func statusFunc(cmd *cobra.Command, _ []string) {
 		cmd.Printf("\tBucket: %d\n"+
 			"\tValue (HEX): %s\n", bucket.BucketIndex, valStr)
 	}
+
+	return nil
 }

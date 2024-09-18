@@ -15,14 +15,14 @@ var listCMD = &cobra.Command{
 	Short: "Object listing",
 	Long:  `List all objects stored in a write-cache.`,
 	Args:  cobra.NoArgs,
-	Run:   listFunc,
+	RunE:  listFunc,
 }
 
 func init() {
 	common.AddComponentPathFlag(listCMD, &vPath)
 }
 
-func listFunc(cmd *cobra.Command, _ []string) {
+func listFunc(cmd *cobra.Command, _ []string) error {
 	// other targets can be supported
 	w := cmd.OutOrStderr()
 
@@ -31,9 +31,15 @@ func listFunc(cmd *cobra.Command, _ []string) {
 		return err
 	}
 
-	db := openWC(cmd)
+	db, err := openWC()
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
-	err := writecache.IterateDB(db, wAddr)
-	common.ExitOnErr(cmd, common.Errf("write-cache iterator failure: %w", err))
+	err = writecache.IterateDB(db, wAddr)
+	if err != nil {
+		return fmt.Errorf("write-cache iterator failure: %w", err)
+	}
+	return nil
 }

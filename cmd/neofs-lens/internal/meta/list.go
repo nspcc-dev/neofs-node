@@ -12,7 +12,7 @@ var listCMD = &cobra.Command{
 	Use:   "list",
 	Short: "List objects in metabase (metabase's List method)",
 	Args:  cobra.NoArgs,
-	Run:   listFunc,
+	RunE:  listFunc,
 }
 
 var vLimit uint32
@@ -29,21 +29,28 @@ func init() {
 	common.AddComponentPathFlag(listCMD, &vPath)
 }
 
-func listFunc(cmd *cobra.Command, _ []string) {
-	db := openMeta(cmd, true)
+func listFunc(cmd *cobra.Command, _ []string) error {
+	db, err := openMeta(true)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	if vLimit == 0 {
-		common.ExitOnErr(cmd, fmt.Errorf("%s flag must be positive", limitFlagName))
+		return fmt.Errorf("%s flag must be positive", limitFlagName)
 	}
 
 	var prm meta.ListPrm
 	prm.SetCount(vLimit)
 
 	res, err := db.ListWithCursor(prm)
-	common.ExitOnErr(cmd, common.Errf("metabase's `ListWithCursor`: %w", err))
+	if err != nil {
+		return fmt.Errorf("metabase's `ListWithCursor`: %w", err)
+	}
 
 	for _, addressWithType := range res.AddressList() {
 		cmd.Printf("%s, Type: %s\n", addressWithType.Address, addressWithType.Type)
 	}
+
+	return nil
 }

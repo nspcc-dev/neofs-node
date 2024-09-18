@@ -1,7 +1,8 @@
 package writecache
 
 import (
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
@@ -25,9 +26,11 @@ func init() {
 	Root.AddCommand(getCMD)
 }
 
-func openWC(cmd *cobra.Command) *bbolt.DB {
+func openWC() (*bbolt.DB, error) {
 	db, err := writecache.OpenDB(vPath, true)
-	common.ExitOnErr(cmd, common.Errf("could not open write-cache db: %w", err))
+	if err != nil {
+		return nil, fmt.Errorf("could not open write-cache db: %w", err)
+	}
 
-	return db
+	return db, nil
 }

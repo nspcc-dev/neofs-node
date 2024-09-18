@@ -1,10 +1,10 @@
 package meta
 
 import (
+	"fmt"
 	"os"
 	"time"
 
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
@@ -39,9 +39,11 @@ func init() {
 	)
 }
 
-func openMeta(cmd *cobra.Command, readOnly bool) *meta.DB {
+func openMeta(readOnly bool) (*meta.DB, error) {
 	_, err := os.Stat(vPath)
-	common.ExitOnErr(cmd, err)
+	if err != nil {
+		return nil, err
+	}
 
 	db := meta.New(
 		meta.WithPath(vPath),
@@ -51,7 +53,9 @@ func openMeta(cmd *cobra.Command, readOnly bool) *meta.DB {
 		}),
 		meta.WithEpochState(epochState{}),
 	)
-	common.ExitOnErr(cmd, common.Errf("could not open metabase: %w", db.Open(readOnly)))
+	if err := db.Open(readOnly); err != nil {
+		return nil, fmt.Errorf("could not open metabase: %w", err)
+	}
 
-	return db
+	return db, nil
 }

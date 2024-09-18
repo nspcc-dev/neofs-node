@@ -31,7 +31,7 @@ var storageSanityCMD = &cobra.Command{
 	Use:   "sanity",
 	Short: "Check consistency of stored objects",
 	Args:  cobra.NoArgs,
-	Run:   sanityCheck,
+	RunE:  sanityCheck,
 }
 
 func init() {
@@ -44,7 +44,7 @@ type storageShard struct {
 	p   *peapod.Peapod
 }
 
-func sanityCheck(cmd *cobra.Command, _ []string) {
+func sanityCheck(cmd *cobra.Command, _ []string) error {
 	var shards []storageShard
 	defer func() {
 		for _, sh := range shards {
@@ -80,7 +80,9 @@ func sanityCheck(cmd *cobra.Command, _ []string) {
 
 				var compressCfg compression.Config
 				err := compressCfg.Init()
-				common.ExitOnErr(cmd, common.Errf("failed to init compression config: %w", err))
+				if err != nil {
+					return fmt.Errorf("failed to init compression config: %w", err)
+				}
 
 				sh.p.SetCompressor(&compressCfg)
 			case fstree.Type:
@@ -94,22 +96,38 @@ func sanityCheck(cmd *cobra.Command, _ []string) {
 			}
 		}
 
-		common.ExitOnErr(cmd, common.Errf("open metabase: %w", sh.m.Open(true)))
-		common.ExitOnErr(cmd, common.Errf("open peapod: %w", sh.p.Open(true)))
-		common.ExitOnErr(cmd, common.Errf("open fstree: %w", sh.fsT.Open(true)))
+		if err := sh.m.Open(true); err != nil {
+			return fmt.Errorf("open metabase: %w", err)
+		}
+		if err := sh.p.Open(true); err != nil {
+			return fmt.Errorf("open peapod: %w", err)
+		}
+		if err := sh.fsT.Open(true); err != nil {
+			return fmt.Errorf("open fstree: %w", err)
+		}
 
 		// metabase.Open(true) does not set it mode to RO somehow
-		common.ExitOnErr(cmd, common.Errf("moving metabase in readonly mode", sh.m.SetMode(mode.ReadOnly)))
+		if err := sh.m.SetMode(mode.ReadOnly); err != nil {
+			return fmt.Errorf("moving metabase in readonly mode: %w", err)
+		}
 
-		common.ExitOnErr(cmd, common.Errf("init metabase: %w", sh.m.Init()))
-		common.ExitOnErr(cmd, common.Errf("init peapod: %w", sh.p.Init()))
-		common.ExitOnErr(cmd, common.Errf("init fstree: %w", sh.fsT.Init()))
+		if err := sh.m.Init(); err != nil {
+			return fmt.Errorf("init metabase: %w", err)
+		}
+		if err := sh.p.Init(); err != nil {
+			return fmt.Errorf("init peapod: %w", err)
+		}
+		if err := sh.fsT.Init(); err != nil {
+			return fmt.Errorf("init fstree: %w", err)
+		}
 
 		shards = append(shards, sh)
 
 		return nil
 	})
-	common.ExitOnErr(cmd, common.Errf("reading config: %w", err))
+	if err != nil {
+		return fmt.Errorf("reading config: %w", err)
+	}
 
 	for _, sh := range shards {
 		idRaw, err := sh.m.ReadShardID()
@@ -124,7 +142,7 @@ func sanityCheck(cmd *cobra.Command, _ []string) {
 		objsChecked, err := checkShard(cmd, sh)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				return
+				return nil
 			}
 
 			cmd.Printf("%d objects checked in %s shard, interrupted by error: %s\n", objsChecked, id, err)
@@ -133,6 +151,8 @@ func sanityCheck(cmd *cobra.Command, _ []string) {
 
 		cmd.Printf("Checked objects in %s shard: %d", id, objsChecked)
 	}
+
+	return nil
 }
 
 func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {

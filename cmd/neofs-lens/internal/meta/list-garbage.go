@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
@@ -11,15 +13,18 @@ var listGarbageCMD = &cobra.Command{
 	Short: "Garbage listing",
 	Long:  `List all the objects that have received GC Mark.`,
 	Args:  cobra.NoArgs,
-	Run:   listGarbageFunc,
+	RunE:  listGarbageFunc,
 }
 
 func init() {
 	common.AddComponentPathFlag(listGarbageCMD, &vPath)
 }
 
-func listGarbageFunc(cmd *cobra.Command, _ []string) {
-	db := openMeta(cmd, true)
+func listGarbageFunc(cmd *cobra.Command, _ []string) error {
+	db, err := openMeta(true)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	var garbPrm meta.GarbageIterationPrm
@@ -29,6 +34,10 @@ func listGarbageFunc(cmd *cobra.Command, _ []string) {
 			return nil
 		})
 
-	err := db.IterateOverGarbage(garbPrm)
-	common.ExitOnErr(cmd, common.Errf("could not iterate over garbage bucket: %w", err))
+	err = db.IterateOverGarbage(garbPrm)
+	if err != nil {
+		return fmt.Errorf("could not iterate over garbage bucket: %w", err)
+	}
+
+	return nil
 }

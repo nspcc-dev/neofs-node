@@ -11,10 +11,12 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
+- `defer` func is not skipped in cobra-based programs (#2942)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
 - Metabase graveyard scheme (#2929)
+- When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
 
 ### Removed
 

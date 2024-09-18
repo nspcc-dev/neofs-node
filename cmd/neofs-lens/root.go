@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/meta"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/object"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/peapod"
@@ -48,7 +49,5 @@ func init() {
 
 func main() {
 	err := command.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+	cmderr.ExitOnErr(err)
 }

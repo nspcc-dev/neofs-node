@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -12,7 +14,7 @@ var storageGetObjCMD = &cobra.Command{
 	Short: "Get object from the NeoFS node's storage snapshot",
 	Long:  "Get object from the NeoFS node's storage snapshot",
 	Args:  cobra.NoArgs,
-	Run:   getFunc,
+	RunE:  getFunc,
 }
 
 func init() {
@@ -22,23 +24,36 @@ func init() {
 	common.AddPayloadOnlyFlag(storageGetObjCMD, &vPayloadOnly)
 }
 
-func getFunc(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) error {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
-	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
+	if err != nil {
+		return fmt.Errorf("invalid address argument: %w", err)
+	}
 
-	storage := openEngine(cmd)
+	storage, err := openEngine()
+	if err != nil {
+		return err
+	}
 	defer storage.Close()
 
 	obj, err := engine.Get(storage, addr)
-	common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))
+	if err != nil {
+		return fmt.Errorf("could not fetch object: %w", err)
+	}
 
 	common.PrintObjectHeader(cmd, *obj)
 	if vPayloadOnly {
-		common.WriteObjectToFile(cmd, vOut, obj.Payload(), true)
-		return
+		if err := common.WriteObjectToFile(cmd, vOut, obj.Payload(), true); err != nil {
+			return err
+		}
+		return nil
 	}
 	data := obj.Marshal()
-	common.WriteObjectToFile(cmd, vOut, data, false)
+	if err := common.WriteObjectToFile(cmd, vOut, data, false); err != nil {
+		return err
+	}
+
+	return nil
 }

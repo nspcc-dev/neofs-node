@@ -1,6 +1,8 @@
 package peapod
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/spf13/cobra"
@@ -11,7 +13,7 @@ var getCMD = &cobra.Command{
 	Short: "Get object",
 	Long:  `Get specific object from a Peapod.`,
 	Args:  cobra.NoArgs,
-	Run:   getFunc,
+	RunE:  getFunc,
 }
 
 func init() {
@@ -21,22 +23,35 @@ func init() {
 	common.AddPayloadOnlyFlag(getCMD, &vPayloadOnly)
 }
 
-func getFunc(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) error {
 	var getPrm blobstorcommon.GetPrm
 
 	err := getPrm.Address.DecodeString(vAddress)
-	common.ExitOnErr(cmd, common.Errf("failed to decode object address: %w", err))
+	if err != nil {
+		return fmt.Errorf("failed to decode object address: %w", err)
+	}
 
-	ppd := openPeapod(cmd)
+	ppd, err := openPeapod()
+	if err != nil {
+		return err
+	}
 	defer ppd.Close()
 
 	res, err := ppd.Get(getPrm)
-	common.ExitOnErr(cmd, common.Errf("failed to read object from Peapod: %w", err))
+	if err != nil {
+		return fmt.Errorf("failed to read object from Peapod: %w", err)
+	}
 
 	common.PrintObjectHeader(cmd, *res.Object)
 	if vPayloadOnly {
-		common.WriteObjectToFile(cmd, vOut, res.RawData, true)
-		return
+		if err := common.WriteObjectToFile(cmd, vOut, res.RawData, true); err != nil {
+			return err
+		}
+		return nil
 	}
-	common.WriteObjectToFile(cmd, vOut, res.RawData, false)
+	if err := common.WriteObjectToFile(cmd, vOut, res.RawData, false); err != nil {
+		return err
+	}
+
+	return nil
 }
