@@ -37,7 +37,7 @@ func newTestFSTree(tb testing.TB) common.Storage {
 
 func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
-	rand.Read(data)
+	_, _ = rand.Read(data)
 
 	prm := common.PutPrm{
 		RawData: data,
@@ -130,7 +130,7 @@ func BenchmarkGet(b *testing.B) {
 
 					obj := object.New()
 					data := make([]byte, tc.objSize)
-					rand.Read(data)
+					_, _ = rand.Read(data)
 					obj.SetID(oid.ID{1, 2, 3})
 					obj.SetContainerID(cid.ID{1, 2, 3})
 					obj.SetPayload(data)

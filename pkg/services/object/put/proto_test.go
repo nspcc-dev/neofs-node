@@ -19,7 +19,7 @@ import (
 func TestUnaryReplicateRequest(t *testing.T) {
 	// prepare replicated object
 	payload := make([]byte, 1024)
-	rand.Read(payload)
+	_, _ = rand.Read(payload)
 	obj := objecttest.Object()
 	obj.SetPayload(payload)
 	id := oidtest.ID()

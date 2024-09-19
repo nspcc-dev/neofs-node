@@ -268,7 +268,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		payloadSz := uint64(10)
 		payload := make([]byte, payloadSz)
-		rand.Read(payload)
+		_, _ = rand.Read(payload)
 
 		addr := oidtest.Address()
 		obj := generateObject(addr, nil, payload)
@@ -429,7 +429,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 			)
 
 			bPubKey := make([]byte, 33)
-			rand.Read(bPubKey)
+			_, _ = rand.Read(bPubKey)
 
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)
@@ -468,7 +468,7 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 		addr.SetObject(curID)
 
 		payloadPart := make([]byte, 10)
-		rand.Read(payloadPart)
+		_, _ = rand.Read(payloadPart)
 
 		o := generateObject(addr, prevID, []byte{byte(i)})
 		o.SetPayload(payloadPart)
@@ -558,7 +558,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		payloadSz := uint64(10)
 		payload := make([]byte, payloadSz)
-		rand.Read(payload)
+		_, _ = rand.Read(payload)
 
 		obj := generateObject(addr, nil, payload)
 

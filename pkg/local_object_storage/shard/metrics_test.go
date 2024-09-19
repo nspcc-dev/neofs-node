@@ -74,9 +74,11 @@ func TestCounters(t *testing.T) {
 	dir := t.TempDir()
 	sh, mm := shardWithMetrics(t, dir)
 
-	sh.SetMode(mode.ReadOnly)
+	err := sh.SetMode(mode.ReadOnly)
+	require.NoError(t, err)
 	require.True(t, mm.readOnly)
-	sh.SetMode(mode.ReadWrite)
+	err = sh.SetMode(mode.ReadWrite)
+	require.NoError(t, err)
 	require.False(t, mm.readOnly)
 
 	const objNumber = 10

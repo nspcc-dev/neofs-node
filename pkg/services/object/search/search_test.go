@@ -132,7 +132,7 @@ func (ts *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
 }
 
 func testSHA256() (cs [sha256.Size]byte) {
-	rand.Read(cs[:])
+	_, _ = rand.Read(cs[:])
 	return cs
 }
 
@@ -213,7 +213,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 			)
 
 			bPubKey := make([]byte, 33)
-			rand.Read(bPubKey)
+			_, _ = rand.Read(bPubKey)
 
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)

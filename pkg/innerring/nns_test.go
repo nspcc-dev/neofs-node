@@ -63,7 +63,7 @@ func (x *testInvoker) TraverseIterator(sessionID uuid.UUID, iterator *result.Ite
 
 func TestNeoFSNNS_CheckDomainRecord(t *testing.T) {
 	var contractAddr util.Uint160
-	rand.Read(contractAddr[:])
+	_, _ = rand.Read(contractAddr[:])
 	const domain = "l2.l1.tld"
 	searchedRecord := "abcdef"
 
