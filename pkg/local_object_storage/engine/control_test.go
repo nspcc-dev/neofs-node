@@ -206,7 +206,6 @@ func TestPersistentShardID(t *testing.T) {
 	require.Equal(t, id[1], newID[0])
 	require.Equal(t, id[0], newID[1])
 	require.NoError(t, e.Close())
-
 }
 
 func TestReload(t *testing.T) {

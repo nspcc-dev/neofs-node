@@ -212,7 +212,6 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	for _, v := range expected {
 		require.Equal(t, 1, v)
 	}
-
 }
 
 func sortAddresses(addrWithType []object.AddressWithType) []object.AddressWithType {

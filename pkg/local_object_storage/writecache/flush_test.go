@@ -271,7 +271,6 @@ func putObject(t *testing.T, c Cache, size int) objectPair {
 	require.NoError(t, err)
 
 	return objectPair{prm.Address, prm.Object}
-
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {
