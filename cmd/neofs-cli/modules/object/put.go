@@ -94,7 +94,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("can't unmarshal object from given file: %w", err)
 		}
 		payloadReader = bytes.NewReader(objTemp.Payload())
-		cnr, _ = objTemp.ContainerID()
+		cnr = objTemp.GetContainerID()
 		ownerID = *objTemp.OwnerID()
 	} else {
 		fi, err := f.Stat()
@@ -108,7 +108,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
-		ownerID = user.ResolveFromECDSAPublicKey(pk.PublicKey)
+		ownerID = user.NewFromECDSAPublicKey(pk.PublicKey)
 	}
 
 	attrs, err := parseObjectAttrs(cmd)

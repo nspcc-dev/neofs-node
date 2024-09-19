@@ -85,18 +85,18 @@ func anyValidEACL() eacl.Table {
 
 func TestValidateEACL(t *testing.T) {
 	t.Run("absence matcher", func(t *testing.T) {
-		var r eacl.Record
-		r.AddObjectAttributeFilter(eacl.MatchNotPresent, "any_key", "any_value")
+		r := eacl.ConstructRecord(eacl.ActionUnspecified, eacl.OperationUnspecified, []eacl.Target{},
+			eacl.NewObjectPropertyFilter("any_key", eacl.MatchNotPresent, "any_value"))
 		tb := anyValidEACL()
-		tb.AddRecord(&r)
+		tb.SetRecords([]eacl.Record{r})
 
 		err := ValidateEACLTable(tb)
 		require.ErrorContains(t, err, "non-empty value in absence filter")
 
-		r = eacl.Record{}
-		r.AddObjectAttributeFilter(eacl.MatchNotPresent, "any_key", "")
+		r = eacl.ConstructRecord(eacl.ActionUnspecified, eacl.OperationUnspecified, []eacl.Target{},
+			eacl.NewObjectPropertyFilter("any_key", eacl.MatchNotPresent, ""))
 		tb = anyValidEACL()
-		tb.AddRecord(&r)
+		tb.SetRecords([]eacl.Record{r})
 
 		err = ValidateEACLTable(tb)
 		require.NoError(t, err)
@@ -119,10 +119,10 @@ func TestValidateEACL(t *testing.T) {
 			{true, "-1111111111111111111111111111111111111111111111"},
 		} {
 			for _, m := range allNumMatchers {
-				var r eacl.Record
-				r.AddObjectAttributeFilter(m, "any_key", tc.v)
+				r := eacl.ConstructRecord(eacl.ActionUnspecified, eacl.OperationUnspecified, []eacl.Target{},
+					eacl.NewObjectPropertyFilter("any_key", m, tc.v))
 				tb := anyValidEACL()
-				tb.AddRecord(&r)
+				tb.SetRecords([]eacl.Record{r})
 
 				err := ValidateEACLTable(tb)
 				if tc.ok {

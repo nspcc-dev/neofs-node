@@ -1,8 +1,8 @@
 package netmap
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 	"strconv"
 	"testing"
 
@@ -16,8 +16,7 @@ func Test_stackItemsToNodeInfos(t *testing.T) {
 	expected := make([]netmap.NodeInfo, 4)
 	for i := range expected {
 		pub := make([]byte, 33)
-		//nolint:staticcheck
-		rand.Read(pub)
+		_, _ = rand.Read(pub)
 
 		switch i % 3 {
 		default:

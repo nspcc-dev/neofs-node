@@ -9,15 +9,15 @@ import (
 func MergeSplitInfo(from, to *object.SplitInfo) *object.SplitInfo {
 	to.SetSplitID(from.SplitID()) // overwrite SplitID and ignore conflicts
 
-	if lp, ok := from.LastPart(); ok {
+	if lp := from.GetLastPart(); !lp.IsZero() {
 		to.SetLastPart(lp)
 	}
 
-	if link, ok := from.Link(); ok {
+	if link := from.GetLink(); !link.IsZero() {
 		to.SetLink(link)
 	}
 
-	if init, ok := from.FirstPart(); ok {
+	if init := from.GetFirstPart(); !init.IsZero() {
 		to.SetFirstPart(init)
 	}
 

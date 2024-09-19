@@ -143,7 +143,7 @@ var splitInfoError *object.SplitInfoError // for errors.As comparisons
 
 func bucketName(cnr cid.ID, prefix byte, key []byte) []byte {
 	key[0] = prefix
-	cnr.Encode(key[1:])
+	copy(key[1:], cnr[:])
 	return key[:bucketKeySize]
 }
 
@@ -175,7 +175,7 @@ func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
 // attributeBucketName returns <CID>_attr_<attributeKey>.
 func attributeBucketName(cnr cid.ID, attributeKey string, key []byte) []byte {
 	key[0] = userAttributePrefix
-	cnr.Encode(key[1:])
+	copy(key[1:], cnr[:])
 	return append(key[:bucketKeySize], attributeKey...)
 }
 
@@ -219,8 +219,10 @@ func firstObjectIDBucketName(cnr cid.ID, key []byte) []byte {
 
 // addressKey returns key for K-V tables when key is a whole address.
 func addressKey(addr oid.Address, key []byte) []byte {
-	addr.Container().Encode(key)
-	addr.Object().Encode(key[cidSize:])
+	cnr := addr.Container()
+	obj := addr.Object()
+	n := copy(key, cnr[:])
+	copy(key[n:], obj[:])
 	return key[:addressKeySize]
 }
 
@@ -247,13 +249,13 @@ func decodeAddressFromKey(dst *oid.Address, k []byte) error {
 
 // objectKey returns key for K-V tables when key is an object id.
 func objectKey(obj oid.ID, key []byte) []byte {
-	obj.Encode(key)
+	copy(key, obj[:])
 	return key[:objectKeySize]
 }
 
 // containerKey returns key for K-V tables when key is a container ID.
 func containerKey(cID cid.ID, key []byte) []byte {
-	cID.Encode(key)
+	copy(key, cID[:])
 	return key[:cidSize]
 }
 

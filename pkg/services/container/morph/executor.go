@@ -383,7 +383,8 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 		return fmt.Errorf("reading container from the network: %w", err)
 	}
 
-	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(cnr.Value.Owner().WalletBytes(), issuer) {
+	owner := cnr.Value.Owner()
+	if issuer := t.GetBody().GetOwnerID().GetValue(); !bytes.Equal(owner[:], issuer) {
 		return fmt.Errorf("session was not issued by the container owner, issuer: %s", base58.Encode(issuer))
 	}
 
@@ -394,8 +395,8 @@ func (s *morphExecutor) validateToken(t *sessionV2.Token, cIDV2 *refs.ContainerI
 		return fmt.Errorf("decoding key from signature: %w", err)
 	}
 
-	userFromToken := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(keyFromToken))
-	if !cnr.Value.Owner().Equals(userFromToken) {
+	userFromToken := user.NewFromECDSAPublicKey(ecdsa.PublicKey(keyFromToken))
+	if cnr.Value.Owner() != userFromToken {
 		return fmt.Errorf("session token signer differs container owner: signer: %s, owner: %s", userFromToken, cnr.Value.Owner())
 	}
 

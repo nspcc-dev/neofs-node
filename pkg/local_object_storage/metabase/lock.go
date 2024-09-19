@@ -53,7 +53,7 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 
 		bucketLocked := tx.Bucket(bucketNameLocked)
 
-		cnr.Encode(key)
+		copy(key, cnr[:])
 		bucketLockedContainer, err := bucketLocked.CreateBucketIfNotExists(key)
 		if err != nil {
 			return fmt.Errorf("create container bucket for locked objects %v: %w", cnr, err)
@@ -125,8 +125,7 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) ([]oid.Address, error) {
 func objectLocked(tx *bbolt.Tx, idCnr cid.ID, idObj oid.ID) bool {
 	bucketLocked := tx.Bucket(bucketNameLocked)
 	if bucketLocked != nil {
-		key := make([]byte, cidSize)
-		idCnr.Encode(key)
+		key := idCnr[:]
 		bucketLockedContainer := bucketLocked.Bucket(key)
 		if bucketLockedContainer != nil {
 			return bucketLockedContainer.Get(objectKey(idObj, key)) != nil
@@ -154,7 +153,7 @@ func freePotentialLocks(tx *bbolt.Tx, idCnr cid.ID, locker oid.ID) ([]oid.Addres
 	}
 
 	key := make([]byte, cidSize)
-	idCnr.Encode(key)
+	copy(key, idCnr[:])
 
 	bucketLockedContainer := bucketLocked.Bucket(key)
 	if bucketLockedContainer == nil {

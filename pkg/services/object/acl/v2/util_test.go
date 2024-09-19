@@ -118,8 +118,8 @@ func TestAssertSessionRelation(t *testing.T) {
 	objOther := oidtest.ID()
 
 	// make sure ids differ, otherwise test won't work correctly
-	require.False(t, cnrOther.Equals(cnr))
-	require.False(t, objOther.Equals(obj))
+	require.False(t, cnrOther == cnr)
+	require.False(t, objOther == obj)
 
 	// bind session to the container (required)
 	tok.BindContainer(cnr)

@@ -284,7 +284,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		From:   cnrOwner,
 		Amount: ctx.auditFee,
 	}
-	transferTx.To = user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*auditorKey))
+	transferTx.To = user.NewFromECDSAPublicKey(ecdsa.PublicKey(*auditorKey))
 
 	ctx.txTable.Transfer(transferTx)
 

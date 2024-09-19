@@ -199,7 +199,7 @@ func (s settlementDeps) ResolveKey(ni common.NodeInfo) (*user.ID, error) {
 		return nil, fmt.Errorf("decode public key: %w", err)
 	}
 
-	id := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
+	id := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	return &id, nil
 }

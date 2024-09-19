@@ -84,11 +84,10 @@ func (np *Processor) approveBindCommon(e *bindCommonContext) {
 		return
 	}
 
-	var id user.ID
-	id.SetScriptHash(u160)
+	id := user.NewFromScriptHash(u160)
 
 	prm := neofsid.CommonBindPrm{}
-	prm.SetOwnerID(id.WalletBytes())
+	prm.SetOwnerID(id[:])
 	prm.SetKeys(e.Keys())
 	prm.SetHash(e.bindCommon.TxHash())
 

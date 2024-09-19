@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -65,9 +64,6 @@ func addByPath(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("client: %w", err)
 	}
 
-	rawCID := make([]byte, sha256.Size)
-	cnr.Encode(rawCID)
-
 	meta, err := parseMeta(cmd)
 	if err != nil {
 		return fmt.Errorf("meta data parsing: %w", err)
@@ -78,7 +74,7 @@ func addByPath(cmd *cobra.Command, _ []string) error {
 
 	req := new(tree.AddByPathRequest)
 	req.Body = &tree.AddByPathRequest_Body{
-		ContainerId:   rawCID,
+		ContainerId:   cnr[:],
 		TreeId:        tid,
 		PathAttribute: object.AttributeFileName,
 		//PathAttribute: pAttr,

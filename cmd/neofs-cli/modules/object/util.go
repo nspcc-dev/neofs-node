@@ -106,8 +106,8 @@ func readObjectAddressBin(cnr *cid.ID, obj *oid.ID, filename string) (oid.Addres
 	}
 
 	var addr oid.Address
-	*cnr, _ = objTemp.ContainerID()
-	*obj, _ = objTemp.ID()
+	*cnr = objTemp.GetContainerID()
+	*obj = objTemp.GetID()
 	addr.SetContainer(*cnr)
 	addr.SetObject(*obj)
 	return addr, nil

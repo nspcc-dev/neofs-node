@@ -1,7 +1,8 @@
 package blobstortest
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/rand/v2"
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -53,7 +54,7 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 	objects := make([]objectDesc, count)
 
 	for i := range objects {
-		objects[i].obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1)))) // not too large
+		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
 		objects[i].addr = objectCore.AddressOf(objects[i].obj)
 		objects[i].raw = objects[i].obj.Marshal()
 	}
@@ -81,8 +82,7 @@ func NewObject(sz uint64) *objectSDK.Object {
 	raw.SetContainerID(cidtest.ID())
 
 	payload := make([]byte, sz)
-	//nolint:staticcheck
-	rand.Read(payload)
+	_, _ = crand.Read(payload)
 	raw.SetPayload(payload)
 
 	// fit the binary size to the required

@@ -51,7 +51,7 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		idOwner := user.ResolveFromECDSAPublicKey(key.PublicKey)
+		idOwner := user.NewFromECDSAPublicKey(key.PublicKey)
 
 		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)

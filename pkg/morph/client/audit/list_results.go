@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -38,8 +37,7 @@ func (c *Client) ListAuditResultIDByEpoch(epoch uint64) ([]ResultID, error) {
 // ListAuditResultIDByCID returns a list of audit result IDs inside audit
 // contract for specific epoch number and container ID.
 func (c *Client) ListAuditResultIDByCID(epoch uint64, cnr cid.ID) ([]ResultID, error) {
-	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
+	binCnr := cnr[:]
 
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(listByCIDResultsMethod)
@@ -55,12 +53,9 @@ func (c *Client) ListAuditResultIDByCID(epoch uint64, cnr cid.ID) ([]ResultID, e
 // ListAuditResultIDByNode returns a list of audit result IDs inside audit
 // contract for specific epoch number, container ID and inner ring public key.
 func (c *Client) ListAuditResultIDByNode(epoch uint64, cnr cid.ID, nodeKey []byte) ([]ResultID, error) {
-	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
-
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(listByNodeResultsMethod)
-	prm.SetArgs(epoch, binCnr, nodeKey)
+	prm.SetArgs(epoch, cnr[:], nodeKey)
 
 	items, err := c.client.TestInvoke(prm)
 	if err != nil {

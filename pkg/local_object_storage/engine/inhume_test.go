@@ -28,14 +28,14 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 	child := generateObjectWithCID(cnr)
 	child.SetParent(parent)
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
 
 	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
-	idChild, _ := child.ID()
+	idChild := child.GetID()
 	link.SetChildren(idChild)
 	link.SetSplitID(splitID)
 
@@ -100,7 +100,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 			_, err = Get(e, addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-			linkID, _ := link.ID()
+			linkID := link.GetID()
 			addr.SetObject(linkID)
 
 			_, err = Get(e, addr)

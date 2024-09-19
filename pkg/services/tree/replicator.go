@@ -2,7 +2,6 @@ package tree
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -155,12 +154,9 @@ func (s *Service) pushToQueue(cid cidSDK.ID, treeID string, op *pilorama.LogMove
 }
 
 func newApplyRequest(op *movePair) *ApplyRequest {
-	rawCID := make([]byte, sha256.Size)
-	op.cid.Encode(rawCID)
-
 	return &ApplyRequest{
 		Body: &ApplyRequest_Body{
-			ContainerId: rawCID,
+			ContainerId: op.cid[:],
 			TreeId:      op.treeID,
 			Operation: &LogMove{
 				ParentId: op.op.Parent,

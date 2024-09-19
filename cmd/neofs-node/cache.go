@@ -380,7 +380,7 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 		found := false
 
 		for i := range item.list {
-			if found = item.list[i].Equals(cnr); found {
+			if found = item.list[i] == cnr; found {
 				if !add {
 					item.list = append(item.list[:i], item.list[i+1:]...)
 					// if list became empty we don't remove the value from the cache

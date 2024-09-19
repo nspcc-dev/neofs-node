@@ -10,21 +10,21 @@ import (
 )
 
 func (exec *execCtx) processV2Split(si *objectSDK.SplitInfo) {
-	if _, set := si.FirstPart(); !set {
+	if si.GetFirstPart().IsZero() {
 		exec.log.Debug("no first ID found in V2 split")
 		exec.err = errors.New("v2 split without first object ID")
 
 		return
 	}
 
-	linkID, set := si.Link()
-	if set && exec.processV2Link(linkID) {
+	linkID := si.GetLink()
+	if !linkID.IsZero() && exec.processV2Link(linkID) {
 		return
 	}
 
 	// fallback to the full chain assembly from the last part
-	prev, set := si.LastPart()
-	if !set {
+	prev := si.GetLastPart()
+	if prev.IsZero() {
 		exec.log.Debug("neither link, not last part is set in the v2 split information")
 		return
 	}

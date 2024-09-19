@@ -175,8 +175,8 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 			// object is root; every container node is expected to store
 			// link object and link object existence (root object upload
 			// has been finished) should be ensured on the upper levels
-			linkID, set := siErr.SplitInfo().Link()
-			if !set {
+			linkID := siErr.SplitInfo().GetLink()
+			if linkID.IsZero() {
 				// keep searching for the link object
 				return false
 			}

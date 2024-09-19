@@ -238,13 +238,13 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 3. Then check if container is either empty or equal to the container in the request.
-	cnr, isSet := token.EACLTable().CID()
-	if isSet && !cnr.Equals(reqInfo.ContainerID()) {
+	cnr := token.EACLTable().GetCID()
+	if !cnr.IsZero() && cnr != reqInfo.ContainerID() {
 		return errBearerInvalidContainerID
 	}
 
 	// 4. Then check if container owner signed this token.
-	if !token.ResolveIssuer().Equals(ownerCnr) {
+	if token.ResolveIssuer() != ownerCnr {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
@@ -255,7 +255,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 		return fmt.Errorf("decode sender public key: %w", err)
 	}
 
-	usrSender := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
+	usrSender := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	if !token.AssertUser(usrSender) {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
@@ -275,5 +275,5 @@ func isOwnerFromKey(id user.ID, key []byte) bool {
 		return false
 	}
 
-	return id.Equals(user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey)))
+	return id == user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 }

@@ -55,8 +55,8 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 }
 
 func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
-	cid, ok := obj.ContainerID()
-	if !ok {
+	cid := obj.GetContainerID()
+	if cid.IsZero() {
 		// Return nil to prevent situations where a shard can't be evacuated
 		// because of a single bad/corrupted object.
 		return nil

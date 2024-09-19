@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -391,9 +390,8 @@ func (l *loadPlacementBuilder) BuildPlacement(epoch uint64, cnr cid.ID) ([][]net
 		return nil, err
 	}
 
-	buf := make([]byte, sha256.Size)
+	buf := cnr[:]
 
-	cnr.Encode(buf)
 	binary.LittleEndian.PutUint64(buf, epoch)
 
 	var pivot oid.ID
@@ -664,7 +662,7 @@ func (m morphContainerWriter) PutEACL(eaclInfo containerCore.EACL) error {
 	}
 
 	if m.cacheEnabled {
-		id, _ := eaclInfo.Value.CID()
+		id := eaclInfo.Value.GetCID()
 		m.eacls.InvalidateEACL(id)
 	}
 

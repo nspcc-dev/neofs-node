@@ -33,12 +33,11 @@ func (a2 *AnnounceLoadPrm) SetReporter(key []byte) {
 //
 // Returns any error encountered that caused the saving to interrupt.
 func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
-	binCnr := make([]byte, sha256.Size)
-	p.a.Container().Encode(binCnr)
+	cnr := p.a.Container()
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(putSizeMethod)
-	prm.SetArgs(p.a.Epoch(), binCnr, p.a.Value(), p.key)
+	prm.SetArgs(p.a.Epoch(), cnr[:], p.a.Value(), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
 	err := c.client.Invoke(prm)

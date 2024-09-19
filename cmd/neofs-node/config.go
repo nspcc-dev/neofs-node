@@ -620,7 +620,7 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(nodeconfig.Relay(appCfg))
 
-	c.ownerIDFromKey = user.ResolveFromECDSAPublicKey(key.PrivateKey.PublicKey)
+	c.ownerIDFromKey = user.NewFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
 	if metricsconfig.Enabled(c.cfgReader) {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)

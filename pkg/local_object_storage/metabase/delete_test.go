@@ -23,7 +23,7 @@ func TestDB_Delete(t *testing.T) {
 
 	child := generateObjectWithCID(t, cnr)
 	child.SetParent(parent)
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	child.SetParentID(idParent)
 
 	// put object with parent
@@ -82,7 +82,7 @@ func TestDeleteAllChildren(t *testing.T) {
 	// generate 2 children
 	child1 := generateObjectWithCID(t, cnr)
 	child1.SetParent(parent)
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	child1.SetParentID(idParent)
 
 	child2 := generateObjectWithCID(t, cnr)

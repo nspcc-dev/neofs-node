@@ -482,8 +482,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	var cnr container.Container
 	cnr.SetPlacementPolicy(netmaptest.PlacementPolicy())
 
-	var idCnr cid.ID
-	cnr.CalculateID(&idCnr)
+	idCnr := cid.NewFromMarshalledContainer(cnr.Marshal())
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -710,7 +709,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
-				idLink, _ := splitInfo.Link()
+				idLink := splitInfo.GetLink()
 				splitAddr.SetObject(idLink)
 
 				c1 := newTestClient()
@@ -768,7 +767,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				var linkAddr oid.Address
 				linkAddr.SetContainer(idCnr)
-				idLink, _ := splitInfo.Link()
+				idLink := splitInfo.GetLink()
 				linkAddr.SetObject(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
@@ -846,7 +845,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				var linkAddr oid.Address
 				linkAddr.SetContainer(idCnr)
-				idLink, _ := splitInfo.Link()
+				idLink := splitInfo.GetLink()
 				linkAddr.SetObject(idLink)
 
 				linkingObj := generateObject(linkAddr, nil, nil, childIDs...)
@@ -929,7 +928,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				var splitAddr oid.Address
 				splitAddr.SetContainer(idCnr)
-				idLast, _ := splitInfo.LastPart()
+				idLast := splitInfo.GetLastPart()
 				splitAddr.SetObject(idLast)
 
 				c1 := newTestClient()
@@ -987,7 +986,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				var rightAddr oid.Address
 				rightAddr.SetContainer(idCnr)
-				idLast, _ := splitInfo.LastPart()
+				idLast := splitInfo.GetLastPart()
 				rightAddr.SetObject(idLast)
 
 				rightObj := children[len(children)-1]
@@ -1057,7 +1056,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 				rightObj := children[len(children)-1]
 
-				idLast, _ := splitInfo.LastPart()
+				idLast := splitInfo.GetLastPart()
 				rightObj.SetID(idLast)
 				rightObj.SetParentID(addr.Object())
 				rightObj.SetParent(srcObj)

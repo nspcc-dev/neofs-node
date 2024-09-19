@@ -63,18 +63,14 @@ func (db *DB) ContainerSize(id cid.ID) (size uint64, err error) {
 
 func (db *DB) containerSize(tx *bbolt.Tx, id cid.ID) (uint64, error) {
 	containerVolume := tx.Bucket(containerVolumeBucketName)
-	key := make([]byte, cidSize)
-	id.Encode(key)
 
-	return parseContainerSize(containerVolume.Get(key)), nil
+	return parseContainerSize(containerVolume.Get(id[:])), nil
 }
 
 func resetContainerSize(tx *bbolt.Tx, cID cid.ID) error {
 	containerVolume := tx.Bucket(containerVolumeBucketName)
-	key := make([]byte, cidSize)
-	cID.Encode(key)
 
-	return containerVolume.Put(key, make([]byte, 8))
+	return containerVolume.Put(cID[:], make([]byte, 8))
 }
 
 func parseContainerID(dst *cid.ID, name []byte, ignore map[string]struct{}) bool {
@@ -97,8 +93,7 @@ func parseContainerSize(v []byte) uint64 {
 
 func changeContainerSize(tx *bbolt.Tx, id cid.ID, delta uint64, increase bool) error {
 	containerVolume := tx.Bucket(containerVolumeBucketName)
-	key := make([]byte, cidSize)
-	id.Encode(key)
+	key := id[:]
 
 	size := parseContainerSize(containerVolume.Get(key))
 
@@ -129,8 +124,7 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		return ErrReadOnlyMode
 	}
 
-	cIDRaw := make([]byte, cidSize)
-	cID.Encode(cIDRaw)
+	cIDRaw := cID[:]
 	buff := make([]byte, addressKeySize)
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {

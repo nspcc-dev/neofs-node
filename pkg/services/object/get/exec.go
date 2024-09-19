@@ -251,15 +251,15 @@ func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
 }
 
 func mergeSplitInfo(dst, src *objectSDK.SplitInfo) {
-	if last, ok := src.LastPart(); ok {
+	if last := src.GetLastPart(); !last.IsZero() {
 		dst.SetLastPart(last)
 	}
 
-	if link, ok := src.Link(); ok {
+	if link := src.GetLink(); !link.IsZero() {
 		dst.SetLink(link)
 	}
 
-	if first, ok := src.FirstPart(); ok {
+	if first := src.GetFirstPart(); !first.IsZero() {
 		dst.SetFirstPart(first)
 	}
 

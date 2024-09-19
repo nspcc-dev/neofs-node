@@ -101,7 +101,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 		cnr := cidtest.ID()
 		child := objectWithCnr(cnr, true)
-		childID, _ := child.ID()
+		childID := child.GetID()
 		splitID := child.SplitID()
 
 		var addr oid.Address
@@ -126,7 +126,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			t.Run("LINKs can be found", func(t *testing.T) {
 				link := objectWithCnr(cnr, false)
 				link.SetChildren(childID)
-				linkID, _ := link.ID()
+				linkID := link.GetID()
 
 				objectcore.AddressOf(&link)
 
@@ -231,7 +231,7 @@ func childrenResMap(cnr cid.ID, heads []object.Object) map[oid.Address]headRes {
 	addr.SetContainer(cnr)
 
 	for _, obj := range heads {
-		oID, _ := obj.ID()
+		oID := obj.GetID()
 		addr.SetObject(oID)
 
 		obj.SetContainerID(cnr)
@@ -248,7 +248,7 @@ func childrenResMap(cnr cid.ID, heads []object.Object) map[oid.Address]headRes {
 func objectsToOIDs(oo []object.Object) []oid.ID {
 	res := make([]oid.ID, len(oo))
 	for _, obj := range oo {
-		oID, _ := obj.ID()
+		oID := obj.GetID()
 		res = append(res, oID)
 	}
 

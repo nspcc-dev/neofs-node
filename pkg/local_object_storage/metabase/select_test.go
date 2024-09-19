@@ -181,7 +181,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	rightChild := generateObjectWithCID(t, cnr)
 	rightChild.SetParent(parent)
 	rightChild.SetFirstID(firstChild)
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	rightChild.SetParentID(idParent)
 	err = putBig(db, rightChild)
 	require.NoError(t, err)
@@ -190,8 +190,8 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 	link.SetFirstID(firstChild)
-	idLeftChild, _ := leftChild.ID()
-	idRightChild, _ := rightChild.ID()
+	idLeftChild := leftChild.GetID()
+	idRightChild := rightChild.GetID()
 	link.SetChildren(idLeftChild, idRightChild)
 
 	err = putBig(db, link)
@@ -289,7 +289,7 @@ func TestDB_SelectRootPhyParent(t *testing.T) {
 	})
 
 	t.Run("objects with parent", func(t *testing.T) {
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddParentIDFilter(objectSDK.MatchStringEqual, idParent)
@@ -535,7 +535,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	parent := generateObjectWithCID(t, cnr)
 
 	regular := generateObjectWithCID(t, cnr)
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	regular.SetParentID(idParent)
 	regular.SetParent(parent)
 
@@ -560,7 +560,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	t.Run("not found objects", func(t *testing.T) {
 		raw := generateObjectWithCID(t, cnr)
 
-		id, _ := raw.ID()
+		id := raw.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -591,7 +591,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	})
 
 	t.Run("regular objects", func(t *testing.T) {
-		id, _ := regular.ID()
+		id := regular.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -608,7 +608,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	})
 
 	t.Run("tombstone objects", func(t *testing.T) {
-		id, _ := ts.ID()
+		id := ts.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -625,7 +625,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	})
 
 	t.Run("storage group objects", func(t *testing.T) {
-		id, _ := sg.ID()
+		id := sg.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -642,7 +642,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	})
 
 	t.Run("parent objects", func(t *testing.T) {
-		id, _ := parent.ID()
+		id := parent.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -659,7 +659,7 @@ func TestDB_SelectObjectID(t *testing.T) {
 	})
 
 	t.Run("lock objects", func(t *testing.T) {
-		id, _ := lock.ID()
+		id := lock.GetID()
 
 		fs := objectSDK.SearchFilters{}
 		fs.AddObjectIDFilter(objectSDK.MatchStringEqual, id)
@@ -811,8 +811,8 @@ func TestExpiredObjects(t *testing.T) {
 	db := newDB(t, meta.WithEpochState(epochState{currEpoch}))
 
 	checkExpiredObjects(t, db, func(exp, nonExp *objectSDK.Object) {
-		cidExp, _ := exp.ContainerID()
-		cidNonExp, _ := nonExp.ContainerID()
+		cidExp := exp.GetContainerID()
+		cidNonExp := nonExp.GetContainerID()
 
 		objs, err := metaSelect(db, cidExp, objectSDK.SearchFilters{})
 		require.NoError(t, err)
@@ -1117,7 +1117,7 @@ func TestSelectNotFilledBucket(t *testing.T) {
 	raw1 := generateObjectWithCID(t, cnr)
 	raw1.SetType(objectSDK.TypeRegular)
 	addAttribute(raw1, "attr", "value")
-	oID1, _ := raw1.ID()
+	oID1 := raw1.GetID()
 
 	raw2 := generateObjectWithCID(t, cnr)
 	raw2.SetType(objectSDK.TypeTombstone)

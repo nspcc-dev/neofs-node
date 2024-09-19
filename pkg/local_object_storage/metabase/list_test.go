@@ -121,7 +121,7 @@ func TestLisObjectsWithCursor(t *testing.T) {
 		addAttribute(parent, "foo", "bar")
 		child := generateObjectWithCID(t, containerID)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 		err = putBig(db, child)

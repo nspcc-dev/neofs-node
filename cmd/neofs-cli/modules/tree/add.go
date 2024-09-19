@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -61,12 +60,9 @@ func add(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("client: %w", err)
 	}
 
-	rawCID := make([]byte, sha256.Size)
-	cnr.Encode(rawCID)
-
 	req := new(tree.AddRequest)
 	req.Body = &tree.AddRequest_Body{
-		ContainerId: rawCID,
+		ContainerId: cnr[:],
 		TreeId:      tid,
 		ParentId:    pid,
 		Meta:        meta,

@@ -68,21 +68,21 @@ func TestParseTable(t *testing.T) {
 		},
 	}
 
-	eaclTable := eacl.NewTable()
+	var eaclTable eacl.Table
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := util.ParseEACLRule(eaclTable, test.rule)
+			err := util.ParseEACLRule(&eaclTable, test.rule)
 			ok := len(test.jsonRecord) > 0
 			require.Equal(t, ok, err == nil, err)
 			if ok {
-				expectedRecord := eacl.NewRecord()
+				var expectedRecord eacl.Record
 				err = expectedRecord.UnmarshalJSON([]byte(test.jsonRecord))
 				require.NoError(t, err)
 
 				actualRecord := eaclTable.Records()[len(eaclTable.Records())-1]
 
-				equalRecords(t, expectedRecord, &actualRecord)
+				equalRecords(t, &expectedRecord, &actualRecord)
 			}
 		})
 	}

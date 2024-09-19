@@ -87,7 +87,7 @@ func TestDB_Get(t *testing.T) {
 
 		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 
@@ -102,12 +102,12 @@ func TestDB_Get(t *testing.T) {
 			require.ErrorAs(t, err, &siErr)
 			require.Equal(t, splitID, siErr.SplitInfo().SplitID())
 
-			id1, _ := child.ID()
-			id2, _ := siErr.SplitInfo().LastPart()
+			id1 := child.GetID()
+			id2 := siErr.SplitInfo().GetLastPart()
 			require.Equal(t, id1, id2)
 
-			_, ok := siErr.SplitInfo().Link()
-			require.False(t, ok)
+			link := siErr.SplitInfo().GetLink()
+			require.True(t, link.IsZero())
 		})
 
 		newParent, err := metaGet(db, object.AddressOf(parent), false)
@@ -257,7 +257,7 @@ func TestDB_GetContainer(t *testing.T) {
 	o5 := oidtest.ID()
 	o6 := oidtest.ID()
 
-	id4, _ := o4.ID()
+	id4 := o4.GetID()
 
 	err = db.Lock(cID, id4, []oid.ID{o5, o6}) // locked object have not been put to meta, no new objects
 	require.NoError(t, err)

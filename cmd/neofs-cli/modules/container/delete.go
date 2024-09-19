@@ -59,15 +59,15 @@ Only owner of the container has a permission to remove container.`,
 			if tok != nil {
 				common.PrintVerbose(cmd, "Checking session issuer...")
 
-				if !tok.Issuer().Equals(owner) {
+				if tok.Issuer() != owner {
 					return fmt.Errorf("session issuer differs with the container owner: expected %s, has %s", owner, tok.Issuer())
 				}
 			} else {
 				common.PrintVerbose(cmd, "Checking provided account...")
 
-				acc := user.ResolveFromECDSAPublicKey(pk.PublicKey)
+				acc := user.NewFromECDSAPublicKey(pk.PublicKey)
 
-				if !acc.Equals(owner) {
+				if acc != owner {
 					return fmt.Errorf("provided account differs with the container owner: expected %s, has %s", owner, acc)
 				}
 			}

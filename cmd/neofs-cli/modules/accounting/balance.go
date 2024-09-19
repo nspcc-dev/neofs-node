@@ -37,7 +37,7 @@ var accountingBalanceCmd = &cobra.Command{
 
 		balanceOwner, _ := cmd.Flags().GetString(ownerFlag)
 		if balanceOwner == "" {
-			idUser = user.ResolveFromECDSAPublicKey(pk.PublicKey)
+			idUser = user.NewFromECDSAPublicKey(pk.PublicKey)
 		} else {
 			return fmt.Errorf("can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}

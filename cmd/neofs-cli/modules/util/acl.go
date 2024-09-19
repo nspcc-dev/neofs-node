@@ -83,7 +83,8 @@ func PrettyPrintTableEACL(cmd *cobra.Command, table *eacl.Table) {
 func eaclTargetsToString(ts []eacl.Target) string {
 	b := bytes.NewBuffer(nil)
 	for _, t := range ts {
-		keysExists := len(t.BinaryKeys()) > 0
+		rawSubjects := t.RawSubjects()
+		keysExists := len(rawSubjects) > 0
 		switch t.Role() {
 		case eacl.RoleUser:
 			b.WriteString("User")
@@ -107,11 +108,11 @@ func eaclTargetsToString(ts []eacl.Target) string {
 			}
 		}
 
-		for i, pub := range t.BinaryKeys() {
+		for i, rawSubject := range rawSubjects {
 			if i != 0 {
 				b.WriteString("         ")
 			}
-			b.WriteString(hex.EncodeToString(pub))
+			b.WriteString(hex.EncodeToString(rawSubject))
 			b.WriteString("\n")
 		}
 	}
@@ -286,8 +287,10 @@ func parseEACLRecord(args []string) (eacl.Record, error) {
 				continue
 			}
 
-			var target eacl.Target
-			eacl.SetTargetECDSAKeys(&target, pubs...)
+			target := eacl.NewTargetByRole(eacl.RoleUnspecified)
+			for _, pub := range pubs {
+				target.SetRawSubjects(append(target.RawSubjects(), (*keys.PublicKey)(pub).Bytes()))
+			}
 			targets = append(targets, target)
 		case "address": // targets
 			var (

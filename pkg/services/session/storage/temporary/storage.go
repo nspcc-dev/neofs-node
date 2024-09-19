@@ -41,7 +41,7 @@ func (s *TokenStore) Get(ownerID user.ID, tokenID []byte) *storage.PrivateToken 
 	s.mtx.RLock()
 	t := s.tokens[key{
 		tokenID: base58.Encode(tokenID),
-		ownerID: base58.Encode(ownerID.WalletBytes()),
+		ownerID: base58.Encode(ownerID[:]),
 	}]
 	s.mtx.RUnlock()
 

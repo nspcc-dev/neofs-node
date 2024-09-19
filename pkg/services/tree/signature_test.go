@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/sha256"
 	"errors"
 	"testing"
 
@@ -78,7 +77,7 @@ func TestMessageSign(t *testing.T) {
 
 	signer := user.NewAutoIDSignerRFC6979(privs[0].PrivateKey)
 
-	ownerID := user.ResolveFromECDSAPublicKey(privs[0].PrivateKey.PublicKey)
+	ownerID := user.NewFromECDSAPublicKey(privs[0].PrivateKey.PublicKey)
 
 	cnr := &containercore.Container{
 		Value: testContainer(ownerID),
@@ -95,12 +94,9 @@ func TestMessageSign(t *testing.T) {
 		},
 	}
 
-	rawCID1 := make([]byte, sha256.Size)
-	cid1.Encode(rawCID1)
-
 	req := &MoveRequest{
 		Body: &MoveRequest_Body{
-			ContainerId: rawCID1,
+			ContainerId: cid1[:],
 			ParentId:    1,
 			NodeId:      2,
 			Meta: []*KeyValue{
@@ -201,43 +197,29 @@ func TestMessageSign(t *testing.T) {
 }
 
 func testBearerToken(cid cid.ID, forPutGet, forGet *keys.PublicKey) bearer.Token {
-	tgtGet := eaclSDK.NewTarget()
-	tgtGet.SetRole(eaclSDK.RoleUnknown)
-	tgtGet.SetBinaryKeys([][]byte{forPutGet.Bytes(), forGet.Bytes()})
+	tgtGet := eaclSDK.NewTargetByRole(eaclSDK.RoleUnspecified)
+	tgtGet.SetRawSubjects([][]byte{forPutGet.Bytes(), forGet.Bytes()})
 
-	rGet := eaclSDK.NewRecord()
-	rGet.SetAction(eaclSDK.ActionAllow)
-	rGet.SetOperation(eaclSDK.OperationGet)
-	rGet.SetTargets(*tgtGet)
+	rGet := eaclSDK.ConstructRecord(eaclSDK.ActionAllow, eaclSDK.OperationGet, []eaclSDK.Target{tgtGet})
 
-	tgtPut := eaclSDK.NewTarget()
-	tgtPut.SetRole(eaclSDK.RoleUnknown)
-	tgtPut.SetBinaryKeys([][]byte{forPutGet.Bytes()})
+	tgtPut := eaclSDK.NewTargetByRole(eaclSDK.RoleUnspecified)
+	tgtPut.SetRawSubjects([][]byte{forPutGet.Bytes()})
 
-	rPut := eaclSDK.NewRecord()
-	rPut.SetAction(eaclSDK.ActionAllow)
-	rPut.SetOperation(eaclSDK.OperationPut)
-	rPut.SetTargets(*tgtPut)
+	rPut := eaclSDK.ConstructRecord(eaclSDK.ActionAllow, eaclSDK.OperationPut, []eaclSDK.Target{tgtPut})
 
-	tb := eaclSDK.NewTable()
-	tb.AddRecord(rGet)
-	tb.AddRecord(rPut)
+	tb := eaclSDK.ConstructTable([]eaclSDK.Record{rGet, rPut})
 
-	tgt := eaclSDK.NewTarget()
-	tgt.SetRole(eaclSDK.RoleOthers)
+	tgt := eaclSDK.NewTargetByRole(eaclSDK.RoleOthers)
 
 	for _, op := range []eaclSDK.Operation{eaclSDK.OperationGet, eaclSDK.OperationPut} {
-		r := eaclSDK.NewRecord()
-		r.SetAction(eaclSDK.ActionDeny)
-		r.SetTargets(*tgt)
-		r.SetOperation(op)
-		tb.AddRecord(r)
+		r := eaclSDK.ConstructRecord(eaclSDK.ActionDeny, op, []eaclSDK.Target{tgt})
+		tb.SetRecords(append(tb.Records(), r))
 	}
 
 	tb.SetCID(cid)
 
 	var b bearer.Token
-	b.SetEACLTable(*tb)
+	b.SetEACLTable(tb)
 
 	return b
 }

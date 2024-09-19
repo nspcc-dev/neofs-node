@@ -143,7 +143,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
 		lockedObjs, t.obj.CreationEpoch(), t.networkMagicNumber)
-	id, _ := t.obj.ID()
+	id := t.obj.GetID()
 	return id, t.placementIterator.iterateNodesForObject(id, t.sendObject)
 }
 

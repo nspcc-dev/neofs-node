@@ -38,7 +38,7 @@ func (c senderClassifier) classify(
 	// TODO: #767 get owner from neofs.id if present
 
 	// if request owner is the same as container owner, return RoleUser
-	if ownerID.Equals(cnr.Owner()) {
+	if *ownerID == cnr.Owner() {
 		return &classifyResult{
 			role:    acl.RoleOwner,
 			key:     ownerKey,

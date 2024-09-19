@@ -181,7 +181,7 @@ func TestRefillMetabase(t *testing.T) {
 
 		if len(locked) < 2 {
 			obj.SetContainerID(cnrLocked)
-			id, _ := obj.ID()
+			id := obj.GetID()
 			locked = append(locked, id)
 		}
 
@@ -208,7 +208,7 @@ func TestRefillMetabase(t *testing.T) {
 	for i := range tombstone.Members() {
 		var a oid.Address
 		a.SetObject(members[i])
-		cnr, _ := tombObj.ContainerID()
+		cnr := tombObj.GetContainerID()
 		a.SetContainer(cnr)
 
 		tombMembers = append(tombMembers, a)
@@ -240,7 +240,7 @@ func TestRefillMetabase(t *testing.T) {
 	_, err = sh.Put(putPrm)
 	require.NoError(t, err)
 
-	lockID, _ := lockObj.ID()
+	lockID := lockObj.GetID()
 	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
 	var inhumePrm InhumePrm

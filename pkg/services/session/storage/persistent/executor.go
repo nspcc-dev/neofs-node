@@ -48,7 +48,7 @@ func (s *TokenStore) Create(_ context.Context, body *session.CreateRequestBody) 
 	err = s.db.Update(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		ownerBucket, err := rootBucket.CreateBucketIfNotExists(id.WalletBytes())
+		ownerBucket, err := rootBucket.CreateBucketIfNotExists(id[:])
 		if err != nil {
 			return fmt.Errorf(
 				"could not get/create %s owner bucket: %w", id, err)

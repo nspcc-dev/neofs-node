@@ -23,7 +23,7 @@ func (a *AccountKeysPrm) SetID(id user.ID) {
 func (x *Client) AccountKeys(p AccountKeysPrm) (keys.PublicKeys, error) {
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(keyListingMethod)
-	prm.SetArgs(p.id.WalletBytes())
+	prm.SetArgs(p.id[:])
 
 	items, err := x.client.TestInvoke(prm)
 	if err != nil {

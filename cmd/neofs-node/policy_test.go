@@ -38,7 +38,7 @@ func (x testContainer) assertCalledNTimesWith(t testing.TB, n int, id cid.ID) {
 
 func (x *testContainer) Get(id cid.ID) (*containercore.Container, error) {
 	x.calls = append(x.calls, id)
-	if !id.Equals(x.id) {
+	if id != x.id {
 		return nil, fmt.Errorf("unexpected container requested %s!=%s", id, x.id)
 	}
 	if x.err != nil {

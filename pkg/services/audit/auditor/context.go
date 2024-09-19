@@ -273,8 +273,8 @@ func (c *Context) objectHomoHash(id oid.ID) []byte {
 }
 
 func (c *Context) updateHeadResponses(hdr *object.Object) {
-	id, ok := hdr.ID()
-	if !ok {
+	id := hdr.GetID()
+	if id.IsZero() {
 		return
 	}
 

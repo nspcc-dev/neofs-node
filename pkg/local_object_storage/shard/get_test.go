@@ -86,7 +86,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 
 		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
@@ -109,10 +109,10 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		var si *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &si))
 
-		_, ok := si.SplitInfo().Link()
-		require.False(t, ok)
-		id1, _ := child.ID()
-		id2, _ := si.SplitInfo().LastPart()
+		link := si.SplitInfo().GetLink()
+		require.True(t, link.IsZero())
+		id1 := child.GetID()
+		id2 := si.SplitInfo().GetLastPart()
 		require.Equal(t, id1, id2)
 		require.Equal(t, splitID, si.SplitInfo().SplitID())
 	})

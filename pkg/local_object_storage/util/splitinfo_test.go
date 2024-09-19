@@ -1,13 +1,12 @@
 package util_test
 
 import (
-	"math/rand"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,17 +17,8 @@ func TestMergeSplitInfo(t *testing.T) {
 	splitID := object.NewSplitID()
 	splitID.SetUUID(uid)
 
-	var rawLinkID, rawLastID [32]byte
-	var linkID oid.ID
-	var lastID oid.ID
-	//nolint:staticcheck
-	_, err = rand.Read(rawLinkID[:])
-	require.NoError(t, err)
-	linkID.SetSHA256(rawLinkID)
-	//nolint:staticcheck
-	_, err = rand.Read(rawLastID[:])
-	require.NoError(t, err)
-	lastID.SetSHA256(rawLastID)
+	linkID := oidtest.ID()
+	lastID := oidtest.ID()
 
 	target := object.NewSplitInfo() // target is SplitInfo struct with all fields set
 	target.SetSplitID(splitID)

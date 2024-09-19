@@ -23,7 +23,7 @@ func NewTransferTable() *TransferTable {
 }
 
 func (t *TransferTable) Transfer(tx *TransferTx) {
-	if tx.From.Equals(tx.To) {
+	if tx.From == tx.To {
 		return
 	}
 

@@ -65,8 +65,8 @@ func iterateV1Split(r ObjectSource, info *object.SplitInfo, cID cid.ID, handler 
 	var addr oid.Address
 	addr.SetContainer(cID)
 
-	linkID, ok := info.Link()
-	if ok {
+	linkID := info.GetLink()
+	if !linkID.IsZero() {
 		addr.SetObject(linkID)
 
 		linkObj, err := headFromReceiver(r, addr)
@@ -92,8 +92,8 @@ func iterateV1Split(r ObjectSource, info *object.SplitInfo, cID cid.ID, handler 
 		return nil
 	}
 
-	lastID, ok := info.LastPart()
-	if ok {
+	lastID := info.GetLastPart()
+	if !lastID.IsZero() {
 		addr.SetObject(lastID)
 		return iterateFromLastObject(r, addr, handler)
 	}
@@ -105,8 +105,8 @@ func iterateV2Split(r ObjectSource, info *object.SplitInfo, cID cid.ID, handler 
 	var addr oid.Address
 	addr.SetContainer(cID)
 
-	linkID, ok := info.Link()
-	if ok {
+	linkID := info.GetLink()
+	if !linkID.IsZero() {
 		addr.SetObject(linkID)
 
 		linkObjRaw, err := r.Get(addr)
@@ -140,8 +140,8 @@ func iterateV2Split(r ObjectSource, info *object.SplitInfo, cID cid.ID, handler 
 		return nil
 	}
 
-	lastID, ok := info.LastPart()
-	if ok {
+	lastID := info.GetLastPart()
+	if !lastID.IsZero() {
 		addr.SetObject(lastID)
 		return iterateFromLastObject(r, addr, handler)
 	}
@@ -159,11 +159,11 @@ func iterateFromLastObject(r ObjectSource, lastAddr oid.Address, handler func(*o
 			return err
 		}
 
-		oID, _ := obj.ID()
+		oID := obj.GetID()
 		idBuff = append(idBuff, oID)
 
-		prevOID, set := obj.PreviousID()
-		if !set {
+		prevOID := obj.GetPreviousID()
+		if prevOID.IsZero() {
 			break
 		}
 
@@ -224,13 +224,13 @@ func traverseSplitChain(r ObjectSource, addr oid.Address, h SplitMemberHandler) 
 	case *object.Object:
 		return h(res, false), nil
 	case *object.SplitInfo:
-		link, withLink := res.Link()
-		last, withLast := res.LastPart()
+		link := res.GetLink()
+		last := res.GetLastPart()
 
 		switch {
 		default:
 			return false, errors.New("lack of split information")
-		case withLink:
+		case !link.IsZero():
 			var addr oid.Address
 			addr.SetContainer(cnr)
 			addr.SetObject(link)
@@ -273,18 +273,18 @@ func traverseSplitChain(r ObjectSource, addr oid.Address, h SplitMemberHandler) 
 					return true, nil
 				}
 			}
-		case withLast:
+		case !last.IsZero():
 			var addr oid.Address
 			addr.SetContainer(cnr)
 
-			for last, withLast = res.LastPart(); withLast; {
+			for last = res.GetLastPart(); !last.IsZero(); {
 				addr.SetObject(last)
 
 				var directChain []*object.Object
 
 				if _, err := traverseSplitChain(r, addr, func(member *object.Object, reverseDirection bool) (stop bool) {
 					if reverseDirection {
-						last, withLast = member.PreviousID()
+						last = member.GetPreviousID()
 						return h(member, true)
 					}
 
@@ -302,7 +302,7 @@ func traverseSplitChain(r ObjectSource, addr oid.Address, h SplitMemberHandler) 
 				}
 
 				if len(directChain) > 0 {
-					last, withLast = directChain[len(directChain)-1].PreviousID()
+					last = directChain[len(directChain)-1].GetPreviousID()
 				}
 			}
 		}

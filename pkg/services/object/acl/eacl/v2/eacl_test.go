@@ -15,6 +15,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,8 +38,8 @@ func (t *testHeaderSource) Head(_ oid.Address) (*object.Object, error) {
 }
 
 func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
-	require.True(s.t, addr.Container().Equals(s.expAddr.Container()))
-	require.True(s.t, addr.Object().Equals(s.expAddr.Object()))
+	require.True(s.t, addr.Container() == s.expAddr.Container())
+	require.True(s.t, addr.Object() == s.expAddr.Object())
 
 	return s.obj, s.err
 }
@@ -87,20 +88,20 @@ func TestHeadRequest(t *testing.T) {
 	attr.SetValue(attrVal)
 	obj.SetAttributes(attr)
 
-	table := new(eaclSDK.Table)
-
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 	senderKey := priv.PublicKey()
+	userID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(*senderKey))
 
-	r := eaclSDK.NewRecord()
-	r.SetOperation(eaclSDK.OperationHead)
-	r.SetAction(eaclSDK.ActionDeny)
-	r.AddFilter(eaclSDK.HeaderFromObject, eaclSDK.MatchStringEqual, attrKey, attrVal)
-	r.AddFilter(eaclSDK.HeaderFromRequest, eaclSDK.MatchStringEqual, xKey, xVal)
-	eaclSDK.AddFormedTarget(r, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+	tgt := eaclSDK.NewTargetByAccounts([]user.ID{userID})
 
-	table.AddRecord(r)
+	r := eaclSDK.ConstructRecord(
+		eaclSDK.ActionDeny,
+		eaclSDK.OperationHead,
+		[]eaclSDK.Target{tgt},
+		eaclSDK.NewObjectPropertyFilter(attrKey, eaclSDK.MatchStringEqual, attrVal),
+		eaclSDK.NewRequestHeaderFilter(xKey, eaclSDK.MatchStringEqual, xVal))
+	table := eaclSDK.ConstructTable([]eaclSDK.Record{r})
 
 	lStorage := &testLocalStorage{
 		t:       t,
@@ -125,8 +126,8 @@ func TestHeadRequest(t *testing.T) {
 	unit := new(eaclSDK.ValidationUnit).
 		WithContainerID(&cnr).
 		WithOperation(eaclSDK.OperationHead).
-		WithSenderKey(senderKey.Bytes()).
-		WithEACLTable(table)
+		WithAccount(userID).
+		WithEACLTable(&table)
 
 	validator := eaclSDK.NewValidator()
 
@@ -148,17 +149,16 @@ func TestHeadRequest(t *testing.T) {
 
 	r.SetAction(eaclSDK.ActionAllow)
 
-	rID := eaclSDK.NewRecord()
-	rID.SetOperation(eaclSDK.OperationHead)
-	rID.SetAction(eaclSDK.ActionDeny)
-	rID.AddObjectIDFilter(eaclSDK.MatchStringEqual, addr.Object())
-	eaclSDK.AddFormedTarget(rID, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+	rID := eaclSDK.ConstructRecord(
+		eaclSDK.ActionDeny,
+		eaclSDK.OperationHead,
+		[]eaclSDK.Target{tgt},
+		eaclSDK.NewFilterObjectWithID(addr.Object()),
+	)
 
-	table = eaclSDK.NewTable()
-	table.AddRecord(r)
-	table.AddRecord(rID)
+	table = eaclSDK.ConstructTable([]eaclSDK.Record{r, rID})
 
-	unit.WithEACLTable(table)
+	unit.WithEACLTable(&table)
 	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 }
 
@@ -195,7 +195,7 @@ func TestV2Split(t *testing.T) {
 	require.NoError(t, firstObject.CalculateAndSetID())
 
 	var firstIDV2 refs.ObjectID
-	firstID, _ := firstObject.ID()
+	firstID := firstObject.GetID()
 	firstID.WriteToV2(&firstIDV2)
 
 	splitV2 := new(objectV2.SplitHeader)
@@ -219,15 +219,17 @@ func TestV2Split(t *testing.T) {
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 	senderKey := priv.PublicKey()
+	userID := user.NewFromECDSAPublicKey((ecdsa.PublicKey)(*senderKey))
 
-	r := eaclSDK.NewRecord()
-	r.SetOperation(eaclSDK.OperationPut)
-	r.SetAction(eaclSDK.ActionDeny)
-	r.AddFilter(eaclSDK.HeaderFromObject, eaclSDK.MatchStringEqual, attrKey, attrVal)
-	eaclSDK.AddFormedTarget(r, eaclSDK.RoleUnknown, (ecdsa.PublicKey)(*senderKey))
+	tgt := eaclSDK.NewTargetByAccounts([]user.ID{userID})
+	r := eaclSDK.ConstructRecord(
+		eaclSDK.ActionDeny,
+		eaclSDK.OperationPut,
+		[]eaclSDK.Target{tgt},
+		eaclSDK.NewObjectPropertyFilter(attrKey, eaclSDK.MatchStringEqual, attrVal),
+	)
 
-	table := new(eaclSDK.Table)
-	table.AddRecord(r)
+	table := eaclSDK.ConstructTable([]eaclSDK.Record{r})
 
 	hdrSrc := &testHeaderSource{}
 
@@ -242,8 +244,8 @@ func TestV2Split(t *testing.T) {
 
 	unit := new(eaclSDK.ValidationUnit).
 		WithOperation(eaclSDK.OperationPut).
-		WithEACLTable(table).
-		WithSenderKey(senderKey.Bytes())
+		WithEACLTable(&table).
+		WithAccount(userID)
 
 	validator := eaclSDK.NewValidator()
 

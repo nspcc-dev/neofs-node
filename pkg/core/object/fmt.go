@@ -109,13 +109,11 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilObject
 	}
 
-	_, idSet := obj.ID()
-	if !unprepared && !idSet {
+	if !unprepared && obj.GetID().IsZero() {
 		return errNilID
 	}
 
-	_, cnrSet := obj.ContainerID()
-	if !cnrSet {
+	if obj.GetContainerID().IsZero() {
 		return errNilCID
 	}
 
@@ -151,7 +149,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 					return errors.New("v2 split: incorrect link object's parent header")
 				}
 
-				if _, hasPrevious := obj.PreviousID(); typ != object.TypeLink && !hasPrevious {
+				if prevID := obj.GetPreviousID(); typ != object.TypeLink && prevID.IsZero() {
 					return errors.New("v2 split: middle part does not have previous object ID")
 				}
 			}
@@ -205,7 +203,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("incorrect session token signature")
 	}
 
-	if issuer, owner := token.Issuer(), obj.OwnerID(); !issuer.Equals(*owner) { // nil check was performed above
+	if issuer, owner := token.Issuer(), obj.OwnerID(); issuer != *owner { // nil check was performed above
 		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
 	}
 
@@ -257,8 +255,8 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, errors.New("link object does not have first object ID")
 		}
 
-		cnr, set := o.ContainerID()
-		if !set {
+		cnr := o.GetContainerID()
+		if cnr.IsZero() {
 			return ContentMeta{}, errors.New("link object does not have container ID")
 		}
 
@@ -294,8 +292,8 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, errTombstoneExpiration
 		}
 
-		cnr, ok := o.ContainerID()
-		if !ok {
+		cnr := o.GetContainerID()
+		if cnr.IsZero() {
 			return ContentMeta{}, errors.New("missing container ID")
 		}
 
@@ -339,13 +337,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 			return ContentMeta{}, errors.New("empty payload in lock")
 		}
 
-		_, ok := o.ContainerID()
-		if !ok {
+		cnr := o.GetContainerID()
+		if cnr.IsZero() {
 			return ContentMeta{}, errors.New("missing container")
 		}
 
-		_, ok = o.ID()
-		if !ok {
+		objID := o.GetID()
+		if objID.IsZero() {
 			return ContentMeta{}, errors.New("missing ID")
 		}
 
@@ -396,8 +394,8 @@ func (v *FormatValidator) checkExpiration(obj object.Object) error {
 		// an object could be expired but locked;
 		// put such an object is a correct operation
 
-		cID, _ := obj.ContainerID()
-		oID, _ := obj.ID()
+		cID := obj.GetContainerID()
+		oID := obj.GetID()
 
 		var addr oid.Address
 		addr.SetContainer(cID)
@@ -446,7 +444,7 @@ func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 var errIncorrectOwner = errors.New("incorrect object owner")
 
 func (v *FormatValidator) checkOwner(obj *object.Object) error {
-	if idOwner := obj.OwnerID(); idOwner == nil || len(idOwner.WalletBytes()) == 0 {
+	if idOwner := obj.OwnerID(); idOwner == nil {
 		return errIncorrectOwner
 	}
 

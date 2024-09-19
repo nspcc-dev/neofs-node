@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -17,12 +16,9 @@ import (
 //
 // Returns apistatus.EACLNotFound if eACL table is missing in the contract.
 func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
-	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
-
 	prm := client.TestInvokePrm{}
 	prm.SetMethod(eaclMethod)
-	prm.SetArgs(binCnr)
+	prm.SetArgs(cnr[:])
 
 	prms, err := c.client.TestInvoke(prm)
 	if err != nil {

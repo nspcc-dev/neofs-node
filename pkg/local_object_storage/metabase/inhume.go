@@ -266,8 +266,7 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 	}
 
 	var removedAvailable uint64
-	rawCID := make([]byte, cidSize)
-	cID.Encode(rawCID)
+	rawCID := cID[:]
 
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)

@@ -213,9 +213,7 @@ func (s *Shard) refillMetabase() error {
 			locked := make([]oid.ID, lock.NumberOfMembers())
 			lock.ReadMembers(locked)
 
-			cnr, _ := obj.ContainerID()
-			id, _ := obj.ID()
-			err = s.metaBase.Lock(cnr, id, locked)
+			err = s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
 			if err != nil {
 				return fmt.Errorf("could not lock objects: %w", err)
 			}

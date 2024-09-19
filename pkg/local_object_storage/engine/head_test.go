@@ -23,7 +23,7 @@ func TestHeadRaw(t *testing.T) {
 	var parentAddr oid.Address
 	parentAddr.SetContainer(cnr)
 
-	idParent, _ := parent.ID()
+	idParent := parent.GetID()
 	parentAddr.SetObject(idParent)
 
 	child := generateObjectWithCID(cnr)
@@ -35,7 +35,7 @@ func TestHeadRaw(t *testing.T) {
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 
-	idChild, _ := child.ID()
+	idChild := child.GetID()
 	link.SetChildren(idChild)
 	link.SetSplitID(splitID)
 
@@ -74,12 +74,12 @@ func TestHeadRaw(t *testing.T) {
 		// SplitInfoError should contain info from both shards
 		require.Equal(t, splitID, si.SplitInfo().SplitID())
 
-		id1, _ := child.ID()
-		id2, _ := si.SplitInfo().LastPart()
+		id1 := child.GetID()
+		id2 := si.SplitInfo().GetLastPart()
 		require.Equal(t, id1, id2)
 
-		id1, _ = link.ID()
-		id2, _ = si.SplitInfo().Link()
+		id1 = link.GetID()
+		id2 = si.SplitInfo().GetLink()
 		require.Equal(t, id1, id2)
 	})
 }

@@ -1,7 +1,6 @@
 package morph
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -75,10 +74,7 @@ func estimationsFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("container contract hash resolution: %w", err)
 	}
 
-	cIDBytes := make([]byte, sha256.Size)
-	cID.Encode(cIDBytes)
-
-	sID, iter, err := unwrap.SessionIterator(inv.Call(cnrHash, "iterateContainerSizes", epoch, cIDBytes))
+	sID, iter, err := unwrap.SessionIterator(inv.Call(cnrHash, "iterateContainerSizes", epoch, cID[:]))
 	if err != nil {
 		return fmt.Errorf("iterator expansion: %w", err)
 	}

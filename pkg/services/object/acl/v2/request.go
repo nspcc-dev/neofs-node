@@ -139,7 +139,7 @@ func (r MetaWithToken) RequestOwner() (*user.ID, []byte, error) {
 		return nil, nil, fmt.Errorf("decode public key: %w", err)
 	}
 
-	idSender := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
+	idSender := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
 	return &idSender, key, nil
 }

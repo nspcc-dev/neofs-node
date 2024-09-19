@@ -90,7 +90,7 @@ func (s *Service) verifyClient(req message, cid cidSDK.ID, rawBearer []byte, op 
 		if err = bt.Unmarshal(rawBearer); err != nil {
 			return eACLErr(eaclOp, fmt.Errorf("invalid bearer token: %w", err))
 		}
-		if !bt.ResolveIssuer().Equals(cnr.Value.Owner()) {
+		if bt.ResolveIssuer() != cnr.Value.Owner() {
 			return eACLErr(eaclOp, errBearerWrongOwner)
 		}
 		if !bt.AssertContainer(cid) {
@@ -172,9 +172,9 @@ func roleFromReq(cnr *core.Container, req message) (acl.Role, error) {
 		return role, fmt.Errorf("decode public key from signature: %w", err)
 	}
 
-	reqSigner := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
+	reqSigner := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 
-	if reqSigner.Equals(owner) {
+	if reqSigner == owner {
 		role = acl.RoleOwner
 	}
 
@@ -240,9 +240,9 @@ func checkEACL(tb eacl.Table, signer []byte, role eacl.Role, op eacl.Operation) 
 
 func targetMatches(rec eacl.Record, role eacl.Role, signer []byte) bool {
 	for _, target := range rec.Targets() {
-		// check public key match
-		if pubs := target.BinaryKeys(); len(pubs) != 0 {
-			for _, key := range pubs {
+		// check raw subjects match
+		if rawSubjects := target.RawSubjects(); len(rawSubjects) != 0 {
+			for _, key := range rawSubjects {
 				if bytes.Equal(key, signer) {
 					return true
 				}

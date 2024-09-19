@@ -114,9 +114,9 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 			return errors.New("missing object owner")
 		}
 
-		ownerSession := user.ResolveFromECDSAPublicKey(signer.PublicKey)
+		ownerSession := user.NewFromECDSAPublicKey(signer.PublicKey)
 
-		if !ownerObj.Equals(ownerSession) {
+		if *ownerObj != ownerSession {
 			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 		}
 	}
@@ -147,8 +147,8 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 		return fmt.Errorf("get local node's private key: %w", err)
 	}
 
-	idCnr, ok := prm.hdr.ContainerID()
-	if !ok {
+	idCnr := prm.hdr.GetContainerID()
+	if idCnr.IsZero() {
 		return errors.New("missing container ID")
 	}
 

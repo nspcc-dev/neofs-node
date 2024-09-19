@@ -54,7 +54,7 @@ func (t *localTarget) Close() (oid.ID, *neofscrypto.Signature, error) {
 		return oid.ID{}, nil, err
 	}
 
-	id, _ := t.obj.ID()
+	id := t.obj.GetID()
 
 	return id, nil, nil
 }
@@ -98,8 +98,8 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 // correct, stores it in the underlying local object storage. Serves operation
 // similar to local-only [Service.Put] one.
 func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
-	cnrID, ok := obj.ContainerID()
-	if !ok {
+	cnrID := obj.GetContainerID()
+	if cnrID.IsZero() {
 		return errors.New("missing container ID")
 	}
 
@@ -114,7 +114,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		return errors.New("unsupported payload checksum type")
 	case
 		checksum.SHA256,
-		checksum.TZ:
+		checksum.TillichZemor:
 	}
 
 	maxPayloadSz := p.maxSizeSrc.MaxObjectSize()
@@ -142,8 +142,8 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		switch {
 		case !csHomoSet:
 			return errors.New("missing homomorphic payload checksum")
-		case csHomo.Type() != checksum.TZ:
-			return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum, expected %s", checksum.TZ)
+		case csHomo.Type() != checksum.TillichZemor:
+			return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum, expected %s", checksum.TillichZemor)
 		case len(csHomo.Value()) != tz.Size:
 			return fmt.Errorf("invalid/unsupported length of %s homomorphic payload checksum, expected %d",
 				csHomo.Type(), tz.Size)
@@ -166,7 +166,7 @@ func (p *Service) ValidateAndStoreObjectLocally(obj object.Object) error {
 		if !bytes.Equal(h[:], cs.Value()) {
 			return errors.New("payload SHA-256 checksum mismatch")
 		}
-	case checksum.TZ:
+	case checksum.TillichZemor:
 		h := tz.Sum(payload)
 		if !bytes.Equal(h[:], cs.Value()) {
 			return errors.New("payload Tillich-Zemor checksum mismatch")

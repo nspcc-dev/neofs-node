@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
@@ -32,8 +31,7 @@ func TestParsePutSuccess(t *testing.T) {
 
 	id := cidtest.ID()
 
-	binID := make([]byte, sha256.Size)
-	id.Encode(binID)
+	binID := id[:]
 
 	t.Run("wrong public key parameter", func(t *testing.T) {
 		_, err := ParsePutSuccess(createNotifyEventFromItems([]stackitem.Item{

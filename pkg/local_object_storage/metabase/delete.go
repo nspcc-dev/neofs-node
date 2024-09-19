@@ -187,7 +187,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 
 	// if object is an only link to a parent, then remove parent
 	if parent := obj.Parent(); parent != nil {
-		if _, fullParent := parent.ID(); !fullParent {
+		if id := parent.GetID(); id.IsZero() {
 			// unfinished header from the first part
 			return false, false, 0, nil
 		}

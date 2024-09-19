@@ -2,6 +2,7 @@ package storagegroup
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -9,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	storagegroupSDK "github.com/nspcc-dev/neofs-sdk-go/storagegroup"
@@ -89,7 +91,12 @@ func getSG(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not read storage group from the obj: %w", err)
 	}
 
-	cmd.Printf("The last active epoch: %d\n", sg.ExpirationEpoch())
+	expiration, err := object.Expiration(*rawObj)
+	if err != nil && !errors.Is(err, object.ErrNoExpiration) {
+		return fmt.Errorf("storage group's expiration: %w", err)
+	}
+
+	cmd.Printf("The last active epoch: %d\n", expiration)
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
 	common.PrintChecksum(cmd, "Group hash", sg.ValidationDataHash)
 

@@ -59,11 +59,11 @@ func TestShard_Lock(t *testing.T) {
 
 	cnr := cidtest.ID()
 	obj := generateObjectWithCID(cnr)
-	objID, _ := obj.ID()
+	objID := obj.GetID()
 
 	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
-	lockID, _ := lock.ID()
+	lockID := lock.GetID()
 
 	// put the object
 
@@ -142,8 +142,8 @@ func TestShard_IsLocked(t *testing.T) {
 
 	cnr := cidtest.ID()
 	obj := generateObjectWithCID(cnr)
-	cnrID, _ := obj.ContainerID()
-	objID, _ := obj.ID()
+	cnrID := obj.GetContainerID()
+	objID := obj.GetID()
 
 	lockID := oidtest.ID()
 

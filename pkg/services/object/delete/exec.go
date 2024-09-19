@@ -80,7 +80,7 @@ func (exec *execCtx) addMembers(incoming []oid.ID) {
 
 	for i := range members {
 		for j := 0; j < len(incoming); j++ { // don't use range, slice mutates in body
-			if members[i].Equals(incoming[j]) {
+			if members[i] == incoming[j] {
 				incoming = append(incoming[:j], incoming[j+1:]...)
 				j--
 			}
