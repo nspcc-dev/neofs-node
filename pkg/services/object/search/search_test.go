@@ -106,8 +106,8 @@ func (c *testClientCache) get(info clientcore.NodeInfo) (searchClient, error) {
 	return v, nil
 }
 
-func (s *testStorage) search(exec *execCtx) ([]oid.ID, error) {
-	v, ok := s.items[exec.containerID().EncodeToString()]
+func (ts *testStorage) search(exec *execCtx) ([]oid.ID, error) {
+	v, ok := ts.items[exec.containerID().EncodeToString()]
 	if !ok {
 		return nil, nil
 	}
@@ -115,8 +115,8 @@ func (s *testStorage) search(exec *execCtx) ([]oid.ID, error) {
 	return v.ids, v.err
 }
 
-func (c *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
-	v, ok := c.items[exec.containerID().EncodeToString()]
+func (ts *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientcore.NodeInfo) ([]oid.ID, error) {
+	v, ok := ts.items[exec.containerID().EncodeToString()]
 	if !ok {
 		return nil, nil
 	}
@@ -124,8 +124,8 @@ func (c *testStorage) searchObjects(_ context.Context, exec *execCtx, _ clientco
 	return v.ids, v.err
 }
 
-func (c *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
-	c.items[addr.EncodeToString()] = idsErr{
+func (ts *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
+	ts.items[addr.EncodeToString()] = idsErr{
 		ids: ids,
 		err: err,
 	}
