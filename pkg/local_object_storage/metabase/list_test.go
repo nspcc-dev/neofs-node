@@ -228,5 +228,8 @@ func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]objec
 	listPrm.SetCursor(cursor)
 
 	r, err := db.ListWithCursor(listPrm)
-	return r.AddressList(), r.Cursor(), err
+	if err != nil {
+		return nil, nil, err
+	}
+	return r.AddressList(), r.Cursor(), nil
 }

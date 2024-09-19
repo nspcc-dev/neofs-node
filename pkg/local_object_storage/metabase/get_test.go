@@ -288,5 +288,8 @@ func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error)
 	prm.SetRaw(raw)
 
 	res, err := db.Get(prm)
-	return res.Header(), err
+	if err != nil {
+		return nil, err
+	}
+	return res.Header(), nil
 }

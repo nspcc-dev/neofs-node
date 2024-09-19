@@ -55,5 +55,8 @@ func metaExists(db *meta.DB, addr oid.Address) (bool, error) {
 	existsPrm.SetAddress(addr)
 
 	res, err := db.Exists(existsPrm)
-	return res.Exists(), err
+	if err != nil {
+		return false, err
+	}
+	return res.Exists(), nil
 }

@@ -895,7 +895,10 @@ func metaSelect(db *meta.DB, cnr cidSDK.ID, fs objectSDK.SearchFilters) ([]oid.A
 	prm.SetContainerID(cnr)
 
 	res, err := db.Select(prm)
-	return res.AddressList(), err
+	if err != nil {
+		return nil, err
+	}
+	return res.AddressList(), nil
 }
 
 func numQuery(key string, op objectSDK.SearchMatchType, val string) (res objectSDK.SearchFilters) {

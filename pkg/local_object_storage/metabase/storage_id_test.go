@@ -63,5 +63,8 @@ func metaStorageID(db *meta.DB, addr oid.Address) ([]byte, error) {
 	sidPrm.SetAddress(addr)
 
 	r, err := db.StorageID(sidPrm)
-	return r.StorageID(), err
+	if err != nil {
+		return nil, err
+	}
+	return r.StorageID(), nil
 }

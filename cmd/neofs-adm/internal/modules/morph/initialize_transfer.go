@@ -73,7 +73,10 @@ func (c *initializeContext) transferFundsFinished() (bool, error) {
 
 	gasR := gas.NewReader(invoker.New(c.Client, nil))
 	res, err := gasR.BalanceOf(acc.Contract.ScriptHash())
-	return res.Int64() > initialAlphabetGASAmount/2, err
+	if err != nil {
+		return false, err
+	}
+	return res.Int64() > initialAlphabetGASAmount/2, nil
 }
 
 func (c *initializeContext) multiSignAndSend(tx *transaction.Transaction, accType string) error {

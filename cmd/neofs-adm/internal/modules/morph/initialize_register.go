@@ -130,7 +130,10 @@ func (c *initializeContext) transferNEOToAlphabetContracts() error {
 func (c *initializeContext) transferNEOFinished() (bool, error) {
 	neoR := neo.NewReader(invoker.New(c.Client, nil))
 	bal, err := neoR.BalanceOf(c.CommitteeAcc.Contract.ScriptHash())
-	return bal.Int64() < native.NEOTotalSupply, err
+	if err != nil {
+		return false, err
+	}
+	return bal.Int64() < native.NEOTotalSupply, nil
 }
 
 var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
