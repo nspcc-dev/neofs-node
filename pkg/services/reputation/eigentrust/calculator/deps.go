@@ -20,7 +20,7 @@ type Context interface {
 }
 
 // InitialTrustSource must provide initial(non-calculated)
-// trusts to current node's daughter. Realization may depends
+// trusts to current node's daughter. Realization may depend
 // on daughter.
 type InitialTrustSource interface {
 	InitialTrust(apireputation.PeerID) (reputation.TrustValue, error)

@@ -18,7 +18,7 @@ func panicOnErr(err error) {
 // StringSlice reads a configuration value
 // from c by name and casts it to a []string.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func StringSlice(c *Config, name string) []string {
 	x, err := cast.ToStringSliceE(c.Value(name))
 	panicOnErr(err)
@@ -29,7 +29,7 @@ func StringSlice(c *Config, name string) []string {
 // StringSliceSafe reads a configuration value
 // from c by name and casts it to a []string.
 //
-// Returns nil if the value can not be casted.
+// Returns nil if the value can not be cast.
 func StringSliceSafe(c *Config, name string) []string {
 	return cast.ToStringSlice(c.Value(name))
 }
@@ -37,7 +37,7 @@ func StringSliceSafe(c *Config, name string) []string {
 // String reads a configuration value
 // from c by name and casts it to a string.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func String(c *Config, name string) string {
 	x, err := cast.ToStringE(c.Value(name))
 	panicOnErr(err)
@@ -48,7 +48,7 @@ func String(c *Config, name string) string {
 // StringSafe reads a configuration value
 // from c by name and casts it to a string.
 //
-// Returns "" if the value can not be casted.
+// Returns "" if the value can not be cast.
 func StringSafe(c *Config, name string) string {
 	return cast.ToString(c.Value(name))
 }
@@ -56,7 +56,7 @@ func StringSafe(c *Config, name string) string {
 // Duration reads a configuration value
 // from c by name and casts it to time.Duration.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func Duration(c *Config, name string) time.Duration {
 	x, err := cast.ToDurationE(c.Value(name))
 	panicOnErr(err)
@@ -67,7 +67,7 @@ func Duration(c *Config, name string) time.Duration {
 // DurationSafe reads a configuration value
 // from c by name and casts it to time.Duration.
 //
-// Returns 0 if the value can not be casted.
+// Returns 0 if the value can not be cast.
 func DurationSafe(c *Config, name string) time.Duration {
 	return cast.ToDuration(c.Value(name))
 }
@@ -75,7 +75,7 @@ func DurationSafe(c *Config, name string) time.Duration {
 // Bool reads a configuration value
 // from c by name and casts it to bool.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func Bool(c *Config, name string) bool {
 	x, err := cast.ToBoolE(c.Value(name))
 	panicOnErr(err)
@@ -86,7 +86,7 @@ func Bool(c *Config, name string) bool {
 // BoolSafe reads a configuration value
 // from c by name and casts it to bool.
 //
-// Returns false if the value can not be casted.
+// Returns false if the value can not be cast.
 func BoolSafe(c *Config, name string) bool {
 	return cast.ToBool(c.Value(name))
 }
@@ -94,7 +94,7 @@ func BoolSafe(c *Config, name string) bool {
 // Uint32 reads a configuration value
 // from c by name and casts it to uint32.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func Uint32(c *Config, name string) uint32 {
 	x, err := cast.ToUint32E(c.Value(name))
 	panicOnErr(err)
@@ -105,7 +105,7 @@ func Uint32(c *Config, name string) uint32 {
 // Uint32Safe reads a configuration value
 // from c by name and casts it to uint32.
 //
-// Returns 0 if the value can not be casted.
+// Returns 0 if the value can not be cast.
 func Uint32Safe(c *Config, name string) uint32 {
 	return cast.ToUint32(c.Value(name))
 }
@@ -113,7 +113,7 @@ func Uint32Safe(c *Config, name string) uint32 {
 // Uint reads a configuration value
 // from c by name and casts it to uint64.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func Uint(c *Config, name string) uint64 {
 	x, err := cast.ToUint64E(c.Value(name))
 	panicOnErr(err)
@@ -124,7 +124,7 @@ func Uint(c *Config, name string) uint64 {
 // UintSafe reads a configuration value
 // from c by name and casts it to uint64.
 //
-// Returns 0 if the value can not be casted.
+// Returns 0 if the value can not be cast.
 func UintSafe(c *Config, name string) uint64 {
 	return cast.ToUint64(c.Value(name))
 }
@@ -132,7 +132,7 @@ func UintSafe(c *Config, name string) uint64 {
 // Int reads a configuration value
 // from c by name and casts it to int64.
 //
-// Panics if the value can not be casted.
+// Panics if the value can not be cast.
 func Int(c *Config, name string) int64 {
 	x, err := cast.ToInt64E(c.Value(name))
 	panicOnErr(err)
@@ -143,7 +143,7 @@ func Int(c *Config, name string) int64 {
 // IntSafe reads a configuration value
 // from c by name and casts it to int64.
 //
-// Returns 0 if the value can not be casted.
+// Returns 0 if the value can not be cast.
 func IntSafe(c *Config, name string) int64 {
 	return cast.ToInt64(c.Value(name))
 }
@@ -155,14 +155,14 @@ func IntSafe(c *Config, name string) int64 {
 // an additional b at the end. Spaces between the number and the suffix
 // are allowed. All multipliers are power of 2 (i.e. k is for kibi-byte).
 //
-// Returns 0 if a value can't be casted.
+// Returns 0 if a value can't be cast.
 func SizeInBytesSafe(c *Config, name string) uint64 {
 	s := StringSafe(c, name)
 	return parseSizeInBytes(s)
 }
 
 // The following code is taken from https://github.com/spf13/viper/blob/master/util.go
-// with minor corrections (allow to use both `k` and `kb` forms.
+// with minor corrections (allow to use both `k` and `kb` forms).
 // Seems like viper allows to convert sizes but corresponding parser in `cast` package
 // is missing.
 

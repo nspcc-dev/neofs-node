@@ -105,7 +105,7 @@ func TestEvacuateShard(t *testing.T) {
 	require.Equal(t, objPerShard, res.count)
 
 	// We check that all objects are available both before and after shard removal.
-	// First case is a real-world use-case. It ensures that an object can be put in presense
+	// First case is a real-world use-case. It ensures that an object can be put in presence
 	// of all metabase checks/marks.
 	// Second case ensures that all objects are indeed moved and available.
 	checkHasObjects(t)

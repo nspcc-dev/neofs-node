@@ -38,7 +38,7 @@ type PlacementCalculator interface {
 	ContainerNodes(uint64, cid.ID) ([]NodeInfo, error)
 }
 
-// AccountStorage is an network member accounts interface.
+// AccountStorage is a network member accounts interface.
 type AccountStorage interface {
 	// ResolveKey must resolve information about the storage node
 	// to its ID in system.

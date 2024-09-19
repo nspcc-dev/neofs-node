@@ -9,7 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
 
-// NextStage composes container nodes for the container and epoch from a,
+// NextStage composes container nodes for the container and epoch from a
 // and returns the list of nodes with maximum weight (one from each vector).
 //
 // If passed route has more than one point, then endpoint of the route is reached.

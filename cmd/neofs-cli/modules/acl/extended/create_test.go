@@ -12,7 +12,7 @@ func TestParseTable(t *testing.T) {
 	tests := [...]struct {
 		name       string // test name
 		rule       string // input extended ACL rule
-		jsonRecord string // produced record after successfull parsing
+		jsonRecord string // produced record after successful parsing
 	}{
 		{
 			name:       "valid rule with multiple filters",
