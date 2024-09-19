@@ -120,7 +120,7 @@ func TestErrorReporting(t *testing.T) {
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
-		for i := uint32(0); i < 2; i++ {
+		for i := range uint32(2) {
 			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, mode.DegradedReadOnly)

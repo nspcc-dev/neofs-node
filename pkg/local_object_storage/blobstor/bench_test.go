@@ -142,7 +142,7 @@ func BenchmarkGet(b *testing.B) {
 					var ach = make(chan oid.Address)
 					for range 100 {
 						go func() {
-							for j := 0; j < nObjects/100; j++ {
+							for range nObjects / 100 {
 								prm := prm
 
 								prm.Address = oidtest.Address()

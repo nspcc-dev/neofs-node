@@ -48,7 +48,7 @@ func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, container.C
 	for i := range ss {
 		ns := make([]netmap.NodeInfo, 0, ss[i])
 
-		for j := 0; j < ss[i]; j++ {
+		for range ss[i] {
 			ns = append(ns, testNode(num))
 			num++
 		}
@@ -125,7 +125,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		for i := 0; i < len(nodes[0]); i++ {
+		for range len(nodes[0]) {
 			require.NotNil(t, tr.Next())
 		}
 
@@ -164,7 +164,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 			require.Empty(t, tr.Next())
 			require.False(t, tr.Success())
 
-			for i := 0; i < replicas[curVector]; i++ {
+			for range replicas[curVector] {
 				tr.SubmitSuccess()
 			}
 		}

@@ -33,7 +33,7 @@ func listWithCursorPrepareDB(b *testing.B) *meta.DB {
 	})) // faster single-thread generation
 
 	obj := generateObject(b)
-	for i := 0; i < 100_000; i++ { // should be a multiple of all batch sizes
+	for i := range 100_000 { // should be a multiple of all batch sizes
 		obj.SetID(oidtest.ID())
 		if i%9 == 0 { // let's have 9 objects per container
 			obj.SetContainerID(cidtest.ID())

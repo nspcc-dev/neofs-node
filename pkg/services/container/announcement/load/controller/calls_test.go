@@ -126,7 +126,7 @@ func TestSimpleScenario(t *testing.T) {
 
 	// store one half of "good" announcements to 1st metrics storage, another - to 2nd
 	// and "bad" to both
-	for i := 0; i < goodNum/2; i++ {
+	for i := range goodNum / 2 {
 		require.NoError(t, localStorageN1.Put(announces[i]))
 	}
 

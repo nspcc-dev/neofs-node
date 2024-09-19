@@ -709,7 +709,7 @@ func prepareRandomTree(nodeCount, opCount int) []Move {
 }
 
 func compareForests(t *testing.T, expected, actual Forest, cid cidSDK.ID, treeID string, nodeCount int) {
-	for i := uint64(0); i < uint64(nodeCount); i++ {
+	for i := range uint64(nodeCount) {
 		expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
 		require.NoError(t, err)
 		actualMeta, actualParent, err := actual.TreeGetMeta(cid, treeID, i)
@@ -868,7 +868,7 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 								Child: uint64(rand.IntN(benchNodeCount)),
 							}
 							if i != 0 && i%blockSize == 0 {
-								for j := 0; j < blockSize/2; j++ {
+								for j := range blockSize / 2 {
 									ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
 								}
 							}

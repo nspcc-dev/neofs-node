@@ -49,7 +49,7 @@ func TestListWithCursor(t *testing.T) {
 	require.NotEmpty(t, res.AddressList())
 	got = append(got, res.AddressList()...)
 
-	for i := 0; i < total-1; i++ {
+	for range total - 1 {
 		prm.WithCursor(res.Cursor())
 
 		res, err = e.ListWithCursor(prm)

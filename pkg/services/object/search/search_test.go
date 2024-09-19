@@ -206,7 +206,7 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 		ns := make([]netmap.NodeInfo, dim[i])
 		as := make([]string, dim[i])
 
-		for j := 0; j < dim[i]; j++ {
+		for j := range dim[i] {
 			a := fmt.Sprintf("/ip4/192.168.0.%s/tcp/%s",
 				strconv.Itoa(i),
 				strconv.Itoa(60000+j),

@@ -226,7 +226,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 func addrFromObjs(oo []*object.Object) []oid.Address {
 	aa := make([]oid.Address, len(oo))
 
-	for i := range len(oo) {
+	for i := range oo {
 		aa[i] = objectcore.AddressOf(oo[i])
 	}
 

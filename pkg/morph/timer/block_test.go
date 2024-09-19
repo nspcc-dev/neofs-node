@@ -8,7 +8,7 @@ import (
 )
 
 func tickN(t *timer.BlockTimer, n uint32) {
-	for i := uint32(0); i < n; i++ {
+	for range n {
 		t.Tick(0)
 	}
 }
@@ -208,7 +208,7 @@ func TestBlockTimer_TickSameHeight(t *testing.T) {
 	require.NoError(t, bt.Reset())
 
 	check := func(t *testing.T, h uint32, base, delta int) {
-		for i := 0; i < 2*int(blockDur); i++ {
+		for range 2 * blockDur {
 			bt.Tick(h)
 			require.Equal(t, base, baseCounter)
 			require.Equal(t, delta, deltaCounter)

@@ -249,7 +249,7 @@ func TestReload(t *testing.T) {
 		e, currShards := engineWithShards(t, removePath, shardNum)
 
 		var rcfg ReConfiguration
-		for i := 0; i < len(currShards)-1; i++ { // without one of the shards
+		for i := range len(currShards) - 1 { // without one of the shards
 			rcfg.AddShard(currShards[i], nil)
 		}
 
