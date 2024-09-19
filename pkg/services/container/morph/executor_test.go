@@ -218,8 +218,6 @@ func TestValidateToken(t *testing.T) {
 
 		_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
 		require.Error(t, err)
-
-		return
 	})
 
 	t.Run("wrong verb token", func(t *testing.T) {
@@ -235,8 +233,6 @@ func TestValidateToken(t *testing.T) {
 
 		_, err = e.Delete(context.TODO(), &tokV2, &reqBody)
 		require.Error(t, err)
-
-		return
 	})
 
 	t.Run("incorrect cID", func(t *testing.T) {
