@@ -76,16 +76,16 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 	}
 
 	for i := range b1.Shards {
+		info1 := b1.Shards[i].GetBlobstor()
+		info2 := b2.Shards[i].GetBlobstor()
+
 		if b1.Shards[i].GetMetabasePath() != b2.Shards[i].GetMetabasePath() ||
 			b1.Shards[i].GetWritecachePath() != b2.Shards[i].GetWritecachePath() ||
 			b1.Shards[i].GetPiloramaPath() != b2.Shards[i].GetPiloramaPath() ||
-			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) {
+			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) ||
+			!compareBlobstorInfo(info1, info2) {
 			return false
 		}
-
-		info1 := b1.Shards[i].GetBlobstor()
-		info2 := b2.Shards[i].GetBlobstor()
-		return compareBlobstorInfo(info1, info2)
 	}
 
 	for i := range b1.Shards {
