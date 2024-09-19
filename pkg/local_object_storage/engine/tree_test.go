@@ -35,7 +35,7 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 			b.Fatal(err)
 		}
 		_, err = e.TreeAddByPath(d, treeID, pilorama.AttributeFilename, nil,
-			[]pilorama.KeyValue{{pilorama.AttributeFilename, []byte(strconv.Itoa(i))}})
+			[]pilorama.KeyValue{{Key: pilorama.AttributeFilename, Value: []byte(strconv.Itoa(i))}})
 		if err != nil {
 			b.Fatal(err)
 		}
