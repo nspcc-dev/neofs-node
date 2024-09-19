@@ -264,7 +264,7 @@ func TestReload(t *testing.T) {
 
 // engineWithShards creates engine with specified number of shards. Returns
 // slice of paths to their metabase and the engine.
-// TODO: #1776 unify engine construction in tests
+// TODO: #1776 unify engine construction in tests.
 func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []string) {
 	addPath := filepath.Join(path, "add")
 
