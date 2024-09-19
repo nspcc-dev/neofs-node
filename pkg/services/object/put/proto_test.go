@@ -1,7 +1,7 @@
 package putsvc
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	objectv2 "github.com/nspcc-dev/neofs-api-go/v2/object"

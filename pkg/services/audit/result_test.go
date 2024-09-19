@@ -1,7 +1,8 @@
 package audit_test
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/rand/v2"
 	"testing"
 
 	apiaudit "github.com/nspcc-dev/neofs-api-go/v2/audit"
@@ -82,7 +83,7 @@ func TestResultMarshaling(t *testing.T) {
 		require.Nil(t, dst.AuditorPublicKey)
 
 		src.AuditorPublicKey = make([]byte, 33)
-		rand.Read(src.AuditorPublicKey)
+		_, _ = crand.Read(src.AuditorPublicKey)
 		require.NoError(t, dst.Unmarshal(src.Marshal()))
 		require.Equal(t, src.AuditorPublicKey, dst.AuditorPublicKey)
 	})

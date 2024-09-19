@@ -1,7 +1,7 @@
 package shard_test
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -25,8 +25,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 		size = smallSize / 2
 		// }
 		data := make([]byte, size)
-		//nolint:staticcheck
-		rand.Read(data)
+		_, _ = rand.Read(data)
 
 		objects[i] = generateObjectWithPayload(t, cidtest.ID(), data)
 	}
