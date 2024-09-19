@@ -54,12 +54,6 @@ type testClient struct {
 	}
 }
 
-type testEpochReceiver uint64
-
-func (e testEpochReceiver) currentEpoch() (uint64, error) {
-	return uint64(e), nil
-}
-
 func newTestStorage() *testStorage {
 	return &testStorage{
 		inhumed: make(map[string]struct{}),
@@ -194,11 +188,6 @@ func (s *testStorage) addVirtual(addr oid.Address, info *objectSDK.SplitInfo) {
 func (s *testStorage) inhume(addr oid.Address) {
 	s.inhumed[addr.EncodeToString()] = struct{}{}
 }
-
-const (
-	splitV1 = iota
-	splitV2
-)
 
 func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
 	obj := objectSDK.New()

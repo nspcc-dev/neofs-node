@@ -65,7 +65,7 @@ func TestErrorReporting(t *testing.T) {
 	t.Run("ignore errors by default", func(t *testing.T) {
 		e, dir, id := newEngineWithErrorThreshold(t, "", 0)
 
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
@@ -95,7 +95,7 @@ func TestErrorReporting(t *testing.T) {
 
 		e, dir, id := newEngineWithErrorThreshold(t, "", errThreshold)
 
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
@@ -145,7 +145,7 @@ func TestBlobstorFailback(t *testing.T) {
 
 	objs := make([]*objectSDK.Object, 0, 2)
 	for _, size := range []int{15, errSmallSize + 1} {
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
 		var prm shard.PutPrm

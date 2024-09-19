@@ -67,27 +67,27 @@ func TestChildrenExpiration(t *testing.T) {
 		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cnr)
+		parent := generateObjectWithCID(cnr)
 		parentID, _ := parent.ID()
 		parent.SetAttributes(expAttr)
 
-		child1 := generateObjectWithCID(t, cnr)
+		child1 := generateObjectWithCID(cnr)
 		child1ID, _ := child1.ID()
 		child1.SetSplitID(splitID)
 
-		child2 := generateObjectWithCID(t, cnr)
+		child2 := generateObjectWithCID(cnr)
 		child2ID, _ := child2.ID()
 		child2.SetSplitID(splitID)
 		child2.SetPreviousID(child1ID)
 
-		child3 := generateObjectWithCID(t, cnr)
+		child3 := generateObjectWithCID(cnr)
 		child3ID, _ := child3.ID()
 		child3.SetSplitID(splitID)
 		child3.SetPreviousID(child2ID)
 		child3.SetParent(parent)
 		child3.SetParentID(parentID)
 
-		link := generateObjectWithCID(t, cnr)
+		link := generateObjectWithCID(cnr)
 		link.SetParent(parent)
 		link.SetParentID(parentID)
 		link.SetChildren(child1ID, child2ID, child3ID)
@@ -106,20 +106,20 @@ func TestChildrenExpiration(t *testing.T) {
 	t.Run("V2", func(t *testing.T) {
 		cnr := cidtest.ID()
 
-		parent := generateObjectWithCID(t, cnr)
+		parent := generateObjectWithCID(cnr)
 		parentID, _ := parent.ID()
 		parent.SetAttributes(expAttr)
 
-		child1 := generateObjectWithCID(t, cnr)
+		child1 := generateObjectWithCID(cnr)
 		child1ID, _ := child1.ID()
 		child1.SetParent(parent)
 
-		child2 := generateObjectWithCID(t, cnr)
+		child2 := generateObjectWithCID(cnr)
 		child2ID, _ := child2.ID()
 		child2.SetFirstID(child1ID)
 		child2.SetPreviousID(child1ID)
 
-		child3 := generateObjectWithCID(t, cnr)
+		child3 := generateObjectWithCID(cnr)
 		child3ID, _ := child3.ID()
 		child3.SetFirstID(child1ID)
 		child3.SetPreviousID(child2ID)

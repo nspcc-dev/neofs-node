@@ -68,7 +68,6 @@ func (m *metricsStore) AddToPayloadSize(size int64) {
 
 const physical = "phy"
 const logical = "logic"
-const readonly = "readonly"
 
 func TestCounters(t *testing.T) {
 	dir := t.TempDir()
@@ -84,7 +83,7 @@ func TestCounters(t *testing.T) {
 	const objNumber = 10
 	oo := make([]*object.Object, objNumber)
 	for i := range objNumber {
-		oo[i] = generateObject(t)
+		oo[i] = generateObject()
 	}
 
 	t.Run("defaults", func(t *testing.T) {
@@ -141,7 +140,7 @@ func TestCounters(t *testing.T) {
 
 	t.Run("inhume_TS", func(t *testing.T) {
 		var prm shard.InhumePrm
-		ts := objectcore.AddressOf(generateObject(t))
+		ts := objectcore.AddressOf(generateObject())
 
 		phy := mm.objectCounters[physical]
 		logic := mm.objectCounters[logical]

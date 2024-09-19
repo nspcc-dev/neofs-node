@@ -58,10 +58,10 @@ func TestShard_Lock(t *testing.T) {
 	})
 
 	cnr := cidtest.ID()
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 	objID, _ := obj.ID()
 
-	lock := generateObjectWithCID(t, cnr)
+	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 	lockID, _ := lock.ID()
 
@@ -83,7 +83,7 @@ func TestShard_Lock(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("inhuming locked objects", func(t *testing.T) {
-		ts := generateObjectWithCID(t, cnr)
+		ts := generateObjectWithCID(cnr)
 
 		var inhumePrm shard.InhumePrm
 		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
@@ -97,7 +97,7 @@ func TestShard_Lock(t *testing.T) {
 	})
 
 	t.Run("inhuming lock objects", func(t *testing.T) {
-		ts := generateObjectWithCID(t, cnr)
+		ts := generateObjectWithCID(cnr)
 
 		var inhumePrm shard.InhumePrm
 		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
@@ -141,7 +141,7 @@ func TestShard_IsLocked(t *testing.T) {
 	sh := newShard(t, false)
 
 	cnr := cidtest.ID()
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 	cnrID, _ := obj.ContainerID()
 	objID, _ := obj.ID()
 

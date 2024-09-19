@@ -226,6 +226,7 @@ func testForestTreeDrop(t *testing.T, s Forest) {
 		}
 	}
 	list, err := s.TreeList(cid)
+	require.NoError(t, err)
 	require.NotEmpty(t, list)
 
 	require.NoError(t, s.TreeDrop(cid, ""))

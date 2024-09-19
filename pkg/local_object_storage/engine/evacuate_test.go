@@ -53,7 +53,7 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 
 	objects := make([]*objectSDK.Object, 0, objPerShard*len(ids))
 	for i := 0; ; i++ {
-		objects = append(objects, generateObjectWithCID(t, cidtest.ID()))
+		objects = append(objects, generateObjectWithCID(cidtest.ID()))
 
 		var putPrm PutPrm
 		putPrm.WithObject(objects[i])

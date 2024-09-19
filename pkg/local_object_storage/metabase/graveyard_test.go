@@ -9,7 +9,6 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -391,7 +390,6 @@ func TestDB_GetGarbage(t *testing.T) {
 
 	const numOfObjs = 5
 	cID := cidtest.ID()
-	var oo []*objectsdk.Object
 	var size uint64
 
 	for i := range numOfObjs {
@@ -399,7 +397,6 @@ func TestDB_GetGarbage(t *testing.T) {
 		addAttribute(raw, "foo"+strconv.Itoa(i), "bar"+strconv.Itoa(i))
 
 		size += raw.PayloadSize()
-		oo = append(oo, raw)
 
 		err := putBig(db, raw)
 		require.NoError(t, err)
@@ -409,7 +406,6 @@ func TestDB_GetGarbage(t *testing.T) {
 	anotherObj := generateObjectWithCID(t, cidtest.ID())
 	err := putBig(db, anotherObj)
 	require.NoError(t, err)
-	oo = append(oo, anotherObj)
 
 	_, err = db.InhumeContainer(cID)
 	require.NoError(t, err)

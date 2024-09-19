@@ -180,6 +180,7 @@ func TestDB_Exists(t *testing.T) {
 			require.ErrorIs(t, err, meta.ErrObjectIsExpired)
 
 			gotObj, err = metaExists(db, object.AddressOf(nonExp))
+			require.NoError(t, err)
 			require.True(t, gotObj)
 		})
 	})

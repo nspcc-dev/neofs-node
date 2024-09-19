@@ -82,7 +82,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := generateObject(t)
+			obj := generateObject()
 			addAttribute(obj, "foo", "bar")
 			addPayload(obj, tc.payloadSize)
 

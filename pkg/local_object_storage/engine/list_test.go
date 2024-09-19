@@ -29,7 +29,7 @@ func TestListWithCursor(t *testing.T) {
 
 	for range total {
 		containerID := cidtest.ID()
-		obj := generateObjectWithCID(t, containerID)
+		obj := generateObjectWithCID(containerID)
 
 		var prm PutPrm
 		prm.WithObject(obj)

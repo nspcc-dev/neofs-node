@@ -150,7 +150,7 @@ func TestExecBlocks(t *testing.T) {
 	})
 
 	// put some object
-	obj := generateObjectWithCID(t, cidtest.ID())
+	obj := generateObjectWithCID(cidtest.ID())
 
 	addr := object.AddressOf(obj)
 

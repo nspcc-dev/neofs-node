@@ -39,7 +39,7 @@ func TestLockUserScenario(t *testing.T) {
 	const lockerExpiresAfter = 13
 
 	cnr := cidtest.ID()
-	tombObj := generateObjectWithCID(t, cnr)
+	tombObj := generateObjectWithCID(cnr)
 	tombForLockID := oidtest.ID()
 	tombObj.SetID(tombForLockID)
 
@@ -76,7 +76,7 @@ func TestLockUserScenario(t *testing.T) {
 	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
-	lockerObj := generateObjectWithCID(t, cnr)
+	lockerObj := generateObjectWithCID(cnr)
 	lockerObj.SetID(lockerID)
 	lockerObj.SetAttributes(a)
 
@@ -85,7 +85,7 @@ func TestLockUserScenario(t *testing.T) {
 	tombForLockAddr.SetObject(tombForLockID)
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	id, _ := obj.ID()
 	objAddr.SetObject(id)
@@ -163,7 +163,7 @@ func TestLockExpiration(t *testing.T) {
 	var err error
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func TestLockExpiration(t *testing.T) {
 	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
-	lock := generateObjectWithCID(t, cnr)
+	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 	lock.SetAttributes(a)
 
@@ -234,13 +234,13 @@ func TestLockForceRemoval(t *testing.T) {
 	var err error
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
 
 	// 2.
-	lock := generateObjectWithCID(t, cnr)
+	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 
 	err = Put(e, lock)

@@ -95,17 +95,17 @@ func releaseShard(s *shard.Shard, t testing.TB) {
 	require.NoError(t, s.Close())
 }
 
-func generateObject(t *testing.T) *object.Object {
-	return generateObjectWithCID(t, cidtest.ID())
+func generateObject() *object.Object {
+	return generateObjectWithCID(cidtest.ID())
 }
 
-func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
+func generateObjectWithCID(cnr cid.ID) *object.Object {
 	data := make([]byte, 32)
 	_, _ = rand.Read(data)
-	return generateObjectWithPayload(t, cnr, data)
+	return generateObjectWithPayload(cnr, data)
 }
 
-func generateObjectWithPayload(t testing.TB, cnr cid.ID, data []byte) *object.Object {
+func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)

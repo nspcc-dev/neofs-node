@@ -40,7 +40,7 @@ func copyVectors(v [][]netmap.NodeInfo) [][]netmap.NodeInfo {
 	return vc
 }
 
-func testPlacement(t *testing.T, ss, rs []int) ([][]netmap.NodeInfo, container.Container) {
+func testPlacement(ss, rs []int) ([][]netmap.NodeInfo, container.Container) {
 	nodes := make([][]netmap.NodeInfo, 0, len(rs))
 	replicas := make([]netmap.ReplicaDescriptor, 0, len(rs))
 	num := uint32(0)
@@ -83,7 +83,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		selectors := []int{2, 3}
 		replicas := []int{1, 2}
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 
 		nodesCopy := copyVectors(nodes)
 
@@ -112,7 +112,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		selectors := []int{5, 3}
 		replicas := []int{2, 2}
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 
 		nodesCopy := copyVectors(nodes)
 
@@ -141,7 +141,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		selectors := []int{5, 3}
 		replicas := []int{2, 2}
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 
 		nodesCopy := copyVectors(nodes)
 
@@ -184,7 +184,7 @@ func TestTraverserObjectScenarios(t *testing.T) {
 		selectors := []int{2, 3}
 		replicas := []int{1, 2}
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 
 		tr, err := NewTraverser(
 			ForContainer(cnr),
@@ -214,7 +214,7 @@ func TestCopiesNumber(t *testing.T) {
 		selectors := []int{1, 2, 3} // 3 vectors with 1, 2, 3 lengths
 		replicas := []int{0, 2, 3}  // REP 0 ... REP 2 ... REP 3
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 		nodesCopy := copyVectors(nodes)
 
 		tr, err := NewTraverser(
@@ -241,7 +241,7 @@ func TestCopiesNumber(t *testing.T) {
 		selectors := []int{1, 1, 1} // 3 vectors with 1, 1, 1 lengths
 		replicas := []int{1, 1, 1}  // REP 1 ... REP 1 ... REP 1
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 		nodesCopy := copyVectors(nodes)
 
 		tr, err := NewTraverser(
@@ -265,7 +265,7 @@ func TestCopiesNumber(t *testing.T) {
 		selectors := []int{10, 10, 10} // 3 vectors with 10, 10, 10 lengths
 		replicas := []int{1, 2, 3}     // REP 1 ... REP 2 ... REP 3
 
-		nodes, cnr := testPlacement(t, selectors, replicas)
+		nodes, cnr := testPlacement(selectors, replicas)
 		nodesCopy := copyVectors(nodes)
 
 		tr, err := NewTraverser(
