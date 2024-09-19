@@ -212,13 +212,12 @@ func (l *localClient) CalculateNetworkFee(tx *transaction.Transaction) (int64, e
 			continue
 		}
 
-		fee, sizeDelta := fee.Calculate(ef, verificationScript)
-		netFee += fee
+		verificationFee, sizeDelta := fee.Calculate(ef, verificationScript)
+		netFee += verificationFee
 		size += sizeDelta
 	}
 
-	fee := l.bc.FeePerByte()
-	netFee += int64(size) * fee
+	netFee += int64(size) * l.bc.FeePerByte()
 
 	return netFee, nil
 }

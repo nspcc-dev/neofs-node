@@ -682,7 +682,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
-	repClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
+	reputationClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -991,7 +991,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		PoolSize:          cfg.GetInt("workers.reputation"),
 		EpochState:        server,
 		AlphabetState:     server,
-		ReputationWrapper: repClient,
+		ReputationWrapper: reputationClient,
 		ManagerBuilder: reputationcommon.NewManagerBuilder(
 			reputationcommon.ManagersPrm{
 				NetMapSource: server.netmapClient,

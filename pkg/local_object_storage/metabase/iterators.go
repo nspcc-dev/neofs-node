@@ -175,11 +175,11 @@ func (db *DB) iterateCoveredByTombstones(tx *bbolt.Tx, tss map[string]oid.Addres
 }
 
 func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
-	var cid cid.ID
-	var oid oid.ID
+	var cID cid.ID
+	var oID oid.ID
 
 	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		b58CID, postfix := parseContainerIDWithPrefix(&cid, name)
+		b58CID, postfix := parseContainerIDWithPrefix(&cID, name)
 		if len(b58CID) == 0 {
 			return nil
 		}
@@ -194,8 +194,8 @@ func iteratePhyObjects(tx *bbolt.Tx, f func(cid.ID, oid.ID) error) error {
 		}
 
 		return b.ForEach(func(k, v []byte) error {
-			if oid.Decode(k) == nil {
-				return f(cid, oid)
+			if oID.Decode(k) == nil {
+				return f(cID, oID)
 			}
 
 			return nil

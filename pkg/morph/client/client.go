@@ -572,7 +572,7 @@ func (c *Client) MsPerBlock() (res int64, err error) {
 }
 
 // IsValidScript returns true if invocation script executes with HALT state.
-func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res bool, err error) {
+func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (bool, error) {
 	c.switchLock.RLock()
 	defer c.switchLock.RUnlock()
 
@@ -580,12 +580,12 @@ func (c *Client) IsValidScript(script []byte, signers []transaction.Signer) (res
 		return false, ErrConnectionLost
 	}
 
-	result, err := c.client.InvokeScript(script, signers)
+	res, err := c.client.InvokeScript(script, signers)
 	if err != nil {
 		return false, fmt.Errorf("invokeScript: %w", err)
 	}
 
-	return result.State == vmstate.Halt.String(), nil
+	return res.State == vmstate.Halt.String(), nil
 }
 
 // AccountVote returns a key the provided account has voted with its NEO
@@ -601,16 +601,16 @@ func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
 
 	neoReader := neo.NewReader(invoker.New(c.client, nil))
 
-	state, err := neoReader.GetAccountState(addr)
+	accountState, err := neoReader.GetAccountState(addr)
 	if err != nil {
 		return nil, fmt.Errorf("can't get vote info: %w", err)
 	}
 
-	if state == nil {
+	if accountState == nil {
 		return nil, nil
 	}
 
-	return state.VoteTo, nil
+	return accountState.VoteTo, nil
 }
 
 func (c *Client) setActor(act *actor.Actor) {
