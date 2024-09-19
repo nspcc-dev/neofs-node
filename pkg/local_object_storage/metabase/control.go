@@ -63,7 +63,7 @@ func (db *DB) openBolt() error {
 			return nil
 		})
 
-		if err == errBreakBucketForEach {
+		if errors.Is(err, errBreakBucketForEach) {
 			db.initialized = true
 			err = nil
 		}

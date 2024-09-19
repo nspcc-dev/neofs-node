@@ -316,7 +316,7 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 		case EigenTrustAlphaConfig:
 			res.EigenTrustAlpha, err = strconv.ParseFloat(string(value), 64)
 			if err != nil {
-				return fmt.Errorf("invalid prm %s: %v", EigenTrustAlphaConfig, err)
+				return fmt.Errorf("invalid prm %s: %w", EigenTrustAlphaConfig, err)
 			}
 		case InnerRingCandidateFeeConfig:
 			res.IRCandidateFee = bytesToUint64(value)

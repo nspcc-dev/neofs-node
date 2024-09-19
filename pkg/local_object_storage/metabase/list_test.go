@@ -52,7 +52,7 @@ func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 	for range b.N {
 		res, err := db.ListWithCursor(prm)
 		if err != nil {
-			if err != meta.ErrEndOfListing {
+			if !errors.Is(err, meta.ErrEndOfListing) {
 				b.Fatalf("error: %v", err)
 			}
 			prm.SetCursor(nil)

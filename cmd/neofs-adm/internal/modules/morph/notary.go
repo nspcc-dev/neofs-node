@@ -31,7 +31,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 
 	w, err := wallet.NewWalletFromFile(p)
 	if err != nil {
-		return fmt.Errorf("can't open wallet: %v", err)
+		return fmt.Errorf("can't open wallet: %w", err)
 	}
 
 	accHash := w.GetChangeAddress()
@@ -50,12 +50,12 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 	prompt := fmt.Sprintf("Enter password for %s >", address.Uint160ToString(accHash))
 	pass, err := input.ReadPassword(prompt)
 	if err != nil {
-		return fmt.Errorf("can't get password: %v", err)
+		return fmt.Errorf("can't get password: %w", err)
 	}
 
 	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
 	if err != nil {
-		return fmt.Errorf("can't unlock account: %v", err)
+		return fmt.Errorf("can't unlock account: %w", err)
 	}
 
 	gasStr, err := cmd.Flags().GetString(refillGasAmountFlag)
@@ -86,7 +86,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 
 	height, err := c.GetBlockCount()
 	if err != nil {
-		return fmt.Errorf("can't get current height: %v", err)
+		return fmt.Errorf("can't get current height: %w", err)
 	}
 
 	act, err := actor.New(c, []actor.SignerAccount{{

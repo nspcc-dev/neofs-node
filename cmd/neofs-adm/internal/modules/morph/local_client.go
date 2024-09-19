@@ -318,7 +318,7 @@ func invokeFunction(c Client, h util.Uint160, method string, parameters []any, s
 
 	script, err := b.Script()
 	if err != nil {
-		return nil, fmt.Errorf("BUG: invalid parameters for '%s': %v", method, err)
+		return nil, fmt.Errorf("BUG: invalid parameters for '%s': %w", method, err)
 	}
 
 	return c.InvokeScript(script, signers)
