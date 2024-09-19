@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -26,9 +25,8 @@ type cacheItem struct {
 }
 
 const (
-	defaultClientCacheSize      = 10
-	defaultClientConnectTimeout = time.Second * 2
-	defaultReconnectInterval    = time.Second * 15
+	defaultClientCacheSize   = 10
+	defaultReconnectInterval = time.Second * 15
 )
 
 var errRecentlyFailed = errors.New("client has recently failed")
@@ -42,7 +40,7 @@ func (c *clientCache) init() {
 	c.LRU = *l
 }
 
-func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceClient, error) {
+func (c *clientCache) get(netmapAddr string) (TreeServiceClient, error) {
 	c.Lock()
 	ccInt, ok := c.LRU.Get(netmapAddr)
 	c.Unlock()
@@ -61,7 +59,7 @@ func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceCl
 		}
 	}
 
-	cc, err := dialTreeService(ctx, netmapAddr)
+	cc, err := dialTreeService(netmapAddr)
 	lastTry := time.Now()
 
 	c.Lock()
@@ -79,23 +77,18 @@ func (c *clientCache) get(ctx context.Context, netmapAddr string) (TreeServiceCl
 	return NewTreeServiceClient(cc), nil
 }
 
-func dialTreeService(ctx context.Context, netmapAddr string) (*grpc.ClientConn, error) {
+func dialTreeService(netmapAddr string) (*grpc.ClientConn, error) {
 	var netAddr network.Address
 	if err := netAddr.FromString(netmapAddr); err != nil {
 		return nil, err
 	}
 
-	opts := make([]grpc.DialOption, 1, 2)
-	opts[0] = grpc.WithBlock()
+	opts := make([]grpc.DialOption, 0, 1)
 
 	// FIXME(@fyrchik): ugly hack #1322
 	if !strings.HasPrefix(netAddr.URIAddr(), "grpcs:") {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, defaultClientConnectTimeout)
-	cc, err := grpc.DialContext(ctx, netAddr.URIAddr(), opts...)
-	cancel()
-
-	return cc, err
+	return grpc.NewClient(netAddr.URIAddr(), opts...)
 }

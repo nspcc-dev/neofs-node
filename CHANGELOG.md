@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - More effective FSTree writer for HDDs, new configuration options for it (#2814)
 - New health status `INITIALIZING_NETWORK` in inner ring (#2934)
 - Expose health status of inner ring via Prometheus (#2934)
+- `neofs-cli control object list` command (#2853)
 
 ### Fixed
 

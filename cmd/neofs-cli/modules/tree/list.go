@@ -42,7 +42,7 @@ func list(cmd *cobra.Command, _ []string) {
 	err := cnr.DecodeString(cidString)
 	common.ExitOnErr(cmd, "decode container ID string: %w", err)
 
-	cli, err := _client(ctx)
+	cli, err := _client()
 	common.ExitOnErr(cmd, "client: %w", err)
 
 	rawCID := make([]byte, sha256.Size)
