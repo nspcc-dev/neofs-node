@@ -21,7 +21,6 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
@@ -84,7 +83,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 	cnr := cidtest.ID()
 
-	var expAttr objectSDK.Attribute
+	var expAttr object.Attribute
 	expAttr.SetKey(objectV2.SysAttributeExpEpoch)
 	expAttr.SetValue("1")
 
@@ -195,7 +194,7 @@ func TestExpiration(t *testing.T) {
 				{
 					Storage: fstree.New(
 						fstree.WithPath(filepath.Join(rootPath, "blob"))),
-					Policy: func(_ *objectSDK.Object, _ []byte) bool { return true },
+					Policy: func(_ *object.Object, _ []byte) bool { return true },
 				},
 			}),
 		),
@@ -228,12 +227,12 @@ func TestExpiration(t *testing.T) {
 	})
 	ch := sh.NotificationChannel()
 
-	var expAttr objectSDK.Attribute
+	var expAttr object.Attribute
 	expAttr.SetKey(objectV2.SysAttributeExpEpoch)
 
 	obj := generateObject(t)
 
-	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink, objectSDK.TypeStorageGroup} {
+	for i, typ := range []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeLink, object.TypeStorageGroup} {
 		t.Run(fmt.Sprintf("type: %s", typ), func(t *testing.T) {
 			exp := uint64(i * 10)
 

@@ -15,7 +15,6 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
@@ -188,7 +187,7 @@ func TestLockExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm InhumePrm
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -201,7 +200,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -260,7 +259,7 @@ func TestLockForceRemoval(t *testing.T) {
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))

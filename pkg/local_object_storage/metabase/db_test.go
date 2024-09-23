@@ -11,7 +11,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -108,7 +107,7 @@ func addAttribute(obj *object.Object, key, val string) {
 	obj.SetAttributes(attrs...)
 }
 
-func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *objectSDK.Object)) {
+func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *object.Object)) {
 	expObj := generateObject(t)
 	setExpiration(expObj, currEpoch-1)
 
@@ -122,8 +121,8 @@ func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *objectSD
 	f(expObj, nonExpObj)
 }
 
-func setExpiration(o *objectSDK.Object, epoch uint64) {
-	var attr objectSDK.Attribute
+func setExpiration(o *object.Object, epoch uint64) {
+	var attr object.Attribute
 
 	attr.SetKey(object.AttributeExpirationEpoch)
 	attr.SetValue(strconv.FormatUint(epoch, 10))
