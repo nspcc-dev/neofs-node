@@ -25,20 +25,20 @@ type CalculatorPrm struct {
 
 // ResultStorage is an interface of storage of the audit results.
 type ResultStorage interface {
-	// Must return all audit results by epoch number.
+	// AuditResultsForEpoch must return all audit results by epoch number.
 	AuditResultsForEpoch(epoch uint64) ([]*audit.Result, error)
 }
 
 // SGInfo groups the data about NeoFS storage group
 // necessary for calculating audit fee.
 type SGInfo interface {
-	// Must return sum size of the all group members.
+	// Size must return sum size of the all group members.
 	Size() uint64
 }
 
 // SGStorage is an interface of storage of the storage groups.
 type SGStorage interface {
-	// Must return information about the storage group by address.
+	// SGInfo must return information about the storage group by address.
 	SGInfo(oid.Address) (SGInfo, error)
 }
 

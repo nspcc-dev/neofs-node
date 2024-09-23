@@ -11,11 +11,11 @@ import (
 type Context interface {
 	context.Context
 
-	// Must return epoch number to select the values
+	// Epoch must return epoch number to select the values
 	// for global trust calculation.
 	Epoch() uint64
 
-	// Must return the sequence number of the iteration.
+	// I must return the sequence number of the iteration.
 	I() uint32
 }
 

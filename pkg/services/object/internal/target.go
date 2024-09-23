@@ -24,7 +24,7 @@ type HeaderWriter interface {
 // Target is an interface of the object writer.
 type Target interface {
 	HeaderWriter
-	// Write writes object payload chunk.
+	// Writer writes object payload chunk.
 	//
 	// Can be called multiple times.
 	//
