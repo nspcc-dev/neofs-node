@@ -15,11 +15,12 @@ import (
 )
 
 var command = &cobra.Command{
-	Use:          "neofs-lens",
-	Short:        "NeoFS Storage Engine Lens",
-	Long:         `NeoFS Storage Engine Lens provides tools to browse the contents of the NeoFS storage engine.`,
-	RunE:         entryPoint,
-	SilenceUsage: true,
+	Use:           "neofs-lens",
+	Short:         "NeoFS Storage Engine Lens",
+	Long:          `NeoFS Storage Engine Lens provides tools to browse the contents of the NeoFS storage engine.`,
+	RunE:          entryPoint,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func entryPoint(cmd *cobra.Command, _ []string) error {

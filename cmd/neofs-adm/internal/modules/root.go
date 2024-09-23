@@ -19,8 +19,9 @@ var (
 		Short: "NeoFS Administrative Tool",
 		Long: `NeoFS Administrative Tool provides functions to setup and
 manage NeoFS network deployment.`,
-		RunE:         entryPoint,
-		SilenceUsage: true,
+		RunE:          entryPoint,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	configFlag = "config"
