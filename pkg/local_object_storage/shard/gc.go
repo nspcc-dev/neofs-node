@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -40,12 +39,10 @@ func EventNewEpoch(e uint64) Event {
 	}
 }
 
-type eventHandler func(context.Context, Event)
+type eventHandler func(Event)
 
 type eventHandlers struct {
 	prevGroup sync.WaitGroup
-
-	cancelFunc context.CancelFunc
 
 	handlers []eventHandler
 }
@@ -114,11 +111,7 @@ func (gc *gc) listenEvents() {
 			continue
 		}
 
-		v.cancelFunc()
 		v.prevGroup.Wait()
-
-		var ctx context.Context
-		ctx, v.cancelFunc = context.WithCancel(context.Background())
 
 		v.prevGroup.Add(len(v.handlers))
 
@@ -126,7 +119,7 @@ func (gc *gc) listenEvents() {
 			h := v.handlers[i]
 
 			err := gc.workerPool.Submit(func() {
-				h(ctx, event)
+				h(event)
 				v.prevGroup.Done()
 			})
 			if err != nil {
@@ -220,13 +213,13 @@ func (s *Shard) removeGarbage() {
 	}
 }
 
-func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
+func (s *Shard) collectExpiredObjects(e Event) {
 	epoch := e.(newEpoch).epoch
 	log := s.log.With(zap.Uint64("epoch", epoch))
 
 	log.Debug("started expired objects handling")
 
-	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
+	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
 		return typ != object.TypeLock
 	})
 	if err != nil || len(expired) == 0 {
@@ -238,12 +231,12 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 
 	log.Debug("collected expired objects", zap.Int("num", len(expired)))
 
-	s.expiredObjectsCallback(ctx, expired)
+	s.expiredObjectsCallback(expired)
 
 	log.Debug("finished expired objects handling")
 }
 
-func (s *Shard) collectExpiredTombstones(_ context.Context, e Event) {
+func (s *Shard) collectExpiredTombstones(e Event) {
 	epoch := e.(newEpoch).epoch
 	log := s.log.With(zap.Uint64("epoch", epoch))
 
@@ -258,8 +251,8 @@ func (s *Shard) collectExpiredTombstones(_ context.Context, e Event) {
 	log.Debug("finished expired tombstones handling", zap.Int("dropped marks", dropped))
 }
 
-func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
-	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
+func (s *Shard) collectExpiredLocks(e Event) {
+	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
 		return typ == object.TypeLock
 	})
 	if err != nil || len(expired) == 0 {
@@ -269,10 +262,10 @@ func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
 		return
 	}
 
-	s.expiredLocksCallback(ctx, expired)
+	s.expiredLocksCallback(expired)
 }
 
-func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
+func (s *Shard) getExpiredObjects(epoch uint64, typeCond func(object.Type) bool) ([]oid.Address, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -283,20 +276,15 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond fu
 	var expired []oid.Address
 
 	err := s.metaBase.IterateExpired(epoch, func(expiredObject *meta.ExpiredObject) error {
-		select {
-		case <-ctx.Done():
-			return meta.ErrInterruptIterator
-		default:
-			if typeCond(expiredObject.Type()) {
-				expired = append(expired, expiredObject.Address())
-			}
-			return nil
+		if typeCond(expiredObject.Type()) {
+			expired = append(expired, expiredObject.Address())
 		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return expired, ctx.Err()
+	return expired, nil
 }
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.

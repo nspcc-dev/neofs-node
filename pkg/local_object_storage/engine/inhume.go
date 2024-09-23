@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"errors"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -324,7 +323,7 @@ func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	return locked, outErr
 }
 
-func (e *StorageEngine) processExpiredObjects(_ context.Context, addrs []oid.Address) {
+func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 	var prm InhumePrm
 	prm.MarkAsGarbage(addrs...)
 
@@ -334,17 +333,10 @@ func (e *StorageEngine) processExpiredObjects(_ context.Context, addrs []oid.Add
 	}
 }
 
-func (e *StorageEngine) processExpiredLocks(ctx context.Context, lockers []oid.Address) {
+func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		sh.HandleExpiredLocks(lockers)
-
-		select {
-		case <-ctx.Done():
-			e.log.Info("interrupt processing the expired locks by context")
-			return true
-		default:
-			return false
-		}
+		return false
 	})
 }
 

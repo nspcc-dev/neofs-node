@@ -1,7 +1,6 @@
 package shard_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -64,7 +63,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 		shard.WithDeletedLockCallback(func(aa []oid.Address) {
 			sh.HandleDeletedLocks(aa)
 		}),
-		shard.WithExpiredLocksCallback(func(_ context.Context, aa []oid.Address) {
+		shard.WithExpiredLocksCallback(func(aa []oid.Address) {
 			sh.HandleExpiredLocks(aa)
 		}),
 		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
@@ -205,7 +204,7 @@ func TestExpiration(t *testing.T) {
 			meta.WithEpochState(epochState{Value: math.MaxUint64 / 2}),
 		),
 		shard.WithExpiredObjectsCallback(
-			func(_ context.Context, addresses []oid.Address) {
+			func(addresses []oid.Address) {
 				var p shard.InhumePrm
 				p.MarkAsGarbage(addresses...)
 				_, err := sh.Inhume(p)
