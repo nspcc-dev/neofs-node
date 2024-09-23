@@ -17,8 +17,6 @@ import (
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone"
-	tsourse "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/tombstone/source"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/panjf2000/ants/v2"
@@ -47,18 +45,9 @@ func initLocalStorage(c *cfg) {
 	// service will be created later
 	c.cfgObject.getSvc = new(getsvc.Service)
 
-	var tssPrm tsourse.TombstoneSourcePrm
-	tssPrm.SetGetService(c.cfgObject.getSvc)
-	tombstoneSrc := tsourse.NewSource(tssPrm)
-
-	tombstoneSource := tombstone.NewChecker(
-		tombstone.WithLogger(c.log),
-		tombstone.WithTombstoneSource(tombstoneSrc),
-	)
-
 	var shardsAttached int
 	for _, optsWithMeta := range c.shardOpts() {
-		id, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithTombstoneSource(tombstoneSource))...)
+		id, err := ls.AddShard(optsWithMeta.shOpts...)
 		if err != nil {
 			c.log.Error("failed to attach shard to engine", zap.Error(err))
 		} else {

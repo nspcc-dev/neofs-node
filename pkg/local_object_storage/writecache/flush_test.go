@@ -224,7 +224,7 @@ func TestFlush(t *testing.T) {
 
 		var inhumePrm meta.InhumePrm
 		inhumePrm.SetAddresses(objects[0].addr, objects[1].addr)
-		inhumePrm.SetTombstoneAddress(oidtest.Address())
+		inhumePrm.SetTombstone(oidtest.Address(), 0)
 		_, err := mb.Inhume(inhumePrm)
 		require.NoError(t, err)
 

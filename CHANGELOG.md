@@ -10,9 +10,11 @@ Changelog for NeoFS Node
 - `neofs-cli control object list` command (#2853)
 
 ### Fixed
+- Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
+- Metabase graveyard scheme (#2929)
 
 ### Removed
 
@@ -20,6 +22,9 @@ Changelog for NeoFS Node
 - Go to 1.22 version (#2517, #2738)
 
 ### Updating from v0.43.0
+Metabase version has been increased, auto migrating will be performed once
+a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
+not be undone. No additional work should be done.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 

@@ -1,12 +1,20 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
+	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -84,4 +92,237 @@ func TestVersion(t *testing.T) {
 			require.NoError(t, db.Close())
 		})
 	})
+}
+
+type inhumeV2Prm struct {
+	tomb   *oid.Address
+	target []oid.Address
+
+	lockObjectHandling bool
+
+	forceRemoval bool
+}
+
+func (db *DB) inhumeV2(prm inhumeV2Prm) (res InhumeRes, err error) {
+	db.modeMtx.RLock()
+	defer db.modeMtx.RUnlock()
+
+	if db.mode.NoMetabase() {
+		return InhumeRes{}, ErrDegradedMode
+	} else if db.mode.ReadOnly() {
+		return InhumeRes{}, ErrReadOnlyMode
+	}
+
+	currEpoch := db.epochState.CurrentEpoch()
+	var inhumed uint64
+
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
+		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
+		graveyardBKT := tx.Bucket(graveyardBucketName)
+
+		var (
+			// target bucket of the operation, one of the:
+			//	1. Graveyard if Inhume was called with a Tombstone
+			//	2. Garbage if Inhume was called with a GC mark
+			bkt *bbolt.Bucket
+			// value that will be put in the bucket, one of the:
+			// 1. tombstone address if Inhume was called with
+			//    a Tombstone
+			// 2. zeroValue if Inhume was called with a GC mark
+			value []byte
+		)
+
+		if prm.tomb != nil {
+			bkt = graveyardBKT
+			tombKey := addressKey(*prm.tomb, make([]byte, addressKeySize))
+
+			// it is forbidden to have a tomb-on-tomb in NeoFS,
+			// so graveyard keys must not be addresses of tombstones
+			data := bkt.Get(tombKey)
+			if data != nil {
+				err := bkt.Delete(tombKey)
+				if err != nil {
+					return fmt.Errorf("could not remove grave with tombstone key: %w", err)
+				}
+			}
+
+			value = tombKey
+		} else {
+			bkt = garbageObjectsBKT
+			value = zeroValue
+		}
+
+		buf := make([]byte, addressKeySize)
+		for i := range prm.target {
+			id := prm.target[i].Object()
+			cnr := prm.target[i].Container()
+
+			// prevent locked objects to be inhumed
+			if !prm.forceRemoval && objectLocked(tx, cnr, id) {
+				return apistatus.ObjectLocked{}
+			}
+
+			var lockWasChecked bool
+
+			// prevent lock objects to be inhumed
+			// if `Inhume` was called not with the
+			// `WithForceGCMark` option
+			if !prm.forceRemoval {
+				if isLockObject(tx, cnr, id) {
+					return ErrLockObjectRemoval
+				}
+
+				lockWasChecked = true
+			}
+
+			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
+			targetKey := addressKey(prm.target[i], buf)
+			if err == nil {
+				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
+					// object is available, decrement the
+					// logical counter
+					inhumed++
+				}
+
+				// if object is stored, and it is regular object then update bucket
+				// with container size estimations
+				if obj.Type() == object.TypeRegular {
+					err := changeContainerSize(tx, cnr, obj.PayloadSize(), false)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			if prm.tomb != nil {
+				targetIsTomb := false
+
+				// iterate over graveyard and check if target address
+				// is the address of tombstone in graveyard.
+				err = bkt.ForEach(func(k, v []byte) error {
+					// check if graveyard has record with key corresponding
+					// to tombstone address (at least one)
+					targetIsTomb = bytes.Equal(v, targetKey)
+
+					if targetIsTomb {
+						// break bucket iterator
+						return errBreakBucketForEach
+					}
+
+					return nil
+				})
+				if err != nil && !errors.Is(err, errBreakBucketForEach) {
+					return err
+				}
+
+				// do not add grave if target is a tombstone
+				if targetIsTomb {
+					continue
+				}
+
+				// if tombstone appears object must be
+				// additionally marked with GC
+				err = garbageObjectsBKT.Put(targetKey, zeroValue)
+				if err != nil {
+					return err
+				}
+			}
+
+			// consider checking if target is already in graveyard?
+			err = bkt.Put(targetKey, value)
+			if err != nil {
+				return err
+			}
+
+			if prm.lockObjectHandling {
+				// do not perform lock check if
+				// it was already called
+				if lockWasChecked {
+					// inhumed object is not of
+					// the LOCK type
+					continue
+				}
+
+				if isLockObject(tx, cnr, id) {
+					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
+				}
+			}
+		}
+
+		return db.updateCounter(tx, logical, inhumed, false)
+	})
+
+	res.availableImhumed = inhumed
+
+	return
+}
+
+const testEpoch = 123
+
+type epochState struct{}
+
+func (s epochState) CurrentEpoch() uint64 {
+	return testEpoch
+}
+
+func newDB(t testing.TB, opts ...Option) *DB {
+	p := path.Join(t.TempDir(), "meta.db")
+
+	bdb := New(
+		append([]Option{
+			WithPath(p),
+			WithPermissions(0o600),
+			WithEpochState(epochState{}),
+		}, opts...)...,
+	)
+
+	require.NoError(t, bdb.Open(false))
+	require.NoError(t, bdb.Init())
+
+	t.Cleanup(func() {
+		bdb.Close()
+		os.Remove(bdb.DumpInfo().Path)
+	})
+
+	return bdb
+}
+
+func TestMigrate2to3(t *testing.T) {
+	expectedEpoch := uint64(testEpoch + objectconfig.DefaultTombstoneLifetime)
+	expectedEpochRaw := make([]byte, 8)
+	binary.LittleEndian.PutUint64(expectedEpochRaw, expectedEpoch)
+
+	db := newDB(t)
+
+	testObjs := oidtest.Addresses(1024)
+	tomb := oidtest.Address()
+	tombRaw := addressKey(tomb, make([]byte, addressKeySize))
+
+	_, err := db.inhumeV2(inhumeV2Prm{
+		target: testObjs,
+		tomb:   &tomb,
+	})
+	require.NoError(t, err)
+
+	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		err = updateVersion(tx, 2)
+		if err != nil {
+			return err
+		}
+
+		return migrateFrom2Version(db, tx)
+	})
+	require.NoError(t, err)
+
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		return tx.Bucket(graveyardBucketName).ForEach(func(k, v []byte) error {
+			require.Len(t, v, addressKeySize+8)
+			require.Equal(t, v[:addressKeySize], tombRaw)
+			require.Equal(t, v[addressKeySize:], expectedEpochRaw)
+
+			return nil
+		})
+	})
+	require.NoError(t, err)
 }

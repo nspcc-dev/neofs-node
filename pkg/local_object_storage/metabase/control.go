@@ -113,7 +113,7 @@ func (db *DB) init(reset bool) error {
 		var err error
 		if !reset {
 			// Normal open, check version and update if not initialized.
-			err := checkVersion(tx, db.initialized)
+			err := db.checkVersion(tx)
 			if err != nil {
 				return err
 			}

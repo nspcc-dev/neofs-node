@@ -26,9 +26,10 @@ func listGraveyardFunc(cmd *cobra.Command, _ []string) {
 	gravePrm.SetHandler(
 		func(tsObj meta.TombstonedObject) error {
 			cmd.Printf(
-				"Object: %s\nTS: %s\n",
+				"Object: %s\nTS: %s (TS expiration: %d)\n",
 				tsObj.Address().EncodeToString(),
 				tsObj.Tombstone().EncodeToString(),
+				tsObj.TombstoneExpiration(),
 			)
 
 			return nil

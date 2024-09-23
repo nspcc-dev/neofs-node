@@ -28,8 +28,6 @@ type Shard struct {
 	pilorama pilorama.ForestStorage
 
 	metaBase *meta.DB
-
-	tsSource TombstoneSource
 }
 
 // Option represents Shard's constructor option.
@@ -96,13 +94,9 @@ type cfg struct {
 
 	expiredObjectsCallback ExpiredObjectsCallback
 
-	expiredTombstonesCallback ExpiredTombstonesCallback
-
 	expiredLocksCallback ExpiredObjectsCallback
 
 	deletedLockCallBack DeletedLockCallback
-
-	tsSource TombstoneSource
 
 	metricsWriter MetricsWriter
 
@@ -133,7 +127,6 @@ func New(opts ...Option) *Shard {
 		cfg:      c,
 		blobStor: bs,
 		metaBase: mb,
-		tsSource: c.tsSource,
 	}
 
 	reportFunc := func(msg string, err error) {
@@ -251,14 +244,6 @@ func WithExpiredObjectsCallback(cb ExpiredObjectsCallback) Option {
 	}
 }
 
-// WithExpiredTombstonesCallback returns option to specify callback
-// of the expired tombstones handler.
-func WithExpiredTombstonesCallback(cb ExpiredTombstonesCallback) Option {
-	return func(c *cfg) {
-		c.expiredTombstonesCallback = cb
-	}
-}
-
 // WithExpiredLocksCallback returns option to specify callback
 // of the expired LOCK objects handler.
 func WithExpiredLocksCallback(cb ExpiredObjectsCallback) Option {
@@ -280,13 +265,6 @@ func WithRefillMetabase(v bool) Option {
 func WithMode(v mode.Mode) Option {
 	return func(c *cfg) {
 		c.info.Mode = v
-	}
-}
-
-// WithTombstoneSource returns option to set TombstoneSource.
-func WithTombstoneSource(v TombstoneSource) Option {
-	return func(c *cfg) {
-		c.tsSource = v
 	}
 }
 

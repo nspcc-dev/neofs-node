@@ -12,9 +12,10 @@ import (
 
 // InhumePrm encapsulates parameters for inhume operation.
 type InhumePrm struct {
-	target       []oid.Address
-	tombstone    *oid.Address
-	forceRemoval bool
+	target              []oid.Address
+	tombstone           *oid.Address
+	tombstoneExpiration uint64
+	forceRemoval        bool
 }
 
 // InhumeRes encapsulates results of inhume operation.
@@ -25,10 +26,11 @@ type InhumeRes struct{}
 //
 // tombstone should not be nil, addr should not be empty.
 // Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) InhumeByTomb(tombstone oid.Address, addrs ...oid.Address) {
+func (p *InhumePrm) InhumeByTomb(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) {
 	if p != nil {
 		p.target = addrs
 		p.tombstone = &tombstone
+		p.tombstoneExpiration = tombExpiration
 	}
 }
 
@@ -39,6 +41,7 @@ func (p *InhumePrm) MarkAsGarbage(addr ...oid.Address) {
 	if p != nil {
 		p.target = addr
 		p.tombstone = nil
+		p.tombstoneExpiration = 0
 	}
 }
 
@@ -91,7 +94,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 	metaPrm.SetLockObjectHandling()
 
 	if prm.tombstone != nil {
-		metaPrm.SetTombstoneAddress(*prm.tombstone)
+		metaPrm.SetTombstone(*prm.tombstone, prm.tombstoneExpiration)
 	} else {
 		metaPrm.SetGCMark()
 	}

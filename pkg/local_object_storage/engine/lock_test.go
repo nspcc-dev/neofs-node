@@ -51,7 +51,6 @@ func TestLockUserScenario(t *testing.T) {
 
 			return pool
 		}),
-		shard.WithTombstoneSource(tss{lockerExpiresAfter}),
 	})
 
 	t.Cleanup(func() {
@@ -108,7 +107,7 @@ func TestLockUserScenario(t *testing.T) {
 
 	// 3.
 	var inhumePrm InhumePrm
-	inhumePrm.WithTarget(tombAddr, objAddr)
+	inhumePrm.WithTombstone(tombAddr, 0, objAddr)
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -121,7 +120,7 @@ func TestLockUserScenario(t *testing.T) {
 	err = Put(e, tombObj)
 	require.NoError(t, err)
 
-	inhumePrm.WithTarget(tombForLockAddr, lockerAddr)
+	inhumePrm.WithTombstone(tombForLockAddr, 0, lockerAddr)
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
@@ -132,7 +131,7 @@ func TestLockUserScenario(t *testing.T) {
 	// delay for GC
 	time.Sleep(time.Second)
 
-	inhumePrm.WithTarget(tombAddr, objAddr)
+	inhumePrm.WithTombstone(tombAddr, 0, objAddr)
 
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -189,7 +188,7 @@ func TestLockExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm InhumePrm
-	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -202,7 +201,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -261,7 +260,7 @@ func TestLockForceRemoval(t *testing.T) {
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-	inhumePrm.WithTarget(objecttest.Address(), objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))

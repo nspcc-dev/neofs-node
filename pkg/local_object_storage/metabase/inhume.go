@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -15,7 +16,8 @@ import (
 
 // InhumePrm encapsulates parameters for Inhume operation.
 type InhumePrm struct {
-	tomb *oid.Address
+	tomb           *oid.Address
+	tombExpiration uint64
 
 	target []oid.Address
 
@@ -48,17 +50,19 @@ func (p *InhumePrm) SetAddresses(addrs ...oid.Address) {
 	p.target = addrs
 }
 
-// SetTombstoneAddress sets tombstone address as the reason for inhume operation.
+// SetTombstone sets tombstone address as the reason for inhume operation
+// and tombstone's expiration.
 //
 // addr should not be nil.
 // Should not be called along with SetGCMark.
-func (p *InhumePrm) SetTombstoneAddress(addr oid.Address) {
+func (p *InhumePrm) SetTombstone(addr oid.Address, epoch uint64) {
 	p.tomb = &addr
+	p.tombExpiration = epoch
 }
 
 // SetGCMark marks the object to be physically removed.
 //
-// Should not be called along with SetTombstoneAddress.
+// Should not be called along with SetTombstone.
 func (p *InhumePrm) SetGCMark() {
 	p.tomb = nil
 }
@@ -114,15 +118,15 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			//	2. Garbage if Inhume was called with a GC mark
 			bkt *bbolt.Bucket
 			// value that will be put in the bucket, one of the:
-			// 1. tombstone address if Inhume was called with
-			//    a Tombstone
+			// 1. tombstone address + tomb expiration epoch if Inhume was called
+			//    with a Tombstone
 			// 2. zeroValue if Inhume was called with a GC mark
 			value []byte
 		)
 
 		if prm.tomb != nil {
 			bkt = graveyardBKT
-			tombKey := addressKey(*prm.tomb, make([]byte, addressKeySize))
+			tombKey := addressKey(*prm.tomb, make([]byte, addressKeySize+8))
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
@@ -134,7 +138,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				}
 			}
 
-			value = tombKey
+			value = binary.LittleEndian.AppendUint64(tombKey, prm.tombExpiration)
 		} else {
 			bkt = garbageObjectsBKT
 			value = zeroValue
@@ -187,10 +191,10 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 
 				// iterate over graveyard and check if target address
 				// is the address of tombstone in graveyard.
-				err = bkt.ForEach(func(k, v []byte) error {
+				err = graveyardBKT.ForEach(func(k, v []byte) error {
 					// check if graveyard has record with key corresponding
 					// to tombstone address (at least one)
-					targetIsTomb = bytes.Equal(v, targetKey)
+					targetIsTomb = bytes.Equal(v[:addressKeySize], targetKey)
 
 					if targetIsTomb {
 						// break bucket iterator

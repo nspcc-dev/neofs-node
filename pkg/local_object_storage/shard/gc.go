@@ -13,15 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TombstoneSource is an interface that checks
-// tombstone status in the NeoFS network.
-type TombstoneSource interface {
-	// IsTombstoneAvailable must return boolean value that means
-	// provided tombstone's presence in the NeoFS network at the
-	// time of the passed epoch.
-	IsTombstoneAvailable(ctx context.Context, addr oid.Address, epoch uint64) bool
-}
-
 // Event represents class of external events.
 type Event interface {
 	typ() eventType
@@ -236,7 +227,7 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	log.Debug("started expired objects handling")
 
 	expired, err := s.getExpiredObjects(ctx, e.(newEpoch).epoch, func(typ object.Type) bool {
-		return typ != object.TypeTombstone && typ != object.TypeLock
+		return typ != object.TypeLock
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
@@ -252,69 +243,19 @@ func (s *Shard) collectExpiredObjects(ctx context.Context, e Event) {
 	log.Debug("finished expired objects handling")
 }
 
-func (s *Shard) collectExpiredTombstones(ctx context.Context, e Event) {
+func (s *Shard) collectExpiredTombstones(_ context.Context, e Event) {
 	epoch := e.(newEpoch).epoch
 	log := s.log.With(zap.Uint64("epoch", epoch))
 
 	log.Debug("started expired tombstones handling")
 
-	const tssDeleteBatch = 50
-	tss := make([]meta.TombstonedObject, 0, tssDeleteBatch)
-	tssExp := make([]meta.TombstonedObject, 0, tssDeleteBatch)
-
-	var iterPrm meta.GraveyardIterationPrm
-	iterPrm.SetHandler(func(deletedObject meta.TombstonedObject) error {
-		tss = append(tss, deletedObject)
-
-		if len(tss) == tssDeleteBatch {
-			return meta.ErrInterruptIterator
-		}
-
-		return nil
-	})
-
-	for {
-		log.Debug("iterating tombstones")
-
-		s.m.RLock()
-
-		if s.info.Mode.NoMetabase() {
-			s.log.Debug("shard is in a degraded mode, skip collecting expired tombstones")
-			s.m.RUnlock()
-
-			return
-		}
-
-		err := s.metaBase.IterateOverGraveyard(iterPrm)
-		if err != nil {
-			log.Error("iterator over graveyard failed", zap.Error(err))
-			s.m.RUnlock()
-
-			return
-		}
-
-		s.m.RUnlock()
-
-		tssLen := len(tss)
-		if tssLen == 0 {
-			break
-		}
-
-		for _, ts := range tss {
-			if !s.tsSource.IsTombstoneAvailable(ctx, ts.Tombstone(), epoch) {
-				tssExp = append(tssExp, ts)
-			}
-		}
-
-		log.Debug("handling expired tombstones batch", zap.Int("number", len(tssExp)))
-		s.expiredTombstonesCallback(ctx, tssExp)
-
-		iterPrm.SetOffset(tss[tssLen-1].Address())
-		tss = tss[:0]
-		tssExp = tssExp[:0]
+	dropped, err := s.metaBase.DropExpiredTSMarks(epoch)
+	if err != nil {
+		log.Error("cleaning graveyard up failed", zap.Error(err))
+		return
 	}
 
-	log.Debug("finished expired tombstones handling")
+	log.Debug("finished expired tombstones handling", zap.Int("dropped marks", dropped))
 }
 
 func (s *Shard) collectExpiredLocks(ctx context.Context, e Event) {
@@ -356,46 +297,6 @@ func (s *Shard) getExpiredObjects(ctx context.Context, epoch uint64, typeCond fu
 		return nil, err
 	}
 	return expired, ctx.Err()
-}
-
-// HandleExpiredTombstones marks tombstones themselves as garbage
-// and clears up corresponding graveyard records.
-//
-// Does not modify tss.
-func (s *Shard) HandleExpiredTombstones(tss []meta.TombstonedObject) {
-	if s.GetMode().NoMetabase() {
-		return
-	}
-
-	// Mark tombstones as garbage.
-	var pInhume meta.InhumePrm
-
-	tsAddrs := make([]oid.Address, 0, len(tss))
-	for _, ts := range tss {
-		tsAddrs = append(tsAddrs, ts.Tombstone())
-	}
-
-	pInhume.SetGCMark()
-	pInhume.SetAddresses(tsAddrs...)
-
-	// inhume tombstones
-	res, err := s.metaBase.Inhume(pInhume)
-	if err != nil {
-		s.log.Warn("could not mark tombstones as garbage",
-			zap.String("error", err.Error()),
-		)
-
-		return
-	}
-
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
-
-	// drop just processed expired tombstones
-	// from graveyard
-	err = s.metaBase.DropGraves(tss)
-	if err != nil {
-		s.log.Warn("could not drop expired grave records", zap.Error(err))
-	}
 }
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.

@@ -85,7 +85,7 @@ func TestCounters(t *testing.T) {
 		}
 
 		var prm meta.InhumePrm
-		prm.SetTombstoneAddress(oidtest.Address())
+		prm.SetTombstone(oidtest.Address(), 0)
 		prm.SetAddresses(inhumedObjs...)
 
 		res, err := db.Inhume(prm)
@@ -155,7 +155,7 @@ func TestCounters(t *testing.T) {
 		}
 
 		var prm meta.InhumePrm
-		prm.SetTombstoneAddress(oidtest.Address())
+		prm.SetTombstone(oidtest.Address(), 0)
 		prm.SetAddresses(inhumedObjs...)
 
 		_, err = db.Inhume(prm)

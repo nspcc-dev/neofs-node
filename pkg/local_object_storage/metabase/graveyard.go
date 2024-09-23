@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -74,8 +75,9 @@ func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
 // TombstonedObject represents descriptor of the
 // object that has been covered with tombstone.
 type TombstonedObject struct {
-	addr oid.Address
-	tomb oid.Address
+	addr           oid.Address
+	tomb           oid.Address
+	tombExpiration uint64
 }
 
 // Address returns tombstoned object address.
@@ -87,6 +89,13 @@ func (g TombstonedObject) Address() oid.Address {
 // covers object.
 func (g TombstonedObject) Tombstone() oid.Address {
 	return g.tomb
+}
+
+// TombstoneExpiration returns tombstone's expiration. It can be zero if
+// metabase version does not support expiration indexing or if TS does not
+// expire.
+func (g TombstonedObject) TombstoneExpiration() uint64 {
+	return g.tombExpiration
 }
 
 // TombstonedHandler is a TombstonedObject handling function.
@@ -219,46 +228,72 @@ func garbageFromKV(k []byte) (res GarbageObject, err error) {
 }
 
 func graveFromKV(k, v []byte) (res TombstonedObject, err error) {
-	if err = decodeAddressFromKey(&res.addr, k); err != nil {
-		err = fmt.Errorf("decode tombstone target from key: %w", err)
-	} else if err = decodeAddressFromKey(&res.tomb, v); err != nil {
-		err = fmt.Errorf("decode tombstone address from value: %w", err)
+	err = decodeAddressFromKey(&res.addr, k)
+	if err != nil {
+		return res, fmt.Errorf("decode tombstone target from key: %w", err)
+	}
+
+	err = decodeAddressFromKey(&res.tomb, v[:addressKeySize])
+	if err != nil {
+		return res, fmt.Errorf("decode tombstone address from value: %w", err)
+	}
+
+	switch l := len(v); l {
+	case addressKeySize:
+	case addressKeySize + 8:
+		res.tombExpiration = binary.LittleEndian.Uint64(v[addressKeySize:])
+		return
+	default:
+		err = fmt.Errorf("metabase: unexpected graveyard value size: %d", l)
 	}
 
 	return
 }
 
-// DropGraves deletes tombstoned objects from the
-// graveyard bucket.
-//
-// Returns any error appeared during deletion process.
-func (db *DB) DropGraves(tss []TombstonedObject) error {
+// DropExpiredTSMarks run through the graveyard and drops tombstone marks with
+// tombstones whose expiration is _less_ than provided epoch.
+// Returns number of marks dropped.
+func (db *DB) DropExpiredTSMarks(epoch uint64) (int, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return ErrDegradedMode
+		return 0, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return ErrReadOnlyMode
+		return 0, ErrReadOnlyMode
 	}
 
-	buf := make([]byte, addressKeySize)
+	var counter int
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket(graveyardBucketName)
-		if bkt == nil {
-			return nil
-		}
+		c := bkt.Cursor()
+		k, v := c.First()
 
-		for _, ts := range tss {
-			err := bkt.Delete(addressKey(ts.Address(), buf))
-			if err != nil {
-				return err
+		for k != nil {
+			if binary.LittleEndian.Uint64(v[addressKeySize:]) < epoch {
+				err := c.Delete()
+				if err != nil {
+					return err
+				}
+
+				counter++
+
+				// see https://github.com/etcd-io/bbolt/pull/614; there is not
+				// much we can do with such an unfixed behavior
+				k, v = c.Seek(k)
+			} else {
+				k, v = c.Next()
 			}
 		}
 
 		return nil
 	})
+	if err != nil {
+		return 0, fmt.Errorf("cleared %d TS marks in %d epoch and got error: %w", counter, epoch, err)
+	}
+
+	return counter, nil
 }
 
 // GetGarbage returns garbage according to the metabase state. Garbage includes
