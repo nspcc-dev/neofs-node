@@ -41,7 +41,7 @@ func (m metricsStore) AddToObjectCounter(objectType string, delta int) {
 		} else {
 			m.objectCounters[objectType] = 0
 		}
-	case delta == 0:
+	default:
 		return
 	}
 }
