@@ -181,7 +181,7 @@ func initContainerCreateCmd() {
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is persisted. "+
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
-	flags.StringVar(&containerName, "name", "", "Container name attribute")
+	flags.StringVar(&containerName, "name", "", "Container name attribute and domain name attribute, that is registered with the default zone in NNS contract")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
@@ -232,6 +232,10 @@ func parseAttributes(dst *container.Container, attributes []string) error {
 
 	if containerName != "" {
 		dst.SetName(containerName)
+
+		var d container.Domain
+		d.SetName(containerName)
+		dst.WriteDomain(d)
 	}
 
 	return nil
