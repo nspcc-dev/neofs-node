@@ -52,6 +52,9 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 
 		var res common.ExistsRes
 		res, err = s.blobStor.Exists(p)
+		if err != nil {
+			return ExistsRes{}, err
+		}
 		exists = res.Exists
 	} else {
 		var existsPrm meta.ExistsPrm
@@ -62,6 +65,9 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 
 		var res meta.ExistsRes
 		res, err = s.metaBase.Exists(existsPrm)
+		if err != nil {
+			return ExistsRes{}, err
+		}
 		exists = res.Exists()
 	}
 

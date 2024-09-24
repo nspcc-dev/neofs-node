@@ -150,7 +150,7 @@ func TestExecBlocks(t *testing.T) {
 	})
 
 	// put some object
-	obj := generateObjectWithCID(t, cidtest.ID())
+	obj := generateObjectWithCID(cidtest.ID())
 
 	addr := object.AddressOf(obj)
 
@@ -206,7 +206,6 @@ func TestPersistentShardID(t *testing.T) {
 	require.Equal(t, id[1], newID[0])
 	require.Equal(t, id[0], newID[1])
 	require.NoError(t, e.Close())
-
 }
 
 func TestReload(t *testing.T) {
@@ -250,7 +249,7 @@ func TestReload(t *testing.T) {
 		e, currShards := engineWithShards(t, removePath, shardNum)
 
 		var rcfg ReConfiguration
-		for i := 0; i < len(currShards)-1; i++ { // without one of the shards
+		for i := range len(currShards) - 1 { // without one of the shards
 			rcfg.AddShard(currShards[i], nil)
 		}
 
@@ -264,7 +263,7 @@ func TestReload(t *testing.T) {
 
 // engineWithShards creates engine with specified number of shards. Returns
 // slice of paths to their metabase and the engine.
-// TODO: #1776 unify engine construction in tests
+// TODO: #1776 unify engine construction in tests.
 func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []string) {
 	addPath := filepath.Join(path, "add")
 

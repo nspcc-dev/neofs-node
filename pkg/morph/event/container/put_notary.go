@@ -46,7 +46,7 @@ const (
 	// put container requests.
 	PutNotaryEvent = "put"
 
-	// PutNotaryEvent is an ID of notary "put named container" notification.
+	// PutNamedNotaryEvent is an ID of notary "put named container" notification.
 	PutNamedNotaryEvent = "putNamed"
 )
 

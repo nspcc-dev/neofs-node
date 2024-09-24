@@ -55,13 +55,13 @@ func TestGenerateAlphabet(t *testing.T) {
 	buf.Reset()
 	v.Set(alphabetWalletsFlag, walletDir)
 	require.NoError(t, generateAlphabetCmd.Flags().Set(alphabetSizeFlag, strconv.FormatUint(size, 10)))
-	for i := uint64(0); i < size; i++ {
+	for i := range uint64(size) {
 		buf.WriteString(strconv.FormatUint(i, 10) + "\r")
 	}
 
 	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
-	for i := uint64(0); i < size; i++ {
+	for i := range uint64(size) {
 		p := filepath.Join(walletDir, glagolitsa.LetterByIndex(int(i))+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")

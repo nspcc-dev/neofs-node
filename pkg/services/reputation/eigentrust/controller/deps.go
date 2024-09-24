@@ -9,14 +9,14 @@ import (
 type IterationContext interface {
 	context.Context
 
-	// Must return epoch number to select the values
+	// Epoch must return epoch number to select the values
 	// for global trust calculation.
 	Epoch() uint64
 
-	// Must return the sequence number of the iteration.
+	// I must return the sequence number of the iteration.
 	I() uint32
 
-	// Must return true if I() is the last iteration.
+	// Last must return true if I() is the last iteration.
 	Last() bool
 }
 
@@ -24,7 +24,7 @@ type IterationContext interface {
 // responsible for calculating the global trust of
 // daughter nodes in terms of EigenTrust algorithm.
 type DaughtersTrustCalculator interface {
-	// Must perform the iteration step of the loop
+	// Calculate must perform the iteration step of the loop
 	// for computing the global trust of all daughter
 	// nodes and sending intermediate values
 	// according to EigenTrust description

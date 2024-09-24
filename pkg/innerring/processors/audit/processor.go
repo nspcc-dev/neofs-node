@@ -26,7 +26,7 @@ type (
 	TaskManager interface {
 		PushTask(*audit.Task) error
 
-		// Must skip all tasks planned for execution and
+		// Reset must skip all tasks planned for execution and
 		// return their number.
 		Reset() int
 	}

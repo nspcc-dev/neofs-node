@@ -13,7 +13,7 @@ import (
 type Context interface {
 	context.Context
 
-	// Must return epoch number to select the values.
+	// Epoch must return epoch number to select the values.
 	Epoch() uint64
 }
 
@@ -32,7 +32,7 @@ type Writer interface {
 	// Write must not be called after Close.
 	Write(reputation.Trust) error
 
-	// Close exits with method-providing Writer.
+	// Closer close exits with method-providing Writer.
 	//
 	// All cached values must be flushed before
 	// the Close's return.
@@ -70,12 +70,12 @@ type ServerInfo interface {
 	// from the route in a binary representation.
 	PublicKey() []byte
 
-	// Iterates over network addresses of the node
+	// IterateAddresses iterates over network addresses of the node
 	// in the route. Breaks iterating on true return
 	// of the handler.
 	IterateAddresses(func(string) bool)
 
-	// Returns number of server's network addresses.
+	// NumberOfAddresses returns number of server's network addresses.
 	NumberOfAddresses() int
 
 	// ExternalAddresses returns external addresses of a node.

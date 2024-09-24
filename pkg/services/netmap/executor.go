@@ -23,7 +23,7 @@ type executorSvc struct {
 // NodeState encapsulates information
 // about current node state.
 type NodeState interface {
-	// Must return current node state
+	// LocalNodeInfo must return current node state
 	// in NeoFS API v2 NodeInfo structure.
 	LocalNodeInfo() (*netmap.NodeInfo, error)
 
@@ -36,7 +36,7 @@ type NodeState interface {
 // NetworkInfo encapsulates source of the
 // recent information about the NeoFS network.
 type NetworkInfo interface {
-	// Must return recent network information in NeoFS API v2 NetworkInfo structure.
+	// Dump must return recent network information in NeoFS API v2 NetworkInfo structure.
 	//
 	// If protocol version is <=2.9, MillisecondsPerBlock and network config should be unset.
 	Dump(versionsdk.Version) (*netmapSDK.NetworkInfo, error)

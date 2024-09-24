@@ -54,12 +54,6 @@ type testClient struct {
 	}
 }
 
-type testEpochReceiver uint64
-
-func (e testEpochReceiver) currentEpoch() (uint64, error) {
-	return uint64(e), nil
-}
-
 func newTestStorage() *testStorage {
 	return &testStorage{
 		inhumed: make(map[string]struct{}),
@@ -195,11 +189,6 @@ func (s *testStorage) inhume(addr oid.Address) {
 	s.inhumed[addr.EncodeToString()] = struct{}{}
 }
 
-const (
-	splitV1 = iota
-	splitV2
-)
-
 func generateObject(addr oid.Address, prev *oid.ID, payload []byte, children ...oid.ID) *objectSDK.Object {
 	obj := objectSDK.New()
 	obj.SetContainerID(addr.Container())
@@ -268,7 +257,7 @@ func TestGetLocalOnly(t *testing.T) {
 
 		payloadSz := uint64(10)
 		payload := make([]byte, payloadSz)
-		rand.Read(payload)
+		_, _ = rand.Read(payload)
 
 		addr := oidtest.Address()
 		obj := generateObject(addr, nil, payload)
@@ -422,14 +411,14 @@ func testNodeMatrix(t testing.TB, dim []int) ([][]netmap.NodeInfo, [][]string) {
 		ns := make([]netmap.NodeInfo, dim[i])
 		as := make([]string, dim[i])
 
-		for j := 0; j < dim[i]; j++ {
+		for j := range dim[i] {
 			a := fmt.Sprintf("/ip4/192.168.0.%s/tcp/%s",
 				strconv.Itoa(i),
 				strconv.Itoa(60000+j),
 			)
 
 			bPubKey := make([]byte, 33)
-			rand.Read(bPubKey)
+			_, _ = rand.Read(bPubKey)
 
 			var ni netmap.NodeInfo
 			ni.SetNetworkEndpoints(a)
@@ -468,7 +457,7 @@ func generateChain(ln int, cnr cid.ID) ([]*objectSDK.Object, []oid.ID, []byte) {
 		addr.SetObject(curID)
 
 		payloadPart := make([]byte, 10)
-		rand.Read(payloadPart)
+		_, _ = rand.Read(payloadPart)
 
 		o := generateObject(addr, prevID, []byte{byte(i)})
 		o.SetPayload(payloadPart)
@@ -558,7 +547,7 @@ func TestGetRemoteSmall(t *testing.T) {
 
 		payloadSz := uint64(10)
 		payload := make([]byte, payloadSz)
-		rand.Read(payload)
+		_, _ = rand.Read(payload)
 
 		obj := generateObject(addr, nil, payload)
 

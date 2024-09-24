@@ -41,7 +41,7 @@ func (m metricsStore) AddToObjectCounter(objectType string, delta int) {
 		} else {
 			m.objectCounters[objectType] = 0
 		}
-	case delta == 0:
+	default:
 		return
 	}
 }
@@ -68,21 +68,22 @@ func (m *metricsStore) AddToPayloadSize(size int64) {
 
 const physical = "phy"
 const logical = "logic"
-const readonly = "readonly"
 
 func TestCounters(t *testing.T) {
 	dir := t.TempDir()
 	sh, mm := shardWithMetrics(t, dir)
 
-	sh.SetMode(mode.ReadOnly)
+	err := sh.SetMode(mode.ReadOnly)
+	require.NoError(t, err)
 	require.True(t, mm.readOnly)
-	sh.SetMode(mode.ReadWrite)
+	err = sh.SetMode(mode.ReadWrite)
+	require.NoError(t, err)
 	require.False(t, mm.readOnly)
 
 	const objNumber = 10
 	oo := make([]*object.Object, objNumber)
 	for i := range objNumber {
-		oo[i] = generateObject(t)
+		oo[i] = generateObject()
 	}
 
 	t.Run("defaults", func(t *testing.T) {
@@ -139,7 +140,7 @@ func TestCounters(t *testing.T) {
 
 	t.Run("inhume_TS", func(t *testing.T) {
 		var prm shard.InhumePrm
-		ts := objectcore.AddressOf(generateObject(t))
+		ts := objectcore.AddressOf(generateObject())
 
 		phy := mm.objectCounters[physical]
 		logic := mm.objectCounters[logical]
@@ -226,7 +227,7 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 func addrFromObjs(oo []*object.Object) []oid.Address {
 	aa := make([]oid.Address, len(oo))
 
-	for i := range len(oo) {
+	for i := range oo {
 		aa[i] = objectcore.AddressOf(oo[i])
 	}
 

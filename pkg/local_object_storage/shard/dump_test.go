@@ -2,8 +2,8 @@ package shard_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,9 +95,8 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			size = bsBigObjectSize - headerSize
 		}
 		data := make([]byte, size)
-		//nolint:staticcheck
-		rand.Read(data)
-		obj := generateObjectWithPayload(t, cnr, data)
+		_, _ = rand.Read(data)
+		obj := generateObjectWithPayload(cnr, data)
 		objects[i] = obj
 
 		var prm shard.PutPrm
@@ -227,7 +226,7 @@ func TestStream(t *testing.T) {
 	objects := make([]*objectSDK.Object, objCount)
 	for i := range objCount {
 		cnr := cidtest.ID()
-		obj := generateObjectWithCID(t, cnr)
+		obj := generateObjectWithCID(cnr)
 		objects[i] = obj
 
 		var prm shard.PutPrm
@@ -322,7 +321,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	objects := make([]*objectSDK.Object, objCount)
 	for i := range objCount {
 		size := (wcSmallObjectSize << (i % 4)) - headerSize
-		obj := generateObjectWithPayload(t, cidtest.ID(), make([]byte, size))
+		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))
 		objects[i] = obj
 
 		var prm shard.PutPrm

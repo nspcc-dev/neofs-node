@@ -26,7 +26,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 
 	cnr := cidtest.ID()
 
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 	addAttribute(obj, "foo", "bar")
 
 	var putPrm shard.PutPrm
@@ -55,7 +55,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("small object", func(t *testing.T) {
-		obj := generateObjectWithCID(t, cnr)
+		obj := generateObjectWithCID(cnr)
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 

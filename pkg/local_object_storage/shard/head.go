@@ -53,6 +53,9 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 
 		var res GetRes
 		res, err = s.Get(getPrm)
+		if err != nil {
+			return HeadRes{}, err
+		}
 		obj = res.Object()
 	} else {
 		var headParams meta.GetPrm
@@ -61,10 +64,13 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 
 		var res meta.GetRes
 		res, err = s.metaBase.Get(headParams)
+		if err != nil {
+			return HeadRes{}, err
+		}
 		obj = res.Header()
 	}
 
 	return HeadRes{
 		obj: obj,
-	}, err
+	}, nil
 }

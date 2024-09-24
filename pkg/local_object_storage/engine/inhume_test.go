@@ -22,16 +22,16 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	fs := objectSDK.SearchFilters{}
 	fs.AddRootFilter()
 
-	tombstoneID := object.AddressOf(generateObjectWithCID(t, cnr))
-	parent := generateObjectWithCID(t, cnr)
+	tombstoneID := object.AddressOf(generateObjectWithCID(cnr))
+	parent := generateObjectWithCID(cnr)
 
-	child := generateObjectWithCID(t, cnr)
+	child := generateObjectWithCID(cnr)
 	child.SetParent(parent)
 	idParent, _ := parent.ID()
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
 
-	link := generateObjectWithCID(t, cnr)
+	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 	idChild, _ := child.ID()
@@ -113,7 +113,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	})
 
 	t.Run("object is on wrong shard", func(t *testing.T) {
-		obj := generateObjectWithCID(t, cnr)
+		obj := generateObjectWithCID(cnr)
 		addr := object.AddressOf(obj)
 
 		e := testNewEngineWithShardNum(t, 2)

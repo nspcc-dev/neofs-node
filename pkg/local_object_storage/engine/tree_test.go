@@ -28,14 +28,14 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 	treeID := "someTree"
 
 	for i := range objCount {
-		obj := generateObjectWithCID(b, cid)
+		obj := generateObjectWithCID(cid)
 		addAttribute(obj, pilorama.AttributeFilename, strconv.Itoa(i))
 		err := Put(e, obj)
 		if err != nil {
 			b.Fatal(err)
 		}
 		_, err = e.TreeAddByPath(d, treeID, pilorama.AttributeFilename, nil,
-			[]pilorama.KeyValue{{pilorama.AttributeFilename, []byte(strconv.Itoa(i))}})
+			[]pilorama.KeyValue{{Key: pilorama.AttributeFilename, Value: []byte(strconv.Itoa(i))}})
 		if err != nil {
 			b.Fatal(err)
 		}

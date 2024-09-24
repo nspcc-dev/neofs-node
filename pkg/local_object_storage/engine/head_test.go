@@ -17,7 +17,7 @@ func TestHeadRaw(t *testing.T) {
 	cnr := cidtest.ID()
 	splitID := object.NewSplitID()
 
-	parent := generateObjectWithCID(t, cnr)
+	parent := generateObjectWithCID(cnr)
 	addAttribute(parent, "foo", "bar")
 
 	var parentAddr oid.Address
@@ -26,12 +26,12 @@ func TestHeadRaw(t *testing.T) {
 	idParent, _ := parent.ID()
 	parentAddr.SetObject(idParent)
 
-	child := generateObjectWithCID(t, cnr)
+	child := generateObjectWithCID(cnr)
 	child.SetParent(parent)
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
 
-	link := generateObjectWithCID(t, cnr)
+	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)
 	link.SetParentID(idParent)
 

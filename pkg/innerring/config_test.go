@@ -540,7 +540,7 @@ func TestIsAutoDeploymentMode(t *testing.T) {
 		err = os.Setenv(envKey, "not a boolean")
 		require.NoError(t, err)
 
-		b, err = isAutoDeploymentMode(v)
+		_, err = isAutoDeploymentMode(v)
 		require.Error(t, err)
 
 		err = os.Setenv(envKey, "false")
@@ -571,7 +571,7 @@ fschain_autodeploy: true
 
 		v.Set("fschain_autodeploy", "not a boolean")
 
-		b, err = isAutoDeploymentMode(v)
+		_, err = isAutoDeploymentMode(v)
 		require.Error(t, err)
 
 		v.Set("fschain_autodeploy", "false")

@@ -421,7 +421,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 		if err != nil {
 			closeErr := bcStorage.Close()
 			if closeErr != nil {
-				err = fmt.Errorf("%w; also failed to close blockchain storage: %v", err, closeErr)
+				err = fmt.Errorf("%w; also failed to close blockchain storage: %w", err, closeErr)
 			}
 		}
 	}()
@@ -518,7 +518,7 @@ func (x *Blockchain) Run(ctx context.Context) (err error) {
 		if err != nil {
 			closeErr := x.storage.Close()
 			if closeErr != nil {
-				err = fmt.Errorf("%w; also failed to close blockchain storage: %v", err, closeErr)
+				err = fmt.Errorf("%w; also failed to close blockchain storage: %w", err, closeErr)
 			}
 		}
 	}()

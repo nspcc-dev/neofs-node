@@ -13,7 +13,7 @@ func Uint64() uint64 {
 	return source.Uint64()
 }
 
-// Uint64 returns a random uint32 value.
+// Uint32 returns a random uint32 value.
 func Uint32() uint32 {
 	return source.Uint32()
 }

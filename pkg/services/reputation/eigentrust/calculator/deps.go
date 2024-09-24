@@ -11,16 +11,16 @@ import (
 type Context interface {
 	context.Context
 
-	// Must return epoch number to select the values
+	// Epoch must return epoch number to select the values
 	// for global trust calculation.
 	Epoch() uint64
 
-	// Must return the sequence number of the iteration.
+	// I must return the sequence number of the iteration.
 	I() uint32
 }
 
 // InitialTrustSource must provide initial(non-calculated)
-// trusts to current node's daughter. Realization may depends
+// trusts to current node's daughter. Realization may depend
 // on daughter.
 type InitialTrustSource interface {
 	InitialTrust(apireputation.PeerID) (reputation.TrustValue, error)

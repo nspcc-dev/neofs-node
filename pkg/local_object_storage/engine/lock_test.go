@@ -15,7 +15,6 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
@@ -40,7 +39,7 @@ func TestLockUserScenario(t *testing.T) {
 	const lockerExpiresAfter = 13
 
 	cnr := cidtest.ID()
-	tombObj := generateObjectWithCID(t, cnr)
+	tombObj := generateObjectWithCID(cnr)
 	tombForLockID := oidtest.ID()
 	tombObj.SetID(tombForLockID)
 
@@ -77,7 +76,7 @@ func TestLockUserScenario(t *testing.T) {
 	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
-	lockerObj := generateObjectWithCID(t, cnr)
+	lockerObj := generateObjectWithCID(cnr)
 	lockerObj.SetID(lockerID)
 	lockerObj.SetAttributes(a)
 
@@ -86,7 +85,7 @@ func TestLockUserScenario(t *testing.T) {
 	tombForLockAddr.SetObject(tombForLockID)
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	id, _ := obj.ID()
 	objAddr.SetObject(id)
@@ -164,7 +163,7 @@ func TestLockExpiration(t *testing.T) {
 	var err error
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
@@ -174,7 +173,7 @@ func TestLockExpiration(t *testing.T) {
 	a.SetKey(object.AttributeExpirationEpoch)
 	a.SetValue(strconv.Itoa(lockerExpiresAfter))
 
-	lock := generateObjectWithCID(t, cnr)
+	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 	lock.SetAttributes(a)
 
@@ -188,7 +187,7 @@ func TestLockExpiration(t *testing.T) {
 	require.NoError(t, err)
 
 	var inhumePrm InhumePrm
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
@@ -201,7 +200,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.NoError(t, err)
@@ -235,13 +234,13 @@ func TestLockForceRemoval(t *testing.T) {
 	var err error
 
 	// 1.
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 
 	err = Put(e, obj)
 	require.NoError(t, err)
 
 	// 2.
-	lock := generateObjectWithCID(t, cnr)
+	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 
 	err = Put(e, lock)
@@ -260,7 +259,7 @@ func TestLockForceRemoval(t *testing.T) {
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-	inhumePrm.WithTombstone(objecttest.Address(), 0, objectcore.AddressOf(obj))
+	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))

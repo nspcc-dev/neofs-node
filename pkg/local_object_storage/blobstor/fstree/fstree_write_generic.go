@@ -60,7 +60,7 @@ func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	for i := range retryCount {
 		tmpPath := p + "#" + strconv.FormatUint(uint64(i), 10)
 		err := w.writeAndRename(tmpPath, p, data)
-		if err != syscall.EEXIST || i == retryCount-1 {
+		if !errors.Is(err, syscall.EEXIST) || i == retryCount-1 {
 			return err
 		}
 	}
@@ -75,11 +75,11 @@ func (w *genericWriter) writeAndRename(tmpPath, p string, data []byte) error {
 	if err != nil {
 		var pe *fs.PathError
 		if errors.As(err, &pe) {
-			switch pe.Err {
-			case syscall.ENOSPC:
+			switch {
+			case errors.Is(pe.Err, syscall.ENOSPC):
 				err = common.ErrNoSpace
 				_ = os.RemoveAll(tmpPath)
-			case syscall.EEXIST:
+			case errors.Is(pe.Err, syscall.EEXIST):
 				return syscall.EEXIST
 			}
 		}

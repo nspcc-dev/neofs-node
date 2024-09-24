@@ -1,8 +1,8 @@
 package shard_test
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
-	"math/rand"
 	"path/filepath"
 	"testing"
 	"time"
@@ -95,18 +95,17 @@ func releaseShard(s *shard.Shard, t testing.TB) {
 	require.NoError(t, s.Close())
 }
 
-func generateObject(t *testing.T) *object.Object {
-	return generateObjectWithCID(t, cidtest.ID())
+func generateObject() *object.Object {
+	return generateObjectWithCID(cidtest.ID())
 }
 
-func generateObjectWithCID(t *testing.T, cnr cid.ID) *object.Object {
+func generateObjectWithCID(cnr cid.ID) *object.Object {
 	data := make([]byte, 32)
-	//nolint:staticcheck
-	rand.Read(data)
-	return generateObjectWithPayload(t, cnr, data)
+	_, _ = rand.Read(data)
+	return generateObjectWithPayload(cnr, data)
 }
 
-func generateObjectWithPayload(t testing.TB, cnr cid.ID, data []byte) *object.Object {
+func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)
@@ -142,7 +141,6 @@ func addAttribute(obj *object.Object, key, val string) {
 
 func addPayload(obj *object.Object, size int) {
 	buf := make([]byte, size)
-	//nolint:staticcheck
 	_, _ = rand.Read(buf)
 
 	obj.SetPayload(buf)

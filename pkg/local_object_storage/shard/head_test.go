@@ -30,7 +30,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	var headPrm shard.HeadPrm
 
 	t.Run("regular object", func(t *testing.T) {
-		obj := generateObject(t)
+		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 
 		putPrm.SetObject(obj)
@@ -49,10 +49,10 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cnr)
+		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "foo", "bar")
 
-		child := generateObjectWithCID(t, cnr)
+		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)

@@ -1,7 +1,7 @@
 package putsvc
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	objectv2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -19,7 +19,7 @@ import (
 func TestUnaryReplicateRequest(t *testing.T) {
 	// prepare replicated object
 	payload := make([]byte, 1024)
-	rand.Read(payload)
+	_, _ = rand.Read(payload)
 	obj := objecttest.Object()
 	obj.SetPayload(payload)
 	id := oidtest.ID()

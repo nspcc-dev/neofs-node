@@ -24,7 +24,7 @@ func BenchmarkCompression(b *testing.B) {
 			})
 			b.Run("random slice", func(b *testing.B) {
 				data := make([]byte, size)
-				rand.Read(data)
+				_, _ = rand.Read(data)
 				benchWith(b, c, data)
 			})
 		})
@@ -41,7 +41,7 @@ func benchWith(b *testing.B, c Config, data []byte) {
 
 func notSoRandomSlice(size, blockSize int) []byte {
 	data := make([]byte, size)
-	rand.Read(data[:blockSize])
+	_, _ = rand.Read(data[:blockSize])
 	for i := blockSize; i < size; i += blockSize {
 		copy(data[i:], data[:blockSize])
 	}

@@ -108,7 +108,7 @@ func (i *delNetInfo) TombstoneLifetime() (uint64, error) {
 	return i.tsLifetime, nil
 }
 
-// returns node owner ID calculated from configured private key.
+// LocalNodeID returns node owner ID calculated from configured private key.
 //
 // Implements method needed for Object.Delete service.
 func (i *delNetInfo) LocalNodeID() user.ID {

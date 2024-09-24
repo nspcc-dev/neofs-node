@@ -57,11 +57,11 @@ var (
 	errAccessDenied         = errors.New("access denied")
 )
 
-// VerifyAndUpdate checks allowance of the storage node represented by the given
+// Verify checks allowance of the storage node represented by the given
 // descriptor to enter the private node group (if any). Returns an error if on
 // access denial or the check cannot be done at the moment.
 //
-// VerifyAndUpdate does not mutate the argument.
+// Verify does not mutate the argument.
 func (x *Validator) Verify(info netmap.NodeInfo) error {
 	verifiedNodesDomain := info.VerifiedNodesDomain()
 	if verifiedNodesDomain == "" {

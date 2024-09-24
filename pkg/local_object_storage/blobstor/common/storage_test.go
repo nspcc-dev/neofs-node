@@ -28,7 +28,7 @@ func TestCopy(t *testing.T) {
 	for range nObjects {
 		addr := oidtest.Address()
 		data := make([]byte, 32)
-		rand.Read(data)
+		_, _ = rand.Read(data)
 		mObjs[addr] = data
 
 		_, err := src.Put(common.PutPrm{

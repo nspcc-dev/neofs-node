@@ -165,7 +165,7 @@ func destringifyValue(key, value string, prefix bool) ([]byte, bool, bool) {
 
 			return v, true, true
 		}
-		return v, false, err == nil
+		return v, false, true
 	case object.FilterCreationEpoch, object.FilterPayloadSize:
 		u, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {

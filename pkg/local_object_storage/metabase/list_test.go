@@ -33,7 +33,7 @@ func listWithCursorPrepareDB(b *testing.B) *meta.DB {
 	})) // faster single-thread generation
 
 	obj := generateObject(b)
-	for i := 0; i < 100_000; i++ { // should be a multiple of all batch sizes
+	for i := range 100_000 { // should be a multiple of all batch sizes
 		obj.SetID(oidtest.ID())
 		if i%9 == 0 { // let's have 9 objects per container
 			obj.SetContainerID(cidtest.ID())
@@ -52,7 +52,7 @@ func benchmarkListWithCursor(b *testing.B, db *meta.DB, batchSize int) {
 	for range b.N {
 		res, err := db.ListWithCursor(prm)
 		if err != nil {
-			if err != meta.ErrEndOfListing {
+			if !errors.Is(err, meta.ErrEndOfListing) {
 				b.Fatalf("error: %v", err)
 			}
 			prm.SetCursor(nil)
@@ -212,7 +212,6 @@ func TestAddObjectDuringListingWithCursor(t *testing.T) {
 	for _, v := range expected {
 		require.Equal(t, 1, v)
 	}
-
 }
 
 func sortAddresses(addrWithType []object.AddressWithType) []object.AddressWithType {
@@ -228,5 +227,8 @@ func metaListWithCursor(db *meta.DB, count uint32, cursor *meta.Cursor) ([]objec
 	listPrm.SetCursor(cursor)
 
 	r, err := db.ListWithCursor(listPrm)
-	return r.AddressList(), r.Cursor(), err
+	if err != nil {
+		return nil, nil, err
+	}
+	return r.AddressList(), r.Cursor(), nil
 }

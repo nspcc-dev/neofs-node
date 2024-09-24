@@ -65,7 +65,7 @@ func TestErrorReporting(t *testing.T) {
 	t.Run("ignore errors by default", func(t *testing.T) {
 		e, dir, id := newEngineWithErrorThreshold(t, "", 0)
 
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
@@ -95,7 +95,7 @@ func TestErrorReporting(t *testing.T) {
 
 		e, dir, id := newEngineWithErrorThreshold(t, "", errThreshold)
 
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
 		var prm shard.PutPrm
@@ -120,7 +120,7 @@ func TestErrorReporting(t *testing.T) {
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
-		for i := uint32(0); i < 2; i++ {
+		for i := range uint32(2) {
 			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, mode.DegradedReadOnly)
@@ -145,7 +145,7 @@ func TestBlobstorFailback(t *testing.T) {
 
 	objs := make([]*objectSDK.Object, 0, 2)
 	for _, size := range []int{15, errSmallSize + 1} {
-		obj := generateObjectWithCID(t, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
 		var prm shard.PutPrm

@@ -20,7 +20,7 @@ func (e *StorageEngine) TreeMove(d pilorama.CIDDescriptor, treeID string, m *pil
 
 	lm, err := lst[index].TreeMove(d, treeID, m)
 	if err != nil {
-		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && !errors.Is(err, shard.ErrPiloramaDisabled) {
 			e.reportShardError(lst[index], "can't perform `TreeMove`", err,
 				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID))
@@ -40,7 +40,7 @@ func (e *StorageEngine) TreeAddByPath(d pilorama.CIDDescriptor, treeID string, a
 
 	lm, err := lst[index].TreeAddByPath(d, treeID, attr, path, m)
 	if err != nil {
-		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && !errors.Is(err, shard.ErrPiloramaDisabled) {
 			e.reportShardError(lst[index], "can't perform `TreeAddByPath`", err,
 				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID))
@@ -59,7 +59,7 @@ func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pi
 
 	err = lst[index].TreeApply(d, treeID, m, backgroundSync)
 	if err != nil {
-		if !errors.Is(err, shard.ErrReadOnlyMode) && err != shard.ErrPiloramaDisabled {
+		if !errors.Is(err, shard.ErrReadOnlyMode) && !errors.Is(err, shard.ErrPiloramaDisabled) {
 			e.reportShardError(lst[index], "can't perform `TreeApply`", err,
 				zap.Stringer("cid", d.CID),
 				zap.String("tree", treeID))
@@ -76,7 +76,7 @@ func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string,
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetByPath(cid, treeID, attr, path, latest)
 		if err != nil {
-			if err == shard.ErrPiloramaDisabled {
+			if errors.Is(err, shard.ErrPiloramaDisabled) {
 				break
 			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
@@ -99,7 +99,7 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	for _, sh := range e.sortShardsByWeight(cid) {
 		m, p, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
-			if err == shard.ErrPiloramaDisabled {
+			if errors.Is(err, shard.ErrPiloramaDisabled) {
 				break
 			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
@@ -121,7 +121,7 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 	for _, sh := range e.sortShardsByWeight(cid) {
 		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
 		if err != nil {
-			if err == shard.ErrPiloramaDisabled {
+			if errors.Is(err, shard.ErrPiloramaDisabled) {
 				break
 			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
@@ -143,7 +143,7 @@ func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64
 	for _, sh := range e.sortShardsByWeight(cid) {
 		lm, err = sh.TreeGetOpLog(cid, treeID, height)
 		if err != nil {
-			if err == shard.ErrPiloramaDisabled {
+			if errors.Is(err, shard.ErrPiloramaDisabled) {
 				break
 			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) {
@@ -164,7 +164,7 @@ func (e *StorageEngine) TreeDrop(cid cidSDK.ID, treeID string) error {
 	for _, sh := range e.sortShardsByWeight(cid) {
 		err = sh.TreeDrop(cid, treeID)
 		if err != nil {
-			if err == shard.ErrPiloramaDisabled {
+			if errors.Is(err, shard.ErrPiloramaDisabled) {
 				break
 			}
 			if !errors.Is(err, pilorama.ErrTreeNotFound) && !errors.Is(err, shard.ErrReadOnlyMode) {

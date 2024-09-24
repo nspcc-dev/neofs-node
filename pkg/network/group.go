@@ -68,11 +68,11 @@ func (x AddressGroup) Swap(i, j int) {
 
 // MultiAddressIterator is an interface of network address group.
 type MultiAddressIterator interface {
-	// Must iterate over network addresses and pass each one
+	// IterateAddresses must iterate over network addresses and pass each one
 	// to the handler until it returns true.
 	IterateAddresses(func(string) bool)
 
-	// Must return number of addresses in group.
+	// NumberOfAddresses must return number of addresses in group.
 	NumberOfAddresses() int
 }
 

@@ -82,9 +82,9 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 
 		cnr := cidtest.ID()
 		children := []object.Object{
-			objectWithCnr(t, cnr, false),
-			objectWithCnr(t, cnr, false),
-			objectWithCnr(t, cnr, false),
+			objectWithCnr(cnr, false),
+			objectWithCnr(cnr, false),
+			objectWithCnr(cnr, false),
 		}
 
 		*os = testObjectSource{
@@ -100,7 +100,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		var tomb object.Tombstone
 
 		cnr := cidtest.ID()
-		child := objectWithCnr(t, cnr, true)
+		child := objectWithCnr(cnr, true)
 		childID, _ := child.ID()
 		splitID := child.SplitID()
 
@@ -124,7 +124,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			})
 
 			t.Run("LINKs can be found", func(t *testing.T) {
-				link := objectWithCnr(t, cnr, false)
+				link := objectWithCnr(cnr, false)
 				link.SetChildren(childID)
 				linkID, _ := link.ID()
 
@@ -255,7 +255,7 @@ func objectsToOIDs(oo []object.Object) []oid.ID {
 	return res
 }
 
-func objectWithCnr(t *testing.T, cnr cid.ID, hasParent bool) object.Object {
+func objectWithCnr(cnr cid.ID, hasParent bool) object.Object {
 	obj := objecttest.Object()
 	obj.SetContainerID(cnr)
 

@@ -21,7 +21,7 @@ func TestDeleteBigObject(t *testing.T) {
 	parentID := oidtest.ID()
 	splitID := objectSDK.NewSplitID()
 
-	parent := generateObjectWithCID(t, cnr)
+	parent := generateObjectWithCID(cnr)
 	parent.SetID(parentID)
 	parent.SetPayload(nil)
 
@@ -29,7 +29,7 @@ func TestDeleteBigObject(t *testing.T) {
 	children := make([]*objectSDK.Object, childCount)
 	childIDs := make([]oid.ID, childCount)
 	for i := range children {
-		children[i] = generateObjectWithCID(t, cnr)
+		children[i] = generateObjectWithCID(cnr)
 		if i != 0 {
 			children[i].SetPreviousID(childIDs[i-1])
 		}
@@ -41,7 +41,7 @@ func TestDeleteBigObject(t *testing.T) {
 		childIDs[i], _ = children[i].ID()
 	}
 
-	link := generateObjectWithCID(t, cnr)
+	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)
 	link.SetParentID(parentID)
 	link.SetSplitID(splitID)

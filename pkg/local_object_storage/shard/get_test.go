@@ -33,7 +33,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	var getPrm shard.GetPrm
 
 	t.Run("small object", func(t *testing.T) {
-		obj := generateObject(t)
+		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 		addr := object.AddressOf(obj)
@@ -54,7 +54,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("big object", func(t *testing.T) {
-		obj := generateObject(t)
+		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		obj.SetID(oidtest.ID())
 		addPayload(obj, 1<<20) // big obj
@@ -76,15 +76,15 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 
 	t.Run("parent object", func(t *testing.T) {
-		obj := generateObject(t)
+		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		cnr := cidtest.ID()
 		splitID := objectSDK.NewSplitID()
 
-		parent := generateObjectWithCID(t, cnr)
+		parent := generateObjectWithCID(cnr)
 		addAttribute(parent, "parent", "attribute")
 
-		child := generateObjectWithCID(t, cnr)
+		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
 		idParent, _ := parent.ID()
 		child.SetParentID(idParent)

@@ -1,8 +1,9 @@
 package pilorama
 
 import (
+	crand "crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -225,6 +226,7 @@ func testForestTreeDrop(t *testing.T, s Forest) {
 		}
 	}
 	list, err := s.TreeList(cid)
+	require.NoError(t, err)
 	require.NotEmpty(t, list)
 
 	require.NoError(t, s.TreeDrop(cid, ""))
@@ -683,8 +685,7 @@ func prepareRandomTree(nodeCount, opCount int) []Move {
 			},
 			Child: uint64(i) + 1,
 		}
-		//nolint:staticcheck
-		rand.Read(ops[i].Meta.Items[1].Value)
+		_, _ = crand.Read(ops[i].Meta.Items[1].Value)
 	}
 
 	for i := nodeCount; i < len(ops); i++ {
@@ -702,15 +703,14 @@ func prepareRandomTree(nodeCount, opCount int) []Move {
 		if rand.Uint32()%5 == 0 {
 			ops[i].Parent = TrashID
 		}
-		//nolint:staticcheck
-		rand.Read(ops[i].Meta.Items[1].Value)
+		_, _ = crand.Read(ops[i].Meta.Items[1].Value)
 	}
 
 	return ops
 }
 
 func compareForests(t *testing.T, expected, actual Forest, cid cidSDK.ID, treeID string, nodeCount int) {
-	for i := uint64(0); i < uint64(nodeCount); i++ {
+	for i := range uint64(nodeCount) {
 		expectedMeta, expectedParent, err := expected.TreeGetMeta(cid, treeID, i)
 		require.NoError(t, err)
 		actualMeta, actualParent, err := actual.TreeGetMeta(cid, treeID, i)
@@ -741,9 +741,6 @@ func compareForests(t *testing.T, expected, actual Forest, cid cidSDK.ID, treeID
 }
 
 func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest, batchSize, opCount, iterCount int) {
-	//nolint:staticcheck
-	rand.Seed(42)
-
 	const nodeCount = 5
 
 	ops := prepareRandomTree(nodeCount, opCount)
@@ -763,7 +760,7 @@ func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ 
 
 		actual := constructor(t, WithMaxBatchSize(batchSize))
 		wg := new(sync.WaitGroup)
-		ch := make(chan *Move, 0)
+		ch := make(chan *Move)
 		for range batchSize {
 			wg.Add(1)
 			go func() {
@@ -785,9 +782,6 @@ func testForestTreeParallelApply(t *testing.T, constructor func(t testing.TB, _ 
 }
 
 func testForestTreeApplyRandom(t *testing.T, constructor func(t testing.TB, _ ...Option) Forest) {
-	//nolint:staticcheck
-	rand.Seed(42)
-
 	const (
 		nodeCount = 5
 		opCount   = 20
@@ -834,12 +828,12 @@ func BenchmarkApplySequential(b *testing.B) {
 						ops := make([]Move, opCount)
 						for i := range ops {
 							ops[i] = Move{
-								Parent: uint64(rand.Intn(benchNodeCount)),
+								Parent: uint64(rand.IntN(benchNodeCount)),
 								Meta: Meta{
 									Time:  Timestamp(i),
 									Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
 								},
-								Child: uint64(rand.Intn(benchNodeCount)),
+								Child: uint64(rand.IntN(benchNodeCount)),
 							}
 						}
 						return ops
@@ -867,15 +861,15 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 						ops := make([]Move, opCount)
 						for i := range ops {
 							ops[i] = Move{
-								Parent: uint64(rand.Intn(benchNodeCount)),
+								Parent: uint64(rand.IntN(benchNodeCount)),
 								Meta: Meta{
 									Time:  Timestamp(i),
 									Items: []KeyValue{{Value: []byte{0, 1, 2, 3, 4}}},
 								},
-								Child: uint64(rand.Intn(benchNodeCount)),
+								Child: uint64(rand.IntN(benchNodeCount)),
 							}
 							if i != 0 && i%blockSize == 0 {
-								for j := 0; j < blockSize/2; j++ {
+								for j := range blockSize / 2 {
 									ops[i-j], ops[i+j-blockSize] = ops[i+j-blockSize], ops[i-j]
 								}
 							}
@@ -889,9 +883,6 @@ func BenchmarkApplyReorderLast(b *testing.B) {
 }
 
 func benchmarkApply(b *testing.B, s Forest, genFunc func(int) []Move) {
-	//nolint:staticcheck
-	rand.Seed(42)
-
 	ops := genFunc(b.N)
 	cid := cidtest.ID()
 	d := CIDDescriptor{cid, 0, 1}

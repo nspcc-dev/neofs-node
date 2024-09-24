@@ -32,7 +32,7 @@ func (x *Config) Sub(name string) *Config {
 
 // Value returns the configuration value by name.
 //
-// Result can be casted to a particular type
+// Result can be cast to a particular type
 // via corresponding function (e.g. StringSlice).
 // Note: casting via Go `.()` operator is not
 // recommended.

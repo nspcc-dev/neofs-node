@@ -54,7 +54,7 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
 		// all the errors in the stackitem relate only cases when it is
 		// impossible to use serialized values (too many values, unsupported
 		// types, etc.), unexpected errors at all
-		panic(fmt.Errorf("unexpected stackitem map serialization failure: %v", err))
+		panic(fmt.Errorf("unexpected stackitem map serialization failure: %w", err))
 	}
 
 	return result

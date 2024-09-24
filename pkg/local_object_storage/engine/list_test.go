@@ -29,7 +29,7 @@ func TestListWithCursor(t *testing.T) {
 
 	for range total {
 		containerID := cidtest.ID()
-		obj := generateObjectWithCID(t, containerID)
+		obj := generateObjectWithCID(containerID)
 
 		var prm PutPrm
 		prm.WithObject(obj)
@@ -49,7 +49,7 @@ func TestListWithCursor(t *testing.T) {
 	require.NotEmpty(t, res.AddressList())
 	got = append(got, res.AddressList()...)
 
-	for i := 0; i < total-1; i++ {
+	for range total - 1 {
 		prm.WithCursor(res.Cursor())
 
 		res, err = e.ListWithCursor(prm)

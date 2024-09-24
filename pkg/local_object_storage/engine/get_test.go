@@ -10,7 +10,7 @@ import (
 
 func TestStorageEngine_GetBytes(t *testing.T) {
 	e, _, _ := newEngine(t, t.TempDir())
-	obj := generateObjectWithCID(t, cidtest.ID())
+	obj := generateObjectWithCID(cidtest.ID())
 	addr := object.AddressOf(obj)
 
 	objBin := obj.Marshal()

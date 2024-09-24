@@ -53,7 +53,7 @@ func testGenerateMetaHeader(depth uint32, b *acl.BearerToken, s *session.Token) 
 	metaHeader.SetBearerToken(b)
 	metaHeader.SetSessionToken(s)
 
-	for i := uint32(0); i < depth; i++ {
+	for range depth {
 		link := metaHeader
 		metaHeader = new(session.RequestMetaHeader)
 		metaHeader.SetOrigin(link)

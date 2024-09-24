@@ -175,7 +175,7 @@ func TestRefillMetabase(t *testing.T) {
 	locked := make([]oid.ID, 1, 2)
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
-	for i := uint64(0); i < objNum; i++ {
+	for range uint64(objNum) {
 		obj := objecttest.Object()
 		obj.SetType(objectSDK.TypeRegular)
 

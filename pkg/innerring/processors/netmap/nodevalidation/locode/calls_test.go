@@ -83,9 +83,7 @@ func TestValidator_Verify(t *testing.T) { // test record with valid but random v
 
 			require.NoError(t, validator.Verify(n))
 		})
-
 		t.Run("invalid SN expansion", func(t *testing.T) {
-
 			t.Run("invalid Country", func(t *testing.T) {
 				n := nodeInfoWithSomeAttrs()
 				addLocodeAttr(&n, [2]string{"RU", "SPB"})

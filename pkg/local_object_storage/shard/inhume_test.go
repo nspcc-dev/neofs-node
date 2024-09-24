@@ -26,10 +26,10 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 
 	cnr := cidtest.ID()
 
-	obj := generateObjectWithCID(t, cnr)
+	obj := generateObjectWithCID(cnr)
 	addAttribute(obj, "foo", "bar")
 
-	ts := generateObjectWithCID(t, cnr)
+	ts := generateObjectWithCID(cnr)
 
 	var putPrm shard.PutPrm
 	putPrm.SetObject(obj)

@@ -63,7 +63,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 
 	addr := oidtest.Address()
 	for range 100 {
-		obj := generateObjectWithCID(b, cidtest.ID())
+		obj := generateObjectWithCID(cidtest.ID())
 		err := Put(e, obj)
 		if err != nil {
 			b.Fatal(err)
@@ -174,7 +174,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 	return engine
 }
 
-func generateObjectWithCID(t testing.TB, cnr cid.ID) *object.Object {
+func generateObjectWithCID(cnr cid.ID) *object.Object {
 	var ver version.Version
 	ver.SetMajor(2)
 	ver.SetMinor(1)

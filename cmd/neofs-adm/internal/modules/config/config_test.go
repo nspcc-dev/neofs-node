@@ -34,12 +34,11 @@ func TestGenerateConfigExample(t *testing.T) {
 	require.Equal(t, 1000, v.GetInt("network.fee.container"))
 	require.Equal(t, 100000000, v.GetInt("network.fee.withdraw"))
 
-	var i int
-	for i = 0; i < n; i++ {
+	for i := range n {
 		key := "credentials." + glagolitsa.LetterByIndex(i)
 		require.Equal(t, "password", v.GetString(key))
 	}
 
-	key := "credentials." + glagolitsa.LetterByIndex(i)
+	key := "credentials." + glagolitsa.LetterByIndex(n)
 	require.Equal(t, "", v.GetString(key))
 }

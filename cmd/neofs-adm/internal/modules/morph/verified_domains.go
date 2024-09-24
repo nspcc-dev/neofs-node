@@ -120,7 +120,7 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 
 	w, err := wallet.NewWalletFromFile(viper.GetString(walletFlag))
 	if err != nil {
-		return fmt.Errorf("decode Neo wallet from file: %v", err)
+		return fmt.Errorf("decode Neo wallet from file: %w", err)
 	}
 
 	var accAddr util.Uint160
@@ -141,12 +141,12 @@ func verifiedNodesDomainSetAccessList(cmd *cobra.Command, _ []string) error {
 	prompt := fmt.Sprintf("Enter password for %s >", address.Uint160ToString(accAddr))
 	pass, err := input.ReadPassword(prompt)
 	if err != nil {
-		return fmt.Errorf("failed to read account password: %v", err)
+		return fmt.Errorf("failed to read account password: %w", err)
 	}
 
 	err = acc.Decrypt(pass, keys.NEP2ScryptParams())
 	if err != nil {
-		return fmt.Errorf("failed to unlock the account with password: %v", err)
+		return fmt.Errorf("failed to unlock the account with password: %w", err)
 	}
 
 	n3Client, err := getN3Client(vpr)

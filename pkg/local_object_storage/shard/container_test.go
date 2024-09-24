@@ -15,28 +15,24 @@ func TestShard_DeleteContainer(t *testing.T) {
 	defer releaseShard(sh, t)
 
 	cID := cidtest.ID()
-	var objs []*objectSDK.Object
 	var prm shard.PutPrm
 
-	o1 := generateObjectWithCID(t, cID)
+	o1 := generateObjectWithCID(cID)
 	prm.SetObject(o1)
 	_, err := sh.Put(prm)
 	require.NoError(t, err)
-	objs = append(objs, o1)
 
-	o2 := generateObjectWithCID(t, cID)
+	o2 := generateObjectWithCID(cID)
 	o2.SetType(objectSDK.TypeStorageGroup)
 	prm.SetObject(o2)
 	_, err = sh.Put(prm)
 	require.NoError(t, err)
-	objs = append(objs, o2)
 
-	o3 := generateObjectWithCID(t, cID)
+	o3 := generateObjectWithCID(cID)
 	prm.SetObject(o3)
 	o3.SetType(objectSDK.TypeLock)
 	_, err = sh.Put(prm)
 	require.NoError(t, err)
-	objs = append(objs, o3)
 
 	err = sh.DeleteContainer(context.Background(), cID)
 	require.NoError(t, err)

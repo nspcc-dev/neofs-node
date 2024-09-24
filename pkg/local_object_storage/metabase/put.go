@@ -511,7 +511,7 @@ func updateSplitInfo(tx *bbolt.Tx, addr oid.Address, from *objectSDK.SplitInfo) 
 }
 
 // splitInfoFromObject returns split info based on last or linkin object.
-// Otherwise returns nil, nil.
+// Otherwise, returns nil, nil.
 func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
 	if obj.Parent() == nil {
 		return nil, nil

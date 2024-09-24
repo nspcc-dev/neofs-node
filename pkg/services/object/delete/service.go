@@ -21,11 +21,11 @@ type Option func(*cfg)
 type NetworkInfo interface {
 	netmap.State
 
-	// Must return the lifespan of the tombstones
+	// TombstoneLifetime must return the lifespan of the tombstones
 	// in the NeoFS epochs.
 	TombstoneLifetime() (uint64, error)
 
-	// Returns user ID of the local storage node. Result must not be nil.
+	// LocalNodeID returns user ID of the local storage node. Result must not be nil.
 	// New tombstone objects will have the result as an owner ID if removal is executed w/o a session.
 	LocalNodeID() user.ID
 }

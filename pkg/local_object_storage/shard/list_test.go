@@ -38,11 +38,11 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 		cnr := cidtest.ID()
 
 		for range N {
-			obj := generateObjectWithCID(t, cnr)
+			obj := generateObjectWithCID(cnr)
 			addPayload(obj, 1<<2)
 
 			// add parent as virtual object, it must be ignored in List()
-			parent := generateObjectWithCID(t, cnr)
+			parent := generateObjectWithCID(cnr)
 			idParent, _ := parent.ID()
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)

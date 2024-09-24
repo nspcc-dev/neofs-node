@@ -105,4 +105,4 @@ info. These commands **do not migrate actual objects**.
 
 ## Private network deployment
 
-Read step-by-step guide of private storage deployment [in docs](./docs/deploy.md).
+Read step-by-step guide of private storage deployment [in docs](./deploy.md).

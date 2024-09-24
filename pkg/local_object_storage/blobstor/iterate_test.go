@@ -42,7 +42,7 @@ func TestIterateObjects(t *testing.T) {
 
 	mObjs := make(map[string]addrData)
 
-	for i := uint64(0); i < objNum; i++ {
+	for i := range uint64(objNum) {
 		sz := smalSz
 
 		big := i < objNum/2

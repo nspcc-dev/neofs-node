@@ -64,7 +64,7 @@ type Writer interface {
 	// Put must not be called after Close.
 	Put(container.SizeEstimation) error
 
-	// Close exits with method-providing Writer.
+	// Closer close exits with method-providing Writer.
 	//
 	// All cached values must be flushed before
 	// the Close's return.

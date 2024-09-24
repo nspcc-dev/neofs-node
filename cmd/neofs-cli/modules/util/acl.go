@@ -183,7 +183,7 @@ func ParseEACLRules(table *eacl.Table, rules []string) error {
 	for _, ruleStr := range rules {
 		err := ParseEACLRule(table, ruleStr)
 		if err != nil {
-			return fmt.Errorf("can't create extended acl record from rule '%s': %v", ruleStr, err)
+			return fmt.Errorf("can't create extended acl record from rule '%s': %w", ruleStr, err)
 		}
 	}
 	return nil
@@ -199,7 +199,7 @@ func ParseEACLRules(table *eacl.Table, rules []string) error {
 func ParseEACLRule(table *eacl.Table, rule string) error {
 	r, err := shlex.Split(rule)
 	if err != nil {
-		return fmt.Errorf("can't parse rule '%s': %v", rule, err)
+		return fmt.Errorf("can't parse rule '%s': %w", rule, err)
 	}
 	return parseEACLTable(table, r)
 }
