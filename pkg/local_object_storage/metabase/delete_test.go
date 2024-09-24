@@ -43,7 +43,7 @@ func TestDB_Delete(t *testing.T) {
 	err = metaDelete(db, object.AddressOf(parent))
 	require.NoError(t, err)
 
-	// inhume parent and child so they will be on graveyard
+	// inhume child so it will be on graveyard
 	ts := generateObjectWithCID(t, cnr)
 
 	err = metaInhume(db, object.AddressOf(child), object.AddressOf(ts))
@@ -58,14 +58,16 @@ func TestDB_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, l, 0)
 
-	// check if they marked as already removed
+	// check if the child is still inhumed (deletion should not affect
+	// TS status that should be kept for some epochs and be handled
+	// separately) and parent is not found
 
 	ok, err := metaExists(db, object.AddressOf(child))
-	require.Error(t, apistatus.ObjectAlreadyRemoved{})
+	require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	require.False(t, ok)
 
 	ok, err = metaExists(db, object.AddressOf(parent))
-	require.Error(t, apistatus.ObjectAlreadyRemoved{})
+	require.NoError(t, err)
 	require.False(t, ok)
 }
 
