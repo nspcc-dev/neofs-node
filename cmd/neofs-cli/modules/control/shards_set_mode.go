@@ -7,7 +7,6 @@ import (
 
 	"github.com/mr-tron/base58"
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -77,7 +76,7 @@ var setShardModeCmd = &cobra.Command{
 	Short: "Set work mode of the shard",
 	Long:  "Set work mode of the shard",
 	Args:  cobra.NoArgs,
-	Run:   setShardMode,
+	RunE:  setShardMode,
 }
 
 func initControlSetShardModeCmd() {
@@ -101,17 +100,20 @@ func initControlSetShardModeCmd() {
 	setShardModeCmd.MarkFlagsOneRequired(shardIDFlag, shardAllFlag)
 }
 
-func setShardMode(cmd *cobra.Command, _ []string) {
+func setShardMode(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	strMode, _ := cmd.Flags().GetString(shardModeFlag)
 
 	mode, ok := lookUpShardModeFromString(strMode)
 	if !ok {
-		common.ExitOnErr(cmd, "", fmt.Errorf("%w: setting %s mode", errors.ErrUnsupported, strMode))
+		return fmt.Errorf("%w: setting %s mode", errors.ErrUnsupported, strMode)
 	}
 
 	req := new(control.SetShardModeRequest)
@@ -120,39 +122,57 @@ func setShardMode(cmd *cobra.Command, _ []string) {
 	req.SetBody(body)
 
 	body.SetMode(mode)
-	body.SetShardIDList(getShardIDList(cmd))
+
+	list, err := getShardIDList(cmd)
+	if err != nil {
+		return err
+	}
+	body.SetShardIDList(list)
 
 	reset, _ := cmd.Flags().GetBool(shardClearErrorsFlag)
 	body.ClearErrorCounter(reset)
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.SetShardModeResponse
-	var err error
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.SetShardMode(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	cmd.Println("Shard mode update request successfully sent.")
+	return nil
 }
 
-func getShardID(cmd *cobra.Command) []byte {
+func getShardID(cmd *cobra.Command) ([]byte, error) {
 	sid, _ := cmd.Flags().GetString(shardIDFlag)
 	raw, err := base58.Decode(sid)
-	common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
-	return raw
+	if err != nil {
+		return nil, fmt.Errorf("incorrect shard ID encoding: %w", err)
+	}
+	return raw, nil
 }
 
-func getShardIDList(cmd *cobra.Command) [][]byte {
+func getShardIDList(cmd *cobra.Command) ([][]byte, error) {
 	all, _ := cmd.Flags().GetBool(shardAllFlag)
 	if all {
-		return nil
+		return nil, nil
 	}
 
 	sidList, _ := cmd.Flags().GetStringSlice(shardIDFlag)
@@ -165,7 +185,7 @@ func getShardIDList(cmd *cobra.Command) [][]byte {
 	seen := make(map[string]struct{})
 	for i := range sidList {
 		if _, ok := seen[sidList[i]]; ok {
-			common.ExitOnErr(cmd, "", fmt.Errorf("duplicated shard IDs: %s", sidList[i]))
+			return nil, fmt.Errorf("duplicated shard IDs: %s", sidList[i])
 		}
 		seen[sidList[i]] = struct{}{}
 	}
@@ -173,10 +193,12 @@ func getShardIDList(cmd *cobra.Command) [][]byte {
 	res := make([][]byte, 0, len(sidList))
 	for i := range sidList {
 		raw, err := base58.Decode(sidList[i])
-		common.ExitOnErr(cmd, "incorrect shard ID encoding: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("incorrect shard ID encoding: %w", err)
+		}
 
 		res = append(res, raw)
 	}
 
-	return res
+	return res, nil
 }

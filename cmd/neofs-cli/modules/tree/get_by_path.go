@@ -2,6 +2,7 @@ package tree
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -17,7 +18,7 @@ var getByPathCmd = &cobra.Command{
 	Use:   "get-by-path",
 	Short: "Get a node by its path",
 	Args:  cobra.NoArgs,
-	Run:   getByPath,
+	RunE:  getByPath,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)
 	},
@@ -40,22 +41,29 @@ func initGetByPathCmd() {
 	_ = cobra.MarkFlagRequired(ff, commonflags.RPC)
 }
 
-func getByPath(cmd *cobra.Command, _ []string) {
+func getByPath(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
-	err := cnr.DecodeString(cidRaw)
-	common.ExitOnErr(cmd, "decode container ID string: %w", err)
+	err = cnr.DecodeString(cidRaw)
+	if err != nil {
+		return fmt.Errorf("decode container ID string: %w", err)
+	}
 
 	tid, _ := cmd.Flags().GetString(treeIDFlagKey)
 
 	cli, err := _client()
-	common.ExitOnErr(cmd, "client: %w", err)
+	if err != nil {
+		return fmt.Errorf("client: %w", err)
+	}
 
 	rawCID := make([]byte, sha256.Size)
 	cnr.Encode(rawCID)
@@ -76,15 +84,19 @@ func getByPath(cmd *cobra.Command, _ []string) {
 		BearerToken:   nil, // TODO: #1891 add token handling
 	}
 
-	common.ExitOnErr(cmd, "message signing: %w", tree.SignMessage(req, pk))
+	if err := tree.SignMessage(req, pk); err != nil {
+		return fmt.Errorf("message signing: %w", err)
+	}
 
 	resp, err := cli.GetNodeByPath(ctx, req)
-	common.ExitOnErr(cmd, "rpc call: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc call: %w", err)
+	}
 
 	nn := resp.GetBody().GetNodes()
 	if len(nn) == 0 {
 		common.PrintVerbose(cmd, "The node is not found")
-		return
+		return nil
 	}
 
 	for _, n := range nn {
@@ -98,4 +110,6 @@ func getByPath(cmd *cobra.Command, _ []string) {
 			cmd.Printf("\t\t%s: %s\n", kv.GetKey(), string(kv.GetValue()))
 		}
 	}
+
+	return nil
 }

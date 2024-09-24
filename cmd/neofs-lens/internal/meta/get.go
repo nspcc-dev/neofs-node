@@ -16,7 +16,7 @@ var getCMD = &cobra.Command{
 	Short: "Object inspection",
 	Long:  `Get specific object from a metabase.`,
 	Args:  cobra.NoArgs,
-	Run:   getFunc,
+	RunE:  getFunc,
 }
 
 func init() {
@@ -24,20 +24,27 @@ func init() {
 	common.AddComponentPathFlag(getCMD, &vPath)
 }
 
-func getFunc(cmd *cobra.Command, _ []string) {
+func getFunc(cmd *cobra.Command, _ []string) error {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
-	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
+	if err != nil {
+		return fmt.Errorf("invalid address argument: %w", err)
+	}
 
-	db := openMeta(cmd, true)
+	db, err := openMeta(true)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	storageID := meta.StorageIDPrm{}
 	storageID.SetAddress(addr)
 
 	resStorageID, err := db.StorageID(storageID)
-	common.ExitOnErr(cmd, common.Errf("could not check if the obj is small: %w", err))
+	if err != nil {
+		return fmt.Errorf("could not check if the obj is small: %w", err)
+	}
 
 	if id := resStorageID.StorageID(); id != nil {
 		cmd.Printf("Object storageID: %x (%q)\n\n", id, id)
@@ -66,9 +73,13 @@ func getFunc(cmd *cobra.Command, _ []string) {
 			cmd.Println("\tLast:", last)
 		}
 
-		return
+		return nil
 	}
-	common.ExitOnErr(cmd, common.Errf("could not get object: %w", err))
+	if err != nil {
+		return fmt.Errorf("could not get object: %w", err)
+	}
 
 	common.PrintObjectHeader(cmd, *res.Header())
+
+	return nil
 }

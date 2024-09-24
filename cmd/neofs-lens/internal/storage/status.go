@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -11,7 +13,7 @@ var storageStatusObjCMD = &cobra.Command{
 	Short: "Get object from the NeoFS node's storage snapshot",
 	Long:  "Get object from the NeoFS node's storage snapshot",
 	Args:  cobra.NoArgs,
-	Run:   statusObject,
+	RunE:  statusObject,
 }
 
 func init() {
@@ -19,16 +21,24 @@ func init() {
 	common.AddConfigFileFlag(storageStatusObjCMD, &vConfig)
 }
 
-func statusObject(cmd *cobra.Command, _ []string) {
+func statusObject(cmd *cobra.Command, _ []string) error {
 	var addr oid.Address
 
 	err := addr.DecodeString(vAddress)
-	common.ExitOnErr(cmd, common.Errf("invalid address argument: %w", err))
+	if err != nil {
+		return fmt.Errorf("invalid address argument: %w", err)
+	}
 
-	storage := openEngine(cmd)
+	storage, err := openEngine()
+	if err != nil {
+		return err
+	}
 	defer storage.Close()
 	status, err := storage.ObjectStatus(addr)
-	common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))
+	if err != nil {
+		return fmt.Errorf("could not fetch object: %w", err)
+	}
 
 	common.PrintStorageObjectStatus(cmd, status)
+	return nil
 }

@@ -11,12 +11,14 @@ import (
 )
 
 // ReadBearerToken reads bearer token from the path provided in a specified flag.
-func ReadBearerToken(cmd *cobra.Command, flagname string) *bearer.Token {
+func ReadBearerToken(cmd *cobra.Command, flagname string) (*bearer.Token, error) {
 	path, err := cmd.Flags().GetString(flagname)
-	ExitOnErr(cmd, "", err)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(path) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	PrintVerbose(cmd, "Reading bearer token from file [%s]...", path)
@@ -24,9 +26,11 @@ func ReadBearerToken(cmd *cobra.Command, flagname string) *bearer.Token {
 	var tok bearer.Token
 
 	err = ReadBinaryOrJSON(cmd, &tok, path)
-	ExitOnErr(cmd, "invalid bearer token: %v", err)
+	if err != nil {
+		return nil, fmt.Errorf("invalid bearer token: %v", err)
+	}
 
-	return &tok
+	return &tok, nil
 }
 
 // BinaryOrJSON is an interface of entities which provide json.Unmarshaler

@@ -12,7 +12,6 @@ import (
 
 	"github.com/cheggaaa/pb"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -32,7 +31,7 @@ var objectPutCmd = &cobra.Command{
 	Short: "Put object to NeoFS",
 	Long:  "Put object to NeoFS",
 	Args:  cobra.NoArgs,
-	Run:   putObject,
+	RunE:  putObject,
 }
 
 func initObjectPutCmd() {
@@ -58,7 +57,7 @@ func initObjectPutCmd() {
 	objectPutCmd.MarkFlagsMutuallyExclusive(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
-func putObject(cmd *cobra.Command, _ []string) {
+func putObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -66,9 +65,12 @@ func putObject(cmd *cobra.Command, _ []string) {
 	cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	if !binary && cidVal == "" {
-		common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag))
+		return fmt.Errorf("required flag \"%s\" not set", commonflags.CIDFlag)
 	}
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	var ownerID user.ID
 	var cnr cid.ID
@@ -76,39 +78,52 @@ func putObject(cmd *cobra.Command, _ []string) {
 	filename, _ := cmd.Flags().GetString(fileFlag)
 	f, err := os.OpenFile(filename, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		common.ExitOnErr(cmd, "", fmt.Errorf("can't open file '%s': %w", filename, err))
+		return fmt.Errorf("can't open file '%s': %w", filename, err)
 	}
 	var payloadReader io.Reader = f
 	obj := object.New()
 
 	if binary {
 		buf, err := os.ReadFile(filename)
-		common.ExitOnErr(cmd, "unable to read given file: %w", err)
+		if err != nil {
+			return fmt.Errorf("unable to read given file: %w", err)
+		}
 		objTemp := object.New()
 		//TODO(@acid-ant): #1932 Use streams to marshal/unmarshal payload
-		common.ExitOnErr(cmd, "can't unmarshal object from given file: %w", objTemp.Unmarshal(buf))
+		if err := objTemp.Unmarshal(buf); err != nil {
+			return fmt.Errorf("can't unmarshal object from given file: %w", err)
+		}
 		payloadReader = bytes.NewReader(objTemp.Payload())
 		cnr, _ = objTemp.ContainerID()
 		ownerID = *objTemp.OwnerID()
 	} else {
 		fi, err := f.Stat()
-		common.ExitOnErr(cmd, "read file stat: %w", err)
+		if err != nil {
+			return fmt.Errorf("read file stat: %w", err)
+		}
 
 		obj.SetPayloadSize(uint64(fi.Size()))
 
-		readCID(cmd, &cnr)
+		err = readCID(cmd, &cnr)
+		if err != nil {
+			return err
+		}
 		ownerID = user.ResolveFromECDSAPublicKey(pk.PublicKey)
 	}
 
 	attrs, err := parseObjectAttrs(cmd)
-	common.ExitOnErr(cmd, "can't parse object attributes: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't parse object attributes: %w", err)
+	}
 
 	expiresOn, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	if lifetime > 0 {
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
-		common.ExitOnErr(cmd, "Request current epoch: %w", err)
+		if err != nil {
+			return fmt.Errorf("Request current epoch: %w", err)
+		}
 
 		expiresOn = currEpoch + lifetime
 	}
@@ -139,8 +154,14 @@ func putObject(cmd *cobra.Command, _ []string) {
 
 	var prm internalclient.PutObjectPrm
 	prm.SetPrivateKey(*pk)
-	ReadOrOpenSession(ctx, cmd, &prm, pk, cnr)
-	Prepare(cmd, &prm)
+	err = ReadOrOpenSession(ctx, cmd, &prm, pk, cnr)
+	if err != nil {
+		return err
+	}
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
 	prm.SetHeader(obj)
 
 	var p *pb.ProgressBar
@@ -174,17 +195,23 @@ func putObject(cmd *cobra.Command, _ []string) {
 	if p != nil {
 		p.Finish()
 	}
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	cmd.Printf("[%s] Object successfully stored\n", filename)
 	cmd.Printf("  OID: %s\n  CID: %s\n", res.ID(), cnr)
+
+	return nil
 }
 
 func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 	var rawAttrs []string
 
 	rawAttrs, err := cmd.Flags().GetStringSlice("attributes")
-	common.ExitOnErr(cmd, "can't get attributes: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("can't get attributes: %w", err)
+	}
 
 	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+2) // name + timestamp attributes
 	for i := range rawAttrs {

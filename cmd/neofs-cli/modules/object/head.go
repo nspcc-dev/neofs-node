@@ -21,7 +21,7 @@ var objectHeadCmd = &cobra.Command{
 	Short: "Get object header",
 	Long:  "Get object header",
 	Args:  cobra.NoArgs,
-	Run:   getObjectHeader,
+	RunE:  getObjectHeader,
 }
 
 func initObjectHeadCmd() {
@@ -43,24 +43,39 @@ func initObjectHeadCmd() {
 	flags.Bool(rawFlag, false, rawFlagDesc)
 }
 
-func getObjectHeader(cmd *cobra.Command, _ []string) {
+func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr := readObjectAddress(cmd, &cnr, &obj)
+	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	if err != nil {
+		return err
+	}
 	mainOnly, _ := cmd.Flags().GetBool("main-only")
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.HeadObjectPrm
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
-	Prepare(cmd, &prm)
-	readSession(cmd, &prm, pk, cnr, obj)
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
+	err = readSession(cmd, &prm, pk, cnr, obj)
+	if err != nil {
+		return err
+	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	prm.SetRawFlag(raw)
@@ -69,15 +84,20 @@ func getObjectHeader(cmd *cobra.Command, _ []string) {
 
 	res, err := internalclient.HeadObject(ctx, prm)
 	if err != nil {
-		if ok := printSplitInfoErr(cmd, err); ok {
-			return
+		if ok, err := printSplitInfoErr(cmd, err); ok {
+			return err
 		}
-
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 	}
 
 	err = saveAndPrintHeader(cmd, res.Header(), cmd.Flag(fileFlag).Value.String())
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func saveAndPrintHeader(cmd *cobra.Command, obj *object.Object, filename string) error {

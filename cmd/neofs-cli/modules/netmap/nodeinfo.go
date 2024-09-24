@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -17,19 +18,25 @@ var nodeInfoCmd = &cobra.Command{
 	Short: "Get target node info",
 	Long:  `Get target node info`,
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prm internalclient.NodeInfoPrm
 		prm.SetClient(cli)
 
 		res, err := internalclient.NodeInfo(ctx, prm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		prettyPrintNodeInfo(cmd, res.NodeInfo())
+		return nil
 	},
 }
 

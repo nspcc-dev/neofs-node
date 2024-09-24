@@ -14,14 +14,14 @@ var listCMD = &cobra.Command{
 	Short: "Object listing",
 	Long:  `List all objects stored in a Peapod.`,
 	Args:  cobra.NoArgs,
-	Run:   listFunc,
+	RunE:  listFunc,
 }
 
 func init() {
 	common.AddComponentPathFlag(listCMD, &vPath)
 }
 
-func listFunc(cmd *cobra.Command, _ []string) {
+func listFunc(cmd *cobra.Command, _ []string) error {
 	// other targets can be supported
 	w := cmd.OutOrStderr()
 
@@ -30,9 +30,15 @@ func listFunc(cmd *cobra.Command, _ []string) {
 		return err
 	}
 
-	ppd := openPeapod(cmd)
+	ppd, err := openPeapod()
+	if err != nil {
+		return err
+	}
 	defer ppd.Close()
 
-	err := ppd.IterateAddresses(wAddr)
-	common.ExitOnErr(cmd, common.Errf("Peapod iterator failure: %w", err))
+	err = ppd.IterateAddresses(wAddr)
+	if err != nil {
+		return fmt.Errorf("Peapod iterator failure: %w", err)
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package meta
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
@@ -15,7 +16,7 @@ var writeObjectCMD = &cobra.Command{
 	Short: "Put object to metabase",
 	Long:  "Put object from file to metabase",
 	Args:  cobra.NoArgs,
-	Run:   writeObject,
+	RunE:  writeObject,
 }
 
 func init() {
@@ -23,35 +24,48 @@ func init() {
 	common.AddInputPathFile(writeObjectCMD, &vInputObj)
 }
 
-func writeObject(cmd *cobra.Command, _ []string) {
-	db := openMeta(cmd, false)
+func writeObject(cmd *cobra.Command, _ []string) error {
+	db, err := openMeta(false)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
-	err := db.Init()
-	common.ExitOnErr(cmd, common.Errf("can't init metabase: %w", err))
+	err = db.Init()
+	if err != nil {
+		return fmt.Errorf("can't init metabase: %w", err)
+	}
 
 	buf, err := os.ReadFile(vInputObj)
-	common.ExitOnErr(cmd, common.Errf("unable to read given file: %w", err))
+	if err != nil {
+		return fmt.Errorf("unable to read given file: %w", err)
+	}
 
 	obj := object.New()
-	common.ExitOnErr(cmd, common.Errf("can't unmarshal object from given file: %w", obj.Unmarshal(buf)))
+	if err := obj.Unmarshal(buf); err != nil {
+		return fmt.Errorf("can't unmarshal object from given file: %w", err)
+	}
 
 	id, ok := obj.ID()
 	if !ok {
-		common.ExitOnErr(cmd, errors.New("missing ID in object"))
+		return errors.New("missing ID in object")
 	}
 
 	cnr, ok := obj.ContainerID()
 	if !ok {
-		common.ExitOnErr(cmd, errors.New("missing container ID in object"))
+		return errors.New("missing container ID in object")
 	}
 
 	var pPrm meta.PutPrm
 	pPrm.SetObject(obj)
 
 	_, err = db.Put(pPrm)
-	common.ExitOnErr(cmd, common.Errf("can't put object: %w", err))
+	if err != nil {
+		return fmt.Errorf("can't put object: %w", err)
+	}
 
 	cmd.Printf("[%s] Object successfully stored\n", vInputObj)
 	cmd.Printf("  OID: %s\n  CID: %s\n", id, cnr)
+
+	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
@@ -60,7 +59,7 @@ func (e epochState) CurrentEpoch() uint64 {
 	return 0
 }
 
-func openEngine(cmd *cobra.Command) *engine.StorageEngine {
+func openEngine() (*engine.StorageEngine, error) {
 	appCfg := config.New(config.Prm{}, config.WithConfigFile(vConfig))
 
 	ls := engine.New()
@@ -157,7 +156,9 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 
 		return nil
 	})
-	common.ExitOnErr(cmd, err)
+	if err != nil {
+		return nil, err
+	}
 
 	var shardsWithMeta []shardOptsWithID
 	for _, shCfg := range shards {
@@ -244,11 +245,15 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),
 			shard.WithGCRemoverSleepInterval(shCfg.GcCfg.RemoverSleepInterval),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
-				pool, err := ants.NewPool(sz)
-				common.ExitOnErr(cmd, err)
-
+				pool, poolErr := ants.NewPool(sz)
+				if poolErr != nil {
+					err = poolErr
+				}
 				return pool
 			}),
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		shardsWithMeta = append(shardsWithMeta, sh)
@@ -256,11 +261,17 @@ func openEngine(cmd *cobra.Command) *engine.StorageEngine {
 
 	for _, optsWithMeta := range shardsWithMeta {
 		_, err := ls.AddShard(append(optsWithMeta.shOpts, shard.WithMode(mode.ReadOnly))...)
-		common.ExitOnErr(cmd, err)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	common.ExitOnErr(cmd, ls.Open())
-	common.ExitOnErr(cmd, ls.Init())
+	if err := ls.Open(); err != nil {
+		return nil, err
+	}
+	if err := ls.Init(); err != nil {
+		return nil, err
+	}
 
-	return ls
+	return ls, nil
 }

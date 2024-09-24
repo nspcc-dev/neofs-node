@@ -23,7 +23,7 @@ var objectLockCmd = &cobra.Command{
 	Short: "Lock object in container",
 	Long:  "Lock object in container",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
@@ -31,7 +31,9 @@ var objectLockCmd = &cobra.Command{
 
 		var cnr cid.ID
 		err := cnr.DecodeString(cidRaw)
-		common.ExitOnErr(cmd, "Incorrect container arg: %v", err)
+		if err != nil {
+			return fmt.Errorf("Incorrect container arg: %v", err)
+		}
 
 		oidsRaw, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)
 
@@ -39,10 +41,15 @@ var objectLockCmd = &cobra.Command{
 
 		for i := range oidsRaw {
 			err = lockList[i].DecodeString(oidsRaw[i])
-			common.ExitOnErr(cmd, fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err)
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Incorrect object arg #%d: %%v", i+1), err)
+			}
 		}
 
-		key := key.GetOrGenerate(cmd)
+		key, err := key.GetOrGenerate(cmd)
+		if err != nil {
+			return err
+		}
 
 		idOwner := user.ResolveFromECDSAPublicKey(key.PublicKey)
 
@@ -59,7 +66,9 @@ var objectLockCmd = &cobra.Command{
 			endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 
 			currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
-			common.ExitOnErr(cmd, "Request current epoch: %w", err)
+			if err != nil {
+				return fmt.Errorf("Request current epoch: %w", err)
+			}
 
 			exp = currEpoch + lifetime
 		}
@@ -79,15 +88,27 @@ var objectLockCmd = &cobra.Command{
 
 		var prm internalclient.PutObjectPrm
 		prm.SetPrivateKey(*key)
-		ReadOrOpenSession(ctx, cmd, &prm, key, cnr)
-		Prepare(cmd, &prm)
+
+		err = ReadOrOpenSession(ctx, cmd, &prm, key, cnr)
+		if err != nil {
+			return err
+		}
+
+		err = Prepare(cmd, &prm)
+		if err != nil {
+			return err
+		}
 		prm.SetHeader(obj)
 
 		res, err := internalclient.PutObject(ctx, prm)
-		common.ExitOnErr(cmd, "Store lock object in NeoFS: %w", err)
+		if err != nil {
+			return fmt.Errorf("Store lock object in NeoFS: %w", err)
+		}
 
 		cmd.Printf("Lock object ID: %s\n", res.ID())
 		cmd.Println("Objects successfully locked.")
+
+		return nil
 	},
 }
 

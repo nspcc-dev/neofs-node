@@ -2,11 +2,11 @@ package netmap
 
 import (
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/spf13/cobra"
 )
@@ -17,17 +17,22 @@ var netInfoCmd = &cobra.Command{
 	Long: `Get information about NeoFS network.
 		Unknown configuration settings are displayed in hexadecimal format.`,
 	Args: cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prm internalclient.NetworkInfoPrm
 		prm.SetClient(cli)
 
 		res, err := internalclient.NetworkInfo(ctx, prm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		netInfo := res.NetworkInfo()
 
@@ -58,6 +63,7 @@ var netInfoCmd = &cobra.Command{
 		netInfo.IterateRawNetworkParameters(func(name string, value []byte) {
 			cmd.Printf(format, name, hex.EncodeToString(value))
 		})
+		return nil
 	},
 }
 

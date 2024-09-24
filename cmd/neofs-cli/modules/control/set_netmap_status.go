@@ -24,7 +24,7 @@ var setNetmapStatusCmd = &cobra.Command{
 	Short: "Set status of the storage node in NeoFS network map",
 	Long:  "Set status of the storage node in NeoFS network map",
 	Args:  cobra.NoArgs,
-	Run:   setNetmapStatus,
+	RunE:  setNetmapStatus,
 }
 
 func initControlSetNetmapStatusCmd() {
@@ -45,11 +45,14 @@ func initControlSetNetmapStatusCmd() {
 		"Force turning to local maintenance")
 }
 
-func setNetmapStatus(cmd *cobra.Command, _ []string) {
+func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 	body := new(control.SetNetmapStatusRequest_Body)
 	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 
@@ -61,7 +64,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 
 	switch st, _ := cmd.Flags().GetString(netmapStatusFlag); st {
 	default:
-		common.ExitOnErr(cmd, "", fmt.Errorf("unsupported status %s", st))
+		return fmt.Errorf("unsupported status %s", st)
 	case netmapStatusOnline:
 		body.SetStatus(control.NetmapStatus_ONLINE)
 		printIgnoreForce(control.NetmapStatus_ONLINE)
@@ -80,19 +83,30 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) {
 	req := new(control.SetNetmapStatusRequest)
 	req.SetBody(body)
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.SetNetmapStatusResponse
-	var err error
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.SetNetmapStatus(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	cmd.Println("Network status update request successfully sent.")
+	return nil
 }

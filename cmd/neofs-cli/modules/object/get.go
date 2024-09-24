@@ -8,7 +8,6 @@ import (
 
 	"github.com/cheggaaa/pb"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -22,7 +21,7 @@ var objectGetCmd = &cobra.Command{
 	Short: "Get object from NeoFS",
 	Long:  "Get object from NeoFS",
 	Args:  cobra.NoArgs,
-	Run:   getObject,
+	RunE:  getObject,
 }
 
 func initObjectGetCmd() {
@@ -43,14 +42,17 @@ func initObjectGetCmd() {
 	flags.Bool(binaryFlag, false, "Serialize whole object structure into given file(id + signature + header + payload).")
 }
 
-func getObject(cmd *cobra.Command, _ []string) {
+func getObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
 	var obj oid.ID
 
-	objAddr := readObjectAddress(cmd, &cnr, &obj)
+	objAddr, err := readObjectAddress(cmd, &cnr, &obj)
+	if err != nil {
+		return err
+	}
 
 	var out io.Writer
 	filename := cmd.Flag(fileFlag).Value.String()
@@ -59,7 +61,7 @@ func getObject(cmd *cobra.Command, _ []string) {
 	} else {
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 		if err != nil {
-			common.ExitOnErr(cmd, "", fmt.Errorf("can't open file '%s': %w", filename, err))
+			return fmt.Errorf("can't open file '%s': %w", filename, err)
 		}
 
 		defer f.Close()
@@ -67,15 +69,27 @@ func getObject(cmd *cobra.Command, _ []string) {
 		out = f
 	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.GetObjectPrm
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
-	Prepare(cmd, &prm)
-	readSession(cmd, &prm, pk, cnr, obj)
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
+	err = readSession(cmd, &prm, pk, cnr, obj)
+	if err != nil {
+		return err
+	}
 
 	raw, _ := cmd.Flags().GetBool(rawFlag)
 	prm.SetRawFlag(raw)
@@ -111,11 +125,12 @@ func getObject(cmd *cobra.Command, _ []string) {
 		p.Finish()
 	}
 	if err != nil {
-		if ok := printSplitInfoErr(cmd, err); ok {
-			return
+		if ok, err := printSplitInfoErr(cmd, err); ok {
+			return err
 		}
-
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 	}
 
 	if binary {
@@ -124,7 +139,9 @@ func getObject(cmd *cobra.Command, _ []string) {
 		objToStore.SetPayload(payloadBuffer.Bytes())
 		objBytes := objToStore.Marshal()
 		_, err = out.Write(objBytes)
-		common.ExitOnErr(cmd, "unable to write binary object in out: %w ", err)
+		if err != nil {
+			return fmt.Errorf("unable to write binary object in out: %w", err)
+		}
 	}
 
 	if filename != "" && !strictOutput(cmd) {
@@ -134,8 +151,11 @@ func getObject(cmd *cobra.Command, _ []string) {
 	// Print header only if file is not streamed to stdout.
 	if filename != "" {
 		err = printHeader(cmd, res.Header())
-		common.ExitOnErr(cmd, "", err)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func strictOutput(cmd *cobra.Command) bool {

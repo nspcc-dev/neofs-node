@@ -1,8 +1,9 @@
 package container
 
 import (
+	"fmt"
+
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -26,29 +27,39 @@ var listContainersCmd = &cobra.Command{
 	Short: "List all created containers",
 	Long:  "List all created containers",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
 		var idUser user.ID
 
-		key := key.GetOrGenerate(cmd)
+		key, err := key.GetOrGenerate(cmd)
+		if err != nil {
+			return err
+		}
 
 		if flagVarListContainerOwner == "" {
 			idUser = user.ResolveFromECDSAPublicKey(key.PublicKey)
 		} else {
 			err := idUser.DecodeString(flagVarListContainerOwner)
-			common.ExitOnErr(cmd, "invalid user ID: %w", err)
+			if err != nil {
+				return fmt.Errorf("invalid user ID: %w", err)
+			}
 		}
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prm internalclient.ListContainersPrm
 		prm.SetClient(cli)
 		prm.SetAccount(idUser)
 
 		res, err := internalclient.ListContainers(ctx, prm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
 
 		var prmGet internalclient.GetContainerPrm
 		prmGet.SetClient(cli)
@@ -70,6 +81,7 @@ var listContainersCmd = &cobra.Command{
 				}
 			}
 		}
+		return nil
 	},
 }
 

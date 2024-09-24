@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/spf13/cobra"
 )
@@ -14,16 +13,18 @@ var linkCMD = &cobra.Command{
 	Use:   "link",
 	Short: "Inspect link object",
 	Args:  cobra.NoArgs,
-	Run:   linkFunc,
+	RunE:  linkFunc,
 }
 
-func linkFunc(cmd *cobra.Command, _ []string) {
+func linkFunc(cmd *cobra.Command, _ []string) error {
 	if vPath == "" {
-		common.ExitOnErr(cmd, errors.New("empty path to file"))
+		return errors.New("empty path to file")
 	}
 
 	raw, err := os.ReadFile(vPath)
-	common.ExitOnErr(cmd, common.Errf("reading file: %w", err))
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
+	}
 
 	var link object.Link
 	err = link.Unmarshal(raw)
@@ -32,18 +33,22 @@ func linkFunc(cmd *cobra.Command, _ []string) {
 
 		var obj object.Object
 		err = obj.Unmarshal(raw)
-		common.ExitOnErr(cmd, common.Errf("decoding NeoFS object: %w", err))
+		if err != nil {
+			return fmt.Errorf("decoding NeoFS object: %w", err)
+		}
 
 		if typeGot := obj.Type(); typeGot != object.TypeLink {
-			common.ExitOnErr(cmd, fmt.Errorf("unexpected object type (not %s): %s", object.TypeLink, typeGot))
+			return fmt.Errorf("unexpected object type (not %s): %s", object.TypeLink, typeGot)
 		}
 
 		err = obj.ReadLink(&link)
 	}
-	common.ExitOnErr(cmd, common.Errf("decoding link object: %w", err))
+	if err != nil {
+		return fmt.Errorf("decoding link object: %w", err)
+	}
 
 	if len(link.Objects()) == 0 {
-		common.ExitOnErr(cmd, errors.New("empty children list"))
+		return errors.New("empty children list")
 	}
 
 	cmd.Println("Children (sorted according to the read payload):")
@@ -51,4 +56,6 @@ func linkFunc(cmd *cobra.Command, _ []string) {
 	for _, measuredObject := range link.Objects() {
 		cmd.Printf("Size: %d, object ID: %s\n", measuredObject.ObjectSize(), measuredObject.ObjectID())
 	}
+
+	return nil
 }

@@ -1,6 +1,8 @@
 package writecache
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -12,7 +14,7 @@ var getCMD = &cobra.Command{
 	Short: "Object inspection",
 	Long:  `Get specific object from a write-cache.`,
 	Args:  cobra.NoArgs,
-	Run:   getFunc,
+	RunE:  getFunc,
 }
 
 func init() {
@@ -22,20 +24,24 @@ func init() {
 	common.AddPayloadOnlyFlag(getCMD, &vPayloadOnly)
 }
 
-func getFunc(cmd *cobra.Command, _ []string) {
-	db := openWC(cmd)
+func getFunc(cmd *cobra.Command, _ []string) error {
+	db, err := openWC()
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	data, err := writecache.Get(db, []byte(vAddress))
-	common.ExitOnErr(cmd, common.Errf("could not fetch object: %w", err))
+	if err != nil {
+		return fmt.Errorf("could not fetch object: %w", err)
+	}
 
 	var o object.Object
-	common.ExitOnErr(cmd, common.Errf("could not unmarshal object: %w", o.Unmarshal(data)))
+	if err := o.Unmarshal(data); err != nil {
+		return fmt.Errorf("could not unmarshal object: %w", err)
+	}
 
 	common.PrintObjectHeader(cmd, o)
-	if vPayloadOnly {
-		common.WriteObjectToFile(cmd, vOut, data, true)
-		return
-	}
-	common.WriteObjectToFile(cmd, vOut, data, false)
+
+	return common.WriteObjectToFile(cmd, vOut, data, vPayloadOnly)
 }

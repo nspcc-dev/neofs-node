@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
@@ -31,13 +32,19 @@ var getContainerInfoCmd = &cobra.Command{
 	Short: "Get container field info",
 	Long:  `Get container field info`,
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr := getContainer(ctx, cmd)
+		cnr, err := getContainer(ctx, cmd)
+		if err != nil {
+			return err
+		}
 
-		prettyPrintContainer(cmd, cnr, containerJSON)
+		err = prettyPrintContainer(cmd, cnr, containerJSON)
+		if err != nil {
+			return err
+		}
 
 		if containerPathTo != "" {
 			var (
@@ -47,14 +54,19 @@ var getContainerInfoCmd = &cobra.Command{
 
 			if containerJSON {
 				data, err = cnr.MarshalJSON()
-				common.ExitOnErr(cmd, "can't JSON encode container: %w", err)
+				if err != nil {
+					return fmt.Errorf("can't JSON encode container: %w", err)
+				}
 			} else {
 				data = cnr.Marshal()
 			}
 
 			err = os.WriteFile(containerPathTo, data, 0644)
-			common.ExitOnErr(cmd, "can't write container to file: %w", err)
+			if err != nil {
+				return fmt.Errorf("can't write container to file: %w", err)
+			}
 		}
+		return nil
 	},
 }
 
@@ -76,10 +88,10 @@ func (x *stringWriter) WriteString(s string) (n int, err error) {
 	return len(s), nil
 }
 
-func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncoding bool) {
+func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncoding bool) error {
 	if jsonEncoding {
 		common.PrettyPrintJSON(cmd, cnr, "container")
-		return
+		return nil
 	}
 
 	var id cid.ID
@@ -99,8 +111,11 @@ func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncod
 	})
 
 	cmd.Println("placement policy:")
-	common.ExitOnErr(cmd, "write policy: %w", cnr.PlacementPolicy().WriteStringTo((*stringWriter)(cmd)))
+	if err := cnr.PlacementPolicy().WriteStringTo((*stringWriter)(cmd)); err != nil {
+		return fmt.Errorf("write policy: %w", err)
+	}
 	cmd.Println()
+	return nil
 }
 
 func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
@@ -135,26 +150,38 @@ func prettyPrintBasicACL(cmd *cobra.Command, basicACL acl.Basic) {
 	util.PrettyPrintTableBACL(cmd, &basicACL)
 }
 
-func getContainer(ctx context.Context, cmd *cobra.Command) container.Container {
+func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container, error) {
 	var cnr container.Container
 	if containerPathFrom != "" {
 		data, err := os.ReadFile(containerPathFrom)
-		common.ExitOnErr(cmd, "can't read file: %w", err)
+		if err != nil {
+			return container.Container{}, fmt.Errorf("can't read file: %w", err)
+		}
 
 		err = cnr.Unmarshal(data)
-		common.ExitOnErr(cmd, "can't unmarshal container: %w", err)
+		if err != nil {
+			return container.Container{}, fmt.Errorf("can't unmarshal container: %w", err)
+		}
 	} else {
-		id := parseContainerID(cmd)
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		id, err := parseContainerID()
+		if err != nil {
+			return container.Container{}, err
+		}
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return container.Container{}, err
+		}
 
 		var prm internalclient.GetContainerPrm
 		prm.SetClient(cli)
 		prm.SetContainer(id)
 
 		res, err := internalclient.GetContainer(ctx, prm)
-		common.ExitOnErr(cmd, "rpc error: %w", err)
+		if err != nil {
+			return container.Container{}, fmt.Errorf("rpc error: %w", err)
+		}
 
 		cnr = res.Container()
 	}
-	return cnr
+	return cnr, nil
 }

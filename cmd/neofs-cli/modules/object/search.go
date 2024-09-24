@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -24,7 +23,7 @@ var (
 		Short: "Search object",
 		Long:  "Search object",
 		Args:  cobra.NoArgs,
-		Run:   searchObject,
+		RunE:  searchObject,
 	}
 )
 
@@ -45,30 +44,51 @@ func initObjectSearchCmd() {
 	flags.String(commonflags.OIDFlag, "", "Search object by identifier")
 }
 
-func searchObject(cmd *cobra.Command, _ []string) {
+func searchObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
-	readCID(cmd, &cnr)
+	err := readCID(cmd, &cnr)
+	if err != nil {
+		return err
+	}
 
 	sf, err := parseSearchFilters(cmd)
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.SearchObjectsPrm
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
-	Prepare(cmd, &prm)
-	readSessionGlobal(cmd, &prm, pk, cnr)
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
+
+	err = readSessionGlobal(cmd, &prm, pk, cnr)
+	if err != nil {
+		return err
+	}
+
 	prm.SetContainerID(cnr)
 	prm.SetFilters(sf)
 
 	res, err := internalclient.SearchObjects(ctx, prm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	ids := res.IDList()
 
@@ -76,6 +96,8 @@ func searchObject(cmd *cobra.Command, _ []string) {
 	for i := range ids {
 		cmd.Println(ids[i].String())
 	}
+
+	return nil
 }
 
 var searchUnaryOpVocabulary = map[string]object.SearchMatchType{

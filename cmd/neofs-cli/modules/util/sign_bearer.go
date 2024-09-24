@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -18,7 +19,7 @@ var signBearerCmd = &cobra.Command{
 	Use:   "bearer-token",
 	Short: "Sign bearer token to use it in requests",
 	Args:  cobra.NoArgs,
-	Run:   signBearerToken,
+	RunE:  signBearerToken,
 }
 
 func initSignBearerCmd() {
@@ -34,9 +35,15 @@ func initSignBearerCmd() {
 	flags.Bool(signBearerJSONFlag, false, "Dump bearer token in JSON encoding")
 }
 
-func signBearerToken(cmd *cobra.Command, _ []string) {
-	btok := common.ReadBearerToken(cmd, signFromFlag)
-	pk := key.GetOrGenerate(cmd)
+func signBearerToken(cmd *cobra.Command, _ []string) error {
+	btok, err := common.ReadBearerToken(cmd, signFromFlag)
+	if err != nil {
+		return err
+	}
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	signer := user.NewAutoIDSignerRFC6979(*pk)
 	var zeroUsr user.ID
@@ -45,8 +52,10 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 		signer = user.NewSigner(signer, issuer)
 	}
 
-	err := btok.Sign(signer)
-	common.ExitOnErr(cmd, "", err)
+	err = btok.Sign(signer)
+	if err != nil {
+		return err
+	}
 
 	to := cmd.Flag(signToFlag).Value.String()
 	jsonFlag, _ := cmd.Flags().GetBool(signBearerJSONFlag)
@@ -54,18 +63,24 @@ func signBearerToken(cmd *cobra.Command, _ []string) {
 	var data []byte
 	if jsonFlag || len(to) == 0 {
 		data, err = btok.MarshalJSON()
-		common.ExitOnErr(cmd, "can't JSON encode bearer token: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't JSON encode bearer token: %w", err)
+		}
 	} else {
 		data = btok.Marshal()
 	}
 
 	if len(to) == 0 {
 		common.PrettyPrintJSON(cmd, btok, "bearer token")
-		return
+		return nil
 	}
 
 	err = os.WriteFile(to, data, 0o644)
-	common.ExitOnErr(cmd, "can't write signed bearer token to file: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't write signed bearer token to file: %w", err)
+	}
 
 	cmd.Printf("signed bearer token was successfully dumped to %s\n", to)
+
+	return nil
 }

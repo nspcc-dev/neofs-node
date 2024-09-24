@@ -1,9 +1,10 @@
 package container
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmdprinter"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -17,19 +18,27 @@ var containerNodesCmd = &cobra.Command{
 	Short: "Show nodes for container",
 	Long:  "Show nodes taking part in a container at the current epoch.",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		cnr := getContainer(ctx, cmd)
+		cnr, err := getContainer(ctx, cmd)
+		if err != nil {
+			return err
+		}
 
-		cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
 
 		var prm internalclient.NetMapSnapshotPrm
 		prm.SetClient(cli)
 
 		resmap, err := internalclient.NetMapSnapshot(ctx, prm)
-		common.ExitOnErr(cmd, "unable to get netmap snapshot", err)
+		if err != nil {
+			return fmt.Errorf("unable to get netmap snapshot: %w", err)
+		}
 
 		var id cid.ID
 		cnr.CalculateID(&id)
@@ -38,7 +47,9 @@ var containerNodesCmd = &cobra.Command{
 
 		var cnrNodes [][]netmap.NodeInfo
 		cnrNodes, err = resmap.NetMap().ContainerNodes(policy, id)
-		common.ExitOnErr(cmd, "could not build container nodes for given container: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not build container nodes for given container: %w", err)
+		}
 
 		for i := range cnrNodes {
 			cmd.Printf("Descriptor #%d, REP %d:\n", i+1, policy.ReplicaNumberByIndex(i))
@@ -46,6 +57,7 @@ var containerNodesCmd = &cobra.Command{
 				cmdprinter.PrettyPrintNodeInfo(cmd, cnrNodes[i][j], j, "\t", short)
 			}
 		}
+		return nil
 	},
 }
 

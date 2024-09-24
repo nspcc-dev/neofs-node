@@ -18,7 +18,7 @@ var signSessionCmd = &cobra.Command{
 	Use:   "session-token",
 	Short: "Sign session token to use it in requests",
 	Args:  cobra.NoArgs,
-	Run:   signSessionToken,
+	RunE:  signSessionToken,
 }
 
 func initSignSessionCmd() {
@@ -33,12 +33,14 @@ func initSignSessionCmd() {
 	flags.String(signToFlag, "", "File to save signed session token (optional)")
 }
 
-func signSessionToken(cmd *cobra.Command, _ []string) {
+func signSessionToken(cmd *cobra.Command, _ []string) error {
 	fPath, err := cmd.Flags().GetString(signFromFlag)
-	common.ExitOnErr(cmd, "", err)
+	if err != nil {
+		return err
+	}
 
 	if fPath == "" {
-		common.ExitOnErr(cmd, "", errors.New("missing session token flag"))
+		return errors.New("missing session token flag")
 	}
 
 	type iTokenSession interface {
@@ -60,26 +62,37 @@ func signSessionToken(cmd *cobra.Command, _ []string) {
 		}
 	}
 
-	common.ExitOnErr(cmd, "decode session: %v", errLast)
+	if errLast != nil {
+		return fmt.Errorf("decode session: %v", errLast)
+	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	err = stok.Sign(user.NewAutoIDSignerRFC6979(*pk))
-	common.ExitOnErr(cmd, "can't sign token: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't sign token: %w", err)
+	}
 
 	data, err := stok.MarshalJSON()
-	common.ExitOnErr(cmd, "can't encode session token: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't encode session token: %w", err)
+	}
 
 	to := cmd.Flag(signToFlag).Value.String()
 	if len(to) == 0 {
 		common.PrettyPrintJSON(cmd, stok, "session token")
-		return
+		return nil
 	}
 
 	err = os.WriteFile(to, data, 0o644)
 	if err != nil {
-		common.ExitOnErr(cmd, "", fmt.Errorf("can't write signed session token to %s: %w", to, err))
+		return fmt.Errorf("can't write signed session token to %s: %w", to, err)
 	}
 
 	cmd.Printf("signed session token saved in %s\n", to)
+
+	return nil
 }

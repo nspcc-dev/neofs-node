@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"fmt"
+
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
@@ -11,15 +13,18 @@ var listGraveyardCMD = &cobra.Command{
 	Short: "Graveyard listing",
 	Long:  `List all the objects that have been covered with a Tomb Stone.`,
 	Args:  cobra.NoArgs,
-	Run:   listGraveyardFunc,
+	RunE:  listGraveyardFunc,
 }
 
 func init() {
 	common.AddComponentPathFlag(listGraveyardCMD, &vPath)
 }
 
-func listGraveyardFunc(cmd *cobra.Command, _ []string) {
-	db := openMeta(cmd, true)
+func listGraveyardFunc(cmd *cobra.Command, _ []string) error {
+	db, err := openMeta(true)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	var gravePrm meta.GraveyardIterationPrm
@@ -35,6 +40,10 @@ func listGraveyardFunc(cmd *cobra.Command, _ []string) {
 			return nil
 		})
 
-	err := db.IterateOverGraveyard(gravePrm)
-	common.ExitOnErr(cmd, common.Errf("could not iterate over graveyard bucket: %w", err))
+	err = db.IterateOverGraveyard(gravePrm)
+	if err != nil {
+		return fmt.Errorf("could not iterate over graveyard bucket: %w", err)
+	}
+
+	return nil
 }

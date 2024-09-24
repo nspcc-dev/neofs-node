@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -18,7 +17,7 @@ var objectDelCmd = &cobra.Command{
 	Short:   "Delete object from NeoFS",
 	Long:    "Delete object from NeoFS",
 	Args:    cobra.NoArgs,
-	Run:     deleteObject,
+	RunE:    deleteObject,
 }
 
 func initObjectDeleteCmd() {
@@ -36,7 +35,7 @@ func initObjectDeleteCmd() {
 	_ = objectDelCmd.MarkFlagRequired(commonflags.OIDFlag)
 }
 
-func deleteObject(cmd *cobra.Command, _ []string) {
+func deleteObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -47,17 +46,23 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 	if binary {
 		filename, _ := cmd.Flags().GetString(fileFlag)
 		if filename == "" {
-			common.ExitOnErr(cmd, "", fmt.Errorf("required flag \"%s\" not set", fileFlag))
+			return fmt.Errorf("required flag \"%s\" not set", fileFlag)
 		}
 		var obj oid.ID
-		objAddr := readObjectAddressBin(cmd, &cnr, &obj, filename)
+		objAddr, err := readObjectAddressBin(&cnr, &obj, filename)
+		if err != nil {
+			return err
+		}
 
 		objAddrs = []oid.Address{objAddr}
 	} else {
-		readCID(cmd, &cnr)
+		err := readCID(cmd, &cnr)
+		if err != nil {
+			return err
+		}
 		oIDVals, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)
 		if len(oIDVals) == 0 {
-			common.ExitOnErr(cmd, "", fmt.Errorf("provide at least one object via %s flag", commonflags.OIDFlag))
+			return fmt.Errorf("provide at least one object via %s flag", commonflags.OIDFlag)
 		}
 
 		var obj oid.ID
@@ -66,29 +71,43 @@ func deleteObject(cmd *cobra.Command, _ []string) {
 
 		for _, oIDraw := range oIDVals {
 			err := obj.DecodeString(oIDraw)
-			common.ExitOnErr(cmd, "decode object ID ("+oIDraw+") string: %w", err)
+			if err != nil {
+				return fmt.Errorf("decode object ID (\"+oIDraw+\") string: %w", err)
+			}
 
 			objAddr.SetObject(obj)
 			objAddrs = append(objAddrs, objAddr)
 		}
 	}
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.DeleteObjectPrm
 	prm.SetPrivateKey(*pk)
-	Prepare(cmd, &prm)
+	err = Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
 
 	for _, addr := range objAddrs {
-		ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, addr.Object())
+		err := ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, addr.Object())
+		if err != nil {
+			return err
+		}
 		prm.SetAddress(addr)
 
 		res, err := internalclient.DeleteObject(ctx, prm)
-		common.ExitOnErr(cmd, "rpc error: deleting "+addr.Object().String()+" object: %w", err)
+		if err != nil {
+			return fmt.Errorf("rpc error: deleting \"+addr.Object().String()+\" object: %w", err)
+		}
 
 		tomb := res.Tombstone()
 
 		cmd.Printf("Object %s removed successfully.\n", addr.Object())
 		cmd.Printf("  ID: %s\n  CID: %s\n", tomb, cnr)
 	}
+	return nil
 }

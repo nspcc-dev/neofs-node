@@ -48,7 +48,7 @@ const (
 var RootCmd = &cobra.Command{
 	Use:   "storage-config [-w wallet] [-a acccount] [<path-to-config>]",
 	Short: "Section for storage node configuration commands",
-	Run:   storageConfig,
+	RunE:  storageConfig,
 }
 
 func init() {
@@ -79,12 +79,17 @@ type config struct {
 	MetabasePath string
 }
 
-func storageConfig(cmd *cobra.Command, args []string) {
+func storageConfig(cmd *cobra.Command, args []string) error {
 	var outPath string
+	var err error
+
 	if len(args) != 0 {
 		outPath = args[0]
 	} else {
-		outPath = getPath("File to write config at [./config.yml]: ")
+		outPath, err = getPath("File to write config at [./config.yml]: ")
+		if err != nil {
+			return err
+		}
 		if outPath == "" {
 			outPath = "./config.yml"
 		}
@@ -97,40 +102,57 @@ func storageConfig(cmd *cobra.Command, args []string) {
 
 	c.Wallet.Path, _ = cmd.Flags().GetString(walletFlag)
 	if c.Wallet.Path == "" {
-		c.Wallet.Path = getPath("Path to the storage node wallet: ")
+		c.Wallet.Path, err = getPath("Path to the storage node wallet: ")
+		if err != nil {
+			return err
+		}
 	}
 
 	w, err := wallet.NewWalletFromFile(c.Wallet.Path)
-	fatalOnErr(err)
+	if err != nil {
+		return err
+	}
 
 	c.Wallet.Account, _ = cmd.Flags().GetString(accountFlag)
 	if c.Wallet.Account == "" {
 		addr := address.Uint160ToString(w.GetChangeAddress())
-		c.Wallet.Account = getWalletAccount(w, fmt.Sprintf("Wallet account [%s]: ", addr))
+		c.Wallet.Account, err = getWalletAccount(w, fmt.Sprintf("Wallet account [%s]: ", addr))
+		if err != nil {
+			return err
+		}
 		if c.Wallet.Account == "" {
 			c.Wallet.Account = addr
 		}
 	}
 
 	accH, err := flags.ParseAddress(c.Wallet.Account)
-	fatalOnErr(err)
+	if err != nil {
+		return err
+	}
 
 	acc := w.GetAccount(accH)
 	if acc == nil {
-		fatalOnErr(errors.New("can't find account in wallet"))
+		return errors.New("can't find account in wallet")
 	}
 
 	c.Wallet.Password, err = input.ReadPassword(fmt.Sprintf("Account password for %s: ", c.Wallet.Account))
-	fatalOnErr(err)
+	if err != nil {
+		return err
+	}
 
 	err = acc.Decrypt(c.Wallet.Password, keys.NEP2ScryptParams())
-	fatalOnErr(err)
+	if err != nil {
+		return err
+	}
 
 	c.AuthorizedKeys = append(c.AuthorizedKeys, acc.PublicKey().StringCompressed())
 
 	var network string
 	for {
-		network = getString("Choose network [mainnet]/testnet: ")
+		network, err = getString("Choose network [mainnet]/testnet: ")
+		if err != nil {
+			return err
+		}
 		switch network {
 		case "":
 			network = "mainnet"
@@ -144,12 +166,20 @@ func storageConfig(cmd *cobra.Command, args []string) {
 
 	c.MorphRPC = n3config[network].MorphRPC
 
-	depositGas(cmd, acc, network)
+	if err := depositGas(cmd, acc, network); err != nil {
+		return err
+	}
 
-	c.Attribute.Locode = getString("UN-LOCODE attribute in [XX YYY] format: ")
+	c.Attribute.Locode, err = getString("UN-LOCODE attribute in [XX YYY] format: ")
+	if err != nil {
+		return err
+	}
 	var addr, port string
 	for {
-		c.AnnouncedAddress = getString("Publicly announced address: ")
+		c.AnnouncedAddress, err = getString("Publicly announced address: ")
+		if err != nil {
+			return err
+		}
 		validator := netutil.Address{}
 		err := validator.FromString(c.AnnouncedAddress)
 		if err != nil {
@@ -184,35 +214,60 @@ func storageConfig(cmd *cobra.Command, args []string) {
 	}
 
 	defaultAddr := net.JoinHostPort(defaultDataEndpoint, port)
-	c.Endpoint = getString(fmt.Sprintf("Listening address [%s]: ", defaultAddr))
+	c.Endpoint, err = getString(fmt.Sprintf("Listening address [%s]: ", defaultAddr))
+	if err != nil {
+		return err
+	}
 	if c.Endpoint == "" {
 		c.Endpoint = defaultAddr
 	}
 
-	c.ControlEndpoint = getString(fmt.Sprintf("Listening address (control endpoint) [%s]: ", defaultControlEndpoint))
+	c.ControlEndpoint, err = getString(fmt.Sprintf("Listening address (control endpoint) [%s]: ", defaultControlEndpoint))
+	if err != nil {
+		return err
+	}
 	if c.ControlEndpoint == "" {
 		c.ControlEndpoint = defaultControlEndpoint
 	}
 
-	c.TLSCert = getPath("TLS Certificate (optional): ")
+	c.TLSCert, err = getPath("TLS Certificate (optional): ")
+	if err != nil {
+		return err
+	}
 	if c.TLSCert != "" {
-		c.TLSKey = getPath("TLS Key: ")
+		c.TLSKey, err = getPath("TLS Key: ")
+		if err != nil {
+			return err
+		}
 	}
 
-	c.Relay = getConfirmation(false, "Use node as a relay? yes/[no]: ")
+	c.Relay, err = getConfirmation(false, "Use node as a relay? yes/[no]: ")
+	if err != nil {
+		return err
+	}
 	if !c.Relay {
-		p := getPath("Path to the storage directory (all available storage will be used): ")
+		p, err := getPath("Path to the storage directory (all available storage will be used): ")
+		if err != nil {
+			return err
+		}
 		c.BlobstorPath = filepath.Join(p, "blob")
 		c.MetabasePath = filepath.Join(p, "meta")
 	}
 
-	out := applyTemplate(c)
-	fatalOnErr(os.WriteFile(outPath, out, 0o644))
+	out, err := applyTemplate(c)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(outPath, out, 0o644); err != nil {
+		return err
+	}
 
 	cmd.Println("Node is ready for work! Run `neofs-node -config " + outPath + "`")
+
+	return nil
 }
 
-func getWalletAccount(w *wallet.Wallet, prompt string) string {
+func getWalletAccount(w *wallet.Wallet, prompt string) (string, error) {
 	addrs := make([]readline.PrefixCompleterInterface, len(w.Accounts))
 	for i := range w.Accounts {
 		addrs[i] = readline.PcItem(w.Accounts[i].Address)
@@ -222,17 +277,21 @@ func getWalletAccount(w *wallet.Wallet, prompt string) string {
 	defer readline.SetAutoComplete(nil)
 
 	s, err := readline.Line(prompt)
-	fatalOnErr(err)
-	return strings.TrimSpace(s) // autocompleter can return a string with a trailing space
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(s), nil // autocompleter can return a string with a trailing space
 }
 
-func getString(prompt string) string {
+func getString(prompt string) (string, error) {
 	s, err := readline.Line(prompt)
-	fatalOnErr(err)
+	if err != nil {
+		return "", err
+	}
 	if s != "" {
 		_ = readline.AddHistory(s)
 	}
-	return s
+	return s, nil
 }
 
 type filenameCompleter struct{}
@@ -261,69 +320,73 @@ func (filenameCompleter) Do(line []rune, pos int) (newLine [][]rune, length int)
 	return newLine, 0
 }
 
-func getPath(prompt string) string {
+func getPath(prompt string) (string, error) {
 	readline.SetAutoComplete(filenameCompleter{})
 	defer readline.SetAutoComplete(nil)
 
 	p, err := readline.Line(prompt)
-	fatalOnErr(err)
+	if err != nil {
+		return "", err
+	}
 
 	if p == "" {
-		return p
+		return p, nil
 	}
 
 	_ = readline.AddHistory(p)
 
 	abs, err := filepath.Abs(p)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("can't create an absolute path: %w", err))
+		return "", fmt.Errorf("can't create an absolute path: %w", err)
 	}
 
-	return abs
+	return abs, nil
 }
 
-func getConfirmation(def bool, prompt string) bool {
+func getConfirmation(def bool, prompt string) (bool, error) {
 	for {
 		s, err := readline.Line(prompt)
-		fatalOnErr(err)
+		if err != nil {
+			return false, err
+		}
 
 		switch strings.ToLower(s) {
 		case "y", "yes":
-			return true
+			return true, nil
 		case "n", "no":
-			return false
+			return false, nil
 		default:
 			if len(s) == 0 {
-				return def
+				return def, nil
 			}
 		}
 	}
 }
 
-func applyTemplate(c config) []byte {
+func applyTemplate(c config) ([]byte, error) {
 	tmpl, err := template.New("config").Parse(configTemplate)
-	fatalOnErr(err)
+	if err != nil {
+		return nil, err
+	}
 
 	b := bytes.NewBuffer(nil)
-	fatalOnErr(tmpl.Execute(b, c))
-
-	return b.Bytes()
-}
-
-func fatalOnErr(err error) {
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	if err := tmpl.Execute(b, c); err != nil {
+		return nil, err
 	}
+
+	return b.Bytes(), nil
 }
 
-func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
-	sideClient := initClient(n3config[network].MorphRPC)
+func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) error {
+	sideClient, err := initClient(n3config[network].MorphRPC)
+	if err != nil {
+		return err
+	}
 	balanceHash, _ := util.Uint160DecodeStringLE(n3config[network].BalanceContract)
 
 	sideActor, err := actor.NewSimple(sideClient, acc)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("creating actor over side chain client: %w", err))
+		return fmt.Errorf("creating actor over side chain client: %w", err)
 	}
 
 	sideGas := nep17.NewReader(sideActor, balanceHash)
@@ -331,34 +394,44 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) {
 
 	balance, err := sideGas.BalanceOf(accSH)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("side chain balance: %w", err))
+		return fmt.Errorf("side chain balance: %w", err)
 	}
 
-	ok := getConfirmation(false, fmt.Sprintf("Current NeoFS balance is %s, make a deposit? y/[n]: ",
+	ok, err := getConfirmation(false, fmt.Sprintf("Current NeoFS balance is %s, make a deposit? y/[n]: ",
 		fixedn.ToString(balance, 12)))
+	if err != nil {
+		return err
+	}
 	if !ok {
-		return
+		return nil
 	}
 
-	amountStr := getString("Enter amount in GAS: ")
+	amountStr, err := getString("Enter amount in GAS: ")
+	if err != nil {
+		return err
+	}
+
 	amount, err := fixedn.FromString(amountStr, 8)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("invalid amount: %w", err))
+		return fmt.Errorf("invalid amount: %w", err)
 	}
 
-	mainClient := initClient(n3config[network].RPC)
+	mainClient, err := initClient(n3config[network].RPC)
+	if err != nil {
+		return err
+	}
 	neofsHash, _ := util.Uint160DecodeStringLE(n3config[network].NeoFSContract)
 
 	mainActor, err := actor.NewSimple(mainClient, acc)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("creating actor over main chain client: %w", err))
+		return fmt.Errorf("creating actor over main chain client: %w", err)
 	}
 
 	mainGas := gas.New(mainActor)
 
 	txHash, _, err := mainGas.Transfer(accSH, neofsHash, amount, nil)
 	if err != nil {
-		fatalOnErr(fmt.Errorf("sending TX to the NeoFS contract: %w", err))
+		return fmt.Errorf("sending TX to the NeoFS contract: %w", err)
 	}
 
 	cmd.Print("Waiting for transactions to persist.")
@@ -382,15 +455,17 @@ loop:
 			cmd.Print(".")
 		case <-timer.C:
 			cmd.Printf("\nTimeout while waiting for transaction to persist.\n")
-			if getConfirmation(false, "Continue configuration? yes/[no]: ") {
-				return
+			if flag, err := getConfirmation(false, "Continue configuration? yes/[no]: "); flag || err != nil {
+				return err
 			}
 			os.Exit(1)
 		}
 	}
+
+	return nil
 }
 
-func initClient(rpc []string) *rpcclient.Client {
+func initClient(rpc []string) (*rpcclient.Client, error) {
 	var c *rpcclient.Client
 	var err error
 
@@ -408,9 +483,11 @@ func initClient(rpc []string) *rpcclient.Client {
 		if err = c.Init(); err != nil {
 			continue
 		}
-		return c
+		return c, nil
 	}
 
-	fatalOnErr(fmt.Errorf("can't create N3 client: %w", err))
+	if err != nil {
+		return nil, fmt.Errorf("can't create N3 client: %w", err)
+	}
 	panic("unreachable")
 }

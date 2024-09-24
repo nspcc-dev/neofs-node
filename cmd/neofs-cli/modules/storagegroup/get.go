@@ -2,6 +2,7 @@ package storagegroup
 
 import (
 	"bytes"
+	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -21,7 +22,7 @@ var sgGetCmd = &cobra.Command{
 	Short: "Get storage group from NeoFS",
 	Long:  "Get storage group from NeoFS",
 	Args:  cobra.NoArgs,
-	Run:   getSG,
+	RunE:  getSG,
 }
 
 func initSGGetCmd() {
@@ -38,21 +39,33 @@ func initSGGetCmd() {
 	flags.Bool(sgRawFlag, false, "Set raw request option")
 }
 
-func getSG(cmd *cobra.Command, _ []string) {
+func getSG(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
 	var cnr cid.ID
 	var obj oid.ID
 
-	addr := readObjectAddress(cmd, &cnr, &obj)
-	pk := key.GetOrGenerate(cmd)
+	addr, err := readObjectAddress(cmd, &cnr, &obj)
+	if err != nil {
+		return err
+	}
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 	buf := bytes.NewBuffer(nil)
 
-	cli := internalclient.GetSDKClientByFlag(ctx, cmd, commonflags.RPC)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
 
 	var prm internalclient.GetObjectPrm
-	objectCli.Prepare(cmd, &prm)
+	err = objectCli.Prepare(cmd, &prm)
+	if err != nil {
+		return err
+	}
 	prm.SetClient(cli)
 	prm.SetPrivateKey(*pk)
 
@@ -62,7 +75,9 @@ func getSG(cmd *cobra.Command, _ []string) {
 	prm.SetPayloadWriter(buf)
 
 	res, err := internalclient.GetObject(ctx, prm)
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
 	rawObj := res.Header()
 	rawObj.SetPayload(buf.Bytes())
@@ -70,7 +85,9 @@ func getSG(cmd *cobra.Command, _ []string) {
 	var sg storagegroupSDK.StorageGroup
 
 	err = storagegroupSDK.ReadFromObject(&sg, *rawObj)
-	common.ExitOnErr(cmd, "could not read storage group from the obj: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not read storage group from the obj: %w", err)
+	}
 
 	cmd.Printf("The last active epoch: %d\n", sg.ExpirationEpoch())
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
@@ -83,4 +100,6 @@ func getSG(cmd *cobra.Command, _ []string) {
 			cmd.Printf("\t%s\n", members[i].String())
 		}
 	}
+
+	return nil
 }

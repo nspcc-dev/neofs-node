@@ -3,29 +3,24 @@ package common
 import (
 	"errors"
 	"fmt"
-	"os"
 
+	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
 	sdkstatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/spf13/cobra"
 )
 
 // ErrAwaitTimeout represents the expiration of a polling interval
 // while awaiting a certain condition.
 var ErrAwaitTimeout = errors.New("await timeout expired")
 
-// ExitOnErr prints error and exits with a code depending on the error type
+// WrapError wrap error to cmderr.ExitErr, if it not nil, and add a code depending on the error type
+// Codes:
 //
-//	0 if nil
 //	1 if [sdkstatus.ErrServerInternal] or untyped
 //	2 if [sdkstatus.ErrObjectAccessDenied]
 //	3 if [ErrAwaitTimeout]
-func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
+func WrapError(err error) error {
 	if err == nil {
-		return
-	}
-
-	if errFmt != "" {
-		err = fmt.Errorf(errFmt, err)
+		return nil
 	}
 
 	const (
@@ -54,6 +49,5 @@ func ExitOnErr(cmd *cobra.Command, errFmt string, err error) {
 		code = internal
 	}
 
-	cmd.PrintErrln(err)
-	os.Exit(code)
+	return cmderr.ExitErr{Code: code, Cause: err}
 }

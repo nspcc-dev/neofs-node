@@ -2,10 +2,10 @@ package control
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"os"
 
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -24,7 +24,7 @@ var healthCheckCmd = &cobra.Command{
 	Short: "Health check of the NeoFS node",
 	Long:  "Health check of the NeoFS node. Checks storage node by default, use --ir flag to work with Inner Ring.",
 	Args:  cobra.NoArgs,
-	Run:   healthCheck,
+	RunE:  healthCheck,
 }
 
 func initControlHealthCheckCmd() {
@@ -34,33 +34,45 @@ func initControlHealthCheckCmd() {
 	flags.Bool(healthcheckIRFlag, false, "Communicate with IR node")
 }
 
-func healthCheck(cmd *cobra.Command, _ []string) {
+func healthCheck(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.Get(cmd)
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
-	cli := getClient(ctx, cmd)
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
 
 	if isIR, _ := cmd.Flags().GetBool(healthcheckIRFlag); isIR {
-		healthCheckIR(cmd, pk, cli)
-		return
+		return healthCheckIR(cmd, pk, cli)
 	}
 
 	req := new(control.HealthCheckRequest)
 	req.SetBody(new(control.HealthCheckRequest_Body))
 
-	signRequest(cmd, pk, req)
+	err = signRequest(pk, req)
+	if err != nil {
+		return err
+	}
 
 	var resp *control.HealthCheckResponse
-	var err error
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = control.HealthCheck(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	healthStatus := resp.GetBody().GetHealthStatus()
 
@@ -70,24 +82,32 @@ func healthCheck(cmd *cobra.Command, _ []string) {
 	if healthStatus != control.HealthStatus_READY {
 		os.Exit(1)
 	}
+	return nil
 }
 
-func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) {
+func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) error {
 	req := new(ircontrol.HealthCheckRequest)
 
 	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
 
 	err := ircontrolsrv.SignMessage(key, req)
-	common.ExitOnErr(cmd, "could not sign request: %w", err)
+	if err != nil {
+		return fmt.Errorf("could not sign request: %w", err)
+	}
 
 	var resp *ircontrol.HealthCheckResponse
 	err = c.ExecRaw(func(client *rawclient.Client) error {
 		resp, err = ircontrol.HealthCheck(client, req)
 		return err
 	})
-	common.ExitOnErr(cmd, "rpc error: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
 
-	verifyResponse(cmd, resp.GetSignature(), resp.GetBody())
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
 
 	healthStatus := resp.GetBody().GetHealthStatus()
 
@@ -96,4 +116,5 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 	if healthStatus != ircontrol.HealthStatus_READY {
 		os.Exit(1)
 	}
+	return nil
 }

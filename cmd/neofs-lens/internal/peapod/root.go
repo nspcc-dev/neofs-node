@@ -1,7 +1,8 @@
 package peapod
 
 import (
-	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/spf13/cobra"
@@ -26,18 +27,22 @@ func init() {
 }
 
 // open and returns read-only peapod.Peapod located in vPath.
-func openPeapod(cmd *cobra.Command) *peapod.Peapod {
+func openPeapod() (*peapod.Peapod, error) {
 	// interval prm doesn't matter for read-only usage, but must be positive
 	ppd := peapod.New(vPath, 0400, 1)
 	var compressCfg compression.Config
 
 	err := compressCfg.Init()
-	common.ExitOnErr(cmd, common.Errf("failed to init compression config: %w", err))
+	if err != nil {
+		return nil, fmt.Errorf("failed to init compression config: %w", err)
+	}
 
 	ppd.SetCompressor(&compressCfg)
 
 	err = ppd.Open(true)
-	common.ExitOnErr(cmd, common.Errf("failed to open Peapod: %w", err))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open Peapod: %w", err)
+	}
 
-	return ppd
+	return ppd, nil
 }

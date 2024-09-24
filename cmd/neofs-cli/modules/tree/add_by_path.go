@@ -2,6 +2,7 @@ package tree
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -17,7 +18,7 @@ var addByPathCmd = &cobra.Command{
 	Use:   "add-by-path",
 	Short: "Add a node by the path",
 	Args:  cobra.NoArgs,
-	Run:   addByPath,
+	RunE:  addByPath,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 		commonflags.Bind(cmd)
 	},
@@ -40,28 +41,37 @@ func initAddByPathCmd() {
 	_ = cobra.MarkFlagRequired(ff, pathFlagKey)
 }
 
-func addByPath(cmd *cobra.Command, _ []string) {
+func addByPath(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	pk := key.GetOrGenerate(cmd)
+	pk, err := key.GetOrGenerate(cmd)
+	if err != nil {
+		return err
+	}
 
 	cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 	var cnr cid.ID
-	err := cnr.DecodeString(cidRaw)
-	common.ExitOnErr(cmd, "decode container ID string: %w", err)
+	err = cnr.DecodeString(cidRaw)
+	if err != nil {
+		return fmt.Errorf("decode container ID string: %w", err)
+	}
 
 	tid, _ := cmd.Flags().GetString(treeIDFlagKey)
 
 	cli, err := _client()
-	common.ExitOnErr(cmd, "client: %w", err)
+	if err != nil {
+		return fmt.Errorf("client: %w", err)
+	}
 
 	rawCID := make([]byte, sha256.Size)
 	cnr.Encode(rawCID)
 
 	meta, err := parseMeta(cmd)
-	common.ExitOnErr(cmd, "meta data parsing: %w", err)
+	if err != nil {
+		return fmt.Errorf("meta data parsing: %w", err)
+	}
 
 	path, _ := cmd.Flags().GetString(pathFlagKey)
 	//pAttr, _ := cmd.Flags().GetString(pathAttributeFlagKey)
@@ -77,21 +87,27 @@ func addByPath(cmd *cobra.Command, _ []string) {
 		BearerToken: nil, // TODO: #1891 add token handling
 	}
 
-	common.ExitOnErr(cmd, "message signing: %w", tree.SignMessage(req, pk))
+	if err := tree.SignMessage(req, pk); err != nil {
+		return fmt.Errorf("message signing: %w", err)
+	}
 
 	resp, err := cli.AddByPath(ctx, req)
-	common.ExitOnErr(cmd, "rpc call: %w", err)
+	if err != nil {
+		return fmt.Errorf("rpc call: %w", err)
+	}
 
 	cmd.Printf("Parent ID: %d\n", resp.GetBody().GetParentId())
 
 	nn := resp.GetBody().GetNodes()
 	if len(nn) == 0 {
 		common.PrintVerbose(cmd, "No new nodes were created")
-		return
+		return nil
 	}
 
 	cmd.Println("Created nodes:")
 	for _, node := range resp.GetBody().GetNodes() {
 		cmd.Printf("\t%d\n", node)
 	}
+
+	return nil
 }

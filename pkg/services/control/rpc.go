@@ -115,7 +115,7 @@ func ListShards(
 func ListObjects(
 	cli *client.Client,
 	req *ListObjectsRequest,
-	handleResp func(*ListObjectsResponse),
+	handleResp func(*ListObjectsResponse) error,
 	opts ...client.CallOption,
 ) error {
 	wReq := &requestWrapper{
@@ -138,7 +138,11 @@ func ListObjects(
 		if err != nil {
 			return err
 		}
-		handleResp(wResp.m)
+
+		err = handleResp(wResp.m)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -35,7 +35,7 @@ In this case --` + commonflags.RPC + ` flag should be specified and the epoch in
 is set to current epoch + n.
 `,
 	Args: cobra.NoArgs,
-	Run:  createToken,
+	RunE: createToken,
 }
 
 func init() {
@@ -58,16 +58,22 @@ func init() {
 	createCmd.MarkFlagsOneRequired(commonflags.ExpireAt, commonflags.Lifetime)
 }
 
-func createToken(cmd *cobra.Command, _ []string) {
+func createToken(cmd *cobra.Command, _ []string) error {
 	iat, iatRelative, err := common.ParseEpoch(cmd, issuedAtFlag)
-	common.ExitOnErr(cmd, "can't parse --"+issuedAtFlag+" flag: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't parse --"+issuedAtFlag+" flag: %w", err)
+	}
 
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
 	exp, expRelative, err := common.ParseEpoch(cmd, commonflags.ExpireAt)
-	common.ExitOnErr(cmd, "can't parse --"+commonflags.ExpireAt+" flag: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't parse --"+commonflags.ExpireAt+" flag: %w", err)
+	}
 
 	nvb, nvbRelative, err := common.ParseEpoch(cmd, notValidBeforeFlag)
-	common.ExitOnErr(cmd, "can't parse --"+notValidBeforeFlag+" flag: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't parse --"+notValidBeforeFlag+" flag: %w", err)
+	}
 
 	if iatRelative || expRelative || nvbRelative || lifetime != 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -75,7 +81,9 @@ func createToken(cmd *cobra.Command, _ []string) {
 
 		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
-		common.ExitOnErr(cmd, "can't fetch current epoch: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't fetch current epoch: %w", err)
+		}
 
 		if iatRelative {
 			iat += currEpoch
@@ -91,14 +99,15 @@ func createToken(cmd *cobra.Command, _ []string) {
 		}
 	}
 	if exp < nvb {
-		common.ExitOnErr(cmd, "",
-			fmt.Errorf("expiration epoch is less than not-valid-before epoch: %d < %d", exp, nvb))
+		return fmt.Errorf("expiration epoch is less than not-valid-before epoch: %d < %d", exp, nvb)
 	}
 
 	ownerStr, _ := cmd.Flags().GetString(ownerFlag)
 
 	var ownerID user.ID
-	common.ExitOnErr(cmd, "can't parse recipient: %w", ownerID.DecodeString(ownerStr))
+	if err := ownerID.DecodeString(ownerStr); err != nil {
+		return fmt.Errorf("can't parse recipient: %w", err)
+	}
 
 	var b bearer.Token
 	b.SetExp(exp)
@@ -109,9 +118,13 @@ func createToken(cmd *cobra.Command, _ []string) {
 	eaclPath, _ := cmd.Flags().GetString(eaclFlag)
 	if eaclPath != "" {
 		raw, err := os.ReadFile(eaclPath)
-		common.ExitOnErr(cmd, "can't read extended ACL file: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't read extended ACL file: %w", err)
+		}
 		table, err := eaclSDK.UnmarshalJSON(raw)
-		common.ExitOnErr(cmd, "can't parse extended ACL: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't parse extended ACL: %w", err)
+		}
 		b.SetEACLTable(table)
 	}
 
@@ -120,12 +133,18 @@ func createToken(cmd *cobra.Command, _ []string) {
 	toJSON, _ := cmd.Flags().GetBool(jsonFlag)
 	if toJSON {
 		data, err = json.Marshal(b)
-		common.ExitOnErr(cmd, "can't mashal token to JSON: %w", err)
+		if err != nil {
+			return fmt.Errorf("can't marshal token to JSON: %w", err)
+		}
 	} else {
 		data = b.Marshal()
 	}
 
 	out, _ := cmd.Flags().GetString(outFlag)
 	err = os.WriteFile(out, data, 0o644)
-	common.ExitOnErr(cmd, "can't write token to file: %w", err)
+	if err != nil {
+		return fmt.Errorf("can't write token to file: %w", err)
+	}
+
+	return nil
 }

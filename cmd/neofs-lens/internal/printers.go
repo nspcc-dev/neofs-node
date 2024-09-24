@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -55,19 +56,22 @@ func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
 
 // WriteObjectToFile writes object to the provided path. Does nothing if
 // the path is empty.
-func WriteObjectToFile(cmd *cobra.Command, path string, data []byte, payloadOnly bool) {
+func WriteObjectToFile(cmd *cobra.Command, path string, data []byte, payloadOnly bool) error {
 	if path == "" {
-		return
+		return nil
 	}
 
-	ExitOnErr(cmd, Errf("could not write file: %w",
-		os.WriteFile(path, data, 0o644)))
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("could not write file: %w", err)
+	}
 
 	if payloadOnly {
 		cmd.Printf("\nSaved payload to '%s' file\n", path)
-		return
+		return nil
 	}
 	cmd.Printf("\nSaved object to '%s' file\n", path)
+
+	return nil
 }
 
 // PrintStorageObjectStatus prints object status.
