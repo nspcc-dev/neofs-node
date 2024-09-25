@@ -157,7 +157,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					return fmt.Errorf("container creation: %s", common.ErrAwaitTimeout)
+					return fmt.Errorf("container creation: %w", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 

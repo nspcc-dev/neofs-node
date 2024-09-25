@@ -32,7 +32,7 @@ var objectLockCmd = &cobra.Command{
 		var cnr cid.ID
 		err := cnr.DecodeString(cidRaw)
 		if err != nil {
-			return fmt.Errorf("Incorrect container arg: %v", err)
+			return fmt.Errorf("Incorrect container arg: %w", err)
 		}
 
 		oidsRaw, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)

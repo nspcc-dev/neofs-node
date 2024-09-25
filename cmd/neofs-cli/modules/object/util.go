@@ -162,7 +162,7 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 
 	err := common.ReadBinaryOrJSON(cmd, &tok, path)
 	if err != nil {
-		return nil, fmt.Errorf("read session: %v", err)
+		return nil, fmt.Errorf("read session: %w", err)
 	}
 
 	return &tok, nil
