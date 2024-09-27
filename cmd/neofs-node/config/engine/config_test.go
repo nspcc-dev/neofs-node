@@ -46,6 +46,7 @@ func TestEngineSection(t *testing.T) {
 
 		require.EqualValues(t, 100, engineconfig.ShardErrorThreshold(c))
 		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
+		require.EqualValues(t, true, engineconfig.IgnoreUninitedShards(c))
 
 		err := engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) error {
 			defer func() {
