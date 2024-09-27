@@ -83,3 +83,10 @@ func ShardPoolSize(c *config.Config) uint32 {
 func ShardErrorThreshold(c *config.Config) uint32 {
 	return config.Uint32Safe(c.Sub(subsection), "shard_ro_error_threshold")
 }
+
+// IgnoreUninitedShards returns the value of "ignore_uninited_shards" config parameter from "storage" section.
+//
+// Returns false if the value is missing.
+func IgnoreUninitedShards(c *config.Config) bool {
+	return config.BoolSafe(c.Sub(subsection), "ignore_uninited_shards")
+}

@@ -203,6 +203,8 @@ type cfg struct {
 	shardPoolSize uint32
 
 	containerSource container.Source
+
+	isIgnoreUninitedShards bool
 }
 
 func defaultCfg() *cfg {
@@ -263,5 +265,12 @@ func WithErrorThreshold(sz uint32) Option {
 func WithContainersSource(cs container.Source) Option {
 	return func(c *cfg) {
 		c.containerSource = cs
+	}
+}
+
+// WithIgnoreUninitedShards return an option to specify whether uninited shards should be ignored.
+func WithIgnoreUninitedShards(flag bool) Option {
+	return func(c *cfg) {
+		c.isIgnoreUninitedShards = flag
 	}
 }

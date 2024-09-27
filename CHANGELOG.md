@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 - New health status `INITIALIZING_NETWORK` in inner ring (#2934)
 - Expose health status of inner ring via Prometheus (#2934)
 - `neofs-cli control object list` command (#2853)
+- `node` config option `storage.ignore_uninited_shards` (#2953)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)

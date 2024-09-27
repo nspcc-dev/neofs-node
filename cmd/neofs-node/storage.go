@@ -83,6 +83,7 @@ func (c *cfg) engineOpts() []engine.Option {
 		engine.WithErrorThreshold(c.engine.errorThreshold),
 
 		engine.WithLogger(c.log),
+		engine.WithIgnoreUninitedShards(c.engine.isIgnoreUninitedShards),
 	)
 
 	if c.shared.basics.ttl > 0 {
