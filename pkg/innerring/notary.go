@@ -31,10 +31,12 @@ func (s *Server) depositMainNotary() error {
 		return fmt.Errorf("could not calculate main notary deposit amount: %w", err)
 	}
 
-	return s.mainnetClient.DepositNotary(
-		depositAmount,
-		uint32(s.epochDuration.Load())+notaryExtraBlocks,
-	)
+	till := uint32(s.epochDuration.Load()) + notaryExtraBlocks
+	s.log.Debug("making main chain notary deposit",
+		zap.Stringer("fixed8 deposit", depositAmount),
+		zap.Uint32("till", till))
+
+	return s.mainnetClient.DepositNotary(depositAmount, till)
 }
 
 func (s *Server) depositSideNotary() error {
@@ -42,6 +44,8 @@ func (s *Server) depositSideNotary() error {
 	if err != nil {
 		return fmt.Errorf("could not calculate side notary deposit amount: %w", err)
 	}
+
+	s.log.Debug("making neofs chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
 
 	return s.morphClient.DepositEndlessNotary(depositAmount)
 }

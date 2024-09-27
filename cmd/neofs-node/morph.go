@@ -54,6 +54,8 @@ func makeNotaryDeposit(c *cfg) error {
 		return fmt.Errorf("could not calculate notary deposit: %w", err)
 	}
 
+	c.log.Debug("making neofs chain notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
+
 	return c.cfgMorph.client.DepositEndlessNotary(depositAmount)
 }
 
