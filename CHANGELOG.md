@@ -9,6 +9,8 @@ Changelog for NeoFS Node
 - Expose health status of inner ring via Prometheus (#2934)
 - `neofs-cli control object list` command (#2853)
 - `node` config option `storage.ignore_uninited_shards` (#2953)
+- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME` 
+attribute, which is used for container domain name in NNS contracts (#2954)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
@@ -17,8 +19,6 @@ Changelog for NeoFS Node
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
 - Metabase graveyard scheme (#2929)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
-- For `neofs-cli container create`, `--name` flag sets also `__NEOFS__NAME` attribute, which
-  is used for container domain name in NNS contracts (#2950)
 
 ### Removed
 
