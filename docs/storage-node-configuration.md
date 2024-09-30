@@ -151,6 +151,7 @@ Local storage engine configuration.
 |----------------------------|-----------------------------------|---------------|------------------------------------------------------------------------------------------------------------------|
 | `shard_pool_size`          | `int`                             | `20`          | Pool size for shard workers. Limits the amount of concurrent `PUT` operations on each shard.                     |
 | `shard_ro_error_threshold` | `int`                             | `0`           | Maximum amount of storage errors to encounter before shard automatically moves to `Degraded` or `ReadOnly` mode. |
+| `ignore_uninited_shards`   | `bool`                            | `false`       | Flag that specifies whether uninited shards should be ignored.                                                   |
 | `shard`                    | [Shard config](#shard-subsection) |               | Configuration for separate shards.                                                                               |
 
 ## `shard` subsection

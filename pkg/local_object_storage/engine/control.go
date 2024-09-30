@@ -21,7 +21,14 @@ func (e *StorageEngine) open() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Open(); err != nil {
-			return fmt.Errorf("open shard %s: %w", id, err)
+			if !e.cfg.isIgnoreUninitedShards {
+				return fmt.Errorf("open shard %s: %w", id, err)
+			}
+			e.log.Debug("could not open shard",
+				zap.String("id", id),
+				zap.String("error", err.Error()),
+			)
+			delete(e.shards, id)
 		}
 	}
 
@@ -35,7 +42,14 @@ func (e *StorageEngine) Init() error {
 
 	for id, sh := range e.shards {
 		if err := sh.Init(); err != nil {
-			return fmt.Errorf("init shard %s: %w", id, err)
+			if !e.cfg.isIgnoreUninitedShards {
+				return fmt.Errorf("init shard %s: %w", id, err)
+			}
+			e.log.Debug("could not init shard",
+				zap.String("id", id),
+				zap.String("error", err.Error()),
+			)
+			delete(e.shards, id)
 		}
 	}
 

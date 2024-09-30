@@ -120,6 +120,7 @@
   "storage": {
     "shard_pool_size": 15,
     "shard_ro_error_threshold": 100,
+    "ignore_uninited_shards": true,
     "shard": {
       "0": {
         "mode": "read-only",
