@@ -27,6 +27,7 @@ var (
 	containerName        string
 	containerNoTimestamp bool
 	force                bool
+	containerGlobalName  bool
 )
 
 var createContainerCmd = &cobra.Command{
@@ -36,6 +37,10 @@ var createContainerCmd = &cobra.Command{
 It will be stored in sidechain when inner ring will accepts it.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		if containerName == "" && containerGlobalName {
+			return errors.New("--global-name requires a name attribute")
+		}
+
 		ctx, cancel := getAwaitContext(cmd)
 		defer cancel()
 
@@ -181,10 +186,11 @@ func initContainerCreateCmd() {
 	flags.StringSliceVarP(&containerAttributes, "attributes", "a", nil, "Comma separated pairs of container attributes in form of Key1=Value1,Key2=Value2")
 	flags.BoolVar(&containerAwait, "await", false, fmt.Sprintf("Block execution until container is persisted. "+
 		"Increases default execution timeout to %.0fs", awaitTimeout.Seconds())) // simple %s notation prints 1m0s https://github.com/golang/go/issues/39064
-	flags.StringVar(&containerName, "name", "", "Container name attribute and domain name attribute, that is registered with the default zone in NNS contract")
+	flags.StringVar(&containerName, "name", "", "Container name attribute")
 	flags.BoolVar(&containerNoTimestamp, "disable-timestamp", false, "Disable timestamp container attribute")
 	flags.BoolVarP(&force, commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
 		"Skip placement validity check")
+	flags.BoolVar(&containerGlobalName, "global-name", false, "Name becomes a domain name, that is registered with the default zone in NNS contract. Requires name attribute.")
 }
 
 func parseContainerPolicy(cmd *cobra.Command, policyString string) (*netmap.PlacementPolicy, error) {
@@ -233,9 +239,11 @@ func parseAttributes(dst *container.Container, attributes []string) error {
 	if containerName != "" {
 		dst.SetName(containerName)
 
-		var d container.Domain
-		d.SetName(containerName)
-		dst.WriteDomain(d)
+		if containerGlobalName {
+			var d container.Domain
+			d.SetName(containerName)
+			dst.WriteDomain(d)
+		}
 	}
 
 	return nil
