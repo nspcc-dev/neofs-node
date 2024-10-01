@@ -10,19 +10,19 @@ import (
 // IsErrNotFound checks if error returned by Shard Get/Head/GetRange method
 // corresponds to missing object.
 func IsErrNotFound(err error) bool {
-	return errors.As(err, new(apistatus.ObjectNotFound))
+	return errors.Is(err, apistatus.ErrObjectNotFound)
 }
 
 // IsErrRemoved checks if error returned by Shard Exists/Get/Head/GetRange method
 // corresponds to removed object.
 func IsErrRemoved(err error) bool {
-	return errors.As(err, new(apistatus.ObjectAlreadyRemoved))
+	return errors.Is(err, apistatus.ErrObjectAlreadyRemoved)
 }
 
 // IsErrOutOfRange checks if an error returned by Shard GetRange method
 // corresponds to exceeding the object bounds.
 func IsErrOutOfRange(err error) bool {
-	return errors.As(err, new(apistatus.ObjectOutOfRange))
+	return errors.Is(err, apistatus.ErrObjectOutOfRange)
 }
 
 // IsErrObjectExpired checks if an error returned by Shard corresponds to
