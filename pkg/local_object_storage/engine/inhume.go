@@ -162,7 +162,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 			var siErr *objectSDK.SplitInfoError
 			if !errors.As(err, &siErr) {
-				e.reportShardError(sh, "could not check for presents in shard", err)
+				e.reportShardError(sh, "could not check for presence in shard", err, zap.Stringer("addr", addr))
 				return
 			}
 
