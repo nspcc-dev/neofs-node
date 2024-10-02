@@ -96,7 +96,11 @@ func getSG(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("storage group's expiration: %w", err)
 	}
 
-	cmd.Printf("The last active epoch: %d\n", expiration)
+	if errors.Is(err, object.ErrNoExpiration) {
+		cmd.Printf("No expiration epoch")
+	} else {
+		cmd.Printf("The last active epoch: %d\n", expiration)
+	}
 	cmd.Printf("Group size: %d\n", sg.ValidationDataSize())
 	common.PrintChecksum(cmd, "Group hash", sg.ValidationDataHash)
 
