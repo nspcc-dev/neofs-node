@@ -182,7 +182,6 @@ contracts:
   proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain
   reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
   alphabet:
-    amount: 7                                         # Optional: override amount of alphabet contracts
     az: c1d211fceeb4b1dc76b8e4054d11fdf887e418ea      # Optional: override address of az alphabet contract in sidechain
     buky: e2ba789320899658b100f331bdebb74474757920    # Optional: override address of buky alphabet contract in sidechain
     vedi: 9623c11fd49aa18220458fbaae0396749c669e19    # Optional: override address of vedi alphabet contract in sidechain

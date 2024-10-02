@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
-	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -91,34 +90,16 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 }
 
 func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
-	var num int
-	const numConfigKey = "contracts.alphabet.amount"
-	if cfg.IsSet(numConfigKey) {
-		u, err := cast.ToUintE(cfg.Get(numConfigKey))
-		if err != nil {
-			return nil, fmt.Errorf("invalid config '%s': %w", numConfigKey, err)
-		}
-		num = int(u)
-	} else {
-		committee, err := morph.Committee()
-		if err != nil {
-			return nil, fmt.Errorf("get Sidechain committee: %w", err)
-		}
-		num = len(committee)
+	committee, err := morph.Committee()
+	if err != nil {
+		return nil, fmt.Errorf("get Sidechain committee: %w", err)
 	}
+	num := len(committee)
 
 	alpha := newAlphabetContracts()
 
 	if num > glagolitsa.Size {
 		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
-	}
-
-	thresholdIsSet := num != 0
-
-	if !thresholdIsSet {
-		// try to read maximum alphabet contracts
-		// if threshold has not been set manually
-		num = glagolitsa.Size
 	}
 
 	for ind := range num {
@@ -138,7 +119,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Vip
 		alpha.set(ind, contractHash)
 	}
 
-	if thresholdIsSet && len(alpha) != int(num) {
+	if len(alpha) != int(num) {
 		return nil, fmt.Errorf("could not read all contracts: required %d, read %d", num, len(alpha))
 	}
 
