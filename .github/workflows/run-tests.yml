@@ -122,7 +122,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neofs-s3-gw'
-          version: 'tags/v0.31.1'
+          version: 'tags/v0.32.0'
           file: 'neofs-s3-gw-${{ matrix.os.binary }}'
           target: 'neofs-testcases/neofs-s3-gw'
 
@@ -130,7 +130,7 @@ jobs:
         uses: dsaltares/fetch-gh-release-asset@1.1.1
         with:
           repo: 'nspcc-dev/neofs-s3-gw'
-          version: 'tags/v0.31.1'
+          version: 'tags/v0.32.0'
           file: 'neofs-s3-authmate-${{ matrix.os.binary }}'
           target: 'neofs-testcases/neofs-s3-authmate'
 
