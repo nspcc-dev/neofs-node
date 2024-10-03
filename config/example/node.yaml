@@ -12,7 +12,6 @@ prometheus:
   shutdown_timeout: 15s  # timeout for metrics HTTP server graceful shutdown
 
 node:
-  key: ./wallet.key  # path to a binary private key
   wallet:
     path: "./wallet.json"  # path to a NEO wallet; ignored if key is presented
     address: "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz"  # address of a NEO account in the wallet; ignored if key is presented

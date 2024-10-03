@@ -289,8 +289,7 @@ node:
 
 | Parameter             | Type                                                          | Default value | Description                                                                                                          |
 |-----------------------|---------------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
-| `key`                 | `string`                                                      |               | Path to the binary-encoded private key.                                                                              |
-| `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration. Has no effect if `key` is provided.                                                            |
+| `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration.                                                                                                |
 | `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                                                                  |
 | `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |

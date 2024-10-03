@@ -2,7 +2,6 @@ package nodeconfig
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -37,34 +36,6 @@ const (
 	// NotificationTimeoutDefault is a default timeout for object notification operation.
 	NotificationTimeoutDefault = 5 * time.Second
 )
-
-// Key returns the  value of "key" config parameter
-// from "node" section.
-//
-// If the  value is not set, fallbacks to Wallet section.
-//
-// Panics if the  value is incorrect filename of binary encoded private key.
-func Key(c *config.Config) *keys.PrivateKey {
-	v := config.StringSafe(c.Sub(subsection), "key")
-	if v == "" {
-		return Wallet(c)
-	}
-
-	var (
-		key  *keys.PrivateKey
-		err  error
-		data []byte
-	)
-	if data, err = os.ReadFile(v); err == nil {
-		key, err = keys.NewPrivateKeyFromBytes(data)
-	}
-
-	if err != nil {
-		panic(fmt.Errorf("invalid private key in node section: %w", err))
-	}
-
-	return key
-}
 
 // Wallet returns the value of a node private key from "node" section.
 //
