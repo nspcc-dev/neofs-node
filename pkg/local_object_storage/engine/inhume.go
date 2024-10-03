@@ -154,6 +154,10 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 		res, err := sh.Exists(existPrm)
 		if err != nil {
+			if shard.IsErrNotFound(err) {
+				return false
+			}
+
 			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 				// inhumed once - no need to be inhumed again
 				ok = true
@@ -162,7 +166,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 			var siErr *objectSDK.SplitInfoError
 			if !errors.As(err, &siErr) {
-				e.reportShardError(sh, "could not check for presents in shard", err)
+				e.reportShardError(sh, "could not check for presence in shard", err, zap.Stringer("addr", addr))
 				return
 			}
 

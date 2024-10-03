@@ -10,6 +10,7 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -152,5 +153,22 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		// object was on the wrong (according to hash sorting) shard but is removed anyway
 		_, err = wrongShard.Get(getPrm)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
+	})
+
+	t.Run("inhuming object twice", func(t *testing.T) {
+		addr := oidtest.Address()
+
+		e := testNewEngineWithShardNum(t, 3)
+		defer e.Close()
+
+		var inhumePrm InhumePrm
+		inhumePrm.MarkAsGarbage(addr)
+
+		_, err := e.Inhume(inhumePrm)
+		require.NoError(t, err)
+
+		// object is marked as garbage but marking it again should not be a problem
+		_, err = e.Inhume(inhumePrm)
+		require.NoError(t, err)
 	})
 }
