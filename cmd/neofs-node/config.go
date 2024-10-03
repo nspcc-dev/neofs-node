@@ -524,7 +524,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	err = writeSystemAttributes(c)
 	fatalOnErr(err)
 
-	key := nodeconfig.Key(appCfg)
+	key := nodeconfig.Wallet(appCfg)
 
 	var netAddr network.AddressGroup
 

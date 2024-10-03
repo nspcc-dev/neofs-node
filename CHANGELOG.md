@@ -21,6 +21,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
 
 ### Removed
+- Support for node.key configuration (#2959)
 
 ### Updated
 - Go to 1.22 version (#2517, #2738)
@@ -29,6 +30,11 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 Metabase version has been increased, auto migrating will be performed once
 a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
 not be undone. No additional work should be done.
+
+Binary keys are no longer supported by storage node, NEP-6 wallet support was
+introduced in version 0.22.3 and support for binary keys was removed from
+other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
+notes) if you've not done it previously.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 

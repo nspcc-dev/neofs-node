@@ -13,7 +13,6 @@
     "shutdown_timeout": "15s"
   },
   "node": {
-    "key": "./wallet.key",
     "wallet": {
       "path": "./wallet.json",
       "address": "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz",

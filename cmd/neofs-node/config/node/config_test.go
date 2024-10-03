@@ -17,13 +17,6 @@ func TestNodeSection(t *testing.T) {
 		require.Panics(
 			t,
 			func() {
-				Key(empty)
-			},
-		)
-
-		require.Panics(
-			t,
-			func() {
 				BootstrapAddresses(empty)
 			},
 		)
@@ -42,7 +35,6 @@ func TestNodeSection(t *testing.T) {
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		key := Key(c)
 		addrs := BootstrapAddresses(c)
 		attributes := Attributes(c)
 		relay := Relay(c)
@@ -71,8 +63,6 @@ func TestNodeSection(t *testing.T) {
 				host: "127.0.0.1:8082",
 			},
 		}
-
-		require.Equal(t, "NbUgTSFvPmsRxmGeWpuuGeJUoRoi6PErcM", key.Address())
 
 		require.EqualValues(t, len(expectedAddr), addrs.Len())
 
