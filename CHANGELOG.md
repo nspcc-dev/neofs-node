@@ -31,6 +31,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - `meta.DB.Open(readOnly)` moves metabase in RO mode (#3000)
 - Panic in event listener related to inability to switch RPC node (#2970)
 - Non-container nodes never check placement policy on PUT, SEARCH requests (#3014)
+- If shards are overloaded with PUT requests, operation is not skipped but waits for 30 seconds (#2871)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
