@@ -2,6 +2,8 @@ package engine
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -10,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -76,38 +79,77 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 	}
 
 	finished := false
+	var bestShard hashedShard
+	var bestPool util.WorkerPool
 
 	e.iterateOverSortedShards(addr, func(ind int, sh hashedShard) (stop bool) {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
+		if ok && bestPool == nil {
+			bestShard = sh
+			bestPool = pool
+		}
 		e.mtx.RUnlock()
 		if !ok {
 			// Shard was concurrently removed, skip.
 			return false
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, prm)
-		finished = putDone || exists
+		exists, err := e.putToShard(sh, ind, pool, addr, prm)
+		finished = err == nil || exists
 		return finished
 	})
 
 	if !finished {
-		err = errPutShard
+		err = e.putToShardWithDeadLine(bestShard, 0, bestPool, addr, prm)
+		if err != nil {
+			e.log.Warn("last stand to put object to the best shard",
+				zap.Stringer("addr", addr),
+				zap.Stringer("shard", bestShard.ID()),
+				zap.Error(err))
+
+			return PutRes{}, errPutShard
+		}
 	}
 
-	return PutRes{}, err
+	return PutRes{}, nil
+}
+
+func (e *StorageEngine) putToShardWithDeadLine(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) error {
+	const deadline = 30 * time.Second
+	timer := time.NewTimer(deadline)
+	defer timer.Stop()
+
+	const putCooldown = 100 * time.Millisecond
+	ticker := time.NewTicker(putCooldown)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timer.C:
+			return fmt.Errorf("could not put object within %s", deadline)
+		case <-ticker.C:
+			_, err := e.putToShard(sh, ind, pool, addr, prm)
+			if errors.Is(err, ants.ErrPoolOverload) {
+				ticker.Reset(putCooldown)
+				continue
+			}
+
+			return err
+		}
+	}
 }
 
 // putToShard puts object to sh.
-// First return value is true iff put has been successfully done.
-// Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) (bool, bool) {
-	var putSuccess, alreadyExists bool
+// Return value is true iff object already exists.
+func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) (bool, error) {
+	var alreadyExists bool
+	var errGlobal error
 	id := sh.ID()
 
 	exitCh := make(chan struct{})
 
-	if err := pool.Submit(func() {
+	err := pool.Submit(func() {
 		defer close(exitCh)
 
 		var existPrm shard.ExistsPrm
@@ -124,7 +166,10 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 				// object is already found but
 				// expired => do nothing with it
 				alreadyExists = true
+				return
 			}
+
+			errGlobal = err
 
 			return // this is not ErrAlreadyRemoved error so we can go to the next shard
 		}
@@ -159,6 +204,8 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 		_, err = sh.Put(putPrm)
 		if err != nil {
+			errGlobal = err
+
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
@@ -167,19 +214,20 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 				return
 			}
 
-			e.reportShardError(sh, "could not put object to shard", err)
+			e.reportShardError(sh, "could not put object to shard", errGlobal)
 			return
 		}
-
-		putSuccess = true
-	}); err != nil {
+	})
+	if err != nil {
 		e.log.Warn("object put: pool task submitting", zap.Stringer("shard", id), zap.Error(err))
 		close(exitCh)
+
+		return false, err
 	}
 
 	<-exitCh
 
-	return putSuccess, alreadyExists
+	return alreadyExists, errGlobal
 }
 
 // Put writes provided object to local storage.
