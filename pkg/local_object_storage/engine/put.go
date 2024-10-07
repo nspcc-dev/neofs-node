@@ -103,6 +103,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 // Second return value is true iff object already exists.
 func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) (bool, bool) {
 	var putSuccess, alreadyExists bool
+	id := sh.ID()
 
 	exitCh := make(chan struct{})
 
@@ -116,7 +117,7 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 		if err != nil {
 			e.log.Warn("object put: check object existence",
 				zap.Stringer("addr", addr),
-				zap.Stringer("shard", sh.ID()),
+				zap.Stringer("shard", id),
 				zap.Error(err))
 
 			if shard.IsErrObjectExpired(err) {
@@ -137,14 +138,14 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 				_, err = sh.ToMoveIt(toMoveItPrm)
 				if err != nil {
 					e.log.Warn("could not mark object for shard relocation",
-						zap.Stringer("shard", sh.ID()),
+						zap.Stringer("shard", id),
 						zap.String("error", err.Error()),
 					)
 				}
 			}
 
 			e.log.Debug("object put: object already exists",
-				zap.Stringer("shard", sh.ID()),
+				zap.Stringer("shard", id),
 				zap.Stringer("addr", addr))
 
 			return
@@ -161,7 +162,7 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
-					zap.Stringer("shard_id", sh.ID()),
+					zap.Stringer("shard_id", id),
 					zap.String("error", err.Error()))
 				return
 			}
@@ -172,7 +173,7 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 		putSuccess = true
 	}); err != nil {
-		e.log.Warn("object put: pool task submitting", zap.Error(err))
+		e.log.Warn("object put: pool task submitting", zap.Stringer("shard", id), zap.Error(err))
 		close(exitCh)
 	}
 
