@@ -70,7 +70,15 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return errors.New("invalid session token signature")
 		}
 
-		// FIXME(@cthulhu-rider): #1387 check token is signed by container owner, see neofs-sdk-go#233
+		var signerPub neofsecdsa.PublicKeyRFC6979
+		if err = signerPub.Decode(tok.IssuerPublicKeyBytes()); err != nil {
+			return fmt.Errorf("invalid issuer public key: %w", err)
+		}
+
+		// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
+		if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
+			return errors.New("session token is not signed by the container owner")
+		}
 
 		if keyProvided && !tok.AssertAuthKey(&key) {
 			return errors.New("signed with a non-session key")

@@ -9,9 +9,16 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
+)
+
+// signSessionCmd specific flags.
+const (
+	forceIssuerFlag = "force-issuer"
 )
 
 var signSessionCmd = &cobra.Command{
@@ -31,6 +38,7 @@ func initSignSessionCmd() {
 	_ = signSessionCmd.MarkFlagRequired(signFromFlag)
 
 	flags.String(signToFlag, "", "File to save signed session token (optional)")
+	flags.Bool(forceIssuerFlag, false, "Set configured account as the session issuer even if it is already specified")
 }
 
 func signSessionToken(cmd *cobra.Command, _ []string) error {
@@ -47,6 +55,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) error {
 		json.Marshaler
 		common.BinaryOrJSON
 		Sign(user.Signer) error
+		SetSignature(neofscrypto.Signer) error
 	}
 	var errLast error
 	var stok iTokenSession
@@ -71,7 +80,15 @@ func signSessionToken(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	err = stok.Sign(user.NewAutoIDSignerRFC6979(*pk))
+	forceIss, err := cmd.Flags().GetBool(forceIssuerFlag)
+	if err != nil {
+		return err
+	}
+	if forceIss {
+		err = stok.Sign(user.NewAutoIDSignerRFC6979(*pk))
+	} else {
+		err = stok.SetSignature(neofsecdsa.SignerRFC6979(*pk))
+	}
 	if err != nil {
 		return fmt.Errorf("can't sign token: %w", err)
 	}
