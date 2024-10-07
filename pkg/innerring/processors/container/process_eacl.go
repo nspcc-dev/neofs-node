@@ -44,8 +44,8 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		return fmt.Errorf("table validation: %w", err)
 	}
 
-	idCnr, ok := table.CID()
-	if !ok {
+	idCnr := table.GetCID()
+	if idCnr.IsZero() {
 		return errors.New("missing container ID in eACL table")
 	}
 

@@ -351,7 +351,7 @@ func (t *boltForest) addBatch(d CIDDescriptor, treeID string, m *Move, ch chan e
 			continue
 		}
 
-		found := t.batches[i].cid.Equals(d.CID) && t.batches[i].treeID == treeID
+		found := t.batches[i].cid == d.CID && t.batches[i].treeID == treeID
 		if found {
 			t.batches[i].results = append(t.batches[i].results, ch)
 			t.batches[i].operations = append(t.batches[i].operations, m)
@@ -720,8 +720,7 @@ func (t *boltForest) TreeList(cid cidSDK.ID) ([]string, error) {
 	}
 
 	var ids []string
-	cidRaw := make([]byte, 32)
-	cid.Encode(cidRaw)
+	cidRaw := cid[:]
 
 	cidLen := len(cidRaw)
 
@@ -788,8 +787,7 @@ func (t *boltForest) TreeDrop(cid cidSDK.ID, treeID string) error {
 	return t.db.Batch(func(tx *bbolt.Tx) error {
 		if treeID == "" {
 			c := tx.Cursor()
-			prefix := make([]byte, 32)
-			cid.Encode(prefix)
+			prefix := cid[:]
 			for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 				err := tx.DeleteBucket(k)
 				if err != nil {
@@ -862,9 +860,8 @@ func (t *boltForest) logToBytes(lm *LogMove) []byte {
 }
 
 func bucketName(cid cidSDK.ID, treeID string) []byte {
-	treeRoot := make([]byte, 32+len(treeID))
-	cid.Encode(treeRoot)
-	copy(treeRoot[32:], treeID)
+	treeRoot := make([]byte, cidSDK.Size+len(treeID))
+	copy(treeRoot[copy(treeRoot, cid[:]):], treeID)
 	return treeRoot
 }
 

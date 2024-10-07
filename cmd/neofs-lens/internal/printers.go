@@ -17,8 +17,8 @@ import (
 func PrintObjectHeader(cmd *cobra.Command, h object.Object) {
 	cmd.Println("Version:", h.Version())
 	cmd.Println("Type:", h.Type())
-	printContainerID(cmd, h.ContainerID)
-	printObjectID(cmd, h.ID)
+	printContainerID(cmd, h.GetContainerID)
+	printObjectID(cmd, h.GetID)
 	cmd.Println("Owner:", h.OwnerID())
 	cmd.Println("CreatedAt:", h.CreationEpoch())
 	cmd.Println("PayloadSize:", h.PayloadSize())
@@ -28,11 +28,11 @@ func PrintObjectHeader(cmd *cobra.Command, h object.Object) {
 	}
 }
 
-func printContainerID(cmd *cobra.Command, recv func() (cid.ID, bool)) {
+func printContainerID(cmd *cobra.Command, recv func() cid.ID) {
 	var val string
 
-	id, ok := recv()
-	if ok {
+	id := recv()
+	if !id.IsZero() {
 		val = id.String()
 	} else {
 		val = "<empty>"
@@ -41,11 +41,11 @@ func printContainerID(cmd *cobra.Command, recv func() (cid.ID, bool)) {
 	cmd.Println("CID:", val)
 }
 
-func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
+func printObjectID(cmd *cobra.Command, recv func() oid.ID) {
 	var val string
 
-	id, ok := recv()
-	if ok {
+	id := recv()
+	if !id.IsZero() {
 		val = id.String()
 	} else {
 		val = "<empty>"

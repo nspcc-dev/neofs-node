@@ -94,8 +94,7 @@ func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncod
 		return nil
 	}
 
-	var id cid.ID
-	cnr.CalculateID(&id)
+	id := cid.NewFromMarshalledContainer(cnr.Marshal())
 	cmd.Println("container ID:", id)
 
 	cmd.Println("owner ID:", cnr.Owner())

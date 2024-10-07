@@ -254,7 +254,7 @@ func ForContainer(cnr container.Container) Option {
 	return func(c *cfg) {
 		c.policy = cnr.PlacementPolicy()
 		c.policySet = true
-		cnr.CalculateID(&c.cnr)
+		c.cnr = cid.NewFromMarshalledContainer(cnr.Marshal())
 	}
 }
 

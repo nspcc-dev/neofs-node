@@ -38,7 +38,7 @@ func TestDeleteBigObject(t *testing.T) {
 		}
 		children[i].SetSplitID(splitID)
 		children[i].SetPayload([]byte{byte(i), byte(i + 1), byte(i + 2)})
-		childIDs[i], _ = children[i].ID()
+		childIDs[i] = children[i].GetID()
 	}
 
 	link := generateObjectWithCID(cnr)

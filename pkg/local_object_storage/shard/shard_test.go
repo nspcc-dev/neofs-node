@@ -110,11 +110,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	ver.SetMajor(2)
 	ver.SetMinor(1)
 
-	var csum checksum.Checksum
-	csum.SetSHA256(sha256.Sum256(data))
-
-	var csumTZ checksum.Checksum
-	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
+	csum := checksum.NewSHA256(sha256.Sum256(data))
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
@@ -124,7 +120,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 	obj.SetVersion(&ver)
 	obj.SetPayload(data)
 	obj.SetPayloadChecksum(csum)
-	obj.SetPayloadHomomorphicHash(csumTZ)
+	obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(csum.Value())))
 
 	return obj
 }

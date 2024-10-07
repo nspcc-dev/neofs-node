@@ -46,13 +46,13 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't unmarshal object from given file: %w", err)
 	}
 
-	id, ok := obj.ID()
-	if !ok {
+	id := obj.GetID()
+	if id.IsZero() {
 		return errors.New("missing ID in object")
 	}
 
-	cnr, ok := obj.ContainerID()
-	if !ok {
+	cnr := obj.GetContainerID()
+	if cnr.IsZero() {
 		return errors.New("missing container ID in object")
 	}
 

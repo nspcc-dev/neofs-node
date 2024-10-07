@@ -189,7 +189,7 @@ func restoreContainers(cmd *cobra.Command, _ []string) error {
 	var id cid.ID
 	b := smartcontract.NewBuilder()
 	for _, cnt := range containers {
-		id.FromBinary(cnt.Value)
+		id = cid.NewFromMarshalledContainer(cnt.Value)
 		if _, ok := requested[id]; !ok {
 			continue
 		}

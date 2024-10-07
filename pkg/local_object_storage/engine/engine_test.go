@@ -181,8 +181,7 @@ func generateObjectWithCID(cnr cid.ID) *object.Object {
 
 	csum := checksumtest.Checksum()
 
-	var csumTZ checksum.Checksum
-	csumTZ.SetTillichZemor(tz.Sum(csum.Value()))
+	csumTZ := checksum.NewTillichZemor(tz.Sum(csum.Value()))
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())

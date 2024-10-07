@@ -93,15 +93,8 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 
 				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
 
-				_, withLink := outSI.Link()
-				_, withLast := outSI.LastPart()
-
 				// stop iterating over shards if SplitInfo structure is complete
-				if withLink && withLast {
-					return true
-				}
-
-				return false
+				return !outSI.GetLink().IsZero() && !outSI.GetLastPart().IsZero()
 			case shard.IsErrRemoved(err):
 				outError = err
 

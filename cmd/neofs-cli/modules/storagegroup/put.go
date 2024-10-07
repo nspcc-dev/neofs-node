@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"strconv"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -60,7 +61,7 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	ownerID := user.ResolveFromECDSAPublicKey(pk.PublicKey)
+	ownerID := user.NewFromECDSAPublicKey(pk.PublicKey)
 
 	var cnr cid.ID
 	err = readCID(cmd, &cnr)
@@ -149,13 +150,34 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		exp = currEpoch + lifetime
 	}
 
-	sg.SetExpirationEpoch(exp)
-
 	obj := object.New()
 	obj.SetContainerID(cnr)
 	obj.SetOwnerID(&ownerID)
 
 	storagegroupSDK.WriteToObject(*sg, obj)
+
+	if exp > 0 {
+		attrs := obj.Attributes()
+		var expAttrFound bool
+		expAttrValue := strconv.FormatUint(exp, 10)
+
+		for i := range attrs {
+			if attrs[i].Key() == object.AttributeExpirationEpoch {
+				attrs[i].SetValue(expAttrValue)
+				expAttrFound = true
+				break
+			}
+		}
+
+		if !expAttrFound {
+			index := len(attrs)
+			attrs = append(attrs, object.Attribute{})
+			attrs[index].SetKey(object.AttributeExpirationEpoch)
+			attrs[index].SetValue(expAttrValue)
+		}
+
+		obj.SetAttributes(attrs...)
+	}
 
 	putPrm.SetPrivateKey(*pk)
 	putPrm.SetHeader(obj)

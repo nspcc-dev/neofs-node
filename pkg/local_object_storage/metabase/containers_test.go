@@ -26,7 +26,7 @@ func TestDB_Containers(t *testing.T) {
 	for range N {
 		obj := generateObject(t)
 
-		cnr, _ := obj.ContainerID()
+		cnr := obj.GetContainerID()
 
 		cids[cnr.EncodeToString()] = 0
 
@@ -49,7 +49,7 @@ func TestDB_Containers(t *testing.T) {
 	assertContains := func(cnrs []cid.ID, cnr cid.ID) {
 		found := false
 		for i := 0; !found && i < len(cnrs); i++ {
-			found = cnrs[i].Equals(cnr)
+			found = cnrs[i] == cnr
 		}
 
 		require.True(t, found)
@@ -62,7 +62,7 @@ func TestDB_Containers(t *testing.T) {
 
 		cnrs, err := db.Containers()
 		require.NoError(t, err)
-		cnr, _ := obj.ContainerID()
+		cnr := obj.GetContainerID()
 
 		assertContains(cnrs, cnr)
 
@@ -80,7 +80,7 @@ func TestDB_Containers(t *testing.T) {
 
 		cnrs, err := db.Containers()
 		require.NoError(t, err)
-		cnr, _ := obj.ContainerID()
+		cnr := obj.GetContainerID()
 		assertContains(cnrs, cnr)
 
 		require.NoError(t, metaToMoveIt(db, object.AddressOf(obj)))
@@ -116,7 +116,7 @@ func TestDB_ContainersCount(t *testing.T) {
 			err := putBig(db, obj)
 			require.NoError(t, err)
 
-			cnr, _ := obj.ContainerID()
+			cnr := obj.GetContainerID()
 			expected = append(expected, cnr)
 		}
 	}
@@ -158,7 +158,7 @@ func TestDB_ContainerSize(t *testing.T) {
 
 			obj := generateObjectWithCID(t, cnr)
 			obj.SetPayloadSize(uint64(size))
-			idParent, _ := parent.ID()
+			idParent := parent.GetID()
 			obj.SetParentID(idParent)
 			obj.SetParent(parent)
 

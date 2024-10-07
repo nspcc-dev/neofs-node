@@ -28,6 +28,7 @@ testfile
 
 # misc
 .neofs-cli.yml
+.golangci.yml
 
 # debhelpers
 **/.debhelper

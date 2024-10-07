@@ -3,7 +3,6 @@ package searchsvc
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strconv"
@@ -22,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,21 +131,6 @@ func (ts *testStorage) addResult(addr cid.ID, ids []oid.ID, err error) {
 	}
 }
 
-func testSHA256() (cs [sha256.Size]byte) {
-	_, _ = rand.Read(cs[:])
-	return cs
-}
-
-func generateIDs(num int) []oid.ID {
-	res := make([]oid.ID, num)
-
-	for i := range num {
-		res[i].SetSHA256(testSHA256())
-	}
-
-	return res
-}
-
 func TestGetLocalOnly(t *testing.T) {
 	ctx := context.Background()
 
@@ -171,7 +156,7 @@ func TestGetLocalOnly(t *testing.T) {
 		svc := newSvc(storage)
 
 		cnr := cidtest.ID()
-		ids := generateIDs(10)
+		ids := oidtest.IDs(10)
 		storage.addResult(cnr, ids, nil)
 
 		w := new(simpleIDWriter)
@@ -252,8 +237,7 @@ func TestGetRemoteSmall(t *testing.T) {
 	var cnr container.Container
 	cnr.SetPlacementPolicy(pp)
 
-	var id cid.ID
-	cnr.CalculateID(&id)
+	id := cid.NewFromMarshalledContainer(cnr.Marshal())
 
 	newSvc := func(b *testPlacementBuilder, c *testClientCache) *Service {
 		svc := &Service{cfg: new(cfg)}
@@ -291,11 +275,11 @@ func TestGetRemoteSmall(t *testing.T) {
 		}
 
 		c1 := newTestStorage()
-		ids1 := generateIDs(10)
+		ids1 := oidtest.IDs(10)
 		c1.addResult(id, ids1, nil)
 
 		c2 := newTestStorage()
-		ids2 := generateIDs(10)
+		ids2 := oidtest.IDs(10)
 		c2.addResult(id, ids2, nil)
 
 		svc := newSvc(builder, &testClientCache{

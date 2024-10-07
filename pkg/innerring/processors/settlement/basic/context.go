@@ -71,9 +71,8 @@ func NewIncomeSettlementContext(p *IncomeSettlementContextPrms) *IncomeSettlemen
 		exchange:        p.Exchange,
 		accounts:        p.Accounts,
 		distributeTable: NewNodeSizeTable(),
+		bankOwner:       user.NewFromScriptHash(util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}),
 	}
-
-	res.bankOwner.SetScriptHash(util.Uint160{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
 
 	return res
 }

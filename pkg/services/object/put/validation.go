@@ -63,9 +63,9 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 			switch {
 			case !csSet:
 				return errors.New("missing homomorphic payload checksum")
-			case cs.Type() != checksum.TZ:
+			case cs.Type() != checksum.TillichZemor:
 				return fmt.Errorf("wrong/unsupported type of homomorphic payload checksum: %s instead of %s",
-					cs.Type(), checksum.TZ)
+					cs.Type(), checksum.TillichZemor)
 			case len(cs.Value()) != tz.Size:
 				return fmt.Errorf("invalid/unsupported length of %s homomorphic payload checksum: %d instead of %d",
 					cs.Type(), len(cs.Value()), tz.Size)
@@ -82,7 +82,7 @@ func (t *validatingTarget) WriteHeader(obj *objectSDK.Object) error {
 			return fmt.Errorf("(%T) unsupported payload checksum type %v", t, typ)
 		case checksum.SHA256:
 			t.hash = sha256.New()
-		case checksum.TZ:
+		case checksum.TillichZemor:
 			t.hash = tz.New()
 		}
 

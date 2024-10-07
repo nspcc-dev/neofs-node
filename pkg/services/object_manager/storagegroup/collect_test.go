@@ -39,8 +39,7 @@ func TestCollectMembers(t *testing.T) {
 		var child object.Object
 		child.SetID(oidtest.ID())
 
-		var cs checksum.Checksum
-		cs.SetSHA256([sha256.Size]byte{1}) // any non-homomorphic
+		cs := checksum.NewSHA256([sha256.Size]byte{1}) // any non-homomorphic
 
 		child.SetPayloadHomomorphicHash(cs)
 
@@ -53,8 +52,8 @@ func TestCollectMembers(t *testing.T) {
 	t.Run("missing member's child ID", func(t *testing.T) {
 		var child object.Object
 
-		_, ok := child.ID()
-		require.False(t, ok)
+		id := child.GetID()
+		require.True(t, id.IsZero())
 
 		src := &mockedObjects{hdr: &child}
 

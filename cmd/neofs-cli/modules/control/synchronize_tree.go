@@ -1,7 +1,6 @@
 package control
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -55,12 +54,9 @@ func synchronizeTree(cmd *cobra.Command, _ []string) error {
 
 	height, _ := cmd.Flags().GetUint64("height")
 
-	rawCID := make([]byte, sha256.Size)
-	cnr.Encode(rawCID)
-
 	req := &control.SynchronizeTreeRequest{
 		Body: &control.SynchronizeTreeRequest_Body{
-			ContainerId: rawCID,
+			ContainerId: cnr[:],
 			TreeId:      treeID,
 			Height:      height,
 		},

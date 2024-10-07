@@ -17,12 +17,12 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 
 	l.Debug("processing node...")
 
-	client, ok := exec.remoteClient(info)
+	remoteClient, ok := exec.remoteClient(info)
 	if !ok {
 		return true
 	}
 
-	obj, err := client.getObject(exec, info)
+	obj, err := remoteClient.getObject(exec, info)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 

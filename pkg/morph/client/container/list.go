@@ -18,7 +18,7 @@ func (c *Client) List(idUser *user.ID) ([]cid.ID, error) {
 	var rawID []byte
 
 	if idUser != nil {
-		rawID = idUser.WalletBytes()
+		rawID = idUser[:]
 	}
 
 	prm := client.TestInvokePrm{}

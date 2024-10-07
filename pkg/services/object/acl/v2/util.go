@@ -151,7 +151,7 @@ func isOwnerFromKey(id user.ID, key []byte) bool {
 		return false
 	}
 
-	return id.Equals(user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(*pubKey)))
+	return id == user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 }
 
 // assertVerb checks that token verb corresponds to op.

@@ -88,8 +88,8 @@ func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object, id []byte,
 	si *objectSDK.SplitInfo, currEpoch uint64, hdrBin []byte) error {
-	cnr, ok := obj.ContainerID()
-	if !ok {
+	cnr := obj.GetContainerID()
+	if cnr.IsZero() {
 		return errors.New("missing container in object")
 	}
 
@@ -123,7 +123,7 @@ func (db *DB) put(
 	}
 
 	if par := obj.Parent(); par != nil && !isParent { // limit depth by two
-		if _, set := par.ID(); set { // skip the first object without useful info
+		if parID := par.GetID(); !parID.IsZero() { // skip the first object without useful info
 			parentSI, err := splitInfoFromObject(obj)
 			if err != nil {
 				return err
@@ -260,8 +260,8 @@ func putUniqueIndexes(
 type updateIndexItemFunc = func(tx *bbolt.Tx, item namedBucketItem) error
 
 func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
-	idObj, _ := obj.ID()
-	cnr, _ := obj.ContainerID()
+	idObj := obj.GetID()
+	cnr := obj.GetContainerID()
 	objKey := objectKey(idObj, make([]byte, objectKeySize))
 	bucketName := make([]byte, bucketKeySize)
 
@@ -277,10 +277,10 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 		return err
 	}
 
-	idParent, ok := obj.ParentID()
+	idParent := obj.GetParentID()
 
 	// index parent ids
-	if ok {
+	if !idParent.IsZero() {
 		err := f(tx, namedBucketItem{
 			name: parentBucketName(cnr, bucketName),
 			key:  objectKey(idParent, make([]byte, objectKeySize)),
@@ -305,12 +305,9 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 
 	// index first object id
 	if firstID, set := obj.FirstID(); set {
-		rawFirstID := make([]byte, objectKeySize)
-		firstID.Encode(rawFirstID)
-
 		err := f(tx, namedBucketItem{
 			name: firstObjectIDBucketName(cnr, bucketName),
-			key:  rawFirstID,
+			key:  firstID[:],
 			val:  objKey,
 		})
 		if err != nil {
@@ -322,8 +319,8 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 }
 
 func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
-	id, _ := obj.ID()
-	cnr, _ := obj.ContainerID()
+	id := obj.GetID()
+	cnr := obj.GetContainerID()
 	objKey := objectKey(id, make([]byte, objectKeySize))
 
 	attrs := obj.Attributes()
@@ -526,15 +523,15 @@ func splitInfoFromObject(obj *objectSDK.Object) (*objectSDK.SplitInfo, error) {
 
 	switch {
 	case isLinkObject(obj):
-		id, ok := obj.ID()
-		if !ok {
+		id := obj.GetID()
+		if id.IsZero() {
 			return nil, errors.New("missing object ID")
 		}
 
 		info.SetLink(id)
 	case isLastObject(obj):
-		id, ok := obj.ID()
-		if !ok {
+		id := obj.GetID()
+		if id.IsZero() {
 			return nil, errors.New("missing object ID")
 		}
 

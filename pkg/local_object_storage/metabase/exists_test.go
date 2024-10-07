@@ -86,7 +86,7 @@ func TestDB_Exists(t *testing.T) {
 
 		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 
 		err := putBig(db, child)
@@ -107,14 +107,14 @@ func TestDB_Exists(t *testing.T) {
 
 		child := generateObjectWithCID(t, cnr)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 
 		link := generateObjectWithCID(t, cnr)
 		link.SetParent(parent)
 		link.SetParentID(idParent)
-		idChild, _ := child.ID()
+		idChild := child.GetID()
 		link.SetChildren(idChild)
 		link.SetSplitID(splitID)
 
@@ -132,12 +132,12 @@ func TestDB_Exists(t *testing.T) {
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
-			id1, _ := child.ID()
-			id2, _ := si.SplitInfo().LastPart()
+			id1 := child.GetID()
+			id2 := si.SplitInfo().GetLastPart()
 			require.Equal(t, id1, id2)
 
-			id1, _ = link.ID()
-			id2, _ = si.SplitInfo().Link()
+			id1 = link.GetID()
+			id2 = si.SplitInfo().GetLink()
 			require.Equal(t, id1, id2)
 		})
 
@@ -155,12 +155,12 @@ func TestDB_Exists(t *testing.T) {
 			require.ErrorAs(t, err, &si)
 			require.Equal(t, splitID, si.SplitInfo().SplitID())
 
-			id1, _ := child.ID()
-			id2, _ := si.SplitInfo().LastPart()
+			id1 := child.GetID()
+			id2 := si.SplitInfo().GetLastPart()
 			require.Equal(t, id1, id2)
 
-			id1, _ = link.ID()
-			id2, _ = si.SplitInfo().Link()
+			id1 = link.GetID()
+			id2 = si.SplitInfo().GetLink()
 			require.Equal(t, id1, id2)
 		})
 	})

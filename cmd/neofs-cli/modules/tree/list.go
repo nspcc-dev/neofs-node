@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -52,12 +51,9 @@ func list(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("client: %w", err)
 	}
 
-	rawCID := make([]byte, sha256.Size)
-	cnr.Encode(rawCID)
-
 	req := &tree.TreeListRequest{
 		Body: &tree.TreeListRequest_Body{
-			ContainerId: rawCID,
+			ContainerId: cnr[:],
 		},
 	}
 

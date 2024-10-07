@@ -54,7 +54,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 
 		child := generateObjectWithCID(cnr)
 		child.SetParent(parent)
-		idParent, _ := parent.ID()
+		idParent := parent.GetID()
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 

@@ -87,7 +87,7 @@ func (s *TokenStore) Get(ownerID user.ID, tokenID []byte) (t *storage.PrivateTok
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		rootBucket := tx.Bucket(sessionsBucket)
 
-		ownerBucket := rootBucket.Bucket(ownerID.WalletBytes())
+		ownerBucket := rootBucket.Bucket(ownerID[:])
 		if ownerBucket == nil {
 			return nil
 		}

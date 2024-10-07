@@ -40,8 +40,8 @@ func CollectMembers(r objutil.ObjectSource, cnr cid.ID, members []oid.ID, calcHo
 		var errMember error
 
 		if err := objutil.IterateSplitLeaves(r, addr, func(leaf *object.Object) bool {
-			id, ok := leaf.ID()
-			if !ok {
+			id := leaf.GetID()
+			if id.IsZero() {
 				errMember = errMissingSplitMemberID
 				return true
 			}
@@ -54,8 +54,8 @@ func CollectMembers(r objutil.ObjectSource, cnr cid.ID, members []oid.ID, calcHo
 				if !csSet {
 					errMember = fmt.Errorf("%w '%s'", errMissingHomomorphicChecksum, id)
 					return true
-				} else if cs.Type() != checksum.TZ {
-					errMember = fmt.Errorf("%w: type '%s' instead of '%s'", errInvalidHomomorphicChecksum, cs.Type(), checksum.TZ)
+				} else if cs.Type() != checksum.TillichZemor {
+					errMember = fmt.Errorf("%w: type '%s' instead of '%s'", errInvalidHomomorphicChecksum, cs.Type(), checksum.TillichZemor)
 					return true
 				}
 				phyHashes = append(phyHashes, cs.Value())
@@ -76,11 +76,10 @@ func CollectMembers(r objutil.ObjectSource, cnr cid.ID, members []oid.ID, calcHo
 	if calcHomoHash {
 		sumHash, err := tz.Concat(phyHashes)
 		if err != nil {
-			return nil, fmt.Errorf("concatenate '%s' checksums of all members: %w", checksum.TZ, err)
+			return nil, fmt.Errorf("concatenate '%s' checksums of all members: %w", checksum.TillichZemor, err)
 		}
 
-		var cs checksum.Checksum
-		cs.SetTillichZemor([tz.Size]byte(sumHash))
+		cs := checksum.NewTillichZemor([tz.Size]byte(sumHash))
 
 		sg.SetValidationDataHash(cs)
 	}

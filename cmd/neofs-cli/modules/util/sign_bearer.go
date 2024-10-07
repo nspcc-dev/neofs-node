@@ -47,7 +47,7 @@ func signBearerToken(cmd *cobra.Command, _ []string) error {
 
 	signer := user.NewAutoIDSignerRFC6979(*pk)
 	var zeroUsr user.ID
-	if issuer := btok.Issuer(); !issuer.Equals(zeroUsr) {
+	if issuer := btok.Issuer(); issuer != zeroUsr {
 		// issuer is already set, don't corrupt it
 		signer = user.NewSigner(signer, issuer)
 	}

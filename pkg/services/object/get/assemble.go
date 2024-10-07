@@ -35,10 +35,10 @@ func (exec *execCtx) assemble() {
 
 	splitInfo := exec.splitInfo()
 
-	childID, ok := splitInfo.Link()
-	if !ok {
-		childID, ok = splitInfo.LastPart()
-		if !ok {
+	childID := splitInfo.GetLink()
+	if childID.IsZero() {
+		childID = splitInfo.GetLastPart()
+		if childID.IsZero() {
 			exec.log.Debug("neither linking nor last part of split-chain is presented in split info")
 			return
 		}
@@ -145,8 +145,8 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 
 	exec.collectedObject.SetPayload(payload)
 
-	idPrev, ok := child.PreviousID()
-	if ok {
+	idPrev := child.GetPreviousID()
+	if !idPrev.IsZero() {
 		return &idPrev, child.Children()
 	}
 
@@ -243,20 +243,21 @@ func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Ran
 				rngs[index].SetOffset(off)
 				rngs[index].SetLength(sz)
 
-				id, _ := head.ID()
+				id := head.GetID()
 				chain = append(chain, id)
 			}
 		} else {
-			id, _ := head.ID()
+			id := head.GetID()
 			chain = append(chain, id)
 		}
 
-		prev, withPrev = head.PreviousID()
+		prev = head.GetPreviousID()
+		withPrev = !prev.IsZero()
 	}
 
 	return chain, rngs, true
 }
 
 func equalAddresses(a, b oid.Address) bool {
-	return a.Container().Equals(b.Container()) && a.Object().Equals(b.Object())
+	return a.Container() == b.Container() && a.Object() == b.Object()
 }

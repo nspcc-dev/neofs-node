@@ -108,7 +108,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			issuer := tok.Issuer()
 			cnr.SetOwner(issuer)
 		} else {
-			cnr.SetOwner(user.ResolveFromECDSAPublicKey(key.PublicKey))
+			cnr.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
 		}
 
 		cnr.SetPlacementPolicy(*placementPolicy)
@@ -157,7 +157,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 			for ; ; t.Reset(waitInterval) {
 				select {
 				case <-ctx.Done():
-					return fmt.Errorf("container creation: %s", common.ErrAwaitTimeout)
+					return fmt.Errorf("container creation: %w", common.ErrAwaitTimeout)
 				case <-t.C:
 				}
 

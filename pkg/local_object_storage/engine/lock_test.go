@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"os"
 	"strconv"
 	"testing"
@@ -19,14 +18,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 )
-
-type tss struct {
-	expEpoch uint64
-}
-
-func (t tss) IsTombstoneAvailable(ctx context.Context, _ oid.Address, epoch uint64) bool {
-	return t.expEpoch >= epoch
-}
 
 func TestLockUserScenario(t *testing.T) {
 	// Tested user actions:
@@ -87,7 +78,7 @@ func TestLockUserScenario(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	id, _ := obj.ID()
+	id := obj.GetID()
 	objAddr.SetObject(id)
 
 	err = Put(e, obj)
@@ -180,8 +171,8 @@ func TestLockExpiration(t *testing.T) {
 	err = Put(e, lock)
 	require.NoError(t, err)
 
-	id, _ := obj.ID()
-	idLock, _ := lock.ID()
+	id := obj.GetID()
+	idLock := lock.GetID()
 
 	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
@@ -246,8 +237,8 @@ func TestLockForceRemoval(t *testing.T) {
 	err = Put(e, lock)
 	require.NoError(t, err)
 
-	id, _ := obj.ID()
-	idLock, _ := lock.ID()
+	id := obj.GetID()
+	idLock := lock.GetID()
 
 	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)

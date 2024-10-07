@@ -108,7 +108,7 @@ func newTestNode(tb testing.TB, serverPubKey, clientPubKey []byte, cnr cid.ID, o
 }
 
 func (x *testNode) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f func(pubKey []byte) bool) error {
-	require.True(x.tb, cnr.Equals(x.cnr))
+	require.True(x.tb, cnr == x.cnr)
 	require.NotNil(x.tb, f)
 	if x.cnrErr != nil {
 		return x.cnrErr

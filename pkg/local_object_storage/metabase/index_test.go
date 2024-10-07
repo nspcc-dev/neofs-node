@@ -1,8 +1,9 @@
 package meta
 
 import (
+	crand "crypto/rand"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -42,8 +43,7 @@ func Test_decodeList(t *testing.T) {
 		expected := make([][]byte, 20)
 		for i := range expected {
 			expected[i] = make([]byte, rand.Uint32()%10)
-			//nolint:staticcheck
-			rand.Read(expected[i])
+			_, _ = crand.Read(expected[i])
 		}
 
 		data, err := encodeList(expected)

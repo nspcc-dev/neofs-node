@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -65,16 +64,13 @@ func getByPath(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("client: %w", err)
 	}
 
-	rawCID := make([]byte, sha256.Size)
-	cnr.Encode(rawCID)
-
 	latestOnly, _ := cmd.Flags().GetBool(latestOnlyFlagKey)
 	path, _ := cmd.Flags().GetString(pathFlagKey)
 	//pAttr, _ := cmd.Flags().GetString(pathAttributeFlagKey)
 
 	req := new(tree.GetNodeByPathRequest)
 	req.Body = &tree.GetNodeByPathRequest_Body{
-		ContainerId:   rawCID,
+		ContainerId:   cnr[:],
 		TreeId:        tid,
 		PathAttribute: object.AttributeFileName,
 		//PathAttribute: pAttr,

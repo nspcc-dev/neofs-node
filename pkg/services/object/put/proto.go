@@ -69,8 +69,8 @@ func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, e
 
 func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.Object, pldLen int, signObjectMeta bool) (encodedObject, error) {
 	var res encodedObject
-	id, ok := hdr.ID()
-	if !ok {
+	id := hdr.GetID()
+	if id.IsZero() {
 		return res, errors.New("missing object ID")
 	}
 

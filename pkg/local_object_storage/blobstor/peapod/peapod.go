@@ -161,8 +161,10 @@ const objectAddressKeySize = 2 * sha256.Size
 
 func keyForObject(addr oid.Address) []byte {
 	b := make([]byte, objectAddressKeySize)
-	addr.Container().Encode(b)
-	addr.Object().Encode(b[sha256.Size:])
+	cnr := addr.Container()
+	obj := addr.Object()
+	n := copy(b, cnr[:])
+	copy(b[n:], obj[:])
 	return b
 }
 

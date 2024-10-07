@@ -40,8 +40,7 @@ var containerNodesCmd = &cobra.Command{
 			return fmt.Errorf("unable to get netmap snapshot: %w", err)
 		}
 
-		var id cid.ID
-		cnr.CalculateID(&id)
+		id := cid.NewFromMarshalledContainer(cnr.Marshal())
 
 		policy := cnr.PlacementPolicy()
 

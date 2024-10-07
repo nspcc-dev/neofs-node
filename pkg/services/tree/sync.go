@@ -2,7 +2,6 @@ package tree
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -51,12 +50,9 @@ func (s *Service) synchronizeAllTrees(ctx context.Context, cid cid.ID) error {
 		return nil
 	}
 
-	rawCID := make([]byte, sha256.Size)
-	cid.Encode(rawCID)
-
 	req := &TreeListRequest{
 		Body: &TreeListRequest_Body{
-			ContainerId: rawCID,
+			ContainerId: cid[:],
 		},
 	}
 
@@ -188,14 +184,11 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 }
 
 func (s *Service) synchronizeSingle(ctx context.Context, d pilorama.CIDDescriptor, treeID string, height uint64, treeClient TreeServiceClient) (uint64, error) {
-	rawCID := make([]byte, sha256.Size)
-	d.CID.Encode(rawCID)
-
 	for {
 		newHeight := height
 		req := &GetOpLogRequest{
 			Body: &GetOpLogRequest_Body{
-				ContainerId: rawCID,
+				ContainerId: d.CID[:],
 				TreeId:      treeID,
 				Height:      newHeight,
 			},

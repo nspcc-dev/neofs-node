@@ -47,8 +47,8 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 			uncheckedChildren = uncheckedChildren[:bound]
 
 			if leftChild != nil {
-				leftChildID, _ := leftChild.ID()
-				prevRead, _ := leftChild.PreviousID()
+				leftChildID := leftChild.GetID()
+				prevRead := leftChild.GetPreviousID()
 				prevGot := uncheckedChildren[len(uncheckedChildren)-1].ObjectID()
 
 				if prevRead != prevGot {
@@ -103,7 +103,7 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 	// check children order
 	for i, o := range receivedObjects {
-		id, _ := o.ID()
+		id := o.GetID()
 
 		if firstObjIncluded && i == 0 {
 			// first object check only
@@ -113,13 +113,12 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 				return nil, fmt.Errorf("link: first object has split firstID: %s", id)
 			}
 
-			_, prevSet := o.PreviousID()
-			if prevSet {
+			if !o.GetPreviousID().IsZero() {
 				return nil, fmt.Errorf("link: first object has split previousID: %s", id)
 			}
 		} else {
-			prevRead, prevSet := o.PreviousID()
-			if !prevSet {
+			prevRead := o.GetPreviousID()
+			if prevRead.IsZero() {
 				return nil, fmt.Errorf("link: non-first object does not have previous ID: %s", id)
 			}
 
@@ -128,7 +127,7 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 				return o, nil
 			}
 
-			prevGot, _ := receivedObjects[i-1].ID()
+			prevGot := receivedObjects[i-1].GetID()
 			if prevRead != prevGot {
 				return nil, fmt.Errorf("link: object %s has wrong previous object: got %s, want: %s", id, prevGot, prevRead)
 			}

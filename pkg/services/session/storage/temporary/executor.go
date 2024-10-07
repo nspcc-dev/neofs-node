@@ -38,7 +38,7 @@ func (s *TokenStore) Create(_ context.Context, body *session.CreateRequestBody) 
 	s.mtx.Lock()
 	s.tokens[key{
 		tokenID: base58.Encode(uidBytes),
-		ownerID: base58.Encode(id.WalletBytes()),
+		ownerID: base58.Encode(id[:]),
 	}] = storage.NewPrivateToken(&sk.PrivateKey, body.GetExpiration())
 	s.mtx.Unlock()
 

@@ -89,14 +89,14 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 	obj := generateObjectWithCID(cnr)
 	obj.SetAttributes(expAttr)
-	objID, _ := obj.ID()
+	objID := obj.GetID()
 
 	expAttr.SetValue("3")
 
 	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 	lock.SetAttributes(expAttr)
-	lockID, _ := lock.ID()
+	lockID := lock.GetID()
 
 	var putPrm shard.PutPrm
 	putPrm.SetObject(obj)

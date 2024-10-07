@@ -60,16 +60,16 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 
 	res, err := db.Get(prm)
 	if errors.As(err, &siErr) {
-		link, linkSet := siErr.SplitInfo().Link()
-		last, lastSet := siErr.SplitInfo().LastPart()
+		link := siErr.SplitInfo().GetLink()
+		last := siErr.SplitInfo().GetLastPart()
 
 		fmt.Println("Object is split")
 		cmd.Println("\tSplitID:", siErr.SplitInfo().SplitID().String())
 
-		if linkSet {
+		if !link.IsZero() {
 			cmd.Println("\tLink:", link)
 		}
-		if lastSet {
+		if !last.IsZero() {
 			cmd.Println("\tLast:", last)
 		}
 

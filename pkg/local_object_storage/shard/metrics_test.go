@@ -97,7 +97,7 @@ func TestCounters(t *testing.T) {
 
 	expectedSizes := make(map[string]int64)
 	for i := range oo {
-		cnr, _ := oo[i].ContainerID()
+		cnr := oo[i].GetContainerID()
 		oSize := int64(oo[i].PayloadSize())
 		expectedSizes[cnr.EncodeToString()] += oSize
 		totalPayload += oSize
@@ -178,7 +178,7 @@ func TestCounters(t *testing.T) {
 			removedPayload := oo[i].PayloadSize()
 			totalRemovedpayload += removedPayload
 
-			cnr, _ := oo[i].ContainerID()
+			cnr := oo[i].GetContainerID()
 			expectedSizes[cnr.EncodeToString()] -= int64(removedPayload)
 		}
 		require.Equal(t, expectedSizes, mm.containerSize)

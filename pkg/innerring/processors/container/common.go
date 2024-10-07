@@ -110,9 +110,9 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 	if keyProvided {
 		// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-		idFromKey := user.ResolveFromECDSAPublicKey(ecdsa.PublicKey(key))
+		idFromKey := user.NewFromECDSAPublicKey(ecdsa.PublicKey(key))
 
-		if v.ownerContainer.Equals(idFromKey) {
+		if v.ownerContainer == idFromKey {
 			if key.Verify(v.signedData, v.signature) {
 				return nil
 			}

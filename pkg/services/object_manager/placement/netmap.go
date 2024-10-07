@@ -1,7 +1,6 @@
 package placement
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"slices"
 	"sync"
@@ -58,8 +57,7 @@ func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmapSDK.Plac
 		return nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
+	binCnr := cnr[:]
 
 	b.mtx.Lock()
 	if nm == b.lastNm {

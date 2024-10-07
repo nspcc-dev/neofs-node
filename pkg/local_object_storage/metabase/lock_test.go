@@ -40,7 +40,7 @@ func TestDB_Lock(t *testing.T) {
 
 			var e apistatus.LockNonRegularObject
 
-			id, _ := obj.ID()
+			id := obj.GetID()
 
 			// try to lock it
 			err = db.Lock(cnr, oidtest.ID(), []oid.ID{id})
@@ -248,14 +248,14 @@ func putAndLockObj(t *testing.T, db *meta.DB, numOfLockedObjs int) ([]*object.Ob
 		err := putBig(db, obj)
 		require.NoError(t, err)
 
-		id, _ := obj.ID()
+		id := obj.GetID()
 
 		lockedObjs = append(lockedObjs, obj)
 		lockedObjIDs = append(lockedObjIDs, id)
 	}
 
 	lockObj := generateObjectWithCID(t, cnr)
-	lockID, _ := lockObj.ID()
+	lockID := lockObj.GetID()
 	lockObj.SetType(object.TypeLock)
 
 	err := putBig(db, lockObj)

@@ -106,8 +106,8 @@ func readObjectAddressBin(cnr *cid.ID, obj *oid.ID, filename string) (oid.Addres
 	}
 
 	var addr oid.Address
-	*cnr, _ = objTemp.ContainerID()
-	*obj, _ = objTemp.ID()
+	*cnr = objTemp.GetContainerID()
+	*obj = objTemp.GetID()
 	addr.SetContainer(*cnr)
 	addr.SetObject(*obj)
 	return addr, nil
@@ -162,7 +162,7 @@ func getSession(cmd *cobra.Command) (*session.Object, error) {
 
 	err := common.ReadBinaryOrJSON(cmd, &tok, path)
 	if err != nil {
-		return nil, fmt.Errorf("read session: %v", err)
+		return nil, fmt.Errorf("read session: %w", err)
 	}
 
 	return &tok, nil

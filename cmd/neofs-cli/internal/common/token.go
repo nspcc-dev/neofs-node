@@ -27,7 +27,7 @@ func ReadBearerToken(cmd *cobra.Command, flagname string) (*bearer.Token, error)
 
 	err = ReadBinaryOrJSON(cmd, &tok, path)
 	if err != nil {
-		return nil, fmt.Errorf("invalid bearer token: %v", err)
+		return nil, fmt.Errorf("invalid bearer token: %w", err)
 	}
 
 	return &tok, nil

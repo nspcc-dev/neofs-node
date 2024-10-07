@@ -34,8 +34,7 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 		return nil, err
 	}
 
-	var id cid.ID
-	id.FromBinary(data)
+	id := cid.NewFromMarshalledContainer(data)
 
 	return &id, nil
 }

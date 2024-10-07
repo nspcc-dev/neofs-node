@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -27,10 +26,7 @@ func AsContainerSource(w *Client) containercore.Source {
 
 // Get marshals container ID, and passes it to Wrapper's Get method.
 func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
-	binCnr := make([]byte, sha256.Size)
-	cnr.Encode(binCnr)
-
-	return c.Get(binCnr)
+	return c.Get(cnr[:])
 }
 
 // Get reads the container from NeoFS system by binary identifier

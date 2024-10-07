@@ -1,7 +1,6 @@
 package container
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -13,8 +12,8 @@ import (
 //
 // Returns error if container ID is nil.
 func Delete(c *Client, witness core.RemovalWitness) error {
-	binCnr := make([]byte, sha256.Size)
-	witness.ContainerID().Encode(binCnr)
+	id := witness.ContainerID()
+	binCnr := id[:]
 
 	var prm DeletePrm
 

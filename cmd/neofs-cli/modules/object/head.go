@@ -135,11 +135,11 @@ func marshalHeader(cmd *cobra.Command, hdr *object.Object) ([]byte, error) {
 	}
 }
 
-func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
+func printObjectID(cmd *cobra.Command, recv func() oid.ID) {
 	var strID string
 
-	id, ok := recv()
-	if ok {
+	id := recv()
+	if !id.IsZero() {
 		strID = id.String()
 	} else {
 		strID = "<empty>"
@@ -148,11 +148,11 @@ func printObjectID(cmd *cobra.Command, recv func() (oid.ID, bool)) {
 	cmd.Printf("ID: %s\n", strID)
 }
 
-func printContainerID(cmd *cobra.Command, recv func() (cid.ID, bool)) {
+func printContainerID(cmd *cobra.Command, recv func() cid.ID) {
 	var strID string
 
-	id, ok := recv()
-	if ok {
+	id := recv()
+	if !id.IsZero() {
 		strID = id.String()
 	} else {
 		strID = "<empty>"
@@ -162,8 +162,8 @@ func printContainerID(cmd *cobra.Command, recv func() (cid.ID, bool)) {
 }
 
 func printHeader(cmd *cobra.Command, obj *object.Object) error {
-	printObjectID(cmd, obj.ID)
-	printContainerID(cmd, obj.ContainerID)
+	printObjectID(cmd, obj.GetID)
+	printContainerID(cmd, obj.GetContainerID)
 	cmd.Printf("Owner: %s\n", obj.OwnerID())
 	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
@@ -197,11 +197,11 @@ func printSplitHeader(cmd *cobra.Command, obj *object.Object) error {
 		cmd.Printf("Split ID: %s\n", splitID)
 	}
 
-	if oid, ok := obj.ParentID(); ok {
-		cmd.Printf("Split ParentID: %s\n", oid)
+	if oID := obj.GetParentID(); !oID.IsZero() {
+		cmd.Printf("Split ParentID: %s\n", oID)
 	}
 
-	if prev, ok := obj.PreviousID(); ok {
+	if prev := obj.GetPreviousID(); !prev.IsZero() {
 		cmd.Printf("Split PreviousID: %s\n", prev)
 	}
 

@@ -39,7 +39,7 @@ var listContainersCmd = &cobra.Command{
 		}
 
 		if flagVarListContainerOwner == "" {
-			idUser = user.ResolveFromECDSAPublicKey(key.PublicKey)
+			idUser = user.NewFromECDSAPublicKey(key.PublicKey)
 		} else {
 			err := idUser.DecodeString(flagVarListContainerOwner)
 			if err != nil {

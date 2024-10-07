@@ -72,7 +72,7 @@ func signSessionToken(cmd *cobra.Command, _ []string) error {
 	}
 
 	if errLast != nil {
-		return fmt.Errorf("decode session: %v", errLast)
+		return fmt.Errorf("decode session: %w", errLast)
 	}
 
 	pk, err := key.GetOrGenerate(cmd)

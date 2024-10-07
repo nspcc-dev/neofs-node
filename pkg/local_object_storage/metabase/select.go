@@ -93,7 +93,7 @@ func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, c
 
 	// if there are conflicts in query and container then it means that there is no
 	// objects to match this query.
-	if group.withCnrFilter && !cnr.Equals(group.cnr) {
+	if group.withCnrFilter && cnr != group.cnr {
 		return nil, nil
 	}
 
@@ -484,9 +484,7 @@ func (db *DB) selectObjectID(
 
 		ok, err := db.exists(tx, addr, currEpoch)
 		if (err == nil && ok) || errors.As(err, &splitInfoError) {
-			raw := make([]byte, objectKeySize)
-			id.Encode(raw)
-			markAddressInCache(to, fNum, string(raw))
+			markAddressInCache(to, fNum, string(id[:]))
 		}
 	}
 

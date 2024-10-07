@@ -212,7 +212,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		})
 
 		var content storagegroup.StorageGroup
-		content.SetExpirationEpoch(1) // some non-default value
+		content.SetValidationDataSize(1) // some non-default value
 
 		t.Run("empty members", func(t *testing.T) {
 			obj.SetPayload(content.Marshal())
@@ -279,8 +279,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			t.Run("locked", func(t *testing.T) {
 				var addr oid.Address
-				oID, _ := obj.ID()
-				cID, _ := obj.ContainerID()
+				oID := obj.GetID()
+				cID := obj.GetContainerID()
 
 				addr.SetContainer(cID)
 				addr.SetObject(oID)

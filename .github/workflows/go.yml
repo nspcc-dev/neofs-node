@@ -69,14 +69,5 @@ jobs:
         run: go test -race ./...
 
   lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: latest
-          args: --timeout=5m
+    name: Lint
+    uses: nspcc-dev/.github/.github/workflows/go-linter.yml@master

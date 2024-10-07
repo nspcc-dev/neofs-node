@@ -68,20 +68,20 @@ func TestChildrenExpiration(t *testing.T) {
 		splitID := objectSDK.NewSplitID()
 
 		parent := generateObjectWithCID(cnr)
-		parentID, _ := parent.ID()
+		parentID := parent.GetID()
 		parent.SetAttributes(expAttr)
 
 		child1 := generateObjectWithCID(cnr)
-		child1ID, _ := child1.ID()
+		child1ID := child1.GetID()
 		child1.SetSplitID(splitID)
 
 		child2 := generateObjectWithCID(cnr)
-		child2ID, _ := child2.ID()
+		child2ID := child2.GetID()
 		child2.SetSplitID(splitID)
 		child2.SetPreviousID(child1ID)
 
 		child3 := generateObjectWithCID(cnr)
-		child3ID, _ := child3.ID()
+		child3ID := child3.GetID()
 		child3.SetSplitID(splitID)
 		child3.SetPreviousID(child2ID)
 		child3.SetParent(parent)
@@ -107,20 +107,20 @@ func TestChildrenExpiration(t *testing.T) {
 		cnr := cidtest.ID()
 
 		parent := generateObjectWithCID(cnr)
-		parentID, _ := parent.ID()
+		parentID := parent.GetID()
 		parent.SetAttributes(expAttr)
 
 		child1 := generateObjectWithCID(cnr)
-		child1ID, _ := child1.ID()
+		child1ID := child1.GetID()
 		child1.SetParent(parent)
 
 		child2 := generateObjectWithCID(cnr)
-		child2ID, _ := child2.ID()
+		child2ID := child2.GetID()
 		child2.SetFirstID(child1ID)
 		child2.SetPreviousID(child1ID)
 
 		child3 := generateObjectWithCID(cnr)
-		child3ID, _ := child3.ID()
+		child3ID := child3.GetID()
 		child3.SetFirstID(child1ID)
 		child3.SetPreviousID(child2ID)
 		child3.SetParent(parent)
