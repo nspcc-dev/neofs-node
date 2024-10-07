@@ -152,9 +152,9 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, PutPrm{obj: getRes.Object()})
-					if putDone || exists {
-						if putDone {
+					exists, err := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, PutPrm{obj: getRes.Object()})
+					if err == nil {
+						if !exists {
 							e.log.Debug("object is moved to another shard",
 								zap.String("from", sidList[n]),
 								zap.Stringer("to", shards[j].ID()),
