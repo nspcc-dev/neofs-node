@@ -59,7 +59,7 @@ morph:
     - wss://rpc5.morph.fs.neo.org:40341/ws
     - wss://rpc6.morph.fs.neo.org:40341/ws
     - wss://rpc7.morph.fs.neo.org:40341/ws
-  dial_timeout: 20s
+  dial_timeout: 1m
 
 contracts:
   balance: dc1ec98d9d0c5f9dfade16144defe08cffc5ca55

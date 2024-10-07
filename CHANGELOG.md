@@ -22,6 +22,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
 - Use org-wide linter (#2943)
 - Timestamps are no longer produced in logs if not running with TTY (#2964)
+- Default dial timeout to one minute (#2963)
 
 ### Removed
 - Support for node.key configuration (#2959)
@@ -39,6 +40,11 @@ Binary keys are no longer supported by storage node, NEP-6 wallet support was
 introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
 notes) if you've not done it previously.
+
+Increase default timeout for dialing connections in node: `morph.dial_timeout`, 
+`apiclient.dial_timout`, `apiclient.stream_timeout` and in inner ring: 
+`morph.dial_timout`, `morph.consensus.p2p.dial_timout`, `mainnet.dial_timout`
+to 1 minute. Can be adjusted for fast networks.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 

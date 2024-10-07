@@ -137,7 +137,7 @@ morph:
 
 | Parameter              | Type       | Default value    | Description                                                                                                                                                         |
 |------------------------|------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout`         | `duration` | `5s`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `dial_timeout`         | `duration` | `1m`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
 | `cache_ttl`            | `duration` | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
 | `endpoints`            | `[]string` |                  | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
 | `reconnections_number` | `int`      | `5`              | Number of reconnection attempts (through the full list provided via `endpoints`) before RPC connection is considered lost. Non-positive values make no retries.     |
@@ -333,7 +333,7 @@ apiclient:
 ```
 | Parameter         | Type     | Default value | Description                                                           |
 |-------------------|----------|---------------|-----------------------------------------------------------------------|
-| dial_timeout      | duration | `5s`          | Timeout for dialing connections to other storage or inner ring nodes. |
+| dial_timeout      | duration | `1m`          | Timeout for dialing connections to other storage or inner ring nodes. |
 | stream_timeout    | duration | `15s`         | Timeout for individual operations in a streaming RPC.                 |
 | reconnect_timeout | duration | `30s`         | Time to wait before reconnecting to a failed node.                    |
 

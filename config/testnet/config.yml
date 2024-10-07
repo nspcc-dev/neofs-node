@@ -10,7 +10,7 @@ morph:
     - wss://rpc05.morph.testnet.fs.neo.org:51331/ws
     - wss://rpc06.morph.testnet.fs.neo.org:51331/ws
     - wss://rpc07.morph.testnet.fs.neo.org:51331/ws
-  dial_timeout: 20s
+  dial_timeout: 1m
 
 contracts:
   balance: e0420c216003747626670d1424569c17c79015bf

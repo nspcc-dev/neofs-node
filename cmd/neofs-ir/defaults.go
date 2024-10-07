@@ -47,12 +47,12 @@ func defaultConfiguration(cfg *viper.Viper) {
 
 	cfg.SetDefault("node.persistent_state.path", ".neofs-ir-state")
 
-	cfg.SetDefault("morph.dial_timeout", 15*time.Second)
+	cfg.SetDefault("morph.dial_timeout", time.Minute)
 	cfg.SetDefault("morph.reconnections_number", 5)
 	cfg.SetDefault("morph.reconnections_delay", 5*time.Second)
 	cfg.SetDefault("morph.validators", []string{})
 
-	cfg.SetDefault("mainnet.dial_timeout", 15*time.Second)
+	cfg.SetDefault("mainnet.dial_timeout", time.Minute)
 	cfg.SetDefault("mainnet.reconnections_number", 5)
 	cfg.SetDefault("mainnet.reconnections_delay", 5*time.Second)
 

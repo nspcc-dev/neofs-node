@@ -11,7 +11,7 @@ wallet:
 without_mainnet: false # Run application in single chain environment without mainchain
 
 morph:
-  dial_timeout: 5s # Timeout for RPC client connection to sidechain
+  dial_timeout: 1m # Timeout for RPC client connection to sidechain
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts
   endpoints: # List of websocket RPC endpoints in sidechain. May be omitted if 'consensus' is configured
@@ -65,7 +65,7 @@ morph:
         cert_file: serv.crt # TLS certificate file path; required if 'enabled' is 'true'
         key_file: serv.key # TLS private key file path; required if 'enabled' is 'true'
     p2p: # Optional P2P settings
-      dial_timeout: 5s # Optional maximum duration a single peer dial may take. Defaults to 5s. Must not be negative
+      dial_timeout: 1m # Optional maximum duration a single peer dial may take. Defaults to 1m. Must not be negative
       proto_tick_interval: 2s # Optional time period between protocol ticks with each connected peer. Defaults to 2s.
         # Must not be negative
       listen: # Optional list of network addresses to listen Neo P2P on. By default, protocol is not served
@@ -96,7 +96,7 @@ nns: # Optional configuration of the NNS domains processed during the FS chain d
     # Defaults to 'nonexistent@nspcc.io'
 
 mainnet:
-  dial_timeout: 5s # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
+  dial_timeout: 1m # Timeout for RPC client connection to mainchain; ignore if mainchain is disabled
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts
   endpoints: # List of websocket RPC endpoints in mainchain; ignore if mainchain is disabled

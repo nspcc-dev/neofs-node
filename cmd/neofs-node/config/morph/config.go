@@ -11,7 +11,7 @@ const (
 	subsection = "morph"
 
 	// DialTimeoutDefault is a default dial timeout of morph chain client connection.
-	DialTimeoutDefault = 5 * time.Second
+	DialTimeoutDefault = time.Minute
 
 	// CacheTTLDefault is a default value for cached values TTL.
 	// It is 0, because actual default depends on block time.
