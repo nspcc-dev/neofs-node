@@ -61,6 +61,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 )
 
@@ -564,7 +565,11 @@ func initCfg(appCfg *config.Config) *cfg {
 	logCfg := zap.NewProductionConfig()
 	logCfg.Level = c.internals.logLevel
 	logCfg.Encoding = "console"
-	logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	} else {
+		logCfg.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
+	}
 
 	c.internals.log, err = logCfg.Build(
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),

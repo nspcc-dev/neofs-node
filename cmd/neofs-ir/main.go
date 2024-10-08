@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
@@ -17,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/term"
 )
 
 const (
@@ -64,7 +66,11 @@ func main() {
 	c := zap.NewProductionConfig()
 	c.Level = logLevel
 	c.Encoding = "console"
-	c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	} else {
+		c.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
+	}
 
 	log, err := c.Build(
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),

@@ -21,6 +21,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Metabase graveyard scheme (#2929)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
 - Use org-wide linter (#2943)
+- Timestamps are no longer produced in logs if not running with TTY (#2964)
 
 ### Removed
 - Support for node.key configuration (#2959)
