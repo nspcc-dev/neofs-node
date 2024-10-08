@@ -24,6 +24,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 
 ### Removed
 - Support for node.key configuration (#2959)
+- `contracts.alphabet.amount` from inner ring config (#2960)
 
 ### Updated
 - Go to 1.22 version (#2517, #2738)

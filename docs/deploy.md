@@ -162,10 +162,6 @@ wallet:
 morph:
   validators:
     - 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
-
-contracts:
-  alphabet:
-    amount: 1
 ```
 
 ## Step 4: Launch Storage node
