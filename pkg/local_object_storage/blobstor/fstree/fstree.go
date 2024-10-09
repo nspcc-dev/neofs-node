@@ -477,3 +477,31 @@ func (t *FSTree) SetCompressor(cc *compression.Config) {
 func (t *FSTree) SetReportErrorFunc(_ func(string, error)) {
 	// Do nothing, FSTree can encounter only one error which is returned.
 }
+
+// CleanUpTmp removes all temporary files garbage.
+func (t *FSTree) CleanUpTmp() error {
+	if t.readOnly {
+		return common.ErrReadOnly
+	}
+
+	err := filepath.WalkDir(t.RootPath,
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.Contains(d.Name(), "#") {
+				err = os.RemoveAll(path)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("could not walk through %q directory: %w", t.RootPath, err)
+	}
+
+	return nil
+}
