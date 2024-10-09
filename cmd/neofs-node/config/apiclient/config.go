@@ -10,10 +10,10 @@ const (
 	subsection = "apiclient"
 
 	// DialTimeoutDefault is a default dial timeout of NeoFS API client connection.
-	DialTimeoutDefault = 5 * time.Second
+	DialTimeoutDefault = time.Minute
 
 	// StreamTimeoutDefault is a default timeout of NeoFS API streaming operation.
-	StreamTimeoutDefault = 15 * time.Second
+	StreamTimeoutDefault = time.Minute
 )
 
 // DialTimeout returns the value of "dial_timeout" config parameter

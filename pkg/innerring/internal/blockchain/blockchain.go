@@ -147,7 +147,7 @@ type P2PConfig struct {
 
 	// Maximum duration a single dial may take.
 	//
-	// Optional: defaults to 5s. Must not be negative.
+	// Optional: defaults to 1m. Must not be negative.
 	DialTimeout time.Duration
 
 	// Interval between protocol ticks with each connected peer.
@@ -316,7 +316,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 		cfg.P2P.AttemptConnPeers = cfg.P2P.MinPeers + 10
 	}
 	if cfg.P2P.DialTimeout == 0 {
-		cfg.P2P.DialTimeout = 5 * time.Second
+		cfg.P2P.DialTimeout = time.Minute
 	}
 	if cfg.P2P.ProtoTickInterval == 0 {
 		cfg.P2P.ProtoTickInterval = 2 * time.Second
