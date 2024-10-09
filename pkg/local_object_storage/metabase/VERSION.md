@@ -40,6 +40,7 @@ The lowest not used bucket index: 20.
     - `version` -> metabase version as little-endian uint64
     - `phy_counter` -> shard's physical object counter as little-endian uint64
     - `logic_counter` -> shard's logical object counter as little-endian uint64
+    - `last_resync_epoch` -> last epoch when metabase was resynchronized as little-endian uint64
 
 ### Unique index buckets
 - Bucket containing objects of REGULAR type
