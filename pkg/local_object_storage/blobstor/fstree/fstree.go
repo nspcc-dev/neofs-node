@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -476,4 +477,24 @@ func (t *FSTree) SetCompressor(cc *compression.Config) {
 // SetReportErrorFunc implements common.Storage.
 func (t *FSTree) SetReportErrorFunc(_ func(string, error)) {
 	// Do nothing, FSTree can encounter only one error which is returned.
+}
+
+// CleanUpTmp removes all temporary files garbage.
+func (t *FSTree) CleanUpTmp() error {
+	re := regexp.MustCompile(`.*#[0-9]+$`)
+
+	err := filepath.WalkDir(t.RootPath,
+		func(path string, d fs.DirEntry, _ error) error {
+			if !d.IsDir() && re.MatchString(d.Name()) {
+				_ = os.RemoveAll(path)
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("could not walk through %q directory: %w", t.RootPath, err)
+	}
+
+	return nil
 }
