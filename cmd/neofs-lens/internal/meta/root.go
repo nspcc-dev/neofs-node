@@ -36,6 +36,7 @@ func init() {
 		writeObjectCMD,
 		getCMD,
 		statCMD,
+		lastResyncEpochCMD,
 	)
 }
 
