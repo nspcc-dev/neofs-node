@@ -138,21 +138,31 @@ func (db *DB) init(reset bool) error {
 			if err != nil {
 				return fmt.Errorf("could not sync object counter: %w", err)
 			}
+		} else {
+			err = tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+				if _, ok := mStaticBuckets[string(name)]; !ok {
+					return tx.DeleteBucket(name)
+				}
 
-			return nil
-		}
-
-		err = tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-			if _, ok := mStaticBuckets[string(name)]; !ok {
-				return tx.DeleteBucket(name)
+				return nil
+			})
+			if err != nil {
+				return err
 			}
 
-			return nil
-		})
-		if err != nil {
-			return err
+			err = updateLastResyncEpoch(tx, db.epochState.CurrentEpoch())
+			if err != nil {
+				return err
+			}
+			err = updateVersion(tx, version)
+			if err != nil {
+				return err
+			}
 		}
-		return updateVersion(tx, version)
+
+		db.info.LastResyncEpoch = getLastResyncEpoch(tx)
+
+		return nil
 	})
 }
 
