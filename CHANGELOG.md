@@ -46,6 +46,10 @@ Increase default timeout for dialing connections in node: `morph.dial_timeout`,
 `morph.dial_timout`, `morph.consensus.p2p.dial_timout`, `mainnet.dial_timout`
 to 1 minute. Can be adjusted for fast networks.
 
+Using public keys as a rule target in eACL tables was deprecated and will not
+be supported in the next releases, use addresses instead. For more information
+call `neofs-cli acl extended create -h`.
+
 ## [0.43.0] - 2024-08-20 - Jukdo
 
 ### Added
