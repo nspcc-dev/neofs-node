@@ -14,6 +14,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Save last epoch when metabase was resynchronized (#2966)
 - `neofs-lens meta last-resync-epoch` command (#2966)
 - `neofs-lens fstree cleanup-tmp` command (#2967)
+- `neofs-cli control object revive` command (#2968)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
