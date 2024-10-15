@@ -11,6 +11,9 @@ type Info struct {
 
 	// Permission of database file.
 	Permission fs.FileMode
+
+	// LastResyncEpoch is a last epoch when metabase was resynchronized.
+	LastResyncEpoch uint64
 }
 
 // DumpInfo returns information about the DB.
