@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/nspcc-dev/neofs-node/cmd/internal/cmderr"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/fstree"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/meta"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/object"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal/peapod"
@@ -44,6 +45,7 @@ func init() {
 		writecache.Root,
 		storage.Root,
 		object.Root,
+		fstree.Root,
 		gendoc.Command(command),
 	)
 }
