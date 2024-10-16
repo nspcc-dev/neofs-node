@@ -44,6 +44,8 @@ const (
 	containerDumpFlag               = "dump"
 	containerContractFlag           = "container-contract"
 	containerIDsFlag                = "cid"
+	nnsDumpFlag                     = "dump"
+	nnsContractFlag                 = "nns-contract"
 	refillGasAmountFlag             = "gas"
 	walletAccountFlag               = "account"
 	notaryDepositTillFlag           = "till"
@@ -305,6 +307,25 @@ Values for unknown keys are added exactly the way they're provided, no conversio
 		RunE: restoreContainers,
 	}
 
+	dumpNNSCmd = &cobra.Command{
+		Use:   "dump-nns",
+		Short: "Dump NeoFS NNS domains to file",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: dumpNNS,
+	}
+
+	restoreNNSCmd = &cobra.Command{
+		Use:   "restore-nns",
+		Short: "Restore NeoFS NNS domains from file",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
+			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
+		},
+		RunE: restoreNNS,
+	}
+
 	listContainersCmd = &cobra.Command{
 		Use:   "list-containers",
 		Short: "List NeoFS containers",
@@ -451,6 +472,17 @@ func init() {
 	restoreContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	restoreContainersCmd.Flags().String(containerDumpFlag, "", "File to restore containers from")
 	restoreContainersCmd.Flags().StringSlice(containerIDsFlag, nil, "Containers to restore")
+
+	RootCmd.AddCommand(dumpNNSCmd)
+	dumpNNSCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	dumpNNSCmd.Flags().String(nnsDumpFlag, "", "File where to save dumped domains")
+	dumpNNSCmd.Flags().String(nnsContractFlag, "", "Container contract hash (for networks with non standard NNS id)")
+
+	RootCmd.AddCommand(restoreNNSCmd)
+	restoreNNSCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
+	restoreNNSCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	restoreNNSCmd.Flags().String(nnsDumpFlag, "", "File to restore containers from")
+	restoreNNSCmd.Flags().String(nnsContractFlag, "", "Container contract hash (for networks with non standard NNS id)")
 
 	RootCmd.AddCommand(listContainersCmd)
 	listContainersCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
