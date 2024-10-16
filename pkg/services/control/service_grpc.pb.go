@@ -31,11 +31,14 @@ const (
 	ControlService_EvacuateShard_FullMethodName   = "/control.ControlService/EvacuateShard"
 	ControlService_FlushCache_FullMethodName      = "/control.ControlService/FlushCache"
 	ControlService_ObjectStatus_FullMethodName    = "/control.ControlService/ObjectStatus"
+	ControlService_ReviveObject_FullMethodName    = "/control.ControlService/ReviveObject"
 )
 
 // ControlServiceClient is the client API for ControlService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// `ControlService` provides an interface for internal work with the storage node.
 type ControlServiceClient interface {
 	// Performs health check of the storage node.
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
@@ -46,7 +49,7 @@ type ControlServiceClient interface {
 	// Returns list that contains information about all shards of a node.
 	ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error)
 	// Returns list that contains information about all objects in a node.
-	ListObjects(ctx context.Context, in *ListObjectsRequest, opts ...grpc.CallOption) (ControlService_ListObjectsClient, error)
+	ListObjects(ctx context.Context, in *ListObjectsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListObjectsResponse], error)
 	// Sets mode of the shard.
 	SetShardMode(ctx context.Context, in *SetShardModeRequest, opts ...grpc.CallOption) (*SetShardModeResponse, error)
 	// Dump objects from the shard.
@@ -61,6 +64,8 @@ type ControlServiceClient interface {
 	FlushCache(ctx context.Context, in *FlushCacheRequest, opts ...grpc.CallOption) (*FlushCacheResponse, error)
 	// ObjectStatus requests object status in the storage engine.
 	ObjectStatus(ctx context.Context, in *ObjectStatusRequest, opts ...grpc.CallOption) (*ObjectStatusResponse, error)
+	// ReviveObject purge all removal marks from all metabases for object.
+	ReviveObject(ctx context.Context, in *ReviveObjectRequest, opts ...grpc.CallOption) (*ReviveObjectResponse, error)
 }
 
 type controlServiceClient struct {
@@ -72,8 +77,9 @@ func NewControlServiceClient(cc grpc.ClientConnInterface) ControlServiceClient {
 }
 
 func (c *controlServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthCheckResponse)
-	err := c.cc.Invoke(ctx, ControlService_HealthCheck_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_HealthCheck_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +87,9 @@ func (c *controlServiceClient) HealthCheck(ctx context.Context, in *HealthCheckR
 }
 
 func (c *controlServiceClient) SetNetmapStatus(ctx context.Context, in *SetNetmapStatusRequest, opts ...grpc.CallOption) (*SetNetmapStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetNetmapStatusResponse)
-	err := c.cc.Invoke(ctx, ControlService_SetNetmapStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_SetNetmapStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +97,9 @@ func (c *controlServiceClient) SetNetmapStatus(ctx context.Context, in *SetNetma
 }
 
 func (c *controlServiceClient) DropObjects(ctx context.Context, in *DropObjectsRequest, opts ...grpc.CallOption) (*DropObjectsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DropObjectsResponse)
-	err := c.cc.Invoke(ctx, ControlService_DropObjects_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_DropObjects_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,20 +107,22 @@ func (c *controlServiceClient) DropObjects(ctx context.Context, in *DropObjectsR
 }
 
 func (c *controlServiceClient) ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListShardsResponse)
-	err := c.cc.Invoke(ctx, ControlService_ListShards_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_ListShards_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *controlServiceClient) ListObjects(ctx context.Context, in *ListObjectsRequest, opts ...grpc.CallOption) (ControlService_ListObjectsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[0], ControlService_ListObjects_FullMethodName, opts...)
+func (c *controlServiceClient) ListObjects(ctx context.Context, in *ListObjectsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ListObjectsResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[0], ControlService_ListObjects_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &controlServiceListObjectsClient{stream}
+	x := &grpc.GenericClientStream[ListObjectsRequest, ListObjectsResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -122,26 +132,13 @@ func (c *controlServiceClient) ListObjects(ctx context.Context, in *ListObjectsR
 	return x, nil
 }
 
-type ControlService_ListObjectsClient interface {
-	Recv() (*ListObjectsResponse, error)
-	grpc.ClientStream
-}
-
-type controlServiceListObjectsClient struct {
-	grpc.ClientStream
-}
-
-func (x *controlServiceListObjectsClient) Recv() (*ListObjectsResponse, error) {
-	m := new(ListObjectsResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_ListObjectsClient = grpc.ServerStreamingClient[ListObjectsResponse]
 
 func (c *controlServiceClient) SetShardMode(ctx context.Context, in *SetShardModeRequest, opts ...grpc.CallOption) (*SetShardModeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetShardModeResponse)
-	err := c.cc.Invoke(ctx, ControlService_SetShardMode_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_SetShardMode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +146,9 @@ func (c *controlServiceClient) SetShardMode(ctx context.Context, in *SetShardMod
 }
 
 func (c *controlServiceClient) DumpShard(ctx context.Context, in *DumpShardRequest, opts ...grpc.CallOption) (*DumpShardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DumpShardResponse)
-	err := c.cc.Invoke(ctx, ControlService_DumpShard_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_DumpShard_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +156,9 @@ func (c *controlServiceClient) DumpShard(ctx context.Context, in *DumpShardReque
 }
 
 func (c *controlServiceClient) RestoreShard(ctx context.Context, in *RestoreShardRequest, opts ...grpc.CallOption) (*RestoreShardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RestoreShardResponse)
-	err := c.cc.Invoke(ctx, ControlService_RestoreShard_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_RestoreShard_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +166,9 @@ func (c *controlServiceClient) RestoreShard(ctx context.Context, in *RestoreShar
 }
 
 func (c *controlServiceClient) SynchronizeTree(ctx context.Context, in *SynchronizeTreeRequest, opts ...grpc.CallOption) (*SynchronizeTreeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SynchronizeTreeResponse)
-	err := c.cc.Invoke(ctx, ControlService_SynchronizeTree_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_SynchronizeTree_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +176,9 @@ func (c *controlServiceClient) SynchronizeTree(ctx context.Context, in *Synchron
 }
 
 func (c *controlServiceClient) EvacuateShard(ctx context.Context, in *EvacuateShardRequest, opts ...grpc.CallOption) (*EvacuateShardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EvacuateShardResponse)
-	err := c.cc.Invoke(ctx, ControlService_EvacuateShard_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_EvacuateShard_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +186,9 @@ func (c *controlServiceClient) EvacuateShard(ctx context.Context, in *EvacuateSh
 }
 
 func (c *controlServiceClient) FlushCache(ctx context.Context, in *FlushCacheRequest, opts ...grpc.CallOption) (*FlushCacheResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FlushCacheResponse)
-	err := c.cc.Invoke(ctx, ControlService_FlushCache_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_FlushCache_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -194,8 +196,19 @@ func (c *controlServiceClient) FlushCache(ctx context.Context, in *FlushCacheReq
 }
 
 func (c *controlServiceClient) ObjectStatus(ctx context.Context, in *ObjectStatusRequest, opts ...grpc.CallOption) (*ObjectStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ObjectStatusResponse)
-	err := c.cc.Invoke(ctx, ControlService_ObjectStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ControlService_ObjectStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) ReviveObject(ctx context.Context, in *ReviveObjectRequest, opts ...grpc.CallOption) (*ReviveObjectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReviveObjectResponse)
+	err := c.cc.Invoke(ctx, ControlService_ReviveObject_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +217,9 @@ func (c *controlServiceClient) ObjectStatus(ctx context.Context, in *ObjectStatu
 
 // ControlServiceServer is the server API for ControlService service.
 // All implementations should embed UnimplementedControlServiceServer
-// for forward compatibility
+// for forward compatibility.
+//
+// `ControlService` provides an interface for internal work with the storage node.
 type ControlServiceServer interface {
 	// Performs health check of the storage node.
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
@@ -215,7 +230,7 @@ type ControlServiceServer interface {
 	// Returns list that contains information about all shards of a node.
 	ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error)
 	// Returns list that contains information about all objects in a node.
-	ListObjects(*ListObjectsRequest, ControlService_ListObjectsServer) error
+	ListObjects(*ListObjectsRequest, grpc.ServerStreamingServer[ListObjectsResponse]) error
 	// Sets mode of the shard.
 	SetShardMode(context.Context, *SetShardModeRequest) (*SetShardModeResponse, error)
 	// Dump objects from the shard.
@@ -230,11 +245,16 @@ type ControlServiceServer interface {
 	FlushCache(context.Context, *FlushCacheRequest) (*FlushCacheResponse, error)
 	// ObjectStatus requests object status in the storage engine.
 	ObjectStatus(context.Context, *ObjectStatusRequest) (*ObjectStatusResponse, error)
+	// ReviveObject purge all removal marks from all metabases for object.
+	ReviveObject(context.Context, *ReviveObjectRequest) (*ReviveObjectResponse, error)
 }
 
-// UnimplementedControlServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedControlServiceServer struct {
-}
+// UnimplementedControlServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedControlServiceServer struct{}
 
 func (UnimplementedControlServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
@@ -248,7 +268,7 @@ func (UnimplementedControlServiceServer) DropObjects(context.Context, *DropObjec
 func (UnimplementedControlServiceServer) ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListShards not implemented")
 }
-func (UnimplementedControlServiceServer) ListObjects(*ListObjectsRequest, ControlService_ListObjectsServer) error {
+func (UnimplementedControlServiceServer) ListObjects(*ListObjectsRequest, grpc.ServerStreamingServer[ListObjectsResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method ListObjects not implemented")
 }
 func (UnimplementedControlServiceServer) SetShardMode(context.Context, *SetShardModeRequest) (*SetShardModeResponse, error) {
@@ -272,6 +292,10 @@ func (UnimplementedControlServiceServer) FlushCache(context.Context, *FlushCache
 func (UnimplementedControlServiceServer) ObjectStatus(context.Context, *ObjectStatusRequest) (*ObjectStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectStatus not implemented")
 }
+func (UnimplementedControlServiceServer) ReviveObject(context.Context, *ReviveObjectRequest) (*ReviveObjectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReviveObject not implemented")
+}
+func (UnimplementedControlServiceServer) testEmbeddedByValue() {}
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ControlServiceServer will
@@ -281,6 +305,13 @@ type UnsafeControlServiceServer interface {
 }
 
 func RegisterControlServiceServer(s grpc.ServiceRegistrar, srv ControlServiceServer) {
+	// If the following call pancis, it indicates UnimplementedControlServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&ControlService_ServiceDesc, srv)
 }
 
@@ -361,21 +392,11 @@ func _ControlService_ListObjects_Handler(srv interface{}, stream grpc.ServerStre
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ControlServiceServer).ListObjects(m, &controlServiceListObjectsServer{stream})
+	return srv.(ControlServiceServer).ListObjects(m, &grpc.GenericServerStream[ListObjectsRequest, ListObjectsResponse]{ServerStream: stream})
 }
 
-type ControlService_ListObjectsServer interface {
-	Send(*ListObjectsResponse) error
-	grpc.ServerStream
-}
-
-type controlServiceListObjectsServer struct {
-	grpc.ServerStream
-}
-
-func (x *controlServiceListObjectsServer) Send(m *ListObjectsResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_ListObjectsServer = grpc.ServerStreamingServer[ListObjectsResponse]
 
 func _ControlService_SetShardMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetShardModeRequest)
@@ -503,6 +524,24 @@ func _ControlService_ObjectStatus_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_ReviveObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReviveObjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ReviveObject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ReviveObject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ReviveObject(ctx, req.(*ReviveObjectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -553,6 +592,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ObjectStatus",
 			Handler:    _ControlService_ObjectStatus_Handler,
+		},
+		{
+			MethodName: "ReviveObject",
+			Handler:    _ControlService_ReviveObject_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

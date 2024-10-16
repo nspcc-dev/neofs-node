@@ -23,6 +23,7 @@ const (
 	rpcEvacuateShard   = "EvacuateShard"
 	rpcFlushCache      = "FlushCache"
 	rpcObjectStatus    = "ObjectStatus"
+	rpcReviveObject    = "ReviveObject"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -245,4 +246,25 @@ func ObjectStatus(cli *client.Client, req *ObjectStatusRequest, opts ...client.C
 	}
 
 	return wResp.ObjectStatusResponse, nil
+}
+
+// ReviveObject executes ControlService.ReviveObject RPC.
+func ReviveObject(
+	cli *client.Client,
+	req *ReviveObjectRequest,
+	opts ...client.CallOption,
+) (*ReviveObjectResponse, error) {
+	wResp := &reviveObjectResponseWrapper{
+		new(ReviveObjectResponse),
+	}
+
+	wReq := &requestWrapper{
+		m: req,
+	}
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcReviveObject), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.ReviveObjectResponse, nil
 }
