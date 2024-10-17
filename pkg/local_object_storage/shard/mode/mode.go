@@ -48,12 +48,12 @@ func (m Mode) String() string {
 	}
 }
 
-// NoMetabase returns true iff m is operating without the metabase.
+// NoMetabase returns true if m is operating without the metabase.
 func (m Mode) NoMetabase() bool {
 	return m&Degraded != 0
 }
 
-// ReadOnly returns true iff m prohibits modifying operations with shard.
+// ReadOnly returns true if m prohibits modifying operations with shard.
 func (m Mode) ReadOnly() bool {
 	return m&ReadOnly != 0
 }
