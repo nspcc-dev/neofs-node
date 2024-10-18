@@ -237,3 +237,21 @@ func (w *objectStatusResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	w.ObjectStatusResponse = r
 	return nil
 }
+
+type reviveObjectResponseWrapper struct {
+	*ReviveObjectResponse
+}
+
+func (w *reviveObjectResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.ReviveObjectResponse
+}
+
+func (w *reviveObjectResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	r, ok := m.(*ReviveObjectResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, (*ReviveObjectResponse)(nil))
+	}
+
+	w.ReviveObjectResponse = r
+	return nil
+}
