@@ -37,6 +37,7 @@ const validBlockchainConfigOptions = `
     seed_nodes:
       - localhost:20000
       - localhost:20001
+      - localhost
     hardforks:
       name: 1730000
     validators_history:
@@ -47,11 +48,13 @@ const validBlockchainConfigOptions = `
       listen:
         - localhost:30000
         - localhost:30001
+        - localhost
       tls:
         enabled: true
         listen:
           - localhost:30002
           - localhost:30003
+          - localhost
         cert_file: /path/to/cert
         key_file: /path/to/key
     p2p:
@@ -60,6 +63,7 @@ const validBlockchainConfigOptions = `
       listen:
         - localhost:20100
         - localhost:20101
+        - localhost
       peers:
         min: 1
         max: 5
@@ -171,6 +175,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 				Addresses: []string{
 					"localhost:30000",
 					"localhost:30001",
+					"localhost:30333",
 				},
 				TLSConfig: blockchain.TLSConfig{
 					Enabled:  true,
@@ -179,6 +184,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 					Addresses: []string{
 						"localhost:30002",
 						"localhost:30003",
+						"localhost:30333",
 					},
 				},
 			},
@@ -189,6 +195,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 			SeedNodes: []string{
 				"localhost:20000",
 				"localhost:20001",
+				"localhost:20333",
 			},
 			P2P: blockchain.P2PConfig{
 				MinPeers:         1,
@@ -203,6 +210,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 				ListenAddresses: []string{
 					"localhost:20100",
 					"localhost:20101",
+					"localhost:20333",
 				},
 			},
 			Storage: blockchain.BoltDB("chain.db"),
@@ -258,7 +266,6 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("max_traceable_blocks", -1)},
 			{kvF("max_traceable_blocks", math.MaxUint32+1)},
 			{kvF("seed_nodes", []string{"not a TCP address"})},
-			{kvF("seed_nodes", []string{"127.0.0.1"})}, // missing port
 			{kvF("hardforks", "not a dictionary")},
 			{kvF("hardforks", map[string]any{"": 1})},
 			{kvF("hardforks", map[string]any{"name": "not a number"})},
@@ -272,13 +279,11 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
 			{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
 			{kvF("rpc.listen", []string{"not a TCP address"})},
-			{kvF("rpc.listen", []string{"127.0.0.1"})},                                                         // missing port
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
 			{kvF("p2p.listen", []string{"not a TCP address"})},
-			{kvF("p2p.listen", []string{"127.0.0.1"})}, // missing port
 			{kvF("p2p.dial_timeout", "not a duration")},
 			{kvF("p2p.dial_timeout", -time.Second)},
 			{kvF("p2p.proto_tick_interval", "not a duration")},
