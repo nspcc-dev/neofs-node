@@ -25,6 +25,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
 - Use org-wide linter (#2943)
 - Timestamps are no longer produced in logs if not running with TTY (#2964)
+- In inner ring config, default ports for TCP addresses are used if they are missing (#2969)
 
 ### Removed
 - Support for node.key configuration (#2959)
