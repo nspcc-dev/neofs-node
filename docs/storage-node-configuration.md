@@ -24,6 +24,9 @@ There are some custom types used for brevity:
 | `policer`    | [Policer service configuration](#policer-section)       |
 | `replicator` | [Replicator service configuration](#replicator-section) |
 | `storage`    | [Storage engine configuration](#storage-section)        |
+| `grpc`       | [gRPC configuration](#grpc-section)                     |
+| `node`       | [Node configuration](#node-section)                     |
+| `object`     | [Object service configuration](#object-section)         |
 
 
 # `control` section
