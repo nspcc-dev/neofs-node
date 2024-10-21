@@ -27,6 +27,12 @@ const (
 	cfgPathFSChainValidators     = cfgPathFSChain + ".validators"
 )
 
+// Default ports for listening on TCP addresses.
+const (
+	p2pDefaultListenPort = "20333"
+	rpcDefaultListenPort = "30333"
+)
+
 // checks whether Inner Ring app is configured to initialize underlying NeoFS
 // Sidechain or await for a background deployment. Returns an error if
 // the configuration format is violated.
@@ -108,7 +114,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	}
 	c.TraceableChainLength = uint32(traceableChainLength)
 
-	c.SeedNodes, err = parseConfigAddressesTCP(v, cfgPathFSChainLocalConsensus+".seed_nodes", "seed nodes")
+	c.SeedNodes, err = parseConfigAddressesTCP(v, cfgPathFSChainLocalConsensus+".seed_nodes", "seed nodes", p2pDefaultListenPort)
 	if err != nil && !errors.Is(err, errMissingConfig) {
 		return c, err
 	}
@@ -153,7 +159,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 
 	const rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
 	if v.IsSet(rpcSection) {
-		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on")
+		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on", rpcDefaultListenPort)
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
 		}
@@ -162,7 +168,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		if v.GetBool(rpcTLSSection + ".enabled") {
 			c.RPC.TLSConfig.Enabled = true
 
-			c.RPC.TLSConfig.Addresses, err = parseConfigAddressesTCP(v, rpcTLSSection+".listen", "network addresses to listen to Neo RPC over TLS")
+			c.RPC.TLSConfig.Addresses, err = parseConfigAddressesTCP(v, rpcTLSSection+".listen", "network addresses to listen to Neo RPC over TLS", rpcDefaultListenPort)
 			if err != nil {
 				return c, err
 			}
@@ -192,7 +198,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
 		}
-		c.P2P.ListenAddresses, err = parseConfigAddressesTCP(v, p2pSection+".listen", "network addresses to listen Neo P2P on")
+		c.P2P.ListenAddresses, err = parseConfigAddressesTCP(v, p2pSection+".listen", "network addresses to listen Neo P2P on", p2pDefaultListenPort)
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
 		}
@@ -372,12 +378,15 @@ func parseConfigPublicKeys(v *viper.Viper, key, desc string) (keys.PublicKeys, e
 	return res, nil
 }
 
-func parseConfigAddressesTCP(v *viper.Viper, key, desc string) ([]string, error) {
+func parseConfigAddressesTCP(v *viper.Viper, key, desc string, defaultPort string) ([]string, error) {
 	ss, err := parseConfigStrings(v, key, desc)
 	if err != nil {
 		return nil, err
 	}
 	for i := range ss {
+		if !strings.Contains(ss[i], ":") {
+			ss[i] += ":" + defaultPort
+		}
 		_, err = net.ResolveTCPAddr("tcp", ss[i])
 		if err != nil {
 			return ss, fmt.Errorf("invalid %s '%s' (TCP addresses): %w", desc, key, err)
