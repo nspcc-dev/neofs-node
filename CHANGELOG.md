@@ -18,6 +18,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
 - Unathorized container ops accepted by the IR (#2947)
+- Structure table in the SN-configuration document (#2974)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
