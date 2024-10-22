@@ -78,7 +78,7 @@ func (s *Shard) Open() error {
 type metabaseSynchronizer Shard
 
 func (x *metabaseSynchronizer) Init() error {
-	return (*Shard)(x).refillMetabase()
+	return (*Shard)(x).resyncMetabase()
 }
 
 // Init initializes all Shard's components.
@@ -92,7 +92,7 @@ func (s *Shard) Init() error {
 	if !s.GetMode().NoMetabase() {
 		var initMetabase initializer
 
-		if s.needRefillMetabase() {
+		if s.needResyncMetabase() {
 			initMetabase = (*metabaseSynchronizer)(s)
 		} else {
 			initMetabase = s.metaBase
@@ -155,7 +155,7 @@ func (s *Shard) Init() error {
 	return nil
 }
 
-func (s *Shard) refillMetabase() error {
+func (s *Shard) resyncMetabase() error {
 	err := s.metaBase.Reset()
 	if err != nil {
 		return fmt.Errorf("could not reset metabase: %w", err)
@@ -295,11 +295,11 @@ func (s *Shard) Reload(opts ...Option) error {
 	}
 	if ok {
 		var err error
-		if c.refillMetabase {
+		if c.resyncMetabase {
 			// Here we refill metabase only if a new instance was opened. This is a feature,
 			// we don't want to hang for some time just because we forgot to change
 			// config after the node was updated.
-			err = s.refillMetabase()
+			err = s.resyncMetabase()
 		} else {
 			err = s.metaBase.Init()
 		}

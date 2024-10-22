@@ -84,7 +84,7 @@ func TestShardOpen(t *testing.T) {
 	require.NoError(t, sh.Close())
 }
 
-func TestRefillMetabaseCorrupted(t *testing.T) {
+func TestResyncMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()
 
 	fsTree := fstree.New(
@@ -127,7 +127,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 		WithBlobStorOptions(blobOpts...),
 		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
-		WithRefillMetabase(true))
+		WithResyncMetabase(true))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -138,7 +138,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Close())
 }
 
-func TestRefillMetabase(t *testing.T) {
+func TestResyncMetabase(t *testing.T) {
 	p := t.Name()
 
 	defer os.RemoveAll(p)
@@ -341,7 +341,7 @@ func TestRefillMetabase(t *testing.T) {
 	checkObj(object.AddressOf(&tombObj), nil)
 	checkTombMembers(false)
 
-	err = sh.refillMetabase()
+	err = sh.resyncMetabase()
 	require.NoError(t, err)
 
 	c, err = sh.metaBase.ObjectCounters()

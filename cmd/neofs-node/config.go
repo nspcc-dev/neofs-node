@@ -177,7 +177,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
 
-		sh.RefillMetabase = sc.RefillMetabase()
+		sh.ResyncMetabase = sc.ResyncMetabase()
 		sh.Mode = sc.Mode()
 		sh.Compress = sc.Compress()
 		sh.UncompressableContentType = sc.UncompressableContentTypes()
