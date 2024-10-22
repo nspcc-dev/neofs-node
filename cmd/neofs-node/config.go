@@ -285,6 +285,9 @@ type internals struct {
 	wg      *sync.WaitGroup
 	workers []worker
 	closers []func()
+	// services that are useful for debug (e.g. when a regular closer does not
+	// close), must be close at the very end of application life cycle
+	veryLastClosers []func()
 
 	apiVersion   version.Version
 	healthStatus atomic.Int32
