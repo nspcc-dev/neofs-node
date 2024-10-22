@@ -3,6 +3,7 @@ package writecache
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -164,7 +165,7 @@ func (c *cache) flushBigObjects() {
 
 func (c *cache) reportFlushError(msg string, addr string, err error) {
 	if c.reportError != nil {
-		c.reportError(msg, err)
+		c.reportError(fmt.Sprintf("%s: %s", msg, addr), err)
 	} else {
 		c.log.Error(msg,
 			zap.String("address", addr),
