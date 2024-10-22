@@ -97,7 +97,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		})
 	}()
 
-	c.closers = append(c.closers, func() {
+	c.closers = append(c.veryLastClosers, func() {
 		c.log.Debug(fmt.Sprintf("shutting down %s service", name))
 
 		err := srv.Shutdown()
@@ -184,6 +184,9 @@ func wait(c *cfg) {
 func shutdown(c *cfg) {
 	for _, closer := range c.closers {
 		closer()
+	}
+	for _, lastCloser := range c.veryLastClosers {
+		lastCloser()
 	}
 
 	c.log.Debug("waiting for all processes to stop")
