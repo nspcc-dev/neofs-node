@@ -161,82 +161,93 @@ func (s *Shard) resyncMetabase() error {
 		return fmt.Errorf("could not reset metabase: %w", err)
 	}
 
-	obj := objectSDK.New()
-
-	err = blobstor.IterateBinaryObjects(s.blobStor, func(addr oid.Address, data []byte, descriptor []byte) error {
-		if err := obj.Unmarshal(data); err != nil {
-			s.log.Warn("could not unmarshal object",
-				zap.Stringer("address", addr),
-				zap.String("err", err.Error()))
-			return nil
+	if s.writeCache != nil {
+		// ensure there will not be any raсes in write-cache -> blobstor object
+		// backgroung flushing while iterating blobstor
+		err = s.writeCache.Flush(true)
+		if err != nil {
+			s.log.Warn("could not flush write-cache while resyncing metabase", zap.Error(err))
 		}
+	}
 
-		//nolint: exhaustive
-		switch obj.Type() {
-		case objectSDK.TypeTombstone:
-			tombstone := objectSDK.NewTombstone()
-			exp, err := object.Expiration(*obj)
-			if err != nil && !errors.Is(err, object.ErrNoExpiration) {
-				return fmt.Errorf("tombstone's expiration: %w", err)
-			}
-
-			if err := tombstone.Unmarshal(obj.Payload()); err != nil {
-				return fmt.Errorf("could not unmarshal tombstone content: %w", err)
-			}
-
-			tombAddr := object.AddressOf(obj)
-			memberIDs := tombstone.Members()
-			tombMembers := make([]oid.Address, 0, len(memberIDs))
-
-			for i := range memberIDs {
-				a := tombAddr
-				a.SetObject(memberIDs[i])
-
-				tombMembers = append(tombMembers, a)
-			}
-
-			var inhumePrm meta.InhumePrm
-
-			inhumePrm.SetTombstone(tombAddr, exp)
-			inhumePrm.SetAddresses(tombMembers...)
-
-			_, err = s.metaBase.Inhume(inhumePrm)
-			if err != nil {
-				return fmt.Errorf("could not inhume objects: %w", err)
-			}
-		case objectSDK.TypeLock:
-			var lock objectSDK.Lock
-			if err := lock.Unmarshal(obj.Payload()); err != nil {
-				return fmt.Errorf("could not unmarshal lock content: %w", err)
-			}
-
-			locked := make([]oid.ID, lock.NumberOfMembers())
-			lock.ReadMembers(locked)
-
-			err = s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
-			if err != nil {
-				return fmt.Errorf("could not lock objects: %w", err)
-			}
-		}
-
-		var mPrm meta.PutPrm
-		mPrm.SetObject(obj)
-		mPrm.SetStorageID(descriptor)
-
-		_, err := s.metaBase.Put(mPrm)
-		if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
-			return err
-		}
-
-		return nil
-	})
+	err = blobstor.IterateBinaryObjects(s.blobStor, s.resyncObjectHandler)
 	if err != nil {
-		return fmt.Errorf("could not put objects to the meta: %w", err)
+		return fmt.Errorf("could not put objects to the meta from blobstor: %w", err)
 	}
 
 	err = s.metaBase.SyncCounters()
 	if err != nil {
 		return fmt.Errorf("could not sync object counters: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []byte) error {
+	obj := objectSDK.New()
+
+	if err := obj.Unmarshal(data); err != nil {
+		s.log.Warn("could not unmarshal object",
+			zap.Stringer("address", addr),
+			zap.String("err", err.Error()))
+		return nil
+	}
+
+	// nolint: exhaustive
+	switch obj.Type() {
+	case objectSDK.TypeTombstone:
+		tombstone := objectSDK.NewTombstone()
+		exp, err := object.Expiration(*obj)
+		if err != nil && !errors.Is(err, object.ErrNoExpiration) {
+			return fmt.Errorf("tombstone's expiration: %w", err)
+		}
+
+		if err := tombstone.Unmarshal(obj.Payload()); err != nil {
+			return fmt.Errorf("could not unmarshal tombstone content: %w", err)
+		}
+
+		tombAddr := object.AddressOf(obj)
+		memberIDs := tombstone.Members()
+		tombMembers := make([]oid.Address, 0, len(memberIDs))
+
+		for i := range memberIDs {
+			a := tombAddr
+			a.SetObject(memberIDs[i])
+
+			tombMembers = append(tombMembers, a)
+		}
+
+		var inhumePrm meta.InhumePrm
+
+		inhumePrm.SetTombstone(tombAddr, exp)
+		inhumePrm.SetAddresses(tombMembers...)
+
+		_, err = s.metaBase.Inhume(inhumePrm)
+		if err != nil {
+			return fmt.Errorf("could not inhume objects: %w", err)
+		}
+	case objectSDK.TypeLock:
+		var lock objectSDK.Lock
+		if err := lock.Unmarshal(obj.Payload()); err != nil {
+			return fmt.Errorf("could not unmarshal lock content: %w", err)
+		}
+
+		locked := make([]oid.ID, lock.NumberOfMembers())
+		lock.ReadMembers(locked)
+
+		err := s.metaBase.Lock(obj.GetContainerID(), obj.GetID(), locked)
+		if err != nil {
+			return fmt.Errorf("could not lock objects: %w", err)
+		}
+	}
+
+	var mPrm meta.PutPrm
+	mPrm.SetObject(obj)
+	mPrm.SetStorageID(descriptor)
+
+	_, err := s.metaBase.Put(mPrm)
+	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
+		return err
 	}
 
 	return nil

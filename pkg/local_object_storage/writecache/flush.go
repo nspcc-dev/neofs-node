@@ -270,9 +270,26 @@ func (c *cache) flushObject(obj *object.Object, data []byte) error {
 
 	_, err = c.metabase.UpdateStorageID(updPrm)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrObjectNotFound) {
+			// we have the object and we just successfully put it so all the
+			// information for restoring the object is here; meta can be
+			// corrupted, resynced, etc, just trying our best
+
+			var prmMeta meta.PutPrm
+			prmMeta.SetObject(obj)
+			prmMeta.SetStorageID(res.StorageID)
+
+			_, err = c.metabase.Put(prmMeta)
+			if err != nil {
+				err = fmt.Errorf("trying to restore missing object in metabase: %w", err)
+			}
+
+			return err
+		}
 		c.reportFlushError("can't update object storage ID",
 			addr.EncodeToString(), err)
 	}
+
 	return err
 }
 
