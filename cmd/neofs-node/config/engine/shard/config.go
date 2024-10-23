@@ -99,10 +99,10 @@ func (x *Config) GC() *gcconfig.Config {
 	)
 }
 
-// RefillMetabase returns the value of "resync_metabase" config parameter.
+// ResyncMetabase returns the value of "resync_metabase" config parameter.
 //
 // Returns false if the value is not a valid bool.
-func (x *Config) RefillMetabase() bool {
+func (x *Config) ResyncMetabase() bool {
 	return config.BoolSafe(
 		(*config.Config)(x),
 		"resync_metabase",

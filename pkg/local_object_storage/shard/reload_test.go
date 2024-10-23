@@ -80,7 +80,7 @@ func TestShardReload(t *testing.T) {
 	t.Run("open meta at new path", func(t *testing.T) {
 		newShardOpts := func(metaPath string, resync bool) []Option {
 			metaOpts := []meta.Option{meta.WithPath(metaPath), meta.WithEpochState(epochState{})}
-			return append(opts, WithMetaBaseOptions(metaOpts...), WithRefillMetabase(resync))
+			return append(opts, WithMetaBaseOptions(metaOpts...), WithResyncMetabase(resync))
 		}
 
 		newOpts := newShardOpts(filepath.Join(p, "meta1"), false)

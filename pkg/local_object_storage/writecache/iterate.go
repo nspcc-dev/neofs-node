@@ -15,12 +15,12 @@ var ErrNoDefaultBucket = errors.New("no default bucket")
 
 // IterationPrm contains iteration parameters.
 type IterationPrm struct {
-	handler      func([]byte) error
+	handler      func(oid.Address, []byte) error
 	ignoreErrors bool
 }
 
 // WithHandler sets a callback to be executed on every object.
-func (p *IterationPrm) WithHandler(f func([]byte) error) {
+func (p *IterationPrm) WithHandler(f func(oid.Address, []byte) error) {
 	p.handler = f
 }
 
@@ -45,7 +45,12 @@ func (c *cache) Iterate(prm IterationPrm) error {
 			if _, ok := c.flushed.Peek(string(k)); ok {
 				return nil
 			}
-			return prm.handler(data)
+			addr, err := oid.DecodeAddressString(string(k))
+			if err != nil {
+				return fmt.Errorf("decoding %s object ID: %w", string(k), err)
+			}
+
+			return prm.handler(addr, data)
 		})
 	})
 	if err != nil {
@@ -67,7 +72,7 @@ func (c *cache) Iterate(prm IterationPrm) error {
 			}
 			return err
 		}
-		return prm.handler(data)
+		return prm.handler(addr, data)
 	}
 
 	_, err = c.fsTree.Iterate(fsPrm)

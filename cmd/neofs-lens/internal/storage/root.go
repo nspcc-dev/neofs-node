@@ -68,7 +68,7 @@ func openEngine() (*engine.StorageEngine, error) {
 	err := engineconfig.IterateShards(appCfg, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
 
-		sh.RefillMetabase = sc.RefillMetabase()
+		sh.ResyncMetabase = sc.ResyncMetabase()
 		sh.Mode = sc.Mode()
 		sh.Compress = sc.Compress()
 		sh.UncompressableContentType = sc.UncompressableContentTypes()
@@ -221,7 +221,7 @@ func openEngine() (*engine.StorageEngine, error) {
 		var sh shardOptsWithID
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
-			shard.WithRefillMetabase(shCfg.RefillMetabase),
+			shard.WithResyncMetabase(shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithBlobStorOptions(
 				blobstor.WithCompressObjects(shCfg.Compress),

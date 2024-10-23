@@ -13,7 +13,7 @@ type ShardCfg struct {
 	Compress                  bool
 	SmallSizeObjectLimit      uint64
 	UncompressableContentType []string
-	RefillMetabase            bool
+	ResyncMetabase            bool
 	Mode                      shardmode.Mode
 
 	MetaCfg struct {

@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 var dumpMagic = []byte("NEOF")
@@ -81,7 +82,7 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 		var iterPrm writecache.IterationPrm
 
 		iterPrm.WithIgnoreErrors(prm.ignoreErrors)
-		iterPrm.WithHandler(func(data []byte) error {
+		iterPrm.WithHandler(func(_ oid.Address, data []byte) error {
 			var size [4]byte
 			binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 			if _, err := w.Write(size[:]); err != nil {
