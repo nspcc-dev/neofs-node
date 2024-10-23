@@ -43,6 +43,9 @@ service ControlService {
 
     // ObjectStatus requests object status in the storage engine.
     rpc ObjectStatus (ObjectStatusRequest) returns (ObjectStatusResponse);
+
+    // ReviveObject purge all removal marks from all metabases for object.
+    rpc ReviveObject (ReviveObjectRequest) returns (ReviveObjectResponse);
 }
 
 // Health check request.
@@ -420,6 +423,44 @@ message ObjectStatusResponse {
     }
 
     // Body of object status response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// ReviveObject request.
+message ReviveObjectRequest {
+    // Request body structure.
+    message Body {
+        // Requested object.
+        bytes object_address = 1;
+    }
+
+    // Body of revive object request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// ReviveObject response.
+message ReviveObjectResponse {
+    // Response body structure.
+    message Body {
+        // Information about of object's revival status from a single shard.
+        message Shard {
+            // String presentation of shard ID.
+            string shard_id = 1;
+            // Object's revival status in a free form (human readable).
+            string status = 2;
+        }
+
+        // Engine's shards in which the object was revived.
+        repeated Shard shards = 1;
+    }
+
+    // Body of revive object response message.
     Body body = 1;
 
     // Body signature.

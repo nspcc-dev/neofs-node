@@ -20,7 +20,7 @@ var (
 	// garbageObjectsBucketName stores rows with the objects that should be physically
 	// deleted by the node (Garbage Collector routine).
 	garbageObjectsBucketName = []byte{garbageObjectsPrefix}
-	// garbageObjectsBucketName stores rows with the containers that should be physically
+	// garbageContainersBucketName stores rows with the containers that should be physically
 	// deleted by the node (Garbage Collector routine).
 	garbageContainersBucketName = []byte{garbageContainersPrefix}
 	toMoveItBucketName          = []byte{toMoveItPrefix}
