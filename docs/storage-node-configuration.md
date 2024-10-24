@@ -27,6 +27,7 @@ There are some custom types used for brevity:
 | `grpc`       | [gRPC configuration](#grpc-section)                     |
 | `node`       | [Node configuration](#node-section)                     |
 | `object`     | [Object service configuration](#object-section)         |
+| `tree`       | [Tree service configuration](#tree-section)             |
 
 
 # `control` section
@@ -42,7 +43,6 @@ control:
 |-------------------|----------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `authorized_keys` | `[]public key` | empty         | List of public keys which are used to authorize requests to the control service.                                                                                                           |
 | `grpc.endpoint`   | `string`       | empty         | Address that control service listener binds to.                                                                                                                                            |
-| `grpc.conn_limit` | `int`          | 0             | Number of accepted connections at a time, non-positive values keep connections unlimited. Connections that exceed limitation are accepted but not handled until some connection is closed. |
 
 # `grpc` section
 ```yaml
@@ -60,10 +60,11 @@ grpc:
 Contains an array of gRPC endpoint configurations. The following table describes the format of each
 element.
 
-| Parameter                 | Type                          | Default value | Description                                                               |
-|---------------------------|-------------------------------|---------------|---------------------------------------------------------------------------|
-| `endpoint`                | `[]string`                    | empty         | Address that service listener binds to.                                   |
-| `tls`                     | [TLS config](#tls-subsection) |               | Address that control service listener binds to.                           |
+| Parameter         | Type                          | Default value | Description                                                                                                                   |
+|-------------------|-------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------|
+| `endpoint`        | `string`                      | empty         | Address that service listener binds to.                                                                                       |
+| `conn_limit`      | `int`                         |               | Connection limits. Exceeding connection will not be declined, just blocked before active number decreases or client timeouts. |
+| `tls`             | [TLS config](#tls-subsection) |               | Address that control service listener binds to.                                                                               |
 
 ## `tls` subsection
 
@@ -163,17 +164,18 @@ Contains configuration for each shard. Keys must be consecutive numbers starting
 `default` subsection has the same format and specifies defaults for missing values.
 The following table describes configuration for each shard.
 
-| Parameter                           | Type                                        | Default value | Description                                                                                                                                                                                                       |
-|-------------------------------------|---------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `compress`                          | `bool`                                      | `false`       | Flag to enable compression.                                                                                                                                                                                       |
-| `compression_exclude_content_types` | `[]string`                                  |               | List of content-types to disable compression for. Content-type is taken from `Content-Type` object attribute. Each element can contain a star `*` as a first (last) character, which matches any prefix (suffix). |
-| `mode`                              | `string`                                    | `read-write`  | Shard Mode.<br/>Possible values:  `read-write`, `read-only`, `degraded`, `degraded-read-only`, `disabled`                                                                                                         |
-| `resync_metabase`                   | `bool`                                      | `false`       | Flag to enable metabase resync on start.                                                                                                                                                                          |
-| `writecache`                        | [Writecache config](#writecache-subsection) |               | Write-cache configuration.                                                                                                                                                                                        |
-| `metabase`                          | [Metabase config](#metabase-subsection)     |               | Metabase configuration.                                                                                                                                                                                           |
-| `blobstor`                          | [Blobstor config](#blobstor-subsection)     |               | Blobstor configuration.                                                                                                                                                                                           |
-| `small_object_size`                 | `size`                                      | `1M`          | Maximum size of an object stored in peapod.                                                                                                                                                                       |
-| `gc`                                | [GC config](#gc-subsection)                 |               | GC configuration.                                                                                                                                                                                                 |
+| Parameter                           | Type                                         | Default value | Description                                                                                                                                                                                                       |
+|-------------------------------------|----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `compress`                          | `bool`                                       | `false`       | Flag to enable compression.                                                                                                                                                                                       |
+| `compression_exclude_content_types` | `[]string`                                   |               | List of content-types to disable compression for. Content-type is taken from `Content-Type` object attribute. Each element can contain a star `*` as a first (last) character, which matches any prefix (suffix). |
+| `mode`                              | `string`                                     | `read-write`  | Shard Mode.<br/>Possible values:  `read-write`, `read-only`, `degraded`, `degraded-read-only`, `disabled`                                                                                                         |
+| `resync_metabase`                   | `bool`                                       | `false`       | Flag to enable metabase resync on start.                                                                                                                                                                          |
+| `writecache`                        | [Writecache config](#writecache-subsection)  |               | Write-cache configuration.                                                                                                                                                                                        |
+| `metabase`                          | [Metabase config](#metabase-subsection)      |               | Metabase configuration.                                                                                                                                                                                           |
+| `blobstor`                          | [Blobstor config](#blobstor-subsection)      |               | Blobstor configuration.                                                                                                                                                                                           |
+| `small_object_size`                 | `size`                                       | `1M`          | Maximum size of an object stored in peapod.                                                                                                                                                                       |
+| `gc`                                | [GC config](#gc-subsection)                  |               | GC configuration.                                                                                                                                                                                                 |
+| `pilorama`                          | [Pilorama Config](#pilorama-subsection)      |               | Pilorama configuration.                                                                                                                                                                                           |
 
 ### `blobstor` subsection
 
@@ -191,11 +193,11 @@ blobstor:
 ```
 
 #### Common options for sub-storages
-| Parameter                           | Type                                          | Default value | Description                                                                                                                                                                                                       |
-|-------------------------------------|-----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `path`                              | `string`                                      |               | Path to the root of the blobstor.                                                                                                                                                                                 |
-| `perm`                              | file mode                                     | `0640`        | Default permission for created files and directories.                                                                                                                                                             |
-| `flush_interval`                    | `duration`                                    | `10ms`        | Time interval between batch writes to disk.                                                                                                                                                                       |
+| Parameter                           | Type                   | Default value | Description                                                                                                                                                                                                       |
+|-------------------------------------|------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `path`                              | `string`               |               | Path to the root of the blobstor.                                                                                                                                                                                 |
+| `perm`                              | file mode              | `0640`        | Default permission for created files and directories.                                                                                                                                                             |
+| `flush_interval`                    | `duration`             | `10ms`        | Time interval between batch writes to disk.                                                                                                                                                                       |
 
 #### `fstree` type options
 | Parameter                 | Type      | Default value | Description                                                                                                                  |
@@ -258,15 +260,35 @@ writecache:
   workers_number: 30
 ```
 
-| Parameter            | Type       | Default value | Description                                                                                                          |
-|----------------------|------------|---------------|----------------------------------------------------------------------------------------------------------------------|
-| `path`               | `string`   |               | Path to the metabase file.                                                                                           |
-| `capacity`           | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. | 
-| `small_object_size`  | `size`     | `32K`         | Maximum object size for "small" objects. This objects are stored in a key-value database instead of a file-system.   |
-| `max_object_size`    | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
-| `workers_number`     | `int`      | `20`          | Amount of background workers that move data from the writecache to the blobstor.                                     |
-| `max_batch_size`     | `int`      | `1000`        | Maximum amount of small object `PUT` operations to perform in a single transaction.                                  |
-| `max_batch_delay`    | `duration` | `10ms`        | Maximum delay before a batch starts.                                                                                 |
+| Parameter           | Type       | Default value | Description                                                                                                          |
+|---------------------|------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| `enabled`           | `bool`     | `false`       | Flag to enable the writecache.                                                                                       |
+| `path`              | `string`   |               | Path to the metabase file.                                                                                           |
+| `capacity`          | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. |
+| `no_sync`           | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                       |
+| `small_object_size` | `size`     | `32K`         | Maximum object size for "small" objects. This objects are stored in a key-value database instead of a file-system.   |
+| `max_object_size`   | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
+| `workers_number`    | `int`      | `20`          | Amount of background workers that move data from the writecache to the blobstor.                                     |
+| `max_batch_size`    | `int`      | `1000`        | Maximum amount of small object `PUT` operations to perform in a single transaction.                                  |
+| `max_batch_delay`   | `duration` | `10ms`        | Maximum delay before a batch starts.                                                                                 |
+
+### `pilorama` subsection
+
+```yaml
+pilorama:
+  path: path/to/pilorama.db
+  max_batch_delay: 10ms
+  max_batch_size: 200
+```
+
+| Parameter         | Type       | Default value | Description                                                                             |
+|-------------------|------------|---------------|-----------------------------------------------------------------------------------------|
+| `path`            | `string`   |               | Path to the pilorama database. If omitted, `pilorama.db` file is created blobstor.path. |
+| `perm`            | file mode  | `0640`        | Permissions to set for the database file.                                               |
+| `max_batch_size`  | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction.                  |
+| `max_batch_delay` | `duration` | `10ms`        | Maximum delay before a batch starts.                                                    |
+| `no_sync`         | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.          |
+
 
 
 # `node` section
@@ -334,11 +356,12 @@ apiclient:
   stream_timeout: 20s
   reconnect_timeout: 30s
 ```
-| Parameter         | Type     | Default value | Description                                                           |
-|-------------------|----------|---------------|-----------------------------------------------------------------------|
-| dial_timeout      | duration | `1m`          | Timeout for dialing connections to other storage or inner ring nodes. |
-| stream_timeout    | duration | `15s`         | Timeout for individual operations in a streaming RPC.                 |
-| reconnect_timeout | duration | `30s`         | Time to wait before reconnecting to a failed node.                    |
+| Parameter           | Type     | Default value | Description                                                          |
+|---------------------|----------|---------------|----------------------------------------------------------------------|
+| `dial_timeout`      | `duration` | `1m`          | Timeout for dialing connections to other storage or inner ring nodes. |
+| `stream_timeout`    | `duration` | `15s`         | Timeout for individual operations in a streaming RPC.                |
+| `reconnect_timeout` | `duration` | `30s`         | Time to wait before reconnecting to a failed node.                   |
+| `allow_external`    | `bool`     | `false`       | Allow to fallback to addresses in `ExternalAddr` attribute.          |
 
 # `policer` section
 
@@ -387,3 +410,25 @@ object:
 |-----------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
 | `delete.tombstone_lifetime` | `int` | `5`           | Tombstone lifetime for removed objects in epochs.                                              |
 | `put.pool_size_remote`      | `int` | `10`          | Max pool size for performing remote `PUT` operations. Used by Policer and Replicator services. |
+
+# `tree` section
+Contains tree-service related parameters.
+
+```yaml
+tree:
+  enabled: true
+  cache_size: 15
+  replication_worker_count: 32
+  replication_channel_capacity: 32
+  replication_timeout: 5s
+  sync_interval: 1h
+```
+
+| Parameter                      | Type       | Default value | Description                            |
+|--------------------------------|------------|---------------|----------------------------------------|
+| `enabled`                      | `bool`     | `false`       | Flag to enable the service.            |
+| `cache_size`                   | `int`      |               | Size for container cache.              |
+| `replication_worker_count`     | `int`      |               | Number of replication workers.         |
+| `replication_channel_capacity` | `int`      |               | Capacity of replication channel.       |
+| `replication_timeout`          | `duration` |               | Timeout for replication process.       |
+| `sync_interval`                | `duration` |               | Interval for syncronization all trees. |
