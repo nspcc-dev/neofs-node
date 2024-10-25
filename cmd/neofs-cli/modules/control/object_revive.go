@@ -7,19 +7,25 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
-var objectStatusCmd = &cobra.Command{
-	Use:          "status",
-	Short:        "Check current object status",
-	Args:         cobra.NoArgs,
-	SilenceUsage: true,
-	RunE:         objectStatus,
+var reviveObjectCmd = &cobra.Command{
+	Use:   "revive",
+	Short: "Forcefully revive object",
+	Long:  "Purge removal marks from metabases",
+	Args:  cobra.NoArgs,
+	RunE:  reviveObject,
 }
 
-func objectStatus(cmd *cobra.Command, _ []string) error {
+func initControlObjectReviveCmd() {
+	initControlFlags(reviveObjectCmd)
+
+	flags := reviveObjectCmd.Flags()
+	flags.String(objectFlag, "", "Object address")
+}
+
+func reviveObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -32,16 +38,10 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("reading %s flag: %w", objectFlag, err)
 	}
 
-	var sdkAddr oid.Address
-	err = sdkAddr.DecodeString(addressRaw)
-	if err != nil {
-		return fmt.Errorf("validating address (%s): %w", addressRaw, err)
-	}
-
-	var resp *control.ObjectStatusResponse
-	req := &control.ObjectStatusRequest{
-		Body: &control.ObjectStatusRequest_Body{
-			ObjectAddress: addressRaw,
+	var resp *control.ReviveObjectResponse
+	req := &control.ReviveObjectRequest{
+		Body: &control.ReviveObjectRequest_Body{
+			ObjectAddress: []byte(addressRaw),
 		},
 	}
 	err = signRequest(pk, req)
@@ -55,7 +55,7 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = control.ObjectStatus(client, req)
+		resp, err = control.ReviveObject(client, req)
 		return err
 	})
 	if err != nil {
@@ -75,23 +75,8 @@ func objectStatus(cmd *cobra.Command, _ []string) error {
 
 	for _, shard := range shards {
 		cmd.Printf("Shard ID: %s\n", shard.ShardId)
-		storages := shard.GetStorages()
-		if len(storages) == 0 {
-			cmd.Println("\t<empty response>")
-			continue
-		}
-
-		for _, storage := range storages {
-			cmd.Printf("\t%s: %s\n", storage.Type, storage.Status)
-		}
+		cmd.Printf("Revival status: %s\n", shard.Status)
 	}
 
 	return nil
-}
-
-func initObjectStatusFlags() {
-	initControlFlags(objectStatusCmd)
-
-	flags := objectStatusCmd.Flags()
-	flags.String(objectFlag, "", "Object address")
 }
