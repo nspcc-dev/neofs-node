@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-ir/internal/validate"
 	"github.com/spf13/viper"
 )
 
@@ -29,9 +30,17 @@ func newConfig(path string) (*viper.Viper, error) {
 			v.SetConfigType("yml")
 		}
 		err = v.ReadInConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return v, err
+	err = validate.ValidateStruct(v)
+	if err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
 
 func defaultConfiguration(cfg *viper.Viper) {
@@ -60,7 +69,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("wallet.address", "")  // account address
 	cfg.SetDefault("wallet.password", "") // password
 
-	cfg.SetDefault("timers.emit", "0")
 	cfg.SetDefault("timers.stop_estimation.mul", 1)
 	cfg.SetDefault("timers.stop_estimation.div", 4)
 	cfg.SetDefault("timers.collect_basic_income.mul", 1)

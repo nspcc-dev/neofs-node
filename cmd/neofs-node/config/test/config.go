@@ -15,6 +15,7 @@ func fromFile(path string) *config.Config {
 
 	return config.New(p,
 		config.WithConfigFile(path),
+		config.WithValidate(false),
 	)
 }
 

@@ -32,6 +32,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - In inner ring config, default ports for TCP addresses are used if they are missing (#2969)
 - Metabase is refilled if an object exists in write-cache but is missing in metabase (#2977) 
 - Pprof and metrics services stop at the end of SN's application lifecycle (#2976)
+- Reject configuration with unknown fields (#2981)
 
 ### Removed
 - Support for node.key configuration (#2959)
