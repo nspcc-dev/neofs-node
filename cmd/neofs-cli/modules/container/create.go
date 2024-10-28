@@ -229,6 +229,15 @@ func parseAttributes(dst *container.Container, attributes []string) error {
 			return errors.New("invalid container attribute")
 		}
 
+		if kvPair[0] == "Timestamp" && !containerNoTimestamp {
+			return errors.New("can't override default timestamp attribute, use '--disable-timestamp' flag")
+		}
+
+		if kvPair[0] == "Name" && containerName != "" && kvPair[1] != containerName {
+			return errors.New("name from the '--name' flag and the 'Name' attribute are not equal, " +
+				"you need to use one of them or make them equal")
+		}
+
 		dst.SetAttribute(kvPair[0], kvPair[1])
 	}
 
