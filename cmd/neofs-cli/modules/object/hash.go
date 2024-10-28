@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -42,7 +43,7 @@ func initObjectHashCmd() {
 	flags.String(commonflags.OIDFlag, "", commonflags.OIDFlagUsage)
 	_ = objectHashCmd.MarkFlagRequired(commonflags.OIDFlag)
 
-	flags.String("range", "", "Range to take hash from in the form offset1:length1,...")
+	flags.String("range", "", "Range to take hash from in the form offset1:length1,... Full object payload length if not specified")
 	flags.String("type", hashSha256, "Hash type. Either 'sha256' or 'tz'")
 	flags.String(getRangeHashSaltFlag, "", "Salt in hex format")
 }
@@ -87,6 +88,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	tz := typ == hashTz
 	fullHash := len(ranges) == 0
 	if fullHash {
+		common.PrintVerbose(cmd, "Get the hash of the full object payload.")
 		var headPrm internalclient.HeadObjectPrm
 		headPrm.SetPrivateKey(*pk)
 		headPrm.SetClient(cli)
