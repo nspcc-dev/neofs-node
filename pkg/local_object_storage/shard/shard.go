@@ -71,7 +71,7 @@ type MetricsWriter interface {
 type cfg struct {
 	m sync.RWMutex
 
-	refillMetabase bool
+	resyncMetabase bool
 
 	rmBatchSize int
 
@@ -206,9 +206,9 @@ func (s Shard) hasWriteCache() bool {
 	return s.cfg.useWriteCache
 }
 
-// needRefillMetabase returns true if metabase is needed to be refilled.
-func (s Shard) needRefillMetabase() bool {
-	return s.cfg.refillMetabase
+// needResyncMetabase returns true if metabase is needed to be refilled.
+func (s Shard) needResyncMetabase() bool {
+	return s.cfg.resyncMetabase
 }
 
 // WithRemoverBatchSize returns option to set batch size
@@ -251,10 +251,10 @@ func WithExpiredLocksCallback(cb ExpiredObjectsCallback) Option {
 	}
 }
 
-// WithRefillMetabase returns option to set flag to refill the Metabase on Shard's initialization step.
-func WithRefillMetabase(v bool) Option {
+// WithResyncMetabase returns option to set flag to refill the Metabase on Shard's initialization step.
+func WithResyncMetabase(v bool) Option {
 	return func(c *cfg) {
-		c.refillMetabase = v
+		c.resyncMetabase = v
 	}
 }
 

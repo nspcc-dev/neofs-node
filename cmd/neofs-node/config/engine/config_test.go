@@ -102,7 +102,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 150, gc.RemoverBatchSize())
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
 
-				require.Equal(t, false, sc.RefillMetabase())
+				require.Equal(t, false, sc.ResyncMetabase())
 				require.Equal(t, mode.ReadOnly, sc.Mode())
 			case 1:
 				require.Equal(t, "tmp/1/blob/pilorama.db", pl.Path())
@@ -145,7 +145,7 @@ func TestEngineSection(t *testing.T) {
 				require.EqualValues(t, 200, gc.RemoverBatchSize())
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())
 
-				require.Equal(t, true, sc.RefillMetabase())
+				require.Equal(t, true, sc.ResyncMetabase())
 				require.Equal(t, mode.ReadWrite, sc.Mode())
 			}
 			return nil

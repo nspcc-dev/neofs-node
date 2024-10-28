@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -84,7 +85,7 @@ func TestShardOpen(t *testing.T) {
 	require.NoError(t, sh.Close())
 }
 
-func TestRefillMetabaseCorrupted(t *testing.T) {
+func TestResyncMetabaseCorrupted(t *testing.T) {
 	dir := t.TempDir()
 
 	fsTree := fstree.New(
@@ -127,7 +128,7 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 		WithBlobStorOptions(blobOpts...),
 		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
-		WithRefillMetabase(true))
+		WithResyncMetabase(true))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
@@ -138,10 +139,13 @@ func TestRefillMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Close())
 }
 
-func TestRefillMetabase(t *testing.T) {
+func TestResyncMetabase(t *testing.T) {
 	p := t.Name()
 
 	defer os.RemoveAll(p)
+
+	testObj := objecttest.Object()
+	writeCacheThreshold := len(testObj.Marshal())
 
 	blobOpts := []blobstor.Option{
 		blobstor.WithStorages([]blobstor.SubStorage{
@@ -159,6 +163,11 @@ func TestRefillMetabase(t *testing.T) {
 			meta.WithPath(filepath.Join(p, "meta")),
 			meta.WithEpochState(epochState{}),
 		),
+		WithWriteCache(true),
+		WithWriteCacheOptions(
+			writecache.WithPath(filepath.Join(p, "wc")),
+			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
+		),
 		WithPiloramaOptions(
 			pilorama.WithPath(filepath.Join(p, "pilorama"))),
 	)
@@ -169,15 +178,24 @@ func TestRefillMetabase(t *testing.T) {
 	// initialize Blobstor
 	require.NoError(t, sh.Init())
 
-	const objNum = 5
+	const objNum = 10
 
 	mObjs := make(map[string]objAddr)
 	locked := make([]oid.ID, 1, 2)
 	locked[0] = oidtest.ID()
 	cnrLocked := cidtest.ID()
-	for range uint64(objNum) {
+	for i := range uint64(objNum) {
 		obj := objecttest.Object()
 		obj.SetType(objectSDK.TypeRegular)
+
+		if i < objNum/2 {
+			// this object goes to blobstor directly for sure
+			payload := make([]byte, writeCacheThreshold)
+			_, err := rand.Read(payload)
+			require.NoError(t, err)
+
+			obj.SetPayload(payload)
+		}
 
 		if len(locked) < 2 {
 			obj.SetContainerID(cnrLocked)
@@ -325,6 +343,11 @@ func TestRefillMetabase(t *testing.T) {
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 			meta.WithEpochState(epochState{}),
 		),
+		WithWriteCache(true),
+		WithWriteCacheOptions(
+			writecache.WithPath(filepath.Join(p, "wc")),
+			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
+		),
 		WithPiloramaOptions(
 			pilorama.WithPath(filepath.Join(p, "pilorama_another"))),
 	)
@@ -341,7 +364,7 @@ func TestRefillMetabase(t *testing.T) {
 	checkObj(object.AddressOf(&tombObj), nil)
 	checkTombMembers(false)
 
-	err = sh.refillMetabase()
+	err = sh.resyncMetabase()
 	require.NoError(t, err)
 
 	c, err = sh.metaBase.ObjectCounters()

@@ -177,7 +177,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
 
-		sh.RefillMetabase = sc.RefillMetabase()
+		sh.ResyncMetabase = sc.ResyncMetabase()
 		sh.Mode = sc.Mode()
 		sh.Compress = sc.Compress()
 		sh.UncompressableContentType = sc.UncompressableContentTypes()
@@ -285,6 +285,9 @@ type internals struct {
 	wg      *sync.WaitGroup
 	workers []worker
 	closers []func()
+	// services that are useful for debug (e.g. when a regular closer does not
+	// close), must be close at the very end of application life cycle
+	veryLastClosers []func()
 
 	apiVersion   version.Version
 	healthStatus atomic.Int32

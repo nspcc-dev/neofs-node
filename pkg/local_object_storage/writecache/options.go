@@ -18,6 +18,7 @@ type metabase interface {
 	Exists(meta.ExistsPrm) (meta.ExistsRes, error)
 	StorageID(meta.StorageIDPrm) (meta.StorageIDRes, error)
 	UpdateStorageID(meta.UpdateStorageIDPrm) (meta.UpdateStorageIDRes, error)
+	Put(prm meta.PutPrm) (res meta.PutRes, err error)
 }
 
 // blob is an interface for the blobstor.
