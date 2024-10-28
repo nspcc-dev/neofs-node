@@ -91,6 +91,8 @@ have additional documents describing them:
  * [Extended headers](docs/cli-xheaders.md)
  * [Exit codes](docs/cli-exit-codes.md)
 
+See [docs/cli-commands](docs/cli-commands) for information about all cli commands.
+
 `neofs-adm` is a network setup and management utility usually used by the
 network administrators. Refer to [docs/cli-adm.md](docs/cli-adm.md) for mode
 information about it.
