@@ -225,6 +225,12 @@ func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribu
 			}
 		}
 
+		if kv[0] == "" {
+			return nil, errors.New("empty attribute key")
+		} else if kv[1] == "" {
+			return nil, fmt.Errorf("empty attribute value for key %s", kv[0])
+		}
+
 		attrs[i].SetKey(kv[0])
 		attrs[i].SetValue(kv[1])
 	}

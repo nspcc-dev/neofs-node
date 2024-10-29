@@ -238,6 +238,12 @@ func parseAttributes(dst *container.Container, attributes []string) error {
 				"you need to use one of them or make them equal")
 		}
 
+		if kvPair[0] == "" {
+			return errors.New("empty attribute key")
+		} else if kvPair[1] == "" {
+			return fmt.Errorf("empty attribute value for key %s", kvPair[0])
+		}
+
 		dst.SetAttribute(kvPair[0], kvPair[1])
 	}
 
