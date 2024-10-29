@@ -872,6 +872,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				continue
 			}
 
+			// Morph
+
+			c.cli.Reload(client.WithEndpoints(c.morph.endpoints))
+
 			c.log.Info("configuration has been reloaded successfully")
 		case <-ctx.Done():
 			return

@@ -40,7 +40,8 @@ type cfg struct {
 	autoSidechainScope bool
 	signer             *transaction.Signer
 
-	endpoints []string
+	endpointsLock *sync.RWMutex
+	endpoints     []string
 
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
@@ -63,6 +64,7 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.CalledByEntry,
 		},
+		endpointsLock:       &sync.RWMutex{},
 		reconnectionDelay:   5 * time.Second,
 		reconnectionRetries: 5,
 	}

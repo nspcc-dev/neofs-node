@@ -33,6 +33,9 @@ func (c *Client) switchRPC() *connection {
 }
 
 func (c *Client) connEndpoints() *connection {
+	c.cfg.endpointsLock.RLock()
+	defer c.cfg.endpointsLock.RUnlock()
+
 	// Iterate endpoints.
 	for _, e := range c.cfg.endpoints {
 		conn, err := c.newConnection(e)
