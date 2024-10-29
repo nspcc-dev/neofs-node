@@ -2,6 +2,8 @@ package object
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -111,41 +113,9 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		ownerID = user.NewFromECDSAPublicKey(pk.PublicKey)
 	}
 
-	attrs, err := parseObjectAttrs(cmd)
+	attrs, err := parseObjectAttrs(cmd, ctx)
 	if err != nil {
 		return fmt.Errorf("can't parse object attributes: %w", err)
-	}
-
-	expiresOn, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
-	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
-	if lifetime > 0 {
-		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
-		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
-		if err != nil {
-			return fmt.Errorf("Request current epoch: %w", err)
-		}
-
-		expiresOn = currEpoch + lifetime
-	}
-
-	if expiresOn > 0 {
-		var expAttrFound bool
-		expAttrValue := strconv.FormatUint(expiresOn, 10)
-
-		for i := range attrs {
-			if attrs[i].Key() == object.AttributeExpirationEpoch {
-				attrs[i].SetValue(expAttrValue)
-				expAttrFound = true
-				break
-			}
-		}
-
-		if !expAttrFound {
-			index := len(attrs)
-			attrs = append(attrs, object.Attribute{})
-			attrs[index].SetKey(object.AttributeExpirationEpoch)
-			attrs[index].SetValue(expAttrValue)
-		}
 	}
 
 	obj.SetContainerID(cnr)
@@ -205,25 +175,66 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
+func parseObjectAttrs(cmd *cobra.Command, ctx context.Context) ([]object.Attribute, error) {
 	var rawAttrs []string
+
+	disableTime, _ := cmd.Flags().GetBool("disable-timestamp")
+	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
+
+	expiresOn, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
+	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
+
+	if lifetime > 0 {
+		endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
+		currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("Request current epoch: %w", err)
+		}
+
+		expiresOn = currEpoch + lifetime
+	}
+	expAttrValue := strconv.FormatUint(expiresOn, 10)
+	var expAttrFound bool
 
 	rawAttrs, err := cmd.Flags().GetStringSlice("attributes")
 	if err != nil {
 		return nil, fmt.Errorf("can't get attributes: %w", err)
 	}
 
-	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+2) // name + timestamp attributes
+	attrs := make([]object.Attribute, len(rawAttrs), len(rawAttrs)+3) // name + timestamp + expiration epoch attributes
 	for i := range rawAttrs {
 		kv := strings.SplitN(rawAttrs[i], "=", 2)
 		if len(kv) != 2 {
 			return nil, fmt.Errorf("invalid attribute format: %s", rawAttrs[i])
 		}
+
+		if kv[0] == object.AttributeTimestamp && !disableTime {
+			return nil, errors.New("can't override default timestamp attribute, use '--disable-timestamp' flag")
+		}
+
+		if kv[0] == object.AttributeFileName && !disableFilename {
+			return nil, errors.New("can't override default filename attribute, use '--disable-filename' flag")
+		}
+
+		if kv[0] == object.AttributeExpirationEpoch {
+			expAttrFound = true
+
+			if expiresOn > 0 && kv[1] != expAttrValue {
+				return nil, errors.New("the value of the expiration attribute and the value from '--expire-at' or '--lifetime' flags are not equal, " +
+					"you need to use one of them or make them equal")
+			}
+		}
+
+		if kv[0] == "" {
+			return nil, errors.New("empty attribute key")
+		} else if kv[1] == "" {
+			return nil, fmt.Errorf("empty attribute value for key %s", kv[0])
+		}
+
 		attrs[i].SetKey(kv[0])
 		attrs[i].SetValue(kv[1])
 	}
 
-	disableFilename, _ := cmd.Flags().GetBool("disable-filename")
 	if !disableFilename {
 		filename := filepath.Base(cmd.Flag(fileFlag).Value.String())
 		index := len(attrs)
@@ -232,12 +243,18 @@ func parseObjectAttrs(cmd *cobra.Command) ([]object.Attribute, error) {
 		attrs[index].SetValue(filename)
 	}
 
-	disableTime, _ := cmd.Flags().GetBool("disable-timestamp")
 	if !disableTime {
 		index := len(attrs)
 		attrs = append(attrs, object.Attribute{})
 		attrs[index].SetKey(object.AttributeTimestamp)
 		attrs[index].SetValue(strconv.FormatInt(time.Now().Unix(), 10))
+	}
+
+	if expiresOn > 0 && !expAttrFound {
+		index := len(attrs)
+		attrs = append(attrs, object.Attribute{})
+		attrs[index].SetKey(object.AttributeExpirationEpoch)
+		attrs[index].SetValue(expAttrValue)
 	}
 
 	return attrs, nil
