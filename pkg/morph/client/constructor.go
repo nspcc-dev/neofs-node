@@ -166,6 +166,7 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 				cli.logger.Warn("Neo RPC connection failure", zap.String("endpoint", e), zap.Error(err))
 				continue
 			}
+			break
 		}
 
 		if err != nil {
