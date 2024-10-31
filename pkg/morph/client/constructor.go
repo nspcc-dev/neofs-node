@@ -35,8 +35,6 @@ type cfg struct {
 
 	logger *zap.Logger // logging component
 
-	waitInterval time.Duration
-
 	autoSidechainScope bool
 	signer             *transaction.Signer
 
@@ -54,16 +52,14 @@ type cfg struct {
 }
 
 const (
-	defaultDialTimeout  = 5 * time.Second
-	defaultWaitInterval = 500 * time.Millisecond
+	defaultDialTimeout = 5 * time.Second
 )
 
 func defaultConfig() *cfg {
 	return &cfg{
-		ctx:          context.Background(),
-		dialTimeout:  defaultDialTimeout,
-		logger:       zap.L(),
-		waitInterval: defaultWaitInterval,
+		ctx:         context.Background(),
+		dialTimeout: defaultDialTimeout,
+		logger:      zap.L(),
 		signer: &transaction.Signer{
 			Scopes: transaction.CalledByEntry,
 		},
