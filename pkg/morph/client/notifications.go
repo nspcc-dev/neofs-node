@@ -201,9 +201,6 @@ func (c *Client) UnsubscribeAll() error {
 // notification from the connected RPC node.
 // Channels are closed when connections to the RPC nodes are lost.
 func (c *Client) Notifications() (<-chan *state.ContainedNotificationEvent, <-chan *block.Block, <-chan *result.NotaryRequestEvent) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
 	return c.subs.notifyChan, c.subs.blockChan, c.subs.notaryChan
 }
 
