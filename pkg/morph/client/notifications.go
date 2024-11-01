@@ -32,8 +32,8 @@ func (c *Client) Close() {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
 	if c.inactive {
 		return ErrConnectionLost
@@ -80,8 +80,8 @@ func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) ReceiveBlocks() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
 	if c.inactive {
 		return ErrConnectionLost
@@ -114,8 +114,8 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
 	if c.inactive {
 		return ErrConnectionLost
@@ -151,8 +151,8 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 //
 // See also [Client.ReceiveNotaryRequests].
 func (c *Client) ReceiveAllNotaryRequests() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
 	if c.inactive {
 		return ErrConnectionLost
@@ -182,8 +182,8 @@ func (c *Client) ReceiveAllNotaryRequests() error {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) UnsubscribeAll() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	c.switchLock.RLock()
+	defer c.switchLock.RUnlock()
 
 	if c.inactive {
 		return ErrConnectionLost
