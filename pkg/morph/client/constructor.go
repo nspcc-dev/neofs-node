@@ -114,10 +114,10 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		cfg:        *cfg,
 		switchLock: &sync.RWMutex{},
 		closeChan:  make(chan struct{}),
+		notifyChan: make(chan *state.ContainedNotificationEvent),
+		blockChan:  make(chan *block.Block),
+		notaryChan: make(chan *result.NotaryRequestEvent),
 		subs: subscriptions{
-			notifyChan:             make(chan *state.ContainedNotificationEvent),
-			blockChan:              make(chan *block.Block),
-			notaryChan:             make(chan *result.NotaryRequestEvent),
 			subscribedEvents:       make(map[util.Uint160]struct{}),
 			subscribedNotaryEvents: make(map[util.Uint160]struct{}),
 			subscribedToNewBlocks:  false,

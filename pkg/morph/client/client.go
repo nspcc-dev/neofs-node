@@ -71,7 +71,12 @@ type Client struct {
 	// on every normal call.
 	switchLock *sync.RWMutex
 
-	subs subscriptions
+	// notification consumers (Client sends
+	// notifications to these channels)
+	notifyChan chan *state.ContainedNotificationEvent
+	blockChan  chan *block.Block
+	notaryChan chan *result.NotaryRequestEvent
+	subs       subscriptions
 
 	// channel for internal stop
 	closeChan chan struct{}

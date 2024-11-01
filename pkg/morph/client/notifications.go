@@ -201,16 +201,10 @@ func (c *Client) UnsubscribeAll() error {
 // notification from the connected RPC node.
 // Channels are closed when connections to the RPC nodes are lost.
 func (c *Client) Notifications() (<-chan *state.ContainedNotificationEvent, <-chan *block.Block, <-chan *result.NotaryRequestEvent) {
-	return c.subs.notifyChan, c.subs.blockChan, c.subs.notaryChan
+	return c.notifyChan, c.blockChan, c.notaryChan
 }
 
 type subscriptions struct {
-	// notification consumers (Client sends
-	// notifications to these channels)
-	notifyChan chan *state.ContainedNotificationEvent
-	blockChan  chan *block.Block
-	notaryChan chan *result.NotaryRequestEvent
-
 	// notification receivers (Client reads
 	// notifications from these channels)
 	curNotifyChan chan *state.ContainedNotificationEvent
@@ -245,11 +239,11 @@ routeloop:
 		case <-c.closeChan:
 			break routeloop
 		case ev, ok := <-notifCh:
-			connLost = handleEv(c.subs.notifyChan, ok, ev)
+			connLost = handleEv(c.notifyChan, ok, ev)
 		case ev, ok := <-blCh:
-			connLost = handleEv(c.subs.blockChan, ok, ev)
+			connLost = handleEv(c.blockChan, ok, ev)
 		case ev, ok := <-notaryCh:
-			connLost = handleEv(c.subs.notaryChan, ok, ev)
+			connLost = handleEv(c.notaryChan, ok, ev)
 		case ok := <-restoreCh:
 			restoreInProgress = false
 			if !ok {
@@ -299,9 +293,9 @@ routeloop:
 			}
 		}
 	}
-	close(c.subs.notifyChan)
-	close(c.subs.blockChan)
-	close(c.subs.notaryChan)
+	close(c.notifyChan)
+	close(c.blockChan)
+	close(c.notaryChan)
 }
 
 // restoreSubscriptions restores subscriptions according to
