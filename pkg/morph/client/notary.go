@@ -78,10 +78,9 @@ func defaultNotaryConfig(c *Client) *notaryCfg {
 // ability for client to get alphabet keys from committee or provided source
 // and use proxy contract script hash to create tx for notary contract.
 func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -121,14 +120,13 @@ func (c *Client) IsNotaryEnabled() bool {
 
 // ProbeNotary checks if native `Notary` contract is presented on chain.
 func (c *Client) ProbeNotary() (res bool) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return false
 	}
 
-	_, err := c.client.GetContractStateByAddressOrName(nativenames.Notary)
+	_, err := conn.client.GetContractStateByAddressOrName(nativenames.Notary)
 	return err == nil
 }
 
@@ -140,10 +138,9 @@ func (c *Client) ProbeNotary() (res bool) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -151,7 +148,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	bc, err := c.rpcActor.GetBlockCount()
+	bc, err := conn.rpcActor.GetBlockCount()
 	if err != nil {
 		return fmt.Errorf("can't get blockchain height: %w", err)
 	}
@@ -166,7 +163,7 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 		till = currentTill
 	}
 
-	return c.depositNotary(amount, till)
+	return c.depositNotary(conn, amount, till)
 }
 
 // DepositEndlessNotary calls notary deposit method. Unlike `DepositNotary`,
@@ -176,10 +173,9 @@ func (c *Client) DepositNotary(amount fixedn.Fixed8, delta uint32) error {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -188,12 +184,12 @@ func (c *Client) DepositEndlessNotary(amount fixedn.Fixed8) error {
 	}
 
 	// till value refers to a block height and it is uint32 value in neo-go
-	return c.depositNotary(amount, math.MaxUint32)
+	return c.depositNotary(conn, amount, math.MaxUint32)
 }
 
-func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) error {
+func (c *Client) depositNotary(conn *connection, amount fixedn.Fixed8, till int64) error {
 	acc := c.acc.ScriptHash()
-	txHash, vub, err := c.gasToken.Transfer(
+	txHash, vub, err := conn.gasToken.Transfer(
 		c.accAddr,
 		c.notary.notary,
 		big.NewInt(int64(amount)),
@@ -213,7 +209,7 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) error {
 		return nil
 	}
 
-	_, err = c.rpcActor.WaitSuccess(txHash, vub, nil)
+	_, err = conn.rpcActor.WaitSuccess(txHash, vub, nil)
 	if err != nil {
 		return fmt.Errorf("waiting for %s TX (%d vub) to be persisted: %w", txHash.StringLE(), vub, err)
 	}
@@ -232,10 +228,9 @@ func (c *Client) depositNotary(amount fixedn.Fixed8, till int64) error {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) GetNotaryDeposit() (res int64, err error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return 0, ErrConnectionLost
 	}
 
@@ -284,13 +279,6 @@ func (u *UpdateNotaryListPrm) SetHash(hash util.Uint256) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNotaryList(prm UpdateNotaryListPrm) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
@@ -332,13 +320,6 @@ func (u *UpdateAlphabetListPrm) SetHash(hash util.Uint256) {
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
@@ -363,13 +344,6 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 //
 // `nonce` and `vub` are used only if notary is enabled.
 func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
 	if c.notary == nil {
 		return c.Invoke(contract, fee, method, args...)
 	}
@@ -383,13 +357,6 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 //
 // Considered to be used by non-IR nodes.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
-	if c.inactive {
-		return ErrConnectionLost
-	}
-
 	if c.notary == nil {
 		return c.Invoke(contract, fee, method, args...)
 	}
@@ -402,10 +369,9 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 // NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
 // TXs retrieved from the received notary requests.
 func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -471,7 +437,7 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		})
 	}
 
-	nAct, err := notary.NewActor(c.client, s, c.acc)
+	nAct, err := notary.NewActor(conn.client, s, c.acc)
 	if err != nil {
 		return err
 	}
@@ -510,6 +476,12 @@ func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args 
 }
 
 func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) error {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return ErrConnectionLost
+	}
+
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
 		return err
@@ -520,7 +492,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	if vub != nil {
 		until = *vub
 	} else {
-		until, err = c.notaryTxValidationLimit()
+		until, err = c.notaryTxValidationLimit(conn)
 		if err != nil {
 			return err
 		}
@@ -531,7 +503,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		return err
 	}
 
-	nAct, err := notary.NewActor(c.client, cosigners, c.acc)
+	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
 	if err != nil {
 		return err
 	}
@@ -631,8 +603,8 @@ func (c *Client) notaryMultisigAccount(ir []*keys.PublicKey, committee, invokedB
 	return multisigAccount, nil
 }
 
-func (c *Client) notaryTxValidationLimit() (uint32, error) {
-	bc, err := c.rpcActor.GetBlockCount()
+func (c *Client) notaryTxValidationLimit(conn *connection) (uint32, error) {
+	bc, err := conn.rpcActor.GetBlockCount()
 	if err != nil {
 		return 0, fmt.Errorf("can't get current blockchain height: %w", err)
 	}
@@ -760,10 +732,9 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 // CalculateNonceAndVUB calculates nonce and ValidUntilBlock values
 // based on transaction hash.
 func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint32, err error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return 0, 0, ErrConnectionLost
 	}
 
@@ -773,7 +744,7 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 
 	nonce = binary.LittleEndian.Uint32(hash.BytesLE())
 
-	height, err := c.getTransactionHeight(hash)
+	height, err := c.getTransactionHeight(conn, hash)
 	if err != nil {
 		return 0, 0, fmt.Errorf("could not get transaction height: %w", err)
 	}
@@ -781,11 +752,11 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 	return nonce, height + c.notary.txValidTime, nil
 }
 
-func (c *Client) getTransactionHeight(h util.Uint256) (uint32, error) {
+func (c *Client) getTransactionHeight(conn *connection, h util.Uint256) (uint32, error) {
 	if rh, ok := c.cache.txHeights.Get(h); ok {
 		return rh, nil
 	}
-	height, err := c.client.GetTransactionHeight(h)
+	height, err := conn.client.GetTransactionHeight(h)
 	if err != nil {
 		return 0, err
 	}

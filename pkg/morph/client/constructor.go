@@ -15,6 +15,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/actor"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/gas"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/rolemgmt"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"go.uber.org/zap"
@@ -42,13 +44,11 @@ type cfg struct {
 
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
-	inactiveModeCb Callback
-	rpcSwitchCb    Callback
-
 	minRequiredHeight uint32
 
 	reconnectionRetries int
 	reconnectionDelay   time.Duration
+	rpcSwitchCb         Callback
 }
 
 const (
@@ -106,84 +106,67 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 		opt(cfg)
 	}
 
-	cli := &Client{
-		cache:      newClientCache(),
-		logger:     cfg.logger,
-		acc:        acc,
-		accAddr:    accAddr,
-		cfg:        *cfg,
-		switchLock: &sync.RWMutex{},
-		closeChan:  make(chan struct{}),
-		notifyChan: make(chan *state.ContainedNotificationEvent),
-		blockChan:  make(chan *block.Block),
-		notaryChan: make(chan *result.NotaryRequestEvent),
-		subs: subscriptions{
-			subscribedEvents:       make(map[util.Uint160]struct{}),
-			subscribedNotaryEvents: make(map[util.Uint160]struct{}),
-			subscribedToNewBlocks:  false,
-
-			curNotifyChan: make(chan *state.ContainedNotificationEvent),
-			curBlockChan:  make(chan *block.Block),
-			curNotaryChan: make(chan *result.NotaryRequestEvent),
-		},
-	}
-
-	var err error
-	var act *actor.Actor
+	var (
+		cli = &Client{
+			cache:     newClientCache(),
+			logger:    cfg.logger,
+			acc:       acc,
+			accAddr:   accAddr,
+			cfg:       *cfg,
+			closeChan: make(chan struct{}),
+			subs: subscriptions{
+				notifyChan:             make(chan *state.ContainedNotificationEvent),
+				blockChan:              make(chan *block.Block),
+				notaryChan:             make(chan *result.NotaryRequestEvent),
+				subscribedEvents:       make(map[util.Uint160]struct{}),
+				subscribedNotaryEvents: make(map[util.Uint160]struct{}),
+				subscribedToNewBlocks:  false,
+			},
+		}
+		conn *connection
+		err  error
+	)
 	if cfg.singleCli != nil {
 		// return client in single RPC node mode that uses
 		// predefined WS client
 		//
 		// in case of the closing web socket connection:
 		// if extra endpoints were provided via options,
-		// they will be used in switch process, otherwise
-		// inactive mode will be enabled
-		cli.client = cfg.singleCli
-
-		if cfg.autoSidechainScope {
-			err = autoSidechainScope(cfg.singleCli, cfg)
-			if err != nil {
-				return nil, fmt.Errorf("scope setup: %w", err)
-			}
-		}
-		act, err = newActor(cfg.singleCli, acc, *cfg)
-		if err != nil {
-			return nil, fmt.Errorf("could not create RPC actor: %w", err)
-		}
+		// they will be used in switch process
+		conn, err = cli.newConnectionWS(cfg.singleCli)
 	} else {
 		if len(cfg.endpoints) == 0 {
 			return nil, errors.New("no endpoints were provided")
 		}
 
 		cli.endpoints = cfg.endpoints
-		for _, e := range cli.endpoints {
-			cli.client, act, err = cli.newCli(e)
-			if err != nil {
-				cli.logger.Warn("Neo RPC connection failure", zap.String("endpoint", e), zap.Error(err))
-				continue
-			}
-			break
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("could not create RPC client: %w", err)
-		}
-	}
-	cli.setActor(act)
-
-	for range cfg.reconnectionRetries {
-		err = cli.reachedHeight(cfg.minRequiredHeight)
-		if !errors.Is(err, ErrStaleNodes) {
-			break
-		}
-
-		if !cli.switchRPC() {
-			return nil, fmt.Errorf("%w: could not switch to the next node", err)
+		conn = cli.connEndpoints()
+		if conn == nil {
+			err = errors.New("could not establish Neo RPC connection")
 		}
 	}
 	if err != nil {
 		return nil, err
 	}
+
+	for range cfg.reconnectionRetries {
+		if conn != nil {
+			err = conn.reachedHeight(cfg.minRequiredHeight)
+			if !errors.Is(err, ErrStaleNodes) {
+				break
+			}
+			cli.logger.Info("outdated Neo RPC node", zap.String("endpoint", conn.client.Endpoint()), zap.Error(err))
+			conn.Close()
+		}
+		conn = cli.connEndpoints()
+		if conn == nil {
+			err = errors.New("can't establish connection to any Neo RPC node")
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	cli.conn.Store(conn)
 
 	go cli.routeNotifications()
 	go cli.closeWaiter()
@@ -191,15 +174,21 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 	return cli, nil
 }
 
-func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, error) {
+func (c *Client) newConnection(endpoint string) (*connection, error) {
 	cli, err := rpcclient.NewWS(c.cfg.ctx, endpoint, rpcclient.WSOptions{
 		Options: rpcclient.Options{
 			DialTimeout: c.cfg.dialTimeout,
 		},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("WS client creation: %w", err)
+		return nil, fmt.Errorf("WS client creation: %w", err)
 	}
+
+	return c.newConnectionWS(cli)
+}
+
+func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
+	var err error
 
 	defer func() {
 		if err != nil {
@@ -209,21 +198,30 @@ func (c *Client) newCli(endpoint string) (*rpcclient.WSClient, *actor.Actor, err
 
 	err = cli.Init()
 	if err != nil {
-		return nil, nil, fmt.Errorf("WS client initialization: %w", err)
+		return nil, fmt.Errorf("WS client initialization: %w", err)
 	}
 	if c.cfg.autoSidechainScope {
 		err = autoSidechainScope(cli, &c.cfg)
 		if err != nil {
-			return nil, nil, fmt.Errorf("scope setup: %w", err)
+			return nil, fmt.Errorf("scope setup: %w", err)
 		}
 	}
 
 	act, err := newActor(cli, c.acc, c.cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("RPC actor creation: %w", err)
+		return nil, fmt.Errorf("RPC actor creation: %w", err)
 	}
 
-	return cli, act, nil
+	var conn = &connection{
+		client:     cli,
+		rpcActor:   act,
+		gasToken:   gas.New(act),
+		rolemgmt:   rolemgmt.New(act),
+		notifyChan: make(chan *state.ContainedNotificationEvent),
+		blockChan:  make(chan *block.Block),
+		notaryChan: make(chan *result.NotaryRequestEvent),
+	}
+	return conn, nil
 }
 
 func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
@@ -330,16 +328,6 @@ func WithReconnectionsDelay(d time.Duration) Option {
 	}
 }
 
-// WithConnLostCallback return a client constructor option
-// that specifies a callback that is called when Client
-// unsuccessfully tried to connect to all the specified
-// endpoints.
-func WithConnLostCallback(cb Callback) Option {
-	return func(c *cfg) {
-		c.inactiveModeCb = cb
-	}
-}
-
 // WithConnSwitchCallback returns a client constructor option
 // that specifies a callback that is called when the Client
 // reconnected to a new RPC (from [WithEndpoints] list)
@@ -368,26 +356,4 @@ func WithAutoSidechainScope() Option {
 	return func(c *cfg) {
 		c.autoSidechainScope = true
 	}
-}
-
-// reachedHeight checks if [Client] has least expected block height and
-// returns error if it is not reached that height.
-// This function is required to avoid connections to unsynced RPC nodes, because
-// they can produce events from the past that should not be processed by
-// NeoFS nodes.
-func (c *Client) reachedHeight(startFrom uint32) error {
-	if startFrom == 0 {
-		return nil
-	}
-
-	height, err := c.BlockCount()
-	if err != nil {
-		return fmt.Errorf("could not get block height: %w", err)
-	}
-
-	if height < startFrom+1 {
-		return fmt.Errorf("%w: expected %d height, got %d count", ErrStaleNodes, startFrom, height)
-	}
-
-	return nil
 }
