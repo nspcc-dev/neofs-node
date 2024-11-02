@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	gendocTypeFlag = "type"
+	gendocDisableAutoGenTagFlag = "disable-auto-gen-tag"
+	gendocTypeFlag              = "type"
 
 	gendocMarkdown = "md"
 	gendocMan      = "man"
@@ -61,6 +62,7 @@ In this case there is a number of helper functions which can be used:
 			}
 
 			typ, _ := cmd.Flags().GetString(gendocTypeFlag)
+			rootCmd.DisableAutoGenTag, _ = cmd.Flags().GetBool(gendocDisableAutoGenTagFlag)
 			switch typ {
 			case gendocMarkdown:
 				return doc.GenMarkdownTree(rootCmd, args[0])
@@ -78,6 +80,7 @@ In this case there is a number of helper functions which can be used:
 
 	ff := gendocCmd.Flags()
 	ff.StringP(gendocTypeFlag, "t", gendocMarkdown, "Type for the documentation ('md' or 'man')")
+	ff.BoolP(gendocDisableAutoGenTagFlag, "d", false, "Defines if gen tag of cobra will be printed.")
 	ff.Int(depthFlag, 1, "If template is specified, unify all commands starting from depth in a single file. Default: 1.")
 	ff.StringP(extensionFlag, "e", "", "If the template is specified, string to append to the output file names")
 	return gendocCmd

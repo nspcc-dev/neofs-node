@@ -135,6 +135,10 @@ test:
 lint: .golangci.yml
 	@golangci-lint --timeout=5m run
 
+cli-gendoc: $(BIN)/neofs-cli
+	@echo "⇒ Generating CLI commands documentation"
+	@$< gendoc ./docs/cli-commands -d
+
 # Run linters in Docker
 docker/lint:
 	docker run --rm -t \

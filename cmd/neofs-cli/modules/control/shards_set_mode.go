@@ -3,6 +3,7 @@ package control
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/mr-tron/base58"
@@ -91,6 +92,7 @@ func initControlSetShardModeCmd() {
 	iterateSafeShardModes(func(strMode string) {
 		modes = append(modes, "'"+strMode+"'")
 	})
+	sort.Strings(modes)
 
 	flags.String(shardModeFlag, "",
 		fmt.Sprintf("New shard mode (%s)", strings.Join(modes, ", ")),

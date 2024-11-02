@@ -1,0 +1,24 @@
+name: CLI commands docs check
+
+on:
+  pull_request:
+    branches:
+      - master
+      - support/**
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: cli-docs-check
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate new CLI doc files
+        run: make cli-gendoc
+
+      - name: Fail if CLI commands files are changed but the documentation is not updated
+        run: |
+          git add -N docs/cli-commands
+          git diff --exit-code -- docs/cli-commands/
