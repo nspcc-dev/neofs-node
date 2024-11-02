@@ -6,12 +6,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Endpoint represents morph endpoint together with its priority.
-type Endpoint struct {
-	Address  string
-	Priority int
-}
-
 // SwitchRPC performs reconnection and returns new if it was successful.
 func (c *Client) switchRPC() *connection {
 	var conn = c.conn.Swap(nil)
