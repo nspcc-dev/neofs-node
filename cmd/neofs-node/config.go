@@ -668,9 +668,6 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
 			}
 		}),
-		client.WithConnLostCallback(func() {
-			c.internalErr <- errors.New("morph connection has been lost")
-		}),
 		client.WithMinRequiredBlockHeight(fromSideChainBlock),
 	)
 	if err != nil {

@@ -1077,9 +1077,6 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 				errChan <- fmt.Errorf("internal services' restart after RPC reconnection to the %s: %w", p.name, err)
 			}
 		}),
-		client.WithConnLostCallback(func() {
-			errChan <- fmt.Errorf("%s chain connection has been lost", p.name)
-		}),
 		client.WithMinRequiredBlockHeight(p.from),
 	}
 	if p.withAutoSidechainScope {

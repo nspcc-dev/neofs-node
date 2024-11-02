@@ -44,10 +44,9 @@ func NNSAlphabetContractName(index int) string {
 // in NNS contract.
 // If script hash has not been found, returns ErrNNSRecordNotFound.
 func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return util.Uint160{}, ErrConnectionLost
 	}
 
@@ -56,24 +55,23 @@ func (c *Client) NNSContractAddress(name string) (sh util.Uint160, err error) {
 		return util.Uint160{}, err
 	}
 
-	var nnsReader = nns.NewReader(invoker.New(c.client, nil), nnsHash)
+	var nnsReader = nns.NewReader(invoker.New(conn.client, nil), nnsHash)
 
 	return nnsReader.ResolveFSContract(name)
 }
 
 // NNSHash returns NNS contract hash.
 func (c *Client) NNSHash() (util.Uint160, error) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return util.Uint160{}, ErrConnectionLost
 	}
 
 	nnsHash := c.cache.nns()
 
 	if nnsHash == nil {
-		h, err := nns.InferHash(c.client)
+		h, err := nns.InferHash(conn.client)
 		if err != nil {
 			return util.Uint160{}, fmt.Errorf("InferHash: %w", err)
 		}
@@ -88,14 +86,13 @@ func (c *Client) NNSHash() (util.Uint160, error) {
 // postpone Sidechain scope initialization when NNS contract is not yet ready
 // while Client is already needed.
 func (c *Client) InitSidechainScope() error {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
-	return autoSidechainScope(c.client, &c.cfg)
+	return autoSidechainScope(conn.client, &c.cfg)
 }
 
 func autoSidechainScope(ws *rpcclient.WSClient, conf *cfg) error {

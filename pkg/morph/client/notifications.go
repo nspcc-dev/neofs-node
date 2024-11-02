@@ -32,10 +32,9 @@ func (c *Client) Close() {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -50,11 +49,11 @@ func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
 		}
 
 		// subscribe to contract notifications
-		id, err := c.client.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &contract}, c.subs.curNotifyChan)
+		id, err := conn.client.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &contract}, conn.notifyChan)
 		if err != nil {
 			// if there is some error, undo all subscriptions and return error
 			for _, id := range notifyIDs {
-				_ = c.client.Unsubscribe(id)
+				_ = conn.client.Unsubscribe(id)
 			}
 
 			return fmt.Errorf("contract events subscription RPC: %w", err)
@@ -80,14 +79,13 @@ func (c *Client) ReceiveExecutionNotifications(contracts []util.Uint160) error {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) ReceiveBlocks() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
-	_, err := c.client.ReceiveBlocks(nil, c.subs.curBlockChan)
+	_, err := conn.client.ReceiveBlocks(nil, conn.blockChan)
 	if err != nil {
 		return fmt.Errorf("block subscriptions RPC: %w", err)
 	}
@@ -114,10 +112,9 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -135,7 +132,7 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	nrAddedType := mempoolevent.TransactionAdded
 	filter := &neorpc.NotaryRequestFilter{Signer: &txSigner, Type: &nrAddedType}
 
-	_, err := c.client.ReceiveNotaryRequests(filter, c.subs.curNotaryChan)
+	_, err := conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
 	}
@@ -151,10 +148,9 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 //
 // See also [Client.ReceiveNotaryRequests].
 func (c *Client) ReceiveAllNotaryRequests() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
@@ -165,7 +161,7 @@ func (c *Client) ReceiveAllNotaryRequests() error {
 		return nil
 	}
 
-	_, err := c.client.ReceiveNotaryRequests(nil, c.subs.curNotaryChan)
+	_, err := conn.client.ReceiveNotaryRequests(nil, conn.notaryChan)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
 	}
@@ -182,14 +178,13 @@ func (c *Client) ReceiveAllNotaryRequests() error {
 // Returns ErrConnectionLost if client has not been able to establish
 // connection to any of passed RPC endpoints.
 func (c *Client) UnsubscribeAll() error {
-	c.switchLock.Lock()
-	defer c.switchLock.Unlock()
+	var conn = c.conn.Load()
 
-	if c.inactive {
+	if conn == nil {
 		return ErrConnectionLost
 	}
 
-	err := c.client.UnsubscribeAll()
+	err := conn.client.UnsubscribeAll()
 	if err != nil {
 		return err
 	}
@@ -201,9 +196,6 @@ func (c *Client) UnsubscribeAll() error {
 // notification from the connected RPC node.
 // Channels are closed when connections to the RPC nodes are lost.
 func (c *Client) Notifications() (<-chan *state.ContainedNotificationEvent, <-chan *block.Block, <-chan *result.NotaryRequestEvent) {
-	c.switchLock.RLock()
-	defer c.switchLock.RUnlock()
-
 	return c.subs.notifyChan, c.subs.blockChan, c.subs.notaryChan
 }
 
@@ -213,12 +205,6 @@ type subscriptions struct {
 	notifyChan chan *state.ContainedNotificationEvent
 	blockChan  chan *block.Block
 	notaryChan chan *result.NotaryRequestEvent
-
-	// notification receivers (Client reads
-	// notifications from these channels)
-	curNotifyChan chan *state.ContainedNotificationEvent
-	curBlockChan  chan *block.Block
-	curNotaryChan chan *result.NotaryRequestEvent
 
 	sync.RWMutex // for subscription fields only
 
@@ -232,74 +218,34 @@ type subscriptions struct {
 
 func (c *Client) routeNotifications() {
 	var (
-		restoreCh         = make(chan bool)
-		restoreInProgress bool
+		restoreCh = make(chan bool)
+		conn      = c.conn.Load()
 	)
 
 routeloop:
 	for {
+		if conn == nil {
+			c.logger.Info("RPC connection lost, attempting reconnect")
+			conn = c.switchRPC()
+			go c.restoreSubscriptions(conn, restoreCh)
+		}
 		var connLost bool
-		c.switchLock.RLock()
-		notifCh := c.subs.curNotifyChan
-		blCh := c.subs.curBlockChan
-		notaryCh := c.subs.curNotaryChan
-		c.switchLock.RUnlock()
 		select {
 		case <-c.closeChan:
 			break routeloop
-		case ev, ok := <-notifCh:
+		case ev, ok := <-conn.notifyChan:
 			connLost = handleEv(c.subs.notifyChan, ok, ev)
-		case ev, ok := <-blCh:
+		case ev, ok := <-conn.blockChan:
 			connLost = handleEv(c.subs.blockChan, ok, ev)
-		case ev, ok := <-notaryCh:
+		case ev, ok := <-conn.notaryChan:
 			connLost = handleEv(c.subs.notaryChan, ok, ev)
 		case ok := <-restoreCh:
-			restoreInProgress = false
 			if !ok {
 				connLost = true
 			}
 		}
 		if connLost {
-			if !restoreInProgress {
-				c.logger.Info("RPC connection lost, attempting reconnect")
-				if !c.SwitchRPC() {
-					c.logger.Error("can't switch RPC node")
-					break routeloop
-				}
-
-				c.subs.Lock()
-				c.subs.curNotifyChan = make(chan *state.ContainedNotificationEvent)
-				c.subs.curBlockChan = make(chan *block.Block)
-				c.subs.curNotaryChan = make(chan *result.NotaryRequestEvent)
-				go c.restoreSubscriptions(c.subs.curNotifyChan, c.subs.curBlockChan, c.subs.curNotaryChan, restoreCh)
-				c.subs.Unlock()
-				restoreInProgress = true
-			drainloop:
-				for {
-					select {
-					case _, ok := <-notifCh:
-						if !ok {
-							notifCh = nil
-						}
-					case _, ok := <-blCh:
-						if !ok {
-							blCh = nil
-						}
-					case _, ok := <-notaryCh:
-						if !ok {
-							notaryCh = nil
-						}
-					default:
-						break drainloop
-					}
-				}
-			} else { // Avoid getting additional !ok eventc.subs.
-				c.subs.Lock()
-				c.subs.curNotifyChan = nil
-				c.subs.curBlockChan = nil
-				c.subs.curNotaryChan = nil
-				c.subs.Unlock()
-			}
+			conn = nil
 		}
 	}
 	close(c.subs.notifyChan)
@@ -309,13 +255,14 @@ routeloop:
 
 // restoreSubscriptions restores subscriptions according to
 // cached information about them.
-func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificationEvent,
-	blCh chan<- *block.Block, notaryCh chan<- *result.NotaryRequestEvent, resCh chan<- bool) {
+func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 	var err error
 
+	c.subs.RLock()
+	defer c.subs.RUnlock()
 	// new block events restoration
 	if c.subs.subscribedToNewBlocks {
-		_, err = c.client.ReceiveBlocks(nil, blCh)
+		_, err = conn.client.ReceiveBlocks(nil, conn.blockChan)
 		if err != nil {
 			c.logger.Error("could not restore block subscription",
 				zap.Error(err),
@@ -327,7 +274,7 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 
 	// notification events restoration
 	for contract := range c.subs.subscribedEvents {
-		_, err = c.client.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &contract}, notifCh)
+		_, err = conn.client.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &contract}, conn.notifyChan)
 		if err != nil {
 			c.logger.Error("could not restore notification subscription after RPC switch",
 				zap.Error(err),
@@ -339,7 +286,7 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 
 	// notary notification events restoration
 	if c.subs.subscribedToAllNotaryEvents {
-		_, err = c.client.ReceiveNotaryRequests(nil, notaryCh)
+		_, err = conn.client.ReceiveNotaryRequests(nil, conn.notaryChan)
 		if err != nil {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err))
@@ -352,7 +299,7 @@ func (c *Client) restoreSubscriptions(notifCh chan<- *state.ContainedNotificatio
 		nrAddedType := mempoolevent.TransactionAdded
 		filter := &neorpc.NotaryRequestFilter{Signer: &signer, Type: &nrAddedType}
 
-		_, err = c.client.ReceiveNotaryRequests(filter, notaryCh)
+		_, err = conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
 		if err != nil {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err),

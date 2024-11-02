@@ -12,47 +12,38 @@ type Endpoint struct {
 	Priority int
 }
 
-// SwitchRPC performs reconnection and returns true if it was successful.
-func (c *Client) SwitchRPC() bool {
-	c.switchLock.Lock()
+// SwitchRPC performs reconnection and returns new if it was successful.
+func (c *Client) switchRPC() *connection {
+	var conn = c.conn.Swap(nil)
 
-	for range c.cfg.reconnectionRetries {
-		if c.switchRPC() {
-			c.switchLock.Unlock()
-
+	if conn != nil {
+		conn.Close() // Ensure it's completed and drained.
+	}
+	for {
+		conn = c.connEndpoints()
+		if conn != nil {
+			c.conn.Store(conn)
 			if c.cfg.rpcSwitchCb != nil {
 				c.cfg.rpcSwitchCb()
 			}
 
-			return true
+			return conn
 		}
 
 		select {
 		case <-time.After(c.cfg.reconnectionDelay):
 		case <-c.closeChan:
-			c.switchLock.Unlock()
-			return false
+			return nil
 		}
 	}
-
-	c.inactive = true
-	c.switchLock.Unlock()
-
-	if c.cfg.inactiveModeCb != nil {
-		c.cfg.inactiveModeCb()
-	}
-
-	return false
 }
 
-func (c *Client) switchRPC() bool {
-	c.client.Close()
-
-	// Iterate endpoints in the order of decreasing priority.
+func (c *Client) connEndpoints() *connection {
+	// Iterate endpoints.
 	for _, e := range c.endpoints {
-		cli, act, err := c.newCli(e)
+		conn, err := c.newConnection(e)
 		if err != nil {
-			c.logger.Warn("could not establish connection to the switched RPC node",
+			c.logger.Warn("could not establish connection to RPC node",
 				zap.String("endpoint", e),
 				zap.Error(err),
 			)
@@ -62,15 +53,12 @@ func (c *Client) switchRPC() bool {
 
 		c.cache.invalidate()
 
-		c.logger.Info("connection to the new RPC node has been established",
+		c.logger.Info("connection to RPC node has been established",
 			zap.String("endpoint", e))
 
-		c.client = cli
-		c.setActor(act)
-
-		return true
+		return conn
 	}
-	return false
+	return nil
 }
 
 func (c *Client) closeWaiter() {
@@ -78,11 +66,6 @@ func (c *Client) closeWaiter() {
 	case <-c.cfg.ctx.Done():
 	case <-c.closeChan:
 	}
-	_ = c.UnsubscribeAll()
-	c.close()
-}
-
-// close closes notification channel and wrapped WS client.
-func (c *Client) close() {
-	c.client.Close()
+	var conn = c.conn.Swap(nil)
+	conn.Close()
 }
