@@ -35,8 +35,8 @@
       "path": "/state"
     }
   },
-  "grpc": {
-    "0": {
+  "grpc": [
+    {
       "endpoint": "s01.neofs.devenv:8080",
       "conn_limit": 1,
       "tls": {
@@ -45,17 +45,17 @@
         "key": "/path/to/key"
       }
     },
-    "1": {
+    {
       "endpoint": "s02.neofs.devenv:8080",
       "conn_limit": -1,
       "tls": {
         "enabled": false
       }
     },
-    "2": {
+    {
       "endpoint": "s03.neofs.devenv:8080"
     }
-  },
+  ],
   "tree": {
     "enabled": true,
     "cache_size": 15,
@@ -98,8 +98,6 @@
   },
   "policer": {
     "head_timeout": "15s",
-    "cache_size": "1000001",
-    "cache_time": "31s",
     "replication_cooldown": "101ms",
     "object_batch_size": "11",
     "max_workers": "21"
@@ -173,7 +171,6 @@
         "writecache": {
           "enabled": true,
           "path": "tmp/1/cache",
-          "memcache_capacity": 2147483648,
           "small_object_size": 16384,
           "max_object_size": 134217728,
           "workers_number": 30,

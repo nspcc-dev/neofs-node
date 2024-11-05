@@ -10,14 +10,11 @@ node:
   attribute_2: User-Agent:NeoFS\/0.27
 
 grpc:
-  num: 1
-  0:
-    endpoint: <listen.local.address:port>
+  - endpoint: <listen.local.address:port>
     tls:
       enabled: false
 
 storage:
-  shard_num: 1
   shard:
     0:
       metabase:
@@ -48,10 +45,9 @@ prometheus:
 object:
   put:
     pool_size_remote: 100
-    pool_size_local: 100
 
 morph:
-  rpc_endpoint:
+  endpoints:
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws
     - wss://rpc3.morph.fs.neo.org:40341/ws

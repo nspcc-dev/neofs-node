@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal/validate"
 	"github.com/spf13/viper"
 )
 
@@ -51,6 +52,13 @@ func New(_ Prm, opts ...Option) *Config {
 		err := v.ReadInConfig()
 		if err != nil {
 			panic(fmt.Errorf("failed to read config: %w", err))
+		}
+	}
+
+	if o.validate {
+		err := validate.ValidateStruct(v)
+		if err != nil {
+			panic(err)
 		}
 	}
 
