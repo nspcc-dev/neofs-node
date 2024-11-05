@@ -101,11 +101,13 @@ Contains logger parameters.
 ```yaml
 logger:
   level: info
+  encoding: console
 ```
 
-| Parameter | Type     | Default value | Description                                                                                       |
-|-----------|----------|---------------|---------------------------------------------------------------------------------------------------|
-| `level`   | `string` | `info`        | Logging level.<br/>Possible values:  `debug`, `info`, `warn`, `error`, `dpanic`, `panic`, `fatal` |
+| Parameter   | Type       | Default value | Description                                                                                       |
+|-------------|------------|---------------|---------------------------------------------------------------------------------------------------|
+| `level`     | `string`   | `info`        | Logging level.<br/>Possible values:  `debug`, `info`, `warn`, `error`, `dpanic`, `panic`, `fatal` |
+| `encoding`  | `string`   | `console`     | Logging encoding.<br/>Possible values: `console`, `json`                                          |
 
 # `contracts` section
 Contains override values for NeoFS side-chain contract hashes. Most of the time contract

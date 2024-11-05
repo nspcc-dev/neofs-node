@@ -1,5 +1,6 @@
 logger:
   level: debug  # logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
+  encoding: json # logger encoding: one of "console" (default) or "json"
 
 pprof:
   enabled: true

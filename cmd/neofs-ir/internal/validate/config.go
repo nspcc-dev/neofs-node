@@ -4,7 +4,8 @@ import "time"
 
 type validConfig struct {
 	Logger struct {
-		Level string `mapstructure:"level"`
+		Level    string `mapstructure:"level"`
+		Encoding string `mapstructure:"encoding"`
 	} `mapstructure:"logger"`
 
 	Wallet struct {
