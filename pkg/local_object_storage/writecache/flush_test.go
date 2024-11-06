@@ -55,15 +55,12 @@ func TestFlush(t *testing.T) {
 
 	check := func(t *testing.T, mb *meta.DB, bs *blobstor.BlobStor, objects []objectPair) {
 		for i := range objects {
-			var mPrm meta.StorageIDPrm
-			mPrm.SetAddress(objects[i].addr)
-
-			mRes, err := mb.StorageID(mPrm)
+			id, err := mb.StorageID(objects[i].addr)
 			require.NoError(t, err)
 
 			var prm common.GetPrm
 			prm.Address = objects[i].addr
-			prm.StorageID = mRes.StorageID()
+			prm.StorageID = id
 
 			res, err := bs.Get(prm)
 			require.NoError(t, err)
@@ -85,9 +82,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, wc.Flush(false))
 
 		for i := range 2 {
-			var mPrm meta.GetPrm
-			mPrm.SetAddress(objects[i].addr)
-			_, err := mb.Get(mPrm)
+			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
 			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
@@ -116,9 +111,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, wc.SetMode(mode.Degraded))
 
 		for i := range 2 {
-			var mPrm meta.GetPrm
-			mPrm.SetAddress(objects[i].addr)
-			_, err := mb.Get(mPrm)
+			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
 			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
@@ -216,9 +209,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		for i := range objects {
-			var prm meta.PutPrm
-			prm.SetObject(objects[i].obj)
-			_, err := mb.Put(prm)
+			err := mb.Put(objects[i].obj, nil, nil)
 			require.NoError(t, err)
 		}
 
@@ -228,9 +219,7 @@ func TestFlush(t *testing.T) {
 		_, err := mb.Inhume(inhumePrm)
 		require.NoError(t, err)
 
-		var deletePrm meta.DeletePrm
-		deletePrm.SetAddresses(objects[2].addr, objects[3].addr)
-		_, err = mb.Delete(deletePrm)
+		_, err = mb.Delete([]oid.Address{objects[2].addr, objects[3].addr})
 		require.NoError(t, err)
 
 		require.NoError(t, bs.SetMode(mode.ReadOnly))

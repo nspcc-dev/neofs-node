@@ -14,59 +14,36 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// GetPrm groups the parameters of Get operation.
-type GetPrm struct {
-	addr oid.Address
-	raw  bool
-}
-
-// GetRes groups the resulting values of Get operation.
-type GetRes struct {
-	hdr *objectSDK.Object
-}
-
-// SetAddress is a Get option to set the address of the requested object.
-//
-// Option is required.
-func (p *GetPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// SetRaw is a Get option to set raw flag value. If flag is unset, then Get
-// returns header of virtual object, otherwise it returns SplitInfo of virtual
-// object.
-func (p *GetPrm) SetRaw(raw bool) {
-	p.raw = raw
-}
-
-// Header returns the requested object header.
-func (r GetRes) Header() *objectSDK.Object {
-	return r.hdr
-}
-
 // Get returns object header for specified address.
+//
+// "raw" flag controls virtual object processing, when false (default) a
+// proper object header is returned, when true only SplitInfo of virtual
+// object is returned.
 //
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Get(prm GetPrm) (res GetRes, err error) {
+func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
-
-	currEpoch := db.epochState.CurrentEpoch()
+	var (
+		err       error
+		hdr       *objectSDK.Object
+		currEpoch = db.epochState.CurrentEpoch()
+	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		key := make([]byte, addressKeySize)
-		res.hdr, err = db.get(tx, prm.addr, key, true, prm.raw, currEpoch)
+		hdr, err = db.get(tx, addr, key, true, raw, currEpoch)
 
 		return err
 	})
 
-	return
+	return hdr, err
 }
 
 func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {

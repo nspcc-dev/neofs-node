@@ -7,97 +7,54 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// ToMoveItPrm groups the parameters of ToMoveIt operation.
-type ToMoveItPrm struct {
-	addr oid.Address
-}
-
-// ToMoveItRes groups the resulting values of ToMoveIt operation.
-type ToMoveItRes struct{}
-
-// SetAddress sets address of the object to move into another shard.
-func (p *ToMoveItPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// DoNotMovePrm groups the parameters of DoNotMove operation.
-type DoNotMovePrm struct {
-	addr oid.Address
-}
-
-// DoNotMoveRes groups the resulting values of DoNotMove operation.
-type DoNotMoveRes struct{}
-
-// SetAddress sets address of the object to prevent moving into another shard.
-func (p *DoNotMovePrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// MovablePrm groups the parameters of Movable operation.
-type MovablePrm struct{}
-
-// MovableRes groups the resulting values of Movable operation.
-type MovableRes struct {
-	addrList []oid.Address
-}
-
-// AddressList returns resulting addresses of Movable operation.
-func (p MovableRes) AddressList() []oid.Address {
-	return p.addrList
-}
-
 // ToMoveIt marks objects to move it into another shard. This useful for
 // faster HRW fetching.
-func (db *DB) ToMoveIt(prm ToMoveItPrm) (res ToMoveItRes, err error) {
+func (db *DB) ToMoveIt(addr oid.Address) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return res, ErrReadOnlyMode
+		return ErrReadOnlyMode
 	}
 
 	key := make([]byte, addressKeySize)
-	key = addressKey(prm.addr, key)
+	key = addressKey(addr, key)
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Put(key, zeroValue)
 	})
-
-	return
 }
 
 // DoNotMove removes `MoveIt` mark from the object.
-func (db *DB) DoNotMove(prm DoNotMovePrm) (res DoNotMoveRes, err error) {
+func (db *DB) DoNotMove(addr oid.Address) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return res, ErrReadOnlyMode
+		return ErrReadOnlyMode
 	}
 
 	key := make([]byte, addressKeySize)
-	key = addressKey(prm.addr, key)
+	key = addressKey(addr, key)
 
-	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Delete(key)
 	})
-
-	return
 }
 
 // Movable returns list of marked objects to move into other shard.
-func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
+func (db *DB) Movable() ([]oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return MovableRes{}, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
 	var strAddrs []string
@@ -111,7 +68,7 @@ func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
 		})
 	})
 	if err != nil {
-		return MovableRes{}, err
+		return nil, err
 	}
 
 	// we can parse strings to structures in-place, but probably it seems
@@ -122,12 +79,10 @@ func (db *DB) Movable(_ MovablePrm) (MovableRes, error) {
 	for i := range strAddrs {
 		err = decodeAddressFromKey(&addrs[i], []byte(strAddrs[i]))
 		if err != nil {
-			return MovableRes{}, fmt.Errorf("can't parse object address %v: %w",
+			return nil, fmt.Errorf("can't parse object address %v: %w",
 				strAddrs[i], err)
 		}
 	}
 
-	return MovableRes{
-		addrList: addrs,
-	}, nil
+	return addrs, nil
 }

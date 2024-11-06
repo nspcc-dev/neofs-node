@@ -105,19 +105,13 @@ func (c *cache) initFlushMarks() {
 // First return value is true iff object exists.
 // Second return value is true iff object can be safely removed.
 func (c *cache) flushStatus(addr oid.Address) (bool, bool) {
-	var existsPrm meta.ExistsPrm
-	existsPrm.SetAddress(addr)
-
-	_, err := c.metabase.Exists(existsPrm)
+	_, err := c.metabase.Exists(addr, false)
 	if err != nil {
 		needRemove := errors.Is(err, meta.ErrObjectIsExpired) || errors.As(err, new(apistatus.ObjectAlreadyRemoved))
 		return needRemove, needRemove
 	}
 
-	var prm meta.StorageIDPrm
-	prm.SetAddress(addr)
-
-	mRes, _ := c.metabase.StorageID(prm)
-	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: mRes.StorageID()})
+	sid, _ := c.metabase.StorageID(addr)
+	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: sid})
 	return err == nil && res.Exists, false
 }

@@ -204,11 +204,9 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 			var counter int
 
 			for pb.Next() {
-				var getPrm meta.GetPrm
-				getPrm.SetAddress(addrs[counter%len(addrs)])
 				counter++
 
-				_, err := db.Get(getPrm)
+				_, err := db.Get(addrs[counter%len(addrs)], false)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -224,10 +222,7 @@ func benchmarkGet(b *testing.B, numOfObj int) {
 	b.Run("serial", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := range b.N {
-			var getPrm meta.GetPrm
-			getPrm.SetAddress(addrs[i%len(addrs)])
-
-			_, err := db.Get(getPrm)
+			_, err := db.Get(addrs[i%len(addrs)], false)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -283,13 +278,5 @@ func TestDB_GetContainer(t *testing.T) {
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	var prm meta.GetPrm
-	prm.SetAddress(addr)
-	prm.SetRaw(raw)
-
-	res, err := db.Get(prm)
-	if err != nil {
-		return nil, err
-	}
-	return res.Header(), nil
+	return db.Get(addr, raw)
 }

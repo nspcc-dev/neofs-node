@@ -5,20 +5,20 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // Option represents write-cache configuration option.
 type Option func(*options)
 
-// meta is an interface for a metabase.
-type metabase interface {
-	Exists(meta.ExistsPrm) (meta.ExistsRes, error)
-	StorageID(meta.StorageIDPrm) (meta.StorageIDRes, error)
-	UpdateStorageID(meta.UpdateStorageIDPrm) (meta.UpdateStorageIDRes, error)
-	Put(prm meta.PutPrm) (res meta.PutRes, err error)
+// Metabase is an interface to metabase sufficient for writecache to operate.
+type Metabase interface {
+	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
+	StorageID(addr oid.Address) ([]byte, error)
+	UpdateStorageID(addr oid.Address, newID []byte) error
+	Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) error
 }
 
 // blob is an interface for the blobstor.
@@ -35,7 +35,7 @@ type options struct {
 	// blobstor is the main persistent storage.
 	blobstor blob
 	// metabase is the metabase instance.
-	metabase metabase
+	metabase Metabase
 	// maxObjectSize is the maximum size of the object stored in the write-cache.
 	maxObjectSize uint64
 	// smallObjectSize is the maximum size of the object stored in the database.
@@ -79,7 +79,7 @@ func WithBlobstor(bs *blobstor.BlobStor) Option {
 }
 
 // WithMetabase sets metabase.
-func WithMetabase(db *meta.DB) Option {
+func WithMetabase(db Metabase) Option {
 	return func(o *options) {
 		o.metabase = db
 	}

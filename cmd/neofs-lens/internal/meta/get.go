@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
@@ -38,27 +37,20 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	storageID := meta.StorageIDPrm{}
-	storageID.SetAddress(addr)
-
-	resStorageID, err := db.StorageID(storageID)
+	id, err := db.StorageID(addr)
 	if err != nil {
 		return fmt.Errorf("could not check if the obj is small: %w", err)
 	}
 
-	if id := resStorageID.StorageID(); id != nil {
+	if id != nil {
 		cmd.Printf("Object storageID: %x (%q)\n\n", id, id)
 	} else {
 		cmd.Printf("Object does not contain storageID\n\n")
 	}
 
-	prm := meta.GetPrm{}
-	prm.SetAddress(addr)
-	prm.SetRaw(true)
-
 	siErr := new(object.SplitInfoError)
 
-	res, err := db.Get(prm)
+	obj, err := db.Get(addr, true)
 	if errors.As(err, &siErr) {
 		link := siErr.SplitInfo().GetLink()
 		last := siErr.SplitInfo().GetLastPart()
@@ -79,7 +71,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("could not get object: %w", err)
 	}
 
-	common.PrintObjectHeader(cmd, *res.Header())
+	common.PrintObjectHeader(cmd, *obj)
 
 	return nil
 }

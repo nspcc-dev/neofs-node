@@ -21,68 +21,43 @@ type (
 	}
 )
 
-// PutPrm groups the parameters of Put operation.
-type PutPrm struct {
-	obj *objectSDK.Object
-
-	id []byte
-
-	hdrBin []byte
-}
-
-// PutRes groups the resulting values of Put operation.
-type PutRes struct{}
-
-// SetObject is a Put option to set object to save.
-func (p *PutPrm) SetObject(obj *objectSDK.Object) {
-	p.obj = obj
-}
-
-// SetStorageID is a Put option to set storage ID to save.
-func (p *PutPrm) SetStorageID(id []byte) {
-	p.id = id
-}
-
-// SetHeaderBinary allows to provide the already encoded object header in [DB]
-// format. If provided, the encoding step is skipped. It's the caller's
-// responsibility to ensure that the data matches the object structure being
-// processed.
-func (p *PutPrm) SetHeaderBinary(hdrBin []byte) {
-	p.hdrBin = hdrBin
-}
-
 var (
 	ErrUnknownObjectType        = errors.New("unknown object type")
 	ErrIncorrectSplitInfoUpdate = errors.New("updating split info on object without it")
 	ErrIncorrectRootObject      = errors.New("invalid root object")
 )
 
-// Put saves object header in metabase. Object payload expected to be cut.
+// Put saves object header in metabase. Object payload is expected to be cut.
+//
+// binHeader parameter is optional and allows to provide an already encoded
+// object header in [DB] format. If provided, the encoding step is skipped.
+// It's the caller's responsibility to ensure that the data matches the object
+// structure being processed.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Put(prm PutPrm) (res PutRes, err error) {
+func (db *DB) Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return res, ErrReadOnlyMode
+		return ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, prm.obj, prm.id, nil, currEpoch, prm.hdrBin)
+	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
+		return db.put(tx, obj, storageID, nil, currEpoch, binHeader)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
-			storagelog.AddressField(objectCore.AddressOf(prm.obj)),
+			storagelog.AddressField(objectCore.AddressOf(obj)),
 			storagelog.OpField("metabase PUT"))
 	}
 
-	return
+	return err
 }
 
 func (db *DB) put(

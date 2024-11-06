@@ -2,7 +2,6 @@ package shard
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -57,18 +56,10 @@ func (s *Shard) Exists(prm ExistsPrm) (ExistsRes, error) {
 		}
 		exists = res.Exists
 	} else {
-		var existsPrm meta.ExistsPrm
-		existsPrm.SetAddress(prm.addr)
-		if prm.ignoreExpiration {
-			existsPrm.IgnoreExpiration()
-		}
-
-		var res meta.ExistsRes
-		res, err = s.metaBase.Exists(existsPrm)
+		exists, err = s.metaBase.Exists(prm.addr, prm.ignoreExpiration)
 		if err != nil {
 			return ExistsRes{}, err
 		}
-		exists = res.Exists()
 	}
 
 	return ExistsRes{

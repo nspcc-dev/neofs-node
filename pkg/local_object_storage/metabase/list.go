@@ -22,62 +22,31 @@ type Cursor struct {
 	inBucketOffset []byte
 }
 
-// ListPrm contains parameters for ListWithCursor operation.
-type ListPrm struct {
-	count  int
-	cursor *Cursor
-}
-
-// SetCount sets maximum amount of addresses that ListWithCursor should return.
-func (l *ListPrm) SetCount(count uint32) {
-	l.count = int(count)
-}
-
-// SetCursor sets cursor for ListWithCursor operation. For initial request
-// ignore this param or use nil value. For consecutive requests, use value
-// from ListRes.
-func (l *ListPrm) SetCursor(cursor *Cursor) {
-	l.cursor = cursor
-}
-
-// ListRes contains values returned from ListWithCursor operation.
-type ListRes struct {
-	addrList []objectcore.AddressWithType
-	cursor   *Cursor
-}
-
-// AddressList returns addresses selected by ListWithCursor operation.
-func (l ListRes) AddressList() []objectcore.AddressWithType {
-	return l.addrList
-}
-
-// Cursor returns cursor for consecutive listing requests.
-func (l ListRes) Cursor() *Cursor {
-	return l.cursor
-}
-
 // ListWithCursor lists physical objects available in metabase starting from
 // cursor. Includes objects of all types. Does not include inhumed objects.
 // Use cursor value from response for consecutive requests.
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (db *DB) ListWithCursor(prm ListPrm) (res ListRes, err error) {
+func (db *DB) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return nil, nil, ErrDegradedMode
 	}
 
-	result := make([]objectcore.AddressWithType, 0, prm.count)
+	var (
+		err    error
+		result = make([]objectcore.AddressWithType, 0, count)
+	)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, res.cursor, err = db.listWithCursor(tx, result, prm.count, prm.cursor)
+		result, cursor, err = db.listWithCursor(tx, result, count, cursor)
 		return err
 	})
 
-	return res, err
+	return result, cursor, err
 }
 
 func (db *DB) listWithCursor(tx *bbolt.Tx, result []objectcore.AddressWithType, count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {

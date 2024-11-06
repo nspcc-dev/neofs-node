@@ -3,7 +3,6 @@ package shard
 import (
 	"fmt"
 
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -49,16 +48,12 @@ func (s *Shard) Select(prm SelectPrm) (SelectRes, error) {
 		return SelectRes{}, ErrDegradedMode
 	}
 
-	var selectPrm meta.SelectPrm
-	selectPrm.SetFilters(prm.filters)
-	selectPrm.SetContainerID(prm.cnr)
-
-	mRes, err := s.metaBase.Select(selectPrm)
+	addrs, err := s.metaBase.Select(prm.cnr, prm.filters)
 	if err != nil {
 		return SelectRes{}, fmt.Errorf("could not select objects from metabase: %w", err)
 	}
 
 	return SelectRes{
-		addrList: mRes.AddressList(),
+		addrList: addrs,
 	}, nil
 }

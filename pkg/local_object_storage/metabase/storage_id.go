@@ -8,43 +8,28 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// StorageIDPrm groups the parameters of StorageID operation.
-type StorageIDPrm struct {
-	addr oid.Address
-}
-
-// StorageIDRes groups the resulting values of StorageID operation.
-type StorageIDRes struct {
-	id []byte
-}
-
-// SetAddress is a StorageID option to set the object address to check.
-func (p *StorageIDPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// StorageID returns storage ID.
-func (r StorageIDRes) StorageID() []byte {
-	return r.id
-}
-
 // StorageID returns storage descriptor for objects from the blobstor.
 // It is put together with the object can makes get/delete operation faster.
-func (db *DB) StorageID(prm StorageIDPrm) (res StorageIDRes, err error) {
+func (db *DB) StorageID(addr oid.Address) ([]byte, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
+	var (
+		err error
+		id  []byte
+	)
+
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.id, err = db.storageID(tx, prm.addr)
+		id, err = db.storageID(tx, addr)
 
 		return err
 	})
 
-	return
+	return id, err
 }
 
 func (db *DB) storageID(tx *bbolt.Tx, addr oid.Address) ([]byte, error) {
@@ -62,46 +47,25 @@ func (db *DB) storageID(tx *bbolt.Tx, addr oid.Address) ([]byte, error) {
 	return bytes.Clone(storageID), nil
 }
 
-// UpdateStorageIDPrm groups the parameters of UpdateStorageID operation.
-type UpdateStorageIDPrm struct {
-	addr oid.Address
-	id   []byte
-}
-
-// UpdateStorageIDRes groups the resulting values of UpdateStorageID operation.
-type UpdateStorageIDRes struct{}
-
-// SetAddress is an UpdateStorageID option to set the object address to check.
-func (p *UpdateStorageIDPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// SetStorageID is an UpdateStorageID option to set the storage ID.
-func (p *UpdateStorageIDPrm) SetStorageID(id []byte) {
-	p.id = id
-}
-
 // UpdateStorageID updates storage descriptor for objects from the blobstor.
-func (db *DB) UpdateStorageID(prm UpdateStorageIDPrm) (res UpdateStorageIDRes, err error) {
+func (db *DB) UpdateStorageID(addr oid.Address, newID []byte) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return res, ErrReadOnlyMode
+		return ErrReadOnlyMode
 	}
 
 	currEpoch := db.epochState.CurrentEpoch()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		exists, err := db.exists(tx, prm.addr, currEpoch)
+	return db.boltDB.Batch(func(tx *bbolt.Tx) error {
+		exists, err := db.exists(tx, addr, currEpoch)
 		if err == nil && exists || errors.Is(err, ErrObjectIsExpired) {
-			err = updateStorageID(tx, prm.addr, prm.id)
+			err = updateStorageID(tx, addr, newID)
 		}
 
 		return err
 	})
-
-	return
 }

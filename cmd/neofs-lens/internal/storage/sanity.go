@@ -156,12 +156,15 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 }
 
 func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
-	var objectsChecked int
-	var mPrm meta.ListPrm
-	mPrm.SetCount(1024)
+	var (
+		addrs          []objectcore.AddressWithType
+		cursor         *meta.Cursor
+		err            error
+		objectsChecked int
+	)
 
 	for {
-		listRes, err := sh.m.ListWithCursor(mPrm)
+		addrs, cursor, err = sh.m.ListWithCursor(1024, cursor)
 		if err != nil {
 			if errors.Is(err, meta.ErrEndOfListing) {
 				return objectsChecked, nil
@@ -170,7 +173,7 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 			return objectsChecked, fmt.Errorf("listing objects in metabase: %w", err)
 		}
 
-		for _, obj := range listRes.AddressList() {
+		for _, obj := range addrs {
 			select {
 			case <-cmd.Context().Done():
 				return objectsChecked, cmd.Context().Err()
@@ -179,29 +182,21 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 
 			addr := obj.Address
 
-			var sIDPrm meta.StorageIDPrm
-			sIDPrm.SetAddress(addr)
-
-			sIDRes, err := sh.m.StorageID(sIDPrm)
+			sid, err := sh.m.StorageID(addr)
 			if err != nil {
 				return objectsChecked, fmt.Errorf("reading %s storage ID in metabase: %w", addr, err)
 			}
 
-			var mGet meta.GetPrm
-			mGet.SetAddress(addr)
-
-			getRes, err := sh.m.Get(mGet)
+			header, err := sh.m.Get(addr, false)
 			if err != nil {
 				return objectsChecked, fmt.Errorf("reading %s object in metabase: %w", addr, err)
 			}
 
-			header := *getRes.Header()
-
-			switch id := string(sIDRes.StorageID()); id {
+			switch id := string(sid); id {
 			case "":
-				err = checkObject(header, sh.fsT)
+				err = checkObject(*header, sh.fsT)
 			case peapod.Type:
-				err = checkObject(header, sh.p)
+				err = checkObject(*header, sh.p)
 			default:
 				err = fmt.Errorf("uknown storage ID: %s", id)
 			}
@@ -217,8 +212,6 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 
 			objectsChecked++
 		}
-
-		mPrm.SetCursor(listRes.Cursor())
 	}
 }
 

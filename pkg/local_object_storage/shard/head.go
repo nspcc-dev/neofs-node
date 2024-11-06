@@ -1,7 +1,6 @@
 package shard
 
 import (
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -58,16 +57,10 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 		}
 		obj = res.Object()
 	} else {
-		var headParams meta.GetPrm
-		headParams.SetAddress(prm.addr)
-		headParams.SetRaw(prm.raw)
-
-		var res meta.GetRes
-		res, err = s.metaBase.Get(headParams)
+		obj, err = s.metaBase.Get(prm.addr, prm.raw)
 		if err != nil {
 			return HeadRes{}, err
 		}
-		obj = res.Header()
 	}
 
 	return HeadRes{

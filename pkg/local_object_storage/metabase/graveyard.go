@@ -25,20 +25,8 @@ func (g GarbageObject) Address() oid.Address {
 // GarbageHandler is a GarbageObject handling function.
 type GarbageHandler func(GarbageObject) error
 
-// GarbageIterationPrm groups parameters of the garbage
-// iteration process.
-type GarbageIterationPrm struct {
-	h      GarbageHandler
-	offset *oid.Address
-}
-
-// SetHandler sets a handler that will be called on every
-// GarbageObject.
-func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) {
-	g.h = h
-}
-
-// SetOffset sets an offset of the iteration operation.
+// IterateOverGarbage iterates over all objects marked with GC mark.
+//
 // The handler will be applied to the next after the
 // specified offset if any are left.
 //
@@ -50,16 +38,10 @@ func (g *GarbageIterationPrm) SetHandler(h GarbageHandler) {
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GarbageIterationPrm) SetOffset(offset oid.Address) {
-	g.offset = &offset
-}
-
-// IterateOverGarbage iterates over all objects
-// marked with GC mark.
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
+func (db *DB) IterateOverGarbage(h GarbageHandler, offset *oid.Address) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -68,7 +50,7 @@ func (db *DB) IterateOverGarbage(p GarbageIterationPrm) error {
 	}
 
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateDeletedObj(tx, gcHandler{p.h}, p.offset)
+		return db.iterateDeletedObj(tx, gcHandler{h}, offset)
 	})
 }
 
@@ -101,20 +83,8 @@ func (g TombstonedObject) TombstoneExpiration() uint64 {
 // TombstonedHandler is a TombstonedObject handling function.
 type TombstonedHandler func(object TombstonedObject) error
 
-// GraveyardIterationPrm groups parameters of the graveyard
-// iteration process.
-type GraveyardIterationPrm struct {
-	h      TombstonedHandler
-	offset *oid.Address
-}
-
-// SetHandler sets a handler that will be called on every
-// TombstonedObject.
-func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) {
-	g.h = h
-}
-
-// SetOffset sets an offset of the iteration operation.
+// IterateOverGraveyard iterates over all graves in DB.
+//
 // The handler will be applied to the next after the
 // specified offset if any are left.
 //
@@ -126,15 +96,10 @@ func (g *GraveyardIterationPrm) SetHandler(h TombstonedHandler) {
 // next element.
 //
 // Nil offset means start an integration from the beginning.
-func (g *GraveyardIterationPrm) SetOffset(offset oid.Address) {
-	g.offset = &offset
-}
-
-// IterateOverGraveyard iterates over all graves in DB.
 //
 // If h returns ErrInterruptIterator, nil returns immediately.
 // Returns other errors of h directly.
-func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
+func (db *DB) IterateOverGraveyard(h TombstonedHandler, offset *oid.Address) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -143,7 +108,7 @@ func (db *DB) IterateOverGraveyard(p GraveyardIterationPrm) error {
 	}
 
 	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		return db.iterateDeletedObj(tx, graveyardHandler{p.h}, p.offset)
+		return db.iterateDeletedObj(tx, graveyardHandler{h}, offset)
 	})
 }
 

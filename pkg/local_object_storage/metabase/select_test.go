@@ -874,31 +874,19 @@ func TestRemovedObjects(t *testing.T) {
 }
 
 func benchmarkSelect(b *testing.B, db *meta.DB, cid cidSDK.ID, fs objectSDK.SearchFilters, expected int) {
-	var prm meta.SelectPrm
-	prm.SetContainerID(cid)
-	prm.SetFilters(fs)
-
 	for range b.N {
-		res, err := db.Select(prm)
+		addrs, err := db.Select(cid, fs)
 		if err != nil {
 			b.Fatal(err)
 		}
-		if len(res.AddressList()) != expected {
-			b.Fatalf("expected %d items, got %d", expected, len(res.AddressList()))
+		if len(addrs) != expected {
+			b.Fatalf("expected %d items, got %d", expected, len(addrs))
 		}
 	}
 }
 
 func metaSelect(db *meta.DB, cnr cidSDK.ID, fs objectSDK.SearchFilters) ([]oid.Address, error) {
-	var prm meta.SelectPrm
-	prm.SetFilters(fs)
-	prm.SetContainerID(cnr)
-
-	res, err := db.Select(prm)
-	if err != nil {
-		return nil, err
-	}
-	return res.AddressList(), nil
+	return db.Select(cnr, fs)
 }
 
 func numQuery(key string, op objectSDK.SearchMatchType, val string) (res objectSDK.SearchFilters) {

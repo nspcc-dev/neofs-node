@@ -50,21 +50,9 @@ func TestDB_StorageID(t *testing.T) {
 }
 
 func metaUpdateStorageID(db *meta.DB, addr oid.Address, id []byte) error {
-	var sidPrm meta.UpdateStorageIDPrm
-	sidPrm.SetAddress(addr)
-	sidPrm.SetStorageID(id)
-
-	_, err := db.UpdateStorageID(sidPrm)
-	return err
+	return db.UpdateStorageID(addr, id)
 }
 
 func metaStorageID(db *meta.DB, addr oid.Address) ([]byte, error) {
-	var sidPrm meta.StorageIDPrm
-	sidPrm.SetAddress(addr)
-
-	r, err := db.StorageID(sidPrm)
-	if err != nil {
-		return nil, err
-	}
-	return r.StorageID(), nil
+	return db.StorageID(addr)
 }

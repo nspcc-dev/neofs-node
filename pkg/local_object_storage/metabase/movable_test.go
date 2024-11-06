@@ -57,26 +57,13 @@ func TestDB_Movable(t *testing.T) {
 }
 
 func metaToMoveIt(db *meta.DB, addr oid.Address) error {
-	var toMovePrm meta.ToMoveItPrm
-	toMovePrm.SetAddress(addr)
-
-	_, err := db.ToMoveIt(toMovePrm)
-	return err
+	return db.ToMoveIt(addr)
 }
 
 func metaMovable(db *meta.DB) ([]oid.Address, error) {
-	r, err := db.Movable(meta.MovablePrm{})
-	if err != nil {
-		return nil, err
-	}
-
-	return r.AddressList(), nil
+	return db.Movable()
 }
 
 func metaDoNotMove(db *meta.DB, addr oid.Address) error {
-	var doNotMovePrm meta.DoNotMovePrm
-	doNotMovePrm.SetAddress(addr)
-
-	_, err := db.DoNotMove(doNotMovePrm)
-	return err
+	return db.DoNotMove(addr)
 }

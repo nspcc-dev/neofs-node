@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -60,10 +59,7 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 			}
 		}
 
-		var sPrm meta.StorageIDPrm
-		sPrm.SetAddress(prm.addr[i])
-
-		res, err := s.metaBase.StorageID(sPrm)
+		sid, err := s.metaBase.StorageID(prm.addr[i])
 		if err != nil {
 			s.log.Debug("can't get storage ID from metabase",
 				zap.Stringer("object", prm.addr[i]),
@@ -72,27 +68,23 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 			continue
 		}
 
-		if res.StorageID() != nil {
-			smalls[prm.addr[i]] = res.StorageID()
+		if sid != nil {
+			smalls[prm.addr[i]] = sid
 		}
 	}
 
-	var delPrm meta.DeletePrm
-	delPrm.SetAddresses(prm.addr...)
-
-	res, err := s.metaBase.Delete(delPrm)
+	res, err := s.metaBase.Delete(prm.addr)
 	if err != nil {
 		return DeleteRes{}, err // stop on metabase error ?
 	}
 
-	s.decObjectCounterBy(physical, res.RawObjectsRemoved())
-	s.decObjectCounterBy(logical, res.AvailableObjectsRemoved())
+	s.decObjectCounterBy(physical, res.RawRemoved)
+	s.decObjectCounterBy(logical, res.AvailableRemoved)
 
 	var totalRemovedPayload uint64
-	removedSizes := res.RemovedObjectSizes()
 
 	for i := range prm.addr {
-		removedPayload := removedSizes[i]
+		removedPayload := res.Sizes[i]
 		totalRemovedPayload += removedPayload
 		s.addToContainerSize(prm.addr[i].Container().EncodeToString(), -int64(removedPayload))
 	}
