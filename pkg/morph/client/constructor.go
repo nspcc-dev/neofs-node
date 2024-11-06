@@ -139,7 +139,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			return nil, errors.New("no endpoints were provided")
 		}
 
-		cli.endpoints = cfg.endpoints
 		conn = cli.connEndpoints()
 		if conn == nil {
 			err = errors.New("could not establish Neo RPC connection")

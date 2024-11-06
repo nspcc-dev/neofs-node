@@ -34,7 +34,7 @@ func (c *Client) switchRPC() *connection {
 
 func (c *Client) connEndpoints() *connection {
 	// Iterate endpoints.
-	for _, e := range c.endpoints {
+	for _, e := range c.cfg.endpoints {
 		conn, err := c.newConnection(e)
 		if err != nil {
 			c.logger.Warn("could not establish connection to RPC node",
