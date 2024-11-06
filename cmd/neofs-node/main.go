@@ -97,7 +97,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		})
 	}()
 
-	c.closers = append(c.veryLastClosers, func() {
+	c.veryLastClosers = append(c.veryLastClosers, func() {
 		c.log.Debug(fmt.Sprintf("shutting down %s service", name))
 
 		err := srv.Shutdown()
