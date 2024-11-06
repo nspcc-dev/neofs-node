@@ -10,8 +10,6 @@ Available for reconfiguration fields:
 
 ```yml
   head_timeout:
-  cache_size:
-  cache_time:
   replication_cooldown:
   object_batch_size:
   max_workers:
