@@ -33,6 +33,10 @@ func (db *DB) Open(readOnly bool) error {
 	}
 	db.boltOptions.ReadOnly = readOnly
 
+	if readOnly {
+		db.mode = mode.ReadOnly
+	}
+
 	return db.openBolt()
 }
 
