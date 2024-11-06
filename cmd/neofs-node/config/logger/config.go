@@ -7,6 +7,9 @@ import (
 const (
 	// LevelDefault is a default logger level.
 	LevelDefault = "info"
+
+	// EncodingDefault is a default logger encoding.
+	EncodingDefault = "console"
 )
 
 // Level returns the value of "level" config parameter
@@ -23,4 +26,20 @@ func Level(c *config.Config) string {
 	}
 
 	return LevelDefault
+}
+
+// Encoding returns the value of "encoding" config parameter
+// from "logger" section.
+//
+// Returns EncodingDefault if the value is not a non-empty string.
+func Encoding(c *config.Config) string {
+	v := config.StringSafe(
+		c.Sub("logger"),
+		"encoding",
+	)
+	if v != "" {
+		return v
+	}
+
+	return EncodingDefault
 }

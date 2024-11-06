@@ -1,6 +1,7 @@
 {
   "logger": {
-    "level": "debug"
+    "level": "debug",
+    "encoding": "json"
   },
   "pprof": {
     "enabled": true,

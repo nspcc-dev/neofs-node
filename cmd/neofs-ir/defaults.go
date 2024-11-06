@@ -45,6 +45,7 @@ func newConfig(path string) (*viper.Viper, error) {
 
 func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("logger.level", "info")
+	cfg.SetDefault("logger.encoding", "console")
 
 	cfg.SetDefault("pprof.address", "localhost:6060")
 	cfg.SetDefault("pprof.shutdown_timeout", "30s")

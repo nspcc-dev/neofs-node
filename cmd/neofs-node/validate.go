@@ -23,6 +23,11 @@ func validateConfig(c *config.Config) error {
 		return fmt.Errorf("invalid logger level: %w", err)
 	}
 
+	logEncoding := loggerconfig.Encoding(c)
+	if logEncoding != "console" && logEncoding != "json" {
+		return fmt.Errorf("invalid logger encoding: %s", logEncoding)
+	}
+
 	// shard configuration validation
 
 	shardNum := 0
