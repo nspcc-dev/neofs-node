@@ -27,6 +27,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Overriding the default container and object attributes only with the appropriate flags (#2985)
 - RPC client reconnection failures leading to complete SN failure (#2797)
 - `meta.DB.Open(readOnly)` moves metabase in RO mode (#3000)
+- Panic in event listener related to inability to switch RPC node (#2970)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)

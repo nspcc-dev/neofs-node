@@ -173,7 +173,6 @@ func wait(c *cfg) {
 	select {
 	case <-c.ctx.Done(): // graceful shutdown
 	case err := <-c.internalErr: // internal application error
-		close(c.internalErr)
 		c.ctxCancel()
 
 		c.log.Warn("internal application error",
