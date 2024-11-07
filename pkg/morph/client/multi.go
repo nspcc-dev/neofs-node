@@ -6,12 +6,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Endpoint represents morph endpoint together with its priority.
-type Endpoint struct {
-	Address  string
-	Priority int
-}
-
 // SwitchRPC performs reconnection and returns new if it was successful.
 func (c *Client) switchRPC() *connection {
 	var conn = c.conn.Swap(nil)
@@ -39,8 +33,11 @@ func (c *Client) switchRPC() *connection {
 }
 
 func (c *Client) connEndpoints() *connection {
+	c.cfg.endpointsLock.RLock()
+	defer c.cfg.endpointsLock.RUnlock()
+
 	// Iterate endpoints.
-	for _, e := range c.endpoints {
+	for _, e := range c.cfg.endpoints {
 		conn, err := c.newConnection(e)
 		if err != nil {
 			c.logger.Warn("could not establish connection to RPC node",

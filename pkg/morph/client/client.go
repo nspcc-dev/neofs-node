@@ -56,8 +56,6 @@ type Client struct {
 
 	cfg cfg
 
-	endpoints []string
-
 	subs subscriptions
 
 	// channel for internal stop

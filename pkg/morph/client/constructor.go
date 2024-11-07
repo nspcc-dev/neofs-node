@@ -40,7 +40,8 @@ type cfg struct {
 	autoSidechainScope bool
 	signer             *transaction.Signer
 
-	endpoints []string
+	endpointsLock *sync.RWMutex
+	endpoints     []string
 
 	singleCli *rpcclient.WSClient // neo-go client for single client mode
 
@@ -63,6 +64,7 @@ func defaultConfig() *cfg {
 		signer: &transaction.Signer{
 			Scopes: transaction.CalledByEntry,
 		},
+		endpointsLock:       &sync.RWMutex{},
 		reconnectionDelay:   5 * time.Second,
 		reconnectionRetries: 5,
 	}
@@ -139,7 +141,6 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			return nil, errors.New("no endpoints were provided")
 		}
 
-		cli.endpoints = cfg.endpoints
 		conn = cli.connEndpoints()
 		if conn == nil {
 			err = errors.New("could not establish Neo RPC connection")

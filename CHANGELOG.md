@@ -18,6 +18,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - `--disable-auto-gen-tag` flag for gendoc command (#2983)
 - Docs files for cli commands to the `docs/cli-commands` folder (#2983)
 - `logger.encoding` config option (#2999)
+- Reloading morph endpoints with SIGHUP (#2998)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)

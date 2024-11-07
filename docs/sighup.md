@@ -10,8 +10,6 @@ Available for reconfiguration fields:
 
 ```yml
   head_timeout:
-  cache_size:
-  cache_time:
   replication_cooldown:
   object_batch_size:
   max_workers:
@@ -34,3 +32,9 @@ comparing paths from `shard.blobstor` section. After this we have 3 sets:
 | Changed section | Actions                                                                                                              |
 |-----------------|----------------------------------------------------------------------------------------------------------------------|
 | `path`          | If `path` is different, metabase is closed and opened with a new path. All other configuration will also be updated. |
+
+### Morph
+
+| Changed section | Actions                                                                                                                                                                                                 |
+|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `endpoints`     | Updates N3 endpoints.<br/>If new `endpoints` do not contain the endpoint client is connected to, it will reconnect to another endpoint from the new list. Node service can be interrupted in this case. |
