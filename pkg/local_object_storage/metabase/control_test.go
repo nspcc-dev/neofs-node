@@ -1,6 +1,7 @@
 package meta_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -48,6 +49,43 @@ func TestReset(t *testing.T) {
 
 	assertExists(addr, false, nil)
 	assertExists(addr, false, nil)
+}
+
+func TestOpenRO(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "meta")
+
+	db := meta.New(
+		meta.WithPath(path),
+		meta.WithPermissions(0o600),
+		meta.WithEpochState(epochState{}),
+	)
+
+	require.NoError(t, db.Open(false))
+	require.NoError(t, db.Init())
+
+	obj := generateObject(t)
+	addr := object.AddressOf(obj)
+
+	require.NoError(t, putBig(db, obj))
+	exists, err := metaExists(db, addr)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	require.NoError(t, db.Close())
+
+	// Open in RO mode
+	require.NoError(t, db.Open(true))
+
+	// we can't write
+	err = putBig(db, obj)
+	require.ErrorIs(t, err, meta.ErrReadOnlyMode)
+
+	// but can read
+	exists, err = metaExists(db, addr)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	require.NoError(t, db.Close())
 }
 
 func metaExists(db *meta.DB, addr oid.Address) (bool, error) {
