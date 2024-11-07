@@ -12,59 +12,37 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// ExistsPrm groups the parameters of Exists operation.
-type ExistsPrm struct {
-	addr             oid.Address
-	ignoreExpiration bool
-}
-
-// ExistsRes groups the resulting values of Exists operation.
-type ExistsRes struct {
-	exists bool
-}
-
 var ErrLackSplitInfo = logicerr.New("no split info on parent object")
-
-// SetAddress is an Exists option to set object checked for existence.
-func (p *ExistsPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// IgnoreExpiration returns existence status despite the expiration status.
-func (p *ExistsPrm) IgnoreExpiration() {
-	p.ignoreExpiration = true
-}
-
-// Exists returns the fact that the object is in the metabase.
-func (p ExistsRes) Exists() bool {
-	return p.exists
-}
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
 // returns true if addr is in primary index or false if it is not.
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Exists(prm ExistsPrm) (res ExistsRes, err error) {
+func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return false, ErrDegradedMode
 	}
 
-	var currEpoch uint64
-	if !prm.ignoreExpiration {
+	var (
+		currEpoch uint64
+		err       error
+		exists    bool
+	)
+	if !ignoreExpiration {
 		currEpoch = db.epochState.CurrentEpoch()
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.exists, err = db.exists(tx, prm.addr, currEpoch)
+		exists, err = db.exists(tx, addr, currEpoch)
 
 		return err
 	})
 
-	return
+	return exists, err
 }
 
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {

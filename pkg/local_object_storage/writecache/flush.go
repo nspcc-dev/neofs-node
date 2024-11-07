@@ -10,7 +10,6 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -264,22 +263,13 @@ func (c *cache) flushObject(obj *object.Object, data []byte) error {
 		return err
 	}
 
-	var updPrm meta.UpdateStorageIDPrm
-	updPrm.SetAddress(addr)
-	updPrm.SetStorageID(res.StorageID)
-
-	_, err = c.metabase.UpdateStorageID(updPrm)
+	err = c.metabase.UpdateStorageID(addr, res.StorageID)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
 			// we have the object and we just successfully put it so all the
 			// information for restoring the object is here; meta can be
 			// corrupted, resynced, etc, just trying our best
-
-			var prmMeta meta.PutPrm
-			prmMeta.SetObject(obj)
-			prmMeta.SetStorageID(res.StorageID)
-
-			_, err = c.metabase.Put(prmMeta)
+			err = c.metabase.Put(obj, res.StorageID, nil)
 			if err != nil {
 				err = fmt.Errorf("trying to restore missing object in metabase: %w", err)
 			}

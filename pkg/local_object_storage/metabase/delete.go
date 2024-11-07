@@ -14,50 +14,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// DeletePrm groups the parameters of Delete operation.
-type DeletePrm struct {
-	addrs []oid.Address
-}
-
 // DeleteRes groups the resulting values of Delete operation.
 type DeleteRes struct {
-	rawRemoved       uint64
-	availableRemoved uint64
-	sizes            []uint64
+	// RawRemoved contains the number of removed raw objects.
+	RawRemoved uint64
+	// AvailableRemoved contains the number of removed available objects.
+	AvailableRemoved uint64
+	// Sizes contains the sizes of removed objects.
+	// The order of the sizes is the same as in addresses'
+	// slice that was provided in the [DB.Delete] address list,
+	// meaning that i-th size equals the number of freed up bytes
+	// after removing an object by i-th address. A zero size is
+	// allowed, it claims a missing object.
+	Sizes []uint64
 }
 
-// AvailableObjectsRemoved returns the number of removed available
-// objects.
-func (d DeleteRes) AvailableObjectsRemoved() uint64 {
-	return d.availableRemoved
-}
-
-// RawObjectsRemoved returns the number of removed raw objects.
-func (d DeleteRes) RawObjectsRemoved() uint64 {
-	return d.rawRemoved
-}
-
-// RemovedObjectSizes returns the sizes of removed objects.
-// The order of the sizes is the same as in addresses'
-// slice that was provided via [DeletePrm.SetAddresses],
-// meaning that i-th size equals the number of freed up bytes
-// after removing an object by i-th address. A zero size is
-// allowed, it claims a missing object.
-func (d DeleteRes) RemovedObjectSizes() []uint64 {
-	return d.sizes
-}
-
-// SetAddresses is a Delete option to set the addresses of the objects to delete.
-//
-// Option is required.
-func (p *DeletePrm) SetAddresses(addrs ...oid.Address) {
-	p.addrs = addrs
-}
-
-// Delete removed object records from metabase indexes.
+// Delete removes object records from metabase indexes.
 // Does not stop on an error if there are more objects to handle requested;
 // returns the first error appeared with a number of deleted objects wrapped.
-func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
+func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -70,24 +45,24 @@ func (db *DB) Delete(prm DeletePrm) (DeleteRes, error) {
 	var rawRemoved uint64
 	var availableRemoved uint64
 	var err error
-	var sizes = make([]uint64, len(prm.addrs))
+	var sizes = make([]uint64, len(addrs))
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		// We need to clear slice because tx can try to execute multiple times.
-		rawRemoved, availableRemoved, err = db.deleteGroup(tx, prm.addrs, sizes)
+		rawRemoved, availableRemoved, err = db.deleteGroup(tx, addrs, sizes)
 		return err
 	})
 	if err == nil {
-		for i := range prm.addrs {
+		for i := range addrs {
 			storagelog.Write(db.log,
-				storagelog.AddressField(prm.addrs[i]),
+				storagelog.AddressField(addrs[i]),
 				storagelog.OpField("metabase DELETE"))
 		}
 	}
 	return DeleteRes{
-		rawRemoved:       rawRemoved,
-		availableRemoved: availableRemoved,
-		sizes:            sizes,
+		RawRemoved:       rawRemoved,
+		AvailableRemoved: availableRemoved,
+		Sizes:            sizes,
 	}, err
 }
 

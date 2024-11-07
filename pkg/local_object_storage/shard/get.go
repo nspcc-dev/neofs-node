@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -104,20 +103,15 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 	wc func(w writecache.Cache) error,
 ) (bool, error) {
 	var (
-		mErr error
-		mRes meta.ExistsRes
+		mErr   error
+		exists bool
 	)
 
-	var exists bool
 	if !skipMeta {
-		var mPrm meta.ExistsPrm
-		mPrm.SetAddress(addr)
-
-		mRes, mErr = s.metaBase.Exists(mPrm)
+		exists, mErr = s.metaBase.Exists(addr, false)
 		if mErr != nil && !s.info.Mode.NoMetabase() {
 			return false, mErr
 		}
-		exists = mRes.Exists()
 	}
 
 	if s.hasWriteCache() {
@@ -147,15 +141,11 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	var mPrm meta.StorageIDPrm
-	mPrm.SetAddress(addr)
-
-	mExRes, err := s.metaBase.StorageID(mPrm)
+	storageID, err := s.metaBase.StorageID(addr)
 	if err != nil {
 		return true, fmt.Errorf("can't fetch storage id from metabase: %w", err)
 	}
 
-	storageID := mExRes.StorageID()
 	if storageID == nil {
 		// `nil` storageID returned without any error
 		// means that object is big, `cb` expects an

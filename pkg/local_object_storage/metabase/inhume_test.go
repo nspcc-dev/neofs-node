@@ -45,7 +45,6 @@ func TestInhumeTombOnTomb(t *testing.T) {
 		addr2     = oidtest.Address()
 		addr3     = oidtest.Address()
 		inhumePrm meta.InhumePrm
-		existsPrm meta.ExistsPrm
 	)
 
 	inhumePrm.SetAddresses(addr1)
@@ -55,10 +54,8 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	existsPrm.SetAddress(addr1)
-
 	// addr1 should become inhumed {addr1:addr2}
-	_, err = db.Exists(existsPrm)
+	_, err = db.Exists(addr1, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	inhumePrm.SetAddresses(addr3)
@@ -72,13 +69,11 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	// as a tomb-on-tomb; metabase should return ObjectNotFound
 	// NOT ObjectAlreadyRemoved since that record has been removed
 	// from graveyard but addr1 is still marked with GC
-	_, err = db.Exists(existsPrm)
+	_, err = db.Exists(addr1, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 
-	existsPrm.SetAddress(addr3)
-
 	// addr3 should be inhumed {addr3: addr1}
-	_, err = db.Exists(existsPrm)
+	_, err = db.Exists(addr3, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 	inhumePrm.SetAddresses(addr1)
@@ -88,12 +83,10 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	existsPrm.SetAddress(addr1)
-
 	// record with addr1 key should not appear in graveyard
 	// (tomb can not be inhumed) but should be kept as object
 	// with GC mark
-	_, err = db.Exists(existsPrm)
+	_, err = db.Exists(addr1, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 }
 

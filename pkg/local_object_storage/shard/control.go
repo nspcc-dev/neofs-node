@@ -241,11 +241,7 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []
 		}
 	}
 
-	var mPrm meta.PutPrm
-	mPrm.SetObject(obj)
-	mPrm.SetStorageID(descriptor)
-
-	_, err := s.metaBase.Put(mPrm)
+	err := s.metaBase.Put(obj, descriptor, nil)
 	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
 		return err
 	}

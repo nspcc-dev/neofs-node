@@ -5,7 +5,6 @@ import (
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -89,13 +88,11 @@ func (s *Shard) Put(prm PutPrm) (PutRes, error) {
 	}
 
 	if !m.NoMetabase() {
-		var pPrm meta.PutPrm
-		pPrm.SetObject(prm.obj)
+		var binHeader []byte
 		if prm.binSet {
-			pPrm.SetHeaderBinary(data[:prm.hdrLen])
+			binHeader = data[:prm.hdrLen]
 		}
-		pPrm.SetStorageID(res.StorageID)
-		if _, err := s.metaBase.Put(pPrm); err != nil {
+		if err := s.metaBase.Put(prm.obj, res.StorageID, binHeader); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor
 			return PutRes{}, fmt.Errorf("could not put object to metabase: %w", err)

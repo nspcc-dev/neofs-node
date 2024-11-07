@@ -18,24 +18,18 @@ func TestDB_IterateDeletedObjects_EmptyDB(t *testing.T) {
 	db := newDB(t)
 
 	var counter int
-	var iterGravePRM meta.GraveyardIterationPrm
 
-	iterGravePRM.SetHandler(func(garbage meta.TombstonedObject) error {
+	err := db.IterateOverGraveyard(func(garbage meta.TombstonedObject) error {
 		counter++
 		return nil
-	})
-
-	err := db.IterateOverGraveyard(iterGravePRM)
+	}, nil)
 	require.NoError(t, err)
 	require.Zero(t, counter)
 
-	var iterGCPRM meta.GarbageIterationPrm
-	iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		counter++
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGCPRM)
+	}, nil)
 	require.NoError(t, err)
 	require.Zero(t, counter)
 }
@@ -74,18 +68,17 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	var counter int
+	var (
+		counter int
+		o2addr  = object.AddressOf(obj2)
+	)
 
-	var iterGCPRM meta.GarbageIterationPrm
-	iterGCPRM.SetOffset(object.AddressOf(obj2))
-	iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		require.Equal(t, garbage.Address(), addr1)
 		counter++
 
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGCPRM)
+	}, &o2addr)
 	require.NoError(t, err)
 
 	// the second object would be put after the
@@ -93,15 +86,12 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	// will not receive the first object
 	require.Equal(t, 0, counter)
 
-	iterGCPRM.SetOffset(addr3)
-	iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		require.Equal(t, garbage.Address(), addr1)
 		counter++
 
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGCPRM)
+	}, &addr3)
 	require.NoError(t, err)
 
 	// the third object would be put before the
@@ -156,28 +146,22 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 		buriedTS, buriedGC []oid.Address
 	)
 
-	var iterGravePRM meta.GraveyardIterationPrm
-	iterGravePRM.SetHandler(func(tomstoned meta.TombstonedObject) error {
+	err = db.IterateOverGraveyard(func(tomstoned meta.TombstonedObject) error {
 		require.Equal(t, addrTombstone, tomstoned.Tombstone())
 
 		buriedTS = append(buriedTS, tomstoned.Address())
 		counterAll++
 
 		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGravePRM)
+	}, nil)
 	require.NoError(t, err)
 
-	var iterGCPRM meta.GarbageIterationPrm
-	iterGCPRM.SetHandler(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		buriedGC = append(buriedGC, garbage.Address())
 		counterAll++
 
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGCPRM)
+	}, nil)
 	require.NoError(t, err)
 
 	// objects covered with a tombstone
@@ -243,8 +227,7 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 		gotGraveyard []oid.Address
 	)
 
-	var iterGraveyardPrm meta.GraveyardIterationPrm
-	iterGraveyardPrm.SetHandler(func(tombstoned meta.TombstonedObject) error {
+	err = db.IterateOverGraveyard(func(tombstoned meta.TombstonedObject) error {
 		require.Equal(t, addrTombstone, tombstoned.Tombstone())
 
 		gotGraveyard = append(gotGraveyard, tombstoned.Address())
@@ -255,26 +238,22 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 		}
 
 		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGraveyardPrm)
+	}, nil)
 	require.NoError(t, err)
 	require.Equal(t, firstIterationSize, counter)
 	require.Equal(t, firstIterationSize, len(gotGraveyard))
 
 	// last received address is an offset
 	offset := gotGraveyard[len(gotGraveyard)-1]
-	iterGraveyardPrm.SetOffset(offset)
-	iterGraveyardPrm.SetHandler(func(tombstoned meta.TombstonedObject) error {
+
+	err = db.IterateOverGraveyard(func(tombstoned meta.TombstonedObject) error {
 		require.Equal(t, addrTombstone, tombstoned.Tombstone())
 
 		gotGraveyard = append(gotGraveyard, tombstoned.Address())
 		counter++
 
 		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGraveyardPrm)
+	}, &offset)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedGraveyard), counter)
 	require.ElementsMatch(t, gotGraveyard, expectedGraveyard)
@@ -282,14 +261,12 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	// last received object (last in db) as offset
 	// should lead to no iteration at all
 	offset = gotGraveyard[len(gotGraveyard)-1]
-	iterGraveyardPrm.SetOffset(offset)
 	iWasCalled := false
-	iterGraveyardPrm.SetHandler(func(tombstoned meta.TombstonedObject) error {
+
+	err = db.IterateOverGraveyard(func(tombstoned meta.TombstonedObject) error {
 		iWasCalled = true
 		return nil
-	})
-
-	err = db.IterateOverGraveyard(iterGraveyardPrm)
+	}, &offset)
 	require.NoError(t, err)
 	require.False(t, iWasCalled)
 }
@@ -338,8 +315,7 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 		gotGarbage []oid.Address
 	)
 
-	var iterGarbagePrm meta.GarbageIterationPrm
-	iterGarbagePrm.SetHandler(func(garbage meta.GarbageObject) error {
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		gotGarbage = append(gotGarbage, garbage.Address())
 
 		counter++
@@ -348,24 +324,20 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 		}
 
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGarbagePrm)
+	}, nil)
 	require.NoError(t, err)
 	require.Equal(t, firstIterationSize, counter)
 	require.Equal(t, firstIterationSize, len(gotGarbage))
 
 	// last received address is an offset
 	offset := gotGarbage[len(gotGarbage)-1]
-	iterGarbagePrm.SetOffset(offset)
-	iterGarbagePrm.SetHandler(func(garbage meta.GarbageObject) error {
+
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		gotGarbage = append(gotGarbage, garbage.Address())
 		counter++
 
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGarbagePrm)
+	}, &offset)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedGarbage), counter)
 	require.ElementsMatch(t, gotGarbage, expectedGarbage)
@@ -373,14 +345,12 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	// last received object (last in db) as offset
 	// should lead to no iteration at all
 	offset = gotGarbage[len(gotGarbage)-1]
-	iterGarbagePrm.SetOffset(offset)
 	iWasCalled := false
-	iterGarbagePrm.SetHandler(func(garbage meta.GarbageObject) error {
+
+	err = db.IterateOverGarbage(func(garbage meta.GarbageObject) error {
 		iWasCalled = true
 		return nil
-	})
-
-	err = db.IterateOverGarbage(iterGarbagePrm)
+	}, &offset)
 	require.NoError(t, err)
 	require.False(t, iWasCalled)
 }
@@ -448,9 +418,7 @@ func TestDropExpiredTSMarks(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, o := range droppedObjects {
-		var pGet meta.GetPrm
-		pGet.SetAddress(o)
-		_, err = db.Get(pGet)
+		_, err = db.Get(o, false)
 		require.ErrorIs(t, err, apistatus.ErrObjectAlreadyRemoved)
 	}
 
@@ -459,10 +427,7 @@ func TestDropExpiredTSMarks(t *testing.T) {
 	require.EqualValues(t, len(droppedObjects)/2, res) // first half with epoch + 1 expiration
 
 	for i, o := range droppedObjects {
-		var pGet meta.GetPrm
-		pGet.SetAddress(o)
-
-		_, err = db.Get(pGet)
+		_, err = db.Get(o, false)
 		if i < len(droppedObjects)/2 {
 			require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		} else {
@@ -475,9 +440,7 @@ func TestDropExpiredTSMarks(t *testing.T) {
 	require.EqualValues(t, len(droppedObjects)/2, res) // second half with epoch + 2 expiration
 
 	for _, o := range droppedObjects {
-		var pGet meta.GetPrm
-		pGet.SetAddress(o)
-		_, err = db.Get(pGet)
+		_, err = db.Get(o, false)
 		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 	}
 }

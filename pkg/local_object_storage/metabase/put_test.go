@@ -115,13 +115,7 @@ func TestDB_PutBlobovnicaUpdate(t *testing.T) {
 }
 
 func metaPut(db *meta.DB, obj *objectSDK.Object, id []byte) error {
-	var putPrm meta.PutPrm
-	putPrm.SetObject(obj)
-	putPrm.SetStorageID(id)
-
-	_, err := db.Put(putPrm)
-
-	return err
+	return db.Put(obj, id, nil)
 }
 
 func TestDB_PutBinary(t *testing.T) {
@@ -146,10 +140,7 @@ func TestDB_PutBinary(t *testing.T) {
 
 	db := newDB(t)
 
-	var putPrm meta.PutPrm
-	putPrm.SetObject(hdr)
-	putPrm.SetHeaderBinary(hdrBin)
-	_, err := db.Put(putPrm)
+	err := db.Put(hdr, nil, hdrBin)
 	require.NoError(t, err)
 
 	res, err := metaGet(db, addr, false)
@@ -159,9 +150,7 @@ func TestDB_PutBinary(t *testing.T) {
 	// now place some garbage
 	addr.SetObject(oidtest.ID())
 	hdr.SetID(addr.Object()) // to avoid 'already exists' outcome
-	putPrm.SetObject(hdr)
-	putPrm.SetHeaderBinary([]byte("definitely not an object"))
-	_, err = db.Put(putPrm)
+	err = db.Put(hdr, nil, []byte("definitely not an object"))
 	require.NoError(t, err)
 
 	_, err = metaGet(db, addr, false)

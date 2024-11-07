@@ -27,14 +27,10 @@ func listGarbageFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	var garbPrm meta.GarbageIterationPrm
-	garbPrm.SetHandler(
-		func(garbageObject meta.GarbageObject) error {
-			cmd.Println(garbageObject.Address().EncodeToString())
-			return nil
-		})
-
-	err = db.IterateOverGarbage(garbPrm)
+	err = db.IterateOverGarbage(func(garbageObject meta.GarbageObject) error {
+		cmd.Println(garbageObject.Address().EncodeToString())
+		return nil
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("could not iterate over garbage bucket: %w", err)
 	}

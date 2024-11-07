@@ -177,42 +177,32 @@ func TestDB_IsLocked(t *testing.T) {
 	// existing and locked objs
 
 	objs, _ := putAndLockObj(t, db, 5)
-	var prm meta.IsLockedPrm
 
 	for _, obj := range objs {
-		prm.SetAddress(objectcore.AddressOf(obj))
-
-		res, err := db.IsLocked(prm)
+		locked, err := db.IsLocked(objectcore.AddressOf(obj))
 		require.NoError(t, err)
 
-		require.True(t, res.Locked())
+		require.True(t, locked)
 	}
 
 	// some rand obj
 
-	prm.SetAddress(oidtest.Address())
-
-	res, err := db.IsLocked(prm)
+	locked, err := db.IsLocked(oidtest.Address())
 	require.NoError(t, err)
 
-	require.False(t, res.Locked())
+	require.False(t, locked)
 
 	// existing but not locked obj
 
 	obj := objecttest.Object()
 
-	var putPrm meta.PutPrm
-	putPrm.SetObject(&obj)
-
-	_, err = db.Put(putPrm)
+	err = db.Put(&obj, nil, nil)
 	require.NoError(t, err)
 
-	prm.SetAddress(objectcore.AddressOf(&obj))
-
-	res, err = db.IsLocked(prm)
+	locked, err = db.IsLocked(objectcore.AddressOf(&obj))
 	require.NoError(t, err)
 
-	require.False(t, res.Locked())
+	require.False(t, locked)
 }
 
 func TestDB_Lock_Expired(t *testing.T) {

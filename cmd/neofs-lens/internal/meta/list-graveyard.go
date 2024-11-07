@@ -27,20 +27,16 @@ func listGraveyardFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	var gravePrm meta.GraveyardIterationPrm
-	gravePrm.SetHandler(
-		func(tsObj meta.TombstonedObject) error {
-			cmd.Printf(
-				"Object: %s\nTS: %s (TS expiration: %d)\n",
-				tsObj.Address().EncodeToString(),
-				tsObj.Tombstone().EncodeToString(),
-				tsObj.TombstoneExpiration(),
-			)
+	err = db.IterateOverGraveyard(func(tsObj meta.TombstonedObject) error {
+		cmd.Printf(
+			"Object: %s\nTS: %s (TS expiration: %d)\n",
+			tsObj.Address().EncodeToString(),
+			tsObj.Tombstone().EncodeToString(),
+			tsObj.TombstoneExpiration(),
+		)
 
-			return nil
-		})
-
-	err = db.IterateOverGraveyard(gravePrm)
+		return nil
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("could not iterate over graveyard bucket: %w", err)
 	}

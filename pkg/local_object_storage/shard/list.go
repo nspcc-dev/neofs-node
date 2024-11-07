@@ -80,11 +80,7 @@ func (s *Shard) List() (res SelectRes, err error) {
 	filters.AddPhyFilter()
 
 	for i := range lst {
-		var sPrm meta.SelectPrm
-		sPrm.SetContainerID(lst[i])
-		sPrm.SetFilters(filters)
-
-		sRes, err := s.metaBase.Select(sPrm) // consider making List in metabase
+		addrs, err := s.metaBase.Select(lst[i], filters) // consider making List in metabase
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),
@@ -93,7 +89,7 @@ func (s *Shard) List() (res SelectRes, err error) {
 			continue
 		}
 
-		res.addrList = append(res.addrList, sRes.AddressList()...)
+		res.addrList = append(res.addrList, addrs...)
 	}
 
 	return res, nil
@@ -125,16 +121,13 @@ func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error)
 		return ListWithCursorRes{}, ErrDegradedMode
 	}
 
-	var metaPrm meta.ListPrm
-	metaPrm.SetCount(prm.count)
-	metaPrm.SetCursor(prm.cursor)
-	res, err := s.metaBase.ListWithCursor(metaPrm)
+	addrs, cursor, err := s.metaBase.ListWithCursor(int(prm.count), prm.cursor)
 	if err != nil {
 		return ListWithCursorRes{}, fmt.Errorf("could not get list of objects: %w", err)
 	}
 
 	return ListWithCursorRes{
-		addrList: res.AddressList(),
-		cursor:   res.Cursor(),
+		addrList: addrs,
+		cursor:   cursor,
 	}, nil
 }

@@ -3,7 +3,6 @@ package shard
 import (
 	"fmt"
 
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -41,13 +40,5 @@ func (s *Shard) IsLocked(addr oid.Address) (bool, error) {
 		return false, ErrDegradedMode
 	}
 
-	var prm meta.IsLockedPrm
-	prm.SetAddress(addr)
-
-	res, err := s.metaBase.IsLocked(prm)
-	if err != nil {
-		return false, err
-	}
-
-	return res.Locked(), nil
+	return s.metaBase.IsLocked(addr)
 }

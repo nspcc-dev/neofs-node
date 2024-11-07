@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/spf13/cobra"
 )
 
@@ -40,15 +39,12 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("%s flag must be positive", limitFlagName)
 	}
 
-	var prm meta.ListPrm
-	prm.SetCount(vLimit)
-
-	res, err := db.ListWithCursor(prm)
+	addrs, _, err := db.ListWithCursor(int(vLimit), nil)
 	if err != nil {
 		return fmt.Errorf("metabase's `ListWithCursor`: %w", err)
 	}
 
-	for _, addressWithType := range res.AddressList() {
+	for _, addressWithType := range addrs {
 		cmd.Printf("%s, Type: %s\n", addressWithType.Address, addressWithType.Type)
 	}
 

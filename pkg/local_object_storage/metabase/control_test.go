@@ -51,12 +51,5 @@ func TestReset(t *testing.T) {
 }
 
 func metaExists(db *meta.DB, addr oid.Address) (bool, error) {
-	var existsPrm meta.ExistsPrm
-	existsPrm.SetAddress(addr)
-
-	res, err := db.Exists(existsPrm)
-	if err != nil {
-		return false, err
-	}
-	return res.Exists(), nil
+	return db.Exists(addr, false)
 }

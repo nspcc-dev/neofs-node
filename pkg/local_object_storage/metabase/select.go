@@ -31,32 +31,6 @@ type (
 	}
 )
 
-// SelectPrm groups the parameters of Select operation.
-type SelectPrm struct {
-	cnr     cid.ID
-	filters object.SearchFilters
-}
-
-// SelectRes groups the resulting values of Select operation.
-type SelectRes struct {
-	addrList []oid.Address
-}
-
-// SetContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) SetContainerID(cnr cid.ID) {
-	p.cnr = cnr
-}
-
-// SetFilters is a Select option to set the object filters.
-func (p *SelectPrm) SetFilters(fs object.SearchFilters) {
-	p.filters = fs
-}
-
-// AddressList returns list of addresses of the selected objects.
-func (r SelectRes) AddressList() []oid.Address {
-	return r.addrList
-}
-
 // Select returns list of addresses of objects that match search filters.
 //
 // Only creation epoch, payload size, user attributes and unknown system ones
@@ -64,25 +38,30 @@ func (r SelectRes) AddressList() []oid.Address {
 // integers.
 //
 // Returns [object.ErrInvalidSearchQuery] if specified query is invalid.
-func (db *DB) Select(prm SelectPrm) (res SelectRes, err error) {
+func (db *DB) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return res, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
-	if blindlyProcess(prm.filters) {
-		return res, nil
+	if blindlyProcess(filters) {
+		return nil, nil
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
+	var (
+		addrList  []oid.Address
+		currEpoch = db.epochState.CurrentEpoch()
+		err       error
+	)
 
-	return res, db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.addrList, err = db.selectObjects(tx, prm.cnr, prm.filters, currEpoch)
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		addrList, err = db.selectObjects(tx, cnr, filters, currEpoch)
 
 		return err
 	})
+	return addrList, err
 }
 
 func (db *DB) selectObjects(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, currEpoch uint64) ([]oid.Address, error) {

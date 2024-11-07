@@ -36,16 +36,14 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		return res, nil
 	}
 
-	storageID := StorageIDPrm{}
-	storageID.SetAddress(address)
-	resStorageID, err := db.StorageID(storageID)
+	resStorageID, err := db.StorageID(address)
 	if err != nil {
 		res.Error = fmt.Errorf("reading storage ID: %w", err)
 		return res, res.Error
 	}
 
-	if id := resStorageID.StorageID(); id != nil {
-		res.StorageID = string(id)
+	if resStorageID != nil {
+		res.StorageID = string(resStorageID)
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {

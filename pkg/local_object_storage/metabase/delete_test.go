@@ -132,9 +132,6 @@ func TestExpiredObject(t *testing.T) {
 }
 
 func metaDelete(db *meta.DB, addrs ...oid.Address) error {
-	var deletePrm meta.DeletePrm
-	deletePrm.SetAddresses(addrs...)
-
-	_, err := db.Delete(deletePrm)
+	_, err := db.Delete(addrs)
 	return err
 }

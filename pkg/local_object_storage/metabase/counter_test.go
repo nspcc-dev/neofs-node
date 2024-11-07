@@ -32,12 +32,8 @@ func TestCounters(t *testing.T) {
 			oo = append(oo, generateObject(t))
 		}
 
-		var prm meta.PutPrm
-
 		for i := range objCount {
-			prm.SetObject(oo[i])
-
-			_, err = db.Put(prm)
+			err = db.Put(oo[i], nil, nil)
 			require.NoError(t, err)
 
 			c, err = db.ObjectCounters()
@@ -53,13 +49,10 @@ func TestCounters(t *testing.T) {
 	t.Run("delete", func(t *testing.T) {
 		oo := putObjs(t, db, objCount, false)
 
-		var prm meta.DeletePrm
 		for i := objCount - 1; i >= 0; i-- {
-			prm.SetAddresses(objectcore.AddressOf(oo[i]))
-
-			res, err := db.Delete(prm)
+			res, err := db.Delete([]oid.Address{objectcore.AddressOf(oo[i])})
 			require.NoError(t, err)
-			require.Equal(t, uint64(1), res.AvailableObjectsRemoved())
+			require.Equal(t, uint64(1), res.AvailableRemoved)
 
 			c, err = db.ObjectCounters()
 			require.NoError(t, err)
@@ -236,12 +229,9 @@ func TestCounters_Expired(t *testing.T) {
 	// phy counter but does not affect the logic counter (after
 	// that step they should be equal)
 
-	var deletePrm meta.DeletePrm
-	deletePrm.SetAddresses(oo[0])
-
-	deleteRes, err := db.Delete(deletePrm)
+	deleteRes, err := db.Delete(oo[:1])
 	require.NoError(t, err)
-	require.Zero(t, deleteRes.AvailableObjectsRemoved())
+	require.Zero(t, deleteRes.AvailableRemoved)
 
 	oo = oo[1:]
 
@@ -254,11 +244,9 @@ func TestCounters_Expired(t *testing.T) {
 	// service do) should decrease both counters despite the
 	// expiration fact
 
-	deletePrm.SetAddresses(oo[0])
-
-	deleteRes, err = db.Delete(deletePrm)
+	deleteRes, err = db.Delete(oo[:1])
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), deleteRes.AvailableObjectsRemoved())
+	require.Equal(t, uint64(1), deleteRes.AvailableRemoved)
 
 	oo = oo[1:]
 
@@ -269,7 +257,6 @@ func TestCounters_Expired(t *testing.T) {
 }
 
 func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Object {
-	var prm meta.PutPrm
 	var err error
 	parent := generateObject(t)
 
@@ -282,8 +269,7 @@ func putObjs(t *testing.T, db *meta.DB, count int, withParent bool) []*object.Ob
 
 		oo = append(oo, o)
 
-		prm.SetObject(o)
-		_, err = db.Put(prm)
+		err = db.Put(o, nil, nil)
 		require.NoError(t, err)
 
 		c, err := db.ObjectCounters()

@@ -6,7 +6,6 @@ import (
 	"os"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/spf13/cobra"
 )
@@ -56,10 +55,7 @@ func writeObject(cmd *cobra.Command, _ []string) error {
 		return errors.New("missing container ID in object")
 	}
 
-	var pPrm meta.PutPrm
-	pPrm.SetObject(obj)
-
-	_, err = db.Put(pPrm)
+	err = db.Put(obj, nil, nil)
 	if err != nil {
 		return fmt.Errorf("can't put object: %w", err)
 	}
