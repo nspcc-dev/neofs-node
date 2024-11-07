@@ -9,7 +9,7 @@ Changelog for NeoFS Node
 - Expose health status of inner ring via Prometheus (#2934)
 - `neofs-cli control object list` command (#2853)
 - `node` config option `storage.ignore_uninited_shards` (#2953)
-- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME` 
+- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME`
 attribute, which is used for container domain name in NNS contracts (#2954)
 - Save last epoch when metabase was resynchronized (#2966)
 - `neofs-lens meta last-resync-epoch` command (#2966)
@@ -36,7 +36,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Use org-wide linter (#2943)
 - Timestamps are no longer produced in logs if not running with TTY (#2964)
 - In inner ring config, default ports for TCP addresses are used if they are missing (#2969)
-- Metabase is refilled if an object exists in write-cache but is missing in metabase (#2977) 
+- Metabase is refilled if an object exists in write-cache but is missing in metabase (#2977)
 - Pprof and metrics services stop at the end of SN's application lifecycle (#2976)
 - Reject configuration with unknown fields (#2981)
 
