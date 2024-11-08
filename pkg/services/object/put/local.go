@@ -77,6 +77,10 @@ func putObjectLocally(storage ObjectStorage, obj *object.Object, meta objectCore
 	var objBin []byte
 	var hdrLen int
 	if enc != nil && enc.pldOff > 0 {
+		if enc.b == nil {
+			panic(fmt.Sprintf("nil buff for %s object", objectCore.AddressOf(obj)))
+		}
+
 		objBin = enc.b[enc.hdrOff:]
 		hdrLen = enc.pldFldOff - enc.hdrOff
 	}

@@ -215,7 +215,6 @@ func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, er
 	id, _ := t.obj.ID()
 	var resErr atomic.Value
 
-loop:
 	for {
 		addrs := t.traverser.Next()
 		if len(addrs) == 0 {
@@ -267,7 +266,7 @@ loop:
 
 				svcutil.LogWorkerPoolError(t.log, "PUT", err)
 
-				break loop
+				wg.Wait()
 			}
 		}
 
