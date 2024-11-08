@@ -23,7 +23,7 @@ func (c *Client) Reload(opts ...Option) {
 	// Close current connection and attempt to reconnect, if there is no endpoint
 	// in the config to which the client is connected.
 	// Node service can be interrupted in this case.
-	if slices.Contains(cfg.endpoints, conn.client.Endpoint()) {
+	if !slices.Contains(cfg.endpoints, conn.client.Endpoint()) {
 		conn.client.Close()
 	}
 }
