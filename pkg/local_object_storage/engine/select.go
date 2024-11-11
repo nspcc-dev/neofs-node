@@ -10,47 +10,25 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// SelectPrm groups the parameters of Select operation.
-type SelectPrm struct {
-	cnr     cid.ID
-	filters object.SearchFilters
-}
-
-// SelectRes groups the resulting values of Select operation.
-type SelectRes struct {
-	addrList []oid.Address
-}
-
-// WithContainerID is a Select option to set the container id to search in.
-func (p *SelectPrm) WithContainerID(cnr cid.ID) {
-	p.cnr = cnr
-}
-
-// WithFilters is a Select option to set the object filters.
-func (p *SelectPrm) WithFilters(fs object.SearchFilters) {
-	p.filters = fs
-}
-
-// AddressList returns list of addresses of the selected objects.
-func (r SelectRes) AddressList() []oid.Address {
-	return r.addrList
-}
-
 // Select selects the objects from local storage that match select parameters.
 //
 // Returns any error encountered that did not allow to completely select the objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Select(prm SelectPrm) (res SelectRes, err error) {
+func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
+	var (
+		err error
+		res []oid.Address
+	)
 	err = e.execIfNotBlocked(func() error {
-		res, err = e._select(prm)
+		res, err = e._select(cnr, filters)
 		return err
 	})
 
-	return
+	return res, err
 }
 
-func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
+func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -61,8 +39,8 @@ func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
 	var outError error
 
 	var shPrm shard.SelectPrm
-	shPrm.SetContainerID(prm.cnr)
-	shPrm.SetFilters(prm.filters)
+	shPrm.SetContainerID(cnr)
+	shPrm.SetFilters(filters)
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		res, err := sh.Select(shPrm)
@@ -85,25 +63,27 @@ func (e *StorageEngine) _select(prm SelectPrm) (SelectRes, error) {
 		return false
 	})
 
-	return SelectRes{
-		addrList: addrList,
-	}, outError
+	return addrList, outError
 }
 
 // List returns `limit` available physically storage object addresses in engine.
 // If limit is zero, then returns all available object addresses.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) List(limit uint64) (res SelectRes, err error) {
+func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
+	var (
+		err error
+		res []oid.Address
+	)
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.list(limit)
 		return err
 	})
 
-	return
+	return res, err
 }
 
-func (e *StorageEngine) list(limit uint64) (SelectRes, error) {
+func (e *StorageEngine) list(limit uint64) ([]oid.Address, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
@@ -134,32 +114,16 @@ func (e *StorageEngine) list(limit uint64) (SelectRes, error) {
 		return false
 	})
 
-	return SelectRes{
-		addrList: addrList,
-	}, nil
+	return addrList, nil
 }
 
 // Select selects objects from local storage using provided filters.
 func Select(storage *StorageEngine, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
-	var selectPrm SelectPrm
-	selectPrm.WithContainerID(cnr)
-	selectPrm.WithFilters(fs)
-
-	res, err := storage.Select(selectPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.AddressList(), nil
+	return storage.Select(cnr, fs)
 }
 
 // List returns `limit` available physically storage object addresses in
 // engine. If limit is zero, then returns all available object addresses.
 func List(storage *StorageEngine, limit uint64) ([]oid.Address, error) {
-	res, err := storage.List(limit)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.AddressList(), nil
+	return storage.List(limit)
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/spf13/cobra"
 )
@@ -32,10 +33,12 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer storage.Close()
 
-	var p engine.ListWithCursorPrm
-	p.WithCount(1024)
+	var (
+		addrs  []objectcore.AddressWithType
+		cursor *engine.Cursor
+	)
 	for {
-		r, err := storage.ListWithCursor(p)
+		addrs, cursor, err = storage.ListWithCursor(1024, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				return nil
@@ -44,13 +47,11 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 				return fmt.Errorf("Storage iterator failure: %w", err)
 			}
 		}
-		var addrs = r.AddressList()
 		for _, at := range addrs {
 			_, err = io.WriteString(w, at.Address.String()+"\n")
 			if err != nil {
 				return fmt.Errorf("print failure: %w", err)
 			}
 		}
-		p.WithCursor(r.Cursor())
 	}
 }

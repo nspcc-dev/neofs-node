@@ -109,16 +109,12 @@ func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info c
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {
-	var selectPrm engine.SelectPrm
-	selectPrm.WithFilters(exec.searchFilters())
-	selectPrm.WithContainerID(exec.containerID())
-
-	r, err := e.storage.Select(selectPrm)
+	r, err := e.storage.Select(exec.containerID(), exec.searchFilters())
 	if err != nil {
 		return nil, err
 	}
 
-	return idsFromAddresses(r.AddressList()), nil
+	return idsFromAddresses(r), nil
 }
 
 func idsFromAddresses(addrs []oid.Address) []oid.ID {

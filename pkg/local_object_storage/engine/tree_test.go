@@ -42,19 +42,15 @@ func benchmarkTreeVsSearch(b *testing.B, objCount int) {
 	}
 
 	b.Run("search", func(b *testing.B) {
-		var prm SelectPrm
-		prm.WithContainerID(cid)
-
 		var fs object.SearchFilters
 		fs.AddFilter(pilorama.AttributeFilename, strconv.Itoa(objCount/2), object.MatchStringEqual)
-		prm.WithFilters(fs)
 
 		for range b.N {
-			res, err := e.Select(prm)
+			res, err := e.Select(cid, fs)
 			if err != nil {
 				b.Fatal(err)
 			}
-			if count := len(res.addrList); count != 1 {
+			if count := len(res); count != 1 {
 				b.Fatalf("expected 1 object, got %d", count)
 			}
 		}
