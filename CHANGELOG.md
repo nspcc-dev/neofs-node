@@ -20,6 +20,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - `logger.encoding` config option (#2999)
 - Reloading morph endpoints with SIGHUP (#2998)
 - New `peapod-to-fstree` tool providing peapod-to-fstree data migration (#3013)
+- Reloading node attributes with SIGHUP (#3005)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)

@@ -497,6 +497,9 @@ func (c *cfg) NumberOfAddresses() int {
 }
 
 func (c *cfg) ExternalAddresses() []string {
+	c.cfgNodeInfo.localInfoLock.RLock()
+	defer c.cfgNodeInfo.localInfoLock.RUnlock()
+
 	return c.cfgNodeInfo.localInfo.ExternalAddresses()
 }
 

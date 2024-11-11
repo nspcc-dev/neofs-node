@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
@@ -122,14 +123,21 @@ func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
 }
 
 func (c *cfg) addressNum() int {
+	c.cfgNodeInfo.localInfoLock.RLock()
+	defer c.cfgNodeInfo.localInfoLock.RUnlock()
+
 	return c.cfgNodeInfo.localInfo.NumberOfNetworkEndpoints()
 }
 
 func initNetmapService(c *cfg) {
+	c.cfgNodeInfo.localInfoLock.Lock()
+
 	network.WriteToNodeInfo(c.localAddr, &c.cfgNodeInfo.localInfo)
 	c.cfgNodeInfo.localInfo.SetPublicKey(c.key.PublicKey().Bytes())
 	parseAttributes(c)
 	c.cfgNodeInfo.localInfo.SetOffline()
+
+	c.cfgNodeInfo.localInfoLock.Unlock()
 
 	if c.cfgMorph.client == nil {
 		initMorphComponents(c)
@@ -444,4 +452,40 @@ func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
 	}
 
 	return &ni, nil
+}
+
+func (c *cfg) reloadNodeAttributes() error {
+	c.cfgNodeInfo.localInfoLock.Lock()
+
+	// TODO(@End-rey): after updating SDK, rewrite with w/o api netmap. See #3005, neofs-sdk-go#635.
+	var ni2 netmapV2.NodeInfo
+	c.cfgNodeInfo.localInfo.WriteToV2(&ni2)
+
+	oldAttrs := ni2.GetAttributes()
+
+	ni2.SetAttributes(nil)
+
+	err := c.cfgNodeInfo.localInfo.ReadFromV2(ni2)
+	if err != nil {
+		c.cfgNodeInfo.localInfoLock.Unlock()
+		return err
+	}
+
+	err = writeSystemAttributes(c)
+	if err != nil {
+		c.cfgNodeInfo.localInfoLock.Unlock()
+		return err
+	}
+	parseAttributes(c)
+
+	c.cfgNodeInfo.localInfo.WriteToV2(&ni2)
+
+	newAttrs := ni2.GetAttributes()
+	c.cfgNodeInfo.localInfoLock.Unlock()
+
+	if nodeAttrsEqual(nodeAttrsToSlice(oldAttrs), nodeAttrsToSlice(newAttrs)) {
+		return nil
+	}
+
+	return c.bootstrap()
 }
