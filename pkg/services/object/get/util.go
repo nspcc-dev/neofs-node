@@ -195,16 +195,12 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	if exec.headOnly() {
-		var headPrm engine.HeadPrm
-		headPrm.WithAddress(exec.address())
-		headPrm.WithRaw(exec.isRaw())
-
-		r, err := e.engine.Head(headPrm)
+		r, err := e.engine.Head(exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, err
 		}
 
-		return r.Header(), nil
+		return r, nil
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
