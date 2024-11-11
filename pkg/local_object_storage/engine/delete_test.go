@@ -83,10 +83,7 @@ func TestDeleteBigObject(t *testing.T) {
 }
 
 func checkGetError(t *testing.T, e *StorageEngine, addr oid.Address, expected any) {
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-
-	_, err := e.Get(getPrm)
+	_, err := e.Get(addr)
 	if expected != nil {
 		require.ErrorAs(t, err, expected)
 	} else {

@@ -185,10 +185,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 			linkAddr.SetContainer(addr.Container())
 			linkAddr.SetObject(linkID)
 
-			var getPrm GetPrm
-			getPrm.WithAddress(linkAddr)
-
-			res, err := e.Get(getPrm)
+			linkObj, err := e.Get(linkAddr)
 			if err != nil {
 				e.log.Error("inhuming root object but no link object is found", zap.Error(err))
 
@@ -198,8 +195,6 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 				return true
 			}
-
-			linkObj := res.Object()
 
 			// v2 split
 			if linkObj.Type() == objectSDK.TypeLink {

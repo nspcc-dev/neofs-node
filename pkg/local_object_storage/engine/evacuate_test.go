@@ -79,10 +79,7 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects := func(t *testing.T) {
 		for i := range objects {
-			var prm GetPrm
-			prm.WithAddress(objectCore.AddressOf(objects[i]))
-
-			_, err := e.Get(prm)
+			_, err := e.Get(objectCore.AddressOf(objects[i]))
 			require.NoError(t, err)
 		}
 	}

@@ -64,12 +64,8 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 	require.NoError(t, e.Init())
 
 	require.Eventually(t, func() bool {
-		var prmGet GetPrm
-		prmGet.WithAddress(object.AddressOf(&o1))
-		_, err1 := e.Get(prmGet)
-
-		prmGet.WithAddress(object.AddressOf(&o2))
-		_, err2 := e.Get(prmGet)
+		_, err1 := e.Get(object.AddressOf(&o1))
+		_, err2 := e.Get(object.AddressOf(&o2))
 
 		return errors.Is(err1, new(apistatus.ObjectNotFound)) && errors.Is(err2, new(apistatus.ObjectNotFound))
 	}, time.Second, 100*time.Millisecond)

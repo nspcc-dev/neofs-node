@@ -12,28 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// GetPrm groups the parameters of Get operation.
-type GetPrm struct {
-	addr oid.Address
-}
-
-// GetRes groups the resulting values of Get operation.
-type GetRes struct {
-	obj *objectSDK.Object
-}
-
-// WithAddress is a Get option to set the address of the requested object.
-//
-// Option is required.
-func (p *GetPrm) WithAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// Object returns the requested object.
-func (r GetRes) Object() *objectSDK.Object {
-	return r.obj
-}
-
 // Get reads an object from local storage.
 //
 // Returns any error encountered that
@@ -43,22 +21,26 @@ func (r GetRes) Object() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Get(prm GetPrm) (res GetRes, err error) {
-	var sp shard.GetPrm
-	sp.SetAddress(prm.addr)
+func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
+	var (
+		err error
+		obj *objectSDK.Object
+		sp  shard.GetPrm
+	)
+	sp.SetAddress(addr)
 	err = e.execIfNotBlocked(func() error {
-		return e.get(prm.addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
+		return e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (bool, error) {
 			sp.SetIgnoreMeta(ignoreMetadata)
 			sr, err := s.Get(sp)
 			if err != nil {
 				return sr.HasMeta(), err
 			}
-			res.obj = sr.Object()
+			obj = sr.Object()
 			return sr.HasMeta(), nil
 		})
 	})
 
-	return
+	return obj, err
 }
 
 func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error)) error {
@@ -164,15 +146,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 
 // Get reads object from local storage by provided address.
 func Get(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-
-	res, err := storage.Get(getPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Object(), nil
+	return storage.Get(addr)
 }
 
 // GetBytes reads object from the StorageEngine by address into memory buffer in

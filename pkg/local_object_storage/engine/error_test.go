@@ -75,7 +75,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
+		_, err = e.Get(object.AddressOf(obj))
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -84,7 +84,7 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < 3; i++ {
-			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(object.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -105,7 +105,7 @@ func TestErrorReporting(t *testing.T) {
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
-		_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
+		_, err = e.Get(object.AddressOf(obj))
 		require.NoError(t, err)
 
 		checkShardState(t, e, id[0], 0, mode.ReadWrite)
@@ -114,14 +114,14 @@ func TestErrorReporting(t *testing.T) {
 		corruptSubDir(t, filepath.Join(dir, "0"))
 
 		for i := uint32(1); i < errThreshold; i++ {
-			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(object.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], i, mode.ReadWrite)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
 		}
 
 		for i := range uint32(2) {
-			_, err = e.Get(GetPrm{addr: object.AddressOf(obj)})
+			_, err = e.Get(object.AddressOf(obj))
 			require.Error(t, err)
 			checkShardState(t, e, id[0], errThreshold+i, mode.DegradedReadOnly)
 			checkShardState(t, e, id[1], 0, mode.ReadWrite)
@@ -159,7 +159,7 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		addr := object.AddressOf(objs[i])
-		_, err = e.Get(GetPrm{addr: addr})
+		_, err = e.Get(addr)
 		require.NoError(t, err)
 		_, err = e.GetRange(RngPrm{addr: addr})
 		require.NoError(t, err)
@@ -179,9 +179,9 @@ func TestBlobstorFailback(t *testing.T) {
 
 	for i := range objs {
 		addr := object.AddressOf(objs[i])
-		getRes, err := e.Get(GetPrm{addr: addr})
+		getObj, err := e.Get(addr)
 		require.NoError(t, err)
-		require.Equal(t, objs[i], getRes.Object())
+		require.Equal(t, objs[i], getObj)
 
 		rngRes, err := e.GetRange(RngPrm{addr: addr, off: 1, ln: 10})
 		require.NoError(t, err)

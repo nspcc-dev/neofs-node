@@ -220,15 +220,7 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		return r.Object(), nil
 	}
 
-	var getPrm engine.GetPrm
-	getPrm.WithAddress(exec.address())
-
-	r, err := e.engine.Get(getPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Object(), nil
+	return e.engine.Get(exec.address())
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {

@@ -36,11 +36,9 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 	_, err := e.Put(putPrm)
 	require.NoError(t, err)
 
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-	res, err := e.Get(getPrm)
+	gotObj, err := e.Get(addr)
 	require.NoError(t, err)
-	require.Equal(t, &obj, res.Object())
+	require.Equal(t, &obj, gotObj)
 
 	b, err := e.GetBytes(addr)
 	require.NoError(t, err)
@@ -59,7 +57,6 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, invalidObjBin, b)
 
-	getPrm.WithAddress(addr)
-	_, err = e.Get(getPrm)
+	_, err = e.Get(addr)
 	require.Error(t, err)
 }
