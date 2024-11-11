@@ -12,114 +12,75 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ContainerSizePrm groups parameters of ContainerSize operation.
-type ContainerSizePrm struct {
-	cnr cid.ID
-}
-
-// ContainerSizeRes resulting values of ContainerSize operation.
-type ContainerSizeRes struct {
-	size uint64
-}
-
-// ListContainersPrm groups parameters of ListContainers operation.
-type ListContainersPrm struct{}
-
-// ListContainersRes groups the resulting values of ListContainers operation.
-type ListContainersRes struct {
-	containers []cid.ID
-}
-
-// SetContainerID sets the identifier of the container to estimate the size.
-func (p *ContainerSizePrm) SetContainerID(cnr cid.ID) {
-	p.cnr = cnr
-}
-
-// Size returns calculated estimation of the container size.
-func (r ContainerSizeRes) Size() uint64 {
-	return r.size
-}
-
-// Containers returns a list of identifiers of the containers in which local objects are stored.
-func (r ListContainersRes) Containers() []cid.ID {
-	return r.containers
-}
-
 // ContainerSize returns the sum of estimation container sizes among all shards.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ContainerSize(prm ContainerSizePrm) (res ContainerSizeRes, err error) {
+func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
+	var (
+		err  error
+		size uint64
+	)
 	err = e.execIfNotBlocked(func() error {
-		res, err = e.containerSize(prm)
+		size, err = e.containerSize(cnr)
 		return err
 	})
 
-	return
+	return size, err
 }
 
 // ContainerSize calls ContainerSize method on engine to calculate sum of estimation container sizes among all shards.
 func ContainerSize(e *StorageEngine, id cid.ID) (uint64, error) {
-	var prm ContainerSizePrm
-
-	prm.SetContainerID(id)
-
-	res, err := e.ContainerSize(prm)
-	if err != nil {
-		return 0, err
-	}
-
-	return res.Size(), nil
+	return e.ContainerSize(id)
 }
 
-func (e *StorageEngine) containerSize(prm ContainerSizePrm) (res ContainerSizeRes, err error) {
+func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
+	var size uint64
+
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		var csPrm shard.ContainerSizePrm
-		csPrm.SetContainerID(prm.cnr)
+		csPrm.SetContainerID(cnr)
 
 		csRes, err := sh.Shard.ContainerSize(csPrm)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
-				zap.Stringer("container_id", prm.cnr))
+				zap.Stringer("container_id", cnr))
 			return false
 		}
 
-		res.size += csRes.Size()
+		size += csRes.Size()
 
 		return false
 	})
 
-	return
+	return size, nil
 }
 
 // ListContainers returns a unique container IDs presented in the engine objects.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) ListContainers(_ ListContainersPrm) (res ListContainersRes, err error) {
+func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
+	var (
+		res []cid.ID
+		err error
+	)
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.listContainers()
 		return err
 	})
 
-	return
+	return res, err
 }
 
 // ListContainers calls ListContainers method on engine to get a unique container IDs presented in the engine objects.
 func ListContainers(e *StorageEngine) ([]cid.ID, error) {
-	var prm ListContainersPrm
-
-	res, err := e.ListContainers(prm)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Containers(), nil
+	return e.ListContainers()
 }
 
-func (e *StorageEngine) listContainers() (ListContainersRes, error) {
+func (e *StorageEngine) listContainers() ([]cid.ID, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
@@ -147,9 +108,7 @@ func (e *StorageEngine) listContainers() (ListContainersRes, error) {
 		result = append(result, cnr)
 	}
 
-	return ListContainersRes{
-		containers: result,
-	}, nil
+	return result, nil
 }
 
 // DeleteContainer deletes container's objects that engine stores.
