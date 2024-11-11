@@ -527,13 +527,7 @@ func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 }
 
 func (e storageEngine) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
-	var putPrm engine.PutPrm
-	putPrm.WithObject(o)
-	if objBin != nil {
-		putPrm.SetObjectBinary(objBin, hdrLen)
-	}
-	_, err := e.engine.Put(putPrm)
-	return err
+	return e.engine.Put(o, objBin, hdrLen)
 }
 
 func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) headerSource {

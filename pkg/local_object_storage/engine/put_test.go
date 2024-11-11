@@ -30,10 +30,7 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 
 	e, _, _ := newEngine(t, t.TempDir())
 
-	var putPrm PutPrm
-	putPrm.WithObject(&obj)
-	putPrm.SetObjectBinary(objBin, hdrLen)
-	_, err := e.Put(putPrm)
+	err := e.Put(&obj, objBin, hdrLen)
 	require.NoError(t, err)
 
 	gotObj, err := e.Get(addr)
@@ -47,10 +44,8 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 	// now place some garbage
 	addr.SetObject(oidtest.ID())
 	obj.SetID(addr.Object()) // to avoid 'already exists' outcome
-	putPrm.WithObject(&obj)
 	invalidObjBin := []byte("definitely not an object")
-	putPrm.SetObjectBinary(invalidObjBin, 5)
-	_, err = e.Put(putPrm)
+	err = e.Put(&obj, invalidObjBin, 5)
 	require.NoError(t, err)
 
 	b, err = e.GetBytes(addr)

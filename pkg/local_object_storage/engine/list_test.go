@@ -31,10 +31,7 @@ func TestListWithCursor(t *testing.T) {
 		containerID := cidtest.ID()
 		obj := generateObjectWithCID(containerID)
 
-		var prm PutPrm
-		prm.WithObject(obj)
-
-		_, err := e.Put(prm)
+		err := e.Put(obj, nil, 0)
 		require.NoError(t, err)
 		expected = append(expected, object.AddressWithType{Type: objectSDK.TypeRegular, Address: object.AddressOf(obj)})
 	}

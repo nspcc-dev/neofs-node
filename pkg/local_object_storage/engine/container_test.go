@@ -51,14 +51,10 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 	o2 := objecttest.Object()
 	o2.SetPayload(make([]byte, errSmallSize+1))
 
-	var prmPut PutPrm
-	prmPut.WithObject(&o1)
-
-	_, err := e.Put(prmPut)
+	err := e.Put(&o1, nil, 0)
 	require.NoError(t, err)
 
-	prmPut.WithObject(&o2)
-	_, err = e.Put(prmPut)
+	err = e.Put(&o2, nil, 0)
 	require.NoError(t, err)
 
 	require.NoError(t, e.Init())
