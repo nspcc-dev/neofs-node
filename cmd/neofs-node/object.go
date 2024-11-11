@@ -207,11 +207,7 @@ func initObjectService(c *cfg) {
 		policer.WithHeadTimeout(c.applicationConfiguration.policer.headTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
-			var inhumePrm engine.InhumePrm
-			inhumePrm.MarkAsGarbage(addr)
-			inhumePrm.WithForceRemoval()
-
-			_, err := ls.Inhume(inhumePrm)
+			err := ls.Delete(addr)
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
 					zap.String("error", err.Error()),
