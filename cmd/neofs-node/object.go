@@ -209,6 +209,7 @@ func initObjectService(c *cfg) {
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			var inhumePrm engine.InhumePrm
 			inhumePrm.MarkAsGarbage(addr)
+			inhumePrm.WithForceRemoval()
 
 			_, err := ls.Inhume(inhumePrm)
 			if err != nil {
