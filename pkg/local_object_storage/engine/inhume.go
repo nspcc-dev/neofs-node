@@ -76,7 +76,10 @@ func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
+	return e.inhumeInt(prm)
+}
 
+func (e *StorageEngine) inhumeInt(prm InhumePrm) (InhumeRes, error) {
 	var shPrm shard.InhumePrm
 	if prm.forceRemoval {
 		shPrm.ForceRemoval()

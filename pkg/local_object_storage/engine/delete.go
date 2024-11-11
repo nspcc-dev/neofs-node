@@ -1,10 +1,7 @@
 package engine
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // Delete marks the objects to be removed.
@@ -24,24 +21,13 @@ func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	if !force {
-		locked, err := e.isLocked(addr)
-		if err != nil {
-			e.log.Warn("deleting an object without full locking check",
-				zap.Error(err),
-				zap.Stringer("addr", addr))
-		} else if locked {
-			return apistatus.ObjectLocked{}
-		}
-	}
-
-	var inhumePrm shard.InhumePrm
+	var inhumePrm InhumePrm
 	inhumePrm.MarkAsGarbage(addr)
 	if force {
-		inhumePrm.ForceRemoval()
+		inhumePrm.WithForceRemoval()
 	}
 
-	_, err := e.inhumeAddr(addr, inhumePrm)
+	_, err := e.inhumeInt(inhumePrm)
 
 	return err
 }
