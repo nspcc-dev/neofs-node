@@ -431,13 +431,13 @@ type localStorageLoad struct {
 }
 
 func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontroller.UsedSpaceHandler) error {
-	idList, err := engine.ListContainers(d.engine)
+	idList, err := d.engine.ListContainers()
 	if err != nil {
 		return fmt.Errorf("list containers on engine failure: %w", err)
 	}
 
 	for i := range idList {
-		sz, err := engine.ContainerSize(d.engine, idList[i])
+		sz, err := d.engine.ContainerSize(idList[i])
 		if err != nil {
 			d.log.Debug("failed to calculate container size in storage engine",
 				zap.Stringer("cid", idList[i]),

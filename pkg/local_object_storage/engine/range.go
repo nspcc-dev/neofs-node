@@ -155,8 +155,3 @@ func (e *StorageEngine) getRange(addr oid.Address, offset uint64, length uint64)
 
 	return out, nil
 }
-
-// GetRange reads object payload range from local storage by provided address.
-func GetRange(storage *StorageEngine, addr oid.Address, rng *objectSDK.Range) ([]byte, error) {
-	return storage.GetRange(addr, rng.GetOffset(), rng.GetLength())
-}

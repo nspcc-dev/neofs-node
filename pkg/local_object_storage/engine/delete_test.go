@@ -56,9 +56,9 @@ func TestDeleteBigObject(t *testing.T) {
 	defer e.Close()
 
 	for i := range children {
-		require.NoError(t, Put(e, children[i]))
+		require.NoError(t, e.Put(children[i], nil, 0))
 	}
-	require.NoError(t, Put(e, link))
+	require.NoError(t, e.Put(link, nil, 0))
 
 	var splitErr *objectSDK.SplitInfoError
 

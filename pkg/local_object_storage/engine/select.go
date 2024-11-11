@@ -118,14 +118,3 @@ func (e *StorageEngine) list(limit uint64) ([]oid.Address, error) {
 
 	return addrList, nil
 }
-
-// Select selects objects from local storage using provided filters.
-func Select(storage *StorageEngine, cnr cid.ID, fs object.SearchFilters) ([]oid.Address, error) {
-	return storage.Select(cnr, fs)
-}
-
-// List returns `limit` available physically storage object addresses in
-// engine. If limit is zero, then returns all available object addresses.
-func List(storage *StorageEngine, limit uint64) ([]oid.Address, error) {
-	return storage.List(limit)
-}

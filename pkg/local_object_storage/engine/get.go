@@ -145,11 +145,6 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 	return nil
 }
 
-// Get reads object from local storage by provided address.
-func Get(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	return storage.Get(addr)
-}
-
 // GetBytes reads object from the StorageEngine by address into memory buffer in
 // a canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 // is missing.

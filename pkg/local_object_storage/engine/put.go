@@ -150,8 +150,3 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 
 	return putSuccess, alreadyExists
 }
-
-// Put writes provided object to local storage.
-func Put(storage *StorageEngine, obj *objectSDK.Object) error {
-	return storage.Put(obj, nil, 0)
-}

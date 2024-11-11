@@ -154,7 +154,7 @@ func TestExecBlocks(t *testing.T) {
 
 	addr := object.AddressOf(obj)
 
-	require.NoError(t, Put(e, obj))
+	require.NoError(t, e.Put(obj, nil, 0))
 
 	// block executions
 	errBlock := errors.New("block exec err")
@@ -162,20 +162,20 @@ func TestExecBlocks(t *testing.T) {
 	require.NoError(t, e.BlockExecution(errBlock))
 
 	// try to exec some op
-	_, err := Head(e, addr)
+	_, err := e.Head(addr, false)
 	require.ErrorIs(t, err, errBlock)
 
 	// resume executions
 	require.NoError(t, e.ResumeExecution())
 
-	_, err = Head(e, addr) // can be any data-related op
+	_, err = e.Head(addr, false) // can be any data-related op
 	require.NoError(t, err)
 
 	// close
 	require.NoError(t, e.Close())
 
 	// try exec after close
-	_, err = Head(e, addr)
+	_, err = e.Head(addr, false)
 	require.Error(t, err)
 
 	// try to resume

@@ -81,7 +81,7 @@ func TestLockUserScenario(t *testing.T) {
 	id := obj.GetID()
 	objAddr.SetObject(id)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
@@ -89,7 +89,7 @@ func TestLockUserScenario(t *testing.T) {
 	locker.WriteMembers([]oid.ID{id})
 	lockerObj.WriteLock(locker)
 
-	err = Put(e, lockerObj)
+	err = e.Put(lockerObj, nil, 0)
 	require.NoError(t, err)
 
 	err = e.Lock(cnr, lockerID, []oid.ID{id})
@@ -104,7 +104,7 @@ func TestLockUserScenario(t *testing.T) {
 	tombObj.SetID(tombForLockID)
 	tombObj.SetAttributes(a)
 
-	err = Put(e, tombObj)
+	err = e.Put(tombObj, nil, 0)
 	require.NoError(t, err)
 
 	err = e.Inhume(tombForLockAddr, 0, lockerAddr)
@@ -149,7 +149,7 @@ func TestLockExpiration(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
@@ -161,7 +161,7 @@ func TestLockExpiration(t *testing.T) {
 	lock.SetType(object.TypeLock)
 	lock.SetAttributes(a)
 
-	err = Put(e, lock)
+	err = e.Put(lock, nil, 0)
 	require.NoError(t, err)
 
 	id := obj.GetID()
@@ -215,14 +215,14 @@ func TestLockForceRemoval(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
 	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 
-	err = Put(e, lock)
+	err = e.Put(lock, nil, 0)
 	require.NoError(t, err)
 
 	id := obj.GetID()

@@ -93,10 +93,10 @@ func TestChildrenExpiration(t *testing.T) {
 		link.SetChildren(child1ID, child2ID, child3ID)
 		link.SetSplitID(splitID)
 
-		require.NoError(t, Put(e, child1))
-		require.NoError(t, Put(e, child2))
-		require.NoError(t, Put(e, child3))
-		require.NoError(t, Put(e, link))
+		require.NoError(t, e.Put(child1, nil, 0))
+		require.NoError(t, e.Put(child2, nil, 0))
+		require.NoError(t, e.Put(child3, nil, 0))
+		require.NoError(t, e.Put(link, nil, 0))
 
 		e.HandleNewEpoch(currEpoch + 1)
 
@@ -144,10 +144,10 @@ func TestChildrenExpiration(t *testing.T) {
 		linkObj.CalculateAndSetPayloadChecksum()
 		require.NoError(t, linkObj.CalculateAndSetID())
 
-		require.NoError(t, Put(e, child1))
-		require.NoError(t, Put(e, child2))
-		require.NoError(t, Put(e, child3))
-		require.NoError(t, Put(e, &linkObj))
+		require.NoError(t, e.Put(child1, nil, 0))
+		require.NoError(t, e.Put(child2, nil, 0))
+		require.NoError(t, e.Put(child3, nil, 0))
+		require.NoError(t, e.Put(&linkObj, nil, 0))
 
 		e.HandleNewEpoch(currEpoch + 1)
 
@@ -163,7 +163,7 @@ func checkObjectsAsyncRemoval(t *testing.T, e *StorageEngine, cnr cid.ID, objs .
 		for _, obj := range objs {
 			addr.SetObject(obj)
 
-			_, err := Get(e, addr)
+			_, err := e.Get(addr)
 			if !errors.As(err, new(statusSDK.ObjectNotFound)) {
 				return false
 			}

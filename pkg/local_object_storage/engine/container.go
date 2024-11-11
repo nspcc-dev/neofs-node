@@ -32,11 +32,6 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 	return size, err
 }
 
-// ContainerSize calls ContainerSize method on engine to calculate sum of estimation container sizes among all shards.
-func ContainerSize(e *StorageEngine, id cid.ID) (uint64, error) {
-	return e.ContainerSize(id)
-}
-
 func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
 	var size uint64
 
@@ -77,11 +72,6 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 	})
 
 	return res, err
-}
-
-// ListContainers calls ListContainers method on engine to get a unique container IDs presented in the engine objects.
-func ListContainers(e *StorageEngine) ([]cid.ID, error) {
-	return e.ListContainers()
 }
 
 func (e *StorageEngine) listContainers() ([]cid.ID, error) {

@@ -102,14 +102,3 @@ func (e *StorageEngine) head(addr oid.Address, raw bool) (*objectSDK.Object, err
 
 	return head, nil
 }
-
-// Head reads object header from local storage by provided address.
-func Head(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	return storage.Head(addr, false)
-}
-
-// HeadRaw reads object header from local storage by provided address and raw
-// flag.
-func HeadRaw(storage *StorageEngine, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	return storage.Head(addr, true)
-}

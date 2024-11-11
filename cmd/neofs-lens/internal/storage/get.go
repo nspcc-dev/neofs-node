@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
@@ -38,7 +37,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer storage.Close()
 
-	obj, err := engine.Get(storage, addr)
+	obj, err := storage.Get(addr)
 	if err != nil {
 		return fmt.Errorf("could not fetch object: %w", err)
 	}

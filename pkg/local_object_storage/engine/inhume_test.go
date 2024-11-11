@@ -43,13 +43,13 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShardNum(t, 1)
 		defer e.Close()
 
-		err := Put(e, parent)
+		err := e.Put(parent, nil, 0)
 		require.NoError(t, err)
 
 		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
 		require.NoError(t, err)
 
-		addrs, err := Select(e, cnr, fs)
+		addrs, err := e.Select(cnr, fs)
 		require.NoError(t, err)
 		require.Empty(t, addrs)
 	})
@@ -75,13 +75,13 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("empty search should fail", func(t *testing.T) {
-			addrs, err := Select(e, cnr, objectSDK.SearchFilters{})
+			addrs, err := e.Select(cnr, objectSDK.SearchFilters{})
 			require.NoError(t, err)
 			require.Empty(t, addrs)
 		})
 
 		t.Run("root search should fail", func(t *testing.T) {
-			addrs, err := Select(e, cnr, fs)
+			addrs, err := e.Select(cnr, fs)
 			require.NoError(t, err)
 			require.Empty(t, addrs)
 		})
@@ -91,18 +91,18 @@ func TestStorageEngine_Inhume(t *testing.T) {
 			addr.SetContainer(cnr)
 			addr.SetObject(idChild)
 
-			_, err = Get(e, addr)
+			_, err = e.Get(addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
 			linkID := link.GetID()
 			addr.SetObject(linkID)
 
-			_, err = Get(e, addr)
+			_, err = e.Get(addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 
 		t.Run("parent get should claim deletion", func(t *testing.T) {
-			_, err = Get(e, object.AddressOf(parent))
+			_, err = e.Get(object.AddressOf(parent))
 			require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 		})
 	})
