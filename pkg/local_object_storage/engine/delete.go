@@ -21,7 +21,5 @@ func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	_, err := e.inhumeInt(InhumePrm{addrs: []oid.Address{addr}, forceRemoval: force})
-
-	return err
+	return e.inhumeInt([]oid.Address{addr}, force, nil, 0)
 }

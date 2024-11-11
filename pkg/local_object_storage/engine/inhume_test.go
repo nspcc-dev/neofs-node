@@ -46,10 +46,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		err := Put(e, parent)
 		require.NoError(t, err)
 
-		var inhumePrm InhumePrm
-		inhumePrm.WithTombstone(tombstoneID, 0, object.AddressOf(parent))
-
-		_, err = e.Inhume(inhumePrm)
+		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
 		require.NoError(t, err)
 
 		addrs, err := Select(e, cnr, fs)
@@ -74,10 +71,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		_, err = s2.Put(putLink)
 		require.NoError(t, err)
 
-		var inhumePrm InhumePrm
-		inhumePrm.WithTombstone(tombstoneID, 0, object.AddressOf(parent))
-
-		_, err = e.Inhume(inhumePrm)
+		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
 		require.NoError(t, err)
 
 		t.Run("empty search should fail", func(t *testing.T) {

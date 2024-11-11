@@ -13,89 +13,64 @@ import (
 	"go.uber.org/zap"
 )
 
-// InhumePrm encapsulates parameters for inhume operation.
-type InhumePrm struct {
-	tombstone      *oid.Address
-	tombExpiration uint64
-	addrs          []oid.Address
-
-	forceRemoval bool
-}
-
-// InhumeRes encapsulates results of inhume operation.
-type InhumeRes struct{}
-
-// WithTombstone sets a list of objects that should be inhumed and tombstone address
-// as the reason for inhume operation.
-//
-// addrs should not be empty.
-// Should not be called along with MarkAsGarbage.
-func (p *InhumePrm) WithTombstone(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) {
-	p.addrs = addrs
-	p.tombstone = &tombstone
-	p.tombExpiration = tombExpiration
-}
-
 var errInhumeFailure = errors.New("inhume operation failed")
 
-// Inhume calls metabase. Inhume method to mark an object as removed. It won't be
-// removed physically from the shard until `Delete` operation.
+// Inhume calls [metabase.Inhume] method to mark an object as removed following
+// tombstone data. It won't be removed physically from the shard until GC cycle
+// does it.
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Inhume(prm InhumePrm) (res InhumeRes, err error) {
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.inhume(prm)
-		return err
+func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
+	return e.execIfNotBlocked(func() error {
+		return e.inhume(tombstone, tombExpiration, addrs)
 	})
-
-	return
 }
 
-func (e *StorageEngine) inhume(prm InhumePrm) (InhumeRes, error) {
+func (e *StorageEngine) inhume(tombstone oid.Address, tombExpiration uint64, addrs []oid.Address) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
-	return e.inhumeInt(prm)
+	return e.inhumeInt(addrs, false, &tombstone, tombExpiration)
 }
 
-func (e *StorageEngine) inhumeInt(prm InhumePrm) (InhumeRes, error) {
+func (e *StorageEngine) inhumeInt(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
 	var shPrm shard.InhumePrm
-	if prm.forceRemoval {
+	if force {
 		shPrm.ForceRemoval()
 	}
 
-	for i := range prm.addrs {
-		if !prm.forceRemoval {
-			locked, err := e.IsLocked(prm.addrs[i])
+	for i := range addrs {
+		if !force {
+			locked, err := e.IsLocked(addrs[i])
 			if err != nil {
 				e.log.Warn("removing an object without full locking check",
 					zap.Error(err),
-					zap.Stringer("addr", prm.addrs[i]))
+					zap.Stringer("addr", addrs[i]))
 			} else if locked {
 				var lockedErr apistatus.ObjectLocked
-				return InhumeRes{}, lockedErr
+				return lockedErr
 			}
 		}
 
-		if prm.tombstone != nil {
-			shPrm.InhumeByTomb(*prm.tombstone, prm.tombExpiration, prm.addrs[i])
+		if tombstone != nil {
+			shPrm.InhumeByTomb(*tombstone, tombExpiration, addrs[i])
 		} else {
-			shPrm.MarkAsGarbage(prm.addrs[i])
+			shPrm.MarkAsGarbage(addrs[i])
 		}
 
-		ok, err := e.inhumeAddr(prm.addrs[i], shPrm)
+		ok, err := e.inhumeAddr(addrs[i], shPrm)
 		if err != nil {
-			return InhumeRes{}, err
+			return err
 		}
 		if !ok {
-			return InhumeRes{}, errInhumeFailure
+			return errInhumeFailure
 		}
 	}
 
-	return InhumeRes{}, nil
+	return nil
 }
 
 // InhumeContainer marks every object in a container as removed.
@@ -308,7 +283,7 @@ func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
-	_, err := e.inhumeInt(InhumePrm{addrs: addrs})
+	err := e.inhumeInt(addrs, false, nil, 0)
 	if err != nil {
 		e.log.Warn("handling expired objects", zap.Error(err))
 	}

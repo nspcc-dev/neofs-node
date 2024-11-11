@@ -513,18 +513,13 @@ func (e storageEngine) IsLocked(address oid.Address) (bool, error) {
 }
 
 func (e storageEngine) Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error {
-	var prm engine.InhumePrm
-
 	addrs := make([]oid.Address, len(toDelete))
 	for i := range addrs {
 		addrs[i].SetContainer(tombstone.Container())
 		addrs[i].SetObject(toDelete[i])
 	}
 
-	prm.WithTombstone(tombstone, tombExpiration, addrs...)
-
-	_, err := e.engine.Inhume(prm)
-	return err
+	return e.engine.Inhume(tombstone, tombExpiration, addrs...)
 }
 
 func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
