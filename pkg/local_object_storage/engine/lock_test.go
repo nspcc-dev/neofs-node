@@ -244,12 +244,10 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	var inhumePrm InhumePrm
-	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.deleteObj(objectcore.AddressOf(obj), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
+	var inhumePrm InhumePrm
 	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
 
 	_, err = e.Inhume(inhumePrm)
@@ -260,8 +258,6 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 5.
-	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.deleteObj(objectcore.AddressOf(obj), false)
 	require.NoError(t, err)
 }

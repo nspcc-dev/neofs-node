@@ -21,13 +21,7 @@ func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	var inhumePrm InhumePrm
-	inhumePrm.MarkAsGarbage(addr)
-	if force {
-		inhumePrm.WithForceRemoval()
-	}
-
-	_, err := e.inhumeInt(inhumePrm)
+	_, err := e.inhumeInt(InhumePrm{addrs: []oid.Address{addr}, forceRemoval: force})
 
 	return err
 }

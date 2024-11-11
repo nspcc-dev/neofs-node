@@ -36,21 +36,6 @@ func (p *InhumePrm) WithTombstone(tombstone oid.Address, tombExpiration uint64, 
 	p.tombExpiration = tombExpiration
 }
 
-// MarkAsGarbage marks an object to be physically removed from local storage.
-//
-// Should not be called along with WithTombstone.
-func (p *InhumePrm) MarkAsGarbage(addrs ...oid.Address) {
-	p.addrs = addrs
-	p.tombstone = nil
-}
-
-// WithForceRemoval inhumes objects specified via MarkAsGarbage with GC mark
-// without any object restrictions checks.
-func (p *InhumePrm) WithForceRemoval() {
-	p.forceRemoval = true
-	p.tombstone = nil
-}
-
 var errInhumeFailure = errors.New("inhume operation failed")
 
 // Inhume calls metabase. Inhume method to mark an object as removed. It won't be
@@ -58,9 +43,6 @@ var errInhumeFailure = errors.New("inhume operation failed")
 //
 // Allows inhuming non-locked objects only. Returns apistatus.ObjectLocked
 // if at least one object is locked.
-//
-// NOTE: Marks any object as removed (despite any prohibitions on operations
-// with that object) if WithForceRemoval option has been provided.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Inhume(prm InhumePrm) (res InhumeRes, err error) {
@@ -326,10 +308,7 @@ func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
-	var prm InhumePrm
-	prm.MarkAsGarbage(addrs...)
-
-	_, err := e.Inhume(prm)
+	_, err := e.inhumeInt(InhumePrm{addrs: addrs})
 	if err != nil {
 		e.log.Warn("handling expired objects", zap.Error(err))
 	}
