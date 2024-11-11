@@ -7,73 +7,41 @@ import (
 	"go.uber.org/zap"
 )
 
-// DeletePrm groups the parameters of Delete operation.
-type DeletePrm struct {
-	addr oid.Address
-
-	forceRemoval bool
-}
-
-// DeleteRes groups the resulting values of Delete operation.
-type DeleteRes struct{}
-
-// WithAddress is a Delete option to set the addresses of the objects to delete.
-//
-// Option is required.
-func (p *DeletePrm) WithAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// WithForceRemoval is a Delete option to remove an object despite any
-// restrictions imposed on deleting that object. Expected to be used
-// only in control service.
-func (p *DeletePrm) WithForceRemoval() {
-	p.forceRemoval = true
-}
-
 // Delete marks the objects to be removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
 //
-// Returns apistatus.ObjectLocked if at least one object is locked.
-// In this case no object from the list is marked to be deleted.
-//
-// NOTE: Marks any object to be deleted (despite any prohibitions
-// on operations with that object) if WithForceRemoval option has
-// been provided.
-func (e *StorageEngine) Delete(prm DeletePrm) (res DeleteRes, err error) {
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.delete(prm)
-		return err
+// NOTE: This is a forced removal, marks any object to be deleted (despite
+// any prohibitions on operations with that object).
+func (e *StorageEngine) Delete(addr oid.Address) error {
+	return e.execIfNotBlocked(func() error {
+		return e.deleteObj(addr, true)
 	})
-
-	return
 }
 
-func (e *StorageEngine) delete(prm DeletePrm) (DeleteRes, error) {
+func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	if !prm.forceRemoval {
-		locked, err := e.isLocked(prm.addr)
+	if !force {
+		locked, err := e.isLocked(addr)
 		if err != nil {
 			e.log.Warn("deleting an object without full locking check",
 				zap.Error(err),
-				zap.Stringer("addr", prm.addr))
+				zap.Stringer("addr", addr))
 		} else if locked {
-			var lockedErr apistatus.ObjectLocked
-			return DeleteRes{}, lockedErr
+			return apistatus.ObjectLocked{}
 		}
 	}
 
 	var inhumePrm shard.InhumePrm
-	inhumePrm.MarkAsGarbage(prm.addr)
-	if prm.forceRemoval {
+	inhumePrm.MarkAsGarbage(addr)
+	if force {
 		inhumePrm.ForceRemoval()
 	}
 
-	_, err := e.inhumeAddr(prm.addr, inhumePrm)
+	_, err := e.inhumeAddr(addr, inhumePrm)
 
-	return DeleteRes{}, err
+	return err
 }

@@ -256,11 +256,7 @@ func TestLockForceRemoval(t *testing.T) {
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	var deletePrm DeletePrm
-	deletePrm.WithAddress(objectcore.AddressOf(lock))
-	deletePrm.WithForceRemoval()
-
-	_, err = e.Delete(deletePrm)
+	err = e.Delete(objectcore.AddressOf(lock))
 	require.NoError(t, err)
 
 	// 5.

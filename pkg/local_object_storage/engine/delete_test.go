@@ -72,11 +72,7 @@ func TestDeleteBigObject(t *testing.T) {
 		checkGetError(t, e, object.AddressOf(children[i]), nil)
 	}
 
-	var deletePrm DeletePrm
-	deletePrm.WithForceRemoval()
-	deletePrm.WithAddress(addrParent)
-
-	_, err := e.Delete(deletePrm)
+	err := e.Delete(addrParent)
 	require.NoError(t, err)
 
 	checkGetError(t, e, addrParent, &apistatus.ObjectNotFound{})
