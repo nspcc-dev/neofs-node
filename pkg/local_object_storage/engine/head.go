@@ -27,6 +27,10 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 		err error
 	)
 
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddHeadDuration)()
+	}
+
 	err = e.execIfNotBlocked(func() error {
 		obj, err = e.head(addr, raw)
 		return err
@@ -36,10 +40,6 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 }
 
 func (e *StorageEngine) head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddHeadDuration)()
-	}
-
 	var (
 		head  *objectSDK.Object
 		siErr *objectSDK.SplitInfoError

@@ -20,6 +20,11 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 		err error
 		res []oid.Address
 	)
+
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddSearchDuration)()
+	}
+
 	err = e.execIfNotBlocked(func() error {
 		res, err = e._select(cnr, filters)
 		return err
@@ -29,10 +34,6 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 }
 
 func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddSearchDuration)()
-	}
-
 	addrList := make([]oid.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
@@ -75,6 +76,11 @@ func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
 		err error
 		res []oid.Address
 	)
+
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListObjectsDuration)()
+	}
+
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.list(limit)
 		return err
@@ -84,10 +90,6 @@ func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
 }
 
 func (e *StorageEngine) list(limit uint64) ([]oid.Address, error) {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddListObjectsDuration)()
-	}
-
 	addrList := make([]oid.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)

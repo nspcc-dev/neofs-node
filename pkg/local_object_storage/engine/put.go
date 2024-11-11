@@ -26,16 +26,16 @@ var errPutShard = errors.New("could not put object to any shard")
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddPutDuration)()
+	}
+
 	return e.execIfNotBlocked(func() error {
 		return e.put(obj, objBin, hdrLen)
 	})
 }
 
 func (e *StorageEngine) put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddPutDuration)()
-	}
-
 	addr := object.AddressOf(obj)
 
 	// In #1146 this check was parallelized, however, it became

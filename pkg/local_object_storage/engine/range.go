@@ -40,6 +40,9 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 		err error
 		res []byte
 	)
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddRangeDuration)()
+	}
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.getRange(addr, offset, length)
 		return err
@@ -49,10 +52,6 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 }
 
 func (e *StorageEngine) getRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddRangeDuration)()
-	}
-
 	var (
 		out   []byte
 		siErr *objectSDK.SplitInfoError

@@ -20,6 +20,10 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 		err  error
 		size uint64
 	)
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
+	}
+
 	err = e.execIfNotBlocked(func() error {
 		size, err = e.containerSize(cnr)
 		return err
@@ -35,10 +39,6 @@ func ContainerSize(e *StorageEngine, id cid.ID) (uint64, error) {
 
 func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
 	var size uint64
-
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
-	}
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
 		var csPrm shard.ContainerSizePrm
@@ -67,6 +67,10 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 		res []cid.ID
 		err error
 	)
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListContainersDuration)()
+	}
+
 	err = e.execIfNotBlocked(func() error {
 		res, err = e.listContainers()
 		return err
@@ -81,10 +85,6 @@ func ListContainers(e *StorageEngine) ([]cid.ID, error) {
 }
 
 func (e *StorageEngine) listContainers() ([]cid.ID, error) {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddListContainersDuration)()
-	}
-
 	uniqueIDs := make(map[cid.ID]struct{})
 
 	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {

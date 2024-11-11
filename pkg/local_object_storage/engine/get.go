@@ -27,6 +27,11 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 		obj *objectSDK.Object
 		sp  shard.GetPrm
 	)
+
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetDuration)()
+	}
+
 	sp.SetAddress(addr)
 	err = e.execIfNotBlocked(func() error {
 		return e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (bool, error) {
@@ -44,10 +49,6 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 }
 
 func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error)) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddGetDuration)()
-	}
-
 	var (
 		ok    bool
 		siErr *objectSDK.SplitInfoError

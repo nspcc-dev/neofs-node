@@ -11,15 +11,15 @@ import (
 // NOTE: This is a forced removal, marks any object to be deleted (despite
 // any prohibitions on operations with that object).
 func (e *StorageEngine) Delete(addr oid.Address) error {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddDeleteDuration)()
+	}
+
 	return e.execIfNotBlocked(func() error {
 		return e.deleteObj(addr, true)
 	})
 }
 
 func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddDeleteDuration)()
-	}
-
-	return e.inhumeInt([]oid.Address{addr}, force, nil, 0)
+	return e.inhume([]oid.Address{addr}, force, nil, 0)
 }

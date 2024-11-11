@@ -24,19 +24,15 @@ var errInhumeFailure = errors.New("inhume operation failed")
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, addrs ...oid.Address) error {
-	return e.execIfNotBlocked(func() error {
-		return e.inhume(tombstone, tombExpiration, addrs)
-	})
-}
-
-func (e *StorageEngine) inhume(tombstone oid.Address, tombExpiration uint64, addrs []oid.Address) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
-	return e.inhumeInt(addrs, false, &tombstone, tombExpiration)
+	return e.execIfNotBlocked(func() error {
+		return e.inhume(addrs, false, &tombstone, tombExpiration)
+	})
 }
 
-func (e *StorageEngine) inhumeInt(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
+func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
 	var shPrm shard.InhumePrm
 	if force {
 		shPrm.ForceRemoval()
@@ -283,7 +279,7 @@ func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
-	err := e.inhumeInt(addrs, false, nil, 0)
+	err := e.inhume(addrs, false, nil, 0)
 	if err != nil {
 		e.log.Warn("handling expired objects", zap.Error(err))
 	}
