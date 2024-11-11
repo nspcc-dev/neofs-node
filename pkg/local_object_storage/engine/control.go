@@ -103,11 +103,11 @@ func (e *StorageEngine) close(releasePools bool) error {
 //
 // Can be called concurrently with setBlockExecErr.
 func (e *StorageEngine) execIfNotBlocked(op func() error) error {
-	e.blockExec.mtx.RLock()
-	defer e.blockExec.mtx.RUnlock()
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	if e.blockExec.err != nil {
-		return e.blockExec.err
+	if e.blockErr != nil {
+		return e.blockErr
 	}
 
 	return op()
@@ -120,17 +120,16 @@ func (e *StorageEngine) execIfNotBlocked(op func() error) error {
 //
 // Can be called concurrently with exec. In this case it waits for all executions to complete.
 func (e *StorageEngine) setBlockExecErr(err error) error {
-	e.blockExec.mtx.Lock()
-	defer e.blockExec.mtx.Unlock()
+	e.blockMtx.Lock()
+	defer e.blockMtx.Unlock()
 
-	prevErr := e.blockExec.err
+	prevErr := e.blockErr
 
-	wasClosed := errors.Is(prevErr, errClosed)
-	if wasClosed {
+	if errors.Is(prevErr, errClosed) {
 		return errClosed
 	}
 
-	e.blockExec.err = err
+	e.blockErr = err
 
 	if err == nil {
 		if prevErr != nil { // block -> ok

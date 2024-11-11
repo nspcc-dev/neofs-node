@@ -30,11 +30,8 @@ type StorageEngine struct {
 	setModeCh chan setModeRequest
 	wg        sync.WaitGroup
 
-	blockExec struct {
-		mtx sync.RWMutex
-
-		err error
-	}
+	blockMtx sync.RWMutex
+	blockErr error
 }
 
 type shardWrapper struct {
