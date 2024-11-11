@@ -89,20 +89,17 @@ func TestEvacuateShard(t *testing.T) {
 
 	checkHasObjects(t)
 
-	var prm EvacuateShardPrm
-	prm.WithShardIDList(ids[2:3])
-
 	t.Run("must be read-only", func(t *testing.T) {
-		res, err := e.Evacuate(prm)
+		count, err := e.Evacuate(ids[2:3], false, nil)
 		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
-		require.Equal(t, 0, res.Count())
+		require.Equal(t, 0, count)
 	})
 
 	require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
 
-	res, err := e.Evacuate(prm)
+	count, err := e.Evacuate(ids[2:3], false, nil)
 	require.NoError(t, err)
-	require.Equal(t, objPerShard, res.count)
+	require.Equal(t, objPerShard, count)
 
 	// We check that all objects are available both before and after shard removal.
 	// First case is a real-world use-case. It ensures that an object can be put in presence
@@ -111,9 +108,9 @@ func TestEvacuateShard(t *testing.T) {
 	checkHasObjects(t)
 
 	// Calling it again is OK, but all objects are already moved, so no new PUTs should be done.
-	res, err = e.Evacuate(prm)
+	count, err = e.Evacuate(ids[2:3], false, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, res.count)
+	require.Equal(t, 0, count)
 
 	checkHasObjects(t)
 
@@ -153,18 +150,13 @@ func TestEvacuateNetwork(t *testing.T) {
 
 		require.NoError(t, e.shards[evacuateShardID].SetMode(mode.ReadOnly))
 
-		var prm EvacuateShardPrm
-		prm.shardID = ids[0:1]
-
-		res, err := e.Evacuate(prm)
+		count, err := e.Evacuate(ids[0:1], false, nil)
 		require.ErrorIs(t, err, errMustHaveTwoShards)
-		require.Equal(t, 0, res.Count())
+		require.Equal(t, 0, count)
 
-		prm.handler = acceptOneOf(objects, 2)
-
-		res, err = e.Evacuate(prm)
+		count, err = e.Evacuate(ids[0:1], false, acceptOneOf(objects, 2))
 		require.ErrorIs(t, err, errReplication)
-		require.Equal(t, 2, res.Count())
+		require.Equal(t, 2, count)
 	})
 	t.Run("multiple shards, evacuate one", func(t *testing.T) {
 		e, ids, objects := newEngineEvacuate(t, 2, 3)
@@ -172,20 +164,14 @@ func TestEvacuateNetwork(t *testing.T) {
 		require.NoError(t, e.shards[ids[0].String()].SetMode(mode.ReadOnly))
 		require.NoError(t, e.shards[ids[1].String()].SetMode(mode.ReadOnly))
 
-		var prm EvacuateShardPrm
-		prm.shardID = ids[1:2]
-		prm.handler = acceptOneOf(objects, 2)
-
-		res, err := e.Evacuate(prm)
+		count, err := e.Evacuate(ids[1:2], false, acceptOneOf(objects, 2))
 		require.ErrorIs(t, err, errReplication)
-		require.Equal(t, 2, res.Count())
+		require.Equal(t, 2, count)
 
 		t.Run("no errors", func(t *testing.T) {
-			prm.handler = acceptOneOf(objects, 3)
-
-			res, err := e.Evacuate(prm)
+			count, err := e.Evacuate(ids[1:2], false, acceptOneOf(objects, 3))
 			require.NoError(t, err)
-			require.Equal(t, 3, res.Count())
+			require.Equal(t, 3, count)
 		})
 	})
 	t.Run("multiple shards, evacuate many", func(t *testing.T) {
@@ -204,20 +190,14 @@ func TestEvacuateNetwork(t *testing.T) {
 			require.NoError(t, e.shards[ids[i].String()].SetMode(mode.ReadOnly))
 		}
 
-		var prm EvacuateShardPrm
-		prm.shardID = evacuateIDs
-		prm.handler = acceptOneOf(objects, totalCount-1)
-
-		res, err := e.Evacuate(prm)
+		count, err := e.Evacuate(evacuateIDs, false, acceptOneOf(objects, totalCount-1))
 		require.ErrorIs(t, err, errReplication)
-		require.Equal(t, totalCount-1, res.Count())
+		require.Equal(t, totalCount-1, count)
 
 		t.Run("no errors", func(t *testing.T) {
-			prm.handler = acceptOneOf(objects, totalCount)
-
-			res, err := e.Evacuate(prm)
+			count, err = e.Evacuate(evacuateIDs, false, acceptOneOf(objects, totalCount))
 			require.NoError(t, err)
-			require.Equal(t, totalCount, res.Count())
+			require.Equal(t, totalCount, count)
 		})
 	})
 }

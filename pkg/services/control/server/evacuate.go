@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -31,19 +30,14 @@ func (s *Server) EvacuateShard(_ context.Context, req *control.EvacuateShardRequ
 		return nil, err
 	}
 
-	var prm engine.EvacuateShardPrm
-	prm.WithShardIDList(s.getShardIDList(req.GetBody().GetShard_ID()))
-	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
-	prm.WithFaultHandler(s.replicate)
-
-	res, err := s.storage.Evacuate(prm)
+	count, err := s.storage.Evacuate(s.getShardIDList(req.GetBody().GetShard_ID()), req.GetBody().GetIgnoreErrors(), s.replicate)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	resp := &control.EvacuateShardResponse{
 		Body: &control.EvacuateShardResponse_Body{
-			Count: uint32(res.Count()),
+			Count: uint32(count),
 		},
 	}
 
