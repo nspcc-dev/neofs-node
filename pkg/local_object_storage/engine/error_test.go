@@ -161,7 +161,7 @@ func TestBlobstorFailback(t *testing.T) {
 		addr := object.AddressOf(objs[i])
 		_, err = e.Get(addr)
 		require.NoError(t, err)
-		_, err = e.GetRange(RngPrm{addr: addr})
+		_, err = e.GetRange(addr, 0, 0)
 		require.NoError(t, err)
 	}
 
@@ -183,11 +183,11 @@ func TestBlobstorFailback(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, objs[i], getObj)
 
-		rngRes, err := e.GetRange(RngPrm{addr: addr, off: 1, ln: 10})
+		rngRes, err := e.GetRange(addr, 1, 10)
 		require.NoError(t, err)
-		require.Equal(t, objs[i].Payload()[1:11], rngRes.Object().Payload())
+		require.Equal(t, objs[i].Payload()[1:11], rngRes)
 
-		_, err = e.GetRange(RngPrm{addr: addr, off: errSmallSize + 10, ln: 1})
+		_, err = e.GetRange(addr, errSmallSize+10, 1)
 		require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 	}
 

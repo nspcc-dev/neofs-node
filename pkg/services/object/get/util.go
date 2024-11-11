@@ -208,16 +208,15 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
-		var getRange engine.RngPrm
-		getRange.WithAddress(exec.address())
-		getRange.WithPayloadRange(rng)
-
-		r, err := e.engine.GetRange(getRange)
+		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
 		if err != nil {
 			return nil, err
 		}
 
-		return r.Object(), nil
+		o := object.New()
+		o.SetPayload(r)
+
+		return o, nil
 	}
 
 	return e.engine.Get(exec.address())
