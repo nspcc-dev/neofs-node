@@ -15,9 +15,13 @@ func (e *StorageEngine) Delete(addr oid.Address) error {
 		defer elapsed(e.metrics.AddDeleteDuration)()
 	}
 
-	return e.execIfNotBlocked(func() error {
-		return e.deleteObj(addr, true)
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+	return e.deleteObj(addr, true)
 }
 
 func (e *StorageEngine) deleteObj(addr oid.Address, force bool) error {

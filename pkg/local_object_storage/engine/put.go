@@ -30,12 +30,13 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
-	return e.execIfNotBlocked(func() error {
-		return e.put(obj, objBin, hdrLen)
-	})
-}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-func (e *StorageEngine) put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
 	addr := object.AddressOf(obj)
 
 	// In #1146 this check was parallelized, however, it became

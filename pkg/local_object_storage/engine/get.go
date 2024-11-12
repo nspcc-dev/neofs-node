@@ -22,29 +22,33 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddGetDuration)()
+	}
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
+
 	var (
 		err error
 		obj *objectSDK.Object
 		sp  shard.GetPrm
 	)
-
-	if e.metrics != nil {
-		defer elapsed(e.metrics.AddGetDuration)()
-	}
-
 	sp.SetAddress(addr)
-	err = e.execIfNotBlocked(func() error {
-		return e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (bool, error) {
-			sp.SetIgnoreMeta(ignoreMetadata)
-			sr, err := s.Get(sp)
-			if err != nil {
-				return sr.HasMeta(), err
-			}
-			obj = sr.Object()
-			return sr.HasMeta(), nil
-		})
-	})
 
+	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (bool, error) {
+		sp.SetIgnoreMeta(ignoreMetadata)
+		sr, err := s.Get(sp)
+		if err != nil {
+			return sr.HasMeta(), err
+		}
+		obj = sr.Object()
+		return sr.HasMeta(), nil
+	})
 	return obj, err
 }
 
@@ -149,16 +153,24 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 // a canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 // is missing.
 func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
-	var b []byte
-	err := e.execIfNotBlocked(func() error {
-		return e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
-			if ignoreMetadata {
-				b, err = s.GetBytes(addr)
-			} else {
-				b, hasMetadata, err = s.GetBytesWithMetadataLookup(addr)
-			}
-			return
-		})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
+
+	var (
+		b   []byte
+		err error
+	)
+	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
+		if ignoreMetadata {
+			b, err = s.GetBytes(addr)
+		} else {
+			b, hasMetadata, err = s.GetBytesWithMetadataLookup(addr)
+		}
+		return
 	})
 	return b, err
 }

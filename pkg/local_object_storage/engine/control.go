@@ -99,20 +99,6 @@ func (e *StorageEngine) close(releasePools bool) error {
 	return nil
 }
 
-// executes op if execution is not blocked, otherwise returns blocking error.
-//
-// Can be called concurrently with setBlockExecErr.
-func (e *StorageEngine) execIfNotBlocked(op func() error) error {
-	e.blockMtx.RLock()
-	defer e.blockMtx.RUnlock()
-
-	if e.blockErr != nil {
-		return e.blockErr
-	}
-
-	return op()
-}
-
 // sets the flag of blocking execution of all data operations according to err:
 //   - err != nil, then blocks the execution. If exec wasn't blocked, calls close method
 //     (if err == errClosed => additionally releases pools and does not allow to resume executions).

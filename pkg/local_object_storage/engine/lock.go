@@ -20,12 +20,13 @@ var errLockFailed = errors.New("lock operation failed")
 //
 // Locked list should be unique. Panics if it is empty.
 func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
-	return e.execIfNotBlocked(func() error {
-		return e.lock(idCnr, locker, locked)
-	})
-}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-func (e *StorageEngine) lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error {
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
 	for i := range locked {
 		switch e.lockSingle(idCnr, locker, locked[i], true) {
 		case 1:

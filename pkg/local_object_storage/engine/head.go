@@ -22,24 +22,17 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	var (
-		obj *objectSDK.Object
-		err error
-	)
-
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		obj, err = e.head(addr, raw)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return obj, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	var (
 		head  *objectSDK.Object
 		siErr *objectSDK.SplitInfoError

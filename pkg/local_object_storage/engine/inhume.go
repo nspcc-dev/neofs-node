@@ -27,9 +27,14 @@ func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, add
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
-	return e.execIfNotBlocked(func() error {
-		return e.inhume(addrs, false, &tombstone, tombExpiration)
-	})
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+	return e.inhume(addrs, false, &tombstone, tombExpiration)
 }
 
 func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
@@ -76,20 +81,24 @@ func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.A
 // every object that belongs to a provided container will be marked
 // as a removed one.
 func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
-	return e.execIfNotBlocked(func() error {
-		e.iterateOverUnsortedShards(func(sh hashedShard) bool {
-			err := sh.InhumeContainer(cID)
-			if err != nil {
-				e.log.Warn("inhuming container",
-					zap.Stringer("shard", sh.ID()),
-					zap.Error(err))
-			}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-			return false
-		})
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+	e.iterateOverUnsortedShards(func(sh hashedShard) bool {
+		err := sh.InhumeContainer(cID)
+		if err != nil {
+			e.log.Warn("inhuming container",
+				zap.Stringer("shard", sh.ID()),
+				zap.Error(err))
+		}
 
-		return nil
+		return false
 	})
+
+	return nil
 }
 
 // Returns ok if object was inhumed during this invocation or before.
@@ -244,18 +253,13 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
 func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
-	var res bool
-	var err error
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.isLocked(addr)
-		return err
-	})
+	if e.blockErr != nil {
+		return false, e.blockErr
+	}
 
-	return res, err
-}
-
-func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
 	var locked bool
 	var err error
 	var outErr error

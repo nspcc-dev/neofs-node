@@ -36,22 +36,16 @@ func (r RngRes) Object() *objectSDK.Object {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
-	var (
-		err error
-		res []byte
-	)
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.getRange(addr, offset, length)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) getRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
 	var (
 		out   []byte
 		siErr *objectSDK.SplitInfoError

@@ -16,24 +16,17 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
-	var (
-		err error
-		res []oid.Address
-	)
-
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e._select(cnr, filters)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	addrList := make([]oid.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
@@ -72,24 +65,17 @@ func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
-	var (
-		err error
-		res []oid.Address
-	)
-
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.list(limit)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) list(limit uint64) ([]oid.Address, error) {
 	addrList := make([]oid.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)
