@@ -87,7 +87,7 @@ protoc:
 # Build NeoFS component's docker image
 image-%:
 	@echo "⇒ Build NeoFS $* docker image "
-	@docker build \
+	@docker buildx build \
 		--build-arg REPO=$(REPO) \
 		--build-arg VERSION=$(VERSION) \
 		--rm \
