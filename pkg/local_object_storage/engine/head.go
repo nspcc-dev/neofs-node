@@ -34,64 +34,51 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 	}
 
 	var (
-		head  *objectSDK.Object
-		siErr *objectSDK.SplitInfoError
-
-		errNotFound apistatus.ObjectNotFound
-
-		outSI    *objectSDK.SplitInfo
-		outError error = errNotFound
+		shPrm     shard.HeadPrm
+		splitInfo *objectSDK.SplitInfo
 	)
 
-	var shPrm shard.HeadPrm
 	shPrm.SetAddress(addr)
 	shPrm.SetRaw(raw)
 
-	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
+	for _, sh := range e.sortedShards(addr) {
 		res, err := sh.Head(shPrm)
 		if err != nil {
+			var siErr *objectSDK.SplitInfoError
+
 			switch {
 			case shard.IsErrNotFound(err):
-				return false // ignore, go to next shard
+				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
-				if outSI == nil {
-					outSI = objectSDK.NewSplitInfo()
+				if splitInfo == nil {
+					splitInfo = objectSDK.NewSplitInfo()
 				}
 
-				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
+				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
 
 				// stop iterating over shards if SplitInfo structure is complete
-				return !outSI.GetLink().IsZero() && !outSI.GetLastPart().IsZero()
+				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
+					return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+				}
+				continue
 			case shard.IsErrRemoved(err):
-				outError = err
-
-				return true // stop, return it back
+				return nil, err // stop, return it back
 			case shard.IsErrObjectExpired(err):
-				var notFoundErr apistatus.ObjectNotFound
-
 				// object is found but should not
 				// be returned
-				outError = notFoundErr
-
-				return true
+				return nil, apistatus.ObjectNotFound{}
 			default:
 				e.reportShardError(sh, "could not head object from shard", err)
-				return false
+				continue
 			}
 		}
 
-		head = res.Object()
-
-		return true
-	})
-
-	if outSI != nil {
-		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+		return res.Object(), nil
 	}
 
-	if head == nil {
-		return nil, outError
+	if splitInfo != nil {
+		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
-	return head, nil
+	return nil, apistatus.ObjectNotFound{}
 }

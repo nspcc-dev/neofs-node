@@ -116,13 +116,11 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		var wrongShardID string
 
-		e.iterateOverSortedShards(addr, func(i int, h hashedShard) (stop bool) {
+		for i, sh := range e.sortedShards(addr) {
 			if i != 0 {
-				wrongShardID = h.ID().String()
+				wrongShardID = sh.ID().String()
 			}
-
-			return false
-		})
+		}
 
 		wrongShard := e.getShard(wrongShardID)
 

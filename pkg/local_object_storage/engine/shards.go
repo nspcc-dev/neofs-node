@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -190,7 +189,7 @@ func generateShardID() (*shard.ID, error) {
 	return shard.NewIDFromBytes(bin), nil
 }
 
-func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() string }) []shardWrapper {
+func (e *StorageEngine) sortedShards(objAddr interface{ EncodeToString() string }) []shardWrapper {
 	shards := e.unsortedShards()
 
 	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
@@ -209,22 +208,6 @@ func (e *StorageEngine) unsortedShards() []shardWrapper {
 	}
 
 	return shards
-}
-
-func (e *StorageEngine) iterateOverSortedShards(addr oid.Address, handler func(int, shardWrapper) (stop bool)) {
-	for i, sh := range e.sortShardsByWeight(addr) {
-		if handler(i, sh) {
-			break
-		}
-	}
-}
-
-func (e *StorageEngine) iterateOverUnsortedShards(handler func(shardWrapper) (stop bool)) {
-	for _, sh := range e.unsortedShards() {
-		if handler(sh) {
-			break
-		}
-	}
 }
 
 func (e *StorageEngine) getShard(id string) shardWrapper {

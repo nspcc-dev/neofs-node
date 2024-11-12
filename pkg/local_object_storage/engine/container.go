@@ -29,7 +29,7 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 
 	var size uint64
 
-	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		var csPrm shard.ContainerSizePrm
 		csPrm.SetContainerID(cnr)
 
@@ -37,13 +37,11 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", cnr))
-			return false
+			continue
 		}
 
 		size += csRes.Size()
-
-		return false
-	})
+	}
 
 	return size, nil
 }
@@ -65,11 +63,11 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 
 	uniqueIDs := make(map[cid.ID]struct{})
 
-	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
 		if err != nil {
 			e.reportShardError(sh, "can't get list of containers", err)
-			return false
+			continue
 		}
 
 		for _, cnr := range res.Containers() {
@@ -77,9 +75,7 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 				uniqueIDs[cnr] = struct{}{}
 			}
 		}
-
-		return false
-	})
+	}
 
 	result := make([]cid.ID, 0, len(uniqueIDs))
 	for cnr := range uniqueIDs {
@@ -100,11 +96,11 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 
 	var wg errgroup.Group
 
-	e.iterateOverUnsortedShards(func(hs shardWrapper) bool {
+	for _, sh := range e.unsortedShards() {
 		wg.Go(func() error {
-			err := hs.Shard.DeleteContainer(ctx, cID)
+			err := sh.Shard.DeleteContainer(ctx, cID)
 			if err != nil {
-				err = fmt.Errorf("container cleanup in %s shard: %w", hs.ID(), err)
+				err = fmt.Errorf("container cleanup in %s shard: %w", sh.ID(), err)
 				e.log.Warn("container cleanup", zap.Error(err))
 
 				return err
@@ -112,9 +108,7 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 
 			return nil
 		})
-
-		return false
-	})
+	}
 
 	return wg.Wait()
 }

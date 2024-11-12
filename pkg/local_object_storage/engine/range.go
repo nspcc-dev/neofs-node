@@ -47,105 +47,90 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	}
 
 	var (
-		out   []byte
-		siErr *objectSDK.SplitInfoError
-
-		errNotFound apistatus.ObjectNotFound
-
-		outSI    *objectSDK.SplitInfo
-		outError error = errNotFound
-
+		hasDegraded   bool
+		splitInfo     *objectSDK.SplitInfo
 		shardWithMeta shardWrapper
+		shPrm         shard.RngPrm
 		metaError     error
 	)
 
-	var hasDegraded bool
-
-	var shPrm shard.RngPrm
 	shPrm.SetAddress(addr)
 	shPrm.SetRange(offset, length)
 
-	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
+	for _, sh := range e.sortedShards(addr) {
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 		shPrm.SetIgnoreMeta(noMeta)
 
 		res, err := sh.GetRange(shPrm)
 		if err != nil {
+			var siErr *objectSDK.SplitInfoError
+
 			if res.HasMeta() {
 				shardWithMeta = sh
 				metaError = err
 			}
 			switch {
 			case shard.IsErrNotFound(err):
-				return false // ignore, go to next shard
+				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
-				if outSI == nil {
-					outSI = objectSDK.NewSplitInfo()
+				if splitInfo == nil {
+					splitInfo = objectSDK.NewSplitInfo()
 				}
 
-				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
+				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
 
 				// stop iterating over shards if SplitInfo structure is complete
-				return !outSI.GetLink().IsZero() && !outSI.GetLastPart().IsZero()
+				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
+					return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+				}
+				continue
 			case
 				shard.IsErrRemoved(err),
 				shard.IsErrOutOfRange(err):
-				outError = err
-
-				return true // stop, return it back
+				return nil, err // stop, return it back
 			default:
 				e.reportShardError(sh, "could not get object from shard", err)
-				return false
+				continue
 			}
 		}
 
-		out = res.Object().Payload()
-
-		return true
-	})
-
-	if outSI != nil {
-		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+		return res.Object().Payload(), nil
 	}
 
-	if out == nil {
-		// If any shard is in a degraded mode, we should assume that metabase could store
-		// info about some object.
-		if shardWithMeta.Shard == nil && !hasDegraded || !shard.IsErrNotFound(outError) {
-			return nil, outError
-		}
-
-		// If the object is not found but is present in metabase,
-		// try to fetch it from blobstor directly. If it is found in any
-		// blobstor, increase the error counter for the shard which contains the meta.
-		shPrm.SetIgnoreMeta(true)
-
-		e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
-			if sh.GetMode().NoMetabase() {
-				// Already processed it without a metabase.
-				return false
-			}
-
-			res, err := sh.GetRange(shPrm)
-			if shard.IsErrOutOfRange(err) {
-				var errOutOfRange apistatus.ObjectOutOfRange
-
-				outError = errOutOfRange
-				return true
-			}
-			out = res.Object().Payload()
-			return err == nil
-		})
-		if out == nil {
-			return nil, outError
-		}
-		if shardWithMeta.Shard != nil {
-			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-				metaError,
-				zap.Stringer("address", addr))
-		}
+	if splitInfo != nil {
+		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
-	return out, nil
+	// If any shard is in a degraded mode, we should assume that metabase could store
+	// info about some object.
+	if shardWithMeta.Shard == nil && !hasDegraded {
+		return nil, apistatus.ObjectNotFound{}
+	}
+
+	// If the object is not found but is present in metabase,
+	// try to fetch it from blobstor directly. If it is found in any
+	// blobstor, increase the error counter for the shard which contains the meta.
+	shPrm.SetIgnoreMeta(true)
+
+	for _, sh := range e.sortedShards(addr) {
+		if sh.GetMode().NoMetabase() {
+			// Already processed it without a metabase.
+			continue
+		}
+
+		res, err := sh.GetRange(shPrm)
+		if shard.IsErrOutOfRange(err) {
+			return nil, apistatus.ObjectOutOfRange{}
+		}
+		if err == nil {
+			if shardWithMeta.Shard != nil {
+				e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+					metaError,
+					zap.Stringer("address", addr))
+			}
+			return res.Object().Payload(), nil
+		}
+	}
+	return nil, apistatus.ObjectNotFound{}
 }

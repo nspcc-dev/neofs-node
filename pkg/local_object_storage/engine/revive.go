@@ -19,8 +19,10 @@ type ReviveStatus struct {
 
 // ReviveObject forcefully revives object by oid.Address in the StorageEngine.
 // Iterate over all shards despite errors and purge all removal marks from all metabases.
-func (e *StorageEngine) ReviveObject(address oid.Address) (res ReviveStatus, err error) {
-	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
+func (e *StorageEngine) ReviveObject(address oid.Address) (ReviveStatus, error) {
+	var res ReviveStatus
+
+	for _, sh := range e.unsortedShards() {
 		reviveStatus, err := sh.ReviveObject(address)
 		id := *sh.ID()
 		res.Shards = append(res.Shards, ReviveShardStatus{
@@ -34,8 +36,6 @@ func (e *StorageEngine) ReviveObject(address oid.Address) (res ReviveStatus, err
 				zap.Error(err),
 			)
 		}
-
-		return false
-	})
-	return
+	}
+	return res, nil
 }

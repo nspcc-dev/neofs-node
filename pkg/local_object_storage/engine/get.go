@@ -54,99 +54,81 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 
 func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error)) error {
 	var (
-		ok    bool
-		siErr *objectSDK.SplitInfoError
-
-		errNotFound apistatus.ObjectNotFound
-
-		outSI    *objectSDK.SplitInfo
-		outError error = errNotFound
-
+		hasDegraded   bool
 		shardWithMeta shardWrapper
+		splitInfo     *objectSDK.SplitInfo
 		metaError     error
 	)
 
-	var hasDegraded bool
-	var objectExpired bool
-
-	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
+	for _, sh := range e.sortedShards(addr) {
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 
 		hasMetadata, err := shardFunc(sh.Shard, noMeta)
 		if err != nil {
+			var siErr *objectSDK.SplitInfoError
+
 			if hasMetadata {
 				shardWithMeta = sh
 				metaError = err
 			}
 			switch {
 			case shard.IsErrNotFound(err):
-				return false // ignore, go to next shard
+				continue // ignore, go to next shard
 			case errors.As(err, &siErr):
-				if outSI == nil {
-					outSI = objectSDK.NewSplitInfo()
+				if splitInfo == nil {
+					splitInfo = objectSDK.NewSplitInfo()
 				}
 
-				util.MergeSplitInfo(siErr.SplitInfo(), outSI)
+				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
 
 				// stop iterating over shards if SplitInfo structure is complete
-				return !outSI.GetLink().IsZero() && !outSI.GetLastPart().IsZero()
+				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
+					return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
+				}
+				continue
 			case shard.IsErrRemoved(err):
-				outError = err
-
-				return true // stop, return it back
+				return err // stop, return it back
 			case shard.IsErrObjectExpired(err):
 				// object is found but should not
 				// be returned
-				objectExpired = true
-				return true
+				return apistatus.ObjectNotFound{}
 			default:
 				e.reportShardError(sh, "could not get object from shard", err)
-				return false
+				continue
 			}
 		}
 
-		ok = true
-
-		return true
-	})
-
-	if outSI != nil {
-		return logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+		return nil // shardFunc is successful and it has the result
 	}
 
-	if objectExpired {
-		return errNotFound
+	if splitInfo != nil {
+		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
 
-	if !ok {
-		if !hasDegraded && shardWithMeta.Shard == nil || !shard.IsErrNotFound(outError) {
-			return outError
+	if !hasDegraded && shardWithMeta.Shard == nil {
+		return apistatus.ObjectNotFound{}
+	}
+
+	// If the object is not found but is present in metabase,
+	// try to fetch it from blobstor directly. If it is found in any
+	// blobstor, increase the error counter for the shard which contains the meta.
+	for _, sh := range e.sortedShards(addr) {
+		if sh.GetMode().NoMetabase() {
+			// Already visited.
+			continue
 		}
 
-		// If the object is not found but is present in metabase,
-		// try to fetch it from blobstor directly. If it is found in any
-		// blobstor, increase the error counter for the shard which contains the meta.
-		e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
-			if sh.GetMode().NoMetabase() {
-				// Already visited.
-				return false
+		_, err := shardFunc(sh.Shard, true)
+		if err == nil {
+			if shardWithMeta.Shard != nil {
+				e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
+					metaError, zap.Stringer("address", addr))
 			}
-
-			_, err := shardFunc(sh.Shard, true)
-			ok = err == nil
-			return ok
-		})
-		if !ok {
-			return outError
-		}
-		if shardWithMeta.Shard != nil {
-			e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-				metaError, zap.Stringer("address", addr))
+			return nil
 		}
 	}
-
-	return nil
+	return apistatus.ObjectNotFound{}
 }
 
 // GetBytes reads object from the StorageEngine by address into memory buffer in

@@ -48,24 +48,17 @@ func (e *StorageEngine) Lock(idCnr cid.ID, locker oid.ID, locked []oid.ID) error
 //   - 0: fail
 //   - 1: locking irregular object
 //   - 2: ok
-func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) (status uint8) {
+func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExists bool) uint8 {
 	// code is pretty similar to inhumeAddr, maybe unify?
-	root := false
-	var errIrregular apistatus.LockNonRegularObject
-
-	var addrLocked oid.Address
+	var (
+		addrLocked oid.Address
+		root       bool
+		status     uint8
+	)
 	addrLocked.SetContainer(idCnr)
 	addrLocked.SetObject(locked)
 
-	e.iterateOverSortedShards(addrLocked, func(_ int, sh shardWrapper) (stop bool) {
-		defer func() {
-			// if object is root we continue since information about it
-			// can be presented in other shards
-			if checkExists && root {
-				stop = false
-			}
-		}()
-
+	for _, sh := range e.sortedShards(addrLocked) {
 		if checkExists {
 			var existsPrm shard.ExistsPrm
 			existsPrm.SetAddress(addrLocked)
@@ -77,35 +70,46 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 					if shard.IsErrObjectExpired(err) {
 						// object is already expired =>
 						// do not lock it
-						return true
+						return 0
 					}
 
 					e.reportShardError(sh, "could not check locked object for presence in shard", err)
-					return
+					if !root {
+						return 0
+					}
+					continue
 				}
 
 				root = true
 			} else if !exRes.Exists() {
-				return
+				if !root {
+					return 0
+				}
+				continue
 			}
 		}
 
 		err := sh.Lock(idCnr, locker, []oid.ID{locked})
 		if err != nil {
+			var errIrregular apistatus.LockNonRegularObject
+
 			e.reportShardError(sh, "could not lock object in shard", err)
 
 			if errors.As(err, &errIrregular) {
 				status = 1
-				return true
+			} else {
+				continue
 			}
-
-			return false
+		} else {
+			status = 2
 		}
 
-		status = 2
+		// if object is root we continue since information about it
+		// can be presented in other shards
+		if !root {
+			break
+		}
+	}
 
-		return true
-	})
-
-	return
+	return status
 }

@@ -46,27 +46,22 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 		return err
 	}
 
-	finished := false
-
-	e.iterateOverSortedShards(addr, func(ind int, sh shardWrapper) (stop bool) {
+	for i, sh := range e.sortedShards(addr) {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
 		if !ok {
 			// Shard was concurrently removed, skip.
-			return false
+			continue
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, obj, objBin, hdrLen)
-		finished = putDone || exists
-		return finished
-	})
-
-	if !finished {
-		err = errPutShard
+		putDone, exists := e.putToShard(sh, i, pool, addr, obj, objBin, hdrLen)
+		if putDone || exists {
+			return nil
+		}
 	}
 
-	return err
+	return errPutShard
 }
 
 // putToShard puts object to sh.
