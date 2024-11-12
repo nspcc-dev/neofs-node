@@ -48,7 +48,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 
 	finished := false
 
-	e.iterateOverSortedShards(addr, func(ind int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(ind int, sh shardWrapper) (stop bool) {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
@@ -72,7 +72,7 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool) {
+func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})

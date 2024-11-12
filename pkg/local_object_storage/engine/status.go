@@ -21,7 +21,7 @@ func (e *StorageEngine) ObjectStatus(address oid.Address) (ObjectStatus, error) 
 	var res ObjectStatus
 	var err error
 
-	e.iterateOverSortedShards(address, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(address, func(_ int, sh shardWrapper) (stop bool) {
 		var shardStatus shard.ObjectStatus
 		shardStatus, err = sh.ObjectStatus(address)
 		id := *sh.ID()

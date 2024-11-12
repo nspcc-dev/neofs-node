@@ -55,7 +55,7 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 		outSI    *objectSDK.SplitInfo
 		outError error = errNotFound
 
-		shardWithMeta hashedShard
+		shardWithMeta shardWrapper
 		metaError     error
 	)
 
@@ -65,7 +65,7 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	shPrm.SetAddress(addr)
 	shPrm.SetRange(offset, length)
 
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 		shPrm.SetIgnoreMeta(noMeta)
@@ -121,7 +121,7 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 		// blobstor, increase the error counter for the shard which contains the meta.
 		shPrm.SetIgnoreMeta(true)
 
-		e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+		e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 			if sh.GetMode().NoMetabase() {
 				// Already processed it without a metabase.
 				return false

@@ -29,7 +29,7 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 
 	var size uint64
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		var csPrm shard.ContainerSizePrm
 		csPrm.SetContainerID(cnr)
 
@@ -65,7 +65,7 @@ func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
 
 	uniqueIDs := make(map[cid.ID]struct{})
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
 		if err != nil {
 			e.reportShardError(sh, "can't get list of containers", err)
@@ -100,7 +100,7 @@ func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
 
 	var wg errgroup.Group
 
-	e.iterateOverUnsortedShards(func(hs hashedShard) bool {
+	e.iterateOverUnsortedShards(func(hs shardWrapper) bool {
 		wg.Go(func() error {
 			err := hs.Shard.DeleteContainer(ctx, cID)
 			if err != nil {

@@ -213,7 +213,7 @@ func (e *StorageEngine) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
 	return err == nil, err
 }
 
-func (e *StorageEngine) getTreeShard(cid cidSDK.ID, treeID string) (int, []hashedShard, error) {
+func (e *StorageEngine) getTreeShard(cid cidSDK.ID, treeID string) (int, []shardWrapper, error) {
 	lst := e.sortShardsByWeight(cid)
 	for i, sh := range lst {
 		exists, err := sh.TreeExists(cid, treeID)

@@ -87,7 +87,7 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 	if e.blockErr != nil {
 		return e.blockErr
 	}
-	e.iterateOverUnsortedShards(func(sh hashedShard) bool {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) bool {
 		err := sh.InhumeContainer(cID)
 		if err != nil {
 			e.log.Warn("inhuming container",
@@ -113,7 +113,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 	var children []oid.Address
 
 	// see if the object is root
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		existPrm.SetAddress(addr)
 		existPrm.IgnoreExpiration()
 
@@ -206,7 +206,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 		_, err := sh.Inhume(prm)
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
-				e.reportShardError(hashedShard(sh), "could not inhume object in shard", err)
+				e.reportShardError(sh, "could not inhume object in shard", err)
 			}
 
 			return false, err
@@ -217,7 +217,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 	// has not found the object on any shard, so mark it as inhumed on the most probable one
 
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 		defer func() {
 			// if object is root we continue since information about it
 			// can be presented in other shards
@@ -264,7 +264,7 @@ func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
 	var err error
 	var outErr error
 
-	e.iterateOverUnsortedShards(func(h hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(h shardWrapper) (stop bool) {
 		locked, err = h.Shard.IsLocked(addr)
 		if err != nil {
 			e.reportShardError(h, "can't check object's lockers", err, zap.Stringer("addr", addr))
@@ -290,14 +290,14 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 }
 
 func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		sh.HandleExpiredLocks(lockers)
 		return false
 	})
 }
 
 func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		sh.HandleDeletedLocks(lockers)
 		return false
 	})

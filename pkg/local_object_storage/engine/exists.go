@@ -15,7 +15,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 	alreadyRemoved := false
 	exists := false
 
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 		res, err := sh.Exists(shPrm)
 		if err != nil {
 			if shard.IsErrRemoved(err) {

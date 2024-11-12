@@ -57,7 +57,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 	addrLocked.SetContainer(idCnr)
 	addrLocked.SetObject(locked)
 
-	e.iterateOverSortedShards(addrLocked, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addrLocked, func(_ int, sh shardWrapper) (stop bool) {
 		defer func() {
 			// if object is root we continue since information about it
 			// can be presented in other shards

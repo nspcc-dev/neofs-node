@@ -62,14 +62,14 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		outSI    *objectSDK.SplitInfo
 		outError error = errNotFound
 
-		shardWithMeta hashedShard
+		shardWithMeta shardWrapper
 		metaError     error
 	)
 
 	var hasDegraded bool
 	var objectExpired bool
 
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 
@@ -127,7 +127,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		// If the object is not found but is present in metabase,
 		// try to fetch it from blobstor directly. If it is found in any
 		// blobstor, increase the error counter for the shard which contains the meta.
-		e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+		e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 			if sh.GetMode().NoMetabase() {
 				// Already visited.
 				return false

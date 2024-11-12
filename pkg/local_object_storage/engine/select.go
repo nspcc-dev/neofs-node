@@ -36,7 +36,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 	shPrm.SetContainerID(cnr)
 	shPrm.SetFilters(filters)
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		res, err := sh.Select(shPrm)
 		if err != nil {
 			if errors.Is(err, objectcore.ErrInvalidSearchQuery) {
@@ -81,7 +81,7 @@ func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
 	ln := uint64(0)
 
 	// consider iterating over shuffled shards
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	e.iterateOverUnsortedShards(func(sh shardWrapper) (stop bool) {
 		res, err := sh.List() // consider limit result of shard iterator
 		if err != nil {
 			e.reportShardError(sh, "could not select objects from shard", err)

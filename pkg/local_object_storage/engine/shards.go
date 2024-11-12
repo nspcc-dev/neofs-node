@@ -16,8 +16,6 @@ import (
 
 var errShardNotFound = logicerr.New("shard not found")
 
-type hashedShard shardWrapper
-
 type metricsWithID struct {
 	id string
 	mw MetricRegister
@@ -192,34 +190,28 @@ func generateShardID() (*shard.ID, error) {
 	return shard.NewIDFromBytes(bin), nil
 }
 
-func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() string }) []hashedShard {
-	e.mtx.RLock()
-	defer e.mtx.RUnlock()
-
-	shards := make([]hashedShard, 0, len(e.shards))
-	for _, sh := range e.shards {
-		shards = append(shards, hashedShard(sh))
-	}
+func (e *StorageEngine) sortShardsByWeight(objAddr interface{ EncodeToString() string }) []shardWrapper {
+	shards := e.unsortedShards()
 
 	hrw.Sort(shards, hrw.WrapBytes([]byte(objAddr.EncodeToString())))
 
 	return shards
 }
 
-func (e *StorageEngine) unsortedShards() []hashedShard {
+func (e *StorageEngine) unsortedShards() []shardWrapper {
 	e.mtx.RLock()
 	defer e.mtx.RUnlock()
 
-	shards := make([]hashedShard, 0, len(e.shards))
+	shards := make([]shardWrapper, 0, len(e.shards))
 
 	for _, sh := range e.shards {
-		shards = append(shards, hashedShard(sh))
+		shards = append(shards, sh)
 	}
 
 	return shards
 }
 
-func (e *StorageEngine) iterateOverSortedShards(addr oid.Address, handler func(int, hashedShard) (stop bool)) {
+func (e *StorageEngine) iterateOverSortedShards(addr oid.Address, handler func(int, shardWrapper) (stop bool)) {
 	for i, sh := range e.sortShardsByWeight(addr) {
 		if handler(i, sh) {
 			break
@@ -227,7 +219,7 @@ func (e *StorageEngine) iterateOverSortedShards(addr oid.Address, handler func(i
 	}
 }
 
-func (e *StorageEngine) iterateOverUnsortedShards(handler func(hashedShard) (stop bool)) {
+func (e *StorageEngine) iterateOverUnsortedShards(handler func(shardWrapper) (stop bool)) {
 	for _, sh := range e.unsortedShards() {
 		if handler(sh) {
 			break
@@ -273,7 +265,7 @@ func (e *StorageEngine) HandleNewEpoch(epoch uint64) {
 	}
 }
 
-func (s hashedShard) Hash() uint64 {
+func (s shardWrapper) Hash() uint64 {
 	return hrw.Hash(
 		[]byte(s.Shard.ID().String()),
 	)

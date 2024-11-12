@@ -47,7 +47,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 	shPrm.SetAddress(addr)
 	shPrm.SetRaw(raw)
 
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh shardWrapper) (stop bool) {
 		res, err := sh.Head(shPrm)
 		if err != nil {
 			switch {
