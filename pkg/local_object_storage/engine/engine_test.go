@@ -64,7 +64,7 @@ func benchmarkExists(b *testing.B, shardNum int) {
 	addr := oidtest.Address()
 	for range 100 {
 		obj := generateObjectWithCID(cidtest.ID())
-		err := Put(e, obj)
+		err := e.Put(obj, nil, 0)
 		if err != nil {
 			b.Fatal(err)
 		}

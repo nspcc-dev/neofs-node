@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -88,11 +87,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 			zap.String("error", err.Error()),
 		)
 		if container.IsErrNotFound(err) {
-			var prm engine.InhumePrm
-			prm.MarkAsGarbage(addrWithType.Address)
-			prm.WithForceRemoval()
-
-			_, err := p.jobQueue.localStorage.Inhume(prm)
+			err = p.jobQueue.localStorage.Delete(addrWithType.Address)
 			if err != nil {
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),

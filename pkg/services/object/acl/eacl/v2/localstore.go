@@ -17,5 +17,5 @@ func (s *localStorage) Head(addr oid.Address) (*objectSDK.Object, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	return engine.Head(s.ls, addr)
+	return s.ls.Head(addr, false)
 }

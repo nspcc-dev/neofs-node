@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"google.golang.org/grpc/codes"
@@ -43,11 +42,7 @@ func (s *Server) DropObjects(_ context.Context, req *control.DropObjectsRequest)
 
 	var firstErr error
 	for i := range addrList {
-		var prm engine.DeletePrm
-		prm.WithForceRemoval()
-		prm.WithAddress(addrList[i])
-
-		_, err := s.storage.Delete(prm)
+		err := s.storage.Delete(addrList[i])
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}

@@ -11,39 +11,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-// HeadPrm groups the parameters of Head operation.
-type HeadPrm struct {
-	addr oid.Address
-	raw  bool
-}
-
-// HeadRes groups the resulting values of Head operation.
-type HeadRes struct {
-	head *objectSDK.Object
-}
-
-// WithAddress is a Head option to set the address of the requested object.
-//
-// Option is required.
-func (p *HeadPrm) WithAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// WithRaw is a Head option to set raw flag value. If flag is unset, then Head
-// returns the header of the virtual object, otherwise it returns SplitInfo of the virtual
-// object.
-func (p *HeadPrm) WithRaw(raw bool) {
-	p.raw = raw
-}
-
-// Header returns the requested object header.
-//
-// Instance has empty payload.
-func (r HeadRes) Header() *objectSDK.Object {
-	return r.head
-}
-
-// Head reads object header from local storage.
+// Head reads object header from local storage. If raw is true returns
+// SplitInfo of the virtual object instead of the virtual object header.
 //
 // Returns any error encountered that
 // did not allow to completely read the object header.
@@ -52,20 +21,25 @@ func (r HeadRes) Header() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(prm HeadPrm) (res HeadRes, err error) {
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.head(prm)
-		return err
-	})
+func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+	var (
+		obj *objectSDK.Object
+		err error
+	)
 
-	return
-}
-
-func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
 
+	err = e.execIfNotBlocked(func() error {
+		obj, err = e.head(addr, raw)
+		return err
+	})
+
+	return obj, err
+}
+
+func (e *StorageEngine) head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	var (
 		head  *objectSDK.Object
 		siErr *objectSDK.SplitInfoError
@@ -77,10 +51,10 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	)
 
 	var shPrm shard.HeadPrm
-	shPrm.SetAddress(prm.addr)
-	shPrm.SetRaw(prm.raw)
+	shPrm.SetAddress(addr)
+	shPrm.SetRaw(raw)
 
-	e.iterateOverSortedShards(prm.addr, func(_ int, sh hashedShard) (stop bool) {
+	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
 		res, err := sh.Head(shPrm)
 		if err != nil {
 			switch {
@@ -119,42 +93,12 @@ func (e *StorageEngine) head(prm HeadPrm) (HeadRes, error) {
 	})
 
 	if outSI != nil {
-		return HeadRes{}, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
+		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(outSI))
 	}
 
 	if head == nil {
-		return HeadRes{}, outError
+		return nil, outError
 	}
 
-	return HeadRes{
-		head: head,
-	}, nil
-}
-
-// Head reads object header from local storage by provided address.
-func Head(storage *StorageEngine, addr oid.Address) (*objectSDK.Object, error) {
-	var headPrm HeadPrm
-	headPrm.WithAddress(addr)
-
-	res, err := storage.Head(headPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Header(), nil
-}
-
-// HeadRaw reads object header from local storage by provided address and raw
-// flag.
-func HeadRaw(storage *StorageEngine, addr oid.Address, raw bool) (*objectSDK.Object, error) {
-	var headPrm HeadPrm
-	headPrm.WithAddress(addr)
-	headPrm.WithRaw(raw)
-
-	res, err := storage.Head(headPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Header(), nil
+	return head, nil
 }

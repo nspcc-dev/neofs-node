@@ -13,39 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// EvacuateShardPrm represents parameters for the EvacuateShard operation.
-type EvacuateShardPrm struct {
-	shardID      []*shard.ID
-	handler      func(oid.Address, *objectSDK.Object) error
-	ignoreErrors bool
-}
-
-// EvacuateShardRes represents result of the EvacuateShard operation.
-type EvacuateShardRes struct {
-	count int
-}
-
-// WithShardIDList sets shard ID.
-func (p *EvacuateShardPrm) WithShardIDList(id []*shard.ID) {
-	p.shardID = id
-}
-
-// WithIgnoreErrors sets flag to ignore errors.
-func (p *EvacuateShardPrm) WithIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
-// WithFaultHandler sets handler to call for objects which cannot be saved on other shards.
-func (p *EvacuateShardPrm) WithFaultHandler(f func(oid.Address, *objectSDK.Object) error) {
-	p.handler = f
-}
-
-// Count returns amount of evacuated objects.
-// Objects for which handler returned no error are also assumed evacuated.
-func (p EvacuateShardRes) Count() int {
-	return p.count
-}
-
 const defaultEvacuateBatchSize = 100
 
 type pooledShard struct {
@@ -55,12 +22,18 @@ type pooledShard struct {
 
 var errMustHaveTwoShards = errors.New("must have at least 1 spare shard")
 
-// Evacuate moves data from one shard to the others.
-// The shard being moved must be in read-only mode.
-func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error) {
-	sidList := make([]string, len(prm.shardID))
-	for i := range prm.shardID {
-		sidList[i] = prm.shardID[i].String()
+// Evacuate moves data from a set of given shards to other shards available to
+// this engine (so at least one shard must be available unless faultHandler is
+// given). Shards being moved must be in read-only mode. Will return an error
+// if unable to get an object unless ignoreErrors is set to true. If unable
+// to put an object into any of the provided shards invokes faultHandler
+// (if provided, fails otherwise) which can return its own error to abort
+// evacuation (or nil to continue). Returns the number of evacuated objects
+// (which can be non-zero even in case of error).
+func (e *StorageEngine) Evacuate(shardIDs []*shard.ID, ignoreErrors bool, faultHandler func(oid.Address, *objectSDK.Object) error) (int, error) {
+	sidList := make([]string, len(shardIDs))
+	for i := range shardIDs {
+		sidList[i] = shardIDs[i].String()
 	}
 
 	e.mtx.RLock()
@@ -68,18 +41,18 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 		sh, ok := e.shards[sidList[i]]
 		if !ok {
 			e.mtx.RUnlock()
-			return EvacuateShardRes{}, errShardNotFound
+			return 0, errShardNotFound
 		}
 
 		if !sh.GetMode().ReadOnly() {
 			e.mtx.RUnlock()
-			return EvacuateShardRes{}, shard.ErrMustBeReadOnly
+			return 0, shard.ErrMustBeReadOnly
 		}
 	}
 
-	if len(e.shards)-len(sidList) < 1 && prm.handler == nil {
+	if len(e.shards)-len(sidList) < 1 && faultHandler == nil {
 		e.mtx.RUnlock()
-		return EvacuateShardRes{}, errMustHaveTwoShards
+		return 0, errMustHaveTwoShards
 	}
 
 	e.log.Info("started shards evacuation", zap.Strings("shard_ids", sidList))
@@ -108,7 +81,7 @@ func (e *StorageEngine) Evacuate(prm EvacuateShardPrm) (EvacuateShardRes, error)
 	var listPrm shard.ListWithCursorPrm
 	listPrm.WithCount(defaultEvacuateBatchSize)
 
-	var res EvacuateShardRes
+	var count int
 
 mainLoop:
 	for n := range sidList {
@@ -125,7 +98,7 @@ mainLoop:
 				if errors.Is(err, meta.ErrEndOfListing) || errors.Is(err, shard.ErrDegradedMode) {
 					continue mainLoop
 				}
-				return res, err
+				return count, err
 			}
 
 			// TODO (@fyrchik): #1731 parallelize the loop
@@ -141,10 +114,10 @@ mainLoop:
 
 				getRes, err := sh.Get(getPrm)
 				if err != nil {
-					if prm.ignoreErrors {
+					if ignoreErrors {
 						continue
 					}
-					return res, err
+					return count, err
 				}
 
 				hrw.Sort(shards, addrHash)
@@ -152,7 +125,7 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, PutPrm{obj: getRes.Object()})
+					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, getRes.Object(), nil, 0)
 					if putDone || exists {
 						if putDone {
 							e.log.Debug("object is moved to another shard",
@@ -160,7 +133,7 @@ mainLoop:
 								zap.Stringer("to", shards[j].ID()),
 								zap.Stringer("addr", addr))
 
-							res.count++
+							count++
 						}
 						continue loop
 					}
@@ -168,17 +141,17 @@ mainLoop:
 					e.log.Debug("could not put to shard, trying another", zap.String("shard", shards[j].ID().String()))
 				}
 
-				if prm.handler == nil {
+				if faultHandler == nil {
 					// Do not check ignoreErrors flag here because
 					// ignoring errors on put make this command kinda useless.
-					return res, fmt.Errorf("%w: %s", errPutShard, lst[i])
+					return count, fmt.Errorf("%w: %s", errPutShard, lst[i])
 				}
 
-				err = prm.handler(addr, getRes.Object())
+				err = faultHandler(addr, getRes.Object())
 				if err != nil {
-					return res, err
+					return count, err
 				}
-				res.count++
+				count++
 			}
 
 			c = listRes.Cursor()
@@ -187,5 +160,5 @@ mainLoop:
 
 	e.log.Info("finished shards evacuation",
 		zap.Strings("shard_ids", sidList))
-	return res, nil
+	return count, nil
 }

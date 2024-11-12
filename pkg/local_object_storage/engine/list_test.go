@@ -31,37 +31,27 @@ func TestListWithCursor(t *testing.T) {
 		containerID := cidtest.ID()
 		obj := generateObjectWithCID(containerID)
 
-		var prm PutPrm
-		prm.WithObject(obj)
-
-		_, err := e.Put(prm)
+		err := e.Put(obj, nil, 0)
 		require.NoError(t, err)
 		expected = append(expected, object.AddressWithType{Type: objectSDK.TypeRegular, Address: object.AddressOf(obj)})
 	}
 
 	expected = sortAddresses(expected)
 
-	var prm ListWithCursorPrm
-	prm.WithCount(1)
-
-	res, err := e.ListWithCursor(prm)
+	addrs, cursor, err := e.ListWithCursor(1, nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, res.AddressList())
-	got = append(got, res.AddressList()...)
+	require.NotEmpty(t, addrs)
+	got = append(got, addrs...)
 
 	for range total - 1 {
-		prm.WithCursor(res.Cursor())
-
-		res, err = e.ListWithCursor(prm)
+		addrs, cursor, err = e.ListWithCursor(1, cursor)
 		if errors.Is(err, ErrEndOfListing) {
 			break
 		}
-		got = append(got, res.AddressList()...)
+		got = append(got, addrs...)
 	}
 
-	prm.WithCursor(res.Cursor())
-
-	_, err = e.ListWithCursor(prm)
+	_, _, err = e.ListWithCursor(1, cursor)
 	require.ErrorIs(t, err, ErrEndOfListing)
 
 	got = sortAddresses(got)

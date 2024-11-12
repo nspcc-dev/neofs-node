@@ -12,14 +12,10 @@ type jobQueue struct {
 }
 
 func (q *jobQueue) Select(cursor *engine.Cursor, count uint32) ([]objectcore.AddressWithType, *engine.Cursor, error) {
-	var prm engine.ListWithCursorPrm
-	prm.WithCursor(cursor)
-	prm.WithCount(count)
-
-	res, err := q.localStorage.ListWithCursor(prm)
+	res, cursor, err := q.localStorage.ListWithCursor(count, cursor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot list objects in engine: %w", err)
 	}
 
-	return res.AddressList(), res.Cursor(), nil
+	return res, cursor, nil
 }

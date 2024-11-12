@@ -207,10 +207,7 @@ func initObjectService(c *cfg) {
 		policer.WithHeadTimeout(c.applicationConfiguration.policer.headTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
-			var inhumePrm engine.InhumePrm
-			inhumePrm.MarkAsGarbage(addr)
-
-			_, err := ls.Inhume(inhumePrm)
+			err := ls.Delete(addr)
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
 					zap.String("error", err.Error()),
@@ -516,18 +513,13 @@ func (e storageEngine) IsLocked(address oid.Address) (bool, error) {
 }
 
 func (e storageEngine) Delete(tombstone oid.Address, tombExpiration uint64, toDelete []oid.ID) error {
-	var prm engine.InhumePrm
-
 	addrs := make([]oid.Address, len(toDelete))
 	for i := range addrs {
 		addrs[i].SetContainer(tombstone.Container())
 		addrs[i].SetObject(toDelete[i])
 	}
 
-	prm.WithTombstone(tombstone, tombExpiration, addrs...)
-
-	_, err := e.engine.Inhume(prm)
-	return err
+	return e.engine.Inhume(tombstone, tombExpiration, addrs...)
 }
 
 func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
@@ -535,13 +527,7 @@ func (e storageEngine) Lock(locker oid.Address, toLock []oid.ID) error {
 }
 
 func (e storageEngine) Put(o *objectSDK.Object, objBin []byte, hdrLen int) error {
-	var putPrm engine.PutPrm
-	putPrm.WithObject(o)
-	if objBin != nil {
-		putPrm.SetObjectBinary(objBin, hdrLen)
-	}
-	_, err := e.engine.Put(putPrm)
-	return err
+	return e.engine.Put(o, objBin, hdrLen)
 }
 
 func cachedHeaderSource(getSvc *getsvc.Service, cacheSize int, l *zap.Logger) headerSource {

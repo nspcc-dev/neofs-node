@@ -30,17 +30,12 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 
 	e, _, _ := newEngine(t, t.TempDir())
 
-	var putPrm PutPrm
-	putPrm.WithObject(&obj)
-	putPrm.SetObjectBinary(objBin, hdrLen)
-	_, err := e.Put(putPrm)
+	err := e.Put(&obj, objBin, hdrLen)
 	require.NoError(t, err)
 
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-	res, err := e.Get(getPrm)
+	gotObj, err := e.Get(addr)
 	require.NoError(t, err)
-	require.Equal(t, &obj, res.Object())
+	require.Equal(t, &obj, gotObj)
 
 	b, err := e.GetBytes(addr)
 	require.NoError(t, err)
@@ -49,17 +44,14 @@ func TestStorageEngine_PutBinary(t *testing.T) {
 	// now place some garbage
 	addr.SetObject(oidtest.ID())
 	obj.SetID(addr.Object()) // to avoid 'already exists' outcome
-	putPrm.WithObject(&obj)
 	invalidObjBin := []byte("definitely not an object")
-	putPrm.SetObjectBinary(invalidObjBin, 5)
-	_, err = e.Put(putPrm)
+	err = e.Put(&obj, invalidObjBin, 5)
 	require.NoError(t, err)
 
 	b, err = e.GetBytes(addr)
 	require.NoError(t, err)
 	require.Equal(t, invalidObjBin, b)
 
-	getPrm.WithAddress(addr)
-	_, err = e.Get(getPrm)
+	_, err = e.Get(addr)
 	require.Error(t, err)
 }

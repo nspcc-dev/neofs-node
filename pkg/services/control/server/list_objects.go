@@ -3,6 +3,7 @@ package control
 import (
 	"errors"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
@@ -21,11 +22,14 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 		return status.Error(codes.Internal, err.Error())
 	}
 
-	var prm engine.ListWithCursorPrm
+	var (
+		cursor    *engine.Cursor
+		addresses []objectcore.AddressWithType
+	)
 	// (Limit 4MB - 64KB for service bytes and future fields) / 89B address length = 46390 addresses can be sent
-	prm.WithCount(46390)
+	const count = 46390
 	for {
-		res, err := s.storage.ListWithCursor(prm)
+		addresses, cursor, err = s.storage.ListWithCursor(count, cursor)
 		if err != nil {
 			if errors.Is(err, engine.ErrEndOfListing) {
 				return nil
@@ -34,7 +38,6 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 			return status.Error(codes.Internal, err.Error())
 		}
 
-		addresses := res.AddressList()
 		objectsAddresses := make([][]byte, 0, len(addresses))
 		for _, objectId := range addresses {
 			objectsAddresses = append(objectsAddresses, []byte(objectId.Address.EncodeToString()))
@@ -54,7 +57,5 @@ func (s *Server) ListObjects(req *control.ListObjectsRequest, stream control.Con
 		if err = stream.Send(resp); err != nil {
 			return status.Error(codes.Internal, err.Error())
 		}
-
-		prm.WithCursor(res.Cursor())
 	}
 }

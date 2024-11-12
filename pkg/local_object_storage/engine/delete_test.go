@@ -56,9 +56,9 @@ func TestDeleteBigObject(t *testing.T) {
 	defer e.Close()
 
 	for i := range children {
-		require.NoError(t, Put(e, children[i]))
+		require.NoError(t, e.Put(children[i], nil, 0))
 	}
-	require.NoError(t, Put(e, link))
+	require.NoError(t, e.Put(link, nil, 0))
 
 	var splitErr *objectSDK.SplitInfoError
 
@@ -72,11 +72,7 @@ func TestDeleteBigObject(t *testing.T) {
 		checkGetError(t, e, object.AddressOf(children[i]), nil)
 	}
 
-	var deletePrm DeletePrm
-	deletePrm.WithForceRemoval()
-	deletePrm.WithAddress(addrParent)
-
-	_, err := e.Delete(deletePrm)
+	err := e.Delete(addrParent)
 	require.NoError(t, err)
 
 	checkGetError(t, e, addrParent, &apistatus.ObjectNotFound{})
@@ -87,10 +83,7 @@ func TestDeleteBigObject(t *testing.T) {
 }
 
 func checkGetError(t *testing.T, e *StorageEngine, addr oid.Address, expected any) {
-	var getPrm GetPrm
-	getPrm.WithAddress(addr)
-
-	_, err := e.Get(getPrm)
+	_, err := e.Get(addr)
 	if expected != nil {
 		require.ErrorAs(t, err, expected)
 	} else {

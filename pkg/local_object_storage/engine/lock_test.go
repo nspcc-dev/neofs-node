@@ -81,7 +81,7 @@ func TestLockUserScenario(t *testing.T) {
 	id := obj.GetID()
 	objAddr.SetObject(id)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
@@ -89,17 +89,14 @@ func TestLockUserScenario(t *testing.T) {
 	locker.WriteMembers([]oid.ID{id})
 	lockerObj.WriteLock(locker)
 
-	err = Put(e, lockerObj)
+	err = e.Put(lockerObj, nil, 0)
 	require.NoError(t, err)
 
 	err = e.Lock(cnr, lockerID, []oid.ID{id})
 	require.NoError(t, err)
 
 	// 3.
-	var inhumePrm InhumePrm
-	inhumePrm.WithTombstone(tombAddr, 0, objAddr)
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(tombAddr, 0, objAddr)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
@@ -107,12 +104,10 @@ func TestLockUserScenario(t *testing.T) {
 	tombObj.SetID(tombForLockID)
 	tombObj.SetAttributes(a)
 
-	err = Put(e, tombObj)
+	err = e.Put(tombObj, nil, 0)
 	require.NoError(t, err)
 
-	inhumePrm.WithTombstone(tombForLockAddr, 0, lockerAddr)
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(tombForLockAddr, 0, lockerAddr)
 	require.ErrorIs(t, err, meta.ErrLockObjectRemoval)
 
 	// 5.
@@ -121,9 +116,7 @@ func TestLockUserScenario(t *testing.T) {
 	// delay for GC
 	time.Sleep(time.Second)
 
-	inhumePrm.WithTombstone(tombAddr, 0, objAddr)
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(tombAddr, 0, objAddr)
 	require.NoError(t, err)
 }
 
@@ -156,7 +149,7 @@ func TestLockExpiration(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
@@ -168,7 +161,7 @@ func TestLockExpiration(t *testing.T) {
 	lock.SetType(object.TypeLock)
 	lock.SetAttributes(a)
 
-	err = Put(e, lock)
+	err = e.Put(lock, nil, 0)
 	require.NoError(t, err)
 
 	id := obj.GetID()
@@ -177,10 +170,7 @@ func TestLockExpiration(t *testing.T) {
 	err = e.Lock(cnr, idLock, []oid.ID{id})
 	require.NoError(t, err)
 
-	var inhumePrm InhumePrm
-	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 3.
@@ -191,9 +181,7 @@ func TestLockExpiration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 4.
-	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
 	require.NoError(t, err)
 }
 
@@ -227,14 +215,14 @@ func TestLockForceRemoval(t *testing.T) {
 	// 1.
 	obj := generateObjectWithCID(cnr)
 
-	err = Put(e, obj)
+	err = e.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	// 2.
 	lock := generateObjectWithCID(cnr)
 	lock.SetType(object.TypeLock)
 
-	err = Put(e, lock)
+	err = e.Put(lock, nil, 0)
 	require.NoError(t, err)
 
 	id := obj.GetID()
@@ -244,28 +232,17 @@ func TestLockForceRemoval(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3.
-	var inhumePrm InhumePrm
-	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.deleteObj(objectcore.AddressOf(obj), false)
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-	inhumePrm.WithTombstone(oidtest.Address(), 0, objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.Inhume(oidtest.Address(), 0, objectcore.AddressOf(obj))
 	require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 	// 4.
-	var deletePrm DeletePrm
-	deletePrm.WithAddress(objectcore.AddressOf(lock))
-	deletePrm.WithForceRemoval()
-
-	_, err = e.Delete(deletePrm)
+	err = e.Delete(objectcore.AddressOf(lock))
 	require.NoError(t, err)
 
 	// 5.
-	inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-
-	_, err = e.Inhume(inhumePrm)
+	err = e.deleteObj(objectcore.AddressOf(obj), false)
 	require.NoError(t, err)
 }

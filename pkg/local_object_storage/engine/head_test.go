@@ -61,11 +61,7 @@ func TestHeadRaw(t *testing.T) {
 		require.NoError(t, err)
 
 		// head with raw flag should return SplitInfoError
-		var headPrm HeadPrm
-		headPrm.WithAddress(parentAddr)
-		headPrm.WithRaw(true)
-
-		_, err = e.Head(headPrm)
+		_, err = e.Head(parentAddr, true)
 		require.Error(t, err)
 
 		var si *object.SplitInfoError

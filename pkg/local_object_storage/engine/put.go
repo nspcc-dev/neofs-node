@@ -13,38 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// PutPrm groups the parameters of Put operation.
-type PutPrm struct {
-	obj *objectSDK.Object
-
-	binSet bool
-	objBin []byte
-	hdrLen int
-}
-
-// PutRes groups the resulting values of Put operation.
-type PutRes struct{}
-
 var errPutShard = errors.New("could not put object to any shard")
 
-// WithObject is a Put option to set object to save.
-//
-// Option is required.
-func (p *PutPrm) WithObject(obj *objectSDK.Object) {
-	p.obj = obj
-}
-
-// SetObjectBinary allows to provide the already encoded object in
-// [StorageEngine] format. Object header must be a prefix with specified length.
-// If provided, the encoding step is skipped. It's the caller's responsibility
-// to ensure that the data matches the object structure being processed.
-func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
-	p.binSet = true
-	p.objBin = objBin
-	p.hdrLen = hdrLen
-}
-
-// Put saves the object to local storage.
+// Put saves an object to local storage. objBin and hdrLen parameters are
+// optional and used to optimize out object marshaling, when used both must
+// be valid.
 //
 // Returns any error encountered that
 // did not allow to completely save the object.
@@ -52,27 +25,24 @@ func (p *PutPrm) SetObjectBinary(objBin []byte, hdrLen int) {
 // Returns an error if executions are blocked (see BlockExecution).
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
-func (e *StorageEngine) Put(prm PutPrm) (res PutRes, err error) {
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.put(prm)
-		return err
-	})
-
-	return
-}
-
-func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
+func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
-	addr := object.AddressOf(prm.obj)
+	return e.execIfNotBlocked(func() error {
+		return e.put(obj, objBin, hdrLen)
+	})
+}
+
+func (e *StorageEngine) put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
+	addr := object.AddressOf(obj)
 
 	// In #1146 this check was parallelized, however, it became
 	// much slower on fast machines for 4 shards.
 	_, err := e.exists(addr)
 	if err != nil {
-		return PutRes{}, err
+		return err
 	}
 
 	finished := false
@@ -86,7 +56,7 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 			return false
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, prm)
+		putDone, exists := e.putToShard(sh, ind, pool, addr, obj, objBin, hdrLen)
 		finished = putDone || exists
 		return finished
 	})
@@ -95,13 +65,13 @@ func (e *StorageEngine) put(prm PutPrm) (PutRes, error) {
 		err = errPutShard
 	}
 
-	return PutRes{}, err
+	return err
 }
 
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, prm PutPrm) (bool, bool) {
+func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})
@@ -151,9 +121,9 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 		}
 
 		var putPrm shard.PutPrm
-		putPrm.SetObject(prm.obj)
-		if prm.binSet {
-			putPrm.SetObjectBinary(prm.objBin, prm.hdrLen)
+		putPrm.SetObject(obj)
+		if objBin != nil {
+			putPrm.SetObjectBinary(objBin, hdrLen)
 		}
 
 		_, err = sh.Put(putPrm)
@@ -179,14 +149,4 @@ func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool
 	<-exitCh
 
 	return putSuccess, alreadyExists
-}
-
-// Put writes provided object to local storage.
-func Put(storage *StorageEngine, obj *objectSDK.Object) error {
-	var putPrm PutPrm
-	putPrm.WithObject(obj)
-
-	_, err := storage.Put(putPrm)
-
-	return err
 }

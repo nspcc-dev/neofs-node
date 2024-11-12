@@ -195,40 +195,27 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	if exec.headOnly() {
-		var headPrm engine.HeadPrm
-		headPrm.WithAddress(exec.address())
-		headPrm.WithRaw(exec.isRaw())
-
-		r, err := e.engine.Head(headPrm)
+		r, err := e.engine.Head(exec.address(), exec.isRaw())
 		if err != nil {
 			return nil, err
 		}
 
-		return r.Header(), nil
+		return r, nil
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
-		var getRange engine.RngPrm
-		getRange.WithAddress(exec.address())
-		getRange.WithPayloadRange(rng)
-
-		r, err := e.engine.GetRange(getRange)
+		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
 		if err != nil {
 			return nil, err
 		}
 
-		return r.Object(), nil
+		o := object.New()
+		o.SetPayload(r)
+
+		return o, nil
 	}
 
-	var getPrm engine.GetPrm
-	getPrm.WithAddress(exec.address())
-
-	r, err := e.engine.Get(getPrm)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Object(), nil
+	return e.engine.Get(exec.address())
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {
