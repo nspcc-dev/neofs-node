@@ -1,15 +1,9 @@
 package engine
 
 import (
-	"errors"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // RngRes groups the resulting values of GetRange operation.
@@ -47,90 +41,20 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	}
 
 	var (
-		hasDegraded   bool
-		splitInfo     *objectSDK.SplitInfo
-		shardWithMeta shardWrapper
-		shPrm         shard.RngPrm
-		metaError     error
+		err   error
+		data  []byte
+		shPrm shard.RngPrm
 	)
-
 	shPrm.SetAddress(addr)
 	shPrm.SetRange(offset, length)
 
-	for _, sh := range e.sortedShards(addr) {
-		noMeta := sh.GetMode().NoMetabase()
-		hasDegraded = hasDegraded || noMeta
-		shPrm.SetIgnoreMeta(noMeta)
-
+	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) (bool, error) {
+		shPrm.SetIgnoreMeta(ignoreMetadata)
 		res, err := sh.GetRange(shPrm)
-		if err != nil {
-			var siErr *objectSDK.SplitInfoError
-
-			if res.HasMeta() {
-				shardWithMeta = sh
-				metaError = err
-			}
-			switch {
-			case shard.IsErrNotFound(err):
-				continue // ignore, go to next shard
-			case errors.As(err, &siErr):
-				if splitInfo == nil {
-					splitInfo = objectSDK.NewSplitInfo()
-				}
-
-				util.MergeSplitInfo(siErr.SplitInfo(), splitInfo)
-
-				// stop iterating over shards if SplitInfo structure is complete
-				if !splitInfo.GetLink().IsZero() && !splitInfo.GetLastPart().IsZero() {
-					return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
-				}
-				continue
-			case
-				shard.IsErrRemoved(err),
-				shard.IsErrOutOfRange(err):
-				return nil, err // stop, return it back
-			default:
-				e.reportShardError(sh, "could not get object from shard", err)
-				continue
-			}
-		}
-
-		return res.Object().Payload(), nil
-	}
-
-	if splitInfo != nil {
-		return nil, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
-	}
-
-	// If any shard is in a degraded mode, we should assume that metabase could store
-	// info about some object.
-	if shardWithMeta.Shard == nil && !hasDegraded {
-		return nil, apistatus.ObjectNotFound{}
-	}
-
-	// If the object is not found but is present in metabase,
-	// try to fetch it from blobstor directly. If it is found in any
-	// blobstor, increase the error counter for the shard which contains the meta.
-	shPrm.SetIgnoreMeta(true)
-
-	for _, sh := range e.sortedShards(addr) {
-		if sh.GetMode().NoMetabase() {
-			// Already processed it without a metabase.
-			continue
-		}
-
-		res, err := sh.GetRange(shPrm)
-		if shard.IsErrOutOfRange(err) {
-			return nil, apistatus.ObjectOutOfRange{}
-		}
 		if err == nil {
-			if shardWithMeta.Shard != nil {
-				e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
-					metaError,
-					zap.Stringer("address", addr))
-			}
-			return res.Object().Payload(), nil
+			data = res.Object().Payload()
 		}
-	}
-	return nil, apistatus.ObjectNotFound{}
+		return res.HasMeta(), err
+	})
+	return data, err
 }

@@ -87,7 +87,9 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 					return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 				}
 				continue
-			case shard.IsErrRemoved(err):
+			case
+				shard.IsErrRemoved(err),
+				shard.IsErrOutOfRange(err):
 				return err // stop, return it back
 			case shard.IsErrObjectExpired(err):
 				// object is found but should not
@@ -120,6 +122,9 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		}
 
 		_, err := shardFunc(sh.Shard, true)
+		if shard.IsErrOutOfRange(err) {
+			return apistatus.ObjectOutOfRange{}
+		}
 		if err == nil {
 			if shardWithMeta.Shard != nil {
 				e.reportShardError(shardWithMeta, "meta info was present, but object is missing",
