@@ -66,6 +66,7 @@ func main() {
 	c := zap.NewProductionConfig()
 	c.Level = logLevel
 	c.Encoding = cfg.GetString("logger.encoding")
+	c.Sampling = nil
 	if term.IsTerminal(int(os.Stdout.Fd())) {
 		c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {

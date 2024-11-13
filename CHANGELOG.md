@@ -40,6 +40,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Metabase is refilled if an object exists in write-cache but is missing in metabase (#2977)
 - Pprof and metrics services stop at the end of SN's application lifecycle (#2976)
 - Reject configuration with unknown fields (#2981)
+- Log sampling is disabled by default now (#3011)
 
 ### Removed
 - Support for node.key configuration (#2959)
