@@ -64,6 +64,7 @@ func main() {
 	c := zap.NewProductionConfig()
 	c.Level = logLevel
 	c.Encoding = "console"
+	c.Sampling = nil
 	c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	log, err := c.Build(

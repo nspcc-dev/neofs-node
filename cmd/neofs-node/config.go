@@ -560,6 +560,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	logCfg := zap.NewProductionConfig()
 	logCfg.Level = c.internals.logLevel
 	logCfg.Encoding = "console"
+	logCfg.Sampling = nil
 	logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	c.internals.log, err = logCfg.Build(
