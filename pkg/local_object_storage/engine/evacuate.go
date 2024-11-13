@@ -16,7 +16,7 @@ import (
 const defaultEvacuateBatchSize = 100
 
 type pooledShard struct {
-	hashedShard
+	shardWrapper
 	pool util.WorkerPool
 }
 
@@ -63,8 +63,8 @@ func (e *StorageEngine) Evacuate(shardIDs []*shard.ID, ignoreErrors bool, faultH
 	shards := make([]pooledShard, 0, len(e.shards))
 	for id := range e.shards {
 		shards = append(shards, pooledShard{
-			hashedShard: hashedShard(e.shards[id]),
-			pool:        e.shardPools[id],
+			shardWrapper: e.shards[id],
+			pool:         e.shardPools[id],
 		})
 	}
 	e.mtx.RUnlock()
@@ -125,7 +125,7 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists := e.putToShard(shards[j].hashedShard, j, shards[j].pool, addr, getRes.Object(), nil, 0)
+					putDone, exists := e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, getRes.Object(), nil, 0)
 					if putDone || exists {
 						if putDone {
 							e.log.Debug("object is moved to another shard",

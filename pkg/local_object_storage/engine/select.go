@@ -16,42 +16,32 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
-	var (
-		err error
-		res []oid.Address
-	)
-
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e._select(cnr, filters)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, error) {
 	addrList := make([]oid.Address, 0)
 	uniqueMap := make(map[string]struct{})
-
-	var outError error
 
 	var shPrm shard.SelectPrm
 	shPrm.SetContainerID(cnr)
 	shPrm.SetFilters(filters)
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		res, err := sh.Select(shPrm)
 		if err != nil {
 			if errors.Is(err, objectcore.ErrInvalidSearchQuery) {
-				outError = err
-				return true
+				return addrList, err
 			}
 			e.reportShardError(sh, "could not select objects from shard", err)
-			return false
+			continue
 		}
 
 		for _, addr := range res.AddressList() { // save only unique values
@@ -60,11 +50,9 @@ func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid
 				addrList = append(addrList, addr)
 			}
 		}
+	}
 
-		return false
-	})
-
-	return addrList, outError
+	return addrList, nil
 }
 
 // List returns `limit` available physically storage object addresses in engine.
@@ -72,49 +60,40 @@ func (e *StorageEngine) _select(cnr cid.ID, filters object.SearchFilters) ([]oid
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
-	var (
-		err error
-		res []oid.Address
-	)
-
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListObjectsDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.list(limit)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) list(limit uint64) ([]oid.Address, error) {
 	addrList := make([]oid.Address, 0, limit)
 	uniqueMap := make(map[string]struct{})
 	ln := uint64(0)
 
 	// consider iterating over shuffled shards
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		res, err := sh.List() // consider limit result of shard iterator
 		if err != nil {
 			e.reportShardError(sh, "could not select objects from shard", err)
-		} else {
-			for _, addr := range res.AddressList() { // save only unique values
-				if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
-					uniqueMap[addr.EncodeToString()] = struct{}{}
-					addrList = append(addrList, addr)
+			continue
+		}
+		for _, addr := range res.AddressList() { // save only unique values
+			if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
+				uniqueMap[addr.EncodeToString()] = struct{}{}
+				addrList = append(addrList, addr)
 
-					ln++
-					if limit > 0 && ln >= limit {
-						return true
-					}
+				ln++
+				if limit > 0 && ln >= limit {
+					return addrList, nil
 				}
 			}
 		}
-
-		return false
-	})
+	}
 
 	return addrList, nil
 }

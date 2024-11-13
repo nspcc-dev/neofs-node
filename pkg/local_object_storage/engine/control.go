@@ -99,20 +99,6 @@ func (e *StorageEngine) close(releasePools bool) error {
 	return nil
 }
 
-// executes op if execution is not blocked, otherwise returns blocking error.
-//
-// Can be called concurrently with setBlockExecErr.
-func (e *StorageEngine) execIfNotBlocked(op func() error) error {
-	e.blockExec.mtx.RLock()
-	defer e.blockExec.mtx.RUnlock()
-
-	if e.blockExec.err != nil {
-		return e.blockExec.err
-	}
-
-	return op()
-}
-
 // sets the flag of blocking execution of all data operations according to err:
 //   - err != nil, then blocks the execution. If exec wasn't blocked, calls close method
 //     (if err == errClosed => additionally releases pools and does not allow to resume executions).
@@ -120,17 +106,16 @@ func (e *StorageEngine) execIfNotBlocked(op func() error) error {
 //
 // Can be called concurrently with exec. In this case it waits for all executions to complete.
 func (e *StorageEngine) setBlockExecErr(err error) error {
-	e.blockExec.mtx.Lock()
-	defer e.blockExec.mtx.Unlock()
+	e.blockMtx.Lock()
+	defer e.blockMtx.Unlock()
 
-	prevErr := e.blockExec.err
+	prevErr := e.blockErr
 
-	wasClosed := errors.Is(prevErr, errClosed)
-	if wasClosed {
+	if errors.Is(prevErr, errClosed) {
 		return errClosed
 	}
 
-	e.blockExec.err = err
+	e.blockErr = err
 
 	if err == nil {
 		if prevErr != nil { // block -> ok

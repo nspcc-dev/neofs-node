@@ -73,7 +73,7 @@ func (e *StorageEngine) TreeApply(d pilorama.CIDDescriptor, treeID string, m *pi
 func (e *StorageEngine) TreeGetByPath(cid cidSDK.ID, treeID string, attr string, path []string, latest bool) ([]pilorama.Node, error) {
 	var err error
 	var nodes []pilorama.Node
-	for _, sh := range e.sortShardsByWeight(cid) {
+	for _, sh := range e.sortedShards(cid) {
 		nodes, err = sh.TreeGetByPath(cid, treeID, attr, path, latest)
 		if err != nil {
 			if errors.Is(err, shard.ErrPiloramaDisabled) {
@@ -96,7 +96,7 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 	var err error
 	var m pilorama.Meta
 	var p uint64
-	for _, sh := range e.sortShardsByWeight(cid) {
+	for _, sh := range e.sortedShards(cid) {
 		m, p, err = sh.TreeGetMeta(cid, treeID, nodeID)
 		if err != nil {
 			if errors.Is(err, shard.ErrPiloramaDisabled) {
@@ -118,7 +118,7 @@ func (e *StorageEngine) TreeGetMeta(cid cidSDK.ID, treeID string, nodeID piloram
 func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pilorama.Node) ([]uint64, error) {
 	var err error
 	var nodes []uint64
-	for _, sh := range e.sortShardsByWeight(cid) {
+	for _, sh := range e.sortedShards(cid) {
 		nodes, err = sh.TreeGetChildren(cid, treeID, nodeID)
 		if err != nil {
 			if errors.Is(err, shard.ErrPiloramaDisabled) {
@@ -140,7 +140,7 @@ func (e *StorageEngine) TreeGetChildren(cid cidSDK.ID, treeID string, nodeID pil
 func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64) (pilorama.Move, error) {
 	var err error
 	var lm pilorama.Move
-	for _, sh := range e.sortShardsByWeight(cid) {
+	for _, sh := range e.sortedShards(cid) {
 		lm, err = sh.TreeGetOpLog(cid, treeID, height)
 		if err != nil {
 			if errors.Is(err, shard.ErrPiloramaDisabled) {
@@ -161,7 +161,7 @@ func (e *StorageEngine) TreeGetOpLog(cid cidSDK.ID, treeID string, height uint64
 // TreeDrop implements the pilorama.Forest interface.
 func (e *StorageEngine) TreeDrop(cid cidSDK.ID, treeID string) error {
 	var err error
-	for _, sh := range e.sortShardsByWeight(cid) {
+	for _, sh := range e.sortedShards(cid) {
 		err = sh.TreeDrop(cid, treeID)
 		if err != nil {
 			if errors.Is(err, shard.ErrPiloramaDisabled) {
@@ -213,8 +213,8 @@ func (e *StorageEngine) TreeExists(cid cidSDK.ID, treeID string) (bool, error) {
 	return err == nil, err
 }
 
-func (e *StorageEngine) getTreeShard(cid cidSDK.ID, treeID string) (int, []hashedShard, error) {
-	lst := e.sortShardsByWeight(cid)
+func (e *StorageEngine) getTreeShard(cid cidSDK.ID, treeID string) (int, []shardWrapper, error) {
+	lst := e.sortedShards(cid)
 	for i, sh := range lst {
 		exists, err := sh.TreeExists(cid, treeID)
 		if err != nil {

@@ -19,19 +19,17 @@ type ObjectStatus struct {
 // ObjectStatus returns the status of the object in the StorageEngine. It contains status of the object in all shards.
 func (e *StorageEngine) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	var res ObjectStatus
-	var err error
 
-	e.iterateOverSortedShards(address, func(_ int, sh hashedShard) (stop bool) {
-		var shardStatus shard.ObjectStatus
-		shardStatus, err = sh.ObjectStatus(address)
+	for _, sh := range e.sortedShards(address) {
+		shardStatus, err := sh.ObjectStatus(address)
 		id := *sh.ID()
-		if err == nil {
-			res.Shards = append(res.Shards, ObjectShardStatus{
-				ID:    id.String(),
-				Shard: shardStatus,
-			})
+		if err != nil {
+			return res, err
 		}
-		return err != nil
-	})
-	return res, err
+		res.Shards = append(res.Shards, ObjectShardStatus{
+			ID:    id.String(),
+			Shard: shardStatus,
+		})
+	}
+	return res, nil
 }

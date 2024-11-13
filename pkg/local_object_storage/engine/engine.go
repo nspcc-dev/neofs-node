@@ -30,11 +30,8 @@ type StorageEngine struct {
 	setModeCh chan setModeRequest
 	wg        sync.WaitGroup
 
-	blockExec struct {
-		mtx sync.RWMutex
-
-		err error
-	}
+	blockMtx sync.RWMutex
+	blockErr error
 }
 
 type shardWrapper struct {
@@ -137,7 +134,7 @@ func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err er
 // reportShardError checks that the amount of errors doesn't exceed the configured threshold.
 // If it does, shard is set to read-only mode.
 func (e *StorageEngine) reportShardError(
-	sh hashedShard,
+	sh shardWrapper,
 	msg string,
 	err error,
 	fields ...zap.Field) {

@@ -30,12 +30,13 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 		defer elapsed(e.metrics.AddPutDuration)()
 	}
 
-	return e.execIfNotBlocked(func() error {
-		return e.put(obj, objBin, hdrLen)
-	})
-}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-func (e *StorageEngine) put(obj *objectSDK.Object, objBin []byte, hdrLen int) error {
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+
 	addr := object.AddressOf(obj)
 
 	// In #1146 this check was parallelized, however, it became
@@ -45,33 +46,28 @@ func (e *StorageEngine) put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 		return err
 	}
 
-	finished := false
-
-	e.iterateOverSortedShards(addr, func(ind int, sh hashedShard) (stop bool) {
+	for i, sh := range e.sortedShards(addr) {
 		e.mtx.RLock()
 		pool, ok := e.shardPools[sh.ID().String()]
 		e.mtx.RUnlock()
 		if !ok {
 			// Shard was concurrently removed, skip.
-			return false
+			continue
 		}
 
-		putDone, exists := e.putToShard(sh, ind, pool, addr, obj, objBin, hdrLen)
-		finished = putDone || exists
-		return finished
-	})
-
-	if !finished {
-		err = errPutShard
+		putDone, exists := e.putToShard(sh, i, pool, addr, obj, objBin, hdrLen)
+		if putDone || exists {
+			return nil
+		}
 	}
 
-	return err
+	return errPutShard
 }
 
 // putToShard puts object to sh.
 // First return value is true iff put has been successfully done.
 // Second return value is true iff object already exists.
-func (e *StorageEngine) putToShard(sh hashedShard, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool) {
+func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool) {
 	var putSuccess, alreadyExists bool
 
 	exitCh := make(chan struct{})

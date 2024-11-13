@@ -27,9 +27,14 @@ func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, add
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddInhumeDuration)()
 	}
-	return e.execIfNotBlocked(func() error {
-		return e.inhume(addrs, false, &tombstone, tombExpiration)
-	})
+
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
+
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+	return e.inhume(addrs, false, &tombstone, tombExpiration)
 }
 
 func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
@@ -76,54 +81,52 @@ func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.A
 // every object that belongs to a provided container will be marked
 // as a removed one.
 func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
-	return e.execIfNotBlocked(func() error {
-		e.iterateOverUnsortedShards(func(sh hashedShard) bool {
-			err := sh.InhumeContainer(cID)
-			if err != nil {
-				e.log.Warn("inhuming container",
-					zap.Stringer("shard", sh.ID()),
-					zap.Error(err))
-			}
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-			return false
-		})
+	if e.blockErr != nil {
+		return e.blockErr
+	}
+	for _, sh := range e.unsortedShards() {
+		err := sh.InhumeContainer(cID)
+		if err != nil {
+			e.log.Warn("inhuming container",
+				zap.Stringer("shard", sh.ID()),
+				zap.Error(err))
+		}
+	}
 
-		return nil
-	})
+	return nil
 }
 
 // Returns ok if object was inhumed during this invocation or before.
 func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool, error) {
-	var errLocked apistatus.ObjectLocked
 	var existPrm shard.ExistsPrm
-	var retErr error
-	var ok bool
 	var shardWithObject string
 
 	var root bool
 	var children []oid.Address
 
 	// see if the object is root
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		existPrm.SetAddress(addr)
 		existPrm.IgnoreExpiration()
 
 		res, err := sh.Exists(existPrm)
 		if err != nil {
 			if shard.IsErrNotFound(err) {
-				return false
+				continue
 			}
 
 			if shard.IsErrRemoved(err) || shard.IsErrObjectExpired(err) {
 				// inhumed once - no need to be inhumed again
-				ok = true
-				return true
+				return true, nil
 			}
 
 			var siErr *objectSDK.SplitInfoError
 			if !errors.As(err, &siErr) {
 				e.reportShardError(sh, "could not check for presence in shard", err, zap.Stringer("addr", addr))
-				return
+				continue
 			}
 
 			root = true
@@ -134,7 +137,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 			linkID := siErr.SplitInfo().GetLink()
 			if linkID.IsZero() {
 				// keep searching for the link object
-				return false
+				continue
 			}
 
 			var linkAddr oid.Address
@@ -147,9 +150,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 				// nothing can be done here, so just returning ok
 				// to continue handling other addresses
-				ok = true
-
-				return true
+				return true, nil
 			}
 
 			// v2 split
@@ -161,9 +162,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 					// nothing can be done here, so just returning ok
 					// to continue handling other addresses
-					ok = true
-
-					return true
+					return true, nil
 				}
 
 				children = measuredObjsToAddresses(addr.Container(), link.Objects())
@@ -174,19 +173,13 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 			children = append(children, linkAddr)
 
-			return true
+			break
 		}
 
 		if res.Exists() {
 			shardWithObject = sh.ID().String()
-			return true
+			break
 		}
-
-		return false
-	})
-
-	if ok {
-		return true, nil
 	}
 
 	prm.SetTargets(append(children, addr)...)
@@ -197,7 +190,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 		_, err := sh.Inhume(prm)
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
-				e.reportShardError(hashedShard(sh), "could not inhume object in shard", err)
+				e.reportShardError(sh, "could not inhume object in shard", err)
 			}
 
 			return false, err
@@ -206,76 +199,65 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 		return true, nil
 	}
 
+	var (
+		ok     bool
+		retErr error
+	)
+
 	// has not found the object on any shard, so mark it as inhumed on the most probable one
-
-	e.iterateOverSortedShards(addr, func(_ int, sh hashedShard) (stop bool) {
-		defer func() {
-			// if object is root we continue since information about it
-			// can be presented in other shards
-			if root {
-				stop = false
-			}
-		}()
-
+	for _, sh := range e.sortedShards(addr) {
 		_, err := sh.Inhume(prm)
 		if err != nil {
+			var errLocked apistatus.ObjectLocked
+
 			switch {
 			case errors.As(err, &errLocked):
-				retErr = apistatus.ObjectLocked{}
-				return true
+				return false, apistatus.ObjectLocked{} // Always a final error if returned.
 			case errors.Is(err, shard.ErrLockObjectRemoval):
-				retErr = meta.ErrLockObjectRemoval
-				return true
+				return false, meta.ErrLockObjectRemoval // Always a final error if returned.
 			case errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, shard.ErrDegradedMode):
-				retErr = err
-				return true
+				if root {
+					retErr = err
+					continue
+				}
+				return false, err
 			}
 
 			e.reportShardError(sh, "could not inhume object in shard", err)
-			return false
+			continue
 		}
 
 		ok = true
-		return true
-	})
+		if !root {
+			break
+		}
+	}
 
 	return ok, retErr
 }
 
 // IsLocked checks whether an object is locked according to StorageEngine's state.
 func (e *StorageEngine) IsLocked(addr oid.Address) (bool, error) {
-	var res bool
-	var err error
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.isLocked(addr)
-		return err
-	})
-
-	return res, err
-}
-
-func (e *StorageEngine) isLocked(addr oid.Address) (bool, error) {
-	var locked bool
-	var err error
-	var outErr error
-
-	e.iterateOverUnsortedShards(func(h hashedShard) (stop bool) {
-		locked, err = h.Shard.IsLocked(addr)
-		if err != nil {
-			e.reportShardError(h, "can't check object's lockers", err, zap.Stringer("addr", addr))
-			outErr = err
-			return false
-		}
-
-		return locked
-	})
-
-	if locked {
-		return locked, nil
+	if e.blockErr != nil {
+		return false, e.blockErr
 	}
 
-	return locked, outErr
+	for _, sh := range e.unsortedShards() {
+		locked, err := sh.Shard.IsLocked(addr)
+		if err != nil {
+			e.reportShardError(sh, "can't check object's lockers", err, zap.Stringer("addr", addr))
+			return false, err
+		}
+
+		if locked {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
@@ -286,17 +268,15 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 }
 
 func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		sh.HandleExpiredLocks(lockers)
-		return false
-	})
+	}
 }
 
 func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		sh.HandleDeletedLocks(lockers)
-		return false
-	})
+	}
 }
 
 func measuredObjsToAddresses(cID cid.ID, mm []objectSDK.MeasuredObject) []oid.Address {

@@ -16,26 +16,20 @@ import (
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
-	var (
-		err  error
-		size uint64
-	)
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddEstimateContainerSizeDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		size, err = e.containerSize(cnr)
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return size, err
-}
+	if e.blockErr != nil {
+		return 0, e.blockErr
+	}
 
-func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
 	var size uint64
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		var csPrm shard.ContainerSizePrm
 		csPrm.SetContainerID(cnr)
 
@@ -43,13 +37,11 @@ func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", cnr))
-			return false
+			continue
 		}
 
 		size += csRes.Size()
-
-		return false
-	})
+	}
 
 	return size, nil
 }
@@ -58,30 +50,24 @@ func (e *StorageEngine) containerSize(cnr cid.ID) (uint64, error) {
 //
 // Returns an error if executions are blocked (see BlockExecution).
 func (e *StorageEngine) ListContainers() ([]cid.ID, error) {
-	var (
-		res []cid.ID
-		err error
-	)
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddListContainersDuration)()
 	}
 
-	err = e.execIfNotBlocked(func() error {
-		res, err = e.listContainers()
-		return err
-	})
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-	return res, err
-}
+	if e.blockErr != nil {
+		return nil, e.blockErr
+	}
 
-func (e *StorageEngine) listContainers() ([]cid.ID, error) {
 	uniqueIDs := make(map[cid.ID]struct{})
 
-	e.iterateOverUnsortedShards(func(sh hashedShard) (stop bool) {
+	for _, sh := range e.unsortedShards() {
 		res, err := sh.Shard.ListContainers(shard.ListContainersPrm{})
 		if err != nil {
 			e.reportShardError(sh, "can't get list of containers", err)
-			return false
+			continue
 		}
 
 		for _, cnr := range res.Containers() {
@@ -89,9 +75,7 @@ func (e *StorageEngine) listContainers() ([]cid.ID, error) {
 				uniqueIDs[cnr] = struct{}{}
 			}
 		}
-
-		return false
-	})
+	}
 
 	result := make([]cid.ID, 0, len(uniqueIDs))
 	for cnr := range uniqueIDs {
@@ -103,27 +87,30 @@ func (e *StorageEngine) listContainers() ([]cid.ID, error) {
 
 // DeleteContainer deletes container's objects that engine stores.
 func (e *StorageEngine) DeleteContainer(ctx context.Context, cID cid.ID) error {
-	return e.execIfNotBlocked(func() error {
-		var wg errgroup.Group
+	e.blockMtx.RLock()
+	defer e.blockMtx.RUnlock()
 
-		e.iterateOverUnsortedShards(func(hs hashedShard) bool {
-			wg.Go(func() error {
-				err := hs.Shard.DeleteContainer(ctx, cID)
-				if err != nil {
-					err = fmt.Errorf("container cleanup in %s shard: %w", hs.ID(), err)
-					e.log.Warn("container cleanup", zap.Error(err))
+	if e.blockErr != nil {
+		return e.blockErr
+	}
 
-					return err
-				}
+	var wg errgroup.Group
 
-				return nil
-			})
+	for _, sh := range e.unsortedShards() {
+		wg.Go(func() error {
+			err := sh.Shard.DeleteContainer(ctx, cID)
+			if err != nil {
+				err = fmt.Errorf("container cleanup in %s shard: %w", sh.ID(), err)
+				e.log.Warn("container cleanup", zap.Error(err))
 
-			return false
+				return err
+			}
+
+			return nil
 		})
+	}
 
-		return wg.Wait()
-	})
+	return wg.Wait()
 }
 
 func (e *StorageEngine) deleteNotFoundContainers() error {
