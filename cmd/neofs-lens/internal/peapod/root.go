@@ -27,7 +27,11 @@ func init() {
 }
 
 // open and returns read-only peapod.Peapod located in vPath.
-func openPeapod() (*peapod.Peapod, error) {
+func openPeapod() (
+	// nolint:staticcheck
+	*peapod.Peapod,
+	error,
+) {
 	// interval prm doesn't matter for read-only usage, but must be positive
 	ppd := peapod.New(vPath, 0400, 1)
 	var compressCfg compression.Config

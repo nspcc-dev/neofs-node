@@ -39,6 +39,8 @@ type batch struct {
 // Peapod provides storage for relatively small NeoFS binary object (peas).
 // Peapod is a single low-level key/value database optimized to work with big
 // number of stored units.
+//
+// Deprecated: Use fstree.FSTree instead.
 type Peapod struct {
 	path string
 	perm fs.FileMode
