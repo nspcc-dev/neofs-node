@@ -19,6 +19,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Docs files for cli commands to the `docs/cli-commands` folder (#2983)
 - `logger.encoding` config option (#2999)
 - Reloading morph endpoints with SIGHUP (#2998)
+- New `peapod-to-fstree` tool providing peapod-to-fstree data migration (#3013)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
@@ -43,6 +44,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Reject configuration with unknown fields (#2981)
 - Log sampling is disabled by default now (#3011)
 - EACL is no longer considered for system role (#2972)
+- Deprecate peapod substorage (#3013)
 
 ### Removed
 - Support for node.key configuration (#2959)
@@ -60,6 +62,22 @@ Binary keys are no longer supported by storage node, NEP-6 wallet support was
 introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
 notes) if you've not done it previously.
+
+To migrate data from Peapods to FSTree:
+```shell
+$ peapod-to-fstree -config </path/to/storage/node/config>
+```
+For any shard, the data from the configured Peapod is copied into
+a FSTree that must be already configured.
+Notice that peapod DB is not deleted during migration. Configuration is also
+updated, for example, `/etc/neofs/config.yaml` -> `/etc/neofs/config.yaml.migrated`.
+WARN: carefully review the updated config before using it in the application!
+
+Now there is an FSTree in which files of any size will be more efficient and easier to store.
+We support both `fstree` and `peapod` sub-storages,
+but `peapod` can be removed in future versions. We recommend using `fstree`.
+If you want to use only `fstree` and storage node already stores some data,
+don't forget to make data migration described above.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 
