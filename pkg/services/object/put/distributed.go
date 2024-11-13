@@ -198,14 +198,38 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
 	if !node.local && t.relay != nil {
-		return t.relay(node)
+		err := t.relay(node)
+
+		t.log.Info("redirected PUT request",
+			zap.Stringer("object", object.AddressOf(t.obj)),
+			zap.Stringers("node", node.info.Addresses()),
+			zap.Error(err),
+		)
+
+		return err
 	}
+
+	var err error
+	defer func() {
+		var nodeDescription zap.Field
+		if node.local {
+			nodeDescription = zap.String("node", "local")
+		} else {
+			nodeDescription = zap.Stringers("node", node.info.Addresses())
+		}
+
+		t.log.Info("object PUT operation in object service",
+			zap.Stringer("object", object.AddressOf(t.obj)),
+			nodeDescription,
+			zap.Error(err),
+		)
+	}()
 
 	target := t.nodeTargetInitializer(node)
 
-	if err := target.WriteObject(t.obj, t.objMeta, t.encodedObject); err != nil {
+	if err = target.WriteObject(t.obj, t.objMeta, t.encodedObject); err != nil {
 		return fmt.Errorf("could not write header: %w", err)
-	} else if _, err := target.Close(); err != nil {
+	} else if _, err = target.Close(); err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
 	return nil
@@ -214,6 +238,8 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, error) {
 	id, _ := t.obj.ID()
 	var resErr atomic.Value
+
+	var putCounter atomic.Int64
 
 	for {
 		addrs := t.traverser.Next()
@@ -261,6 +287,7 @@ func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, er
 				}
 
 				t.traverser.SubmitSuccess()
+				putCounter.Add(1)
 			}); err != nil {
 				wg.Done()
 
@@ -278,8 +305,21 @@ func (t *distributedTarget) iteratePlacement(f func(nodeDesc) error) (oid.ID, er
 
 		err.singleErr, _ = resErr.Load().(error)
 
+		t.log.Info("incomplete object PUT",
+			zap.Stringer("obj", object.AddressOf(t.obj)),
+			zap.Bool("localOnly", t.localOnly),
+			zap.Int64("successful puts", putCounter.Load()),
+			zap.Error(err.singleErr),
+		)
+
 		return oid.ID{}, err
 	}
+
+	t.log.Info("successful object put",
+		zap.Stringer("obj", object.AddressOf(t.obj)),
+		zap.Int64("successful puts", putCounter.Load()),
+		zap.Bool("localOnly", t.localOnly),
+	)
 
 	// perform additional container broadcast if needed
 	if t.traversalState.submitPrimaryPlacementFinish() {
