@@ -129,6 +129,22 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		return nil
 	}
 
+	var eaclRole eaclSDK.Role
+	switch op := reqInfo.RequestRole(); op {
+	default:
+		eaclRole = eaclSDK.Role(op)
+	case acl.RoleOwner:
+		eaclRole = eaclSDK.RoleUser
+	case acl.RoleInnerRing, acl.RoleContainer:
+		eaclRole = eaclSDK.RoleSystem
+	case acl.RoleOthers:
+		eaclRole = eaclSDK.RoleOthers
+	}
+
+	if eaclRole == eaclSDK.RoleSystem {
+		return nil // Controlled by BasicACL, EACL can not contain any rules for system role since 0.38.0.
+	}
+
 	// if bearer token is not allowed, then ignore it
 	if !basicACL.AllowedBearerRules(reqInfo.Operation()) {
 		reqInfo.CleanBearer()
@@ -180,18 +196,6 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	hdrSrc, err := eaclV2.NewMessageHeaderSource(hdrSrcOpts...)
 	if err != nil {
 		return fmt.Errorf("can't parse headers: %w", err)
-	}
-
-	var eaclRole eaclSDK.Role
-	switch op := reqInfo.RequestRole(); op {
-	default:
-		eaclRole = eaclSDK.Role(op)
-	case acl.RoleOwner:
-		eaclRole = eaclSDK.RoleUser
-	case acl.RoleInnerRing, acl.RoleContainer:
-		eaclRole = eaclSDK.RoleSystem
-	case acl.RoleOthers:
-		eaclRole = eaclSDK.RoleOthers
 	}
 
 	vu := new(eaclSDK.ValidationUnit).
