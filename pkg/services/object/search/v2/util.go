@@ -11,12 +11,14 @@ import (
 	rpcclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -116,6 +118,10 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 				}
 
+				if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+					return nil, fmt.Errorf("remote node response: %w", err)
+				}
+
 				chunk := resp.GetBody().GetIDList()
 				var id oid.ID
 
@@ -137,6 +143,14 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	p.WithSearchFilters(object.NewSearchFiltersFromV2(body.GetFilters()))
 
 	return p, nil
+}
+
+func checkStatus(stV2 *status.Status) error {
+	if !status.IsSuccess(stV2.Code()) {
+		return apistatus.ErrorFromV2(stV2)
+	}
+
+	return nil
 }
 
 func groupAddressRequestForwarder(f func(network.Address, client.MultiAddressClient, []byte) ([]oid.ID, error)) searchsvc.RequestForwarder {
