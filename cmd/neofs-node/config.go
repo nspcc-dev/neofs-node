@@ -890,7 +890,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 func writeSystemAttributes(c *cfg) error {
 	// `Version` attribute
 
-	c.cfgNodeInfo.localInfo.SetAttribute("Version", misc.Version)
+	c.cfgNodeInfo.localInfo.SetVersion(misc.Version)
 
 	// `Capacity` attribute
 
