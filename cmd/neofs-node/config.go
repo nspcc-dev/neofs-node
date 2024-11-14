@@ -73,6 +73,11 @@ const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
 // for each contract listener.
 const notificationHandlerPoolSize = 10
 
+const (
+	metricName   = "prometheus"
+	profilerName = "pprof"
+)
+
 // applicationConfiguration reads and stores component-specific configuration
 // values. It should not store any application helpers structs (pointers to shared
 // structs).
@@ -291,7 +296,7 @@ type internals struct {
 	closers []func()
 	// services that are useful for debug (e.g. when a regular closer does not
 	// close), must be close at the very end of application life cycle
-	veryLastClosers []func()
+	veryLastClosers map[string]func()
 
 	apiVersion   version.Version
 	healthStatus atomic.Int32
@@ -643,6 +648,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
 		c.basics.networkState.metrics = c.metricsCollector
 	}
+
+	c.veryLastClosers = make(map[string]func())
 
 	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
 	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections

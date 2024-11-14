@@ -55,9 +55,9 @@ func main() {
 
 	c := initCfg(appCfg)
 
-	preRunAndLog(c, "prometheus", initMetrics(c))
+	preRunAndLog(c, metricName, initMetrics(c))
 
-	preRunAndLog(c, "pprof", initProfiler(c))
+	preRunAndLog(c, profilerName, initProfiler(c))
 
 	initApp(c)
 
@@ -97,7 +97,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		})
 	}()
 
-	c.veryLastClosers = append(c.veryLastClosers, func() {
+	c.veryLastClosers[name] = func() {
 		c.log.Debug(fmt.Sprintf("shutting down %s service", name))
 
 		err := srv.Shutdown()
@@ -108,7 +108,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		}
 
 		c.log.Debug(fmt.Sprintf("%s service has been stopped", name))
-	})
+	}
 }
 
 func initAndLog(c *cfg, name string, initializer func(*cfg)) {
