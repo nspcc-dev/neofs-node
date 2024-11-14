@@ -91,7 +91,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 	c.log.Info(fmt.Sprintf("%s service is initialized", name))
 	c.wg.Add(1)
 	go func() {
-		runAndLog(c, name, true, func(c *cfg) {
+		runAndLog(c, name, false, func(c *cfg) {
 			fatalOnErr(srv.Serve(ln))
 			c.wg.Done()
 		})
