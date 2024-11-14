@@ -9,11 +9,13 @@ import (
 	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 )
 
 type streamer struct {
@@ -178,8 +180,21 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 			err = fmt.Errorf("response verification failed: %w", err)
 		}
 
+		err = checkStatus(resp.GetMetaHeader().GetStatus())
+		if err != nil {
+			err = fmt.Errorf("remote node response: %w", err)
+		}
+
 		return
 	})
 
 	return firstErr
+}
+
+func checkStatus(stV2 *status.Status) error {
+	if !status.IsSuccess(stV2.Code()) {
+		return apistatus.ErrorFromV2(stV2)
+	}
+
+	return nil
 }
