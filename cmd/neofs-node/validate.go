@@ -53,9 +53,9 @@ func validateConfig(c *config.Config) error {
 		}
 
 		blobstor := sc.BlobStor().Storages()
-		if len(blobstor) != 2 {
+		if len(blobstor) != 1 && len(blobstor) != 2 {
 			// TODO (@fyrcik): remove after #1522
-			return fmt.Errorf("blobstor section must have 2 components, got: %d", len(blobstor))
+			return fmt.Errorf("blobstor section must have 1 or 2 components, got: %d", len(blobstor))
 		}
 		for i := range blobstor {
 			switch blobstor[i].Type() {

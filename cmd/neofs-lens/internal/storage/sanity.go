@@ -41,7 +41,8 @@ func init() {
 type storageShard struct {
 	m   *meta.DB
 	fsT *fstree.FSTree
-	p   *peapod.Peapod
+	// nolint:staticcheck
+	p *peapod.Peapod
 }
 
 func sanityCheck(cmd *cobra.Command, _ []string) error {
