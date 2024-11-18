@@ -19,10 +19,13 @@ func (s *streamer) toInitPrm(part *objectV2.PutObjectPartInit, req *objectV2.Put
 		return nil, err
 	}
 
+	var obj object.Object
+	err = obj.ReadFromV2(*oV2)
+	if err != nil {
+		return nil, err
+	}
 	return new(putsvc.PutInitPrm).
-		WithObject(
-			object.NewFromV2(oV2),
-		).
+		WithObject(&obj).
 		WithRelay(s.relayRequest).
 		WithCommonPrm(commonPrm).
 		WithCopiesNumber(part.GetCopiesNumber()), nil

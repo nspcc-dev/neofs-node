@@ -144,7 +144,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					oV2.SetObjectID(v.GetObjectID())
 					oV2.SetHeader(v.GetHeader())
 
-					dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+					var obj object.Object
+					err := obj.ReadFromV2(*oV2)
+					if err != nil {
+						return err
+					}
+					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 
 					break
 				}
@@ -158,7 +163,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					parentObjectV2.SetSignature(splitHeader.GetParentSignature())
 					parentObjectV2.SetHeader(parentHeader)
 
-					dst.objectHeaders = headersFromObject(object.NewFromV2(&parentObjectV2), h.cnr, h.obj)
+					var obj object.Object
+					err := obj.ReadFromV2(parentObjectV2)
+					if err != nil {
+						return err
+					}
+					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 				} else {
 					// middle object, parent header should
 					// be received via the first object
@@ -209,7 +219,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 				oV2.SetObjectID(v.GetObjectID())
 				oV2.SetHeader(v.GetHeader())
 
-				dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+				var obj object.Object
+				err := obj.ReadFromV2(*oV2)
+				if err != nil {
+					return err
+				}
+				dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 			}
 		case *objectV2.HeadResponse:
 			oV2 := new(objectV2.Object)
@@ -235,7 +250,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 
 			oV2.SetHeader(hdr)
 
-			dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+			var obj object.Object
+			err := obj.ReadFromV2(*oV2)
+			if err != nil {
+				return err
+			}
+			dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 		}
 	}
 
