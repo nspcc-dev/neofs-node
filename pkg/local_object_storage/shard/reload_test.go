@@ -14,7 +14,6 @@ import (
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
-	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -128,11 +127,9 @@ func newObject(t testing.TB) *objectSDK.Object {
 	ver := version.Current()
 
 	x.SetID(oidtest.ID())
-	tok := sessiontest.Object()
-	x.SetSessionToken(&tok)
+	owner := usertest.ID()
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	owner := usertest.ID()
 	x.SetOwnerID(&owner)
 	x.SetContainerID(cidtest.ID())
 	x.SetType(objectSDK.TypeRegular)

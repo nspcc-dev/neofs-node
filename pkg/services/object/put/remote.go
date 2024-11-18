@@ -172,7 +172,7 @@ func (s *RemoteSender) ReplicateObjectToNode(ctx context.Context, id oid.ID, src
 		return fmt.Errorf("init NeoFS API client of the remote node: %w", err)
 	}
 
-	err = c.ReplicateObject(ctx, id, src, (*neofsecdsa.Signer)(key))
+	_, err = c.ReplicateObject(ctx, id, src, (*neofsecdsa.Signer)(key), false)
 	if err != nil {
 		return fmt.Errorf("copy object using NeoFS API client of the remote node: %w", err)
 	}

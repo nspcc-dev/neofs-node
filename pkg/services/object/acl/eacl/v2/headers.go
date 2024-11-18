@@ -154,7 +154,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						panic(err)
 					}
 
-					dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+					var obj object.Object
+					err := obj.ReadFromV2(*oV2)
+					if err != nil {
+						return err
+					}
+					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 
 					break
 				}
@@ -173,7 +178,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						panic(err)
 					}
 
-					dst.objectHeaders = headersFromObject(object.NewFromV2(&parentObjectV2), h.cnr, h.obj)
+					var obj object.Object
+					err := obj.ReadFromV2(parentObjectV2)
+					if err != nil {
+						return err
+					}
+					dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 				} else {
 					// middle object, parent header should
 					// be received via the first object
@@ -239,7 +249,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					panic(err)
 				}
 
-				dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+				var obj object.Object
+				err := obj.ReadFromV2(*oV2)
+				if err != nil {
+					return err
+				}
+				dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 			}
 		case *protoobject.HeadResponse:
 			var hdr *protoobject.Header
@@ -277,7 +292,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 				panic(err)
 			}
 
-			dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
+			var obj object.Object
+			err := obj.ReadFromV2(*oV2)
+			if err != nil {
+				return err
+			}
+			dst.objectHeaders = headersFromObject(&obj, h.cnr, h.obj)
 		}
 	}
 

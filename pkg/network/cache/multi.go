@@ -254,10 +254,12 @@ func (x *multiClient) ObjectPutInit(ctx context.Context, header objectSDK.Object
 	return
 }
 
-func (x *multiClient) ReplicateObject(ctx context.Context, id oid.ID, src io.ReadSeeker, signer neofscrypto.Signer) error {
+func (x *multiClient) ReplicateObject(ctx context.Context, id oid.ID, src io.ReadSeeker, signer neofscrypto.Signer, signedReplication bool) (*neofscrypto.Signature, error) {
 	var errSeek error
+	var signature *neofscrypto.Signature
 	err := x.iterateClients(ctx, func(c clientcore.Client) error {
-		err := c.ReplicateObject(ctx, id, src, signer)
+		var err error
+		signature, err = c.ReplicateObject(ctx, id, src, signer, signedReplication)
 		if err != nil {
 			_, errSeek = src.Seek(0, io.SeekStart)
 			if errSeek != nil {
@@ -267,9 +269,9 @@ func (x *multiClient) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 		return err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return errSeek
+	return signature, errSeek
 }
 
 func (x *multiClient) ContainerAnnounceUsedSpace(ctx context.Context, announcements []container.SizeEstimation, prm client.PrmAnnounceSpace) error {

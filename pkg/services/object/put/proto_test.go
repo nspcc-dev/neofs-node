@@ -53,7 +53,8 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	// check object
 	var objv2 objectv2.Object
 	require.NoError(t, objv2.FromGRPCMessage(req.Object))
-	obj2 := *object.NewFromV2(&objv2)
+	var obj2 object.Object
+	require.NoError(t, obj2.ReadFromV2(objv2))
 	require.Equal(t, obj, obj2)
 
 	// check meta signature flag

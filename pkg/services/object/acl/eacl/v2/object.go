@@ -7,6 +7,7 @@ import (
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 type sysObjHdr struct {
@@ -33,6 +34,10 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 
 	res := make([]eaclSDK.Header, 0, count)
 	for ; obj != nil; obj = obj.Parent() {
+		var ver = obj.Version()
+		if ver == nil {
+			ver = &version.Version{}
+		}
 		res = append(res,
 			cidHeader(cnr),
 			// creation epoch
@@ -48,7 +53,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 			// object version
 			sysObjHdr{
 				k: eaclSDK.FilterObjectVersion,
-				v: obj.Version().String(),
+				v: ver.String(),
 			},
 			// object type
 			sysObjHdr{

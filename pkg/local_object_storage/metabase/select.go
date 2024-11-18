@@ -202,11 +202,11 @@ func (db *DB) selectFastFilter(
 }
 
 var mBucketNaming = map[string][]func(cid.ID, []byte) []byte{
-	object.TypeRegular.EncodeToString():      {primaryBucketName, parentBucketName},
-	object.TypeTombstone.EncodeToString():    {tombstoneBucketName},
-	object.TypeStorageGroup.EncodeToString(): {storageGroupBucketName},
-	object.TypeLock.EncodeToString():         {bucketNameLockers},
-	object.TypeLink.EncodeToString():         {linkObjectsBucketName},
+	object.TypeRegular.String():      {primaryBucketName, parentBucketName},
+	object.TypeTombstone.String():    {tombstoneBucketName},
+	object.TypeStorageGroup.String(): {storageGroupBucketName},
+	object.TypeLock.String():         {bucketNameLockers},
+	object.TypeLink.String():         {linkObjectsBucketName},
 }
 
 func allBucketNames(cnr cid.ID) (names [][]byte) {
