@@ -78,12 +78,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 				zap.String("after", prettyKeys(newInnerRing)),
 			)
 
-			updPrm := client.UpdateAlphabetListPrm{}
-
-			updPrm.SetList(newInnerRing)
-			updPrm.SetHash(txHash)
-
-			err = gp.morphClient.UpdateNeoFSAlphabetList(updPrm)
+			err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing, txHash)
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",

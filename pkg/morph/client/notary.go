@@ -297,34 +297,17 @@ func (c *Client) UpdateNotaryList(prm UpdateNotaryListPrm) error {
 	)
 }
 
-// UpdateAlphabetListPrm groups parameters of UpdateNeoFSAlphabetList operation.
-type UpdateAlphabetListPrm struct {
-	list keys.PublicKeys
-	hash util.Uint256
-}
-
-// SetList sets a list of the new alphabet role keys.
-func (u *UpdateAlphabetListPrm) SetList(list keys.PublicKeys) {
-	u.list = list
-}
-
-// SetHash sets hash of the transaction that led to the update
-// of the alphabet role in the designate contract.
-func (u *UpdateAlphabetListPrm) SetHash(hash util.Uint256) {
-	u.hash = hash
-}
-
 // UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
 // As for sidechain list should contain all inner ring nodes.
 // Requires committee multi signature.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
-func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
+func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uint256) error {
 	if c.notary == nil {
 		panic(notaryNotEnabledPanicMsg)
 	}
 
-	nonce, vub, err := c.CalculateNonceAndVUB(prm.hash)
+	nonce, vub, err := c.CalculateNonceAndVUB(txHash)
 	if err != nil {
 		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
 	}
@@ -334,7 +317,7 @@ func (c *Client) UpdateNeoFSAlphabetList(prm UpdateAlphabetListPrm) error {
 		nonce,
 		vub,
 		noderoles.NeoFSAlphabet,
-		prm.list,
+		alphas,
 	)
 }
 
