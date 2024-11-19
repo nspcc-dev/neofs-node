@@ -254,9 +254,7 @@ func (b basicIncomeSettlementDeps) Balance(id user.ID) (*big.Int, error) {
 }
 
 func (s *auditSettlementCalculator) ProcessAuditSettlements(epoch uint64) {
-	(*audit.Calculator)(s).Calculate(&audit.CalculatePrm{
-		Epoch: epoch,
-	})
+	(*audit.Calculator)(s).Calculate(epoch)
 }
 
 func (b *basicSettlementConstructor) CreateContext(epoch uint64) (*basic.IncomeSettlementContext, error) {

@@ -16,13 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// CalculatePrm groups the required parameters of
-// Calculator.CalculateForEpoch call.
-type CalculatePrm struct {
-	// Number of epoch to perform the calculation.
-	Epoch uint64
-}
-
 type singleResultCtx struct {
 	eAudit uint64
 
@@ -50,12 +43,12 @@ var (
 
 // Calculate calculates payments for audit results in a specific epoch of the network.
 // Wraps the results in a money transfer transaction and sends it to the network.
-func (c *Calculator) Calculate(p *CalculatePrm) {
+func (c *Calculator) Calculate(epoch uint64) {
 	log := c.opts.log.With(
-		zap.Uint64("current epoch", p.Epoch),
+		zap.Uint64("current epoch", epoch),
 	)
 
-	if p.Epoch == 0 {
+	if epoch == 0 {
 		log.Info("settlements are ignored for zero epoch")
 		return
 	}
@@ -63,7 +56,7 @@ func (c *Calculator) Calculate(p *CalculatePrm) {
 	log.Info("calculate audit settlements")
 
 	log.Debug("getting results for the previous epoch")
-	prevEpoch := p.Epoch - 1
+	prevEpoch := epoch - 1
 
 	auditResults, err := c.prm.ResultStorage.AuditResultsForEpoch(prevEpoch)
 	if err != nil {
