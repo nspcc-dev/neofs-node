@@ -46,30 +46,11 @@ func (x *Client) Cheque(p ChequePrm) error {
 	return x.client.Invoke(prm)
 }
 
-// AlphabetUpdatePrm groups parameters of AlphabetUpdate operation.
-type AlphabetUpdatePrm struct {
-	id   []byte
-	pubs keys.PublicKeys
-
-	client.InvokePrmOptional
-}
-
-// SetID sets update ID.
-func (a *AlphabetUpdatePrm) SetID(id []byte) {
-	a.id = id
-}
-
-// SetPubs sets new alphabet public keys.
-func (a *AlphabetUpdatePrm) SetPubs(pubs keys.PublicKeys) {
-	a.pubs = pubs
-}
-
 // AlphabetUpdate update list of alphabet nodes.
-func (x *Client) AlphabetUpdate(p AlphabetUpdatePrm) error {
+func (x *Client) AlphabetUpdate(id []byte, pubs keys.PublicKeys) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(alphabetUpdateMethod)
-	prm.SetArgs(p.id, p.pubs)
-	prm.InvokePrmOptional = p.InvokePrmOptional
+	prm.SetArgs(id, pubs)
 
 	return x.client.Invoke(prm)
 }

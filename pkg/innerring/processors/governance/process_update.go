@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"go.uber.org/zap"
 )
 
@@ -96,12 +95,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	// 4. Update NeoFS contract in the mainnet.
 	id := binary.LittleEndian.AppendUint64([]byte(alphabetUpdateIDPrefix), gp.epochState.EpochCounter())
 
-	prm := neofscontract.AlphabetUpdatePrm{}
-
-	prm.SetID(id)
-	prm.SetPubs(newAlphabet)
-
-	err = gp.neofsClient.AlphabetUpdate(prm)
+	err = gp.neofsClient.AlphabetUpdate(id, newAlphabet)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
 			zap.String("error", err.Error()))
