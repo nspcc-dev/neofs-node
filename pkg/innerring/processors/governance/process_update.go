@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"go.uber.org/zap"
 )
@@ -88,13 +87,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	// 3. Update notary role in the sidechain.
-
-	updPrm := client.UpdateNotaryListPrm{}
-
-	updPrm.SetList(newAlphabet)
-	updPrm.SetHash(txHash)
-
-	err = gp.morphClient.UpdateNotaryList(updPrm)
+	err = gp.morphClient.UpdateNotaryList(newAlphabet, txHash)
 	if err != nil {
 		gp.log.Error("can't update list of notary nodes in side chain",
 			zap.String("error", err.Error()))
