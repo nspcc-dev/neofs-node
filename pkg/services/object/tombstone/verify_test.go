@@ -220,7 +220,7 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, v.VerifyTomb(ctx, cidtest.ID(), tomb))
+		require.NoError(t, v.VerifyTomb(ctx, addr.Container(), tomb))
 	})
 }
 
@@ -246,7 +246,7 @@ func childrenResMap(cnr cid.ID, heads []object.Object) map[oid.Address]headRes {
 }
 
 func objectsToOIDs(oo []object.Object) []oid.ID {
-	res := make([]oid.ID, len(oo))
+	res := make([]oid.ID, 0, len(oo))
 	for _, obj := range oo {
 		oID := obj.GetID()
 		res = append(res, oID)
