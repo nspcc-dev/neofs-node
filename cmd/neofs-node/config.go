@@ -874,6 +874,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			for _, optsWithID := range c.shardOpts() {
 				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}
+			rcfg.SetShardPoolSize(c.engine.shardPoolSize)
 
 			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
 			if err != nil {
