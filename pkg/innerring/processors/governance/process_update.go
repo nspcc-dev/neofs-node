@@ -53,13 +53,8 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		zap.String("new_alphabet", prettyKeys(newAlphabet)),
 	)
 
-	votePrm := VoteValidatorPrm{
-		Validators: newAlphabet,
-		Hash:       &txHash,
-	}
-
 	// 1. Vote to sidechain committee via alphabet contracts.
-	err = gp.voter.VoteForSidechainValidator(votePrm)
+	err = gp.voter.VoteForSidechainValidator(newAlphabet, &txHash)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
 			zap.String("error", err.Error()))

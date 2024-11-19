@@ -28,16 +28,9 @@ type (
 	}
 )
 
-// VoteValidatorPrm groups parameters of the VoteForSidechainValidator
-// operation.
-type VoteValidatorPrm struct {
-	Validators keys.PublicKeys
-	Hash       *util.Uint256 // hash of the transaction that triggered voting
-}
-
 // Voter is a callback interface for alphabet contract voting.
 type Voter interface {
-	VoteForSidechainValidator(VoteValidatorPrm) error
+	VoteForSidechainValidator(keys.PublicKeys, *util.Uint256) error
 }
 
 type (
