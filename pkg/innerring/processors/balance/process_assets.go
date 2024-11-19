@@ -1,7 +1,6 @@
 package balance
 
 import (
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	balanceEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/balance"
 	"go.uber.org/zap"
 )
@@ -14,15 +13,7 @@ func (bp *Processor) processLock(lock *balanceEvent.Lock) {
 		return
 	}
 
-	prm := neofscontract.ChequePrm{}
-
-	prm.SetID(lock.ID())
-	prm.SetUser(lock.User())
-	prm.SetAmount(bp.converter.ToFixed8(lock.Amount()))
-	prm.SetLock(lock.LockAccount())
-	prm.SetHash(lock.TxHash())
-
-	err := bp.neofsClient.Cheque(prm)
+	err := bp.neofsClient.Cheque(lock.TxHash(), lock.ID(), lock.User(), bp.converter.ToFixed8(lock.Amount()), lock.LockAccount())
 	if err != nil {
 		bp.log.Error("can't send lock asset tx", zap.Error(err))
 	}

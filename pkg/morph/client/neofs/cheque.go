@@ -6,42 +6,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
 
-// ChequePrm groups parameters of Cheque operation.
-type ChequePrm struct {
-	id     []byte
-	user   util.Uint160
-	amount int64
-	lock   util.Uint160
-
-	client.InvokePrmOptional
-}
-
-// SetID sets ID of the cheque.
-func (c *ChequePrm) SetID(id []byte) {
-	c.id = id
-}
-
-// SetUser sets user.
-func (c *ChequePrm) SetUser(user util.Uint160) {
-	c.user = user
-}
-
-// SetAmount sets amount.
-func (c *ChequePrm) SetAmount(amount int64) {
-	c.amount = amount
-}
-
-// SetLock sets lock.
-func (c *ChequePrm) SetLock(lock util.Uint160) {
-	c.lock = lock
-}
-
 // Cheque invokes `cheque` method of NeoFS contract.
-func (x *Client) Cheque(p ChequePrm) error {
+func (x *Client) Cheque(txHash util.Uint256, id []byte, user util.Uint160, amount int64, lock util.Uint160) error {
 	prm := client.InvokePrm{}
 	prm.SetMethod(chequeMethod)
-	prm.SetArgs(p.id, p.user, p.amount, p.lock)
-	prm.InvokePrmOptional = p.InvokePrmOptional
+	prm.SetArgs(id, user, amount, lock)
+	prm.SetHash(txHash)
 
 	return x.client.Invoke(prm)
 }
