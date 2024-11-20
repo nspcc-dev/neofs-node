@@ -7,7 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -79,10 +78,7 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 	var count int
 
 	if s.hasWriteCache() {
-		var iterPrm writecache.IterationPrm
-
-		iterPrm.WithIgnoreErrors(prm.ignoreErrors)
-		iterPrm.WithHandler(func(_ oid.Address, data []byte) error {
+		var iterHandler = func(_ oid.Address, data []byte) error {
 			var size [4]byte
 			binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 			if _, err := w.Write(size[:]); err != nil {
@@ -95,9 +91,9 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 
 			count++
 			return nil
-		})
+		}
 
-		err := s.writeCache.Iterate(iterPrm)
+		err := s.writeCache.Iterate(iterHandler, prm.ignoreErrors)
 		if err != nil {
 			return DumpRes{}, err
 		}

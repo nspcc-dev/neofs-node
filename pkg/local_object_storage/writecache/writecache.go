@@ -33,7 +33,7 @@ type Cache interface {
 	// Returns apistatus.ObjectNotFound if object is missing in the Cache.
 	// Returns ErrReadOnly if the Cache is currently in the read-only mode.
 	Delete(oid.Address) error
-	Iterate(IterationPrm) error
+	Iterate(func(oid.Address, []byte) error, bool) error
 	Put(common.PutPrm) (common.PutRes, error)
 	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
