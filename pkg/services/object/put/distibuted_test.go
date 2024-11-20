@@ -78,6 +78,7 @@ func (x *testWorkerPool) Submit(f func()) error {
 	go f()
 	return nil
 }
+func (x *testWorkerPool) Tune(_ int) {}
 
 func TestIterateNodesForObject(t *testing.T) {
 	// nodes: [A B C] [D C E F G] [B H I J]
