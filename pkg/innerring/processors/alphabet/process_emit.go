@@ -29,7 +29,7 @@ func (ap *Processor) processEmit() {
 	// there is no signature collecting, so we don't need extra fee
 	err := ap.morphClient.Invoke(contract, 0, emitMethod)
 	if err != nil {
-		ap.log.Warn("can't invoke alphabet emit method", zap.String("error", err.Error()))
+		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))
 
 		return
 	}
@@ -43,7 +43,7 @@ func (ap *Processor) processEmit() {
 	networkMap, err := ap.netmapClient.NetMap()
 	if err != nil {
 		ap.log.Warn("can't get netmap snapshot to emit gas to storage nodes",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -65,7 +65,7 @@ func (ap *Processor) processEmit() {
 		key, err := keys.NewPublicKeyFromBytes(keyBytes, elliptic.P256())
 		if err != nil {
 			ap.log.Warn("can't parse node public key",
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -75,7 +75,7 @@ func (ap *Processor) processEmit() {
 			ap.log.Warn("can't transfer gas",
 				zap.String("receiver", key.Address()),
 				zap.Int64("amount", int64(gasPerNode)),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			continue

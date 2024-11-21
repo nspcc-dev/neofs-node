@@ -67,7 +67,7 @@ func initLocalStorage(c *cfg) {
 		err := ls.Close()
 		if err != nil {
 			c.log.Info("storage engine closing failure",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		} else {
 			c.log.Info("all components of the storage engine closed successfully")

@@ -70,7 +70,7 @@ func (c *Calculator) Calculate(epoch uint64) {
 	auditFee, err := c.prm.AuditFeeFetcher.AuditFee()
 	if err != nil {
 		log.Warn("can't fetch audit fee from network config",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		auditFee = 0
 	}
 
@@ -138,7 +138,7 @@ func (c *Calculator) readContainerInfo(ctx *singleResultCtx) bool {
 	ctx.cnrInfo, err = c.prm.ContainerStorage.ContainerInfo(ctx.auditResult.Container)
 	if err != nil {
 		ctx.log.Error("could not get container info",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 
@@ -151,7 +151,7 @@ func (c *Calculator) buildPlacement(ctx *singleResultCtx) bool {
 	ctx.cnrNodes, err = c.prm.PlacementCalculator.ContainerNodes(ctx.auditEpoch(), ctx.containerID())
 	if err != nil {
 		ctx.log.Error("could not get container nodes",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 
@@ -207,7 +207,7 @@ func (c *Calculator) sumSGSizes(ctx *singleResultCtx) bool {
 		if err != nil {
 			ctx.log.Error("could not get SG info",
 				zap.String("id", id.String()),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			return false // we also can continue and calculate at least some part
@@ -234,7 +234,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 		ownerID, err := c.prm.AccountStorage.ResolveKey(info)
 		if err != nil {
 			ctx.log.Error("could not resolve public key of the storage node",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 				zap.String("key", k),
 			)
 
@@ -266,7 +266,7 @@ func (c *Calculator) fillTransferTable(ctx *singleResultCtx) bool {
 	auditorKey, err := keys.NewPublicKeyFromBytes(ctx.auditResult.AuditorPublicKey, elliptic.P256())
 	if err != nil {
 		ctx.log.Error("could not parse public key of the inner ring node",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 			zap.String("key", hex.EncodeToString(ctx.auditResult.AuditorPublicKey)),
 		)
 

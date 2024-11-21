@@ -122,7 +122,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer provider",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				continue // best effort
@@ -131,7 +131,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 			remoteWriter, err = provider.InitWriter(w.ctx)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				continue // best effort
@@ -143,7 +143,7 @@ func (w *loadWriter) Put(a container.SizeEstimation) error {
 		err := remoteWriter.Put(a)
 		if err != nil {
 			w.router.log.Debug("could not put the value",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 
@@ -159,7 +159,7 @@ func (w *loadWriter) Close() error {
 		if err != nil {
 			w.router.log.Debug("could not close remote server writer",
 				zap.String("key", key),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}

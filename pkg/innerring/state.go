@@ -62,7 +62,7 @@ func (s *Server) IsAlphabet() bool {
 func (s *Server) InnerRingIndex() int {
 	index, err := s.statusIndex.InnerRingIndex()
 	if err != nil {
-		s.log.Error("can't get inner ring index", zap.String("error", err.Error()))
+		s.log.Error("can't get inner ring index", zap.Error(err))
 		return -1
 	}
 
@@ -74,7 +74,7 @@ func (s *Server) InnerRingIndex() int {
 func (s *Server) InnerRingSize() int {
 	size, err := s.statusIndex.InnerRingSize()
 	if err != nil {
-		s.log.Error("can't get inner ring size", zap.String("error", err.Error()))
+		s.log.Error("can't get inner ring size", zap.Error(err))
 		return 0
 	}
 
@@ -86,7 +86,7 @@ func (s *Server) InnerRingSize() int {
 func (s *Server) AlphabetIndex() int {
 	index, err := s.statusIndex.AlphabetIndex()
 	if err != nil {
-		s.log.Error("can't get alphabet index", zap.String("error", err.Error()))
+		s.log.Error("can't get alphabet index", zap.Error(err))
 		return -1
 	}
 
@@ -138,7 +138,7 @@ func (s *Server) voteForSidechainValidator(validators keys.PublicKeys, trigger *
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int("alphabet_index", ind),
 				zap.Uint64("epoch", epoch),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 		}
 	})
 

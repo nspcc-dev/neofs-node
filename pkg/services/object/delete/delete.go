@@ -50,7 +50,7 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 		exec.log.Debug("operation finished successfully")
 	default:
 		exec.log.Debug("operation finished with error",
-			zap.String("error", exec.err.Error()),
+			zap.Error(exec.err),
 		)
 
 		if execCnr {

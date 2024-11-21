@@ -26,7 +26,7 @@ func (exec *execCtx) formTombstone() (ok bool) {
 		exec.err = err
 
 		exec.log.Debug("could not read tombstone lifetime config",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return false

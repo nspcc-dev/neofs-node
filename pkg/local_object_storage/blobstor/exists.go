@@ -46,7 +46,7 @@ func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	for _, err := range errors[:len(errors)-1] {
 		b.log.Warn("error occurred during object existence checking",
 			zap.Stringer("address", prm.Address),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	return common.ExistsRes{}, errors[len(errors)-1]

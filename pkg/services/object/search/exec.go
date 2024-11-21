@@ -68,7 +68,7 @@ func (exec *execCtx) writeIDList(ids []oid.ID) {
 		exec.err = err
 
 		exec.log.Debug("could not write object identifiers",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	case err == nil:
 		exec.status = statusOK

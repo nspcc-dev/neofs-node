@@ -12,7 +12,7 @@ func (exec *execCtx) executeLocal() {
 		exec.err = err
 
 		exec.log.Debug("local operation failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

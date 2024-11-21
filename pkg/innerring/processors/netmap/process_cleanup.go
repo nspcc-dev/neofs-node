@@ -45,6 +45,6 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 	})
 	if err != nil {
 		np.log.Warn("can't iterate on netmap cleaner cache",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 }

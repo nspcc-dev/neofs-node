@@ -62,7 +62,7 @@ func (c *cfg) MaxObjectSize() uint64 {
 	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 
@@ -210,7 +210,7 @@ func initObjectService(c *cfg) {
 			err := ls.Delete(addr)
 			if err != nil {
 				c.log.Warn("could not inhume mark redundant copy as garbage",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 			}
 		}),
@@ -497,7 +497,7 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 		}
 	} else {
 		c.log.Warn("could not get latest network map to overload the client",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 

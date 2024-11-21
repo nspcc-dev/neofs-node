@@ -26,7 +26,7 @@ func (e *StorageEngine) open() error {
 			}
 			e.log.Debug("could not open shard",
 				zap.String("id", id),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 			delete(e.shards, id)
 		}
@@ -47,7 +47,7 @@ func (e *StorageEngine) Init() error {
 			}
 			e.log.Debug("could not init shard",
 				zap.String("id", id),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 			delete(e.shards, id)
 		}
@@ -91,7 +91,7 @@ func (e *StorageEngine) close(releasePools bool) error {
 		if err := sh.Close(); err != nil {
 			e.log.Debug("could not close shard",
 				zap.String("id", id),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}

@@ -119,7 +119,7 @@ func main() {
 			err := srv.Shutdown()
 			if err != nil {
 				log.Debug("could not shutdown HTTP server",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 			}
 

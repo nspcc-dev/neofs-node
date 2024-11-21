@@ -55,7 +55,7 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(prm.addr[i])
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
-				s.log.Warn("can't delete object from write cache", zap.String("error", err.Error()))
+				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
 		}
 
@@ -63,7 +63,7 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 		if err != nil {
 			s.log.Debug("can't get storage ID from metabase",
 				zap.Stringer("object", prm.addr[i]),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -105,7 +105,7 @@ func (s *Shard) delete(prm DeletePrm) (DeleteRes, error) {
 
 			s.log.Debug("can't remove object from blobStor",
 				zap.Stringer("object_address", prm.addr[i]),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 		}
 	}
 

@@ -111,7 +111,7 @@ func (s *Shard) Inhume(prm InhumePrm) (InhumeRes, error) {
 		}
 
 		s.log.Debug("could not mark object to delete in metabase",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		s.m.RUnlock()

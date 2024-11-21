@@ -124,7 +124,7 @@ func (e *StorageEngine) reportShardErrorBackground(id string, msg string, err er
 	if errors.Is(err, logicerr.Error) {
 		e.log.Warn(msg,
 			zap.Stringer("shard_id", sh.ID()),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (e *StorageEngine) reportShardError(
 	if errors.Is(err, logicerr.Error) {
 		e.log.Warn(msg,
 			zap.Stringer("shard_id", sh.ID()),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		return
 	}
 
@@ -161,7 +161,7 @@ func (e *StorageEngine) reportShardErrorWithFlags(
 	e.log.Warn(msg, append([]zap.Field{
 		zap.Stringer("shard_id", sid),
 		zap.Uint32("error count", errCount),
-		zap.String("error", err.Error()),
+		zap.Error(err),
 	}, fields...)...)
 
 	if e.errorsThreshold == 0 || errCount < e.errorsThreshold {

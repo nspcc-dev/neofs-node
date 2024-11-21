@@ -17,7 +17,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
 		np.log.Warn("can't get epoch duration",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	} else {
 		np.epochState.SetEpochDuration(epochDuration)
 	}
@@ -28,19 +28,19 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	if err != nil {
 		np.log.Warn("can't get transaction height",
 			zap.String("hash", ev.TxHash().StringLE()),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	if err := np.epochTimer.ResetEpochTimer(h); err != nil {
 		np.log.Warn("can't reset epoch timer",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	// get new netmap snapshot
 	networkMap, err := np.netmapClient.NetMap()
 	if err != nil {
 		np.log.Warn("can't get netmap snapshot to perform cleanup",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -60,7 +60,7 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		if err != nil {
 			np.log.Warn("can't start container size estimation",
 				zap.Uint64("epoch", epoch),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 		}
 	}
 

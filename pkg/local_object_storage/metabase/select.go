@@ -320,7 +320,7 @@ func (db *DB) selectFromFKBT(
 			})
 		})
 		if err != nil {
-			db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
+			db.log.Debug("error in FKBT selection", zap.Error(err))
 		}
 
 		return
@@ -339,7 +339,7 @@ func (db *DB) selectFromFKBT(
 		})
 	})
 	if err != nil {
-		db.log.Debug("error in FKBT selection", zap.String("error", err.Error()))
+		db.log.Debug("error in FKBT selection", zap.Error(err))
 	}
 }
 
@@ -409,7 +409,7 @@ func (db *DB) selectFromList(
 	case object.MatchStringEqual:
 		lst, err = decodeList(bkt.Get(bucketKeyHelper(f.Header(), f.Value())))
 		if err != nil {
-			db.log.Debug("can't decode list bucket leaf", zap.String("error", err.Error()))
+			db.log.Debug("can't decode list bucket leaf", zap.Error(err))
 			return
 		}
 	default:
@@ -424,7 +424,7 @@ func (db *DB) selectFromList(
 			l, err := decodeList(val)
 			if err != nil {
 				db.log.Debug("can't decode list bucket leaf",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				return err
@@ -435,7 +435,7 @@ func (db *DB) selectFromList(
 			return nil
 		}); err != nil {
 			db.log.Debug("can't iterate over the bucket",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			return
@@ -499,7 +499,7 @@ func (db *DB) selectObjectID(
 			})
 			if err != nil {
 				db.log.Debug("could not iterate over the buckets",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 			}
 		}

@@ -74,7 +74,7 @@ func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) 
 
 		if err != nil {
 			log.Error("could not replicate object",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		} else {
 			log.Debug("object successfully replicated")

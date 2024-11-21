@@ -32,7 +32,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		exec.err = apistatus.ErrObjectNotFound
 
 		l.Debug("remote call failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	case err == nil:
 		exec.status = statusOK

@@ -660,7 +660,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
 		fromSideChainBlock = 0
-		c.log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+		c.log.Warn("can't get last processed side chain block number", zap.Error(err))
 	}
 
 	cli, err := client.New(key,
@@ -682,7 +682,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",
 			zap.Any("endpoints", addresses),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		fatalOnErr(err)

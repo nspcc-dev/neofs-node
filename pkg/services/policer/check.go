@@ -84,7 +84,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	if err != nil {
 		p.log.Error("could not get container",
 			zap.Stringer("cid", idCnr),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 		if container.IsErrNotFound(err) {
 			err = p.jobQueue.localStorage.Delete(addrWithType.Address)
@@ -92,7 +92,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 				p.log.Error("could not inhume object with missing container",
 					zap.Stringer("cid", idCnr),
 					zap.Stringer("oid", idObj),
-					zap.String("error", err.Error()))
+					zap.Error(err))
 			}
 		}
 
@@ -105,7 +105,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 	if err != nil {
 		p.log.Error("could not build placement vector for object",
 			zap.Stringer("cid", idCnr),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -275,7 +275,7 @@ func (p *Policer) processNodes(ctx context.Context, plc *processPlacementContext
 			} else if err != nil {
 				p.log.Error("receive object header to check policy compliance",
 					zap.Stringer("object", plc.object.Address),
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 			} else {
 				shortage--

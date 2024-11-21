@@ -84,7 +84,7 @@ func (s *Shard) List() (res SelectRes, err error) {
 		if err != nil {
 			s.log.Debug("can't select all objects",
 				zap.Stringer("cid", lst[i]),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}

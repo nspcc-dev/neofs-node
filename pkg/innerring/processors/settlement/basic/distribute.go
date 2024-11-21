@@ -23,7 +23,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 	bankBalance, err := inc.balances.Balance(inc.bankOwner)
 	if err != nil {
 		inc.log.Error("can't fetch balance of banking account",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -33,7 +33,7 @@ func (inc *IncomeSettlementContext) Distribute() {
 		if err != nil {
 			inc.log.Warn("can't transform public key to owner id",
 				zap.String("public_key", hex.EncodeToString(key)),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			return
 		}

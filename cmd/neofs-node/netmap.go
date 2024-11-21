@@ -198,7 +198,7 @@ func initNetmapService(c *cfg) {
 		if err != nil {
 			c.log.Error("could not update node state on new epoch",
 				zap.Uint64("epoch", e),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			return
@@ -211,7 +211,7 @@ func initNetmapService(c *cfg) {
 		err := makeNotaryDeposit(c)
 		if err != nil {
 			c.log.Error("could not make notary deposit",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	})

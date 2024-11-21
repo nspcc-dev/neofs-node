@@ -63,7 +63,7 @@ func (c *announceContext) announce() {
 	metricsIterator, err = c.ctrl.prm.LocalMetrics.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over locally collected metrics",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -73,7 +73,7 @@ func (c *announceContext) announce() {
 	targetWriter, err := c.ctrl.prm.LocalAnnouncementTarget.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize announcement accumulator",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -107,7 +107,7 @@ func (c *announceContext) announce() {
 	)
 	if err != nil {
 		c.log.Debug("iterator over locally collected metrics aborted",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -117,7 +117,7 @@ func (c *announceContext) announce() {
 	err = targetWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing local announcements",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -287,7 +287,7 @@ func (c *stopContext) report() {
 	localIterator, err = c.ctrl.prm.AnnouncementAccumulator.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over locally accumulated announcements",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -297,7 +297,7 @@ func (c *stopContext) report() {
 	resultWriter, err := c.ctrl.prm.ResultReceiver.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize result target",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -310,7 +310,7 @@ func (c *stopContext) report() {
 	)
 	if err != nil {
 		c.log.Debug("iterator over local announcements aborted",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -320,7 +320,7 @@ func (c *stopContext) report() {
 	err = resultWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing load estimations",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 }

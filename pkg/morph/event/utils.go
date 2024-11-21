@@ -93,7 +93,7 @@ func WorkerPoolHandler(w util2.WorkerPool, h Handler, log *zap.Logger) Handler {
 
 		if err != nil {
 			log.Warn("could not Submit handler to worker pool",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}

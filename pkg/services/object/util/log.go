@@ -10,7 +10,7 @@ func LogServiceError(l *zap.Logger, req string, node network.AddressGroup, err e
 	l.Error("object service error",
 		zap.String("node", network.StringifyGroup(node)),
 		zap.String("request", req),
-		zap.String("error", err.Error()),
+		zap.Error(err),
 	)
 }
 
@@ -18,6 +18,6 @@ func LogServiceError(l *zap.Logger, req string, node network.AddressGroup, err e
 func LogWorkerPoolError(l *zap.Logger, req string, err error) {
 	l.Error("could not push task to worker pool",
 		zap.String("request", req),
-		zap.String("error", err.Error()),
+		zap.Error(err),
 	)
 }

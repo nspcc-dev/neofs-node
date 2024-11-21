@@ -35,7 +35,7 @@ func (s *Shard) ToMoveIt(prm ToMoveItPrm) (ToMoveItRes, error) {
 	err := s.metaBase.ToMoveIt(prm.addr)
 	if err != nil {
 		s.log.Debug("could not mark object for shard relocation in metabase",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 

@@ -45,7 +45,7 @@ func (exec *execCtx) executeOnContainer() {
 			select {
 			case <-ctx.Done():
 				exec.log.Debug("interrupt placement iteration by context",
-					zap.String("error", ctx.Err().Error()),
+					zap.Error(ctx.Err()),
 				)
 
 				return

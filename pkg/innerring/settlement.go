@@ -232,7 +232,7 @@ func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, det
 	err := s.balanceClient.TransferX(params)
 	if err != nil {
 		log.Error(fmt.Sprintf("%s: could not send transfer", s.settlementCtx),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

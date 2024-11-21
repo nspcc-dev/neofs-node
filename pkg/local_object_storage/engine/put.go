@@ -122,7 +122,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 				if err != nil {
 					e.log.Warn("could not mark object for shard relocation",
 						zap.Stringer("shard", id),
-						zap.String("error", err.Error()),
+						zap.Error(err),
 					)
 				}
 			}
@@ -146,7 +146,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
 					zap.Stringer("shard_id", id),
-					zap.String("error", err.Error()))
+					zap.Error(err))
 				return
 			}
 

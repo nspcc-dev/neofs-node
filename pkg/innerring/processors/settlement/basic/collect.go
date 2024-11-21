@@ -20,7 +20,7 @@ func (inc *IncomeSettlementContext) Collect() {
 	cachedRate, err := inc.rate.BasicRate()
 	if err != nil {
 		inc.log.Error("can't get basic income rate",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -29,7 +29,7 @@ func (inc *IncomeSettlementContext) Collect() {
 	if err != nil {
 		inc.log.Error("can't fetch container size estimations",
 			zap.Uint64("epoch", inc.epoch),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -42,7 +42,7 @@ func (inc *IncomeSettlementContext) Collect() {
 			inc.log.Warn("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
 				zap.Stringer("container_id", cnr),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -52,7 +52,7 @@ func (inc *IncomeSettlementContext) Collect() {
 			inc.log.Debug("can't fetch container info",
 				zap.Uint64("epoch", inc.epoch),
 				zap.Stringer("container_id", cnr),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}

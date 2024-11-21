@@ -21,7 +21,7 @@ func (cp *Processor) processSetEACL(e container.SetEACL) {
 	err := cp.checkSetEACL(e)
 	if err != nil {
 		cp.log.Error("set EACL check failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -92,7 +92,7 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 
 	if err != nil {
 		cp.log.Error("could not approve set EACL",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 }
