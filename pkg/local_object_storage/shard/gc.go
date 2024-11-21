@@ -186,12 +186,8 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	var deletePrm DeletePrm
-	deletePrm.SetAddresses(gObjs...)
-	deletePrm.skipNotFoundError = true
-
 	// delete accumulated objects
-	_, err = s.delete(deletePrm)
+	err = s.deleteObjs(gObjs, true)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
 			zap.Error(err),

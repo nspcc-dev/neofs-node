@@ -7,6 +7,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,16 +39,13 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		putPrm.SetObject(obj)
 		getPrm.SetAddress(object.AddressOf(obj))
 
-		var delPrm shard.DeletePrm
-		delPrm.SetAddresses(object.AddressOf(obj))
-
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
 		_, err = testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 
-		_, err = sh.Delete(delPrm)
+		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		_, err = sh.Get(getPrm)
@@ -62,16 +60,13 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		putPrm.SetObject(obj)
 		getPrm.SetAddress(object.AddressOf(obj))
 
-		var delPrm shard.DeletePrm
-		delPrm.SetAddresses(object.AddressOf(obj))
-
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
 		_, err = sh.Get(getPrm)
 		require.NoError(t, err)
 
-		_, err = sh.Delete(delPrm)
+		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
 		_, err = sh.Get(getPrm)

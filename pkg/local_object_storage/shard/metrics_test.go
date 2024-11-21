@@ -160,15 +160,12 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		var prm shard.DeletePrm
-
 		phy := mm.objectCounters[physical]
 		logic := mm.objectCounters[logical]
 
 		deletedNumber := int(phy / 4)
-		prm.SetAddresses(addrFromObjs(oo[:deletedNumber])...)
 
-		_, err := sh.Delete(prm)
+		err := sh.Delete(addrFromObjs(oo[:deletedNumber]))
 		require.NoError(t, err)
 
 		require.Equal(t, phy-uint64(deletedNumber), mm.objectCounters[physical])
