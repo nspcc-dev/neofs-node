@@ -478,7 +478,8 @@ type cfgObject struct {
 
 	eaclSource container.EACLSource
 
-	pool cfgObjectRoutines
+	poolLock sync.RWMutex
+	pool     cfgObjectRoutines
 
 	cfgLocalStorage cfgLocalStorage
 
@@ -773,6 +774,20 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	return pool
 }
 
+func (c *cfg) reloadObjectPoolSizes() {
+	c.cfgObject.poolLock.Lock()
+	defer c.cfgObject.poolLock.Unlock()
+
+	c.cfgObject.pool.putRemoteCapacity = objectconfig.Put(c.cfgReader).PoolSizeRemote()
+	c.cfgObject.pool.putRemote.Tune(c.cfgObject.pool.putRemoteCapacity)
+
+	c.cfgObject.pool.replicatorPoolSize = replicatorconfig.PoolSize(c.cfgReader)
+	if c.cfgObject.pool.replicatorPoolSize <= 0 {
+		c.cfgObject.pool.replicatorPoolSize = c.cfgObject.pool.putRemoteCapacity
+	}
+	c.cfgObject.pool.replication.Tune(c.cfgObject.pool.replicatorPoolSize)
+}
+
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
 	c.cfgNodeInfo.localInfoLock.RLock()
 	defer c.cfgNodeInfo.localInfoLock.RUnlock()
@@ -838,7 +853,7 @@ func (c *cfg) needBootstrap() bool {
 // It is calculated as size/capacity ratio of "remote object put" worker.
 // Returns float value between 0.0 and 1.0.
 func (c *cfg) ObjectServiceLoad() float64 {
-	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemoteCapacity)
+	return float64(c.cfgObject.pool.putRemote.Running()) / float64(c.cfgObject.pool.putRemote.Cap())
 }
 
 func (c *cfg) configWatcher(ctx context.Context) {
@@ -855,6 +870,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 				c.log.Error("configuration reading", zap.Error(err))
 				continue
 			}
+
+			// Pool
+
+			c.reloadObjectPoolSizes()
 
 			// Logger
 
@@ -874,6 +893,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			for _, optsWithID := range c.shardOpts() {
 				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}
+			rcfg.SetShardPoolSize(c.engine.shardPoolSize)
 
 			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
 			if err != nil {

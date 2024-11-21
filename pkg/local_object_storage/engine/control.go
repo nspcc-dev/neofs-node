@@ -191,12 +191,19 @@ func (rCfg *ReConfiguration) AddShard(id string, opts []shard.Option) {
 
 // Reload reloads StorageEngine's configuration in runtime.
 func (e *StorageEngine) Reload(rcfg ReConfiguration) error {
+	e.mtx.Lock()
+	e.shardPoolSize = rcfg.shardPoolSize
+	e.mtx.Unlock()
+
 	type reloadInfo struct {
 		sh   *shard.Shard
 		opts []shard.Option
 	}
 
 	e.mtx.RLock()
+	for _, pool := range e.shardPools {
+		pool.Tune(int(e.shardPoolSize))
+	}
 
 	var shardsToRemove []string // shards IDs
 	var shardsToAdd []string    // shard config identifiers (blobstor paths concatenation)

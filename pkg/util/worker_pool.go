@@ -21,6 +21,9 @@ type WorkerPool interface {
 	// functions have returned so synchronization must be achieved
 	// via other means (e.g. sync.WaitGroup).
 	Release()
+
+	// Tune changes the capacity of this pool.
+	Tune(int)
 }
 
 // pseudoWorkerPool represents a pseudo worker pool which executes the submitted job immediately in the caller's routine.
@@ -53,3 +56,6 @@ func (p *pseudoWorkerPool) Submit(fn func()) error {
 func (p *pseudoWorkerPool) Release() {
 	p.closed.Store(true)
 }
+
+// Tune implements the WorkerPool interface.
+func (p *pseudoWorkerPool) Tune(_ int) {}
