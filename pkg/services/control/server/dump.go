@@ -25,7 +25,7 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
-	f, err := os.OpenFile(req.GetBody().GetFilepath(), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o640)
+	f, err := os.Create(req.GetBody().GetFilepath())
 	if err != nil {
 		return nil, fmt.Errorf("can't open destination file: %w", err)
 	}
