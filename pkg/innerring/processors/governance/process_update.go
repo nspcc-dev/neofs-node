@@ -7,8 +7,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	neofscontract "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
 	"go.uber.org/zap"
 )
 
@@ -53,13 +51,8 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		zap.String("new_alphabet", prettyKeys(newAlphabet)),
 	)
 
-	votePrm := VoteValidatorPrm{
-		Validators: newAlphabet,
-		Hash:       &txHash,
-	}
-
 	// 1. Vote to sidechain committee via alphabet contracts.
-	err = gp.voter.VoteForSidechainValidator(votePrm)
+	err = gp.voter.VoteForSidechainValidator(newAlphabet, &txHash)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
 			zap.String("error", err.Error()))
@@ -83,12 +76,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 				zap.String("after", prettyKeys(newInnerRing)),
 			)
 
-			updPrm := client.UpdateAlphabetListPrm{}
-
-			updPrm.SetList(newInnerRing)
-			updPrm.SetHash(txHash)
-
-			err = gp.morphClient.UpdateNeoFSAlphabetList(updPrm)
+			err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing, txHash)
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",
@@ -98,13 +86,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	// 3. Update notary role in the sidechain.
-
-	updPrm := client.UpdateNotaryListPrm{}
-
-	updPrm.SetList(newAlphabet)
-	updPrm.SetHash(txHash)
-
-	err = gp.morphClient.UpdateNotaryList(updPrm)
+	err = gp.morphClient.UpdateNotaryList(newAlphabet, txHash)
 	if err != nil {
 		gp.log.Error("can't update list of notary nodes in side chain",
 			zap.String("error", err.Error()))
@@ -113,12 +95,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	// 4. Update NeoFS contract in the mainnet.
 	id := binary.LittleEndian.AppendUint64([]byte(alphabetUpdateIDPrefix), gp.epochState.EpochCounter())
 
-	prm := neofscontract.AlphabetUpdatePrm{}
-
-	prm.SetID(id)
-	prm.SetPubs(newAlphabet)
-
-	err = gp.neofsClient.AlphabetUpdate(prm)
+	err = gp.neofsClient.AlphabetUpdate(id, newAlphabet)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
 			zap.String("error", err.Error()))

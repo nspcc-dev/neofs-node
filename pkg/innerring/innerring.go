@@ -191,11 +191,8 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 
 	s.log.Info("made fs chain notary deposit successfully")
 
-	prm := governance.VoteValidatorPrm{}
-	prm.Validators = s.predefinedValidators
-
 	// vote for sidechain validator if it is prepared in config
-	err = s.voteForSidechainValidator(prm)
+	err = s.voteForSidechainValidator(s.predefinedValidators, nil)
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",
