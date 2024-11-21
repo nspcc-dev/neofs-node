@@ -59,22 +59,25 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	defer releaseShard(sh, t)
 
 	out := filepath.Join(t.TempDir(), "dump")
-	var prm shard.DumpPrm
-	prm.WithPath(out)
+	f, err := os.Create(out)
+	require.NoError(t, err)
 
 	t.Run("must be read-only", func(t *testing.T) {
-		_, err := sh.Dump(prm)
+		_, err := sh.Dump(f, false)
+		require.NoError(t, f.Close())
 		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
 	})
 
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
-	outEmpty := out + ".empty"
-	var dumpPrm shard.DumpPrm
-	dumpPrm.WithPath(outEmpty)
 
-	res, err := sh.Dump(dumpPrm)
+	outEmpty := out + ".empty"
+	f, err = os.Create(outEmpty)
 	require.NoError(t, err)
-	require.Equal(t, 0, res.Count())
+
+	res, err := sh.Dump(f, false)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, 0, res)
 	require.NoError(t, sh.SetMode(mode.ReadWrite))
 
 	// Approximate object header size.
@@ -107,17 +110,12 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
-	t.Run("invalid path", func(t *testing.T) {
-		var dumpPrm shard.DumpPrm
-		dumpPrm.WithPath("\x00")
-
-		_, err := sh.Dump(dumpPrm)
-		require.Error(t, err)
-	})
-
-	res, err = sh.Dump(prm)
+	f, err = os.Create(out)
 	require.NoError(t, err)
-	require.Equal(t, objCount, res.Count())
+	res, err = sh.Dump(f, false)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, objCount, res)
 
 	t.Run("restore", func(t *testing.T) {
 		sh := newShard(t, false)
@@ -241,12 +239,9 @@ func TestStream(t *testing.T) {
 	finish := make(chan struct{})
 
 	go func() {
-		var dumpPrm shard.DumpPrm
-		dumpPrm.WithStream(w)
-
-		res, err := sh1.Dump(dumpPrm)
+		res, err := sh1.Dump(w, false)
 		require.NoError(t, err)
-		require.Equal(t, objCount, res.Count())
+		require.Equal(t, objCount, res)
 		require.NoError(t, w.Close())
 		close(finish)
 	}()
@@ -390,10 +385,10 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "out.dump")
-	var dumpPrm shard.DumpPrm
-	dumpPrm.WithPath(out)
-	dumpPrm.WithIgnoreErrors(true)
-	res, err := sh.Dump(dumpPrm)
+	f, err := os.Create(out)
 	require.NoError(t, err)
-	require.Equal(t, objCount, res.Count())
+	res, err := sh.Dump(f, true)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, objCount, res)
 }

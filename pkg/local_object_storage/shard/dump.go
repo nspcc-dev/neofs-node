@@ -3,7 +3,6 @@ package shard
 import (
 	"encoding/binary"
 	"io"
-	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -12,67 +11,22 @@ import (
 
 var dumpMagic = []byte("NEOF")
 
-// DumpPrm groups the parameters of Dump operation.
-type DumpPrm struct {
-	path         string
-	stream       io.Writer
-	ignoreErrors bool
-}
-
-// WithPath is an Dump option to set the destination path.
-func (p *DumpPrm) WithPath(path string) {
-	p.path = path
-}
-
-// WithStream is an Dump option to set the destination stream.
-// It takes priority over `path` option.
-func (p *DumpPrm) WithStream(r io.Writer) {
-	p.stream = r
-}
-
-// WithIgnoreErrors is an Dump option to allow ignore all errors during iteration.
-// This includes invalid peapods as well as corrupted objects.
-func (p *DumpPrm) WithIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
-// DumpRes groups the result fields of Dump operation.
-type DumpRes struct {
-	count int
-}
-
-// Count return amount of object written.
-func (r DumpRes) Count() int {
-	return r.count
-}
-
 var ErrMustBeReadOnly = logicerr.New("shard must be in read-only mode")
 
-// Dump dumps all objects from the shard to a file or stream.
+// DumpToStream dumps all objects from the shard to a given stream.
 //
-// Returns any error encountered.
-func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
+// Returns any error encountered and the number of objects written.
+func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if !s.info.Mode.ReadOnly() {
-		return DumpRes{}, ErrMustBeReadOnly
-	}
-
-	w := prm.stream
-	if w == nil {
-		f, err := os.OpenFile(prm.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o640)
-		if err != nil {
-			return DumpRes{}, err
-		}
-		defer f.Close()
-
-		w = f
+		return 0, ErrMustBeReadOnly
 	}
 
 	_, err := w.Write(dumpMagic)
 	if err != nil {
-		return DumpRes{}, err
+		return 0, err
 	}
 
 	var count int
@@ -93,14 +47,14 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 			return nil
 		}
 
-		err := s.writeCache.Iterate(iterHandler, prm.ignoreErrors)
+		err := s.writeCache.Iterate(iterHandler, ignoreErrors)
 		if err != nil {
-			return DumpRes{}, err
+			return count, err
 		}
 	}
 
 	var pi common.IteratePrm
-	pi.IgnoreErrors = prm.ignoreErrors
+	pi.IgnoreErrors = ignoreErrors
 	pi.Handler = func(elem common.IterationElement) error {
 		data := elem.ObjectData
 
@@ -119,8 +73,8 @@ func (s *Shard) Dump(prm DumpPrm) (DumpRes, error) {
 	}
 
 	if _, err := s.blobStor.Iterate(pi); err != nil {
-		return DumpRes{}, err
+		return count, err
 	}
 
-	return DumpRes{count: count}, nil
+	return count, nil
 }
