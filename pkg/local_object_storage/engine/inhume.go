@@ -101,7 +101,6 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 
 // Returns ok if object was inhumed during this invocation or before.
 func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool, error) {
-	var existPrm shard.ExistsPrm
 	var shardWithObject string
 
 	var root bool
@@ -109,10 +108,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 	// see if the object is root
 	for _, sh := range e.unsortedShards() {
-		existPrm.SetAddress(addr)
-		existPrm.IgnoreExpiration()
-
-		res, err := sh.Exists(existPrm)
+		exists, err := sh.Exists(addr, true)
 		if err != nil {
 			if shard.IsErrNotFound(err) {
 				continue
@@ -176,7 +172,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 			break
 		}
 
-		if res.Exists() {
+		if exists {
 			shardWithObject = sh.ID().String()
 			break
 		}

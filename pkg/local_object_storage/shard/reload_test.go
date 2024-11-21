@@ -61,12 +61,9 @@ func TestShardReload(t *testing.T) {
 
 	checkHasObjects := func(t *testing.T, exists bool) {
 		for i := range objects {
-			var prm ExistsPrm
-			prm.SetAddress(objects[i].addr)
-
-			res, err := sh.Exists(prm)
+			res, err := sh.Exists(objects[i].addr, false)
 			require.NoError(t, err)
-			require.Equal(t, exists, res.Exists(), "object #%d is missing", i)
+			require.Equal(t, exists, res, "object #%d is missing", i)
 		}
 	}
 

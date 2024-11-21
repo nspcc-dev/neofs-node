@@ -10,11 +10,8 @@ import (
 )
 
 func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
-	var shPrm shard.ExistsPrm
-	shPrm.SetAddress(addr)
-
 	for _, sh := range e.sortedShards(addr) {
-		res, err := sh.Exists(shPrm)
+		exists, err := sh.Exists(addr, false)
 		if err != nil {
 			if shard.IsErrRemoved(err) {
 				return false, apistatus.ObjectAlreadyRemoved{}
@@ -35,7 +32,7 @@ func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
 			continue
 		}
 
-		if res.Exists() {
+		if exists {
 			return true, nil
 		}
 	}
