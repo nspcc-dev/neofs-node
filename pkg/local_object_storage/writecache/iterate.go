@@ -13,26 +13,10 @@ import (
 // ErrNoDefaultBucket is returned by IterateDB when default bucket for objects is missing.
 var ErrNoDefaultBucket = errors.New("no default bucket")
 
-// IterationPrm contains iteration parameters.
-type IterationPrm struct {
-	handler      func(oid.Address, []byte) error
-	ignoreErrors bool
-}
-
-// WithHandler sets a callback to be executed on every object.
-func (p *IterationPrm) WithHandler(f func(oid.Address, []byte) error) {
-	p.handler = f
-}
-
-// WithIgnoreErrors sets a flag indicating that errors should be ignored.
-func (p *IterationPrm) WithIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
 // Iterate iterates over all objects present in write cache.
 // This is very difficult to do correctly unless write-cache is put in read-only mode.
 // Thus we silently fail if shard is not in read-only mode to avoid reporting misleading results.
-func (c *cache) Iterate(prm IterationPrm) error {
+func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bool) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if !c.readOnly() {
@@ -50,7 +34,7 @@ func (c *cache) Iterate(prm IterationPrm) error {
 				return fmt.Errorf("decoding %s object ID: %w", string(k), err)
 			}
 
-			return prm.handler(addr, data)
+			return handler(addr, data)
 		})
 	})
 	if err != nil {
@@ -58,21 +42,21 @@ func (c *cache) Iterate(prm IterationPrm) error {
 	}
 
 	var fsPrm common.IteratePrm
-	fsPrm.IgnoreErrors = prm.ignoreErrors
+	fsPrm.IgnoreErrors = ignoreErrors
 	fsPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
 		data, err := f()
 		if err != nil {
-			if prm.ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
+			if ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
 				// an object can be removed b/w iterating over it
 				// and reading its payload; not an error
 				return nil
 			}
 			return err
 		}
-		return prm.handler(addr, data)
+		return handler(addr, data)
 	}
 
 	_, err = c.fsTree.Iterate(fsPrm)
