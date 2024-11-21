@@ -4,22 +4,13 @@ import (
 	"errors"
 )
 
-// FlushWriteCachePrm represents parameters of a `FlushWriteCache` operation.
-type FlushWriteCachePrm struct {
-	ignoreErrors bool
-}
-
-// SetIgnoreErrors sets the flag to ignore read-errors during flush.
-func (p *FlushWriteCachePrm) SetIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
 // errWriteCacheDisabled is returned when an operation on write-cache is performed,
 // but write-cache is disabled.
 var errWriteCacheDisabled = errors.New("write-cache is disabled")
 
-// FlushWriteCache flushes all data from the write-cache.
-func (s *Shard) FlushWriteCache(p FlushWriteCachePrm) error {
+// FlushWriteCache flushes all data from the write-cache. If ignoreErrors
+// is set will flush all objects it can irrespective of any errors.
+func (s *Shard) FlushWriteCache(ignoreErrors bool) error {
 	if !s.hasWriteCache() {
 		return errWriteCacheDisabled
 	}
@@ -35,5 +26,5 @@ func (s *Shard) FlushWriteCache(p FlushWriteCachePrm) error {
 		return ErrDegradedMode
 	}
 
-	return s.writeCache.Flush(p.ignoreErrors)
+	return s.writeCache.Flush(ignoreErrors)
 }
