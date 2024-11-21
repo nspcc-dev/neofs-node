@@ -30,17 +30,14 @@ func (e *StorageEngine) ContainerSize(cnr cid.ID) (uint64, error) {
 	var size uint64
 
 	for _, sh := range e.unsortedShards() {
-		var csPrm shard.ContainerSizePrm
-		csPrm.SetContainerID(cnr)
-
-		csRes, err := sh.Shard.ContainerSize(csPrm)
+		shardSize, err := sh.Shard.ContainerSize(cnr)
 		if err != nil {
 			e.reportShardError(sh, "can't get container size", err,
 				zap.Stringer("container_id", cnr))
 			continue
 		}
 
-		size += csRes.Size()
+		size += shardSize
 	}
 
 	return size, nil
