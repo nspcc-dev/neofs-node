@@ -466,8 +466,9 @@ type cfgNetmap struct {
 }
 
 type cfgNodeInfo struct {
-	// values from config; NOT MODIFY AFTER APP INITIALIZATION
-	localInfo netmap.NodeInfo
+	// values from config; NOT MODIFY AFTER APP INITIALIZATION OR CONFIG RELOAD
+	localInfoLock sync.RWMutex
+	localInfo     netmap.NodeInfo
 }
 
 type cfgObject struct {
@@ -524,10 +525,12 @@ func initCfg(appCfg *config.Config) *cfg {
 		panic(fmt.Errorf("config reading: %w", err))
 	}
 
+	c.cfgNodeInfo.localInfoLock.Lock()
 	// filling system attributes; do not move it anywhere
 	// below applying the other attributes since a user
 	// should be able to overwrite it.
 	err = writeSystemAttributes(c)
+	c.cfgNodeInfo.localInfoLock.Unlock()
 	fatalOnErr(err)
 
 	key := nodeconfig.Wallet(appCfg)
@@ -771,6 +774,9 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 }
 
 func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
+	c.cfgNodeInfo.localInfoLock.RLock()
+	defer c.cfgNodeInfo.localInfoLock.RUnlock()
+
 	var res netmapV2.NodeInfo
 	c.cfgNodeInfo.localInfo.WriteToV2(&res)
 
@@ -789,7 +795,9 @@ func (c *cfg) handleLocalNodeInfoFromNetwork(ni *netmap.NodeInfo) {
 // with the binary-encoded information from the current node's configuration.
 // The state is set using the provided setter which MUST NOT be nil.
 func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
+	c.cfgNodeInfo.localInfoLock.RLock()
 	ni := c.cfgNodeInfo.localInfo
+	c.cfgNodeInfo.localInfoLock.RUnlock()
 	stateSetter(&ni)
 
 	prm := nmClient.AddPeerPrm{}
@@ -876,6 +884,14 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			// Morph
 
 			c.cli.Reload(client.WithEndpoints(c.morph.endpoints))
+
+			// Node
+
+			err = c.reloadNodeAttributes()
+			if err != nil {
+				c.log.Error("invalid node attributes configuration", zap.Error(err))
+				continue
+			}
 
 			c.log.Info("configuration has been reloaded successfully")
 		case <-ctx.Done():

@@ -195,6 +195,9 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return nil
 	}
 
+	if sig.PublicKey() == nil {
+		return errors.New("missing public key")
+	}
 	if !token.AssertAuthKey(sig.PublicKey()) {
 		return errors.New("session token is not for object's signer")
 	}

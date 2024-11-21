@@ -7,6 +7,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,11 +47,22 @@ func TestBlobStor_Put_Overflow(t *testing.T) {
 		},
 	))
 
-	_, err := bs.Put(common.PutPrm{})
+	addr := oidtest.Address()
+
+	obj := objecttest.Object()
+	obj.SetContainerID(addr.Container())
+	obj.SetID(addr.Object())
+
+	prm := common.PutPrm{
+		Address: addr,
+		Object:  &obj,
+	}
+
+	_, err := bs.Put(prm)
 	require.NoError(t, err)
 
 	sub2.full = true
 
-	_, err = bs.Put(common.PutPrm{})
+	_, err = bs.Put(prm)
 	require.ErrorIs(t, err, common.ErrNoSpace)
 }

@@ -38,3 +38,9 @@ comparing paths from `shard.blobstor` section. After this we have 3 sets:
 | Changed section | Actions                                                                                                                                                                                                 |
 |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `endpoints`     | Updates N3 endpoints.<br/>If new `endpoints` do not contain the endpoint client is connected to, it will reconnect to another endpoint from the new list. Node service can be interrupted in this case. |
+
+### Node
+
+| Changed section | Actions                  |
+|-----------------|--------------------------|
+| `attribute_*`   | Updates node attributes. |
