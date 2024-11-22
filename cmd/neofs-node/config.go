@@ -96,6 +96,7 @@ type applicationConfiguration struct {
 		shardPoolSize          uint32
 		shards                 []storage.ShardCfg
 		isIgnoreUninitedShards bool
+		objectPutRetryDeadline time.Duration
 	}
 
 	policer struct {
@@ -159,6 +160,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
 	a.engine.shardPoolSize = engineconfig.ShardPoolSize(c)
 	a.engine.isIgnoreUninitedShards = engineconfig.IgnoreUninitedShards(c)
+	a.engine.objectPutRetryDeadline = engineconfig.ObjectPutRetryDeadline(c)
 
 	// Morph
 

@@ -59,6 +59,11 @@ Metabase version has been increased, auto migrating will be performed once
 a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
 not be undone. No additional work should be done.
 
+The new `storage.put_retry_timeout` config value added. If an object cannot
+be PUT to storage, node tries to PUT it to the best shard for it (according to
+placement sorting) and only to it for this long before operation error is
+returned.
+
 Binary keys are no longer supported by storage node, NEP-6 wallet support was
 introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0

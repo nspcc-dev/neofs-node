@@ -3,6 +3,7 @@ package engineconfig
 import (
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
@@ -89,4 +90,11 @@ func ShardErrorThreshold(c *config.Config) uint32 {
 // Returns false if the value is missing.
 func IgnoreUninitedShards(c *config.Config) bool {
 	return config.BoolSafe(c.Sub(subsection), "ignore_uninited_shards")
+}
+
+// ObjectPutRetryDeadline returns the value of "put_retry_deadline" config parameter from "storage" section.
+//
+// Returns false if the value is missing.
+func ObjectPutRetryDeadline(c *config.Config) time.Duration {
+	return config.DurationSafe(c.Sub(subsection), "put_retry_timeout")
 }

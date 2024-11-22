@@ -84,6 +84,7 @@ func (c *cfg) engineOpts() []engine.Option {
 
 		engine.WithLogger(c.log),
 		engine.WithIgnoreUninitedShards(c.engine.isIgnoreUninitedShards),
+		engine.WithObjectPutRetryTimeout(c.engine.objectPutRetryDeadline),
 	)
 
 	if c.shared.basics.ttl > 0 {
