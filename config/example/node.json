@@ -118,6 +118,7 @@
   "storage": {
     "shard_pool_size": 15,
     "shard_ro_error_threshold": 100,
+    "put_retry_timeout": "5s",
     "ignore_uninited_shards": true,
     "shard": {
       "0": {

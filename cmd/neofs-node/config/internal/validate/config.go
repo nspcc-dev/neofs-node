@@ -117,9 +117,10 @@ type valideConfig struct {
 	} `mapstructure:"object"`
 
 	Storage struct {
-		ShardPoolSize         int  `mapstructure:"shard_pool_size"`
-		ShardROErrorThreshold int  `mapstructure:"shard_ro_error_threshold"`
-		IgnoreUninitedShards  bool `mapstructure:"ignore_uninited_shards"`
+		ShardPoolSize         int           `mapstructure:"shard_pool_size"`
+		ShardROErrorThreshold int           `mapstructure:"shard_ro_error_threshold"`
+		PutRetryTimeout       time.Duration `mapstructure:"put_retry_timeout"`
+		IgnoreUninitedShards  bool          `mapstructure:"ignore_uninited_shards"`
 		Shard                 struct {
 			Default   shardDetails            `mapstructure:"default"`
 			ShardList map[string]shardDetails `mapstructure:",remain" prefix:""`

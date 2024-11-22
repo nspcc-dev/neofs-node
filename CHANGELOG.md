@@ -33,6 +33,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - `meta.DB.Open(readOnly)` moves metabase in RO mode (#3000)
 - Panic in event listener related to inability to switch RPC node (#2970)
 - Non-container nodes never check placement policy on PUT, SEARCH requests (#3014)
+- If shards are overloaded with PUT requests, operation is not skipped but waits for 30 seconds (#2871)
 
 ### Changed
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
@@ -59,6 +60,11 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 Metabase version has been increased, auto migrating will be performed once
 a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
 not be undone. No additional work should be done.
+
+The new `storage.put_retry_timeout` config value added. If an object cannot
+be PUT to storage, node tries to PUT it to the best shard for it (according to
+placement sorting) and only to it for this long before operation error is
+returned.
 
 Binary keys are no longer supported by storage node, NEP-6 wallet support was
 introduced in version 0.22.3 and support for binary keys was removed from

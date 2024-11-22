@@ -37,6 +37,7 @@ func TestEngineSection(t *testing.T) {
 		require.EqualValues(t, 0, engineconfig.ShardErrorThreshold(empty))
 		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
 		require.EqualValues(t, mode.ReadWrite, shardconfig.From(empty).Mode())
+		require.Zero(t, engineconfig.ObjectPutRetryDeadline(empty))
 	})
 
 	const path = "../../../../config/example/node"
@@ -46,6 +47,7 @@ func TestEngineSection(t *testing.T) {
 
 		require.EqualValues(t, 100, engineconfig.ShardErrorThreshold(c))
 		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
+		require.EqualValues(t, 5*time.Second, engineconfig.ObjectPutRetryDeadline(c))
 		require.EqualValues(t, true, engineconfig.IgnoreUninitedShards(c))
 
 		err := engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) error {
