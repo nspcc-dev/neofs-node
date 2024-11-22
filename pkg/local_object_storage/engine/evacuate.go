@@ -78,9 +78,6 @@ func (e *StorageEngine) Evacuate(shardIDs []*shard.ID, ignoreErrors bool, faultH
 		}
 	}
 
-	var listPrm shard.ListWithCursorPrm
-	listPrm.WithCount(defaultEvacuateBatchSize)
-
 	var count int
 
 mainLoop:
@@ -89,11 +86,9 @@ mainLoop:
 
 		var c *meta.Cursor
 		for {
-			listPrm.WithCursor(c)
-
 			// TODO (@fyrchik): #1731 this approach doesn't work in degraded modes
 			//  because ListWithCursor works only with the metabase.
-			listRes, err := sh.ListWithCursor(listPrm)
+			lst, cursor, err := sh.ListWithCursor(defaultEvacuateBatchSize, c)
 			if err != nil {
 				if errors.Is(err, meta.ErrEndOfListing) || errors.Is(err, shard.ErrDegradedMode) {
 					continue mainLoop
@@ -102,8 +97,6 @@ mainLoop:
 			}
 
 			// TODO (@fyrchik): #1731 parallelize the loop
-			lst := listRes.AddressList()
-
 		loop:
 			for i := range lst {
 				addr := lst[i].Address
@@ -151,7 +144,7 @@ mainLoop:
 				count++
 			}
 
-			c = listRes.Cursor()
+			c = cursor
 		}
 	}
 

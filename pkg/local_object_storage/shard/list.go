@@ -7,6 +7,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -18,56 +19,24 @@ type Cursor = meta.Cursor
 // cursor. Use nil cursor object to start listing again.
 var ErrEndOfListing = meta.ErrEndOfListing
 
-// ListWithCursorPrm contains parameters for ListWithCursor operation.
-type ListWithCursorPrm struct {
-	count  uint32
-	cursor *Cursor
-}
-
-// ListWithCursorRes contains values returned from ListWithCursor operation.
-type ListWithCursorRes struct {
-	addrList []objectcore.AddressWithType
-	cursor   *Cursor
-}
-
-// WithCount sets maximum amount of addresses that ListWithCursor should return.
-func (p *ListWithCursorPrm) WithCount(count uint32) {
-	p.count = count
-}
-
-// WithCursor sets cursor for ListWithCursor operation. For initial request,
-// ignore this param or use nil value. For consecutive requests, use value
-// from ListWithCursorRes.
-func (p *ListWithCursorPrm) WithCursor(cursor *Cursor) {
-	p.cursor = cursor
-}
-
-// AddressList returns addresses selected by ListWithCursor operation.
-func (r ListWithCursorRes) AddressList() []objectcore.AddressWithType {
-	return r.addrList
-}
-
-// Cursor returns cursor for consecutive listing requests.
-func (r ListWithCursorRes) Cursor() *Cursor {
-	return r.cursor
-}
-
 // List returns all objects physically stored in the Shard.
-func (s *Shard) List() (res SelectRes, err error) {
+func (s *Shard) List() ([]oid.Address, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode.NoMetabase() {
-		return SelectRes{}, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
 	lst, err := s.metaBase.Containers()
 	if err != nil {
-		return res, fmt.Errorf("can't list stored containers: %w", err)
+		return nil, fmt.Errorf("can't list stored containers: %w", err)
 	}
 
 	filters := object.NewSearchFilters()
 	filters.AddPhyFilter()
+
+	var res []oid.Address
 
 	for i := range lst {
 		addrs, err := s.metaBase.Select(lst[i], filters) // consider making List in metabase
@@ -79,7 +48,7 @@ func (s *Shard) List() (res SelectRes, err error) {
 			continue
 		}
 
-		res.addrList = append(res.addrList, addrs...)
+		res = append(res, addrs...)
 	}
 
 	return res, nil
@@ -105,18 +74,15 @@ func (s *Shard) ListContainers() ([]cid.ID, error) {
 //
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
-func (s *Shard) ListWithCursor(prm ListWithCursorPrm) (ListWithCursorRes, error) {
+func (s *Shard) ListWithCursor(count int, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
 	if s.GetMode().NoMetabase() {
-		return ListWithCursorRes{}, ErrDegradedMode
+		return nil, nil, ErrDegradedMode
 	}
 
-	addrs, cursor, err := s.metaBase.ListWithCursor(int(prm.count), prm.cursor)
+	addrs, cursor, err := s.metaBase.ListWithCursor(count, cursor)
 	if err != nil {
-		return ListWithCursorRes{}, fmt.Errorf("could not get list of objects: %w", err)
+		return nil, nil, fmt.Errorf("could not get list of objects: %w", err)
 	}
 
-	return ListWithCursorRes{
-		addrList: addrs,
-		cursor:   cursor,
-	}, nil
+	return addrs, cursor, nil
 }

@@ -82,7 +82,7 @@ func (e *StorageEngine) List(limit uint64) ([]oid.Address, error) {
 			e.reportShardError(sh, "could not select objects from shard", err)
 			continue
 		}
-		for _, addr := range res.AddressList() { // save only unique values
+		for _, addr := range res { // save only unique values
 			if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
 				uniqueMap[addr.EncodeToString()] = struct{}{}
 				addrList = append(addrList, addr)

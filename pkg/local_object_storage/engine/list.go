@@ -67,19 +67,18 @@ func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor) ([]objectco
 		}
 
 		count := uint32(int(count) - len(result))
-		var shardPrm shard.ListWithCursorPrm
-		shardPrm.WithCount(count)
+		var shCursor *shard.Cursor
 		if shardIDs[i] == cursor.shardID {
-			shardPrm.WithCursor(cursor.shardCursor)
+			shCursor = cursor.shardCursor
 		}
 
-		res, err := shardInstance.ListWithCursor(shardPrm)
+		res, shCursor, err := shardInstance.ListWithCursor(int(count), shCursor)
 		if err != nil {
 			continue
 		}
 
-		result = append(result, res.AddressList()...)
-		cursor.shardCursor = res.Cursor()
+		result = append(result, res...)
+		cursor.shardCursor = shCursor
 		cursor.shardID = shardIDs[i]
 	}
 

@@ -59,7 +59,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	res, err := sh.List()
 	require.NoError(t, err)
 
-	for _, objID := range res.AddressList() {
+	for _, objID := range res {
 		i, ok := objs[objID.EncodeToString()]
 		require.True(t, ok)
 		require.Equal(t, 0, i)
