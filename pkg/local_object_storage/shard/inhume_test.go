@@ -34,16 +34,13 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 	var putPrm shard.PutPrm
 	putPrm.SetObject(obj)
 
-	var inhPrm shard.InhumePrm
-	inhPrm.InhumeByTomb(object.AddressOf(ts), 0, object.AddressOf(obj))
-
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 
 	_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
 	require.NoError(t, err)
 
-	_, err = sh.Inhume(inhPrm)
+	err = sh.Inhume(object.AddressOf(ts), 0, object.AddressOf(obj))
 	require.NoError(t, err)
 
 	_, err = sh.Get(object.AddressOf(obj), false)

@@ -196,9 +196,7 @@ func TestExpiration(t *testing.T) {
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
-				var p shard.InhumePrm
-				p.MarkAsGarbage(addresses...)
-				_, err := sh.Inhume(p)
+				err := sh.MarkGarbage(false, addresses...)
 				require.NoError(t, err)
 			},
 		),

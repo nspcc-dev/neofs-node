@@ -85,46 +85,31 @@ func TestShard_Lock(t *testing.T) {
 	t.Run("inhuming locked objects", func(t *testing.T) {
 		ts := generateObjectWithCID(cnr)
 
-		var inhumePrm shard.InhumePrm
-		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
-
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(obj))
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.MarkGarbage(false, objectcore.AddressOf(obj))
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})
 
 	t.Run("inhuming lock objects", func(t *testing.T) {
 		ts := generateObjectWithCID(cnr)
 
-		var inhumePrm shard.InhumePrm
-		inhumePrm.InhumeByTomb(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
-
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.Inhume(objectcore.AddressOf(ts), 0, objectcore.AddressOf(lock))
 		require.Error(t, err)
 
-		inhumePrm.MarkAsGarbage(objectcore.AddressOf(lock))
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.MarkGarbage(false, objectcore.AddressOf(lock))
 		require.Error(t, err)
 	})
 
 	t.Run("force objects inhuming", func(t *testing.T) {
-		var inhumePrm shard.InhumePrm
-		inhumePrm.MarkAsGarbage(objectcore.AddressOf(lock))
-		inhumePrm.ForceRemoval()
-
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.MarkGarbage(true, objectcore.AddressOf(lock))
 		require.NoError(t, err)
 
 		// it should be possible to remove
 		// lock object now
 
-		inhumePrm = shard.InhumePrm{}
-		inhumePrm.MarkAsGarbage(objectcore.AddressOf(obj))
-
-		_, err = sh.Inhume(inhumePrm)
+		err = sh.MarkGarbage(false, objectcore.AddressOf(obj))
 		require.NoError(t, err)
 
 		// check that object has been removed

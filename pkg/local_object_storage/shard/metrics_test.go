@@ -120,13 +120,10 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("inhume_GC", func(t *testing.T) {
-		var prm shard.InhumePrm
 		inhumedNumber := objNumber / 4
 
 		for i := range inhumedNumber {
-			prm.MarkAsGarbage(objectcore.AddressOf(oo[i]))
-
-			_, err := sh.Inhume(prm)
+			err := sh.MarkGarbage(false, objectcore.AddressOf(oo[i]))
 			require.NoError(t, err)
 		}
 
@@ -139,16 +136,14 @@ func TestCounters(t *testing.T) {
 	})
 
 	t.Run("inhume_TS", func(t *testing.T) {
-		var prm shard.InhumePrm
 		ts := objectcore.AddressOf(generateObject())
 
 		phy := mm.objectCounters[physical]
 		logic := mm.objectCounters[logical]
 
 		inhumedNumber := int(phy / 4)
-		prm.InhumeByTomb(ts, 0, addrFromObjs(oo[:inhumedNumber])...)
 
-		_, err := sh.Inhume(prm)
+		err := sh.Inhume(ts, 0, addrFromObjs(oo[:inhumedNumber])...)
 		require.NoError(t, err)
 
 		require.Equal(t, phy, mm.objectCounters[physical])

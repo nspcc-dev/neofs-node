@@ -38,11 +38,6 @@ func (e *StorageEngine) Inhume(tombstone oid.Address, tombExpiration uint64, add
 }
 
 func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) error {
-	var shPrm shard.InhumePrm
-	if force {
-		shPrm.ForceRemoval()
-	}
-
 	for i := range addrs {
 		if !force {
 			locked, err := e.IsLocked(addrs[i])
@@ -56,13 +51,7 @@ func (e *StorageEngine) inhume(addrs []oid.Address, force bool, tombstone *oid.A
 			}
 		}
 
-		if tombstone != nil {
-			shPrm.InhumeByTomb(*tombstone, tombExpiration, addrs[i])
-		} else {
-			shPrm.MarkAsGarbage(addrs[i])
-		}
-
-		ok, err := e.inhumeAddr(addrs[i], shPrm)
+		ok, err := e.inhumeAddr(addrs[i], force, tombstone, tombExpiration)
 		if err != nil {
 			return err
 		}
@@ -100,11 +89,13 @@ func (e *StorageEngine) InhumeContainer(cID cid.ID) error {
 }
 
 // Returns ok if object was inhumed during this invocation or before.
-func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool, error) {
-	var shardWithObject string
-
-	var root bool
-	var children []oid.Address
+func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.Address, tombExpiration uint64) (bool, error) {
+	var (
+		children        []oid.Address
+		err             error
+		root            bool
+		shardWithObject string
+	)
 
 	// see if the object is root
 	for _, sh := range e.unsortedShards() {
@@ -178,12 +169,17 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 		}
 	}
 
-	prm.SetTargets(append(children, addr)...)
+	var addrs = append(children, addr)
 
 	if shardWithObject != "" {
 		sh := e.getShard(shardWithObject)
 
-		_, err := sh.Inhume(prm)
+		if tombstone != nil {
+			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
+		} else {
+			err = sh.MarkGarbage(force, addrs...)
+		}
+
 		if err != nil {
 			if !errors.Is(err, logicerr.Error) {
 				e.reportShardError(sh, "could not inhume object in shard", err)
@@ -202,7 +198,11 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, prm shard.InhumePrm) (bool,
 
 	// has not found the object on any shard, so mark it as inhumed on the most probable one
 	for _, sh := range e.sortedShards(addr) {
-		_, err := sh.Inhume(prm)
+		if tombstone != nil {
+			err = sh.Inhume(*tombstone, tombExpiration, addrs...)
+		} else {
+			err = sh.MarkGarbage(force, addrs...)
+		}
 		if err != nil {
 			var errLocked apistatus.ObjectLocked
 
