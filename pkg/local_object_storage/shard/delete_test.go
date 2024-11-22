@@ -31,24 +31,22 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	addAttribute(obj, "foo", "bar")
 
 	var putPrm shard.PutPrm
-	var getPrm shard.GetPrm
 
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
 
 		putPrm.SetObject(obj)
-		getPrm.SetAddress(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		_, err = testGet(t, sh, getPrm, hasWriteCache)
+		_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
 		require.NoError(t, err)
 
 		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
@@ -58,18 +56,17 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		addPayload(obj, 1<<5)
 
 		putPrm.SetObject(obj)
-		getPrm.SetAddress(object.AddressOf(obj))
 
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.NoError(t, err)
 
 		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }

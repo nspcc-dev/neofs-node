@@ -265,13 +265,10 @@ func checkRestore(t *testing.T, sh *shard.Shard, prm shard.RestorePrm, objects [
 	require.NoError(t, err)
 	require.Equal(t, len(objects), res.Count())
 
-	var getPrm shard.GetPrm
-
 	for i := range objects {
-		getPrm.SetAddress(object.AddressOf(objects[i]))
-		res, err := sh.Get(getPrm)
+		res, err := sh.Get(object.AddressOf(objects[i]), false)
 		require.NoError(t, err)
-		require.Equal(t, objects[i], res.Object())
+		require.Equal(t, objects[i], res)
 	}
 }
 

@@ -109,10 +109,7 @@ mainLoop:
 				addr := lst[i].Address
 				addrHash := hrw.WrapBytes([]byte(addr.EncodeToString()))
 
-				var getPrm shard.GetPrm
-				getPrm.SetAddress(addr)
-
-				getRes, err := sh.Get(getPrm)
+				obj, err := sh.Get(addr, false)
 				if err != nil {
 					if ignoreErrors {
 						continue
@@ -125,7 +122,7 @@ mainLoop:
 					if _, ok := shardMap[shards[j].ID().String()]; ok {
 						continue
 					}
-					putDone, exists, _ := e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, getRes.Object(), nil, 0)
+					putDone, exists, _ := e.putToShard(shards[j].shardWrapper, j, shards[j].pool, addr, obj, nil, 0)
 					if putDone || exists {
 						if putDone {
 							e.log.Debug("object is moved to another shard",
@@ -147,7 +144,7 @@ mainLoop:
 					return count, fmt.Errorf("%w: %s", errPutShard, lst[i])
 				}
 
-				err = faultHandler(addr, getRes.Object())
+				err = faultHandler(addr, obj)
 				if err != nil {
 					return count, err
 				}

@@ -132,9 +132,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	var getPrm GetPrm
-	getPrm.SetAddress(addr)
-	_, err = sh.Get(getPrm)
+	_, err = sh.Get(addr, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	require.NoError(t, sh.Close())
 }

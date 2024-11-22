@@ -36,18 +36,11 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 	var (
 		err error
 		obj *objectSDK.Object
-		sp  shard.GetPrm
 	)
-	sp.SetAddress(addr)
 
 	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
-		sp.SetIgnoreMeta(ignoreMetadata)
-		sr, err := s.Get(sp)
-		if err != nil {
-			return err
-		}
-		obj = sr.Object()
-		return nil
+		obj, err = s.Get(addr, ignoreMetadata)
+		return err
 	})
 	return obj, err
 }

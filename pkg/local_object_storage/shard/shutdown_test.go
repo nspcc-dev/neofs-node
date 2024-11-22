@@ -46,12 +46,8 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	sh = newCustomShard(t, dir, true, wcOpts, nil)
 	defer releaseShard(sh, t)
 
-	var getPrm shard.GetPrm
-
 	for i := range objects {
-		getPrm.SetAddress(object.AddressOf(objects[i]))
-
-		_, err := sh.Get(getPrm)
+		_, err := sh.Get(object.AddressOf(objects[i]), false)
 		require.NoError(t, err, i)
 	}
 }

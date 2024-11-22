@@ -30,7 +30,6 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	defer releaseShard(sh, t)
 
 	var putPrm shard.PutPrm
-	var getPrm shard.GetPrm
 
 	t.Run("small object", func(t *testing.T) {
 		obj := generateObject()
@@ -43,11 +42,9 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.SetAddress(addr)
-
-		res, err := testGet(t, sh, getPrm, hasWriteCache)
+		res, err := testGet(t, sh, addr, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj, res.Object())
+		require.Equal(t, obj, res)
 
 		testGetBytes(t, sh, addr, obj.Marshal())
 	})
@@ -64,11 +61,9 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.SetAddress(addr)
-
-		res, err := testGet(t, sh, getPrm, hasWriteCache)
+		res, err := testGet(t, sh, addr, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj, res.Object())
+		require.Equal(t, obj, res)
 
 		testGetBytes(t, sh, addr, obj.Marshal())
 	})
@@ -94,15 +89,11 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		getPrm.SetAddress(object.AddressOf(child))
-
-		res, err := testGet(t, sh, getPrm, hasWriteCache)
+		res, err := testGet(t, sh, object.AddressOf(child), hasWriteCache)
 		require.NoError(t, err)
-		require.True(t, binaryEqual(child, res.Object()))
+		require.True(t, binaryEqual(child, res))
 
-		getPrm.SetAddress(object.AddressOf(parent))
-
-		_, err = testGet(t, sh, getPrm, hasWriteCache)
+		_, err = testGet(t, sh, object.AddressOf(parent), hasWriteCache)
 
 		var si *objectSDK.SplitInfoError
 		require.True(t, errors.As(err, &si))
@@ -116,12 +107,12 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	})
 }
 
-func testGet(t *testing.T, sh *shard.Shard, getPrm shard.GetPrm, hasWriteCache bool) (shard.GetRes, error) {
-	res, err := sh.Get(getPrm)
+func testGet(t *testing.T, sh *shard.Shard, addr oid.Address, hasWriteCache bool) (*objectSDK.Object, error) {
+	res, err := sh.Get(addr, false)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
 			if shard.IsErrNotFound(err) {
-				res, err = sh.Get(getPrm)
+				res, err = sh.Get(addr, false)
 			}
 			return !shard.IsErrNotFound(err)
 		}, time.Second, time.Millisecond*100)

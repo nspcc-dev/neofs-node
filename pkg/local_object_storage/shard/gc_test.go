@@ -114,10 +114,8 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	epoch.Value = 5
 	sh.NotificationChannel() <- shard.EventNewEpoch(epoch.Value)
 
-	var getPrm shard.GetPrm
-	getPrm.SetAddress(objectCore.AddressOf(obj))
 	require.Eventually(t, func() bool {
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(objectCore.AddressOf(obj), false)
 		return shard.IsErrNotFound(err)
 	}, 3*time.Second, 1*time.Second, "lock expiration should free object removal")
 }
@@ -156,10 +154,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 	require.Len(t, res.Containers(), 1)
 
 	for _, o := range oo {
-		var getPrm shard.GetPrm
-		getPrm.SetAddress(o)
-
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(o, false)
 		require.NoError(t, err)
 	}
 
@@ -170,10 +165,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, o := range oo {
-			var getPrm shard.GetPrm
-			getPrm.SetAddress(o)
-
-			_, err = sh.Get(getPrm)
+			_, err = sh.Get(o, false)
 			if !errors.Is(err, apistatus.ObjectNotFound{}) {
 				return false
 			}
@@ -247,16 +239,13 @@ func TestExpiration(t *testing.T) {
 			_, err := sh.Put(putPrm)
 			require.NoError(t, err)
 
-			var getPrm shard.GetPrm
-			getPrm.SetAddress(objectCore.AddressOf(obj))
-
-			_, err = sh.Get(getPrm)
+			_, err = sh.Get(objectCore.AddressOf(obj), false)
 			require.NoError(t, err)
 
 			ch <- shard.EventNewEpoch(exp + 1)
 
 			require.Eventually(t, func() bool {
-				_, err = sh.Get(getPrm)
+				_, err = sh.Get(objectCore.AddressOf(obj), false)
 				return shard.IsErrNotFound(err)
 			}, 3*time.Second, 100*time.Millisecond, "lock expiration should free object removal")
 		})

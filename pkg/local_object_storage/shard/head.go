@@ -46,16 +46,10 @@ func (s *Shard) Head(prm HeadPrm) (HeadRes, error) {
 	var obj *objectSDK.Object
 	var err error
 	if s.GetMode().NoMetabase() {
-		var getPrm GetPrm
-		getPrm.SetAddress(prm.addr)
-		getPrm.SetIgnoreMeta(true)
-
-		var res GetRes
-		res, err = s.Get(getPrm)
+		obj, err = s.Get(prm.addr, true)
 		if err != nil {
 			return HeadRes{}, err
 		}
-		obj = res.Object()
 	} else {
 		obj, err = s.metaBase.Get(prm.addr, prm.raw)
 		if err != nil {

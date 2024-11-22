@@ -127,20 +127,17 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		var putPrm shard.PutPrm
 		putPrm.SetObject(obj)
 
-		var getPrm shard.GetPrm
-		getPrm.SetAddress(addr)
-
 		_, err := wrongShard.Put(putPrm)
 		require.NoError(t, err)
 
-		_, err = wrongShard.Get(getPrm)
+		_, err = wrongShard.Get(addr, false)
 		require.NoError(t, err)
 
 		err = e.Delete(addr)
 		require.NoError(t, err)
 
 		// object was on the wrong (according to hash sorting) shard but is removed anyway
-		_, err = wrongShard.Get(getPrm)
+		_, err = wrongShard.Get(addr, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 

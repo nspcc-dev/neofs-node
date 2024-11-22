@@ -129,10 +129,7 @@ func TestShard_Lock(t *testing.T) {
 
 		// check that object has been removed
 
-		var getPrm shard.GetPrm
-		getPrm.SetAddress(objectcore.AddressOf(obj))
-
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(objectcore.AddressOf(obj), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }

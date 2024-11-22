@@ -37,11 +37,9 @@ func TestShard_PutBinary(t *testing.T) {
 	_, err := sh.Put(putPrm)
 	require.NoError(t, err)
 
-	var getPrm shard.GetPrm
-	getPrm.SetAddress(addr)
-	res, err := sh.Get(getPrm)
+	res, err := sh.Get(addr, false)
 	require.NoError(t, err)
-	require.Equal(t, &obj, res.Object())
+	require.Equal(t, &obj, res)
 
 	testGetBytes(t, sh, addr, objBin)
 	require.NoError(t, err)
@@ -58,7 +56,6 @@ func TestShard_PutBinary(t *testing.T) {
 	testGetBytes(t, sh, addr, invalidObjBin)
 	require.NoError(t, err)
 
-	getPrm.SetAddress(addr)
-	_, err = sh.Get(getPrm)
+	_, err = sh.Get(addr, false)
 	require.Error(t, err)
 }

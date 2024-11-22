@@ -17,36 +17,8 @@ import (
 // ErrMetaWithNoObject is returned when shard has metadata, but no object.
 var ErrMetaWithNoObject = errors.New("got meta, but no object")
 
-// GetPrm groups the parameters of Get operation.
-type GetPrm struct {
-	addr     oid.Address
-	skipMeta bool
-}
-
-// GetRes groups the resulting values of Get operation.
-type GetRes struct {
-	obj *objectSDK.Object
-}
-
-// SetAddress is a Get option to set the address of the requested object.
-//
-// Option is required.
-func (p *GetPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// SetIgnoreMeta is a Get option try to fetch object from blobstor directly,
-// without accessing metabase.
-func (p *GetPrm) SetIgnoreMeta(ignore bool) {
-	p.skipMeta = ignore
-}
-
-// Object returns the requested object.
-func (r GetRes) Object() *objectSDK.Object {
-	return r.obj
-}
-
-// Get reads an object from shard.
+// Get reads an object from shard. skipMeta flag allows to fetch object from
+// the blobstor directly.
 //
 // Returns any error encountered that
 // did not allow to completely read the object part.
@@ -54,36 +26,36 @@ func (r GetRes) Object() *objectSDK.Object {
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (s *Shard) Get(prm GetPrm) (GetRes, error) {
+func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	var res GetRes
+	var res *objectSDK.Object
 
 	cb := func(stor *blobstor.BlobStor, id []byte) error {
 		var getPrm common.GetPrm
-		getPrm.Address = prm.addr
+		getPrm.Address = addr
 		getPrm.StorageID = id
 
 		r, err := stor.Get(getPrm)
 		if err != nil {
 			return err
 		}
-		res.obj = r.Object
+		res = r.Object
 		return nil
 	}
 
 	wc := func(c writecache.Cache) error {
-		o, err := c.Get(prm.addr)
+		o, err := c.Get(addr)
 		if err != nil {
 			return err
 		}
-		res.obj = o
+		res = o
 		return nil
 	}
 
-	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
-	gotMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
 	if err != nil && gotMeta {
 		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
 	}
