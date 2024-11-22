@@ -295,7 +295,8 @@ type internals struct {
 	closers []func()
 	// services that are useful for debug (e.g. when a regular closer does not
 	// close), must be close at the very end of application life cycle
-	veryLastClosers map[string]func()
+	veryLastClosersLock sync.RWMutex
+	veryLastClosers     map[string]func()
 
 	apiVersion   version.Version
 	healthStatus atomic.Int32
@@ -871,6 +872,9 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
+			oldMetrics := writeMetricConfig(c.cfgReader)
+			oldProfiler := writeProfilerConfig(c.cfgReader)
+
 			err := c.readConfig(c.cfgReader)
 			if err != nil {
 				c.log.Error("configuration reading", zap.Error(err))
@@ -880,6 +884,11 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			// Pool
 
 			c.reloadObjectPoolSizes()
+
+			// Prometheus and pprof
+
+			// nolint:contextcheck
+			c.reloadMetricsAndPprof(oldMetrics, oldProfiler)
 
 			// Logger
 
@@ -964,4 +973,31 @@ func writeSystemAttributes(c *cfg) error {
 	c.cfgNodeInfo.localInfo.SetCapacity(total / (1 << 30))
 
 	return nil
+}
+
+func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profilerConfig) {
+	c.veryLastClosersLock.Lock()
+	defer c.veryLastClosersLock.Unlock()
+
+	// Metrics
+
+	if oldMetrics.isUpdated(c.cfgReader) {
+		if closer, ok := c.veryLastClosers[metricName]; ok {
+			closer()
+		}
+		delete(c.veryLastClosers, metricName)
+
+		preRunAndLog(c, metricName, initMetrics(c))
+	}
+
+	//Profiler
+
+	if oldProfiler.isUpdated(c.cfgReader) {
+		if closer, ok := c.veryLastClosers[profilerName]; ok {
+			closer()
+		}
+		delete(c.veryLastClosers, profilerName)
+
+		preRunAndLog(c, profilerName, initProfiler(c))
+	}
 }

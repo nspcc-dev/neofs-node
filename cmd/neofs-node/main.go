@@ -184,9 +184,12 @@ func shutdown(c *cfg) {
 	for _, closer := range c.closers {
 		closer()
 	}
+
+	c.veryLastClosersLock.RLock()
 	for _, lastCloser := range c.veryLastClosers {
 		lastCloser()
 	}
+	c.veryLastClosersLock.RUnlock()
 
 	c.log.Debug("waiting for all processes to stop")
 
