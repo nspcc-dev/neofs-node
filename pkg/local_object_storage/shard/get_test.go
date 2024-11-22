@@ -48,7 +48,6 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
-		require.True(t, res.HasMeta())
 
 		testGetBytes(t, sh, addr, obj.Marshal())
 	})
@@ -70,7 +69,6 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		res, err := testGet(t, sh, getPrm, hasWriteCache)
 		require.NoError(t, err)
 		require.Equal(t, obj, res.Object())
-		require.True(t, res.HasMeta())
 
 		testGetBytes(t, sh, addr, obj.Marshal())
 	})
@@ -136,10 +134,9 @@ func testGetBytes(t testing.TB, sh *shard.Shard, addr oid.Address, objBin []byte
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
 
-	b, hasMeta, err := sh.GetBytesWithMetadataLookup(addr)
+	b, err = sh.GetBytesWithMetadataLookup(addr)
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
-	require.True(t, hasMeta)
 }
 
 // binary equal is used when object contains empty lists in the structure and

@@ -40,19 +40,19 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 	)
 	sp.SetAddress(addr)
 
-	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (bool, error) {
+	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
 		sp.SetIgnoreMeta(ignoreMetadata)
 		sr, err := s.Get(sp)
 		if err != nil {
-			return sr.HasMeta(), err
+			return err
 		}
 		obj = sr.Object()
-		return sr.HasMeta(), nil
+		return nil
 	})
 	return obj, err
 }
 
-func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error)) error {
+func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ignoreMetadata bool) error) error {
 	var (
 		hasDegraded   bool
 		shardWithMeta shardWrapper
@@ -64,11 +64,11 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 		noMeta := sh.GetMode().NoMetabase()
 		hasDegraded = hasDegraded || noMeta
 
-		hasMetadata, err := shardFunc(sh.Shard, noMeta)
+		err := shardFunc(sh.Shard, noMeta)
 		if err != nil {
 			var siErr *objectSDK.SplitInfoError
 
-			if hasMetadata {
+			if errors.Is(err, shard.ErrMetaWithNoObject) {
 				shardWithMeta = sh
 				metaError = err
 			}
@@ -121,7 +121,7 @@ func (e *StorageEngine) get(addr oid.Address, shardFunc func(s *shard.Shard, ign
 			continue
 		}
 
-		_, err := shardFunc(sh.Shard, true)
+		err := shardFunc(sh.Shard, true)
 		if shard.IsErrOutOfRange(err) {
 			return apistatus.ObjectOutOfRange{}
 		}
@@ -151,13 +151,13 @@ func (e *StorageEngine) GetBytes(addr oid.Address) ([]byte, error) {
 		b   []byte
 		err error
 	)
-	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) (hasMetadata bool, err error) {
+	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
 		if ignoreMetadata {
 			b, err = s.GetBytes(addr)
 		} else {
-			b, hasMetadata, err = s.GetBytesWithMetadataLookup(addr)
+			b, err = s.GetBytesWithMetadataLookup(addr)
 		}
-		return
+		return err
 	})
 	return b, err
 }

@@ -1,6 +1,8 @@
 package shard
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -23,8 +25,7 @@ type RngPrm struct {
 
 // RngRes groups the resulting values of GetRange operation.
 type RngRes struct {
-	obj     *object.Object
-	hasMeta bool
+	obj *object.Object
 }
 
 // SetAddress is a Rng option to set the address of the requested object.
@@ -50,11 +51,6 @@ func (p *RngPrm) SetIgnoreMeta(ignore bool) {
 // Instance payload contains the requested range of the original object.
 func (r RngRes) Object() *object.Object {
 	return r.obj
-}
-
-// HasMeta returns true if info about the object was found in the metabase.
-func (r RngRes) HasMeta() bool {
-	return r.hasMeta
 }
 
 // GetRange reads part of an object from shard.
@@ -109,8 +105,10 @@ func (s *Shard) GetRange(prm RngPrm) (RngRes, error) {
 	}
 
 	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
-	var err error
-	res.hasMeta, err = s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	gotMeta, err := s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
 
 	return res, err
 }
