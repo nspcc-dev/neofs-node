@@ -149,9 +149,9 @@ func TestGC_ContainerCleanup(t *testing.T) {
 		oo = append(oo, objectCore.AddressOf(obj))
 	}
 
-	res, err := sh.ListContainers(shard.ListContainersPrm{})
+	containers, err := sh.ListContainers()
 	require.NoError(t, err)
-	require.Len(t, res.Containers(), 1)
+	require.Len(t, containers, 1)
 
 	for _, o := range oo {
 		_, err = sh.Get(o, false)
@@ -161,7 +161,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 	require.NoError(t, sh.InhumeContainer(cID))
 
 	require.Eventually(t, func() bool {
-		res, err = sh.ListContainers(shard.ListContainersPrm{})
+		containers, err = sh.ListContainers()
 		require.NoError(t, err)
 
 		for _, o := range oo {
@@ -171,7 +171,7 @@ func TestGC_ContainerCleanup(t *testing.T) {
 			}
 		}
 
-		return len(res.Containers()) == 0
+		return len(containers) == 0
 	}, time.Second, 100*time.Millisecond)
 }
 

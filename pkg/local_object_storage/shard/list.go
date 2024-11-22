@@ -18,16 +18,6 @@ type Cursor = meta.Cursor
 // cursor. Use nil cursor object to start listing again.
 var ErrEndOfListing = meta.ErrEndOfListing
 
-type ListContainersPrm struct{}
-
-type ListContainersRes struct {
-	containers []cid.ID
-}
-
-func (r ListContainersRes) Containers() []cid.ID {
-	return r.containers
-}
-
 // ListWithCursorPrm contains parameters for ListWithCursor operation.
 type ListWithCursorPrm struct {
 	count  uint32
@@ -95,19 +85,18 @@ func (s *Shard) List() (res SelectRes, err error) {
 	return res, nil
 }
 
-func (s *Shard) ListContainers(_ ListContainersPrm) (ListContainersRes, error) {
+// ListContainers enumerates all containers known to this shard.
+func (s *Shard) ListContainers() ([]cid.ID, error) {
 	if s.GetMode().NoMetabase() {
-		return ListContainersRes{}, ErrDegradedMode
+		return nil, ErrDegradedMode
 	}
 
 	containers, err := s.metaBase.Containers()
 	if err != nil {
-		return ListContainersRes{}, fmt.Errorf("could not get list of containers: %w", err)
+		return nil, fmt.Errorf("could not get list of containers: %w", err)
 	}
 
-	return ListContainersRes{
-		containers: containers,
-	}, nil
+	return containers, nil
 }
 
 // ListWithCursor lists physical objects available in shard starting from
