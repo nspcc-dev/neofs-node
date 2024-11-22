@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -14,73 +13,24 @@ import (
 // ErrInvalidMagic is returned when dump format is invalid.
 var ErrInvalidMagic = logicerr.New("invalid magic")
 
-// RestorePrm groups the parameters of Restore operation.
-type RestorePrm struct {
-	path         string
-	stream       io.Reader
-	ignoreErrors bool
-}
-
-// WithPath is a Restore option to set the destination path.
-func (p *RestorePrm) WithPath(path string) {
-	p.path = path
-}
-
-// WithStream is a Restore option to set the stream to read objects from.
-// It takes priority over `WithPath` option.
-func (p *RestorePrm) WithStream(r io.Reader) {
-	p.stream = r
-}
-
-// WithIgnoreErrors is a Restore option which allows to ignore errors encountered during restore.
-// Corrupted objects will not be processed.
-func (p *RestorePrm) WithIgnoreErrors(ignore bool) {
-	p.ignoreErrors = ignore
-}
-
-// RestoreRes groups the result fields of Restore operation.
-type RestoreRes struct {
-	count  int
-	failed int
-}
-
-// Count return amount of object written.
-func (r RestoreRes) Count() int {
-	return r.count
-}
-
-// FailCount return amount of object skipped.
-func (r RestoreRes) FailCount() int {
-	return r.failed
-}
-
-// Restore restores objects from the dump prepared by Dump.
+// Restore restores objects from the dump prepared by Dump. If ignoreErrors
+// is set any restore errors are ignored (corrupted objects are just skipped).
 //
-// Returns any error encountered.
-func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
+// Returns two numbers: successful and failed restored objects, as well as any
+// error encountered.
+func (s *Shard) Restore(r io.Reader, ignoreErrors bool) (int, int, error) {
 	// Disallow changing mode during restore.
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	if s.info.Mode.ReadOnly() {
-		return RestoreRes{}, ErrReadOnlyMode
-	}
-
-	r := prm.stream
-	if r == nil {
-		f, err := os.OpenFile(prm.path, os.O_RDONLY, os.ModeExclusive)
-		if err != nil {
-			return RestoreRes{}, err
-		}
-		defer f.Close()
-
-		r = f
+		return 0, 0, ErrReadOnlyMode
 	}
 
 	var m [4]byte
 	_, _ = io.ReadFull(r, m[:])
 	if !bytes.Equal(m[:], dumpMagic) {
-		return RestoreRes{}, ErrInvalidMagic
+		return 0, 0, ErrInvalidMagic
 	}
 
 	var count, failCount int
@@ -94,7 +44,7 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return RestoreRes{}, err
+			return count, failCount, err
 		}
 
 		sz := binary.LittleEndian.Uint32(size[:])
@@ -106,26 +56,26 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 
 		_, err = r.Read(data)
 		if err != nil {
-			return RestoreRes{}, err
+			return count, failCount, err
 		}
 
 		obj := object.New()
 		err = obj.Unmarshal(data)
 		if err != nil {
-			if prm.ignoreErrors {
+			if ignoreErrors {
 				failCount++
 				continue
 			}
-			return RestoreRes{}, err
+			return count, failCount, err
 		}
 
 		err = s.Put(obj, nil, 0)
 		if err != nil && !IsErrObjectExpired(err) && !IsErrRemoved(err) {
-			return RestoreRes{}, err
+			return count, failCount, err
 		}
 
 		count++
 	}
 
-	return RestoreRes{count: count, failed: failCount}, nil
+	return count, failCount, nil
 }
