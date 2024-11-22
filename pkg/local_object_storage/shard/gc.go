@@ -311,11 +311,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 		return
 	}
 
-	var pInhume meta.InhumePrm
-	pInhume.SetAddresses(append(lockers, expired...)...)
-	pInhume.SetForceGCMark()
-
-	res, err := s.metaBase.Inhume(pInhume)
+	inhumed, _, err := s.metaBase.MarkGarbage(true, false, append(lockers, expired...)...)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
 			zap.Error(err),
@@ -324,7 +320,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 		return
 	}
 
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
+	s.decObjectCounterBy(logical, inhumed)
 }
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.
@@ -354,11 +350,7 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 		return
 	}
 
-	var pInhume meta.InhumePrm
-	pInhume.SetAddresses(expired...)
-	pInhume.SetGCMark()
-
-	res, err := s.metaBase.Inhume(pInhume)
+	inhumed, _, err := s.metaBase.MarkGarbage(false, false, expired...)
 	if err != nil {
 		s.log.Warn("failure to mark unlocked objects as garbage",
 			zap.Error(err),
@@ -367,7 +359,7 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 		return
 	}
 
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
+	s.decObjectCounterBy(logical, inhumed)
 }
 
 // NotificationChannel returns channel for shard events.

@@ -213,10 +213,7 @@ func TestFlush(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var inhumePrm meta.InhumePrm
-		inhumePrm.SetAddresses(objects[0].addr, objects[1].addr)
-		inhumePrm.SetTombstone(oidtest.Address(), 0)
-		_, err := mb.Inhume(inhumePrm)
+		_, _, err := mb.Inhume(oidtest.Address(), 0, false, objects[0].addr, objects[1].addr)
 		require.NoError(t, err)
 
 		_, err = mb.Delete([]oid.Address{objects[2].addr, objects[3].addr})

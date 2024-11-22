@@ -14,72 +14,6 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// InhumePrm encapsulates parameters for Inhume operation.
-type InhumePrm struct {
-	tomb           *oid.Address
-	tombExpiration uint64
-
-	target []oid.Address
-
-	lockObjectHandling bool
-
-	forceRemoval bool
-}
-
-// InhumeRes encapsulates results of Inhume operation.
-type InhumeRes struct {
-	deletedLockObj   []oid.Address
-	availableImhumed uint64
-}
-
-// AvailableInhumed return number of available object
-// that have been inhumed.
-func (i InhumeRes) AvailableInhumed() uint64 {
-	return i.availableImhumed
-}
-
-// DeletedLockObjects returns deleted object of LOCK
-// type. Returns always nil if WithoutLockObjectHandling
-// was provided to the InhumePrm.
-func (i InhumeRes) DeletedLockObjects() []oid.Address {
-	return i.deletedLockObj
-}
-
-// SetAddresses sets a list of object addresses that should be inhumed.
-func (p *InhumePrm) SetAddresses(addrs ...oid.Address) {
-	p.target = addrs
-}
-
-// SetTombstone sets tombstone address as the reason for inhume operation
-// and tombstone's expiration.
-//
-// addr should not be nil.
-// Should not be called along with SetGCMark.
-func (p *InhumePrm) SetTombstone(addr oid.Address, epoch uint64) {
-	p.tomb = &addr
-	p.tombExpiration = epoch
-}
-
-// SetGCMark marks the object to be physically removed.
-//
-// Should not be called along with SetTombstone.
-func (p *InhumePrm) SetGCMark() {
-	p.tomb = nil
-}
-
-// SetLockObjectHandling checks if there were
-// any LOCK object among the targets set via WithAddresses.
-func (p *InhumePrm) SetLockObjectHandling() {
-	p.lockObjectHandling = true
-}
-
-// SetForceGCMark allows removal any object. Expected to be
-// called only in control service.
-func (p *InhumePrm) SetForceGCMark() {
-	p.tomb = nil
-	p.forceRemoval = true
-}
-
 var errBreakBucketForEach = errors.New("bucket ForEach break")
 
 // ErrLockObjectRemoval is returned when inhume operation is being
@@ -92,21 +26,36 @@ var ErrLockObjectRemoval = logicerr.New("lock object removal")
 // if at least one object is locked. Returns ErrLockObjectRemoval if inhuming
 // is being performed on lock (not locked) object.
 //
-// NOTE: Marks any object with GC mark (despite any prohibitions on operations
-// with that object) if WithForceGCMark option has been provided.
-func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
+// Returns the number of available objects that were inhumed and a list of
+// deleted LOCK objects (if handleLocks parameter is set).
+func (db *DB) Inhume(tombstone oid.Address, tombExpiration uint64, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
+	return db.inhume(&tombstone, tombExpiration, false, handleLocks, addrs...)
+}
+
+// MarkGarbage marks objects to be physically removed from shard. force flag
+// allows to override any restrictions imposed on object deletion (to be used
+// by control service and other manual intervention cases). Otherwise similar
+// to [DB.Inhume], but doesn't need a tombstone.
+func (db *DB) MarkGarbage(force bool, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
+	return db.inhume(nil, 0, force, handleLocks, addrs...)
+}
+
+func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, handleLocks bool, addrs ...oid.Address) (uint64, []oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return InhumeRes{}, ErrDegradedMode
+		return 0, nil, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return InhumeRes{}, ErrReadOnlyMode
+		return 0, nil, ErrReadOnlyMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
-	var inhumed uint64
-
+	var (
+		currEpoch       = db.epochState.CurrentEpoch()
+		deletedLockObjs []oid.Address
+		err             error
+		inhumed         uint64
+	)
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
@@ -124,9 +73,9 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			value []byte
 		)
 
-		if prm.tomb != nil {
+		if tombstone != nil {
 			bkt = graveyardBKT
-			tombKey := addressKey(*prm.tomb, make([]byte, addressKeySize+8))
+			tombKey := addressKey(*tombstone, make([]byte, addressKeySize+8))
 
 			// it is forbidden to have a tomb-on-tomb in NeoFS,
 			// so graveyard keys must not be addresses of tombstones
@@ -138,19 +87,19 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				}
 			}
 
-			value = binary.LittleEndian.AppendUint64(tombKey, prm.tombExpiration)
+			value = binary.LittleEndian.AppendUint64(tombKey, tombExpiration)
 		} else {
 			bkt = garbageObjectsBKT
 			value = zeroValue
 		}
 
 		buf := make([]byte, addressKeySize)
-		for i := range prm.target {
-			id := prm.target[i].Object()
-			cnr := prm.target[i].Container()
+		for _, addr := range addrs {
+			id := addr.Object()
+			cnr := addr.Container()
 
 			// prevent locked objects to be inhumed
-			if !prm.forceRemoval && objectLocked(tx, cnr, id) {
+			if !force && objectLocked(tx, cnr, id) {
 				return apistatus.ObjectLocked{}
 			}
 
@@ -159,7 +108,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 			// prevent lock objects to be inhumed
 			// if `Inhume` was called not with the
 			// `WithForceGCMark` option
-			if !prm.forceRemoval {
+			if !force {
 				if isLockObject(tx, cnr, id) {
 					return ErrLockObjectRemoval
 				}
@@ -167,8 +116,8 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
-			targetKey := addressKey(prm.target[i], buf)
+			obj, err := db.get(tx, addr, buf, false, true, currEpoch)
+			targetKey := addressKey(addr, buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
 					// object is available, decrement the
@@ -186,7 +135,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				}
 			}
 
-			if prm.tomb != nil {
+			if tombstone != nil {
 				targetIsTomb := false
 
 				// iterate over graveyard and check if target address
@@ -226,7 +175,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				return err
 			}
 
-			if prm.lockObjectHandling {
+			if handleLocks {
 				// do not perform lock check if
 				// it was already called
 				if lockWasChecked {
@@ -236,7 +185,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 				}
 
 				if isLockObject(tx, cnr, id) {
-					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
+					deletedLockObjs = append(deletedLockObjs, addr)
 				}
 			}
 		}
@@ -244,9 +193,7 @@ func (db *DB) Inhume(prm InhumePrm) (res InhumeRes, err error) {
 		return db.updateCounter(tx, logical, inhumed, false)
 	})
 
-	res.availableImhumed = inhumed
-
-	return
+	return inhumed, deletedLockObjs, err
 }
 
 // InhumeContainer marks every object in a container as removed.

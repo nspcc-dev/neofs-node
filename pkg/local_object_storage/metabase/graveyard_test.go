@@ -61,11 +61,7 @@ func TestDB_Iterate_OffsetNotFound(t *testing.T) {
 	err = putBig(db, obj1)
 	require.NoError(t, err)
 
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetAddresses(object.AddressOf(obj1))
-	inhumePrm.SetGCMark()
-
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj1))
 	require.NoError(t, err)
 
 	var (
@@ -123,22 +119,14 @@ func TestDB_IterateDeletedObjects(t *testing.T) {
 	err = putBig(db, obj4)
 	require.NoError(t, err)
 
-	var inhumePrm meta.InhumePrm
-
 	// inhume with tombstone
 	addrTombstone := oidtest.Address()
 
-	inhumePrm.SetAddresses(object.AddressOf(obj1), object.AddressOf(obj2))
-	inhumePrm.SetTombstone(addrTombstone, 0)
-
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.Inhume(addrTombstone, 0, false, object.AddressOf(obj1), object.AddressOf(obj2))
 	require.NoError(t, err)
 
-	inhumePrm.SetAddresses(object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.SetGCMark()
-
 	// inhume with GC mark
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj3), object.AddressOf(obj4))
 	require.NoError(t, err)
 
 	var (
@@ -206,13 +194,9 @@ func TestDB_IterateOverGraveyard_Offset(t *testing.T) {
 	// inhume with tombstone
 	addrTombstone := oidtest.Address()
 
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetAddresses(
-		object.AddressOf(obj1), object.AddressOf(obj2),
+	_, _, err = db.Inhume(addrTombstone, 0, false, object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.SetTombstone(addrTombstone, 0)
 
-	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
 	expectedGraveyard := []oid.Address{
@@ -294,13 +278,9 @@ func TestDB_IterateOverGarbage_Offset(t *testing.T) {
 	err = putBig(db, obj4)
 	require.NoError(t, err)
 
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetAddresses(
-		object.AddressOf(obj1), object.AddressOf(obj2),
+	_, _, err = db.MarkGarbage(false, false, object.AddressOf(obj1), object.AddressOf(obj2),
 		object.AddressOf(obj3), object.AddressOf(obj4))
-	inhumePrm.SetGCMark()
 
-	_, err = db.Inhume(inhumePrm)
 	require.NoError(t, err)
 
 	expectedGarbage := []oid.Address{
@@ -406,15 +386,10 @@ func TestDropExpiredTSMarks(t *testing.T) {
 	droppedObjects := oidtest.Addresses(1024)
 	tombstone := oidtest.Address()
 
-	var pInh meta.InhumePrm
-	pInh.SetTombstone(tombstone, epoch)
-	pInh.SetAddresses(droppedObjects[:len(droppedObjects)/2]...)
-	_, err := db.Inhume(pInh)
+	_, _, err := db.Inhume(tombstone, epoch, false, droppedObjects[:len(droppedObjects)/2]...)
 	require.NoError(t, err)
 
-	pInh.SetTombstone(tombstone, epoch+1)
-	pInh.SetAddresses(droppedObjects[len(droppedObjects)/2:]...)
-	_, err = db.Inhume(pInh)
+	_, _, err = db.Inhume(tombstone, epoch+1, false, droppedObjects[len(droppedObjects)/2:]...)
 	require.NoError(t, err)
 
 	for _, o := range droppedObjects {
