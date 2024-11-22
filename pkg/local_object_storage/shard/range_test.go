@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -92,17 +91,13 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			err := sh.Put(obj, nil, 0)
 			require.NoError(t, err)
 
-			var rngPrm shard.RngPrm
-			rngPrm.SetAddress(addr)
-			rngPrm.SetRange(tc.rng.GetOffset(), tc.rng.GetLength())
-
-			res, err := sh.GetRange(rngPrm)
+			res, err := sh.GetRange(addr, tc.rng.GetOffset(), tc.rng.GetLength(), false)
 			if tc.hasErr {
 				require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 			} else {
 				require.Equal(t,
 					payload[tc.rng.GetOffset():tc.rng.GetOffset()+tc.rng.GetLength()],
-					res.Object().Payload())
+					res.Payload())
 			}
 		})
 	}

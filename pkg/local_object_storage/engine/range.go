@@ -41,18 +41,14 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	}
 
 	var (
-		err   error
-		data  []byte
-		shPrm shard.RngPrm
+		err  error
+		data []byte
 	)
-	shPrm.SetAddress(addr)
-	shPrm.SetRange(offset, length)
 
 	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) error {
-		shPrm.SetIgnoreMeta(ignoreMetadata)
-		res, err := sh.GetRange(shPrm)
+		res, err := sh.GetRange(addr, offset, length, ignoreMetadata)
 		if err == nil {
-			data = res.Object().Payload()
+			data = res.Payload()
 		}
 		return err
 	})
