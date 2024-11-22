@@ -42,11 +42,11 @@ type Reader interface {
 
 // Writer is an interface of container storage updater.
 type Writer interface {
-	// Put stores specified container in the side chain.
+	// Put stores specified container in FS chain.
 	Put(containercore.Container) (*cid.ID, error)
-	// Delete removes specified container from the side chain.
+	// Delete removes specified container from FS chain.
 	Delete(containercore.RemovalWitness) error
-	// PutEACL updates extended ACL table of specified container in the side chain.
+	// PutEACL updates extended ACL table of specified container in FS chain.
 	PutEACL(containercore.EACL) error
 }
 

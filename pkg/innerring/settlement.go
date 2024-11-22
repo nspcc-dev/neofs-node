@@ -91,7 +91,7 @@ func (c containerWrapper) Owner() user.ID {
 func (s settlementDeps) AuditResultsForEpoch(epoch uint64) ([]*auditsvc.Result, error) {
 	idList, err := s.auditClient.ListAuditResultIDByEpoch(epoch)
 	if err != nil {
-		return nil, fmt.Errorf("could not list audit results in sidechain: %w", err)
+		return nil, fmt.Errorf("could not list audit results in FS chain: %w", err)
 	}
 
 	res := make([]*auditsvc.Result, 0, len(idList))
@@ -135,7 +135,7 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 
 	cnr, err := s.cnrSrc.Get(cid)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get container from sidechain: %w", err)
+		return nil, nil, fmt.Errorf("could not get container from FS chain: %w", err)
 	}
 
 	cn, err := nm.ContainerNodes(

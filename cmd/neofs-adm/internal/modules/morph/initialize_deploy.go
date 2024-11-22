@@ -33,8 +33,8 @@ import (
 
 const (
 	nnsContract        = "nns"
-	neofsContract      = "neofs"      // not deployed in side-chain.
-	processingContract = "processing" // not deployed in side-chain.
+	neofsContract      = "neofs"      // not deployed in FS chain.
+	processingContract = "processing" // not deployed in FS chain.
 	alphabetContract   = "alphabet"
 	auditContract      = "audit"
 	balanceContract    = "balance"

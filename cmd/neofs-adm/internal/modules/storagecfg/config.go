@@ -33,9 +33,9 @@ control:
     endpoint: {{.ControlEndpoint}}  # endpoint that is listened by the Control Service
 
 morph:
-  dial_timeout: 20s  # timeout for side chain NEO RPC client connection
-  cache_ttl: 15s  # use TTL cache for side chain GET operations
-  endpoints:  # side chain N3 RPC endpoints
+  dial_timeout: 20s  # timeout for FS chain NEO RPC client connection
+  cache_ttl: 15s  # use TTL cache for FS chain GET operations
+  endpoints:  # FS chain N3 RPC endpoints
     {{- range .MorphRPC }}
     - wss://{{.}}/ws{{end}}
 {{if not .Relay }}

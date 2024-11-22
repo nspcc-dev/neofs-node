@@ -522,7 +522,7 @@ type cfgReputation struct {
 	localTrustCtrl *trustcontroller.Controller
 }
 
-var persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
+var persistateFSChainLastBlockKey = []byte("fs_chain_last_processed_block")
 
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
@@ -662,17 +662,17 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	addresses := c.applicationConfiguration.morph.endpoints
 
-	fromSideChainBlock, err := stateStorage.UInt32(persistateSideChainLastBlockKey)
+	fromFSChainBlock, err := stateStorage.UInt32(persistateFSChainLastBlockKey)
 	if err != nil {
-		fromSideChainBlock = 0
-		c.log.Warn("can't get last processed side chain block number", zap.Error(err))
+		fromFSChainBlock = 0
+		c.log.Warn("can't get last processed FS chain block number", zap.Error(err))
 	}
 
 	cli, err := client.New(key,
 		client.WithContext(c.internals.ctx),
 		client.WithDialTimeout(c.applicationConfiguration.morph.dialTimeout),
 		client.WithLogger(c.log),
-		client.WithAutoSidechainScope(),
+		client.WithAutoFSChainScope(),
 		client.WithEndpoints(addresses),
 		client.WithReconnectionRetries(c.applicationConfiguration.morph.reconnectionRetriesNumber),
 		client.WithReconnectionsDelay(c.applicationConfiguration.morph.reconnectionRetriesDelay),
@@ -682,7 +682,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 				c.internalErr <- fmt.Errorf("restarting after morph connection was lost: %w", err)
 			}
 		}),
-		client.WithMinRequiredBlockHeight(fromSideChainBlock),
+		client.WithMinRequiredBlockHeight(fromFSChainBlock),
 	)
 	if err != nil {
 		c.log.Info("failed to create neo RPC client",
@@ -813,7 +813,7 @@ func (c *cfg) handleLocalNodeInfoFromNetwork(ni *netmap.NodeInfo) {
 	c.localNodeInNetmap.Store(ni != nil)
 }
 
-// bootstrapWithState calls "addPeer" method of the Sidechain Netmap contract
+// bootstrapWithState calls "addPeer" method of FS chain Netmap contract
 // with the binary-encoded information from the current node's configuration.
 // The state is set using the provided setter which MUST NOT be nil.
 func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {

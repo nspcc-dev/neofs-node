@@ -43,7 +43,7 @@ type initializeContext struct {
 	ContractPath string
 }
 
-func initializeSideChainCmd(cmd *cobra.Command, _ []string) error {
+func initializeFSChainCmd(cmd *cobra.Command, _ []string) error {
 	initCtx, err := newInitializeContext(cmd, viper.GetViper())
 	if err != nil {
 		return fmt.Errorf("initialization error: %w", err)

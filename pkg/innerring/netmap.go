@@ -14,13 +14,13 @@ File contains dependencies for processor of the Netmap contract's notifications.
 // wraps Netmap contract's client and provides state.NetworkSettings.
 type networkSettings netmapclient.Client
 
-// MaintenanceModeAllowed requests network configuration from the Sidechain
+// MaintenanceModeAllowed requests network configuration from FS chain
 // and check allowance of storage node's maintenance mode according to it.
 // Always returns state.ErrMaintenanceModeDisallowed.
 func (s *networkSettings) MaintenanceModeAllowed() error {
 	allowed, err := (*netmapclient.Client)(s).MaintenanceModeAllowed()
 	if err != nil {
-		return fmt.Errorf("read maintenance mode's allowance from the Sidechain: %w", err)
+		return fmt.Errorf("read maintenance mode's allowance from FS chain: %w", err)
 	} else if allowed {
 		return nil
 	}

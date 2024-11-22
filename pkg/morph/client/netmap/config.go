@@ -58,7 +58,7 @@ func (c *Client) AuditFee() (uint64, error) {
 	return fee, nil
 }
 
-// EpochDuration returns number of sidechain blocks per one NeoFS epoch.
+// EpochDuration returns number of FS chain blocks per one NeoFS epoch.
 func (c *Client) EpochDuration() (uint64, error) {
 	epochDuration, err := c.readUInt64Config(EpochDurationConfig)
 	if err != nil {
@@ -143,7 +143,7 @@ func (c *Client) WithdrawFee() (uint64, error) {
 }
 
 // MaintenanceModeAllowed reads admission of "maintenance" state from the
-// NeoFS network configuration stored in the Sidechain. The admission means
+// NeoFS network configuration stored in FS chain. The admission means
 // that storage nodes are allowed to switch their state to "maintenance".
 //
 // By default, maintenance state is disallowed.
@@ -172,7 +172,7 @@ func (c *Client) readStringConfig(key string) (string, error) {
 }
 
 // reads boolean value by the given key from the NeoFS network configuration
-// stored in the Sidechain. Returns false if key is not presented.
+// stored in FS chain. Returns false if key is not presented.
 func (c *Client) readBoolConfig(key string) (bool, error) {
 	v, err := c.config([]byte(key), BoolAssert)
 	if err != nil {
@@ -180,7 +180,7 @@ func (c *Client) readBoolConfig(key string) (bool, error) {
 			return false, nil
 		}
 
-		return false, fmt.Errorf("read boolean configuration value %s from the Sidechain: %w", key, err)
+		return false, fmt.Errorf("read boolean configuration value %s from FS chain: %w", key, err)
 	}
 
 	// BoolAssert is guaranteed to return bool if the error is nil.
@@ -232,7 +232,7 @@ type RawNetworkParameter struct {
 }
 
 // NetworkConfiguration represents NeoFS network configuration stored
-// in the NeoFS Sidechain.
+// in FS chain.
 type NetworkConfiguration struct {
 	MaxObjectSize uint64
 
@@ -261,7 +261,7 @@ type NetworkConfiguration struct {
 	Raw []RawNetworkParameter
 }
 
-// ReadNetworkConfiguration reads NetworkConfiguration from the NeoFS Sidechain.
+// ReadNetworkConfiguration reads NetworkConfiguration from FS chain.
 func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 	var res NetworkConfiguration
 	prm := client.TestInvokePrm{}

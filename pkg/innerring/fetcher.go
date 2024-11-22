@@ -46,13 +46,13 @@ type IrFetcherWithoutNotary struct {
 }
 
 // InnerRingKeys fetches list of innerring keys from NeoFSAlphabet
-// role in the sidechain.
+// role in FS chain.
 func (fN IrFetcherWithNotary) InnerRingKeys() (keys.PublicKeys, error) {
 	return fN.cli.NeoFSAlphabetList()
 }
 
 // InnerRingKeys fetches list of innerring keys from netmap contract
-// in the sidechain.
+// in FS chain.
 func (f IrFetcherWithoutNotary) InnerRingKeys() (keys.PublicKeys, error) {
 	return f.nm.GetInnerRingList()
 }

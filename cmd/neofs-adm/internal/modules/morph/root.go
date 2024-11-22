@@ -79,7 +79,7 @@ var (
 
 	initCmd = &cobra.Command{
 		Use:   "init",
-		Short: "Initialize side chain network with smart-contracts and network settings",
+		Short: "Initialize FS chain network with smart-contracts and network settings",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -95,7 +95,7 @@ var (
 			_ = viper.BindPFlag(protoConfigPath, cmd.Flags().Lookup(protoConfigPath))
 			_ = viper.BindPFlag(localDumpFlag, cmd.Flags().Lookup(localDumpFlag))
 		},
-		RunE: initializeSideChainCmd,
+		RunE: initializeFSChainCmd,
 	}
 
 	generateStorageCmd = &cobra.Command{
@@ -182,7 +182,7 @@ var (
 
 	forceNewEpoch = &cobra.Command{
 		Use:   "force-new-epoch",
-		Short: "Create new NeoFS epoch event in the side chain",
+		Short: "Create new NeoFS epoch event in FS chain",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -375,7 +375,7 @@ func init() {
 	initCmd.Flags().String(alphabetWalletsFlag, "", "Path to alphabet wallets dir")
 	initCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
 	initCmd.Flags().String(contractsInitFlag, "", "Path to archive with compiled NeoFS contracts (default fetched from latest github release)")
-	initCmd.Flags().Uint(epochDurationCLIFlag, 240, "Amount of side chain blocks in one NeoFS epoch")
+	initCmd.Flags().Uint(epochDurationCLIFlag, 240, "Amount of FS chain blocks in one NeoFS epoch")
 	initCmd.Flags().Uint(maxObjectSizeCLIFlag, 67108864, "Max single object size in bytes")
 	initCmd.Flags().Bool(homomorphicHashDisabledCLIFlag, false, "Disable object homomorphic hashing")
 	// Defaults are taken from neo-preodolenie.
@@ -497,7 +497,7 @@ func init() {
 
 	cmd := verifiedNodesDomainAccessListCmd
 	fs := cmd.Flags()
-	fs.StringP(endpointFlag, "r", "", "NeoFS Sidechain RPC endpoint")
+	fs.StringP(endpointFlag, "r", "", "FS chain RPC endpoint")
 	_ = cmd.MarkFlagRequired(endpointFlag)
 	fs.StringP(domainFlag, "d", "", "Verified domain of the storage nodes. Must be a valid NeoFS NNS domain (e.g. 'nodes.some-org.neofs')")
 	_ = cmd.MarkFlagRequired(domainFlag)
@@ -510,7 +510,7 @@ func init() {
 	_ = cmd.MarkFlagRequired(walletFlag)
 	fs.StringP(walletAccountFlag, "a", "", "Optional Neo address of the wallet account for signing transactions. "+
 		"If omitted, default change address from the wallet is used")
-	fs.StringP(endpointFlag, "r", "", "NeoFS Sidechain RPC endpoint")
+	fs.StringP(endpointFlag, "r", "", "FS chain RPC endpoint")
 	_ = cmd.MarkFlagRequired(endpointFlag)
 	fs.StringP(domainFlag, "d", "", "Verified domain of the storage nodes. Must be a valid NeoFS NNS domain (e.g. 'nodes.some-org.neofs')")
 	_ = cmd.MarkFlagRequired(domainFlag)

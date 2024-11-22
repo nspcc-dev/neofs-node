@@ -24,8 +24,8 @@ morph:
   reconnections_number: 5
   reconnections_delay: 5s
   endpoints:
-      - wss://sidechain1.fs.neo.org:30333/ws
-      - wss://sidechain2.fs.neo.org:30333/ws
+      - wss://fschain1.fs.neo.org:30333/ws
+      - wss://fschain2.fs.neo.org:30333/ws
   validators:
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
   consensus:

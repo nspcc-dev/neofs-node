@@ -33,8 +33,8 @@ const (
 	rpcDefaultListenPort = "30333"
 )
 
-// checks whether Inner Ring app is configured to initialize underlying NeoFS
-// Sidechain or await for a background deployment. Returns an error if
+// checks whether Inner Ring app is configured to initialize underlying FS chain
+// or await for a background deployment. Returns an error if
 // the configuration format is violated.
 func isAutoDeploymentMode(cfg *viper.Viper) (bool, error) {
 	res, err := parseConfigBool(cfg, "fschain_autodeploy", "flag to auto-deploy the FS chain")
@@ -253,11 +253,11 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	return c, nil
 }
 
-// sets NeoFS network settings to be used for the NeoFS Sidechain
+// sets NeoFS network settings to be used for FS chain
 // auto-deployment.
 func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.MaxObjectSize = 64 << 20 // in bytes of object payload
-	netCfg.EpochDuration = 240      // in NeoFS Sidechain blocks (e.g. ~1h for 15s block interval)
+	netCfg.EpochDuration = 240      // in FS chain blocks (e.g. ~1h for 15s block interval)
 	netCfg.StoragePrice = 0         // in GAS per 1GB (NeoFS Balance contract's decimals)
 	netCfg.AuditFee = 0             // in GAS per audit (NeoFS Balance contract's decimals)
 	netCfg.ContainerFee = 1000      // in GAS per container (NeoFS Balance contract's decimals)

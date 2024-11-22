@@ -6,8 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Process config event by setting configuration value from the mainchain in
-// the sidechain.
+// Process config event by setting configuration value from the mainchain in FS chain.
 func (np *Processor) processConfig(config *neofsEvent.Config) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore config")

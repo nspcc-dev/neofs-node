@@ -32,7 +32,7 @@ import (
 type (
 	notaryInfo struct {
 		txValidTime uint32 // minimum amount of blocks when mainTx will be valid
-		roundTime   uint32 // extra amount of blocks to synchronize sidechain height diff of inner ring nodes
+		roundTime   uint32 // extra amount of blocks to synchronize FS chain height diff of inner ring nodes
 
 		alphabetSource AlphabetKeys // source of alphabet node keys to prepare witness
 
@@ -281,7 +281,7 @@ func (c *Client) UpdateNotaryList(notaries keys.PublicKeys, txHash util.Uint256)
 }
 
 // UpdateNeoFSAlphabetList updates list of alphabet nodes in designate contract.
-// As for sidechain list should contain all inner ring nodes.
+// As for FS chain list should contain all inner ring nodes.
 // Requires committee multi signature.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
@@ -618,7 +618,7 @@ func WithTxValidTime(t uint32) NotaryOption {
 }
 
 // WithRoundTime returns a notary support option for client
-// that specifies extra blocks to synchronize side chain
+// that specifies extra blocks to synchronize FS chain
 // height diff of inner ring nodes.
 func WithRoundTime(t uint32) NotaryOption {
 	return func(c *notaryCfg) {
@@ -629,7 +629,7 @@ func WithRoundTime(t uint32) NotaryOption {
 // WithAlphabetSource returns a notary support option for client
 // that specifies function to return list of alphabet node keys.
 // By default notary subsystem uses committee as a source. This is
-// valid for side chain but notary in main chain should override it.
+// valid for FS chain but notary in main chain should override it.
 func WithAlphabetSource(t AlphabetKeys) NotaryOption {
 	return func(c *notaryCfg) {
 		c.alphabetSource = t

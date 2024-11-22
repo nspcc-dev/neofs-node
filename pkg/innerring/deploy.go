@@ -16,15 +16,15 @@ import (
 
 // [deploy.Blockchain] methods provided from both [client.Client] and
 // [rpcclient.WSClient].
-type neoFSSidechainCommonRPC interface {
+type fsChainCommonRPC interface {
 	notary.RPCActor
 	GetCommittee() (keys.PublicKeys, error)
 	GetContractStateByID(id int32) (*state.Contract, error)
 	GetContractStateByHash(util.Uint160) (*state.Contract, error)
 }
 
-type neoFSSidechain struct {
-	neoFSSidechainCommonRPC
+type fsChain struct {
+	fsChainCommonRPC
 
 	client *client.Client
 
@@ -36,7 +36,7 @@ type neoFSSidechain struct {
 
 // cancels all active subscriptions. Must not be called concurrently with
 // subscribe methods.
-func (x *neoFSSidechain) cancelSubs() {
+func (x *fsChain) cancelSubs() {
 	if x.wsClient != nil {
 		for i := range x.subs {
 			_ = x.wsClient.Unsubscribe(x.subs[i])
@@ -46,7 +46,7 @@ func (x *neoFSSidechain) cancelSubs() {
 }
 
 // SubscribeToNewBlocks implements [deploy.Blockchain] interface.
-func (x *neoFSSidechain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
+func (x *fsChain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
 	if x.wsClient != nil {
 		ch := make(chan *block.Block)
 
@@ -72,7 +72,7 @@ func (x *neoFSSidechain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
 }
 
 // SubscribeToNotaryRequests implements [deploy.Blockchain] interface.
-func (x *neoFSSidechain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error) {
+func (x *fsChain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error) {
 	if x.wsClient != nil {
 		ch := make(chan *result.NotaryRequestEvent)
 
@@ -98,16 +98,16 @@ func (x *neoFSSidechain) SubscribeToNotaryRequests() (<-chan *result.NotaryReque
 }
 
 // second parameter is optional and affects subscription methods.
-func newNeoFSSidechain(sidechainClient *client.Client, sidechainWSClient *rpcclient.WSClient) *neoFSSidechain {
-	res := &neoFSSidechain{
-		client:   sidechainClient,
-		wsClient: sidechainWSClient,
+func newFSChain(fsChainClient *client.Client, fsChainWSClient *rpcclient.WSClient) *fsChain {
+	res := &fsChain{
+		client:   fsChainClient,
+		wsClient: fsChainWSClient,
 	}
 
-	if sidechainWSClient != nil {
-		res.neoFSSidechainCommonRPC = sidechainWSClient
+	if fsChainWSClient != nil {
+		res.fsChainCommonRPC = fsChainWSClient
 	} else {
-		res.neoFSSidechainCommonRPC = sidechainClient
+		res.fsChainCommonRPC = fsChainClient
 	}
 
 	return res

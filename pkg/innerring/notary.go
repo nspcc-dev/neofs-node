@@ -39,13 +39,13 @@ func (s *Server) depositMainNotary() error {
 	return s.mainnetClient.DepositNotary(depositAmount, till)
 }
 
-func (s *Server) depositSideNotary() error {
+func (s *Server) depositFSNotary() error {
 	depositAmount, err := client.CalculateNotaryDepositAmount(s.morphClient, gasMultiplier, gasDivisor)
 	if err != nil {
-		return fmt.Errorf("could not calculate side notary deposit amount: %w", err)
+		return fmt.Errorf("could not calculate FS notary deposit amount: %w", err)
 	}
 
-	s.log.Debug("making neofs chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
+	s.log.Debug("making FS chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
 
 	return s.morphClient.DepositEndlessNotary(depositAmount)
 }
@@ -58,8 +58,8 @@ func (s *Server) notaryHandler(_ event.Event) {
 		}
 	}
 
-	err := s.depositSideNotary()
+	err := s.depositFSNotary()
 	if err != nil {
-		s.log.Error("can't make notary deposit in side chain", zap.Error(err))
+		s.log.Error("can't make notary deposit in FS chain", zap.Error(err))
 	}
 }

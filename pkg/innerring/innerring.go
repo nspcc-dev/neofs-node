@@ -141,7 +141,7 @@ type (
 		name string
 		from uint32 // block height
 
-		withAutoSidechainScope bool
+		withAutoFSChainScope bool
 	}
 )
 
@@ -184,15 +184,15 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		s.log.Info("made main chain notary deposit successfully")
 	}
 
-	err = s.depositSideNotary()
+	err = s.depositFSNotary()
 	if err != nil {
 		return fmt.Errorf("fs chain notary deposit: %w", err)
 	}
 
 	s.log.Info("made fs chain notary deposit successfully")
 
-	// vote for sidechain validator if it is prepared in config
-	err = s.voteForSidechainValidator(s.predefinedValidators, nil)
+	// vote for FS chain validator if it is prepared in config
+	err = s.voteForFSChainValidator(s.predefinedValidators, nil)
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",
@@ -218,7 +218,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		case <-ctx.Done():
 			return
 		case err := <-morphErr:
-			intError <- fmt.Errorf("sidechain: %w", err)
+			intError <- fmt.Errorf("FS chain: %w", err)
 		case err := <-mainnnetErr:
 			intError <- fmt.Errorf("mainnet: %w", err)
 		}
@@ -229,10 +229,10 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			zap.Uint32("index", b.Index),
 		)
 
-		err = s.persistate.SetUInt32(persistateSideChainLastBlockKey, b.Index)
+		err = s.persistate.SetUInt32(persistateFSChainLastBlockKey, b.Index)
 		if err != nil {
 			s.log.Warn("can't update persistent state",
-				zap.String("chain", "side"),
+				zap.String("chain", "FS"),
 				zap.Uint32("block_index", b.Index))
 		}
 
@@ -321,17 +321,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 	server.registerCloser(server.persistate.Close)
 
-	fromSideChainBlock, err := server.persistate.UInt32(persistateSideChainLastBlockKey)
+	fromFSChainBlock, err := server.persistate.UInt32(persistateFSChainLastBlockKey)
 	if err != nil {
-		fromSideChainBlock = 0
-		log.Warn("can't get last processed side chain block number", zap.Error(err))
+		fromFSChainBlock = 0
+		log.Warn("can't get last processed FS chain block number", zap.Error(err))
 	}
 
 	morphChain := chainParams{
 		log:  log,
 		cfg:  cfg,
 		name: morphPrefix,
-		from: fromSideChainBlock,
+		from: fromFSChainBlock,
 	}
 
 	const walletPathKey = "wallet.path"
@@ -459,16 +459,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 
 		morphChain.key = server.key
-		sidechainOpts := make([]client.Option, 3, 4)
-		sidechainOpts[0] = client.WithContext(ctx)
-		sidechainOpts[1] = client.WithLogger(log)
-		sidechainOpts[2] = client.WithSingleClient(localWSClient)
+		fsChainOpts := make([]client.Option, 3, 4)
+		fsChainOpts[0] = client.WithContext(ctx)
+		fsChainOpts[1] = client.WithLogger(log)
+		fsChainOpts[2] = client.WithSingleClient(localWSClient)
 
 		if !isAutoDeploy {
-			sidechainOpts = append(sidechainOpts, client.WithAutoSidechainScope())
+			fsChainOpts = append(fsChainOpts, client.WithAutoFSChainScope())
 		}
 
-		server.morphClient, err = client.New(server.key, sidechainOpts...)
+		server.morphClient, err = client.New(server.key, fsChainOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("init internal morph client: %w", err)
 		}
@@ -480,7 +480,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		// fallback to the pure RPC architecture
 
 		morphChain.key = server.key
-		morphChain.withAutoSidechainScope = !isAutoDeploy
+		morphChain.withAutoFSChainScope = !isAutoDeploy
 
 		server.morphClient, err = server.createClient(ctx, morphChain, errChan)
 		if err != nil {
@@ -489,12 +489,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	if isAutoDeploy {
-		log.Info("auto-deployment configured, initializing Sidechain...")
+		log.Info("auto-deployment configured, initializing FS chain...")
 
-		var sidechain *neoFSSidechain
+		var fschain *fsChain
 		var clnt *client.Client // set if not isLocalConsensus only
 		if isLocalConsensus {
-			sidechain = newNeoFSSidechain(server.morphClient, localWSClient)
+			fschain = newFSChain(server.morphClient, localWSClient)
 		} else {
 			// create new client for deployment procedure only. This is done because event
 			// subscriptions can be created only once, but we must cancel them to prevent
@@ -517,15 +517,15 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 				client.WithMinRequiredBlockHeight(morphChain.from),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("create multi-endpoint client for Sidechain deployment: %w", err)
+				return nil, fmt.Errorf("create multi-endpoint client for FS chain deployment: %w", err)
 			}
 
-			sidechain = newNeoFSSidechain(clnt, nil)
+			fschain = newFSChain(clnt, nil)
 		}
 
 		var deployPrm deploy.Prm
 		deployPrm.Logger = server.log
-		deployPrm.Blockchain = sidechain
+		deployPrm.Blockchain = fschain
 		deployPrm.LocalAccount = singleAcc
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
 		deployPrm.Glagolitsa = &glagolitsa.Glagolitsa{}
@@ -550,17 +550,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.setHealthStatus(control.HealthStatus_INITIALIZING_NETWORK)
 		err = deploy.Deploy(ctx, deployPrm)
 		if err != nil {
-			return nil, fmt.Errorf("deploy Sidechain: %w", err)
+			return nil, fmt.Errorf("deploy FS chain: %w", err)
 		}
 
-		sidechain.cancelSubs()
+		fschain.cancelSubs()
 		if !isLocalConsensus {
 			clnt.Close()
 		}
 
-		err = server.morphClient.InitSidechainScope()
+		err = server.morphClient.InitFSChainScope()
 		if err != nil {
-			return nil, fmt.Errorf("init Sidechain witness scope: %w", err)
+			return nil, fmt.Errorf("init FS chain witness scope: %w", err)
 		}
 
 		server.log.Info("autodeploy completed")
@@ -582,7 +582,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.mainnetClient = server.morphClient
 	} else {
 		mainnetChain := morphChain
-		mainnetChain.withAutoSidechainScope = false
+		mainnetChain.withAutoFSChainScope = false
 		mainnetChain.name = mainnetPrefix
 
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
@@ -623,12 +623,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 
-	// enable notary support in the side client
+	// enable notary support in the FS client
 	err = server.morphClient.EnableNotarySupport(
 		client.WithProxyContract(server.contracts.proxy),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not enable side chain notary support: %w", err)
+		return nil, fmt.Errorf("could not enable FS chain notary support: %w", err)
 	}
 
 	server.morphListener.EnableNotarySupport(server.contracts.proxy, server.key.PublicKey().GetScriptHash(),
@@ -1076,8 +1076,8 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		}),
 		client.WithMinRequiredBlockHeight(p.from),
 	}
-	if p.withAutoSidechainScope {
-		options = append(options, client.WithAutoSidechainScope())
+	if p.withAutoFSChainScope {
+		options = append(options, client.WithAutoFSChainScope())
 	}
 
 	return client.New(p.key, options...)
@@ -1148,7 +1148,7 @@ func (s *Server) nextEpochBlockDelta() (uint32, error) {
 
 	blockHeight, err := s.morphClient.BlockCount()
 	if err != nil {
-		return 0, fmt.Errorf("can't get side chain height: %w", err)
+		return 0, fmt.Errorf("can't get FS chain height: %w", err)
 	}
 
 	delta := uint32(s.epochDuration.Load()) + epochBlock
@@ -1197,7 +1197,7 @@ func (s *Server) restartMorph() error {
 
 	err := s.initConfigFromBlockchain()
 	if err != nil {
-		return fmt.Errorf("side chain config reinitialization: %w", err)
+		return fmt.Errorf("FS chain config reinitialization: %w", err)
 	}
 
 	for _, t := range s.blockTimers {

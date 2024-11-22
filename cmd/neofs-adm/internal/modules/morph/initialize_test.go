@@ -51,7 +51,7 @@ func testInitialize(t *testing.T, committeeSize int) {
 	v.Set(maxObjectSizeInitFlag, 1024)
 
 	setTestCredentials(v, committeeSize)
-	require.NoError(t, initializeSideChainCmd(initCmd, nil))
+	require.NoError(t, initializeFSChainCmd(initCmd, nil))
 
 	t.Run("force-new-epoch", func(t *testing.T) {
 		require.NoError(t, forceNewEpochCmd(forceNewEpoch, nil))

@@ -31,7 +31,7 @@ type (
 		GetByIndex(int) (util.Uint160, bool)
 	}
 
-	// Processor of events produced for alphabet contracts in the sidechain.
+	// Processor of events produced for alphabet contracts in FS chain.
 	Processor struct {
 		log               *zap.Logger
 		pool              *ants.Pool

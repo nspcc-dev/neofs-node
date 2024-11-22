@@ -199,7 +199,7 @@ func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
 }
 
 // Get returns container value from the cache. If value is missing in the cache
-// or expired, then it returns value from side chain and updates the cache.
+// or expired, then it returns value from FS chain and updates the cache.
 func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
 	val, err := s.tc.get(cnr)
 	if err != nil {
@@ -228,7 +228,7 @@ func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLSto
 }
 
 // GetEACL returns eACL value from the cache. If value is missing in the cache
-// or expired, then it returns value from side chain and updates cache.
+// or expired, then it returns value from FS chain and updates cache.
 func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	val, err := s.tc.get(cnr)
 	if err != nil {
@@ -333,7 +333,7 @@ func newCachedContainerLister(c *cntClient.Client, ttl time.Duration) *ttlContai
 }
 
 // List returns list of container IDs from the cache. If list is missing in the
-// cache or expired, then it returns container IDs from side chain and updates
+// cache or expired, then it returns container IDs from FS chain and updates
 // the cache.
 func (s *ttlContainerLister) List(id *user.ID) ([]cid.ID, error) {
 	if id == nil {
@@ -365,7 +365,7 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 	vt, ok := s.inner.cache.Peek(strOwner)
 	if !ok {
 		// we could cache the single cnr but in this case we will disperse
-		// with the Sidechain a lot
+		// with FS chain a lot
 		return
 	}
 
@@ -385,7 +385,7 @@ func (s *ttlContainerLister) update(owner user.ID, cnr cid.ID, add bool) {
 					item.list = append(item.list[:i], item.list[i+1:]...)
 					// if list became empty we don't remove the value from the cache
 					// since empty list is a correct value, and we don't want to insta
-					// re-request it from the Sidechain
+					// re-request it from FS chain
 				}
 
 				break
@@ -415,7 +415,7 @@ func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cache
 		// requests (neofs-node #1278), so limiting the request rate solves the issue.
 		//
 		// Exact request rate doesn't really matter because Inner Ring list update
-		// happens extremely rare, but there is no side chain events for that as
+		// happens extremely rare, but there is no FS chain events for that as
 		// for now (neofs-contract v0.15.0 notary disabled env) to monitor it.
 		irFetcherCacheTTL = 30 * time.Second
 	)
@@ -430,7 +430,7 @@ func newCachedIRFetcher(f interface{ InnerRingKeys() ([][]byte, error) }) *cache
 }
 
 // InnerRingKeys returns cached list of Inner Ring keys. If keys are missing in
-// the cache or expired, then it returns keys from side chain and updates
+// the cache or expired, then it returns keys from FS chain and updates
 // the cache.
 func (f *cachedIRFetcher) InnerRingKeys() ([][]byte, error) {
 	val, err := f.tc.get(struct{}{})

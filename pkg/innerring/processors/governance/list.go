@@ -9,25 +9,25 @@ import (
 )
 
 var (
-	errNotEnoughKeys  = errors.New("alphabet list in mainnet is too short")
-	errNotEqualLen    = errors.New("old and new alphabet lists have different length")
-	errEmptySidechain = errors.New("sidechain list is empty")
+	errNotEnoughKeys = errors.New("alphabet list in mainnet is too short")
+	errNotEqualLen   = errors.New("old and new alphabet lists have different length")
+	errEmptyFSChain  = errors.New("FS chain list is empty")
 )
 
-// newAlphabetList returns an updated list of sidechain keys with no more than 1\3
-// of new keys from the mainnet list. The function returns `errEmptySidechain` if
-// the sidechain list is empty. The function returns `errNotEnoughKeys` if the mainnet
-// list contains less keys than the sidechain list. The function returns (nil, nil) if
-// the mainnet list contains all keys from the sidechain list.
+// newAlphabetList returns an updated list of FS chain keys with no more than 1\3
+// of new keys from the mainnet list. The function returns `errEmptyFSChain` if
+// FS chain list is empty. The function returns `errNotEnoughKeys` if the mainnet
+// list contains less keys than FS chain list. The function returns (nil, nil) if
+// the mainnet list contains all keys from FS chain list.
 //
 // Sorts passed slices.
-func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error) {
-	sort.Sort(sidechain)
+func newAlphabetList(fsChain, mainnet keys.PublicKeys) (keys.PublicKeys, error) {
+	sort.Sort(fsChain)
 	sort.Sort(mainnet)
 
-	ln := len(sidechain)
+	ln := len(fsChain)
 	if ln == 0 {
-		return nil, errEmptySidechain
+		return nil, errEmptyFSChain
 	}
 
 	if len(mainnet) < ln {
@@ -37,7 +37,7 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 	hmap := make(map[string]bool, ln)
 	result := make(keys.PublicKeys, 0, ln)
 
-	for _, node := range sidechain {
+	for _, node := range fsChain {
 		hmap[node.Address()] = false
 	}
 
@@ -68,7 +68,7 @@ func newAlphabetList(sidechain, mainnet keys.PublicKeys) (keys.PublicKeys, error
 		return nil, nil
 	}
 
-	for _, node := range sidechain {
+	for _, node := range fsChain {
 		if len(result) == ln {
 			break
 		}

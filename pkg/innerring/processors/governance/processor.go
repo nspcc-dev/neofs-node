@@ -30,7 +30,7 @@ type (
 
 // Voter is a callback interface for alphabet contract voting.
 type Voter interface {
-	VoteForSidechainValidator(keys.PublicKeys, *util.Uint256) error
+	VoteForFSChainValidator(keys.PublicKeys, *util.Uint256) error
 }
 
 type (
@@ -88,7 +88,7 @@ func New(p *Params) (*Processor, error) {
 	case p.MainnetClient == nil:
 		return nil, errors.New("ir/governance: neo:mainnet client is not set")
 	case p.MorphClient == nil:
-		return nil, errors.New("ir/governance: neo:sidechain client is not set")
+		return nil, errors.New("ir/governance: neo: FS client is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/governance: global state is not set")
 	case p.EpochState == nil:

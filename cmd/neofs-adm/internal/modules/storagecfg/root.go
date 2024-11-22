@@ -378,23 +378,23 @@ func applyTemplate(c config) ([]byte, error) {
 }
 
 func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) error {
-	sideClient, err := initClient(n3config[network].MorphRPC)
+	fsClient, err := initClient(n3config[network].MorphRPC)
 	if err != nil {
 		return err
 	}
 	balanceHash, _ := util.Uint160DecodeStringLE(n3config[network].BalanceContract)
 
-	sideActor, err := actor.NewSimple(sideClient, acc)
+	fsActor, err := actor.NewSimple(fsClient, acc)
 	if err != nil {
-		return fmt.Errorf("creating actor over side chain client: %w", err)
+		return fmt.Errorf("creating actor over FS chain client: %w", err)
 	}
 
-	sideGas := nep17.NewReader(sideActor, balanceHash)
+	fsGas := nep17.NewReader(fsActor, balanceHash)
 	accSH := acc.Contract.ScriptHash()
 
-	balance, err := sideGas.BalanceOf(accSH)
+	balance, err := fsGas.BalanceOf(accSH)
 	if err != nil {
-		return fmt.Errorf("side chain balance: %w", err)
+		return fmt.Errorf("FS chain balance: %w", err)
 	}
 
 	ok, err := getConfirmation(false, fmt.Sprintf("Current NeoFS balance is %s, make a deposit? y/[n]: ",
