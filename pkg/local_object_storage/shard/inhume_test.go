@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/stretchr/testify/require"
@@ -31,10 +30,7 @@ func testShardInhume(t *testing.T, hasWriteCache bool) {
 
 	ts := generateObjectWithCID(cnr)
 
-	var putPrm shard.PutPrm
-	putPrm.SetObject(obj)
-
-	_, err := sh.Put(putPrm)
+	err := sh.Put(obj, nil, 0)
 	require.NoError(t, err)
 
 	_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)

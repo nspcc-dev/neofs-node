@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -61,14 +60,10 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		var putChild shard.PutPrm
-		putChild.SetObject(child)
-		_, err := s1.Put(putChild)
+		err := s1.Put(child, nil, 0)
 		require.NoError(t, err)
 
-		var putLink shard.PutPrm
-		putLink.SetObject(link)
-		_, err = s2.Put(putLink)
+		err = s2.Put(link, nil, 0)
 		require.NoError(t, err)
 
 		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
@@ -124,10 +119,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		wrongShard := e.getShard(wrongShardID)
 
-		var putPrm shard.PutPrm
-		putPrm.SetObject(obj)
-
-		_, err := wrongShard.Put(putPrm)
+		err := wrongShard.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		_, err = wrongShard.Get(addr, false)

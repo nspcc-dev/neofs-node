@@ -27,15 +27,11 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	var putPrm shard.PutPrm
-
 	t.Run("regular object", func(t *testing.T) {
 		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 
-		putPrm.SetObject(obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		res, err := testHead(t, sh, object.AddressOf(obj), false, hasWriteCache)
@@ -56,9 +52,7 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		child.SetParentID(idParent)
 		child.SetSplitID(splitID)
 
-		putPrm.SetObject(child)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(child, nil, 0)
 		require.NoError(t, err)
 
 		var siErr *objectSDK.SplitInfoError

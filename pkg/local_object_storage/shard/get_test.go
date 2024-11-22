@@ -29,17 +29,13 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 	sh := newShard(t, hasWriteCache)
 	defer releaseShard(sh, t)
 
-	var putPrm shard.PutPrm
-
 	t.Run("small object", func(t *testing.T) {
 		obj := generateObject()
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 		addr := object.AddressOf(obj)
 
-		putPrm.SetObject(obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, addr, hasWriteCache)
@@ -56,9 +52,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		addPayload(obj, 1<<20) // big obj
 		addr := object.AddressOf(obj)
 
-		putPrm.SetObject(obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, addr, hasWriteCache)
@@ -84,9 +78,7 @@ func testShardGet(t *testing.T, hasWriteCache bool) {
 		child.SetSplitID(splitID)
 		addPayload(child, 1<<5)
 
-		putPrm.SetObject(child)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(child, nil, 0)
 		require.NoError(t, err)
 
 		res, err := testGet(t, sh, object.AddressOf(child), hasWriteCache)

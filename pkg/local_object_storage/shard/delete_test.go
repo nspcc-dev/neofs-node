@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -30,14 +29,10 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	obj := generateObjectWithCID(cnr)
 	addAttribute(obj, "foo", "bar")
 
-	var putPrm shard.PutPrm
-
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
 
-		putPrm.SetObject(obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
@@ -55,9 +50,7 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
-		putPrm.SetObject(obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
 		_, err = sh.Get(object.AddressOf(obj), false)

@@ -83,8 +83,6 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 		return RestoreRes{}, ErrInvalidMagic
 	}
 
-	var putPrm PutPrm
-
 	var count, failCount int
 	var data []byte
 	var size [4]byte
@@ -121,8 +119,7 @@ func (s *Shard) Restore(prm RestorePrm) (RestoreRes, error) {
 			return RestoreRes{}, err
 		}
 
-		putPrm.SetObject(obj)
-		_, err = s.Put(putPrm)
+		err = s.Put(obj, nil, 0)
 		if err != nil && !IsErrObjectExpired(err) && !IsErrRemoved(err) {
 			return RestoreRes{}, err
 		}

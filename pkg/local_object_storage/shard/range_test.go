@@ -89,10 +89,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			addr := object.AddressOf(obj)
 			payload := bytes.Clone(obj.Payload())
 
-			var putPrm shard.PutPrm
-			putPrm.SetObject(obj)
-
-			_, err := sh.Put(putPrm)
+			err := sh.Put(obj, nil, 0)
 			require.NoError(t, err)
 
 			var rngPrm shard.RngPrm

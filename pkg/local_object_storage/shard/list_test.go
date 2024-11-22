@@ -32,7 +32,6 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 	const N = 5
 
 	objs := make(map[string]int)
-	var putPrm shard.PutPrm
 
 	for range C {
 		cnr := cidtest.ID()
@@ -49,9 +48,7 @@ func testShardList(t *testing.T, sh *shard.Shard) {
 
 			objs[object.AddressOf(obj).EncodeToString()] = 0
 
-			putPrm.SetObject(obj)
-
-			_, err := sh.Put(putPrm)
+			err := sh.Put(obj, nil, 0)
 			require.NoError(t, err)
 		}
 	}

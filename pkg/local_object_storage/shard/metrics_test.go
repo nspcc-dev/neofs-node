@@ -104,12 +104,8 @@ func TestCounters(t *testing.T) {
 	}
 
 	t.Run("put", func(t *testing.T) {
-		var prm shard.PutPrm
-
 		for i := range objNumber {
-			prm.SetObject(oo[i])
-
-			_, err := sh.Put(prm)
+			err := sh.Put(oo[i], nil, 0)
 			require.NoError(t, err)
 		}
 

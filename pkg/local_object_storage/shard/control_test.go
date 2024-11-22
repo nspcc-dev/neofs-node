@@ -111,9 +111,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	obj.SetType(objectSDK.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
-	var putPrm PutPrm
-	putPrm.SetObject(&obj)
-	_, err := sh.Put(putPrm)
+	err := sh.Put(&obj, nil, 0)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
@@ -230,18 +228,12 @@ func TestResyncMetabase(t *testing.T) {
 		tombMembers = append(tombMembers, a)
 	}
 
-	var putPrm PutPrm
-
 	for _, v := range mObjs {
-		putPrm.SetObject(v.obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(v.obj, nil, 0)
 		require.NoError(t, err)
 	}
 
-	putPrm.SetObject(&tombObj)
-
-	_, err := sh.Put(putPrm)
+	err := sh.Put(&tombObj, nil, 0)
 	require.NoError(t, err)
 
 	// LOCK object handling
@@ -252,8 +244,7 @@ func TestResyncMetabase(t *testing.T) {
 	lockObj.SetContainerID(cnrLocked)
 	lockObj.WriteLock(lock)
 
-	putPrm.SetObject(&lockObj)
-	_, err = sh.Put(putPrm)
+	err = sh.Put(&lockObj, nil, 0)
 	require.NoError(t, err)
 
 	lockID := lockObj.GetID()

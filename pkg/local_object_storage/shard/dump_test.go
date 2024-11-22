@@ -102,9 +102,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		obj := generateObjectWithPayload(cnr, data)
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh.Put(prm)
+		err := sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -227,9 +225,7 @@ func TestStream(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh1.Put(prm)
+		err := sh1.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -316,9 +312,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh.Put(prm)
+		err := sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 

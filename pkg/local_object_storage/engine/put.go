@@ -135,13 +135,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 			return
 		}
 
-		var putPrm shard.PutPrm
-		putPrm.SetObject(obj)
-		if objBin != nil {
-			putPrm.SetObjectBinary(objBin, hdrLen)
-		}
-
-		_, err = sh.Put(putPrm)
+		err = sh.Put(obj, objBin, hdrLen)
 		if err != nil {
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
