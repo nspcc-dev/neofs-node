@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
@@ -33,11 +32,8 @@ func TestShard_DeleteContainer(t *testing.T) {
 	err = sh.DeleteContainer(context.Background(), cID)
 	require.NoError(t, err)
 
-	var selectPrm shard.SelectPrm
-	selectPrm.SetContainerID(cID)
-
-	res, err := sh.Select(selectPrm)
+	res, err := sh.Select(cID, nil)
 	require.NoError(t, err)
 
-	require.Empty(t, res.AddressList())
+	require.Empty(t, res)
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -30,12 +29,8 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 	addrList := make([]oid.Address, 0)
 	uniqueMap := make(map[string]struct{})
 
-	var shPrm shard.SelectPrm
-	shPrm.SetContainerID(cnr)
-	shPrm.SetFilters(filters)
-
 	for _, sh := range e.unsortedShards() {
-		res, err := sh.Select(shPrm)
+		res, err := sh.Select(cnr, filters)
 		if err != nil {
 			if errors.Is(err, objectcore.ErrInvalidSearchQuery) {
 				return addrList, err
@@ -44,7 +39,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 			continue
 		}
 
-		for _, addr := range res.AddressList() { // save only unique values
+		for _, addr := range res { // save only unique values
 			if _, ok := uniqueMap[addr.EncodeToString()]; !ok {
 				uniqueMap[addr.EncodeToString()] = struct{}{}
 				addrList = append(addrList, addr)
