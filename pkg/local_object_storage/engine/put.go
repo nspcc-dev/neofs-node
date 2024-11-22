@@ -116,10 +116,7 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 		alreadyExists = exists
 		if alreadyExists {
 			if ind != 0 {
-				var toMoveItPrm shard.ToMoveItPrm
-				toMoveItPrm.SetAddress(addr)
-
-				_, err = sh.ToMoveIt(toMoveItPrm)
+				err = sh.ToMoveIt(addr)
 				if err != nil {
 					e.log.Warn("could not mark object for shard relocation",
 						zap.Stringer("shard", id),
