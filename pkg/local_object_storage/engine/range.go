@@ -2,21 +2,8 @@ package engine
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
-
-// RngRes groups the resulting values of GetRange operation.
-type RngRes struct {
-	obj *objectSDK.Object
-}
-
-// Object returns the requested object part.
-//
-// Instance payload contains the requested range of the original object.
-func (r RngRes) Object() *objectSDK.Object {
-	return r.obj
-}
 
 // GetRange reads a part of an object from local storage. Zero length is
 // interpreted as requiring full object length independent of the offset.
