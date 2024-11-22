@@ -265,12 +265,8 @@ func TestResyncMetabase(t *testing.T) {
 	_, err = sh.Inhume(inhumePrm)
 	require.NoError(t, err)
 
-	var headPrm HeadPrm
-
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
-		headPrm.SetAddress(addr)
-
-		res, err := sh.Head(headPrm)
+		res, err := sh.Head(addr, false)
 
 		if expObj == nil {
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
@@ -278,7 +274,7 @@ func TestResyncMetabase(t *testing.T) {
 		}
 
 		require.NoError(t, err)
-		require.Equal(t, expObj.CutPayload(), res.Object())
+		require.Equal(t, expObj.CutPayload(), res)
 	}
 
 	checkAllObjs := func(exists bool) {
@@ -293,9 +289,7 @@ func TestResyncMetabase(t *testing.T) {
 
 	checkTombMembers := func(exists bool) {
 		for _, member := range tombMembers {
-			headPrm.SetAddress(member)
-
-			_, err := sh.Head(headPrm)
+			_, err := sh.Head(member, false)
 
 			if exists {
 				require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))

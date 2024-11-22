@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +28,6 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 	defer releaseShard(sh, t)
 
 	var putPrm shard.PutPrm
-	var headPrm shard.HeadPrm
 
 	t.Run("regular object", func(t *testing.T) {
 		obj := generateObject()
@@ -38,11 +38,9 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.SetAddress(object.AddressOf(obj))
-
-		res, err := testHead(t, sh, headPrm, hasWriteCache)
+		res, err := testHead(t, sh, object.AddressOf(obj), false, hasWriteCache)
 		require.NoError(t, err)
-		require.Equal(t, obj.CutPayload(), res.Object())
+		require.Equal(t, obj.CutPayload(), res)
 	})
 
 	t.Run("virtual object", func(t *testing.T) {
@@ -63,29 +61,23 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		_, err := sh.Put(putPrm)
 		require.NoError(t, err)
 
-		headPrm.SetAddress(object.AddressOf(parent))
-		headPrm.SetRaw(true)
-
 		var siErr *objectSDK.SplitInfoError
 
-		_, err = testHead(t, sh, headPrm, hasWriteCache)
+		_, err = testHead(t, sh, object.AddressOf(parent), true, hasWriteCache)
 		require.True(t, errors.As(err, &siErr))
 
-		headPrm.SetAddress(object.AddressOf(parent))
-		headPrm.SetRaw(false)
-
-		head, err := sh.Head(headPrm)
+		head, err := sh.Head(object.AddressOf(parent), false)
 		require.NoError(t, err)
-		require.Equal(t, parent.CutPayload(), head.Object())
+		require.Equal(t, parent.CutPayload(), head)
 	})
 }
 
-func testHead(t *testing.T, sh *shard.Shard, headPrm shard.HeadPrm, hasWriteCache bool) (shard.HeadRes, error) {
-	res, err := sh.Head(headPrm)
+func testHead(t *testing.T, sh *shard.Shard, addr oid.Address, raw bool, hasWriteCache bool) (*objectSDK.Object, error) {
+	res, err := sh.Head(addr, raw)
 	if hasWriteCache {
 		require.Eventually(t, func() bool {
 			if shard.IsErrNotFound(err) {
-				res, err = sh.Head(headPrm)
+				res, err = sh.Head(addr, raw)
 			}
 			return !shard.IsErrNotFound(err)
 		}, time.Second, time.Millisecond*100)
