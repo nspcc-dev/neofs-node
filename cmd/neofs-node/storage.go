@@ -93,9 +93,7 @@ func (c *cfg) engineOpts() []engine.Option {
 		opts = append(opts, engine.WithContainersSource(cntClient.AsContainerSource(c.shared.basics.cCli)))
 	}
 
-	if c.metricsCollector != nil {
-		opts = append(opts, engine.WithMetrics(c.metricsCollector))
-	}
+	opts = append(opts, engine.WithMetrics(c.metricsCollector))
 
 	return opts
 }

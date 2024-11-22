@@ -24,7 +24,6 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
-	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
@@ -644,10 +643,8 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.ownerIDFromKey = user.NewFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
-	if metricsconfig.Enabled(c.cfgReader) {
-		c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
-		c.basics.networkState.metrics = c.metricsCollector
-	}
+	c.metricsCollector = metrics.NewNodeMetrics(misc.Version)
+	c.basics.networkState.metrics = c.metricsCollector
 
 	c.veryLastClosers = make(map[string]func())
 
