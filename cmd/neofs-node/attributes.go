@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/locode-db/pkg/locodedb"
-	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
 	"go.uber.org/zap"
@@ -117,12 +116,4 @@ func nodeAttrsEqual(arr1, arr2 [][2]string) bool {
 	}
 
 	return true
-}
-
-func nodeAttrsToSlice(attrs []netmapV2.Attribute) [][2]string {
-	res := make([][2]string, len(attrs))
-	for i := range attrs {
-		res[i] = [2]string{attrs[i].GetKey(), attrs[i].GetValue()}
-	}
-	return res
 }
