@@ -347,10 +347,7 @@ func initObjectService(c *cfg) {
 		respSvc,
 	)
 
-	var firstSvc objectService.ServiceServer = signSvc
-	if c.metricsCollector != nil {
-		firstSvc = objectService.NewMetricCollector(signSvc, c.metricsCollector)
-	}
+	firstSvc := objectService.NewMetricCollector(signSvc, c.metricsCollector)
 
 	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey))
 

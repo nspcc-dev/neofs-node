@@ -55,9 +55,9 @@ func main() {
 
 	c := initCfg(appCfg)
 
-	preRunAndLog(c, "prometheus", initMetrics(c))
+	preRunAndLog(c, metricName, initMetrics(c))
 
-	preRunAndLog(c, "pprof", initProfiler(c))
+	preRunAndLog(c, profilerName, initProfiler(c))
 
 	initApp(c)
 
@@ -91,13 +91,13 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 	c.log.Info(fmt.Sprintf("%s service is initialized", name))
 	c.wg.Add(1)
 	go func() {
-		runAndLog(c, name, true, func(c *cfg) {
+		runAndLog(c, name, false, func(c *cfg) {
 			fatalOnErr(srv.Serve(ln))
 			c.wg.Done()
 		})
 	}()
 
-	c.veryLastClosers = append(c.veryLastClosers, func() {
+	c.veryLastClosers[name] = func() {
 		c.log.Debug(fmt.Sprintf("shutting down %s service", name))
 
 		err := srv.Shutdown()
@@ -108,7 +108,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		}
 
 		c.log.Debug(fmt.Sprintf("%s service has been stopped", name))
-	})
+	}
 }
 
 func initAndLog(c *cfg, name string, initializer func(*cfg)) {
@@ -184,9 +184,12 @@ func shutdown(c *cfg) {
 	for _, closer := range c.closers {
 		closer()
 	}
+
+	c.veryLastClosersLock.RLock()
 	for _, lastCloser := range c.veryLastClosers {
 		lastCloser()
 	}
+	c.veryLastClosersLock.RUnlock()
 
 	c.log.Debug("waiting for all processes to stop")
 

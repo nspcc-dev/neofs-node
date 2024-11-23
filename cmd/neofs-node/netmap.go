@@ -48,9 +48,8 @@ func (s *networkState) CurrentEpoch() uint64 {
 
 func (s *networkState) setCurrentEpoch(v uint64) {
 	s.epoch.Store(v)
-	if s.metrics != nil {
-		s.metrics.SetEpoch(v)
-	}
+
+	s.metrics.SetEpoch(v)
 }
 
 func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {
