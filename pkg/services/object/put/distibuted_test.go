@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -491,5 +492,44 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
+	})
+	t.Run("return only after worker pool finished", func(t *testing.T) {
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{2, 3, 1})
+		poolErr := errors.New("pool err")
+		iter := placementIterator{
+			log:      zap.NewNop(),
+			neoFSNet: new(testNetwork),
+			remotePool: &testWorkerPool{
+				err:   poolErr,
+				nFail: 2,
+			},
+			containerNodes: testContainerNodes{
+				objID:      objID,
+				cnrNodes:   cnrNodes,
+				primCounts: []uint{2, 3, 1},
+			},
+		}
+		blockCh := make(chan struct{})
+		returnCh := make(chan struct{})
+		go func() {
+			err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+				<-blockCh
+				return nil
+			})
+			require.ErrorContains(t, err, poolErr.Error())
+			close(returnCh)
+		}()
+		select {
+		case <-returnCh:
+			t.Fatal("`iterateNodesForObject` is not synced with worker pools")
+		case <-time.After(time.Second / 2):
+		}
+		close(blockCh)
+		select {
+		case <-returnCh:
+		case <-time.After(10 * time.Second):
+			t.Fatal("unexpected test lock")
+		}
 	})
 }

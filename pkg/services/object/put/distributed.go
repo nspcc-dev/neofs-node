@@ -331,6 +331,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 					if e, _ := lastRespErr.Load().(error); e != nil {
 						err = fmt.Errorf("%w (last node error: %w)", err, e)
 					}
+					wg.Wait()
 					return errIncompletePut{singleErr: err}
 				}
 			}
