@@ -23,8 +23,8 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
+	fschainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/fschain"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
-	morphconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/morph"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
@@ -110,7 +110,7 @@ type applicationConfiguration struct {
 		objectBatchSize     uint32
 	}
 
-	morph struct {
+	fsChain struct {
 		endpoints                 []string
 		dialTimeout               time.Duration
 		cacheTTL                  time.Duration
@@ -166,13 +166,13 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.engine.isIgnoreUninitedShards = engineconfig.IgnoreUninitedShards(c)
 	a.engine.objectPutRetryDeadline = engineconfig.ObjectPutRetryDeadline(c)
 
-	// Morph
+	// FS chain
 
-	a.morph.endpoints = morphconfig.Endpoints(c)
-	a.morph.dialTimeout = morphconfig.DialTimeout(c)
-	a.morph.cacheTTL = morphconfig.CacheTTL(c)
-	a.morph.reconnectionRetriesNumber = morphconfig.ReconnectionRetriesNumber(c)
-	a.morph.reconnectionRetriesDelay = morphconfig.ReconnectionRetriesDelay(c)
+	a.fsChain.endpoints = fschainconfig.Endpoints(c)
+	a.fsChain.dialTimeout = fschainconfig.DialTimeout(c)
+	a.fsChain.cacheTTL = fschainconfig.CacheTTL(c)
+	a.fsChain.reconnectionRetriesNumber = fschainconfig.ReconnectionRetriesNumber(c)
+	a.fsChain.reconnectionRetriesDelay = fschainconfig.ReconnectionRetriesDelay(c)
 
 	// Contracts
 
@@ -522,7 +522,10 @@ type cfgReputation struct {
 	localTrustCtrl *trustcontroller.Controller
 }
 
-var persistateFSChainLastBlockKey = []byte("fs_chain_last_processed_block")
+var (
+	persistateFSChainLastBlockKey             = []byte("fs_chain_last_processed_block")
+	persistateDeprecatedSidechainLastBlockKey = []byte("side_chain_last_processed_block")
+)
 
 func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
@@ -649,6 +652,12 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.veryLastClosers = make(map[string]func())
 
+	// warning if there is morph section
+
+	if c.cfgReader.Value("morph") != nil {
+		c.log.Warn("config section 'morph' is deprecated, use 'fschain'")
+	}
+
 	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
 	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
 	c.onShutdown(c.putClientCache.CloseAll) // clean up connections
@@ -660,22 +669,42 @@ func initCfg(appCfg *config.Config) *cfg {
 func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
 	b := basics{}
 
-	addresses := c.applicationConfiguration.morph.endpoints
+	addresses := c.applicationConfiguration.fsChain.endpoints
 
+	fromDeprectedSidechanBlock, err := stateStorage.UInt32(persistateDeprecatedSidechainLastBlockKey)
+	if err != nil {
+		fromDeprectedSidechanBlock = 0
+	}
 	fromFSChainBlock, err := stateStorage.UInt32(persistateFSChainLastBlockKey)
 	if err != nil {
 		fromFSChainBlock = 0
 		c.log.Warn("can't get last processed FS chain block number", zap.Error(err))
 	}
 
+	// migration for deprecated DB key
+	if fromFSChainBlock == 0 && fromDeprectedSidechanBlock != fromFSChainBlock {
+		fromFSChainBlock = fromDeprectedSidechanBlock
+		err = stateStorage.SetUInt32(persistateFSChainLastBlockKey, fromFSChainBlock)
+		if err != nil {
+			c.log.Warn("can't update persistent state",
+				zap.String("chain", "FS"),
+				zap.Uint32("block_index", fromFSChainBlock))
+		}
+
+		err = stateStorage.Delete(persistateDeprecatedSidechainLastBlockKey)
+		if err != nil {
+			c.log.Warn("can't delete deprecated persistent state", zap.Error(err))
+		}
+	}
+
 	cli, err := client.New(key,
 		client.WithContext(c.internals.ctx),
-		client.WithDialTimeout(c.applicationConfiguration.morph.dialTimeout),
+		client.WithDialTimeout(c.applicationConfiguration.fsChain.dialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoFSChainScope(),
 		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(c.applicationConfiguration.morph.reconnectionRetriesNumber),
-		client.WithReconnectionsDelay(c.applicationConfiguration.morph.reconnectionRetriesDelay),
+		client.WithReconnectionRetries(c.applicationConfiguration.fsChain.reconnectionRetriesNumber),
+		client.WithReconnectionsDelay(c.applicationConfiguration.fsChain.reconnectionRetriesDelay),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
@@ -709,12 +738,12 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
 	fatalOnErr(err)
 
-	ttl := c.applicationConfiguration.morph.cacheTTL
+	ttl := c.applicationConfiguration.fsChain.cacheTTL
 	if ttl == 0 {
 		msPerBlock, err := cli.MsPerBlock()
 		fatalOnErr(err)
 		ttl = time.Duration(msPerBlock) * time.Millisecond
-		c.log.Debug("morph.cache_ttl fetched from network", zap.Duration("value", ttl))
+		c.log.Debug("fschain.cache_ttl fetched from network", zap.Duration("value", ttl))
 	}
 
 	var netmapSource netmapCore.Source
@@ -918,7 +947,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Morph
 
-			c.cli.Reload(client.WithEndpoints(c.morph.endpoints))
+			c.cli.Reload(client.WithEndpoints(c.fsChain.endpoints))
 
 			// Node
 

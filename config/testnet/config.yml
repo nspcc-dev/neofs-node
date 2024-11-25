@@ -1,7 +1,7 @@
 logger:
   level: info
 
-morph:
+fschain:
   endpoints:
     - wss://rpc01.morph.testnet.fs.neo.org:51331/ws
     - wss://rpc02.morph.testnet.fs.neo.org:51331/ws

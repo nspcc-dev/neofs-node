@@ -81,7 +81,7 @@
     "reputation": "441995f631c1da2b133462b71859494a5cd45e90",
     "proxy": "ad7c6b55b737b696e5c82c85445040964a03e97f"
   },
-  "morph": {
+  "fschain": {
     "dial_timeout": "30s",
     "cache_ttl": "15s",
     "reconnections_number": "6",
