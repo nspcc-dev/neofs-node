@@ -326,13 +326,8 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 					}
 				}); err != nil {
 					wg.Done()
-					svcutil.LogWorkerPoolError(x.log, "PUT", err)
 					err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
-					if e, _ := lastRespErr.Load().(error); e != nil {
-						err = fmt.Errorf("%w (last node error: %w)", err, e)
-					}
-					wg.Wait()
-					return errIncompletePut{singleErr: err}
+					svcutil.LogWorkerPoolError(x.log, "PUT", err)
 				}
 			}
 			wg.Wait()

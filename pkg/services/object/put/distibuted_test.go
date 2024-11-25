@@ -365,8 +365,7 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
 		require.EqualError(t, err, "incomplete object PUT by placement: "+
-			"submit next job to save an object to the worker pool: any worker pool error "+
-			"(last node error: any node error)")
+			"number of replicas cannot be met for list #1: 1 required, 0 nodes remaining (last node error: any node error)")
 	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
@@ -496,12 +495,11 @@ func TestIterateNodesForObject(t *testing.T) {
 	t.Run("return only after worker pool finished", func(t *testing.T) {
 		objID := oidtest.ID()
 		cnrNodes := allocNodes([]uint{2, 3, 1})
-		poolErr := errors.New("pool err")
 		iter := placementIterator{
 			log:      zap.NewNop(),
 			neoFSNet: new(testNetwork),
 			remotePool: &testWorkerPool{
-				err:   poolErr,
+				err:   errors.New("pool err"),
 				nFail: 2,
 			},
 			containerNodes: testContainerNodes{
@@ -517,7 +515,7 @@ func TestIterateNodesForObject(t *testing.T) {
 				<-blockCh
 				return nil
 			})
-			require.ErrorContains(t, err, poolErr.Error())
+			require.EqualError(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0: 1 required, 0 nodes remaining")
 			close(returnCh)
 		}()
 		select {

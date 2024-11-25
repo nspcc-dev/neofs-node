@@ -50,6 +50,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Log sampling is disabled by default now (#3011)
 - EACL is no longer considered for system role (#2972)
 - Deprecate peapod substorage (#3013)
+- Node does not stop trying to PUT an object if there are more PUT tasks than configured (#3027)
 
 ### Removed
 - Support for node.key configuration (#2959)
