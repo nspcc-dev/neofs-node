@@ -61,6 +61,10 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("morph.reconnections_number", 5)
 	cfg.SetDefault("morph.reconnections_delay", 5*time.Second)
 	cfg.SetDefault("morph.validators", []string{})
+	cfg.SetDefault("fschain.dial_timeout", time.Minute)
+	cfg.SetDefault("fschain.reconnections_number", 5)
+	cfg.SetDefault("fschain.reconnections_delay", 5*time.Second)
+	cfg.SetDefault("fschain.validators", []string{})
 
 	cfg.SetDefault("mainnet.dial_timeout", time.Minute)
 	cfg.SetDefault("mainnet.reconnections_number", 5)

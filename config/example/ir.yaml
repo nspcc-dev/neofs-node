@@ -11,7 +11,7 @@ wallet:
 
 without_mainnet: false # Run application in single chain environment without mainchain
 
-morph:
+fschain:
   dial_timeout: 1m # Timeout for RPC client connection to sidechain
   reconnections_number: 5  # number of reconnection attempts
   reconnections_delay: 5s  # time delay b/w reconnection attempts

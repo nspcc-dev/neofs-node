@@ -52,6 +52,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - EACL is no longer considered for system role (#2972)
 - Deprecate peapod substorage (#3013)
 - Node does not stop trying to PUT an object if there are more PUT tasks than configured (#3027)
+- `morph` configuration section renamed to `fschain` both in IR and SN (#3028)
 
 ### Removed
 - Support for node.key configuration (#2959)
@@ -74,6 +75,10 @@ Binary keys are no longer supported by storage node, NEP-6 wallet support was
 introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
 notes) if you've not done it previously.
+
+The section `morph` in the config has been renamed to `fschain`. This version 
+still supports the old section name, but this compatibility code will be removed 
+in the next release. Please rename `morph` to `fschain` in your configuration files.
 
 To migrate data from Peapods to FSTree:
 ```shell

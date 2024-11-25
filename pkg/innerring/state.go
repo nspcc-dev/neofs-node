@@ -18,8 +18,9 @@ import (
 const voteMethod = "vote"
 
 var (
-	persistateMainChainLastBlockKey = []byte("main_chain_last_processed_block")
-	persistateFSChainLastBlockKey   = []byte("fs_chain_last_processed_block")
+	persistateMainChainLastBlockKey           = []byte("main_chain_last_processed_block")
+	persistateFSChainLastBlockKey             = []byte("fs_chain_last_processed_block")
+	persistateDeprecatedSidechainLastBlockKey = []byte("side_chain_last_processed_block")
 )
 
 // EpochCounter is a getter for a global epoch counter.

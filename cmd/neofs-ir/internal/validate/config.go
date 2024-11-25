@@ -71,6 +71,61 @@ type validConfig struct {
 		} `mapstructure:"consensus"`
 	} `mapstructure:"morph"`
 
+	FSChain struct {
+		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
+		ReconnectionsNumber int           `mapstructure:"reconnections_number"`
+		ReconnectionsDelay  time.Duration `mapstructure:"reconnections_delay"`
+		Endpoints           []string      `mapstructure:"endpoints"`
+		Validators          []string      `mapstructure:"validators"`
+		Consensus           struct {
+			Magic     uint32   `mapstructure:"magic"`
+			Committee []string `mapstructure:"committee"`
+
+			Storage struct {
+				Type string `mapstructure:"type"`
+				Path string `mapstructure:"path"`
+			} `mapstructure:"storage"`
+
+			TimePerBlock       time.Duration `mapstructure:"time_per_block"`
+			MaxTraceableBlocks uint32        `mapstructure:"max_traceable_blocks"`
+			SeedNodes          []string      `mapstructure:"seed_nodes"`
+
+			Hardforks struct {
+				Name map[string]uint32 `mapstructure:",remain" prefix:""`
+			} `mapstructure:"hardforks"`
+
+			ValidatorsHistory struct {
+				Height map[string]int `mapstructure:",remain" prefix:""`
+			} `mapstructure:"validators_history"`
+
+			RPC struct {
+				Listen []string `mapstructure:"listen"`
+				TLS    struct {
+					Enabled  bool     `mapstructure:"enabled"`
+					Listen   []string `mapstructure:"listen"`
+					CertFile string   `mapstructure:"cert_file"`
+					KeyFile  string   `mapstructure:"key_file"`
+				} `mapstructure:"tls"`
+			} `mapstructure:"rpc"`
+
+			P2P struct {
+				DialTimeout       time.Duration `mapstructure:"dial_timeout"`
+				ProtoTickInterval time.Duration `mapstructure:"proto_tick_interval"`
+				Listen            []string      `mapstructure:"listen"`
+				Peers             struct {
+					Min      int `mapstructure:"min"`
+					Max      int `mapstructure:"max"`
+					Attempts int `mapstructure:"attempts"`
+				} `mapstructure:"peers"`
+				Ping struct {
+					Interval time.Duration `mapstructure:"interval"`
+					Timeout  time.Duration `mapstructure:"timeout"`
+				} `mapstructure:"ping"`
+			} `mapstructure:"p2p"`
+			SetRolesInGenesis bool `mapstructure:"set_roles_in_genesis"`
+		} `mapstructure:"consensus"`
+	} `mapstructure:"fschain"`
+
 	FSChainAutodeploy bool `mapstructure:"fschain_autodeploy"`
 
 	NNS struct {

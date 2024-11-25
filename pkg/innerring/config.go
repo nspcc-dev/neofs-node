@@ -20,8 +20,8 @@ import (
 )
 
 // Various configuration paths.
-const (
-	cfgPathFSChain               = "morph"
+var (
+	cfgPathFSChain               = "fschain"
 	cfgPathFSChainRPCEndpoints   = cfgPathFSChain + ".endpoints"
 	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
 	cfgPathFSChainValidators     = cfgPathFSChain + ".validators"
@@ -69,15 +69,15 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	}
 	c.NetworkMagic = netmode.Magic(_uint)
 
-	const storageSection = cfgPathFSChainLocalConsensus + ".storage"
+	var storageSection = cfgPathFSChainLocalConsensus + ".storage"
 	if !v.IsSet(storageSection) {
 		return c, fmt.Errorf("missing storage section '%s'", storageSection)
 	}
-	const storageTypeKey = storageSection + ".type"
+	var storageTypeKey = storageSection + ".type"
 	if !v.IsSet(storageTypeKey) {
 		return c, fmt.Errorf("missing storage type '%s'", storageTypeKey)
 	}
-	const storagePathKey = storageSection + ".path"
+	var storagePathKey = storageSection + ".path"
 	switch typ := v.GetString(storageTypeKey); typ {
 	default:
 		return c, fmt.Errorf("unsupported storage type '%s': '%s'", storageTypeKey, typ)
@@ -95,7 +95,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		c.Storage = blockchain.InMemory()
 	}
 
-	const committeeKey = cfgPathFSChainLocalConsensus + ".committee"
+	var committeeKey = cfgPathFSChainLocalConsensus + ".committee"
 	c.Committee, err = parseConfigPublicKeys(v, committeeKey, "committee members")
 	if err != nil {
 		return c, err
@@ -119,7 +119,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		return c, err
 	}
 
-	const hardForksKey = cfgPathFSChainLocalConsensus + ".hardforks"
+	var hardForksKey = cfgPathFSChainLocalConsensus + ".hardforks"
 	if v.IsSet(hardForksKey) {
 		c.HardForks, err = parseConfigMapUint32(v, hardForksKey, "hard forks", math.MaxUint32)
 		if err != nil {
@@ -127,7 +127,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	const validatorsHistoryKey = cfgPathFSChainLocalConsensus + ".validators_history"
+	var validatorsHistoryKey = cfgPathFSChainLocalConsensus + ".validators_history"
 	if v.IsSet(validatorsHistoryKey) {
 		c.ValidatorsHistory = make(map[uint32]uint32)
 		committeeSize := uint64(c.Committee.Len())
@@ -157,14 +157,14 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
-	const rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
+	var rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
 	if v.IsSet(rpcSection) {
 		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on", rpcDefaultListenPort)
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
 		}
 
-		const rpcTLSSection = rpcSection + ".tls"
+		var rpcTLSSection = rpcSection + ".tls"
 		if v.GetBool(rpcTLSSection + ".enabled") {
 			c.RPC.TLSConfig.Enabled = true
 
@@ -173,13 +173,13 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 				return c, err
 			}
 
-			const certCfgKey = rpcTLSSection + ".cert_file"
+			var certCfgKey = rpcTLSSection + ".cert_file"
 			c.RPC.TLSConfig.CertFile = v.GetString(certCfgKey)
 			if strings.TrimSpace(c.RPC.TLSConfig.CertFile) == "" {
 				return c, fmt.Errorf("RPC TLS setup is enabled but no certificate ('%s') is provided", certCfgKey)
 			}
 
-			const keyCfgKey = rpcTLSSection + ".key_file"
+			var keyCfgKey = rpcTLSSection + ".key_file"
 			c.RPC.TLSConfig.KeyFile = v.GetString(keyCfgKey)
 			if strings.TrimSpace(c.RPC.TLSConfig.KeyFile) == "" {
 				return c, fmt.Errorf("RPC TLS setup is enabled but no key ('%s') is provided", keyCfgKey)
@@ -188,7 +188,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 	}
 
 	minPeersConfigured := false
-	const p2pSection = cfgPathFSChainLocalConsensus + ".p2p"
+	var p2pSection = cfgPathFSChainLocalConsensus + ".p2p"
 	if v.IsSet(p2pSection) {
 		c.P2P.DialTimeout, err = parseConfigDurationPositive(v, p2pSection+".dial_timeout", "P2P dial timeout")
 		if err != nil && !errors.Is(err, errMissingConfig) {
@@ -202,7 +202,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		if err != nil && !errors.Is(err, errMissingConfig) {
 			return c, err
 		}
-		const p2pPeersSection = p2pSection + ".peers"
+		var p2pPeersSection = p2pSection + ".peers"
 		if v.IsSet(p2pPeersSection) {
 			minPeers, err := parseConfigUint64Max(v, p2pPeersSection+".min", "minimum number of P2P peers", math.MaxInt32)
 			if err != nil {
@@ -226,7 +226,7 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 			}
 			c.P2P.AttemptConnPeers = uint(attemptConnPeers)
 		}
-		const pingSection = p2pSection + ".ping"
+		var pingSection = p2pSection + ".ping"
 		if v.IsSet(pingSection) {
 			c.P2P.Ping.Interval, err = parseConfigDurationPositive(v, pingSection+".interval", "P2P ping interval")
 			if err != nil {

@@ -146,8 +146,9 @@ type (
 )
 
 const (
-	morphPrefix   = "morph"
-	mainnetPrefix = "mainnet"
+	deprecatedMorphPrefix = "morph"
+	fsChainPrefix         = "fschain"
+	mainnetPrefix         = "mainnet"
 
 	// extra blocks to overlap two deposits, we do that to make sure that
 	// there won't be any blocks without deposited assets in notary contract;
@@ -321,16 +322,46 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 	server.registerCloser(server.persistate.Close)
 
+	fromDeprectedSidechanBlock, err := server.persistate.UInt32(persistateDeprecatedSidechainLastBlockKey)
+	if err != nil {
+		fromDeprectedSidechanBlock = 0
+	}
 	fromFSChainBlock, err := server.persistate.UInt32(persistateFSChainLastBlockKey)
 	if err != nil {
 		fromFSChainBlock = 0
 		log.Warn("can't get last processed FS chain block number", zap.Error(err))
 	}
 
-	morphChain := chainParams{
+	// migration for deprecated DB key
+	if fromFSChainBlock == 0 && fromDeprectedSidechanBlock != fromFSChainBlock {
+		fromFSChainBlock = fromDeprectedSidechanBlock
+		err = server.persistate.SetUInt32(persistateFSChainLastBlockKey, fromFSChainBlock)
+		if err != nil {
+			log.Warn("can't update persistent state",
+				zap.String("chain", "FS"),
+				zap.Uint32("block_index", fromFSChainBlock))
+		}
+
+		err = server.persistate.Delete(persistateDeprecatedSidechainLastBlockKey)
+		if err != nil {
+			log.Warn("can't delete deprecated persistent state", zap.Error(err))
+		}
+	}
+
+	if cfg.IsSet(deprecatedMorphPrefix+".endpoints") || cfg.IsSet(deprecatedMorphPrefix+".consensus") {
+		log.Warn("config section 'morph' is deprecated, use 'fschain'")
+		cfgPathFSChain = deprecatedMorphPrefix
+	}
+	if cfg.IsSet(fsChainPrefix+".endpoints") || cfg.IsSet(fsChainPrefix+".consensus") {
+		cfgPathFSChain = fsChainPrefix
+	}
+	cfgPathFSChainRPCEndpoints = cfgPathFSChain + ".endpoints"
+	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
+	cfgPathFSChainValidators = cfgPathFSChain + ".validators"
+	fsChainParams := chainParams{
 		log:  log,
 		cfg:  cfg,
-		name: morphPrefix,
+		name: cfgPathFSChain,
 		from: fromFSChainBlock,
 	}
 
@@ -458,7 +489,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			return nil, fmt.Errorf("build WS client on internal blockchain: %w", err)
 		}
 
-		morphChain.key = server.key
+		fsChainParams.key = server.key
 		fsChainOpts := make([]client.Option, 3, 4)
 		fsChainOpts[0] = client.WithContext(ctx)
 		fsChainOpts[1] = client.WithLogger(log)
@@ -479,10 +510,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 		// fallback to the pure RPC architecture
 
-		morphChain.key = server.key
-		morphChain.withAutoFSChainScope = !isAutoDeploy
+		fsChainParams.key = server.key
+		fsChainParams.withAutoFSChainScope = !isAutoDeploy
 
-		server.morphClient, err = server.createClient(ctx, morphChain, errChan)
+		server.morphClient, err = server.createClient(ctx, fsChainParams, errChan)
 		if err != nil {
 			return nil, err
 		}
@@ -510,11 +541,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			clnt, err = client.New(server.key,
 				client.WithContext(ctx),
 				client.WithLogger(log),
-				client.WithDialTimeout(cfg.GetDuration(morphChain.name+".dial_timeout")),
+				client.WithDialTimeout(cfg.GetDuration(fsChainParams.name+".dial_timeout")),
 				client.WithEndpoints(endpoints),
-				client.WithReconnectionRetries(cfg.GetInt(morphChain.name+".reconnections_number")),
-				client.WithReconnectionsDelay(cfg.GetDuration(morphChain.name+".reconnections_delay")),
-				client.WithMinRequiredBlockHeight(morphChain.from),
+				client.WithReconnectionRetries(cfg.GetInt(fsChainParams.name+".reconnections_number")),
+				client.WithReconnectionsDelay(cfg.GetDuration(fsChainParams.name+".reconnections_delay")),
+				client.WithMinRequiredBlockHeight(fsChainParams.from),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("create multi-endpoint client for FS chain deployment: %w", err)
@@ -567,7 +598,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	// create morph listener
-	server.morphListener, err = createListener(server.morphClient, morphChain)
+	server.morphListener, err = createListener(server.morphClient, fsChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +612,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.mainnetListener = server.morphListener
 		server.mainnetClient = server.morphClient
 	} else {
-		mainnetChain := morphChain
+		mainnetChain := fsChainParams
 		mainnetChain.withAutoFSChainScope = false
 		mainnetChain.name = mainnetPrefix
 
@@ -1065,7 +1096,7 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		client.WithConnSwitchCallback(func() {
 			var err error
 
-			if p.name == morphPrefix {
+			if p.name == fsChainPrefix || p.name == deprecatedMorphPrefix {
 				err = s.restartMorph()
 			} else {
 				err = s.restartMainChain()
