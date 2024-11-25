@@ -2,21 +2,8 @@ package engine
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
-
-// RngRes groups the resulting values of GetRange operation.
-type RngRes struct {
-	obj *objectSDK.Object
-}
-
-// Object returns the requested object part.
-//
-// Instance payload contains the requested range of the original object.
-func (r RngRes) Object() *objectSDK.Object {
-	return r.obj
-}
 
 // GetRange reads a part of an object from local storage. Zero length is
 // interpreted as requiring full object length independent of the offset.
@@ -41,20 +28,16 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	}
 
 	var (
-		err   error
-		data  []byte
-		shPrm shard.RngPrm
+		err  error
+		data []byte
 	)
-	shPrm.SetAddress(addr)
-	shPrm.SetRange(offset, length)
 
-	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) (bool, error) {
-		shPrm.SetIgnoreMeta(ignoreMetadata)
-		res, err := sh.GetRange(shPrm)
+	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) error {
+		res, err := sh.GetRange(addr, offset, length, ignoreMetadata)
 		if err == nil {
-			data = res.Object().Payload()
+			data = res.Payload()
 		}
-		return res.HasMeta(), err
+		return err
 	})
 	return data, err
 }

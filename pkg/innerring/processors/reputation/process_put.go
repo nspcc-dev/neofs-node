@@ -47,7 +47,7 @@ func (rp *Processor) processPut(e *reputationEvent.Put) {
 	if err := rp.checkManagers(epoch, value.Manager(), id); err != nil {
 		rp.log.Info("ignore reputation value",
 			zap.String("reason", "wrong manager"),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -82,6 +82,6 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 	if err != nil {
 		rp.log.Warn("can't send approval tx for reputation value",
 			zap.String("peer_id", hex.EncodeToString(id.PublicKey())),
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 }

@@ -124,7 +124,7 @@ func (gc *gc) listenEvents() {
 			})
 			if err != nil {
 				gc.log.Warn("could not submit GC job to worker pool",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				v.prevGroup.Done()
@@ -186,15 +186,11 @@ func (s *Shard) removeGarbage() {
 		return
 	}
 
-	var deletePrm DeletePrm
-	deletePrm.SetAddresses(gObjs...)
-	deletePrm.skipNotFoundError = true
-
 	// delete accumulated objects
-	_, err = s.delete(deletePrm)
+	err = s.deleteObjs(gObjs, true)
 	if err != nil {
 		s.log.Warn("could not delete the objects",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -224,7 +220,7 @@ func (s *Shard) collectExpiredObjects(e Event) {
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			log.Warn("iterator over expired objects failed", zap.String("error", err.Error()))
+			log.Warn("iterator over expired objects failed", zap.Error(err))
 		}
 		return
 	}
@@ -257,7 +253,7 @@ func (s *Shard) collectExpiredLocks(e Event) {
 	})
 	if err != nil || len(expired) == 0 {
 		if err != nil {
-			s.log.Warn("iterator over expired locks failed", zap.String("error", err.Error()))
+			s.log.Warn("iterator over expired locks failed", zap.Error(err))
 		}
 		return
 	}
@@ -300,7 +296,7 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 	unlocked, err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -315,20 +311,16 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 		return
 	}
 
-	var pInhume meta.InhumePrm
-	pInhume.SetAddresses(append(lockers, expired...)...)
-	pInhume.SetForceGCMark()
-
-	res, err := s.metaBase.Inhume(pInhume)
+	inhumed, _, err := s.metaBase.MarkGarbage(true, false, append(lockers, expired...)...)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
 	}
 
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
+	s.decObjectCounterBy(logical, inhumed)
 }
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.
@@ -343,7 +335,7 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 	unlocked, err := s.metaBase.FreeLockedBy(lockers)
 	if err != nil {
 		s.log.Warn("failure to unlock objects",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -358,20 +350,16 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 		return
 	}
 
-	var pInhume meta.InhumePrm
-	pInhume.SetAddresses(expired...)
-	pInhume.SetGCMark()
-
-	res, err := s.metaBase.Inhume(pInhume)
+	inhumed, _, err := s.metaBase.MarkGarbage(false, false, expired...)
 	if err != nil {
 		s.log.Warn("failure to mark unlocked objects as garbage",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
 	}
 
-	s.decObjectCounterBy(logical, res.AvailableInhumed())
+	s.decObjectCounterBy(logical, inhumed)
 }
 
 // NotificationChannel returns channel for shard events.

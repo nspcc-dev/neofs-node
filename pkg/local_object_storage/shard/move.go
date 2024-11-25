@@ -5,39 +5,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// ToMoveItPrm encapsulates parameters for ToMoveIt operation.
-type ToMoveItPrm struct {
-	addr oid.Address
-}
-
-// ToMoveItRes encapsulates results of ToMoveIt operation.
-type ToMoveItRes struct{}
-
-// SetAddress sets object address that should be marked to move into another
-// shard.
-func (p *ToMoveItPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
 // ToMoveIt calls metabase.ToMoveIt method to mark object as relocatable to
 // another shard.
-func (s *Shard) ToMoveIt(prm ToMoveItPrm) (ToMoveItRes, error) {
+func (s *Shard) ToMoveIt(addr oid.Address) error {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	m := s.info.Mode
 	if m.ReadOnly() {
-		return ToMoveItRes{}, ErrReadOnlyMode
+		return ErrReadOnlyMode
 	} else if m.NoMetabase() {
-		return ToMoveItRes{}, ErrDegradedMode
+		return ErrDegradedMode
 	}
 
-	err := s.metaBase.ToMoveIt(prm.addr)
+	err := s.metaBase.ToMoveIt(addr)
 	if err != nil {
 		s.log.Debug("could not mark object for shard relocation in metabase",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 
-	return ToMoveItRes{}, nil
+	return nil
 }

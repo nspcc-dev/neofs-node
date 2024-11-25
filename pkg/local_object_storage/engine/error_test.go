@@ -68,10 +68,8 @@ func TestErrorReporting(t *testing.T) {
 		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		var prm shard.PutPrm
-		prm.SetObject(obj)
 		e.mtx.RLock()
-		_, err := e.shards[id[0].String()].Shard.Put(prm)
+		err := e.shards[id[0].String()].Shard.Put(obj, nil, 0)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
@@ -98,10 +96,8 @@ func TestErrorReporting(t *testing.T) {
 		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, errSmallSize))
 
-		var prm shard.PutPrm
-		prm.SetObject(obj)
 		e.mtx.RLock()
-		_, err := e.shards[id[0].String()].Put(prm)
+		err := e.shards[id[0].String()].Put(obj, nil, 0)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 
@@ -148,10 +144,8 @@ func TestBlobstorFailback(t *testing.T) {
 		obj := generateObjectWithCID(cidtest.ID())
 		obj.SetPayload(make([]byte, size))
 
-		var prm shard.PutPrm
-		prm.SetObject(obj)
 		e.mtx.RLock()
-		_, err = e.shards[id[0].String()].Shard.Put(prm)
+		err = e.shards[id[0].String()].Shard.Put(obj, nil, 0)
 		e.mtx.RUnlock()
 		require.NoError(t, err)
 		objs = append(objs, obj)

@@ -30,7 +30,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 
 	containers, err := ap.selectContainersToAudit(epoch)
 	if err != nil {
-		log.Error("container selection failure", zap.String("error", err.Error()))
+		log.Error("container selection failure", zap.Error(err))
 
 		return
 	}
@@ -40,7 +40,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 	nm, err := ap.netmapClient.GetNetMap(0)
 	if err != nil {
 		ap.log.Error("can't fetch network map",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -53,7 +53,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		if err != nil {
 			log.Error("can't get container info, ignore",
 				zap.Stringer("cid", containers[i]),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -63,7 +63,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -107,7 +107,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 
 		if err := ap.taskManager.PushTask(auditTask); err != nil {
 			ap.log.Error("could not push audit task",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}
@@ -135,7 +135,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 
 		err := clientcore.NodeInfoFromRawNetmapElement(&info, netmapcore.Node(shuffled[i]))
 		if err != nil {
-			log.Warn("parse client node info", zap.String("error", err.Error()))
+			log.Warn("parse client node info", zap.Error(err))
 
 			continue
 		}
@@ -152,7 +152,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 		cancel()
 
 		if err != nil {
-			log.Warn("error in storage group search", zap.String("error", err.Error()))
+			log.Warn("error in storage group search", zap.Error(err))
 			continue
 		}
 

@@ -41,7 +41,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("public_key", hex.EncodeToString(nodeInfo.PublicKey())),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

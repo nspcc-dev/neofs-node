@@ -70,7 +70,7 @@ func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	err = np.morphClient.TransferGas(receiver, np.mintEmitValue)
 	if err != nil {
 		np.log.Error("can't transfer native gas to receiver",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}

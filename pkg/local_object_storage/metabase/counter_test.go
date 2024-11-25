@@ -77,13 +77,10 @@ func TestCounters(t *testing.T) {
 			inhumedObjs[i] = objectcore.AddressOf(o)
 		}
 
-		var prm meta.InhumePrm
-		prm.SetTombstone(oidtest.Address(), 0)
-		prm.SetAddresses(inhumedObjs...)
-
-		res, err := db.Inhume(prm)
+		inhumed, deleted, err := db.Inhume(oidtest.Address(), 0, false, inhumedObjs...)
 		require.NoError(t, err)
-		require.Equal(t, uint64(len(inhumedObjs)), res.AvailableInhumed())
+		require.Equal(t, uint64(len(inhumedObjs)), inhumed)
+		require.Nil(t, deleted)
 
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
@@ -147,11 +144,7 @@ func TestCounters(t *testing.T) {
 			inhumedObjs[i] = objectcore.AddressOf(o)
 		}
 
-		var prm meta.InhumePrm
-		prm.SetTombstone(oidtest.Address(), 0)
-		prm.SetAddresses(inhumedObjs...)
-
-		_, err = db.Inhume(prm)
+		_, _, err = db.Inhume(oidtest.Address(), 0, false, inhumedObjs...)
 		require.NoError(t, err)
 
 		c, err = db.ObjectCounters()
@@ -211,13 +204,10 @@ func TestCounters_Expired(t *testing.T) {
 	// the GC do) should decrease the logic counter despite the
 	// expiration fact
 
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetGCMark()
-	inhumePrm.SetAddresses(oo[0])
-
-	inhumeRes, err := db.Inhume(inhumePrm)
+	inhumed, deleted, err := db.MarkGarbage(false, false, oo[0])
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), inhumeRes.AvailableInhumed())
+	require.Equal(t, uint64(1), inhumed)
+	require.Nil(t, deleted)
 
 	c, err = db.ObjectCounters()
 	require.NoError(t, err)

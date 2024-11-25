@@ -101,7 +101,7 @@ func (c *reportContext) report() {
 	iterator, err := c.ctrl.prm.LocalTrustSource.InitIterator(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize iterator over local trust values",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -111,7 +111,7 @@ func (c *reportContext) report() {
 	targetWriter, err := c.ctrl.prm.LocalTrustTarget.InitWriter(c.ctx)
 	if err != nil {
 		c.log.Debug("could not initialize local trust target",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -130,7 +130,7 @@ func (c *reportContext) report() {
 	)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		c.log.Debug("iterator over local trust failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -140,7 +140,7 @@ func (c *reportContext) report() {
 	err = targetWriter.Close()
 	if err != nil {
 		c.log.Debug("could not finish writing local trust values",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

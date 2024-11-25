@@ -214,7 +214,7 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 
 		exec.log.Debug("could not get child object header",
 			zap.Stringer("child ID", id),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return nil, false
@@ -283,7 +283,7 @@ func (exec *execCtx) writeCollectedHeader() bool {
 		exec.err = err
 
 		exec.log.Debug("could not write header",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	case err == nil:
 		exec.status = statusOK
@@ -306,7 +306,7 @@ func (exec *execCtx) writeObjectPayload(obj *objectSDK.Object) bool {
 		exec.err = err
 
 		exec.log.Debug("could not write payload chunk",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	case err == nil:
 		exec.status = statusOK

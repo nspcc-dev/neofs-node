@@ -217,12 +217,7 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []
 			tombMembers = append(tombMembers, a)
 		}
 
-		var inhumePrm meta.InhumePrm
-
-		inhumePrm.SetTombstone(tombAddr, exp)
-		inhumePrm.SetAddresses(tombMembers...)
-
-		_, err = s.metaBase.Inhume(inhumePrm)
+		_, _, err = s.metaBase.Inhume(tombAddr, exp, false, tombMembers...)
 		if err != nil {
 			return fmt.Errorf("could not inhume objects: %w", err)
 		}

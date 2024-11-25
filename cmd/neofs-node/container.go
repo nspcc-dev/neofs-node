@@ -441,7 +441,7 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 		if err != nil {
 			d.log.Debug("failed to calculate container size in storage engine",
 				zap.Stringer("cid", idList[i]),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			continue

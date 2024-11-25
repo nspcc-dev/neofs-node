@@ -67,7 +67,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 			select {
 			case <-ctx.Done():
 				lg.Debug("interrupt placement iteration by context",
-					zap.String("error", ctx.Err().Error()))
+					zap.Error(ctx.Err()))
 				return
 			default:
 			}
@@ -88,7 +88,7 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 			ids, err := c.searchObjects(ctx, exec, info)
 			if err != nil {
 				lg.Debug("remote operation failed",
-					zap.String("error", err.Error()))
+					zap.Error(err))
 
 				return
 			}

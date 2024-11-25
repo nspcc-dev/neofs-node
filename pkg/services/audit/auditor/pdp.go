@@ -143,7 +143,7 @@ func (c *Context) collectHashes(p *gamePair) {
 				c.log.Debug("could not get payload range hash",
 					zap.Stringer("id", p.id),
 					zap.String("node", netmap.StringifyPublicKey(n)),
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 				return res
 			}

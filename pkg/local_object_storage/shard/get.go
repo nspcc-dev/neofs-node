@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -13,42 +14,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// GetPrm groups the parameters of Get operation.
-type GetPrm struct {
-	addr     oid.Address
-	skipMeta bool
-}
+// ErrMetaWithNoObject is returned when shard has metadata, but no object.
+var ErrMetaWithNoObject = errors.New("got meta, but no object")
 
-// GetRes groups the resulting values of Get operation.
-type GetRes struct {
-	obj     *objectSDK.Object
-	hasMeta bool
-}
-
-// SetAddress is a Get option to set the address of the requested object.
-//
-// Option is required.
-func (p *GetPrm) SetAddress(addr oid.Address) {
-	p.addr = addr
-}
-
-// SetIgnoreMeta is a Get option try to fetch object from blobstor directly,
-// without accessing metabase.
-func (p *GetPrm) SetIgnoreMeta(ignore bool) {
-	p.skipMeta = ignore
-}
-
-// Object returns the requested object.
-func (r GetRes) Object() *objectSDK.Object {
-	return r.obj
-}
-
-// HasMeta returns true if info about the object was found in the metabase.
-func (r GetRes) HasMeta() bool {
-	return r.hasMeta
-}
-
-// Get reads an object from shard.
+// Get reads an object from shard. skipMeta flag allows to fetch object from
+// the blobstor directly.
 //
 // Returns any error encountered that
 // did not allow to completely read the object part.
@@ -56,37 +26,39 @@ func (r GetRes) HasMeta() bool {
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (s *Shard) Get(prm GetPrm) (GetRes, error) {
+func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	var res GetRes
+	var res *objectSDK.Object
 
 	cb := func(stor *blobstor.BlobStor, id []byte) error {
 		var getPrm common.GetPrm
-		getPrm.Address = prm.addr
+		getPrm.Address = addr
 		getPrm.StorageID = id
 
 		r, err := stor.Get(getPrm)
 		if err != nil {
 			return err
 		}
-		res.obj = r.Object
+		res = r.Object
 		return nil
 	}
 
 	wc := func(c writecache.Cache) error {
-		o, err := c.Get(prm.addr)
+		o, err := c.Get(addr)
 		if err != nil {
 			return err
 		}
-		res.obj = o
+		res = o
 		return nil
 	}
 
-	skipMeta := prm.skipMeta || s.info.Mode.NoMetabase()
-	var err error
-	res.hasMeta, err = s.fetchObjectData(prm.addr, skipMeta, cb, wc)
+	skipMeta = skipMeta || s.info.Mode.NoMetabase()
+	gotMeta, err := s.fetchObjectData(addr, skipMeta, cb, wc)
+	if err != nil && gotMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
 
 	return res, err
 }
@@ -160,18 +132,17 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 // canonical NeoFS binary format. Returns [apistatus.ObjectNotFound] if object
 // is missing.
 func (s *Shard) GetBytes(addr oid.Address) ([]byte, error) {
-	b, _, err := s.getBytesWithMetadataLookup(addr, true)
-	return b, err
+	return s.getBytesWithMetadataLookup(addr, true)
 }
 
 // GetBytesWithMetadataLookup works similar to [shard.GetBytes], but pre-checks
 // object presence in the underlying metabase: if object cannot be accessed from
 // the metabase, GetBytesWithMetadataLookup returns an error.
-func (s *Shard) GetBytesWithMetadataLookup(addr oid.Address) ([]byte, bool, error) {
+func (s *Shard) GetBytesWithMetadataLookup(addr oid.Address) ([]byte, error) {
 	return s.getBytesWithMetadataLookup(addr, false)
 }
 
-func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]byte, bool, error) {
+func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]byte, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -185,5 +156,8 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 		b, err = w.GetBytes(addr)
 		return err
 	})
-	return b, hasMeta, err
+	if err != nil && hasMeta {
+		err = fmt.Errorf("%w, %w", err, ErrMetaWithNoObject)
+	}
+	return b, err
 }

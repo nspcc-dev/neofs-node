@@ -21,7 +21,7 @@ func (exec *execCtx) executeLocal() {
 		exec.err = err
 
 		exec.log.Debug("local get failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	case err == nil:
 		exec.status = statusOK

@@ -59,22 +59,25 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	defer releaseShard(sh, t)
 
 	out := filepath.Join(t.TempDir(), "dump")
-	var prm shard.DumpPrm
-	prm.WithPath(out)
+	f, err := os.Create(out)
+	require.NoError(t, err)
 
 	t.Run("must be read-only", func(t *testing.T) {
-		_, err := sh.Dump(prm)
+		_, err := sh.Dump(f, false)
+		require.NoError(t, f.Close())
 		require.ErrorIs(t, err, shard.ErrMustBeReadOnly)
 	})
 
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
-	outEmpty := out + ".empty"
-	var dumpPrm shard.DumpPrm
-	dumpPrm.WithPath(outEmpty)
 
-	res, err := sh.Dump(dumpPrm)
+	outEmpty := out + ".empty"
+	f, err = os.Create(outEmpty)
 	require.NoError(t, err)
-	require.Equal(t, 0, res.Count())
+
+	res, err := sh.Dump(f, false)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, 0, res)
 	require.NoError(t, sh.SetMode(mode.ReadWrite))
 
 	// Approximate object header size.
@@ -99,41 +102,28 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 		obj := generateObjectWithPayload(cnr, data)
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh.Put(prm)
+		err := sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
-	t.Run("invalid path", func(t *testing.T) {
-		var dumpPrm shard.DumpPrm
-		dumpPrm.WithPath("\x00")
-
-		_, err := sh.Dump(dumpPrm)
-		require.Error(t, err)
-	})
-
-	res, err = sh.Dump(prm)
+	f, err = os.Create(out)
 	require.NoError(t, err)
-	require.Equal(t, objCount, res.Count())
+	res, err = sh.Dump(f, false)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, objCount, res)
 
 	t.Run("restore", func(t *testing.T) {
 		sh := newShard(t, false)
 		defer releaseShard(sh, t)
 
 		t.Run("empty dump", func(t *testing.T) {
-			var restorePrm shard.RestorePrm
-			restorePrm.WithPath(outEmpty)
-			res, err := sh.Restore(restorePrm)
+			count, failed, err := restoreFile(t, sh, outEmpty, false)
 			require.NoError(t, err)
-			require.Equal(t, 0, res.Count())
-		})
-
-		t.Run("invalid path", func(t *testing.T) {
-			_, err := sh.Restore(*new(shard.RestorePrm))
-			require.ErrorIs(t, err, os.ErrNotExist)
+			require.Equal(t, 0, count)
+			require.Equal(t, 0, failed)
 		})
 
 		t.Run("invalid file", func(t *testing.T) {
@@ -141,11 +131,10 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				out := out + ".wrongmagic"
 				require.NoError(t, os.WriteFile(out, []byte{0, 0, 0, 0}, os.ModePerm))
 
-				var restorePrm shard.RestorePrm
-				restorePrm.WithPath(out)
-
-				_, err := sh.Restore(restorePrm)
+				count, failed, err := restoreFile(t, sh, out, false)
 				require.ErrorIs(t, err, shard.ErrInvalidMagic)
+				require.Equal(t, 0, count)
+				require.Equal(t, 0, failed)
 			})
 
 			fileData, err := os.ReadFile(out)
@@ -156,62 +145,55 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				fileData := append(fileData, 1)
 				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
-				var restorePrm shard.RestorePrm
-				restorePrm.WithPath(out)
-
-				_, err := sh.Restore(restorePrm)
+				count, failed, err := restoreFile(t, sh, out, false)
 				require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+				require.Equal(t, objCount, count)
+				require.Equal(t, 0, failed)
 			})
 			t.Run("incomplete object data", func(t *testing.T) {
 				out := out + ".wrongsize"
 				fileData := append(fileData, 1, 0, 0, 0)
 				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
-				var restorePrm shard.RestorePrm
-				restorePrm.WithPath(out)
-
-				_, err := sh.Restore(restorePrm)
+				count, failed, err := restoreFile(t, sh, out, false)
 				require.ErrorIs(t, err, io.EOF)
+				require.Equal(t, objCount, count)
+				require.Equal(t, 0, failed)
 			})
 			t.Run("invalid object", func(t *testing.T) {
 				out := out + ".wrongobj"
 				fileData := append(fileData, 1, 0, 0, 0, 0xFF, 4, 0, 0, 0, 1, 2, 3, 4)
 				require.NoError(t, os.WriteFile(out, fileData, os.ModePerm))
 
-				var restorePrm shard.RestorePrm
-				restorePrm.WithPath(out)
-
-				_, err := sh.Restore(restorePrm)
+				count, failed, err := restoreFile(t, sh, out, false)
 				require.Error(t, err)
+				require.Equal(t, objCount, count)
+				require.Equal(t, 0, failed)
 
 				t.Run("skip errors", func(t *testing.T) {
 					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false, nil, nil)
 					t.Cleanup(func() { require.NoError(t, sh.Close()) })
 
-					var restorePrm shard.RestorePrm
-					restorePrm.WithPath(out)
-					restorePrm.WithIgnoreErrors(true)
-
-					res, err := sh.Restore(restorePrm)
+					count, failed, err := restoreFile(t, sh, out, true)
 					require.NoError(t, err)
-					require.Equal(t, objCount, res.Count())
-					require.Equal(t, 2, res.FailCount())
+					require.Equal(t, objCount, count)
+					require.Equal(t, 2, failed)
 				})
 			})
 		})
 
-		var prm shard.RestorePrm
-		prm.WithPath(out)
 		t.Run("must allow write", func(t *testing.T) {
 			require.NoError(t, sh.SetMode(mode.ReadOnly))
 
-			_, err := sh.Restore(prm)
+			count, failed, err := restoreFile(t, sh, out, false)
 			require.ErrorIs(t, err, shard.ErrReadOnlyMode)
+			require.Equal(t, 0, count)
+			require.Equal(t, 0, failed)
 		})
 
 		require.NoError(t, sh.SetMode(mode.ReadWrite))
 
-		checkRestore(t, sh, prm, objects)
+		checkRestore(t, sh, out, nil, objects)
 	})
 }
 
@@ -229,9 +211,7 @@ func TestStream(t *testing.T) {
 		obj := generateObjectWithCID(cnr)
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh1.Put(prm)
+		err := sh1.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -241,20 +221,14 @@ func TestStream(t *testing.T) {
 	finish := make(chan struct{})
 
 	go func() {
-		var dumpPrm shard.DumpPrm
-		dumpPrm.WithStream(w)
-
-		res, err := sh1.Dump(dumpPrm)
+		res, err := sh1.Dump(w, false)
 		require.NoError(t, err)
-		require.Equal(t, objCount, res.Count())
+		require.Equal(t, objCount, res)
 		require.NoError(t, w.Close())
 		close(finish)
 	}()
 
-	var restorePrm shard.RestorePrm
-	restorePrm.WithStream(r)
-
-	checkRestore(t, sh2, restorePrm, objects)
+	checkRestore(t, sh2, "", r, objects)
 	require.Eventually(t, func() bool {
 		select {
 		case <-finish:
@@ -265,18 +239,34 @@ func TestStream(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
-func checkRestore(t *testing.T, sh *shard.Shard, prm shard.RestorePrm, objects []*objectSDK.Object) {
-	res, err := sh.Restore(prm)
+func restoreFile(t *testing.T, sh *shard.Shard, path string, ignoreErrors bool) (int, int, error) {
+	f, err := os.Open(path)
 	require.NoError(t, err)
-	require.Equal(t, len(objects), res.Count())
+	count, failed, err := sh.Restore(f, ignoreErrors)
+	f.Close()
+	return count, failed, err
+}
 
-	var getPrm shard.GetPrm
+func checkRestore(t *testing.T, sh *shard.Shard, path string, r io.Reader, objects []*objectSDK.Object) {
+	var (
+		count  int
+		err    error
+		failed int
+	)
+
+	if r == nil {
+		count, failed, err = restoreFile(t, sh, path, false)
+	} else {
+		count, failed, err = sh.Restore(r, false)
+	}
+	require.NoError(t, err)
+	require.Equal(t, len(objects), count)
+	require.Equal(t, 0, failed)
 
 	for i := range objects {
-		getPrm.SetAddress(object.AddressOf(objects[i]))
-		res, err := sh.Get(getPrm)
+		res, err := sh.Get(object.AddressOf(objects[i]), false)
 		require.NoError(t, err)
-		require.Equal(t, objects[i], res.Object())
+		require.Equal(t, objects[i], res)
 	}
 }
 
@@ -324,9 +314,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		obj := generateObjectWithPayload(cidtest.ID(), make([]byte, size))
 		objects[i] = obj
 
-		var prm shard.PutPrm
-		prm.SetObject(objects[i])
-		_, err := sh.Put(prm)
+		err := sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
@@ -390,10 +378,10 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "out.dump")
-	var dumpPrm shard.DumpPrm
-	dumpPrm.WithPath(out)
-	dumpPrm.WithIgnoreErrors(true)
-	res, err := sh.Dump(dumpPrm)
+	f, err := os.Create(out)
 	require.NoError(t, err)
-	require.Equal(t, objCount, res.Count())
+	res, err := sh.Dump(f, true)
+	require.NoError(t, f.Close())
+	require.NoError(t, err)
+	require.Equal(t, objCount, res)
 }

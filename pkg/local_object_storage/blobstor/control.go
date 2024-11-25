@@ -47,7 +47,7 @@ func (b *BlobStor) Close() error {
 	for i := range b.storage {
 		err := b.storage[i].Storage.Close()
 		if err != nil {
-			b.log.Info("couldn't close storage", zap.String("error", err.Error()))
+			b.log.Info("couldn't close storage", zap.Error(err))
 			if firstErr == nil {
 				firstErr = err
 			}

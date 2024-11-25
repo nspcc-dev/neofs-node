@@ -98,7 +98,7 @@ func initTreeService(c *cfg) {
 			// Ignore pilorama.ErrTreeNotFound but other errors, including shard.ErrReadOnly, should be logged.
 			c.log.Error("container removal event received, but trees weren't removed",
 				zap.Stringer("cid", ev.ID),
-				zap.String("error", err.Error()))
+				zap.Error(err))
 		}
 	})
 

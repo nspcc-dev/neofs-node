@@ -106,7 +106,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 		cli, err := c.getWrappedClient(info)
 		if err != nil {
 			c.log.Warn("can't setup remote connection",
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}
@@ -122,7 +122,7 @@ func (c *ClientCache) getSG(ctx context.Context, addr oid.Address, nm *netmap.Ne
 
 		if err != nil {
 			c.log.Warn("can't get storage group object",
-				zap.String("error", err.Error()))
+				zap.Error(err))
 
 			continue
 		}

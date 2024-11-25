@@ -3,7 +3,6 @@ package shard_test
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -31,17 +30,12 @@ func TestShard_PutBinary(t *testing.T) {
 
 	sh := newShard(t, false)
 
-	var putPrm shard.PutPrm
-	putPrm.SetObject(&obj)
-	putPrm.SetObjectBinary(objBin, hdrLen)
-	_, err := sh.Put(putPrm)
+	err := sh.Put(&obj, objBin, hdrLen)
 	require.NoError(t, err)
 
-	var getPrm shard.GetPrm
-	getPrm.SetAddress(addr)
-	res, err := sh.Get(getPrm)
+	res, err := sh.Get(addr, false)
 	require.NoError(t, err)
-	require.Equal(t, &obj, res.Object())
+	require.Equal(t, &obj, res)
 
 	testGetBytes(t, sh, addr, objBin)
 	require.NoError(t, err)
@@ -49,16 +43,13 @@ func TestShard_PutBinary(t *testing.T) {
 	// now place some garbage
 	addr.SetObject(oidtest.ID())
 	obj.SetID(addr.Object()) // to avoid 'already exists' outcome
-	putPrm.SetObject(&obj)
 	invalidObjBin := []byte("definitely not an object")
-	putPrm.SetObjectBinary(invalidObjBin, 5)
-	_, err = sh.Put(putPrm)
+	err = sh.Put(&obj, invalidObjBin, 5)
 	require.NoError(t, err)
 
 	testGetBytes(t, sh, addr, invalidObjBin)
 	require.NoError(t, err)
 
-	getPrm.SetAddress(addr)
-	_, err = sh.Get(getPrm)
+	_, err = sh.Get(addr, false)
 	require.Error(t, err)
 }

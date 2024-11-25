@@ -111,9 +111,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	obj.SetType(objectSDK.TypeRegular)
 	obj.SetPayload([]byte{0, 1, 2, 3, 4, 5})
 
-	var putPrm PutPrm
-	putPrm.SetObject(&obj)
-	_, err := sh.Put(putPrm)
+	err := sh.Put(&obj, nil, 0)
 	require.NoError(t, err)
 	require.NoError(t, sh.Close())
 
@@ -132,9 +130,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
 
-	var getPrm GetPrm
-	getPrm.SetAddress(addr)
-	_, err = sh.Get(getPrm)
+	_, err = sh.Get(addr, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	require.NoError(t, sh.Close())
 }
@@ -232,18 +228,12 @@ func TestResyncMetabase(t *testing.T) {
 		tombMembers = append(tombMembers, a)
 	}
 
-	var putPrm PutPrm
-
 	for _, v := range mObjs {
-		putPrm.SetObject(v.obj)
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(v.obj, nil, 0)
 		require.NoError(t, err)
 	}
 
-	putPrm.SetObject(&tombObj)
-
-	_, err := sh.Put(putPrm)
+	err := sh.Put(&tombObj, nil, 0)
 	require.NoError(t, err)
 
 	// LOCK object handling
@@ -254,25 +244,17 @@ func TestResyncMetabase(t *testing.T) {
 	lockObj.SetContainerID(cnrLocked)
 	lockObj.WriteLock(lock)
 
-	putPrm.SetObject(&lockObj)
-	_, err = sh.Put(putPrm)
+	err = sh.Put(&lockObj, nil, 0)
 	require.NoError(t, err)
 
 	lockID := lockObj.GetID()
 	require.NoError(t, sh.Lock(cnrLocked, lockID, locked))
 
-	var inhumePrm InhumePrm
-	inhumePrm.InhumeByTomb(object.AddressOf(&tombObj), 0, tombMembers...)
-
-	_, err = sh.Inhume(inhumePrm)
+	err = sh.Inhume(object.AddressOf(&tombObj), 0, tombMembers...)
 	require.NoError(t, err)
 
-	var headPrm HeadPrm
-
 	checkObj := func(addr oid.Address, expObj *objectSDK.Object) {
-		headPrm.SetAddress(addr)
-
-		res, err := sh.Head(headPrm)
+		res, err := sh.Head(addr, false)
 
 		if expObj == nil {
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
@@ -280,7 +262,7 @@ func TestResyncMetabase(t *testing.T) {
 		}
 
 		require.NoError(t, err)
-		require.Equal(t, expObj.CutPayload(), res.Object())
+		require.Equal(t, expObj.CutPayload(), res)
 	}
 
 	checkAllObjs := func(exists bool) {
@@ -295,9 +277,7 @@ func TestResyncMetabase(t *testing.T) {
 
 	checkTombMembers := func(exists bool) {
 		for _, member := range tombMembers {
-			headPrm.SetAddress(member)
-
-			_, err := sh.Head(headPrm)
+			_, err := sh.Head(member, false)
 
 			if exists {
 				require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
@@ -314,10 +294,7 @@ func TestResyncMetabase(t *testing.T) {
 		for i := range locked {
 			addr.SetObject(locked[i])
 
-			var prm InhumePrm
-			prm.MarkAsGarbage(addr)
-
-			_, err := sh.Inhume(prm)
+			err := sh.MarkGarbage(false, addr)
 			require.ErrorAs(t, err, new(apistatus.ObjectLocked),
 				"object %s should be locked", locked[i])
 		}

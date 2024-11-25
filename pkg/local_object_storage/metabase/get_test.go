@@ -129,10 +129,7 @@ func TestDB_Get(t *testing.T) {
 
 		obj = oidtest.Address()
 
-		var prm meta.InhumePrm
-		prm.SetAddresses(obj)
-
-		_, err = db.Inhume(prm)
+		_, _, err = db.MarkGarbage(false, false, obj)
 		require.NoError(t, err)
 		_, err = metaGet(db, obj, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))

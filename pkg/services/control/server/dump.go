@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -23,11 +25,13 @@ func (s *Server) DumpShard(_ context.Context, req *control.DumpShardRequest) (*c
 
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
-	var prm shard.DumpPrm
-	prm.WithPath(req.GetBody().GetFilepath())
-	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
+	f, err := os.Create(req.GetBody().GetFilepath())
+	if err != nil {
+		return nil, fmt.Errorf("can't open destination file: %w", err)
+	}
+	defer f.Close()
 
-	err = s.storage.DumpShard(shardID, prm)
+	err = s.storage.DumpShard(shardID, f, req.GetBody().GetIgnoreErrors())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -60,10 +60,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 
 	for _, sh := range e.sortedShards(addrLocked) {
 		if checkExists {
-			var existsPrm shard.ExistsPrm
-			existsPrm.SetAddress(addrLocked)
-
-			exRes, err := sh.Exists(existsPrm)
+			exists, err := sh.Exists(addrLocked, false)
 			if err != nil {
 				var siErr *objectSDK.SplitInfoError
 				if !errors.As(err, &siErr) {
@@ -81,7 +78,7 @@ func (e *StorageEngine) lockSingle(idCnr cid.ID, locker, locked oid.ID, checkExi
 				}
 
 				root = true
-			} else if !exRes.Exists() {
+			} else if !exists {
 				if !root {
 					return 0
 				}

@@ -92,7 +92,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 			provider, err := w.router.remoteProvider.InitRemote(remoteInfo)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer provider",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				continue
@@ -102,7 +102,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 			remoteWriter, err = provider.InitWriter(w.routeCtx.Context)
 			if err != nil {
 				w.router.log.Debug("could not initialize writer",
-					zap.String("error", err.Error()),
+					zap.Error(err),
 				)
 
 				continue
@@ -114,7 +114,7 @@ func (w *trustWriter) Write(t reputation.Trust) error {
 		err := remoteWriter.Write(t)
 		if err != nil {
 			w.router.log.Debug("could not write the value",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}
@@ -128,7 +128,7 @@ func (w *trustWriter) Close() error {
 		if err != nil {
 			w.router.log.Debug("could not close remote server writer",
 				zap.String("key", key),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}

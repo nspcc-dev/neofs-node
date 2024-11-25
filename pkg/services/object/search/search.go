@@ -51,7 +51,7 @@ func (exec *execCtx) analyzeStatus(ctx context.Context, execCnr bool) {
 	switch exec.status {
 	default:
 		exec.log.Debug("operation finished with error",
-			zap.String("error", exec.err.Error()),
+			zap.Error(exec.err),
 		)
 	case statusOK:
 		exec.log.Debug("operation finished successfully")

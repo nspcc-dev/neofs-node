@@ -132,7 +132,7 @@ func (l *listener) Listen(ctx context.Context) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx); err != nil {
 			l.log.Error("could not start listen to events",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	})
@@ -148,7 +148,7 @@ func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx); err != nil {
 			l.log.Error("could not start listen to events",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 			intError <- err
 		}
@@ -299,7 +299,7 @@ func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotifi
 	event, err := parser(notifyEvent)
 	if err != nil {
 		log.Warn("could not parse notification event",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -331,11 +331,11 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 		case errors.Is(err, ErrTXAlreadyHandled) || errors.Is(err, ErrUnknownEvent):
 		case errors.Is(err, ErrMainTXExpired):
 			l.log.Warn("skip expired main TX notary event",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		default:
 			l.log.Warn("could not prepare and validate notary event",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 
@@ -367,7 +367,7 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	event, err := parser(notaryEvent)
 	if err != nil {
 		log.Warn("could not parse notary event",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

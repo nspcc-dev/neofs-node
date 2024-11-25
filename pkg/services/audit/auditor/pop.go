@@ -62,7 +62,7 @@ func (c *Context) processObjectPlacement(id oid.ID, nodes []netmap.NodeInfo, rep
 		if err != nil {
 			c.log.Debug("could not get object header from candidate",
 				zap.Stringer("id", id),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			continue
@@ -134,7 +134,7 @@ func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, []netmap.Nod
 		if err != nil {
 			c.log.Debug("could not build placement for object",
 				zap.Stringer("id", id),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 
 			return false

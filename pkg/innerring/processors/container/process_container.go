@@ -44,7 +44,7 @@ func (cp *Processor) processContainerPut(put putEvent) {
 	err := cp.checkPutContainer(ctx)
 	if err != nil {
 		cp.log.Error("put container check failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -108,7 +108,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	if err != nil {
 		cp.log.Error("could not approve put container",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 }
@@ -124,7 +124,7 @@ func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
 	err := cp.checkDeleteContainer(e)
 	if err != nil {
 		cp.log.Error("delete container check failed",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -179,7 +179,7 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 
 	if err != nil {
 		cp.log.Error("could not approve delete container",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 	}
 }

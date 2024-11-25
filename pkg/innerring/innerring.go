@@ -196,7 +196,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	if err != nil {
 		// we don't stop inner ring execution on this error
 		s.log.Warn("can't vote for prepared validators",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	// tick initial epoch
@@ -284,7 +284,7 @@ func (s *Server) Stop() {
 	for _, c := range s.closers {
 		if err := c(); err != nil {
 			s.log.Warn("closer error",
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 	}
@@ -324,7 +324,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	fromSideChainBlock, err := server.persistate.UInt32(persistateSideChainLastBlockKey)
 	if err != nil {
 		fromSideChainBlock = 0
-		log.Warn("can't get last processed side chain block number", zap.String("error", err.Error()))
+		log.Warn("can't get last processed side chain block number", zap.Error(err))
 	}
 
 	morphChain := chainParams{
@@ -588,7 +588,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
 			fromMainChainBlock = 0
-			log.Warn("can't get last processed main chain block number", zap.String("error", err.Error()))
+			log.Warn("can't get last processed main chain block number", zap.Error(err))
 		}
 		mainnetChain.from = fromMainChainBlock
 

@@ -85,18 +85,19 @@ func (e *StorageEngine) Put(obj *objectSDK.Object, objBin []byte, hdrLen int) er
 // Second return value is true iff object already exists.
 // Third return value is true iff object cannot be put because of max concurrent load.
 func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) (bool, bool, bool) {
-	var putSuccess, alreadyExists, overloaded bool
-	id := sh.ID()
+	var (
+		alreadyExists bool
+		err           error
+		exitCh        = make(chan struct{})
+		id            = sh.ID()
+		overloaded    bool
+		putSuccess    bool
+	)
 
-	exitCh := make(chan struct{})
-
-	if err := pool.Submit(func() {
+	err = pool.Submit(func() {
 		defer close(exitCh)
 
-		var existPrm shard.ExistsPrm
-		existPrm.SetAddress(addr)
-
-		exists, err := sh.Exists(existPrm)
+		exists, err := sh.Exists(addr, false)
 		if err != nil {
 			e.log.Warn("object put: check object existence",
 				zap.Stringer("addr", addr),
@@ -112,17 +113,14 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 			return // this is not ErrAlreadyRemoved error so we can go to the next shard
 		}
 
-		alreadyExists = exists.Exists()
+		alreadyExists = exists
 		if alreadyExists {
 			if ind != 0 {
-				var toMoveItPrm shard.ToMoveItPrm
-				toMoveItPrm.SetAddress(addr)
-
-				_, err = sh.ToMoveIt(toMoveItPrm)
+				err = sh.ToMoveIt(addr)
 				if err != nil {
 					e.log.Warn("could not mark object for shard relocation",
 						zap.Stringer("shard", id),
-						zap.String("error", err.Error()),
+						zap.Error(err),
 					)
 				}
 			}
@@ -134,19 +132,13 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 			return
 		}
 
-		var putPrm shard.PutPrm
-		putPrm.SetObject(obj)
-		if objBin != nil {
-			putPrm.SetObjectBinary(objBin, hdrLen)
-		}
-
-		_, err = sh.Put(putPrm)
+		err = sh.Put(obj, objBin, hdrLen)
 		if err != nil {
 			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
 				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
 					zap.Stringer("shard_id", id),
-					zap.String("error", err.Error()))
+					zap.Error(err))
 				return
 			}
 
@@ -155,7 +147,8 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 		}
 
 		putSuccess = true
-	}); err != nil {
+	})
+	if err != nil {
 		e.log.Warn("object put: pool task submitting", zap.Stringer("shard", id), zap.Error(err))
 		overloaded = errors.Is(err, ants.ErrPoolOverload)
 		close(exitCh)

@@ -124,7 +124,7 @@ func (exec *execCtx) saveTombstone() bool {
 		exec.err = err
 
 		exec.log.Debug("could not save the tombstone",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return false

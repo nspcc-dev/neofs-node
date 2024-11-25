@@ -91,7 +91,7 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 			if err != nil {
 				args.l.Warn("can't stop epoch estimation",
 					zap.Uint64("epoch", epochN),
-					zap.String("error", err.Error()))
+					zap.Error(err))
 			}
 		})
 

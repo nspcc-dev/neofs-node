@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,11 +33,8 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 
 	sh := newCustomShard(t, dir, true, wcOpts, nil)
 
-	var putPrm shard.PutPrm
-
 	for i := range objects {
-		putPrm.SetObject(objects[i])
-		_, err := sh.Put(putPrm)
+		err := sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 	require.NoError(t, sh.Close())
@@ -46,12 +42,8 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	sh = newCustomShard(t, dir, true, wcOpts, nil)
 	defer releaseShard(sh, t)
 
-	var getPrm shard.GetPrm
-
 	for i := range objects {
-		getPrm.SetAddress(object.AddressOf(objects[i]))
-
-		_, err := sh.Get(getPrm)
+		_, err := sh.Get(object.AddressOf(objects[i]), false)
 		require.NoError(t, err, i)
 	}
 }

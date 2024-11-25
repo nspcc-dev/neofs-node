@@ -14,5 +14,5 @@ func (e *StorageEngine) FlushWriteCache(id *shard.ID) error {
 		return errShardNotFound
 	}
 
-	return sh.FlushWriteCache(shard.FlushWriteCachePrm{})
+	return sh.FlushWriteCache(false)
 }

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -61,14 +60,10 @@ func TestStorageEngine_Inhume(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		var putChild shard.PutPrm
-		putChild.SetObject(child)
-		_, err := s1.Put(putChild)
+		err := s1.Put(child, nil, 0)
 		require.NoError(t, err)
 
-		var putLink shard.PutPrm
-		putLink.SetObject(link)
-		_, err = s2.Put(putLink)
+		err = s2.Put(link, nil, 0)
 		require.NoError(t, err)
 
 		err = e.Inhume(tombstoneID, 0, object.AddressOf(parent))
@@ -124,23 +119,17 @@ func TestStorageEngine_Inhume(t *testing.T) {
 
 		wrongShard := e.getShard(wrongShardID)
 
-		var putPrm shard.PutPrm
-		putPrm.SetObject(obj)
-
-		var getPrm shard.GetPrm
-		getPrm.SetAddress(addr)
-
-		_, err := wrongShard.Put(putPrm)
+		err := wrongShard.Put(obj, nil, 0)
 		require.NoError(t, err)
 
-		_, err = wrongShard.Get(getPrm)
+		_, err = wrongShard.Get(addr, false)
 		require.NoError(t, err)
 
 		err = e.Delete(addr)
 		require.NoError(t, err)
 
 		// object was on the wrong (according to hash sorting) shard but is removed anyway
-		_, err = wrongShard.Get(getPrm)
+		_, err = wrongShard.Get(addr, false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 

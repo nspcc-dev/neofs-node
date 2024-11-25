@@ -32,7 +32,7 @@ func (p *Processor) HandleAuditEvent(e event.Event) {
 	err := p.pool.Submit(handler.handle)
 	if err != nil {
 		log.Warn("could not add handler of AuditEvent to queue",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -67,7 +67,7 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	incomeCtx, err := p.basicIncome.CreateContext(epoch)
 	if err != nil {
 		p.log.Error("can't create income context",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 
 		return
 	}
@@ -79,7 +79,7 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 	})
 	if err != nil {
 		p.log.Warn("could not add handler of basic income collection to queue",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return
@@ -117,7 +117,7 @@ func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
 	})
 	if err != nil {
 		p.log.Warn("could not add handler of basic income distribution to queue",
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 
 		return

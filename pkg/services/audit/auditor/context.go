@@ -201,7 +201,7 @@ func (c *Context) expired() bool {
 	select {
 	case <-ctx.Done():
 		c.log.Debug("audit context is done",
-			zap.String("error", ctx.Err().Error()),
+			zap.Error(ctx.Err()),
 		)
 
 		return true

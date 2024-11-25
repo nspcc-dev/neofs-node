@@ -33,16 +33,10 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 		return nil, e.blockErr
 	}
 
-	var (
-		shPrm     shard.HeadPrm
-		splitInfo *objectSDK.SplitInfo
-	)
-
-	shPrm.SetAddress(addr)
-	shPrm.SetRaw(raw)
+	var splitInfo *objectSDK.SplitInfo
 
 	for _, sh := range e.sortedShards(addr) {
-		res, err := sh.Head(shPrm)
+		res, err := sh.Head(addr, raw)
 		if err != nil {
 			var siErr *objectSDK.SplitInfoError
 
@@ -73,7 +67,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 			}
 		}
 
-		return res.Object(), nil
+		return res, nil
 	}
 
 	if splitInfo != nil {

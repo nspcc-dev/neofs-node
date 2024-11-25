@@ -104,7 +104,7 @@ func (c *Context) checkStorageGroupPoR(sgID oid.ID, sg storagegroupSDK.StorageGr
 					if err != nil {
 						c.log.Debug("can't concatenate tz hash",
 							zap.String("oid", members[i].String()),
-							zap.String("error", err.Error()))
+							zap.Error(err))
 
 						break
 					}

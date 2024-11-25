@@ -103,18 +103,22 @@ type inhumeV2Prm struct {
 	forceRemoval bool
 }
 
-func (db *DB) inhumeV2(prm inhumeV2Prm) (res InhumeRes, err error) {
+func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
 	if db.mode.NoMetabase() {
-		return InhumeRes{}, ErrDegradedMode
+		return 0, nil, ErrDegradedMode
 	} else if db.mode.ReadOnly() {
-		return InhumeRes{}, ErrReadOnlyMode
+		return 0, nil, ErrReadOnlyMode
 	}
 
-	currEpoch := db.epochState.CurrentEpoch()
-	var inhumed uint64
+	var (
+		currEpoch       = db.epochState.CurrentEpoch()
+		deletedLockObjs []oid.Address
+		err             error
+		inhumed         uint64
+	)
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
@@ -245,7 +249,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (res InhumeRes, err error) {
 				}
 
 				if isLockObject(tx, cnr, id) {
-					res.deletedLockObj = append(res.deletedLockObj, prm.target[i])
+					deletedLockObjs = append(deletedLockObjs, prm.target[i])
 				}
 			}
 		}
@@ -253,9 +257,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (res InhumeRes, err error) {
 		return db.updateCounter(tx, logical, inhumed, false)
 	})
 
-	res.availableImhumed = inhumed
-
-	return
+	return inhumed, deletedLockObjs, err
 }
 
 const testEpoch = 123
@@ -299,7 +301,7 @@ func TestMigrate2to3(t *testing.T) {
 	tomb := oidtest.Address()
 	tombRaw := addressKey(tomb, make([]byte, addressKeySize))
 
-	_, err := db.inhumeV2(inhumeV2Prm{
+	_, _, err := db.inhumeV2(inhumeV2Prm{
 		target: testObjs,
 		tomb:   &tomb,
 	})

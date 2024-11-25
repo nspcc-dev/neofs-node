@@ -50,7 +50,7 @@ func (c senderClassifier) classify(
 	if err != nil {
 		// do not throw error, try best case matching
 		l.Debug("can't check if request from inner ring",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	} else if isInnerRingNode {
 		return &classifyResult{
 			role:    acl.RoleInnerRing,
@@ -65,7 +65,7 @@ func (c senderClassifier) classify(
 		// is not possible for previous epoch, so
 		// do not throw error, try best case matching
 		l.Debug("can't check if request from container node",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	} else if isContainerNode {
 		return &classifyResult{
 			role:    acl.RoleContainer,

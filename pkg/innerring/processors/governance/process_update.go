@@ -23,21 +23,21 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	mainnetAlphabet, err := gp.mainnetClient.NeoFSAlphabetList()
 	if err != nil {
 		gp.log.Error("can't fetch alphabet list from main net",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		return
 	}
 
 	sidechainAlphabet, err := gp.morphClient.Committee()
 	if err != nil {
 		gp.log.Error("can't fetch alphabet list from side chain",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		return
 	}
 
 	newAlphabet, err := newAlphabetList(sidechainAlphabet, mainnetAlphabet)
 	if err != nil {
 		gp.log.Error("can't merge alphabet lists from main net and side chain",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 		return
 	}
 
@@ -55,19 +55,19 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	err = gp.voter.VoteForSidechainValidator(newAlphabet, &txHash)
 	if err != nil {
 		gp.log.Error("can't vote for side chain committee",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	// 2. Update NeoFSAlphabet role in the sidechain.
 	innerRing, err := gp.irFetcher.InnerRingKeys()
 	if err != nil {
 		gp.log.Error("can't fetch inner ring list from side chain",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	} else {
 		newInnerRing, err := updateInnerRing(innerRing, sidechainAlphabet, newAlphabet)
 		if err != nil {
 			gp.log.Error("can't create new inner ring list with new alphabet keys",
-				zap.String("error", err.Error()))
+				zap.Error(err))
 		} else {
 			sort.Sort(newInnerRing)
 
@@ -80,7 +80,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",
-					zap.String("error", err.Error()))
+					zap.Error(err))
 			}
 		}
 	}
@@ -89,7 +89,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	err = gp.morphClient.UpdateNotaryList(newAlphabet, txHash)
 	if err != nil {
 		gp.log.Error("can't update list of notary nodes in side chain",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	// 4. Update NeoFS contract in the mainnet.
@@ -98,7 +98,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	err = gp.neofsClient.AlphabetUpdate(id, newAlphabet)
 	if err != nil {
 		gp.log.Error("can't update list of alphabet nodes in neofs contract",
-			zap.String("error", err.Error()))
+			zap.Error(err))
 	}
 
 	gp.log.Info("finished alphabet list update")

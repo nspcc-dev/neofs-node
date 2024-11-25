@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,28 +29,19 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 	obj := generateObjectWithCID(cnr)
 	addAttribute(obj, "foo", "bar")
 
-	var putPrm shard.PutPrm
-	var getPrm shard.GetPrm
-
 	t.Run("big object", func(t *testing.T) {
 		addPayload(obj, 1<<20)
 
-		putPrm.SetObject(obj)
-		getPrm.SetAddress(object.AddressOf(obj))
-
-		var delPrm shard.DeletePrm
-		delPrm.SetAddresses(object.AddressOf(obj))
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
-		_, err = testGet(t, sh, getPrm, hasWriteCache)
+		_, err = testGet(t, sh, object.AddressOf(obj), hasWriteCache)
 		require.NoError(t, err)
 
-		_, err = sh.Delete(delPrm)
+		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 
@@ -59,22 +50,16 @@ func testShardDelete(t *testing.T, hasWriteCache bool) {
 		addAttribute(obj, "foo", "bar")
 		addPayload(obj, 1<<5)
 
-		putPrm.SetObject(obj)
-		getPrm.SetAddress(object.AddressOf(obj))
-
-		var delPrm shard.DeletePrm
-		delPrm.SetAddresses(object.AddressOf(obj))
-
-		_, err := sh.Put(putPrm)
+		err := sh.Put(obj, nil, 0)
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.NoError(t, err)
 
-		_, err = sh.Delete(delPrm)
+		err = sh.Delete([]oid.Address{object.AddressOf(obj)})
 		require.NoError(t, err)
 
-		_, err = sh.Get(getPrm)
+		_, err = sh.Get(object.AddressOf(obj), false)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 }

@@ -58,33 +58,28 @@ func TestDB_Lock(t *testing.T) {
 		objAddr := objectcore.AddressOf(objs[0])
 		lockAddr := objectcore.AddressOf(lockObj)
 
-		var inhumePrm meta.InhumePrm
-		inhumePrm.SetGCMark()
-
 		// check locking relation
 
-		inhumePrm.SetAddresses(objAddr)
-		_, err := db.Inhume(inhumePrm)
+		_, _, err := db.MarkGarbage(false, false, objAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.SetTombstone(oidtest.Address(), 0)
-		_, err = db.Inhume(inhumePrm)
+		_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 		// try to remove lock object
-		inhumePrm.SetAddresses(lockAddr)
-		_, err = db.Inhume(inhumePrm)
+		_, _, err = db.MarkGarbage(false, false, lockAddr)
+		require.Error(t, err)
+
+		_, _, err = db.Inhume(oidtest.Address(), 0, false, lockAddr)
 		require.Error(t, err)
 
 		// check that locking relation has not been
 		// dropped
 
-		inhumePrm.SetAddresses(objAddr)
-		_, err = db.Inhume(inhumePrm)
+		_, _, err = db.MarkGarbage(false, false, objAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
-		inhumePrm.SetTombstone(oidtest.Address(), 0)
-		_, err = db.Inhume(inhumePrm)
+		_, _, err = db.Inhume(oidtest.Address(), 0, false, objAddr)
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 	})
 
@@ -99,25 +94,18 @@ func TestDB_Lock(t *testing.T) {
 		require.ErrorAs(t, err, new(apistatus.ObjectLocked))
 
 		// free locked object
-		var inhumePrm meta.InhumePrm
-		inhumePrm.SetAddresses(lockAddr)
-		inhumePrm.SetForceGCMark()
-		inhumePrm.SetLockObjectHandling()
-
-		res, err := db.Inhume(inhumePrm)
+		inhumed, deletedLocks, err := db.MarkGarbage(true, true, lockAddr)
 		require.NoError(t, err)
-		require.Len(t, res.DeletedLockObjects(), 1)
-		require.Equal(t, objectcore.AddressOf(lockObj), res.DeletedLockObjects()[0])
+		require.Equal(t, uint64(1), inhumed)
+		require.Len(t, deletedLocks, 1)
+		require.Equal(t, objectcore.AddressOf(lockObj), deletedLocks[0])
 
 		unlocked, err := db.FreeLockedBy([]oid.Address{lockAddr})
 		require.NoError(t, err)
 		require.ElementsMatch(t, objsToAddrs(objs), unlocked)
 
-		inhumePrm.SetAddresses(objAddr)
-		inhumePrm.SetGCMark()
-
 		// now we can inhume the object
-		_, err = db.Inhume(inhumePrm)
+		_, _, err = db.MarkGarbage(false, false, objAddr)
 		require.NoError(t, err)
 	})
 
@@ -128,46 +116,35 @@ func TestDB_Lock(t *testing.T) {
 		objs, lockObj := putAndLockObj(t, db, objsNum)
 
 		// force remove objects
-
-		var inhumePrm meta.InhumePrm
-		inhumePrm.SetForceGCMark()
-		inhumePrm.SetAddresses(objectcore.AddressOf(lockObj))
-		inhumePrm.SetLockObjectHandling()
-
-		res, err := db.Inhume(inhumePrm)
+		inhumed, deletedLocks, err := db.MarkGarbage(true, true, objectcore.AddressOf(lockObj))
 		require.NoError(t, err)
-		require.Len(t, res.DeletedLockObjects(), 1)
-		require.Equal(t, objectcore.AddressOf(lockObj), res.DeletedLockObjects()[0])
+		require.Equal(t, uint64(1), inhumed)
+		require.Len(t, deletedLocks, 1)
+		require.Equal(t, objectcore.AddressOf(lockObj), deletedLocks[0])
 
 		// unlock just objects that were locked by
 		// just removed locker
-		unlocked, err := db.FreeLockedBy([]oid.Address{res.DeletedLockObjects()[0]})
+		unlocked, err := db.FreeLockedBy(deletedLocks)
 		require.NoError(t, err)
 		require.ElementsMatch(t, objsToAddrs(objs), unlocked)
 
 		// removing objects after unlock
 
-		inhumePrm.SetGCMark()
-
 		for i := range objsNum {
-			inhumePrm.SetAddresses(objectcore.AddressOf(objs[i]))
-
-			res, err = db.Inhume(inhumePrm)
+			inhumed, deletedLocks, err = db.MarkGarbage(false, true, objectcore.AddressOf(objs[i]))
 			require.NoError(t, err)
-			require.Len(t, res.DeletedLockObjects(), 0)
+			require.Equal(t, uint64(1), inhumed)
+			require.Len(t, deletedLocks, 0)
 		}
 	})
 
 	t.Run("skipping lock object handling", func(t *testing.T) {
 		_, lockObj := putAndLockObj(t, db, 1)
 
-		var inhumePrm meta.InhumePrm
-		inhumePrm.SetForceGCMark()
-		inhumePrm.SetAddresses(objectcore.AddressOf(lockObj))
-
-		res, err := db.Inhume(inhumePrm)
+		inhumed, deletedLocks, err := db.MarkGarbage(true, false, objectcore.AddressOf(lockObj))
 		require.NoError(t, err)
-		require.Len(t, res.DeletedLockObjects(), 0)
+		require.Equal(t, uint64(1), inhumed)
+		require.Len(t, deletedLocks, 0)
 	})
 }
 

@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -46,18 +45,12 @@ func TestHeadRaw(t *testing.T) {
 		e := testNewEngineWithShards(s1, s2)
 		defer e.Close()
 
-		var putPrmLeft shard.PutPrm
-		putPrmLeft.SetObject(child)
-
-		var putPrmLink shard.PutPrm
-		putPrmLink.SetObject(link)
-
 		// put most left object in one shard
-		_, err := s1.Put(putPrmLeft)
+		err := s1.Put(child, nil, 0)
 		require.NoError(t, err)
 
 		// put link object in another shard
-		_, err = s2.Put(putPrmLink)
+		err = s2.Put(link, nil, 0)
 		require.NoError(t, err)
 
 		// head with raw flag should return SplitInfoError

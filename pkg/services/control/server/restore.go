@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"os"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -23,11 +24,13 @@ func (s *Server) RestoreShard(_ context.Context, req *control.RestoreShardReques
 
 	shardID := shard.NewIDFromBytes(req.GetBody().GetShard_ID())
 
-	var prm shard.RestorePrm
-	prm.WithPath(req.GetBody().GetFilepath())
-	prm.WithIgnoreErrors(req.GetBody().GetIgnoreErrors())
+	f, err := os.Open(req.GetBody().GetFilepath())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	defer f.Close()
 
-	err = s.storage.RestoreShard(shardID, prm)
+	err = s.storage.RestoreShard(shardID, f, req.GetBody().GetIgnoreErrors())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

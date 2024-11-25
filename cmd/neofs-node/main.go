@@ -83,7 +83,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 	ln, err := srv.Listen()
 	if err != nil {
 		c.log.Fatal(fmt.Sprintf("could not init %s service", name),
-			zap.String("error", err.Error()),
+			zap.Error(err),
 		)
 		return
 	}
@@ -103,7 +103,7 @@ func preRunAndLog(c *cfg, name string, srv *httputil.Server) {
 		err := srv.Shutdown()
 		if err != nil {
 			c.log.Debug(fmt.Sprintf("could not shutdown  %s server", name),
-				zap.String("error", err.Error()),
+				zap.Error(err),
 			)
 		}
 

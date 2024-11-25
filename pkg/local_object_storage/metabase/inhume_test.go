@@ -41,28 +41,21 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	var (
 		err error
 
-		addr1     = oidtest.Address()
-		addr2     = oidtest.Address()
-		addr3     = oidtest.Address()
-		inhumePrm meta.InhumePrm
+		addr1 = oidtest.Address()
+		addr2 = oidtest.Address()
+		addr3 = oidtest.Address()
 	)
 
-	inhumePrm.SetAddresses(addr1)
-	inhumePrm.SetTombstone(addr2, 0)
-
 	// inhume addr1 via addr2
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.Inhume(addr2, 0, false, addr1)
 	require.NoError(t, err)
 
 	// addr1 should become inhumed {addr1:addr2}
 	_, err = db.Exists(addr1, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	inhumePrm.SetAddresses(addr3)
-	inhumePrm.SetTombstone(addr1, 0)
-
 	// try to inhume addr3 via addr1
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.Inhume(addr1, 0, false, addr3)
 	require.NoError(t, err)
 
 	// record with {addr1:addr2} should be removed from graveyard
@@ -76,11 +69,8 @@ func TestInhumeTombOnTomb(t *testing.T) {
 	_, err = db.Exists(addr3, false)
 	require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
 
-	inhumePrm.SetAddresses(addr1)
-	inhumePrm.SetTombstone(oidtest.Address(), 0)
-
 	// try to inhume addr1 (which is already a tombstone in graveyard)
-	_, err = db.Inhume(inhumePrm)
+	_, _, err = db.Inhume(oidtest.Address(), 0, false, addr1)
 	require.NoError(t, err)
 
 	// record with addr1 key should not appear in graveyard
@@ -98,10 +88,7 @@ func TestInhumeLocked(t *testing.T) {
 	err := db.Lock(locked.Container(), oidtest.ID(), []oid.ID{locked.Object()})
 	require.NoError(t, err)
 
-	var prm meta.InhumePrm
-	prm.SetAddresses(locked)
-
-	_, err = db.Inhume(prm)
+	_, _, err = db.MarkGarbage(false, false, locked)
 
 	var e apistatus.ObjectLocked
 	require.ErrorAs(t, err, &e)
@@ -153,10 +140,6 @@ func TestInhumeContainer(t *testing.T) {
 }
 
 func metaInhume(db *meta.DB, target, tomb oid.Address) error {
-	var inhumePrm meta.InhumePrm
-	inhumePrm.SetAddresses(target)
-	inhumePrm.SetTombstone(tomb, 0)
-
-	_, err := db.Inhume(inhumePrm)
+	_, _, err := db.Inhume(tomb, 0, false, target)
 	return err
 }
