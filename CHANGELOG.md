@@ -23,6 +23,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Reloading node attributes with SIGHUP (#3005)
 - Reloading pool sizes (#3018)
 - Reloading pprof/metrics services with SIGHUP (#3016)
+- Add metrics for shard's capacity (#3021)
 
 ### Fixed
 - Do not search for tombstones when handling their expiration, use local indexes instead (#2929)

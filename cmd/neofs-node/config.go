@@ -948,17 +948,9 @@ func writeSystemAttributes(c *cfg) error {
 	var paths []string
 	for _, sh := range c.applicationConfiguration.engine.shards {
 		for _, subStorage := range sh.SubStorages {
-			path := subStorage.Path
-
-			for len(path) > 1 { // Dir returns / or . if nothing else left.
-				fi, err := os.Stat(path)
-				if err == nil && fi.IsDir() {
-					break
-				}
-				if err != nil && !errors.Is(err, fs.ErrNotExist) {
-					return fmt.Errorf("accessing %q: %w", path, err)
-				}
-				path = filepath.Dir(path)
+			path, err := getInitPath(subStorage.Path)
+			if err != nil {
+				return err
 			}
 
 			paths = append(paths, path)
@@ -973,6 +965,21 @@ func writeSystemAttributes(c *cfg) error {
 	c.cfgNodeInfo.localInfo.SetCapacity(total / (1 << 30))
 
 	return nil
+}
+
+func getInitPath(path string) (string, error) {
+	for len(path) > 1 { // Dir returns / or . if nothing else left.
+		fi, err := os.Stat(path)
+		if err == nil && fi.IsDir() {
+			break
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("accessing %q: %w", path, err)
+		}
+		path = filepath.Dir(path)
+	}
+
+	return path, nil
 }
 
 func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profilerConfig) {

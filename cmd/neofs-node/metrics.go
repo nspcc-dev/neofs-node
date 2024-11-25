@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -47,4 +48,27 @@ func (m1 metricConfig) isUpdated(c *config.Config) bool {
 	return m1.enabled != metricsconfig.Enabled(c) ||
 		m1.shutdownTimeout != metricsconfig.ShutdownTimeout(c) ||
 		m1.address != metricsconfig.Address(c)
+}
+
+func (c *cfg) setShardsCapacity() error {
+	for _, sh := range c.cfgObject.cfgLocalStorage.localStorage.DumpInfo().Shards {
+		paths := make([]string, 0, len(sh.BlobStorInfo.SubStorages))
+		for _, subStorage := range sh.BlobStorInfo.SubStorages {
+			path, err := getInitPath(subStorage.Path)
+			if err != nil {
+				return err
+			}
+
+			paths = append(paths, path)
+		}
+
+		capacity, err := totalBytes(paths)
+		if err != nil {
+			return fmt.Errorf("calculating capacity on shard %s: %w", sh.ID.String(), err)
+		}
+
+		c.metricsCollector.SetCapacitySize(sh.ID.String(), capacity)
+	}
+
+	return nil
 }

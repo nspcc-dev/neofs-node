@@ -61,6 +61,9 @@ func main() {
 
 	initApp(c)
 
+	err = c.setShardsCapacity()
+	fatalOnErr(err)
+
 	c.setHealthStatus(control.HealthStatus_STARTING)
 
 	bootUp(c)
