@@ -214,6 +214,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 	var err error
 	var nodeLists [][]netmap.NodeInfo
 	var replCounts []uint
+	var l = x.log.With(zap.Stringer("oid", obj))
 	if x.localOnly {
 		// TODO: although this particular case fits correctly into the general approach,
 		//  much less actions can be done
@@ -288,7 +289,7 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 				}
 				// critical error that may ultimately block the storage service. Normally it
 				// should not appear because entry into the network map under strict control
-				x.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+				l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
 					zap.String("public key", netmap.StringifyPublicKey(nodeLists[listInd][j])), zap.Error(nr.convertErr))
 				if listLen-nodesCounters[listInd].processed-1 < replRem { // -1 includes current node failure
 					err = fmt.Errorf("%w (last node error: failed to decode network addresses: %w)",
@@ -321,13 +322,13 @@ func (x placementIterator) iterateNodesForObject(obj oid.ID, f func(nodeDesc) er
 					processedNodesMtx.Unlock()
 					if err != nil {
 						lastRespErr.Store(err)
-						svcutil.LogServiceError(x.log, "PUT", nr.desc.info.AddressGroup(), err)
+						svcutil.LogServiceError(l, "PUT", nr.desc.info.AddressGroup(), err)
 						return
 					}
 				}); err != nil {
 					wg.Done()
 					err = fmt.Errorf("submit next job to save an object to the worker pool: %w", err)
-					svcutil.LogWorkerPoolError(x.log, "PUT", err)
+					svcutil.LogWorkerPoolError(l, "PUT", err)
 				}
 			}
 			wg.Wait()
@@ -359,7 +360,7 @@ broadcast:
 			if nr.convertErr != nil {
 				// critical error that may ultimately block the storage service. Normally it
 				// should not appear because entry into the network map under strict control
-				x.log.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
+				l.Error("failed to decode network endpoints of the storage node from the network map, skip the node",
 					zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])), zap.Error(nr.convertErr))
 				continue // to send as many replicas as possible
 			}
@@ -378,12 +379,12 @@ broadcast:
 				nodeResults[pks] = nr
 				processedNodesMtx.Unlock()
 				if err != nil {
-					svcutil.LogServiceError(x.log, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
+					svcutil.LogServiceError(l, "PUT (extra broadcast)", nr.desc.info.AddressGroup(), err)
 					return
 				}
 			}); err != nil {
 				wg.Done()
-				svcutil.LogWorkerPoolError(x.log, "PUT (extra broadcast)", err)
+				svcutil.LogWorkerPoolError(l, "PUT (extra broadcast)", err)
 				break broadcast
 			}
 		}
