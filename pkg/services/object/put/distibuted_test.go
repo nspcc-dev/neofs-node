@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -364,8 +365,7 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
 		require.EqualError(t, err, "incomplete object PUT by placement: "+
-			"submit next job to save an object to the worker pool: any worker pool error "+
-			"(last node error: any node error)")
+			"number of replicas cannot be met for list #1: 1 required, 0 nodes remaining (last node error: any node error)")
 	})
 	t.Run("not enough nodes a priori", func(t *testing.T) {
 		// nodes: [A B] [C D E] [F]
@@ -491,5 +491,43 @@ func TestIterateNodesForObject(t *testing.T) {
 		require.ElementsMatch(t, handlerCalls[2:], [][]byte{
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][1].PublicKey(),
 		})
+	})
+	t.Run("return only after worker pool finished", func(t *testing.T) {
+		objID := oidtest.ID()
+		cnrNodes := allocNodes([]uint{2, 3, 1})
+		iter := placementIterator{
+			log:      zap.NewNop(),
+			neoFSNet: new(testNetwork),
+			remotePool: &testWorkerPool{
+				err:   errors.New("pool err"),
+				nFail: 2,
+			},
+			containerNodes: testContainerNodes{
+				objID:      objID,
+				cnrNodes:   cnrNodes,
+				primCounts: []uint{2, 3, 1},
+			},
+		}
+		blockCh := make(chan struct{})
+		returnCh := make(chan struct{})
+		go func() {
+			err := iter.iterateNodesForObject(objID, func(node nodeDesc) error {
+				<-blockCh
+				return nil
+			})
+			require.EqualError(t, err, "incomplete object PUT by placement: number of replicas cannot be met for list #0: 1 required, 0 nodes remaining")
+			close(returnCh)
+		}()
+		select {
+		case <-returnCh:
+			t.Fatal("`iterateNodesForObject` is not synced with worker pools")
+		case <-time.After(time.Second / 2):
+		}
+		close(blockCh)
+		select {
+		case <-returnCh:
+		case <-time.After(10 * time.Second):
+			t.Fatal("unexpected test lock")
+		}
 	})
 }
