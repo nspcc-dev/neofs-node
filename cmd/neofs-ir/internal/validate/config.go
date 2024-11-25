@@ -102,9 +102,7 @@ type validConfig struct {
 	} `mapstructure:"node"`
 
 	Fee struct {
-		MainChain              int64 `mapstructure:"main_chain"`
-		SideChain              int64 `mapstructure:"side_chain"`
-		NamedContainerRegister int64 `mapstructure:"named_container_register"`
+		MainChain int64 `mapstructure:"main_chain"`
 	} `mapstructure:"fee"`
 
 	Timers struct {
