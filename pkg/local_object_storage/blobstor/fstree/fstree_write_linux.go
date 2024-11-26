@@ -125,11 +125,11 @@ func (b *syncBatch) wait() error {
 func (b *syncBatch) write(id oid.ID, p string, data []byte) error {
 	var (
 		err  error
-		pref [1 + len(id) + 4]byte
+		pref [combinedDataOff]byte
 	)
 	pref[0] = combinedPrefix
-	copy(pref[1:], id[:])
-	binary.BigEndian.PutUint32(pref[1+len(id):], uint32(len(data)))
+	copy(pref[combinedIDOff:], id[:])
+	binary.BigEndian.PutUint32(pref[combinedLengthOff:], uint32(len(data)))
 
 	n, err := unix.Writev(b.fd, [][]byte{pref[:], data})
 	if err != nil {

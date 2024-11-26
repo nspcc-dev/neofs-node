@@ -70,6 +70,19 @@ const (
 	// the system (and we usually don't have 15 fields). ZSTD magic is also
 	// different.
 	combinedPrefix = 0x7f
+
+	// combinedLenSize is sizeof(uint32), length is a serialized 32-bit BE integer.
+	combinedLenSize = 4
+
+	// combinedIDOff is the offset from the start of the combined prefix to OID.
+	combinedIDOff = 1
+
+	// combinedLengthOff is the offset from the start of the combined prefix to object length.
+	combinedLengthOff = combinedIDOff + oid.Size
+
+	// combinedDataOff is the offset from the start of the combined prefix to object data.
+	// It's also the length of the prefix in total.
+	combinedDataOff = combinedLengthOff + combinedLenSize
 )
 
 var _ common.Storage = (*FSTree)(nil)
@@ -353,18 +366,8 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 }
 
 func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
-	const (
-		prefixSize = 1
-		idSize     = sha256.Size
-		lengthSize = 4
-
-		idOff     = prefixSize
-		lengthOff = idOff + idSize
-		dataOff   = lengthOff + lengthSize
-	)
-
 	var (
-		comBuf     [dataOff]byte
+		comBuf     [combinedDataOff]byte
 		data       []byte
 		isCombined bool
 	)
@@ -398,8 +401,8 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			return data, nil
 		}
 		isCombined = true
-		var l = binary.BigEndian.Uint32(comBuf[lengthOff:dataOff])
-		if bytes.Equal(comBuf[idOff:lengthOff], id[:]) {
+		var l = binary.BigEndian.Uint32(comBuf[combinedLengthOff:combinedDataOff])
+		if bytes.Equal(comBuf[combinedIDOff:combinedLengthOff], id[:]) {
 			data = make([]byte, l)
 			_, err = io.ReadFull(f, data)
 			if err != nil {
