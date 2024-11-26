@@ -274,10 +274,6 @@ func (x *Peapod) SetCompressor(cc *compression.Config) {
 	x.compress = cc
 }
 
-func (x *Peapod) SetReportErrorFunc(func(string, error)) {
-	// no-op like FSTree
-}
-
 // Get reads data from the underlying database by the given object address.
 // Returns apistatus.ErrObjectNotFound if object is missing in the Peapod.
 func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {

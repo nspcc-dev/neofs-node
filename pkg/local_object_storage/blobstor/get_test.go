@@ -28,9 +28,6 @@ func (x *getBytesOnlySubStorage) Close() error                         { panic("
 func (x *getBytesOnlySubStorage) Type() string                         { panic("must not be called") }
 func (x *getBytesOnlySubStorage) Path() string                         { panic("must not be called") }
 func (x *getBytesOnlySubStorage) SetCompressor(cc *compression.Config) { panic("must not be called") }
-func (x *getBytesOnlySubStorage) SetReportErrorFunc(f func(string, error)) {
-	panic("must not be called")
-}
 
 func (x *getBytesOnlySubStorage) Get(prm common.GetPrm) (common.GetRes, error) {
 	panic("must not be called")

@@ -105,11 +105,3 @@ func WithUncompressableContentTypes(values []string) Option {
 		c.compression.UncompressableContentTypes = values
 	}
 }
-
-// SetReportErrorFunc allows to provide a function to be called on disk errors.
-// This function MUST be called before Open.
-func (b *BlobStor) SetReportErrorFunc(f func(string, error)) {
-	for i := range b.storage {
-		b.storage[i].Storage.SetReportErrorFunc(f)
-	}
-}

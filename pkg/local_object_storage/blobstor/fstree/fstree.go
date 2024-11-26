@@ -473,11 +473,6 @@ func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
 }
 
-// SetReportErrorFunc implements common.Storage.
-func (t *FSTree) SetReportErrorFunc(_ func(string, error)) {
-	// Do nothing, FSTree can encounter only one error which is returned.
-}
-
 // CleanUpTmp removes all temporary files garbage.
 func (t *FSTree) CleanUpTmp() error {
 	if t.readOnly {
