@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -165,17 +164,22 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	}
 
 	if t.localNodeInContainer && !node.local {
+		// These should technically be errors, but we don't have
+		// a complete implementation now, so errors are substituted with logs.
+		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()))
+
 		if sig == nil {
-			return fmt.Errorf("%w: missing object meta signature", apistatus.ErrSignatureVerification)
+			l.Info("missing object meta signature")
+			return nil
 		}
 
 		if !bytes.Equal(sig.PublicKeyBytes(), node.info.PublicKey()) {
-			return fmt.Errorf("%w: public key differs in object meta signature", apistatus.ErrSignatureVerification)
+			l.Info("public key differs in object meta signature")
+			return nil
 		}
 
 		if !sig.Verify(t.objSharedMeta) {
-			return fmt.Errorf("%w: %s node did not pass the meta information verification",
-				apistatus.ErrSignatureVerification, network.StringifyGroup(node.info.AddressGroup()))
+			l.Info("meta signature verification failed", zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 		}
 	}
 
