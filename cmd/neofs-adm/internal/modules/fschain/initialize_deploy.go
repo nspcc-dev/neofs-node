@@ -1,4 +1,4 @@
-package morph
+package fschain
 
 import (
 	"archive/tar"

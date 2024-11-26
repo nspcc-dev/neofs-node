@@ -32,7 +32,7 @@ control:
   grpc:
     endpoint: {{.ControlEndpoint}}  # endpoint that is listened by the Control Service
 
-morph:
+fschain:
   dial_timeout: 20s  # timeout for FS chain NEO RPC client connection
   cache_ttl: 15s  # use TTL cache for FS chain GET operations
   endpoints:  # FS chain N3 RPC endpoints

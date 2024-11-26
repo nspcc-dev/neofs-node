@@ -1,4 +1,4 @@
-package morph
+package fschain
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"

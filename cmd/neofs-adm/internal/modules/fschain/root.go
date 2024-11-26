@@ -1,4 +1,4 @@
-package morph
+package fschain
 
 import (
 	"fmt"
@@ -63,13 +63,14 @@ const (
 var (
 	// RootCmd is a root command of config section.
 	RootCmd = &cobra.Command{
-		Use:   "morph",
-		Short: "Section for morph network configuration commands",
+		Use:     "fschain",
+		Short:   "Section FS chain network configuration commands",
+		Aliases: []string{"morph"},
 	}
 
 	generateAlphabetCmd = &cobra.Command{
 		Use:   "generate-alphabet",
-		Short: "Generate alphabet wallets for consensus nodes of the morph network",
+		Short: "Generate alphabet wallets for consensus nodes of FS chain network",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			// PreRun fixes https://github.com/spf13/viper/issues/233
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
@@ -100,7 +101,7 @@ var (
 
 	generateStorageCmd = &cobra.Command{
 		Use:   "generate-storage-wallet",
-		Short: "Generate storage node wallet for the morph network",
+		Short: "Generate storage node wallet for FS chain network",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -111,7 +112,7 @@ var (
 
 	refillGasCmd = &cobra.Command{
 		Use:   "refill-gas",
-		Short: "Refill GAS of storage node's wallet in the morph network",
+		Short: "Refill GAS of storage node's wallet in FS chain network",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
@@ -152,7 +153,7 @@ var (
 
 	mintBalanceCmd = &cobra.Command{
 		Use:   "mint-balance",
-		Short: "Mint new NEOFS tokens in the morph network",
+		Short: "Mint new NEOFS tokens in FS chain network",
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(alphabetWalletsFlag, cmd.Flags().Lookup(alphabetWalletsFlag))
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
