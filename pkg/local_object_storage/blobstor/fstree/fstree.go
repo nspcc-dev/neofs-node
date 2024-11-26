@@ -395,6 +395,9 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 		}
 		thisOID, l := parseCombinedPrefix(comBuf)
 		if thisOID == nil {
+			if isCombined {
+				return nil, errors.New("malformed combined file")
+			}
 			st, err := f.Stat()
 			if err != nil {
 				return nil, err
