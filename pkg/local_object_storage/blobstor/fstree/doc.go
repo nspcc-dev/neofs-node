@@ -38,6 +38,7 @@ can not collide with protobuf-encoded or ZSTD-compressed data. Files using
 this prefix can contain an unspecified number of objects (configured via
 [WithCombinedCountLimit]) that all follow the same serialization pattern:
   - the first byte is magic 0x7F described above
+  - one byte version of the subsequent structure (currently zero only)
   - 32-byte OID of the next object then
   - 4-byte BE integer length of the next object
   - followed by protobuf-encoded or ZSTD-compressed object data (of the length
@@ -45,7 +46,7 @@ this prefix can contain an unspecified number of objects (configured via
 
 Overall the structure is like this:
 
-	[0x7F [OID A] [uint32 size]][object A][0x7F [OID B] [uint32 size]][object B]...
+	[0x7F 0x00 [OID A] [uint32 size]][object A][0x7F 0x00 [OID B] [uint32 size]][object B]...
 
 Even though this file contains several objects it has hard links for all of
 them in the FS tree, so finding a file containing some object doesn't require

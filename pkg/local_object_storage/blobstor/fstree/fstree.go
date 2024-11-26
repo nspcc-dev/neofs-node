@@ -75,7 +75,7 @@ const (
 	combinedLenSize = 4
 
 	// combinedIDOff is the offset from the start of the combined prefix to OID.
-	combinedIDOff = 1
+	combinedIDOff = 2
 
 	// combinedLengthOff is the offset from the start of the combined prefix to object length.
 	combinedLengthOff = combinedIDOff + oid.Size
@@ -365,6 +365,16 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 	return data, nil
 }
 
+// parseCombinedPrefix checks the given array for combined data prefix and
+// returns a subslice with OID and object length if so (nil and 0 otherwise).
+func parseCombinedPrefix(p [combinedDataOff]byte) ([]byte, uint32) {
+	if p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
+		return nil, 0
+	}
+	return p[combinedIDOff:combinedLengthOff],
+		binary.BigEndian.Uint32(p[combinedLengthOff:combinedDataOff])
+}
+
 func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 	var (
 		comBuf     [combinedDataOff]byte
@@ -383,7 +393,8 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			}
 			return nil, err
 		}
-		if comBuf[0] != combinedPrefix {
+		thisOID, l := parseCombinedPrefix(comBuf)
+		if thisOID == nil {
 			st, err := f.Stat()
 			if err != nil {
 				return nil, err
@@ -401,8 +412,7 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			return data, nil
 		}
 		isCombined = true
-		var l = binary.BigEndian.Uint32(comBuf[combinedLengthOff:combinedDataOff])
-		if bytes.Equal(comBuf[combinedIDOff:combinedLengthOff], id[:]) {
+		if bytes.Equal(thisOID, id[:]) {
 			data = make([]byte, l)
 			_, err = io.ReadFull(f, data)
 			if err != nil {
