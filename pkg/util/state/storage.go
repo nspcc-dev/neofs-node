@@ -104,3 +104,17 @@ func (p PersistentStorage) Bytes(key []byte) (res []byte, err error) {
 
 	return
 }
+
+func (p PersistentStorage) Delete(key []byte) error {
+	return p.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(stateBucket)
+		if b != nil {
+			err := b.Delete(key)
+			if err != nil {
+				return fmt.Errorf("can't delete state: %w", err)
+			}
+		}
+
+		return nil
+	})
+}
