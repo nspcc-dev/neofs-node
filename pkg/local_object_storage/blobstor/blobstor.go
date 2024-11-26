@@ -68,6 +68,9 @@ func New(opts ...Option) *BlobStor {
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
 func (b *BlobStor) SetLogger(l *zap.Logger) {
 	b.log = l
+	for i := range b.storage {
+		b.storage[i].Storage.SetLogger(l)
+	}
 }
 
 // WithStorages provides sub-blobstors.

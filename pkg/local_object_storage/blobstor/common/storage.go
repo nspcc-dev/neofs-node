@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // Storage represents key-value object storage.
@@ -16,6 +17,7 @@ type Storage interface {
 
 	Type() string
 	Path() string
+	SetLogger(*zap.Logger)
 	SetCompressor(cc *compression.Config)
 
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS

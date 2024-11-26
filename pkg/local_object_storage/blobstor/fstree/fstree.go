@@ -22,6 +22,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // FSTree represents an object storage as a filesystem tree.
@@ -29,6 +30,7 @@ type FSTree struct {
 	Info
 
 	*compression.Config
+	log        *zap.Logger
 	Depth      uint64
 	DirNameLen int
 	writer     writer
@@ -471,6 +473,11 @@ func (t *FSTree) Path() string {
 // SetCompressor implements common.Storage.
 func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
+}
+
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (t *FSTree) SetLogger(l *zap.Logger) {
+	t.log = l.With(zap.String("substorage", Type))
 }
 
 // CleanUpTmp removes all temporary files garbage.
