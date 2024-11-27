@@ -53,6 +53,7 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Deprecate peapod substorage (#3013)
 - Node does not stop trying to PUT an object if there are more PUT tasks than configured (#3027)
 - `morph` configuration section renamed to `fschain` both in IR and SN (#3028)
+- FSTree is limited to depth 8 max now (#3031)
 
 ### Removed
 - Support for node.key configuration (#2959)

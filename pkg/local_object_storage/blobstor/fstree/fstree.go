@@ -2,7 +2,6 @@ package fstree
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -62,8 +61,9 @@ type writer interface {
 const (
 	// DirNameLen is how many bytes is used to group keys into directories.
 	DirNameLen = 1 // in bytes
-	// MaxDepth is maximum depth of nested directories.
-	MaxDepth = (sha256.Size - 1) / DirNameLen
+	// MaxDepth is maximum depth of nested directories. 58^8 is 128e12 of
+	// directories, enough for a single FSTree.
+	MaxDepth = 8
 
 	// combinedPrefix is the prefix that Protobuf message can't start with,
 	// it reads as "field number 15 of type 7", but there is no type 7 in
