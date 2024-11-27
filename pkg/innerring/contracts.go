@@ -92,7 +92,7 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
 	committee, err := morph.Committee()
 	if err != nil {
-		return nil, fmt.Errorf("get Sidechain committee: %w", err)
+		return nil, fmt.Errorf("get FS chain committee: %w", err)
 	}
 	num := len(committee)
 

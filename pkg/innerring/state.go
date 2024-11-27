@@ -18,8 +18,9 @@ import (
 const voteMethod = "vote"
 
 var (
-	persistateMainChainLastBlockKey = []byte("main_chain_last_processed_block")
-	persistateSideChainLastBlockKey = []byte("side_chain_last_processed_block")
+	persistateMainChainLastBlockKey           = []byte("main_chain_last_processed_block")
+	persistateFSChainLastBlockKey             = []byte("fs_chain_last_processed_block")
+	persistateDeprecatedSidechainLastBlockKey = []byte("side_chain_last_processed_block")
 )
 
 // EpochCounter is a getter for a global epoch counter.
@@ -93,7 +94,7 @@ func (s *Server) AlphabetIndex() int {
 	return int(index)
 }
 
-func (s *Server) voteForSidechainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
+func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	index := s.InnerRingIndex()
 	if s.contracts.alphabet.indexOutOfRange(index) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
@@ -169,11 +170,11 @@ func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 	return true, nil
 }
 
-// VoteForSidechainValidator calls vote method on alphabet contracts with
+// VoteForFSChainValidator calls vote method on alphabet contracts with
 // the provided list of keys and hash of the triggering transaction.
-func (s *Server) VoteForSidechainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
+func (s *Server) VoteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	sort.Sort(validators)
-	return s.voteForSidechainValidator(validators, trigger)
+	return s.voteForFSChainValidator(validators, trigger)
 }
 
 // WriteReport composes the audit result structure from the audit report

@@ -12,8 +12,6 @@ type FeeConfig struct {
 }
 
 // NewFeeConfig constructs FeeConfig from viper.Viper instance. Latter must not be nil.
-//
-// Fee for named container registration is taken from "fee.named_container_register" value.
 func NewFeeConfig(v *viper.Viper) *FeeConfig {
 	return &FeeConfig{
 		mainchain: fixedn.Fixed8(v.GetInt64("fee.main_chain")),

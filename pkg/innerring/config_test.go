@@ -17,7 +17,7 @@ import (
 
 // YAML configuration of the IR consensus with all required fields.
 const validBlockchainConfigMinimal = `
-morph:
+fschain:
   consensus:
     magic: 15405
     committee:
@@ -231,7 +231,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 			"storage.type",
 		} {
 			v := newValidBlockchainConfig(t, !fullConfig)
-			resetConfig(t, v, "morph.consensus."+requiredKey)
+			resetConfig(t, v, "fschain.consensus."+requiredKey)
 			_, err := parseBlockchainConfig(v, _logger)
 			require.Error(t, err, requiredKey)
 		}
@@ -239,7 +239,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 
 	t.Run("invalid", func(t *testing.T) {
 		v := newValidBlockchainConfig(t, fullConfig)
-		resetConfig(t, v, "morph.consensus")
+		resetConfig(t, v, "fschain.consensus")
 		_, err := parseBlockchainConfig(v, _logger)
 		require.Error(t, err)
 
@@ -311,7 +311,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 				key := kvPair.key
 				val := kvPair.val
 
-				v.Set("morph.consensus."+key, val)
+				v.Set("fschain.consensus."+key, val)
 				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
 			}
 
@@ -325,28 +325,28 @@ func TestParseBlockchainConfig(t *testing.T) {
 			v := newValidBlockchainConfig(t, fullConfig)
 			const path = "path/to/db"
 
-			v.Set("morph.consensus.storage.path", path)
-			v.Set("morph.consensus.storage.type", "boltdb")
+			v.Set("fschain.consensus.storage.path", path)
+			v.Set("fschain.consensus.storage.type", "boltdb")
 			c, err := parseBlockchainConfig(v, _logger)
 			require.NoError(t, err)
 			require.Equal(t, blockchain.BoltDB(path), c.Storage)
 
-			resetConfig(t, v, "morph.consensus.storage.path")
+			resetConfig(t, v, "fschain.consensus.storage.path")
 			_, err = parseBlockchainConfig(v, _logger)
 			require.Error(t, err)
 
-			v.Set("morph.consensus.storage.path", path)
-			v.Set("morph.consensus.storage.type", "leveldb")
+			v.Set("fschain.consensus.storage.path", path)
+			v.Set("fschain.consensus.storage.type", "leveldb")
 			c, err = parseBlockchainConfig(v, _logger)
 			require.NoError(t, err)
 			require.Equal(t, blockchain.LevelDB(path), c.Storage)
 
-			resetConfig(t, v, "morph.consensus.storage.path")
+			resetConfig(t, v, "fschain.consensus.storage.path")
 			_, err = parseBlockchainConfig(v, _logger)
 			require.Error(t, err)
 
 			// no path needed
-			v.Set("morph.consensus.storage.type", "inmemory")
+			v.Set("fschain.consensus.storage.type", "inmemory")
 			c, err = parseBlockchainConfig(v, _logger)
 			require.NoError(t, err)
 			require.Equal(t, blockchain.InMemory(), c.Storage)
@@ -361,8 +361,8 @@ func TestIsLocalConsensusMode(t *testing.T) {
 		v.SetEnvPrefix("neofs_ir")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-		const envKeyEndpoints = "NEOFS_IR_MORPH_ENDPOINTS"
-		const envKeyConsensus = "NEOFS_IR_MORPH_CONSENSUS"
+		const envKeyEndpoints = "NEOFS_IR_FSCHAIN_ENDPOINTS"
+		const envKeyConsensus = "NEOFS_IR_FSCHAIN_CONSENSUS"
 		var err error
 
 		for _, tc := range []struct {
@@ -425,9 +425,9 @@ func TestIsLocalConsensusMode(t *testing.T) {
 		v := viper.New()
 		v.SetConfigType("yaml")
 		err := v.ReadConfig(strings.NewReader(`
-morph:
+fschain:
   endpoints:
-      - ws://morph-chain:30333/ws
+      - ws://fs-chain:30333/ws
 `))
 		require.NoError(t, err)
 
@@ -435,12 +435,12 @@ morph:
 		require.NoError(t, err)
 		require.False(t, res)
 
-		resetConfig(t, v, "morph.endpoints")
+		resetConfig(t, v, "fschain.endpoints")
 
 		_, err = isLocalConsensusMode(v)
 		require.Error(t, err)
 
-		v.Set("morph.consensus", "any")
+		v.Set("fschain.consensus", "any")
 
 		res, err = isLocalConsensusMode(v)
 		require.NoError(t, err)
@@ -596,19 +596,19 @@ func TestP2PMinPeers(t *testing.T) {
 	}
 
 	v := newValidBlockchainConfig(t, true)
-	v.Set("morph.consensus.p2p.peers.min", 123)
+	v.Set("fschain.consensus.p2p.peers.min", 123)
 	assert(t, v, 123)
 
 	t.Run("explicit zero", func(t *testing.T) {
 		v := newValidBlockchainConfig(t, false)
-		v.Set("morph.consensus.p2p.peers.min", 0)
+		v.Set("fschain.consensus.p2p.peers.min", 0)
 		assert(t, v, 0)
 	})
 	t.Run("default", func(t *testing.T) {
 		assertDefault := func(t testing.TB, v *viper.Viper) {
 			setCommitteeN := func(n int) {
-				v.Set("morph.consensus.committee", commiteeN(t, n))
-				resetConfig(t, v, "morph.consensus.validators_history") // checked against committee size
+				v.Set("fschain.consensus.committee", commiteeN(t, n))
+				resetConfig(t, v, "fschain.consensus.validators_history") // checked against committee size
 			}
 			setCommitteeN(4)
 			assert(t, v, 2)
@@ -619,19 +619,19 @@ func TestP2PMinPeers(t *testing.T) {
 		}
 		t.Run("missing P2P section", func(t *testing.T) {
 			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "morph.consensus.p2p")
+			resetConfig(t, v, "fschain.consensus.p2p")
 			assertDefault(t, v)
 		})
 		t.Run("missing peers section", func(t *testing.T) {
 			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "morph.consensus.p2p.peers")
-			require.True(t, v.IsSet("morph.consensus.p2p"))
+			resetConfig(t, v, "fschain.consensus.p2p.peers")
+			require.True(t, v.IsSet("fschain.consensus.p2p"))
 			assertDefault(t, v)
 		})
 		t.Run("missing config itself", func(t *testing.T) {
 			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "morph.consensus.p2p.peers.min")
-			require.True(t, v.IsSet("morph.consensus.p2p.peers"))
+			resetConfig(t, v, "fschain.consensus.p2p.peers.min")
+			require.True(t, v.IsSet("fschain.consensus.p2p.peers"))
 			assertDefault(t, v)
 		})
 	})

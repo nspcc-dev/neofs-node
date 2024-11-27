@@ -37,8 +37,8 @@ type cfg struct {
 
 	logger *zap.Logger // logging component
 
-	autoSidechainScope bool
-	signer             *transaction.Signer
+	autoFSChainScope bool
+	signer           *transaction.Signer
 
 	endpointsLock *sync.RWMutex
 	endpoints     []string
@@ -201,8 +201,8 @@ func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
 	if err != nil {
 		return nil, fmt.Errorf("WS client initialization: %w", err)
 	}
-	if c.cfg.autoSidechainScope {
-		err = autoSidechainScope(cli, &c.cfg)
+	if c.cfg.autoFSChainScope {
+		err = autoFSChainScope(cli, &c.cfg)
 		if err != nil {
 			return nil, fmt.Errorf("scope setup: %w", err)
 		}
@@ -349,12 +349,12 @@ func WithMinRequiredBlockHeight(h uint32) Option {
 	}
 }
 
-// WithAutoSidechainScope returns a client constructor
+// WithAutoFSChainScope returns a client constructor
 // option that sets automatic transaction scope detection to
 // true which overrides the default CalledByEntry to a set of
-// Rules made specifically for the sidechain.
-func WithAutoSidechainScope() Option {
+// Rules made specifically for FS chain.
+func WithAutoFSChainScope() Option {
 	return func(c *cfg) {
-		c.autoSidechainScope = true
+		c.autoFSChainScope = true
 	}
 }

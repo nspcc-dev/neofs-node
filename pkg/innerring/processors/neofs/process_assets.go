@@ -13,7 +13,7 @@ const (
 )
 
 // Process deposit event by invoking a balance contract and sending native
-// gas in the sidechain.
+// gas in FS chain.
 func (np *Processor) processDeposit(deposit *neofsEvent.Deposit) {
 	if !np.alphabetState.IsAlphabet() {
 		np.log.Info("non alphabet mode, ignore deposit")

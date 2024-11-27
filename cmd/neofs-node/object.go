@@ -116,11 +116,11 @@ func (i *delNetInfo) LocalNodeID() user.ID {
 }
 
 type innerRingFetcherWithNotary struct {
-	sidechain *morphClient.Client
+	fschain *morphClient.Client
 }
 
 func (fn *innerRingFetcherWithNotary) InnerRingKeys() ([][]byte, error) {
-	keys, err := fn.sidechain.NeoFSAlphabetList()
+	keys, err := fn.fschain.NeoFSAlphabetList()
 	if err != nil {
 		return nil, fmt.Errorf("can't get inner ring keys from alphabet role: %w", err)
 	}
@@ -179,7 +179,7 @@ func initObjectService(c *cfg) {
 	}
 
 	irFetcher := &innerRingFetcherWithNotary{
-		sidechain: c.cfgMorph.client,
+		fschain: c.cfgMorph.client,
 	}
 
 	c.shared.replicator = replicator.New(

@@ -46,7 +46,7 @@ object:
   put:
     pool_size_remote: 100
 
-morph:
+fschain:
   endpoints:
     - wss://rpc1.morph.fs.neo.org:40341/ws
     - wss://rpc2.morph.fs.neo.org:40341/ws

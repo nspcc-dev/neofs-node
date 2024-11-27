@@ -61,6 +61,10 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("morph.reconnections_number", 5)
 	cfg.SetDefault("morph.reconnections_delay", 5*time.Second)
 	cfg.SetDefault("morph.validators", []string{})
+	cfg.SetDefault("fschain.dial_timeout", time.Minute)
+	cfg.SetDefault("fschain.reconnections_number", 5)
+	cfg.SetDefault("fschain.reconnections_delay", 5*time.Second)
+	cfg.SetDefault("fschain.validators", []string{})
 
 	cfg.SetDefault("mainnet.dial_timeout", time.Minute)
 	cfg.SetDefault("mainnet.reconnections_number", 5)
@@ -109,9 +113,7 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("indexer.cache_timeout", 15*time.Second)
 
 	// extra fee values for working mode without notary contract
-	cfg.SetDefault("fee.main_chain", 5000_0000)                  // 0.5 Fixed8
-	cfg.SetDefault("fee.side_chain", 2_0000_0000)                // 2.0 Fixed8
-	cfg.SetDefault("fee.named_container_register", 25_0000_0000) // 25.0 Fixed8
+	cfg.SetDefault("fee.main_chain", 5000_0000) // 0.5 Fixed8
 
 	cfg.SetDefault("control.authorized_keys", []string{})
 	cfg.SetDefault("control.grpc.endpoint", "")

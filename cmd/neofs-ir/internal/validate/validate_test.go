@@ -19,13 +19,13 @@ func TestCheckForUnknownFields(t *testing.T) {
 		{
 			name: "with all right fields",
 			config: `
-morph:
+fschain:
   dial_timeout: 1m
   reconnections_number: 5
   reconnections_delay: 5s
   endpoints:
-      - wss://sidechain1.fs.neo.org:30333/ws
-      - wss://sidechain2.fs.neo.org:30333/ws
+      - wss://fschain1.fs.neo.org:30333/ws
+      - wss://fschain2.fs.neo.org:30333/ws
   validators:
     - 0283120f4c8c1fc1d792af5063d2def9da5fddc90bc1384de7fcfdda33c3860170
   consensus:
@@ -37,7 +37,7 @@ morph:
       - 02a7bc55fe8684e0119768d104ba30795bdcc86619e864add26156723ed185cd62
     storage:
       type: boltdb
-      path: ./db/morph.bolt
+      path: ./db/fschain.bolt
     time_per_block: 1s
     max_traceable_blocks: 11520
     seed_nodes:
@@ -78,9 +78,9 @@ morph:
 			wantErr: false,
 		},
 		{
-			name: "unknown morph.consensus.timeout",
+			name: "unknown fschain.consensus.timeout",
 			config: `
-morph:
+fschain:
   consensus:
     p2p:
       ping:
@@ -91,20 +91,20 @@ morph:
 			wantErr: true,
 		},
 		{
-			name: "morph.consensus.storage.type expected type string",
+			name: "fschain.consensus.storage.type expected type string",
 			config: `
-morph:
+fschain:
   consensus:
     storage:
       type:
-        path: ./db/morph.bolt
+        path: ./db/fschain.bolt
 `,
 			wantErr: true,
 		},
 		{
-			name: "unknown field morph.attr",
+			name: "unknown field fschain.attr",
 			config: `
-morph:
+fschain:
   dial_timeout: 1m
   reconnections_number: 5
   attr: 123

@@ -34,7 +34,7 @@ var createContainerCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new container",
 	Long: `Create new container and register it in the NeoFS. 
-It will be stored in sidechain when inner ring will accepts it.`,
+It will be stored in FS chain when inner ring will accepts it.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		if containerName == "" && containerGlobalName {
@@ -163,7 +163,7 @@ It will be stored in sidechain when inner ring will accepts it.`,
 
 				_, err := internalclient.GetContainer(ctx, getPrm)
 				if err == nil {
-					cmd.Println("container has been persisted on sidechain")
+					cmd.Println("container has been persisted on FS chain")
 					return nil
 				}
 			}

@@ -84,7 +84,7 @@ func listenMorphNotifications(c *cfg) {
 	setNetmapNotificationParser(c, newEpochNotification, func(src *state.ContainedNotificationEvent) (event.Event, error) {
 		res, err := netmapEvent.ParseNewEpoch(src)
 		if err == nil {
-			c.log.Info("new epoch event from sidechain",
+			c.log.Info("new epoch event from FS chain",
 				zap.Uint64("number", res.(netmapEvent.NewEpoch).EpochNumber()),
 			)
 		}
@@ -97,10 +97,10 @@ func listenMorphNotifications(c *cfg) {
 	registerBlockHandler(lis, func(block *block.Block) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
 
-		err = c.persistate.SetUInt32(persistateSideChainLastBlockKey, block.Index)
+		err = c.persistate.SetUInt32(persistateFSChainLastBlockKey, block.Index)
 		if err != nil {
 			c.log.Warn("can't update persistent state",
-				zap.String("chain", "side"),
+				zap.String("chain", "FS"),
 				zap.Uint32("block_index", block.Index))
 		}
 

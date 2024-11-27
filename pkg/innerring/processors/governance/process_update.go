@@ -27,16 +27,16 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		return
 	}
 
-	sidechainAlphabet, err := gp.morphClient.Committee()
+	fsChainAlphabet, err := gp.morphClient.Committee()
 	if err != nil {
-		gp.log.Error("can't fetch alphabet list from side chain",
+		gp.log.Error("can't fetch alphabet list from FS chain",
 			zap.Error(err))
 		return
 	}
 
-	newAlphabet, err := newAlphabetList(sidechainAlphabet, mainnetAlphabet)
+	newAlphabet, err := newAlphabetList(fsChainAlphabet, mainnetAlphabet)
 	if err != nil {
-		gp.log.Error("can't merge alphabet lists from main net and side chain",
+		gp.log.Error("can't merge alphabet lists from main net and FS chain",
 			zap.Error(err))
 		return
 	}
@@ -47,24 +47,24 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	gp.log.Info("alphabet list has been changed, starting update",
-		zap.String("side_chain_alphabet", prettyKeys(sidechainAlphabet)),
+		zap.String("fs_chain_alphabet", prettyKeys(fsChainAlphabet)),
 		zap.String("new_alphabet", prettyKeys(newAlphabet)),
 	)
 
-	// 1. Vote to sidechain committee via alphabet contracts.
-	err = gp.voter.VoteForSidechainValidator(newAlphabet, &txHash)
+	// 1. Vote to FS chain committee via alphabet contracts.
+	err = gp.voter.VoteForFSChainValidator(newAlphabet, &txHash)
 	if err != nil {
-		gp.log.Error("can't vote for side chain committee",
+		gp.log.Error("can't vote for FS chain committee",
 			zap.Error(err))
 	}
 
-	// 2. Update NeoFSAlphabet role in the sidechain.
+	// 2. Update NeoFSAlphabet role in FS chain.
 	innerRing, err := gp.irFetcher.InnerRingKeys()
 	if err != nil {
-		gp.log.Error("can't fetch inner ring list from side chain",
+		gp.log.Error("can't fetch inner ring list from FS chain",
 			zap.Error(err))
 	} else {
-		newInnerRing, err := updateInnerRing(innerRing, sidechainAlphabet, newAlphabet)
+		newInnerRing, err := updateInnerRing(innerRing, fsChainAlphabet, newAlphabet)
 		if err != nil {
 			gp.log.Error("can't create new inner ring list with new alphabet keys",
 				zap.Error(err))
@@ -85,10 +85,10 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		}
 	}
 
-	// 3. Update notary role in the sidechain.
+	// 3. Update notary role in FS chain.
 	err = gp.morphClient.UpdateNotaryList(newAlphabet, txHash)
 	if err != nil {
-		gp.log.Error("can't update list of notary nodes in side chain",
+		gp.log.Error("can't update list of notary nodes in FS chain",
 			zap.Error(err))
 	}
 

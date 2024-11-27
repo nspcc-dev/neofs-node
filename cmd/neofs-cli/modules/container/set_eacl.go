@@ -147,7 +147,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 					got := table.Marshal()
 
 					if bytes.Equal(exp, got) {
-						cmd.Println("EACL has been persisted on sidechain")
+						cmd.Println("EACL has been persisted on FS chain")
 						return nil
 					}
 				}

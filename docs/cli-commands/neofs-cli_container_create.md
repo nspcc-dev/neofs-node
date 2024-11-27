@@ -5,7 +5,7 @@ Create new container
 ### Synopsis
 
 Create new container and register it in the NeoFS. 
-It will be stored in sidechain when inner ring will accepts it.
+It will be stored in FS chain when inner ring will accepts it.
 
 ```
 neofs-cli container create [flags]

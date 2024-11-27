@@ -19,7 +19,7 @@ type (
 		IsAlphabet() bool
 	}
 
-	// Processor of events produced by container contract in the sidechain.
+	// Processor of events produced by container contract in FS chain.
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
