@@ -4,29 +4,42 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.44.0
+
+## [0.44.0] - 2024-11-28 - Oedo
+
+### Added
 - More effective FSTree writer for HDDs, new configuration options for it (#2814)
 - New health status `INITIALIZING_NETWORK` in inner ring (#2934)
-- Expose health status of inner ring via Prometheus (#2934)
+- IR health status to Prometheus metrics (#2934)
 - `neofs-cli control object list` command (#2853)
 - `node` config option `storage.ignore_uninited_shards` (#2953)
-- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME`
-attribute, which is used for container domain name in NNS contracts (#2954)
-- Save last epoch when metabase was resynchronized (#2966)
+- `--global-name` flag for `neofs-cli container create` to save container name into `__NEOFS__NAME` and subsequently register it in NNS contract (#2954)
+- The last metabase resynchronization epoch into metabase (#2966)
 - `neofs-lens meta last-resync-epoch` command (#2966)
 - `neofs-lens fstree cleanup-tmp` command (#2967)
 - `neofs-cli control object revive` command (#2968)
 - `--disable-auto-gen-tag` flag for gendoc command (#2983)
-- Docs files for cli commands to the `docs/cli-commands` folder (#2983)
+- CLI commands documentation to the `docs/cli-commands` folder (#2983)
 - `logger.encoding` config option (#2999)
 - Reloading morph endpoints with SIGHUP (#2998)
 - New `peapod-to-fstree` tool providing peapod-to-fstree data migration (#3013)
 - Reloading node attributes with SIGHUP (#3005)
-- Reloading pool sizes (#3018)
+- Reloading pool sizes with SIGHUP (#3018)
 - Reloading pprof/metrics services with SIGHUP (#3016)
-- Add metrics for shard's capacity (#3021)
+- Metrics for shard capacity (#3021)
 
 ### Fixed
-- Do not search for tombstones when handling their expiration, use local indexes instead (#2929)
+- Searching (network-wide) for tombstones when handling their expiration, local indexes are used now instead (#2929)
 - Unathorized container ops accepted by the IR (#2947)
 - Structure table in the SN-configuration document (#2974)
 - False negative connection to NeoFS chain in multi-endpoint setup with at least one live node (#2986)
@@ -42,7 +55,6 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - `ObjectService`'s `Put` RPC handler caches up to 10K lists of per-object sorted container nodes (#2901)
 - Metabase graveyard scheme (#2929)
 - When an error is returned, no additional help output is displayed in cobra-based programs (#2942)
-- Use org-wide linter (#2943)
 - Timestamps are no longer produced in logs if not running with TTY (#2964)
 - In inner ring config, default ports for TCP addresses are used if they are missing (#2969)
 - Metabase is refilled if an object exists in write-cache but is missing in metabase (#2977)
@@ -63,8 +75,8 @@ attribute, which is used for container domain name in NNS contracts (#2954)
 - Go to 1.22 version (#2517, #2738)
 
 ### Updating from v0.43.0
-Metabase version has been increased, auto migrating will be performed once
-a v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
+Metabase version has been increased, auto migration will be performed once
+v0.44.0 Storage Node is started with a v0.43.0 metabase. This action can
 not be undone. No additional work should be done.
 
 The new `storage.put_retry_timeout` config value added. If an object cannot
@@ -77,25 +89,25 @@ introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
 notes) if you've not done it previously.
 
-The section `morph` in the config has been renamed to `fschain`. This version 
-still supports the old section name, but this compatibility code will be removed 
+The section `morph` in the config has been renamed to `fschain`. This version
+still supports the old section name, but this compatibility code will be removed
 in the next release. Please rename `morph` to `fschain` in your configuration files.
 
 To migrate data from Peapods to FSTree:
 ```shell
 $ peapod-to-fstree -config </path/to/storage/node/config>
 ```
-For any shard, the data from the configured Peapod is copied into
-a FSTree that must be already configured.
-Notice that peapod DB is not deleted during migration. Configuration is also
-updated, for example, `/etc/neofs/config.yaml` -> `/etc/neofs/config.yaml.migrated`.
+For any shard, the data from the configured Peapod is copied into an FSTree
+that must be already configured. Notice that peapod DB is not deleted during
+migration. An updated (peapod-free) configuration file is also created with
+".migrated" suffix (for example, `/etc/neofs/config.yaml` -> `/etc/neofs/config.yaml.migrated`).
 WARN: carefully review the updated config before using it in the application!
 
-Now there is an FSTree in which files of any size will be more efficient and easier to store.
-We support both `fstree` and `peapod` sub-storages,
+FSTree storage provided with this version is more efficient for small files
+than the Peapod in most cases. We support both `fstree` and `peapod` sub-storages,
 but `peapod` can be removed in future versions. We recommend using `fstree`.
 If you want to use only `fstree` and storage node already stores some data,
-don't forget to make data migration described above.
+don't forget to perform data migration described above.
 
 ## [0.43.0] - 2024-08-20 - Jukdo
 
@@ -2151,7 +2163,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.43.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...master
+[0.44.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.1...v0.43.0
 [0.42.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...v0.42.1
 [0.42.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.41.1...v0.42.0
