@@ -132,8 +132,6 @@ func New(opts ...Option) *Shard {
 		s.reportErrorFunc(s.ID().String(), msg, err)
 	}
 
-	s.blobStor.SetReportErrorFunc(reportFunc)
-
 	if c.useWriteCache {
 		s.writeCache = writecache.New(
 			append(c.writeCacheOpts,

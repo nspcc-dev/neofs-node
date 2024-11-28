@@ -20,6 +20,7 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 type batch struct {
@@ -48,6 +49,7 @@ type Peapod struct {
 	flushInterval time.Duration
 
 	compress *compression.Config
+	log      *zap.Logger
 
 	readOnly bool
 
@@ -274,8 +276,9 @@ func (x *Peapod) SetCompressor(cc *compression.Config) {
 	x.compress = cc
 }
 
-func (x *Peapod) SetReportErrorFunc(func(string, error)) {
-	// no-op like FSTree
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (x *Peapod) SetLogger(l *zap.Logger) {
+	x.log = l.With(zap.String("substorage", Type))
 }
 
 // Get reads data from the underlying database by the given object address.

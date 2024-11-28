@@ -12,6 +12,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -51,6 +52,7 @@ func newSpecificWriter(t *FSTree) writer {
 	}
 	fd, err := unix.Open(t.RootPath, flags, uint32(t.Permissions))
 	if err != nil {
+		t.log.Warn("optimized batching writer is disabled", zap.Error(err))
 		return nil // Which means that OS-specific writeData can't be created and FSTree should use the generic one.
 	}
 	_ = unix.Close(fd) // Don't care about error.
@@ -123,11 +125,11 @@ func (b *syncBatch) wait() error {
 func (b *syncBatch) write(id oid.ID, p string, data []byte) error {
 	var (
 		err  error
-		pref [1 + len(id) + 4]byte
+		pref [combinedDataOff]byte
 	)
 	pref[0] = combinedPrefix
-	copy(pref[1:], id[:])
-	binary.BigEndian.PutUint32(pref[1+len(id):], uint32(len(data)))
+	copy(pref[combinedIDOff:], id[:])
+	binary.BigEndian.PutUint32(pref[combinedLengthOff:], uint32(len(data)))
 
 	n, err := unix.Writev(b.fd, [][]byte{pref[:], data})
 	if err != nil {

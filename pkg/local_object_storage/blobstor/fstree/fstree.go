@@ -2,7 +2,6 @@ package fstree
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // FSTree represents an object storage as a filesystem tree.
@@ -29,6 +29,7 @@ type FSTree struct {
 	Info
 
 	*compression.Config
+	log        *zap.Logger
 	Depth      uint64
 	DirNameLen int
 	writer     writer
@@ -60,14 +61,28 @@ type writer interface {
 const (
 	// DirNameLen is how many bytes is used to group keys into directories.
 	DirNameLen = 1 // in bytes
-	// MaxDepth is maximum depth of nested directories.
-	MaxDepth = (sha256.Size - 1) / DirNameLen
+	// MaxDepth is maximum depth of nested directories. 58^8 is 128e12 of
+	// directories, enough for a single FSTree.
+	MaxDepth = 8
 
 	// combinedPrefix is the prefix that Protobuf message can't start with,
 	// it reads as "field number 15 of type 7", but there is no type 7 in
 	// the system (and we usually don't have 15 fields). ZSTD magic is also
 	// different.
 	combinedPrefix = 0x7f
+
+	// combinedLenSize is sizeof(uint32), length is a serialized 32-bit BE integer.
+	combinedLenSize = 4
+
+	// combinedIDOff is the offset from the start of the combined prefix to OID.
+	combinedIDOff = 2
+
+	// combinedLengthOff is the offset from the start of the combined prefix to object length.
+	combinedLengthOff = combinedIDOff + oid.Size
+
+	// combinedDataOff is the offset from the start of the combined prefix to object data.
+	// It's also the length of the prefix in total.
+	combinedDataOff = combinedLengthOff + combinedLenSize
 )
 
 var _ common.Storage = (*FSTree)(nil)
@@ -350,19 +365,19 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 	return data, nil
 }
 
+// parseCombinedPrefix checks the given array for combined data prefix and
+// returns a subslice with OID and object length if so (nil and 0 otherwise).
+func parseCombinedPrefix(p [combinedDataOff]byte) ([]byte, uint32) {
+	if p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
+		return nil, 0
+	}
+	return p[combinedIDOff:combinedLengthOff],
+		binary.BigEndian.Uint32(p[combinedLengthOff:combinedDataOff])
+}
+
 func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
-	const (
-		prefixSize = 1
-		idSize     = sha256.Size
-		lengthSize = 4
-
-		idOff     = prefixSize
-		lengthOff = idOff + idSize
-		dataOff   = lengthOff + lengthSize
-	)
-
 	var (
-		comBuf     [dataOff]byte
+		comBuf     [combinedDataOff]byte
 		data       []byte
 		isCombined bool
 	)
@@ -378,7 +393,11 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			}
 			return nil, err
 		}
-		if comBuf[0] != combinedPrefix {
+		thisOID, l := parseCombinedPrefix(comBuf)
+		if thisOID == nil {
+			if isCombined {
+				return nil, errors.New("malformed combined file")
+			}
 			st, err := f.Stat()
 			if err != nil {
 				return nil, err
@@ -396,8 +415,7 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			return data, nil
 		}
 		isCombined = true
-		var l = binary.BigEndian.Uint32(comBuf[lengthOff:dataOff])
-		if bytes.Equal(comBuf[idOff:lengthOff], id[:]) {
+		if bytes.Equal(thisOID, id[:]) {
 			data = make([]byte, l)
 			_, err = io.ReadFull(f, data)
 			if err != nil {
@@ -473,9 +491,9 @@ func (t *FSTree) SetCompressor(cc *compression.Config) {
 	t.Config = cc
 }
 
-// SetReportErrorFunc implements common.Storage.
-func (t *FSTree) SetReportErrorFunc(_ func(string, error)) {
-	// Do nothing, FSTree can encounter only one error which is returned.
+// SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
+func (t *FSTree) SetLogger(l *zap.Logger) {
+	t.log = l.With(zap.String("substorage", Type))
 }
 
 // CleanUpTmp removes all temporary files garbage.

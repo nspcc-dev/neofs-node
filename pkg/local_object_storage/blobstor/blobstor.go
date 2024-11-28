@@ -68,6 +68,9 @@ func New(opts ...Option) *BlobStor {
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
 func (b *BlobStor) SetLogger(l *zap.Logger) {
 	b.log = l
+	for i := range b.storage {
+		b.storage[i].Storage.SetLogger(l)
+	}
 }
 
 // WithStorages provides sub-blobstors.
@@ -103,13 +106,5 @@ func WithCompressObjects(comp bool) Option {
 func WithUncompressableContentTypes(values []string) Option {
 	return func(c *cfg) {
 		c.compression.UncompressableContentTypes = values
-	}
-}
-
-// SetReportErrorFunc allows to provide a function to be called on disk errors.
-// This function MUST be called before Open.
-func (b *BlobStor) SetReportErrorFunc(f func(string, error)) {
-	for i := range b.storage {
-		b.storage[i].Storage.SetReportErrorFunc(f)
 	}
 }
