@@ -9,8 +9,7 @@ Changelog for NeoFS Node
 - Expose health status of inner ring via Prometheus (#2934)
 - `neofs-cli control object list` command (#2853)
 - `node` config option `storage.ignore_uninited_shards` (#2953)
-- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME`
-attribute, which is used for container domain name in NNS contracts (#2954)
+- For `neofs-cli container create`, add `--global-name` flag, that sets name attribute as the value of `__NEOFS__NAME` attribute, which is used for container domain name in NNS contracts (#2954)
 - Save last epoch when metabase was resynchronized (#2966)
 - `neofs-lens meta last-resync-epoch` command (#2966)
 - `neofs-lens fstree cleanup-tmp` command (#2967)
@@ -77,8 +76,8 @@ introduced in version 0.22.3 and support for binary keys was removed from
 other components in 0.33.0 and 0.37.0. Please migrate to wallets (see 0.37.0
 notes) if you've not done it previously.
 
-The section `morph` in the config has been renamed to `fschain`. This version 
-still supports the old section name, but this compatibility code will be removed 
+The section `morph` in the config has been renamed to `fschain`. This version
+still supports the old section name, but this compatibility code will be removed
 in the next release. Please rename `morph` to `fschain` in your configuration files.
 
 To migrate data from Peapods to FSTree:
