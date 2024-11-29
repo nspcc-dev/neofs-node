@@ -71,7 +71,7 @@ const (
 	// different.
 	combinedPrefix = 0x7f
 
-	// combinedLenSize is sizeof(uint32), length is a serialized 32-bit BE integer.
+	// combinedLenSize is sizeof(uint32), length of a serialized 32-bit BE integer.
 	combinedLenSize = 4
 
 	// combinedIDOff is the offset from the start of the combined prefix to OID.

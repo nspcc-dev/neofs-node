@@ -203,13 +203,23 @@ blobstor:
 | `flush_interval`                    | `duration`             | `10ms`        | Time interval between batch writes to disk.                                                                                                                                                                       |
 
 #### `fstree` type options
+FSTree stores objects using file system provided by OS. It uses a hierarchy of
+directories (tree) based on object ID, directory nesting level is controlled by
+depth. To optimize writing performance for small object it can also combine
+multiple objects into a single file, this behavior can be controlled as well.
+
+The default FSTree settings are optimized for HDD and small files. In case of
+deploying to SSD combined writer is recommended to be disabled completely
+(combined_count_limit=1). For medium/large files or smaller drives depth is
+recommended to be adjusted to 3 or even lower values. Larger values are only
+relevant for big volumes with very high number of stored objects.
 | Parameter                 | Type      | Default value | Description                                                                                                                  |
 |---------------------------|-----------|---------------|------------------------------------------------------------------------------------------------------------------------------|
 | `path`                    | `string`  |               | Path to the root of the blobstor.                                                                                            |
 | `perm`                    | file mode | `0640`        | Default permission for created files and directories.                                                                        |
-| `depth`                   | `int`     | `4`           | File-system tree depth.                                                                                                      |
-| `no_sync`                 | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                               |
-| `combined_count_limit`    | `int`     | `128`         | Maximum number of objects to write into a single file, 0 or 1 disables combined writing (disabling is recommended for SSDs). |
+| `depth`                   | `int`     | `4`           | File-system tree depth. Optimal value depends on the number of objects stored in this shard, the number of lower-level directories used by FSTree is 58^depth, with depth 3 this is ~200K, with 4 --- ~11M |
+| `no_sync`                 | `bool`    | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss. Not recommended for production use.           |
+| `combined_count_limit`    | `int`     | `128`         | Maximum number of objects to write into a single file, 0 or 1 disables combined writing (which is recommended for SSDs).     |
 | `combined_size_limit`     | `size`    | `8M`          | Maximum size of a multi-object file.                                                                                         |
 | `combined_size_threshold` | `size`    | `128K`        | Minimum size of object that won't be combined with others when writing to disk.                                              |
 
