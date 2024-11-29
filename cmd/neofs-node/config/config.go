@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
@@ -58,7 +59,7 @@ func New(_ Prm, opts ...Option) *Config {
 	if o.validate {
 		err := validate.ValidateStruct(v)
 		if err != nil {
-			panic(err)
+			log.Fatalf("failed config validation: %v", err)
 		}
 	}
 
