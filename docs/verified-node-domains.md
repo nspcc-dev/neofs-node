@@ -34,14 +34,14 @@ For each public key, a record is created - a structure with at least 3 fields:
 
 NeoFS ADM tool may be used to work with verified nodes' domains from command line.
 ```
-$ neofs-adm morph verified-nodes-domain
+$ neofs-adm fschain verified-nodes-domain
 ```
 
 #### Get access list
 
 List allowed storage nodes:
 ```
-$ neofs-adm morph verified-nodes-domain access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
+$ neofs-adm fschain verified-nodes-domain access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
 -d nodes.some-org.neofs
 NZ1czz5gkEDamTg6Tiw6cxqp9Me1KLs8ae
 NfMvD6WmBiCr4erfEnFFLs7jdj4Y5CM7nN
@@ -50,14 +50,14 @@ where `-r` is the NeoFS Sidechain network endpoint.
 
 See command help for details
 ```
-$ neofs-adm morph verified-nodes-domain access-list -h
+$ neofs-adm fschain verified-nodes-domain access-list -h
 ```
 
 #### Set access list
 
 Set list of Neo addresses of the allowed storage nodes:
 ```
-$ neofs-adm morph verified-nodes-domain set-access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
+$ neofs-adm fschain verified-nodes-domain set-access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
 -d nodes.some-org.neofs --alphabet-wallets ./ \
 --neo-addresses NZ1czz5gkEDamTg6Tiw6cxqp9Me1KLs8ae \
 --neo-addresses NfMvD6WmBiCr4erfEnFFLs7jdj4Y5CM7nN
@@ -70,7 +70,7 @@ files `az.json`, `buky.json`, etc.
 
 Auxiliary flag `--public-keys` allows you to specify public keys instead of addresses:
 ```
-$ neofs-adm morph verified-nodes-domain set-access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
+$ neofs-adm fschain verified-nodes-domain set-access-list -r https://rpc1.morph.t5.fs.neo.org:51331 \
 -d nodes.some-org.neofs --alphabet-wallets ./ \
 --public-keys 02b3622bf4017bdfe317c58aed5f4c753f206b7db896046fa7d774bbc4bf7f8dc2 \
 --public-keys 02103a7f7dd016558597f7960d27c516a4394fd968b9e65155eb4b013e4040406e
@@ -81,7 +81,7 @@ $ Access list has been successfully updated.
 
 See command help for details:
 ```
-$ neofs-adm morph verified-nodes-domain set-access-list -h
+$ neofs-adm fschain verified-nodes-domain set-access-list -h
 ```
 
 ## Private subnet entrance

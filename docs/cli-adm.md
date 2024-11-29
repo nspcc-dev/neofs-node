@@ -54,7 +54,7 @@ credentials:     # passwords for consensus node / alphabet wallets
   zhivete: password7
 ```
 
-### Morph
+### FS chain
 
 #### Network deployment
 

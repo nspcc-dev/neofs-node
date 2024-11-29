@@ -27,7 +27,7 @@ Maintenance mode allowed: true
 
 To toggle the setting in the running NeoFS Sidechain, exec:
 ```shell
-$ neofs-adm morph set-config MaintenanceModeAllowed=true|false
+$ neofs-adm fschain set-config MaintenanceModeAllowed=true|false
 ```
 
 To switch the node to MM, exec:
