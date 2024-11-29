@@ -201,7 +201,12 @@ func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
 		return nil, err
 	}
 
-	return object.NewFromV2(&msg), nil
+	var obj object.Object
+	err = obj.ReadFromV2(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &obj, nil
 }
 
 func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {

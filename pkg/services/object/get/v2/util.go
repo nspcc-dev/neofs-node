@@ -163,7 +163,12 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 					obj.SetHeader(v.GetHeader())
 
 					onceHeaderSending.Do(func() {
-						err = streamWrapper.WriteHeader(object.NewFromV2(obj))
+						var sdkObj object.Object
+						err = sdkObj.ReadFromV2(*obj)
+						if err != nil {
+							return
+						}
+						err = streamWrapper.WriteHeader(&sdkObj)
 					})
 					if err != nil {
 						return nil, fmt.Errorf("could not write object header in Get forwarder: %w", err)
@@ -634,11 +639,15 @@ func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *
 			objv2.SetHeader(hdr)
 			objv2.SetSignature(idSig)
 
-			obj := object.NewFromV2(objv2)
+			var obj object.Object
+			err = obj.ReadFromV2(*objv2)
+			if err != nil {
+				return nil, err
+			}
 			obj.SetID(objAddr.Object())
 
 			// convert the object
-			return obj, nil
+			return &obj, nil
 		}))
 	}
 
