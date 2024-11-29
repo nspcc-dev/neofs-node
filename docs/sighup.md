@@ -33,7 +33,7 @@ comparing paths from `shard.blobstor` section. After this we have 3 sets:
 |-----------------|----------------------------------------------------------------------------------------------------------------------|
 | `path`          | If `path` is different, metabase is closed and opened with a new path. All other configuration will also be updated. |
 
-### Morph
+### FS chain
 
 | Changed section | Actions                                                                                                                                                                                                 |
 |-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

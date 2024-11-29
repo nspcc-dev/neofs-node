@@ -57,7 +57,7 @@ wallets will be used for Alphabet nodes. Make sure, that dir for alphabet
 wallets already exists.
 
 ```
-$ neofs-adm -c foo.network.yml morph generate-alphabet --size 1
+$ neofs-adm -c foo.network.yml fschain generate-alphabet --size 1
 size: 1
 alphabet-wallets: /home/user/deploy/alphabet-wallets
 wallet[0]: hunter2
@@ -119,7 +119,7 @@ Use archive with compiled NeoFS contracts to initialize the sidechain.
 ```
 $ tar -xzvf neofs-contract-v0.11.0.tar.gz 
 
-$ ./neofs-adm -c foo.network.yml morph init --contracts ./neofs-contract-v0.11.0
+$ ./neofs-adm -c foo.network.yml fschain init --contracts ./neofs-contract-v0.11.0
 Stage 1: transfer GAS to alphabet nodes.
 Waiting for transactions to persist...
 Stage 2: set notary and alphabet nodes in designate contract.
@@ -150,7 +150,7 @@ Waiting for transactions to persist...
 ## Step 4: Launch Alphabet nodes
 
 Configure Alphabet nodes with the wallets generated in step 1. For 
-`morph.validators` use a list of public keys from 
+`fschain.validators` use a list of public keys from 
 `ProtocolConfiguration.StandbyCommittee`.
 
 ```yaml
@@ -159,7 +159,7 @@ wallet:
   password: "hunter2"
   account: "NitdS4k4f1Hh5mbLJhAswBK3WC2gQgPN1o"
 
-morph:
+fschain:
   validators:
     - 02c1cc85f9c856dbe2d02017349bcb7b4e5defa78b8056a09b3240ba2a8c078869
 ```
@@ -169,7 +169,7 @@ morph:
 Generate a new wallet for a Storage node.
 
 ```
-$ neofs-adm -c foo.network.yml morph generate-storage-wallet --storage-wallet ./sn01.json --initial-gas 10.0
+$ neofs-adm -c foo.network.yml fschain generate-storage-wallet --storage-wallet ./sn01.json --initial-gas 10.0
 New password > 
 Waiting for transactions to persist...
 
@@ -192,7 +192,7 @@ The storage node will be included in the network map in the next NeoFS epoch. To
 speed up this process, you can increment epoch counter immediately.
 
 ```
-$ neofs-adm -c foo.network.yml morph force-new-epoch
+$ neofs-adm -c foo.network.yml fschain force-new-epoch
 Current epoch: 8, increase to 9.
 Waiting for transactions to persist...
 ```

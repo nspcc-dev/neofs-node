@@ -19,7 +19,7 @@ There are some custom types used for brevity:
 | `prometheus` | [Prometheus metrics configuration](#prometheus-section) |
 | `control`    | [Control service configuration](#control-section)       |
 | `contracts`  | [Override NeoFS contracts hashes](#contracts-section)   |
-| `morph`      | [N3 blockchain client configuration](#morph-section)    |
+| `fschain`    | [N3 blockchain client configuration](#fschain-section)  |
 | `apiclient`  | [NeoFS API client configuration](#apiclient-section)    |
 | `policer`    | [Policer service configuration](#policer-section)       |
 | `replicator` | [Replicator service configuration](#replicator-section) |
@@ -130,10 +130,10 @@ contracts:
 | `netmap`     | `hash160` |               | Netmap contract hash.     |
 | `reputation` | `hash160` |               | Reputation contract hash. |
 
-# `morph` section
+# `fschain` section
 
 ```yaml
-morph:
+fschain:
   dial_timeout: 30s
   cache_ttl: 15s
   endpoints:
@@ -141,13 +141,13 @@ morph:
     - wss://rpc2.morph.fs.neo.org:40341/ws
  ```
 
-| Parameter              | Type       | Default value    | Description                                                                                                                                                         |
-|------------------------|------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dial_timeout`         | `duration` | `1m`             | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
-| `cache_ttl`            | `duration` | Morph block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
-| `endpoints`            | `[]string` |                  | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
-| `reconnections_number` | `int`      | `5`              | Number of reconnection attempts (through the full list provided via `endpoints`) before RPC connection is considered lost. Non-positive values make no retries.     |
-| `reconnections_delay`  | `duration` | `5s`             | Time interval between attempts to reconnect an RPC node from `endpoints` if the connection has been lost.                                                           |
+| Parameter              | Type       | Default value       | Description                                                                                                                                                         |
+|------------------------|------------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dial_timeout`         | `duration` | `1m`                | Timeout for dialing connections to N3 RPCs.                                                                                                                         |
+| `cache_ttl`            | `duration` | FS chain block time | Sidechain cache TTL value (min interval between similar calls).<br/>Negative value disables caching.<br/>Cached entities: containers, container lists, eACL tables. |
+| `endpoints`            | `[]string` |                     | Ordered array of _webSocket_ N3 endpoint. Only one is connected at a time, the others are for a fallback if any network error appears.                              |
+| `reconnections_number` | `int`      | `5`                 | Number of reconnection attempts (through the full list provided via `endpoints`) before RPC connection is considered lost. Non-positive values make no retries.     |
+| `reconnections_delay`  | `duration` | `5s`                | Time interval between attempts to reconnect an RPC node from `endpoints` if the connection has been lost.                                                           |
 
 # `storage` section
 
