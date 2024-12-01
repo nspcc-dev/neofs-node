@@ -35,7 +35,7 @@ func (x *getBytesOnlySubStorage) Get(_ oid.Address) (*objectSDK.Object, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
+func (x *getBytesOnlySubStorage) GetRange(_ oid.Address, _ uint64, _ uint64) ([]byte, error) {
 	panic("must not be called")
 }
 

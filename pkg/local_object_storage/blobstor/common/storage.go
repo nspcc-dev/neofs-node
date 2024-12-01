@@ -25,7 +25,7 @@ type Storage interface {
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
 	GetBytes(oid.Address) ([]byte, error)
 	Get(oid.Address) (*objectSDK.Object, error)
-	GetRange(GetRangePrm) (GetRangeRes, error)
+	GetRange(oid.Address, uint64, uint64) ([]byte, error)
 	Exists(oid.Address) (bool, error)
 	Put(PutPrm) (PutRes, error)
 	Delete(oid.Address) error

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -29,19 +28,13 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 	var obj *object.Object
 
 	cb := func(stor *blobstor.BlobStor, id []byte) error {
-		var getRngPrm common.GetRangePrm
-		getRngPrm.Address = addr
-		getRngPrm.Range.SetOffset(offset)
-		getRngPrm.Range.SetLength(length)
-		getRngPrm.StorageID = id
-
-		r, err := stor.GetRange(getRngPrm)
+		r, err := stor.GetRange(addr, offset, length, id)
 		if err != nil {
 			return err
 		}
 
 		obj = object.New()
-		obj.SetPayload(r.Data)
+		obj.SetPayload(r)
 
 		return nil
 	}

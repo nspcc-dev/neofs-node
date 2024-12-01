@@ -364,24 +364,21 @@ func (x *Peapod) GetBytes(addr oid.Address) ([]byte, error) {
 }
 
 // GetRange works like Get but reads specific payload range.
-func (x *Peapod) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
+func (x *Peapod) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
 	// copy-paste from FSTree
-	obj, err := x.Get(prm.Address)
+	obj, err := x.Get(addr)
 	if err != nil {
-		return common.GetRangeRes{}, err
+		return nil, err
 	}
 
 	payload := obj.Payload()
-	from := prm.Range.GetOffset()
-	to := from + prm.Range.GetLength()
+	to := from + length
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectOutOfRange{})
+		return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 
-	return common.GetRangeRes{
-		Data: payload[from:to],
-	}, nil
+	return payload[from:to], nil
 }
 
 // Exists checks presence of the object in the underlying database by the given

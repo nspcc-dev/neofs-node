@@ -3,7 +3,6 @@ package blobstortest
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -36,8 +35,7 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 		})
 		t.Run("getrange fail", func(t *testing.T) {
-			prm := common.GetRangePrm{Address: oidtest.Address()}
-			_, err := s.GetRange(prm)
+			_, err := s.GetRange(oidtest.Address(), 0, 1)
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 		})
 	})
