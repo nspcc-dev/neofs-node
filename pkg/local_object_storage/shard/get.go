@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -33,15 +32,11 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 	var res *objectSDK.Object
 
 	cb := func(stor *blobstor.BlobStor, id []byte) error {
-		var getPrm common.GetPrm
-		getPrm.Address = addr
-		getPrm.StorageID = id
-
-		r, err := stor.Get(getPrm)
+		obj, err := stor.Get(addr, id)
 		if err != nil {
 			return err
 		}
-		res = r.Object
+		res = obj
 		return nil
 	}
 

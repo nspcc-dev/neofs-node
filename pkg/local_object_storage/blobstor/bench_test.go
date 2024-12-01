@@ -167,8 +167,7 @@ func BenchmarkGet(b *testing.B) {
 							go func(ind int) {
 								defer wg.Done()
 
-								var prm = common.GetPrm{Address: objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)]}
-								_, err := ptt.Get(prm)
+								_, err := ptt.Get(objs[nObjects/tc.nThreads*ind+n%(nObjects/tc.nThreads)])
 								require.NoError(b, err)
 							}(i)
 						}

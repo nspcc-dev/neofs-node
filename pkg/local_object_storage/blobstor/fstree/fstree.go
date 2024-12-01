@@ -309,18 +309,18 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
-	data, err := t.getObjBytes(prm.Address)
+func (t *FSTree) Get(addr oid.Address) (*objectSDK.Object, error) {
+	data, err := t.getObjBytes(addr)
 	if err != nil {
-		return common.GetRes{}, err
+		return nil, err
 	}
 
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRes{}, fmt.Errorf("decode object: %w", err)
+		return nil, fmt.Errorf("decode object: %w", err)
 	}
 
-	return common.GetRes{Object: obj, RawData: data}, nil
+	return obj, nil
 }
 
 // GetBytes reads object from the FSTree by address into memory buffer in a
@@ -432,12 +432,12 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 
 // GetRange implements common.Storage.
 func (t *FSTree) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
-	res, err := t.Get(common.GetPrm{Address: prm.Address})
+	obj, err := t.Get(prm.Address)
 	if err != nil {
 		return common.GetRangeRes{}, err
 	}
 
-	payload := res.Object.Payload()
+	payload := obj.Payload()
 	from := prm.Range.GetOffset()
 	to := from + prm.Range.GetLength()
 

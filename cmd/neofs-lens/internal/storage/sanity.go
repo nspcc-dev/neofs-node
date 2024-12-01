@@ -226,15 +226,12 @@ func checkObject(objHeader object.Object, storage commonb.Storage) error {
 
 	// object real presence
 
-	var getPrm commonb.GetPrm
-	getPrm.Address = objectcore.AddressOf(&objHeader)
-
-	res, err := storage.Get(getPrm)
+	obj, err := storage.Get(objectcore.AddressOf(&objHeader))
 	if err != nil {
 		return fmt.Errorf("object get from %s storage: %w", storage.Type(), err)
 	}
 
-	if !bytes.Equal(raw, res.Object.CutPayload().Marshal()) {
+	if !bytes.Equal(raw, obj.CutPayload().Marshal()) {
 		return errors.New("object from metabase does not match object from storage")
 	}
 

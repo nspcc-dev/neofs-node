@@ -58,13 +58,9 @@ func TestFlush(t *testing.T) {
 			id, err := mb.StorageID(objects[i].addr)
 			require.NoError(t, err)
 
-			var prm common.GetPrm
-			prm.Address = objects[i].addr
-			prm.StorageID = id
-
-			res, err := bs.Get(prm)
+			res, err := bs.Get(objects[i].addr, id)
 			require.NoError(t, err)
-			require.Equal(t, objects[i].obj, res.Object)
+			require.Equal(t, objects[i].obj, res)
 		}
 	}
 
@@ -85,7 +81,7 @@ func TestFlush(t *testing.T) {
 			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
-			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
+			_, err = bs.Get(objects[i].addr, nil)
 			require.Error(t, err)
 		}
 
@@ -114,7 +110,7 @@ func TestFlush(t *testing.T) {
 			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
-			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
+			_, err = bs.Get(objects[i].addr, nil)
 			require.Error(t, err)
 		}
 

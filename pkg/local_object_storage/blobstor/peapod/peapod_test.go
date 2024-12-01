@@ -85,9 +85,7 @@ func TestPeapod_Get(t *testing.T) {
 
 	data := obj.Marshal()
 
-	getPrm := common.GetPrm{Address: addr}
-
-	_, err := ppd.Get(getPrm)
+	_, err := ppd.Get(addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	_, err = ppd.Put(common.PutPrm{
@@ -96,10 +94,13 @@ func TestPeapod_Get(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	res, err := ppd.Get(getPrm)
+	getObj, err := ppd.Get(addr)
 	require.NoError(t, err)
-	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, *res.Object)
+	require.Equal(t, obj, *getObj)
+
+	getData, err := ppd.GetBytes(addr)
+	require.NoError(t, err)
+	require.Equal(t, data, getData)
 }
 
 func TestPeapod_Exists(t *testing.T) {
@@ -172,12 +173,13 @@ func TestPeapod_Put(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	res, err := ppd.Get(common.GetPrm{
-		Address: addr,
-	})
+	getObj, err := ppd.Get(addr)
 	require.NoError(t, err)
-	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, *res.Object)
+	require.Equal(t, obj, *getObj)
+
+	getData, err := ppd.GetBytes(addr)
+	require.NoError(t, err)
+	require.Equal(t, data, getData)
 
 	t.Run("read-only", func(t *testing.T) {
 		ppd, _ := newTestPeapodReadOnly(t)
@@ -206,19 +208,18 @@ func TestPeapod_Delete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	getPrm := common.GetPrm{
-		Address: addr,
-	}
-
-	res, err := ppd.Get(getPrm)
+	getObj, err := ppd.Get(addr)
 	require.NoError(t, err)
-	require.Equal(t, data, res.RawData)
-	require.Equal(t, obj, *res.Object)
+	require.Equal(t, obj, *getObj)
+
+	getData, err := ppd.GetBytes(addr)
+	require.NoError(t, err)
+	require.Equal(t, data, getData)
 
 	err = ppd.Delete(addr)
 	require.NoError(t, err)
 
-	res, err = ppd.Get(getPrm)
+	_, err = ppd.Get(addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	t.Run("read-only", func(t *testing.T) {

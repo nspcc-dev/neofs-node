@@ -283,7 +283,7 @@ func (x *Peapod) SetLogger(l *zap.Logger) {
 
 // Get reads data from the underlying database by the given object address.
 // Returns apistatus.ErrObjectNotFound if object is missing in the Peapod.
-func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
+func (x *Peapod) Get(addr oid.Address) (*objectSDK.Object, error) {
 	var data []byte
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
@@ -292,7 +292,7 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 			return errMissingRootBucket
 		}
 
-		val := bktRoot.Get(keyForObject(prm.Address))
+		val := bktRoot.Get(keyForObject(addr))
 		if val == nil {
 			return apistatus.ErrObjectNotFound
 		}
@@ -303,23 +303,23 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
-			return common.GetRes{}, logicerr.Wrap(err)
+			return nil, logicerr.Wrap(err)
 		}
-		return common.GetRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+		return nil, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
 	}
 
 	// copy-paste from FSTree
 	data, err = x.compress.Decompress(data)
 	if err != nil {
-		return common.GetRes{}, fmt.Errorf("decompress data: %w", err)
+		return nil, fmt.Errorf("decompress data: %w", err)
 	}
 
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRes{}, fmt.Errorf("decode object from binary: %w", err)
+		return nil, fmt.Errorf("decode object from binary: %w", err)
 	}
 
-	return common.GetRes{Object: obj, RawData: data}, err
+	return obj, err
 }
 
 // GetBytes reads object from the Peapod by address into memory buffer in a
@@ -366,12 +366,12 @@ func (x *Peapod) GetBytes(addr oid.Address) ([]byte, error) {
 // GetRange works like Get but reads specific payload range.
 func (x *Peapod) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
 	// copy-paste from FSTree
-	res, err := x.Get(common.GetPrm{Address: prm.Address})
+	obj, err := x.Get(prm.Address)
 	if err != nil {
 		return common.GetRangeRes{}, err
 	}
 
-	payload := res.Object.Payload()
+	payload := obj.Payload()
 	from := prm.Range.GetOffset()
 	to := from + prm.Range.GetLength()
 

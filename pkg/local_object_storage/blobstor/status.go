@@ -1,7 +1,6 @@
 package blobstor
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -27,11 +26,8 @@ func (b *BlobStor) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	res := ObjectStatus{
 		Substorages: []ObjectSubstorageStatus{},
 	}
-	prm := common.GetPrm{
-		Address: address,
-	}
 	for i := range b.storage {
-		_, err := b.storage[i].Storage.Get(prm)
+		_, err := b.storage[i].Storage.Get(address)
 		if err == nil {
 			res.Substorages = append(res.Substorages, ObjectSubstorageStatus{
 				Type: b.storage[i].Storage.Type(),

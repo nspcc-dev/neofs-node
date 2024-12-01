@@ -21,12 +21,7 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 	require.NoError(t, s.Open(true))
 	for i := range objects {
-		var prm common.GetPrm
-		prm.Address = objects[i].addr
-		prm.StorageID = objects[i].storageID
-		prm.Raw = true
-
-		_, err := s.Get(prm)
+		_, err := s.Get(objects[i].addr)
 		require.NoError(t, err)
 	}
 

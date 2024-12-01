@@ -32,8 +32,7 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			require.False(t, res)
 		})
 		t.Run("get fail", func(t *testing.T) {
-			prm := common.GetPrm{Address: oidtest.Address()}
-			_, err := s.Get(prm)
+			_, err := s.Get(oidtest.Address())
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 		})
 		t.Run("getrange fail", func(t *testing.T) {
@@ -51,12 +50,8 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	})
 
 	t.Run("non-deleted object is still available", func(t *testing.T) {
-		var prm common.GetPrm
-		prm.Address = objects[3].addr
-		prm.Raw = true
-
-		res, err := s.Get(prm)
+		data, err := s.GetBytes(objects[3].addr)
 		require.NoError(t, err)
-		require.Equal(t, objects[3].raw, res.RawData)
+		require.Equal(t, objects[3].raw, data)
 	})
 }
