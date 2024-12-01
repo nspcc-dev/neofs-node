@@ -109,6 +109,6 @@ func (c *cache) flushStatus(addr oid.Address) (bool, bool) {
 	}
 
 	sid, _ := c.metabase.StorageID(addr)
-	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: sid})
-	return err == nil && res.Exists, false
+	exists, err := c.blobstor.Exists(addr, sid)
+	return err == nil && exists, false
 }

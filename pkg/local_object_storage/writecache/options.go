@@ -25,7 +25,7 @@ type Metabase interface {
 type blob interface {
 	Put(common.PutPrm) (common.PutRes, error)
 	NeedsCompression(obj *objectSDK.Object) bool
-	Exists(res common.ExistsPrm) (common.ExistsRes, error)
+	Exists(oid.Address, []byte) (bool, error)
 }
 
 type options struct {

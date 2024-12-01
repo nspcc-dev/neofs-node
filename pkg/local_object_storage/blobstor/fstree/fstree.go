@@ -261,17 +261,17 @@ func (t *FSTree) Delete(addr oid.Address) error {
 
 // Exists returns the path to the file with object contents if it exists in the storage
 // and an error otherwise.
-func (t *FSTree) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
-	_, err := t.getPath(prm.Address)
+func (t *FSTree) Exists(addr oid.Address) (bool, error) {
+	_, err := t.getPath(addr)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return common.ExistsRes{Exists: false}, nil
+			return false, nil
 		}
 
-		return common.ExistsRes{}, err
+		return false, err
 	}
 
-	return common.ExistsRes{Exists: true}, nil
+	return true, nil
 }
 
 // checks whether file for the given object address exists and returns path to

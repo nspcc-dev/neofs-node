@@ -386,8 +386,8 @@ func (x *Peapod) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
 
 // Exists checks presence of the object in the underlying database by the given
 // address.
-func (x *Peapod) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
-	var res common.ExistsRes
+func (x *Peapod) Exists(addr oid.Address) (bool, error) {
+	var res bool
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
 		bktRoot := tx.Bucket(rootBucket)
@@ -395,12 +395,12 @@ func (x *Peapod) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 			return errMissingRootBucket
 		}
 
-		res.Exists = bktRoot.Get(keyForObject(prm.Address)) != nil
+		res = bktRoot.Get(keyForObject(addr)) != nil
 
 		return nil
 	})
 	if err != nil {
-		return common.ExistsRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+		return false, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
 	}
 
 	return res, nil

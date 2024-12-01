@@ -37,19 +37,15 @@ func TestExists(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	var prm common.ExistsPrm
 	for i := range objects {
-		prm.Address = objectCore.AddressOf(objects[i])
-
-		res, err := b.Exists(prm)
+		res, err := b.Exists(objectCore.AddressOf(objects[i]), nil)
 		require.NoError(t, err)
-		require.True(t, res.Exists)
+		require.True(t, res)
 	}
 
-	prm.Address = oidtest.Address()
-	res, err := b.Exists(prm)
+	res, err := b.Exists(oidtest.Address(), nil)
 	require.NoError(t, err)
-	require.False(t, res.Exists)
+	require.False(t, res)
 
 	t.Run("corrupt direcrory", func(t *testing.T) {
 		var bigDir string
@@ -65,14 +61,12 @@ func TestExists(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
 		// Object exists, first error is logged.
-		prm.Address = objectCore.AddressOf(objects[0])
-		res, err := b.Exists(prm)
+		res, err := b.Exists(objectCore.AddressOf(objects[0]), nil)
 		require.NoError(t, err)
-		require.True(t, res.Exists)
+		require.True(t, res)
 
 		// Object doesn't exist, first error is returned.
-		prm.Address = objectCore.AddressOf(objects[1])
-		_, err = b.Exists(prm)
+		_, err = b.Exists(objectCore.AddressOf(objects[1]), nil)
 		require.Error(t, err)
 	})
 }

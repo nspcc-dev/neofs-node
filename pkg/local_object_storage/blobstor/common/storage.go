@@ -25,7 +25,7 @@ type Storage interface {
 	GetBytes(oid.Address) ([]byte, error)
 	Get(GetPrm) (GetRes, error)
 	GetRange(GetRangePrm) (GetRangeRes, error)
-	Exists(ExistsPrm) (ExistsRes, error)
+	Exists(oid.Address) (bool, error)
 	Put(PutPrm) (PutRes, error)
 	Delete(oid.Address) error
 	Iterate(IteratePrm) (IterateRes, error)
@@ -60,12 +60,10 @@ func Copy(dst, src Storage) error {
 
 	_, err = src.Iterate(IteratePrm{
 		Handler: func(el IterationElement) error {
-			exRes, err := dst.Exists(ExistsPrm{
-				Address: el.Address,
-			})
+			exists, err := dst.Exists(el.Address)
 			if err != nil {
 				return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", el.Address, err)
-			} else if exRes.Exists {
+			} else if exists {
 				return nil
 			}
 

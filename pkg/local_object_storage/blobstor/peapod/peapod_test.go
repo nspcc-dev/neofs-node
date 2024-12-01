@@ -107,13 +107,9 @@ func TestPeapod_Exists(t *testing.T) {
 	addr := oidtest.Address()
 	data := []byte("Hello, world!")
 
-	existsPrm := common.ExistsPrm{
-		Address: addr,
-	}
-
-	res, err := ppd.Exists(existsPrm)
+	res, err := ppd.Exists(addr)
 	require.NoError(t, err)
-	require.False(t, res.Exists)
+	require.False(t, res)
 
 	_, err = ppd.Put(common.PutPrm{
 		Address: addr,
@@ -121,9 +117,9 @@ func TestPeapod_Exists(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	res, err = ppd.Exists(existsPrm)
+	res, err = ppd.Exists(addr)
 	require.NoError(t, err)
-	require.True(t, res.Exists)
+	require.True(t, res)
 }
 
 func TestPeapod_Iterate(t *testing.T) {

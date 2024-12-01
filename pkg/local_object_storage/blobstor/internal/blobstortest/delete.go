@@ -27,10 +27,9 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		require.NoError(t, err)
 
 		t.Run("exists fail", func(t *testing.T) {
-			prm := common.ExistsPrm{Address: oidtest.Address()}
-			res, err := s.Exists(prm)
+			res, err := s.Exists(oidtest.Address())
 			require.NoError(t, err)
-			require.False(t, res.Exists)
+			require.False(t, res)
 		})
 		t.Run("get fail", func(t *testing.T) {
 			prm := common.GetPrm{Address: oidtest.Address()}

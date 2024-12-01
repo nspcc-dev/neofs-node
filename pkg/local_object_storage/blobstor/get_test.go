@@ -38,7 +38,7 @@ func (x *getBytesOnlySubStorage) GetRange(prm common.GetRangePrm) (common.GetRan
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+func (x *getBytesOnlySubStorage) Exists(_ oid.Address) (bool, error) {
 	panic("must not be called")
 }
 
