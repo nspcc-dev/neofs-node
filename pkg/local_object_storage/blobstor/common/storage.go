@@ -27,7 +27,7 @@ type Storage interface {
 	GetRange(GetRangePrm) (GetRangeRes, error)
 	Exists(ExistsPrm) (ExistsRes, error)
 	Put(PutPrm) (PutRes, error)
-	Delete(DeletePrm) (DeleteRes, error)
+	Delete(oid.Address) error
 	Iterate(IteratePrm) (IterateRes, error)
 }
 

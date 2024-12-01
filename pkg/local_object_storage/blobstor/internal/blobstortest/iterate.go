@@ -19,10 +19,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 	// Delete random object to ensure it is not iterated over.
 	const delID = 2
-	var delPrm common.DeletePrm
-	delPrm.Address = objects[delID].addr
-	delPrm.StorageID = objects[delID].storageID
-	_, err := s.Delete(delPrm)
+	err := s.Delete(objects[delID].addr)
 	require.NoError(t, err)
 
 	objects = append(objects[:delID], objects[delID+1:]...)

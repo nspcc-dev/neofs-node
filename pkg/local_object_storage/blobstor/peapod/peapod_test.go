@@ -201,9 +201,7 @@ func TestPeapod_Delete(t *testing.T) {
 
 	data := obj.Marshal()
 
-	_, err := ppd.Delete(common.DeletePrm{
-		Address: addr,
-	})
+	err := ppd.Delete(addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
 	_, err = ppd.Put(common.PutPrm{
@@ -221,9 +219,7 @@ func TestPeapod_Delete(t *testing.T) {
 	require.Equal(t, data, res.RawData)
 	require.Equal(t, obj, *res.Object)
 
-	_, err = ppd.Delete(common.DeletePrm{
-		Address: addr,
-	})
+	err = ppd.Delete(addr)
 	require.NoError(t, err)
 
 	res, err = ppd.Get(getPrm)
@@ -232,9 +228,7 @@ func TestPeapod_Delete(t *testing.T) {
 	t.Run("read-only", func(t *testing.T) {
 		ppd, addr := newTestPeapodReadOnly(t)
 
-		_, err := ppd.Delete(common.DeletePrm{
-			Address: addr,
-		})
+		err := ppd.Delete(addr)
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 }

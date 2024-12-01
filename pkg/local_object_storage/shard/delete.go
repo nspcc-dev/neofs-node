@@ -3,7 +3,6 @@ package shard
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -68,12 +67,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
 	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	for _, addr := range addrs {
-		var delPrm common.DeletePrm
-		delPrm.Address = addr
-		id := smalls[addr]
-		delPrm.StorageID = id
-
-		_, err = s.blobStor.Delete(delPrm)
+		err = s.blobStor.Delete(addr, smalls[addr])
 		if err != nil {
 			if IsErrNotFound(err) && skipNotFoundError {
 				continue

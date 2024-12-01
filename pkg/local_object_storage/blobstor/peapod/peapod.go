@@ -434,10 +434,10 @@ func (x *Peapod) Put(prm common.PutPrm) (common.PutRes, error) {
 // missing.
 //
 // Put returns common.ErrReadOnly if Peadpod is read-only.
-func (x *Peapod) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (x *Peapod) Delete(addr oid.Address) error {
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2480
 	err := x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
-		key := keyForObject(prm.Address)
+		key := keyForObject(addr)
 		if bktRoot.Get(key) == nil {
 			return apistatus.ErrObjectNotFound
 		}
@@ -445,10 +445,10 @@ func (x *Peapod) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 		return bktRoot.Delete(key)
 	})
 	if errors.Is(err, apistatus.ErrObjectNotFound) {
-		return common.DeleteRes{}, logicerr.Wrap(err)
+		return logicerr.Wrap(err)
 	}
 
-	return common.DeleteRes{}, err
+	return err
 }
 
 func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket) error) error {

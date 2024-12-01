@@ -117,7 +117,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	addr := object.AddressOf(&obj)
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
-	_, err = fsTree.Delete(common.DeletePrm{Address: addr})
+	err = fsTree.Delete(addr)
 	require.NoError(t, err)
 	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
 	require.NoError(t, err)

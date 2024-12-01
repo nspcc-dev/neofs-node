@@ -18,19 +18,12 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	objects := prepare(t, 4, s, minSize, maxSize)
 
 	t.Run("delete non-existent", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = oidtest.Address()
-
-		_, err := s.Delete(prm)
+		err := s.Delete(oidtest.Address())
 		require.Error(t, err, new(apistatus.ObjectNotFound))
 	})
 
-	t.Run("with storage ID", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = objects[0].addr
-		prm.StorageID = objects[0].storageID
-
-		_, err := s.Delete(prm)
+	t.Run("delete existing", func(t *testing.T) {
+		err := s.Delete(objects[0].addr)
 		require.NoError(t, err)
 
 		t.Run("exists fail", func(t *testing.T) {
@@ -50,23 +43,11 @@ func TestDelete(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 		})
 	})
-	t.Run("without storage ID", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = objects[1].addr
-
-		_, err := s.Delete(prm)
-		require.NoError(t, err)
-	})
-
 	t.Run("delete twice", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = objects[2].addr
-		prm.StorageID = objects[2].storageID
-
-		_, err := s.Delete(prm)
+		err := s.Delete(objects[1].addr)
 		require.NoError(t, err)
 
-		_, err = s.Delete(prm)
+		err = s.Delete(objects[1].addr)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
 

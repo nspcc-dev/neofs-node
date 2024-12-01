@@ -21,10 +21,7 @@ func (c *cache) initFlushMarks() {
 		if flushed {
 			c.store.flushed.Add(addr.EncodeToString(), true)
 			if needRemove {
-				var prm common.DeletePrm
-				prm.Address = addr
-
-				_, err := c.fsTree.Delete(prm)
+				err := c.fsTree.Delete(addr)
 				if err == nil {
 					storagelog.Write(c.log,
 						storagelog.AddressField(addr),

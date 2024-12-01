@@ -46,7 +46,7 @@ func (x *getBytesOnlySubStorage) Put(prm common.PutPrm) (common.PutRes, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")
 }
 

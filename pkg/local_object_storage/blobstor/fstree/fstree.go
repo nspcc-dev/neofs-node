@@ -234,29 +234,29 @@ func (t *FSTree) treePath(addr oid.Address) string {
 }
 
 // Delete removes the object with the specified address from the storage.
-func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (t *FSTree) Delete(addr oid.Address) error {
 	if t.readOnly {
-		return common.DeleteRes{}, common.ErrReadOnly
+		return common.ErrReadOnly
 	}
 
-	p, err := t.getPath(prm.Address)
+	p, err := t.getPath(addr)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			err = logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
-		return common.DeleteRes{}, err
+		return err
 	}
 
 	err = os.Remove(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return common.DeleteRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
+			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 
-		return common.DeleteRes{}, fmt.Errorf("remove file %q: %w", p, err)
+		return fmt.Errorf("remove file %q: %w", p, err)
 	}
 
-	return common.DeleteRes{}, nil
+	return nil
 }
 
 // Exists returns the path to the file with object contents if it exists in the storage

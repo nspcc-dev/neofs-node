@@ -1,7 +1,6 @@
 package writecache
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -45,7 +44,7 @@ func (c *cache) Delete(addr oid.Address) error {
 		return nil
 	}
 
-	_, err := c.fsTree.Delete(common.DeletePrm{Address: addr})
+	err := c.fsTree.Delete(addr)
 	if err == nil {
 		storagelog.Write(c.log,
 			storagelog.AddressField(saddr),

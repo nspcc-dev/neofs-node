@@ -39,11 +39,7 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 	t.Run("delete fails", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = objects[0].addr
-		prm.StorageID = objects[0].storageID
-
-		_, err := s.Delete(prm)
+		err := s.Delete(objects[0].addr)
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 }
