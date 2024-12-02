@@ -27,15 +27,15 @@ func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []b
 	return nil
 }
 
-// IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.
+// IterateBinaryObjects is a helper method which iterates over BlobStor and passes binary objects to f.
 // Errors related to object reading and unmarshaling are logged and skipped.
-func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, descriptor []byte) error) error {
+func (b *BlobStor) IterateBinaryObjects(f func(addr oid.Address, data []byte, descriptor []byte) error) error {
 	var errorHandler = func(addr oid.Address, err error) error {
-		blz.log.Warn("error occurred during the iteration",
+		b.log.Warn("error occurred during the iteration",
 			zap.Stringer("address", addr),
 			zap.String("err", err.Error()))
 		return nil
 	}
 
-	return blz.Iterate(f, errorHandler, true)
+	return b.Iterate(f, errorHandler, true)
 }
