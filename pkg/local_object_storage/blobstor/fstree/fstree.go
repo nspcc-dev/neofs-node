@@ -205,9 +205,13 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 			if err != nil {
 				if ignoreErrors {
 					if errorHandler != nil {
-						return errorHandler(*addr, err)
+						err = errorHandler(*addr, err)
+					} else {
+						err = nil
 					}
-					continue
+					if err == nil {
+						continue
+					}
 				}
 				return fmt.Errorf("read file %q: %w", p, err)
 			}
