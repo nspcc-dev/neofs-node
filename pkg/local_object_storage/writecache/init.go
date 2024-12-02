@@ -3,7 +3,6 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -15,8 +14,7 @@ import (
 func (c *cache) initFlushMarks() {
 	c.log.Info("filling flush marks for objects in FSTree")
 
-	var prm common.IteratePrm
-	prm.LazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
+	var lazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
 		flushed, needRemove := c.flushStatus(addr)
 		if flushed {
 			c.store.flushed.Add(addr.EncodeToString(), true)
@@ -33,7 +31,7 @@ func (c *cache) initFlushMarks() {
 		}
 		return nil
 	}
-	_, _ = c.fsTree.Iterate(prm)
+	_ = c.fsTree.IterateLazily(lazyHandler, false)
 
 	c.log.Info("filling flush marks for objects in database")
 

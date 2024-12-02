@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -41,9 +40,7 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 		return err
 	}
 
-	var fsPrm common.IteratePrm
-	fsPrm.IgnoreErrors = ignoreErrors
-	fsPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
+	var lazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
@@ -59,8 +56,7 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 		return handler(addr, data)
 	}
 
-	_, err = c.fsTree.Iterate(fsPrm)
-	return err
+	return c.fsTree.IterateLazily(lazyHandler, ignoreErrors)
 }
 
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.

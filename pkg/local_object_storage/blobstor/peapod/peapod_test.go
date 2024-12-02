@@ -134,16 +134,12 @@ func TestPeapod_Iterate(t *testing.T) {
 
 	mDst := make(map[oid.Address][]byte)
 
-	f := func(el common.IterationElement) error {
-		mDst[el.Address] = el.ObjectData
+	f := func(addr oid.Address, data []byte, id []byte) error {
+		mDst[addr] = data
 		return nil
 	}
 
-	iterPrm := common.IteratePrm{
-		Handler: f,
-	}
-
-	_, err := ppd.Iterate(iterPrm)
+	err := ppd.Iterate(f, nil, false)
 	require.NoError(t, err)
 	require.Empty(t, mDst)
 
@@ -155,7 +151,7 @@ func TestPeapod_Iterate(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err = ppd.Iterate(iterPrm)
+	err = ppd.Iterate(f, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, mSrc, mDst)
 }

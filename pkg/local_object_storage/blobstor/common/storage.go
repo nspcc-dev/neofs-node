@@ -29,7 +29,8 @@ type Storage interface {
 	Exists(oid.Address) (bool, error)
 	Put(PutPrm) (PutRes, error)
 	Delete(oid.Address) error
-	Iterate(IteratePrm) (IterateRes, error)
+	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error, bool) error
+	IterateLazily(func(oid.Address, func() ([]byte, error)) error, bool) error
 }
 
 // Copy copies all objects from source Storage into the destination one. If any
@@ -59,25 +60,23 @@ func Copy(dst, src Storage) error {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}
 
-	_, err = src.Iterate(IteratePrm{
-		Handler: func(el IterationElement) error {
-			exists, err := dst.Exists(el.Address)
-			if err != nil {
-				return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", el.Address, err)
-			} else if exists {
-				return nil
-			}
-
-			_, err = dst.Put(PutPrm{
-				Address: el.Address,
-				RawData: el.ObjectData,
-			})
-			if err != nil {
-				return fmt.Errorf("put object %s into destination sub-storage: %w", el.Address, err)
-			}
+	err = src.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
+		exists, err := dst.Exists(addr)
+		if err != nil {
+			return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", addr, err)
+		} else if exists {
 			return nil
-		},
-	})
+		}
+
+		_, err = dst.Put(PutPrm{
+			Address: addr,
+			RawData: data,
+		})
+		if err != nil {
+			return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
+		}
+		return nil
+	}, nil, false)
 	if err != nil {
 		return fmt.Errorf("iterate over source sub-storage: %w", err)
 	}

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -27,17 +26,16 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("normal handler", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var iterPrm common.IteratePrm
-		iterPrm.Handler = func(elem common.IterationElement) error {
-			seen[elem.Address.String()] = objectDesc{
-				addr:      elem.Address,
-				raw:       elem.ObjectData,
-				storageID: elem.StorageID,
+		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+			seen[addr.String()] = objectDesc{
+				addr:      addr,
+				raw:       data,
+				storageID: id,
 			}
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		err := s.Iterate(objHandler, nil, false)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
@@ -52,8 +50,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("lazy handler", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var iterPrm common.IteratePrm
-		iterPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
+		var lazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
 			data, err := f()
 			require.NoError(t, err)
 
@@ -64,7 +61,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		err := s.IterateLazily(lazyHandler, false)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
@@ -79,13 +76,12 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 		var n int
 		var logicErr = errors.New("logic error")
-		var iterPrm common.IteratePrm
-		iterPrm.IgnoreErrors = true
-		iterPrm.Handler = func(elem common.IterationElement) error {
-			seen[elem.Address.String()] = objectDesc{
-				addr:      elem.Address,
-				raw:       elem.ObjectData,
-				storageID: elem.StorageID,
+
+		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+			seen[addr.String()] = objectDesc{
+				addr:      addr,
+				raw:       data,
+				storageID: id,
 			}
 			n++
 			if n == len(objects)/2 {
@@ -94,7 +90,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		err := s.Iterate(objHandler, nil, true)
 		require.ErrorIs(t, err, logicErr)
 		require.Equal(t, len(objects)/2, len(seen))
 		for i := range objects {

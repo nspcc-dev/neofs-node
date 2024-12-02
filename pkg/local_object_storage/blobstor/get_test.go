@@ -51,7 +51,11 @@ func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error, _ bool) error {
+	panic("must not be called")
+}
+
+func (x *getBytesOnlySubStorage) IterateLazily(_ func(oid.Address, func() ([]byte, error)) error, _ bool) error {
 	panic("must not be called")
 }
 

@@ -484,10 +484,25 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 }
 
 // Iterate iterates over all objects stored in the underlying database and
-// passes them into LazyHandler or Handler. Break on f's false return.
+// passes them into objHandler. Errors are passed into errorHandler if it's
+// specified and ignoreErrors is true. If error is returned from handlers
+// iteration stops.
 //
 // Use IterateAddresses to iterate over keys only.
-func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error, ignoreErrors bool) error {
+	return x.iterate(objHandler, errorHandler, nil, ignoreErrors)
+}
+
+// IterateLazily is similar to Iterate, but allows to skip/defer object
+// retrieval in the handler. Use getter function when needed.
+func (x *Peapod) IterateLazily(lazyHandler func(addr oid.Address, getter func() ([]byte, error)) error, ignoreErrors bool) error {
+	return x.iterate(nil, nil, lazyHandler, ignoreErrors)
+}
+
+func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
+	errorHandler func(oid.Address, error) error,
+	lazyHandler func(oid.Address, func() ([]byte, error)) error,
+	ignoreErrors bool) error {
 	var addr oid.Address
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
@@ -499,9 +514,9 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 		return bktRoot.ForEach(func(k, v []byte) error {
 			err := decodeKeyForObject(&addr, k)
 			if err != nil {
-				if prm.IgnoreErrors {
-					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(addr, err)
+				if ignoreErrors {
+					if errorHandler != nil {
+						return errorHandler(addr, err)
 					}
 
 					return nil
@@ -512,9 +527,9 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 
 			v, err = x.compress.Decompress(v)
 			if err != nil {
-				if prm.IgnoreErrors {
-					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(addr, err)
+				if ignoreErrors {
+					if errorHandler != nil {
+						return errorHandler(addr, err)
 					}
 
 					return nil
@@ -523,24 +538,20 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 				return fmt.Errorf("decompress value for object '%s': %w", addr, err)
 			}
 
-			if prm.LazyHandler != nil {
-				return prm.LazyHandler(addr, func() ([]byte, error) {
+			if lazyHandler != nil {
+				return lazyHandler(addr, func() ([]byte, error) {
 					return v, nil
 				})
 			}
 
-			return prm.Handler(common.IterationElement{
-				ObjectData: v,
-				Address:    addr,
-				StorageID:  storageID,
-			})
+			return objHandler(addr, v, storageID)
 		})
 	})
 	if err != nil {
-		return common.IterateRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+		return fmt.Errorf("exec read-only BoltDB transaction: %w", err)
 	}
 
-	return common.IterateRes{}, nil
+	return nil
 }
 
 // IterateAddresses iterates over all objects stored in the underlying database

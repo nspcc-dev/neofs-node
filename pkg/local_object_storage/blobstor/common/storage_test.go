@@ -48,13 +48,11 @@ func TestCopy(t *testing.T) {
 	require.NoError(t, dst.Open(true))
 	t.Cleanup(func() { _ = dst.Close() })
 
-	_, err = dst.Iterate(common.IteratePrm{
-		Handler: func(el common.IterationElement) error {
-			data, ok := mObjs[el.Address]
-			require.True(t, ok)
-			require.Equal(t, data, el.ObjectData)
-			return nil
-		},
-	})
+	err = dst.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
+		origData, ok := mObjs[addr]
+		require.True(t, ok)
+		require.Equal(t, origData, data)
+		return nil
+	}, nil, false)
 	require.NoError(t, err)
 }
