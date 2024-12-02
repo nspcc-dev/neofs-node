@@ -7,10 +7,9 @@ import (
 
 // PutPrm groups the parameters of Put operation.
 type PutPrm struct {
-	Address      oid.Address
-	Object       *objectSDK.Object
-	RawData      []byte
-	DontCompress bool
+	Address oid.Address
+	Object  *objectSDK.Object
+	RawData []byte
 }
 
 // PutRes groups the resulting values of Put operation.

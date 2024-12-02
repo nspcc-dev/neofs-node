@@ -412,9 +412,7 @@ var storageID = []byte("peapod")
 //
 // Put returns common.ErrReadOnly if Peadpod is read-only.
 func (x *Peapod) Put(prm common.PutPrm) (common.PutRes, error) {
-	if !prm.DontCompress {
-		prm.RawData = x.compress.Compress(prm.RawData)
-	}
+	prm.RawData = x.compress.Compress(prm.RawData)
 
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2480
 	err := x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {

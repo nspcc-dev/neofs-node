@@ -304,9 +304,8 @@ func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
 		return common.PutRes{}, fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
-	if !prm.DontCompress {
-		prm.RawData = t.Compress(prm.RawData)
-	}
+	prm.RawData = t.Compress(prm.RawData)
+
 	err := t.writer.writeData(prm.Address.Object(), p, prm.RawData)
 	if err != nil {
 		return common.PutRes{}, fmt.Errorf("write object data into file %q: %w", p, err)

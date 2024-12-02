@@ -56,9 +56,8 @@ func newTestPeapodReadOnly(tb testing.TB) (*peapod.Peapod, oid.Address) {
 	addr := oidtest.Address()
 
 	_, err := ppd.Put(common.PutPrm{
-		Address:      addr,
-		RawData:      []byte("Hello, world!"),
-		DontCompress: false,
+		Address: addr,
+		RawData: []byte("Hello, world!"),
 	})
 	require.NoError(tb, err)
 	require.NoError(tb, ppd.Close())
