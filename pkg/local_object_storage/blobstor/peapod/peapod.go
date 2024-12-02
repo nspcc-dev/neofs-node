@@ -499,8 +499,6 @@ func (x *Peapod) IterateLazily(lazyHandler func(addr oid.Address, getter func() 
 func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
 	lazyHandler func(oid.Address, func() ([]byte, error)) error) error {
-	var addr oid.Address
-
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
 		bktRoot := tx.Bucket(rootBucket)
 		if bktRoot == nil {
@@ -508,6 +506,7 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 		}
 
 		return bktRoot.ForEach(func(k, v []byte) error {
+			var addr oid.Address
 			err := decodeKeyForObject(&addr, k)
 			if err != nil {
 				if errorHandler != nil {
