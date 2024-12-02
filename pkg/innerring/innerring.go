@@ -1273,6 +1273,7 @@ func serveControl(server *Server, log *zap.Logger, cfg *viper.Viper, errChan cha
 
 		p.SetPrivateKey(*server.key)
 		p.SetHealthChecker(server)
+		p.SetNetworkManager(server)
 
 		controlSvc := controlsrv.New(p,
 			controlsrv.WithAllowedKeys(authKeys),

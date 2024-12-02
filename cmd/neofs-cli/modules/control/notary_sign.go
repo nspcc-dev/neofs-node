@@ -1,0 +1,71 @@
+package control
+
+import (
+	"fmt"
+
+	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
+	"github.com/spf13/cobra"
+)
+
+var notarySignHashFlag string
+
+var notarySignCmd = &cobra.Command{
+	Use:   "sign",
+	Short: "Sign notary request with it hash",
+	Long:  "Sign notary request with it hash",
+	Args:  cobra.NoArgs,
+	RunE:  notarySign,
+}
+
+func initControlNotarySignCmd() {
+	initControlFlags(notarySignCmd)
+
+	flags := notarySignCmd.Flags()
+	flags.StringVar(&notarySignHashFlag, "hash", "", "hash of the notary request")
+}
+
+func notarySign(cmd *cobra.Command, _ []string) error {
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
+	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
+
+	cli, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	req := new(ircontrol.NotarySignRequest)
+	body := new(ircontrol.NotarySignRequest_Body)
+	req.SetBody(body)
+	body.SetHash(notarySignHashFlag)
+
+	err = ircontrolsrv.SignMessage(pk, req)
+	if err != nil {
+		return fmt.Errorf("could not sign request: %w", err)
+	}
+
+	var resp *ircontrol.NotarySignResponse
+	err = cli.ExecRaw(func(client *rawclient.Client) error {
+		resp, err = ircontrol.NotarySign(client, req)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("rpc error: %w", err)
+	}
+
+	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err != nil {
+		return err
+	}
+
+	cmd.Printf("Hash: %s\n", notarySignHashFlag)
+	return nil
+}
