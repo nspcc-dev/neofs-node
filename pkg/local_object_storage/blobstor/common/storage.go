@@ -30,7 +30,7 @@ type Storage interface {
 	Put(oid.Address, []byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error) error
-	IterateLazily(func(oid.Address, func() ([]byte, error)) error, bool) error
+	IterateAddresses(func(oid.Address) error, bool) error
 }
 
 // Copy copies all objects from source Storage into the destination one. If any

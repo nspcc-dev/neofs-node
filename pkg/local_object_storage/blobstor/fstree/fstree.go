@@ -142,21 +142,23 @@ func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byt
 	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil)
 }
 
-// IterateLazily is similar to Iterate, but allows to skip/defer object
-// retrieval in the handler. Use getter function when needed.
-func (t *FSTree) IterateLazily(lazyHandler func(addr oid.Address, getter func() ([]byte, error)) error, ignoreErrors bool) error {
+// IterateAddresses iterates over all objects stored in the underlying storage
+// and passes their addresses into f. If f returns an error, IterateAddresses
+// returns it and breaks. ignoreErrors allows to continue if internal errors
+// happen.
+func (t *FSTree) IterateAddresses(f func(addr oid.Address) error, ignoreErrors bool) error {
 	var errorHandler func(oid.Address, error) error
 	if ignoreErrors {
 		errorHandler = func(oid.Address, error) error { return nil }
 	}
 
-	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, lazyHandler)
+	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, f)
 }
 
 func (t *FSTree) iterate(depth uint64, curPath []string,
 	objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
-	lazyHandler func(oid.Address, func() ([]byte, error)) error) error {
+	addrHandler func(oid.Address) error) error {
 	curName := strings.Join(curPath[1:], "")
 	dir := filepath.Join(curPath...)
 	des, err := os.ReadDir(dir)
@@ -175,7 +177,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 		curPath[l] = des[i].Name()
 
 		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, objHandler, errorHandler, lazyHandler)
+			err := t.iterate(depth+1, curPath, objHandler, errorHandler, addrHandler)
 			if err != nil {
 				// Must be error from handler in case errors are ignored.
 				// Need to report.
@@ -192,10 +194,8 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 			continue
 		}
 
-		if lazyHandler != nil {
-			err = lazyHandler(*addr, func() ([]byte, error) {
-				return getRawObjectBytes(addr.Object(), filepath.Join(curPath...))
-			})
+		if addrHandler != nil {
+			err = addrHandler(*addr)
 		} else {
 			var data []byte
 			p := filepath.Join(curPath...)

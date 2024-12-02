@@ -220,7 +220,7 @@ func TestPeapod_IterateAddresses(t *testing.T) {
 		return nil
 	}
 
-	err := ppd.IterateAddresses(f)
+	err := ppd.IterateAddresses(f, false)
 	require.NoError(t, err)
 	require.Empty(t, mDst)
 
@@ -229,7 +229,7 @@ func TestPeapod_IterateAddresses(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = ppd.IterateAddresses(f)
+	err = ppd.IterateAddresses(f, false)
 	require.NoError(t, err)
 	require.Equal(t, mSrc, mDst)
 }

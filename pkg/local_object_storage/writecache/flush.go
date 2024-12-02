@@ -173,14 +173,14 @@ func (c *cache) reportFlushError(msg string, addr string, err error) {
 }
 
 func (c *cache) flushFSTree(ignoreErrors bool) error {
-	var lazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
+	var addrHandler = func(addr oid.Address) error {
 		sAddr := addr.EncodeToString()
 
 		if _, ok := c.store.flushed.Peek(sAddr); ok {
 			return nil
 		}
 
-		data, err := f()
+		data, err := c.fsTree.GetBytes(addr)
 		if err != nil {
 			if errors.As(err, new(apistatus.ObjectNotFound)) {
 				// an object can be removed b/w iterating over it
@@ -219,7 +219,7 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 		return nil
 	}
 
-	return c.fsTree.IterateLazily(lazyHandler, ignoreErrors)
+	return c.fsTree.IterateAddresses(addrHandler, ignoreErrors)
 }
 
 // flushWorker writes objects to the main storage.

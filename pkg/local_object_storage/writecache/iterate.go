@@ -40,11 +40,11 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 		return err
 	}
 
-	var lazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
+	var addrHandler = func(addr oid.Address) error {
 		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
 			return nil
 		}
-		data, err := f()
+		data, err := c.fsTree.GetBytes(addr)
 		if err != nil {
 			if ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
 				// an object can be removed b/w iterating over it
@@ -56,7 +56,7 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 		return handler(addr, data)
 	}
 
-	return c.fsTree.IterateLazily(lazyHandler, ignoreErrors)
+	return c.fsTree.IterateAddresses(addrHandler, ignoreErrors)
 }
 
 // IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.

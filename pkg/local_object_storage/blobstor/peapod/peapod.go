@@ -486,19 +486,9 @@ func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byt
 	return x.iterate(objHandler, errorHandler, nil)
 }
 
-// IterateLazily is similar to Iterate, but allows to skip/defer object
-// retrieval in the handler. Use getter function when needed.
-func (x *Peapod) IterateLazily(lazyHandler func(addr oid.Address, getter func() ([]byte, error)) error, ignoreErrors bool) error {
-	var errorHandler func(oid.Address, error) error
-	if ignoreErrors {
-		errorHandler = func(oid.Address, error) error { return nil }
-	}
-	return x.iterate(nil, errorHandler, lazyHandler)
-}
-
 func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
-	lazyHandler func(oid.Address, func() ([]byte, error)) error) error {
+	addrHandler func(oid.Address) error) error {
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
 		bktRoot := tx.Bucket(rootBucket)
 		if bktRoot == nil {
@@ -525,10 +515,8 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 				return fmt.Errorf("decompress value for object '%s': %w", addr, err)
 			}
 
-			if lazyHandler != nil {
-				return lazyHandler(addr, func() ([]byte, error) {
-					return v, nil
-				})
+			if addrHandler != nil {
+				return addrHandler(addr)
 			}
 
 			return objHandler(addr, v, storageID)
@@ -543,28 +531,13 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 
 // IterateAddresses iterates over all objects stored in the underlying database
 // and passes their addresses into f. If f returns an error, IterateAddresses
-// returns it and breaks.
-func (x *Peapod) IterateAddresses(f func(addr oid.Address) error) error {
-	var addr oid.Address
-
-	err := x.bolt.View(func(tx *bbolt.Tx) error {
-		bktRoot := tx.Bucket(rootBucket)
-		if bktRoot == nil {
-			return errMissingRootBucket
-		}
-
-		return bktRoot.ForEach(func(k, v []byte) error {
-			err := decodeKeyForObject(&addr, k)
-			if err != nil {
-				return fmt.Errorf("decode object address from bucket key: %w", err)
-			}
-
-			return f(addr)
-		})
-	})
-	if err != nil {
-		return fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+// returns it and breaks. ignoreErrors allows to continue if internal errors
+// happen.
+func (x *Peapod) IterateAddresses(f func(addr oid.Address) error, ignoreErrors bool) error {
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
 	}
 
-	return nil
+	return x.iterate(nil, errorHandler, f)
 }

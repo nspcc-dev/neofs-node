@@ -55,7 +55,7 @@ func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) err
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) IterateLazily(_ func(oid.Address, func() ([]byte, error)) error, _ bool) error {
+func (x *getBytesOnlySubStorage) IterateAddresses(_ func(oid.Address) error, _ bool) error {
 	panic("must not be called")
 }
 

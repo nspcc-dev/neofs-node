@@ -14,7 +14,7 @@ import (
 func (c *cache) initFlushMarks() {
 	c.log.Info("filling flush marks for objects in FSTree")
 
-	var lazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
+	var addrHandler = func(addr oid.Address) error {
 		flushed, needRemove := c.flushStatus(addr)
 		if flushed {
 			c.store.flushed.Add(addr.EncodeToString(), true)
@@ -31,7 +31,7 @@ func (c *cache) initFlushMarks() {
 		}
 		return nil
 	}
-	_ = c.fsTree.IterateLazily(lazyHandler, false)
+	_ = c.fsTree.IterateAddresses(addrHandler, false)
 
 	c.log.Info("filling flush marks for objects in database")
 

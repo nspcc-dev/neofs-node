@@ -45,11 +45,11 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		}
 	})
 
-	t.Run("lazy handler", func(t *testing.T) {
+	t.Run("addresses", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var lazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
-			data, err := f()
+		var addrHandler = func(addr oid.Address) error {
+			data, err := s.GetBytes(addr)
 			require.NoError(t, err)
 
 			seen[addr.String()] = objectDesc{
@@ -59,7 +59,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		err := s.IterateLazily(lazyHandler, false)
+		err := s.IterateAddresses(addrHandler, false)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {

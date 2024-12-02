@@ -36,7 +36,7 @@ func listFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer ppd.Close()
 
-	err = ppd.IterateAddresses(wAddr)
+	err = ppd.IterateAddresses(wAddr, false)
 	if err != nil {
 		return fmt.Errorf("Peapod iterator failure: %w", err)
 	}
