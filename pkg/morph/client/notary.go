@@ -305,13 +305,13 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 }
 
 // NotaryInvoke invokes contract method by sending tx to notary contract in
-// blockchain. Fallback tx is a `RET`. If Notary support is not enabled
-// it fallbacks to a simple `Invoke()`.
+// blockchain and returns the hash of tx. Fallback tx is a `RET`. If Notary support is not enabled
+// it fallbacks to a simple `Invoke()`, but doesn't return the hash of tx.
 //
 // `nonce` and `vub` are used only if notary is enabled.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) error {
+func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	if c.notary == nil {
-		return c.Invoke(contract, false, fee, method, args...)
+		return util.Uint256{}, c.Invoke(contract, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
@@ -327,7 +327,8 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 		return c.Invoke(contract, false, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
+	_, err := c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
+	return err
 }
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from
@@ -441,19 +442,20 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 
 func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...any) error {
 	designate := c.GetDesignateHash()
-	return c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
+	_, err := c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
+	return err
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) error {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	var conn = c.conn.Load()
 
 	if conn == nil {
-		return ErrConnectionLost
+		return util.Uint256{}, ErrConnectionLost
 	}
 
 	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
 	if err != nil {
-		return err
+		return util.Uint256{}, err
 	}
 
 	var until uint32
@@ -463,18 +465,18 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	} else {
 		until, err = c.notaryTxValidationLimit(conn)
 		if err != nil {
-			return err
+			return util.Uint256{}, err
 		}
 	}
 
 	cosigners, err := c.notaryCosigners(invokedByAlpha, alphabetList, committee)
 	if err != nil {
-		return err
+		return util.Uint256{}, err
 	}
 
 	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
 	if err != nil {
-		return err
+		return util.Uint256{}, err
 	}
 
 	mainH, fbH, untilActual, err := nAct.Notarize(nAct.MakeTunedCall(contract, method, nil, func(r *result.Invoke, t *transaction.Transaction) error {
@@ -489,7 +491,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	}, args...))
 
 	if err != nil && !alreadyOnChainError(err) {
-		return err
+		return util.Uint256{}, err
 	}
 
 	c.logger.Debug("notary request invoked",
@@ -498,7 +500,7 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		zap.String("tx_hash", mainH.StringLE()),
 		zap.String("fallback_hash", fbH.StringLE()))
 
-	return nil
+	return mainH, nil
 }
 
 func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {

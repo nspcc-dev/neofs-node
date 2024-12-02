@@ -10,6 +10,15 @@ option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/ir/control";
 service ControlService {
     // Performs health check of the IR node.
     rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+
+    // NotaryList list notary requests from the network.
+    rpc NotaryList (NotaryListRequest) returns (NotaryListResponse);
+
+    // NotaryRequest create and send notary request to the network.
+    rpc NotaryRequest (NotaryRequestRequest) returns (NotaryRequestResponse);
+
+    // NotarySign sign a notary request by it hash.
+    rpc NotarySign (NotarySignRequest) returns (NotarySignResponse);
 }
 
 // Health check request.
@@ -36,6 +45,92 @@ message HealthCheckResponse {
     }
 
     // Body of health check response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotaryList request.
+message NotaryListRequest {
+    // Request body structure.
+    message Body {
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotaryList response.
+message NotaryListResponse {
+    // Request body structure.
+    message Body {
+        // Transaction of the notary request.
+        repeated TransactionInfo transactions = 1;
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotaryRequest request.
+message NotaryRequestRequest {
+    // Request body structure.
+    message Body {
+        string method = 1;
+        repeated bytes args = 2;
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotaryRequest response.
+message NotaryRequestResponse {
+    // Request body structure.
+    message Body {
+        // Result hash of transaction.
+        bytes hash = 1;
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotarySign request.
+message NotarySignRequest {
+    // Request body structure.
+    message Body {
+        // Hash of transaction that need to be signed.
+        bytes hash = 1;
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NotarySign response.
+message NotarySignResponse {
+    // Request body structure.
+    message Body {
+    }
+
+    // Body of request message.
     Body body = 1;
 
     // Body signature.
