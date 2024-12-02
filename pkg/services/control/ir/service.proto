@@ -10,6 +10,11 @@ option go_package = "github.com/nspcc-dev/neofs-node/pkg/services/ir/control";
 service ControlService {
     // Performs health check of the IR node.
     rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+
+    // NetworkList list requested changes of network.
+    rpc NetworkList (NetworkListRequest) returns (NetworkListResponse);
+
+    rpc NetworkEpochTick (NetworkEpochTickRequest) returns (NetworkEpochTickResponse);
 }
 
 // Health check request.
@@ -36,6 +41,60 @@ message HealthCheckResponse {
     }
 
     // Body of health check response message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NetworkList request.
+message NetworkListRequest {
+    // Request body structure.
+    message Body {
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NetworkList response.
+message NetworkListResponse {
+    // Request body structure.
+    message Body {
+        repeated string hashes = 1;
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NetworkEpochTick request.
+message NetworkEpochTickRequest {
+    // Request body structure.
+    message Body {
+    }
+
+    // Body of request message.
+    Body body = 1;
+
+    // Body signature.
+    Signature signature = 2;
+}
+
+// NetworkEpochTick response.
+message NetworkEpochTickResponse {
+    // Request body structure.
+    message Body {
+        string hash = 1;
+    }
+
+    // Body of request message.
     Body body = 1;
 
     // Body signature.

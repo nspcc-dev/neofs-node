@@ -32,3 +32,41 @@ func (w *healthCheckResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 
 	return nil
 }
+
+type networkListResponseWrapper struct {
+	m *NetworkListResponse
+}
+
+func (w *networkListResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *networkListResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*NetworkListResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}
+
+type networkEpochTickResponseWrapper struct {
+	m *NetworkEpochTickResponse
+}
+
+func (w *networkEpochTickResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *networkEpochTickResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*NetworkEpochTickResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}

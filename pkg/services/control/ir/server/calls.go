@@ -32,3 +32,47 @@ func (s *Server) HealthCheck(_ context.Context, req *control.HealthCheckRequest)
 
 	return resp, nil
 }
+
+// NetworkList returns list of hashes of the IR notary requests.
+//
+// If request is not signed with a key from white list, permission error returns.
+func (s *Server) NetworkList(_ context.Context, req *control.NetworkListRequest) (*control.NetworkListResponse, error) {
+	if err := s.isValidRequest(req); err != nil {
+		return nil, status.Error(codes.PermissionDenied, err.Error())
+	}
+
+	resp := new(control.NetworkListResponse)
+
+	body := new(control.NetworkListResponse_Body)
+	resp.SetBody(body)
+
+	body.SetHashes(s.prm.networkManager.ListNetworkRequests())
+
+	if err := SignMessage(&s.prm.key.PrivateKey, resp); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return resp, nil
+}
+
+// NetworkEpochTick send notary request to tick epoch and returns a hash of this request.
+//
+// If request is not signed with a key from white list, permission error returns.
+func (s *Server) NetworkEpochTick(_ context.Context, req *control.NetworkEpochTickRequest) (*control.NetworkEpochTickResponse, error) {
+	if err := s.isValidRequest(req); err != nil {
+		return nil, status.Error(codes.PermissionDenied, err.Error())
+	}
+
+	resp := new(control.NetworkEpochTickResponse)
+
+	body := new(control.NetworkEpochTickResponse_Body)
+	resp.SetBody(body)
+
+	body.SetHash(s.prm.networkManager.TickEpoch())
+
+	if err := SignMessage(&s.prm.key.PrivateKey, resp); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return resp, nil
+}

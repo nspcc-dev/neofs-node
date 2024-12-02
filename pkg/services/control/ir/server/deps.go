@@ -11,3 +11,9 @@ type HealthChecker interface {
 	// control.HealthStatus_HEALTH_STATUS_UNDEFINED should be returned.
 	HealthStatus() control.HealthStatus
 }
+
+type NetworkManager interface {
+	ListNetworkRequests() []string
+
+	TickEpoch() string
+}

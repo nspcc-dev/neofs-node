@@ -154,3 +154,305 @@ func (x *HealthCheckResponse) ReadSignedData(buf []byte) ([]byte, error) {
 func (x *HealthCheckResponse) SetSignature(sig *Signature) {
 	x.Signature = sig
 }
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkListRequest_Body) StableSize() (size int) {
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkListRequest_Body) StableMarshal(buf []byte) []byte {
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkListRequest) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkListRequest) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NetworkListRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NetworkListRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NetworkListRequest) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkListResponse_Body) StableSize() (size int) {
+	size += proto.RepeatedStringSize(1, x.Hashes)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkListResponse_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.RepeatedStringMarshal(1, buf[offset:], x.Hashes)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkListResponse) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkListResponse) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NetworkListResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NetworkListResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NetworkListResponse) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkEpochTickRequest_Body) StableSize() (size int) {
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkEpochTickRequest_Body) StableMarshal(buf []byte) []byte {
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkEpochTickRequest) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkEpochTickRequest) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NetworkEpochTickRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NetworkEpochTickRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NetworkEpochTickRequest) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkEpochTickResponse_Body) StableSize() (size int) {
+	size += proto.StringSize(1, x.Hash)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkEpochTickResponse_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.Hash)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NetworkEpochTickResponse) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NetworkEpochTickResponse) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NetworkEpochTickResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NetworkEpochTickResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NetworkEpochTickResponse) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
