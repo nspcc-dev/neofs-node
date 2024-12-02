@@ -3,8 +3,9 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -16,28 +17,28 @@ var (
 )
 
 // Put puts object to write-cache.
-func (c *cache) Put(prm common.PutPrm) (common.PutRes, error) {
+func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error {
 	c.modeMtx.RLock()
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
-		return common.PutRes{}, ErrReadOnly
+		return ErrReadOnly
 	}
 
-	sz := uint64(len(prm.RawData))
+	sz := uint64(len(data))
 	if sz > c.maxObjectSize {
-		return common.PutRes{}, ErrBigObject
+		return ErrBigObject
 	}
 
 	oi := objectInfo{
-		addr: prm.Address.EncodeToString(),
-		obj:  prm.Object,
-		data: prm.RawData,
+		addr: addr.EncodeToString(),
+		obj:  obj,
+		data: data,
 	}
 
 	if sz <= c.smallObjectSize {
-		return common.PutRes{}, c.putSmall(oi)
+		return c.putSmall(oi)
 	}
-	return common.PutRes{}, c.putBig(oi.addr, prm)
+	return c.putBig(addr, oi)
 }
 
 // putSmall persists small objects to the write-cache database and
@@ -64,25 +65,25 @@ func (c *cache) putSmall(obj objectInfo) error {
 }
 
 // putBig writes object to FSTree and pushes it to the flush workers queue.
-func (c *cache) putBig(addr string, prm common.PutPrm) error {
+func (c *cache) putBig(addr oid.Address, obj objectInfo) error {
 	cacheSz := c.estimateCacheSize()
 	if c.maxCacheSize < c.incSizeFS(cacheSz) {
 		return ErrOutOfSpace
 	}
 
-	_, err := c.fsTree.Put(prm)
+	err := c.fsTree.Put(addr, obj.data)
 	if err != nil {
 		return err
 	}
 
-	if c.blobstor.NeedsCompression(prm.Object) {
+	if c.blobstor.NeedsCompression(obj.obj) {
 		c.mtx.Lock()
-		c.compressFlags[addr] = struct{}{}
+		c.compressFlags[obj.addr] = struct{}{}
 		c.mtx.Unlock()
 	}
 	c.objCounters.IncFS()
 	storagelog.Write(c.log,
-		storagelog.AddressField(addr),
+		storagelog.AddressField(obj.addr),
 		storagelog.StorageTypeField(wcStorageType),
 		storagelog.OpField("fstree PUT"),
 	)

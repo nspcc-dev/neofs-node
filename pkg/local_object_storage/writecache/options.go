@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -23,7 +22,7 @@ type Metabase interface {
 
 // blob is an interface for the blobstor.
 type blob interface {
-	Put(common.PutPrm) (common.PutRes, error)
+	Put(oid.Address, *objectSDK.Object, []byte) ([]byte, error)
 	NeedsCompression(obj *objectSDK.Object) bool
 	Exists(oid.Address, []byte) (bool, error)
 }

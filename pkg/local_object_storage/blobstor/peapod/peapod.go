@@ -411,17 +411,13 @@ var storageID = []byte("peapod")
 // returns its error (in this case data may be saved).
 //
 // Put returns common.ErrReadOnly if Peadpod is read-only.
-func (x *Peapod) Put(prm common.PutPrm) (common.PutRes, error) {
-	prm.RawData = x.compress.Compress(prm.RawData)
+func (x *Peapod) Put(addr oid.Address, data []byte) error {
+	data = x.compress.Compress(data)
 
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2480
-	err := x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
-		return bktRoot.Put(keyForObject(prm.Address), prm.RawData)
+	return x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
+		return bktRoot.Put(keyForObject(addr), data)
 	})
-
-	return common.PutRes{
-		StorageID: storageID,
-	}, err
 }
 
 // Delete removes data associated with the given object address from the

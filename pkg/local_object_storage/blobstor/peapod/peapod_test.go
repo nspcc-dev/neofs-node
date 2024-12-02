@@ -55,10 +55,7 @@ func newTestPeapodReadOnly(tb testing.TB) (*peapod.Peapod, oid.Address) {
 	ppd := _newTestPeapod(tb, path, false)
 	addr := oidtest.Address()
 
-	_, err := ppd.Put(common.PutPrm{
-		Address: addr,
-		RawData: []byte("Hello, world!"),
-	})
+	err := ppd.Put(addr, []byte("Hello, world!"))
 	require.NoError(tb, err)
 	require.NoError(tb, ppd.Close())
 
@@ -87,10 +84,7 @@ func TestPeapod_Get(t *testing.T) {
 	_, err := ppd.Get(addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
-	_, err = ppd.Put(common.PutPrm{
-		Address: addr,
-		RawData: data,
-	})
+	err = ppd.Put(addr, data)
 	require.NoError(t, err)
 
 	getObj, err := ppd.Get(addr)
@@ -111,10 +105,7 @@ func TestPeapod_Exists(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, res)
 
-	_, err = ppd.Put(common.PutPrm{
-		Address: addr,
-		RawData: data,
-	})
+	err = ppd.Put(addr, data)
 	require.NoError(t, err)
 
 	res, err = ppd.Exists(addr)
@@ -143,10 +134,7 @@ func TestPeapod_Iterate(t *testing.T) {
 	require.Empty(t, mDst)
 
 	for addr, data := range mSrc {
-		_, err = ppd.Put(common.PutPrm{
-			Address: addr,
-			RawData: data,
-		})
+		err = ppd.Put(addr, data)
 		require.NoError(t, err)
 	}
 
@@ -162,10 +150,7 @@ func TestPeapod_Put(t *testing.T) {
 
 	data := obj.Marshal()
 
-	_, err := ppd.Put(common.PutPrm{
-		Address: addr,
-		RawData: data,
-	})
+	err := ppd.Put(addr, data)
 	require.NoError(t, err)
 
 	getObj, err := ppd.Get(addr)
@@ -179,10 +164,7 @@ func TestPeapod_Put(t *testing.T) {
 	t.Run("read-only", func(t *testing.T) {
 		ppd, _ := newTestPeapodReadOnly(t)
 
-		_, err := ppd.Put(common.PutPrm{
-			Address: addr,
-			RawData: data,
-		})
+		err := ppd.Put(addr, data)
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 }
@@ -197,10 +179,7 @@ func TestPeapod_Delete(t *testing.T) {
 	err := ppd.Delete(addr)
 	require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 
-	_, err = ppd.Put(common.PutPrm{
-		Address: addr,
-		RawData: data,
-	})
+	err = ppd.Put(addr, data)
 	require.NoError(t, err)
 
 	getObj, err := ppd.Get(addr)
@@ -246,10 +225,7 @@ func TestPeapod_IterateAddresses(t *testing.T) {
 	require.Empty(t, mDst)
 
 	for addr := range mSrc {
-		_, err = ppd.Put(common.PutPrm{
-			Address: addr,
-			RawData: nil, // doesn't affect current test
-		})
+		err = ppd.Put(addr, nil) // nil doesn't affect current test
 		require.NoError(t, err)
 	}
 

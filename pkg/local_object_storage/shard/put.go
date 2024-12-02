@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
@@ -34,18 +33,16 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 		//  reuse already encoded header.
 	}
 
-	var putPrm common.PutPrm // form Put parameters
-	putPrm.Object = obj
-	putPrm.RawData = objBin
-	putPrm.Address = objectCore.AddressOf(obj)
-
-	var res common.PutRes
+	var (
+		addr      = objectCore.AddressOf(obj)
+		storageID []byte
+	)
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
 	tryCache := s.hasWriteCache() && !m.NoMetabase()
 	if tryCache {
-		res, err = s.writeCache.Put(putPrm)
+		err = s.writeCache.Put(addr, obj, objBin)
 	}
 	if err != nil || !tryCache {
 		if err != nil {
@@ -53,7 +50,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 				zap.String("err", err.Error()))
 		}
 
-		res, err = s.blobStor.Put(putPrm)
+		storageID, err = s.blobStor.Put(addr, obj, objBin)
 		if err != nil {
 			return fmt.Errorf("could not put object to BLOB storage: %w", err)
 		}
@@ -64,14 +61,14 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 		if hdrLen != 0 {
 			binHeader = objBin[:hdrLen]
 		}
-		if err := s.metaBase.Put(obj, res.StorageID, binHeader); err != nil {
+		if err := s.metaBase.Put(obj, storageID, binHeader); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor
 			return fmt.Errorf("could not put object to metabase: %w", err)
 		}
 
 		s.incObjectCounter()
-		s.addToContainerSize(putPrm.Address.Container().EncodeToString(), int64(obj.PayloadSize()))
+		s.addToContainerSize(addr.Container().EncodeToString(), int64(obj.PayloadSize()))
 	}
 
 	return nil

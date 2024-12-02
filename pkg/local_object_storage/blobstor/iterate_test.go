@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -63,7 +62,7 @@ func TestIterateObjects(t *testing.T) {
 	}
 
 	for _, v := range mObjs {
-		_, err := blobStor.Put(common.PutPrm{Address: v.addr, RawData: v.data})
+		_, err := blobStor.Put(v.addr, nil, v.data)
 		require.NoError(t, err)
 	}
 

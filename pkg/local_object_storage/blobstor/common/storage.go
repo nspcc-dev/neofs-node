@@ -27,7 +27,7 @@ type Storage interface {
 	Get(oid.Address) (*objectSDK.Object, error)
 	GetRange(oid.Address, uint64, uint64) ([]byte, error)
 	Exists(oid.Address) (bool, error)
-	Put(PutPrm) (PutRes, error)
+	Put(oid.Address, []byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error, bool) error
 	IterateLazily(func(oid.Address, func() ([]byte, error)) error, bool) error
@@ -68,10 +68,7 @@ func Copy(dst, src Storage) error {
 			return nil
 		}
 
-		_, err = dst.Put(PutPrm{
-			Address: addr,
-			RawData: data,
-		})
+		err = dst.Put(addr, data)
 		if err != nil {
 			return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
 		}

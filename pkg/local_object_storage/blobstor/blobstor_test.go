@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -65,14 +64,10 @@ func TestCompression(t *testing.T) {
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
-		var prm common.PutPrm
-		prm.Object = smallObj[i]
-		_, err = b.Put(prm)
+		_, err = b.Put(object.AddressOf(smallObj[i]), smallObj[i], nil)
 		require.NoError(t, err)
 
-		prm = common.PutPrm{}
-		prm.Object = bigObj[i]
-		_, err = b.Put(prm)
+		_, err = b.Put(object.AddressOf(bigObj[i]), bigObj[i], nil)
 		require.NoError(t, err)
 	}
 

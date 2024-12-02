@@ -8,7 +8,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
@@ -119,7 +118,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	// https://github.com/nspcc-dev/neofs-node/issues/2563
 	err = fsTree.Delete(addr)
 	require.NoError(t, err)
-	_, err = fsTree.Put(common.PutPrm{Address: addr, RawData: []byte("not an object")})
+	err = fsTree.Put(addr, []byte("not an object"))
 	require.NoError(t, err)
 
 	sh = New(

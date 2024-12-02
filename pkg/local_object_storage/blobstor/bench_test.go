@@ -39,10 +39,6 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 	data := make([]byte, objSize)
 	_, _ = rand.Read(data)
 
-	prm := common.PutPrm{
-		RawData: data,
-	}
-
 	b.ResetTimer()
 
 	for range b.N {
@@ -53,10 +49,7 @@ func benchmark(b *testing.B, p common.Storage, objSize uint64, nThreads int) {
 			go func() {
 				defer wg.Done()
 
-				prm := prm
-				prm.Address = oidtest.Address()
-
-				_, err := p.Put(prm)
+				err := p.Put(oidtest.Address(), data)
 				require.NoError(b, err)
 			}()
 		}
@@ -135,21 +128,16 @@ func BenchmarkGet(b *testing.B) {
 					obj.SetContainerID(cid.ID{1, 2, 3})
 					obj.SetPayload(data)
 
-					prm := common.PutPrm{
-						RawData: obj.Marshal(),
-					}
+					rawData := obj.Marshal()
 
 					var ach = make(chan oid.Address)
 					for range 100 {
 						go func() {
 							for range nObjects / 100 {
-								prm := prm
-
-								prm.Address = oidtest.Address()
-
-								_, err := ptt.Put(prm)
+								addr := oidtest.Address()
+								err := ptt.Put(addr, rawData)
 								require.NoError(b, err)
-								ach <- prm.Address
+								ach <- addr
 							}
 						}()
 					}

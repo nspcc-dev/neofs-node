@@ -31,10 +31,7 @@ func TestCopy(t *testing.T) {
 		_, _ = rand.Read(data)
 		mObjs[addr] = data
 
-		_, err := src.Put(common.PutPrm{
-			Address: addr,
-			RawData: data,
-		})
+		err := src.Put(addr, data)
 		require.NoError(t, err)
 	}
 

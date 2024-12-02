@@ -26,11 +26,9 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	}
 
 	t.Run("put fails", func(t *testing.T) {
-		var prm common.PutPrm
-		prm.Object = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
-		prm.Address = objectCore.AddressOf(prm.Object)
+		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 
-		_, err := s.Put(prm)
+		err := s.Put(objectCore.AddressOf(obj), obj.Marshal())
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 	t.Run("delete fails", func(t *testing.T) {

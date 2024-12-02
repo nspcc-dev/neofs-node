@@ -294,23 +294,23 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 }
 
 // Put puts an object in the storage.
-func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
+func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if t.readOnly {
-		return common.PutRes{}, common.ErrReadOnly
+		return common.ErrReadOnly
 	}
 
-	p := t.treePath(prm.Address)
+	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
-		return common.PutRes{}, fmt.Errorf("mkdirall for %q: %w", p, err)
+		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
-	prm.RawData = t.Compress(prm.RawData)
+	data = t.Compress(data)
 
-	err := t.writer.writeData(prm.Address.Object(), p, prm.RawData)
+	err := t.writer.writeData(addr.Object(), p, data)
 	if err != nil {
-		return common.PutRes{}, fmt.Errorf("write object data into file %q: %w", p, err)
+		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}
-	return common.PutRes{StorageID: []byte{}}, nil
+	return nil
 }
 
 // Get returns an object from the storage by address.

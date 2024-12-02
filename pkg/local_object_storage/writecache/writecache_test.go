@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -27,10 +26,7 @@ func TestCache_InitReadOnly(t *testing.T) {
 
 	obj := objecttest.Object()
 
-	_, err = wc.Put(common.PutPrm{
-		Address: objectcore.AddressOf(&obj),
-		Object:  &obj,
-	})
+	err = wc.Put(objectcore.AddressOf(&obj), &obj, nil)
 	require.NoError(t, err)
 
 	err = wc.Close()

@@ -246,11 +246,7 @@ func (c *cache) flushWorker(_ int) {
 func (c *cache) flushObject(obj *object.Object, data []byte) error {
 	addr := objectCore.AddressOf(obj)
 
-	var prm common.PutPrm
-	prm.Object = obj
-	prm.RawData = data
-
-	res, err := c.blobstor.Put(prm)
+	sid, err := c.blobstor.Put(addr, obj, data)
 	if err != nil {
 		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
 			!errors.Is(err, blobstor.ErrNoPlaceFound) {
@@ -260,13 +256,13 @@ func (c *cache) flushObject(obj *object.Object, data []byte) error {
 		return err
 	}
 
-	err = c.metabase.UpdateStorageID(addr, res.StorageID)
+	err = c.metabase.UpdateStorageID(addr, sid)
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
 			// we have the object and we just successfully put it so all the
 			// information for restoring the object is here; meta can be
 			// corrupted, resynced, etc, just trying our best
-			err = c.metabase.Put(obj, res.StorageID, nil)
+			err = c.metabase.Put(obj, sid, nil)
 			if err != nil {
 				err = fmt.Errorf("trying to restore missing object in metabase: %w", err)
 			}

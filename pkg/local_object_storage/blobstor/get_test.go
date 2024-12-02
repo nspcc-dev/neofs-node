@@ -43,7 +43,7 @@ func (x *getBytesOnlySubStorage) Exists(_ oid.Address) (bool, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Put(prm common.PutPrm) (common.PutRes, error) {
+func (x *getBytesOnlySubStorage) Put(oid.Address, []byte) error {
 	panic("must not be called")
 }
 

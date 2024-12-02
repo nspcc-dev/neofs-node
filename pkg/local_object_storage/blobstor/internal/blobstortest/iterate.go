@@ -28,9 +28,8 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
 			seen[addr.String()] = objectDesc{
-				addr:      addr,
-				raw:       data,
-				storageID: id,
+				addr: addr,
+				raw:  data,
 			}
 			return nil
 		}
@@ -43,7 +42,6 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			require.True(t, ok)
 			require.Equal(t, objects[i].raw, d.raw)
 			require.Equal(t, objects[i].addr, d.addr)
-			require.Equal(t, objects[i].storageID, d.storageID)
 		}
 	})
 
@@ -79,9 +77,8 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
 			seen[addr.String()] = objectDesc{
-				addr:      addr,
-				raw:       data,
-				storageID: id,
+				addr: addr,
+				raw:  data,
 			}
 			n++
 			if n == len(objects)/2 {
@@ -99,7 +96,6 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 				n--
 				require.Equal(t, objects[i].raw, d.raw)
 				require.Equal(t, objects[i].addr, d.addr)
-				require.Equal(t, objects[i].storageID, d.storageID)
 			}
 		}
 		require.Equal(t, 0, n)
