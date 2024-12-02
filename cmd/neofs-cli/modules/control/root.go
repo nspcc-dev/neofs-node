@@ -34,6 +34,7 @@ func init() {
 		shardsCmd,
 		synchronizeTreeCmd,
 		objectCmd,
+		notaryCmd,
 	)
 
 	initControlHealthCheckCmd()
@@ -42,4 +43,5 @@ func init() {
 	initControlShardsCmd()
 	initControlSynchronizeTreeCmd()
 	initControlObjectsCmd()
+	initControlNotaryCmd()
 }
