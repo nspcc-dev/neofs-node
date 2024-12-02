@@ -138,27 +138,31 @@ func addressFromString(s string) (*oid.Address, error) {
 }
 
 // Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error, ignoreErrors bool) error {
-	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil, ignoreErrors)
+func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil)
 }
 
 // IterateLazily is similar to Iterate, but allows to skip/defer object
 // retrieval in the handler. Use getter function when needed.
 func (t *FSTree) IterateLazily(lazyHandler func(addr oid.Address, getter func() ([]byte, error)) error, ignoreErrors bool) error {
-	return t.iterate(0, []string{t.RootPath}, nil, nil, lazyHandler, ignoreErrors)
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+
+	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, lazyHandler)
 }
 
 func (t *FSTree) iterate(depth uint64, curPath []string,
 	objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
-	lazyHandler func(oid.Address, func() ([]byte, error)) error,
-	ignoreErrors bool) error {
+	lazyHandler func(oid.Address, func() ([]byte, error)) error) error {
 	curName := strings.Join(curPath[1:], "")
 	dir := filepath.Join(curPath...)
 	des, err := os.ReadDir(dir)
 	if err != nil {
-		if ignoreErrors {
-			return nil
+		if errorHandler != nil {
+			return errorHandler(oid.Address{}, err)
 		}
 		return fmt.Errorf("read dir %q: %w", dir, err)
 	}
@@ -171,7 +175,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 		curPath[l] = des[i].Name()
 
 		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, objHandler, errorHandler, lazyHandler, ignoreErrors)
+			err := t.iterate(depth+1, curPath, objHandler, errorHandler, lazyHandler)
 			if err != nil {
 				// Must be error from handler in case errors are ignored.
 				// Need to report.
@@ -203,12 +207,8 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 				data, err = t.Decompress(data)
 			}
 			if err != nil {
-				if ignoreErrors {
-					if errorHandler != nil {
-						err = errorHandler(*addr, err)
-					} else {
-						err = nil
-					}
+				if errorHandler != nil {
+					err = errorHandler(*addr, err)
 					if err == nil {
 						continue
 					}

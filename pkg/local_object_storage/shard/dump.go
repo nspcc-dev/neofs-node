@@ -67,7 +67,12 @@ func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
 		return nil
 	}
 
-	err = s.blobStor.Iterate(objHandler, nil, ignoreErrors)
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+
+	err = s.blobStor.Iterate(objHandler, errorHandler)
 
 	return count, err
 }

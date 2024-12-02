@@ -14,13 +14,13 @@ import (
 // did not allow to completely iterate over the storage.
 //
 // If handler returns an error, method wraps and returns it immediately.
-func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error, ignoreErrors bool) error {
+func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
 	for i := range b.storage {
-		err := b.storage[i].Storage.Iterate(objHandler, errorHandler, ignoreErrors)
-		if err != nil && !ignoreErrors {
+		err := b.storage[i].Storage.Iterate(objHandler, errorHandler)
+		if err != nil {
 			return fmt.Errorf("blobstor iterator failure: %w", err)
 		}
 	}
@@ -37,5 +37,5 @@ func (b *BlobStor) IterateBinaryObjects(f func(addr oid.Address, data []byte, de
 		return nil
 	}
 
-	return b.Iterate(f, errorHandler, true)
+	return b.Iterate(f, errorHandler)
 }

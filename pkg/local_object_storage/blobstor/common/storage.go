@@ -29,7 +29,7 @@ type Storage interface {
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
 	Delete(oid.Address) error
-	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error, bool) error
+	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error) error
 	IterateLazily(func(oid.Address, func() ([]byte, error)) error, bool) error
 }
 
@@ -73,7 +73,7 @@ func Copy(dst, src Storage) error {
 			return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
 		}
 		return nil
-	}, nil, false)
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("iterate over source sub-storage: %w", err)
 	}

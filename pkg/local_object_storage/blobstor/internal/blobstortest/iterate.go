@@ -34,7 +34,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		err := s.Iterate(objHandler, nil, false)
+		err := s.Iterate(objHandler, nil)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
@@ -87,7 +87,9 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		err := s.Iterate(objHandler, nil, true)
+		var errorHandler = func(oid.Address, error) error { return nil }
+
+		err := s.Iterate(objHandler, errorHandler)
 		require.ErrorIs(t, err, logicErr)
 		require.Equal(t, len(objects)/2, len(seen))
 		for i := range objects {

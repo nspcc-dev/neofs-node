@@ -50,6 +50,6 @@ func TestCopy(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, origData, data)
 		return nil
-	}, nil, false)
+	}, nil)
 	require.NoError(t, err)
 }

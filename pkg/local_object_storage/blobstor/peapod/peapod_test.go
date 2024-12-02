@@ -129,7 +129,7 @@ func TestPeapod_Iterate(t *testing.T) {
 		return nil
 	}
 
-	err := ppd.Iterate(f, nil, false)
+	err := ppd.Iterate(f, nil)
 	require.NoError(t, err)
 	require.Empty(t, mDst)
 
@@ -138,7 +138,7 @@ func TestPeapod_Iterate(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = ppd.Iterate(f, nil, false)
+	err = ppd.Iterate(f, nil)
 	require.NoError(t, err)
 	require.Equal(t, mSrc, mDst)
 }

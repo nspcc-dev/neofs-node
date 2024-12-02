@@ -51,7 +51,7 @@ func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error, _ bool) error {
+func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error) error {
 	panic("must not be called")
 }
 

@@ -479,24 +479,26 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 
 // Iterate iterates over all objects stored in the underlying database and
 // passes them into objHandler. Errors are passed into errorHandler if it's
-// specified and ignoreErrors is true. If error is returned from handlers
-// iteration stops.
+// specified. If error is returned from handlers iteration stops.
 //
 // Use IterateAddresses to iterate over keys only.
-func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error, ignoreErrors bool) error {
-	return x.iterate(objHandler, errorHandler, nil, ignoreErrors)
+func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+	return x.iterate(objHandler, errorHandler, nil)
 }
 
 // IterateLazily is similar to Iterate, but allows to skip/defer object
 // retrieval in the handler. Use getter function when needed.
 func (x *Peapod) IterateLazily(lazyHandler func(addr oid.Address, getter func() ([]byte, error)) error, ignoreErrors bool) error {
-	return x.iterate(nil, nil, lazyHandler, ignoreErrors)
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+	return x.iterate(nil, errorHandler, lazyHandler)
 }
 
 func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
-	lazyHandler func(oid.Address, func() ([]byte, error)) error,
-	ignoreErrors bool) error {
+	lazyHandler func(oid.Address, func() ([]byte, error)) error) error {
 	var addr oid.Address
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
@@ -508,12 +510,8 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 		return bktRoot.ForEach(func(k, v []byte) error {
 			err := decodeKeyForObject(&addr, k)
 			if err != nil {
-				if ignoreErrors {
-					if errorHandler != nil {
-						return errorHandler(addr, err)
-					}
-
-					return nil
+				if errorHandler != nil {
+					return errorHandler(addr, err)
 				}
 
 				return fmt.Errorf("decode object address from bucket key: %w", err)
@@ -521,12 +519,8 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 
 			v, err = x.compress.Decompress(v)
 			if err != nil {
-				if ignoreErrors {
-					if errorHandler != nil {
-						return errorHandler(addr, err)
-					}
-
-					return nil
+				if errorHandler != nil {
+					return errorHandler(addr, err)
 				}
 
 				return fmt.Errorf("decompress value for object '%s': %w", addr, err)
