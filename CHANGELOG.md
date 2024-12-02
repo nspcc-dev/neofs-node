@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `neofs-cli control notary` with `list`, `request` and `sign` commands (#3059)
 
 ### Fixed
 - Incomplete metabase migration to version 3 leading to node start failure (#3048)
