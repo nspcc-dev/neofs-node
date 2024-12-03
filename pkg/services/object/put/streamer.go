@@ -241,6 +241,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		fmt:                  p.fmtValidator,
 		localNodeInContainer: prm.localNodeInContainer,
 		localNodeSigner:      prm.localNodeSigner,
+		cnrClient:            p.cfg.cnrClient,
 	}
 }
 
