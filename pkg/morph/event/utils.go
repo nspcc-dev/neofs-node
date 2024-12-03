@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
@@ -27,7 +26,6 @@ type scriptHashWithType struct {
 }
 
 type notaryRequestTypes struct {
-	notaryRequestMempoolType
 	notaryScriptWithHash
 }
 
@@ -36,22 +34,8 @@ type notaryScriptWithHash struct {
 	scriptHashValue
 }
 
-type notaryRequestMempoolType struct {
-	mempoolTyp mempoolevent.Type
-}
-
 type notaryRequestType struct {
 	notaryType NotaryType
-}
-
-// GetMempoolType is a notary request mempool type getter.
-func (n notaryRequestMempoolType) GetMempoolType() mempoolevent.Type {
-	return n.mempoolTyp
-}
-
-// SetMempoolType is a notary request mempool type setter.
-func (n *notaryRequestMempoolType) SetMempoolType(typ mempoolevent.Type) {
-	n.mempoolTyp = typ
 }
 
 // RequestType is a notary request type getter.

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -108,7 +107,6 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 		pp = make([]event.NotaryParserInfo, 0, 4)
 	)
 
-	p.SetMempoolType(mempoolevent.TransactionAdded)
 	p.SetScriptHash(cp.cnrClient.ContractAddress())
 
 	// container put
@@ -143,7 +141,6 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	)
 
 	h.SetScriptHash(cp.cnrClient.ContractAddress())
-	h.SetMempoolType(mempoolevent.TransactionAdded)
 
 	// container put
 	h.SetRequestType(containerEvent.PutNotaryEvent)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	reputationEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/reputation"
@@ -94,7 +93,6 @@ func (rp *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	var p event.NotaryParserInfo
 
-	p.SetMempoolType(mempoolevent.TransactionAdded)
 	p.SetRequestType(reputationEvent.PutNotaryEvent)
 	p.SetScriptHash(rp.reputationWrp.ContractAddress())
 	p.SetParser(reputationEvent.ParsePutNotary)
@@ -106,7 +104,6 @@ func (rp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 func (rp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	var h event.NotaryHandlerInfo
 
-	h.SetMempoolType(mempoolevent.TransactionAdded)
 	h.SetRequestType(reputationEvent.PutNotaryEvent)
 	h.SetScriptHash(rp.reputationWrp.ContractAddress())
 	h.SetHandler(rp.handlePutReputation)
