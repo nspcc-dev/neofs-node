@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Fail gracefully on error from config validation (#3037)
 
 ### Changed
 
