@@ -42,6 +42,7 @@ const (
 
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
+	submitObjectPutMethod     = "submitObjectPut"
 )
 
 var (
