@@ -10,6 +10,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -31,7 +32,13 @@ type distributedTarget struct {
 	obj                *objectSDK.Object
 	objMeta            object.ContentMeta
 	networkMagicNumber uint32
-	objSharedMeta      []byte
+
+	cnrClient               *chaincontainer.Client
+	metainfoConsistencyAttr string
+
+	metaMtx             sync.RWMutex
+	objSharedMeta       []byte
+	collectedSignatures [][]byte
 
 	localNodeInContainer bool
 	localNodeSigner      neofscrypto.Signer
@@ -143,7 +150,22 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
 		lockedObjs, t.obj.CreationEpoch(), t.networkMagicNumber)
 	id := t.obj.GetID()
-	return id, t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)
+	if err != nil {
+		return oid.ID{}, err
+	}
+
+	if t.localNodeInContainer && (t.metainfoConsistencyAttr == "strict" || t.metainfoConsistencyAttr == "optimistic") {
+		t.metaMtx.RLock()
+		defer t.metaMtx.RUnlock()
+
+		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		if err != nil {
+			t.placementIterator.log.Info("failed to submit", zap.Stringer("oid", id), zap.Error(err))
+		}
+	}
+
+	return id, nil
 }
 
 func (t *distributedTarget) sendObject(node nodeDesc) error {
@@ -181,6 +203,10 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		if !sig.Verify(t.objSharedMeta) {
 			l.Info("meta signature verification failed", zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 		}
+
+		t.metaMtx.Lock()
+		t.collectedSignatures = append(t.collectedSignatures, sig.Value())
+		t.metaMtx.Unlock()
 	}
 
 	return nil

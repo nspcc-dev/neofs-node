@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -237,10 +238,12 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 
 			return rt
 		},
-		relay:                relay,
-		fmt:                  p.fmtValidator,
-		localNodeInContainer: prm.localNodeInContainer,
-		localNodeSigner:      prm.localNodeSigner,
+		relay:                   relay,
+		fmt:                     p.fmtValidator,
+		localNodeInContainer:    prm.localNodeInContainer,
+		localNodeSigner:         prm.localNodeSigner,
+		cnrClient:               p.cfg.cnrClient,
+		metainfoConsistencyAttr: metaAttribute(prm.cnr),
 	}
 }
 
@@ -269,4 +272,8 @@ func (p *Streamer) Close() (*PutResponse, error) {
 	return &PutResponse{
 		id: id,
 	}, nil
+}
+
+func metaAttribute(cnr container.Container) string {
+	return cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
 }
