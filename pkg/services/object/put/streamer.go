@@ -140,6 +140,10 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 }
 
 func (p *Streamer) preparePrm(prm *PutInitPrm) error {
+	localOnly := prm.common.LocalOnly()
+	if localOnly && prm.copiesNumber > 0 {
+		return errors.New("storage of multiple object replicas is requested for a local operation")
+	}
 	var err error
 
 	localNodeKey, err := p.keyStorage.GetKey(nil)
@@ -170,15 +174,12 @@ nextSet:
 		for j := range cnrNodes[i] {
 			prm.localNodeInContainer = p.neoFSNet.IsLocalNodePublicKey(cnrNodes[i][j].PublicKey())
 			if prm.localNodeInContainer {
-				if prm.copiesNumber > 0 {
-					return errors.New("storage of multiple object replicas is requested for a local operation")
-				}
 				prm.localNodePos[0], prm.localNodePos[1] = i, j
 				break nextSet
 			}
 		}
 	}
-	if !prm.localNodeInContainer && prm.common.LocalOnly() {
+	if !prm.localNodeInContainer && localOnly {
 		return errors.New("local operation on the node not compliant with the container storage policy")
 	}
 
