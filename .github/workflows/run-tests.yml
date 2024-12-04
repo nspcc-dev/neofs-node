@@ -24,10 +24,15 @@ on:
         description: 'neofs-testcases ref. Default: master. Examples: v0.36.0, 8fdcc6d7e798e6511be8806b81894622e72d7fdc, branch_name'
         required: false
         default: 'master'
-      run_all_tests:
-        description: 'Force running all tests, by default PRs trigger sanity test runs only'
+      test_set:
+        description: 'Test suite to run, default depends on trigger and is "sanity" for PRs'
         required: false
-        default: 'false'
+        type: choice
+        options:
+          - all
+          - default
+          - sanity
+        default: 'default'
 
 permissions: write-all
 
@@ -44,7 +49,7 @@ jobs:
       neofs_other_expiration_period: ${{ vars.OTHER_EXPIRATION_PERIOD }}
       neofs_testcases_commit: ${{ github.event.inputs.neofs_testcases_ref }}
       neofs_node_commit: ${{ github.event.inputs.neofs_node_ref }}
-      marks: ${{ !github.event.inputs.run_all_tests && github.event_name == 'pull_request' && 'sanity' || '' }}
+      marks: ${{ (github.event.inputs.test_set == 'sanity' || (github.event.inputs.test_set != 'all' && github.event_name == 'pull_request')) && 'sanity' || '' }}
       tests_parallel_level: 3
       os: '[{runner: "ubuntu-latest", binary: "linux-amd64"}, {runner: "macos-14", binary: "darwin-arm64"}]'
     secrets: inherit
