@@ -144,7 +144,6 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	if localOnly && prm.copiesNumber > 0 {
 		return errors.New("storage of multiple object replicas is requested for a local operation")
 	}
-	var err error
 
 	localNodeKey, err := p.keyStorage.GetKey(nil)
 	if err != nil {
