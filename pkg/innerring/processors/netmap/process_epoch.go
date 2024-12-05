@@ -13,10 +13,11 @@ import (
 // local epoch timer.
 func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	epoch := ev.EpochNumber()
+	l := np.log.With(zap.Uint64("epoch", epoch))
 
 	epochDuration, err := np.netmapClient.EpochDuration()
 	if err != nil {
-		np.log.Warn("can't get epoch duration",
+		l.Warn("can't get epoch duration",
 			zap.Error(err))
 	} else {
 		np.epochState.SetEpochDuration(epochDuration)
@@ -26,20 +27,20 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 
 	h, err := np.netmapClient.Morph().TxHeight(ev.TxHash())
 	if err != nil {
-		np.log.Warn("can't get transaction height",
+		l.Warn("can't get transaction height",
 			zap.String("hash", ev.TxHash().StringLE()),
 			zap.Error(err))
 	}
 
 	if err := np.epochTimer.ResetEpochTimer(h); err != nil {
-		np.log.Warn("can't reset epoch timer",
+		l.Warn("can't reset epoch timer",
 			zap.Error(err))
 	}
 
 	// get new netmap snapshot
 	networkMap, err := np.netmapClient.NetMap()
 	if err != nil {
-		np.log.Warn("can't get netmap snapshot to perform cleanup",
+		l.Warn("can't get netmap snapshot to perform cleanup",
 			zap.Error(err))
 
 		return
@@ -53,13 +54,13 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	prm.SetHash(ev.TxHash())
 
 	if epoch > 0 { // estimates are invalid in genesis epoch
-		np.log.Info("start estimation collection", zap.Uint64("epoch", estimationEpoch))
+		l.Info("start estimation collection", zap.Uint64("estimated epoch", estimationEpoch))
 
 		err = np.containerWrp.StartEstimation(prm)
 
 		if err != nil {
-			np.log.Warn("can't start container size estimation",
-				zap.Uint64("epoch", epoch),
+			l.Warn("can't start container size estimation",
+				zap.Uint64("estimated epoch", estimationEpoch),
 				zap.Error(err))
 		}
 	}
