@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Local object PUT op with copies number set to 1 is allowed now (#3042)
+- Number of cuncurrenly handled notifications from the chain was increased from 10 to 100 (#3043)
 
 ### Removed
 

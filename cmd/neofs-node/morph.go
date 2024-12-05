@@ -66,7 +66,7 @@ func listenMorphNotifications(c *cfg) {
 	// the client cannot make RPC requests if
 	// the notification channel is not being
 	// read by another goroutine.
-	const listenerPoolCap = 10
+	const listenerPoolCap = 100
 
 	lis, err := event.NewListener(event.ListenerParams{
 		Logger:             c.log,
