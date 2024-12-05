@@ -141,7 +141,7 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 
 func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	localOnly := prm.common.LocalOnly()
-	if localOnly && prm.copiesNumber > 0 {
+	if localOnly && prm.copiesNumber > 1 {
 		return errors.New("storage of multiple object replicas is requested for a local operation")
 	}
 

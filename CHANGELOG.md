@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - False-negative object PUT from container node with set copies number (#3042)
 
 ### Changed
+- Local object PUT op with copies number set to 1 is allowed now (#3042)
 
 ### Removed
 
