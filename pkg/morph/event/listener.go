@@ -575,7 +575,7 @@ func NewListener(p ListenerParams) (Listener, error) {
 	// defaultPoolCap is a default worker
 	// pool capacity if it was not specified
 	// via params
-	const defaultPoolCap = 10
+	const defaultPoolCap = 100
 
 	switch {
 	case p.Logger == nil:
