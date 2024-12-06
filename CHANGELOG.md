@@ -7,8 +7,10 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Fail gracefully on error from config validation (#3037)
+- False-negative object PUT from container node with set copies number (#3042)
 
 ### Changed
+- Local object PUT op with copies number set to 1 is allowed now (#3042)
 
 ### Removed
 
