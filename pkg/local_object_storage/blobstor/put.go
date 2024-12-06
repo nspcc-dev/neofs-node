@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -15,51 +15,57 @@ import (
 // because of the policy.
 var ErrNoPlaceFound = logicerr.New("couldn't find a place to store an object")
 
-// Put saves the object in BLOB storage.
+// Put saves the object in BLOB storage. raw can be nil, in which case obj is
+// serialized internally.
 //
 // If object is "big", BlobStor saves the object in shallow dir.
 // Otherwise, BlobStor saves the object in peapod.
 //
-// Returns any error encountered that
-// did not allow to completely save the object.
-func (b *BlobStor) Put(prm common.PutPrm) (common.PutRes, error) {
+// Returns storage ID that saved the object given or an error if any.
+func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) ([]byte, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	if prm.Object != nil {
-		prm.Address = object.AddressOf(prm.Object)
-	}
-	if prm.RawData == nil {
+	if raw == nil {
 		// marshal object
-		prm.RawData = prm.Object.Marshal()
+		raw = obj.Marshal()
 	}
 
 	var overflow bool
 
 	for i := range b.storage {
-		if b.storage[i].Policy == nil || b.storage[i].Policy(prm.Object, prm.RawData) {
-			res, err := b.storage[i].Storage.Put(prm)
+		if b.storage[i].Policy == nil || b.storage[i].Policy(obj, raw) {
+			var (
+				typ = b.storage[i].Storage.Type()
+				err = b.storage[i].Storage.Put(addr, raw)
+				sid []byte
+			)
 			if err != nil {
 				if overflow = errors.Is(err, common.ErrNoSpace); overflow {
 					b.log.Debug("blobstor sub-storage overflowed, will try another one",
-						zap.String("type", b.storage[i].Storage.Type()))
+						zap.String("type", typ))
 					continue
 				}
 
-				return res, fmt.Errorf("put object to sub-storage %s: %w", b.storage[i].Storage.Type(), err)
+				return nil, fmt.Errorf("put object to sub-storage %s: %w", typ, err)
 			}
 
-			logOp(b.log, putOp, prm.Address, b.storage[i].Storage.Type(), res.StorageID)
+			if typ == "peapod" {
+				sid = []byte(typ)
+			} else {
+				sid = []byte{} // Compatibility quirk, https://github.com/nspcc-dev/neofs-node/issues/2888
+			}
+			logOp(b.log, putOp, addr, typ, sid)
 
-			return res, nil
+			return sid, nil
 		}
 	}
 
 	if overflow {
-		return common.PutRes{}, common.ErrNoSpace
+		return nil, common.ErrNoSpace
 	}
 
-	return common.PutRes{}, ErrNoPlaceFound
+	return nil, ErrNoPlaceFound
 }
 
 // NeedsCompression returns true if the object should be compressed.

@@ -1,7 +1,7 @@
 package blobstor
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
@@ -9,15 +9,15 @@ import (
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.
-func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+func (b *BlobStor) Exists(addr oid.Address, storageID []byte) (bool, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	if prm.StorageID != nil {
-		if len(prm.StorageID) == 0 {
-			return b.storage[len(b.storage)-1].Storage.Exists(prm)
+	if storageID != nil {
+		if len(storageID) == 0 {
+			return b.storage[len(b.storage)-1].Storage.Exists(addr)
 		}
-		return b.storage[0].Storage.Exists(prm)
+		return b.storage[0].Storage.Exists(addr)
 	}
 
 	// If there was an error during existence check below,
@@ -31,23 +31,23 @@ func (b *BlobStor) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 	// error     | error       | log the first error, return the second
 	var errors []error
 	for i := range b.storage {
-		res, err := b.storage[i].Storage.Exists(prm)
-		if err == nil && res.Exists {
-			return res, nil
+		exists, err := b.storage[i].Storage.Exists(addr)
+		if err == nil && exists {
+			return exists, nil
 		} else if err != nil {
 			errors = append(errors, err)
 		}
 	}
 
 	if len(errors) == 0 {
-		return common.ExistsRes{}, nil
+		return false, nil
 	}
 
 	for _, err := range errors[:len(errors)-1] {
 		b.log.Warn("error occurred during object existence checking",
-			zap.Stringer("address", prm.Address),
+			zap.Stringer("address", addr),
 			zap.Error(err))
 	}
 
-	return common.ExistsRes{}, errors[len(errors)-1]
+	return false, errors[len(errors)-1]
 }

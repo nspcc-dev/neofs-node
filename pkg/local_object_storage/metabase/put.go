@@ -10,6 +10,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -72,10 +73,13 @@ func (db *DB) put(
 
 	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
 
-	if errors.As(err, &splitInfoError) {
+	switch {
+	case errors.As(err, &splitInfoError):
 		exists = true // object exists, however it is virtual
-	} else if err != nil {
-		return err // return any error besides SplitInfoError
+	case errors.Is(err, ErrLackSplitInfo), errors.As(err, &apistatus.ObjectNotFound{}):
+		// OK, we're putting here.
+	case err != nil:
+		return err // return any other errors
 	}
 
 	// most right child and split header overlap parent so we have to

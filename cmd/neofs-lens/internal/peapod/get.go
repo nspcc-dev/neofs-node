@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	blobstorcommon "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
@@ -24,9 +25,9 @@ func init() {
 }
 
 func getFunc(cmd *cobra.Command, _ []string) error {
-	var getPrm blobstorcommon.GetPrm
+	var addr oid.Address
 
-	err := getPrm.Address.DecodeString(vAddress)
+	err := addr.DecodeString(vAddress)
 	if err != nil {
 		return fmt.Errorf("failed to decode object address: %w", err)
 	}
@@ -37,19 +38,24 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer ppd.Close()
 
-	res, err := ppd.Get(getPrm)
+	data, err := ppd.GetBytes(addr)
 	if err != nil {
 		return fmt.Errorf("failed to read object from Peapod: %w", err)
 	}
 
-	common.PrintObjectHeader(cmd, *res.Object)
+	obj := objectSDK.New()
+	if err := obj.Unmarshal(data); err != nil {
+		return fmt.Errorf("decode object from binary: %w", err)
+	}
+
+	common.PrintObjectHeader(cmd, *obj)
 	if vPayloadOnly {
-		if err := common.WriteObjectToFile(cmd, vOut, res.RawData, true); err != nil {
+		if err := common.WriteObjectToFile(cmd, vOut, data, true); err != nil {
 			return err
 		}
 		return nil
 	}
-	if err := common.WriteObjectToFile(cmd, vOut, res.RawData, false); err != nil {
+	if err := common.WriteObjectToFile(cmd, vOut, data, false); err != nil {
 		return err
 	}
 

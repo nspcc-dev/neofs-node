@@ -3,7 +3,6 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -15,16 +14,12 @@ import (
 func (c *cache) initFlushMarks() {
 	c.log.Info("filling flush marks for objects in FSTree")
 
-	var prm common.IteratePrm
-	prm.LazyHandler = func(addr oid.Address, _ func() ([]byte, error)) error {
+	var addrHandler = func(addr oid.Address) error {
 		flushed, needRemove := c.flushStatus(addr)
 		if flushed {
 			c.store.flushed.Add(addr.EncodeToString(), true)
 			if needRemove {
-				var prm common.DeletePrm
-				prm.Address = addr
-
-				_, err := c.fsTree.Delete(prm)
+				err := c.fsTree.Delete(addr)
 				if err == nil {
 					storagelog.Write(c.log,
 						storagelog.AddressField(addr),
@@ -36,7 +31,7 @@ func (c *cache) initFlushMarks() {
 		}
 		return nil
 	}
-	_, _ = c.fsTree.Iterate(prm)
+	_ = c.fsTree.IterateAddresses(addrHandler, false)
 
 	c.log.Info("filling flush marks for objects in database")
 
@@ -112,6 +107,6 @@ func (c *cache) flushStatus(addr oid.Address) (bool, bool) {
 	}
 
 	sid, _ := c.metabase.StorageID(addr)
-	res, err := c.blobstor.Exists(common.ExistsPrm{Address: addr, StorageID: sid})
-	return err == nil && res.Exists, false
+	exists, err := c.blobstor.Exists(addr, sid)
+	return err == nil && exists, false
 }

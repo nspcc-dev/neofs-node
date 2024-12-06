@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -55,24 +54,20 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, b *BlobStor, i int) {
-		res1, err := b.Get(common.GetPrm{Address: object.AddressOf(smallObj[i])})
+		res1, err := b.Get(object.AddressOf(smallObj[i]), nil)
 		require.NoError(t, err)
-		require.Equal(t, smallObj[i], res1.Object)
+		require.Equal(t, smallObj[i], res1)
 
-		res2, err := b.Get(common.GetPrm{Address: object.AddressOf(bigObj[i])})
+		res2, err := b.Get(object.AddressOf(bigObj[i]), nil)
 		require.NoError(t, err)
-		require.Equal(t, bigObj[i], res2.Object)
+		require.Equal(t, bigObj[i], res2)
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
-		var prm common.PutPrm
-		prm.Object = smallObj[i]
-		_, err = b.Put(prm)
+		_, err = b.Put(object.AddressOf(smallObj[i]), smallObj[i], nil)
 		require.NoError(t, err)
 
-		prm = common.PutPrm{}
-		prm.Object = bigObj[i]
-		_, err = b.Put(prm)
+		_, err = b.Put(object.AddressOf(bigObj[i]), bigObj[i], nil)
 		require.NoError(t, err)
 	}
 

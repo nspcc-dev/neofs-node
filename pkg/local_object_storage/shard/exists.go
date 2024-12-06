@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -18,14 +17,7 @@ func (s *Shard) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	defer s.m.RUnlock()
 
 	if s.info.Mode.NoMetabase() {
-		var p common.ExistsPrm
-		p.Address = addr
-
-		res, err := s.blobStor.Exists(p)
-		if err != nil {
-			return false, err
-		}
-		return res.Exists, nil
+		return s.blobStor.Exists(addr, nil)
 	}
 	return s.metaBase.Exists(addr, ignoreExpiration)
 }

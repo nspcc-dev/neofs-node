@@ -10,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -30,27 +31,31 @@ func (x *getBytesOnlySubStorage) Path() string                         { panic("
 func (x *getBytesOnlySubStorage) SetCompressor(cc *compression.Config) { panic("must not be called") }
 func (x *getBytesOnlySubStorage) SetLogger(_ *zap.Logger)              { panic("must not be called") }
 
-func (x *getBytesOnlySubStorage) Get(prm common.GetPrm) (common.GetRes, error) {
+func (x *getBytesOnlySubStorage) Get(_ oid.Address) (*objectSDK.Object, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
+func (x *getBytesOnlySubStorage) GetRange(_ oid.Address, _ uint64, _ uint64) ([]byte, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
+func (x *getBytesOnlySubStorage) Exists(_ oid.Address) (bool, error) {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Put(prm common.PutPrm) (common.PutRes, error) {
+func (x *getBytesOnlySubStorage) Put(oid.Address, []byte) error {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error) error {
+	panic("must not be called")
+}
+
+func (x *getBytesOnlySubStorage) IterateAddresses(_ func(oid.Address) error, _ bool) error {
 	panic("must not be called")
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -170,7 +169,7 @@ func (s *Shard) resyncMetabase() error {
 		}
 	}
 
-	err = blobstor.IterateBinaryObjects(s.blobStor, s.resyncObjectHandler)
+	err = s.blobStor.IterateBinaryObjects(s.resyncObjectHandler)
 	if err != nil {
 		return fmt.Errorf("could not put objects to the meta from blobstor: %w", err)
 	}

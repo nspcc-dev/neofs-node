@@ -3,7 +3,6 @@ package writecache
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -33,7 +32,7 @@ func (c *cache) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	if err != nil {
 		return res, err
 	}
-	_, err = c.fsTree.Get(common.GetPrm{Address: address})
+	_, err = c.fsTree.Get(address)
 	if err == nil {
 		res.PathFSTree = c.fsTree.Path()
 	}

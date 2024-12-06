@@ -21,29 +21,18 @@ func TestControl(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 	require.NoError(t, s.Open(true))
 	for i := range objects {
-		var prm common.GetPrm
-		prm.Address = objects[i].addr
-		prm.StorageID = objects[i].storageID
-		prm.Raw = true
-
-		_, err := s.Get(prm)
+		_, err := s.Get(objects[i].addr)
 		require.NoError(t, err)
 	}
 
 	t.Run("put fails", func(t *testing.T) {
-		var prm common.PutPrm
-		prm.Object = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
-		prm.Address = objectCore.AddressOf(prm.Object)
+		var obj = NewObject(minSize + uint64(rand.Intn(int(maxSize-minSize+1))))
 
-		_, err := s.Put(prm)
+		err := s.Put(objectCore.AddressOf(obj), obj.Marshal())
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 	t.Run("delete fails", func(t *testing.T) {
-		var prm common.DeletePrm
-		prm.Address = objects[0].addr
-		prm.StorageID = objects[0].storageID
-
-		_, err := s.Delete(prm)
+		err := s.Delete(objects[0].addr)
 		require.ErrorIs(t, err, common.ErrReadOnly)
 	})
 }

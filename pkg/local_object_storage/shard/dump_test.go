@@ -12,7 +12,6 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -357,13 +356,10 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 	{
 		// 2. Invalid object in peapod.
-		var prm common.PutPrm
-		prm.Address = oid.Address{}
-		prm.RawData = corruptedData
 		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0o600, 10*time.Millisecond)
 		require.NoError(t, b.Open(false))
 		require.NoError(t, b.Init())
-		_, err := b.Put(prm)
+		err := b.Put(oid.Address{}, corruptedData)
 		require.NoError(t, err)
 		require.NoError(t, b.Close())
 	}

@@ -3,7 +3,6 @@ package writecache
 import (
 	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -34,7 +33,7 @@ type Cache interface {
 	// Returns ErrReadOnly if the Cache is currently in the read-only mode.
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte) error, bool) error
-	Put(common.PutPrm) (common.PutRes, error)
+	Put(oid.Address, *object.Object, []byte) error
 	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
 	DumpInfo() Info

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -23,12 +24,13 @@ type Storage interface {
 	// GetBytes reads object by address into memory buffer in a canonical NeoFS
 	// binary format. Returns [apistatus.ObjectNotFound] if object is missing.
 	GetBytes(oid.Address) ([]byte, error)
-	Get(GetPrm) (GetRes, error)
-	GetRange(GetRangePrm) (GetRangeRes, error)
-	Exists(ExistsPrm) (ExistsRes, error)
-	Put(PutPrm) (PutRes, error)
-	Delete(DeletePrm) (DeleteRes, error)
-	Iterate(IteratePrm) (IterateRes, error)
+	Get(oid.Address) (*objectSDK.Object, error)
+	GetRange(oid.Address, uint64, uint64) ([]byte, error)
+	Exists(oid.Address) (bool, error)
+	Put(oid.Address, []byte) error
+	Delete(oid.Address) error
+	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error) error
+	IterateAddresses(func(oid.Address) error, bool) error
 }
 
 // Copy copies all objects from source Storage into the destination one. If any
@@ -58,27 +60,20 @@ func Copy(dst, src Storage) error {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}
 
-	_, err = src.Iterate(IteratePrm{
-		Handler: func(el IterationElement) error {
-			exRes, err := dst.Exists(ExistsPrm{
-				Address: el.Address,
-			})
-			if err != nil {
-				return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", el.Address, err)
-			} else if exRes.Exists {
-				return nil
-			}
-
-			_, err = dst.Put(PutPrm{
-				Address: el.Address,
-				RawData: el.ObjectData,
-			})
-			if err != nil {
-				return fmt.Errorf("put object %s into destination sub-storage: %w", el.Address, err)
-			}
+	err = src.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
+		exists, err := dst.Exists(addr)
+		if err != nil {
+			return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", addr, err)
+		} else if exists {
 			return nil
-		},
-	})
+		}
+
+		err = dst.Put(addr, data)
+		if err != nil {
+			return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
+		}
+		return nil
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("iterate over source sub-storage: %w", err)
 	}

@@ -3,48 +3,39 @@ package blobstor
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
-// Iterate traverses the storage over the stored objects and calls the handler
-// on each element.
+// Iterate traverses the storage over the stored objects and calls the objHandler
+// on each element. errorHandler is called if specified and ignoreErrors is true.
 //
 // Returns any error encountered that
 // did not allow to completely iterate over the storage.
 //
 // If handler returns an error, method wraps and returns it immediately.
-func (b *BlobStor) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
+func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
 	for i := range b.storage {
-		_, err := b.storage[i].Storage.Iterate(prm)
-		if err != nil && !prm.IgnoreErrors {
-			return common.IterateRes{}, fmt.Errorf("blobstor iterator failure: %w", err)
+		err := b.storage[i].Storage.Iterate(objHandler, errorHandler)
+		if err != nil {
+			return fmt.Errorf("blobstor iterator failure: %w", err)
 		}
 	}
-	return common.IterateRes{}, nil
+	return nil
 }
 
-// IterateBinaryObjects is a helper function which iterates over BlobStor and passes binary objects to f.
+// IterateBinaryObjects is a helper method which iterates over BlobStor and passes binary objects to f.
 // Errors related to object reading and unmarshaling are logged and skipped.
-func IterateBinaryObjects(blz *BlobStor, f func(addr oid.Address, data []byte, descriptor []byte) error) error {
-	var prm common.IteratePrm
-
-	prm.Handler = func(elem common.IterationElement) error {
-		return f(elem.Address, elem.ObjectData, elem.StorageID)
-	}
-	prm.IgnoreErrors = true
-	prm.ErrorHandler = func(addr oid.Address, err error) error {
-		blz.log.Warn("error occurred during the iteration",
+func (b *BlobStor) IterateBinaryObjects(f func(addr oid.Address, data []byte, descriptor []byte) error) error {
+	var errorHandler = func(addr oid.Address, err error) error {
+		b.log.Warn("error occurred during the iteration",
 			zap.Stringer("address", addr),
 			zap.String("err", err.Error()))
 		return nil
 	}
 
-	_, err := blz.Iterate(prm)
-
-	return err
+	return b.Iterate(f, errorHandler)
 }

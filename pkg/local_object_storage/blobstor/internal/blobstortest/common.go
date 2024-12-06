@@ -20,10 +20,9 @@ type Constructor = func(t *testing.T) common.Storage
 
 // objectDesc is a helper structure to avoid multiple `Marshal` invokes during tests.
 type objectDesc struct {
-	obj       *objectSDK.Object
-	addr      oid.Address
-	raw       []byte
-	storageID []byte
+	obj  *objectSDK.Object
+	addr oid.Address
+	raw  []byte
 }
 
 func TestAll(t *testing.T, cons Constructor, minSize, maxSize uint64) {
@@ -60,15 +59,8 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 	}
 
 	for i := range objects {
-		var prm common.PutPrm
-		prm.Address = objects[i].addr
-		prm.Object = objects[i].obj
-		prm.RawData = objects[i].raw
-
-		putRes, err := s.Put(prm)
+		err := s.Put(objects[i].addr, objects[i].raw)
 		require.NoError(t, err)
-
-		objects[i].storageID = putRes.StorageID
 	}
 
 	return objects

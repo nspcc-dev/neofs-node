@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -31,25 +30,19 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		var prm common.PutPrm
-		prm.Object = objects[i]
-		_, err = b.Put(prm)
+		_, err = b.Put(objectCore.AddressOf(objects[i]), objects[i], nil)
 		require.NoError(t, err)
 	}
 
-	var prm common.ExistsPrm
 	for i := range objects {
-		prm.Address = objectCore.AddressOf(objects[i])
-
-		res, err := b.Exists(prm)
+		res, err := b.Exists(objectCore.AddressOf(objects[i]), nil)
 		require.NoError(t, err)
-		require.True(t, res.Exists)
+		require.True(t, res)
 	}
 
-	prm.Address = oidtest.Address()
-	res, err := b.Exists(prm)
+	res, err := b.Exists(oidtest.Address(), nil)
 	require.NoError(t, err)
-	require.False(t, res.Exists)
+	require.False(t, res)
 
 	t.Run("corrupt direcrory", func(t *testing.T) {
 		var bigDir string
@@ -65,14 +58,12 @@ func TestExists(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
 		// Object exists, first error is logged.
-		prm.Address = objectCore.AddressOf(objects[0])
-		res, err := b.Exists(prm)
+		res, err := b.Exists(objectCore.AddressOf(objects[0]), nil)
 		require.NoError(t, err)
-		require.True(t, res.Exists)
+		require.True(t, res)
 
 		// Object doesn't exist, first error is returned.
-		prm.Address = objectCore.AddressOf(objects[1])
-		_, err = b.Exists(prm)
+		_, err = b.Exists(objectCore.AddressOf(objects[1]), nil)
 		require.Error(t, err)
 	})
 }

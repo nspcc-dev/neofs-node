@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -53,11 +52,7 @@ func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
 		}
 	}
 
-	var pi common.IteratePrm
-	pi.IgnoreErrors = ignoreErrors
-	pi.Handler = func(elem common.IterationElement) error {
-		data := elem.ObjectData
-
+	var objHandler = func(addr oid.Address, data []byte, _ []byte) error {
 		var size [4]byte
 		binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 		if _, err := w.Write(size[:]); err != nil {
@@ -72,9 +67,12 @@ func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
 		return nil
 	}
 
-	if _, err := s.blobStor.Iterate(pi); err != nil {
-		return count, err
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
 	}
 
-	return count, nil
+	err = s.blobStor.Iterate(objHandler, errorHandler)
+
+	return count, err
 }

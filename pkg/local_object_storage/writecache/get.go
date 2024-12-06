@@ -3,7 +3,6 @@ package writecache
 import (
 	"bytes"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -24,13 +23,13 @@ func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
 		return obj, obj.Unmarshal(value)
 	}
 
-	res, err := c.fsTree.Get(common.GetPrm{Address: addr})
+	obj, err := c.fsTree.Get(addr)
 	if err != nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
 	c.flushed.Get(saddr)
-	return res.Object, nil
+	return obj, nil
 }
 
 // Head returns object header from write-cache.

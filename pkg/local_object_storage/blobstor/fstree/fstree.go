@@ -138,17 +138,33 @@ func addressFromString(s string) (*oid.Address, error) {
 }
 
 // Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
-	return common.IterateRes{}, t.iterate(0, []string{t.RootPath}, prm)
+func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil)
 }
 
-func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) error {
+// IterateAddresses iterates over all objects stored in the underlying storage
+// and passes their addresses into f. If f returns an error, IterateAddresses
+// returns it and breaks. ignoreErrors allows to continue if internal errors
+// happen.
+func (t *FSTree) IterateAddresses(f func(addr oid.Address) error, ignoreErrors bool) error {
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+
+	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, f)
+}
+
+func (t *FSTree) iterate(depth uint64, curPath []string,
+	objHandler func(oid.Address, []byte, []byte) error,
+	errorHandler func(oid.Address, error) error,
+	addrHandler func(oid.Address) error) error {
 	curName := strings.Join(curPath[1:], "")
 	dir := filepath.Join(curPath...)
 	des, err := os.ReadDir(dir)
 	if err != nil {
-		if prm.IgnoreErrors {
-			return nil
+		if errorHandler != nil {
+			return errorHandler(oid.Address{}, err)
 		}
 		return fmt.Errorf("read dir %q: %w", dir, err)
 	}
@@ -161,7 +177,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 		curPath[l] = des[i].Name()
 
 		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, prm)
+			err := t.iterate(depth+1, curPath, objHandler, errorHandler, addrHandler)
 			if err != nil {
 				// Must be error from handler in case errors are ignored.
 				// Need to report.
@@ -178,10 +194,8 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 			continue
 		}
 
-		if prm.LazyHandler != nil {
-			err = prm.LazyHandler(*addr, func() ([]byte, error) {
-				return getRawObjectBytes(addr.Object(), filepath.Join(curPath...))
-			})
+		if addrHandler != nil {
+			err = addrHandler(*addr)
 		} else {
 			var data []byte
 			p := filepath.Join(curPath...)
@@ -193,20 +207,16 @@ func (t *FSTree) iterate(depth uint64, curPath []string, prm common.IteratePrm) 
 				data, err = t.Decompress(data)
 			}
 			if err != nil {
-				if prm.IgnoreErrors {
-					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(*addr, err)
+				if errorHandler != nil {
+					err = errorHandler(*addr, err)
+					if err == nil {
+						continue
 					}
-					continue
 				}
 				return fmt.Errorf("read file %q: %w", p, err)
 			}
 
-			err = prm.Handler(common.IterationElement{
-				Address:    *addr,
-				ObjectData: data,
-				StorageID:  []byte{},
-			})
+			err = objHandler(*addr, data, []byte{})
 		}
 
 		if err != nil {
@@ -234,44 +244,44 @@ func (t *FSTree) treePath(addr oid.Address) string {
 }
 
 // Delete removes the object with the specified address from the storage.
-func (t *FSTree) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (t *FSTree) Delete(addr oid.Address) error {
 	if t.readOnly {
-		return common.DeleteRes{}, common.ErrReadOnly
+		return common.ErrReadOnly
 	}
 
-	p, err := t.getPath(prm.Address)
+	p, err := t.getPath(addr)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			err = logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
-		return common.DeleteRes{}, err
+		return err
 	}
 
 	err = os.Remove(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return common.DeleteRes{}, logicerr.Wrap(apistatus.ObjectNotFound{})
+			return logicerr.Wrap(apistatus.ObjectNotFound{})
 		}
 
-		return common.DeleteRes{}, fmt.Errorf("remove file %q: %w", p, err)
+		return fmt.Errorf("remove file %q: %w", p, err)
 	}
 
-	return common.DeleteRes{}, nil
+	return nil
 }
 
 // Exists returns the path to the file with object contents if it exists in the storage
 // and an error otherwise.
-func (t *FSTree) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
-	_, err := t.getPath(prm.Address)
+func (t *FSTree) Exists(addr oid.Address) (bool, error) {
+	_, err := t.getPath(addr)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return common.ExistsRes{Exists: false}, nil
+			return false, nil
 		}
 
-		return common.ExistsRes{}, err
+		return false, err
 	}
 
-	return common.ExistsRes{Exists: true}, nil
+	return true, nil
 }
 
 // checks whether file for the given object address exists and returns path to
@@ -288,39 +298,38 @@ func (t *FSTree) getPath(addr oid.Address) (string, error) {
 }
 
 // Put puts an object in the storage.
-func (t *FSTree) Put(prm common.PutPrm) (common.PutRes, error) {
+func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if t.readOnly {
-		return common.PutRes{}, common.ErrReadOnly
+		return common.ErrReadOnly
 	}
 
-	p := t.treePath(prm.Address)
+	p := t.treePath(addr)
 
 	if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
-		return common.PutRes{}, fmt.Errorf("mkdirall for %q: %w", p, err)
+		return fmt.Errorf("mkdirall for %q: %w", p, err)
 	}
-	if !prm.DontCompress {
-		prm.RawData = t.Compress(prm.RawData)
-	}
-	err := t.writer.writeData(prm.Address.Object(), p, prm.RawData)
+	data = t.Compress(data)
+
+	err := t.writer.writeData(addr.Object(), p, data)
 	if err != nil {
-		return common.PutRes{}, fmt.Errorf("write object data into file %q: %w", p, err)
+		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}
-	return common.PutRes{StorageID: []byte{}}, nil
+	return nil
 }
 
 // Get returns an object from the storage by address.
-func (t *FSTree) Get(prm common.GetPrm) (common.GetRes, error) {
-	data, err := t.getObjBytes(prm.Address)
+func (t *FSTree) Get(addr oid.Address) (*objectSDK.Object, error) {
+	data, err := t.getObjBytes(addr)
 	if err != nil {
-		return common.GetRes{}, err
+		return nil, err
 	}
 
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRes{}, fmt.Errorf("decode object: %w", err)
+		return nil, fmt.Errorf("decode object: %w", err)
 	}
 
-	return common.GetRes{Object: obj, RawData: data}, nil
+	return obj, nil
 }
 
 // GetBytes reads object from the FSTree by address into memory buffer in a
@@ -431,23 +440,20 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 }
 
 // GetRange implements common.Storage.
-func (t *FSTree) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
-	res, err := t.Get(common.GetPrm{Address: prm.Address})
+func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
+	obj, err := t.Get(addr)
 	if err != nil {
-		return common.GetRangeRes{}, err
+		return nil, err
 	}
 
-	payload := res.Object.Payload()
-	from := prm.Range.GetOffset()
-	to := from + prm.Range.GetLength()
+	payload := obj.Payload()
+	to := from + length
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectOutOfRange{})
+		return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 
-	return common.GetRangeRes{
-		Data: payload[from:to],
-	}, nil
+	return payload[from:to], nil
 }
 
 // NumberOfObjects walks the file tree rooted at FSTree's root

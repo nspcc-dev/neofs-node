@@ -8,7 +8,6 @@ import (
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -58,13 +57,9 @@ func TestFlush(t *testing.T) {
 			id, err := mb.StorageID(objects[i].addr)
 			require.NoError(t, err)
 
-			var prm common.GetPrm
-			prm.Address = objects[i].addr
-			prm.StorageID = id
-
-			res, err := bs.Get(prm)
+			res, err := bs.Get(objects[i].addr, id)
 			require.NoError(t, err)
-			require.Equal(t, objects[i].obj, res.Object)
+			require.Equal(t, objects[i].obj, res)
 		}
 	}
 
@@ -85,7 +80,7 @@ func TestFlush(t *testing.T) {
 			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
-			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
+			_, err = bs.Get(objects[i].addr, nil)
 			require.Error(t, err)
 		}
 
@@ -114,7 +109,7 @@ func TestFlush(t *testing.T) {
 			_, err := mb.Get(objects[i].addr, false)
 			require.Error(t, err)
 
-			_, err = bs.Get(common.GetPrm{Address: objects[i].addr})
+			_, err = bs.Get(objects[i].addr, nil)
 			require.Error(t, err)
 		}
 
@@ -162,15 +157,12 @@ func TestFlush(t *testing.T) {
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
 				obj, data := newObject(t, 1)
+				addr := objectCore.AddressOf(obj)
 
-				var prm common.PutPrm
-				prm.Address = objectCore.AddressOf(obj)
-				prm.RawData = data
-
-				_, err := c.fsTree.Put(prm)
+				err := c.fsTree.Put(addr, data)
 				require.NoError(t, err)
 
-				p := prm.Address.Object().EncodeToString() + "." + prm.Address.Container().EncodeToString()
+				p := addr.Object().EncodeToString() + "." + addr.Container().EncodeToString()
 				p = filepath.Join(c.fsTree.RootPath, p[:1], p[1:])
 
 				_, err = os.Stat(p) // sanity check
@@ -180,10 +172,7 @@ func TestFlush(t *testing.T) {
 		})
 		t.Run("fs, invalid object", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
-				var prm common.PutPrm
-				prm.Address = oidtest.Address()
-				prm.RawData = []byte{1, 2, 3}
-				_, err := c.fsTree.Put(prm)
+				err := c.fsTree.Put(oidtest.Address(), []byte{1, 2, 3})
 				require.NoError(t, err)
 			})
 		})
@@ -248,15 +237,10 @@ func TestFlush(t *testing.T) {
 func putObject(t *testing.T, c Cache, size int) objectPair {
 	obj, data := newObject(t, size)
 
-	var prm common.PutPrm
-	prm.Address = objectCore.AddressOf(obj)
-	prm.Object = obj
-	prm.RawData = data
-
-	_, err := c.Put(prm)
+	err := c.Put(objectCore.AddressOf(obj), obj, data)
 	require.NoError(t, err)
 
-	return objectPair{prm.Address, prm.Object}
+	return objectPair{objectCore.AddressOf(obj), obj}
 }
 
 func newObject(t *testing.T, size int) (*object.Object, []byte) {

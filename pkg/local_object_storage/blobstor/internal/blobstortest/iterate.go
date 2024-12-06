@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
@@ -19,10 +18,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 	// Delete random object to ensure it is not iterated over.
 	const delID = 2
-	var delPrm common.DeletePrm
-	delPrm.Address = objects[delID].addr
-	delPrm.StorageID = objects[delID].storageID
-	_, err := s.Delete(delPrm)
+	err := s.Delete(objects[delID].addr)
 	require.NoError(t, err)
 
 	objects = append(objects[:delID], objects[delID+1:]...)
@@ -30,17 +26,15 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("normal handler", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var iterPrm common.IteratePrm
-		iterPrm.Handler = func(elem common.IterationElement) error {
-			seen[elem.Address.String()] = objectDesc{
-				addr:      elem.Address,
-				raw:       elem.ObjectData,
-				storageID: elem.StorageID,
+		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+			seen[addr.String()] = objectDesc{
+				addr: addr,
+				raw:  data,
 			}
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		err := s.Iterate(objHandler, nil)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
@@ -48,16 +42,14 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			require.True(t, ok)
 			require.Equal(t, objects[i].raw, d.raw)
 			require.Equal(t, objects[i].addr, d.addr)
-			require.Equal(t, objects[i].storageID, d.storageID)
 		}
 	})
 
-	t.Run("lazy handler", func(t *testing.T) {
+	t.Run("addresses", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var iterPrm common.IteratePrm
-		iterPrm.LazyHandler = func(addr oid.Address, f func() ([]byte, error)) error {
-			data, err := f()
+		var addrHandler = func(addr oid.Address) error {
+			data, err := s.GetBytes(addr)
 			require.NoError(t, err)
 
 			seen[addr.String()] = objectDesc{
@@ -67,7 +59,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		err := s.IterateAddresses(addrHandler, false)
 		require.NoError(t, err)
 		require.Equal(t, len(objects), len(seen))
 		for i := range objects {
@@ -82,13 +74,11 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 
 		var n int
 		var logicErr = errors.New("logic error")
-		var iterPrm common.IteratePrm
-		iterPrm.IgnoreErrors = true
-		iterPrm.Handler = func(elem common.IterationElement) error {
-			seen[elem.Address.String()] = objectDesc{
-				addr:      elem.Address,
-				raw:       elem.ObjectData,
-				storageID: elem.StorageID,
+
+		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+			seen[addr.String()] = objectDesc{
+				addr: addr,
+				raw:  data,
 			}
 			n++
 			if n == len(objects)/2 {
@@ -97,7 +87,9 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 			return nil
 		}
 
-		_, err := s.Iterate(iterPrm)
+		var errorHandler = func(oid.Address, error) error { return nil }
+
+		err := s.Iterate(objHandler, errorHandler)
 		require.ErrorIs(t, err, logicErr)
 		require.Equal(t, len(objects)/2, len(seen))
 		for i := range objects {
@@ -106,7 +98,6 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 				n--
 				require.Equal(t, objects[i].raw, d.raw)
 				require.Equal(t, objects[i].addr, d.addr)
-				require.Equal(t, objects[i].storageID, d.storageID)
 			}
 		}
 		require.Equal(t, 0, n)

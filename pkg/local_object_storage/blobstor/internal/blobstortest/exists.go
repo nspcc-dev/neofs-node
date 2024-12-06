@@ -3,7 +3,6 @@ package blobstortest
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
@@ -17,28 +16,14 @@ func TestExists(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	objects := prepare(t, 1, s, minSize, maxSize)
 
 	t.Run("missing object", func(t *testing.T) {
-		prm := common.ExistsPrm{Address: oidtest.Address()}
-		res, err := s.Exists(prm)
+		res, err := s.Exists(oidtest.Address())
 		require.NoError(t, err)
-		require.False(t, res.Exists)
+		require.False(t, res)
 	})
 
-	var prm common.ExistsPrm
-	prm.Address = objects[0].addr
-
-	t.Run("without storage ID", func(t *testing.T) {
-		prm.StorageID = nil
-
-		res, err := s.Exists(prm)
+	t.Run("existing object", func(t *testing.T) {
+		res, err := s.Exists(objects[0].addr)
 		require.NoError(t, err)
-		require.True(t, res.Exists)
-	})
-
-	t.Run("with storage ID", func(t *testing.T) {
-		prm.StorageID = objects[0].storageID
-
-		res, err := s.Exists(prm)
-		require.NoError(t, err)
-		require.True(t, res.Exists)
+		require.True(t, res)
 	})
 }

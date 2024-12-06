@@ -283,7 +283,7 @@ func (x *Peapod) SetLogger(l *zap.Logger) {
 
 // Get reads data from the underlying database by the given object address.
 // Returns apistatus.ErrObjectNotFound if object is missing in the Peapod.
-func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
+func (x *Peapod) Get(addr oid.Address) (*objectSDK.Object, error) {
 	var data []byte
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
@@ -292,7 +292,7 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 			return errMissingRootBucket
 		}
 
-		val := bktRoot.Get(keyForObject(prm.Address))
+		val := bktRoot.Get(keyForObject(addr))
 		if val == nil {
 			return apistatus.ErrObjectNotFound
 		}
@@ -303,23 +303,23 @@ func (x *Peapod) Get(prm common.GetPrm) (common.GetRes, error) {
 	})
 	if err != nil {
 		if errors.Is(err, apistatus.ErrObjectNotFound) {
-			return common.GetRes{}, logicerr.Wrap(err)
+			return nil, logicerr.Wrap(err)
 		}
-		return common.GetRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+		return nil, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
 	}
 
 	// copy-paste from FSTree
 	data, err = x.compress.Decompress(data)
 	if err != nil {
-		return common.GetRes{}, fmt.Errorf("decompress data: %w", err)
+		return nil, fmt.Errorf("decompress data: %w", err)
 	}
 
 	obj := objectSDK.New()
 	if err := obj.Unmarshal(data); err != nil {
-		return common.GetRes{}, fmt.Errorf("decode object from binary: %w", err)
+		return nil, fmt.Errorf("decode object from binary: %w", err)
 	}
 
-	return common.GetRes{Object: obj, RawData: data}, err
+	return obj, err
 }
 
 // GetBytes reads object from the Peapod by address into memory buffer in a
@@ -364,30 +364,27 @@ func (x *Peapod) GetBytes(addr oid.Address) ([]byte, error) {
 }
 
 // GetRange works like Get but reads specific payload range.
-func (x *Peapod) GetRange(prm common.GetRangePrm) (common.GetRangeRes, error) {
+func (x *Peapod) GetRange(addr oid.Address, from uint64, length uint64) ([]byte, error) {
 	// copy-paste from FSTree
-	res, err := x.Get(common.GetPrm{Address: prm.Address})
+	obj, err := x.Get(addr)
 	if err != nil {
-		return common.GetRangeRes{}, err
+		return nil, err
 	}
 
-	payload := res.Object.Payload()
-	from := prm.Range.GetOffset()
-	to := from + prm.Range.GetLength()
+	payload := obj.Payload()
+	to := from + length
 
 	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
-		return common.GetRangeRes{}, logicerr.Wrap(apistatus.ObjectOutOfRange{})
+		return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 
-	return common.GetRangeRes{
-		Data: payload[from:to],
-	}, nil
+	return payload[from:to], nil
 }
 
 // Exists checks presence of the object in the underlying database by the given
 // address.
-func (x *Peapod) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
-	var res common.ExistsRes
+func (x *Peapod) Exists(addr oid.Address) (bool, error) {
+	var res bool
 
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
 		bktRoot := tx.Bucket(rootBucket)
@@ -395,12 +392,12 @@ func (x *Peapod) Exists(prm common.ExistsPrm) (common.ExistsRes, error) {
 			return errMissingRootBucket
 		}
 
-		res.Exists = bktRoot.Get(keyForObject(prm.Address)) != nil
+		res = bktRoot.Get(keyForObject(addr)) != nil
 
 		return nil
 	})
 	if err != nil {
-		return common.ExistsRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
+		return false, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
 	}
 
 	return res, nil
@@ -414,19 +411,13 @@ var storageID = []byte("peapod")
 // returns its error (in this case data may be saved).
 //
 // Put returns common.ErrReadOnly if Peadpod is read-only.
-func (x *Peapod) Put(prm common.PutPrm) (common.PutRes, error) {
-	if !prm.DontCompress {
-		prm.RawData = x.compress.Compress(prm.RawData)
-	}
+func (x *Peapod) Put(addr oid.Address, data []byte) error {
+	data = x.compress.Compress(data)
 
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2480
-	err := x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
-		return bktRoot.Put(keyForObject(prm.Address), prm.RawData)
+	return x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
+		return bktRoot.Put(keyForObject(addr), data)
 	})
-
-	return common.PutRes{
-		StorageID: storageID,
-	}, err
 }
 
 // Delete removes data associated with the given object address from the
@@ -434,10 +425,10 @@ func (x *Peapod) Put(prm common.PutPrm) (common.PutRes, error) {
 // missing.
 //
 // Put returns common.ErrReadOnly if Peadpod is read-only.
-func (x *Peapod) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
+func (x *Peapod) Delete(addr oid.Address) error {
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2480
 	err := x.batch(context.TODO(), func(bktRoot *bbolt.Bucket) error {
-		key := keyForObject(prm.Address)
+		key := keyForObject(addr)
 		if bktRoot.Get(key) == nil {
 			return apistatus.ErrObjectNotFound
 		}
@@ -445,10 +436,10 @@ func (x *Peapod) Delete(prm common.DeletePrm) (common.DeleteRes, error) {
 		return bktRoot.Delete(key)
 	})
 	if errors.Is(err, apistatus.ErrObjectNotFound) {
-		return common.DeleteRes{}, logicerr.Wrap(err)
+		return logicerr.Wrap(err)
 	}
 
-	return common.DeleteRes{}, err
+	return err
 }
 
 func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket) error) error {
@@ -487,12 +478,17 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 }
 
 // Iterate iterates over all objects stored in the underlying database and
-// passes them into LazyHandler or Handler. Break on f's false return.
+// passes them into objHandler. Errors are passed into errorHandler if it's
+// specified. If error is returned from handlers iteration stops.
 //
 // Use IterateAddresses to iterate over keys only.
-func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
-	var addr oid.Address
+func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+	return x.iterate(objHandler, errorHandler, nil)
+}
 
+func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
+	errorHandler func(oid.Address, error) error,
+	addrHandler func(oid.Address) error) error {
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
 		bktRoot := tx.Bucket(rootBucket)
 		if bktRoot == nil {
@@ -500,14 +496,11 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 		}
 
 		return bktRoot.ForEach(func(k, v []byte) error {
+			var addr oid.Address
 			err := decodeKeyForObject(&addr, k)
 			if err != nil {
-				if prm.IgnoreErrors {
-					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(addr, err)
-					}
-
-					return nil
+				if errorHandler != nil {
+					return errorHandler(addr, err)
 				}
 
 				return fmt.Errorf("decode object address from bucket key: %w", err)
@@ -515,56 +508,18 @@ func (x *Peapod) Iterate(prm common.IteratePrm) (common.IterateRes, error) {
 
 			v, err = x.compress.Decompress(v)
 			if err != nil {
-				if prm.IgnoreErrors {
-					if prm.ErrorHandler != nil {
-						return prm.ErrorHandler(addr, err)
-					}
-
-					return nil
+				if errorHandler != nil {
+					return errorHandler(addr, err)
 				}
 
 				return fmt.Errorf("decompress value for object '%s': %w", addr, err)
 			}
 
-			if prm.LazyHandler != nil {
-				return prm.LazyHandler(addr, func() ([]byte, error) {
-					return v, nil
-				})
+			if addrHandler != nil {
+				return addrHandler(addr)
 			}
 
-			return prm.Handler(common.IterationElement{
-				ObjectData: v,
-				Address:    addr,
-				StorageID:  storageID,
-			})
-		})
-	})
-	if err != nil {
-		return common.IterateRes{}, fmt.Errorf("exec read-only BoltDB transaction: %w", err)
-	}
-
-	return common.IterateRes{}, nil
-}
-
-// IterateAddresses iterates over all objects stored in the underlying database
-// and passes their addresses into f. If f returns an error, IterateAddresses
-// returns it and breaks.
-func (x *Peapod) IterateAddresses(f func(addr oid.Address) error) error {
-	var addr oid.Address
-
-	err := x.bolt.View(func(tx *bbolt.Tx) error {
-		bktRoot := tx.Bucket(rootBucket)
-		if bktRoot == nil {
-			return errMissingRootBucket
-		}
-
-		return bktRoot.ForEach(func(k, v []byte) error {
-			err := decodeKeyForObject(&addr, k)
-			if err != nil {
-				return fmt.Errorf("decode object address from bucket key: %w", err)
-			}
-
-			return f(addr)
+			return objHandler(addr, v, storageID)
 		})
 	})
 	if err != nil {
@@ -572,4 +527,17 @@ func (x *Peapod) IterateAddresses(f func(addr oid.Address) error) error {
 	}
 
 	return nil
+}
+
+// IterateAddresses iterates over all objects stored in the underlying database
+// and passes their addresses into f. If f returns an error, IterateAddresses
+// returns it and breaks. ignoreErrors allows to continue if internal errors
+// happen.
+func (x *Peapod) IterateAddresses(f func(addr oid.Address) error, ignoreErrors bool) error {
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+
+	return x.iterate(nil, errorHandler, f)
 }
