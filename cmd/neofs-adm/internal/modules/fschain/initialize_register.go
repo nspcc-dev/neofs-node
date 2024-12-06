@@ -1,7 +1,6 @@
 package fschain
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -136,26 +135,12 @@ func (c *initializeContext) transferNEOFinished() (bool, error) {
 	return bal.Int64() < native.NEOTotalSupply, nil
 }
 
-var errGetPriceInvalid = errors.New("`getRegisterPrice`: invalid response")
-
 func (c *initializeContext) getCandidateRegisterPrice() (int64, error) {
 	switch c.Client.(type) {
 	case *rpcclient.Client:
 		reader := neo.NewReader(c.ReadOnlyInvoker)
 		return reader.GetRegisterPrice()
 	default:
-		neoHash := neo.Hash
-		res, err := invokeFunction(c.Client, neoHash, "getRegisterPrice", nil, nil)
-		if err != nil {
-			return 0, err
-		}
-		if len(res.Stack) == 0 {
-			return 0, errGetPriceInvalid
-		}
-		bi, err := res.Stack[0].TryInteger()
-		if err != nil || !bi.IsInt64() {
-			return 0, errGetPriceInvalid
-		}
-		return bi.Int64(), nil
+		return unwrap.Int64(invokeFunction(c.Client, neo.Hash, "getRegisterPrice", nil, nil))
 	}
 }

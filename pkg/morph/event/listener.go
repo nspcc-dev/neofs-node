@@ -348,7 +348,6 @@ func (l *listener) parseAndHandleNotary(nr *result.NotaryRequestEvent) {
 	)
 
 	notaryKey := notaryRequestTypes{}
-	notaryKey.SetMempoolType(nr.Type)
 	notaryKey.SetRequestType(notaryEvent.Type())
 	notaryKey.SetScriptHash(notaryEvent.ScriptHash())
 
@@ -485,7 +484,6 @@ func (l *listener) SetNotaryParser(pi NotaryParserInfo) {
 	}
 
 	log := l.log.With(
-		zap.Stringer("mempool_type", pi.GetMempoolType()),
 		zap.String("contract", pi.ScriptHash().StringLE()),
 		zap.Stringer("notary_type", pi.RequestType()),
 	)
@@ -525,7 +523,6 @@ func (l *listener) RegisterNotaryHandler(hi NotaryHandlerInfo) {
 	}
 
 	log := l.log.With(
-		zap.Stringer("mempool_type", hi.GetMempoolType()),
 		zap.String("contract", hi.ScriptHash().StringLE()),
 		zap.Stringer("notary type", hi.RequestType()),
 	)

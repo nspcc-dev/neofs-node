@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
@@ -188,7 +187,6 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 		pp = make([]event.NotaryParserInfo, 0, 2)
 	)
 
-	p.SetMempoolType(mempoolevent.TransactionAdded)
 	p.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new peer
@@ -212,7 +210,6 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 		hh = make([]event.NotaryHandlerInfo, 0, 2)
 	)
 
-	h.SetMempoolType(mempoolevent.TransactionAdded)
 	h.SetScriptHash(np.netmapClient.ContractAddress())
 
 	// new peer
