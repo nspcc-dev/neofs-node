@@ -210,8 +210,8 @@ func parseEACLTable(tb *eacl.Table, args []string) error {
 		return errors.New("at least 2 arguments must be provided")
 	}
 
-	action, ok := eacl.ActionFromString(strings.ToUpper(args[0]))
-	if !ok {
+	var action eacl.Action
+	if !action.DecodeString(strings.ToUpper(args[0])) {
 		return errors.New("invalid action (expected 'allow' or 'deny')")
 	}
 
@@ -369,8 +369,8 @@ func validateDecimal(s string) bool {
 
 // eaclRoleFromString parses eacl.Role from string.
 func eaclRoleFromString(s string) (eacl.Role, error) {
-	r, ok := eacl.RoleFromString(strings.ToUpper(s))
-	if !ok {
+	var r eacl.Role
+	if !r.DecodeString(strings.ToUpper(s)) {
 		return r, fmt.Errorf("unexpected role %s", s)
 	}
 
@@ -415,10 +415,9 @@ func parseAccountList(s string) ([]user.ID, error) {
 func eaclOperationsFromString(s string) ([]eacl.Operation, error) {
 	ss := strings.Split(s, ",")
 	ops := make([]eacl.Operation, len(ss))
-	var ok bool
 
 	for i := range ss {
-		if ops[i], ok = eacl.OperationFromString(strings.ToUpper(ss[i])); !ok {
+		if !ops[i].DecodeString(strings.ToUpper(ss[i])) {
 			return nil, fmt.Errorf("invalid operation: %s", ss[i])
 		}
 	}
