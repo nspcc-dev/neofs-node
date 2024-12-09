@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- NeoGo dependency to 0.107.0 (#3040)
 
 ### Updating from v0.44.0
 

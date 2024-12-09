@@ -490,14 +490,14 @@ func New(cfg Config) (res *Blockchain, err error) {
 
 	rpcServer := rpcsrv.New(bc, cfgBaseApp.RPC, netServer, nil, cfg.Logger, chErrRW)
 
-	netServer.AddService(&rpcServer)
+	netServer.AddService(rpcServer)
 
 	return &Blockchain{
 		logger:    cfg.Logger,
 		storage:   bcStorage,
 		core:      bc,
 		netServer: netServer,
-		rpcServer: &rpcServer,
+		rpcServer: rpcServer,
 		chErr:     chErrRW,
 	}, nil
 }

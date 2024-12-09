@@ -142,9 +142,9 @@ func (c *Client) ReceiveNotaryRequests(txSigner util.Uint160) error {
 	return nil
 }
 
-// ReceiveAllNotaryRequests subscribes to all notary request events coming from
-// the Neo blockchain the Client connected to. Events are sent to the channel
-// returned from [Client.Notifications].
+// ReceiveAllNotaryRequests subscribes to all [mempoolevent.TransactionAdded]
+// notary pool events coming from the Neo blockchain the Client is connected to.
+// Events are sent to the channel returned from [Client.Notifications].
 //
 // See also [Client.ReceiveNotaryRequests].
 func (c *Client) ReceiveAllNotaryRequests() error {
@@ -161,7 +161,9 @@ func (c *Client) ReceiveAllNotaryRequests() error {
 		return nil
 	}
 
-	_, err := conn.client.ReceiveNotaryRequests(nil, conn.notaryChan)
+	nrAddedType := mempoolevent.TransactionAdded
+	filter := &neorpc.NotaryRequestFilter{Type: &nrAddedType}
+	_, err := conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
 	if err != nil {
 		return fmt.Errorf("subscribe to notary requests RPC: %w", err)
 	}
@@ -286,7 +288,9 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 
 	// notary notification events restoration
 	if c.subs.subscribedToAllNotaryEvents {
-		_, err = conn.client.ReceiveNotaryRequests(nil, conn.notaryChan)
+		nrAddedType := mempoolevent.TransactionAdded
+		filter := &neorpc.NotaryRequestFilter{Type: &nrAddedType}
+		_, err = conn.client.ReceiveNotaryRequests(filter, conn.notaryChan)
 		if err != nil {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err))

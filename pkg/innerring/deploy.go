@@ -5,8 +5,10 @@ import (
 	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/mempoolevent"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/notary"
@@ -74,9 +76,12 @@ func (x *fsChain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
 // SubscribeToNotaryRequests implements [deploy.Blockchain] interface.
 func (x *fsChain) SubscribeToNotaryRequests() (<-chan *result.NotaryRequestEvent, error) {
 	if x.wsClient != nil {
-		ch := make(chan *result.NotaryRequestEvent)
+		var (
+			ch     = make(chan *result.NotaryRequestEvent)
+			evtype = mempoolevent.TransactionAdded
+		)
 
-		sub, err := x.wsClient.ReceiveNotaryRequests(nil, ch)
+		sub, err := x.wsClient.ReceiveNotaryRequests(&neorpc.NotaryRequestFilter{Type: &evtype}, ch)
 		if err != nil {
 			return nil, fmt.Errorf("listen to notary requests over Neo RPC WebSocket: %w", err)
 		}

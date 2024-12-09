@@ -40,15 +40,11 @@ func getContainerContractHash(cmd *cobra.Command, inv *invoker.Invoker, c Client
 }
 
 func getContainersList(inv *invoker.Invoker, ch util.Uint160) ([][]byte, error) {
-	res, err := inv.Call(ch, "list", "")
-	if err != nil {
+	res, err := unwrap.ArrayOfBytes(inv.Call(ch, "list", ""))
+	if err != nil && !errors.Is(err, unwrap.ErrNull) {
 		return nil, fmt.Errorf("%w: %w", errInvalidContainerResponse, err)
 	}
-	itm, err := unwrap.Item(res, err)
-	if _, ok := itm.(stackitem.Null); !ok {
-		return unwrap.ArrayOfBytes(res, err)
-	}
-	return nil, nil
+	return res, nil
 }
 
 func dumpContainers(cmd *cobra.Command, _ []string) error {
