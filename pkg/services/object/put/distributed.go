@@ -33,7 +33,8 @@ type distributedTarget struct {
 	objMeta            object.ContentMeta
 	networkMagicNumber uint32
 
-	cnrClient *chaintcontainer.Client
+	cnrClient               *chaintcontainer.Client
+	metainfoConsistencyAttr string
 
 	metaMtx             sync.RWMutex
 	objSharedMeta       []byte
@@ -154,7 +155,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		return oid.ID{}, err
 	}
 
-	if t.localNodeInContainer {
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
 
