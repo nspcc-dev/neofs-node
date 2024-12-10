@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -26,7 +27,10 @@ type putEvent interface {
 type putContainerContext struct {
 	e putEvent
 
-	d containerSDK.Domain
+	// must be filled when verifying raw data from e
+	cID cid.ID
+	cnr containerSDK.Container
+	d   containerSDK.Domain
 }
 
 // Process a new container from the user by checking the container sanity
@@ -55,15 +59,15 @@ func (cp *Processor) processContainerPut(put putEvent) {
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	binCnr := ctx.e.Container()
-	var cnr containerSDK.Container
+	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
 
-	err := cnr.Unmarshal(binCnr)
+	err := ctx.cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Owner(),
+		ownerContainer:  ctx.cnr.Owner(),
 		verb:            session.VerbContainerPut,
 		binTokenSession: ctx.e.SessionToken(),
 		binPublicKey:    ctx.e.PublicKey(),
@@ -75,13 +79,13 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	}
 
 	// check homomorphic hashing setting
-	err = checkHomomorphicHashing(cp.netState, cnr)
+	err = checkHomomorphicHashing(cp.netState, ctx.cnr)
 	if err != nil {
 		return fmt.Errorf("incorrect homomorphic hashing setting: %w", err)
 	}
 
 	// check native name and zone
-	err = checkNNS(ctx, cnr)
+	err = checkNNS(ctx, ctx.cnr)
 	if err != nil {
 		return fmt.Errorf("NNS: %w", err)
 	}
@@ -104,12 +108,37 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	prm.SetZone(ctx.d.Zone())
 
 	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, true)
 
 	if err != nil {
 		cp.log.Error("could not approve put container",
 			zap.Error(err),
 		)
+		return
+	}
+
+	nm, err := cp.netState.NetMap()
+	if err != nil {
+		cp.log.Error("could not get netmap for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		return
+	}
+
+	policy := ctx.cnr.PlacementPolicy()
+	vectors, err := nm.ContainerNodes(policy, ctx.cID)
+	if err != nil {
+		cp.log.Error("could not build placement for Container contract update", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		return
+	}
+
+	replicas := make([]uint32, 0, policy.NumberOfReplicas())
+	for i := range vectors {
+		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
+	}
+
+	err = processors.UpdatePlacementVectors(ctx.cID, cp.cnrClient, vectors, replicas)
+	if err != nil {
+		cp.log.Error("could not update Container contract", zap.Stringer("cid", ctx.cID), zap.Error(err))
+		return
 	}
 }
 

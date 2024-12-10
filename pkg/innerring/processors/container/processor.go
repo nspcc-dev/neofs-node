@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
@@ -55,6 +56,9 @@ type NetworkState interface {
 	//
 	// which did not allow reading the value.
 	HomomorphicHashDisabled() (bool, error)
+
+	// NetMap must return actual network map.
+	NetMap() (*netmap.NetMap, error)
 }
 
 // New creates a container contract processor instance.
