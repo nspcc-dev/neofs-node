@@ -311,7 +311,7 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // `nonce` and `vub` are used only if notary is enabled.
 func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, fee, method, args...)
+		return c.Invoke(contract, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
@@ -324,7 +324,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 // Considered to be used by non-IR nodes.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, fee, method, args...)
+		return c.Invoke(contract, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)

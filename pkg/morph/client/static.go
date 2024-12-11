@@ -74,8 +74,16 @@ func (s StaticClient) Morph() *Client {
 type InvokePrm struct {
 	TestInvokePrm
 
+	await bool
+
 	// optional parameters
 	InvokePrmOptional
+}
+
+// Await makes invokation block until TX is included in chain OR
+// Valid Until Block is reached. Works _only_ for non-notary requests.
+func (i *InvokePrm) Await() {
+	i.await = true
 }
 
 // InvokePrmOptional groups optional parameters of the Invoke operation.
@@ -145,6 +153,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 
 	return s.client.Invoke(
 		s.scScriptHash,
+		prm.await,
 		fee,
 		prm.method,
 		prm.args...,

@@ -27,7 +27,7 @@ func (ap *Processor) processEmit() {
 	}
 
 	// there is no signature collecting, so we don't need extra fee
-	err := ap.morphClient.Invoke(contract, 0, emitMethod)
+	err := ap.morphClient.Invoke(contract, false, 0, emitMethod)
 	if err != nil {
 		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))
 
