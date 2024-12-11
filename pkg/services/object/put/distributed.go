@@ -155,11 +155,22 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		return oid.ID{}, err
 	}
 
-	if t.localNodeInContainer && (t.metainfoConsistencyAttr == "strict" || t.metainfoConsistencyAttr == "optimistic") {
+	if t.localNodeInContainer && t.metainfoConsistencyAttr != "" {
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
 
-		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		var await bool
+		switch t.metainfoConsistencyAttr {
+		// TODO: there was no constant in SDK at the code creation moment
+		case "strict":
+			await = true
+		case "optimistic":
+			await = false
+		default:
+			return id, nil
+		}
+
+		err = t.cnrClient.SubmitObjectPut(await, t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
 			t.placementIterator.log.Info("failed to submit", zap.Stringer("oid", id), zap.Error(err))
 		}
