@@ -6,6 +6,18 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.44.1
+
+## [0.44.1] - 2024-12-11
+
+### Fixed
 - Fail gracefully on error from config validation (#3037)
 - False-negative object PUT from container node with set copies number (#3042)
 - Metabase resynchronization failure (#3039)
@@ -14,12 +26,8 @@ Changelog for NeoFS Node
 - Local object PUT op with copies number set to 1 is allowed now (#3042)
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 100 (#3043)
 
-### Removed
-
 ### Updated
-- NeoGo dependency to 0.107.0 (#3040)
-
-### Updating from v0.44.0
+- NeoGo dependency to 0.107.1 (#3040)
 
 ## [0.44.0] - 2024-11-28 - Oedo
 
@@ -2169,7 +2177,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.1...master
+[0.44.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.1...v0.43.0
 [0.42.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.42.0...v0.42.1
