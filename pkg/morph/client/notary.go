@@ -501,6 +501,58 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	return nil
 }
 
+func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
+	if c.notary == nil {
+		panic("notary support is not enabled")
+	}
+
+	var conn = c.conn.Load()
+	if conn == nil {
+		return ErrConnectionLost
+	}
+
+	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
+	if err != nil {
+		return err
+	}
+
+	until, err := c.notaryTxValidationLimit(conn)
+	if err != nil {
+		return err
+	}
+
+	cosigners, err := c.notaryCosigners(false, alphabetList, false)
+	if err != nil {
+		return err
+	}
+
+	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
+	if err != nil {
+		return err
+	}
+
+	mainH, fbH, untilActual, err := nAct.Notarize(nAct.MakeTunedRun(script, nil, func(r *result.Invoke, t *transaction.Transaction) error {
+		if r.State != vmstate.Halt.String() {
+			return &notHaltStateError{state: r.State, exception: r.FaultException}
+		}
+
+		t.ValidUntilBlock = until
+		t.Nonce = nonce
+
+		return nil
+	}))
+	if err != nil && !alreadyOnChainError(err) {
+		return err
+	}
+
+	c.logger.Debug("notary request based on script invoked",
+		zap.Uint32("valid_until_block", untilActual),
+		zap.String("tx_hash", mainH.StringLE()),
+		zap.String("fallback_hash", fbH.StringLE()))
+
+	return nil
+}
+
 func (c *Client) notaryCosigners(invokedByAlpha bool, ir []*keys.PublicKey, committee bool) ([]actor.SignerAccount, error) {
 	multiaddrAccount, err := c.notaryMultisigAccount(ir, committee, invokedByAlpha)
 	if err != nil {

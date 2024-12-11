@@ -160,6 +160,16 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 	)
 }
 
+// RunAlphabetNotaryScript invokes script by sending tx to notary contract in
+// blockchain. Fallback tx is a `RET`. Panics if Notary support is not enabled.
+// TX is signed with internal key, 2/3+1 multisigners are expected.
+func (s StaticClient) RunAlphabetNotaryScript(sc []byte) error {
+	// default nonce for Alphabet transactions that must be send asynchronous;
+	// it is chosen to be the same as in Invoke method
+	const nonce = 1
+	return s.client.runAlphabetNotaryScript(sc, nonce)
+}
+
 // TestInvokePrm groups parameters of the TestInvoke operation.
 type TestInvokePrm struct {
 	method string

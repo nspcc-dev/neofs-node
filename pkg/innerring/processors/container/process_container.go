@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
@@ -135,7 +134,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 		replicas = append(replicas, policy.ReplicaNumberByIndex(i))
 	}
 
-	err = processors.UpdatePlacementVectors(ctx.cID, cp.cnrClient, vectors, replicas)
+	err = cp.cnrClient.UpdateContainerPlacement(ctx.cID, vectors, replicas)
 	if err != nil {
 		cp.log.Error("could not update Container contract", zap.Stringer("cid", ctx.cID), zap.Error(err))
 		return
