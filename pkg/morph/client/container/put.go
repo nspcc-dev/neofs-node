@@ -5,6 +5,7 @@ import (
 
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
@@ -21,6 +22,10 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 	prm.SetContainer(data)
 	prm.SetName(d.Name())
 	prm.SetZone(d.Zone())
+	switch metaAttribute(cnr.Value) {
+	case "optimistic", "strict":
+		prm.EnableMeta()
+	}
 
 	if cnr.Session != nil {
 		prm.SetToken(cnr.Session.Marshal())
@@ -41,12 +46,13 @@ func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
 
 // PutPrm groups parameters of Put operation.
 type PutPrm struct {
-	cnr   []byte
-	key   []byte
-	sig   []byte
-	token []byte
-	name  string
-	zone  string
+	cnr               []byte
+	key               []byte
+	sig               []byte
+	token             []byte
+	name              string
+	zone              string
+	enableMetaOnChain bool
 
 	client.InvokePrmOptional
 }
@@ -81,6 +87,11 @@ func (p *PutPrm) SetZone(zone string) {
 	p.zone = zone
 }
 
+// EnableMeta enables meta-on-chain.
+func (p *PutPrm) EnableMeta() {
+	p.enableMetaOnChain = true
+}
+
 // Put saves binary container with its session token, key and signature
 // in NeoFS system through Container contract call.
 //
@@ -91,21 +102,10 @@ func (c *Client) Put(p PutPrm) error {
 		return errNilArgument
 	}
 
-	var (
-		method string
-		prm    client.InvokePrm
-	)
-
-	if p.name != "" {
-		method = putNamedMethod
-		prm.SetArgs(p.cnr, p.sig, p.key, p.token, p.name, p.zone)
-	} else {
-		method = putMethod
-		prm.SetArgs(p.cnr, p.sig, p.key, p.token)
-	}
-
-	prm.SetMethod(method)
+	var prm client.InvokePrm
+	prm.SetMethod(putMethod)
 	prm.InvokePrmOptional = p.InvokePrmOptional
+	prm.SetArgs(p.cnr, p.sig, p.key, p.token, p.name, p.zone, p.enableMetaOnChain)
 
 	// no magic bugs with notary requests anymore, this operation should
 	// _always_ be notary signed so make it one more time even if it is
@@ -114,7 +114,11 @@ func (c *Client) Put(p PutPrm) error {
 
 	err := c.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", method, err)
+		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 	}
 	return nil
+}
+
+func metaAttribute(cnr containerSDK.Container) string {
+	return cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
 }
