@@ -97,15 +97,6 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	var err error
 
-	prm := cntClient.PutPrm{}
-
-	prm.SetContainer(e.Container())
-	prm.SetKey(e.PublicKey())
-	prm.SetSignature(e.Signature())
-	prm.SetToken(e.SessionToken())
-	prm.SetName(ctx.d.Name())
-	prm.SetZone(ctx.d.Zone())
-
 	nr := e.NotaryRequest()
 	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, true)
 
