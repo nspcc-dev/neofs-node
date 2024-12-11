@@ -3,7 +3,6 @@ package netmap
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement"
@@ -115,7 +114,7 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 			replicas = append(replicas, policy.ReplicaNumberByIndex(i))
 		}
 
-		err = processors.UpdatePlacementVectors(cID, np.containerWrp, vectors, replicas)
+		err = np.containerWrp.UpdateContainerPlacement(cID, vectors, replicas)
 		if err != nil {
 			l.Error("can't put placement vectors to Container contract", zap.Error(err))
 			continue
