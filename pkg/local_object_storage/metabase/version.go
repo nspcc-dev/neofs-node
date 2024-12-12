@@ -21,26 +21,29 @@ var versionKey = []byte("version")
 var ErrOutdatedVersion = logicerr.New("invalid version, resynchronization is required")
 
 func (db *DB) checkVersion(tx *bbolt.Tx) error {
-	var migrated bool
-
 	stored, knownVersion := getVersion(tx)
 
-	if knownVersion && stored != currentMetaVersion {
-		migrate, ok := migrateFrom[stored]
+	switch {
+	case !knownVersion:
+		// new database, write version
+		return updateVersion(tx, currentMetaVersion)
+	case stored == currentMetaVersion:
+		return nil
+	case stored > currentMetaVersion:
+		return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
+	}
+
+	// Outdated, but can be migrated.
+	for i := stored; i < currentMetaVersion; i++ {
+		migrate, ok := migrateFrom[i]
 		if !ok {
 			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
 		}
 
 		err := migrate(db, tx)
 		if err != nil {
-			return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, currentMetaVersion, err)
+			return fmt.Errorf("migrating from meta version %d failed, consider database resync: %w", i, err)
 		}
-		migrated = true
-	}
-
-	if !knownVersion || migrated {
-		// new database, write version
-		return updateVersion(tx, currentMetaVersion)
 	}
 
 	return nil
@@ -100,5 +103,5 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 		}
 	}
 
-	return nil
+	return updateVersion(tx, 3)
 }
