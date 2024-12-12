@@ -52,27 +52,7 @@ func (db *DB) openBolt() error {
 
 	db.log.Debug("opened boltDB instance for Metabase")
 
-	db.log.Debug("checking metabase version")
-	return db.boltDB.View(func(tx *bbolt.Tx) error {
-		// The safest way to check if the metabase is fresh is to check if it has no buckets.
-		// However, shard info can be present. So here we check that the number of buckets is
-		// at most 1.
-		// Another thing to consider is that tests do not persist shard ID, we want to support
-		// this case too.
-		var n int
-		err := tx.ForEach(func([]byte, *bbolt.Bucket) error {
-			if n++; n >= 2 { // do not iterate a lot
-				return errBreakBucketForEach
-			}
-			return nil
-		})
-
-		if errors.Is(err, errBreakBucketForEach) {
-			db.initialized = true
-			err = nil
-		}
-		return err
-	})
+	return nil
 }
 
 // Init initializes metabase. It creates static (CID-independent) buckets in underlying BoltDB instance.
@@ -153,7 +133,7 @@ func (db *DB) init(reset bool) error {
 			if err != nil {
 				return err
 			}
-			err = updateVersion(tx, version)
+			err = updateVersion(tx, currentMetaVersion)
 			if err != nil {
 				return err
 			}

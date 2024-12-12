@@ -10,8 +10,8 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// version contains current metabase version.
-const version = 3
+// currentMetaVersion contains current metabase version.
+const currentMetaVersion = 3
 
 var versionKey = []byte("version")
 
@@ -21,39 +21,29 @@ var versionKey = []byte("version")
 var ErrOutdatedVersion = logicerr.New("invalid version, resynchronization is required")
 
 func (db *DB) checkVersion(tx *bbolt.Tx) error {
-	var knownVersion bool
+	stored, knownVersion := getVersion(tx)
 
-	b := tx.Bucket(shardInfoBucket)
-	if b != nil {
-		data := b.Get(versionKey)
-		if len(data) == 8 {
-			knownVersion = true
-
-			stored := binary.LittleEndian.Uint64(data)
-			if stored != version {
-				migrate, ok := migrateFrom[stored]
-				if !ok {
-					return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
-				}
-
-				err := migrate(db, tx)
-				if err != nil {
-					return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, version, err)
-				}
-			}
-		}
+	switch {
+	case !knownVersion:
+		// new database, write version
+		return updateVersion(tx, currentMetaVersion)
+	case stored == currentMetaVersion:
+		return nil
+	case stored > currentMetaVersion:
+		return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
 	}
 
-	if !db.initialized {
-		// new database, write version
-		return updateVersion(tx, version)
-	} else if !knownVersion {
-		// db is initialized but no version
-		// has been found; that could happen
-		// if the db is corrupted or the version
-		// is <2 (is outdated and requires resync
-		// anyway)
-		return ErrOutdatedVersion
+	// Outdated, but can be migrated.
+	for i := stored; i < currentMetaVersion; i++ {
+		migrate, ok := migrateFrom[i]
+		if !ok {
+			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
+		}
+
+		err := migrate(db, tx)
+		if err != nil {
+			return fmt.Errorf("migrating from meta version %d failed, consider database resync: %w", i, err)
+		}
 	}
 
 	return nil
@@ -70,16 +60,16 @@ func updateVersion(tx *bbolt.Tx, version uint64) error {
 	return b.Put(versionKey, data)
 }
 
-func getVersion(tx *bbolt.Tx) uint64 {
+func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	b := tx.Bucket(shardInfoBucket)
 	if b != nil {
 		data := b.Get(versionKey)
 		if len(data) == 8 {
-			return binary.LittleEndian.Uint64(data)
+			return binary.LittleEndian.Uint64(data), true
 		}
 	}
 
-	return 0
+	return 0, false
 }
 
 var migrateFrom = map[uint64]func(*DB, *bbolt.Tx) error{
@@ -95,7 +85,11 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 	c := bkt.Cursor()
 
 	for k, v := c.First(); k != nil; k, v = c.Next() {
-		if l := len(v); l != addressKeySize {
+		l := len(v)
+		if l == addressKeySize+8 { // Because of a 0.44.0 bug we can have a migrated DB with version 2.
+			continue
+		}
+		if l != addressKeySize {
 			return fmt.Errorf("graveyard value with unexpected %d length", l)
 		}
 
@@ -109,5 +103,5 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 		}
 	}
 
-	return nil
+	return updateVersion(tx, 3)
 }

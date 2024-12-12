@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -42,8 +43,8 @@ func TestVersion(t *testing.T) {
 			if len(data) != 8 {
 				return errors.New("invalid version data")
 			}
-			if stored := binary.LittleEndian.Uint64(data); stored != version {
-				return fmt.Errorf("invalid version: %d != %d", stored, version)
+			if stored := binary.LittleEndian.Uint64(data); stored != currentMetaVersion {
+				return fmt.Errorf("invalid version: %d != %d", stored, currentMetaVersion)
 			}
 			return nil
 		}))
@@ -77,7 +78,7 @@ func TestVersion(t *testing.T) {
 		db := newDB(t)
 		require.NoError(t, db.Open(false))
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			return updateVersion(tx, version+1)
+			return updateVersion(tx, currentMetaVersion+1)
 		}))
 		require.NoError(t, db.Close())
 
@@ -307,14 +308,18 @@ func TestMigrate2to3(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// inhumeV2 stores data in the old format, but new DB has current version by default, force old version.
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
-		err = updateVersion(tx, 2)
-		if err != nil {
-			return err
-		}
-
-		return migrateFrom2Version(db, tx)
+		return updateVersion(tx, 2)
 	})
+	require.NoError(t, err)
+
+	db.mode = mode.DegradedReadOnly // Force reload.
+	ok, err := db.Reload(WithPath(db.info.Path), WithEpochState(epochState{}))
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	err = db.Init() // Migration happens here.
 	require.NoError(t, err)
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
@@ -325,6 +330,17 @@ func TestMigrate2to3(t *testing.T) {
 
 			return nil
 		})
+	})
+	require.NoError(t, err)
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		gotV, ok := getVersion(tx)
+		if !ok {
+			return errors.New("missing version")
+		}
+		if gotV != currentMetaVersion {
+			return errors.New("version was not updated")
+		}
+		return nil
 	})
 	require.NoError(t, err)
 }
