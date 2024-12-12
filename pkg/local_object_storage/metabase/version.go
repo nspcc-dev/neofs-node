@@ -10,8 +10,8 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// version contains current metabase version.
-const version = 3
+// currentMetaVersion contains current metabase version.
+const currentMetaVersion = 3
 
 var versionKey = []byte("version")
 
@@ -25,22 +25,22 @@ func (db *DB) checkVersion(tx *bbolt.Tx) error {
 
 	stored, knownVersion := getVersion(tx)
 
-	if knownVersion && stored != version {
+	if knownVersion && stored != currentMetaVersion {
 		migrate, ok := migrateFrom[stored]
 		if !ok {
-			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
+			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
 		}
 
 		err := migrate(db, tx)
 		if err != nil {
-			return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, version, err)
+			return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, currentMetaVersion, err)
 		}
 		migrated = true
 	}
 
 	if !db.initialized || migrated {
 		// new database, write version
-		return updateVersion(tx, version)
+		return updateVersion(tx, currentMetaVersion)
 	} else if !knownVersion {
 		// db is initialized but no version
 		// has been found; that could happen

@@ -153,7 +153,7 @@ func (db *DB) init(reset bool) error {
 			if err != nil {
 				return err
 			}
-			err = updateVersion(tx, version)
+			err = updateVersion(tx, currentMetaVersion)
 			if err != nil {
 				return err
 			}

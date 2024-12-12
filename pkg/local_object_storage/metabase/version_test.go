@@ -43,8 +43,8 @@ func TestVersion(t *testing.T) {
 			if len(data) != 8 {
 				return errors.New("invalid version data")
 			}
-			if stored := binary.LittleEndian.Uint64(data); stored != version {
-				return fmt.Errorf("invalid version: %d != %d", stored, version)
+			if stored := binary.LittleEndian.Uint64(data); stored != currentMetaVersion {
+				return fmt.Errorf("invalid version: %d != %d", stored, currentMetaVersion)
 			}
 			return nil
 		}))
@@ -78,7 +78,7 @@ func TestVersion(t *testing.T) {
 		db := newDB(t)
 		require.NoError(t, db.Open(false))
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
-			return updateVersion(tx, version+1)
+			return updateVersion(tx, currentMetaVersion+1)
 		}))
 		require.NoError(t, db.Close())
 
@@ -337,7 +337,7 @@ func TestMigrate2to3(t *testing.T) {
 		if !ok {
 			return errors.New("missing version")
 		}
-		if gotV != version {
+		if gotV != currentMetaVersion {
 			return errors.New("version was not updated")
 		}
 		return nil
