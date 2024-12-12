@@ -332,4 +332,11 @@ func TestMigrate2to3(t *testing.T) {
 		})
 	})
 	require.NoError(t, err)
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		if getVersion(tx) != version {
+			return errors.New("version was not updated")
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }

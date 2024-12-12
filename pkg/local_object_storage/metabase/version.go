@@ -21,7 +21,10 @@ var versionKey = []byte("version")
 var ErrOutdatedVersion = logicerr.New("invalid version, resynchronization is required")
 
 func (db *DB) checkVersion(tx *bbolt.Tx) error {
-	var knownVersion bool
+	var (
+		knownVersion bool
+		migrated     bool
+	)
 
 	b := tx.Bucket(shardInfoBucket)
 	if b != nil {
@@ -40,11 +43,12 @@ func (db *DB) checkVersion(tx *bbolt.Tx) error {
 				if err != nil {
 					return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, version, err)
 				}
+				migrated = true
 			}
 		}
 	}
 
-	if !db.initialized {
+	if !db.initialized || migrated {
 		// new database, write version
 		return updateVersion(tx, version)
 	} else if !knownVersion {
