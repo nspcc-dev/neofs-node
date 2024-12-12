@@ -95,7 +95,11 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 	c := bkt.Cursor()
 
 	for k, v := c.First(); k != nil; k, v = c.Next() {
-		if l := len(v); l != addressKeySize {
+		l := len(v)
+		if l == addressKeySize+8 { // Because of a 0.44.0 bug we can have a migrated DB with version 2.
+			continue
+		}
+		if l != addressKeySize {
 			return fmt.Errorf("graveyard value with unexpected %d length", l)
 		}
 

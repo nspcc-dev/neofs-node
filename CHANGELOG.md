@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Incomplete metabase migration to version 3 leading to node start failure (#3048)
 
 ### Changed
 
