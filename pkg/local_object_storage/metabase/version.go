@@ -38,16 +38,9 @@ func (db *DB) checkVersion(tx *bbolt.Tx) error {
 		migrated = true
 	}
 
-	if !db.initialized || migrated {
+	if !knownVersion || migrated {
 		// new database, write version
 		return updateVersion(tx, currentMetaVersion)
-	} else if !knownVersion {
-		// db is initialized but no version
-		// has been found; that could happen
-		// if the db is corrupted or the version
-		// is <2 (is outdated and requires resync
-		// anyway)
-		return ErrOutdatedVersion
 	}
 
 	return nil
