@@ -47,7 +47,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	}
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		res.Version = getVersion(tx)
+		res.Version, _ = getVersion(tx)
 
 		oID := address.Object()
 		cID := address.Container()

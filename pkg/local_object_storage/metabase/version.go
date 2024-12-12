@@ -21,31 +21,21 @@ var versionKey = []byte("version")
 var ErrOutdatedVersion = logicerr.New("invalid version, resynchronization is required")
 
 func (db *DB) checkVersion(tx *bbolt.Tx) error {
-	var (
-		knownVersion bool
-		migrated     bool
-	)
+	var migrated bool
 
-	b := tx.Bucket(shardInfoBucket)
-	if b != nil {
-		data := b.Get(versionKey)
-		if len(data) == 8 {
-			knownVersion = true
+	stored, knownVersion := getVersion(tx)
 
-			stored := binary.LittleEndian.Uint64(data)
-			if stored != version {
-				migrate, ok := migrateFrom[stored]
-				if !ok {
-					return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
-				}
-
-				err := migrate(db, tx)
-				if err != nil {
-					return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, version, err)
-				}
-				migrated = true
-			}
+	if knownVersion && stored != version {
+		migrate, ok := migrateFrom[stored]
+		if !ok {
+			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, version, stored)
 		}
+
+		err := migrate(db, tx)
+		if err != nil {
+			return fmt.Errorf("migrating from %d to %d version failed, consider database resync: %w", stored, version, err)
+		}
+		migrated = true
 	}
 
 	if !db.initialized || migrated {
@@ -74,16 +64,16 @@ func updateVersion(tx *bbolt.Tx, version uint64) error {
 	return b.Put(versionKey, data)
 }
 
-func getVersion(tx *bbolt.Tx) uint64 {
+func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	b := tx.Bucket(shardInfoBucket)
 	if b != nil {
 		data := b.Get(versionKey)
 		if len(data) == 8 {
-			return binary.LittleEndian.Uint64(data)
+			return binary.LittleEndian.Uint64(data), true
 		}
 	}
 
-	return 0
+	return 0, false
 }
 
 var migrateFrom = map[uint64]func(*DB, *bbolt.Tx) error{
