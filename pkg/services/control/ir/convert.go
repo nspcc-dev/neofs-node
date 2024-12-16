@@ -33,18 +33,18 @@ func (w *healthCheckResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	return nil
 }
 
-type networkListResponseWrapper struct {
-	m *NetworkListResponse
+type notaryListResponseWrapper struct {
+	m *NotaryListResponse
 }
 
-func (w *networkListResponseWrapper) ToGRPCMessage() grpc.Message {
+func (w *notaryListResponseWrapper) ToGRPCMessage() grpc.Message {
 	return w.m
 }
 
-func (w *networkListResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+func (w *notaryListResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	var ok bool
 
-	w.m, ok = m.(*NetworkListResponse)
+	w.m, ok = m.(*NotaryListResponse)
 	if !ok {
 		return message.NewUnexpectedMessageType(m, w.m)
 	}
@@ -52,18 +52,37 @@ func (w *networkListResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	return nil
 }
 
-type networkEpochTickResponseWrapper struct {
-	m *NetworkEpochTickResponse
+type notaryRequestResponseWrapper struct {
+	m *NotaryRequestResponse
 }
 
-func (w *networkEpochTickResponseWrapper) ToGRPCMessage() grpc.Message {
+func (w *notaryRequestResponseWrapper) ToGRPCMessage() grpc.Message {
 	return w.m
 }
 
-func (w *networkEpochTickResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+func (w *notaryRequestResponseWrapper) FromGRPCMessage(m grpc.Message) error {
 	var ok bool
 
-	w.m, ok = m.(*NetworkEpochTickResponse)
+	w.m, ok = m.(*NotaryRequestResponse)
+	if !ok {
+		return message.NewUnexpectedMessageType(m, w.m)
+	}
+
+	return nil
+}
+
+type notarySignResponseWrapper struct {
+	m *NotarySignResponse
+}
+
+func (w *notarySignResponseWrapper) ToGRPCMessage() grpc.Message {
+	return w.m
+}
+
+func (w *notarySignResponseWrapper) FromGRPCMessage(m grpc.Message) error {
+	var ok bool
+
+	w.m, ok = m.(*NotarySignResponse)
 	if !ok {
 		return message.NewUnexpectedMessageType(m, w.m)
 	}

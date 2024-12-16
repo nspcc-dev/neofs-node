@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlService_HealthCheck_FullMethodName      = "/ircontrol.ControlService/HealthCheck"
-	ControlService_NetworkList_FullMethodName      = "/ircontrol.ControlService/NetworkList"
-	ControlService_NetworkEpochTick_FullMethodName = "/ircontrol.ControlService/NetworkEpochTick"
+	ControlService_HealthCheck_FullMethodName   = "/ircontrol.ControlService/HealthCheck"
+	ControlService_NotaryList_FullMethodName    = "/ircontrol.ControlService/NotaryList"
+	ControlService_NotaryRequest_FullMethodName = "/ircontrol.ControlService/NotaryRequest"
+	ControlService_NotarySign_FullMethodName    = "/ircontrol.ControlService/NotarySign"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -32,9 +33,12 @@ const (
 type ControlServiceClient interface {
 	// Performs health check of the IR node.
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
-	// NetworkList list requested changes of network.
-	NetworkList(ctx context.Context, in *NetworkListRequest, opts ...grpc.CallOption) (*NetworkListResponse, error)
-	NetworkEpochTick(ctx context.Context, in *NetworkEpochTickRequest, opts ...grpc.CallOption) (*NetworkEpochTickResponse, error)
+	// NotaryList list notary requests from the network.
+	NotaryList(ctx context.Context, in *NotaryListRequest, opts ...grpc.CallOption) (*NotaryListResponse, error)
+	// NotaryRequest create and send notary request to the network.
+	NotaryRequest(ctx context.Context, in *NotaryRequestRequest, opts ...grpc.CallOption) (*NotaryRequestResponse, error)
+	// NotarySign sign a notary request by it hash.
+	NotarySign(ctx context.Context, in *NotarySignRequest, opts ...grpc.CallOption) (*NotarySignResponse, error)
 }
 
 type controlServiceClient struct {
@@ -55,20 +59,30 @@ func (c *controlServiceClient) HealthCheck(ctx context.Context, in *HealthCheckR
 	return out, nil
 }
 
-func (c *controlServiceClient) NetworkList(ctx context.Context, in *NetworkListRequest, opts ...grpc.CallOption) (*NetworkListResponse, error) {
+func (c *controlServiceClient) NotaryList(ctx context.Context, in *NotaryListRequest, opts ...grpc.CallOption) (*NotaryListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NetworkListResponse)
-	err := c.cc.Invoke(ctx, ControlService_NetworkList_FullMethodName, in, out, cOpts...)
+	out := new(NotaryListResponse)
+	err := c.cc.Invoke(ctx, ControlService_NotaryList_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *controlServiceClient) NetworkEpochTick(ctx context.Context, in *NetworkEpochTickRequest, opts ...grpc.CallOption) (*NetworkEpochTickResponse, error) {
+func (c *controlServiceClient) NotaryRequest(ctx context.Context, in *NotaryRequestRequest, opts ...grpc.CallOption) (*NotaryRequestResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NetworkEpochTickResponse)
-	err := c.cc.Invoke(ctx, ControlService_NetworkEpochTick_FullMethodName, in, out, cOpts...)
+	out := new(NotaryRequestResponse)
+	err := c.cc.Invoke(ctx, ControlService_NotaryRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) NotarySign(ctx context.Context, in *NotarySignRequest, opts ...grpc.CallOption) (*NotarySignResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NotarySignResponse)
+	err := c.cc.Invoke(ctx, ControlService_NotarySign_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +97,12 @@ func (c *controlServiceClient) NetworkEpochTick(ctx context.Context, in *Network
 type ControlServiceServer interface {
 	// Performs health check of the IR node.
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
-	// NetworkList list requested changes of network.
-	NetworkList(context.Context, *NetworkListRequest) (*NetworkListResponse, error)
-	NetworkEpochTick(context.Context, *NetworkEpochTickRequest) (*NetworkEpochTickResponse, error)
+	// NotaryList list notary requests from the network.
+	NotaryList(context.Context, *NotaryListRequest) (*NotaryListResponse, error)
+	// NotaryRequest create and send notary request to the network.
+	NotaryRequest(context.Context, *NotaryRequestRequest) (*NotaryRequestResponse, error)
+	// NotarySign sign a notary request by it hash.
+	NotarySign(context.Context, *NotarySignRequest) (*NotarySignResponse, error)
 }
 
 // UnimplementedControlServiceServer should be embedded to have
@@ -98,11 +115,14 @@ type UnimplementedControlServiceServer struct{}
 func (UnimplementedControlServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
 }
-func (UnimplementedControlServiceServer) NetworkList(context.Context, *NetworkListRequest) (*NetworkListResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NetworkList not implemented")
+func (UnimplementedControlServiceServer) NotaryList(context.Context, *NotaryListRequest) (*NotaryListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotaryList not implemented")
 }
-func (UnimplementedControlServiceServer) NetworkEpochTick(context.Context, *NetworkEpochTickRequest) (*NetworkEpochTickResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NetworkEpochTick not implemented")
+func (UnimplementedControlServiceServer) NotaryRequest(context.Context, *NotaryRequestRequest) (*NotaryRequestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotaryRequest not implemented")
+}
+func (UnimplementedControlServiceServer) NotarySign(context.Context, *NotarySignRequest) (*NotarySignResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotarySign not implemented")
 }
 func (UnimplementedControlServiceServer) testEmbeddedByValue() {}
 
@@ -142,38 +162,56 @@ func _ControlService_HealthCheck_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlService_NetworkList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NetworkListRequest)
+func _ControlService_NotaryList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotaryListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlServiceServer).NetworkList(ctx, in)
+		return srv.(ControlServiceServer).NotaryList(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ControlService_NetworkList_FullMethodName,
+		FullMethod: ControlService_NotaryList_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).NetworkList(ctx, req.(*NetworkListRequest))
+		return srv.(ControlServiceServer).NotaryList(ctx, req.(*NotaryListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlService_NetworkEpochTick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NetworkEpochTickRequest)
+func _ControlService_NotaryRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotaryRequestRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlServiceServer).NetworkEpochTick(ctx, in)
+		return srv.(ControlServiceServer).NotaryRequest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ControlService_NetworkEpochTick_FullMethodName,
+		FullMethod: ControlService_NotaryRequest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).NetworkEpochTick(ctx, req.(*NetworkEpochTickRequest))
+		return srv.(ControlServiceServer).NotaryRequest(ctx, req.(*NotaryRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_NotarySign_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotarySignRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).NotarySign(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_NotarySign_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).NotarySign(ctx, req.(*NotarySignRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -190,12 +228,16 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_HealthCheck_Handler,
 		},
 		{
-			MethodName: "NetworkList",
-			Handler:    _ControlService_NetworkList_Handler,
+			MethodName: "NotaryList",
+			Handler:    _ControlService_NotaryList_Handler,
 		},
 		{
-			MethodName: "NetworkEpochTick",
-			Handler:    _ControlService_NetworkEpochTick_Handler,
+			MethodName: "NotaryRequest",
+			Handler:    _ControlService_NotaryRequest_Handler,
+		},
+		{
+			MethodName: "NotarySign",
+			Handler:    _ControlService_NotarySign_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

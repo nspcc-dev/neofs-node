@@ -21,43 +21,71 @@ func (x *HealthCheckResponse) SetBody(v *HealthCheckResponse_Body) {
 	}
 }
 
-// SetBody sets network list request body.
-func (x *NetworkListRequest) SetBody(v *NetworkListRequest_Body) {
+// SetBody sets notary list request body.
+func (x *NotaryListRequest) SetBody(v *NotaryListRequest_Body) {
 	if x != nil {
 		x.Body = v
 	}
 }
 
-// SetHashes sets list of hashes of the IR notary requests.
-func (x *NetworkListResponse_Body) SetHashes(v []string) {
+// SetTransactions sets list of transactions of the IR notary requests.
+func (x *NotaryListResponse_Body) SetTransactions(v []*TransactionInfo) {
 	if x != nil {
-		x.Hashes = v
+		x.Transactions = v
 	}
 }
 
 // SetBody sets network list response body.
-func (x *NetworkListResponse) SetBody(v *NetworkListResponse_Body) {
+func (x *NotaryListResponse) SetBody(v *NotaryListResponse_Body) {
 	if x != nil {
 		x.Body = v
 	}
 }
 
-// SetBody sets network epoch tick request body.
-func (x *NetworkEpochTickRequest) SetBody(v *NetworkEpochTickRequest_Body) {
+// SetScript sets notary transaction script to request body.
+func (x *NotaryRequestRequest_Body) SetScript(v string) {
+	if x != nil {
+		x.Script = v
+	}
+}
+
+// SetBody sets notary request request body.
+func (x *NotaryRequestRequest) SetBody(v *NotaryRequestRequest_Body) {
 	if x != nil {
 		x.Body = v
 	}
 }
 
-// SetHash sets hash of the IR notary request to tick epoch.
-func (x *NetworkEpochTickResponse_Body) SetHash(v string) {
+// SetHash sets hash of the IR notary request.
+func (x *NotaryRequestResponse_Body) SetHash(v string) {
 	if x != nil {
 		x.Hash = v
 	}
 }
 
 // SetBody sets network epoch tick response body.
-func (x *NetworkEpochTickResponse) SetBody(v *NetworkEpochTickResponse_Body) {
+func (x *NotaryRequestResponse) SetBody(v *NotaryRequestResponse_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetHash sets hash of the IR notary request to tick epoch.
+func (x *NotarySignRequest_Body) SetHash(v string) {
+	if x != nil {
+		x.Hash = v
+	}
+}
+
+// SetBody sets notary sign request body.
+func (x *NotarySignRequest) SetBody(v *NotarySignRequest_Body) {
+	if x != nil {
+		x.Body = v
+	}
+}
+
+// SetBody sets notary sign response body.
+func (x *NotarySignResponse) SetBody(v *NotarySignResponse_Body) {
 	if x != nil {
 		x.Body = v
 	}

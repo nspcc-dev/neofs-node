@@ -138,20 +138,20 @@ func (x *HealthCheckResponse) GetSignature() *Signature {
 	return nil
 }
 
-// NetworkList request.
-type NetworkListRequest struct {
+// NotaryList request.
+type NotaryListRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Body of request message.
-	Body *NetworkListRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Body *NotaryListRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	// Body signature.
 	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (x *NetworkListRequest) Reset() {
-	*x = NetworkListRequest{}
+func (x *NotaryListRequest) Reset() {
+	*x = NotaryListRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -159,13 +159,13 @@ func (x *NetworkListRequest) Reset() {
 	}
 }
 
-func (x *NetworkListRequest) String() string {
+func (x *NotaryListRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkListRequest) ProtoMessage() {}
+func (*NotaryListRequest) ProtoMessage() {}
 
-func (x *NetworkListRequest) ProtoReflect() protoreflect.Message {
+func (x *NotaryListRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -177,39 +177,39 @@ func (x *NetworkListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkListRequest.ProtoReflect.Descriptor instead.
-func (*NetworkListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotaryListRequest.ProtoReflect.Descriptor instead.
+func (*NotaryListRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *NetworkListRequest) GetBody() *NetworkListRequest_Body {
+func (x *NotaryListRequest) GetBody() *NotaryListRequest_Body {
 	if x != nil {
 		return x.Body
 	}
 	return nil
 }
 
-func (x *NetworkListRequest) GetSignature() *Signature {
+func (x *NotaryListRequest) GetSignature() *Signature {
 	if x != nil {
 		return x.Signature
 	}
 	return nil
 }
 
-// NetworkList response.
-type NetworkListResponse struct {
+// NotaryList response.
+type NotaryListResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Body of request message.
-	Body *NetworkListResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Body *NotaryListResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	// Body signature.
 	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (x *NetworkListResponse) Reset() {
-	*x = NetworkListResponse{}
+func (x *NotaryListResponse) Reset() {
+	*x = NotaryListResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -217,13 +217,13 @@ func (x *NetworkListResponse) Reset() {
 	}
 }
 
-func (x *NetworkListResponse) String() string {
+func (x *NotaryListResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkListResponse) ProtoMessage() {}
+func (*NotaryListResponse) ProtoMessage() {}
 
-func (x *NetworkListResponse) ProtoReflect() protoreflect.Message {
+func (x *NotaryListResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -235,39 +235,39 @@ func (x *NetworkListResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkListResponse.ProtoReflect.Descriptor instead.
-func (*NetworkListResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotaryListResponse.ProtoReflect.Descriptor instead.
+func (*NotaryListResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *NetworkListResponse) GetBody() *NetworkListResponse_Body {
+func (x *NotaryListResponse) GetBody() *NotaryListResponse_Body {
 	if x != nil {
 		return x.Body
 	}
 	return nil
 }
 
-func (x *NetworkListResponse) GetSignature() *Signature {
+func (x *NotaryListResponse) GetSignature() *Signature {
 	if x != nil {
 		return x.Signature
 	}
 	return nil
 }
 
-// NetworkEpochTick request.
-type NetworkEpochTickRequest struct {
+// NotaryRequest request.
+type NotaryRequestRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Body of request message.
-	Body *NetworkEpochTickRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Body *NotaryRequestRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	// Body signature.
 	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (x *NetworkEpochTickRequest) Reset() {
-	*x = NetworkEpochTickRequest{}
+func (x *NotaryRequestRequest) Reset() {
+	*x = NotaryRequestRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -275,13 +275,13 @@ func (x *NetworkEpochTickRequest) Reset() {
 	}
 }
 
-func (x *NetworkEpochTickRequest) String() string {
+func (x *NotaryRequestRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkEpochTickRequest) ProtoMessage() {}
+func (*NotaryRequestRequest) ProtoMessage() {}
 
-func (x *NetworkEpochTickRequest) ProtoReflect() protoreflect.Message {
+func (x *NotaryRequestRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -293,39 +293,39 @@ func (x *NetworkEpochTickRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkEpochTickRequest.ProtoReflect.Descriptor instead.
-func (*NetworkEpochTickRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotaryRequestRequest.ProtoReflect.Descriptor instead.
+func (*NotaryRequestRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *NetworkEpochTickRequest) GetBody() *NetworkEpochTickRequest_Body {
+func (x *NotaryRequestRequest) GetBody() *NotaryRequestRequest_Body {
 	if x != nil {
 		return x.Body
 	}
 	return nil
 }
 
-func (x *NetworkEpochTickRequest) GetSignature() *Signature {
+func (x *NotaryRequestRequest) GetSignature() *Signature {
 	if x != nil {
 		return x.Signature
 	}
 	return nil
 }
 
-// NetworkEpochTick response.
-type NetworkEpochTickResponse struct {
+// NotaryRequest response.
+type NotaryRequestResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	// Body of request message.
-	Body *NetworkEpochTickResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Body *NotaryRequestResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	// Body signature.
 	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
-func (x *NetworkEpochTickResponse) Reset() {
-	*x = NetworkEpochTickResponse{}
+func (x *NotaryRequestResponse) Reset() {
+	*x = NotaryRequestResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -333,13 +333,13 @@ func (x *NetworkEpochTickResponse) Reset() {
 	}
 }
 
-func (x *NetworkEpochTickResponse) String() string {
+func (x *NotaryRequestResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkEpochTickResponse) ProtoMessage() {}
+func (*NotaryRequestResponse) ProtoMessage() {}
 
-func (x *NetworkEpochTickResponse) ProtoReflect() protoreflect.Message {
+func (x *NotaryRequestResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -351,19 +351,135 @@ func (x *NetworkEpochTickResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkEpochTickResponse.ProtoReflect.Descriptor instead.
-func (*NetworkEpochTickResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotaryRequestResponse.ProtoReflect.Descriptor instead.
+func (*NotaryRequestResponse) Descriptor() ([]byte, []int) {
 	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *NetworkEpochTickResponse) GetBody() *NetworkEpochTickResponse_Body {
+func (x *NotaryRequestResponse) GetBody() *NotaryRequestResponse_Body {
 	if x != nil {
 		return x.Body
 	}
 	return nil
 }
 
-func (x *NetworkEpochTickResponse) GetSignature() *Signature {
+func (x *NotaryRequestResponse) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+// NotarySign request.
+type NotarySignRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Body of request message.
+	Body *NotarySignRequest_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	// Body signature.
+	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *NotarySignRequest) Reset() {
+	*x = NotarySignRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotarySignRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotarySignRequest) ProtoMessage() {}
+
+func (x *NotarySignRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotarySignRequest.ProtoReflect.Descriptor instead.
+func (*NotarySignRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *NotarySignRequest) GetBody() *NotarySignRequest_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *NotarySignRequest) GetSignature() *Signature {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+// NotarySign response.
+type NotarySignResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Body of request message.
+	Body *NotarySignResponse_Body `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	// Body signature.
+	Signature *Signature `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+}
+
+func (x *NotarySignResponse) Reset() {
+	*x = NotarySignResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotarySignResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotarySignResponse) ProtoMessage() {}
+
+func (x *NotarySignResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotarySignResponse.ProtoReflect.Descriptor instead.
+func (*NotarySignResponse) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *NotarySignResponse) GetBody() *NotarySignResponse_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *NotarySignResponse) GetSignature() *Signature {
 	if x != nil {
 		return x.Signature
 	}
@@ -380,7 +496,7 @@ type HealthCheckRequest_Body struct {
 func (x *HealthCheckRequest_Body) Reset() {
 	*x = HealthCheckRequest_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_ir_service_proto_msgTypes[6]
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -393,7 +509,7 @@ func (x *HealthCheckRequest_Body) String() string {
 func (*HealthCheckRequest_Body) ProtoMessage() {}
 
 func (x *HealthCheckRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_ir_service_proto_msgTypes[6]
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -422,7 +538,7 @@ type HealthCheckResponse_Body struct {
 func (x *HealthCheckResponse_Body) Reset() {
 	*x = HealthCheckResponse_Body{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_ir_service_proto_msgTypes[7]
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -435,7 +551,7 @@ func (x *HealthCheckResponse_Body) String() string {
 func (*HealthCheckResponse_Body) ProtoMessage() {}
 
 func (x *HealthCheckResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_ir_service_proto_msgTypes[7]
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -459,101 +575,14 @@ func (x *HealthCheckResponse_Body) GetHealthStatus() HealthStatus {
 }
 
 // Request body structure.
-type NetworkListRequest_Body struct {
+type NotaryListRequest_Body struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *NetworkListRequest_Body) Reset() {
-	*x = NetworkListRequest_Body{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_ir_service_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *NetworkListRequest_Body) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NetworkListRequest_Body) ProtoMessage() {}
-
-func (x *NetworkListRequest_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_ir_service_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NetworkListRequest_Body.ProtoReflect.Descriptor instead.
-func (*NetworkListRequest_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{2, 0}
-}
-
-// Request body structure.
-type NetworkListResponse_Body struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Hashes []string `protobuf:"bytes,1,rep,name=hashes,proto3" json:"hashes,omitempty"`
-}
-
-func (x *NetworkListResponse_Body) Reset() {
-	*x = NetworkListResponse_Body{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_services_control_ir_service_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *NetworkListResponse_Body) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NetworkListResponse_Body) ProtoMessage() {}
-
-func (x *NetworkListResponse_Body) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_services_control_ir_service_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NetworkListResponse_Body.ProtoReflect.Descriptor instead.
-func (*NetworkListResponse_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{3, 0}
-}
-
-func (x *NetworkListResponse_Body) GetHashes() []string {
-	if x != nil {
-		return x.Hashes
-	}
-	return nil
-}
-
-// Request body structure.
-type NetworkEpochTickRequest_Body struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *NetworkEpochTickRequest_Body) Reset() {
-	*x = NetworkEpochTickRequest_Body{}
+func (x *NotaryListRequest_Body) Reset() {
+	*x = NotaryListRequest_Body{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -561,13 +590,13 @@ func (x *NetworkEpochTickRequest_Body) Reset() {
 	}
 }
 
-func (x *NetworkEpochTickRequest_Body) String() string {
+func (x *NotaryListRequest_Body) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkEpochTickRequest_Body) ProtoMessage() {}
+func (*NotaryListRequest_Body) ProtoMessage() {}
 
-func (x *NetworkEpochTickRequest_Body) ProtoReflect() protoreflect.Message {
+func (x *NotaryListRequest_Body) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -579,22 +608,23 @@ func (x *NetworkEpochTickRequest_Body) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkEpochTickRequest_Body.ProtoReflect.Descriptor instead.
-func (*NetworkEpochTickRequest_Body) Descriptor() ([]byte, []int) {
-	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{4, 0}
+// Deprecated: Use NotaryListRequest_Body.ProtoReflect.Descriptor instead.
+func (*NotaryListRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{2, 0}
 }
 
 // Request body structure.
-type NetworkEpochTickResponse_Body struct {
+type NotaryListResponse_Body struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Hash string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	// Transaction of the notary request.
+	Transactions []*TransactionInfo `protobuf:"bytes,1,rep,name=transactions,proto3" json:"transactions,omitempty"`
 }
 
-func (x *NetworkEpochTickResponse_Body) Reset() {
-	*x = NetworkEpochTickResponse_Body{}
+func (x *NotaryListResponse_Body) Reset() {
+	*x = NotaryListResponse_Body{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_services_control_ir_service_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -602,13 +632,13 @@ func (x *NetworkEpochTickResponse_Body) Reset() {
 	}
 }
 
-func (x *NetworkEpochTickResponse_Body) String() string {
+func (x *NotaryListResponse_Body) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NetworkEpochTickResponse_Body) ProtoMessage() {}
+func (*NotaryListResponse_Body) ProtoMessage() {}
 
-func (x *NetworkEpochTickResponse_Body) ProtoReflect() protoreflect.Message {
+func (x *NotaryListResponse_Body) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_services_control_ir_service_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -620,16 +650,201 @@ func (x *NetworkEpochTickResponse_Body) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NetworkEpochTickResponse_Body.ProtoReflect.Descriptor instead.
-func (*NetworkEpochTickResponse_Body) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotaryListResponse_Body.ProtoReflect.Descriptor instead.
+func (*NotaryListResponse_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{3, 0}
+}
+
+func (x *NotaryListResponse_Body) GetTransactions() []*TransactionInfo {
+	if x != nil {
+		return x.Transactions
+	}
+	return nil
+}
+
+// Request body structure.
+type NotaryRequestRequest_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Script string `protobuf:"bytes,1,opt,name=script,proto3" json:"script,omitempty"`
+}
+
+func (x *NotaryRequestRequest_Body) Reset() {
+	*x = NotaryRequestRequest_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotaryRequestRequest_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotaryRequestRequest_Body) ProtoMessage() {}
+
+func (x *NotaryRequestRequest_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotaryRequestRequest_Body.ProtoReflect.Descriptor instead.
+func (*NotaryRequestRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{4, 0}
+}
+
+func (x *NotaryRequestRequest_Body) GetScript() string {
+	if x != nil {
+		return x.Script
+	}
+	return ""
+}
+
+// Request body structure.
+type NotaryRequestResponse_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Result hash of transaction.
+	Hash string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+}
+
+func (x *NotaryRequestResponse_Body) Reset() {
+	*x = NotaryRequestResponse_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotaryRequestResponse_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotaryRequestResponse_Body) ProtoMessage() {}
+
+func (x *NotaryRequestResponse_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotaryRequestResponse_Body.ProtoReflect.Descriptor instead.
+func (*NotaryRequestResponse_Body) Descriptor() ([]byte, []int) {
 	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{5, 0}
 }
 
-func (x *NetworkEpochTickResponse_Body) GetHash() string {
+func (x *NotaryRequestResponse_Body) GetHash() string {
 	if x != nil {
 		return x.Hash
 	}
 	return ""
+}
+
+// Request body structure.
+type NotarySignRequest_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Hash of transaction that need to be signed.
+	Hash string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+}
+
+func (x *NotarySignRequest_Body) Reset() {
+	*x = NotarySignRequest_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotarySignRequest_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotarySignRequest_Body) ProtoMessage() {}
+
+func (x *NotarySignRequest_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotarySignRequest_Body.ProtoReflect.Descriptor instead.
+func (*NotarySignRequest_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{6, 0}
+}
+
+func (x *NotarySignRequest_Body) GetHash() string {
+	if x != nil {
+		return x.Hash
+	}
+	return ""
+}
+
+// Request body structure.
+type NotarySignResponse_Body struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *NotarySignResponse_Body) Reset() {
+	*x = NotarySignResponse_Body{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_services_control_ir_service_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NotarySignResponse_Body) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotarySignResponse_Body) ProtoMessage() {}
+
+func (x *NotarySignResponse_Body) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_services_control_ir_service_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotarySignResponse_Body.ProtoReflect.Descriptor instead.
+func (*NotarySignResponse_Body) Descriptor() ([]byte, []int) {
+	return file_pkg_services_control_ir_service_proto_rawDescGZIP(), []int{7, 0}
 }
 
 var File_pkg_services_control_ir_service_proto protoreflect.FileDescriptor
@@ -661,67 +876,93 @@ var file_pkg_services_control_ir_service_proto_rawDesc = []byte{
 	0x3c, 0x0a, 0x0d, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x17, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72,
 	0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52,
-	0x0c, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x88, 0x01,
-	0x0a, 0x12, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x12, 0x36, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x22, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e,
-	0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09,
-	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x14, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e,
-	0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65,
-	0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0xa2, 0x01, 0x0a, 0x13, 0x4e, 0x65, 0x74,
-	0x77, 0x6f, 0x72, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x12, 0x37, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23,
-	0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f,
-	0x72, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42,
-	0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69, 0x67,
-	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x69,
-	0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
-	0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x1e, 0x0a,
-	0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x68, 0x61, 0x73, 0x68, 0x65, 0x73, 0x18,
-	0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x68, 0x61, 0x73, 0x68, 0x65, 0x73, 0x22, 0x92, 0x01,
-	0x0a, 0x17, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x54, 0x69,
-	0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x3b, 0x0a, 0x04, 0x62, 0x6f, 0x64,
-	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74,
-	0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68,
-	0x54, 0x69, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79,
-	0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74,
-	0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x69, 0x72, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52,
-	0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a, 0x04, 0x42, 0x6f,
-	0x64, 0x79, 0x22, 0xa8, 0x01, 0x0a, 0x18, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70,
-	0x6f, 0x63, 0x68, 0x54, 0x69, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x3c, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x28, 0x2e,
-	0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72,
-	0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x54, 0x69, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x0c, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x86, 0x01,
+	0x0a, 0x11, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x35, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x21, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f,
+	0x74, 0x61, 0x72, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e,
+	0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69,
+	0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e,
+	0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06,
+	0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x22, 0xc8, 0x01, 0x0a, 0x12, 0x4e, 0x6f, 0x74, 0x61, 0x72,
+	0x79, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x36, 0x0a,
+	0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x69, 0x72,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x4c, 0x69,
+	0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52,
+	0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
+	0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09,
+	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x46, 0x0a, 0x04, 0x42, 0x6f, 0x64,
+	0x79, 0x12, 0x3e, 0x0a, 0x0c, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x2e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49,
+	0x6e, 0x66, 0x6f, 0x52, 0x0c, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e,
+	0x73, 0x22, 0xa4, 0x01, 0x0a, 0x14, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x04, 0x62, 0x6f,
+	0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04,
+	0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73,
+	0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x1e, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79,
+	0x12, 0x16, 0x0a, 0x06, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x06, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x22, 0xa2, 0x01, 0x0a, 0x15, 0x4e, 0x6f, 0x74,
+	0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x39, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x25, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f, 0x74,
+	0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
 	0x73, 0x65, 0x2e, 0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a,
 	0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x14, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67,
 	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72,
 	0x65, 0x1a, 0x1a, 0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x12, 0x0a, 0x04, 0x68, 0x61, 0x73,
-	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x68, 0x61, 0x73, 0x68, 0x32, 0x89, 0x02,
-	0x0a, 0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
-	0x12, 0x4c, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12,
-	0x1d, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c,
-	0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e,
-	0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74,
-	0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c,
-	0x0a, 0x0b, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x1d, 0x2e,
-	0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72,
-	0x6b, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x69,
-	0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
-	0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x5b, 0x0a, 0x10,
-	0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x54, 0x69, 0x63, 0x6b,
-	0x12, 0x22, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x65, 0x74,
-	0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x54, 0x69, 0x63, 0x6b, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
-	0x2e, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x54, 0x69, 0x63,
-	0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x39, 0x5a, 0x37, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e, 0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65,
-	0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67,
-	0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x69, 0x72, 0x2f, 0x63, 0x6f, 0x6e,
-	0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x68, 0x61, 0x73, 0x68, 0x22, 0x9a, 0x01,
+	0x0a, 0x11, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x35, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x21, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f,
+	0x74, 0x61, 0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e,
+	0x42, 0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69,
+	0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e,
+	0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74,
+	0x75, 0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x1a,
+	0x0a, 0x04, 0x42, 0x6f, 0x64, 0x79, 0x12, 0x12, 0x0a, 0x04, 0x68, 0x61, 0x73, 0x68, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x68, 0x61, 0x73, 0x68, 0x22, 0x88, 0x01, 0x0a, 0x12, 0x4e,
+	0x6f, 0x74, 0x61, 0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x36, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x22, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f, 0x74, 0x61,
+	0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42,
+	0x6f, 0x64, 0x79, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x32, 0x0a, 0x09, 0x73, 0x69, 0x67,
+	0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x69,
+	0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75,
+	0x72, 0x65, 0x52, 0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x1a, 0x06, 0x0a,
+	0x04, 0x42, 0x6f, 0x64, 0x79, 0x32, 0xc8, 0x02, 0x0a, 0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x4c, 0x0a, 0x0b, 0x48, 0x65, 0x61, 0x6c,
+	0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1d, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72,
+	0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x49, 0x0a, 0x0a, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79,
+	0x4c, 0x69, 0x73, 0x74, 0x12, 0x1c, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
+	0x2e, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e,
+	0x6f, 0x74, 0x61, 0x72, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x52, 0x0a, 0x0d, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x1f, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e,
+	0x6f, 0x74, 0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x49, 0x0a, 0x0a, 0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x53,
+	0x69, 0x67, 0x6e, 0x12, 0x1c, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x4e, 0x6f, 0x74, 0x61, 0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x1d, 0x2e, 0x69, 0x72, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x4e, 0x6f,
+	0x74, 0x61, 0x72, 0x79, 0x53, 0x69, 0x67, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x42, 0x39, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6e,
+	0x73, 0x70, 0x63, 0x63, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x6e, 0x65, 0x6f, 0x66, 0x73, 0x2d, 0x6e,
+	0x6f, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x73,
+	0x2f, 0x69, 0x72, 0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -736,48 +977,60 @@ func file_pkg_services_control_ir_service_proto_rawDescGZIP() []byte {
 	return file_pkg_services_control_ir_service_proto_rawDescData
 }
 
-var file_pkg_services_control_ir_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_pkg_services_control_ir_service_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_pkg_services_control_ir_service_proto_goTypes = []interface{}{
-	(*HealthCheckRequest)(nil),            // 0: ircontrol.HealthCheckRequest
-	(*HealthCheckResponse)(nil),           // 1: ircontrol.HealthCheckResponse
-	(*NetworkListRequest)(nil),            // 2: ircontrol.NetworkListRequest
-	(*NetworkListResponse)(nil),           // 3: ircontrol.NetworkListResponse
-	(*NetworkEpochTickRequest)(nil),       // 4: ircontrol.NetworkEpochTickRequest
-	(*NetworkEpochTickResponse)(nil),      // 5: ircontrol.NetworkEpochTickResponse
-	(*HealthCheckRequest_Body)(nil),       // 6: ircontrol.HealthCheckRequest.Body
-	(*HealthCheckResponse_Body)(nil),      // 7: ircontrol.HealthCheckResponse.Body
-	(*NetworkListRequest_Body)(nil),       // 8: ircontrol.NetworkListRequest.Body
-	(*NetworkListResponse_Body)(nil),      // 9: ircontrol.NetworkListResponse.Body
-	(*NetworkEpochTickRequest_Body)(nil),  // 10: ircontrol.NetworkEpochTickRequest.Body
-	(*NetworkEpochTickResponse_Body)(nil), // 11: ircontrol.NetworkEpochTickResponse.Body
-	(*Signature)(nil),                     // 12: ircontrol.Signature
-	(HealthStatus)(0),                     // 13: ircontrol.HealthStatus
+	(*HealthCheckRequest)(nil),         // 0: ircontrol.HealthCheckRequest
+	(*HealthCheckResponse)(nil),        // 1: ircontrol.HealthCheckResponse
+	(*NotaryListRequest)(nil),          // 2: ircontrol.NotaryListRequest
+	(*NotaryListResponse)(nil),         // 3: ircontrol.NotaryListResponse
+	(*NotaryRequestRequest)(nil),       // 4: ircontrol.NotaryRequestRequest
+	(*NotaryRequestResponse)(nil),      // 5: ircontrol.NotaryRequestResponse
+	(*NotarySignRequest)(nil),          // 6: ircontrol.NotarySignRequest
+	(*NotarySignResponse)(nil),         // 7: ircontrol.NotarySignResponse
+	(*HealthCheckRequest_Body)(nil),    // 8: ircontrol.HealthCheckRequest.Body
+	(*HealthCheckResponse_Body)(nil),   // 9: ircontrol.HealthCheckResponse.Body
+	(*NotaryListRequest_Body)(nil),     // 10: ircontrol.NotaryListRequest.Body
+	(*NotaryListResponse_Body)(nil),    // 11: ircontrol.NotaryListResponse.Body
+	(*NotaryRequestRequest_Body)(nil),  // 12: ircontrol.NotaryRequestRequest.Body
+	(*NotaryRequestResponse_Body)(nil), // 13: ircontrol.NotaryRequestResponse.Body
+	(*NotarySignRequest_Body)(nil),     // 14: ircontrol.NotarySignRequest.Body
+	(*NotarySignResponse_Body)(nil),    // 15: ircontrol.NotarySignResponse.Body
+	(*Signature)(nil),                  // 16: ircontrol.Signature
+	(HealthStatus)(0),                  // 17: ircontrol.HealthStatus
+	(*TransactionInfo)(nil),            // 18: ircontrol.TransactionInfo
 }
 var file_pkg_services_control_ir_service_proto_depIdxs = []int32{
-	6,  // 0: ircontrol.HealthCheckRequest.body:type_name -> ircontrol.HealthCheckRequest.Body
-	12, // 1: ircontrol.HealthCheckRequest.signature:type_name -> ircontrol.Signature
-	7,  // 2: ircontrol.HealthCheckResponse.body:type_name -> ircontrol.HealthCheckResponse.Body
-	12, // 3: ircontrol.HealthCheckResponse.signature:type_name -> ircontrol.Signature
-	8,  // 4: ircontrol.NetworkListRequest.body:type_name -> ircontrol.NetworkListRequest.Body
-	12, // 5: ircontrol.NetworkListRequest.signature:type_name -> ircontrol.Signature
-	9,  // 6: ircontrol.NetworkListResponse.body:type_name -> ircontrol.NetworkListResponse.Body
-	12, // 7: ircontrol.NetworkListResponse.signature:type_name -> ircontrol.Signature
-	10, // 8: ircontrol.NetworkEpochTickRequest.body:type_name -> ircontrol.NetworkEpochTickRequest.Body
-	12, // 9: ircontrol.NetworkEpochTickRequest.signature:type_name -> ircontrol.Signature
-	11, // 10: ircontrol.NetworkEpochTickResponse.body:type_name -> ircontrol.NetworkEpochTickResponse.Body
-	12, // 11: ircontrol.NetworkEpochTickResponse.signature:type_name -> ircontrol.Signature
-	13, // 12: ircontrol.HealthCheckResponse.Body.health_status:type_name -> ircontrol.HealthStatus
-	0,  // 13: ircontrol.ControlService.HealthCheck:input_type -> ircontrol.HealthCheckRequest
-	2,  // 14: ircontrol.ControlService.NetworkList:input_type -> ircontrol.NetworkListRequest
-	4,  // 15: ircontrol.ControlService.NetworkEpochTick:input_type -> ircontrol.NetworkEpochTickRequest
-	1,  // 16: ircontrol.ControlService.HealthCheck:output_type -> ircontrol.HealthCheckResponse
-	3,  // 17: ircontrol.ControlService.NetworkList:output_type -> ircontrol.NetworkListResponse
-	5,  // 18: ircontrol.ControlService.NetworkEpochTick:output_type -> ircontrol.NetworkEpochTickResponse
-	16, // [16:19] is the sub-list for method output_type
-	13, // [13:16] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	8,  // 0: ircontrol.HealthCheckRequest.body:type_name -> ircontrol.HealthCheckRequest.Body
+	16, // 1: ircontrol.HealthCheckRequest.signature:type_name -> ircontrol.Signature
+	9,  // 2: ircontrol.HealthCheckResponse.body:type_name -> ircontrol.HealthCheckResponse.Body
+	16, // 3: ircontrol.HealthCheckResponse.signature:type_name -> ircontrol.Signature
+	10, // 4: ircontrol.NotaryListRequest.body:type_name -> ircontrol.NotaryListRequest.Body
+	16, // 5: ircontrol.NotaryListRequest.signature:type_name -> ircontrol.Signature
+	11, // 6: ircontrol.NotaryListResponse.body:type_name -> ircontrol.NotaryListResponse.Body
+	16, // 7: ircontrol.NotaryListResponse.signature:type_name -> ircontrol.Signature
+	12, // 8: ircontrol.NotaryRequestRequest.body:type_name -> ircontrol.NotaryRequestRequest.Body
+	16, // 9: ircontrol.NotaryRequestRequest.signature:type_name -> ircontrol.Signature
+	13, // 10: ircontrol.NotaryRequestResponse.body:type_name -> ircontrol.NotaryRequestResponse.Body
+	16, // 11: ircontrol.NotaryRequestResponse.signature:type_name -> ircontrol.Signature
+	14, // 12: ircontrol.NotarySignRequest.body:type_name -> ircontrol.NotarySignRequest.Body
+	16, // 13: ircontrol.NotarySignRequest.signature:type_name -> ircontrol.Signature
+	15, // 14: ircontrol.NotarySignResponse.body:type_name -> ircontrol.NotarySignResponse.Body
+	16, // 15: ircontrol.NotarySignResponse.signature:type_name -> ircontrol.Signature
+	17, // 16: ircontrol.HealthCheckResponse.Body.health_status:type_name -> ircontrol.HealthStatus
+	18, // 17: ircontrol.NotaryListResponse.Body.transactions:type_name -> ircontrol.TransactionInfo
+	0,  // 18: ircontrol.ControlService.HealthCheck:input_type -> ircontrol.HealthCheckRequest
+	2,  // 19: ircontrol.ControlService.NotaryList:input_type -> ircontrol.NotaryListRequest
+	4,  // 20: ircontrol.ControlService.NotaryRequest:input_type -> ircontrol.NotaryRequestRequest
+	6,  // 21: ircontrol.ControlService.NotarySign:input_type -> ircontrol.NotarySignRequest
+	1,  // 22: ircontrol.ControlService.HealthCheck:output_type -> ircontrol.HealthCheckResponse
+	3,  // 23: ircontrol.ControlService.NotaryList:output_type -> ircontrol.NotaryListResponse
+	5,  // 24: ircontrol.ControlService.NotaryRequest:output_type -> ircontrol.NotaryRequestResponse
+	7,  // 25: ircontrol.ControlService.NotarySign:output_type -> ircontrol.NotarySignResponse
+	22, // [22:26] is the sub-list for method output_type
+	18, // [18:22] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_pkg_services_control_ir_service_proto_init() }
@@ -812,7 +1065,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkListRequest); i {
+			switch v := v.(*NotaryListRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -824,7 +1077,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkListResponse); i {
+			switch v := v.(*NotaryListResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -836,7 +1089,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkEpochTickRequest); i {
+			switch v := v.(*NotaryRequestRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -848,7 +1101,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkEpochTickResponse); i {
+			switch v := v.(*NotaryRequestResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -860,7 +1113,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckRequest_Body); i {
+			switch v := v.(*NotarySignRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -872,7 +1125,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HealthCheckResponse_Body); i {
+			switch v := v.(*NotarySignResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -884,7 +1137,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkListRequest_Body); i {
+			switch v := v.(*HealthCheckRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -896,7 +1149,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkListResponse_Body); i {
+			switch v := v.(*HealthCheckResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -908,7 +1161,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkEpochTickRequest_Body); i {
+			switch v := v.(*NotaryListRequest_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -920,7 +1173,55 @@ func file_pkg_services_control_ir_service_proto_init() {
 			}
 		}
 		file_pkg_services_control_ir_service_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetworkEpochTickResponse_Body); i {
+			switch v := v.(*NotaryListResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_ir_service_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NotaryRequestRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_ir_service_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NotaryRequestResponse_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_ir_service_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NotarySignRequest_Body); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_services_control_ir_service_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NotarySignResponse_Body); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -938,7 +1239,7 @@ func file_pkg_services_control_ir_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_services_control_ir_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

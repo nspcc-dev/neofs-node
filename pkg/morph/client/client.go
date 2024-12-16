@@ -557,3 +557,33 @@ func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
 
 	return accountState.VoteTo, nil
 }
+
+func (c *Client) GetRawNotaryPool() (*result.RawNotaryPool, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.GetRawNotaryPool()
+}
+
+func (c *Client) GetRawMemPool() ([]util.Uint256, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.GetRawMemPool()
+}
+
+func (c *Client) GetRawNotaryTransactionVerbose(hash util.Uint256) (*transaction.Transaction, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.GetRawNotaryTransactionVerbose(hash)
+}

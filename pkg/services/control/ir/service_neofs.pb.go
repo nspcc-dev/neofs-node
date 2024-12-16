@@ -158,7 +158,7 @@ func (x *HealthCheckResponse) SetSignature(sig *Signature) {
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkListRequest_Body) StableSize() (size int) {
+func (x *NotaryListRequest_Body) StableSize() (size int) {
 	return size
 }
 
@@ -170,14 +170,14 @@ func (x *NetworkListRequest_Body) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkListRequest_Body) StableMarshal(buf []byte) []byte {
+func (x *NotaryListRequest_Body) StableMarshal(buf []byte) []byte {
 	return buf
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkListRequest) StableSize() (size int) {
+func (x *NotaryListRequest) StableSize() (size int) {
 	size += proto.NestedStructureSize(1, x.Body)
 	size += proto.NestedStructureSize(2, x.Signature)
 	return size
@@ -191,7 +191,7 @@ func (x *NetworkListRequest) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkListRequest) StableMarshal(buf []byte) []byte {
+func (x *NotaryListRequest) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -211,26 +211,28 @@ func (x *NetworkListRequest) StableMarshal(buf []byte) []byte {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetworkListRequest) SignedDataSize() int {
+func (x *NotaryListRequest) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
 //
 // Structures with the same field values have the same signed data size.
-func (x *NetworkListRequest) ReadSignedData(buf []byte) ([]byte, error) {
+func (x *NotaryListRequest) ReadSignedData(buf []byte) ([]byte, error) {
 	return x.GetBody().StableMarshal(buf), nil
 }
 
-func (x *NetworkListRequest) SetSignature(sig *Signature) {
+func (x *NotaryListRequest) SetSignature(sig *Signature) {
 	x.Signature = sig
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkListResponse_Body) StableSize() (size int) {
-	size += proto.RepeatedStringSize(1, x.Hashes)
+func (x *NotaryListResponse_Body) StableSize() (size int) {
+	for i := range x.Transactions {
+		size += proto.NestedStructureSize(1, x.Transactions[i])
+	}
 	return size
 }
 
@@ -242,7 +244,7 @@ func (x *NetworkListResponse_Body) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkListResponse_Body) StableMarshal(buf []byte) []byte {
+func (x *NotaryListResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -250,14 +252,16 @@ func (x *NetworkListResponse_Body) StableMarshal(buf []byte) []byte {
 		buf = make([]byte, x.StableSize())
 	}
 	var offset int
-	offset += proto.RepeatedStringMarshal(1, buf[offset:], x.Hashes)
+	for i := range x.Transactions {
+		offset += proto.NestedStructureMarshal(1, buf[offset:], x.Transactions[i])
+	}
 	return buf
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkListResponse) StableSize() (size int) {
+func (x *NotaryListResponse) StableSize() (size int) {
 	size += proto.NestedStructureSize(1, x.Body)
 	size += proto.NestedStructureSize(2, x.Signature)
 	return size
@@ -271,7 +275,7 @@ func (x *NetworkListResponse) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkListResponse) StableMarshal(buf []byte) []byte {
+func (x *NotaryListResponse) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -291,25 +295,26 @@ func (x *NetworkListResponse) StableMarshal(buf []byte) []byte {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetworkListResponse) SignedDataSize() int {
+func (x *NotaryListResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
 //
 // Structures with the same field values have the same signed data size.
-func (x *NetworkListResponse) ReadSignedData(buf []byte) ([]byte, error) {
+func (x *NotaryListResponse) ReadSignedData(buf []byte) ([]byte, error) {
 	return x.GetBody().StableMarshal(buf), nil
 }
 
-func (x *NetworkListResponse) SetSignature(sig *Signature) {
+func (x *NotaryListResponse) SetSignature(sig *Signature) {
 	x.Signature = sig
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkEpochTickRequest_Body) StableSize() (size int) {
+func (x *NotaryRequestRequest_Body) StableSize() (size int) {
+	size += proto.StringSize(1, x.Script)
 	return size
 }
 
@@ -321,14 +326,22 @@ func (x *NetworkEpochTickRequest_Body) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkEpochTickRequest_Body) StableMarshal(buf []byte) []byte {
+func (x *NotaryRequestRequest_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.Script)
 	return buf
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkEpochTickRequest) StableSize() (size int) {
+func (x *NotaryRequestRequest) StableSize() (size int) {
 	size += proto.NestedStructureSize(1, x.Body)
 	size += proto.NestedStructureSize(2, x.Signature)
 	return size
@@ -342,7 +355,7 @@ func (x *NetworkEpochTickRequest) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkEpochTickRequest) StableMarshal(buf []byte) []byte {
+func (x *NotaryRequestRequest) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -362,25 +375,25 @@ func (x *NetworkEpochTickRequest) StableMarshal(buf []byte) []byte {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetworkEpochTickRequest) SignedDataSize() int {
+func (x *NotaryRequestRequest) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
 //
 // Structures with the same field values have the same signed data size.
-func (x *NetworkEpochTickRequest) ReadSignedData(buf []byte) ([]byte, error) {
+func (x *NotaryRequestRequest) ReadSignedData(buf []byte) ([]byte, error) {
 	return x.GetBody().StableMarshal(buf), nil
 }
 
-func (x *NetworkEpochTickRequest) SetSignature(sig *Signature) {
+func (x *NotaryRequestRequest) SetSignature(sig *Signature) {
 	x.Signature = sig
 }
 
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkEpochTickResponse_Body) StableSize() (size int) {
+func (x *NotaryRequestResponse_Body) StableSize() (size int) {
 	size += proto.StringSize(1, x.Hash)
 	return size
 }
@@ -393,7 +406,7 @@ func (x *NetworkEpochTickResponse_Body) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkEpochTickResponse_Body) StableMarshal(buf []byte) []byte {
+func (x *NotaryRequestResponse_Body) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -408,7 +421,7 @@ func (x *NetworkEpochTickResponse_Body) StableMarshal(buf []byte) []byte {
 // StableSize returns the size of x in protobuf format.
 //
 // Structures with the same field values have the same binary size.
-func (x *NetworkEpochTickResponse) StableSize() (size int) {
+func (x *NotaryRequestResponse) StableSize() (size int) {
 	size += proto.NestedStructureSize(1, x.Body)
 	size += proto.NestedStructureSize(2, x.Signature)
 	return size
@@ -422,7 +435,7 @@ func (x *NetworkEpochTickResponse) StableSize() (size int) {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same binary format.
-func (x *NetworkEpochTickResponse) StableMarshal(buf []byte) []byte {
+func (x *NotaryRequestResponse) StableMarshal(buf []byte) []byte {
 	if x == nil {
 		return []byte{}
 	}
@@ -442,17 +455,168 @@ func (x *NetworkEpochTickResponse) StableMarshal(buf []byte) []byte {
 // Otherwise, returns the buffer in which the data is written.
 //
 // Structures with the same field values have the same signed data.
-func (x *NetworkEpochTickResponse) SignedDataSize() int {
+func (x *NotaryRequestResponse) SignedDataSize() int {
 	return x.GetBody().StableSize()
 }
 
 // SignedDataSize returns size of the request signed data in bytes.
 //
 // Structures with the same field values have the same signed data size.
-func (x *NetworkEpochTickResponse) ReadSignedData(buf []byte) ([]byte, error) {
+func (x *NotaryRequestResponse) ReadSignedData(buf []byte) ([]byte, error) {
 	return x.GetBody().StableMarshal(buf), nil
 }
 
-func (x *NetworkEpochTickResponse) SetSignature(sig *Signature) {
+func (x *NotaryRequestResponse) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NotarySignRequest_Body) StableSize() (size int) {
+	size += proto.StringSize(1, x.Hash)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NotarySignRequest_Body) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.StringMarshal(1, buf[offset:], x.Hash)
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NotarySignRequest) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NotarySignRequest) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NotarySignRequest) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NotarySignRequest) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NotarySignRequest) SetSignature(sig *Signature) {
+	x.Signature = sig
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NotarySignResponse_Body) StableSize() (size int) {
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NotarySignResponse_Body) StableMarshal(buf []byte) []byte {
+	return buf
+}
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *NotarySignResponse) StableSize() (size int) {
+	size += proto.NestedStructureSize(1, x.Body)
+	size += proto.NestedStructureSize(2, x.Signature)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *NotarySignResponse) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.NestedStructureMarshal(1, buf[offset:], x.Body)
+	offset += proto.NestedStructureMarshal(2, buf[offset:], x.Signature)
+	return buf
+}
+
+// ReadSignedData fills buf with signed data of x.
+// If buffer length is less than x.SignedDataSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same signed data.
+func (x *NotarySignResponse) SignedDataSize() int {
+	return x.GetBody().StableSize()
+}
+
+// SignedDataSize returns size of the request signed data in bytes.
+//
+// Structures with the same field values have the same signed data size.
+func (x *NotarySignResponse) ReadSignedData(buf []byte) ([]byte, error) {
+	return x.GetBody().StableMarshal(buf), nil
+}
+
+func (x *NotarySignResponse) SetSignature(sig *Signature) {
 	x.Signature = sig
 }

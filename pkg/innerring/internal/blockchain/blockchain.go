@@ -568,3 +568,7 @@ func (x *Blockchain) BuildWSClient(ctx context.Context) (*rpcclient.WSClient, er
 
 	return &internalClient.WSClient, nil
 }
+
+func (x *Blockchain) GetVerifiedTransactions() []*transaction.Transaction {
+	return x.core.GetMemPool().GetVerifiedTransactions()
+}

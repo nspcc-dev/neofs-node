@@ -11,19 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listNetworkCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Get list of all requested changes in network",
-	Long:  "Get list of all requested changes in network",
+var notaryRequestCmd = &cobra.Command{
+	Use:   "request",
+	Short: "Create and send a notary request",
+	Long:  "Create and send a notary request",
 	Args:  cobra.NoArgs,
-	RunE:  listNetwork,
+	RunE:  notaryRequest,
 }
 
-func initControlNetworkListCmd() {
-	initControlFlags(listNetworkCmd)
+func initControlNotaryRequestCmd() {
+	initControlFlags(notaryRequestCmd)
 }
 
-func listNetwork(cmd *cobra.Command, _ []string) error {
+func notaryRequest(cmd *cobra.Command, args []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -37,18 +37,20 @@ func listNetwork(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	req := new(ircontrol.NetworkListRequest)
+	req := new(ircontrol.NotaryRequestRequest)
+	body := new(ircontrol.NotaryRequestRequest_Body)
+	req.SetBody(body)
 
-	req.SetBody(new(ircontrol.NetworkListRequest_Body))
+	body.SetScript("script")
 
 	err = ircontrolsrv.SignMessage(pk, req)
 	if err != nil {
 		return fmt.Errorf("could not sign request: %w", err)
 	}
 
-	var resp *ircontrol.NetworkListResponse
+	var resp *ircontrol.NotaryRequestResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = ircontrol.NetworkList(client, req)
+		resp, err = ircontrol.NotaryRequest(client, req)
 		return err
 	})
 	if err != nil {
@@ -60,8 +62,8 @@ func listNetwork(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	hashes := resp.GetBody().GetHashes()
+	hashes := resp.GetBody().GetHash()
 
-	cmd.Printf("Hashes: %s\n", hashes)
+	cmd.Printf("Epoch Tick Hash: %s\n", hashes)
 	return nil
 }

@@ -1,6 +1,9 @@
 package control
 
-import control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+import (
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
+)
 
 // HealthChecker is component interface for calculating
 // the current health status of a node.
@@ -12,8 +15,10 @@ type HealthChecker interface {
 	HealthStatus() control.HealthStatus
 }
 
-type NetworkManager interface {
-	ListNetworkRequests() []string
+type NotaryManager interface {
+	ListNotaryRequests() ([]string, error)
 
-	TickEpoch() string
+	RequestNotary([]byte) (string, error)
+
+	SignNotary(util.Uint256) (string, error)
 }

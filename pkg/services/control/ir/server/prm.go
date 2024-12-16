@@ -9,8 +9,8 @@ import (
 type Prm struct {
 	key keys.PrivateKey
 
-	healthChecker  HealthChecker
-	networkManager NetworkManager
+	healthChecker HealthChecker
+	notaryManager NotaryManager
 }
 
 // SetPrivateKey sets private key to sign responses.
@@ -24,8 +24,8 @@ func (x *Prm) SetHealthChecker(hc HealthChecker) {
 	x.healthChecker = hc
 }
 
-// SetNetworkManager sets NetworkManager to calculate
+// SetNetworkManager sets NotaryManager to calculate
 // health status.
-func (x *Prm) SetNetworkManager(nm NetworkManager) {
-	x.networkManager = nm
+func (x *Prm) SetNetworkManager(nm NotaryManager) {
+	x.notaryManager = nm
 }

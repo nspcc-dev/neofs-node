@@ -8,9 +8,10 @@ import (
 const serviceName = "ircontrol.ControlService"
 
 const (
-	rpcHealthCheck      = "HealthCheck"
-	rpcNetworkList      = "NetworkList"
-	rpcNetworkEpochTick = "NetworkEpochTick"
+	rpcHealthCheck   = "HealthCheck"
+	rpcNotaryList    = "NotaryList"
+	rpcNotaryRequest = "NotaryRequest"
+	rpcNotarySign    = "NotarySign"
 )
 
 // HealthCheck executes ControlService.HealthCheck RPC.
@@ -35,21 +36,21 @@ func HealthCheck(
 	return wResp.m, nil
 }
 
-// NetworkList executes ControlService.NetworkList RPC.
-func NetworkList(
+// NotaryList executes ControlService.NotaryList RPC.
+func NotaryList(
 	cli *client.Client,
-	req *NetworkListRequest,
+	req *NotaryListRequest,
 	opts ...client.CallOption,
-) (*NetworkListResponse, error) {
-	wResp := &networkListResponseWrapper{
-		m: new(NetworkListResponse),
+) (*NotaryListResponse, error) {
+	wResp := &notaryListResponseWrapper{
+		m: new(NotaryListResponse),
 	}
 
 	wReq := &requestWrapper{
 		m: req,
 	}
 
-	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNetworkList), wReq, wResp, opts...)
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNotaryList), wReq, wResp, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,21 +58,43 @@ func NetworkList(
 	return wResp.m, nil
 }
 
-// NetworkEpochTick executes ControlService.NetworkEpochTick RPC.
-func NetworkEpochTick(
+// NotaryRequest executes ControlService.NotaryRequest RPC.
+func NotaryRequest(
 	cli *client.Client,
-	req *NetworkEpochTickRequest,
+	req *NotaryRequestRequest,
 	opts ...client.CallOption,
-) (*NetworkEpochTickResponse, error) {
-	wResp := &networkEpochTickResponseWrapper{
-		m: new(NetworkEpochTickResponse),
+) (*NotaryRequestResponse, error) {
+	wResp := &notaryRequestResponseWrapper{
+		m: new(NotaryRequestResponse),
 	}
 
 	wReq := &requestWrapper{
 		m: req,
 	}
 
-	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNetworkEpochTick), wReq, wResp, opts...)
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNotaryRequest), wReq, wResp, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return wResp.m, nil
+}
+
+// NotarySign executes ControlService.NotarySign RPC.
+func NotarySign(
+	cli *client.Client,
+	req *NotarySignRequest,
+	opts ...client.CallOption,
+) (*NotarySignResponse, error) {
+	wResp := &notarySignResponseWrapper{
+		m: new(NotarySignResponse),
+	}
+
+	wReq := &requestWrapper{
+		m: req,
+	}
+
+	err := client.SendUnary(cli, common.CallMethodInfoUnary(serviceName, rpcNotarySign), wReq, wResp, opts...)
 	if err != nil {
 		return nil, err
 	}

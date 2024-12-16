@@ -11,19 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var networkEpochTickCmd = &cobra.Command{
-	Use:   "epoch-tick",
-	Short: "Request to tick epoch",
-	Long:  "Request to tick epoch",
+var listNotaryCmd = &cobra.Command{
+	Use:   "list",
+	Short: "Get list of all notary requests in network",
+	Long:  "Get list of all notary requests in network",
 	Args:  cobra.NoArgs,
-	RunE:  networkEpockTick,
+	RunE:  listNotary,
 }
 
-func initNetworkEpochTickCmd() {
-	initControlFlags(networkEpochTickCmd)
+func initControlNotaryListCmd() {
+	initControlFlags(listNotaryCmd)
 }
 
-func networkEpockTick(cmd *cobra.Command, args []string) error {
+func listNotary(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
@@ -37,18 +37,18 @@ func networkEpockTick(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	req := new(ircontrol.NetworkEpochTickRequest)
+	req := new(ircontrol.NotaryListRequest)
 
-	req.SetBody(new(ircontrol.NetworkEpochTickRequest_Body))
+	req.SetBody(new(ircontrol.NotaryListRequest_Body))
 
 	err = ircontrolsrv.SignMessage(pk, req)
 	if err != nil {
 		return fmt.Errorf("could not sign request: %w", err)
 	}
 
-	var resp *ircontrol.NetworkEpochTickResponse
+	var resp *ircontrol.NotaryListResponse
 	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = ircontrol.NetworkEpochTick(client, req)
+		resp, err = ircontrol.NotaryList(client, req)
 		return err
 	})
 	if err != nil {
@@ -60,8 +60,8 @@ func networkEpockTick(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	hashes := resp.GetBody().GetHash()
+	hashes := resp.GetBody().GetTransactions()
 
-	cmd.Printf("Epoch Tick Hash: %s\n", hashes)
+	cmd.Printf("Hashes: %s\n", hashes)
 	return nil
 }
