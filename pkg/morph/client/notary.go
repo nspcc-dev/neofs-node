@@ -408,11 +408,23 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 		return err
 	}
 
+	json, err := mainTx.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	c.logger.Debug(fmt.Sprintf("tx before sign %s", string(json)))
+
 	// Sign exactly the same transaction we've got from the received Notary request.
 	err = nAct.Sign(mainTx)
 	if err != nil {
 		return fmt.Errorf("faield to sign notary request: %w", err)
 	}
+
+	json, err = mainTx.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	c.logger.Debug(fmt.Sprintf("tx after sign %s", string(json)))
 
 	// Adjust nonce to always have a single fallback (and notary request)
 	// for the same main tx.
@@ -468,6 +480,8 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 	if err != nil {
 		return err
 	}
+
+	c.logger.Debug(fmt.Sprintf("cosigners %v", cosigners))
 
 	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
 	if err != nil {
