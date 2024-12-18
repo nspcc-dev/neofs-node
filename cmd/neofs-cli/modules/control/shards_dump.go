@@ -62,7 +62,9 @@ func dumpShard(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("rpc error: %w", err)
 	}
 
-	err = verifyResponse(resp.GetSignature(), resp.GetBody())
+	if err = verifyResponse(resp.GetSignature(), resp.GetBody()); err != nil {
+		return err
+	}
 
 	cmd.Println("Shard has been dumped successfully.")
 	return nil
