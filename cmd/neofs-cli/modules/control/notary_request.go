@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -42,7 +41,7 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cli, err := getClient(ctx)
+	cli, err := getIRClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -87,11 +86,7 @@ func notaryRequest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not sign request: %w", err)
 	}
 
-	var resp *ircontrol.NotaryRequestResponse
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = ircontrol.NotaryRequest(client, req)
-		return err
-	})
+	resp, err := cli.NotaryRequest(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
