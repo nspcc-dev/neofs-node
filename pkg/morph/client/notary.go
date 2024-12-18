@@ -334,7 +334,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 // Notary service.
 // NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
 // TXs retrieved from the received notary requests.
-func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
+func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bool) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -424,6 +424,9 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	fbTx.Nonce = binary.BigEndian.Uint32(mainH[:])
 
 	mainH, fbH, untilActual, err := nAct.SendRequest(mainTx, fbTx)
+	if await {
+		_, err = nAct.Wait(mainH, fbH, untilActual, err)
+	}
 	if err != nil && !alreadyOnChainError(err) {
 		return err
 	}

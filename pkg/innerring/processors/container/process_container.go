@@ -104,7 +104,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 	prm.SetZone(ctx.d.Zone())
 
 	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 
 	if err != nil {
 		cp.log.Error("could not approve put container",
@@ -175,7 +175,7 @@ func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	prm.SetToken(e.SessionToken())
 
 	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 
 	if err != nil {
 		cp.log.Error("could not approve delete container",
