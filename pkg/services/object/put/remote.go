@@ -10,7 +10,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -54,13 +53,13 @@ func (t *remoteTarget) WriteObject(obj *object.Object, _ objectcore.ContentMeta,
 	return nil
 }
 
-func (t *remoteTarget) Close() (oid.ID, *neofscrypto.Signature, error) {
+func (t *remoteTarget) Close() (oid.ID, []byte, error) {
 	if t.enc.hdrOff > 0 {
-		sig, err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
+		sigs, err := t.transport.SendReplicationRequestToNode(t.ctx, t.enc.b, t.nodeInfo)
 		if err != nil {
 			return oid.ID{}, nil, fmt.Errorf("replicate object to remote node (key=%x): %w", t.nodeInfo.PublicKey(), err)
 		}
-		return t.obj.GetID(), sig, nil
+		return t.obj.GetID(), sigs, nil
 	}
 
 	var sessionInfo *util.SessionInfo

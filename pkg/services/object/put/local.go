@@ -8,7 +8,6 @@ import (
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/tzhash/tz"
@@ -48,7 +47,7 @@ func (t *localTarget) WriteObject(obj *object.Object, meta objectCore.ContentMet
 	return nil
 }
 
-func (t *localTarget) Close() (oid.ID, *neofscrypto.Signature, error) {
+func (t *localTarget) Close() (oid.ID, []byte, error) {
 	err := putObjectLocally(t.storage, t.obj, t.meta, &t.enc)
 	if err != nil {
 		return oid.ID{}, nil, err

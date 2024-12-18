@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Initial support for meta-on-chain for objects (#2877)
 
 ### Fixed
 - Incomplete metabase migration to version 3 leading to node start failure (#3048)

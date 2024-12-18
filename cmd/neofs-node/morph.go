@@ -97,6 +97,8 @@ func listenMorphNotifications(c *cfg) {
 	registerBlockHandler(lis, func(block *block.Block) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
 
+		c.networkState.block.Store(block.Index)
+
 		err = c.persistate.SetUInt32(persistateFSChainLastBlockKey, block.Index)
 		if err != nil {
 			c.log.Warn("can't update persistent state",

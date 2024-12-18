@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	validInterval  = 10 // in epochs
-	currentVersion = 7  // it is also a number of fields
+	currentVersion = 7 // it is also a number of fields
 )
 
 const (
@@ -34,11 +33,11 @@ const (
 //	"size": payload size
 //	"deleted": array of _raw_ object IDs
 //	"locked": array of _raw_ object IDs
-//	"validuntil": last valid epoch number for meta information
+//	"validuntil": last valid block number for meta information
 //
 // Last valid epoch is object's creation epoch + 10.
 func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
-	deleted, locked []oid.ID, createdAt uint64, magicNumber uint32) []byte {
+	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
 		kv(networkMagicKey, magicNumber),
 		kv(cidKey, cID[:]),
@@ -46,7 +45,7 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
 		kv(sizeKey, pSize),
 		oidsKV(deletedKey, deleted),
 		oidsKV(lockedKey, locked),
-		kv(validUntilKey, createdAt+validInterval),
+		kv(validUntilKey, vub),
 	}
 
 	result, err := stackitem.Serialize(stackitem.NewMapWithValue(kvs))
