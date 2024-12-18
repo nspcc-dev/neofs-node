@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc/common"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc/message"
 	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding"
+	"google.golang.org/grpc/encoding/proto"
 )
 
 type transport struct {
@@ -26,49 +25,60 @@ func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte
 		return nil, fmt.Errorf("connect to remote node: %w", err)
 	}
 
-	var resp replicateResponse
-	err = c.ExecRaw(func(c *rawclient.Client) error {
+	var resp objectGRPC.ReplicateResponse
+	err = c.ExecRaw(func(conn *grpc.ClientConn) error {
 		// this will be changed during NeoFS API Go deprecation. Code most likely be
 		// placed in SDK
-		m := common.CallMethodInfo{Service: "neo.fs.v2.object.ObjectService", Name: "Replicate"}
-		err = rawclient.SendUnary(c, m, rawclient.BinaryMessage(req), &resp,
-			rawclient.WithContext(ctx), rawclient.AllowBinarySendingOnly())
+		err = conn.Invoke(ctx, objectGRPC.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
 		if err != nil {
-			return fmt.Errorf("API transport (service=%s,op=%s): %w", m.Service, m.Name, err)
+			return fmt.Errorf("API transport (op=%s): %w", objectGRPC.ObjectService_Replicate_FullMethodName, err)
 		}
-		return resp.err
+		return err
 	})
-	return resp.sigs, err
-}
-
-type replicateResponse struct {
-	sigs []byte
-	err  error
-}
-
-func (x replicateResponse) ToGRPCMessage() grpc.Message { return new(objectGRPC.ReplicateResponse) }
-
-func (x *replicateResponse) FromGRPCMessage(gm grpc.Message) error {
-	m, ok := gm.(*objectGRPC.ReplicateResponse)
-	if !ok {
-		return message.NewUnexpectedMessageType(gm, m)
+	if err != nil {
+		return nil, err
 	}
 
+	return replicationResultFromResponse(&resp)
+}
+
+// [encoding.Codec] making Marshal to accept and forward []byte messages only.
+var binaryMessageOnly = grpc.ForceCodec(protoCodecBinaryRequestOnly{})
+
+type protoCodecBinaryRequestOnly struct{}
+
+func (protoCodecBinaryRequestOnly) Name() string {
+	// may be any non-empty, conflicts are unlikely to arise
+	return "neofs_binary_sender"
+}
+
+func (protoCodecBinaryRequestOnly) Marshal(msg any) ([]byte, error) {
+	bMsg, ok := msg.([]byte)
+	if ok {
+		return bMsg, nil
+	}
+
+	return nil, fmt.Errorf("message is not of type %T", bMsg)
+}
+
+func (protoCodecBinaryRequestOnly) Unmarshal(raw []byte, msg any) error {
+	return encoding.GetCodec(proto.Name).Unmarshal(raw, msg)
+}
+
+func replicationResultFromResponse(m *objectGRPC.ReplicateResponse) ([]byte, error) {
 	var st *status.Status
 	if mst := m.GetStatus(); mst != nil {
 		st = new(status.Status)
 		err := st.FromGRPCMessage(mst)
 		if err != nil {
-			return fmt.Errorf("decode response status: %w", err)
+			return nil, fmt.Errorf("decode response status: %w", err)
 		}
 	}
 
-	x.err = apistatus.ErrorFromV2(st)
-	if x.err != nil {
-		return nil
+	err := apistatus.ErrorFromV2(st)
+	if err != nil {
+		return nil, err
 	}
 
-	x.sigs = m.GetObjectSignature()
-
-	return nil
+	return m.GetObjectSignature(), nil
 }
