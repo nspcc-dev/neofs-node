@@ -1,9 +1,10 @@
 package control
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -44,22 +45,27 @@ func listObjects(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		return control.ListObjects(client, req, func(r *control.ListObjectsResponse) error {
-			err := verifyResponse(r.GetSignature(), r.GetBody())
-			if err != nil {
-				return err
-			}
-
-			for _, address := range r.GetBody().GetObjectAddress() {
-				cmd.Println(string(address))
-			}
-			return nil
-		})
-	})
+	stream, err := cli.ListObjects(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
 
-	return nil
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return fmt.Errorf("rpc error: %w", err)
+		}
+
+		body := resp.GetBody()
+		if err := verifyResponse(resp.GetSignature(), body); err != nil {
+			return err
+		}
+
+		for _, address := range body.GetObjectAddress() {
+			cmd.Println(string(address))
+		}
+	}
 }

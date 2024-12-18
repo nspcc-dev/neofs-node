@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -72,11 +71,7 @@ func synchronizeTree(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var resp *control.SynchronizeTreeResponse
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = control.SynchronizeTree(client, req)
-		return err
-	})
+	resp, err := cli.SynchronizeTree(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
