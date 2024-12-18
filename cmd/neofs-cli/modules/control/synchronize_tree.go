@@ -39,6 +39,9 @@ func synchronizeTree(cmd *cobra.Command, _ []string) error {
 	defer cancel()
 
 	pk, err := key.Get(cmd)
+	if err != nil {
+		return err
+	}
 
 	var cnr cid.ID
 	cidStr, _ := cmd.Flags().GetString(commonflags.CIDFlag)
