@@ -3,7 +3,6 @@ package control
 import (
 	"fmt"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -38,7 +37,6 @@ func reviveObject(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("reading %s flag: %w", objectFlag, err)
 	}
 
-	var resp *control.ReviveObjectResponse
 	req := &control.ReviveObjectRequest{
 		Body: &control.ReviveObjectRequest_Body{
 			ObjectAddress: []byte(addressRaw),
@@ -54,10 +52,7 @@ func reviveObject(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = control.ReviveObject(client, req)
-		return err
-	})
+	resp, err := cli.ReviveObject(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
