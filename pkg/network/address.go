@@ -8,7 +8,7 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 )
 
 /*
@@ -69,7 +69,7 @@ func (a *Address) FromString(s string) error {
 			host   string
 			hasTLS bool
 		)
-		host, hasTLS, err = client.ParseURI(s)
+		host, hasTLS, err = uriutil.Parse(s)
 		if err != nil {
 			host = s
 		}

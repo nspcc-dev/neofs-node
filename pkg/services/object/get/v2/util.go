@@ -11,12 +11,13 @@ import (
 	"sync"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
-	rpcclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	protorefs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/status"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -30,6 +31,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
+	"google.golang.org/grpc"
 )
 
 var errWrongMessageSeq = errors.New("incorrect message sequence")
@@ -101,9 +103,10 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// open stream
-			var getStream *rpc.GetResponseReader
-			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				getStream, err = rpc.GetObject(cli, req, rpcclient.WithContext(ctx))
+			var getStream protoobject.ObjectService_GetClient
+			err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+				// FIXME: context should be cancelled on return from upper func
+				getStream, err = protoobject.NewObjectServiceClient(conn).Get(ctx, req.ToGRPCMessage().(*protoobject.GetRequest))
 				return err
 			})
 			if err != nil {
@@ -112,13 +115,12 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 			var (
 				headWas       bool
-				resp          = new(objectV2.GetResponse)
 				localProgress int
 			)
 
 			for {
 				// receive message from server stream
-				err := getStream.Read(resp)
+				resp, err := getStream.Recv()
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if !headWas {
@@ -138,7 +140,11 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				}
 
 				// verify response structure
-				if err := signature.VerifyServiceMessage(resp); err != nil {
+				resp2 := new(objectV2.GetResponse)
+				if err = resp2.FromGRPCMessage(resp); err != nil {
+					panic(err) // can only fail on wrong type, here it's correct
+				}
+				if err := signature.VerifyServiceMessage(resp2); err != nil {
 					return nil, fmt.Errorf("response verification failed: %w", err)
 				}
 
@@ -149,18 +155,27 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 				switch v := resp.GetBody().GetObjectPart().(type) {
 				default:
 					return nil, fmt.Errorf("unexpected object part %T", v)
-				case *objectV2.GetObjectPartInit:
+				case *protoobject.GetResponse_Body_Init_:
 					if headWas {
 						return nil, errWrongMessageSeq
 					}
 
 					headWas = true
 
-					obj := new(objectV2.Object)
+					if v == nil || v.Init == nil {
+						return nil, errors.New("nil header oneof field")
+					}
 
-					obj.SetObjectID(v.GetObjectID())
-					obj.SetSignature(v.GetSignature())
-					obj.SetHeader(v.GetHeader())
+					m := &protoobject.Object{
+						ObjectId:  v.Init.ObjectId,
+						Signature: v.Init.Signature,
+						Header:    v.Init.Header,
+					}
+
+					obj := new(objectV2.Object)
+					if err := obj.FromGRPCMessage(m); err != nil {
+						panic(err) // can only fail on wrong type, here it's correct
+					}
 
 					onceHeaderSending.Do(func() {
 						err = streamWrapper.WriteHeader(object.NewFromV2(obj))
@@ -168,7 +183,7 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 					if err != nil {
 						return nil, fmt.Errorf("could not write object header in Get forwarder: %w", err)
 					}
-				case *objectV2.GetObjectPartChunk:
+				case *protoobject.GetResponse_Body_Chunk:
 					if !headWas {
 						return nil, errWrongMessageSeq
 					}
@@ -187,8 +202,15 @@ func (s *Service) toPrm(req *objectV2.GetRequest, stream objectSvc.GetObjectStre
 
 					localProgress += len(origChunk)
 					globalProgress += len(chunk)
-				case *objectV2.SplitInfo:
-					si := object.NewSplitInfoFromV2(v)
+				case *protoobject.GetResponse_Body_SplitInfo:
+					if v == nil || v.SplitInfo == nil {
+						return nil, errors.New("nil split info oneof field")
+					}
+					var si2 objectV2.SplitInfo
+					if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
+						panic(err) // can only fail on wrong type, here it's correct
+					}
+					si := object.NewSplitInfoFromV2(&si2)
 					return nil, object.NewSplitInfoError(si)
 				}
 			}
@@ -271,21 +293,21 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// open stream
-			var rangeStream *rpc.ObjectRangeResponseReader
-			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				rangeStream, err = rpc.GetObjectRange(cli, req, rpcclient.WithContext(ctx))
+			var rangeStream protoobject.ObjectService_GetRangeClient
+			err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+				// FIXME: context should be cancelled on return from upper func
+				rangeStream, err = protoobject.NewObjectServiceClient(conn).GetRange(ctx, req.ToGRPCMessage().(*protoobject.GetRangeRequest))
 				return err
 			})
 			if err != nil {
 				return nil, fmt.Errorf("could not create Get payload range stream: %w", err)
 			}
 
-			resp := new(objectV2.GetRangeResponse)
 			var localProgress int
 
 			for {
 				// receive message from server stream
-				err := rangeStream.Read(resp)
+				resp, err := rangeStream.Recv()
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						break
@@ -301,6 +323,10 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				}
 
 				// verify response structure
+				resp2 := new(objectV2.GetRangeResponse)
+				if err = resp2.FromGRPCMessage(resp); err != nil {
+					panic(err) // can only fail on wrong type, here it's correct
+				}
 				if err := signature.VerifyServiceMessage(resp); err != nil {
 					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 				}
@@ -312,7 +338,7 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 				switch v := resp.GetBody().GetRangePart().(type) {
 				case nil:
 					return nil, fmt.Errorf("unexpected range type %T", v)
-				case *objectV2.GetRangePartChunk:
+				case *protoobject.GetRangeResponse_Body_Chunk:
 					origChunk := v.GetChunk()
 
 					chunk := chunkToSend(globalProgress, localProgress, origChunk)
@@ -327,8 +353,15 @@ func (s *Service) toRangePrm(req *objectV2.GetRangeRequest, stream objectSvc.Get
 
 					localProgress += len(origChunk)
 					globalProgress += len(chunk)
-				case *objectV2.SplitInfo:
-					si := object.NewSplitInfoFromV2(v)
+				case *protoobject.GetRangeResponse_Body_SplitInfo:
+					if v == nil || v.SplitInfo == nil {
+						return nil, errors.New("nil split info oneof field")
+					}
+					var si2 objectV2.SplitInfo
+					if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
+						panic(err) // can only fail on wrong type, here it's correct
+					}
+					si := object.NewSplitInfoFromV2(&si2)
 
 					return nil, object.NewSplitInfoError(si)
 				}
@@ -435,9 +468,9 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 				return nil, err
 			}
 
-			var resp *objectV2.GetRangeHashResponse
-			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				resp, err = rpc.HashObjectRange(cli, req, rpcclient.WithContext(ctx))
+			var resp *protoobject.GetRangeHashResponse
+			err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+				resp, err = protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req.ToGRPCMessage().(*protoobject.GetRangeHashRequest))
 				return err
 			})
 			if err != nil {
@@ -450,7 +483,11 @@ func (s *Service) toHashRangePrm(req *objectV2.GetRangeHashRequest) (*getsvc.Ran
 			}
 
 			// verify response structure
-			if err := signature.VerifyServiceMessage(resp); err != nil {
+			resp2 := new(objectV2.GetRangeResponse)
+			if err = resp2.FromGRPCMessage(resp); err != nil {
+				panic(err) // can only fail on wrong type, here it's correct
+			}
+			if err := signature.VerifyServiceMessage(resp2); err != nil {
 				return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 			}
 
@@ -546,9 +583,9 @@ func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *
 			// perhaps it is worth highlighting the utility function in neofs-api-go
 
 			// send Head request
-			var headResp *objectV2.HeadResponse
-			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				headResp, err = rpc.HeadObject(cli, req, rpcclient.WithContext(ctx))
+			var headResp *protoobject.HeadResponse
+			err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+				headResp, err = protoobject.NewObjectServiceClient(conn).Head(ctx, req.ToGRPCMessage().(*protoobject.HeadRequest))
 				return err
 			})
 			if err != nil {
@@ -561,53 +598,64 @@ func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *
 			}
 
 			// verify response structure
-			if err := signature.VerifyServiceMessage(headResp); err != nil {
+			resp2 := new(objectV2.HeadResponse)
+			if err = resp2.FromGRPCMessage(headResp); err != nil {
+				panic(err) // can only fail on wrong type, here it's correct
+			}
+			if err := signature.VerifyServiceMessage(resp2); err != nil {
 				return nil, fmt.Errorf("response verification failed: %w", err)
 			}
 
-			if err = checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+			if err = checkStatus(headResp.GetMetaHeader().GetStatus()); err != nil {
 				return nil, err
 			}
 
 			var (
-				hdr   *objectV2.Header
-				idSig *refs.Signature
+				hdr   *protoobject.Header
+				idSig *protorefs.Signature
 			)
 
-			switch v := headResp.GetBody().GetHeaderPart().(type) {
+			switch v := headResp.GetBody().GetHead().(type) {
 			case nil:
 				return nil, fmt.Errorf("unexpected header type %T", v)
-			case *objectV2.ShortHeader:
+			case *protoobject.HeadResponse_Body_ShortHeader:
 				if !body.GetMainOnly() {
 					return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
 						(*objectV2.ShortHeader)(nil), (*objectV2.HeaderWithSignature)(nil),
 					)
 				}
 
-				h := v
+				if v == nil || v.ShortHeader == nil {
+					return nil, errors.New("nil short header oneof field")
+				}
 
-				hdr = new(objectV2.Header)
-				hdr.SetPayloadLength(h.GetPayloadLength())
-				hdr.SetVersion(h.GetVersion())
-				hdr.SetOwnerID(h.GetOwnerID())
-				hdr.SetObjectType(h.GetObjectType())
-				hdr.SetCreationEpoch(h.GetCreationEpoch())
-				hdr.SetPayloadHash(h.GetPayloadHash())
-				hdr.SetHomomorphicHash(h.GetHomomorphicHash())
-			case *objectV2.HeaderWithSignature:
+				h := v.ShortHeader
+				hdr = &protoobject.Header{
+					Version:         h.Version,
+					OwnerId:         h.OwnerId,
+					CreationEpoch:   h.CreationEpoch,
+					PayloadLength:   h.PayloadLength,
+					PayloadHash:     h.PayloadHash,
+					ObjectType:      h.ObjectType,
+					HomomorphicHash: h.HomomorphicHash,
+				}
+			case *protoobject.HeadResponse_Body_Header:
 				if body.GetMainOnly() {
 					return nil, fmt.Errorf("wrong header part type: expected %T, received %T",
 						(*objectV2.HeaderWithSignature)(nil), (*objectV2.ShortHeader)(nil),
 					)
 				}
 
-				hdrWithSig := v
-				if hdrWithSig == nil {
-					return nil, errors.New("nil object part")
+				if v == nil || v.Header == nil {
+					return nil, errors.New("nil header oneof field")
 				}
 
-				hdr = hdrWithSig.GetHeader()
-				idSig = hdrWithSig.GetSignature()
+				if v.Header.Header == nil {
+					return nil, errors.New("missing header")
+				}
+
+				hdr = v.Header.Header
+				idSig = v.Header.Signature
 
 				if idSig == nil {
 					// TODO(@cthulhu-rider): #1387 use "const" error
@@ -616,23 +664,39 @@ func (s *Service) toHeadPrm(_ context.Context, req *objectV2.HeadRequest, resp *
 
 				binID := objAddr.Object().Marshal()
 
+				var sig2 refs.Signature
+				if err := sig2.FromGRPCMessage(idSig); err != nil {
+					panic(err) // can only fail on wrong type, here it's correct
+				}
 				var sig neofscrypto.Signature
-				if err := sig.ReadFromV2(*idSig); err != nil {
+				if err := sig.ReadFromV2(sig2); err != nil {
 					return nil, fmt.Errorf("can't read signature: %w", err)
 				}
 
 				if !sig.Verify(binID) {
 					return nil, errors.New("invalid object ID signature")
 				}
-			case *objectV2.SplitInfo:
-				si := object.NewSplitInfoFromV2(v)
+			case *protoobject.HeadResponse_Body_SplitInfo:
+				if v == nil || v.SplitInfo == nil {
+					return nil, errors.New("nil split info oneof field")
+				}
+				var si2 objectV2.SplitInfo
+				if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
+					panic(err) // can only fail on wrong type, here it's correct
+				}
+				si := object.NewSplitInfoFromV2(&si2)
 
 				return nil, object.NewSplitInfoError(si)
 			}
 
+			mObj := &protoobject.Object{
+				Signature: idSig,
+				Header:    hdr,
+			}
 			objv2 := new(objectV2.Object)
-			objv2.SetHeader(hdr)
-			objv2.SetSignature(idSig)
+			if err := objv2.FromGRPCMessage(mObj); err != nil {
+				panic(err) // can only fail on wrong type, here it's correct
+			}
 
 			obj := object.NewFromV2(objv2)
 			obj.SetID(objAddr.Object())
@@ -748,7 +812,11 @@ func writeCurrentVersion(metaHdr *session.RequestMetaHeader) {
 	metaHdr.SetVersion(versionV2)
 }
 
-func checkStatus(stV2 *status.Status) error {
+func checkStatus(st *protostatus.Status) error {
+	stV2 := new(status.Status)
+	if err := stV2.FromGRPCMessage(st); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
 	if !status.IsSuccess(stV2.Code()) {
 		return apistatus.ErrorFromV2(stV2)
 	}
