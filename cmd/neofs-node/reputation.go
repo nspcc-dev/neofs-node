@@ -230,6 +230,8 @@ func initReputationService(c *cfg) {
 				return
 			}
 
+			c.networkState.epochDuration.Store(duration)
+
 			iterations, err := c.cfgNetmap.wrapper.EigenTrustIterations()
 			if err != nil {
 				log.Debug("could not fetch iteration number", zap.Error(err))

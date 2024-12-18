@@ -2,12 +2,14 @@ package putsvc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"slices"
 	"sync"
 	"sync/atomic"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -23,15 +25,17 @@ import (
 
 type preparedObjectTarget interface {
 	WriteObject(*objectSDK.Object, object.ContentMeta, encodedObject) error
-	Close() (oid.ID, *neofscrypto.Signature, error)
+	Close() (oid.ID, []byte, error)
 }
 
 type distributedTarget struct {
 	placementIterator placementIterator
 
-	obj                *objectSDK.Object
-	objMeta            object.ContentMeta
-	networkMagicNumber uint32
+	obj                  *objectSDK.Object
+	objMeta              object.ContentMeta
+	networkMagicNumber   uint32
+	currentBlock         uint32
+	currentEpochDuration uint64
 
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
@@ -147,8 +151,9 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	default:
 	}
 
+	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
 	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
-		lockedObjs, t.obj.CreationEpoch(), t.networkMagicNumber)
+		lockedObjs, expectedVUB, t.networkMagicNumber)
 	id := t.obj.GetID()
 	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)
 	if err != nil {
@@ -199,7 +204,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return fmt.Errorf("could not write header: %w", err)
 	}
 
-	_, sig, err := target.Close()
+	_, sigsRaw, err := target.Close()
 	if err != nil {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
@@ -207,28 +212,77 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 	if t.localNodeInContainer && !node.local {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
-		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()))
+		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
+			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 
-		if sig == nil {
-			l.Info("missing object meta signature")
+		sigs, err := decodeSignatures(sigsRaw)
+		if err != nil {
+			l.Info("failed to decode signatures", zap.Error(err))
 			return nil
 		}
 
-		if !bytes.Equal(sig.PublicKeyBytes(), node.info.PublicKey()) {
-			l.Info("public key differs in object meta signature")
+		for i, sig := range sigs {
+			if !bytes.Equal(sig.PublicKeyBytes(), node.info.PublicKey()) {
+				l.Info("public key differs in object meta signature", zap.Int("signature index", i))
+				continue
+			}
+
+			if !sig.Verify(t.objSharedMeta) {
+				continue
+			}
+
+			t.metaMtx.Lock()
+			t.collectedSignatures = append(t.collectedSignatures, sig.Value())
+			t.metaMtx.Unlock()
+
 			return nil
 		}
 
-		if !sig.Verify(t.objSharedMeta) {
-			l.Info("meta signature verification failed", zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
-		}
-
-		t.metaMtx.Lock()
-		t.collectedSignatures = append(t.collectedSignatures, sig.Value())
-		t.metaMtx.Unlock()
+		l.Info("metadata: verification failed: no valid signatures received")
 	}
 
 	return nil
+}
+
+func decodeSignatures(b []byte) ([]neofscrypto.Signature, error) {
+	res := make([]neofscrypto.Signature, 3)
+	for i := range res {
+		var offset int
+		var err error
+
+		res[i], offset, err = decodeSignature(b)
+		if err != nil {
+			return nil, fmt.Errorf("decoding %d signature from proto message: %w", i, err)
+		}
+
+		b = b[offset:]
+	}
+
+	return res, nil
+}
+
+func decodeSignature(b []byte) (neofscrypto.Signature, int, error) {
+	if len(b) < 4 {
+		return neofscrypto.Signature{}, 0, fmt.Errorf("unexpected signature format: len: %d", len(b))
+	}
+	l := int(binary.LittleEndian.Uint32(b[:4]))
+	if len(b) < 4+l {
+		return neofscrypto.Signature{}, 0, fmt.Errorf("unexpected signature format: len: %d, len claimed: %d", len(b), l)
+	}
+
+	sig := new(refs.Signature)
+	err := sig.Unmarshal(b[4 : 4+l])
+	if err != nil {
+		return neofscrypto.Signature{}, 0, fmt.Errorf("decoding signature from proto message: %w", err)
+	}
+
+	var res neofscrypto.Signature
+	err = res.ReadFromV2(*sig)
+	if err != nil {
+		return neofscrypto.Signature{}, 0, fmt.Errorf("invalid signature: %w", err)
+	}
+
+	return res, 4 + l, nil
 }
 
 type errNotEnoughNodes struct {

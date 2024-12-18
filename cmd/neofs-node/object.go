@@ -350,7 +350,7 @@ func initObjectService(c *cfg) {
 
 	firstSvc := objectService.NewMetricCollector(signSvc, c.metricsCollector)
 
-	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey))
+	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey), c.cfgNetmap.state)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
