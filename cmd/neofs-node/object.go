@@ -396,6 +396,16 @@ type reputationClient struct {
 	cons *reputationClientConstructor
 }
 
+func (c *reputationClient) newMethod(a) a {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (c *reputationClient) newMethod(a) a {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (c *reputationClient) submitResult(err error) {
 	currEpoch := c.cons.netState.CurrentEpoch()
 	sat := err == nil
