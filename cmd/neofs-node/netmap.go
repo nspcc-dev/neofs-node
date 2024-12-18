@@ -24,7 +24,9 @@ import (
 
 // primary solution of local network state dump.
 type networkState struct {
-	epoch atomic.Uint64
+	epoch         atomic.Uint64
+	block         atomic.Uint32
+	epochDuration atomic.Uint64
 
 	controlNetStatus atomic.Value // control.NetmapStatus
 
@@ -44,6 +46,14 @@ func newNetworkState() *networkState {
 
 func (s *networkState) CurrentEpoch() uint64 {
 	return s.epoch.Load()
+}
+
+func (s *networkState) CurrentBlock() uint32 {
+	return s.block.Load()
+}
+
+func (s *networkState) CurrentEpochDuration() uint64 {
+	return s.epochDuration.Load()
 }
 
 func (s *networkState) setCurrentEpoch(v uint64) {

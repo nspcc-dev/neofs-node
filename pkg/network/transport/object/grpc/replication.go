@@ -3,6 +3,7 @@ package object
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -228,17 +229,36 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	default:
 	}
 
-	metaInfo := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked,
-		o.CreationEpoch(), s.mNumber)
+	currentBlock := s.nmState.CurrentBlock()
+	currentEpochDuration := s.nmState.CurrentEpochDuration()
+	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
+	secondBlock := firstBlock + currentEpochDuration
 
-	var sig neofscrypto.Signature
-	err := sig.Calculate(s.signer, metaInfo)
+	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, firstBlock, s.mNumber)
+	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, secondBlock, s.mNumber)
+
+	var firstSig neofscrypto.Signature
+	var secondSig neofscrypto.Signature
+
+	err := firstSig.Calculate(s.signer, firstMeta)
+	if err != nil {
+		return nil, fmt.Errorf("signature failure: %w", err)
+	}
+	err = secondSig.Calculate(s.signer, secondMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
 
-	sigV2 := new(refsv2.Signature)
-	sig.WriteToV2(sigV2)
+	firstSigV2 := new(refsv2.Signature)
+	firstSig.WriteToV2(firstSigV2)
+	secondSigV2 := new(refsv2.Signature)
+	secondSig.WriteToV2(secondSigV2)
 
-	return sigV2.StableMarshal(nil), nil
+	res := make([]byte, 0, 4+firstSigV2.StableSize()+4+secondSigV2.StableSize())
+	res = binary.LittleEndian.AppendUint32(res, uint32(firstSigV2.StableSize()))
+	res = append(res, firstSigV2.StableMarshal(nil)...)
+	res = binary.LittleEndian.AppendUint32(res, uint32(secondSigV2.StableSize()))
+	res = append(res, secondSigV2.StableMarshal(nil)...)
+
+	return res, nil
 }

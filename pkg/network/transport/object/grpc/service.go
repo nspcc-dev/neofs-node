@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	status "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -51,15 +52,17 @@ type Server struct {
 	node    Node
 	signer  neofscrypto.Signer
 	mNumber uint32
+	nmState netmap.StateDetailed
 }
 
 // New creates, initializes and returns Server instance.
-func New(c objectSvc.ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer) *Server {
+func New(c objectSvc.ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer, nmState netmap.StateDetailed) *Server {
 	return &Server{
 		srv:     c,
 		node:    node,
 		signer:  signer,
 		mNumber: magicNumber,
+		nmState: nmState,
 	}
 }
 
