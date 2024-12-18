@@ -159,6 +159,11 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.metaMtx.RLock()
 		defer t.metaMtx.RUnlock()
 
+		if len(t.collectedSignatures) == 0 {
+			t.placementIterator.log.Info("skip chain meta information subbmit, zero signatures were collected", zap.Stringer("oid", id))
+			return id, nil
+		}
+
 		var await bool
 		switch t.metainfoConsistencyAttr {
 		// TODO: there was no constant in SDK at the code creation moment
@@ -172,8 +177,11 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 		err = t.cnrClient.SubmitObjectPut(await, t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
-			t.placementIterator.log.Info("failed to submit", zap.Stringer("oid", id), zap.Error(err))
+			t.placementIterator.log.Info("failed to submit object meta information", zap.Stringer("oid", id), zap.Error(err))
+			return id, nil
 		}
+
+		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("oid", id))
 	}
 
 	return id, nil
