@@ -1,7 +1,6 @@
 package control
 
 import (
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -47,11 +46,7 @@ var dropObjectsCmd = &cobra.Command{
 			return err
 		}
 
-		var resp *control.DropObjectsResponse
-		err = cli.ExecRaw(func(client *rawclient.Client) error {
-			resp, err = control.DropObjects(client, req)
-			return err
-		})
+		resp, err := cli.DropObjects(ctx, req)
 		if err != nil {
 			return err
 		}
