@@ -3,15 +3,15 @@ package internal
 import (
 	"bytes"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 )
 
 // VerifyResponseKeyV2 checks if response is signed with expected key. Returns client.ErrWrongPublicKey if not.
 func VerifyResponseKeyV2(expectedKey []byte, resp interface {
-	GetVerificationHeader() *session.ResponseVerificationHeader
+	GetVerifyHeader() *session.ResponseVerificationHeader
 }) error {
-	if !bytes.Equal(resp.GetVerificationHeader().GetBodySignature().GetKey(), expectedKey) {
+	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), expectedKey) {
 		return client.ErrWrongPublicKey
 	}
 

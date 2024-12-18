@@ -21,6 +21,7 @@ import (
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -56,6 +57,20 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 	}
 }
 
+type clientWrapper struct {
+	*client.Client
+}
+
+func (x clientWrapper) ExecRaw(f func(*grpc.ClientConn) error) error {
+	return x.Client.ExecRaw(func(c *rawclient.Client) error {
+		conn := c.Conn()
+		if conn == nil {
+			return errors.New("missing conn")
+		}
+		return f(conn.(*grpc.ClientConn))
+	})
+}
+
 func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client, error) {
 	var (
 		prmInit client.PrmInit
@@ -88,7 +103,7 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
-	return c, nil
+	return clientWrapper{c}, nil
 }
 
 // updateGroup replaces current multiClient addresses with a new group.
@@ -329,7 +344,7 @@ func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, epoch uint6
 	})
 }
 
-func (x *multiClient) ExecRaw(f func(client *rawclient.Client) error) error {
+func (x *multiClient) ExecRaw(f func(*grpc.ClientConn) error) error {
 	return x.iterateClients(context.Background(), func(c clientcore.Client) error {
 		return c.ExecRaw(f)
 	})
@@ -351,7 +366,7 @@ func (x *multiClient) Close() error {
 	return nil
 }
 
-func (x *multiClient) RawForAddress(addr network.Address, f func(client *rawclient.Client) error) error {
+func (x *multiClient) RawForAddress(addr network.Address, f func(*grpc.ClientConn) error) error {
 	c, err := x.client(addr)
 	if err != nil {
 		return err

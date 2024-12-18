@@ -1,17 +1,19 @@
 package searchsvc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
-	rpcclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/status"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -22,6 +24,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"google.golang.org/grpc"
 )
 
 func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStream) (*searchsvc.Prm, error) {
@@ -81,9 +84,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				return nil, err
 			}
 
-			var searchStream *rpc.SearchResponseReader
-			err = c.RawForAddress(addr, func(cli *rpcclient.Client) error {
-				searchStream, err = rpc.SearchObjects(cli, req, rpcclient.WithContext(stream.Context()))
+			var searchStream protoobject.ObjectService_SearchClient
+			ctx, cancel := context.WithCancel(stream.Context())
+			defer cancel()
+			err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+				searchStream, err = protoobject.NewObjectServiceClient(conn).Search(ctx, req.ToGRPCMessage().(*protoobject.SearchRequest))
 				return err
 			})
 			if err != nil {
@@ -92,14 +97,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 
 			// code below is copy-pasted from c.SearchObjects implementation,
 			// perhaps it is worth highlighting the utility function in neofs-api-go
-			var (
-				searchResult []oid.ID
-				resp         = new(objectV2.SearchResponse)
-			)
+			var searchResult []oid.ID
 
 			for {
 				// receive message from server stream
-				err := searchStream.Read(resp)
+				resp, err := searchStream.Recv()
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						break
@@ -114,7 +116,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 				}
 
 				// verify response structure
-				if err := signature.VerifyServiceMessage(resp); err != nil {
+				resp2 := new(objectV2.SearchResponse)
+				if err = resp2.FromGRPCMessage(resp); err != nil {
+					panic(err) // can only fail on wrong type, here it's correct
+				}
+				if err := signature.VerifyServiceMessage(resp2); err != nil {
 					return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 				}
 
@@ -122,11 +128,15 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 					return nil, fmt.Errorf("remote node response: %w", err)
 				}
 
-				chunk := resp.GetBody().GetIDList()
+				chunk := resp.GetBody().GetIdList()
 				var id oid.ID
 
 				for i := range chunk {
-					err = id.ReadFromV2(chunk[i])
+					var id2 refs.ObjectID
+					if err = id2.FromGRPCMessage(chunk[i]); err != nil {
+						panic(err) // can only fail on wrong type, here it's correct
+					}
+					err = id.ReadFromV2(id2)
 					if err != nil {
 						return nil, fmt.Errorf("invalid object ID: %w", err)
 					}
@@ -145,7 +155,11 @@ func (s *Service) toPrm(req *objectV2.SearchRequest, stream objectSvc.SearchStre
 	return p, nil
 }
 
-func checkStatus(stV2 *status.Status) error {
+func checkStatus(st *protostatus.Status) error {
+	stV2 := new(status.Status)
+	if err := stV2.FromGRPCMessage(st); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
 	if !status.IsSuccess(stV2.Code()) {
 		return apistatus.ErrorFromV2(stV2)
 	}

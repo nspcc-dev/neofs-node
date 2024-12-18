@@ -1,21 +1,23 @@
 package putsvc
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc"
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"github.com/nspcc-dev/neofs-api-go/v2/status"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"google.golang.org/grpc"
 )
 
 type streamer struct {
@@ -26,6 +28,7 @@ type streamer struct {
 	chunks     []*object.PutRequest
 
 	*sizes // only for relay streams
+	ctx    context.Context
 }
 
 type sizes struct {
@@ -116,7 +119,6 @@ func (s *streamer) CloseAndRecv() (*object.PutResponse, error) {
 
 func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClient) error {
 	// open stream
-	resp := new(object.PutResponse)
 
 	key := info.PublicKey()
 
@@ -135,10 +137,11 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 			// would be nice to log otherwise
 		}()
 
-		var stream *rpc.PutRequestWriter
-
-		err = c.RawForAddress(addr, func(cli *rawclient.Client) error {
-			stream, err = rpc.PutObject(cli, resp)
+		var stream protoobject.ObjectService_PutClient
+		ctx, cancel := context.WithCancel(s.ctx)
+		defer cancel()
+		err = c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+			stream, err = protoobject.NewObjectServiceClient(conn).Put(ctx)
 			return err
 		})
 		if err != nil {
@@ -147,7 +150,7 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 		}
 
 		// send init part
-		err = stream.Write(s.init)
+		err = stream.Send(s.init.ToGRPCMessage().(*protoobject.PutRequest))
 		if err != nil {
 			internalclient.ReportError(c, err)
 			err = fmt.Errorf("sending the initial message to stream failed: %w", err)
@@ -155,7 +158,7 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 		}
 
 		for i := range s.chunks {
-			if err = stream.Write(s.chunks[i]); err != nil {
+			if err = stream.Send(s.chunks[i].ToGRPCMessage().(*protoobject.PutRequest)); err != nil {
 				internalclient.ReportError(c, err)
 				err = fmt.Errorf("sending the chunk %d failed: %w", i, err)
 				return
@@ -163,7 +166,7 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 		}
 
 		// close object stream and receive response from remote node
-		err = stream.Close()
+		resp, err := stream.CloseAndRecv()
 		if err != nil {
 			err = fmt.Errorf("closing the stream failed: %w", err)
 			return
@@ -175,7 +178,11 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 		}
 
 		// verify response structure
-		err = signature.VerifyServiceMessage(resp)
+		resp2 := new(object.PutResponse)
+		if err = resp2.FromGRPCMessage(resp); err != nil {
+			panic(err) // can only fail on wrong type, here it's correct
+		}
+		err = signature.VerifyServiceMessage(resp2)
 		if err != nil {
 			err = fmt.Errorf("response verification failed: %w", err)
 		}
@@ -191,7 +198,11 @@ func (s *streamer) relayRequest(info client.NodeInfo, c client.MultiAddressClien
 	return firstErr
 }
 
-func checkStatus(stV2 *status.Status) error {
+func checkStatus(st *protostatus.Status) error {
+	stV2 := new(status.Status)
+	if err := stV2.FromGRPCMessage(st); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
 	if !status.IsSuccess(stV2.Code()) {
 		return apistatus.ErrorFromV2(stV2)
 	}

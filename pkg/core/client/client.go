@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -14,6 +13,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	reputationSDK "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"google.golang.org/grpc"
 )
 
 // Client is an interface of NeoFS storage
@@ -30,7 +30,7 @@ type Client interface {
 	ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHash) ([][]byte, error)
 	AnnounceLocalTrust(ctx context.Context, epoch uint64, trusts []reputationSDK.Trust, prm client.PrmAnnounceLocalTrust) error
 	AnnounceIntermediateTrust(ctx context.Context, epoch uint64, trust reputationSDK.PeerToPeerTrust, prm client.PrmAnnounceIntermediateTrust) error
-	ExecRaw(f func(client *rawclient.Client) error) error
+	ExecRaw(f func(*grpc.ClientConn) error) error
 	Close() error
 }
 
@@ -39,9 +39,9 @@ type Client interface {
 type MultiAddressClient interface {
 	Client
 
-	// RawForAddress must return rawclient.Client
-	// for the passed network.Address.
-	RawForAddress(network.Address, func(cli *rawclient.Client) error) error
+	// RawForAddress executes op over gRPC connections to given multi-address
+	// endpoint-by-endpoint until success.
+	RawForAddress(multiAddr network.Address, op func(*grpc.ClientConn) error) error
 
 	ReportError(error)
 }
