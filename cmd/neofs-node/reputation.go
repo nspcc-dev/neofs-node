@@ -14,7 +14,6 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
@@ -194,7 +193,7 @@ func initReputationService(c *cfg) {
 		},
 	)
 
-	server := grpcreputation.New(
+	server := reputationrpc.New(
 		reputationrpc.NewSignService(
 			&c.key.PrivateKey,
 			reputationrpc.NewResponseService(
