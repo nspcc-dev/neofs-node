@@ -3,7 +3,6 @@ package control
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -44,11 +43,7 @@ func evacuateShard(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var resp *control.EvacuateShardResponse
-	err = cli.ExecRaw(func(client *client.Client) error {
-		resp, err = control.EvacuateShard(client, req)
-		return err
-	})
+	resp, err := cli.EvacuateShard(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}

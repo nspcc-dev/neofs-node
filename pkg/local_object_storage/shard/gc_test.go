@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -84,7 +83,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	cnr := cidtest.ID()
 
 	var expAttr object.Attribute
-	expAttr.SetKey(objectV2.SysAttributeExpEpoch)
+	expAttr.SetKey(object.AttributeExpirationEpoch)
 	expAttr.SetValue("1")
 
 	obj := generateObjectWithCID(cnr)
@@ -211,7 +210,7 @@ func TestExpiration(t *testing.T) {
 	ch := sh.NotificationChannel()
 
 	var expAttr object.Attribute
-	expAttr.SetKey(objectV2.SysAttributeExpEpoch)
+	expAttr.SetKey(object.AttributeExpirationEpoch)
 
 	obj := generateObject()
 
