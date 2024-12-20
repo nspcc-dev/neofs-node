@@ -74,8 +74,16 @@ func (s StaticClient) Morph() *Client {
 type InvokePrm struct {
 	TestInvokePrm
 
+	await bool
+
 	// optional parameters
 	InvokePrmOptional
+}
+
+// Await makes invokation block until TX is included in chain OR
+// Valid Until Block is reached. Works _only_ for non-notary requests.
+func (i *InvokePrm) Await() {
+	i.await = true
 }
 
 // InvokePrmOptional groups optional parameters of the Invoke operation.
@@ -145,10 +153,21 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 
 	return s.client.Invoke(
 		s.scScriptHash,
+		prm.await,
 		fee,
 		prm.method,
 		prm.args...,
 	)
+}
+
+// RunAlphabetNotaryScript invokes script by sending tx to notary contract in
+// blockchain. Fallback tx is a `RET`. Panics if Notary support is not enabled.
+// TX is signed with internal key, 2/3+1 multisigners are expected.
+func (s StaticClient) RunAlphabetNotaryScript(sc []byte) error {
+	// default nonce for Alphabet transactions that must be send asynchronous;
+	// it is chosen to be the same as in Invoke method
+	const nonce = 1
+	return s.client.runAlphabetNotaryScript(sc, nonce)
 }
 
 // TestInvokePrm groups parameters of the TestInvoke operation.

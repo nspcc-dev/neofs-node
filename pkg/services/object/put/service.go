@@ -7,10 +7,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -36,7 +36,7 @@ type Option func(*cfg)
 type Transport interface {
 	// SendReplicationRequestToNode sends a prepared replication request message to
 	// the specified remote node.
-	SendReplicationRequestToNode(ctx context.Context, req []byte, node client.NodeInfo) (*neofscrypto.Signature, error)
+	SendReplicationRequestToNode(ctx context.Context, req []byte, node client.NodeInfo) ([]byte, error)
 }
 
 type ClientConstructor interface {
@@ -95,13 +95,15 @@ type cfg struct {
 
 	fmtValidatorOpts []object.FormatValidatorOption
 
-	networkState netmap.State
+	networkState netmap.StateDetailed
 
 	clientConstructor ClientConstructor
 
 	log *zap.Logger
 
 	networkMagic uint32
+
+	cnrClient *chaincontainer.Client
 }
 
 func defaultCfg() *cfg {
@@ -175,7 +177,7 @@ func WithWorkerPools(remote, local util.WorkerPool) Option {
 	}
 }
 
-func WithNetworkState(v netmap.State) Option {
+func WithNetworkState(v netmap.StateDetailed) Option {
 	return func(c *cfg) {
 		c.networkState = v
 		c.fmtValidatorOpts = append(c.fmtValidatorOpts, object.WithNetState(v))
@@ -197,6 +199,12 @@ func WithTombstoneVerifier(tv object.TombVerifier) Option {
 func WithClientConstructor(v ClientConstructor) Option {
 	return func(c *cfg) {
 		c.clientConstructor = v
+	}
+}
+
+func WithContainerClient(v *chaincontainer.Client) Option {
+	return func(c *cfg) {
+		c.cnrClient = v
 	}
 }
 

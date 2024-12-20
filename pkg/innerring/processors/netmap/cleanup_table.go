@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"bytes"
+	"slices"
 	"sync"
 
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -13,6 +14,8 @@ type (
 		enabled    bool
 		threshold  uint64
 		lastAccess map[string]epochStampWithNodeInfo
+
+		prev netmap.NetMap
 	}
 
 	epochStamp struct {
@@ -36,8 +39,9 @@ func newCleanupTable(enabled bool, threshold uint64) cleanupTable {
 	}
 }
 
-// Update cleanup table based on on-chain information about netmap.
-func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) {
+// Update cleanup table based on on-chain information about netmap. Returned
+// value indicates if the composition of network map memebers has changed.
+func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) bool {
 	c.Lock()
 	defer c.Unlock()
 
@@ -64,6 +68,14 @@ func (c *cleanupTable) update(snapshot netmap.NetMap, now uint64) {
 	}
 
 	c.lastAccess = newMap
+
+	// order is expected to be the same from epoch to epoch
+	mapChanged := !slices.EqualFunc(c.prev.Nodes(), nmNodes, func(i1 netmap.NodeInfo, i2 netmap.NodeInfo) bool {
+		return bytes.Equal(i1.PublicKey(), i2.PublicKey())
+	})
+	c.prev = snapshot
+
+	return mapChanged
 }
 
 // updates last access time of the netmap node by string public key.

@@ -16,6 +16,9 @@ type Put struct {
 	signature    []byte
 	publicKey    []byte
 	token        []byte
+	name         string
+	zone         string
+	metaOnChain  bool
 
 	// For notary notifications only.
 	// Contains raw transactions of notary request.
