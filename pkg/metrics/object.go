@@ -69,7 +69,7 @@ func (m methodCount) mustRegister() {
 	prometheus.MustRegister(m.total)
 }
 
-func (m methodCount) Inc(success bool) {
+func (m methodCount) inc(success bool) {
 	m.total.Inc()
 	if success {
 		m.success.Inc()
@@ -223,25 +223,25 @@ func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d
 	default:
 		panic(fmt.Sprintf("unsupported op %v", op))
 	case stat.MethodObjectGet:
-		m.getCounter.Inc(success)
+		m.getCounter.inc(success)
 		m.getDuration.Observe(d.Seconds())
 	case stat.MethodObjectPut:
-		m.putCounter.Inc(success)
+		m.putCounter.inc(success)
 		m.putDuration.Observe(d.Seconds())
 	case stat.MethodObjectHead:
-		m.headCounter.Inc(success)
+		m.headCounter.inc(success)
 		m.headDuration.Observe(d.Seconds())
 	case stat.MethodObjectDelete:
-		m.deleteCounter.Inc(success)
+		m.deleteCounter.inc(success)
 		m.deleteDuration.Observe(d.Seconds())
 	case stat.MethodObjectSearch:
-		m.searchCounter.Inc(success)
+		m.searchCounter.inc(success)
 		m.searchDuration.Observe(d.Seconds())
 	case stat.MethodObjectRange:
-		m.rangeCounter.Inc(success)
+		m.rangeCounter.inc(success)
 		m.rangeDuration.Observe(d.Seconds())
 	case stat.MethodObjectHash:
-		m.rangeHashCounter.Inc(success)
+		m.rangeHashCounter.inc(success)
 		m.rangeHashDuration.Observe(d.Seconds())
 	}
 }
