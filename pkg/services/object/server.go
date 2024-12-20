@@ -3,6 +3,7 @@ package object
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -64,10 +67,57 @@ type ServiceServer interface {
 
 // Various NeoFS protocol status codes.
 const (
-	codeInternal          = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_INTERNAL)
-	codeAccessDenied      = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_ACCESS_DENIED)
-	codeContainerNotFound = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
+	codeInternal             = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_INTERNAL)
+	codeInvalidSignature     = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_SIGNATURE_VERIFICATION_FAIL)
+	codeMaintenance          = uint32(1024*protostatus.Section_SECTION_FAILURE_COMMON) + uint32(protostatus.CommonFail_NODE_UNDER_MAINTENANCE)
+	codeAccessDenied         = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_ACCESS_DENIED)
+	codeObjectNotFound       = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_OBJECT_NOT_FOUND)
+	codeObjectLocked         = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_LOCKED)
+	codeIrregularLock        = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_LOCK_NON_REGULAR_OBJECT)
+	codeObjectAlreadyRemoved = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_OBJECT_ALREADY_REMOVED)
+	codeObjectOutOfRange     = uint32(1024*protostatus.Section_SECTION_OBJECT) + uint32(protostatus.Object_OUT_OF_RANGE)
+	codeContainerNotFound    = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
+	codeSessionNotFound      = uint32(1024*protostatus.Section_SECTION_SESSION) + uint32(protostatus.Session_TOKEN_NOT_FOUND)
+	codeSessionExpired       = uint32(1024*protostatus.Section_SECTION_SESSION) + uint32(protostatus.Session_TOKEN_EXPIRED)
 )
+
+const (
+	detailAccessDenialReason = 0
+)
+
+func errToStatus(err error) (uint32, string, []*protostatus.Status_Detail) {
+	var code uint32
+	var dts []*protostatus.Status_Detail
+	var accessDenied apistatus.ObjectAccessDenied
+	accessDeniedPtr := &accessDenied // TODO: free user to check the pointer
+	switch {
+	default:
+		code = codeInternal
+	case errors.Is(err, apistatus.ErrNodeUnderMaintenance):
+		code = codeMaintenance
+	case errors.Is(err, apistatus.ErrContainerNotFound):
+		code = codeContainerNotFound
+	case errors.Is(err, apistatus.ErrSessionTokenNotFound):
+		code = codeSessionNotFound
+	case errors.Is(err, apistatus.ErrSessionTokenExpired):
+		code = codeSessionExpired
+	case errors.As(err, &accessDenied) || errors.As(err, &accessDeniedPtr):
+		return codeAccessDenied, "", []*protostatus.Status_Detail{
+			{Id: detailAccessDenialReason, Value: []byte(accessDeniedPtr.Reason())},
+		}
+	case errors.Is(err, apistatus.ErrObjectLocked):
+		code = codeObjectLocked
+	case errors.Is(err, apistatus.ErrLockNonRegularObject):
+		code = codeIrregularLock
+	case errors.Is(err, apistatus.ErrObjectNotFound):
+		code = codeObjectNotFound
+	case errors.Is(err, apistatus.ErrObjectAlreadyRemoved):
+		code = codeObjectAlreadyRemoved
+	case errors.Is(err, apistatus.ErrObjectOutOfRange):
+		code = codeObjectOutOfRange
+	}
+	return code, err.Error(), dts
+}
 
 // MetricCollector tracks exec statistics for the following ops:
 //   - [stat.MethodObjectPut]
@@ -110,14 +160,14 @@ type server struct {
 	srv ServiceServer
 
 	node    Node
-	signer  neofscrypto.Signer
+	signer  ecdsa.PrivateKey
 	mNumber uint32
 	nmState netmap.StateDetailed
 	metrics MetricCollector
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, node Node, signer ecdsa.PrivateKey, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
 	return &server{
 		srv:     c,
 		node:    node,
@@ -132,25 +182,47 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 	s.metrics.HandleOpExecResult(op, err == nil, time.Since(startedAt))
 }
 
+func (s *server) makeResponseMetaHeader(code uint32, msg string, dts []*protostatus.Status_Detail) *protosession.ResponseMetaHeader {
+	return &protosession.ResponseMetaHeader{
+		Status: &protostatus.Status{Code: code, Message: msg, Details: dts},
+	}
+}
+
+func (s *server) sendPutResponse(err error, startTime time.Time, stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.PutResponse{})
+	s.pushOpExecResult(stat.MethodObjectPut, err, startTime)
+	return stream.SendAndClose(resp)
+}
+
+func (s *server) sendFailedPutResponse(err error, startTime time.Time, stream protoobject.ObjectService_PutServer, code uint32, msg string, dts ...*protostatus.Status_Detail) error {
+	return s.sendPutResponse(err, startTime, stream, &protoobject.PutResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+}
+
+func (s *server) sendPutResponseForError(err error, startTime time.Time, stream protoobject.ObjectService_PutServer) error {
+	code, msg, dts := errToStatus(err)
+	return s.sendFailedPutResponse(err, startTime, stream, code, msg, dts...)
+}
+
 // Put opens internal Object service Put stream and overtakes data from gRPC stream to it.
 func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
+	startTime := time.Now()
 	stream, err := s.srv.Put(gStream.Context())
 	if err != nil {
-		return err
+		return s.sendPutResponseForError(err, startTime, gStream)
 	}
 
-	t := time.Now()
 	for {
 		req, err := gStream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				resp, err := stream.CloseAndRecv()
-				s.pushOpExecResult(stat.MethodObjectPut, err, t)
 				if err != nil {
-					return err
+					return s.sendPutResponseForError(err, startTime, gStream)
 				}
 
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
+				return s.sendPutResponse(nil, startTime, gStream, resp.ToGRPCMessage().(*protoobject.PutResponse))
 			}
 
 			return err
@@ -164,21 +236,31 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 		if err := putReq.FromGRPCMessage(req); err != nil {
 			return err
 		}
+		if err := signature.VerifyServiceMessage(putReq); err != nil {
+			return s.sendFailedPutResponse(err, startTime, gStream, codeInvalidSignature, err.Error())
+		}
 
 		if err := stream.Send(putReq); err != nil {
-			if errors.Is(err, util.ErrAbortStream) {
-				resp, err := stream.CloseAndRecv()
-				s.pushOpExecResult(stat.MethodObjectPut, err, t)
-				if err != nil {
-					return err
-				}
-
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
-			}
-
-			return err
+			return s.sendPutResponseForError(err, startTime, gStream)
 		}
 	}
+}
+
+func (s *server) signDeleteResponse(err error, startTime time.Time, resp *protoobject.DeleteResponse) (*protoobject.DeleteResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.DeleteResponse{})
+	s.pushOpExecResult(stat.MethodObjectDelete, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeFailedDeleteResponse(err error, startTime time.Time, code uint32, msg string, dts ...*protostatus.Status_Detail) (*protoobject.DeleteResponse, error) {
+	return s.signDeleteResponse(err, startTime, &protoobject.DeleteResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+}
+
+func (s *server) makeDeleteResponseForError(err error, startTime time.Time) (*protoobject.DeleteResponse, error) {
+	code, msg, dts := errToStatus(err)
+	return s.makeFailedDeleteResponse(err, startTime, code, msg, dts...)
 }
 
 // Delete converts gRPC DeleteRequest message and passes it to internal Object service.
@@ -188,14 +270,35 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.Delete(ctx, delReq)
-	s.pushOpExecResult(stat.MethodObjectDelete, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(delReq); err != nil {
+		return s.makeFailedDeleteResponse(err, startTime, codeInvalidSignature, err.Error())
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.DeleteResponse), nil
+	resp, err := s.srv.Delete(ctx, delReq)
+	if err != nil {
+		return s.makeDeleteResponseForError(err, startTime)
+	}
+
+	return s.signDeleteResponse(nil, startTime, resp.ToGRPCMessage().(*protoobject.DeleteResponse))
+}
+
+func (s *server) signHeadResponse(err error, startTime time.Time, resp *protoobject.HeadResponse) (*protoobject.HeadResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.HeadResponse{})
+	s.pushOpExecResult(stat.MethodObjectHead, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeFailedHeadResponse(err error, startTime time.Time, code uint32, msg string, dts ...*protostatus.Status_Detail) (*protoobject.HeadResponse, error) {
+	return s.signHeadResponse(err, startTime, &protoobject.HeadResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+}
+
+func (s *server) makeHeadResponseForError(err error, startTime time.Time) (*protoobject.HeadResponse, error) {
+	code, msg, dts := errToStatus(err)
+	return s.makeFailedHeadResponse(err, startTime, code, msg, dts...)
 }
 
 // Head converts gRPC HeadRequest message and passes it to internal Object service.
@@ -205,14 +308,35 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.Head(ctx, searchReq)
-	s.pushOpExecResult(stat.MethodObjectHead, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(searchReq); err != nil {
+		return s.makeFailedHeadResponse(err, startTime, codeInvalidSignature, err.Error())
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.HeadResponse), nil
+	resp, err := s.srv.Head(ctx, searchReq)
+	if err != nil {
+		return s.makeHeadResponseForError(err, startTime)
+	}
+
+	return s.signHeadResponse(nil, startTime, resp.ToGRPCMessage().(*protoobject.HeadResponse))
+}
+
+func (s *server) signHashResponse(err error, startTime time.Time, resp *protoobject.GetRangeHashResponse) (*protoobject.GetRangeHashResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetRangeHashResponse{})
+	s.pushOpExecResult(stat.MethodObjectHash, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeFailedHashResponse(err error, startTime time.Time, code uint32, msg string, dts ...*protostatus.Status_Detail) (*protoobject.GetRangeHashResponse, error) {
+	return s.signHashResponse(err, startTime, &protoobject.GetRangeHashResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+}
+
+func (s *server) makeHashResponseForError(err error, startTime time.Time) (*protoobject.GetRangeHashResponse, error) {
+	code, msg, dts := errToStatus(err)
+	return s.makeFailedHashResponse(err, startTime, code, msg, dts...)
 }
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
@@ -222,27 +346,49 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
-	s.pushOpExecResult(stat.MethodObjectHash, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(hashRngReq); err != nil {
+		return s.makeFailedHashResponse(err, startTime, codeInvalidSignature, err.Error())
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.GetRangeHashResponse), nil
+	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
+	if err != nil {
+		return s.makeHashResponseForError(err, startTime)
+	}
+
+	return s.signHashResponse(nil, startTime, resp.ToGRPCMessage().(*protoobject.GetRangeHashResponse))
+}
+
+func (s *server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendFailedGetResponse(err error, startTime time.Time, stream protoobject.ObjectService_GetServer, code uint32, msg string, dts ...*protostatus.Status_Detail) error {
+	sendErr := s.sendGetResponse(stream, &protoobject.GetResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+	s.pushOpExecResult(stat.MethodObjectGet, err, startTime)
+	return sendErr
+}
+
+func (s *server) sendGetResponseForError(err error, startTime time.Time, stream protoobject.ObjectService_GetServer) error {
+	code, msg, dts := errToStatus(err)
+	return s.sendFailedGetResponse(err, startTime, stream, code, msg, dts...)
 }
 
 type getStreamerV2 struct {
 	protoobject.ObjectService_GetServer
-	metrics MetricCollector
+	srv *server
 }
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
 	if c := r.GetBody().GetChunk(); c != nil {
-		s.metrics.AddGetPayload(len(c))
+		s.srv.metrics.AddGetPayload(len(c))
 	}
-	return s.ObjectService_GetServer.Send(r)
+	return s.srv.sendGetResponse(s.ObjectService_GetServer, r)
 }
 
 // Get converts gRPC GetRequest message and server-side stream and overtakes its data
@@ -252,26 +398,52 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err := getReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(getReq); err != nil {
+		return s.sendFailedGetResponse(err, startTime, gStream, codeInvalidSignature, err.Error())
+	}
+
 	err := s.srv.Get(
 		getReq,
 		&getStreamerV2{
 			ObjectService_GetServer: gStream,
-			metrics:                 s.metrics,
+			srv:                     s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectGet, err, t)
-	return err
+	if err != nil {
+		return s.sendGetResponseForError(err, startTime, gStream)
+	}
+	s.pushOpExecResult(stat.MethodObjectGet, nil, startTime)
+	return nil
+}
+
+func (s *server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetRangeResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendFailedRangeResponse(err error, startTime time.Time, stream protoobject.ObjectService_GetRangeServer, code uint32, msg string, dts ...*protostatus.Status_Detail) error {
+	sendErr := s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+	s.pushOpExecResult(stat.MethodObjectRange, err, startTime)
+	return sendErr
+}
+
+func (s *server) sendRangeResponseForError(err error, startTime time.Time, stream protoobject.ObjectService_GetRangeServer) error {
+	code, msg, dts := errToStatus(err)
+	return s.sendFailedRangeResponse(err, startTime, stream, code, msg, dts...)
 }
 
 type getRangeStreamerV2 struct {
 	protoobject.ObjectService_GetRangeServer
+	srv *server
 }
 
 func (s *getRangeStreamerV2) Send(resp *v2object.GetRangeResponse) error {
-	return s.ObjectService_GetRangeServer.Send(
-		resp.ToGRPCMessage().(*protoobject.GetRangeResponse),
-	)
+	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, resp.ToGRPCMessage().(*protoobject.GetRangeResponse))
 }
 
 // GetRange converts gRPC GetRangeRequest message and server-side stream and overtakes its data
@@ -281,25 +453,52 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err := getRngReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(getRngReq); err != nil {
+		return s.sendFailedRangeResponse(err, startTime, gStream, codeInvalidSignature, err.Error())
+	}
+
 	err := s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
 			ObjectService_GetRangeServer: gStream,
+			srv:                          s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectRange, err, t)
-	return err
+	if err != nil {
+		return s.sendRangeResponseForError(err, startTime, gStream)
+	}
+	s.pushOpExecResult(stat.MethodObjectRange, nil, startTime)
+	return nil
+}
+
+func (s *server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.SearchResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendFailedSearchResponse(err error, startTime time.Time, stream protoobject.ObjectService_SearchServer, code uint32, msg string, dts ...*protostatus.Status_Detail) error {
+	sendErr := s.sendSearchResponse(stream, &protoobject.SearchResponse{
+		MetaHeader: s.makeResponseMetaHeader(code, msg, dts),
+	})
+	s.pushOpExecResult(stat.MethodObjectSearch, err, startTime)
+	return sendErr
+}
+
+func (s *server) sendSearchResponseForError(err error, startTime time.Time, stream protoobject.ObjectService_SearchServer) error {
+	code, msg, dts := errToStatus(err)
+	return s.sendFailedSearchResponse(err, startTime, stream, code, msg, dts...)
 }
 
 type searchStreamerV2 struct {
 	protoobject.ObjectService_SearchServer
+	srv *server
 }
 
 func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
-	return s.ObjectService_SearchServer.Send(
-		resp.ToGRPCMessage().(*protoobject.SearchResponse),
-	)
+	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, resp.ToGRPCMessage().(*protoobject.SearchResponse))
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
@@ -309,15 +508,25 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	if err := searchReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(searchReq); err != nil {
+		return s.sendFailedSearchResponse(err, startTime, gStream, codeInvalidSignature, err.Error())
+	}
+
 	err := s.srv.Search(
 		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
+			srv:                        s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectSearch, err, t)
-	return err
+	if err != nil {
+		return s.sendSearchResponseForError(err, startTime, gStream)
+	}
+	s.pushOpExecResult(stat.MethodObjectSearch, nil, startTime)
+	return nil
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
@@ -541,16 +750,16 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
 	var thirdSig neofscrypto.Signature
-
-	err := firstSig.Calculate(s.signer, firstMeta)
+	signer := neofsecdsa.SignerRFC6979(s.signer)
+	err := firstSig.Calculate(signer, firstMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
-	err = secondSig.Calculate(s.signer, secondMeta)
+	err = secondSig.Calculate(signer, secondMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
-	err = thirdSig.Calculate(s.signer, thirdMeta)
+	err = thirdSig.Calculate(signer, thirdMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
