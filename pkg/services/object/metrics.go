@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	"github.com/nspcc-dev/neofs-sdk-go/stat"
 )
 
 type (
@@ -21,27 +22,22 @@ type (
 	}
 
 	putStreamMetric struct {
-		stream  PutObjectStream
-		metrics MetricRegister
-		start   time.Time
+		MetricCollector
+		stream PutObjectStream
+		start  time.Time
 	}
 
+	// MetricRegister tracks exec statistics for the following ops:
+	//  - [stat.MethodObjectPut]
+	//  - [stat.MethodObjectGet]
+	//  - [stat.MethodObjectHead]
+	//  - [stat.MethodObjectDelete]
+	//  - [stat.MethodObjectSearch]
+	//  - [stat.MethodObjectRange]
+	//  - [stat.MethodObjectHash]
 	MetricRegister interface {
-		IncGetReqCounter(success bool)
-		IncPutReqCounter(success bool)
-		IncHeadReqCounter(success bool)
-		IncSearchReqCounter(success bool)
-		IncDeleteReqCounter(success bool)
-		IncRangeReqCounter(success bool)
-		IncRangeHashReqCounter(success bool)
-
-		AddGetReqDuration(time.Duration)
-		AddPutReqDuration(time.Duration)
-		AddHeadReqDuration(time.Duration)
-		AddSearchReqDuration(time.Duration)
-		AddDeleteReqDuration(time.Duration)
-		AddRangeReqDuration(time.Duration)
-		AddRangeHashReqDuration(time.Duration)
+		// HandleOpExecResult handles measured execution results of the given op.
+		HandleOpExecResult(_ stat.Method, success bool, _ time.Duration)
 
 		AddPutPayload(int)
 		AddGetPayload(int)
@@ -55,11 +51,14 @@ func NewMetricCollector(next ServiceServer, register MetricRegister) *MetricColl
 	}
 }
 
+func (m MetricCollector) pushOpExecResult(op stat.Method, err error, startedAt time.Time) {
+	m.metrics.HandleOpExecResult(op, err == nil, time.Since(startedAt))
+}
+
 func (m MetricCollector) Get(req *object.GetRequest, stream GetObjectStream) (err error) {
 	t := time.Now()
 	defer func() {
-		m.metrics.IncGetReqCounter(err == nil)
-		m.metrics.AddGetReqDuration(time.Since(t))
+		m.pushOpExecResult(stat.MethodObjectGet, err, t)
 	}()
 
 	err = m.next.Get(req, &getStreamMetric{
@@ -79,9 +78,9 @@ func (m MetricCollector) Put(ctx context.Context) (PutObjectStream, error) {
 	}
 
 	return &putStreamMetric{
-		stream:  stream,
-		metrics: m.metrics,
-		start:   t,
+		stream:          stream,
+		MetricCollector: m,
+		start:           t,
 	}, nil
 }
 
@@ -90,8 +89,7 @@ func (m MetricCollector) Head(ctx context.Context, request *object.HeadRequest) 
 
 	res, err := m.next.Head(ctx, request)
 
-	m.metrics.IncHeadReqCounter(err == nil)
-	m.metrics.AddHeadReqDuration(time.Since(t))
+	m.pushOpExecResult(stat.MethodObjectHead, err, t)
 
 	return res, err
 }
@@ -101,8 +99,7 @@ func (m MetricCollector) Search(req *object.SearchRequest, stream SearchStream) 
 
 	err := m.next.Search(req, stream)
 
-	m.metrics.IncSearchReqCounter(err == nil)
-	m.metrics.AddSearchReqDuration(time.Since(t))
+	m.pushOpExecResult(stat.MethodObjectSearch, err, t)
 
 	return err
 }
@@ -112,8 +109,7 @@ func (m MetricCollector) Delete(ctx context.Context, request *object.DeleteReque
 
 	res, err := m.next.Delete(ctx, request)
 
-	m.metrics.IncDeleteReqCounter(err == nil)
-	m.metrics.AddDeleteReqDuration(time.Since(t))
+	m.pushOpExecResult(stat.MethodObjectDelete, err, t)
 
 	return res, err
 }
@@ -123,8 +119,7 @@ func (m MetricCollector) GetRange(req *object.GetRangeRequest, stream GetObjectR
 
 	err := m.next.GetRange(req, stream)
 
-	m.metrics.IncRangeReqCounter(err == nil)
-	m.metrics.AddRangeReqDuration(time.Since(t))
+	m.pushOpExecResult(stat.MethodObjectRange, err, t)
 
 	return err
 }
@@ -134,8 +129,7 @@ func (m MetricCollector) GetRangeHash(ctx context.Context, request *object.GetRa
 
 	res, err := m.next.GetRangeHash(ctx, request)
 
-	m.metrics.IncRangeHashReqCounter(err == nil)
-	m.metrics.AddRangeHashReqDuration(time.Since(t))
+	m.pushOpExecResult(stat.MethodObjectHash, err, t)
 
 	return res, err
 }
@@ -161,8 +155,7 @@ func (s putStreamMetric) Send(req *object.PutRequest) error {
 func (s putStreamMetric) CloseAndRecv() (*object.PutResponse, error) {
 	res, err := s.stream.CloseAndRecv()
 
-	s.metrics.IncPutReqCounter(err == nil)
-	s.metrics.AddPutReqDuration(time.Since(s.start))
+	s.pushOpExecResult(stat.MethodObjectPut, err, s.start)
 
 	return res, err
 }
