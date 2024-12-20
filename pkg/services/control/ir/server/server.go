@@ -24,7 +24,8 @@ func panicOnPrmValue(n string, v any) {
 //
 // Panics if:
 //   - parameterized private key is nil;
-//   - parameterized HealthChecker is nil.
+//   - parameterized HealthChecker is nil;
+//   - parameterized NotaryManager is nil.
 //
 // Forms white list from all keys specified via
 // WithAllowedKeys option and a public key of
@@ -34,6 +35,8 @@ func New(prm Prm, opts ...Option) *Server {
 	switch {
 	case prm.healthChecker == nil:
 		panicOnPrmValue("health checker", prm.healthChecker)
+	case prm.notaryManager == nil:
+		panicOnPrmValue("notary manager", prm.notaryManager)
 	}
 
 	// compute optional parameters
