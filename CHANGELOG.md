@@ -6,7 +6,6 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Incomplete metabase migration to version 3 leading to node start failure (#3048)
 
 ### Changed
 
@@ -14,7 +13,15 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.44.1
+### Updating from v0.44.2
+
+## [0.44.2] - 2024-12-20
+
+### Fixed
+- Incomplete metabase migration to version 3 leading to node start failure (#3048)
+
+### Updated
+- golang.org/x/crypto dependency from 0.26.0 to 0.31.0 (#3049)
 
 ## [0.44.1] - 2024-12-11
 
