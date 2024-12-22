@@ -315,13 +315,6 @@ func (c *internals) stopMaintenance() {
 	c.log.Info("stopped local node's maintenance")
 }
 
-// IsMaintenance checks if storage node is under maintenance.
-//
-// Provides util.NodeState to Object service.
-func (c *internals) IsMaintenance() bool {
-	return c.isMaintenance.Load()
-}
-
 type basics struct {
 	networkState *networkState
 	netMapSource netmapCore.Source

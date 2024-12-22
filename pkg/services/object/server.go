@@ -106,6 +106,10 @@ type FSChain interface {
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
 	IsOwnPublicKey(pubKey []byte) bool
+
+	// LocalNodeUnderMaintenance checks whether local node is under maintenance
+	// according to the network map from FSChain.
+	LocalNodeUnderMaintenance() bool
 }
 
 // Storage groups ops of the node's object storage required to serve NeoFS API
@@ -201,6 +205,10 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendStatusPutResponse(startTime, gStream, util.ToRequestSignatureVerificationError(err))
 		}
 
+		if s.fsChain.LocalNodeUnderMaintenance() {
+			return s.sendStatusPutResponse(startTime, gStream, apistatus.ErrNodeUnderMaintenance)
+		}
+
 		if err := stream.Send(putReq); err != nil {
 			return s.sendStatusPutResponse(startTime, gStream, err)
 		}
@@ -230,6 +238,10 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 
 	if err := signature.VerifyServiceMessage(delReq); err != nil {
 		return s.makeStatusDeleteResponse(startTime, err)
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusDeleteResponse(startTime, apistatus.ErrNodeUnderMaintenance)
 	}
 
 	resp, err := s.srv.Delete(ctx, delReq)
@@ -265,6 +277,10 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(startTime, err)
 	}
 
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusHeadResponse(startTime, apistatus.ErrNodeUnderMaintenance)
+	}
+
 	resp, err := s.srv.Head(ctx, searchReq)
 	if err != nil {
 		return s.makeStatusHeadResponse(startTime, err)
@@ -296,6 +312,10 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 
 	if err := signature.VerifyServiceMessage(hashRngReq); err != nil {
 		return s.makeStatusHashResponse(startTime, err)
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusHashResponse(startTime, apistatus.ErrNodeUnderMaintenance)
 	}
 
 	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
@@ -344,6 +364,10 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 
 	if err := signature.VerifyServiceMessage(getReq); err != nil {
 		return s.sendStatusGetResponse(startTime, gStream, err)
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusGetResponse(startTime, gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
 	err := s.srv.Get(
@@ -396,6 +420,10 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(startTime, gStream, err)
 	}
 
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusRangeResponse(startTime, gStream, apistatus.ErrNodeUnderMaintenance)
+	}
+
 	err := s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
@@ -444,6 +472,10 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 
 	if err := signature.VerifyServiceMessage(searchReq); err != nil {
 		return s.sendStatusSearchResponse(startTime, gStream, err)
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusSearchResponse(startTime, gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
 	err := s.srv.Search(
