@@ -72,10 +72,11 @@ type noCallTestFSChain struct{}
 func (x *noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
 	panic("must not be called")
 }
-func (x *noCallTestFSChain) IsOwnPublicKey([]byte) bool   { panic("must not be called") }
-func (x *noCallTestFSChain) CurrentEpoch() uint64         { panic("must not be called") }
-func (x *noCallTestFSChain) CurrentBlock() uint32         { panic("must not be called") }
-func (x *noCallTestFSChain) CurrentEpochDuration() uint64 { panic("must not be called") }
+func (*noCallTestFSChain) IsOwnPublicKey([]byte) bool      { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpoch() uint64            { panic("must not be called") }
+func (*noCallTestFSChain) CurrentBlock() uint32            { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpochDuration() uint64    { panic("must not be called") }
+func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool { panic("must not be called") }
 
 type noCallTestStorage struct{}
 
@@ -131,6 +132,8 @@ func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f
 func (x *testFSChain) IsOwnPublicKey(pubKey []byte) bool { return bytes.Equal(x.serverPubKey, pubKey) }
 
 func (x *testFSChain) CurrentEpoch() uint64 { return 0 }
+
+func (*testFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type testStorage struct {
 	t testing.TB
@@ -473,6 +476,8 @@ func (x nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pu
 func (x nopFSChain) IsOwnPublicKey([]byte) bool {
 	return false
 }
+
+func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type nopStorage struct{}
 

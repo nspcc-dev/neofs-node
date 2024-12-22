@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -312,7 +313,7 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
-	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState)
+	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, &c.isMaintenance)
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
@@ -333,10 +334,7 @@ func initObjectService(c *cfg) {
 		),
 	)
 
-	var commonSvc objectService.Common
-	commonSvc.Init(&c.internals, aclSvc)
-
-	server := objectService.New(&commonSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector)
+	server := objectService.New(aclSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -612,13 +610,15 @@ type fsChainForObjects struct {
 	netmap.StateDetailed
 	containerNodes *containerNodes
 	isLocalPubKey  func([]byte) bool
+	isMaintenance  *atomic.Bool
 }
 
-func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed) *fsChainForObjects {
+func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, isMaintenance *atomic.Bool) *fsChainForObjects {
 	return &fsChainForObjects{
 		StateDetailed:  ns,
 		containerNodes: cnrNodes,
 		isLocalPubKey:  isLocalPubKey,
+		isMaintenance:  isMaintenance,
 	}
 }
 
@@ -638,6 +638,10 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 	return x.isLocalPubKey(pubKey)
 }
+
+// LocalNodeUnderMaintenance checks whether local storage node is under
+// maintenance now.
+func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
 type putObjectServiceWrapper putsvc.Service
 
