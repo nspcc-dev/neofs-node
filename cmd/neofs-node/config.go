@@ -62,8 +62,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const addressSize = 72 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
-
 const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
 
 // capacity of the pools of the morph notification handlers
@@ -427,10 +425,6 @@ type cfgGRPC struct {
 	listeners []net.Listener
 
 	servers []*grpc.Server
-
-	maxChunkSize uint64
-
-	maxAddrAmount uint64
 }
 
 type cfgMorph struct {
@@ -543,9 +537,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		netAddr = nodeconfig.BootstrapAddresses(appCfg)
 	}
 
-	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
-	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
-
 	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
 	fatalOnErr(err)
 
@@ -616,10 +607,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		state:         c.basics.networkState,
 		workerPool:    netmapWorkerPool,
 		needBootstrap: !relayOnly,
-	}
-	c.cfgGRPC = cfgGRPC{
-		maxChunkSize:  maxChunkSize,
-		maxAddrAmount: maxAddrAmount,
 	}
 	c.cfgMorph = cfgMorph{
 		proxyScriptHash: contractsconfig.Proxy(appCfg),
