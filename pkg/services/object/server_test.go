@@ -19,6 +19,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -57,7 +58,7 @@ func (x noCallObjectService) Search(*objectV2.SearchRequest, objectSvc.SearchStr
 	panic("must not be called")
 }
 
-func (x noCallObjectService) Delete(context.Context, *objectV2.DeleteRequest) (*objectV2.DeleteResponse, error) {
+func (x noCallObjectService) Delete(context.Context, deletesvc.Prm) error {
 	panic("must not be called")
 }
 

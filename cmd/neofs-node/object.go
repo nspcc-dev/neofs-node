@@ -21,7 +21,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
-	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	getsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/get/v2"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
@@ -54,7 +53,7 @@ type objectSvc struct {
 
 	get *getsvcV2.Service
 
-	delete *deletesvcV2.Service
+	delete *deletesvc.Service
 }
 
 func (c *cfg) MaxObjectSize() uint64 {
@@ -84,8 +83,8 @@ func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectSt
 	return s.get.Get(req, stream)
 }
 
-func (s *objectSvc) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
-	return s.delete.Delete(ctx, req)
+func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
+	return s.delete.Delete(ctx, prm)
 }
 
 func (s *objectSvc) GetRange(req *object.GetRangeRequest, stream objectService.GetObjectRangeStream) error {
@@ -289,15 +288,11 @@ func initObjectService(c *cfg) {
 		deletesvc.WithKeyStorage(keyStorage),
 	)
 
-	sDeleteV2 := deletesvcV2.NewService(
-		deletesvcV2.WithInternalService(sDelete),
-	)
-
 	objSvc := &objectSvc{
 		put:    sPutV2,
 		search: sSearchV2,
 		get:    sGetV2,
-		delete: sDeleteV2,
+		delete: sDelete,
 	}
 
 	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme
