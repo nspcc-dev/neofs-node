@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -38,14 +38,46 @@ const (
 //	"validuntil": last valid block number for meta information
 //
 // Last valid epoch is object's creation epoch + 10.
-func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart oid.ID, pSize uint64,
-	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
+func EncodeReplicationMetaInfo(o object.Object, vub uint64, magicNumber uint32) ([]byte, error) {
+	firstObj, _ := o.FirstID()
+	if firstObj.IsZero() && o.HasParent() && o.SplitID() == nil {
+		// object itself is the first one
+		firstObj = o.GetID()
+	}
+
+	var deleted []oid.ID
+	var locked []oid.ID
+	switch o.Type() {
+	case object.TypeTombstone:
+		var t object.Tombstone
+		err := t.Unmarshal(o.Payload())
+		if err != nil {
+			return nil, fmt.Errorf("reading tombstoned objects: %w", err)
+		}
+
+		deleted = t.Members()
+	case object.TypeLock:
+		var l object.Lock
+		err := l.Unmarshal(o.Payload())
+		if err != nil {
+			return nil, fmt.Errorf("reading locked objects: %w", err)
+		}
+
+		locked = make([]oid.ID, l.NumberOfMembers())
+		l.ReadMembers(locked)
+	default:
+	}
+
+	cID := o.GetContainerID()
+	oID := o.GetID()
+	size := o.PayloadSize()
+
 	kvs := []stackitem.MapElement{
 		kv(networkMagicKey, magicNumber),
 		kv(cidKey, cID[:]),
 		kv(oidKey, oID[:]),
-		kv(firstPartKey, firstPart[:]),
-		kv(sizeKey, pSize),
+		kv(firstPartKey, firstObj[:]),
+		kv(sizeKey, size),
 		oidsKV(deletedKey, deleted),
 		oidsKV(lockedKey, locked),
 		kv(validUntilKey, vub),
@@ -59,7 +91,7 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart oid.ID, pSize uint64,
 		panic(fmt.Errorf("unexpected stackitem map serialization failure: %w", err))
 	}
 
-	return result
+	return result, nil
 }
 
 func kv(k string, value any) stackitem.MapElement {

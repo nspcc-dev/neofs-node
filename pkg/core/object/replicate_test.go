@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -19,10 +20,22 @@ func TestMetaInfo(t *testing.T) {
 	cID := cidtest.ID()
 	size := rand.Uint64()
 	deleted := oidtest.IDs(10)
-	locked := oidtest.IDs(10)
+	locked := make([]oid.ID, 0)
 	validUntil := rand.Uint64()
 
-	raw := EncodeReplicationMetaInfo(cID, oID, firstPart, size, deleted, locked, validUntil, network)
+	obj := objectsdk.New()
+	obj.SetID(oID)
+	obj.SetContainerID(cID)
+	obj.SetFirstID(firstPart)
+	obj.SetPayloadSize(size)
+
+	tomb := objectsdk.NewTombstone()
+	tomb.SetMembers(deleted)
+	obj.SetType(objectsdk.TypeTombstone)
+	obj.SetPayload(tomb.Marshal())
+
+	raw, err := EncodeReplicationMetaInfo(*obj, validUntil, network)
+	require.NoError(t, err)
 	item, err := stackitem.Deserialize(raw)
 	require.NoError(t, err)
 
