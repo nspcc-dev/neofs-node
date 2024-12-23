@@ -20,6 +20,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
+	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -64,7 +66,7 @@ type ServiceServer interface {
 	Put(context.Context) (PutObjectStream, error)
 	Head(context.Context, *v2object.HeadRequest) (*v2object.HeadResponse, error)
 	Search(*v2object.SearchRequest, SearchStream) error
-	Delete(context.Context, *v2object.DeleteRequest) (*v2object.DeleteResponse, error)
+	Delete(context.Context, deletesvc.Prm) error
 	GetRange(*v2object.GetRangeRequest, GetObjectRangeStream) error
 	GetRangeHash(context.Context, *v2object.GetRangeHashRequest) (*v2object.GetRangeHashResponse, error)
 }
@@ -284,7 +286,14 @@ func (s *server) makeStatusDeleteResponse(startTime time.Time, err error) (*prot
 	})
 }
 
-// Delete converts gRPC DeleteRequest message and passes it to internal Object service.
+type deleteResponseBody protoobject.DeleteResponse_Body
+
+func (x *deleteResponseBody) SetAddress(addr oid.Address) {
+	var addr2 refsv2.Address
+	addr.WriteToV2(&addr2)
+	x.Tombstone = addr2.ToGRPCMessage().(*refs.Address)
+}
+
 func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*protoobject.DeleteResponse, error) {
 	delReq := new(v2object.DeleteRequest)
 	if err := delReq.FromGRPCMessage(req); err != nil {
@@ -311,12 +320,35 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(startTime, eACLErr(reqInfo, err))
 	}
 
-	resp, err := s.srv.Delete(ctx, delReq)
+	ma := req.GetBody().GetAddress()
+	if ma == nil {
+		return s.makeStatusDeleteResponse(startTime, errors.New("missing object address"))
+	}
+	var addr oid.Address
+	var addr2 refsv2.Address
+	if err := addr2.FromGRPCMessage(ma); err != nil {
+		panic(err)
+	}
+	if err := addr.ReadFromV2(addr2); err != nil {
+		return s.makeStatusDeleteResponse(startTime, fmt.Errorf("invalid object address: %w", err))
+	}
+
+	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
 		return s.makeStatusDeleteResponse(startTime, err)
 	}
 
-	return s.signDeleteResponse(startTime, util.StatusOKErr, resp.ToGRPCMessage().(*protoobject.DeleteResponse))
+	var rb protoobject.DeleteResponse_Body
+
+	var p deletesvc.Prm
+	p.SetCommonParameters(cp)
+	p.WithAddress(addr)
+	p.WithTombstoneAddressTarget((*deleteResponseBody)(&rb))
+	if err := s.srv.Delete(ctx, p); err != nil {
+		return s.makeStatusDeleteResponse(startTime, err)
+	}
+
+	return s.signDeleteResponse(startTime, util.StatusOKErr, &protoobject.DeleteResponse{Body: &rb})
 }
 
 func (s *server) signHeadResponse(err error, startTime time.Time, resp *protoobject.HeadResponse) (*protoobject.HeadResponse, error) {
