@@ -7,6 +7,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -15,13 +16,26 @@ import (
 func TestMetaInfo(t *testing.T) {
 	network := rand.Uint32()
 	oID := oidtest.ID()
+	firstPart := oidtest.ID()
 	cID := cidtest.ID()
 	size := rand.Uint64()
 	deleted := oidtest.IDs(10)
-	locked := oidtest.IDs(10)
+	locked := make([]oid.ID, 0)
 	validUntil := rand.Uint64()
 
-	raw := EncodeReplicationMetaInfo(cID, oID, size, deleted, locked, validUntil, network)
+	obj := objectsdk.New()
+	obj.SetID(oID)
+	obj.SetContainerID(cID)
+	obj.SetFirstID(firstPart)
+	obj.SetPayloadSize(size)
+
+	tomb := objectsdk.NewTombstone()
+	tomb.SetMembers(deleted)
+	obj.SetType(objectsdk.TypeTombstone)
+	obj.SetPayload(tomb.Marshal())
+
+	raw, err := EncodeReplicationMetaInfo(*obj, validUntil, network)
+	require.NoError(t, err)
 	item, err := stackitem.Deserialize(raw)
 	require.NoError(t, err)
 
@@ -40,17 +54,20 @@ func TestMetaInfo(t *testing.T) {
 	require.Equal(t, oidKey, string(mm[2].Key.Value().([]byte)))
 	require.Equal(t, oID[:], mm[2].Value.Value().([]byte))
 
-	require.Equal(t, sizeKey, string(mm[3].Key.Value().([]byte)))
-	require.Equal(t, size, mm[3].Value.Value().(*big.Int).Uint64())
+	require.Equal(t, firstPartKey, string(mm[3].Key.Value().([]byte)))
+	require.Equal(t, firstPart[:], mm[3].Value.Value().([]byte))
 
-	require.Equal(t, deletedKey, string(mm[4].Key.Value().([]byte)))
-	require.Equal(t, deleted, stackItemToOIDs(t, mm[4].Value))
+	require.Equal(t, sizeKey, string(mm[4].Key.Value().([]byte)))
+	require.Equal(t, size, mm[4].Value.Value().(*big.Int).Uint64())
 
-	require.Equal(t, lockedKey, string(mm[5].Key.Value().([]byte)))
-	require.Equal(t, locked, stackItemToOIDs(t, mm[5].Value))
+	require.Equal(t, deletedKey, string(mm[5].Key.Value().([]byte)))
+	require.Equal(t, deleted, stackItemToOIDs(t, mm[5].Value))
 
-	require.Equal(t, validUntilKey, string(mm[6].Key.Value().([]byte)))
-	require.Equal(t, validUntil, mm[6].Value.Value().(*big.Int).Uint64())
+	require.Equal(t, lockedKey, string(mm[6].Key.Value().([]byte)))
+	require.Equal(t, locked, stackItemToOIDs(t, mm[6].Value))
+
+	require.Equal(t, validUntilKey, string(mm[7].Key.Value().([]byte)))
+	require.Equal(t, validUntil, mm[7].Value.Value().(*big.Int).Uint64())
 }
 
 func stackItemToOIDs(t *testing.T, value stackitem.Item) []oid.ID {

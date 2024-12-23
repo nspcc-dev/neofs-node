@@ -407,9 +407,9 @@ func TestServer_Replicate(t *testing.T) {
 				require.NoError(t, sig.ReadFromV2(sigV2))
 
 				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
-				require.True(t, sig.Verify(objectcore.EncodeReplicationMetaInfo(
-					o.GetContainerID(), o.GetID(), o.PayloadSize(), nil, nil,
-					uint64((123+1+i)*240), mNumber)))
+				meta, err := objectcore.EncodeReplicationMetaInfo(o, uint64((123+1+i)*240), mNumber)
+				require.NoError(t, err)
+				require.True(t, sig.Verify(meta))
 
 				sigsRaw = sigsRaw[:4+l]
 			}

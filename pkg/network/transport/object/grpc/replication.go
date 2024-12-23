@@ -18,7 +18,6 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
@@ -206,44 +205,24 @@ func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
 }
 
 func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
-	var deleted []oid.ID
-	var locked []oid.ID
-	switch o.Type() {
-	case object.TypeTombstone:
-		var t object.Tombstone
-		err := t.Unmarshal(o.Payload())
-		if err != nil {
-			return nil, fmt.Errorf("reading tombstoned objects: %w", err)
-		}
-
-		deleted = t.Members()
-	case object.TypeLock:
-		var l object.Lock
-		err := l.Unmarshal(o.Payload())
-		if err != nil {
-			return nil, fmt.Errorf("reading locked objects: %w", err)
-		}
-
-		locked = make([]oid.ID, l.NumberOfMembers())
-		l.ReadMembers(locked)
-	default:
-	}
-
 	currentBlock := s.nmState.CurrentBlock()
 	currentEpochDuration := s.nmState.CurrentEpochDuration()
 	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration
 
-	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, firstBlock, s.mNumber)
-	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, secondBlock, s.mNumber)
-	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, thirdBlock, s.mNumber)
+	firstMeta, err := objectcore.EncodeReplicationMetaInfo(o, firstBlock, s.mNumber)
+	if err != nil {
+		return nil, fmt.Errorf("encoding metadata")
+	}
+	secondMeta, _ := objectcore.EncodeReplicationMetaInfo(o, secondBlock, s.mNumber)
+	thirdMeta, _ := objectcore.EncodeReplicationMetaInfo(o, thirdBlock, s.mNumber)
 
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
 	var thirdSig neofscrypto.Signature
 
-	err := firstSig.Calculate(s.signer, firstMeta)
+	err = firstSig.Calculate(s.signer, firstMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
