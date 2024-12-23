@@ -294,7 +294,7 @@ func (e *notHaltStateError) Error() string {
 
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
-func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
+func (c *Client) Invoke(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -302,6 +302,9 @@ func (c *Client) Invoke(contract util.Uint160, fee fixedn.Fixed8, method string,
 	}
 
 	txHash, vub, err := conn.rpcActor.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
+	if await {
+		_, err = conn.rpcActor.Wait(txHash, vub, err)
+	}
 	if err != nil {
 		return fmt.Errorf("could not invoke %s: %w", method, err)
 	}

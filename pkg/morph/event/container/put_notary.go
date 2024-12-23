@@ -32,6 +32,18 @@ func (p *Put) setToken(v []byte) {
 	}
 }
 
+func (p *Put) setName(v string) {
+	p.name = v
+}
+
+func (p *Put) setZone(v string) {
+	p.zone = v
+}
+
+func (p *Put) setMetaOnChain(v bool) {
+	p.metaOnChain = v
+}
+
 var putFieldSetters = []func(*Put, []byte){
 	// order on stack is reversed
 	(*Put).setToken,
@@ -55,6 +67,34 @@ func parsePutNotary(ev *Put, raw *payload.P2PNotaryRequest, ops []event.Op) erro
 		currentOp opcode.Opcode
 		fieldNum  = 0
 	)
+
+	switch len(ops) {
+	case expectedItemNumPut + 3:
+		enableMeta, err := event.BoolFromOpcode(ops[0])
+		if err != nil {
+			return fmt.Errorf("parse arg meta: %w", err)
+		}
+		ev.setMetaOnChain(enableMeta)
+
+		ops = ops[1:]
+
+		err = parseNamedArgs(ev, ops)
+		if err != nil {
+			return err
+		}
+
+		ops = ops[2:]
+	case expectedItemNumPut + 2:
+		err := parseNamedArgs(ev, ops)
+		if err != nil {
+			return err
+		}
+
+		ops = ops[2:]
+	case expectedItemNumPut:
+	default:
+		return fmt.Errorf("unknown number of args: %d", len(ops))
+	}
 
 	for _, op := range ops {
 		currentOp = op.Code()
@@ -104,14 +144,9 @@ func ParsePutNamedNotary(ne event.NotaryEvent) (event.Event, error) {
 		err error
 	)
 
-	ev.zone, err = event.StringFromOpcode(ops[0])
+	err = parseNamedArgs(&ev, ops)
 	if err != nil {
-		return nil, fmt.Errorf("parse arg zone: %w", err)
-	}
-
-	ev.name, err = event.StringFromOpcode(ops[1])
-	if err != nil {
-		return nil, fmt.Errorf("parse arg name: %w", err)
+		return nil, err
 	}
 
 	err = parsePutNotary(&ev.Put, ne.Raw(), ops[putNamedAdditionalArgs:])
@@ -120,4 +155,26 @@ func ParsePutNamedNotary(ne event.NotaryEvent) (event.Event, error) {
 	}
 
 	return ev, nil
+}
+
+type putEvNamed interface {
+	setName(v string)
+	setZone(v string)
+}
+
+func parseNamedArgs(p putEvNamed, ops []event.Op) error {
+	zone, err := event.StringFromOpcode(ops[0])
+	if err != nil {
+		return fmt.Errorf("parse arg zone: %w", err)
+	}
+
+	name, err := event.StringFromOpcode(ops[1])
+	if err != nil {
+		return fmt.Errorf("parse arg name: %w", err)
+	}
+
+	p.setZone(zone)
+	p.setName(name)
+
+	return nil
 }

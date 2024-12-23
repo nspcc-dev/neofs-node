@@ -261,6 +261,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
+		putsvc.WithContainerClient(c.cCli),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(storageEngine{engine: ls}),
 		putsvc.WithContainerSource(c.cfgObject.cnrSource),
@@ -349,7 +350,7 @@ func initObjectService(c *cfg) {
 
 	firstSvc := objectService.NewMetricCollector(signSvc, c.metricsCollector)
 
-	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey))
+	server := objectTransportGRPC.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey), c.cfgNetmap.state)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)

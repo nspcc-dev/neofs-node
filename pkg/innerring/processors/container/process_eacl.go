@@ -88,7 +88,7 @@ func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	prm.SetToken(e.SessionToken())
 
 	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 
 	if err != nil {
 		cp.log.Error("could not approve set EACL",

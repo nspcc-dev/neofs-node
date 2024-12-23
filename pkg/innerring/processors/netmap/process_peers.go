@@ -61,7 +61,7 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
-		err = np.netmapClient.Morph().NotarySignAndInvokeTX(tx)
+		err = np.netmapClient.Morph().NotarySignAndInvokeTX(tx, false)
 		if err != nil {
 			np.log.Error("can't sign and send notary request calling netmap.AddPeer", zap.Error(err))
 		}
@@ -93,7 +93,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	}
 
 	nr := ev.NotaryRequest()
-	err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	err = np.netmapClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 
 	if err != nil {
 		np.log.Error("can't invoke netmap.UpdatePeer", zap.Error(err))

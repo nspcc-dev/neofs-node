@@ -77,7 +77,7 @@ func (rp *Processor) approvePutReputation(e *reputationEvent.Put) {
 		nr  = e.NotaryRequest()
 	)
 
-	err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction)
+	err = rp.reputationWrp.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 
 	if err != nil {
 		rp.log.Warn("can't send approval tx for reputation value",

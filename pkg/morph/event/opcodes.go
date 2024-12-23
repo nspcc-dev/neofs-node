@@ -37,6 +37,18 @@ func BytesFromOpcode(op Op) ([]byte, error) {
 	}
 }
 
+// BoolFromOpcode tries to retrieve bool from Op.
+func BoolFromOpcode(op Op) (bool, error) {
+	switch code := op.Code(); code {
+	case opcode.PUSHT:
+		return true, nil
+	case opcode.PUSHF:
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected ByteArray opcode %s", code)
+	}
+}
+
 // IntFromOpcode tries to retrieve int from Op.
 func IntFromOpcode(op Op) (int64, error) {
 	switch code := op.Code(); {

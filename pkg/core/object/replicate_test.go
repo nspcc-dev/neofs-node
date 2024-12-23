@@ -50,7 +50,7 @@ func TestMetaInfo(t *testing.T) {
 	require.Equal(t, locked, stackItemToOIDs(t, mm[5].Value))
 
 	require.Equal(t, validUntilKey, string(mm[6].Key.Value().([]byte)))
-	require.Equal(t, validUntil+validInterval, mm[6].Value.Value().(*big.Int).Uint64())
+	require.Equal(t, validUntil, mm[6].Value.Value().(*big.Int).Uint64())
 }
 
 func stackItemToOIDs(t *testing.T, value stackitem.Item) []oid.ID {

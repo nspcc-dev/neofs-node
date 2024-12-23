@@ -311,7 +311,7 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // `nonce` and `vub` are used only if notary is enabled.
 func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, fee, method, args...)
+		return c.Invoke(contract, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
@@ -324,7 +324,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 // Considered to be used by non-IR nodes.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, fee, method, args...)
+		return c.Invoke(contract, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
@@ -334,7 +334,7 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, 
 // Notary service.
 // NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
 // TXs retrieved from the received notary requests.
-func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
+func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bool) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -424,6 +424,9 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction) error {
 	fbTx.Nonce = binary.BigEndian.Uint32(mainH[:])
 
 	mainH, fbH, untilActual, err := nAct.SendRequest(mainTx, fbTx)
+	if await {
+		_, err = nAct.Wait(mainH, fbH, untilActual, err)
+	}
 	if err != nil && !alreadyOnChainError(err) {
 		return err
 	}
@@ -491,6 +494,58 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 
 	c.logger.Debug("notary request invoked",
 		zap.String("method", method),
+		zap.Uint32("valid_until_block", untilActual),
+		zap.String("tx_hash", mainH.StringLE()),
+		zap.String("fallback_hash", fbH.StringLE()))
+
+	return nil
+}
+
+func (c *Client) runAlphabetNotaryScript(script []byte, nonce uint32) error {
+	if c.notary == nil {
+		panic("notary support is not enabled")
+	}
+
+	var conn = c.conn.Load()
+	if conn == nil {
+		return ErrConnectionLost
+	}
+
+	alphabetList, err := c.notary.alphabetSource() // prepare arguments for test invocation
+	if err != nil {
+		return err
+	}
+
+	until, err := c.notaryTxValidationLimit(conn)
+	if err != nil {
+		return err
+	}
+
+	cosigners, err := c.notaryCosigners(false, alphabetList, false)
+	if err != nil {
+		return err
+	}
+
+	nAct, err := notary.NewActor(conn.client, cosigners, c.acc)
+	if err != nil {
+		return err
+	}
+
+	mainH, fbH, untilActual, err := nAct.Notarize(nAct.MakeTunedRun(script, nil, func(r *result.Invoke, t *transaction.Transaction) error {
+		if r.State != vmstate.Halt.String() {
+			return &notHaltStateError{state: r.State, exception: r.FaultException}
+		}
+
+		t.ValidUntilBlock = until
+		t.Nonce = nonce
+
+		return nil
+	}))
+	if err != nil && !alreadyOnChainError(err) {
+		return err
+	}
+
+	c.logger.Debug("notary request based on script invoked",
 		zap.Uint32("valid_until_block", untilActual),
 		zap.String("tx_hash", mainH.StringLE()),
 		zap.String("fallback_hash", fbH.StringLE()))
