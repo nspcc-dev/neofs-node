@@ -26,6 +26,8 @@ import (
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
+	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
@@ -54,17 +56,11 @@ type GetObjectRangeStream interface {
 	Send(*v2object.GetRangeResponse) error
 }
 
-// PutObjectStream is an interface of NeoFS API v2 compatible client's object streamer.
-type PutObjectStream interface {
-	Send(*v2object.PutRequest) error
-	CloseAndRecv() (*v2object.PutResponse, error)
-}
-
 // ServiceServer is an interface of utility
 // serving v2 Object service.
 type ServiceServer interface {
 	Get(*v2object.GetRequest, GetObjectStream) error
-	Put(context.Context) (PutObjectStream, error)
+	Put(context.Context) (*putsvc.Streamer, error)
 	Head(context.Context, *v2object.HeadRequest) (*v2object.HeadResponse, error)
 	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
@@ -214,7 +210,191 @@ func (s *server) sendStatusPutResponse(startTime time.Time, stream protoobject.O
 	})
 }
 
-// Put opens internal Object service Put stream and overtakes data from gRPC stream to it.
+type putStream struct {
+	signer ecdsa.PrivateKey
+	base   *putsvc.Streamer
+
+	cacheReqs bool
+	initReq   *protoobject.PutRequest
+	chunkReqs []*protoobject.PutRequest
+
+	expBytes, recvBytes uint64 // payload
+}
+
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer) *putStream {
+	return &putStream{
+		signer: signer,
+		base:   base,
+	}
+}
+
+func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddressClient) error {
+	var firstErr error
+	nodePub := node.PublicKey()
+	addrs := node.AddressGroup()
+	for i := range addrs {
+		err := putToRemoteNode(c, addrs[i], nodePub, x.initReq, x.chunkReqs)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+		// TODO: log error
+	}
+	return firstErr
+}
+
+func putToRemoteNode(c client.MultiAddressClient, addr network.Address, nodePub []byte,
+	initReq *protoobject.PutRequest, chunkReqs []*protoobject.PutRequest) error {
+	var stream protoobject.ObjectService_PutClient
+	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+		var err error
+		stream, err = protoobject.NewObjectServiceClient(conn).Put(context.TODO()) // FIXME: use proper context
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("stream opening failed: %w", err)
+	}
+
+	err = stream.Send(initReq)
+	if err != nil {
+		internalclient.ReportError(c, err)
+		return fmt.Errorf("sending the initial message to stream failed: %w", err)
+	}
+	for i := range chunkReqs {
+		if err := stream.Send(chunkReqs[i]); err != nil {
+			internalclient.ReportError(c, err)
+			return fmt.Errorf("sending the chunk %d failed: %w", i, err)
+		}
+	}
+
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("closing the stream failed: %w", err)
+	}
+
+	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+		return err
+	}
+	resp2 := new(v2object.PutResponse)
+	if err := resp2.FromGRPCMessage(resp); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
+	if err := signature.VerifyServiceMessage(resp2); err != nil {
+		return fmt.Errorf("response verification failed: %w", err)
+	}
+	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+		return fmt.Errorf("remote node response: %w", err)
+	}
+	return nil
+}
+
+func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.PutRequest, error) {
+	meta := req.GetMetaHeader()
+	req.MetaHeader = &protosession.RequestMetaHeader{
+		Ttl:    meta.GetTtl() - 1,
+		Origin: meta,
+	}
+	var req2 v2object.PutRequest
+	if err := req2.FromGRPCMessage(req); err != nil {
+		panic(err)
+	}
+	if err := signature.SignServiceMessage(&x.signer, &req2); err != nil {
+		return nil, err
+	}
+	return req2.ToGRPCMessage().(*protoobject.PutRequest), nil
+}
+
+func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
+	switch v := req.GetBody().GetObjectPart().(type) {
+	default:
+		return fmt.Errorf("invalid object put stream part type %T", v)
+	case *protoobject.PutRequest_Body_Init_:
+		if v == nil || v.Init == nil { // TODO: seems like this is done several times, deduplicate
+			return errors.New("nil oneof field with heading part")
+		}
+
+		cp, err := objutil.CommonPrmFromRequest(req)
+		if err != nil {
+			return err
+		}
+
+		mo := &protoobject.Object{
+			ObjectId:  v.Init.ObjectId,
+			Signature: v.Init.Signature,
+			Header:    v.Init.Header,
+		}
+		var obj2 v2object.Object
+		if err := obj2.FromGRPCMessage(mo); err != nil {
+			panic(err)
+		}
+		obj := object.NewFromV2(&obj2)
+
+		var p putsvc.PutInitPrm
+		p.WithCommonPrm(cp)
+		p.WithObject(obj)
+		p.WithCopiesNumber(v.Init.CopiesNumber)
+		p.WithRelay(x.sendToRemoteNode)
+		if err = x.base.Init(&p); err != nil {
+			return fmt.Errorf("could not init object put stream: %w", err)
+		}
+
+		if x.cacheReqs = v.Init.Signature != nil; !x.cacheReqs {
+			return nil
+		}
+
+		x.expBytes = v.Init.Header.GetPayloadLength()
+		if m := x.base.MaxObjectSize(); x.expBytes > m {
+			return putsvc.ErrExceedingMaxSize
+		}
+		signed, err := x.resignRequest(req) // TODO: resign only when needed
+		if err != nil {
+			return err // TODO: add context
+		}
+		x.initReq = signed
+	case *protoobject.PutRequest_Body_Chunk:
+		c := v.GetChunk()
+		if x.cacheReqs {
+			if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
+				return putsvc.ErrWrongPayloadSize
+			}
+		}
+		if err := x.base.SendChunk(new(putsvc.PutChunkPrm).WithChunk(c)); err != nil {
+			return fmt.Errorf("could not send payload chunk: %w", err)
+		}
+		if !x.cacheReqs {
+			return nil
+		}
+		signed, err := x.resignRequest(req) // TODO: resign only when needed
+		if err != nil {
+			return err // TODO: add context
+		}
+		x.chunkReqs = append(x.chunkReqs, signed)
+	}
+	return nil
+}
+
+func (x *putStream) close() (*protoobject.PutResponse, error) {
+	if x.cacheReqs && x.recvBytes != x.expBytes {
+		return nil, putsvc.ErrWrongPayloadSize
+	}
+
+	resp, err := x.base.Close()
+	if err != nil {
+		return nil, fmt.Errorf("could not object put stream: %w", err)
+	}
+
+	id := resp.ObjectID()
+	var id2 refsv2.ObjectID
+	id.WriteToV2(&id2)
+	return &protoobject.PutResponse{
+		Body: &protoobject.PutResponse_Body{
+			ObjectId: id2.ToGRPCMessage().(*refs.ObjectID),
+		},
+	}, nil
+}
+
 func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 	startTime := time.Now()
 	stream, err := s.srv.Put(gStream.Context())
@@ -222,16 +402,17 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 		return s.sendStatusPutResponse(startTime, gStream, err)
 	}
 
+	ps := newIntermediatePutStream(s.signer, stream)
 	for {
 		req, err := gStream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				resp, err := stream.CloseAndRecv()
+				resp, err := ps.close()
 				if err != nil {
 					return s.sendStatusPutResponse(startTime, gStream, err)
 				}
 
-				return s.sendPutResponse(startTime, gStream, util.StatusOKErr, resp.ToGRPCMessage().(*protoobject.PutResponse))
+				return s.sendPutResponse(startTime, gStream, util.StatusOKErr, resp)
 			}
 
 			return err
@@ -269,7 +450,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			}
 		}
 
-		if err := stream.Send(putReq); err != nil {
+		if err := ps.forwardRequest(req); err != nil {
 			return s.sendStatusPutResponse(startTime, gStream, err)
 		}
 	}
