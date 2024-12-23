@@ -33,3 +33,31 @@ func (x *Signature) StableMarshal(buf []byte) []byte {
 	offset += proto.BytesMarshal(2, buf[offset:], x.Sign)
 	return buf
 }
+
+// StableSize returns the size of x in protobuf format.
+//
+// Structures with the same field values have the same binary size.
+func (x *TransactionInfo) StableSize() (size int) {
+	size += proto.BytesSize(1, x.Hash)
+	return size
+}
+
+// StableMarshal marshals x in protobuf binary format with stable field order.
+//
+// If buffer length is less than x.StableSize(), new buffer is allocated.
+//
+// Returns any error encountered which did not allow writing the data completely.
+// Otherwise, returns the buffer in which the data is written.
+//
+// Structures with the same field values have the same binary format.
+func (x *TransactionInfo) StableMarshal(buf []byte) []byte {
+	if x == nil {
+		return []byte{}
+	}
+	if buf == nil {
+		buf = make([]byte, x.StableSize())
+	}
+	var offset int
+	offset += proto.BytesMarshal(1, buf[offset:], x.Hash)
+	return buf
+}

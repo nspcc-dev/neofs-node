@@ -29,7 +29,7 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 		// See https://github.com/nspcc-dev/neofs-contract/issues/225
 		const methodUpdateStateNotary = "updateStateIR"
 
-		err = np.netmapClient.Morph().NotaryInvoke(
+		_, err = np.netmapClient.Morph().NotaryInvoke(
 			np.netmapClient.ContractAddress(),
 			0,
 			uint32(ev.epoch),
