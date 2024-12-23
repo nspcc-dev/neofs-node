@@ -293,19 +293,12 @@ func initObjectService(c *cfg) {
 		deletesvcV2.WithInternalService(sDelete),
 	)
 
-	// build service pipeline
-	// grpc | split
-
-	splitSvc := objectService.NewTransportSplitter(
-		c.cfgGRPC.maxChunkSize,
-		c.cfgGRPC.maxAddrAmount,
-		&objectSvc{
-			put:    sPutV2,
-			search: sSearchV2,
-			get:    sGetV2,
-			delete: sDeleteV2,
-		},
-	)
+	objSvc := &objectSvc{
+		put:    sPutV2,
+		search: sSearchV2,
+		get:    sGetV2,
+		delete: sDeleteV2,
+	}
 
 	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme
 	// expects the first part of the chain to hold a user-defined header of the original
@@ -331,7 +324,7 @@ func initObjectService(c *cfg) {
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 
-	server := objectService.New(splitSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
+	server := objectService.New(objSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)

@@ -30,6 +30,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetObjectStream is an interface of NeoFS API v2 compatible object streamer.
@@ -151,6 +152,13 @@ func eACLErr(info aclsvc.RequestInfo, err error) error {
 
 	return errAccessDenied
 }
+
+const (
+	maxRespMsgSize       = 4 << 20                            // default gRPC limit
+	maxRespDataChunkSize = maxRespMsgSize * 3 / 4             // 25% to meta, 75% to payload
+	addrMsgSize          = 72                                 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
+	maxObjAddrRespAmount = maxRespDataChunkSize / addrMsgSize // each address is about 72 bytes
+)
 
 type server struct {
 	srv ServiceServer
@@ -448,13 +456,28 @@ type getStreamerV2 struct {
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
-	if _, ok := r.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
+	switch v := r.GetBody().GetObjectPart().(type) {
+	case *protoobject.GetResponse_Body_Init_:
 		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
 			return eACLErr(s.reqInfo, err)
 		}
-	}
-	if c := r.GetBody().GetChunk(); c != nil {
-		s.srv.metrics.AddGetPayload(len(c))
+	case *protoobject.GetResponse_Body_Chunk:
+		for buf := bytes.NewBuffer(v.GetChunk()); buf.Len() > 0; {
+			newResp := &protoobject.GetResponse{
+				Body: &protoobject.GetResponse_Body{
+					ObjectPart: &protoobject.GetResponse_Body_Chunk{
+						Chunk: buf.Next(maxRespDataChunkSize),
+					},
+				},
+				MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+				VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+			}
+			if err := s.srv.sendGetResponse(s.ObjectService_GetServer, newResp); err != nil {
+				return err
+			}
+		}
+		s.srv.metrics.AddGetPayload(len(v.Chunk))
+		return nil
 	}
 	return s.srv.sendGetResponse(s.ObjectService_GetServer, r)
 }
@@ -523,10 +546,33 @@ type getRangeStreamerV2 struct {
 
 func (s *getRangeStreamerV2) Send(resp *v2object.GetRangeResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetRangeResponse)
-	if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
-		return eACLErr(s.reqInfo, err)
+	v, ok := r.GetBody().GetRangePart().(*protoobject.GetRangeResponse_Body_Chunk)
+	if !ok {
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, r)
 	}
-	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, r)
+	for buf := bytes.NewBuffer(v.GetChunk()); buf.Len() > 0; {
+		newResp := &protoobject.GetRangeResponse{
+			Body: &protoobject.GetRangeResponse_Body{
+				RangePart: &protoobject.GetRangeResponse_Body_Chunk{
+					Chunk: buf.Next(maxRespDataChunkSize),
+				},
+			},
+			MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+			VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+		}
+		// TODO: do not check response multiple times
+		// TODO: why check it at all?
+		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		if err := s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, newResp); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetRange converts gRPC GetRangeRequest message and server-side stream and overtakes its data
@@ -593,10 +639,32 @@ type searchStreamerV2 struct {
 
 func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.SearchResponse)
-	if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
-		return eACLErr(s.reqInfo, err)
+	ids := r.GetBody().GetIdList()
+	for len(ids) > 0 {
+		newResp := &protoobject.SearchResponse{
+			Body:         &protoobject.SearchResponse_Body{},
+			MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+			VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+		}
+
+		cut := maxObjAddrRespAmount
+		if cut > len(ids) {
+			cut = len(ids)
+		}
+
+		newResp.Body.IdList = ids[:cut]
+		// TODO: do not check response multiple times
+		// TODO: why check it at all?
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		if err := s.srv.sendSearchResponse(s.ObjectService_SearchServer, r); err != nil {
+			return err
+		}
+
+		ids = ids[cut:]
 	}
-	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, r)
+	return nil
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
