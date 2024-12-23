@@ -206,6 +206,12 @@ func objectFromMessage(gMsg *objectGRPC.Object) (*object.Object, error) {
 }
 
 func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
+	firstObj, _ := o.FirstID()
+	if firstObj.IsZero() && o.HasParent() && o.SplitID() == nil {
+		// object itself is the first one
+		firstObj = o.GetID()
+	}
+
 	var deleted []oid.ID
 	var locked []oid.ID
 	switch o.Type() {
@@ -235,9 +241,9 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration
 
-	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, firstBlock, s.mNumber)
-	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, secondBlock, s.mNumber)
-	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), o.PayloadSize(), deleted, locked, thirdBlock, s.mNumber)
+	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, o.PayloadSize(), deleted, locked, firstBlock, s.mNumber)
+	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, o.PayloadSize(), deleted, locked, secondBlock, s.mNumber)
+	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, o.PayloadSize(), deleted, locked, thirdBlock, s.mNumber)
 
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature

@@ -141,6 +141,11 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		}
 	}
 
+	firstObj, _ := t.obj.FirstID()
+	if firstObj.IsZero() && t.obj.HasParent() && t.obj.SplitID() == nil {
+		// object itself is the first one
+		firstObj = t.obj.GetID()
+	}
 	var deletedObjs []oid.ID
 	var lockedObjs []oid.ID
 	switch t.objMeta.Type() {
@@ -152,7 +157,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	}
 
 	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
-	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
+	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, t.obj.PayloadSize(), deletedObjs,
 		lockedObjs, expectedVUB, t.networkMagicNumber)
 	id := t.obj.GetID()
 	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)

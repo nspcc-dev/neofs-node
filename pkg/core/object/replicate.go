@@ -9,13 +9,14 @@ import (
 )
 
 const (
-	currentVersion = 7 // it is also a number of fields
+	currentVersion = 8 // it is also a number of fields
 )
 
 const (
 	networkMagicKey = "network"
 	cidKey          = "cid"
 	oidKey          = "oid"
+	firstPartKey    = "firstPart"
 	sizeKey         = "size"
 	deletedKey      = "deleted"
 	lockedKey       = "locked"
@@ -30,18 +31,20 @@ const (
 //	"network": network magic
 //	"cid": _raw_ container ID (32 bytes)
 //	"oid": _raw_ object ID (32 bytes)
+//	"firstPart": _raw_ object ID (32 bytes)
 //	"size": payload size
 //	"deleted": array of _raw_ object IDs
 //	"locked": array of _raw_ object IDs
 //	"validuntil": last valid block number for meta information
 //
 // Last valid epoch is object's creation epoch + 10.
-func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
+func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart oid.ID, pSize uint64,
 	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
 		kv(networkMagicKey, magicNumber),
 		kv(cidKey, cID[:]),
 		kv(oidKey, oID[:]),
+		kv(firstPartKey, firstPart[:]),
 		kv(sizeKey, pSize),
 		oidsKV(deletedKey, deleted),
 		oidsKV(lockedKey, locked),
