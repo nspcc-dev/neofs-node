@@ -20,7 +20,7 @@ const (
 	sizeKey         = "size"
 	deletedKey      = "deleted"
 	lockedKey       = "locked"
-	validUntilKey   = "validuntil"
+	validUntilKey   = "validUntil"
 )
 
 // EncodeReplicationMetaInfo uses NEO's map (strict order) serialized format as a raw
@@ -35,7 +35,7 @@ const (
 //	"size": payload size
 //	"deleted": array of _raw_ object IDs
 //	"locked": array of _raw_ object IDs
-//	"validuntil": last valid block number for meta information
+//	"validUntil": last valid block number for meta information
 //
 // Last valid epoch is object's creation epoch + 10.
 func EncodeReplicationMetaInfo(o object.Object, vub uint64, magicNumber uint32) ([]byte, error) {
