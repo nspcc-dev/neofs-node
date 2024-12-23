@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -302,21 +301,21 @@ func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, b
 
 func cidHeader(idCnr cid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectContainerID,
+		k: eaclSDK.FilterObjectContainerID,
 		v: idCnr.EncodeToString(),
 	}
 }
 
 func oidHeader(obj oid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectID,
+		k: eaclSDK.FilterObjectID,
 		v: obj.EncodeToString(),
 	}
 }
 
 func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectOwnerID,
+		k: eaclSDK.FilterObjectOwnerID,
 		v: ownerID.EncodeToString(),
 	}
 }
