@@ -25,7 +25,6 @@ import (
 	getsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/get/v2"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
@@ -46,7 +45,7 @@ import (
 )
 
 type objectSvc struct {
-	put *putsvcV2.Service
+	put *putsvc.Service
 
 	search *searchsvc.Service
 
@@ -66,7 +65,7 @@ func (c *cfg) MaxObjectSize() uint64 {
 	return sz
 }
 
-func (s *objectSvc) Put(ctx context.Context) (objectService.PutObjectStream, error) {
+func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 	return s.put.Put(ctx)
 }
 
@@ -264,11 +263,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
 	)
 
-	sPutV2 := putsvcV2.NewService(
-		putsvcV2.WithInternalService(sPut),
-		putsvcV2.WithKey(&c.key.PrivateKey),
-	)
-
 	sDelete := deletesvc.New(
 		deletesvc.WithLogger(c.log),
 		deletesvc.WithPutService(sPut),
@@ -282,7 +276,7 @@ func initObjectService(c *cfg) {
 	)
 
 	objSvc := &objectSvc{
-		put:    sPutV2,
+		put:    sPut,
 		search: sSearch,
 		get:    sGetV2,
 		delete: sDelete,

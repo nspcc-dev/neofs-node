@@ -20,6 +20,7 @@ import (
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
+	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -47,7 +48,7 @@ func (x noCallObjectService) Get(*objectV2.GetRequest, objectSvc.GetObjectStream
 	panic("must not be called")
 }
 
-func (x noCallObjectService) Put(context.Context) (objectSvc.PutObjectStream, error) {
+func (x noCallObjectService) Put(context.Context) (*putsvc.Streamer, error) {
 	panic("must not be called")
 }
 
