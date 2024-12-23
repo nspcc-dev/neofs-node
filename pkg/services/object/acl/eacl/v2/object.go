@@ -3,7 +3,6 @@ package v2
 import (
 	"strconv"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -38,22 +37,22 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 			cidHeader(cnr),
 			// creation epoch
 			sysObjHdr{
-				k: acl.FilterObjectCreationEpoch,
+				k: eaclSDK.FilterObjectCreationEpoch,
 				v: u64Value(obj.CreationEpoch()),
 			},
 			// payload size
 			sysObjHdr{
-				k: acl.FilterObjectPayloadLength,
+				k: eaclSDK.FilterObjectPayloadSize,
 				v: u64Value(obj.PayloadSize()),
 			},
 			// object version
 			sysObjHdr{
-				k: acl.FilterObjectVersion,
+				k: eaclSDK.FilterObjectVersion,
 				v: obj.Version().String(),
 			},
 			// object type
 			sysObjHdr{
-				k: acl.FilterObjectType,
+				k: eaclSDK.FilterObjectType,
 				v: obj.Type().String(),
 			},
 		)
@@ -69,7 +68,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 		cs, ok := obj.PayloadChecksum()
 		if ok {
 			res = append(res, sysObjHdr{
-				k: acl.FilterObjectPayloadHash,
+				k: eaclSDK.FilterObjectPayloadChecksum,
 				v: cs.String(),
 			})
 		}
@@ -77,7 +76,7 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 		cs, ok = obj.PayloadHomomorphicHash()
 		if ok {
 			res = append(res, sysObjHdr{
-				k: acl.FilterObjectHomomorphicHash,
+				k: eaclSDK.FilterObjectPayloadHomomorphicChecksum,
 				v: cs.String(),
 			})
 		}
