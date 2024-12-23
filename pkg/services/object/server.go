@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -16,11 +17,16 @@ import (
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
+	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
+	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
+	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -32,6 +38,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -47,12 +54,6 @@ type GetObjectRangeStream interface {
 	Send(*v2object.GetRangeResponse) error
 }
 
-// SearchStream is an interface of NeoFS API v2 compatible search streamer.
-type SearchStream interface {
-	util.ServerStream
-	Send(*v2object.SearchResponse) error
-}
-
 // PutObjectStream is an interface of NeoFS API v2 compatible client's object streamer.
 type PutObjectStream interface {
 	Send(*v2object.PutRequest) error
@@ -65,7 +66,7 @@ type ServiceServer interface {
 	Get(*v2object.GetRequest, GetObjectStream) error
 	Put(context.Context) (PutObjectStream, error)
 	Head(context.Context, *v2object.HeadRequest) (*v2object.HeadResponse, error)
-	Search(*v2object.SearchRequest, SearchStream) error
+	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
 	GetRange(*v2object.GetRangeRequest, GetObjectRangeStream) error
 	GetRangeHash(context.Context, *v2object.GetRangeHashRequest) (*v2object.GetRangeHashResponse, error)
@@ -665,20 +666,17 @@ func (s *server) sendStatusSearchResponse(stream protoobject.ObjectService_Searc
 	})
 }
 
-type searchStreamerV2 struct {
-	protoobject.ObjectService_SearchServer
+type searchStream struct {
+	base    protoobject.ObjectService_SearchServer
 	srv     *server
 	reqInfo aclsvc.RequestInfo
 }
 
-func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
-	r := resp.ToGRPCMessage().(*protoobject.SearchResponse)
-	ids := r.GetBody().GetIdList()
+func (s *searchStream) WriteIDs(ids []oid.ID) error {
 	for len(ids) > 0 {
-		newResp := &protoobject.SearchResponse{
-			Body:         &protoobject.SearchResponse_Body{},
-			MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
-			VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+		// gRPC can retain message for some time, this is why we create full new message each time
+		r := &protoobject.SearchResponse{
+			Body: &protoobject.SearchResponse_Body{},
 		}
 
 		cut := maxObjAddrRespAmount
@@ -686,13 +684,18 @@ func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
 			cut = len(ids)
 		}
 
-		newResp.Body.IdList = ids[:cut]
+		r.Body.IdList = make([]*refs.ObjectID, cut)
+		var id2 refsv2.ObjectID
+		for i := range cut {
+			ids[i].WriteToV2(&id2)
+			r.Body.IdList[i] = id2.ToGRPCMessage().(*refs.ObjectID)
+		}
 		// TODO: do not check response multiple times
 		// TODO: why check it at all?
 		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
 			return eACLErr(s.reqInfo, err)
 		}
-		if err := s.srv.sendSearchResponse(s.ObjectService_SearchServer, r); err != nil {
+		if err := s.srv.sendSearchResponse(s.base, r); err != nil {
 			return err
 		}
 
@@ -701,8 +704,6 @@ func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
 	return nil
 }
 
-// Search converts gRPC SearchRequest message and server-side stream and overtakes its data
-// to gRPC stream.
 func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.ObjectService_SearchServer) error {
 	searchReq := new(v2object.SearchRequest)
 	err := searchReq.FromGRPCMessage(req)
@@ -733,18 +734,150 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
-	err = s.srv.Search(
-		searchReq,
-		&searchStreamerV2{
-			ObjectService_SearchServer: gStream,
-			srv:                        s,
-			reqInfo:                    reqInfo,
-		},
-	)
+	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
+		base:    gStream,
+		srv:     s,
+		reqInfo: reqInfo,
+	})
+	if err != nil {
+		return s.sendStatusSearchResponse(gStream, err)
+	}
+	err = s.srv.Search(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 	return nil
+}
+
+// converts original request into parameters accepted by the internal handler.
+// Note that the stream is untouched within this call, errors are not reported
+// into it.
+func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoobject.SearchRequest, stream *searchStream) (searchsvc.Prm, error) {
+	body := req.GetBody()
+	mc := body.GetContainerId()
+	if mc == nil {
+		return searchsvc.Prm{}, errors.New("missing container ID")
+	}
+
+	var id cid.ID
+	var id2 refsv2.ContainerID
+	if err := id2.FromGRPCMessage(mc); err != nil {
+		panic(err)
+	}
+	if err := id.ReadFromV2(id2); err != nil {
+		return searchsvc.Prm{}, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	cp, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		return searchsvc.Prm{}, err
+	}
+
+	mfs := body.GetFilters()
+	fs2 := make([]v2object.SearchFilter, len(mfs))
+	for i := range mfs {
+		if err := fs2[i].FromGRPCMessage(mfs[i]); err != nil {
+			panic(err)
+		}
+	}
+
+	var p searchsvc.Prm
+	p.SetCommonParameters(cp)
+	p.WithContainerID(id)
+	p.WithSearchFilters(object.NewSearchFiltersFromV2(fs2))
+	p.SetWriter(stream)
+	if cp.LocalOnly() {
+		return p, nil
+	}
+
+	var onceResign sync.Once
+	meta := req.GetMetaHeader()
+	p.SetRequestForwarder(func(node client.NodeInfo, c client.MultiAddressClient) ([]oid.ID, error) {
+		var err error
+		onceResign.Do(func() {
+			req.MetaHeader = &protosession.RequestMetaHeader{
+				// TODO: #1165 think how to set the other fields
+				Ttl:    meta.GetTtl() - 1, // FIXME: meta can be nil
+				Origin: meta,
+			}
+			var req2 v2object.SearchRequest
+			if err := req2.FromGRPCMessage(req); err != nil {
+				panic(err)
+			}
+			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
+				req = req2.ToGRPCMessage().(*protoobject.SearchRequest)
+			}
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var firstErr error
+		nodePub := node.PublicKey()
+		addrs := node.AddressGroup()
+		for i := range addrs {
+			res, err := searchOnRemoteNode(ctx, c, addrs[i], nodePub, req)
+			if err == nil {
+				return res, nil
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			// TODO: log error
+		}
+		return nil, firstErr
+	})
+	return p, nil
+}
+
+func searchOnRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte, req *protoobject.SearchRequest) ([]oid.ID, error) {
+	var searchStream protoobject.ObjectService_SearchClient
+	if err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+		var err error
+		// FIXME: context should be cancelled on return from upper func
+		searchStream, err = protoobject.NewObjectServiceClient(conn).Search(ctx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	var res []oid.ID
+	for {
+		resp, err := searchStream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return res, nil
+			}
+			return nil, fmt.Errorf("reading the response failed: %w", err)
+		}
+
+		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+			return nil, err
+		}
+		resp2 := new(v2object.SearchResponse)
+		if err := resp2.FromGRPCMessage(resp); err != nil {
+			panic(err) // can only fail on wrong type, here it's correct
+		}
+		if err := signature.VerifyServiceMessage(resp2); err != nil {
+			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
+		}
+		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+			return nil, fmt.Errorf("remote node response: %w", err)
+		}
+
+		chunk := resp.GetBody().GetIdList()
+		var id oid.ID
+		for i := range chunk {
+			var id2 refsv2.ObjectID
+			if err := id2.FromGRPCMessage(chunk[i]); err != nil {
+				panic(err) // can only fail on wrong type, here it's correct
+			}
+			if err := id.ReadFromV2(id2); err != nil {
+				return nil, fmt.Errorf("invalid object ID: %w", err)
+			}
+			res = append(res, id)
+		}
+	}
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
@@ -1006,4 +1139,16 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 	res = append(res, thirdSigV2.StableMarshal(nil)...)
 
 	return res, nil
+}
+
+func checkStatus(st *protostatus.Status) error {
+	stV2 := new(status.Status)
+	if err := stV2.FromGRPCMessage(st); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
+	if !status.IsSuccess(stV2.Code()) {
+		return apistatus.ErrorFromV2(stV2)
+	}
+
+	return nil
 }

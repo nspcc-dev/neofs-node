@@ -27,7 +27,6 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
-	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -49,7 +48,7 @@ import (
 type objectSvc struct {
 	put *putsvcV2.Service
 
-	search *searchsvcV2.Service
+	search *searchsvc.Service
 
 	get *getsvcV2.Service
 
@@ -75,8 +74,8 @@ func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.
 	return s.get.Head(ctx, req)
 }
 
-func (s *objectSvc) Search(req *object.SearchRequest, stream objectService.SearchStream) error {
-	return s.search.Search(req, stream)
+func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
+	return s.search.Search(ctx, prm)
 }
 
 func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectStream) error {
@@ -247,11 +246,6 @@ func initObjectService(c *cfg) {
 		searchsvc.WithKeyStorage(keyStorage),
 	)
 
-	sSearchV2 := searchsvcV2.NewService(
-		searchsvcV2.WithInternalService(sSearch),
-		searchsvcV2.WithKeyStorage(keyStorage),
-	)
-
 	mNumber, err := c.shared.basics.cli.MagicNumber()
 	fatalOnErr(err)
 
@@ -290,7 +284,7 @@ func initObjectService(c *cfg) {
 
 	objSvc := &objectSvc{
 		put:    sPutV2,
-		search: sSearchV2,
+		search: sSearch,
 		get:    sGetV2,
 		delete: sDelete,
 	}
