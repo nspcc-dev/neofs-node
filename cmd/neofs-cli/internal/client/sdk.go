@@ -9,8 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var errInvalidEndpoint = errors.New("provided RPC endpoint is incorrect")
@@ -61,20 +59,7 @@ func GetSDKClient(ctx context.Context, addr network.Address) (*client.Client, er
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
 
-	if err := c.Dial(prmDial); err != nil { //nolint:contextcheck // SetContext is used above.
-		// Here is a hack helping IR healthcheck to work. Current API client revision
-		// calls NetmapService.EndpointInfo RPC which is a part of the NeoFS API
-		// protocol. Inner ring nodes don't serve NeoFS API services, so they respond
-		// with Unimplemented code. We ignore this error here:
-		//  - if nodes responds, then dial was successful
-		//  - even if we connect to storage node which MUST provide NeoFS API services,
-		//    subsequent EndpointInfo method will return Unimplemented error anyway
-		// This behavior is going to be fixed on SDK side.
-		//
-		// Track https://github.com/nspcc-dev/neofs-node/issues/2477
-		if status.Code(err) == codes.Unimplemented {
-			return c, nil
-		}
+	if err := c.Dial(prmDial); err != nil {
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
