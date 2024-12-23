@@ -49,7 +49,8 @@ type objectSvc struct {
 
 	search *searchsvc.Service
 
-	get *getsvcV2.Service
+	get  *getsvcV2.Service
+	get_ *getsvc.Service
 
 	delete *deletesvc.Service
 }
@@ -69,24 +70,24 @@ func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 	return s.put.Put(ctx)
 }
 
-func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
-	return s.get.Head(ctx, req)
+func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
+	return s.get_.Head(ctx, prm)
 }
 
 func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
 	return s.search.Search(ctx, prm)
 }
 
-func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectStream) error {
-	return s.get.Get(req, stream)
+func (s *objectSvc) Get(ctx context.Context, prm getsvc.Prm) error {
+	return s.get_.Get(ctx, prm)
 }
 
 func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
 	return s.delete.Delete(ctx, prm)
 }
 
-func (s *objectSvc) GetRange(req *object.GetRangeRequest, stream objectService.GetObjectRangeStream) error {
-	return s.get.GetRange(req, stream)
+func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
+	return s.get_.GetRange(ctx, prm)
 }
 
 func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
@@ -280,6 +281,7 @@ func initObjectService(c *cfg) {
 		put:    sPut,
 		search: sSearch,
 		get:    sGetV2,
+		get_:   sGet,
 		delete: sDelete,
 	}
 
