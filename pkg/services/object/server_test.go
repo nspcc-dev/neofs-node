@@ -17,9 +17,9 @@ import (
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
-	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
+	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -44,7 +44,7 @@ func randECDSAPrivateKey(tb testing.TB) *ecdsa.PrivateKey {
 
 type noCallObjectService struct{}
 
-func (x noCallObjectService) Get(*objectV2.GetRequest, objectSvc.GetObjectStream) error {
+func (x noCallObjectService) Get(context.Context, getsvc.Prm) error {
 	panic("must not be called")
 }
 
@@ -52,7 +52,7 @@ func (x noCallObjectService) Put(context.Context) (*putsvc.Streamer, error) {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) Head(context.Context, *objectV2.HeadRequest) (*objectV2.HeadResponse, error) {
+func (x noCallObjectService) Head(context.Context, getsvc.HeadPrm) error {
 	panic("must not be called")
 }
 
@@ -64,7 +64,7 @@ func (x noCallObjectService) Delete(context.Context, deletesvc.Prm) error {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) GetRange(*objectV2.GetRangeRequest, objectSvc.GetObjectRangeStream) error {
+func (x noCallObjectService) GetRange(context.Context, getsvc.RangePrm) error {
 	panic("must not be called")
 }
 
