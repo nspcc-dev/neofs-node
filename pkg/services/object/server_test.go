@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"testing"
+	"time"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -26,6 +27,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,6 +80,12 @@ func (x *noCallTestNode) IsOwnPublicKey([]byte) bool {
 func (x *noCallTestNode) VerifyAndStoreObject(object.Object) error {
 	panic("must not be called")
 }
+
+type nopMetrics struct{}
+
+func (nopMetrics) HandleOpExecResult(stat.Method, bool, time.Duration) {}
+func (nopMetrics) AddPutPayload(int)                                   {}
+func (nopMetrics) AddGetPayload(int)                                   {}
 
 type testNode struct {
 	tb testing.TB
@@ -165,7 +173,7 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 func TestServer_Replicate(t *testing.T) {
 	var noCallNode noCallTestNode
 	var noCallObjSvc noCallObjectService
-	noCallSrv := New(noCallObjSvc, 0, &noCallNode, neofscryptotest.Signer(), netmapStateDetailed{})
+	noCallSrv := New(noCallObjSvc, 0, &noCallNode, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
 	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
@@ -329,7 +337,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("apply storage policy failure", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{})
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 
 		node.cnrErr = errors.New("any error")
 
@@ -341,7 +349,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("client or server mismatches object's storage policy", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{})
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 
 		node.serverOutsideCnr = true
 		node.clientOutsideCnr = true
@@ -361,7 +369,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("local storage failure", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{})
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 
 		node.storeErr = errors.New("any error")
 
@@ -376,7 +384,7 @@ func TestServer_Replicate(t *testing.T) {
 		signer := neofscryptotest.Signer()
 		reqForSignature, o := anyValidRequest(t, clientSigner, cnr, objID)
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, reqForSignature.Object)
-		srv := New(noCallObjSvc, mNumber, node, signer, netmapStateDetailed{})
+		srv := New(noCallObjSvc, mNumber, node, signer, netmapStateDetailed{}, nopMetrics{})
 
 		t.Run("signature not requested", func(t *testing.T) {
 			resp, err := srv.Replicate(context.Background(), reqForSignature)
@@ -418,7 +426,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("OK", func(t *testing.T) {
 		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{})
+		srv := New(noCallObjSvc, 0, node, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -459,7 +467,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var node nopNode
 
-	srv := New(nil, 0, node, neofscryptotest.Signer(), netmapStateDetailed{})
+	srv := New(nil, 0, node, neofscryptotest.Signer(), netmapStateDetailed{}, nopMetrics{})
 
 	for _, tc := range []struct {
 		name      string
