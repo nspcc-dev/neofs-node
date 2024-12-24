@@ -311,12 +311,12 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
-	objNode := newNodeForObjects(cnrNodes, sPut, c.IsLocalKey)
+	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState)
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
-		v2.WithNetmapper(netmapSourceWithNodes{Source: c.netMapSource, n: objNode}),
+		v2.WithNetmapper(netmapSourceWithNodes{Source: c.netMapSource, fsChain: fsChain}),
 		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
@@ -340,7 +340,7 @@ func initObjectService(c *cfg) {
 		c.respSvc,
 	)
 
-	server := objectService.New(respSvc, mNumber, objNode, c.key.PrivateKey, c.cfgNetmap.state, c.metricsCollector)
+	server := objectService.New(respSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.key.PrivateKey, c.metricsCollector)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -612,18 +612,17 @@ func (x *remoteContainerNodes) ForEachRemoteContainerNode(cnr cid.ID, f func(net
 	})
 }
 
-// nodeForObjects represents NeoFS storage node for object storage.
-type nodeForObjects struct {
-	putObjectService *putsvc.Service
-	containerNodes   *containerNodes
-	isLocalPubKey    func([]byte) bool
+type fsChainForObjects struct {
+	netmap.StateDetailed
+	containerNodes *containerNodes
+	isLocalPubKey  func([]byte) bool
 }
 
-func newNodeForObjects(cnrNodes *containerNodes, putObjectService *putsvc.Service, isLocalPubKey func([]byte) bool) *nodeForObjects {
-	return &nodeForObjects{
-		putObjectService: putObjectService,
-		containerNodes:   cnrNodes,
-		isLocalPubKey:    isLocalPubKey,
+func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed) *fsChainForObjects {
+	return &fsChainForObjects{
+		StateDetailed:  ns,
+		containerNodes: cnrNodes,
+		isLocalPubKey:  isLocalPubKey,
 	}
 }
 
@@ -632,7 +631,7 @@ func newNodeForObjects(cnrNodes *containerNodes, putObjectService *putsvc.Servic
 // epochs into f. When f returns false, nil is returned instantly.
 //
 // Implements [object.Node] interface.
-func (x *nodeForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID, f func(pubKey []byte) bool) error {
+func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID, f func(pubKey []byte) bool) error {
 	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
@@ -640,16 +639,14 @@ func (x *nodeForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.ID,
 // local storage node in the network map.
 //
 // Implements [object.Node] interface.
-func (x *nodeForObjects) IsOwnPublicKey(pubKey []byte) bool {
+func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 	return x.isLocalPubKey(pubKey)
 }
 
-// VerifyAndStoreObject checks given object's format and, if it is correct,
-// saves the object in the node's local object storage.
-//
-// Implements [object.Node] interface.
-func (x *nodeForObjects) VerifyAndStoreObject(obj objectSDK.Object) error {
-	return x.putObjectService.ValidateAndStoreObjectLocally(obj)
+type putObjectServiceWrapper putsvc.Service
+
+func (x *putObjectServiceWrapper) VerifyAndStoreObject(obj objectSDK.Object) error {
+	return (*putsvc.Service)(x).ValidateAndStoreObjectLocally(obj)
 }
 
 type objectSource struct {
@@ -714,13 +711,13 @@ func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uin
 
 type netmapSourceWithNodes struct {
 	netmap.Source
-	n *nodeForObjects
+	fsChain *fsChainForObjects
 }
 
 func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 	var serverInContainer bool
-	err := n.n.ForEachContainerNodePublicKeyInLastTwoEpochs(cID, func(pubKey []byte) bool {
-		if n.n.isLocalPubKey(pubKey) {
+	err := n.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cID, func(pubKey []byte) bool {
+		if n.fsChain.isLocalPubKey(pubKey) {
 			serverInContainer = true
 			return false
 		}
