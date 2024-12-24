@@ -1067,7 +1067,7 @@ func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
 	// the client cannot make RPC requests if
 	// the notification channel is not being
 	// read by another goroutine.
-	const listenerPoolCap = 10
+	const listenerPoolCap = 300
 
 	listener, err := event.NewListener(event.ListenerParams{
 		Logger:             p.log.With(zap.String("chain", p.name)),
