@@ -3,12 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -22,7 +23,6 @@ import (
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	getsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/get/v2"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
@@ -49,8 +49,7 @@ type objectSvc struct {
 
 	search *searchsvc.Service
 
-	get  *getsvcV2.Service
-	get_ *getsvc.Service
+	get *getsvc.Service
 
 	delete *deletesvc.Service
 }
@@ -71,7 +70,7 @@ func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 }
 
 func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
-	return s.get_.Head(ctx, prm)
+	return s.get.Head(ctx, prm)
 }
 
 func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
@@ -79,7 +78,7 @@ func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
 }
 
 func (s *objectSvc) Get(ctx context.Context, prm getsvc.Prm) error {
-	return s.get_.Get(ctx, prm)
+	return s.get.Get(ctx, prm)
 }
 
 func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
@@ -87,11 +86,11 @@ func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
 }
 
 func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
-	return s.get_.GetRange(ctx, prm)
+	return s.get.GetRange(ctx, prm)
 }
 
-func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	return s.get.GetRangeHash(ctx, req)
+func (s *objectSvc) GetRangeHash(ctx context.Context, prm getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error) {
+	return s.get.GetRangeHash(ctx, prm)
 }
 
 type delNetInfo struct {
@@ -230,11 +229,6 @@ func initObjectService(c *cfg) {
 
 	*c.cfgObject.getSvc = *sGet // need smth better
 
-	sGetV2 := getsvcV2.NewService(
-		getsvcV2.WithInternalService(sGet),
-		getsvcV2.WithKeyStorage(keyStorage),
-	)
-
 	cnrNodes, err := newContainerNodes(c.cfgObject.cnrSource, c.netMapSource)
 	fatalOnErr(err)
 	c.cfgObject.containerNodes = cnrNodes
@@ -280,8 +274,7 @@ func initObjectService(c *cfg) {
 	objSvc := &objectSvc{
 		put:    sPut,
 		search: sSearch,
-		get:    sGetV2,
-		get_:   sGet,
+		get:    sGet,
 		delete: sDelete,
 	}
 
@@ -309,7 +302,11 @@ func initObjectService(c *cfg) {
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 
-	server := objectService.New(objSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
+	storage := storageForObjectService{
+		putSvc: sPut,
+		keys:   keyStorage,
+	}
+	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -618,10 +615,21 @@ func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 // maintenance now.
 func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
-type putObjectServiceWrapper putsvc.Service
+type storageForObjectService struct {
+	putSvc *putsvc.Service
+	keys   *util.KeyStorage
+}
 
-func (x *putObjectServiceWrapper) VerifyAndStoreObject(obj objectSDK.Object) error {
-	return (*putsvc.Service)(x).ValidateAndStoreObjectLocally(obj)
+func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {
+	return x.putSvc.ValidateAndStoreObjectLocally(obj)
+}
+
+func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error) {
+	k, err := x.keys.GetKey(&util.SessionInfo{ID: uid, Owner: usr})
+	if err != nil {
+		return ecdsa.PrivateKey{}, err
+	}
+	return *k, nil
 }
 
 type objectSource struct {

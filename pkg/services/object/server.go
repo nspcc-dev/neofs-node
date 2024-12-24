@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
@@ -41,19 +43,20 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"google.golang.org/grpc"
 )
 
-// ServiceServer is an interface of utility
-// serving v2 Object service.
-type ServiceServer interface {
+// Handlers represents storage node's internal handler Object service op
+// payloads.
+type Handlers interface {
 	Get(context.Context, getsvc.Prm) error
 	Put(context.Context) (*putsvc.Streamer, error)
 	Head(context.Context, getsvc.HeadPrm) error
 	Search(context.Context, searchsvc.Prm) error
 	Delete(context.Context, deletesvc.Prm) error
 	GetRange(context.Context, getsvc.RangePrm) error
-	GetRangeHash(context.Context, *v2object.GetRangeHashRequest) (*v2object.GetRangeHashResponse, error)
+	GetRangeHash(context.Context, getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error)
 }
 
 // Various NeoFS protocol status codes.
@@ -102,13 +105,22 @@ type FSChain interface {
 	LocalNodeUnderMaintenance() bool
 }
 
-// Storage groups ops of the node's object storage required to serve NeoFS API
-// Object service.
+type sessions interface {
+	// GetSessionPrivateKey reads private session key by user and session IDs.
+	// Returns [apistatus.ErrSessionTokenNotFound] if there is no data for the
+	// referenced session.
+	GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error)
+}
+
+// Storage groups ops of the node's storage required to serve NeoFS API Object
+// service.
 type Storage interface {
-	// VerifyAndStoreObject checks whether given object has correct format and, if
-	// so, saves it into the Storage. StoreObject is called only when local node
-	// complies with the container's storage policy.
-	VerifyAndStoreObject(object.Object) error
+	sessions
+
+	// VerifyAndStoreObjectLocally checks whether given object has correct format
+	// and, if so, saves it in the Storage. StoreObject is called only when local
+	// node complies with the container's storage policy.
+	VerifyAndStoreObjectLocally(object.Object) error
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -148,8 +160,7 @@ const (
 )
 
 type server struct {
-	srv ServiceServer
-
+	handlers    Handlers
 	fsChain     FSChain
 	storage     Storage
 	signer      ecdsa.PrivateKey
@@ -160,9 +171,9 @@ type server struct {
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor) protoobject.ObjectServiceServer {
+func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor) protoobject.ObjectServiceServer {
 	return &server{
-		srv:         c,
+		handlers:    hs,
 		fsChain:     fsChain,
 		storage:     st,
 		signer:      signer,
@@ -177,12 +188,16 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 	s.metrics.HandleOpExecResult(op, err == nil, time.Since(startedAt))
 }
 
-func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+func newCurrentProtoVersionMessage() *refs.Version {
 	v := version.Current()
 	var v2 refsv2.Version
 	v.WriteToV2(&v2)
+	return v2.ToGRPCMessage().(*refs.Version)
+}
+
+func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
 	return &protosession.ResponseMetaHeader{
-		Version: v2.ToGRPCMessage().(*refs.Version),
+		Version: newCurrentProtoVersionMessage(),
 		Epoch:   s.fsChain.CurrentEpoch(),
 		Status:  st,
 	}
@@ -385,13 +400,13 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 }
 
 func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
-	stream, err := s.srv.Put(gStream.Context())
+	t := time.Now()
+	stream, err := s.handlers.Put(gStream.Context())
+
+	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
 	if err != nil {
 		return err
 	}
-
-	t := time.Now()
-	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
 
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
@@ -530,7 +545,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	p.SetCommonParameters(cp)
 	p.WithAddress(addr)
 	p.WithTombstoneAddressTarget((*deleteResponseBody)(&rb))
-	err = s.srv.Delete(ctx, p)
+	err = s.handlers.Delete(ctx, p)
 	if err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
@@ -595,7 +610,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
-	err = s.srv.Head(ctx, p)
+	err = s.handlers.Head(ctx, p)
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
@@ -867,12 +882,154 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(err), nil
 	}
 
-	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
+	p, err := convertHashPrm(s.signer, s.storage, req)
+	if err != nil {
+		return s.makeStatusHashResponse(err), nil
+	}
+	res, err := s.handlers.GetRangeHash(ctx, p)
 	if err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
 
-	return s.signHashResponse(resp.ToGRPCMessage().(*protoobject.GetRangeHashResponse)), nil
+	return s.signHashResponse(&protoobject.GetRangeHashResponse{
+		Body: &protoobject.GetRangeHashResponse_Body{
+			Type:     req.Body.Type,
+			HashList: res.Hashes(),
+		}}), nil
+}
+
+// converts original request into parameters accepted by the internal handler.
+func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
+	body := req.GetBody()
+	ma := body.GetAddress()
+	if ma == nil { // includes nil body
+		return getsvc.RangeHashPrm{}, errors.New("missing object address")
+	}
+
+	var addr oid.Address
+	var addr2 refsv2.Address
+	if err := addr2.FromGRPCMessage(ma); err != nil {
+		panic(err)
+	}
+	if err := addr.ReadFromV2(addr2); err != nil {
+		return getsvc.RangeHashPrm{}, fmt.Errorf("invalid object address: %w", err)
+	}
+
+	cp, err := objutil.CommonPrmFromRequest(req)
+	if err != nil {
+		return getsvc.RangeHashPrm{}, err
+	}
+
+	var p getsvc.RangeHashPrm
+
+	switch t := body.GetType(); t {
+	default:
+		return getsvc.RangeHashPrm{}, fmt.Errorf("unknown checksum type %v", t)
+	case refs.ChecksumType_SHA256:
+		p.SetHashGenerator(sha256.New)
+	case refs.ChecksumType_TZ:
+		p.SetHashGenerator(tz.New)
+	}
+
+	if tok := cp.SessionToken(); tok != nil {
+		signerKey, err := ss.GetSessionPrivateKey(tok.Issuer(), tok.ID())
+		if err != nil {
+			if !errors.Is(err, apistatus.ErrSessionTokenNotFound) {
+				return getsvc.RangeHashPrm{}, fmt.Errorf("fetching session key: %w", err)
+			}
+			cp.ForgetTokens()
+			signerKey = signer
+		}
+		p.WithCachedSignerKey(&signerKey)
+	}
+
+	mr := body.GetRanges()
+	rngs := make([]object.Range, len(mr))
+	for i := range mr {
+		var r2 v2object.Range
+		if err := r2.FromGRPCMessage(mr[i]); err != nil {
+			panic(err)
+		}
+		rngs[i] = *object.NewRangeFromV2(&r2)
+	}
+
+	p.SetCommonParameters(cp)
+	p.WithAddress(addr)
+	p.SetRangeList(rngs)
+	p.SetSalt(body.GetSalt())
+
+	if cp.LocalOnly() {
+		return p, nil
+	}
+
+	var onceResign sync.Once
+	meta := req.GetMetaHeader()
+	p.SetRangeHashRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) ([][]byte, error) {
+		var err error
+		onceResign.Do(func() {
+			req.MetaHeader = &protosession.RequestMetaHeader{
+				// TODO: #1165 think how to set the other fields
+				Version: newCurrentProtoVersionMessage(),
+				Ttl:     meta.GetTtl() - 1, // FIXME: meta can be nil
+				Origin:  meta,
+			}
+			var req2 v2object.GetRangeHashRequest
+			if err := req2.FromGRPCMessage(req); err != nil {
+				panic(err)
+			}
+			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
+				req = req2.ToGRPCMessage().(*protoobject.GetRangeHashRequest)
+			}
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var firstErr error
+		nodePub := node.PublicKey()
+		addrs := node.AddressGroup()
+		for i := range addrs {
+			hs, err := getHashesFromRemoteNode(ctx, c, addrs[i], nodePub, req)
+			if err == nil {
+				return hs, nil
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			// TODO: log error
+		}
+		return nil, firstErr
+	})
+	return p, nil
+}
+
+func getHashesFromRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
+	req *protoobject.GetRangeHashRequest) ([][]byte, error) {
+	var resp *protoobject.GetRangeHashResponse
+	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+		var err error
+		resp, err = protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
+	}
+
+	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+		return nil, err
+	}
+	resp2 := new(v2object.GetRangeHashResponse)
+	if err := resp2.FromGRPCMessage(resp); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
+	if err := signature.VerifyServiceMessage(resp2); err != nil {
+		return nil, fmt.Errorf("response verification failed: %w", err)
+	}
+	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+		return nil, err
+	}
+	// TODO: verify number of hashes
+	return resp.GetBody().GetHashList(), nil
 }
 
 func (s *server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
@@ -973,7 +1130,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
-	err = s.srv.Get(gStream.Context(), p)
+	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -1237,7 +1394,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
-	err = s.srv.GetRange(gStream.Context(), p)
+	err = s.handlers.GetRange(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1483,7 +1640,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
-	err = s.srv.Search(gStream.Context(), p)
+	err = s.handlers.Search(gStream.Context(), p)
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
@@ -1773,7 +1930,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		}}, nil
 	}
 
-	err = s.storage.VerifyAndStoreObject(*obj)
+	err = s.storage.VerifyAndStoreObjectLocally(*obj)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,

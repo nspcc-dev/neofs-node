@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	"github.com/google/uuid"
 	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
@@ -23,6 +23,7 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -69,7 +70,7 @@ func (x noCallObjectService) GetRange(context.Context, getsvc.RangePrm) error {
 	panic("must not be called")
 }
 
-func (x noCallObjectService) GetRangeHash(context.Context, *objectV2.GetRangeHashRequest) (*objectV2.GetRangeHashResponse, error) {
+func (x noCallObjectService) GetRangeHash(context.Context, getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error) {
 	panic("must not be called")
 }
 
@@ -86,7 +87,12 @@ func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool { panic("must not be 
 
 type noCallTestStorage struct{}
 
-func (noCallTestStorage) VerifyAndStoreObject(object.Object) error { panic("must not be called") }
+func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
+	panic("must not be called")
+}
+func (noCallTestStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+	panic("implement me")
+}
 
 type noCallTestACLChecker struct{}
 
@@ -213,9 +219,13 @@ func newTestStorage(t testing.TB, obj *objectgrpc.Object) *testStorage {
 	return &testStorage{t: t, obj: obj}
 }
 
-func (x *testStorage) VerifyAndStoreObject(obj object.Object) error {
+func (x *testStorage) VerifyAndStoreObjectLocally(obj object.Object) error {
 	require.Equal(x.t, x.obj, obj.ToV2().ToGRPCMessage().(*objectgrpc.Object))
 	return x.storeErr
+}
+
+func (x *testStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 
 func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*objectgrpc.ReplicateRequest, object.Object) {
@@ -549,7 +559,10 @@ func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type nopStorage struct{}
 
-func (nopStorage) VerifyAndStoreObject(object.Object) error { return nil }
+func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil }
+func (nopStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
+	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
+}
 
 func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
