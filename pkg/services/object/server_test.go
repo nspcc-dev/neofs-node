@@ -15,7 +15,7 @@ import (
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	. "github.com/nspcc-dev/neofs-node/pkg/network/transport/object/grpc"
+	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
