@@ -3,32 +3,8 @@ package container
 import (
 	"fmt"
 
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
-
-// PutEACL marshals table, and passes it to Wrapper's PutEACLBinary method
-// along with sig.Key() and sig.Sign().
-//
-// Returns error if table is nil.
-func PutEACL(c *Client, eaclInfo containercore.EACL) error {
-	if eaclInfo.Value == nil {
-		return errNilArgument
-	}
-
-	var prm PutEACLPrm
-	prm.SetTable(eaclInfo.Value.Marshal())
-
-	if eaclInfo.Session != nil {
-		prm.SetToken(eaclInfo.Session.Marshal())
-	}
-
-	prm.SetKey(eaclInfo.Signature.PublicKeyBytes())
-	prm.SetSignature(eaclInfo.Signature.Value())
-	prm.RequireAlphabetSignature()
-
-	return c.PutEACL(prm)
-}
 
 // PutEACLPrm groups parameters of PutEACL operation.
 type PutEACLPrm struct {

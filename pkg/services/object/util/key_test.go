@@ -1,8 +1,6 @@
 package util_test
 
 import (
-	"context"
-	"crypto/elliptic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +10,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	tokenStorage "github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -70,17 +69,13 @@ func createToken(t *testing.T, store *tokenStorage.TokenStore, owner user.ID, ex
 	req.SetOwnerID(&ownerV2)
 	req.SetExpiration(exp)
 
-	resp, err := store.Create(context.Background(), req)
+	key := neofscryptotest.ECDSAPrivateKey()
+	id := uuid.New()
+	err := store.Store(key, owner, id[:], exp)
 	require.NoError(t, err)
-
-	pub, err := keys.NewPublicKeyFromBytes(resp.GetSessionKey(), elliptic.P256())
-	require.NoError(t, err)
-
-	var id uuid.UUID
-	require.NoError(t, id.UnmarshalBinary(resp.GetID()))
 
 	var tok session.Object
-	tok.SetAuthKey((*neofsecdsa.PublicKey)(pub))
+	tok.SetAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey))
 	tok.SetID(id)
 
 	return tok

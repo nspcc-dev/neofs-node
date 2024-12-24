@@ -6,9 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-api-go/v2/rpc/grpc"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	"github.com/nspcc-dev/neofs-api-go/v2/status"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type RequestMessage interface {
@@ -154,6 +158,23 @@ func (s *SignService) HandleServerStreamRequest(
 	return nil
 }
 
+func SignResponse[R proto.Message, RV2 any, RV2PTR interface {
+	*RV2
+	ToGRPCMessage() grpc.Message
+	FromGRPCMessage(message grpc.Message) error
+}](signer *ecdsa.PrivateKey, r R, _ RV2) R {
+	r2 := RV2PTR(new(RV2))
+	if err := r2.FromGRPCMessage(r); err != nil {
+		panic(err) // can only fail on wrong type, here it's correct
+	}
+	if err := signature.SignServiceMessage(signer, r2); err != nil {
+		// We can't pass this error as NeoFS status code since response will be unsigned.
+		// Isn't expected in practice, so panic is ok here.
+		panic(err)
+	}
+	return r2.ToGRPCMessage().(R)
+}
+
 func (s *SignService) HandleUnaryRequest(ctx context.Context, req any, handler UnaryHandler, blankResp ResponseConstructor) (ResponseMessage, error) {
 	var (
 		resp ResponseMessage
@@ -162,10 +183,7 @@ func (s *SignService) HandleUnaryRequest(ctx context.Context, req any, handler U
 
 	// verify request signatures
 	if err = signature.VerifyServiceMessage(req); err != nil {
-		var sigErr apistatus.SignatureVerification
-		sigErr.SetMessage(err.Error())
-
-		err = sigErr
+		err = ToRequestSignatureVerificationError(err)
 	} else {
 		// process request
 		resp, err = handler(ctx, req)
@@ -188,10 +206,36 @@ func (s *SignService) HandleUnaryRequest(ctx context.Context, req any, handler U
 }
 
 func setStatusV2(resp ResponseMessage, err error) {
+	session.SetStatus(resp, statusFromErr(err))
+}
+
+func statusFromErr(err error) *status.Status {
 	// unwrap error
 	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(err) {
 		err = e
 	}
+	return apistatus.ErrorToV2(err)
+}
 
-	session.SetStatus(resp, apistatus.ErrorToV2(err))
+var (
+	// StatusOK is a missing response status field meaning OK in NeoFS protocol. It
+	// allows to make code more clear instead of passing nil.
+	StatusOK *protostatus.Status
+	// StatusOKErr is an error corresponding to [StatusOK]. It allows to make code
+	// more clear instead of passing nil.
+	StatusOKErr error
+)
+
+// ToStatus unwraps the deepest error from err and converts it into the response
+// status.
+func ToStatus(err error) *protostatus.Status {
+	return statusFromErr(err).ToGRPCMessage().(*protostatus.Status)
+}
+
+// ToRequestSignatureVerificationError constructs status error describing
+// request signature verification failure with the given cause.
+func ToRequestSignatureVerificationError(cause error) error {
+	var err apistatus.SignatureVerification
+	err.SetMessage(cause.Error())
+	return err
 }
