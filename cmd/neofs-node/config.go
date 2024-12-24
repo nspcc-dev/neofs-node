@@ -50,7 +50,6 @@ import (
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
-	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -372,8 +371,6 @@ type shared struct {
 	// whether the local node is in the netMap
 	localNodeInNetmap atomic.Bool
 
-	respSvc *response.Service
-
 	policer *policer.Policer
 
 	replicator *replicator.Replicator
@@ -614,7 +611,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.shared = shared{
 		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		respSvc:        response.NewService(response.WithNetworkState(basicSharedConfig.networkState)),
 		clientCache:    cache.NewSDKClientCache(cacheOpts),
 		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
 		putClientCache: cache.NewSDKClientCache(cacheOpts),

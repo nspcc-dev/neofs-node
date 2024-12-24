@@ -1,30 +1,12 @@
 package util
 
 import (
-	"context"
 	"crypto/ecdsa"
 
 	"github.com/nspcc-dev/neofs-api-go/v2/rpc/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	"google.golang.org/protobuf/proto"
 )
-
-// ResponseMessage is an interface of NeoFS response message.
-type ResponseMessage interface {
-	GetMetaHeader() *session.ResponseMetaHeader
-	SetMetaHeader(*session.ResponseMetaHeader)
-}
-
-type UnaryHandler func(context.Context, any) (ResponseMessage, error)
-
-type ResponseMessageWriter func(ResponseMessage) error
-
-type ResponseMessageReader func() (ResponseMessage, error)
-
-type RequestMessageWriter func(any) error
-
-type ClientStreamCloser func() (ResponseMessage, error)
 
 func SignResponse[R proto.Message, RV2 any, RV2PTR interface {
 	*RV2

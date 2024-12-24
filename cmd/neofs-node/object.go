@@ -292,7 +292,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | response | acl | split
+	// grpc | acl | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
@@ -335,12 +335,7 @@ func initObjectService(c *cfg) {
 	var commonSvc objectService.Common
 	commonSvc.Init(&c.internals, aclSvc)
 
-	respSvc := objectService.NewResponseService(
-		&commonSvc,
-		c.respSvc,
-	)
-
-	server := objectService.New(respSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.key.PrivateKey, c.metricsCollector)
+	server := objectService.New(&commonSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.key.PrivateKey, c.metricsCollector)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
