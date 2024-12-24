@@ -19,6 +19,7 @@ import (
 	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -27,6 +28,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -168,25 +170,56 @@ type Storage interface {
 	VerifyAndStoreObject(object.Object) error
 }
 
+type RequestInfoProcessor interface {
+	ProcessPutRequest(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
+	ProcessDeleteRequest(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
+	ProcessHeadRequest(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
+	ProcessHashRequest(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
+	ProcessGetRequest(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
+	ProcessRangeRequest(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
+	ProcessSearchRequest(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
+}
+
+const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
+const accessDeniedEACLReasonFmt = "access to operation %s is denied by extended ACL check: %v"
+
+func basicACLErr(info aclsvc.RequestInfo) error {
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedACLReasonFmt, info.Operation()))
+
+	return errAccessDenied
+}
+
+func eACLErr(info aclsvc.RequestInfo, err error) error {
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedEACLReasonFmt, info.Operation(), err))
+
+	return errAccessDenied
+}
+
 type server struct {
 	srv ServiceServer
 
-	fsChain FSChain
-	storage Storage
-	signer  ecdsa.PrivateKey
-	mNumber uint32
-	metrics MetricCollector
+	fsChain     FSChain
+	storage     Storage
+	signer      ecdsa.PrivateKey
+	mNumber     uint32
+	metrics     MetricCollector
+	aclChecker  aclsvc.ACLChecker
+	reqInfoProc RequestInfoProcessor
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp RequestInfoProcessor) protoobject.ObjectServiceServer {
 	return &server{
-		srv:     c,
-		fsChain: fsChain,
-		storage: st,
-		signer:  signer,
-		mNumber: magicNumber,
-		metrics: m,
+		srv:         c,
+		fsChain:     fsChain,
+		storage:     st,
+		signer:      signer,
+		mNumber:     magicNumber,
+		metrics:     m,
+		aclChecker:  ac,
+		reqInfoProc: rp,
 	}
 }
 
@@ -261,6 +294,22 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return s.sendPutResponseForError(apistatus.ErrNodeUnderMaintenance, startTime, gStream)
 		}
 
+		if req.Body == nil {
+			return errors.New("malformed request: empty body")
+		}
+
+		if reqInfo, objOwner, err := s.reqInfoProc.ProcessPutRequest(req); err != nil {
+			if !errors.Is(err, aclsvc.ErrSkipRequest) {
+				return s.sendPutResponseForError(err, startTime, gStream)
+			}
+		} else {
+			if !s.aclChecker.CheckBasicACL(reqInfo) || !s.aclChecker.StickyBitCheck(reqInfo, objOwner) {
+				return s.sendPutResponseForError(basicACLErr(reqInfo), startTime, gStream)
+			} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+				return s.sendPutResponseForError(eACLErr(reqInfo, err), startTime, gStream)
+			}
+		}
+
 		if err := stream.Send(putReq); err != nil {
 			return s.sendPutResponseForError(err, startTime, gStream)
 		}
@@ -299,6 +348,16 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.makeDeleteResponseForError(apistatus.ErrNodeUnderMaintenance, startTime)
+	}
+
+	reqInfo, err := s.reqInfoProc.ProcessDeleteRequest(req)
+	if err != nil {
+		return s.makeDeleteResponseForError(err, startTime)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.makeDeleteResponseForError(basicACLErr(reqInfo), startTime)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.makeDeleteResponseForError(eACLErr(reqInfo, err), startTime)
 	}
 
 	resp, err := s.srv.Delete(ctx, delReq)
@@ -343,9 +402,23 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeHeadResponseForError(apistatus.ErrNodeUnderMaintenance, startTime)
 	}
 
+	reqInfo, err := s.reqInfoProc.ProcessHeadRequest(req)
+	if err != nil {
+		return s.makeHeadResponseForError(err, startTime)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.makeHeadResponseForError(basicACLErr(reqInfo), startTime)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.makeHeadResponseForError(eACLErr(reqInfo, err), startTime)
+	}
+
 	resp, err := s.srv.Head(ctx, searchReq)
 	if err != nil {
 		return s.makeHeadResponseForError(err, startTime)
+	}
+
+	if err := s.aclChecker.CheckEACL(resp.ToGRPCMessage().(*protoobject.HeadResponse), reqInfo); err != nil {
+		return s.makeHeadResponseForError(eACLErr(reqInfo, err), startTime)
 	}
 
 	return s.signHeadResponse(nil, startTime, resp.ToGRPCMessage().(*protoobject.HeadResponse))
@@ -385,6 +458,16 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeHashResponseForError(apistatus.ErrNodeUnderMaintenance, startTime)
 	}
 
+	reqInfo, err := s.reqInfoProc.ProcessHashRequest(req)
+	if err != nil {
+		return s.makeHashResponseForError(err, startTime)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.makeHashResponseForError(basicACLErr(reqInfo), startTime)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.makeHashResponseForError(eACLErr(reqInfo, err), startTime)
+	}
+
 	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
 	if err != nil {
 		return s.makeHashResponseForError(err, startTime)
@@ -413,11 +496,17 @@ func (s *server) sendGetResponseForError(err error, startTime time.Time, stream 
 
 type getStreamerV2 struct {
 	protoobject.ObjectService_GetServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
+	if _, ok := r.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+	}
 	if c := r.GetBody().GetChunk(); c != nil {
 		s.srv.metrics.AddGetPayload(len(c))
 	}
@@ -442,11 +531,22 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendGetResponseForError(apistatus.ErrNodeUnderMaintenance, startTime, gStream)
 	}
 
-	err := s.srv.Get(
+	reqInfo, err := s.reqInfoProc.ProcessGetRequest(req)
+	if err != nil {
+		return s.sendGetResponseForError(err, startTime, gStream)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.sendGetResponseForError(basicACLErr(reqInfo), startTime, gStream)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.sendGetResponseForError(eACLErr(reqInfo, err), startTime, gStream)
+	}
+
+	err = s.srv.Get(
 		getReq,
 		&getStreamerV2{
 			ObjectService_GetServer: gStream,
 			srv:                     s,
+			reqInfo:                 reqInfo,
 		},
 	)
 	if err != nil {
@@ -476,11 +576,16 @@ func (s *server) sendRangeResponseForError(err error, startTime time.Time, strea
 
 type getRangeStreamerV2 struct {
 	protoobject.ObjectService_GetRangeServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *getRangeStreamerV2) Send(resp *v2object.GetRangeResponse) error {
-	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, resp.ToGRPCMessage().(*protoobject.GetRangeResponse))
+	r := resp.ToGRPCMessage().(*protoobject.GetRangeResponse)
+	if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+		return eACLErr(s.reqInfo, err)
+	}
+	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, r)
 }
 
 // GetRange converts gRPC GetRangeRequest message and server-side stream and overtakes its data
@@ -501,11 +606,22 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendRangeResponseForError(apistatus.ErrNodeUnderMaintenance, startTime, gStream)
 	}
 
-	err := s.srv.GetRange(
+	reqInfo, err := s.reqInfoProc.ProcessRangeRequest(req)
+	if err != nil {
+		return s.sendRangeResponseForError(err, startTime, gStream)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.sendRangeResponseForError(basicACLErr(reqInfo), startTime, gStream)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.sendRangeResponseForError(eACLErr(reqInfo, err), startTime, gStream)
+	}
+
+	err = s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
 			ObjectService_GetRangeServer: gStream,
 			srv:                          s,
+			reqInfo:                      reqInfo,
 		},
 	)
 	if err != nil {
@@ -535,11 +651,16 @@ func (s *server) sendSearchResponseForError(err error, startTime time.Time, stre
 
 type searchStreamerV2 struct {
 	protoobject.ObjectService_SearchServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
-	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, resp.ToGRPCMessage().(*protoobject.SearchResponse))
+	r := resp.ToGRPCMessage().(*protoobject.SearchResponse)
+	if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+		return eACLErr(s.reqInfo, err)
+	}
+	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, r)
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
@@ -560,11 +681,22 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendSearchResponseForError(apistatus.ErrNodeUnderMaintenance, startTime, gStream)
 	}
 
-	err := s.srv.Search(
+	reqInfo, err := s.reqInfoProc.ProcessSearchRequest(req)
+	if err != nil {
+		return s.sendSearchResponseForError(err, startTime, gStream)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		return s.sendSearchResponseForError(basicACLErr(reqInfo), startTime, gStream)
+	} else if err := s.aclChecker.CheckEACL(req, reqInfo); err != nil {
+		return s.sendSearchResponseForError(eACLErr(reqInfo, err), startTime, gStream)
+	}
+
+	err = s.srv.Search(
 		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
 			srv:                        s,
+			reqInfo:                    reqInfo,
 		},
 	)
 	if err != nil {
