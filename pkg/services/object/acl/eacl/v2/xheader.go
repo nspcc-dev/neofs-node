@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 )
 
@@ -30,7 +30,7 @@ func (s requestXHeaderSource) GetXHeaders() []eaclSDK.Header {
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
 		for i := range x {
-			res = append(res, (xHeader)(x[i]))
+			res = append(res, xHeader{x[i].GetKey(), x[i].GetValue()})
 		}
 	}
 
@@ -39,7 +39,7 @@ func (s requestXHeaderSource) GetXHeaders() []eaclSDK.Header {
 
 func (s responseXHeaderSource) GetXHeaders() []eaclSDK.Header {
 	ln := 0
-	xHdrs := make([][]session.XHeader, 0)
+	xHdrs := make([][]*protosession.XHeader, 0)
 
 	for meta := s.req.GetMetaHeader(); meta != nil; meta = meta.GetOrigin() {
 		x := meta.GetXHeaders()
@@ -53,7 +53,7 @@ func (s responseXHeaderSource) GetXHeaders() []eaclSDK.Header {
 
 	for i := range xHdrs {
 		for j := range xHdrs[i] {
-			res = append(res, xHeader(xHdrs[i][j]))
+			res = append(res, xHeader{xHdrs[i][j].GetKey(), xHdrs[i][j].GetValue()})
 		}
 	}
 
