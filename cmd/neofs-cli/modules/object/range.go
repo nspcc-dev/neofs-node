@@ -169,6 +169,9 @@ func marshalSplitInfo(cmd *cobra.Command, info *object.SplitInfo) ([]byte, error
 		if link := info.GetLink(); !link.IsZero() {
 			b.WriteString("Linking object: " + link.String() + "\n")
 		}
+		if first := info.GetFirstPart(); !first.IsZero() {
+			b.WriteString("First object: " + first.String() + "\n")
+		}
 		if last := info.GetLastPart(); !last.IsZero() {
 			b.WriteString("Last object: " + last.String() + "\n")
 		}
