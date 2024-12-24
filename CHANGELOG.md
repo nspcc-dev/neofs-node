@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Initial support for meta-on-chain for objects (#2877)
 
 ### Fixed
+- `neofs-cli object delete` command output (#3056)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)

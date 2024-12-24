@@ -101,7 +101,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 
 		res, err := internalclient.DeleteObject(ctx, prm)
 		if err != nil {
-			return fmt.Errorf("rpc error: deleting \"+addr.Object().String()+\" object: %w", err)
+			return fmt.Errorf("rpc error: deleting %s object: %w", addr.Object(), err)
 		}
 
 		tomb := res.Tombstone()
