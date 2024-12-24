@@ -294,7 +294,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | acl | split
+	// grpc | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
@@ -322,19 +322,16 @@ func initObjectService(c *cfg) {
 		v2.WithContainerSource(
 			c.cfgObject.cnrSource,
 		),
-		v2.WithNextService(splitSvc),
-		v2.WithEACLChecker(
-			acl.NewChecker(new(acl.CheckerPrm).
-				SetNetmapState(c.cfgNetmap.state).
-				SetEACLSource(c.cfgObject.eaclSource).
-				SetValidator(eaclSDK.NewValidator()).
-				SetLocalStorage(ls).
-				SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
-			),
-		),
+	)
+	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
+		SetNetmapState(c.cfgNetmap.state).
+		SetEACLSource(c.cfgObject.eaclSource).
+		SetValidator(eaclSDK.NewValidator()).
+		SetLocalStorage(ls).
+		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 
-	server := objectService.New(aclSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector)
+	server := objectService.New(splitSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)

@@ -7,9 +7,12 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	apiacl "github.com/nspcc-dev/neofs-api-go/v2/acl"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
+	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -21,71 +24,84 @@ import (
 var errMissingContainerID = errors.New("missing container ID")
 
 func getContainerIDFromRequest(req any) (cid.ID, error) {
-	var idV2 *refsV2.ContainerID
+	var mID *refs.ContainerID
 	var id cid.ID
 
 	switch v := req.(type) {
-	case *objectV2.GetRequest:
-		idV2 = v.GetBody().GetAddress().GetContainerID()
-	case *objectV2.PutRequest:
-		part, ok := v.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit)
+	case *protoobject.GetRequest:
+		mID = v.GetBody().GetAddress().GetContainerId()
+	case *protoobject.PutRequest:
+		part, ok := v.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_)
 		if !ok {
 			return cid.ID{}, errors.New("can't get container ID in chunk")
 		}
-
-		idV2 = part.GetHeader().GetContainerID()
-	case *objectV2.HeadRequest:
-		idV2 = v.GetBody().GetAddress().GetContainerID()
-	case *objectV2.SearchRequest:
-		idV2 = v.GetBody().GetContainerID()
-	case *objectV2.DeleteRequest:
-		idV2 = v.GetBody().GetAddress().GetContainerID()
-	case *objectV2.GetRangeRequest:
-		idV2 = v.GetBody().GetAddress().GetContainerID()
-	case *objectV2.GetRangeHashRequest:
-		idV2 = v.GetBody().GetAddress().GetContainerID()
+		if part == nil || part.Init == nil {
+			return cid.ID{}, errors.New("nil oneof heading part")
+		}
+		mID = part.Init.GetHeader().GetContainerId()
+	case *protoobject.HeadRequest:
+		mID = v.GetBody().GetAddress().GetContainerId()
+	case *protoobject.SearchRequest:
+		mID = v.GetBody().GetContainerId()
+	case *protoobject.DeleteRequest:
+		mID = v.GetBody().GetAddress().GetContainerId()
+	case *protoobject.GetRangeRequest:
+		mID = v.GetBody().GetAddress().GetContainerId()
+	case *protoobject.GetRangeHashRequest:
+		mID = v.GetBody().GetAddress().GetContainerId()
 	default:
 		return cid.ID{}, errors.New("unknown request type")
 	}
 
-	if idV2 == nil {
+	if mID == nil {
 		return cid.ID{}, errMissingContainerID
 	}
 
-	return id, id.ReadFromV2(*idV2)
+	var idV2 refsV2.ContainerID
+	if err := idV2.FromGRPCMessage(mID); err != nil {
+		panic(err)
+	}
+	return id, id.ReadFromV2(idV2)
 }
 
 // originalBearerToken goes down to original request meta header and fetches
 // bearer token from there.
-func originalBearerToken(header *sessionV2.RequestMetaHeader) (*bearer.Token, error) {
+func originalBearerToken(header *protosession.RequestMetaHeader) (*bearer.Token, error) {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}
 
-	tokV2 := header.GetBearerToken()
-	if tokV2 == nil {
+	mt := header.GetBearerToken()
+	if mt == nil {
 		return nil, nil
 	}
 
 	var tok bearer.Token
-	return &tok, tok.ReadFromV2(*tokV2)
+	var tokV2 apiacl.BearerToken
+	if err := tokV2.FromGRPCMessage(mt); err != nil {
+		panic(err)
+	}
+	return &tok, tok.ReadFromV2(tokV2)
 }
 
 // originalSessionToken goes down to original request meta header and fetches
 // session token from there.
-func originalSessionToken(header *sessionV2.RequestMetaHeader) (*sessionSDK.Object, error) {
+func originalSessionToken(header *protosession.RequestMetaHeader) (*sessionSDK.Object, error) {
 	for header.GetOrigin() != nil {
 		header = header.GetOrigin()
 	}
 
-	tokV2 := header.GetSessionToken()
-	if tokV2 == nil {
+	mt := header.GetSessionToken()
+	if mt == nil {
 		return nil, nil
 	}
 
 	var tok sessionSDK.Object
-
-	err := tok.ReadFromV2(*tokV2)
+	var tokV2 sessionV2.Token
+	if err := tokV2.FromGRPCMessage(mt); err != nil {
+		panic(err)
+	}
+	err := tok.ReadFromV2(tokV2)
 	if err != nil {
 		return nil, fmt.Errorf("invalid session token: %w", err)
 	}
@@ -95,15 +111,18 @@ func originalSessionToken(header *sessionV2.RequestMetaHeader) (*sessionSDK.Obje
 
 // getObjectIDFromRequestBody decodes oid.ID from the common interface of the
 // object reference's holders. Returns an error if object ID is missing in the request.
-func getObjectIDFromRequestBody(body interface{ GetAddress() *refsV2.Address }) (*oid.ID, error) {
-	idV2 := body.GetAddress().GetObjectID()
-	if idV2 == nil {
+func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*oid.ID, error) {
+	mID := body.GetAddress().GetObjectId()
+	if mID == nil {
 		return nil, errors.New("missing object ID")
 	}
 
 	var id oid.ID
-
-	err := id.ReadFromV2(*idV2)
+	var idV2 refsV2.ObjectID
+	if err := idV2.FromGRPCMessage(mID); err != nil {
+		panic(err)
+	}
+	err := id.ReadFromV2(idV2)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +148,7 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	return &tokenIssuer, key, nil
 }
 
-func originalBodySignature(v *sessionV2.RequestVerificationHeader) *refsV2.Signature {
+func originalBodySignature(v *protosession.RequestVerificationHeader) *refs.Signature {
 	if v == nil {
 		return nil
 	}
