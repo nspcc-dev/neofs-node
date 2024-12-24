@@ -88,8 +88,11 @@ type MetricCollector interface {
 	AddGetPayload(int)
 }
 
-// Node represents NeoFS storage node that is served by [Server].
-type Node interface {
+// FSChain provides access to the FS chain required to serve NeoFS API Object
+// service.
+type FSChain interface {
+	netmap.StateDetailed
+
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
 	// the referenced container's storage policy at the current and the previous
 	// NeoFS epochs, and passes their public keys into f. IterateContainerNodeKeys
@@ -102,31 +105,35 @@ type Node interface {
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
 	IsOwnPublicKey(pubKey []byte) bool
+}
 
+// Storage groups ops of the node's object storage required to serve NeoFS API
+// Object service.
+type Storage interface {
 	// VerifyAndStoreObject checks whether given object has correct format and, if
-	// so, saves it into local object storage of the Node. StoreObject is called
-	// only when the Node complies with the container's storage policy.
+	// so, saves it into the Storage. StoreObject is called only when local node
+	// complies with the container's storage policy.
 	VerifyAndStoreObject(object.Object) error
 }
 
 type server struct {
 	srv ServiceServer
 
-	node    Node
+	fsChain FSChain
+	storage Storage
 	signer  ecdsa.PrivateKey
 	mNumber uint32
-	nmState netmap.StateDetailed
 	metrics MetricCollector
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, node Node, signer ecdsa.PrivateKey, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector) protoobject.ObjectServiceServer {
 	return &server{
 		srv:     c,
-		node:    node,
+		fsChain: fsChain,
+		storage: st,
 		signer:  signer,
 		mNumber: magicNumber,
-		nmState: nmState,
 		metrics: m,
 	}
 }
@@ -540,9 +547,9 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	}
 
 	var clientInCnr, serverInCnr bool
-	err = s.node.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
+	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
 		if !serverInCnr {
-			serverInCnr = s.node.IsOwnPublicKey(pubKey)
+			serverInCnr = s.fsChain.IsOwnPublicKey(pubKey)
 		}
 		if !clientInCnr {
 			clientInCnr = bytes.Equal(pubKey, req.Signature.Key)
@@ -580,7 +587,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		}}, nil
 	}
 
-	err = s.node.VerifyAndStoreObject(*obj)
+	err = s.storage.VerifyAndStoreObject(*obj)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,
@@ -644,8 +651,8 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 	default:
 	}
 
-	currentBlock := s.nmState.CurrentBlock()
-	currentEpochDuration := s.nmState.CurrentEpochDuration()
+	currentBlock := s.fsChain.CurrentBlock()
+	currentEpochDuration := s.fsChain.CurrentEpochDuration()
 	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration
