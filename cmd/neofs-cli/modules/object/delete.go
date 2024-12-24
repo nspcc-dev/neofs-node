@@ -93,7 +93,8 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	for _, addr := range objAddrs {
-		err := ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, addr.Object())
+		id := addr.Object()
+		err := ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, id)
 		if err != nil {
 			return err
 		}
@@ -101,12 +102,12 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 
 		res, err := internalclient.DeleteObject(ctx, prm)
 		if err != nil {
-			return fmt.Errorf("rpc error: deleting \"+addr.Object().String()+\" object: %w", err)
+			return fmt.Errorf("rpc error: deleting %s object: %w", id, err)
 		}
 
 		tomb := res.Tombstone()
 
-		cmd.Printf("Object %s removed successfully.\n", addr.Object())
+		cmd.Printf("Object %s removed successfully.\n", id)
 		cmd.Printf("  ID: %s\n  CID: %s\n", tomb, cnr)
 	}
 	return nil
