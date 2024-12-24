@@ -2,15 +2,12 @@ package persistent
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto/rand"
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -22,41 +19,37 @@ func TestTokenStore(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := usertest.ID()
-
-	var ownerV2 refs.OwnerID
-	owner.WriteToV2(&ownerV2)
-
-	req := new(session.CreateRequestBody)
-	req.SetOwnerID(&ownerV2)
-
 	const tokenNumber = 5
 
 	type tok struct {
-		id  []byte
-		key []byte
+		owner user.ID
+		id    []byte
+		key   ecdsa.PrivateKey
 	}
 
 	tokens := make([]tok, 0, tokenNumber)
 
 	for i := range tokenNumber {
-		req.SetExpiration(uint64(i))
+		usr := usertest.User()
+		sessionID := make([]byte, 32) // any len
+		_, _ = rand.Read(sessionID)
 
-		res, err := ts.Create(context.Background(), req)
+		err := ts.Store(usr.ECDSAPrivateKey, usr.ID, sessionID, uint64(i))
 		require.NoError(t, err)
 
 		tokens = append(tokens, tok{
-			id:  res.GetID(),
-			key: res.GetSessionKey(),
+			owner: usr.ID,
+			id:    sessionID,
+			key:   usr.ECDSAPrivateKey,
 		})
 	}
 
 	for i, token := range tokens {
-		savedToken := ts.Get(owner, token.id)
+		savedToken := ts.Get(token.owner, token.id)
 
 		require.Equal(t, uint64(i), savedToken.ExpiredAt())
-
-		equalKeys(t, token.key, savedToken.SessionKey())
+		require.NotNil(t, savedToken.SessionKey())
+		require.Equal(t, token.key, *savedToken.SessionKey())
 	}
 }
 
@@ -66,22 +59,12 @@ func TestTokenStore_Persistent(t *testing.T) {
 	ts, err := NewTokenStore(path)
 	require.NoError(t, err)
 
-	idOwner := usertest.ID()
-
-	var idOwnerV2 refs.OwnerID
-	idOwner.WriteToV2(&idOwnerV2)
-
+	sessionID := make([]byte, 64) // any len
+	owner := usertest.User()
 	const exp = 12345
 
-	req := new(session.CreateRequestBody)
-	req.SetOwnerID(&idOwnerV2)
-	req.SetExpiration(exp)
-
-	res, err := ts.Create(context.Background(), req)
+	err = ts.Store(owner.ECDSAPrivateKey, owner.ID, sessionID, exp)
 	require.NoError(t, err)
-
-	id := res.GetID()
-	pubKey := res.GetSessionKey()
 
 	// close db (stop the node)
 	require.NoError(t, ts.Close())
@@ -92,15 +75,19 @@ func TestTokenStore_Persistent(t *testing.T) {
 
 	defer ts.Close()
 
-	savedToken := ts.Get(idOwner, id)
+	savedToken := ts.Get(owner.ID, sessionID)
 
-	equalKeys(t, pubKey, savedToken.SessionKey())
+	require.EqualValues(t, exp, savedToken.ExpiredAt())
+	require.NotNil(t, savedToken.SessionKey())
+	require.Equal(t, owner.ECDSAPrivateKey, *savedToken.SessionKey())
 }
 
 func TestTokenStore_RemoveOld(t *testing.T) {
 	tests := []*struct {
-		epoch   uint64
-		id, key []byte
+		epoch uint64
+		owner user.ID
+		id    []byte
+		key   ecdsa.PrivateKey
 	}{
 		{
 			epoch: 1,
@@ -127,22 +114,16 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 
 	defer ts.Close()
 
-	owner := usertest.ID()
-
-	var ownerV2 refs.OwnerID
-	owner.WriteToV2(&ownerV2)
-
-	req := new(session.CreateRequestBody)
-	req.SetOwnerID(&ownerV2)
-
 	for _, test := range tests {
-		req.SetExpiration(test.epoch)
+		test.id = make([]byte, 32) // any len
+		_, _ = rand.Read(test.id)
+		owner := usertest.User()
 
-		res, err := ts.Create(context.Background(), req)
+		err := ts.Store(owner.ECDSAPrivateKey, owner.ID, test.id, test.epoch)
 		require.NoError(t, err)
 
-		test.id = res.GetID()
-		test.key = res.GetSessionKey()
+		test.owner = owner.ID
+		test.key = owner.ECDSAPrivateKey
 	}
 
 	const currEpoch = 3
@@ -150,12 +131,14 @@ func TestTokenStore_RemoveOld(t *testing.T) {
 	ts.RemoveOld(currEpoch)
 
 	for _, test := range tests {
-		token := ts.Get(owner, test.id)
+		token := ts.Get(test.owner, test.id)
 
 		if test.epoch <= currEpoch {
 			require.Nil(t, token)
 		} else {
-			equalKeys(t, test.key, token.SessionKey())
+			require.EqualValues(t, test.epoch, token.ExpiredAt())
+			require.NotNil(t, token.SessionKey())
+			require.Equal(t, test.key, *token.SessionKey())
 		}
 	}
 }
@@ -220,13 +203,4 @@ func TestBolt_Cursor(t *testing.T) {
 	if !ok {
 		t.Fatal("unexpectedly skipped '2' value")
 	}
-}
-
-func equalKeys(t *testing.T, sessionKey []byte, savedPrivateKey *ecdsa.PrivateKey) {
-	returnedPubKey, err := keys.NewPublicKeyFromBytes(sessionKey, elliptic.P256())
-	require.NoError(t, err)
-
-	savedPubKey := (keys.PublicKey)(savedPrivateKey.PublicKey)
-
-	require.Equal(t, true, returnedPubKey.Equal(&savedPubKey))
 }

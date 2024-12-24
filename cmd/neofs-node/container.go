@@ -8,8 +8,13 @@ import (
 	"errors"
 	"fmt"
 
-	containerV2 "github.com/nspcc-dev/neofs-api-go/v2/container"
-	containerGRPC "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	apicontainer "github.com/nspcc-dev/neofs-api-go/v2/container"
+	protocontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
+	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
+	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -24,13 +29,16 @@ import (
 	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
 	placementrouter "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route/placement"
 	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
-	containerMorph "github.com/nspcc-dev/neofs-node/pkg/services/container/morph"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 )
 
@@ -46,17 +54,16 @@ func initContainerService(c *cfg) {
 
 	cnrCli := c.shared.basics.cCli
 
-	cnrRdr := new(morphContainerReader)
-	cnrWrt := &morphContainerWriter{neoClient: cnrCli}
+	cnrs := &containersInChain{contractClient: cnrCli}
 	cnrSrc := cntClient.AsContainerSource(cnrCli)
 	eaclFetcher := &morphEACLFetcher{cnrCli}
 
 	if c.shared.basics.ttl <= 0 {
 		c.cfgObject.eaclSource = eaclFetcher
-		cnrRdr.eacl = eaclFetcher
+		cnrs.eacl = eaclFetcher
 		c.cfgObject.cnrSource = cnrSrc
-		cnrRdr.get = cnrSrc
-		cnrRdr.lister = cnrCli
+		cnrs.get = cnrSrc
+		cnrs.lister = cnrCli
 	} else {
 		cnrCache := c.shared.basics.containerCache
 		cnrListCache := c.shared.basics.containerListCache
@@ -108,12 +115,11 @@ func initContainerService(c *cfg) {
 		c.cfgObject.eaclSource = eaclCache
 		c.cfgObject.cnrSource = cnrCache
 
-		cnrRdr.lister = cnrListCache
-		cnrRdr.eacl = c.cfgObject.eaclSource
-		cnrRdr.get = c.cfgObject.cnrSource
-
-		cnrWrt.cacheEnabled = true
-		cnrWrt.eacls = eaclCache
+		cnrs.lister = cnrListCache
+		cnrs.eacl = c.cfgObject.eaclSource
+		cnrs.get = c.cfgObject.cnrSource
+		cnrs.cacheEnabled = true
+		cnrs.eacls = eaclCache
 	}
 
 	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
@@ -186,24 +192,16 @@ func initContainerService(c *cfg) {
 		})
 	})
 
-	server := containerService.New(
-		containerService.NewSignService(
-			&c.key.PrivateKey,
-			containerService.NewResponseService(
-				&usedSpaceService{
-					Server:               containerService.NewExecutionService(containerMorph.NewExecutor(cnrRdr, cnrWrt, c.networkState)),
-					loadWriterProvider:   loadRouter,
-					loadPlacementBuilder: loadPlacementBuilder,
-					routeBuilder:         routeBuilder,
-					cfg:                  c,
-				},
-				c.respSvc,
-			),
-		),
-	)
+	server := &usedSpaceService{
+		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, cnrs),
+		loadWriterProvider:     loadRouter,
+		loadPlacementBuilder:   loadPlacementBuilder,
+		routeBuilder:           routeBuilder,
+		cfg:                    c,
+	}
 
 	for _, srv := range c.cfgGRPC.servers {
-		containerGRPC.RegisterContainerServiceServer(srv, server)
+		protocontainer.RegisterContainerServiceServer(srv, server)
 	}
 }
 
@@ -468,7 +466,7 @@ func (d *localStorageLoad) Iterate(f loadcontroller.UsedSpaceFilter, h loadcontr
 }
 
 type usedSpaceService struct {
-	containerService.Server
+	protocontainer.ContainerServiceServer
 
 	loadWriterProvider loadcontroller.WriterProvider
 
@@ -518,10 +516,37 @@ func (c *usedSpaceService) ExternalAddresses() []string {
 	return c.cfg.ExternalAddresses()
 }
 
-func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *containerV2.AnnounceUsedSpaceRequest) (*containerV2.AnnounceUsedSpaceResponse, error) {
+func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status) (*protocontainer.AnnounceUsedSpaceResponse, error) {
+	v := version.Current()
+	var v2 apirefs.Version
+	v.WriteToV2(&v2)
+	resp := &protocontainer.AnnounceUsedSpaceResponse{
+		Body: body,
+		MetaHeader: &protosession.ResponseMetaHeader{
+			Version: v2.ToGRPCMessage().(*refs.Version),
+			Epoch:   c.cfg.networkState.CurrentEpoch(),
+			Status:  st,
+		},
+	}
+	return util.SignResponse(&c.cfg.key.PrivateKey, resp, apicontainer.AnnounceUsedSpaceResponse{}), nil
+}
+
+func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.AnnounceUsedSpaceResponse, error) {
+	return c.makeResponse(nil, util.ToStatus(err))
+}
+
+func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
+	putReq := new(apicontainer.AnnounceUsedSpaceRequest)
+	if err := putReq.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+	if err := signature.VerifyServiceMessage(putReq); err != nil {
+		return c.makeStatusResponse(util.ToRequestSignatureVerificationError(err))
+	}
+
 	var passedRoute []loadroute.ServerInfo
 
-	for hdr := req.GetVerificationHeader(); hdr != nil; hdr = hdr.GetOrigin() {
+	for hdr := req.GetVerifyHeader(); hdr != nil; hdr = hdr.GetOrigin() {
 		passedRoute = append(passedRoute, &containerOnlyKeyRemoteServerInfo{
 			key: hdr.GetBodySignature().GetKey(),
 		})
@@ -535,28 +560,27 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *container
 
 	w, err := c.loadWriterProvider.InitWriter(loadroute.NewRouteContext(ctx, passedRoute))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize container's used space writer: %w", err)
+		return c.makeStatusResponse(fmt.Errorf("could not initialize container's used space writer: %w", err))
 	}
 
 	var est containerSDK.SizeEstimation
 
-	for _, aV2 := range req.GetBody().GetAnnouncements() {
-		err = est.ReadFromV2(aV2)
+	for _, a := range req.GetBody().GetAnnouncements() {
+		var a2 apicontainer.UsedSpaceAnnouncement
+		if err := a2.FromGRPCMessage(a); err != nil {
+			panic(err)
+		}
+		err = est.ReadFromV2(a2)
 		if err != nil {
-			return nil, fmt.Errorf("invalid size announcement: %w", err)
+			return c.makeStatusResponse(fmt.Errorf("invalid size announcement: %w", err))
 		}
 
 		if err := c.processLoadValue(ctx, est, passedRoute, w); err != nil {
-			return nil, err
+			return c.makeStatusResponse(err)
 		}
 	}
 
-	respBody := new(containerV2.AnnounceUsedSpaceResponseBody)
-
-	resp := new(containerV2.AnnounceUsedSpaceResponse)
-	resp.SetBody(respBody)
-
-	return resp, nil
+	return c.makeResponse(nil, util.StatusOK)
 }
 
 var errNodeOutsideContainer = errors.New("node outside the container")
@@ -619,8 +643,7 @@ func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.Si
 	return nil
 }
 
-// implements interface required by container service provided by morph executor.
-type morphContainerReader struct {
+type containersInChain struct {
 	eacl containerCore.EACLSource
 
 	get containerCore.Source
@@ -628,44 +651,82 @@ type morphContainerReader struct {
 	lister interface {
 		List(*user.ID) ([]cid.ID, error)
 	}
-}
 
-func (x *morphContainerReader) Get(id cid.ID) (*containerCore.Container, error) {
-	return x.get.Get(id)
-}
-
-func (x *morphContainerReader) GetEACL(id cid.ID) (*containerCore.EACL, error) {
-	return x.eacl.GetEACL(id)
-}
-
-func (x *morphContainerReader) List(id *user.ID) ([]cid.ID, error) {
-	return x.lister.List(id)
-}
-
-type morphContainerWriter struct {
-	neoClient *cntClient.Client
+	contractClient *cntClient.Client
 
 	cacheEnabled bool
 	eacls        *ttlEACLStorage
 }
 
-func (m morphContainerWriter) Put(cnr containerCore.Container) (*cid.ID, error) {
-	return cntClient.Put(m.neoClient, cnr)
-}
-
-func (m morphContainerWriter) Delete(witness containerCore.RemovalWitness) error {
-	return cntClient.Delete(m.neoClient, witness)
-}
-
-func (m morphContainerWriter) PutEACL(eaclInfo containerCore.EACL) error {
-	err := cntClient.PutEACL(m.neoClient, eaclInfo)
+func (x *containersInChain) Get(id cid.ID) (containerSDK.Container, error) {
+	c, err := x.get.Get(id)
 	if err != nil {
+		return containerSDK.Container{}, err
+	}
+	return c.Value, nil
+}
+
+func (x *containersInChain) GetEACL(id cid.ID) (eacl.Table, error) {
+	c, err := x.eacl.GetEACL(id)
+	if err != nil {
+		return eacl.Table{}, err
+	}
+	return *c.Value, nil
+}
+
+func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
+	return x.lister.List(&id)
+}
+
+func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
+	data := cnr.Marshal()
+	d := cnr.ReadDomain()
+
+	var prm cntClient.PutPrm
+	prm.SetContainer(data)
+	prm.SetName(d.Name())
+	prm.SetZone(d.Zone())
+	prm.SetKey(pub)
+	prm.SetSignature(sig)
+	if st != nil {
+		prm.SetToken(st.Marshal())
+	}
+	if v := cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY"); v == "optimistic" || v == "strict" {
+		prm.EnableMeta()
+	}
+	if err := x.contractClient.Put(prm); err != nil {
+		return cid.ID{}, err
+	}
+
+	return cid.NewFromMarshalledContainer(data), nil
+}
+
+func (x *containersInChain) Delete(id cid.ID, _, sig []byte, st *session.Container) error {
+	var prm cntClient.DeletePrm
+	prm.SetCID(id[:])
+	prm.SetSignature(sig)
+	prm.RequireAlphabetSignature()
+	if st != nil {
+		prm.SetToken(st.Marshal())
+	}
+	return x.contractClient.Delete(prm)
+}
+
+func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *session.Container) error {
+	var prm cntClient.PutEACLPrm
+	prm.SetTable(eACL.Marshal())
+	prm.SetKey(pub)
+	prm.SetSignature(sig)
+	prm.RequireAlphabetSignature()
+	if st != nil {
+		prm.SetToken(st.Marshal())
+	}
+	if err := x.contractClient.PutEACL(prm); err != nil {
 		return err
 	}
 
-	if m.cacheEnabled {
-		id := eaclInfo.Value.GetCID()
-		m.eacls.InvalidateEACL(id)
+	if x.cacheEnabled {
+		x.eacls.InvalidateEACL(eACL.GetCID())
 	}
 
 	return nil

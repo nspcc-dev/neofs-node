@@ -8,7 +8,6 @@ import (
 
 	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -17,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 )
 
@@ -171,24 +169,7 @@ func initNetmapService(c *cfg) {
 
 	initNetmapState(c)
 
-	server := netmapService.New(
-		netmapService.NewSignService(
-			&c.key.PrivateKey,
-			netmapService.NewResponseService(
-				netmapService.NewExecutionService(
-					c,
-					c.apiVersion,
-					&netInfo{
-						netState:          c.cfgNetmap.state,
-						magic:             c.cfgMorph.client,
-						morphClientNetMap: c.cfgNetmap.wrapper,
-						msPerBlockRdr:     c.cfgMorph.client.MsPerBlock,
-					},
-				),
-				c.respSvc,
-			),
-		),
-	)
+	server := netmapService.New(&c.key.PrivateKey, c)
 
 	for _, srv := range c.cfgGRPC.servers {
 		netmapGRPC.RegisterNetmapServiceServer(srv, server)
@@ -416,66 +397,50 @@ func (c *cfg) updateNetMapState(stateSetter func(*nmClient.UpdatePeerPrm)) error
 	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
 }
 
-type netInfo struct {
-	netState netmap.State
-
-	magic interface {
-		MagicNumber() (uint32, error)
+func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
+	magic, err := c.cfgMorph.client.MagicNumber()
+	if err != nil {
+		return netmapSDK.NetworkInfo{}, err
 	}
 
-	morphClientNetMap *nmClient.Client
-
-	msPerBlockRdr func() (int64, error)
-}
-
-func (n *netInfo) Dump(ver version.Version) (*netmapSDK.NetworkInfo, error) {
-	magic, err := n.magic.MagicNumber()
+	msPerBlock, err := c.cfgMorph.client.MsPerBlock()
 	if err != nil {
-		return nil, err
+		return netmapSDK.NetworkInfo{}, fmt.Errorf("ms per block: %w", err)
+	}
+
+	netInfoMorph, err := c.cfgNetmap.wrapper.ReadNetworkConfiguration()
+	if err != nil {
+		return netmapSDK.NetworkInfo{}, fmt.Errorf("read network configuration using netmap contract client: %w", err)
 	}
 
 	var ni netmapSDK.NetworkInfo
-	ni.SetCurrentEpoch(n.netState.CurrentEpoch())
+	ni.SetCurrentEpoch(c.networkState.CurrentEpoch())
 	ni.SetMagicNumber(uint64(magic))
+	ni.SetMsPerBlock(msPerBlock)
+	ni.SetMaxObjectSize(netInfoMorph.MaxObjectSize)
+	ni.SetStoragePrice(netInfoMorph.StoragePrice)
+	ni.SetAuditFee(netInfoMorph.AuditFee)
+	ni.SetEpochDuration(netInfoMorph.EpochDuration)
+	ni.SetContainerFee(netInfoMorph.ContainerFee)
+	ni.SetNamedContainerFee(netInfoMorph.ContainerAliasFee)
+	ni.SetNumberOfEigenTrustIterations(netInfoMorph.EigenTrustIterations)
+	ni.SetEigenTrustAlpha(netInfoMorph.EigenTrustAlpha)
+	ni.SetIRCandidateFee(netInfoMorph.IRCandidateFee)
+	ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
 
-	netInfoMorph, err := n.morphClientNetMap.ReadNetworkConfiguration()
-	if err != nil {
-		return nil, fmt.Errorf("read network configuration using netmap contract client: %w", err)
+	if netInfoMorph.HomomorphicHashingDisabled {
+		ni.DisableHomomorphicHashing()
 	}
 
-	if mjr := ver.Major(); mjr > 2 || mjr == 2 && ver.Minor() > 9 {
-		msPerBlock, err := n.msPerBlockRdr()
-		if err != nil {
-			return nil, fmt.Errorf("ms per block: %w", err)
-		}
-
-		ni.SetMsPerBlock(msPerBlock)
-
-		ni.SetMaxObjectSize(netInfoMorph.MaxObjectSize)
-		ni.SetStoragePrice(netInfoMorph.StoragePrice)
-		ni.SetAuditFee(netInfoMorph.AuditFee)
-		ni.SetEpochDuration(netInfoMorph.EpochDuration)
-		ni.SetContainerFee(netInfoMorph.ContainerFee)
-		ni.SetNamedContainerFee(netInfoMorph.ContainerAliasFee)
-		ni.SetNumberOfEigenTrustIterations(netInfoMorph.EigenTrustIterations)
-		ni.SetEigenTrustAlpha(netInfoMorph.EigenTrustAlpha)
-		ni.SetIRCandidateFee(netInfoMorph.IRCandidateFee)
-		ni.SetWithdrawalFee(netInfoMorph.WithdrawalFee)
-
-		if netInfoMorph.HomomorphicHashingDisabled {
-			ni.DisableHomomorphicHashing()
-		}
-
-		if netInfoMorph.MaintenanceModeAllowed {
-			ni.AllowMaintenanceMode()
-		}
-
-		for i := range netInfoMorph.Raw {
-			ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
-		}
+	if netInfoMorph.MaintenanceModeAllowed {
+		ni.AllowMaintenanceMode()
 	}
 
-	return &ni, nil
+	for i := range netInfoMorph.Raw {
+		ni.SetRawNetworkParameter(netInfoMorph.Raw[i].Name, netInfoMorph.Raw[i].Value)
+	}
+
+	return ni, nil
 }
 
 func (c *cfg) reloadNodeAttributes() error {
