@@ -84,53 +84,6 @@ func (p *CommonPrm) ForgetTokens() {
 	}
 }
 
-func CommonPrmFromV2(req interface {
-	GetMetaHeader() *session.RequestMetaHeader
-}) (*CommonPrm, error) {
-	meta := req.GetMetaHeader()
-	ttl := meta.GetTTL()
-
-	// unwrap meta header to get original request meta information
-	for meta.GetOrigin() != nil {
-		meta = meta.GetOrigin()
-	}
-
-	var tokenSession *sessionsdk.Object
-	var err error
-
-	if tokenSessionV2 := meta.GetSessionToken(); tokenSessionV2 != nil {
-		tokenSession = new(sessionsdk.Object)
-
-		err = tokenSession.ReadFromV2(*tokenSessionV2)
-		if err != nil {
-			return nil, fmt.Errorf("invalid session token: %w", err)
-		}
-	}
-
-	xHdrs := meta.GetXHeaders()
-
-	prm := &CommonPrm{
-		local: ttl <= maxLocalTTL,
-		token: tokenSession,
-		ttl:   ttl - 1, // decrease TTL for new requests
-		xhdrs: make([]string, 0, 2*len(xHdrs)),
-	}
-
-	if tok := meta.GetBearerToken(); tok != nil {
-		prm.bearer = new(bearer.Token)
-		err = prm.bearer.ReadFromV2(*tok)
-		if err != nil {
-			return nil, fmt.Errorf("invalid bearer token: %w", err)
-		}
-	}
-
-	for i := range xHdrs {
-		prm.xhdrs = append(prm.xhdrs, xHdrs[i].GetKey(), xHdrs[i].GetValue())
-	}
-
-	return prm, nil
-}
-
 // CommonPrmFromRequest is a temporary copy-paste of [CommonPrmFromV2].
 func CommonPrmFromRequest(req interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
