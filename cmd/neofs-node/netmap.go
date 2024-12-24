@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
-	netmapTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -172,7 +171,7 @@ func initNetmapService(c *cfg) {
 
 	initNetmapState(c)
 
-	server := netmapTransportGRPC.New(
+	server := netmapService.New(
 		netmapService.NewSignService(
 			&c.key.PrivateKey,
 			netmapService.NewResponseService(

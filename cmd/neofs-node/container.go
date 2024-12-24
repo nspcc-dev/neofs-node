@@ -19,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	netmapEv "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	containerTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/container/grpc"
 	containerService "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
 	loadroute "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/route"
@@ -187,7 +186,7 @@ func initContainerService(c *cfg) {
 		})
 	})
 
-	server := containerTransportGRPC.New(
+	server := containerService.New(
 		containerService.NewSignService(
 			&c.key.PrivateKey,
 			containerService.NewResponseService(
