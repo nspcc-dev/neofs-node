@@ -10,7 +10,6 @@ import (
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	sessionTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/persistent"
@@ -50,7 +49,7 @@ func initSessionService(c *cfg) {
 		c.privateTokenStore.RemoveOld(ev.(netmap.NewEpoch).EpochNumber())
 	})
 
-	server := sessionTransportGRPC.New(
+	server := sessionSvc.New(
 		sessionSvc.NewSignService(
 			&c.key.PrivateKey,
 			sessionSvc.NewResponseService(
