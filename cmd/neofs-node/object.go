@@ -294,7 +294,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | <metrics> | signature | response | acl | split
+	// grpc | signature | response | acl | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
@@ -347,9 +347,7 @@ func initObjectService(c *cfg) {
 		respSvc,
 	)
 
-	firstSvc := objectService.NewMetricCollector(signSvc, c.metricsCollector)
-
-	server := objectService.New(firstSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey), c.cfgNetmap.state)
+	server := objectService.New(signSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey), c.cfgNetmap.state, c.metricsCollector)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
