@@ -16,7 +16,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
-	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
@@ -51,7 +50,6 @@ import (
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
-	"github.com/nspcc-dev/neofs-node/pkg/services/util/response"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -63,8 +61,6 @@ import (
 	"golang.org/x/term"
 	"google.golang.org/grpc"
 )
-
-const addressSize = 72 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
 
 const maxMsgSize = 4 << 20 // transport msg limit 4 MiB
 
@@ -317,13 +313,6 @@ func (c *internals) stopMaintenance() {
 	c.log.Info("stopped local node's maintenance")
 }
 
-// IsMaintenance checks if storage node is under maintenance.
-//
-// Provides util.NodeState to Object service.
-func (c *internals) IsMaintenance() bool {
-	return c.isMaintenance.Load()
-}
-
 type basics struct {
 	networkState *networkState
 	netMapSource netmapCore.Source
@@ -373,8 +362,6 @@ type shared struct {
 	// whether the local node is in the netMap
 	localNodeInNetmap atomic.Bool
 
-	respSvc *response.Service
-
 	policer *policer.Policer
 
 	replicator *replicator.Replicator
@@ -418,29 +405,26 @@ type cfg struct {
 	cfgObject         cfgObject
 }
 
-// ReadCurrentNetMap reads network map which has been cached at the
-// latest epoch. Returns an error if value has not been cached yet.
+// GetNetworkMap reads network map which has been cached at the latest epoch.
+// Returns an error if value has not been cached yet.
 //
 // Provides interface for NetmapService server.
-func (c *cfg) ReadCurrentNetMap(msg *netmapV2.NetMap) error {
+func (c *cfg) GetNetworkMap() (netmap.NetMap, error) {
 	val := c.netMap.Load()
 	if val == nil {
-		return errors.New("missing local network map")
+		return netmap.NetMap{}, errors.New("missing local network map")
 	}
 
-	val.(netmap.NetMap).WriteToV2(msg)
-
-	return nil
+	return val.(netmap.NetMap), nil
 }
+
+// CurrentEpoch returns the latest cached epoch.
+func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 
 type cfgGRPC struct {
 	listeners []net.Listener
 
 	servers []*grpc.Server
-
-	maxChunkSize uint64
-
-	maxAddrAmount uint64
 }
 
 type cfgMorph struct {
@@ -553,9 +537,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		netAddr = nodeconfig.BootstrapAddresses(appCfg)
 	}
 
-	maxChunkSize := uint64(maxMsgSize) * 3 / 4          // 25% to meta, 75% to payload
-	maxAddrAmount := uint64(maxChunkSize) / addressSize // each address is about 72 bytes
-
 	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
 	fatalOnErr(err)
 
@@ -614,7 +595,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.shared = shared{
 		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		respSvc:        response.NewService(response.WithNetworkState(basicSharedConfig.networkState)),
 		clientCache:    cache.NewSDKClientCache(cacheOpts),
 		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
 		putClientCache: cache.NewSDKClientCache(cacheOpts),
@@ -627,10 +607,6 @@ func initCfg(appCfg *config.Config) *cfg {
 		state:         c.basics.networkState,
 		workerPool:    netmapWorkerPool,
 		needBootstrap: !relayOnly,
-	}
-	c.cfgGRPC = cfgGRPC{
-		maxChunkSize:  maxChunkSize,
-		maxAddrAmount: maxAddrAmount,
 	}
 	c.cfgMorph = cfgMorph{
 		proxyScriptHash: contractsconfig.Proxy(appCfg),
@@ -824,14 +800,11 @@ func (c *cfg) reloadObjectPoolSizes() {
 	c.cfgObject.pool.replication.Tune(c.cfgObject.pool.replicatorPoolSize)
 }
 
-func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
+func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {
 	c.cfgNodeInfo.localInfoLock.RLock()
 	defer c.cfgNodeInfo.localInfoLock.RUnlock()
 
-	var res netmapV2.NodeInfo
-	c.cfgNodeInfo.localInfo.WriteToV2(&res)
-
-	return &res, nil
+	return c.cfgNodeInfo.localInfo, nil
 }
 
 // handleLocalNodeInfoFromNetwork rewrites cached node info from the NeoFS network map.

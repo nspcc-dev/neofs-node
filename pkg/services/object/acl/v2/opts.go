@@ -2,7 +2,6 @@ package v2
 
 import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"go.uber.org/zap"
 )
 
@@ -25,20 +24,6 @@ func WithNetmapper(v Netmapper) Option {
 func WithContainerSource(v container.Source) Option {
 	return func(c *cfg) {
 		c.containers = v
-	}
-}
-
-// WithNextService returns option to set next object service.
-func WithNextService(v objectSvc.ServiceServer) Option {
-	return func(c *cfg) {
-		c.next = v
-	}
-}
-
-// WithEACLChecker returns option to set eACL checker.
-func WithEACLChecker(v ACLChecker) Option {
-	return func(c *cfg) {
-		c.checker = v
 	}
 }
 

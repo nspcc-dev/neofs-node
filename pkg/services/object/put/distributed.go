@@ -151,6 +151,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	default:
 	}
 
+	t.currentEpochDuration = 240
 	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
 	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
 		lockedObjs, expectedVUB, t.networkMagicNumber)

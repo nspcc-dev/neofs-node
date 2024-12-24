@@ -3,46 +3,8 @@ package container
 import (
 	"fmt"
 
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
-
-// Put marshals container, and passes it to Wrapper's Put method
-// along with sig.Key() and sig.Sign().
-//
-// Returns error if container is nil.
-func Put(c *Client, cnr containercore.Container) (*cid.ID, error) {
-	data := cnr.Value.Marshal()
-
-	d := cnr.Value.ReadDomain()
-
-	var prm PutPrm
-	prm.SetContainer(data)
-	prm.SetName(d.Name())
-	prm.SetZone(d.Zone())
-	switch metaAttribute(cnr.Value) {
-	case "optimistic", "strict":
-		prm.EnableMeta()
-	}
-
-	if cnr.Session != nil {
-		prm.SetToken(cnr.Session.Marshal())
-	}
-
-	prm.SetKey(cnr.Signature.PublicKeyBytes())
-	prm.SetSignature(cnr.Signature.Value())
-
-	err := c.Put(prm)
-	if err != nil {
-		return nil, err
-	}
-
-	id := cid.NewFromMarshalledContainer(data)
-
-	return &id, nil
-}
 
 // PutPrm groups parameters of Put operation.
 type PutPrm struct {
@@ -117,8 +79,4 @@ func (c *Client) Put(p PutPrm) error {
 		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
 	}
 	return nil
-}
-
-func metaAttribute(cnr containerSDK.Container) string {
-	return cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY")
 }

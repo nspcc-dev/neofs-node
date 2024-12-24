@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
+	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -44,40 +46,29 @@ func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
 	return s.obj, s.err
 }
 
-func testXHeaders(strs ...string) []session.XHeader {
-	res := make([]session.XHeader, len(strs)/2)
-
-	for i := 0; i < len(strs); i += 2 {
-		res[i/2].SetKey(strs[i])
-		res[i/2].SetValue(strs[i+1])
-	}
-
-	return res
-}
-
 func TestHeadRequest(t *testing.T) {
-	req := new(objectV2.HeadRequest)
-
-	meta := new(session.RequestMetaHeader)
-	req.SetMetaHeader(meta)
-
-	body := new(objectV2.HeadRequestBody)
-	req.SetBody(body)
-
-	addr := oidtest.Address()
-
-	var addrV2 refs.Address
-	addr.WriteToV2(&addrV2)
-
-	body.SetAddress(&addrV2)
+	cnr := cidtest.ID()
+	var cnr2 apirefs.ContainerID
+	cnr.WriteToV2(&cnr2)
+	id := oidtest.ID()
+	var id2 apirefs.ObjectID
+	id.WriteToV2(&id2)
 
 	xKey := "x-key"
 	xVal := "x-val"
-	xHdrs := testXHeaders(
-		xKey, xVal,
-	)
+	xHdrs := []*protosession.XHeader{{Key: xKey, Value: xVal}}
 
-	meta.SetXHeaders(xHdrs)
+	req := &protoobject.HeadRequest{
+		Body: &protoobject.HeadRequest_Body{
+			Address: &refs.Address{
+				ContainerId: cnr2.ToGRPCMessage().(*refs.ContainerID),
+				ObjectId:    id2.ToGRPCMessage().(*refs.ObjectID),
+			},
+		},
+		MetaHeader: &protosession.RequestMetaHeader{
+			XHeaders: xHdrs,
+		},
+	}
 
 	obj := object.New()
 
@@ -105,23 +96,19 @@ func TestHeadRequest(t *testing.T) {
 
 	lStorage := &testLocalStorage{
 		t:       t,
-		expAddr: addr,
+		expAddr: oid.NewAddress(cnr, id),
 		obj:     obj,
 	}
-
-	id := addr.Object()
 
 	newSource := func(t *testing.T) eaclSDK.TypedHeaderSource {
 		hdrSrc, err := NewMessageHeaderSource(
 			WithObjectStorage(lStorage),
 			WithServiceRequest(req),
-			WithCID(addr.Container()),
+			WithCID(cnr),
 			WithOID(&id))
 		require.NoError(t, err)
 		return hdrSrc
 	}
-
-	cnr := addr.Container()
 
 	unit := new(eaclSDK.ValidationUnit).
 		WithContainerID(&cnr).
@@ -133,11 +120,11 @@ func TestHeadRequest(t *testing.T) {
 
 	checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 
-	meta.SetXHeaders(nil)
+	req.MetaHeader.XHeaders = nil
 
 	checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 
-	meta.SetXHeaders(xHdrs)
+	req.MetaHeader.XHeaders = xHdrs
 
 	obj.SetAttributes()
 
@@ -153,7 +140,7 @@ func TestHeadRequest(t *testing.T) {
 		eaclSDK.ActionDeny,
 		eaclSDK.OperationHead,
 		[]eaclSDK.Target{tgt},
-		eaclSDK.NewFilterObjectWithID(addr.Object()),
+		eaclSDK.NewFilterObjectWithID(id),
 	)
 
 	table = eaclSDK.ConstructTable([]eaclSDK.Record{r, rID})
@@ -187,34 +174,29 @@ func TestV2Split(t *testing.T) {
 	originalObject.SetID(oid.ID{}) // no object ID for an original object in the first object
 	originalObject.SetSignature(&neofscrypto.Signature{})
 
-	originalObjectV2 := originalObject.ToV2()
-
 	firstObject := objecttest.Object()
 	firstObject.SetSplitID(nil) // not V1 split
 	firstObject.SetParent(&originalObject)
 	require.NoError(t, firstObject.CalculateAndSetID())
 
-	var firstIDV2 refs.ObjectID
+	var firstIDV2 apirefs.ObjectID
 	firstID := firstObject.GetID()
 	firstID.WriteToV2(&firstIDV2)
 
-	splitV2 := new(objectV2.SplitHeader)
-	splitV2.SetFirst(&firstIDV2)
-	splitV2.SetParentHeader(originalObjectV2.GetHeader())
-	headerV2 := new(objectV2.Header)
-	headerV2.SetSplit(splitV2)
-
-	objPart := new(objectV2.PutObjectPartInit)
-	objPart.SetHeader(headerV2)
-
-	body := new(objectV2.PutRequestBody)
-	body.SetObjectPart(objPart)
-
-	meta := new(session.RequestMetaHeader)
-
-	req := new(objectV2.PutRequest)
-	req.SetMetaHeader(meta)
-	req.SetBody(body)
+	hs := &protoobject.Header_Split{
+		ParentHeader: originalObject.ToV2().GetHeader().ToGRPCMessage().(*protoobject.Header),
+		First:        firstIDV2.ToGRPCMessage().(*refs.ObjectID),
+	}
+	hdr := &protoobject.Header{
+		Split: hs,
+	}
+	req := &protoobject.PutRequest{
+		Body: &protoobject.PutRequest_Body{
+			ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{
+				Header: hdr,
+			}},
+		},
+	}
 
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
@@ -260,7 +242,6 @@ func TestV2Split(t *testing.T) {
 	t.Run("denied by parent's attribute; non-first object", func(t *testing.T) {
 		// get the first object from the "network"
 		hdrSrc.header = &firstObject
-		headerV2.GetSplit().SetParent(nil)
 
 		checkAction(t, eaclSDK.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
 	})
@@ -270,7 +251,7 @@ func TestV2Split(t *testing.T) {
 		originalObjectNoRestrictedAttr.SetID(oid.ID{}) // no object ID for an original object in the first object
 		originalObjectNoRestrictedAttr.SetSignature(&neofscrypto.Signature{})
 
-		splitV2.SetParentHeader(originalObjectNoRestrictedAttr.ToV2().GetHeader())
+		hs.ParentHeader = originalObjectNoRestrictedAttr.ToV2().GetHeader().ToGRPCMessage().(*protoobject.Header)
 
 		// allow an object whose first obj does not have the restricted attribute
 		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
