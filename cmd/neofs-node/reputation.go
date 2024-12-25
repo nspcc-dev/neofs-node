@@ -229,8 +229,7 @@ func initReputationService(c *cfg) {
 				log.Debug("could not fetch epoch duration", zap.Error(err))
 				return
 			}
-
-			c.networkState.epochDuration.Store(duration)
+			c.networkState.updateEpochDuration(duration)
 
 			iterations, err := c.cfgNetmap.wrapper.EigenTrustIterations()
 			if err != nil {

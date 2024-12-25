@@ -22,8 +22,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// defaultEpochDuration is a default epoch duration to replace zero from FS chain.
+const defaultEpochDuration = 240
+
 // primary solution of local network state dump.
 type networkState struct {
+	l *zap.Logger
+
 	epoch         atomic.Uint64
 	block         atomic.Uint32
 	epochDuration atomic.Uint64
@@ -35,11 +40,12 @@ type networkState struct {
 	metrics *metrics.NodeMetrics
 }
 
-func newNetworkState() *networkState {
+func newNetworkState(l *zap.Logger) *networkState {
 	var nmStatus atomic.Value
 	nmStatus.Store(control.NetmapStatus_STATUS_UNDEFINED)
 
 	return &networkState{
+		l:                l,
 		controlNetStatus: nmStatus,
 	}
 }
@@ -60,6 +66,16 @@ func (s *networkState) setCurrentEpoch(v uint64) {
 	s.epoch.Store(v)
 
 	s.metrics.SetEpoch(v)
+}
+
+func (s *networkState) updateEpochDuration(v uint64) {
+	if v != 0 {
+		s.epochDuration.Store(v)
+		return
+	}
+
+	s.l.Warn("zero epoch duration received, fallback to default value", zap.Uint64("applied default value", defaultEpochDuration))
+	s.epochDuration.Store(defaultEpochDuration)
 }
 
 func (s *networkState) setNodeInfo(ni *netmapSDK.NodeInfo) {

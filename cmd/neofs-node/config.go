@@ -724,7 +724,10 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	lookupScriptHashesInNNS(cli, c.applicationConfiguration, &b)
 
-	nState := newNetworkState()
+	nState := newNetworkState(c.log)
+	currBlock, err := cli.BlockCount()
+	fatalOnErr(err)
+	nState.block.Store(currBlock)
 
 	cnrWrap, err := cntClient.NewFromMorph(cli, b.containerSH, 0)
 	fatalOnErr(err)
@@ -737,6 +740,10 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
 	fatalOnErr(err)
+
+	eDuration, err := nmWrap.EpochDuration()
+	fatalOnErr(err)
+	nState.updateEpochDuration(eDuration)
 
 	ttl := c.applicationConfiguration.fsChain.cacheTTL
 	if ttl == 0 {
