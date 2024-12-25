@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,7 @@ type m struct {
 	prev    oid.ID
 	deleted []oid.ID
 	locked  []oid.ID
+	typ     object.Type
 }
 
 func TestMetaInfo(t *testing.T) {
@@ -37,6 +39,7 @@ func TestMetaInfo(t *testing.T) {
 		prev:    oidtest.ID(),
 		deleted: oidtest.IDs(10),
 		locked:  oidtest.IDs(10),
+		typ:     object.TypeTombstone,
 	}
 
 	t.Run("full", func(t *testing.T) {
@@ -49,13 +52,14 @@ func TestMetaInfo(t *testing.T) {
 		meta.deleted = nil
 		meta.deleted = nil
 		meta.locked = nil
+		meta.typ = object.TypeRegular
 
 		testMeta(t, meta, false)
 	})
 }
 
 func testMeta(t *testing.T, m m, full bool) {
-	raw := EncodeReplicationMetaInfo(m.cID, m.oID, m.first, m.prev, m.size, m.deleted, m.locked, m.vub, m.magic)
+	raw := EncodeReplicationMetaInfo(m.cID, m.oID, m.first, m.prev, m.size, m.typ, m.deleted, m.locked, m.vub, m.magic)
 	item, err := stackitem.Deserialize(raw)
 	require.NoError(t, err)
 
@@ -94,6 +98,9 @@ func testMeta(t *testing.T, m m, full bool) {
 
 	require.Equal(t, lockedKey, string(mm[8].Key.Value().([]byte)))
 	require.Equal(t, m.locked, stackItemToOIDs(t, mm[8].Value))
+
+	require.Equal(t, typeKey, string(mm[9].Key.Value().([]byte)))
+	require.Equal(t, int(m.typ), int(mm[9].Value.Value().(*big.Int).Uint64()))
 }
 
 func stackItemToOIDs(t *testing.T, value stackitem.Item) []oid.ID {

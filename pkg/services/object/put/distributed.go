@@ -150,7 +150,8 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 	var deletedObjs []oid.ID
 	var lockedObjs []oid.ID
-	switch t.objMeta.Type() {
+	typ := t.objMeta.Type()
+	switch typ {
 	case objectSDK.TypeTombstone:
 		deletedObjs = t.objMeta.Objects()
 	case objectSDK.TypeLock:
@@ -159,7 +160,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	}
 
 	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
-	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, prevObj, t.obj.PayloadSize(), deletedObjs,
+	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, prevObj, t.obj.PayloadSize(), typ, deletedObjs,
 		lockedObjs, expectedVUB, t.networkMagicNumber)
 	id := t.obj.GetID()
 	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)

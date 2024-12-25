@@ -410,7 +410,7 @@ func TestServer_Replicate(t *testing.T) {
 
 				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
 				require.True(t, sig.Verify(objectcore.EncodeReplicationMetaInfo(
-					o.GetContainerID(), o.GetID(), o.GetFirstID(), o.GetPreviousID(), o.PayloadSize(), nil, nil,
+					o.GetContainerID(), o.GetID(), o.GetFirstID(), o.GetPreviousID(), o.PayloadSize(), o.Type(), nil, nil,
 					uint64((123+1+i)*240), mNumber)))
 
 				sigsRaw = sigsRaw[:4+l]

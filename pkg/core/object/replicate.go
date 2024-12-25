@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -21,6 +22,7 @@ const (
 	previousPartKey = "previousPart"
 	deletedKey      = "deleted"
 	lockedKey       = "locked"
+	typeKey         = "type"
 )
 
 // EncodeReplicationMetaInfo uses NEO's map (strict order) serialized format as a raw
@@ -37,7 +39,8 @@ const (
 //	"previousPart": [OPTIONAL] _raw_ object ID (32 bytes)
 //	"deleted": [OPTIONAL] array of _raw_ object IDs
 //	"locked": [OPTIONAL] array of _raw_ object IDs
-func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64,
+//	"type": [OPTIONAL] object type enumeration
+func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ objectsdk.Type,
 	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
 		kv(cidKey, cID[:]),
@@ -58,6 +61,9 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, 
 	}
 	if len(locked) > 0 {
 		kvs = append(kvs, oidsKV(lockedKey, locked))
+	}
+	if typ != objectsdk.TypeRegular {
+		kvs = append(kvs, kv(typeKey, uint32(typ)))
 	}
 
 	result, err := stackitem.Serialize(stackitem.NewMapWithValue(kvs))

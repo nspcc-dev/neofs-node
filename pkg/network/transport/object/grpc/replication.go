@@ -215,7 +215,8 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 
 	var deleted []oid.ID
 	var locked []oid.ID
-	switch o.Type() {
+	typ := o.Type()
+	switch typ {
 	case object.TypeTombstone:
 		var t object.Tombstone
 		err := t.Unmarshal(o.Payload())
@@ -242,9 +243,9 @@ func (s *Server) metaInfoSignature(o object.Object) ([]byte, error) {
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration
 
-	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), deleted, locked, firstBlock, s.mNumber)
-	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), deleted, locked, secondBlock, s.mNumber)
-	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), deleted, locked, thirdBlock, s.mNumber)
+	firstMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, firstBlock, s.mNumber)
+	secondMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, secondBlock, s.mNumber)
+	thirdMeta := objectcore.EncodeReplicationMetaInfo(o.GetContainerID(), o.GetID(), firstObj, prevObj, o.PayloadSize(), typ, deleted, locked, thirdBlock, s.mNumber)
 
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
