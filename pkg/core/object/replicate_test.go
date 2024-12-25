@@ -20,6 +20,8 @@ type m struct {
 	vub   uint64
 	magic uint32
 
+	first   oid.ID
+	prev    oid.ID
 	deleted []oid.ID
 	locked  []oid.ID
 }
@@ -31,6 +33,8 @@ func TestMetaInfo(t *testing.T) {
 		size:    rand.Uint64(),
 		vub:     rand.Uint64(),
 		magic:   rand.Uint32(),
+		first:   oidtest.ID(),
+		prev:    oidtest.ID(),
 		deleted: oidtest.IDs(10),
 		locked:  oidtest.IDs(10),
 	}
@@ -40,6 +44,8 @@ func TestMetaInfo(t *testing.T) {
 	})
 
 	t.Run("no optional", func(t *testing.T) {
+		meta.first = oid.ID{}
+		meta.prev = oid.ID{}
 		meta.deleted = nil
 		meta.deleted = nil
 		meta.locked = nil
@@ -49,7 +55,7 @@ func TestMetaInfo(t *testing.T) {
 }
 
 func testMeta(t *testing.T, m m, full bool) {
-	raw := EncodeReplicationMetaInfo(m.cID, m.oID, m.size, m.deleted, m.locked, m.vub, m.magic)
+	raw := EncodeReplicationMetaInfo(m.cID, m.oID, m.first, m.prev, m.size, m.deleted, m.locked, m.vub, m.magic)
 	item, err := stackitem.Deserialize(raw)
 	require.NoError(t, err)
 
@@ -77,11 +83,17 @@ func testMeta(t *testing.T, m m, full bool) {
 		return
 	}
 
-	require.Equal(t, deletedKey, string(mm[5].Key.Value().([]byte)))
-	require.Equal(t, m.deleted, stackItemToOIDs(t, mm[5].Value))
+	require.Equal(t, firstPartKey, string(mm[5].Key.Value().([]byte)))
+	require.Equal(t, m.first[:], mm[5].Value.Value().([]byte))
 
-	require.Equal(t, lockedKey, string(mm[6].Key.Value().([]byte)))
-	require.Equal(t, m.locked, stackItemToOIDs(t, mm[6].Value))
+	require.Equal(t, previousPartKey, string(mm[6].Key.Value().([]byte)))
+	require.Equal(t, m.prev[:], mm[6].Value.Value().([]byte))
+
+	require.Equal(t, deletedKey, string(mm[7].Key.Value().([]byte)))
+	require.Equal(t, m.deleted, stackItemToOIDs(t, mm[7].Value))
+
+	require.Equal(t, lockedKey, string(mm[8].Key.Value().([]byte)))
+	require.Equal(t, m.locked, stackItemToOIDs(t, mm[8].Value))
 }
 
 func stackItemToOIDs(t *testing.T, value stackitem.Item) []oid.ID {

@@ -121,6 +121,13 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		t.encodedObject.b = nil
 	}()
 
+	firstObj := t.obj.GetFirstID()
+	if t.obj.HasParent() && firstObj.IsZero() {
+		// object itself is the first one
+		firstObj = t.obj.GetID()
+	}
+	prevObj := t.obj.GetPreviousID()
+
 	t.obj.SetPayload(t.encodedObject.b[t.encodedObject.pldOff:])
 
 	tombOrLink := t.obj.Type() == objectSDK.TypeLink || t.obj.Type() == objectSDK.TypeTombstone
@@ -152,7 +159,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 	}
 
 	expectedVUB := (uint64(t.currentBlock)/t.currentEpochDuration + 2) * t.currentEpochDuration
-	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), t.obj.PayloadSize(), deletedObjs,
+	t.objSharedMeta = object.EncodeReplicationMetaInfo(t.obj.GetContainerID(), t.obj.GetID(), firstObj, prevObj, t.obj.PayloadSize(), deletedObjs,
 		lockedObjs, expectedVUB, t.networkMagicNumber)
 	id := t.obj.GetID()
 	err := t.placementIterator.iterateNodesForObject(id, t.sendObject)

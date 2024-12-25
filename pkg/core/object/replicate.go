@@ -17,8 +17,10 @@ const (
 	networkMagicKey = "network"
 
 	// optional fields.
-	deletedKey = "deleted"
-	lockedKey  = "locked"
+	firstPartKey    = "firstPart"
+	previousPartKey = "previousPart"
+	deletedKey      = "deleted"
+	lockedKey       = "locked"
 )
 
 // EncodeReplicationMetaInfo uses NEO's map (strict order) serialized format as a raw
@@ -31,9 +33,11 @@ const (
 //	"size": payload size
 //	"validUntil": last valid block number for meta information
 //	"network": network magic
+//	"firstPart": [OPTIONAL] _raw_ object ID (32 bytes)
+//	"previousPart": [OPTIONAL] _raw_ object ID (32 bytes)
 //	"deleted": [OPTIONAL] array of _raw_ object IDs
 //	"locked": [OPTIONAL] array of _raw_ object IDs
-func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
+func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64,
 	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
 		kv(cidKey, cID[:]),
@@ -43,6 +47,12 @@ func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
 		kv(networkMagicKey, magicNumber),
 	}
 
+	if !firstPart.IsZero() {
+		kvs = append(kvs, kv(firstPartKey, firstPart[:]))
+	}
+	if !previousPart.IsZero() {
+		kvs = append(kvs, kv(previousPartKey, previousPart[:]))
+	}
 	if len(deleted) > 0 {
 		kvs = append(kvs, oidsKV(deletedKey, deleted))
 	}
