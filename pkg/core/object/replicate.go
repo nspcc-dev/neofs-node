@@ -34,8 +34,6 @@ const (
 //	"deleted": array of _raw_ object IDs
 //	"locked": array of _raw_ object IDs
 //	"validUntil": last valid block number for meta information
-//
-// Last valid epoch is object's creation epoch + 10.
 func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
 	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
