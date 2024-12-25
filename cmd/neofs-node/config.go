@@ -724,7 +724,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	lookupScriptHashesInNNS(cli, c.applicationConfiguration, &b)
 
-	nState := newNetworkState()
+	nState := newNetworkState(c.log)
 	currBlock, err := cli.BlockCount()
 	fatalOnErr(err)
 	nState.block.Store(currBlock)
@@ -743,7 +743,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	eDuration, err := nmWrap.EpochDuration()
 	fatalOnErr(err)
-	nState.epochDuration.Store(eDuration)
+	nState.updateEpochDuration(eDuration)
 
 	ttl := c.applicationConfiguration.fsChain.cacheTTL
 	if ttl == 0 {
