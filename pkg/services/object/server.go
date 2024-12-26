@@ -27,6 +27,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 // GetObjectStream is an interface of NeoFS API v2 compatible object streamer.
@@ -143,8 +144,13 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 }
 
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+	v := version.Current()
+	var v2 refsv2.Version
+	v.WriteToV2(&v2)
 	return &protosession.ResponseMetaHeader{
-		Status: st,
+		Version: v2.ToGRPCMessage().(*refs.Version),
+		Epoch:   s.fsChain.CurrentEpoch(),
+		Status:  st,
 	}
 }
 
