@@ -130,6 +130,8 @@ func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f
 
 func (x *testFSChain) IsOwnPublicKey(pubKey []byte) bool { return bytes.Equal(x.serverPubKey, pubKey) }
 
+func (x *testFSChain) CurrentEpoch() uint64 { return 0 }
+
 type testStorage struct {
 	t testing.TB
 	// request data
