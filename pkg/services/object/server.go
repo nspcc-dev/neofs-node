@@ -3,6 +3,7 @@ package object
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -110,14 +113,14 @@ type server struct {
 	srv ServiceServer
 
 	node    Node
-	signer  neofscrypto.Signer
+	signer  ecdsa.PrivateKey
 	mNumber uint32
 	nmState netmap.StateDetailed
 	metrics MetricCollector
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, node Node, signer ecdsa.PrivateKey, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
 	return &server{
 		srv:     c,
 		node:    node,
@@ -132,25 +135,42 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 	s.metrics.HandleOpExecResult(op, err == nil, time.Since(startedAt))
 }
 
+func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+	return &protosession.ResponseMetaHeader{
+		Status: st,
+	}
+}
+
+func (s *server) sendPutResponse(startTime time.Time, stream protoobject.ObjectService_PutServer, err error, resp *protoobject.PutResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.PutResponse{})
+	s.pushOpExecResult(stat.MethodObjectPut, err, startTime)
+	return stream.SendAndClose(resp)
+}
+
+func (s *server) sendStatusPutResponse(startTime time.Time, stream protoobject.ObjectService_PutServer, err error) error {
+	return s.sendPutResponse(startTime, stream, err, &protoobject.PutResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
+}
+
 // Put opens internal Object service Put stream and overtakes data from gRPC stream to it.
 func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
+	startTime := time.Now()
 	stream, err := s.srv.Put(gStream.Context())
 	if err != nil {
-		return err
+		return s.sendStatusPutResponse(startTime, gStream, err)
 	}
 
-	t := time.Now()
 	for {
 		req, err := gStream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				resp, err := stream.CloseAndRecv()
-				s.pushOpExecResult(stat.MethodObjectPut, err, t)
 				if err != nil {
-					return err
+					return s.sendStatusPutResponse(startTime, gStream, err)
 				}
 
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
+				return s.sendPutResponse(startTime, gStream, util.StatusOKErr, resp.ToGRPCMessage().(*protoobject.PutResponse))
 			}
 
 			return err
@@ -164,21 +184,26 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 		if err := putReq.FromGRPCMessage(req); err != nil {
 			return err
 		}
+		if err := signature.VerifyServiceMessage(putReq); err != nil {
+			return s.sendStatusPutResponse(startTime, gStream, util.ToRequestSignatureVerificationError(err))
+		}
 
 		if err := stream.Send(putReq); err != nil {
-			if errors.Is(err, util.ErrAbortStream) {
-				resp, err := stream.CloseAndRecv()
-				s.pushOpExecResult(stat.MethodObjectPut, err, t)
-				if err != nil {
-					return err
-				}
-
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
-			}
-
-			return err
+			return s.sendStatusPutResponse(startTime, gStream, err)
 		}
 	}
+}
+
+func (s *server) signDeleteResponse(startTime time.Time, err error, resp *protoobject.DeleteResponse) (*protoobject.DeleteResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.DeleteResponse{})
+	s.pushOpExecResult(stat.MethodObjectDelete, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeStatusDeleteResponse(startTime time.Time, err error) (*protoobject.DeleteResponse, error) {
+	return s.signDeleteResponse(startTime, err, &protoobject.DeleteResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
 }
 
 // Delete converts gRPC DeleteRequest message and passes it to internal Object service.
@@ -188,14 +213,30 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.Delete(ctx, delReq)
-	s.pushOpExecResult(stat.MethodObjectDelete, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(delReq); err != nil {
+		return s.makeStatusDeleteResponse(startTime, err)
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.DeleteResponse), nil
+	resp, err := s.srv.Delete(ctx, delReq)
+	if err != nil {
+		return s.makeStatusDeleteResponse(startTime, err)
+	}
+
+	return s.signDeleteResponse(startTime, util.StatusOKErr, resp.ToGRPCMessage().(*protoobject.DeleteResponse))
+}
+
+func (s *server) signHeadResponse(err error, startTime time.Time, resp *protoobject.HeadResponse) (*protoobject.HeadResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.HeadResponse{})
+	s.pushOpExecResult(stat.MethodObjectHead, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeStatusHeadResponse(startTime time.Time, err error) (*protoobject.HeadResponse, error) {
+	return s.signHeadResponse(err, startTime, &protoobject.HeadResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
 }
 
 // Head converts gRPC HeadRequest message and passes it to internal Object service.
@@ -205,14 +246,30 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.Head(ctx, searchReq)
-	s.pushOpExecResult(stat.MethodObjectHead, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(searchReq); err != nil {
+		return s.makeStatusHeadResponse(startTime, err)
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.HeadResponse), nil
+	resp, err := s.srv.Head(ctx, searchReq)
+	if err != nil {
+		return s.makeStatusHeadResponse(startTime, err)
+	}
+
+	return s.signHeadResponse(nil, startTime, resp.ToGRPCMessage().(*protoobject.HeadResponse))
+}
+
+func (s *server) signHashResponse(startTime time.Time, err error, resp *protoobject.GetRangeHashResponse) (*protoobject.GetRangeHashResponse, error) {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetRangeHashResponse{})
+	s.pushOpExecResult(stat.MethodObjectHash, err, startTime)
+	return resp, nil
+}
+
+func (s *server) makeStatusHashResponse(startTime time.Time, err error) (*protoobject.GetRangeHashResponse, error) {
+	return s.signHashResponse(startTime, err, &protoobject.GetRangeHashResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
 }
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
@@ -222,27 +279,44 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return nil, err
 	}
 
-	t := time.Now()
-	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
-	s.pushOpExecResult(stat.MethodObjectHash, err, t)
-	if err != nil {
-		return nil, err
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(hashRngReq); err != nil {
+		return s.makeStatusHashResponse(startTime, err)
 	}
 
-	return resp.ToGRPCMessage().(*protoobject.GetRangeHashResponse), nil
+	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
+	if err != nil {
+		return s.makeStatusHashResponse(startTime, err)
+	}
+
+	return s.signHashResponse(startTime, nil, resp.ToGRPCMessage().(*protoobject.GetRangeHashResponse))
+}
+
+func (s *server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendStatusGetResponse(startTime time.Time, stream protoobject.ObjectService_GetServer, err error) error {
+	sendErr := s.sendGetResponse(stream, &protoobject.GetResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
+	s.pushOpExecResult(stat.MethodObjectGet, err, startTime)
+	return sendErr
 }
 
 type getStreamerV2 struct {
 	protoobject.ObjectService_GetServer
-	metrics MetricCollector
+	srv *server
 }
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
 	if c := r.GetBody().GetChunk(); c != nil {
-		s.metrics.AddGetPayload(len(c))
+		s.srv.metrics.AddGetPayload(len(c))
 	}
-	return s.ObjectService_GetServer.Send(r)
+	return s.srv.sendGetResponse(s.ObjectService_GetServer, r)
 }
 
 // Get converts gRPC GetRequest message and server-side stream and overtakes its data
@@ -252,26 +326,47 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err := getReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(getReq); err != nil {
+		return s.sendStatusGetResponse(startTime, gStream, err)
+	}
+
 	err := s.srv.Get(
 		getReq,
 		&getStreamerV2{
 			ObjectService_GetServer: gStream,
-			metrics:                 s.metrics,
+			srv:                     s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectGet, err, t)
-	return err
+	if err != nil {
+		return s.sendStatusGetResponse(startTime, gStream, err)
+	}
+	s.pushOpExecResult(stat.MethodObjectGet, nil, startTime)
+	return nil
+}
+
+func (s *server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.GetRangeResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendStatusRangeResponse(startTime time.Time, stream protoobject.ObjectService_GetRangeServer, err error) error {
+	sendErr := s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
+	s.pushOpExecResult(stat.MethodObjectRange, err, startTime)
+	return sendErr
 }
 
 type getRangeStreamerV2 struct {
 	protoobject.ObjectService_GetRangeServer
+	srv *server
 }
 
 func (s *getRangeStreamerV2) Send(resp *v2object.GetRangeResponse) error {
-	return s.ObjectService_GetRangeServer.Send(
-		resp.ToGRPCMessage().(*protoobject.GetRangeResponse),
-	)
+	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, resp.ToGRPCMessage().(*protoobject.GetRangeResponse))
 }
 
 // GetRange converts gRPC GetRangeRequest message and server-side stream and overtakes its data
@@ -281,25 +376,47 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err := getRngReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(getRngReq); err != nil {
+		return s.sendStatusRangeResponse(startTime, gStream, err)
+	}
+
 	err := s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
 			ObjectService_GetRangeServer: gStream,
+			srv:                          s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectRange, err, t)
-	return err
+	if err != nil {
+		return s.sendStatusRangeResponse(startTime, gStream, err)
+	}
+	s.pushOpExecResult(stat.MethodObjectRange, nil, startTime)
+	return nil
+}
+
+func (s *server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse) error {
+	resp = util.SignResponse(&s.signer, resp, v2object.SearchResponse{})
+	return stream.Send(resp)
+}
+
+func (s *server) sendStatusSearchResponse(startTime time.Time, stream protoobject.ObjectService_SearchServer, err error) error {
+	sendErr := s.sendSearchResponse(stream, &protoobject.SearchResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
+	s.pushOpExecResult(stat.MethodObjectSearch, err, startTime)
+	return sendErr
 }
 
 type searchStreamerV2 struct {
 	protoobject.ObjectService_SearchServer
+	srv *server
 }
 
 func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
-	return s.ObjectService_SearchServer.Send(
-		resp.ToGRPCMessage().(*protoobject.SearchResponse),
-	)
+	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, resp.ToGRPCMessage().(*protoobject.SearchResponse))
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
@@ -309,15 +426,25 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	if err := searchReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-	t := time.Now()
+
+	startTime := time.Now()
+
+	if err := signature.VerifyServiceMessage(searchReq); err != nil {
+		return s.sendStatusSearchResponse(startTime, gStream, err)
+	}
+
 	err := s.srv.Search(
 		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
+			srv:                        s,
 		},
 	)
-	s.pushOpExecResult(stat.MethodObjectSearch, err, t)
-	return err
+	if err != nil {
+		return s.sendStatusSearchResponse(startTime, gStream, err)
+	}
+	s.pushOpExecResult(stat.MethodObjectSearch, nil, startTime)
+	return nil
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
@@ -541,16 +668,16 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 	var firstSig neofscrypto.Signature
 	var secondSig neofscrypto.Signature
 	var thirdSig neofscrypto.Signature
-
-	err := firstSig.Calculate(s.signer, firstMeta)
+	signer := neofsecdsa.SignerRFC6979(s.signer)
+	err := firstSig.Calculate(signer, firstMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
-	err = secondSig.Calculate(s.signer, secondMeta)
+	err = secondSig.Calculate(signer, secondMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
-	err = thirdSig.Calculate(s.signer, thirdMeta)
+	err = thirdSig.Calculate(signer, thirdMeta)
 	if err != nil {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
