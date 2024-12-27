@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func newConfig(path string) (*viper.Viper, error) {
 
 	err = validate.ValidateStruct(v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed config validation: %w", err)
 	}
 
 	return v, nil
