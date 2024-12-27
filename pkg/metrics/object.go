@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -68,7 +69,7 @@ func (m methodCount) mustRegister() {
 	prometheus.MustRegister(m.total)
 }
 
-func (m methodCount) Inc(success bool) {
+func (m methodCount) inc(success bool) {
 	m.total.Inc()
 	if success {
 		m.success.Inc()
@@ -217,60 +218,32 @@ func (m objectServiceMetrics) register() {
 	prometheus.MustRegister(m.shardsReadonly)
 }
 
-func (m objectServiceMetrics) IncGetReqCounter(success bool) {
-	m.getCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncPutReqCounter(success bool) {
-	m.putCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncHeadReqCounter(success bool) {
-	m.headCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncSearchReqCounter(success bool) {
-	m.searchCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncDeleteReqCounter(success bool) {
-	m.deleteCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncRangeReqCounter(success bool) {
-	m.rangeCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) IncRangeHashReqCounter(success bool) {
-	m.rangeHashCounter.Inc(success)
-}
-
-func (m objectServiceMetrics) AddGetReqDuration(d time.Duration) {
-	m.getDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddPutReqDuration(d time.Duration) {
-	m.putDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddHeadReqDuration(d time.Duration) {
-	m.headDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddSearchReqDuration(d time.Duration) {
-	m.searchDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddDeleteReqDuration(d time.Duration) {
-	m.deleteDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddRangeReqDuration(d time.Duration) {
-	m.rangeDuration.Observe(d.Seconds())
-}
-
-func (m objectServiceMetrics) AddRangeHashReqDuration(d time.Duration) {
-	m.rangeHashDuration.Observe(d.Seconds())
+func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d time.Duration) {
+	switch op {
+	default:
+		panic(fmt.Sprintf("unsupported op %v", op))
+	case stat.MethodObjectGet:
+		m.getCounter.inc(success)
+		m.getDuration.Observe(d.Seconds())
+	case stat.MethodObjectPut:
+		m.putCounter.inc(success)
+		m.putDuration.Observe(d.Seconds())
+	case stat.MethodObjectHead:
+		m.headCounter.inc(success)
+		m.headDuration.Observe(d.Seconds())
+	case stat.MethodObjectDelete:
+		m.deleteCounter.inc(success)
+		m.deleteDuration.Observe(d.Seconds())
+	case stat.MethodObjectSearch:
+		m.searchCounter.inc(success)
+		m.searchDuration.Observe(d.Seconds())
+	case stat.MethodObjectRange:
+		m.rangeCounter.inc(success)
+		m.rangeDuration.Observe(d.Seconds())
+	case stat.MethodObjectHash:
+		m.rangeHashCounter.inc(success)
+		m.rangeHashDuration.Observe(d.Seconds())
+	}
 }
 
 func (m objectServiceMetrics) AddPutPayload(ln int) {

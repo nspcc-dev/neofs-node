@@ -3,7 +3,6 @@ package control
 import (
 	"fmt"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
@@ -93,11 +92,7 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var resp *control.SetNetmapStatusResponse
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = control.SetNetmapStatus(client, req)
-		return err
-	})
+	resp, err := cli.SetNetmapStatus(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
