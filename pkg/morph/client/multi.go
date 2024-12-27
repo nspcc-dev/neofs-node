@@ -64,5 +64,7 @@ func (c *Client) closeWaiter() {
 	case <-c.closeChan:
 	}
 	var conn = c.conn.Swap(nil)
-	conn.Close()
+	if conn != nil {
+		conn.Close()
+	}
 }

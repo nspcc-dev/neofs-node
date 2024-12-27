@@ -229,6 +229,9 @@ routeloop:
 		if conn == nil {
 			c.logger.Info("RPC connection lost, attempting reconnect")
 			conn = c.switchRPC()
+			if conn == nil {
+				break routeloop
+			}
 			go c.restoreSubscriptions(conn, restoreCh)
 		}
 		var connLost bool

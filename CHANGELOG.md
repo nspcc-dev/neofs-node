@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
 - Make the error message more clearer when validating IR configuration (#3072)
+- Panic during shutdown if N3 client connection is lost (#3073)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
