@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"testing"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
@@ -135,6 +136,8 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
 	obj.SetID(objID)
+	obj.SetFirstID(oidtest.ID())
+	obj.SetPreviousID(oidtest.ID())
 
 	sig, err := signer.Sign(objID[:])
 	require.NoError(tb, err)
@@ -397,7 +400,7 @@ func TestServer_Replicate(t *testing.T) {
 
 			sigsRaw := resp.GetObjectSignature()
 
-			for i := range 1 {
+			for i := range 3 {
 				var sigV2 refsv2.Signature
 				l := binary.LittleEndian.Uint32(sigsRaw)
 
@@ -408,10 +411,10 @@ func TestServer_Replicate(t *testing.T) {
 
 				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
 				require.True(t, sig.Verify(objectcore.EncodeReplicationMetaInfo(
-					o.GetContainerID(), o.GetID(), o.PayloadSize(), nil, nil,
-					uint64((123+1+i)*240), mNumber)))
+					o.GetContainerID(), o.GetID(), o.GetFirstID(), o.GetPreviousID(), o.PayloadSize(), o.Type(), nil, nil,
+					uint64((123+1+i)*240), mNumber)), fmt.Sprintf("wrong %d signature", i+1))
 
-				sigsRaw = sigsRaw[:4+l]
+				sigsRaw = sigsRaw[4+l:]
 			}
 		})
 	})

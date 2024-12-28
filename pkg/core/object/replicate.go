@@ -5,21 +5,24 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 const (
-	currentVersion = 7 // it is also a number of fields
-)
-
-const (
-	networkMagicKey = "network"
+	// required fields.
 	cidKey          = "cid"
 	oidKey          = "oid"
 	sizeKey         = "size"
+	validUntilKey   = "validUntil"
+	networkMagicKey = "network"
+
+	// optional fields.
+	firstPartKey    = "firstPart"
+	previousPartKey = "previousPart"
 	deletedKey      = "deleted"
 	lockedKey       = "locked"
-	validUntilKey   = "validuntil"
+	typeKey         = "type"
 )
 
 // EncodeReplicationMetaInfo uses NEO's map (strict order) serialized format as a raw
@@ -27,25 +30,40 @@ const (
 //
 // This (ordered) format is used (keys are strings):
 //
-//	"network": network magic
 //	"cid": _raw_ container ID (32 bytes)
 //	"oid": _raw_ object ID (32 bytes)
 //	"size": payload size
-//	"deleted": array of _raw_ object IDs
-//	"locked": array of _raw_ object IDs
-//	"validuntil": last valid block number for meta information
-//
-// Last valid epoch is object's creation epoch + 10.
-func EncodeReplicationMetaInfo(cID cid.ID, oID oid.ID, pSize uint64,
+//	"validUntil": last valid block number for meta information
+//	"network": network magic
+//	"firstPart": [OPTIONAL] _raw_ object ID (32 bytes)
+//	"previousPart": [OPTIONAL] _raw_ object ID (32 bytes)
+//	"deleted": [OPTIONAL] array of _raw_ object IDs
+//	"locked": [OPTIONAL] array of _raw_ object IDs
+//	"type": [OPTIONAL] object type enumeration
+func EncodeReplicationMetaInfo(cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ objectsdk.Type,
 	deleted, locked []oid.ID, vub uint64, magicNumber uint32) []byte {
 	kvs := []stackitem.MapElement{
-		kv(networkMagicKey, magicNumber),
 		kv(cidKey, cID[:]),
 		kv(oidKey, oID[:]),
 		kv(sizeKey, pSize),
-		oidsKV(deletedKey, deleted),
-		oidsKV(lockedKey, locked),
 		kv(validUntilKey, vub),
+		kv(networkMagicKey, magicNumber),
+	}
+
+	if !firstPart.IsZero() {
+		kvs = append(kvs, kv(firstPartKey, firstPart[:]))
+	}
+	if !previousPart.IsZero() {
+		kvs = append(kvs, kv(previousPartKey, previousPart[:]))
+	}
+	if len(deleted) > 0 {
+		kvs = append(kvs, oidsKV(deletedKey, deleted))
+	}
+	if len(locked) > 0 {
+		kvs = append(kvs, oidsKV(lockedKey, locked))
+	}
+	if typ != objectsdk.TypeRegular {
+		kvs = append(kvs, kv(typeKey, uint32(typ)))
 	}
 
 	result, err := stackitem.Serialize(stackitem.NewMapWithValue(kvs))
