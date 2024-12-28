@@ -30,3 +30,9 @@ enum HealthStatus {
     // Initializing Neo network
     INITIALIZING_NETWORK = 4;
 }
+
+// Info about transaction.
+message TransactionInfo {
+    // Hash of transaction.
+    bytes hash = 1;
+}

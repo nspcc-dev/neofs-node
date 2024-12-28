@@ -560,3 +560,29 @@ func (c *Client) AccountVote(addr util.Uint160) (*keys.PublicKey, error) {
 
 	return accountState.VoteTo, nil
 }
+
+// GetRawNotaryPool returns hashes of main P2PNotaryRequest transactions
+// that are currently in the RPC node's notary request pool with the
+// corresponding hashes of fallback transactions.
+func (c *Client) GetRawNotaryPool() (*result.RawNotaryPool, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.GetRawNotaryPool()
+}
+
+// GetRawNotaryTransactionVerbose returns main or fallback transaction
+// from the RPC node's notary request pool.
+// NOTE: to get transaction.ID and transaction.Size, use t.Hash() and io.GetVarSize(t) respectively.
+func (c *Client) GetRawNotaryTransactionVerbose(hash util.Uint256) (*transaction.Transaction, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.GetRawNotaryTransactionVerbose(hash)
+}

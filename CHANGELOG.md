@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 - Initial support for meta-on-chain for objects (#2877)
 - First split-object part into the CLI output (#3064)
+- `neofs-cli control notary` with `list`, `request` and `sign` commands (#3059)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)

@@ -145,7 +145,8 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				vubP = &vub
 			}
 
-			return s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
+			_, err = s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
+			return err
 		}
 
 		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, fee, prm.method, prm.args...)

@@ -134,7 +134,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	}
 
 	s.contracts.alphabet.iterate(func(ind int, contract util.Uint160) {
-		err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
+		_, err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int("alphabet_index", ind),
