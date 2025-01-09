@@ -1,17 +1,16 @@
 package control
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"os"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	ircontrol "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
 	ircontrolsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/spf13/cobra"
 )
 
@@ -43,13 +42,13 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cli, err := getClient(ctx)
+	conn, err := connect(ctx)
 	if err != nil {
 		return err
 	}
 
 	if isIR, _ := cmd.Flags().GetBool(healthcheckIRFlag); isIR {
-		return healthCheckIR(cmd, pk, cli)
+		return healthCheckIR(ctx, cmd, pk, ircontrol.NewControlServiceClient(conn))
 	}
 
 	req := new(control.HealthCheckRequest)
@@ -60,11 +59,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var resp *control.HealthCheckResponse
-	err = cli.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = control.HealthCheck(client, req)
-		return err
-	})
+	resp, err := control.NewControlServiceClient(conn).HealthCheck(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
@@ -85,7 +80,7 @@ func healthCheck(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) error {
+func healthCheckIR(ctx context.Context, cmd *cobra.Command, key *ecdsa.PrivateKey, c ircontrol.ControlServiceClient) error {
 	req := new(ircontrol.HealthCheckRequest)
 
 	req.SetBody(new(ircontrol.HealthCheckRequest_Body))
@@ -95,11 +90,7 @@ func healthCheckIR(cmd *cobra.Command, key *ecdsa.PrivateKey, c *client.Client) 
 		return fmt.Errorf("could not sign request: %w", err)
 	}
 
-	var resp *ircontrol.HealthCheckResponse
-	err = c.ExecRaw(func(client *rawclient.Client) error {
-		resp, err = ircontrol.HealthCheck(client, req)
-		return err
-	})
+	resp, err := c.HealthCheck(ctx, req)
 	if err != nil {
 		return fmt.Errorf("rpc error: %w", err)
 	}
