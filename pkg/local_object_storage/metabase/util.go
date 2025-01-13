@@ -4,12 +4,18 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"math/big"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
+
+// UTF-8 data separator used in DB.
+var utf8Delimiter = []byte{0xFF}
+
+const utf8DelimiterLen = 1
 
 var (
 	// graveyardBucketName stores rows with the objects that have been
@@ -131,6 +137,11 @@ const (
 	//  Value: list of object IDs
 	firstObjectIDPrefix
 )
+
+// key prefix for per-container buckets storing objects' metadata required to
+// serve ObjectService.SearchV2. See VERSION.md for details.
+// This data can be completely migrated, so special byte is occupied.
+const metadataPrefix = 255
 
 const (
 	cidSize        = sha256.Size
@@ -295,4 +306,15 @@ func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
 	return inBucket(tx,
 		bucketNameLockers(idCnr, make([]byte, bucketKeySize)),
 		objectKey(obj, make([]byte, objectKeySize)))
+}
+
+func parseInt(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
+
+type keyBuffer []byte
+
+func (x *keyBuffer) alloc(ln int) []byte {
+	if len(*x) < ln {
+		*x = make([]byte, ln)
+	}
+	return (*x)[:ln]
 }
