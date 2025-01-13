@@ -45,6 +45,7 @@ func (s *Service) Put(ctx context.Context) (object.PutObjectStream, error) {
 	return &streamer{
 		stream: stream,
 		key:    s.key,
+		ctx:    ctx,
 	}, nil
 }
 
