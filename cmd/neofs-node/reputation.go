@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
+	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
-	v2reputationgrpc "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	protoreputation "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
+	"github.com/nspcc-dev/neofs-api-go/v2/signature"
+	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
@@ -14,7 +18,6 @@ import (
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	grpcreputation "github.com/nspcc-dev/neofs-node/pkg/network/transport/reputation/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	reputationrouter "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common/router"
@@ -27,8 +30,9 @@ import (
 	localtrustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	reputationrpc "github.com/nspcc-dev/neofs-node/pkg/services/reputation/rpc"
+	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 )
 
@@ -194,24 +198,16 @@ func initReputationService(c *cfg) {
 		},
 	)
 
-	server := grpcreputation.New(
-		reputationrpc.NewSignService(
-			&c.key.PrivateKey,
-			reputationrpc.NewResponseService(
-				&reputationServer{
-					cfg:                c,
-					log:                c.log,
-					localRouter:        localTrustRouter,
-					intermediateRouter: intermediateTrustRouter,
-					routeBuilder:       localRouteBuilder,
-				},
-				c.respSvc,
-			),
-		),
-	)
+	server := &reputationServer{
+		cfg:                c,
+		log:                c.log,
+		localRouter:        localTrustRouter,
+		intermediateRouter: intermediateTrustRouter,
+		routeBuilder:       localRouteBuilder,
+	}
 
 	for _, srv := range c.cfgGRPC.servers {
-		v2reputationgrpc.RegisterReputationServiceServer(srv, server)
+		protoreputation.RegisterReputationServiceServer(srv, server)
 	}
 
 	// initialize eigen trust block timer
@@ -262,8 +258,34 @@ type reputationServer struct {
 	routeBuilder       reputationrouter.Builder
 }
 
-func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *v2reputation.AnnounceLocalTrustRequest) (*v2reputation.AnnounceLocalTrustResponse, error) {
-	passedRoute := reverseRoute(req.GetVerificationHeader())
+func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
+	v := version.Current()
+	var v2 apirefs.Version
+	v.WriteToV2(&v2)
+	return &protosession.ResponseMetaHeader{
+		Version: v2.ToGRPCMessage().(*refs.Version),
+		Epoch:   s.networkState.CurrentEpoch(),
+		Status:  st,
+	}
+}
+
+func (s *reputationServer) makeLocalResponse(err error) (*protoreputation.AnnounceLocalTrustResponse, error) {
+	resp := &protoreputation.AnnounceLocalTrustResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	}
+	return util.SignResponse(&s.key.PrivateKey, resp, v2reputation.AnnounceLocalTrustResponse{}), nil
+}
+
+func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
+	req2 := new(v2reputation.AnnounceLocalTrustRequest)
+	if err := req2.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+	if err := signature.VerifyServiceMessage(req2); err != nil {
+		return s.makeLocalResponse(util.ToRequestSignatureVerificationError(err))
+	}
+
+	passedRoute := reverseRoute(req.GetVerifyHeader())
 	passedRoute = append(passedRoute, s)
 
 	body := req.GetBody()
@@ -275,24 +297,36 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *v2reputa
 
 	w, err := s.localRouter.InitWriter(reputationrouter.NewRouteContext(eCtx, passedRoute))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize local trust writer: %w", err)
+		return s.makeLocalResponse(fmt.Errorf("could not initialize local trust writer: %w", err))
 	}
 
 	for _, trust := range body.GetTrusts() {
-		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(&trust, passedRoute[0].PublicKey()), passedRoute, w)
+		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
 		if err != nil {
-			return nil, fmt.Errorf("could not write one of local trusts: %w", err)
+			return s.makeLocalResponse(fmt.Errorf("could not write one of local trusts: %w", err))
 		}
 	}
 
-	resp := new(v2reputation.AnnounceLocalTrustResponse)
-	resp.SetBody(new(v2reputation.AnnounceLocalTrustResponseBody))
-
-	return resp, nil
+	return s.makeLocalResponse(util.StatusOKErr)
 }
 
-func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *v2reputation.AnnounceIntermediateResultRequest) (*v2reputation.AnnounceIntermediateResultResponse, error) {
-	passedRoute := reverseRoute(req.GetVerificationHeader())
+func (s *reputationServer) makeIntermediateResponse(err error) (*protoreputation.AnnounceIntermediateResultResponse, error) {
+	resp := &protoreputation.AnnounceIntermediateResultResponse{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	}
+	return util.SignResponse(&s.key.PrivateKey, resp, v2reputation.AnnounceIntermediateResultResponse{}), nil
+}
+
+func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
+	req2 := new(v2reputation.AnnounceIntermediateResultRequest)
+	if err := req2.FromGRPCMessage(req); err != nil {
+		return nil, err
+	}
+	if err := signature.VerifyServiceMessage(req2); err != nil {
+		return s.makeIntermediateResponse(util.ToRequestSignatureVerificationError(err))
+	}
+
+	passedRoute := reverseRoute(req.GetVerifyHeader())
 	passedRoute = append(passedRoute, s)
 
 	body := req.GetBody()
@@ -301,7 +335,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eiCtx, passedRoute))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize trust writer: %w", err)
+		return s.makeIntermediateResponse(fmt.Errorf("could not initialize trust writer: %w", err))
 	}
 
 	v2Trust := body.GetTrust()
@@ -310,13 +344,10 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	err = w.Write(trust)
 	if err != nil {
-		return nil, fmt.Errorf("could not write trust: %w", err)
+		return s.makeIntermediateResponse(fmt.Errorf("could not write trust: %w", err))
 	}
 
-	resp := new(v2reputation.AnnounceIntermediateResultResponse)
-	resp.SetBody(new(v2reputation.AnnounceIntermediateResultResponseBody))
-
-	return resp, nil
+	return s.makeIntermediateResponse(util.StatusOKErr)
 }
 
 func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
@@ -329,8 +360,9 @@ func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
 	return w.Write(t)
 }
 
-// apiToLocalTrust converts v2 Trust to local reputation.Trust, adding trustingPeer.
-func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trust {
+// apiToLocalTrust converts protoreputation.Trust to local reputation.Trust,
+// adding trustingPeer.
+func apiToLocalTrust(t *protoreputation.Trust, trustingPeer []byte) reputation.Trust {
 	var trusted, trusting apireputation.PeerID
 	trusted.SetPublicKey(t.GetPeer().GetPublicKey())
 	trusting.SetPublicKey(trustingPeer)
@@ -344,7 +376,7 @@ func apiToLocalTrust(t *v2reputation.Trust, trustingPeer []byte) reputation.Trus
 	return localTrust
 }
 
-func reverseRoute(hdr *session.RequestVerificationHeader) (passedRoute []reputationcommon.ServerInfo) {
+func reverseRoute(hdr *protosession.RequestVerificationHeader) (passedRoute []reputationcommon.ServerInfo) {
 	for hdr != nil {
 		passedRoute = append(passedRoute, &common.OnlyKeyRemoteServerInfo{
 			Key: hdr.GetBodySignature().GetKey(),

@@ -3,9 +3,7 @@ package main
 import (
 	accountingGRPC "github.com/nspcc-dev/neofs-api-go/v2/accounting/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
-	accountingTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/accounting/grpc"
 	accountingService "github.com/nspcc-dev/neofs-node/pkg/services/accounting"
-	accounting "github.com/nspcc-dev/neofs-node/pkg/services/accounting/morph"
 )
 
 func initAccountingService(c *cfg) {
@@ -16,17 +14,7 @@ func initAccountingService(c *cfg) {
 	balanceMorphWrapper, err := balance.NewFromMorph(c.cfgMorph.client, c.shared.basics.balanceSH, 0)
 	fatalOnErr(err)
 
-	server := accountingTransportGRPC.New(
-		accountingService.NewSignService(
-			&c.key.PrivateKey,
-			accountingService.NewResponseService(
-				accountingService.NewExecutionService(
-					accounting.NewExecutor(balanceMorphWrapper),
-				),
-				c.respSvc,
-			),
-		),
-	)
+	server := accountingService.New(&c.key.PrivateKey, c.networkState, balanceMorphWrapper)
 
 	for _, srv := range c.cfgGRPC.servers {
 		accountingGRPC.RegisterAccountingServiceServer(srv, server)

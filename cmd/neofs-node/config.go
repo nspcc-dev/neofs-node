@@ -16,7 +16,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
-	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
@@ -418,20 +417,21 @@ type cfg struct {
 	cfgObject         cfgObject
 }
 
-// ReadCurrentNetMap reads network map which has been cached at the
-// latest epoch. Returns an error if value has not been cached yet.
+// GetNetworkMap reads network map which has been cached at the latest epoch.
+// Returns an error if value has not been cached yet.
 //
 // Provides interface for NetmapService server.
-func (c *cfg) ReadCurrentNetMap(msg *netmapV2.NetMap) error {
+func (c *cfg) GetNetworkMap() (netmap.NetMap, error) {
 	val := c.netMap.Load()
 	if val == nil {
-		return errors.New("missing local network map")
+		return netmap.NetMap{}, errors.New("missing local network map")
 	}
 
-	val.(netmap.NetMap).WriteToV2(msg)
-
-	return nil
+	return val.(netmap.NetMap), nil
 }
+
+// CurrentEpoch returns the latest cached epoch.
+func (c *cfg) CurrentEpoch() uint64 { return c.networkState.CurrentEpoch() }
 
 type cfgGRPC struct {
 	listeners []net.Listener
@@ -831,14 +831,11 @@ func (c *cfg) reloadObjectPoolSizes() {
 	c.cfgObject.pool.replication.Tune(c.cfgObject.pool.replicatorPoolSize)
 }
 
-func (c *cfg) LocalNodeInfo() (*netmapV2.NodeInfo, error) {
+func (c *cfg) LocalNodeInfo() (netmap.NodeInfo, error) {
 	c.cfgNodeInfo.localInfoLock.RLock()
 	defer c.cfgNodeInfo.localInfoLock.RUnlock()
 
-	var res netmapV2.NodeInfo
-	c.cfgNodeInfo.localInfo.WriteToV2(&res)
-
-	return &res, nil
+	return c.cfgNodeInfo.localInfo, nil
 }
 
 // handleLocalNodeInfoFromNetwork rewrites cached node info from the NeoFS network map.

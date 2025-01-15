@@ -3,30 +3,8 @@ package container
 import (
 	"fmt"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
-
-// Delete marshals container ID, and passes it to Wrapper's Delete method
-// along with signature and session token.
-//
-// Returns error if container ID is nil.
-func Delete(c *Client, witness core.RemovalWitness) error {
-	id := witness.ContainerID()
-	binCnr := id[:]
-
-	var prm DeletePrm
-
-	prm.SetCID(binCnr)
-	prm.SetSignature(witness.Signature())
-	prm.RequireAlphabetSignature()
-
-	if tok := witness.SessionToken(); tok != nil {
-		prm.SetToken(tok.Marshal())
-	}
-
-	return c.Delete(prm)
-}
 
 // DeletePrm groups parameters of Delete client operation.
 type DeletePrm struct {

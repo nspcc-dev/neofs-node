@@ -1,16 +1,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
 	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
-	sessionTransportGRPC "github.com/nspcc-dev/neofs-node/pkg/network/transport/session/grpc"
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/persistent"
@@ -19,7 +16,7 @@ import (
 )
 
 type sessionStorage interface {
-	Create(ctx context.Context, body *session.CreateRequestBody) (*session.CreateResponseBody, error)
+	sessionSvc.KeyStorage
 	Get(ownerID user.ID, tokenID []byte) *storage.PrivateToken
 	RemoveOld(epoch uint64)
 
@@ -50,15 +47,7 @@ func initSessionService(c *cfg) {
 		c.privateTokenStore.RemoveOld(ev.(netmap.NewEpoch).EpochNumber())
 	})
 
-	server := sessionTransportGRPC.New(
-		sessionSvc.NewSignService(
-			&c.key.PrivateKey,
-			sessionSvc.NewResponseService(
-				sessionSvc.NewExecutionService(c.privateTokenStore, c.log),
-				c.respSvc,
-			),
-		),
-	)
+	server := sessionSvc.New(&c.key.PrivateKey, c, c.privateTokenStore)
 
 	for _, srv := range c.cfgGRPC.servers {
 		sessionGRPC.RegisterSessionServiceServer(srv, server)
