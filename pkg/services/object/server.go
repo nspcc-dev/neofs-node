@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
 	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
@@ -22,6 +23,7 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/stat"
 )
 
 // GetObjectStream is an interface of NeoFS API v2 compatible object streamer.
@@ -67,6 +69,22 @@ const (
 	codeContainerNotFound = uint32(1024*protostatus.Section_SECTION_CONTAINER) + uint32(protostatus.Container_CONTAINER_NOT_FOUND)
 )
 
+// MetricCollector tracks exec statistics for the following ops:
+//   - [stat.MethodObjectPut]
+//   - [stat.MethodObjectGet]
+//   - [stat.MethodObjectHead]
+//   - [stat.MethodObjectDelete]
+//   - [stat.MethodObjectSearch]
+//   - [stat.MethodObjectRange]
+//   - [stat.MethodObjectHash]
+type MetricCollector interface {
+	// HandleOpExecResult handles measured execution results of the given op.
+	HandleOpExecResult(_ stat.Method, success bool, _ time.Duration)
+
+	AddPutPayload(int)
+	AddGetPayload(int)
+}
+
 // Node represents NeoFS storage node that is served by [Server].
 type Node interface {
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
@@ -95,17 +113,23 @@ type server struct {
 	signer  neofscrypto.Signer
 	mNumber uint32
 	nmState netmap.StateDetailed
+	metrics MetricCollector
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer, nmState netmap.StateDetailed) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, node Node, signer neofscrypto.Signer, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
 	return &server{
 		srv:     c,
 		node:    node,
 		signer:  signer,
 		mNumber: magicNumber,
 		nmState: nmState,
+		metrics: m,
 	}
+}
+
+func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time) {
+	s.metrics.HandleOpExecResult(op, err == nil, time.Since(startedAt))
 }
 
 // Put opens internal Object service Put stream and overtakes data from gRPC stream to it.
@@ -115,36 +139,36 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 		return err
 	}
 
+	t := time.Now()
+	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
+
+	var req *protoobject.PutRequest
+	var resp *v2object.PutResponse
 	for {
-		req, err := gStream.Recv()
-		if err != nil {
+		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
-				resp, err := stream.CloseAndRecv()
-				if err != nil {
-					return err
+				if resp, err = stream.CloseAndRecv(); err == nil {
+					err = gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse)) // assign for defer
 				}
-
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
 			}
-
 			return err
+		}
+
+		if c := req.GetBody().GetChunk(); c != nil {
+			s.metrics.AddPutPayload(len(c))
 		}
 
 		putReq := new(v2object.PutRequest)
-		if err := putReq.FromGRPCMessage(req); err != nil {
+		if err = putReq.FromGRPCMessage(req); err != nil {
 			return err
 		}
 
-		if err := stream.Send(putReq); err != nil {
+		if err = stream.Send(putReq); err != nil {
 			if errors.Is(err, util.ErrAbortStream) {
-				resp, err := stream.CloseAndRecv()
-				if err != nil {
-					return err
+				if resp, err = stream.CloseAndRecv(); err == nil {
+					err = gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse)) // assign for defer
 				}
-
-				return gStream.SendAndClose(resp.ToGRPCMessage().(*protoobject.PutResponse))
 			}
-
 			return err
 		}
 	}
@@ -157,7 +181,9 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return nil, err
 	}
 
+	t := time.Now()
 	resp, err := s.srv.Delete(ctx, delReq)
+	s.pushOpExecResult(stat.MethodObjectDelete, err, t)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +198,9 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return nil, err
 	}
 
+	t := time.Now()
 	resp, err := s.srv.Head(ctx, searchReq)
+	s.pushOpExecResult(stat.MethodObjectHead, err, t)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +215,9 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return nil, err
 	}
 
+	t := time.Now()
 	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
+	s.pushOpExecResult(stat.MethodObjectHash, err, t)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +227,15 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 
 type getStreamerV2 struct {
 	protoobject.ObjectService_GetServer
+	metrics MetricCollector
 }
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
-	return s.ObjectService_GetServer.Send(
-		resp.ToGRPCMessage().(*protoobject.GetResponse),
-	)
+	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
+	if c := r.GetBody().GetChunk(); c != nil {
+		s.metrics.AddGetPayload(len(c))
+	}
+	return s.ObjectService_GetServer.Send(r)
 }
 
 // Get converts gRPC GetRequest message and server-side stream and overtakes its data
@@ -212,13 +245,16 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err := getReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-
-	return s.srv.Get(
+	t := time.Now()
+	err := s.srv.Get(
 		getReq,
 		&getStreamerV2{
 			ObjectService_GetServer: gStream,
+			metrics:                 s.metrics,
 		},
 	)
+	s.pushOpExecResult(stat.MethodObjectGet, err, t)
+	return err
 }
 
 type getRangeStreamerV2 struct {
@@ -238,13 +274,15 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err := getRngReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-
-	return s.srv.GetRange(
+	t := time.Now()
+	err := s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
 			ObjectService_GetRangeServer: gStream,
 		},
 	)
+	s.pushOpExecResult(stat.MethodObjectRange, err, t)
+	return err
 }
 
 type searchStreamerV2 struct {
@@ -264,13 +302,15 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	if err := searchReq.FromGRPCMessage(req); err != nil {
 		return err
 	}
-
-	return s.srv.Search(
+	t := time.Now()
+	err := s.srv.Search(
 		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
 		},
 	)
+	s.pushOpExecResult(stat.MethodObjectSearch, err, t)
+	return err
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
