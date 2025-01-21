@@ -21,9 +21,11 @@ type NodeInfo = netmap.NodeInfo
 // and can lead to panic.
 type Client struct {
 	client *client.StaticClient // static Netmap contract client
+	nodeV2 bool
 }
 
 const (
+	addNodeMethod          = "addNode"
 	addPeerMethod          = "addPeer"
 	configMethod           = "config"
 	epochMethod            = "epoch"
@@ -55,7 +57,13 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
 
-	return &Client{client: sc}, nil
+	var c = &Client{client: sc}
+	c.nodeV2, err = c.useNodeV2()
+	if err != nil {
+		return nil, fmt.Errorf("can't get v2 node status: %w", err)
+	}
+
+	return c, nil
 }
 
 // Option allows to set an optional
