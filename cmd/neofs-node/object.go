@@ -37,7 +37,6 @@ import (
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -294,7 +293,7 @@ func initObjectService(c *cfg) {
 	)
 
 	// build service pipeline
-	// grpc | signature | response | acl | split
+	// grpc | response | acl | split
 
 	splitSvc := objectService.NewTransportSplitter(
 		c.cfgGRPC.maxChunkSize,
@@ -342,12 +341,7 @@ func initObjectService(c *cfg) {
 		c.respSvc,
 	)
 
-	signSvc := objectService.NewSignService(
-		&c.key.PrivateKey,
-		respSvc,
-	)
-
-	server := objectService.New(signSvc, mNumber, objNode, neofsecdsa.SignerRFC6979(c.shared.basics.key.PrivateKey), c.cfgNetmap.state, c.metricsCollector)
+	server := objectService.New(respSvc, mNumber, objNode, c.shared.basics.key.PrivateKey, c.cfgNetmap.state, c.metricsCollector)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
