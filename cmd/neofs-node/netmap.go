@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync/atomic"
 
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -356,7 +357,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 
 	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
 
-	return c.updateNetMapState(func(*nmClient.UpdatePeerPrm) {})
+	return c.updateNetMapState(nil)
 }
 
 func (c *cfg) ForceMaintenance() error {
@@ -375,7 +376,7 @@ func (c *cfg) setMaintenanceStatus(force bool) error {
 		c.startMaintenance()
 
 		if err == nil {
-			err = c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
+			err = c.updateNetMapState(netmaprpc.NodeStateMaintenance)
 		}
 
 		if err != nil {
@@ -388,12 +389,8 @@ func (c *cfg) setMaintenanceStatus(force bool) error {
 
 // calls UpdatePeerState operation of Netmap contract's client for the local node.
 // State setter is used to specify node state to switch to.
-func (c *cfg) updateNetMapState(stateSetter func(*nmClient.UpdatePeerPrm)) error {
-	var prm nmClient.UpdatePeerPrm
-	prm.SetKey(c.key.PublicKey().Bytes())
-	stateSetter(&prm)
-
-	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
+func (c *cfg) updateNetMapState(state *big.Int) error {
+	return c.cfgNetmap.wrapper.UpdatePeerState(c.key.PublicKey().Bytes(), state)
 }
 
 func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
