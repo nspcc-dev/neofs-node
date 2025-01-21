@@ -829,10 +829,7 @@ func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
 	c.cfgNodeInfo.localInfoLock.RUnlock()
 	stateSetter(&ni)
 
-	prm := nmClient.AddPeerPrm{}
-	prm.SetNodeInfo(ni)
-
-	return c.cfgNetmap.wrapper.AddPeer(prm)
+	return c.cfgNetmap.wrapper.AddPeer(ni)
 }
 
 // bootstrapOnline calls cfg.bootstrapWithState with "online" state.
