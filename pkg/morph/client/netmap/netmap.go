@@ -83,7 +83,7 @@ func (c *Client) GetCandidates() ([]netmap.NodeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return collectNodes(inv, sess, &iter)
+	return CollectNodes(inv, sess, &iter)
 }
 
 // NetMap calls "netmap" method (or listNodes for v2 nodes) and decodes
@@ -113,7 +113,7 @@ func (c *Client) NetMap() (*netmap.NetMap, error) {
 }
 
 func collectNetmap(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) (*netmap.NetMap, error) {
-	nodes, err := collectNodes(inv, sess, iter)
+	nodes, err := CollectNodes(inv, sess, iter)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,8 @@ func collectNetmap(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) 
 	return nm, nil
 }
 
-func collectNodes(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) ([]netmap.NodeInfo, error) {
+// CollectNodes gathers all node data from the provided iterator and closes it.
+func CollectNodes(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) ([]netmap.NodeInfo, error) {
 	var nodes []netmap.NodeInfo
 
 	defer func() {

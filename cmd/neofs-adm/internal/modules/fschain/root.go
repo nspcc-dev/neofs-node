@@ -58,6 +58,7 @@ const (
 	estimationsContainerFlag        = "cid"
 	mintNeofsAmountFlag             = "amount"
 	mintTxHashFlag                  = "deposit-tx"
+	nodeV2Flag                      = "nodev2"
 )
 
 var (
@@ -326,7 +327,6 @@ Values for unknown keys are added exactly the way they're provided, no conversio
 	netmapCandidatesCmd = &cobra.Command{
 		Use:   "netmap-candidates",
 		Short: "List netmap candidates nodes",
-		Args:  cobra.NoArgs,
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			_ = viper.BindPFlag(endpointFlag, cmd.Flags().Lookup(endpointFlag))
 		},
@@ -481,6 +481,7 @@ func init() {
 
 	RootCmd.AddCommand(netmapCandidatesCmd)
 	netmapCandidatesCmd.Flags().StringP(endpointFlag, "r", "", "N3 RPC node endpoint")
+	netmapCandidatesCmd.Flags().BoolP(nodeV2Flag, "2", false, "Use node v2 data")
 
 	RootCmd.AddCommand(estimationsCmd)
 	ff := estimationsCmd.Flags()
