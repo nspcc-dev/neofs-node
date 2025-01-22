@@ -56,7 +56,7 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 		return nil
 	}
 
-	nm, err := s.netMapSrc.GetNetMap(0)
+	nm, err := s.netMapSrc.NetMap()
 	if err != nil {
 		return err
 	}

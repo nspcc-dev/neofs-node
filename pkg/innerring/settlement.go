@@ -10,7 +10,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
-	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/common"
@@ -126,7 +125,7 @@ func (s settlementDeps) buildContainer(e uint64, cid cid.ID) ([][]netmapAPI.Node
 	if e > 0 {
 		nm, err = s.nmClient.GetNetMapByEpoch(e)
 	} else {
-		nm, err = netmap.GetLatestNetworkMap(s.nmClient)
+		nm, err = s.nmClient.NetMap()
 	}
 
 	if err != nil {

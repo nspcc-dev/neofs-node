@@ -27,7 +27,8 @@ type classifyResult struct {
 func (c senderClassifier) classify(
 	req MetaWithToken,
 	idCnr cid.ID,
-	cnr container.Container) (res *classifyResult, err error) {
+	cnr container.Container,
+	currentEpoch uint64) (res *classifyResult, err error) {
 	ownerID, ownerKey, err := req.RequestOwner()
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (c senderClassifier) classify(
 		}, nil
 	}
 
-	isContainerNode, err := c.isContainerKey(ownerKey, idCnr, cnr)
+	isContainerNode, err := c.isContainerKey(ownerKey, idCnr, cnr, currentEpoch)
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
@@ -100,14 +101,15 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 
 func (c senderClassifier) isContainerKey(
 	owner []byte, idCnr cid.ID,
-	cnr container.Container) (bool, error) {
-	nm, err := core.GetLatestNetworkMap(c.netmap) // first check current netmap
+	cnr container.Container,
+	currentEpoch uint64) (bool, error) {
+	nm, err := c.netmap.GetNetMapByEpoch(currentEpoch) // first check current netmap
 	if err != nil {
 		return false, err
 	}
 
 	in, err := lookupKeyInContainer(nm, owner, idCnr, cnr)
-	if err != nil {
+	if err != nil || currentEpoch == 0 {
 		return false, err
 	} else if in {
 		return true, nil
@@ -115,7 +117,7 @@ func (c senderClassifier) isContainerKey(
 
 	// then check previous netmap, this can happen in-between epoch change
 	// when node migrates data from last epoch container
-	nm, err = core.GetPreviousNetworkMap(c.netmap)
+	nm, err = c.netmap.GetNetMapByEpoch(currentEpoch - 1)
 	if err != nil {
 		return false, err
 	}

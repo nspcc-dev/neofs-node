@@ -497,11 +497,11 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 		return info, err
 	}
 
+	currentEpoch, err := b.nm.Epoch()
+	if err != nil {
+		return info, errors.New("can't fetch current epoch")
+	}
 	if req.token != nil {
-		currentEpoch, err := b.nm.Epoch()
-		if err != nil {
-			return info, errors.New("can't fetch current epoch")
-		}
 		if req.token.ExpiredAt(currentEpoch) {
 			return info, apistatus.SessionTokenExpired{}
 		}
@@ -516,7 +516,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, idCnr, cnr.Value)
+	res, err := b.c.classify(req, idCnr, cnr.Value, currentEpoch)
 	if err != nil {
 		return info, err
 	}
