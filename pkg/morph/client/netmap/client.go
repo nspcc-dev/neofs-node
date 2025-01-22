@@ -20,8 +20,9 @@ type NodeInfo = netmap.NodeInfo
 // expression (or just declaring a Client variable) is unsafe
 // and can lead to panic.
 type Client struct {
-	client *client.StaticClient // static Netmap contract client
-	nodeV2 bool
+	client   *client.StaticClient // static Netmap contract client
+	contract util.Uint160
+	nodeV2   bool
 }
 
 const (
@@ -30,6 +31,7 @@ const (
 	configMethod           = "config"
 	epochMethod            = "epoch"
 	lastEpochBlockMethod   = "lastEpochBlock"
+	listNodesMethod        = "listNodes"
 	innerRingListMethod    = "innerRingList"
 	netMapCandidatesMethod = "netmapCandidates"
 	netMapMethod           = "netmap"
@@ -57,7 +59,10 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
 
-	var c = &Client{client: sc}
+	var c = &Client{
+		client:   sc,
+		contract: contract,
+	}
 	c.nodeV2, err = c.useNodeV2()
 	if err != nil {
 		return nil, fmt.Errorf("can't get v2 node status: %w", err)
