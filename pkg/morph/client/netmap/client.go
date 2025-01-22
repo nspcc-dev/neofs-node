@@ -97,3 +97,9 @@ func (c Client) ContractAddress() util.Uint160 {
 func (c Client) Morph() *client.Client {
 	return c.client.Morph()
 }
+
+// IsNodeV2 returns current netmap status, if we're using V2 nodes or not.
+// This is a temporary method, to be removed once completely migrated.
+func (c Client) IsNodeV2() bool {
+	return c.nodeV2
+}

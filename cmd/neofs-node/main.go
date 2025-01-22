@@ -227,9 +227,9 @@ func (c *cfg) restartMorph() error {
 		return nil
 	}
 
-	err = c.bootstrap()
+	err = c.heartbeat()
 	if err != nil {
-		c.log.Warn("failed to re-bootstrap", zap.Error(err))
+		c.log.Warn("failed to send heartbeat", zap.Error(err))
 	}
 
 	c.log.Info("internal services have been restarted after RPC connection loss")

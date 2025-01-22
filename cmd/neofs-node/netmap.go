@@ -184,9 +184,9 @@ func initNetmapService(c *cfg) {
 			return
 		}
 
-		err := c.bootstrap()
+		err := c.heartbeat()
 		if err != nil {
-			c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
+			c.log.Warn("can't send heartbeat tx", zap.Error(err))
 		}
 	})
 
@@ -220,8 +220,19 @@ func initNetmapService(c *cfg) {
 // Must be called after initNetmapService.
 func bootstrapNode(c *cfg) {
 	if c.needBootstrap() {
-		err := c.bootstrap()
-		fatalOnErrDetails("bootstrap error", err)
+		if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE {
+			c.log.Info("current state is offline")
+			err := c.bootstrapOnline()
+			fatalOnErrDetails("bootstrap error", err)
+		} else {
+			c.log.Info("network map contains this node, sending heartbeat")
+			err := c.heartbeat()
+			if err != nil {
+				// Not as critical as the one above, will be
+				// updated the next epoch.
+				c.log.Warn("heartbeat error", zap.Error(err))
+			}
+		}
 	}
 }
 
@@ -330,28 +341,34 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
-	switch st {
-	default:
-		return fmt.Errorf("unsupported status %v", st)
-	case control.NetmapStatus_MAINTENANCE:
-		return c.setMaintenanceStatus(false)
-	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
-	}
-
-	c.stopMaintenance()
-
 	if !c.needBootstrap() {
 		return errRelayBootstrap
 	}
 
-	if st == control.NetmapStatus_ONLINE {
-		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
-		return bootstrapOnline(c)
+	var currentStatus = c.cfgNetmap.state.controlNetmapStatus()
+
+	if currentStatus == st {
+		return nil // no-op
 	}
 
-	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
+	if currentStatus == control.NetmapStatus_OFFLINE {
+		if st != control.NetmapStatus_ONLINE {
+			return errors.New("can't add non-online node to map")
+		}
+		return c.bootstrapOnline()
+	}
 
-	return c.updateNetMapState(nil)
+	switch st {
+	case control.NetmapStatus_OFFLINE:
+		return c.updateNetMapState(nil)
+	case control.NetmapStatus_MAINTENANCE:
+		return c.setMaintenanceStatus(false)
+	case control.NetmapStatus_ONLINE:
+		c.stopMaintenance()
+		return c.updateNetMapState(netmaprpc.NodeStateOnline)
+	default:
+		return fmt.Errorf("unsupported status %v", st)
+	}
 }
 
 func (c *cfg) ForceMaintenance() error {
@@ -455,5 +472,5 @@ func (c *cfg) reloadNodeAttributes() error {
 		return nil
 	}
 
-	return c.bootstrap()
+	return c.bootstrapOnline()
 }

@@ -47,7 +47,7 @@ func TestCleanupTable(t *testing.T) {
 
 		t.Run("update with flagged", func(t *testing.T) {
 			key := netmap.StringifyPublicKey(infos[0])
-			c.flag(key)
+			c.flag(key, 1)
 
 			c.update(networkMap, 2)
 			require.EqualValues(t, 1, c.lastAccess[key].epoch)
@@ -77,7 +77,7 @@ func TestCleanupTable(t *testing.T) {
 		c.update(networkMap, 1)
 
 		key := netmap.StringifyPublicKey(infos[1])
-		c.flag(key)
+		c.flag(key, 1)
 		require.True(t, c.lastAccess[key].removeFlag)
 
 		require.True(t, c.touch(key, 2, mapInfos[key]))

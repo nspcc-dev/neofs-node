@@ -126,6 +126,11 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
+	// Override any setting for v2, it's managed by contract.
+	if p.NetmapClient.IsNodeV2() {
+		p.CleanupEnabled = false
+	}
+
 	return &Processor{
 		log:            p.Log,
 		pool:           pool,

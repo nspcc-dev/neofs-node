@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/big"
 	"net"
 	"os"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
 	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
@@ -820,39 +822,39 @@ func (c *cfg) handleLocalNodeInfoFromNetwork(ni *netmap.NodeInfo) {
 	c.localNodeInNetmap.Store(ni != nil)
 }
 
-// bootstrapWithState calls "addPeer" method of FS chain Netmap contract
-// with the binary-encoded information from the current node's configuration.
-// The state is set using the provided setter which MUST NOT be nil.
-func (c *cfg) bootstrapWithState(stateSetter func(*netmap.NodeInfo)) error {
+// bootstrapOnline puts node into the map with online state.
+func (c *cfg) bootstrapOnline() error {
+	c.log.Info("bootstrapping with online state")
 	c.cfgNodeInfo.localInfoLock.RLock()
 	ni := c.cfgNodeInfo.localInfo
 	c.cfgNodeInfo.localInfoLock.RUnlock()
-	stateSetter(&ni)
+	ni.SetOnline()
 
 	return c.cfgNetmap.wrapper.AddPeer(ni, c.key.PublicKey())
 }
 
-// bootstrapOnline calls cfg.bootstrapWithState with "online" state.
-func bootstrapOnline(c *cfg) error {
-	return c.bootstrapWithState((*netmap.NodeInfo).SetOnline)
-}
-
-// bootstrap calls bootstrapWithState with:
-//   - "maintenance" state if maintenance is in progress on the current node
-//   - "online", otherwise
-func (c *cfg) bootstrap() error {
-	// switch to online except when under maintenance
-	st := c.cfgNetmap.state.controlNetmapStatus()
-	if st == control.NetmapStatus_MAINTENANCE {
-		c.log.Info("bootstrapping with the maintenance state")
-		return c.bootstrapWithState((*netmap.NodeInfo).SetMaintenance)
-	}
-
-	c.log.Info("bootstrapping with online state",
-		zap.Stringer("previous", st),
+// heartbeat sends AddNode and/or UpdatePeer transactions with the current
+// node state which can be "maintenance" or "online".
+func (c *cfg) heartbeat() error {
+	var (
+		currentStatus = c.cfgNetmap.state.controlNetmapStatus()
+		st            *big.Int
 	)
-
-	return bootstrapOnline(c)
+	if !c.cfgNetmap.wrapper.IsNodeV2() {
+		err := c.bootstrapOnline()
+		if err != nil {
+			return err
+		}
+	}
+	switch currentStatus {
+	case control.NetmapStatus_MAINTENANCE:
+		st = netmaprpc.NodeStateMaintenance
+	case control.NetmapStatus_ONLINE:
+		st = netmaprpc.NodeStateOnline
+	default:
+		return fmt.Errorf("incorrect current network map status %v, restart recommended", currentStatus)
+	}
+	return c.updateNetMapState(st)
 }
 
 // needBootstrap checks if local node should be registered in network on bootup.
