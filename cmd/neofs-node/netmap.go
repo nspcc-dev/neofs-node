@@ -184,15 +184,9 @@ func initNetmapService(c *cfg) {
 			return
 		}
 
-		n := ev.(netmapEvent.NewEpoch).EpochNumber()
-
-		const reBootstrapInterval = 2
-
-		if (n-c.cfgNetmap.startEpoch)%reBootstrapInterval == 0 {
-			err := c.bootstrap()
-			if err != nil {
-				c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
-			}
+		err := c.bootstrap()
+		if err != nil {
+			c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
 		}
 	})
 
