@@ -284,13 +284,11 @@ func (s *Shard) getExpiredObjects(epoch uint64, typeCond func(object.Type) bool)
 }
 
 // HandleExpiredLocks unlocks all objects which were locked by lockers.
-// If successful, marks lockers themselves as garbage. Also, marks as
-// garbage every object that becomes free-to-remove and just removed
-// lock object is the only reason for that object to be alive (e.g.
-// expired but locked objects).
-func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
+// If successful, marks lockers themselves as garbage.
+// Returns every object that is unlocked.
+func (s *Shard) HandleExpiredLocks(lockers []oid.Address) []oid.Address {
 	if s.GetMode().NoMetabase() {
-		return
+		return nil
 	}
 
 	unlocked, err := s.metaBase.FreeLockedBy(lockers)
@@ -299,37 +297,42 @@ func (s *Shard) HandleExpiredLocks(lockers []oid.Address) {
 			zap.Error(err),
 		)
 
-		return
+		return nil
 	}
 
-	expired, err := s.metaBase.FilterExpired(unlocked)
-	if err != nil {
-		s.log.Warn("expired object filtering",
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	inhumed, _, err := s.metaBase.MarkGarbage(true, false, append(lockers, expired...)...)
+	inhumed, _, err := s.metaBase.MarkGarbage(true, false, lockers...)
 	if err != nil {
 		s.log.Warn("failure to mark lockers as garbage",
 			zap.Error(err),
 		)
 
-		return
+		return nil
 	}
 
 	s.decObjectCounterBy(logical, inhumed)
+
+	return unlocked
+}
+
+// FilterExpired filters expired objects by address through the metabase and returns them.
+func (s *Shard) FilterExpired(addrs []oid.Address) []oid.Address {
+	expired, err := s.metaBase.FilterExpired(addrs)
+	if err != nil {
+		s.log.Warn("expired object filtering",
+			zap.Error(err),
+		)
+
+		return nil
+	}
+
+	return expired
 }
 
 // HandleDeletedLocks unlocks all objects which were locked by lockers.
-// Also, marks as garbage every object that becomes free-to-remove and
-// just removed lock object is the only reason for that object to be
-// alive (e.g. expired but locked objects).
-func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
+// Returns every object that is unlocked.
+func (s *Shard) HandleDeletedLocks(lockers []oid.Address) []oid.Address {
 	if s.GetMode().NoMetabase() {
-		return
+		return nil
 	}
 
 	unlocked, err := s.metaBase.FreeLockedBy(lockers)
@@ -338,28 +341,10 @@ func (s *Shard) HandleDeletedLocks(lockers []oid.Address) {
 			zap.Error(err),
 		)
 
-		return
+		return nil
 	}
 
-	expired, err := s.metaBase.FilterExpired(unlocked)
-	if err != nil {
-		s.log.Warn("expired object filtering",
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	inhumed, _, err := s.metaBase.MarkGarbage(false, false, expired...)
-	if err != nil {
-		s.log.Warn("failure to mark unlocked objects as garbage",
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	s.decObjectCounterBy(logical, inhumed)
+	return unlocked
 }
 
 // NotificationChannel returns channel for shard events.

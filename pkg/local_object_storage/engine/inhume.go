@@ -264,14 +264,40 @@ func (e *StorageEngine) processExpiredObjects(addrs []oid.Address) {
 }
 
 func (e *StorageEngine) processExpiredLocks(lockers []oid.Address) {
+	var unlocked, expired []oid.Address
 	for _, sh := range e.unsortedShards() {
-		sh.HandleExpiredLocks(lockers)
+		unlocked = sh.HandleExpiredLocks(lockers)
+		for _, sh2 := range e.unsortedShards() {
+			expired = append(expired, sh2.FilterExpired(unlocked)...)
+		}
+	}
+	expired = removeDuplicateAddresses(expired)
+	e.log.Debug("expired objects after locks expired",
+		zap.Stringers("addrs", expired),
+		zap.Stringers("locks", lockers))
+
+	err := e.inhume(expired, false, nil, 0)
+	if err != nil {
+		e.log.Warn("handling expired locks", zap.Error(err))
 	}
 }
 
 func (e *StorageEngine) processDeletedLocks(lockers []oid.Address) {
+	var unlocked, expired []oid.Address
 	for _, sh := range e.unsortedShards() {
-		sh.HandleDeletedLocks(lockers)
+		unlocked = sh.HandleDeletedLocks(lockers)
+		for _, sh2 := range e.unsortedShards() {
+			expired = append(expired, sh2.FilterExpired(unlocked)...)
+		}
+	}
+	expired = removeDuplicateAddresses(expired)
+	e.log.Debug("expired objects after locks are deleted",
+		zap.Stringers("addrs", expired),
+		zap.Stringers("locks", lockers))
+
+	err := e.inhume(expired, false, nil, 0)
+	if err != nil {
+		e.log.Warn("handling deleted locks", zap.Error(err))
 	}
 }
 
@@ -298,5 +324,18 @@ func oIDsToAddresses(cID cid.ID, oo []oid.ID) []oid.Address {
 		res = append(res, addr)
 	}
 
+	return res
+}
+
+func removeDuplicateAddresses(addrs []oid.Address) []oid.Address {
+	uniqueMap := make(map[oid.Address]struct{})
+	res := make([]oid.Address, 0, len(addrs))
+
+	for _, addr := range addrs {
+		if _, ok := uniqueMap[addr]; !ok {
+			uniqueMap[addr] = struct{}{}
+			res = append(res, addr)
+		}
+	}
 	return res
 }
