@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Make the error message more clearer when validating IR configuration (#3072)
 - Panic during shutdown if N3 client connection is lost (#3073)
 - The first object of the split object is not deleted (#3089)
+- The parent of the split object is not removed from the metabase (#3089)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
