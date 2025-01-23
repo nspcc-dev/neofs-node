@@ -161,12 +161,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 	}
 
 	// if object is an only link to a parent, then remove parent
-	if parent := obj.Parent(); parent != nil {
-		if id := parent.GetID(); id.IsZero() {
-			// unfinished header from the first part
-			return false, false, 0, nil
-		}
-
+	if parent := obj.Parent(); parent != nil && !parent.GetID().IsZero() {
 		err = db.deleteObject(tx, obj, true)
 		if err != nil {
 			return false, false, 0, fmt.Errorf("could not remove parent object: %w", err)
