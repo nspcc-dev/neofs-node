@@ -207,9 +207,6 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 
 		err = c.flushObject(&obj, data)
 		if err != nil {
-			if ignoreErrors {
-				return nil
-			}
 			return err
 		}
 
