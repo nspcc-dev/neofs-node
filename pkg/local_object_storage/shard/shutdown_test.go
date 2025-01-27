@@ -13,14 +13,14 @@ import (
 
 func TestWriteCacheObjectLoss(t *testing.T) {
 	const (
-		smallSize = 1024
-		objCount  = 100
+		objectSize    = 1024
+		maxObjectSize = 2048
+		objCount      = 100
 	)
 
 	objects := make([]*objectSDK.Object, objCount)
 	for i := range objects {
-		size := smallSize / 2
-		data := make([]byte, size)
+		data := make([]byte, objectSize)
 		_, _ = rand.Read(data)
 
 		objects[i] = generateObjectWithPayload(cidtest.ID(), data)
@@ -28,8 +28,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 
 	dir := t.TempDir()
 	wcOpts := []writecache.Option{
-		writecache.WithSmallObjectSize(smallSize),
-		writecache.WithMaxObjectSize(smallSize * 2)}
+		writecache.WithMaxObjectSize(maxObjectSize)}
 
 	sh := newCustomShard(t, dir, true, wcOpts, nil)
 

@@ -2,15 +2,10 @@ package writecache
 
 import (
 	"errors"
-	"fmt"
 
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
-
-// ErrNoDefaultBucket is returned by IterateDB when default bucket for objects is missing.
-var ErrNoDefaultBucket = errors.New("no default bucket")
 
 // Iterate iterates over all objects present in write cache.
 // This is very difficult to do correctly unless write-cache is put in read-only mode.
@@ -20,24 +15,6 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 	defer c.modeMtx.RUnlock()
 	if !c.readOnly() {
 		return nil
-	}
-
-	err := c.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		return b.ForEach(func(k, data []byte) error {
-			if _, ok := c.flushed.Peek(string(k)); ok {
-				return nil
-			}
-			addr, err := oid.DecodeAddressString(string(k))
-			if err != nil {
-				return fmt.Errorf("decoding %s object ID: %w", string(k), err)
-			}
-
-			return handler(addr, data)
-		})
-	})
-	if err != nil {
-		return err
 	}
 
 	var addrHandler = func(addr oid.Address) error {
@@ -57,30 +34,4 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 	}
 
 	return c.fsTree.IterateAddresses(addrHandler, ignoreErrors)
-}
-
-// IterateDB iterates over all objects stored in bbolt.DB instance and passes them to f until error return.
-// It is assumed that db is an underlying database of some WriteCache instance.
-//
-// Returns ErrNoDefaultBucket if there is no default bucket in db.
-//
-// DB must not be nil and should be opened.
-func IterateDB(db *bbolt.DB, f func(oid.Address) error) error {
-	return db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		if b == nil {
-			return ErrNoDefaultBucket
-		}
-
-		var addr oid.Address
-
-		return b.ForEach(func(k, v []byte) error {
-			err := addr.DecodeString(string(k))
-			if err != nil {
-				return fmt.Errorf("could not parse object address: %w", err)
-			}
-
-			return f(addr)
-		})
-	})
 }

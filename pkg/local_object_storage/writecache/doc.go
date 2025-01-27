@@ -1,8 +1,6 @@
 // Package writecache implements write-cache for objects.
 //
-// Write-cache has 2 components:
-// 1. Key-value (bbolt) database for storing small objects.
-// 2. Filesystem tree for storing big objects.
+// Write-cache uses file system tree for storing objects.
 //
 // Flushing from the writecache to the main storage is done in the background.
 // To make it possible to serve Read requests after the object was flushed,

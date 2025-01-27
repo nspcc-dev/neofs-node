@@ -24,14 +24,13 @@ func TestGeneric(t *testing.T) {
 		require.NoError(t, os.MkdirAll(dir, os.ModePerm))
 		return New(
 			WithLogger(zaptest.NewLogger(t)),
-			WithFlushWorkersCount(2),
 			WithPath(dir))
 	}
 
 	storagetest.TestAll(t, newCache)
 }
 
-func newCache(tb testing.TB, smallSize uint64, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
+func newCache(tb testing.TB, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
 	dir := tb.TempDir()
 	mb := meta.New(
 		meta.WithPath(filepath.Join(dir, "meta")),
@@ -52,7 +51,6 @@ func newCache(tb testing.TB, smallSize uint64, opts ...Option) (Cache, *blobstor
 	wc := New(
 		append([]Option{
 			WithPath(filepath.Join(dir, "writecache")),
-			WithSmallObjectSize(smallSize),
 			WithMetabase(mb),
 			WithBlobstor(bs),
 		}, opts...)...)

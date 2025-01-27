@@ -95,9 +95,8 @@ func PrintStorageObjectStatus(cmd *cobra.Command, status engine.ObjectStatus) {
 			if shard.Shard.Metabase.Error != nil {
 				cmd.Printf("\t\tMetabase object error:\t%v\n", shard.Shard.Metabase.Error)
 			}
-			if shard.Shard.Writecache.PathDB != "" || shard.Shard.Writecache.PathFSTree != "" {
+			if shard.Shard.Writecache.PathFSTree != "" {
 				cmd.Printf("\tWritecache\n")
-				cmd.Printf("\t\tWritecache DB path:\t%s\n", shard.Shard.Writecache.PathDB)
 				cmd.Printf("\t\tWritecache FSTree path:\t%s\n", shard.Shard.Writecache.PathFSTree)
 			}
 			cmd.Println()

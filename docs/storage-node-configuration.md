@@ -268,9 +268,7 @@ writecache:
   enabled: true
   path: /path/to/writecache
   capacity: 4294967296
-  small_object_size: 16384
   max_object_size: 134217728
-  workers_number: 30
 ```
 
 | Parameter           | Type       | Default value | Description                                                                                                          |
@@ -279,11 +277,7 @@ writecache:
 | `path`              | `string`   |               | Path to the metabase file.                                                                                           |
 | `capacity`          | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. |
 | `no_sync`           | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                       |
-| `small_object_size` | `size`     | `32K`         | Maximum object size for "small" objects. This objects are stored in a key-value database instead of a file-system.   |
 | `max_object_size`   | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
-| `workers_number`    | `int`      | `20`          | Amount of background workers that move data from the writecache to the blobstor.                                     |
-| `max_batch_size`    | `int`      | `1000`        | Maximum amount of small object `PUT` operations to perform in a single transaction.                                  |
-| `max_batch_delay`   | `duration` | `10ms`        | Maximum delay before a batch starts.                                                                                 |
 
 ### `pilorama` subsection
 
