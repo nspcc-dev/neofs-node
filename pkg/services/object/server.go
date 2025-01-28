@@ -123,14 +123,16 @@ type Storage interface {
 	VerifyAndStoreObject(object.Object) error
 }
 
-type RequestInfoProcessor interface {
-	ProcessPutRequest(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
-	ProcessDeleteRequest(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	ProcessHeadRequest(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	ProcessHashRequest(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
-	ProcessGetRequest(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
-	ProcessRangeRequest(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	ProcessSearchRequest(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
+// ACLInfoExtractor is the interface that allows to fetch data required for ACL
+// checks from various types of grpc requests.
+type ACLInfoExtractor interface {
+	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
+	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
+	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
 }
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
@@ -159,11 +161,11 @@ type server struct {
 	mNumber     uint32
 	metrics     MetricCollector
 	aclChecker  aclsvc.ACLChecker
-	reqInfoProc RequestInfoProcessor
+	reqInfoProc ACLInfoExtractor
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp RequestInfoProcessor) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor) protoobject.ObjectServiceServer {
 	return &server{
 		srv:         c,
 		fsChain:     fsChain,
@@ -247,7 +249,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return errors.New("malformed request: empty body")
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.ProcessPutRequest(req); err != nil {
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				return s.sendStatusPutResponse(gStream, err)
 			}
@@ -299,7 +301,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessDeleteRequest(req)
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
 	if err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
@@ -350,7 +352,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessHeadRequest(req)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
@@ -406,7 +408,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessHashRequest(req)
+	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
 	if err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -475,7 +477,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessGetRequest(req)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -545,7 +547,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessRangeRequest(req)
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -615,7 +617,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.ProcessSearchRequest(req)
+	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}

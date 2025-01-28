@@ -82,9 +82,9 @@ func New(opts ...Option) Service {
 	}
 }
 
-// ProcessGetRequest resolves RequestInfo from the request to check it using
+// GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessGetRequest(request *protoobject.GetRequest) (RequestInfo, error) {
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -129,9 +129,9 @@ func (b Service) ProcessGetRequest(request *protoobject.GetRequest) (RequestInfo
 	return reqInfo, nil
 }
 
-// ProcessHeadRequest resolves RequestInfo from the request to check it using
+// HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessHeadRequest(request *protoobject.HeadRequest) (RequestInfo, error) {
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -176,9 +176,9 @@ func (b Service) ProcessHeadRequest(request *protoobject.HeadRequest) (RequestIn
 	return reqInfo, err
 }
 
-// ProcessSearchRequest resolves RequestInfo from the request to check it using
+// SearchRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessSearchRequest(request *protoobject.SearchRequest) (RequestInfo, error) {
+func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -216,9 +216,9 @@ func (b Service) ProcessSearchRequest(request *protoobject.SearchRequest) (Reque
 	return reqInfo, nil
 }
 
-// ProcessDeleteRequest resolves RequestInfo from the request to check it using
+// DeleteRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessDeleteRequest(request *protoobject.DeleteRequest) (RequestInfo, error) {
+func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -263,9 +263,9 @@ func (b Service) ProcessDeleteRequest(request *protoobject.DeleteRequest) (Reque
 	return reqInfo, nil
 }
 
-// ProcessRangeRequest resolves RequestInfo from the request to check it using
+// RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessRangeRequest(request *protoobject.GetRangeRequest) (RequestInfo, error) {
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -310,9 +310,9 @@ func (b Service) ProcessRangeRequest(request *protoobject.GetRangeRequest) (Requ
 	return reqInfo, nil
 }
 
-// ProcessHashRequest resolves RequestInfo from the request to check it using
+// HashRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) ProcessHashRequest(request *protoobject.GetRangeHashRequest) (RequestInfo, error) {
+func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -359,9 +359,9 @@ func (b Service) ProcessHashRequest(request *protoobject.GetRangeHashRequest) (R
 
 var ErrSkipRequest = errors.New("skip request")
 
-// ProcessPutRequest resolves RequestInfo from the request to check it using
+// PutRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
-func (b Service) ProcessPutRequest(request *protoobject.PutRequest) (RequestInfo, user.ID, error) {
+func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo, user.ID, error) {
 	body := request.GetBody()
 	if body == nil {
 		return RequestInfo{}, user.ID{}, errEmptyBody

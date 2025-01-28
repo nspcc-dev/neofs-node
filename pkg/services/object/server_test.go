@@ -90,27 +90,27 @@ func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool           { panic
 func (noCallTestACLChecker) CheckEACL(any, v2.RequestInfo) error         { panic("must not be called") }
 func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic("must not be called") }
 
-type noCallTestReqInfoProcessor struct{}
+type noCallTestReqInfoExtractor struct{}
 
-func (noCallTestReqInfoProcessor) ProcessPutRequest(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessDeleteRequest(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessHeadRequest(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessHashRequest(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessGetRequest(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessRangeRequest(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoProcessor) ProcessSearchRequest(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -120,27 +120,27 @@ func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool           { return true 
 func (nopACLChecker) CheckEACL(any, v2.RequestInfo) error         { return nil }
 func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true }
 
-type nopReqInfoProcessor struct{}
+type nopReqInfoExtractor struct{}
 
-func (nopReqInfoProcessor) ProcessPutRequest(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (nopReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
 	return v2.RequestInfo{}, user.ID{}, nil
 }
-func (nopReqInfoProcessor) ProcessDeleteRequest(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoProcessor) ProcessHeadRequest(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoProcessor) ProcessHashRequest(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoProcessor) ProcessGetRequest(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoProcessor) ProcessRangeRequest(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoProcessor) ProcessSearchRequest(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 
@@ -253,7 +253,7 @@ func TestServer_Replicate(t *testing.T) {
 	var noCallObjSvc noCallObjectService
 	var noCallStorage noCallTestStorage
 	var noCallACLChecker noCallTestACLChecker
-	var noCallReqProc noCallTestReqInfoProcessor
+	var noCallReqProc noCallTestReqInfoExtractor
 	noCallSrv := objectSvc.New(noCallObjSvc, 0, &noCallFSChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
@@ -551,7 +551,7 @@ func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var fsChain nopFSChain
 
-	srv := objectSvc.New(nil, 0, fsChain, nopStorage{}, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoProcessor{})
+	srv := objectSvc.New(nil, 0, fsChain, nopStorage{}, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{})
 
 	for _, tc := range []struct {
 		name      string
