@@ -67,7 +67,9 @@ type validConfig struct {
 					Timeout  time.Duration `mapstructure:"timeout"`
 				} `mapstructure:"ping"`
 			} `mapstructure:"p2p"`
-			SetRolesInGenesis bool `mapstructure:"set_roles_in_genesis"`
+			SetRolesInGenesis       bool `mapstructure:"set_roles_in_genesis"`
+			KeepOnlyLatestState     bool `mapstructure:"keep_only_latest_state"`
+			RemoveUntraceableBlocks bool `mapstructure:"remove_untraceable_blocks"`
 		} `mapstructure:"consensus"`
 	} `mapstructure:"morph"`
 
@@ -122,7 +124,9 @@ type validConfig struct {
 					Timeout  time.Duration `mapstructure:"timeout"`
 				} `mapstructure:"ping"`
 			} `mapstructure:"p2p"`
-			SetRolesInGenesis bool `mapstructure:"set_roles_in_genesis"`
+			SetRolesInGenesis       bool `mapstructure:"set_roles_in_genesis"`
+			KeepOnlyLatestState     bool `mapstructure:"keep_only_latest_state"`
+			RemoveUntraceableBlocks bool `mapstructure:"remove_untraceable_blocks"`
 		} `mapstructure:"consensus"`
 	} `mapstructure:"fschain"`
 

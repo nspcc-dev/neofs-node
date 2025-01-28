@@ -162,6 +162,22 @@ type P2PConfig struct {
 	ListenAddresses []string
 }
 
+// LedgerConfig contains core node-specific settings
+// (which is common for every node on the network).
+type LedgerConfig struct {
+	// KeepOnlyLatestState specifies if MPT should only store the latest state.
+	// If true, DB size will be smaller, but older roots won't be accessible.
+	// This value should remain the same for the same database.
+	//
+	// Optional: by default, false.
+	KeepOnlyLatestState bool
+
+	// RemoveUntraceableBlocks specifies if old data should be removed.
+	//
+	// Optional: by default, false.
+	RemoveUntraceableBlocks bool
+}
+
 // Config configures Blockchain. All required fields must be set. Specified
 // optional fields tune Blockchain's default behavior (zero or omitted values).
 //
@@ -246,6 +262,11 @@ type Config struct {
 	//
 	// Optional: by default, roles are unset.
 	SetRolesInGenesis bool
+
+	// Configuration of local node-specific settings.
+	//
+	// Optional.
+	Ledger LedgerConfig
 }
 
 // New returns new Blockchain configured by the specified Config. New panics if
@@ -393,6 +414,9 @@ func New(cfg Config) (res *Blockchain, err error) {
 		cfgBaseApp.RPC.TLSConfig.CertFile = tlsCfg.CertFile
 		cfgBaseApp.RPC.TLSConfig.KeyFile = tlsCfg.KeyFile
 	}
+
+	cfgBaseApp.KeepOnlyLatestState = cfg.Ledger.KeepOnlyLatestState
+	cfgBaseApp.RemoveUntraceableBlocks = cfg.Ledger.RemoveUntraceableBlocks
 
 	err = cfgBase.ProtocolConfiguration.Validate()
 	if err != nil {
