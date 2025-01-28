@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -107,7 +107,7 @@ func (r RequestInfo) RequestRole() acl.Role {
 // MetaWithToken groups session and bearer tokens,
 // verification header and raw API request.
 type MetaWithToken struct {
-	vheader *sessionV2.RequestVerificationHeader
+	vheader *protosession.RequestVerificationHeader
 	token   *sessionSDK.Object
 	bearer  *bearer.Token
 	src     any

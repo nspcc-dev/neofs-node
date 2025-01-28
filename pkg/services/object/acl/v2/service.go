@@ -1,14 +1,14 @@
 package v2
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
+	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -24,35 +24,6 @@ type Service struct {
 	*cfg
 
 	c senderClassifier
-}
-
-type putStreamBasicChecker struct {
-	source *Service
-	next   object.PutObjectStream
-}
-
-type getStreamBasicChecker struct {
-	checker ACLChecker
-
-	object.GetObjectStream
-
-	info RequestInfo
-}
-
-type rangeStreamBasicChecker struct {
-	checker ACLChecker
-
-	object.GetObjectRangeStream
-
-	info RequestInfo
-}
-
-type searchStreamBasicChecker struct {
-	checker ACLChecker
-
-	object.SearchStream
-
-	info RequestInfo
 }
 
 // Option represents Service constructor option.
@@ -72,13 +43,9 @@ type cfg struct {
 
 	containers container.Source
 
-	checker ACLChecker
-
 	irFetcher InnerRingFetcher
 
 	nm Netmapper
-
-	next object.ServiceServer
 }
 
 func defaultCfg() *cfg {
@@ -101,10 +68,8 @@ func New(opts ...Option) Service {
 		}
 	}
 
-	panicOnNil(cfg.next, "next Service")
 	panicOnNil(cfg.nm, "netmap client")
 	panicOnNil(cfg.irFetcher, "inner Ring fetcher")
-	panicOnNil(cfg.checker, "acl checker")
 	panicOnNil(cfg.containers, "container source")
 
 	return Service{
@@ -117,38 +82,38 @@ func New(opts ...Option) Service {
 	}
 }
 
-// Get implements ServiceServer interface, makes ACL checks and calls
-// next Get method in the ServiceServer pipeline.
-func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream) error {
+// GetRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, cnr, obj)
 		if err != nil {
-			return err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -156,65 +121,46 @@ func (b Service) Get(request *objectV2.GetRequest, stream object.GetObjectStream
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectGet)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	reqInfo.obj = obj
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return eACLErr(reqInfo, err)
-	}
-
-	return b.next.Get(request, &getStreamBasicChecker{
-		GetObjectStream: stream,
-		info:            reqInfo,
-		checker:         b.checker,
-	})
+	return reqInfo, nil
 }
 
-func (b Service) Put(ctx context.Context) (object.PutObjectStream, error) {
-	streamer, err := b.next.Put(ctx)
-
-	return putStreamBasicChecker{
-		source: &b,
-		next:   streamer,
-	}, err
-}
-
-func (b Service) Head(
-	ctx context.Context,
-	request *objectV2.HeadRequest) (*objectV2.HeadResponse, error) {
+// HeadRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, cnr, obj)
 		if err != nil {
-			return nil, err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -222,52 +168,41 @@ func (b Service) Head(
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHead)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	reqInfo.obj = obj
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return nil, basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return nil, eACLErr(reqInfo, err)
-	}
-
-	resp, err := b.next.Head(ctx, request)
-	if err == nil {
-		if err = b.checker.CheckEACL(resp, reqInfo); err != nil {
-			err = eACLErr(reqInfo, err)
-		}
-	}
-
-	return resp, err
+	return reqInfo, err
 }
 
-func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStream) error {
+// SearchRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, id, nil)
 		if err != nil {
-			return err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -275,54 +210,44 @@ func (b Service) Search(request *objectV2.SearchRequest, stream object.SearchStr
 
 	reqInfo, err := b.findRequestInfo(req, id, acl.OpObjectSearch)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return eACLErr(reqInfo, err)
-	}
-
-	return b.next.Search(request, &searchStreamBasicChecker{
-		checker:      b.checker,
-		SearchStream: stream,
-		info:         reqInfo,
-	})
+	return reqInfo, nil
 }
 
-func (b Service) Delete(
-	ctx context.Context,
-	request *objectV2.DeleteRequest) (*objectV2.DeleteResponse, error) {
+// DeleteRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, cnr, obj)
 		if err != nil {
-			return nil, err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -330,50 +255,46 @@ func (b Service) Delete(
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectDelete)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	reqInfo.obj = obj
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return nil, basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return nil, eACLErr(reqInfo, err)
-	}
-
-	return b.next.Delete(ctx, request)
+	return reqInfo, nil
 }
 
-func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetObjectRangeStream) error {
+// RangeRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, cnr, obj)
 		if err != nil {
-			return err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -381,56 +302,46 @@ func (b Service) GetRange(request *objectV2.GetRangeRequest, stream object.GetOb
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectRange)
 	if err != nil {
-		return err
+		return RequestInfo{}, err
 	}
 
 	reqInfo.obj = obj
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return eACLErr(reqInfo, err)
-	}
-
-	return b.next.GetRange(request, &rangeStreamBasicChecker{
-		checker:              b.checker,
-		GetObjectRangeStream: stream,
-		info:                 reqInfo,
-	})
+	return reqInfo, nil
 }
 
-func (b Service) GetRangeHash(
-	ctx context.Context,
-	request *objectV2.GetRangeHashRequest) (*objectV2.GetRangeHashResponse, error) {
+// HashRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	obj, err := getObjectIDFromRequestBody(request.GetBody())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	sTok, err := originalSessionToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	if sTok != nil {
 		err = assertSessionRelation(*sTok, cnr, obj)
 		if err != nil {
-			return nil, err
+			return RequestInfo{}, err
 		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerificationHeader(),
+		vheader: request.GetVerifyHeader(),
 		token:   sTok,
 		bearer:  bTok,
 		src:     request,
@@ -438,185 +349,160 @@ func (b Service) GetRangeHash(
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHash)
 	if err != nil {
-		return nil, err
+		return RequestInfo{}, err
 	}
 
 	reqInfo.obj = obj
 
-	if !b.checker.CheckBasicACL(reqInfo) {
-		return nil, basicACLErr(reqInfo)
-	} else if err := b.checker.CheckEACL(request, reqInfo); err != nil {
-		return nil, eACLErr(reqInfo, err)
-	}
-
-	return b.next.GetRangeHash(ctx, request)
+	return reqInfo, nil
 }
 
-func (p putStreamBasicChecker) Send(request *objectV2.PutRequest) error {
+var ErrSkipRequest = errors.New("skip request")
+
+// PutRequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
+func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo, user.ID, error) {
 	body := request.GetBody()
 	if body == nil {
-		return errEmptyBody
+		return RequestInfo{}, user.ID{}, errEmptyBody
 	}
 
-	part := body.GetObjectPart()
-	if part, ok := part.(*objectV2.PutObjectPartInit); ok {
-		cnr, err := getContainerIDFromRequest(request)
+	part, ok := body.GetObjectPart().(*protoobject.PutRequest_Body_Init_)
+	if !ok {
+		return RequestInfo{}, user.ID{}, ErrSkipRequest
+	}
+	if part == nil || part.Init == nil {
+		return RequestInfo{}, user.ID{}, errors.New("nil oneof field with heading part")
+	}
+	cnr, err := getContainerIDFromRequest(request)
+	if err != nil {
+		return RequestInfo{}, user.ID{}, err
+	}
+
+	header := part.Init.Header
+
+	cIDV2 := header.GetContainerId().GetValue()
+	var cID cid.ID
+	err = cID.Decode(cIDV2)
+	if err != nil {
+		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid container ID: %w", err)
+	}
+
+	inContainer, err := b.nm.ServerInContainer(cID)
+	if err != nil {
+		return RequestInfo{}, user.ID{}, fmt.Errorf("checking if node in container: %w", err)
+	}
+
+	if header.GetSplit() != nil && !inContainer {
+		// skip ACL checks for split objects if it is not a container
+		// node, since it requires additional object operations (e.g.,
+		// requesting the other split parts) that may (or may not) be
+		// prohibited by ACL rules; this node is not going to store such
+		// objects anyway
+		return RequestInfo{}, user.ID{}, ErrSkipRequest
+	}
+
+	mOwner := header.GetOwnerId()
+	if mOwner == nil {
+		return RequestInfo{}, user.ID{}, errors.New("missing object owner")
+	}
+
+	var idOwner user.ID
+	var idV2 apirefs.OwnerID
+	if err := idV2.FromGRPCMessage(mOwner); err != nil {
+		panic(err)
+	}
+	err = idOwner.ReadFromV2(idV2)
+	if err != nil {
+		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
+	}
+
+	var obj *oid.ID
+
+	if part.Init.ObjectId != nil {
+		obj = new(oid.ID)
+		var objV2 apirefs.ObjectID
+		if err := objV2.FromGRPCMessage(part.Init.ObjectId); err != nil {
+			panic(err)
+		}
+		err = obj.ReadFromV2(objV2)
 		if err != nil {
-			return err
-		}
-
-		header := part.GetHeader()
-
-		cIDV2 := header.GetContainerID().GetValue()
-		var cID cid.ID
-		err = cID.Decode(cIDV2)
-		if err != nil {
-			return fmt.Errorf("invalid container ID: %w", err)
-		}
-
-		inContainer, err := p.source.nm.ServerInContainer(cID)
-		if err != nil {
-			return fmt.Errorf("checking if node in container: %w", err)
-		}
-
-		if header.GetSplit() != nil && !inContainer {
-			// skip ACL checks for split objects if it is not a container
-			// node, since it requires additional object operations (e.g.,
-			// requesting the other split parts) that may (or may not) be
-			// prohibited by ACL rules; this node is not going to store such
-			// objects anyway
-			return p.next.Send(request)
-		}
-
-		idV2 := header.GetOwnerID()
-		if idV2 == nil {
-			return errors.New("missing object owner")
-		}
-
-		var idOwner user.ID
-
-		err = idOwner.ReadFromV2(*idV2)
-		if err != nil {
-			return fmt.Errorf("invalid object owner: %w", err)
-		}
-
-		objV2 := part.GetObjectID()
-		var obj *oid.ID
-
-		if objV2 != nil {
-			obj = new(oid.ID)
-
-			err = obj.ReadFromV2(*objV2)
-			if err != nil {
-				return err
-			}
-		}
-
-		sTok, err := originalSessionToken(request.GetMetaHeader())
-		if err != nil {
-			return err
-		}
-
-		if sTok != nil {
-			if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
-				// if session relates to object's removal, we don't check
-				// relation of the tombstone to the session here since user
-				// can't predict tomb's ID.
-				err = assertSessionRelation(*sTok, cnr, nil)
-			} else {
-				err = assertSessionRelation(*sTok, cnr, obj)
-			}
-
-			if err != nil {
-				return err
-			}
-		}
-
-		bTok, err := originalBearerToken(request.GetMetaHeader())
-		if err != nil {
-			return err
-		}
-
-		req := MetaWithToken{
-			vheader: request.GetVerificationHeader(),
-			token:   sTok,
-			bearer:  bTok,
-			src:     request,
-		}
-
-		verb := acl.OpObjectPut
-		tombstone := part.GetHeader().GetObjectType() == objectV2.TypeTombstone
-		if tombstone {
-			// such objects are specific - saving them is essentially the removal of other
-			// objects
-			verb = acl.OpObjectDelete
-		}
-
-		reqInfo, err := p.source.findRequestInfo(req, cnr, verb)
-		if err != nil {
-			return err
-		}
-
-		replication := reqInfo.requestRole == acl.RoleContainer && request.GetMetaHeader().GetTTL() == 1
-		if tombstone {
-			// the only exception when writing tombstone should not be treated as deletion
-			// is intra-container replication: container nodes must be able to replicate
-			// such objects while deleting is prohibited
-			if replication {
-				reqInfo.operation = acl.OpObjectPut
-			}
-		}
-
-		if !replication {
-			// header length is unchecked for replication because introducing a restriction
-			// should not prevent the replication of objects created before.
-			// See also https://github.com/nspcc-dev/neofs-api/issues/293
-			hdrLen := part.GetHeader().StableSize()
-			if hdrLen > objectsdk.MaxHeaderLen {
-				return fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, objectsdk.MaxHeaderLen)
-			}
-		}
-
-		reqInfo.obj = obj
-
-		if !p.source.checker.CheckBasicACL(reqInfo) || !p.source.checker.StickyBitCheck(reqInfo, idOwner) {
-			return basicACLErr(reqInfo)
-		} else if err := p.source.checker.CheckEACL(request, reqInfo); err != nil {
-			return eACLErr(reqInfo, err)
+			return RequestInfo{}, user.ID{}, err
 		}
 	}
 
-	return p.next.Send(request)
-}
+	sTok, err := originalSessionToken(request.GetMetaHeader())
+	if err != nil {
+		return RequestInfo{}, user.ID{}, err
+	}
 
-func (p putStreamBasicChecker) CloseAndRecv() (*objectV2.PutResponse, error) {
-	return p.next.CloseAndRecv()
-}
+	if sTok != nil {
+		if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
+			// if session relates to object's removal, we don't check
+			// relation of the tombstone to the session here since user
+			// can't predict tomb's ID.
+			err = assertSessionRelation(*sTok, cnr, nil)
+		} else {
+			err = assertSessionRelation(*sTok, cnr, obj)
+		}
 
-func (g *getStreamBasicChecker) Send(resp *objectV2.GetResponse) error {
-	if _, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
-		if err := g.checker.CheckEACL(resp, g.info); err != nil {
-			return eACLErr(g.info, err)
+		if err != nil {
+			return RequestInfo{}, user.ID{}, err
 		}
 	}
 
-	return g.GetObjectStream.Send(resp)
-}
-
-func (g *rangeStreamBasicChecker) Send(resp *objectV2.GetRangeResponse) error {
-	if err := g.checker.CheckEACL(resp, g.info); err != nil {
-		return eACLErr(g.info, err)
+	bTok, err := originalBearerToken(request.GetMetaHeader())
+	if err != nil {
+		return RequestInfo{}, user.ID{}, err
 	}
 
-	return g.GetObjectRangeStream.Send(resp)
-}
-
-func (g *searchStreamBasicChecker) Send(resp *objectV2.SearchResponse) error {
-	if err := g.checker.CheckEACL(resp, g.info); err != nil {
-		return eACLErr(g.info, err)
+	req := MetaWithToken{
+		vheader: request.GetVerifyHeader(),
+		token:   sTok,
+		bearer:  bTok,
+		src:     request,
 	}
 
-	return g.SearchStream.Send(resp)
+	verb := acl.OpObjectPut
+	tombstone := header.GetObjectType() == protoobject.ObjectType_TOMBSTONE
+	if tombstone {
+		// such objects are specific - saving them is essentially the removal of other
+		// objects
+		verb = acl.OpObjectDelete
+	}
+
+	reqInfo, err := b.findRequestInfo(req, cnr, verb)
+	if err != nil {
+		return RequestInfo{}, user.ID{}, err
+	}
+
+	replication := reqInfo.requestRole == acl.RoleContainer && request.GetMetaHeader().GetTtl() == 1
+	if tombstone {
+		// the only exception when writing tombstone should not be treated as deletion
+		// is intra-container replication: container nodes must be able to replicate
+		// such objects while deleting is prohibited
+		if replication {
+			reqInfo.operation = acl.OpObjectPut
+		}
+	}
+
+	if !replication {
+		// header length is unchecked for replication because introducing a restriction
+		// should not prevent the replication of objects created before.
+		// See also https://github.com/nspcc-dev/neofs-api/issues/293
+		var h2 objectV2.Header
+		if err := h2.FromGRPCMessage(header); err != nil {
+			panic(err)
+		}
+		hdrLen := h2.StableSize()
+		if hdrLen > objectsdk.MaxHeaderLen {
+			return RequestInfo{}, user.ID{}, fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, objectsdk.MaxHeaderLen)
+		}
+	}
+
+	reqInfo.obj = obj
+
+	return reqInfo, idOwner, nil
 }
 
 func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (info RequestInfo, err error) {

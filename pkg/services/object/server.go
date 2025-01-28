@@ -19,6 +19,7 @@ import (
 	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -27,6 +28,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/protobuf/proto"
 )
 
 // GetObjectStream is an interface of NeoFS API v2 compatible object streamer.
@@ -88,8 +92,11 @@ type MetricCollector interface {
 	AddGetPayload(int)
 }
 
-// Node represents NeoFS storage node that is served by [Server].
-type Node interface {
+// FSChain provides access to the FS chain required to serve NeoFS API Object
+// service.
+type FSChain interface {
+	netmap.StateDetailed
+
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
 	// the referenced container's storage policy at the current and the previous
 	// NeoFS epochs, and passes their public keys into f. IterateContainerNodeKeys
@@ -103,31 +110,79 @@ type Node interface {
 	// network map.
 	IsOwnPublicKey(pubKey []byte) bool
 
+	// LocalNodeUnderMaintenance checks whether local node is under maintenance
+	// according to the network map from FSChain.
+	LocalNodeUnderMaintenance() bool
+}
+
+// Storage groups ops of the node's object storage required to serve NeoFS API
+// Object service.
+type Storage interface {
 	// VerifyAndStoreObject checks whether given object has correct format and, if
-	// so, saves it into local object storage of the Node. StoreObject is called
-	// only when the Node complies with the container's storage policy.
+	// so, saves it into the Storage. StoreObject is called only when local node
+	// complies with the container's storage policy.
 	VerifyAndStoreObject(object.Object) error
 }
+
+// ACLInfoExtractor is the interface that allows to fetch data required for ACL
+// checks from various types of grpc requests.
+type ACLInfoExtractor interface {
+	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
+	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
+	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
+}
+
+const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
+const accessDeniedEACLReasonFmt = "access to operation %s is denied by extended ACL check: %v"
+
+func basicACLErr(info aclsvc.RequestInfo) error {
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedACLReasonFmt, info.Operation()))
+
+	return errAccessDenied
+}
+
+func eACLErr(info aclsvc.RequestInfo, err error) error {
+	var errAccessDenied apistatus.ObjectAccessDenied
+	errAccessDenied.WriteReason(fmt.Sprintf(accessDeniedEACLReasonFmt, info.Operation(), err))
+
+	return errAccessDenied
+}
+
+const (
+	maxRespMsgSize       = 4 << 20                            // default gRPC limit
+	maxRespDataChunkSize = maxRespMsgSize * 3 / 4             // 25% to meta, 75% to payload
+	addrMsgSize          = 72                                 // 32 bytes object ID, 32 bytes container ID, 8 bytes protobuf encoding
+	maxObjAddrRespAmount = maxRespDataChunkSize / addrMsgSize // each address is about 72 bytes
+)
 
 type server struct {
 	srv ServiceServer
 
-	node    Node
-	signer  ecdsa.PrivateKey
-	mNumber uint32
-	nmState netmap.StateDetailed
-	metrics MetricCollector
+	fsChain     FSChain
+	storage     Storage
+	signer      ecdsa.PrivateKey
+	mNumber     uint32
+	metrics     MetricCollector
+	aclChecker  aclsvc.ACLChecker
+	reqInfoProc ACLInfoExtractor
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(c ServiceServer, magicNumber uint32, node Node, signer ecdsa.PrivateKey, nmState netmap.StateDetailed, m MetricCollector) protoobject.ObjectServiceServer {
+func New(c ServiceServer, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor) protoobject.ObjectServiceServer {
 	return &server{
-		srv:     c,
-		node:    node,
-		signer:  signer,
-		mNumber: magicNumber,
-		nmState: nmState,
-		metrics: m,
+		srv:         c,
+		fsChain:     fsChain,
+		storage:     st,
+		signer:      signer,
+		mNumber:     magicNumber,
+		metrics:     m,
+		aclChecker:  ac,
+		reqInfoProc: rp,
 	}
 }
 
@@ -136,7 +191,14 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 }
 
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
-	return &protosession.ResponseMetaHeader{Status: st}
+	v := version.Current()
+	var v2 refsv2.Version
+	v.WriteToV2(&v2)
+	return &protosession.ResponseMetaHeader{
+		Version: v2.ToGRPCMessage().(*refs.Version),
+		Epoch:   s.fsChain.CurrentEpoch(),
+		Status:  st,
+	}
 }
 
 func (s *server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
@@ -187,6 +249,30 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return err
 		}
 
+		if s.fsChain.LocalNodeUnderMaintenance() {
+			return s.sendStatusPutResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		}
+
+		if req.Body == nil {
+			return errors.New("malformed request: empty body")
+		}
+
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
+			if !errors.Is(err, aclsvc.ErrSkipRequest) {
+				return s.sendStatusPutResponse(gStream, err)
+			}
+		} else {
+			if !s.aclChecker.CheckBasicACL(reqInfo) || !s.aclChecker.StickyBitCheck(reqInfo, objOwner) {
+				err = basicACLErr(reqInfo) // needed for defer
+				return s.sendStatusPutResponse(gStream, err)
+			}
+			err = s.aclChecker.CheckEACL(req, reqInfo)
+			if err != nil {
+				err = eACLErr(reqInfo, err) // needed for defer
+				return s.sendStatusPutResponse(gStream, err)
+			}
+		}
+
 		if err = stream.Send(putReq); err != nil {
 			err = s.sendStatusPutResponse(gStream, err) // assign for defer
 			return err
@@ -218,6 +304,25 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	if err = signature.VerifyServiceMessage(delReq); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
+	if err != nil {
+		return s.makeStatusDeleteResponse(err), nil
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.makeStatusDeleteResponse(err), nil
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // needed for defer
+		return s.makeStatusDeleteResponse(err), nil
+	}
+
 	resp, err := s.srv.Delete(ctx, delReq)
 	if err != nil {
 		return s.makeStatusDeleteResponse(err), nil
@@ -250,8 +355,33 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	if err = signature.VerifyServiceMessage(searchReq); err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	if err != nil {
+		return s.makeStatusHeadResponse(err), nil
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.makeStatusHeadResponse(err), nil
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // needed for defer
+		return s.makeStatusHeadResponse(err), nil
+	}
+
 	resp, err := s.srv.Head(ctx, searchReq)
 	if err != nil {
+		return s.makeStatusHeadResponse(err), nil
+	}
+
+	err = s.aclChecker.CheckEACL(resp.ToGRPCMessage().(*protoobject.HeadResponse), reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // defer
 		return s.makeStatusHeadResponse(err), nil
 	}
 
@@ -281,6 +411,25 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 	if err = signature.VerifyServiceMessage(hashRngReq); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
+	if err != nil {
+		return s.makeStatusHashResponse(err), nil
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.makeStatusHashResponse(err), nil
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // needed for defer
+		return s.makeStatusHashResponse(err), nil
+	}
+
 	resp, err := s.srv.GetRangeHash(ctx, hashRngReq)
 	if err != nil {
 		return s.makeStatusHashResponse(err), nil
@@ -301,13 +450,34 @@ func (s *server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 
 type getStreamerV2 struct {
 	protoobject.ObjectService_GetServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *getStreamerV2) Send(resp *v2object.GetResponse) error {
 	r := resp.ToGRPCMessage().(*protoobject.GetResponse)
-	if c := r.GetBody().GetChunk(); c != nil {
-		s.srv.metrics.AddGetPayload(len(c))
+	switch v := r.GetBody().GetObjectPart().(type) {
+	case *protoobject.GetResponse_Body_Init_:
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+	case *protoobject.GetResponse_Body_Chunk:
+		for buf := bytes.NewBuffer(v.GetChunk()); buf.Len() > 0; {
+			newResp := &protoobject.GetResponse{
+				Body: &protoobject.GetResponse_Body{
+					ObjectPart: &protoobject.GetResponse_Body_Chunk{
+						Chunk: buf.Next(maxRespDataChunkSize),
+					},
+				},
+				MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+				VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+			}
+			if err := s.srv.sendGetResponse(s.ObjectService_GetServer, newResp); err != nil {
+				return err
+			}
+		}
+		s.srv.metrics.AddGetPayload(len(v.Chunk))
+		return nil
 	}
 	return s.srv.sendGetResponse(s.ObjectService_GetServer, r)
 }
@@ -325,11 +495,31 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err = signature.VerifyServiceMessage(getReq); err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+	}
+
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	if err != nil {
+		return s.sendStatusGetResponse(gStream, err)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.sendStatusGetResponse(gStream, err)
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // needed for defer
+		return s.sendStatusGetResponse(gStream, err)
+	}
+
 	err = s.srv.Get(
 		getReq,
 		&getStreamerV2{
 			ObjectService_GetServer: gStream,
 			srv:                     s,
+			reqInfo:                 reqInfo,
 		},
 	)
 	if err != nil {
@@ -350,11 +540,39 @@ func (s *server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRan
 
 type getRangeStreamerV2 struct {
 	protoobject.ObjectService_GetRangeServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *getRangeStreamerV2) Send(resp *v2object.GetRangeResponse) error {
-	return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, resp.ToGRPCMessage().(*protoobject.GetRangeResponse))
+	r := resp.ToGRPCMessage().(*protoobject.GetRangeResponse)
+	v, ok := r.GetBody().GetRangePart().(*protoobject.GetRangeResponse_Body_Chunk)
+	if !ok {
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		return s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, r)
+	}
+	for buf := bytes.NewBuffer(v.GetChunk()); buf.Len() > 0; {
+		newResp := &protoobject.GetRangeResponse{
+			Body: &protoobject.GetRangeResponse_Body{
+				RangePart: &protoobject.GetRangeResponse_Body_Chunk{
+					Chunk: buf.Next(maxRespDataChunkSize),
+				},
+			},
+			MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+			VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+		}
+		// TODO: do not check response multiple times
+		// TODO: why check it at all?
+		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		if err := s.srv.sendRangeResponse(s.ObjectService_GetRangeServer, newResp); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetRange converts gRPC GetRangeRequest message and server-side stream and overtakes its data
@@ -370,11 +588,31 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err = signature.VerifyServiceMessage(getRngReq); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+	}
+
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	if err != nil {
+		return s.sendStatusRangeResponse(gStream, err)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.sendStatusRangeResponse(gStream, err)
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err) // needed for defer
+		return s.sendStatusRangeResponse(gStream, err)
+	}
+
 	err = s.srv.GetRange(
 		getRngReq,
 		&getRangeStreamerV2{
 			ObjectService_GetRangeServer: gStream,
 			srv:                          s,
+			reqInfo:                      reqInfo,
 		},
 	)
 	if err != nil {
@@ -395,11 +633,38 @@ func (s *server) sendStatusSearchResponse(stream protoobject.ObjectService_Searc
 
 type searchStreamerV2 struct {
 	protoobject.ObjectService_SearchServer
-	srv *server
+	srv     *server
+	reqInfo aclsvc.RequestInfo
 }
 
 func (s *searchStreamerV2) Send(resp *v2object.SearchResponse) error {
-	return s.srv.sendSearchResponse(s.ObjectService_SearchServer, resp.ToGRPCMessage().(*protoobject.SearchResponse))
+	r := resp.ToGRPCMessage().(*protoobject.SearchResponse)
+	ids := r.GetBody().GetIdList()
+	for len(ids) > 0 {
+		newResp := &protoobject.SearchResponse{
+			Body:         &protoobject.SearchResponse_Body{},
+			MetaHeader:   proto.Clone(r.GetMetaHeader()).(*protosession.ResponseMetaHeader), // TODO: can go w/o cloning?
+			VerifyHeader: proto.Clone(r.GetVerifyHeader()).(*protosession.ResponseVerificationHeader),
+		}
+
+		cut := maxObjAddrRespAmount
+		if cut > len(ids) {
+			cut = len(ids)
+		}
+
+		newResp.Body.IdList = ids[:cut]
+		// TODO: do not check response multiple times
+		// TODO: why check it at all?
+		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+			return eACLErr(s.reqInfo, err)
+		}
+		if err := s.srv.sendSearchResponse(s.ObjectService_SearchServer, r); err != nil {
+			return err
+		}
+
+		ids = ids[cut:]
+	}
+	return nil
 }
 
 // Search converts gRPC SearchRequest message and server-side stream and overtakes its data
@@ -415,11 +680,31 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	if err = signature.VerifyServiceMessage(searchReq); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+	}
+
+	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
+	if err != nil {
+		return s.sendStatusSearchResponse(gStream, err)
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.sendStatusSearchResponse(gStream, err)
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err)
+		return s.sendStatusSearchResponse(gStream, err)
+	}
+
 	err = s.srv.Search(
 		searchReq,
 		&searchStreamerV2{
 			ObjectService_SearchServer: gStream,
 			srv:                        s,
+			reqInfo:                    reqInfo,
 		},
 	)
 	if err != nil {
@@ -540,9 +825,9 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	}
 
 	var clientInCnr, serverInCnr bool
-	err = s.node.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
+	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
 		if !serverInCnr {
-			serverInCnr = s.node.IsOwnPublicKey(pubKey)
+			serverInCnr = s.fsChain.IsOwnPublicKey(pubKey)
 		}
 		if !clientInCnr {
 			clientInCnr = bytes.Equal(pubKey, req.Signature.Key)
@@ -580,7 +865,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		}}, nil
 	}
 
-	err = s.node.VerifyAndStoreObject(*obj)
+	err = s.storage.VerifyAndStoreObject(*obj)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,
@@ -644,8 +929,8 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 	default:
 	}
 
-	currentBlock := s.nmState.CurrentBlock()
-	currentEpochDuration := s.nmState.CurrentEpochDuration()
+	currentBlock := s.fsChain.CurrentBlock()
+	currentEpochDuration := s.fsChain.CurrentEpochDuration()
 	firstBlock := (uint64(currentBlock)/currentEpochDuration + 1) * currentEpochDuration
 	secondBlock := firstBlock + currentEpochDuration
 	thirdBlock := secondBlock + currentEpochDuration

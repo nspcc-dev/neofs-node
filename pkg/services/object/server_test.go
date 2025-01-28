@@ -18,6 +18,7 @@ import (
 	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	objectSvc "github.com/nspcc-dev/neofs-node/pkg/services/object"
+	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -28,6 +29,7 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,18 +69,79 @@ func (x noCallObjectService) GetRangeHash(context.Context, *objectV2.GetRangeHas
 	panic("must not be called")
 }
 
-type noCallTestNode struct{}
+type noCallTestFSChain struct{}
 
-func (x *noCallTestNode) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
+func (x *noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
+	panic("must not be called")
+}
+func (*noCallTestFSChain) IsOwnPublicKey([]byte) bool      { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpoch() uint64            { panic("must not be called") }
+func (*noCallTestFSChain) CurrentBlock() uint32            { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpochDuration() uint64    { panic("must not be called") }
+func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool { panic("must not be called") }
+
+type noCallTestStorage struct{}
+
+func (noCallTestStorage) VerifyAndStoreObject(object.Object) error { panic("must not be called") }
+
+type noCallTestACLChecker struct{}
+
+func (noCallTestACLChecker) CheckBasicACL(v2.RequestInfo) bool           { panic("must not be called") }
+func (noCallTestACLChecker) CheckEACL(any, v2.RequestInfo) error         { panic("must not be called") }
+func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic("must not be called") }
+
+type noCallTestReqInfoExtractor struct{}
+
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+func (noCallTestReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
-func (x *noCallTestNode) IsOwnPublicKey([]byte) bool {
-	panic("must not be called")
-}
+type nopACLChecker struct{}
 
-func (x *noCallTestNode) VerifyAndStoreObject(object.Object) error {
-	panic("must not be called")
+func (nopACLChecker) CheckBasicACL(v2.RequestInfo) bool           { return true }
+func (nopACLChecker) CheckEACL(any, v2.RequestInfo) error         { return nil }
+func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true }
+
+type nopReqInfoExtractor struct{}
+
+func (nopReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+	return v2.RequestInfo{}, user.ID{}, nil
+}
+func (nopReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
 }
 
 type nopMetrics struct{}
@@ -87,7 +150,8 @@ func (nopMetrics) HandleOpExecResult(stat.Method, bool, time.Duration) {}
 func (nopMetrics) AddPutPayload(int)                                   {}
 func (nopMetrics) AddGetPayload(int)                                   {}
 
-type testNode struct {
+type testFSChain struct {
+	nopFSChain
 	tb testing.TB
 
 	// server state
@@ -96,27 +160,23 @@ type testNode struct {
 	// request data
 	clientPubKey []byte
 	cnr          cid.ID
-	obj          *objectgrpc.Object
 
 	// return
 	cnrErr           error
 	clientOutsideCnr bool
 	serverOutsideCnr bool
-
-	storeErr error
 }
 
-func newTestNode(tb testing.TB, serverPubKey, clientPubKey []byte, cnr cid.ID, obj *objectgrpc.Object) *testNode {
-	return &testNode{
+func newTestFSChain(tb testing.TB, serverPubKey, clientPubKey []byte, cnr cid.ID) *testFSChain {
+	return &testFSChain{
 		tb:           tb,
 		serverPubKey: serverPubKey,
 		clientPubKey: clientPubKey,
 		cnr:          cnr,
-		obj:          obj,
 	}
 }
 
-func (x *testNode) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f func(pubKey []byte) bool) error {
+func (x *testFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f func(pubKey []byte) bool) error {
 	require.True(x.tb, cnr == x.cnr)
 	require.NotNil(x.tb, f)
 	if x.cnrErr != nil {
@@ -131,10 +191,26 @@ func (x *testNode) ForEachContainerNodePublicKeyInLastTwoEpochs(cnr cid.ID, f fu
 	return nil
 }
 
-func (x *testNode) IsOwnPublicKey(pubKey []byte) bool { return bytes.Equal(x.serverPubKey, pubKey) }
+func (x *testFSChain) IsOwnPublicKey(pubKey []byte) bool { return bytes.Equal(x.serverPubKey, pubKey) }
 
-func (x *testNode) VerifyAndStoreObject(obj object.Object) error {
-	require.Equal(x.tb, x.obj, obj.ToV2().ToGRPCMessage().(*objectgrpc.Object))
+func (x *testFSChain) CurrentEpoch() uint64 { return 0 }
+
+func (*testFSChain) LocalNodeUnderMaintenance() bool { return false }
+
+type testStorage struct {
+	t testing.TB
+	// request data
+	obj *objectgrpc.Object
+	// return
+	storeErr error
+}
+
+func newTestStorage(t testing.TB, obj *objectgrpc.Object) *testStorage {
+	return &testStorage{t: t, obj: obj}
+}
+
+func (x *testStorage) VerifyAndStoreObject(obj object.Object) error {
+	require.Equal(x.t, x.obj, obj.ToV2().ToGRPCMessage().(*objectgrpc.Object))
 	return x.storeErr
 }
 
@@ -173,9 +249,12 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 }
 
 func TestServer_Replicate(t *testing.T) {
-	var noCallNode noCallTestNode
+	var noCallFSChain noCallTestFSChain
 	var noCallObjSvc noCallObjectService
-	noCallSrv := objectSvc.New(noCallObjSvc, 0, &noCallNode, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+	var noCallStorage noCallTestStorage
+	var noCallACLChecker noCallTestACLChecker
+	var noCallReqProc noCallTestReqInfoExtractor
+	noCallSrv := objectSvc.New(noCallObjSvc, 0, &noCallFSChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
 	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
@@ -338,10 +417,10 @@ func TestServer_Replicate(t *testing.T) {
 	})
 
 	t.Run("apply storage policy failure", func(t *testing.T) {
-		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := objectSvc.New(noCallObjSvc, 0, node, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		srv := objectSvc.New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 
-		node.cnrErr = errors.New("any error")
+		fsChain.cnrErr = errors.New("any error")
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -350,18 +429,18 @@ func TestServer_Replicate(t *testing.T) {
 	})
 
 	t.Run("client or server mismatches object's storage policy", func(t *testing.T) {
-		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := objectSvc.New(noCallObjSvc, 0, node, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		srv := objectSvc.New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 
-		node.serverOutsideCnr = true
-		node.clientOutsideCnr = true
+		fsChain.serverOutsideCnr = true
+		fsChain.clientOutsideCnr = true
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
 		require.EqualValues(t, 2048, resp.GetStatus().GetCode())
 		require.Equal(t, "server does not match the object's storage policy", resp.GetStatus().GetMessage())
 
-		node.serverOutsideCnr = false
+		fsChain.serverOutsideCnr = false
 
 		resp, err = srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -370,10 +449,11 @@ func TestServer_Replicate(t *testing.T) {
 	})
 
 	t.Run("local storage failure", func(t *testing.T) {
-		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := objectSvc.New(noCallObjSvc, 0, node, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := objectSvc.New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 
-		node.storeErr = errors.New("any error")
+		s.storeErr = errors.New("any error")
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -385,8 +465,9 @@ func TestServer_Replicate(t *testing.T) {
 		var mNumber uint32 = 123
 		signer := neofscryptotest.Signer()
 		reqForSignature, o := anyValidRequest(t, clientSigner, cnr, objID)
-		node := newTestNode(t, serverPubKey, clientPubKey, cnr, reqForSignature.Object)
-		srv := objectSvc.New(noCallObjSvc, mNumber, node, signer.ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, reqForSignature.Object)
+		srv := objectSvc.New(noCallObjSvc, mNumber, fsChain, s, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 
 		t.Run("signature not requested", func(t *testing.T) {
 			resp, err := srv.Replicate(context.Background(), reqForSignature)
@@ -427,8 +508,9 @@ func TestServer_Replicate(t *testing.T) {
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		node := newTestNode(t, serverPubKey, clientPubKey, cnr, req.Object)
-		srv := objectSvc.New(noCallObjSvc, 0, node, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
+		s := newTestStorage(t, req.Object)
+		srv := objectSvc.New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -437,39 +519,39 @@ func TestServer_Replicate(t *testing.T) {
 	})
 }
 
-type netmapStateDetailed struct{}
+type nopFSChain struct{}
 
-func (n netmapStateDetailed) CurrentEpoch() uint64 {
+func (nopFSChain) CurrentEpoch() uint64 {
 	return 123
 }
 
-func (n netmapStateDetailed) CurrentBlock() uint32 {
+func (nopFSChain) CurrentBlock() uint32 {
 	return 123 * 240
 }
 
-func (n netmapStateDetailed) CurrentEpochDuration() uint64 {
+func (nopFSChain) CurrentEpochDuration() uint64 {
 	return 240
 }
 
-type nopNode struct{}
-
-func (x nopNode) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error {
+func (x nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error {
 	return nil
 }
 
-func (x nopNode) IsOwnPublicKey([]byte) bool {
+func (x nopFSChain) IsOwnPublicKey([]byte) bool {
 	return false
 }
 
-func (x nopNode) VerifyAndStoreObject(object.Object) error {
-	return nil
-}
+func (nopFSChain) LocalNodeUnderMaintenance() bool { return false }
+
+type nopStorage struct{}
+
+func (nopStorage) VerifyAndStoreObject(object.Object) error { return nil }
 
 func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
-	var node nopNode
+	var fsChain nopFSChain
 
-	srv := objectSvc.New(nil, 0, node, neofscryptotest.Signer().ECDSAPrivateKey, netmapStateDetailed{}, nopMetrics{})
+	srv := objectSvc.New(nil, 0, fsChain, nopStorage{}, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{})
 
 	for _, tc := range []struct {
 		name      string

@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
 	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
+	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
+	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -92,14 +93,14 @@ func (h headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Hea
 	}
 }
 
-type xHeader session.XHeader
+type xHeader [2]string
 
 func (x xHeader) Key() string {
-	return (*session.XHeader)(&x).GetKey()
+	return x[0]
 }
 
 func (x xHeader) Value() string {
-	return (*session.XHeader)(&x).GetValue()
+	return x[1]
 }
 
 func requestHeaders(msg xHeaderSource) []eaclSDK.Header {
@@ -115,8 +116,8 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 	case requestXHeaderSource:
 		switch req := m.req.(type) {
 		case
-			*objectV2.GetRequest,
-			*objectV2.HeadRequest:
+			*protoobject.GetRequest,
+			*protoobject.HeadRequest:
 			if h.obj == nil {
 				return errMissingOID
 			}
@@ -126,23 +127,32 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = objHeaders
 			dst.incompleteObjectHeaders = !completed
 		case
-			*objectV2.GetRangeRequest,
-			*objectV2.GetRangeHashRequest,
-			*objectV2.DeleteRequest:
+			*protoobject.GetRangeRequest,
+			*protoobject.GetRangeHashRequest,
+			*protoobject.DeleteRequest:
 			if h.obj == nil {
 				return errMissingOID
 			}
 
 			dst.objectHeaders = addressHeaders(h.cnr, h.obj)
-		case *objectV2.PutRequest:
-			if v, ok := req.GetBody().GetObjectPart().(*objectV2.PutObjectPartInit); ok {
-				splitHeader := v.GetHeader().GetSplit()
-				if splitHeader == nil || splitHeader.GetSplitID() != nil {
+		case *protoobject.PutRequest:
+			if v, ok := req.GetBody().GetObjectPart().(*protoobject.PutRequest_Body_Init_); ok {
+				if v == nil || v.Init == nil {
+					return errors.New("nil oneof field with heading part")
+				}
+				in := v.Init
+				splitHeader := in.Header.GetSplit()
+				if splitHeader == nil || splitHeader.SplitId != nil {
 					// V1 split scheme or small object, only the received
 					// object's header can be checked
+					mo := &protoobject.Object{
+						ObjectId: in.ObjectId,
+						Header:   in.Header,
+					}
 					oV2 := new(objectV2.Object)
-					oV2.SetObjectID(v.GetObjectID())
-					oV2.SetHeader(v.GetHeader())
+					if err := oV2.FromGRPCMessage(mo); err != nil {
+						panic(err)
+					}
 
 					dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
 
@@ -153,18 +163,27 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 
 				parentHeader := splitHeader.GetParentHeader()
 				if parentHeader != nil {
+					mo := &protoobject.Object{
+						ObjectId:  splitHeader.Parent,
+						Signature: splitHeader.ParentSignature,
+						Header:    parentHeader,
+					}
 					var parentObjectV2 objectV2.Object
-					parentObjectV2.SetObjectID(splitHeader.GetParent())
-					parentObjectV2.SetSignature(splitHeader.GetParentSignature())
-					parentObjectV2.SetHeader(parentHeader)
+					if err := parentObjectV2.FromGRPCMessage(mo); err != nil {
+						panic(err)
+					}
 
 					dst.objectHeaders = headersFromObject(object.NewFromV2(&parentObjectV2), h.cnr, h.obj)
 				} else {
 					// middle object, parent header should
 					// be received via the first object
-					if first := v.GetHeader().GetSplit().GetFirst(); first != nil {
+					if mf := in.Header.GetSplit().GetFirst(); mf != nil {
 						var firstID oid.ID
-						err := firstID.ReadFromV2(*first)
+						var first refsV2.ObjectID
+						if err := first.FromGRPCMessage(mf); err != nil {
+							panic(err)
+						}
+						err := firstID.ReadFromV2(first)
 						if err != nil {
 							return fmt.Errorf("converting first object ID: %w", err)
 						}
@@ -184,12 +203,15 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					// first object not defined, unexpected, do not attach any header
 				}
 			}
-		case *objectV2.SearchRequest:
-			cnrV2 := req.GetBody().GetContainerID()
+		case *protoobject.SearchRequest:
 			var cnr cid.ID
 
-			if cnrV2 != nil {
-				if err := cnr.ReadFromV2(*cnrV2); err != nil {
+			if mc := req.GetBody().GetContainerId(); mc != nil {
+				var cnrV2 refsV2.ContainerID
+				if err := cnrV2.FromGRPCMessage(mc); err != nil {
+					panic(err)
+				}
+				if err := cnr.ReadFromV2(cnrV2); err != nil {
 					return fmt.Errorf("can't parse container ID: %w", err)
 				}
 			}
@@ -203,37 +225,57 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 
 			dst.objectHeaders = objectHeaders
 			dst.incompleteObjectHeaders = !completed
-		case *objectV2.GetResponse:
-			if v, ok := resp.GetBody().GetObjectPart().(*objectV2.GetObjectPartInit); ok {
+		case *protoobject.GetResponse:
+			if v, ok := resp.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
+				if v == nil || v.Init == nil {
+					return errors.New("nil oneof field with heading part")
+				}
+				mo := &protoobject.Object{
+					ObjectId: v.Init.ObjectId,
+					Header:   v.Init.Header,
+				}
 				oV2 := new(objectV2.Object)
-				oV2.SetObjectID(v.GetObjectID())
-				oV2.SetHeader(v.GetHeader())
+				if err := oV2.FromGRPCMessage(mo); err != nil {
+					panic(err)
+				}
 
 				dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
 			}
-		case *objectV2.HeadResponse:
-			oV2 := new(objectV2.Object)
+		case *protoobject.HeadResponse:
+			var hdr *protoobject.Header
 
-			var hdr *objectV2.Header
-
-			switch v := resp.GetBody().GetHeaderPart().(type) {
-			case *objectV2.ShortHeader:
-				hdr = new(objectV2.Header)
+			switch v := resp.GetBody().GetHead().(type) {
+			case *protoobject.HeadResponse_Body_ShortHeader:
+				if v == nil || v.ShortHeader == nil {
+					return errors.New("nil oneof field with short header")
+				}
 
 				var idV2 refsV2.ContainerID
 				h.cnr.WriteToV2(&idV2)
 
-				hdr.SetContainerID(&idV2)
-				hdr.SetVersion(v.GetVersion())
-				hdr.SetCreationEpoch(v.GetCreationEpoch())
-				hdr.SetOwnerID(v.GetOwnerID())
-				hdr.SetObjectType(v.GetObjectType())
-				hdr.SetPayloadLength(v.GetPayloadLength())
-			case *objectV2.HeaderWithSignature:
-				hdr = v.GetHeader()
+				h := v.ShortHeader
+				hdr = &protoobject.Header{
+					Version:       h.Version,
+					ContainerId:   idV2.ToGRPCMessage().(*refs.ContainerID),
+					OwnerId:       h.OwnerId,
+					CreationEpoch: h.CreationEpoch,
+					PayloadLength: h.PayloadLength,
+					ObjectType:    h.ObjectType,
+				}
+			case *protoobject.HeadResponse_Body_Header:
+				if v == nil || v.Header == nil {
+					return errors.New("nil oneof field carrying header with signature")
+				}
+				hdr = v.Header.Header
 			}
 
-			oV2.SetHeader(hdr)
+			mo := &protoobject.Object{
+				Header: hdr,
+			}
+			oV2 := new(objectV2.Object)
+			if err := oV2.FromGRPCMessage(mo); err != nil {
+				panic(err)
+			}
 
 			dst.objectHeaders = headersFromObject(object.NewFromV2(oV2), h.cnr, h.obj)
 		}
@@ -259,21 +301,21 @@ func (h *cfg) localObjectHeaders(cnr cid.ID, idObj *oid.ID) ([]eaclSDK.Header, b
 
 func cidHeader(idCnr cid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectContainerID,
+		k: eaclSDK.FilterObjectContainerID,
 		v: idCnr.EncodeToString(),
 	}
 }
 
 func oidHeader(obj oid.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectID,
+		k: eaclSDK.FilterObjectID,
 		v: obj.EncodeToString(),
 	}
 }
 
 func ownerIDHeader(ownerID user.ID) sysObjHdr {
 	return sysObjHdr{
-		k: acl.FilterObjectOwnerID,
+		k: eaclSDK.FilterObjectOwnerID,
 		v: ownerID.EncodeToString(),
 	}
 }
