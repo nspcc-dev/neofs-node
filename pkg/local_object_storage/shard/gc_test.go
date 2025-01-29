@@ -59,10 +59,14 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 			meta.WithEpochState(epoch),
 		),
 		shard.WithDeletedLockCallback(func(aa []oid.Address) {
-			sh.HandleDeletedLocks(aa)
+			unlocked := sh.HandleDeletedLocks(aa)
+			expired := sh.FilterExpired(unlocked)
+			require.NoError(t, sh.MarkGarbage(false, expired...))
 		}),
 		shard.WithExpiredLocksCallback(func(aa []oid.Address) {
-			sh.HandleExpiredLocks(aa)
+			unlocked := sh.HandleExpiredLocks(aa)
+			expired := sh.FilterExpired(unlocked)
+			require.NoError(t, sh.MarkGarbage(false, expired...))
 		}),
 		shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 			pool, err := ants.NewPool(sz)
