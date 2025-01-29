@@ -1228,7 +1228,6 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 	var getStream protoobject.ObjectService_GetClient
 	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
 		var err error
-		// FIXME: context should be cancelled on return from upper func
 		getStream, err = protoobject.NewObjectServiceClient(conn).Get(ctx, req)
 		return err
 	})
@@ -1506,7 +1505,6 @@ func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClien
 	var rangeStream protoobject.ObjectService_GetRangeClient
 	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
 		var err error
-		// FIXME: context should be cancelled on return from upper func
 		rangeStream, err = protoobject.NewObjectServiceClient(conn).GetRange(ctx, req)
 		return err
 	})
@@ -1749,7 +1747,6 @@ func searchOnRemoteNode(ctx context.Context, c client.MultiAddressClient, addr n
 	var searchStream protoobject.ObjectService_SearchClient
 	if err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
 		var err error
-		// FIXME: context should be cancelled on return from upper func
 		searchStream, err = protoobject.NewObjectServiceClient(conn).Search(ctx, req)
 		return err
 	}); err != nil {
