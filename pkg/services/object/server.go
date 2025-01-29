@@ -215,6 +215,7 @@ func (s *server) sendStatusPutResponse(stream protoobject.ObjectService_PutServe
 }
 
 type putStream struct {
+	ctx    context.Context
 	signer ecdsa.PrivateKey
 	base   *putsvc.Streamer
 
@@ -225,8 +226,9 @@ type putStream struct {
 	expBytes, recvBytes uint64 // payload
 }
 
-func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer) *putStream {
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context) *putStream {
 	return &putStream{
+		ctx:    ctx,
 		signer: signer,
 		base:   base,
 	}
@@ -237,7 +239,7 @@ func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddress
 	nodePub := node.PublicKey()
 	addrs := node.AddressGroup()
 	for i := range addrs {
-		err := putToRemoteNode(c, addrs[i], nodePub, x.initReq, x.chunkReqs)
+		err := putToRemoteNode(x.ctx, c, addrs[i], nodePub, x.initReq, x.chunkReqs)
 		if err == nil {
 			return nil
 		}
@@ -249,12 +251,12 @@ func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddress
 	return firstErr
 }
 
-func putToRemoteNode(c client.MultiAddressClient, addr network.Address, nodePub []byte,
+func putToRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
 	initReq *protoobject.PutRequest, chunkReqs []*protoobject.PutRequest) error {
 	var stream protoobject.ObjectService_PutClient
 	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
 		var err error
-		stream, err = protoobject.NewObjectServiceClient(conn).Put(context.TODO()) // FIXME: use proper context
+		stream, err = protoobject.NewObjectServiceClient(conn).Put(ctx)
 		return err
 	})
 	if err != nil {
@@ -411,7 +413,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 
-	ps := newIntermediatePutStream(s.signer, stream)
+	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
