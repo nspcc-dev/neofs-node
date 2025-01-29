@@ -87,6 +87,9 @@ fschain:
     set_roles_in_genesis: true # Optional flag for designating P2PNotary and NeoFSAlphabet roles to all
       # genesis block validators. The validators depend on 'committee' and, if set, 'validators_history'.
       # Must be 'true' or 'false'.
+    keep_only_latest_state: true # Optional flag that specifies if MPT should only store the latest state.
+    remove_untraceable_blocks: false # Optional flag that denotes whether old blocks should be removed
+      # from cache and database.
 
 fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the FS chain. By default,
   # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).

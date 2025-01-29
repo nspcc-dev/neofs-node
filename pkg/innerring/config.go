@@ -248,6 +248,15 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		return c, err
 	}
 
+	c.Ledger.KeepOnlyLatestState, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".keep_only_latest_state", "flag to store only the latest states")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
+	}
+	c.Ledger.RemoveUntraceableBlocks, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".remove_untraceable_blocks", "flag to remove old blocks")
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
+	}
+
 	c.Logger = _logger
 
 	return c, nil
