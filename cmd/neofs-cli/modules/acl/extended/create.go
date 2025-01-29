@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/flynn-archive/go-shlex"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -43,7 +42,6 @@ Target is
   'user' for container owner, 
   'system' for Storage nodes in container and Inner Ring nodes,
   'others' for all other request senders, 
-  'pubkey:<key1>,<key2>,...' for exact request sender, where <key> is a hex-encoded 33-byte public key, DEPRECATED,
   'address:<adr1>,<adr2>,...' for exact request sender, where <adr> is a base58 25-byte address. Example: NSiVJYZej4XsxG5CUpdwn7VRQk8iiiDMPM.
 
 When both '--rule' and '--file' arguments are used, '--rule' records will be placed higher in resulting extended ACL table.
@@ -86,8 +84,6 @@ func createEACL(cmd *cobra.Command, _ []string) error {
 	if len(rules) == 0 {
 		return errors.New("no extended ACL rules has been provided")
 	}
-
-	warnIfPubKeyTargetFound(cmd, rules)
 
 	var tb eacl.Table
 	if err := util.ParseEACLRules(&tb, rules); err != nil {
@@ -136,24 +132,4 @@ func getRulesFromFile(filename string) ([]string, error) {
 	}
 
 	return strings.Split(strings.TrimSpace(string(data)), "\n"), nil
-}
-
-func warnIfPubKeyTargetFound(cmd *cobra.Command, rules []string) {
-	for _, rule := range rules {
-		record, err := shlex.Split(rule)
-		if err != nil {
-			return
-		}
-
-		if len(record) < 2 {
-			return
-		}
-
-		for _, target := range record[2:] {
-			targetTokens := strings.SplitN(target, ":", 2)
-			if strings.ToLower(targetTokens[0]) == "pubkey" {
-				cmd.Println("WARN: using public keys as eACL table targets was deprecated and will be dropped in the next releases")
-			}
-		}
-	}
 }

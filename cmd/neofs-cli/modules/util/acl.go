@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/flynn-archive/go-shlex"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -194,7 +192,7 @@ func ParseEACLRules(table *eacl.Table, rules []string) error {
 // <action> <operation> [<filter1> ...] [<target1> ...]
 //
 // Examples:
-// allow get req:X-Header=123 obj:Attr=value others:0xkey1,key2 system:key3 user:key4
+// allow get req:X-Header=123 obj:Attr=value user system address:addr1,addr2,addr3
 //
 //nolint:godot
 func ParseEACLRule(table *eacl.Table, rule string) error {
@@ -266,32 +264,13 @@ func parseEACLRecord(args []string) (eacl.Record, error) {
 			}
 
 			filters = append(filters, eacl.ConstructFilter(typ, key, op, value))
-		case "others", "system", "user", "pubkey": // targets
-			var err error
-
-			var pubs []*ecdsa.PublicKey
-			if len(ss) == 2 {
-				pubs, err = parseKeyList(ss[1])
-				if err != nil {
-					return eacl.Record{}, err
-				}
+		case "others", "system", "user": // targets
+			role, err := eaclRoleFromString(prefix)
+			if err != nil {
+				return eacl.Record{}, err
 			}
 
-			if prefix != "pubkey" {
-				role, err := eaclRoleFromString(prefix)
-				if err != nil {
-					return eacl.Record{}, err
-				}
-
-				targets = append(targets, eacl.NewTargetByRole(role))
-				continue
-			}
-
-			target := eacl.NewTargetByRole(eacl.RoleUnspecified)
-			for _, pub := range pubs {
-				target.SetRawSubjects(append(target.RawSubjects(), (*keys.PublicKey)(pub).Bytes()))
-			}
-			targets = append(targets, target)
+			targets = append(targets, eacl.NewTargetByRole(role))
 		case "address": // targets
 			var (
 				err      error
@@ -375,23 +354,6 @@ func eaclRoleFromString(s string) (eacl.Role, error) {
 	}
 
 	return r, nil
-}
-
-// parseKeyList parses list of hex-encoded public keys separated by comma.
-func parseKeyList(s string) ([]*ecdsa.PublicKey, error) {
-	ss := strings.Split(s, ",")
-	pubs := make([]*ecdsa.PublicKey, len(ss))
-	for i := range ss {
-		st := strings.TrimPrefix(ss[i], "0x")
-		pub, err := keys.NewPublicKeyFromString(st)
-		if err != nil {
-			return nil, fmt.Errorf("invalid public key '%s': %w", ss[i], err)
-		}
-
-		pubs[i] = (*ecdsa.PublicKey)(pub)
-	}
-
-	return pubs, nil
 }
 
 func parseAccountList(s string) ([]user.ID, error) {

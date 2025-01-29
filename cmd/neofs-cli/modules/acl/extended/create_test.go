@@ -25,9 +25,8 @@ func TestParseTable(t *testing.T) {
 			jsonRecord: `{"operation":"PUT","action":"ALLOW","filters":[],"targets":[{"role":"USER","keys":[]}]}`,
 		},
 		{
-			name:       "valid rule with public key",
-			rule:       "deny getrange pubkey:036410abb260bbbda89f61c0cad65a4fa15ac5cb83b3c3abf8aee403856fcf65ed",
-			jsonRecord: `{"operation":"GETRANGE","action":"DENY","filters":[],"targets":[{"role":"ROLE_UNSPECIFIED","keys":["A2QQq7Jgu72on2HAytZaT6FaxcuDs8Or+K7kA4Vvz2Xt"]}]}`,
+			name: "invalid rule with public key",
+			rule: "deny getrange pubkey:036410abb260bbbda89f61c0cad65a4fa15ac5cb83b3c3abf8aee403856fcf65ed",
 		},
 		{
 			name:       "valid rule with account",
