@@ -696,13 +696,16 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.HeadPrm{}, errors.New("missing meta header")
+	}
 	bID := addr.Object().Marshal()
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1, // FIXME: meta can be nil
+				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
 			var req2 v2object.HeadRequest
@@ -964,13 +967,16 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.RangeHashPrm{}, errors.New("missing meta header")
+	}
 	p.SetRangeHashRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) ([][]byte, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
 				Version: newCurrentProtoVersionMessage(),
-				Ttl:     meta.GetTtl() - 1, // FIXME: meta can be nil
+				Ttl:     meta.GetTtl() - 1,
 				Origin:  meta,
 			}
 			var req2 v2object.GetRangeHashRequest
@@ -1174,12 +1180,15 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	var onceHdr sync.Once
 	var respondedPayload int
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.Prm{}, errors.New("missing meta header")
+	}
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1, // FIXME: meta can be nil
+				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
 			var req2 v2object.GetRequest
@@ -1449,12 +1458,15 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	var onceResign sync.Once
 	var respondedPayload int
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return getsvc.RangePrm{}, errors.New("missing meta header")
+	}
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1, // FIXME: meta can be nil
+				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
 			var req2 v2object.GetRangeRequest
@@ -1690,12 +1702,15 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return searchsvc.Prm{}, errors.New("missing meta header")
+	}
 	p.SetRequestForwarder(func(node client.NodeInfo, c client.MultiAddressClient) ([]oid.ID, error) {
 		var err error
 		onceResign.Do(func() {
 			req.MetaHeader = &protosession.RequestMetaHeader{
 				// TODO: #1165 think how to set the other fields
-				Ttl:    meta.GetTtl() - 1, // FIXME: meta can be nil
+				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
 			var req2 v2object.SearchRequest
