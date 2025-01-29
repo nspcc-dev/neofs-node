@@ -21,10 +21,15 @@ Changelog for NeoFS Node
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 
 ### Removed
+- Drop creating new eacl tables with public keys (#3096)
 
 ### Updated
 
 ### Updating from v0.44.2
+Using public keys as a rule target in eACL tables was deprecated, and 
+since this realese it is not supported to create new eACL table with keys, 
+use addresses instead. 
+For more information call `neofs-cli acl extended create -h`.
 
 ## [0.44.2] - 2024-12-20
 
