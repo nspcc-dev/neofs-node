@@ -13,9 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -33,6 +30,8 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
@@ -102,25 +101,25 @@ func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic
 
 type noCallTestReqInfoExtractor struct{}
 
-func (noCallTestReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -132,25 +131,25 @@ func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true 
 
 type nopReqInfoExtractor struct{}
 
-func (nopReqInfoExtractor) PutRequestToInfo(*objectgrpc.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
 	return v2.RequestInfo{}, user.ID{}, nil
 }
-func (nopReqInfoExtractor) DeleteRequestToInfo(*objectgrpc.DeleteRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*objectgrpc.HeadRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HashRequestToInfo(*objectgrpc.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*objectgrpc.GetRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) RangeRequestToInfo(*objectgrpc.GetRangeRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchRequestToInfo(*objectgrpc.SearchRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 
@@ -210,17 +209,17 @@ func (*testFSChain) LocalNodeUnderMaintenance() bool { return false }
 type testStorage struct {
 	t testing.TB
 	// request data
-	obj *objectgrpc.Object
+	obj *protoobject.Object
 	// return
 	storeErr error
 }
 
-func newTestStorage(t testing.TB, obj *objectgrpc.Object) *testStorage {
+func newTestStorage(t testing.TB, obj *protoobject.Object) *testStorage {
 	return &testStorage{t: t, obj: obj}
 }
 
 func (x *testStorage) VerifyAndStoreObjectLocally(obj object.Object) error {
-	require.Equal(x.t, x.obj, obj.ToV2().ToGRPCMessage().(*objectgrpc.Object))
+	require.Equal(x.t, x.obj, obj.ProtoMessage())
 	return x.storeErr
 }
 
@@ -228,7 +227,7 @@ func (x *testStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
 
-func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*objectgrpc.ReplicateRequest, object.Object) {
+func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID oid.ID) (*protoobject.ReplicateRequest, object.Object) {
 	obj := objecttest.Object()
 	obj.SetType(object.TypeRegular)
 	obj.SetContainerID(cnr)
@@ -239,8 +238,8 @@ func anyValidRequest(tb testing.TB, signer neofscrypto.Signer, cnr cid.ID, objID
 	sig, err := signer.Sign(objID[:])
 	require.NoError(tb, err)
 
-	req := &objectgrpc.ReplicateRequest{
-		Object: obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
+	req := &protoobject.ReplicateRequest{
+		Object: obj.ProtoMessage(),
 		Signature: &refs.Signature{
 			Key:  neofscrypto.PublicKeyBytes(signer.Public()),
 			Sign: sig,
@@ -420,8 +419,8 @@ func TestServer_Replicate(t *testing.T) {
 			obj := objecttest.Object()
 			bObj := obj.Marshal()
 
-			resp, err := noCallSrv.Replicate(context.Background(), &objectgrpc.ReplicateRequest{
-				Object:    obj.ToV2().ToGRPCMessage().(*objectgrpc.Object),
+			resp, err := noCallSrv.Replicate(context.Background(), &protoobject.ReplicateRequest{
+				Object:    obj.ProtoMessage(),
 				Signature: tc.fSig(bObj),
 			})
 			require.NoError(t, err, tc.name)
@@ -503,13 +502,10 @@ func TestServer_Replicate(t *testing.T) {
 			sigsRaw := resp.GetObjectSignature()
 
 			for i := range 3 {
-				var sigV2 refsv2.Signature
+				var sig neofscrypto.Signature
 				l := binary.LittleEndian.Uint32(sigsRaw)
 
-				require.NoError(t, sigV2.Unmarshal(sigsRaw[4:4+l]))
-
-				var sig neofscrypto.Signature
-				require.NoError(t, sig.ReadFromV2(sigV2))
+				require.NoError(t, sig.Unmarshal(sigsRaw[4:4+l]))
 
 				require.Equal(t, signer.PublicKeyBytes, sig.PublicKeyBytes())
 				require.True(t, sig.Verify(objectcore.EncodeReplicationMetaInfo(

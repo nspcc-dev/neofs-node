@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )

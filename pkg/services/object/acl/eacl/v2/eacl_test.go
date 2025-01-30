@@ -6,10 +6,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
@@ -17,6 +13,9 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 )
@@ -48,11 +47,7 @@ func (s *testLocalStorage) Head(addr oid.Address) (*object.Object, error) {
 
 func TestHeadRequest(t *testing.T) {
 	cnr := cidtest.ID()
-	var cnr2 apirefs.ContainerID
-	cnr.WriteToV2(&cnr2)
 	id := oidtest.ID()
-	var id2 apirefs.ObjectID
-	id.WriteToV2(&id2)
 
 	xKey := "x-key"
 	xVal := "x-val"
@@ -61,8 +56,8 @@ func TestHeadRequest(t *testing.T) {
 	req := &protoobject.HeadRequest{
 		Body: &protoobject.HeadRequest_Body{
 			Address: &refs.Address{
-				ContainerId: cnr2.ToGRPCMessage().(*refs.ContainerID),
-				ObjectId:    id2.ToGRPCMessage().(*refs.ObjectID),
+				ContainerId: cnr.ProtoMessage(),
+				ObjectId:    id.ProtoMessage(),
 			},
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
@@ -179,13 +174,9 @@ func TestV2Split(t *testing.T) {
 	firstObject.SetParent(&originalObject)
 	require.NoError(t, firstObject.CalculateAndSetID())
 
-	var firstIDV2 apirefs.ObjectID
-	firstID := firstObject.GetID()
-	firstID.WriteToV2(&firstIDV2)
-
 	hs := &protoobject.Header_Split{
-		ParentHeader: originalObject.ToV2().GetHeader().ToGRPCMessage().(*protoobject.Header),
-		First:        firstIDV2.ToGRPCMessage().(*refs.ObjectID),
+		ParentHeader: originalObject.ProtoMessage().Header,
+		First:        firstObject.GetID().ProtoMessage(),
 	}
 	hdr := &protoobject.Header{
 		Split: hs,
@@ -251,7 +242,7 @@ func TestV2Split(t *testing.T) {
 		originalObjectNoRestrictedAttr.SetID(oid.ID{}) // no object ID for an original object in the first object
 		originalObjectNoRestrictedAttr.SetSignature(&neofscrypto.Signature{})
 
-		hs.ParentHeader = originalObjectNoRestrictedAttr.ToV2().GetHeader().ToGRPCMessage().(*protoobject.Header)
+		hs.ParentHeader = originalObjectNoRestrictedAttr.ProtoMessage().Header
 
 		// allow an object whose first obj does not have the restricted attribute
 		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))

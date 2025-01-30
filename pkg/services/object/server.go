@@ -13,14 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	v2object "github.com/nspcc-dev/neofs-api-go/v2/object"
-	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	refsv2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	"github.com/nspcc-dev/neofs-api-go/v2/status"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -40,6 +32,10 @@ import (
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -189,10 +185,7 @@ func (s *server) pushOpExecResult(op stat.Method, err error, startedAt time.Time
 }
 
 func newCurrentProtoVersionMessage() *refs.Version {
-	v := version.Current()
-	var v2 refsv2.Version
-	v.WriteToV2(&v2)
-	return v2.ToGRPCMessage().(*refs.Version)
+	return version.Current().ProtoMessage()
 }
 
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
@@ -204,7 +197,7 @@ func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 }
 
 func (s *server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
-	resp = util.SignResponse(&s.signer, resp, v2object.PutResponse{})
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.SendAndClose(resp)
 }
 
@@ -283,11 +276,7 @@ func putToRemoteNode(ctx context.Context, c client.MultiAddressClient, addr netw
 	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 		return err
 	}
-	resp2 := new(v2object.PutResponse)
-	if err := resp2.FromGRPCMessage(resp); err != nil {
-		panic(err) // can only fail on wrong type, here it's correct
-	}
-	if err := signature.VerifyServiceMessage(resp2); err != nil {
+	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return fmt.Errorf("response verification failed: %w", err)
 	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -298,18 +287,19 @@ func putToRemoteNode(ctx context.Context, c client.MultiAddressClient, addr netw
 
 func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.PutRequest, error) {
 	meta := req.GetMetaHeader()
+	if meta == nil {
+		return nil, errors.New("missing meta header")
+	}
 	req.MetaHeader = &protosession.RequestMetaHeader{
 		Ttl:    meta.GetTtl() - 1,
 		Origin: meta,
 	}
-	var req2 v2object.PutRequest
-	if err := req2.FromGRPCMessage(req); err != nil {
-		panic(err)
-	}
-	if err := signature.SignServiceMessage(&x.signer, &req2); err != nil {
+	var err error
+	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
+	if err != nil {
 		return nil, err
 	}
-	return req2.ToGRPCMessage().(*protoobject.PutRequest), nil
+	return req, nil
 }
 
 func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
@@ -331,11 +321,11 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 			Signature: v.Init.Signature,
 			Header:    v.Init.Header,
 		}
-		var obj2 v2object.Object
-		if err := obj2.FromGRPCMessage(mo); err != nil {
-			panic(err)
+		var obj = new(object.Object)
+		err = obj.FromProtoMessage(mo)
+		if err != nil {
+			return err
 		}
-		obj := object.NewFromV2(&obj2)
 
 		var p putsvc.PutInitPrm
 		p.WithCommonPrm(cp)
@@ -360,7 +350,7 @@ func (x *putStream) forwardRequest(req *protoobject.PutRequest) error {
 		}
 		x.initReq = signed
 	case *protoobject.PutRequest_Body_Chunk:
-		c := v.GetChunk()
+		c := v.Chunk
 		if x.cacheReqs {
 			if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
 				return putsvc.ErrWrongPayloadSize
@@ -392,11 +382,9 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 	}
 
 	id := resp.ObjectID()
-	var id2 refsv2.ObjectID
-	id.WriteToV2(&id2)
 	return &protoobject.PutResponse{
 		Body: &protoobject.PutResponse_Body{
-			ObjectId: id2.ToGRPCMessage().(*refs.ObjectID),
+			ObjectId: id.ProtoMessage(),
 		},
 	}, nil
 }
@@ -432,11 +420,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		putReq := new(v2object.PutRequest)
-		if err = putReq.FromGRPCMessage(req); err != nil {
-			return err
-		}
-		if err = signature.VerifyServiceMessage(putReq); err != nil {
+		if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 			err = s.sendStatusPutResponse(gStream, util.ToRequestSignatureVerificationError(err)) // assign for defer
 			return err
 		}
@@ -473,7 +457,8 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 }
 
 func (s *server) signDeleteResponse(resp *protoobject.DeleteResponse) *protoobject.DeleteResponse {
-	return util.SignResponse(&s.signer, resp, v2object.DeleteResponse{})
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return resp
 }
 
 func (s *server) makeStatusDeleteResponse(err error) *protoobject.DeleteResponse {
@@ -485,22 +470,17 @@ func (s *server) makeStatusDeleteResponse(err error) *protoobject.DeleteResponse
 type deleteResponseBody protoobject.DeleteResponse_Body
 
 func (x *deleteResponseBody) SetAddress(addr oid.Address) {
-	var addr2 refsv2.Address
-	addr.WriteToV2(&addr2)
-	x.Tombstone = addr2.ToGRPCMessage().(*refs.Address)
+	x.Tombstone = addr.ProtoMessage()
 }
 
 func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*protoobject.DeleteResponse, error) {
-	delReq := new(v2object.DeleteRequest)
-	err := delReq.FromGRPCMessage(req)
-	if err != nil {
-		return nil, err
-	}
-
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = signature.VerifyServiceMessage(delReq); err != nil {
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
@@ -527,11 +507,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(errors.New("missing object address")), nil
 	}
 	var addr oid.Address
-	var addr2 refsv2.Address
-	if err := addr2.FromGRPCMessage(ma); err != nil {
-		panic(err)
-	}
-	err = addr.ReadFromV2(addr2)
+	err = addr.FromProtoMessage(ma)
 	if err != nil {
 		return s.makeStatusDeleteResponse(fmt.Errorf("invalid object address: %w", err)), nil
 	}
@@ -556,7 +532,8 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 }
 
 func (s *server) signHeadResponse(resp *protoobject.HeadResponse) *protoobject.HeadResponse {
-	return util.SignResponse(&s.signer, resp, v2object.HeadResponse{})
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return resp
 }
 
 func (s *server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
@@ -565,7 +542,7 @@ func (s *server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 		return s.signHeadResponse(&protoobject.HeadResponse{
 			Body: &protoobject.HeadResponse_Body{
 				Head: &protoobject.HeadResponse_Body_SplitInfo{
-					SplitInfo: splitErr.SplitInfo().ToV2().ToGRPCMessage().(*protoobject.SplitInfo),
+					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
 		})
@@ -576,16 +553,13 @@ func (s *server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 }
 
 func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
-	searchReq := new(v2object.HeadRequest)
-	err := searchReq.FromGRPCMessage(req)
-	if err != nil {
-		return nil, err
-	}
-
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	if err = signature.VerifyServiceMessage(searchReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
 
@@ -632,7 +606,7 @@ type headResponse struct {
 }
 
 func (x *headResponse) WriteHeader(hdr *object.Object) error {
-	mo := hdr.ToV2().ToGRPCMessage().(*protoobject.Object)
+	mo := hdr.ProtoMessage()
 	if x.short {
 		mh := mo.GetHeader()
 		x.dst.Body = &protoobject.HeadResponse_Body{
@@ -671,11 +645,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	}
 
 	var addr oid.Address
-	var addr2 refsv2.Address
-	if err := addr2.FromGRPCMessage(ma); err != nil {
-		panic(err)
-	}
-	if err := addr.ReadFromV2(addr2); err != nil {
+	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.HeadPrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
 
@@ -710,13 +680,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			var req2 v2object.HeadRequest
-			if err := req2.FromGRPCMessage(req); err != nil {
-				panic(err)
-			}
-			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
-				req = req2.ToGRPCMessage().(*protoobject.HeadRequest)
-			}
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -756,11 +720,7 @@ func getHeaderFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 		return nil, err
 	}
-	resp2 := new(v2object.HeadResponse)
-	if err := resp2.FromGRPCMessage(resp); err != nil {
-		panic(err) // can only fail on wrong type, here it's correct
-	}
-	if err := signature.VerifyServiceMessage(resp2); err != nil {
+	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return nil, fmt.Errorf("response verification failed: %w", err)
 	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -808,12 +768,8 @@ func getHeaderFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 			return nil, errors.New("missing signature")
 		}
 
-		var sig2 refsv2.Signature
-		if err := sig2.FromGRPCMessage(v.Header.Signature); err != nil {
-			panic(err) // can only fail on wrong type, here it's correct
-		}
 		var sig neofscrypto.Signature
-		if err := sig.ReadFromV2(sig2); err != nil {
+		if err := sig.FromProtoMessage(v.Header.Signature); err != nil {
 			return nil, fmt.Errorf("can't read signature: %w", err)
 		}
 		if !sig.Verify(bID) {
@@ -826,11 +782,11 @@ func getHeaderFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 		if v == nil || v.SplitInfo == nil {
 			return nil, errors.New("nil split info oneof field")
 		}
-		var si2 v2object.SplitInfo
-		if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
-			panic(err) // can only fail on wrong type, here it's correct
+		si := object.NewSplitInfo()
+		err := si.FromProtoMessage(v.SplitInfo)
+		if err != nil {
+			return nil, err
 		}
-		si := object.NewSplitInfoFromV2(&si2)
 		return nil, object.NewSplitInfoError(si)
 	}
 
@@ -838,15 +794,16 @@ func getHeaderFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 		Signature: idSig,
 		Header:    hdr,
 	}
-	objv2 := new(v2object.Object)
-	if err := objv2.FromGRPCMessage(mObj); err != nil {
-		panic(err) // can only fail on wrong type, here it's correct
+	var obj = object.New()
+	if err := obj.FromProtoMessage(mObj); err != nil {
+		return nil, err
 	}
-	return object.NewFromV2(objv2), nil
+	return obj, nil
 }
 
 func (s *server) signHashResponse(resp *protoobject.GetRangeHashResponse) *protoobject.GetRangeHashResponse {
-	return util.SignResponse(&s.signer, resp, v2object.GetRangeHashResponse{})
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return resp
 }
 
 func (s *server) makeStatusHashResponse(err error) *protoobject.GetRangeHashResponse {
@@ -857,15 +814,12 @@ func (s *server) makeStatusHashResponse(err error) *protoobject.GetRangeHashResp
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
 func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHashRequest) (*protoobject.GetRangeHashResponse, error) {
-	hashRngReq := new(v2object.GetRangeHashRequest)
-	err := hashRngReq.FromGRPCMessage(req)
-	if err != nil {
-		return nil, err
-	}
-
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = signature.VerifyServiceMessage(hashRngReq); err != nil {
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
 
@@ -912,11 +866,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 	}
 
 	var addr oid.Address
-	var addr2 refsv2.Address
-	if err := addr2.FromGRPCMessage(ma); err != nil {
-		panic(err)
-	}
-	if err := addr.ReadFromV2(addr2); err != nil {
+	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.RangeHashPrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
 
@@ -951,11 +901,8 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 	mr := body.GetRanges()
 	rngs := make([]object.Range, len(mr))
 	for i := range mr {
-		var r2 v2object.Range
-		if err := r2.FromGRPCMessage(mr[i]); err != nil {
-			panic(err)
-		}
-		rngs[i] = *object.NewRangeFromV2(&r2)
+		rngs[i].SetOffset(mr[i].Offset)
+		rngs[i].SetLength(mr[i].Length)
 	}
 
 	p.SetCommonParameters(cp)
@@ -981,13 +928,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 				Ttl:     meta.GetTtl() - 1,
 				Origin:  meta,
 			}
-			var req2 v2object.GetRangeHashRequest
-			if err := req2.FromGRPCMessage(req); err != nil {
-				panic(err)
-			}
-			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
-				req = req2.ToGRPCMessage().(*protoobject.GetRangeHashRequest)
-			}
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1026,11 +967,7 @@ func getHashesFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 		return nil, err
 	}
-	resp2 := new(v2object.GetRangeHashResponse)
-	if err := resp2.FromGRPCMessage(resp); err != nil {
-		panic(err) // can only fail on wrong type, here it's correct
-	}
-	if err := signature.VerifyServiceMessage(resp2); err != nil {
+	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return nil, fmt.Errorf("response verification failed: %w", err)
 	}
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -1041,7 +978,8 @@ func getHashesFromRemoteNode(ctx context.Context, c client.MultiAddressClient, a
 }
 
 func (s *server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	return stream.Send(util.SignResponse(&s.signer, resp, v2object.GetResponse{}))
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return stream.Send(resp)
 }
 
 func (s *server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error) error {
@@ -1050,7 +988,7 @@ func (s *server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
 			Body: &protoobject.GetResponse_Body{
 				ObjectPart: &protoobject.GetResponse_Body_SplitInfo{
-					SplitInfo: splitErr.SplitInfo().ToV2().ToGRPCMessage().(*protoobject.SplitInfo),
+					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
 		})
@@ -1067,7 +1005,7 @@ type getStream struct {
 }
 
 func (s *getStream) WriteHeader(hdr *object.Object) error {
-	mo := hdr.ToV2().ToGRPCMessage().(*protoobject.Object)
+	mo := hdr.ProtoMessage()
 	resp := &protoobject.GetResponse{
 		Body: &protoobject.GetResponse_Body{
 			ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
@@ -1101,14 +1039,12 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
-	getReq := new(v2object.GetRequest)
-	err := getReq.FromGRPCMessage(req)
-	if err != nil {
-		return err
-	}
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
-	if err = signature.VerifyServiceMessage(getReq); err != nil {
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
 
@@ -1156,11 +1092,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	}
 
 	var addr oid.Address
-	var addr2 refsv2.Address
-	if err := addr2.FromGRPCMessage(ma); err != nil {
-		panic(err)
-	}
-	if err := addr.ReadFromV2(addr2); err != nil {
+	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
 	}
 
@@ -1193,13 +1125,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			var req2 v2object.GetRequest
-			if err := req2.FromGRPCMessage(req); err != nil {
-				panic(err)
-			}
-			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
-				req = req2.ToGRPCMessage().(*protoobject.GetRequest)
-			}
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1253,11 +1179,7 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 			return err
 		}
-		resp2 := new(v2object.GetResponse)
-		if err := resp2.FromGRPCMessage(resp); err != nil {
-			panic(err) // can only fail on wrong type, here it's correct
-		}
-		if err := signature.VerifyServiceMessage(resp2); err != nil {
+		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 			return fmt.Errorf("response verification failed: %w", err)
 		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -1280,12 +1202,13 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 				Signature: v.Init.Signature,
 				Header:    v.Init.Header,
 			}
-			obj := new(v2object.Object)
-			if err := obj.FromGRPCMessage(mo); err != nil {
-				panic(err) // can only fail on wrong type, here it's correct
+			obj := object.New()
+			err := obj.FromProtoMessage(mo)
+			if err != nil {
+				return err
 			}
 			onceHdr.Do(func() {
-				err = stream.WriteHeader(object.NewFromV2(obj))
+				err = stream.WriteHeader(obj)
 			})
 			if err != nil {
 				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
@@ -1294,7 +1217,7 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 			if !headWas {
 				return errors.New("incorrect message sequence")
 			}
-			fullChunk := v.GetChunk()
+			fullChunk := v.Chunk
 			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
 			if len(respChunk) == 0 {
 				readPayload += len(fullChunk)
@@ -1309,18 +1232,19 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 			if v == nil || v.SplitInfo == nil {
 				return errors.New("nil split info oneof field")
 			}
-			var si2 v2object.SplitInfo
-			if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
-				panic(err) // can only fail on wrong type, here it's correct
+			si := object.NewSplitInfo()
+			err := si.FromProtoMessage(v.SplitInfo)
+			if err != nil {
+				return err
 			}
-			si := object.NewSplitInfoFromV2(&si2)
 			return object.NewSplitInfoError(si)
 		}
 	}
 }
 
 func (s *server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse) error {
-	return stream.Send(util.SignResponse(&s.signer, resp, v2object.GetRangeResponse{}))
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return stream.Send(resp)
 }
 
 func (s *server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRangeServer, err error) error {
@@ -1329,7 +1253,7 @@ func (s *server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRan
 		return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
 			Body: &protoobject.GetRangeResponse_Body{
 				RangePart: &protoobject.GetRangeResponse_Body_SplitInfo{
-					SplitInfo: splitErr.SplitInfo().ToV2().ToGRPCMessage().(*protoobject.SplitInfo),
+					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
 		})
@@ -1367,14 +1291,12 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
-	getRngReq := new(v2object.GetRangeRequest)
-	err := getRngReq.FromGRPCMessage(req)
-	if err != nil {
-		return err
-	}
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = signature.VerifyServiceMessage(getRngReq); err != nil {
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 
@@ -1422,11 +1344,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	}
 
 	var addr oid.Address
-	var addr2 refsv2.Address
-	if err := addr2.FromGRPCMessage(ma); err != nil {
-		panic(err)
-	}
-	if err := addr.ReadFromV2(addr2); err != nil {
+	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.RangePrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
 
@@ -1470,13 +1388,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			var req2 v2object.GetRangeRequest
-			if err := req2.FromGRPCMessage(req); err != nil {
-				panic(err)
-			}
-			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
-				req = req2.ToGRPCMessage().(*protoobject.GetRangeRequest)
-			}
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1526,11 +1438,7 @@ func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClien
 		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 			return err
 		}
-		resp2 := new(v2object.GetRangeResponse)
-		if err := resp2.FromGRPCMessage(resp); err != nil {
-			panic(err) // can only fail on wrong type, here it's correct
-		}
-		if err := signature.VerifyServiceMessage(resp2); err != nil {
+		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 			return fmt.Errorf("response verification failed: %w", err)
 		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -1541,7 +1449,7 @@ func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClien
 		default:
 			return fmt.Errorf("unexpected range type %T", v)
 		case *protoobject.GetRangeResponse_Body_Chunk:
-			fullChunk := v.GetChunk()
+			fullChunk := v.Chunk
 			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
 			if len(respChunk) == 0 {
 				readPayload += len(fullChunk)
@@ -1556,18 +1464,19 @@ func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClien
 			if v == nil || v.SplitInfo == nil {
 				return errors.New("nil split info oneof field")
 			}
-			var si2 v2object.SplitInfo
-			if err := si2.FromGRPCMessage(v.SplitInfo); err != nil {
-				panic(err) // can only fail on wrong type, here it's correct
+			si := object.NewSplitInfo()
+			err := si.FromProtoMessage(v.SplitInfo)
+			if err != nil {
+				return err
 			}
-			si := object.NewSplitInfoFromV2(&si2)
 			return object.NewSplitInfoError(si)
 		}
 	}
 }
 
 func (s *server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse) error {
-	return stream.Send(util.SignResponse(&s.signer, resp, v2object.SearchResponse{}))
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return stream.Send(resp)
 }
 
 func (s *server) sendStatusSearchResponse(stream protoobject.ObjectService_SearchServer, err error) error {
@@ -1595,10 +1504,8 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 		}
 
 		r.Body.IdList = make([]*refs.ObjectID, cut)
-		var id2 refsv2.ObjectID
 		for i := range cut {
-			ids[i].WriteToV2(&id2)
-			r.Body.IdList[i] = id2.ToGRPCMessage().(*refs.ObjectID)
+			r.Body.IdList[i] = ids[i].ProtoMessage()
 		}
 		// TODO: do not check response multiple times
 		// TODO: why check it at all?
@@ -1615,14 +1522,12 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 }
 
 func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.ObjectService_SearchServer) error {
-	searchReq := new(v2object.SearchRequest)
-	err := searchReq.FromGRPCMessage(req)
-	if err != nil {
-		return err
-	}
-	t := time.Now()
+	var (
+		err error
+		t   = time.Now()
+	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = signature.VerifyServiceMessage(searchReq); err != nil {
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
@@ -1670,11 +1575,7 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 	}
 
 	var id cid.ID
-	var id2 refsv2.ContainerID
-	if err := id2.FromGRPCMessage(mc); err != nil {
-		panic(err)
-	}
-	if err := id.ReadFromV2(id2); err != nil {
+	if err := id.FromProtoMessage(mc); err != nil {
 		return searchsvc.Prm{}, fmt.Errorf("invalid container ID: %w", err)
 	}
 
@@ -1684,17 +1585,16 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 	}
 
 	mfs := body.GetFilters()
-	fs2 := make([]v2object.SearchFilter, len(mfs))
-	for i := range mfs {
-		if err := fs2[i].FromGRPCMessage(mfs[i]); err != nil {
-			panic(err)
-		}
+	ofs := object.NewSearchFilters()
+	err = ofs.FromProtoMessage(mfs)
+	if err != nil {
+		return searchsvc.Prm{}, err
 	}
 
 	var p searchsvc.Prm
 	p.SetCommonParameters(cp)
 	p.WithContainerID(id)
-	p.WithSearchFilters(object.NewSearchFiltersFromV2(fs2))
+	p.WithSearchFilters(ofs)
 	p.SetWriter(stream)
 	if cp.LocalOnly() {
 		return p, nil
@@ -1713,13 +1613,7 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			var req2 v2object.SearchRequest
-			if err := req2.FromGRPCMessage(req); err != nil {
-				panic(err)
-			}
-			if err = signature.SignServiceMessage(&signer, &req2); err == nil {
-				req = req2.ToGRPCMessage().(*protoobject.SearchRequest)
-			}
+			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1766,11 +1660,7 @@ func searchOnRemoteNode(ctx context.Context, c client.MultiAddressClient, addr n
 		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
 			return nil, err
 		}
-		resp2 := new(v2object.SearchResponse)
-		if err := resp2.FromGRPCMessage(resp); err != nil {
-			panic(err) // can only fail on wrong type, here it's correct
-		}
-		if err := signature.VerifyServiceMessage(resp2); err != nil {
+		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
 		}
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
@@ -1780,11 +1670,7 @@ func searchOnRemoteNode(ctx context.Context, c client.MultiAddressClient, addr n
 		chunk := resp.GetBody().GetIdList()
 		var id oid.ID
 		for i := range chunk {
-			var id2 refsv2.ObjectID
-			if err := id2.FromGRPCMessage(chunk[i]); err != nil {
-				panic(err) // can only fail on wrong type, here it's correct
-			}
-			if err := id.ReadFromV2(id2); err != nil {
+			if err := id.FromProtoMessage(chunk[i]); err != nil {
 				return nil, fmt.Errorf("invalid object ID: %w", err)
 			}
 			res = append(res, id)
@@ -1853,11 +1739,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	}
 
 	var cnr cid.ID
-	var cnrMsg refsv2.ContainerID
-	err := cnrMsg.FromGRPCMessage(gCnrMsg)
-	if err == nil {
-		err = cnr.ReadFromV2(cnrMsg)
-	}
+	err := cnr.FromProtoMessage(gCnrMsg)
 	if err != nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code:    codeInternal,
@@ -1966,14 +1848,18 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	return resp, nil
 }
 
+func (s *server) SearchV2(_ context.Context, _ *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	return nil, errors.New("unimplemented")
+}
+
 func objectFromMessage(gMsg *protoobject.Object) (*object.Object, error) {
-	var msg v2object.Object
-	err := msg.FromGRPCMessage(gMsg)
+	var obj = object.New()
+	err := obj.FromProtoMessage(gMsg)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewFromV2(&msg), nil
+	return obj, nil
 }
 
 func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
@@ -2035,34 +1921,23 @@ func (s *server) metaInfoSignature(o object.Object) ([]byte, error) {
 		return nil, fmt.Errorf("signature failure: %w", err)
 	}
 
-	firstSigV2 := new(refsv2.Signature)
-	firstSig.WriteToV2(firstSigV2)
-	secondSigV2 := new(refsv2.Signature)
-	secondSig.WriteToV2(secondSigV2)
-	thirdSigV2 := new(refsv2.Signature)
-	thirdSig.WriteToV2(thirdSigV2)
+	firstSigV2 := firstSig.ProtoMessage()
+	secondSigV2 := secondSig.ProtoMessage()
+	thirdSigV2 := thirdSig.ProtoMessage()
 
-	res := make([]byte, 0, 4+firstSigV2.StableSize()+4+secondSigV2.StableSize()+4+thirdSigV2.StableSize())
-	res = binary.LittleEndian.AppendUint32(res, uint32(firstSigV2.StableSize()))
-	res = append(res, firstSigV2.StableMarshal(nil)...)
-	res = binary.LittleEndian.AppendUint32(res, uint32(secondSigV2.StableSize()))
-	res = append(res, secondSigV2.StableMarshal(nil)...)
-	res = binary.LittleEndian.AppendUint32(res, uint32(thirdSigV2.StableSize()))
-	res = append(res, thirdSigV2.StableMarshal(nil)...)
+	res := make([]byte, 4+firstSigV2.MarshaledSize()+4+secondSigV2.MarshaledSize()+4+thirdSigV2.MarshaledSize())
+	binary.LittleEndian.PutUint32(res, uint32(firstSigV2.MarshaledSize()))
+	firstSigV2.MarshalStable(res[4 : 4+firstSigV2.MarshaledSize()])
+	binary.LittleEndian.PutUint32(res[4+firstSigV2.MarshaledSize():], uint32(secondSigV2.MarshaledSize()))
+	secondSigV2.MarshalStable(res[4+firstSigV2.MarshaledSize()+4 : 4+firstSigV2.MarshaledSize()+4+secondSigV2.MarshaledSize()])
+	binary.LittleEndian.PutUint32(res[4+firstSigV2.MarshaledSize()+4+secondSigV2.MarshaledSize():], uint32(thirdSigV2.MarshaledSize()))
+	thirdSigV2.MarshalStable(res[4+firstSigV2.MarshaledSize()+4+secondSigV2.MarshaledSize()+4:])
 
 	return res, nil
 }
 
 func checkStatus(st *protostatus.Status) error {
-	stV2 := new(status.Status)
-	if err := stV2.FromGRPCMessage(st); err != nil {
-		panic(err) // can only fail on wrong type, here it's correct
-	}
-	if !status.IsSuccess(stV2.Code()) {
-		return apistatus.ErrorFromV2(stV2)
-	}
-
-	return nil
+	return apistatus.ToError(st)
 }
 
 func chunkToSend(global, local int, chunk []byte) []byte {

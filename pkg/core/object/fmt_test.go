@@ -366,13 +366,6 @@ func TestLinkObjectSplitV2(t *testing.T) {
 	})
 
 	t.Run("V2 split", func(t *testing.T) {
-		obj.ResetRelations()
-		obj.SetParent(object.New())
-
-		t.Run("first object is not set", func(t *testing.T) {
-			require.ErrorContains(t, v.Validate(obj, true), "first object part does not have parent header")
-		})
-
 		t.Run("link object without finished parent", func(t *testing.T) {
 			obj.ResetRelations()
 			obj.SetParent(object.New())

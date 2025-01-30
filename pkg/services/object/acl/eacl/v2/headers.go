@@ -4,15 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	session "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -149,13 +146,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						ObjectId: in.ObjectId,
 						Header:   in.Header,
 					}
-					oV2 := new(objectV2.Object)
-					if err := oV2.FromGRPCMessage(mo); err != nil {
-						panic(err)
-					}
 
 					var obj object.Object
-					err := obj.ReadFromV2(*oV2)
+					err := obj.FromProtoMessage(mo)
 					if err != nil {
 						return err
 					}
@@ -173,13 +166,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 						Signature: splitHeader.ParentSignature,
 						Header:    parentHeader,
 					}
-					var parentObjectV2 objectV2.Object
-					if err := parentObjectV2.FromGRPCMessage(mo); err != nil {
-						panic(err)
-					}
 
 					var obj object.Object
-					err := obj.ReadFromV2(parentObjectV2)
+					err := obj.FromProtoMessage(mo)
 					if err != nil {
 						return err
 					}
@@ -189,11 +178,8 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					// be received via the first object
 					if mf := in.Header.GetSplit().GetFirst(); mf != nil {
 						var firstID oid.ID
-						var first refsV2.ObjectID
-						if err := first.FromGRPCMessage(mf); err != nil {
-							panic(err)
-						}
-						err := firstID.ReadFromV2(first)
+
+						err := firstID.FromProtoMessage(mf)
 						if err != nil {
 							return fmt.Errorf("converting first object ID: %w", err)
 						}
@@ -217,11 +203,7 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			var cnr cid.ID
 
 			if mc := req.GetBody().GetContainerId(); mc != nil {
-				var cnrV2 refsV2.ContainerID
-				if err := cnrV2.FromGRPCMessage(mc); err != nil {
-					panic(err)
-				}
-				if err := cnr.ReadFromV2(cnrV2); err != nil {
+				if err := cnr.FromProtoMessage(mc); err != nil {
 					return fmt.Errorf("can't parse container ID: %w", err)
 				}
 			}
@@ -244,13 +226,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					ObjectId: v.Init.ObjectId,
 					Header:   v.Init.Header,
 				}
-				oV2 := new(objectV2.Object)
-				if err := oV2.FromGRPCMessage(mo); err != nil {
-					panic(err)
-				}
 
 				var obj object.Object
-				err := obj.ReadFromV2(*oV2)
+				err := obj.FromProtoMessage(mo)
 				if err != nil {
 					return err
 				}
@@ -265,13 +243,12 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 					return errors.New("nil oneof field with short header")
 				}
 
-				var idV2 refsV2.ContainerID
-				h.cnr.WriteToV2(&idV2)
+				idMsg := h.cnr.ProtoMessage()
 
 				h := v.ShortHeader
 				hdr = &protoobject.Header{
 					Version:       h.Version,
-					ContainerId:   idV2.ToGRPCMessage().(*refs.ContainerID),
+					ContainerId:   idMsg,
 					OwnerId:       h.OwnerId,
 					CreationEpoch: h.CreationEpoch,
 					PayloadLength: h.PayloadLength,
@@ -287,13 +264,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			mo := &protoobject.Object{
 				Header: hdr,
 			}
-			oV2 := new(objectV2.Object)
-			if err := oV2.FromGRPCMessage(mo); err != nil {
-				panic(err)
-			}
 
 			var obj object.Object
-			err := obj.ReadFromV2(*oV2)
+			err := obj.FromProtoMessage(mo)
 			if err != nil {
 				return err
 			}

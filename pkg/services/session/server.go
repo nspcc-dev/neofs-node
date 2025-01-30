@@ -9,16 +9,12 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	apisession "github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
@@ -50,18 +46,16 @@ func New(s *ecdsa.PrivateKey, net netmap.State, ks KeyStorage) protosession.Sess
 }
 
 func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *protostatus.Status) (*protosession.CreateResponse, error) {
-	v := version.Current()
-	var v2 apirefs.Version
-	v.WriteToV2(&v2)
 	resp := &protosession.CreateResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
-			Version: v2.ToGRPCMessage().(*refs.Version),
+			Version: version.Current().ProtoMessage(),
 			Epoch:   s.net.CurrentEpoch(),
 			Status:  st,
 		},
 	}
-	return util.SignResponse(s.signer, resp, apisession.CreateResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeFailedCreateResponse(err error) (*protosession.CreateResponse, error) {
@@ -71,11 +65,7 @@ func (s *server) makeFailedCreateResponse(err error) (*protosession.CreateRespon
 // Create generates new private session key and saves it in the underlying
 // [KeyStorage].
 func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
-	createReq := new(apisession.CreateRequest)
-	if err := createReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(createReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeFailedCreateResponse(err)
 	}
 
@@ -84,12 +74,8 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 	if mUsr == nil {
 		return s.makeFailedCreateResponse(errors.New("missing account"))
 	}
-	var usr2 apirefs.OwnerID
-	if err := usr2.FromGRPCMessage(mUsr); err != nil {
-		panic(err)
-	}
 	var usr user.ID
-	if err := usr.ReadFromV2(usr2); err != nil {
+	if err := usr.FromProtoMessage(mUsr); err != nil {
 		return s.makeFailedCreateResponse(fmt.Errorf("invalid account: %w", err))
 	}
 

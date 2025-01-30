@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	apiaudit "github.com/nspcc-dev/neofs-api-go/v2/audit"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoaudit "github.com/nspcc-dev/neofs-sdk-go/proto/audit"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"google.golang.org/protobuf/proto"
 )
 
 // Result groups results of the data audit performed by the Inner Ring member.
@@ -74,42 +75,43 @@ func NewResult(auditorPubKey []byte, epoch uint64, cnr cid.ID) Result {
 func (r Result) Marshal() []byte {
 	var ver *refs.Version
 	if r.versionSet {
-		ver = new(refs.Version)
-		r.version.WriteToV2(ver)
+		ver = r.version.ProtoMessage()
 	}
-	cnr := new(refs.ContainerID)
-	r.Container.WriteToV2(cnr)
-	var passSG []refs.ObjectID
+	cnr := r.Container.ProtoMessage()
+	var passSG []*refs.ObjectID
 	if r.PoR.PassedStorageGroups != nil {
-		passSG = make([]refs.ObjectID, len(r.PoR.PassedStorageGroups))
+		passSG = make([]*refs.ObjectID, len(r.PoR.PassedStorageGroups))
 		for i := range r.PoR.PassedStorageGroups {
-			r.PoR.PassedStorageGroups[i].WriteToV2(&passSG[i])
+			passSG[i] = r.PoR.PassedStorageGroups[i].ProtoMessage()
 		}
 	}
-	var failSG []refs.ObjectID
+	var failSG []*refs.ObjectID
 	if r.PoR.FailedStorageGroups != nil {
-		failSG = make([]refs.ObjectID, len(r.PoR.FailedStorageGroups))
+		failSG = make([]*refs.ObjectID, len(r.PoR.FailedStorageGroups))
 		for i := range r.PoR.FailedStorageGroups {
-			r.PoR.FailedStorageGroups[i].WriteToV2(&failSG[i])
+			failSG[i] = r.PoR.FailedStorageGroups[i].ProtoMessage()
 		}
 	}
-	var m apiaudit.DataAuditResult
-	m.SetVersion(ver)
-	m.SetContainerID(cnr)
-	m.SetAuditEpoch(r.AuditEpoch)
-	m.SetPublicKey(r.AuditorPublicKey)
-	m.SetComplete(r.Completed)
-	m.SetRequests(r.PoR.Requests)
-	m.SetRetries(r.PoR.Retries)
-	m.SetPassSG(passSG)
-	m.SetFailSG(failSG)
-	m.SetHit(r.PoP.Hits)
-	m.SetMiss(r.PoP.Misses)
-	m.SetFail(r.PoP.Failures)
-	m.SetPassNodes(r.PDP.PassedStorageNodes)
-	m.SetFailNodes(r.PDP.FailedStorageNodes)
+	var m = protoaudit.DataAuditResult{
+		Version:     ver,
+		ContainerId: cnr,
+		AuditEpoch:  r.AuditEpoch,
+		PublicKey:   r.AuditorPublicKey,
+		Complete:    r.Completed,
+		Requests:    r.PoR.Requests,
+		Retries:     r.PoR.Retries,
+		PassSg:      passSG,
+		FailSg:      failSG,
+		Hit:         r.PoP.Hits,
+		Miss:        r.PoP.Misses,
+		Fail:        r.PoP.Failures,
+		PassNodes:   r.PDP.PassedStorageNodes,
+		FailNodes:   r.PDP.FailedStorageNodes,
+	}
 
-	return m.StableMarshal(nil)
+	var b = make([]byte, m.MarshaledSize())
+	m.MarshalStable(b)
+	return b
 }
 
 // Unmarshal decodes Protocol Buffers V3 binary data into the Result. Returns an
@@ -117,38 +119,36 @@ func (r Result) Marshal() []byte {
 // not check presence of the required fields and, at the same time, checks
 // format of the presented ones.
 func (r *Result) Unmarshal(data []byte) error {
-	var m apiaudit.DataAuditResult
-	if err := m.Unmarshal(data); err != nil {
+	var m protoaudit.DataAuditResult
+	if err := proto.Unmarshal(data, &m); err != nil {
 		return fmt.Errorf("decode protobuf: %w", err)
 	}
 
-	if cnr := m.GetContainerID(); cnr == nil {
+	if m.ContainerId == nil {
 		return errors.New("missing container")
-	} else if err := r.Container.ReadFromV2(*cnr); err != nil {
+	} else if err := r.Container.FromProtoMessage(m.ContainerId); err != nil {
 		return fmt.Errorf("invalid container: %w", err)
 	}
-	ver := m.GetVersion()
-	if r.versionSet = ver != nil; r.versionSet {
-		if err := r.version.ReadFromV2(*ver); err != nil {
+	r.versionSet = m.Version != nil
+	if r.versionSet {
+		if err := r.version.FromProtoMessage(m.Version); err != nil {
 			return fmt.Errorf("invalid protocol version: %w", err)
 		}
 	}
-	passSG := m.GetPassSG()
-	if len(passSG) > 0 {
-		r.PoR.PassedStorageGroups = make([]oid.ID, len(passSG))
-		for i := range passSG {
-			if err := r.PoR.PassedStorageGroups[i].ReadFromV2(passSG[i]); err != nil {
+	if len(m.PassSg) > 0 {
+		r.PoR.PassedStorageGroups = make([]oid.ID, len(m.PassSg))
+		for i := range m.PassSg {
+			if err := r.PoR.PassedStorageGroups[i].FromProtoMessage(m.PassSg[i]); err != nil {
 				return fmt.Errorf("invalid passed storage group #%d: %w", i, err)
 			}
 		}
 	} else {
 		r.PoR.PassedStorageGroups = nil
 	}
-	failSG := m.GetFailSG()
-	if len(failSG) > 0 {
-		r.PoR.FailedStorageGroups = make([]oid.ID, len(failSG))
-		for i := range failSG {
-			if err := r.PoR.FailedStorageGroups[i].ReadFromV2(failSG[i]); err != nil {
+	if len(m.FailSg) > 0 {
+		r.PoR.FailedStorageGroups = make([]oid.ID, len(m.FailSg))
+		for i := range m.FailSg {
+			if err := r.PoR.FailedStorageGroups[i].FromProtoMessage(m.FailSg[i]); err != nil {
 				return fmt.Errorf("invalid failed storage group #%d: %w", i, err)
 			}
 		}

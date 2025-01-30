@@ -4,16 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 
-	apinetmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	protonetmap "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
@@ -48,10 +46,7 @@ func New(s *ecdsa.PrivateKey, c Contract) protonetmap.NetmapServiceServer {
 }
 
 func currentProtoVersion() *refs.Version {
-	v := version.Current()
-	var v2 apirefs.Version
-	v.WriteToV2(&v2)
-	return v2.ToGRPCMessage().(*refs.Version)
+	return version.Current().ProtoMessage()
 }
 
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
@@ -67,7 +62,8 @@ func (s *server) makeNodeInfoResponse(body *protonetmap.LocalNodeInfoResponse_Bo
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apinetmap.LocalNodeInfoResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeStatusNodeInfoResponse(err error) (*protonetmap.LocalNodeInfoResponse, error) {
@@ -77,11 +73,7 @@ func (s *server) makeStatusNodeInfoResponse(err error) (*protonetmap.LocalNodeIn
 // LocalNodeInfo returns current state of the local node from the underlying
 // [NodeState].
 func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
-	nodeInfoReq := new(apinetmap.LocalNodeInfoRequest)
-	if err := nodeInfoReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(nodeInfoReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusNodeInfoResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -90,11 +82,9 @@ func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoR
 		return s.makeStatusNodeInfoResponse(err)
 	}
 
-	var n2 apinetmap.NodeInfo
-	n.WriteToV2(&n2)
 	body := &protonetmap.LocalNodeInfoResponse_Body{
 		Version:  currentProtoVersion(),
-		NodeInfo: n2.ToGRPCMessage().(*protonetmap.NodeInfo),
+		NodeInfo: n.ProtoMessage(),
 	}
 	return s.makeNodeInfoResponse(body, util.StatusOK)
 }
@@ -104,7 +94,8 @@ func (s *server) makeNetInfoResponse(body *protonetmap.NetworkInfoResponse_Body,
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apinetmap.NetworkInfoResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeStatusNetInfoResponse(err error) (*protonetmap.NetworkInfoResponse, error) {
@@ -114,11 +105,7 @@ func (s *server) makeStatusNetInfoResponse(err error) (*protonetmap.NetworkInfoR
 // NetworkInfo returns current network configuration from the underlying
 // [Contract].
 func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequest) (*protonetmap.NetworkInfoResponse, error) {
-	netInfoReq := new(apinetmap.NetworkInfoRequest)
-	if err := netInfoReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(netInfoReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusNetInfoResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -127,10 +114,8 @@ func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequ
 		return s.makeStatusNetInfoResponse(err)
 	}
 
-	var n2 apinetmap.NetworkInfo
-	n.WriteToV2(&n2)
 	body := &protonetmap.NetworkInfoResponse_Body{
-		NetworkInfo: n2.ToGRPCMessage().(*protonetmap.NetworkInfo),
+		NetworkInfo: n.ProtoMessage(),
 	}
 	return s.makeNetInfoResponse(body, util.StatusOK)
 }
@@ -140,7 +125,8 @@ func (s *server) makeNetmapResponse(body *protonetmap.NetmapSnapshotResponse_Bod
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apinetmap.SnapshotResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeStatusNetmapResponse(err error) (*protonetmap.NetmapSnapshotResponse, error) {
@@ -149,11 +135,7 @@ func (s *server) makeStatusNetmapResponse(err error) (*protonetmap.NetmapSnapsho
 
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
-	snapshotReq := new(apinetmap.SnapshotRequest)
-	if err := snapshotReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(snapshotReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusNetmapResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -162,10 +144,8 @@ func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapsh
 		return s.makeStatusNetmapResponse(err)
 	}
 
-	var n2 apinetmap.NetMap
-	n.WriteToV2(&n2)
 	body := &protonetmap.NetmapSnapshotResponse_Body{
-		Netmap: n2.ToGRPCMessage().(*protonetmap.Netmap),
+		Netmap: n.ProtoMessage(),
 	}
 	return s.makeNetmapResponse(body, util.StatusOK)
 }

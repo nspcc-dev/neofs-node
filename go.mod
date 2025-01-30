@@ -18,7 +18,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.107.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.20.1-0.20241220193924-4da43dfb5a65
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.12.0.20241115192314-2da6182d23f5
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.12.0.20250130151303-051c6238eaea
 	github.com/nspcc-dev/tzhash v1.8.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.9.0

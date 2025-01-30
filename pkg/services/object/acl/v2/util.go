@@ -7,16 +7,13 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	apiacl "github.com/nspcc-dev/neofs-api-go/v2/acl"
-	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	refsV2 "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	sessionV2 "github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -57,11 +54,7 @@ func getContainerIDFromRequest(req any) (cid.ID, error) {
 		return cid.ID{}, errMissingContainerID
 	}
 
-	var idV2 refsV2.ContainerID
-	if err := idV2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
-	return id, id.ReadFromV2(idV2)
+	return id, id.FromProtoMessage(mID)
 }
 
 // originalBearerToken goes down to original request meta header and fetches
@@ -77,11 +70,7 @@ func originalBearerToken(header *protosession.RequestMetaHeader) (*bearer.Token,
 	}
 
 	var tok bearer.Token
-	var tokV2 apiacl.BearerToken
-	if err := tokV2.FromGRPCMessage(mt); err != nil {
-		panic(err)
-	}
-	return &tok, tok.ReadFromV2(tokV2)
+	return &tok, tok.FromProtoMessage(mt)
 }
 
 // originalSessionToken goes down to original request meta header and fetches
@@ -97,11 +86,7 @@ func originalSessionToken(header *protosession.RequestMetaHeader) (*sessionSDK.O
 	}
 
 	var tok sessionSDK.Object
-	var tokV2 sessionV2.Token
-	if err := tokV2.FromGRPCMessage(mt); err != nil {
-		panic(err)
-	}
-	err := tok.ReadFromV2(tokV2)
+	err := tok.FromProtoMessage(mt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid session token: %w", err)
 	}
@@ -118,11 +103,7 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 	}
 
 	var id oid.ID
-	var idV2 refsV2.ObjectID
-	if err := idV2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
-	err := id.ReadFromV2(idV2)
+	err := id.FromProtoMessage(mID)
 	if err != nil {
 		return nil, err
 	}

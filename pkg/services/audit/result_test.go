@@ -5,13 +5,14 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	apiaudit "github.com/nspcc-dev/neofs-api-go/v2/audit"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	protoaudit "github.com/nspcc-dev/neofs-sdk-go/proto/audit"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func anyValidAuditResult() audit.Result {
@@ -20,19 +21,21 @@ func anyValidAuditResult() audit.Result {
 
 func TestResultProtocolVersion(t *testing.T) {
 	r := anyValidAuditResult()
-	var msg apiaudit.DataAuditResult
+	var msg protoaudit.DataAuditResult
 
-	require.NoError(t, msg.Unmarshal(r.Marshal()))
+	require.NoError(t, proto.Unmarshal(r.Marshal(), &msg))
 	ver := msg.GetVersion()
 	require.EqualValues(t, 2, ver.GetMajor())
 	require.EqualValues(t, 16, ver.GetMinor())
 
-	ver.SetMajor(100)
-	ver.SetMinor(500)
-	msg.SetVersion(ver)
-	require.NoError(t, r.Unmarshal(msg.StableMarshal(nil)))
-	var msg2 apiaudit.DataAuditResult
-	require.NoError(t, msg2.Unmarshal(r.Marshal()))
+	ver.Major = 100
+	ver.Minor = 500
+	msg.Version = ver
+	b := make([]byte, msg.MarshaledSize())
+	msg.MarshalStable(b)
+	require.NoError(t, r.Unmarshal(b))
+	var msg2 protoaudit.DataAuditResult
+	require.NoError(t, proto.Unmarshal(b, &msg2))
 	ver = msg.GetVersion()
 	require.EqualValues(t, 100, ver.GetMajor())
 	require.EqualValues(t, 500, ver.GetMinor())
@@ -244,73 +247,77 @@ func TestResultUnmarshalingFailures(t *testing.T) {
 		for _, testCase := range []struct {
 			name    string
 			err     string
-			corrupt func(*apiaudit.DataAuditResult)
+			corrupt func(*protoaudit.DataAuditResult)
 		}{
-			{name: "missing container", err: "missing container", corrupt: func(r *apiaudit.DataAuditResult) {
-				r.SetContainerID(nil)
+			{name: "missing container", err: "missing container", corrupt: func(r *protoaudit.DataAuditResult) {
+				r.ContainerId = nil
 			}},
-			{name: "invalid container/nil value", err: "invalid container: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				r.SetContainerID(new(refs.ContainerID))
+			{name: "invalid container/nil value", err: "invalid container: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				r.ContainerId = new(refs.ContainerID)
 			}},
-			{name: "invalid container/empty value", err: "invalid container: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				var id refs.ContainerID
-				id.SetValue([]byte{})
-				r.SetContainerID(&id)
+			{name: "invalid container/empty value", err: "invalid container: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				var id = refs.ContainerID{
+					Value: []byte{},
+				}
+				r.ContainerId = &id
 			}},
-			{name: "invalid container/wrong length", err: "invalid container: invalid length 31", corrupt: func(r *apiaudit.DataAuditResult) {
-				var id refs.ContainerID
-				id.SetValue(make([]byte, 31))
-				r.SetContainerID(&id)
+			{name: "invalid container/wrong length", err: "invalid container: invalid length 31", corrupt: func(r *protoaudit.DataAuditResult) {
+				var id = refs.ContainerID{
+					Value: make([]byte, 31),
+				}
+				r.ContainerId = &id
 			}},
-			{name: "invalid passed SG/nil value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[2].SetValue(randomObjectID())
-				r.SetPassSG(ids)
+			{name: "invalid passed SG/nil value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.PassSg = ids
 			}},
-			{name: "invalid passed SG/empty value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[1].SetValue([]byte{})
-				ids[2].SetValue(randomObjectID())
-				r.SetPassSG(ids)
+			{name: "invalid passed SG/empty value", err: "invalid passed storage group #1: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[1] = &refs.ObjectID{Value: []byte{}}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.PassSg = ids
 			}},
-			{name: "invalid passed SG/wrong length", err: "invalid passed storage group #1: invalid length 31", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[1].SetValue(make([]byte, 31))
-				ids[2].SetValue(randomObjectID())
-				r.SetPassSG(ids)
+			{name: "invalid passed SG/wrong length", err: "invalid passed storage group #1: invalid length 31", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[1] = &refs.ObjectID{Value: make([]byte, 31)}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.PassSg = ids
 			}},
-			{name: "invalid failed SG/nil value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[2].SetValue(randomObjectID())
-				r.SetFailSG(ids)
+			{name: "invalid failed SG/nil value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.FailSg = ids
 			}},
-			{name: "invalid failed SG/empty value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[1].SetValue([]byte{})
-				ids[2].SetValue(randomObjectID())
-				r.SetFailSG(ids)
+			{name: "invalid failed SG/empty value", err: "invalid failed storage group #1: invalid length 0", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[1] = &refs.ObjectID{Value: []byte{}}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.FailSg = ids
 			}},
-			{name: "invalid failed SG/wrong length", err: "invalid failed storage group #1: invalid length 31", corrupt: func(r *apiaudit.DataAuditResult) {
-				ids := make([]refs.ObjectID, 3)
-				ids[0].SetValue(randomObjectID())
-				ids[1].SetValue(make([]byte, 31))
-				ids[2].SetValue(randomObjectID())
-				r.SetFailSG(ids)
+			{name: "invalid failed SG/wrong length", err: "invalid failed storage group #1: invalid length 31", corrupt: func(r *protoaudit.DataAuditResult) {
+				ids := make([]*refs.ObjectID, 3)
+				ids[0] = &refs.ObjectID{Value: randomObjectID()}
+				ids[1] = &refs.ObjectID{Value: make([]byte, 31)}
+				ids[2] = &refs.ObjectID{Value: randomObjectID()}
+				r.FailSg = ids
 			}},
 		} {
 			t.Run(testCase.name, func(t *testing.T) {
 				r := anyValidAuditResult()
-				var msg apiaudit.DataAuditResult
-				require.NoError(t, msg.Unmarshal(r.Marshal()))
+				var msg protoaudit.DataAuditResult
+				require.NoError(t, proto.Unmarshal(r.Marshal(), &msg))
 
 				testCase.corrupt(&msg)
 
-				require.EqualError(t, r.Unmarshal(msg.StableMarshal(nil)), testCase.err)
+				b := make([]byte, msg.MarshaledSize())
+				msg.MarshalStable(b)
+				require.EqualError(t, r.Unmarshal(b), testCase.err)
 			})
 		}
 	})

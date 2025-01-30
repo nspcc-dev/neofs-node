@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/status"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
@@ -25,18 +25,16 @@ func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte
 		return nil, fmt.Errorf("connect to remote node: %w", err)
 	}
 
-	var resp objectGRPC.ReplicateResponse
-	err = c.ExecRaw(func(conn *grpc.ClientConn) error {
-		// this will be changed during NeoFS API Go deprecation. Code most likely be
-		// placed in SDK
-		err = conn.Invoke(ctx, objectGRPC.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
-		if err != nil {
-			return fmt.Errorf("API transport (op=%s): %w", objectGRPC.ObjectService_Replicate_FullMethodName, err)
-		}
-		return err
-	})
+	var resp protoobject.ReplicateResponse
+	conn := c.Conn()
+	if conn == nil {
+		return nil, errors.New("can't get grpc connection to node")
+	}
+	// this will be changed during NeoFS API Go deprecation. Code most likely be
+	// placed in SDK
+	err = conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("API transport (op=%s): %w", protoobject.ObjectService_Replicate_FullMethodName, err)
 	}
 
 	return replicationResultFromResponse(&resp)
@@ -65,17 +63,8 @@ func (protoCodecBinaryRequestOnly) Unmarshal(raw []byte, msg any) error {
 	return encoding.GetCodec(proto.Name).Unmarshal(raw, msg)
 }
 
-func replicationResultFromResponse(m *objectGRPC.ReplicateResponse) ([]byte, error) {
-	var st *status.Status
-	if mst := m.GetStatus(); mst != nil {
-		st = new(status.Status)
-		err := st.FromGRPCMessage(mst)
-		if err != nil {
-			return nil, fmt.Errorf("decode response status: %w", err)
-		}
-	}
-
-	err := apistatus.ErrorFromV2(st)
+func replicationResultFromResponse(m *protoobject.ReplicateResponse) ([]byte, error) {
+	err := apistatus.ToError(m.GetStatus())
 	if err != nil {
 		return nil, err
 	}

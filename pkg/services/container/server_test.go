@@ -6,19 +6,17 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	apicontainer "github.com/nspcc-dev/neofs-api-go/v2/container"
-	protocontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	apisession "github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
@@ -57,20 +55,17 @@ func (testFSChain) Delete(cid.ID, []byte, []byte, *session.Container) error {
 }
 
 func makeDeleteRequestWithSession(t testing.TB, usr usertest.UserSigner, cnr cid.ID, st interface {
-	WriteToV2(token *apisession.Token)
+	ProtoMessage() *protosession.SessionToken
 }) *protocontainer.DeleteRequest {
-	var st2 apisession.Token
-	st.WriteToV2(&st2)
-	return makeDeleteRequestWithSessionMessage(t, usr, cnr, st2.ToGRPCMessage().(*protosession.SessionToken))
+	return makeDeleteRequestWithSessionMessage(t, usr, cnr, st.ProtoMessage())
 }
 
 func makeDeleteRequestWithSessionMessage(t testing.TB, usr usertest.UserSigner, cnr cid.ID, st *protosession.SessionToken) *protocontainer.DeleteRequest {
-	var cnr2 apirefs.ContainerID
-	cnr.WriteToV2(&cnr2)
+	var err error
 
 	req := &protocontainer.DeleteRequest{
 		Body: &protocontainer.DeleteRequest_Body{
-			ContainerId: cnr2.ToGRPCMessage().(*refs.ContainerID),
+			ContainerId: cnr.ProtoMessage(),
 			Signature:   new(refs.SignatureRFC6979),
 		},
 		MetaHeader: &protosession.RequestMetaHeader{
@@ -78,11 +73,10 @@ func makeDeleteRequestWithSessionMessage(t testing.TB, usr usertest.UserSigner, 
 		},
 	}
 
-	var req2 apicontainer.DeleteRequest
-	require.NoError(t, req2.FromGRPCMessage(req))
-	require.NoError(t, signature.SignServiceMessage(&usr.ECDSAPrivateKey, &req2))
+	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(usr.ECDSAPrivateKey), req, nil)
+	require.NoError(t, err)
 
-	return req2.ToGRPCMessage().(*protocontainer.DeleteRequest)
+	return req
 }
 
 func TestServer_Delete(t *testing.T) {
@@ -121,7 +115,7 @@ func TestServer_Delete(t *testing.T) {
 				require.NotNil(t, resp.MetaHeader.Status)
 				sts := resp.MetaHeader.Status
 				require.EqualValues(t, 1024, sts.Code, st)
-				require.Equal(t, "invalid context *session.ObjectSessionContext", sts.Message)
+				require.Equal(t, "invalid context *session.SessionToken_Body_Object", sts.Message)
 				require.Zero(t, sts.Details)
 			})
 			t.Run("wrong verb", func(t *testing.T) {
@@ -213,9 +207,7 @@ func TestServer_Delete(t *testing.T) {
 				st.ForVerb(session.VerbContainerDelete)
 				require.NoError(t, st.Sign(usr))
 
-				var st2 apisession.Token
-				st.WriteToV2(&st2)
-				mst := st2.ToGRPCMessage().(*protosession.SessionToken)
+				mst := st.ProtoMessage()
 				require.NotEmpty(t, mst.Signature.Sign)
 				mst.Signature.Sign[0]++
 

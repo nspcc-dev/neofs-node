@@ -1,8 +1,8 @@
 package v2
 
 import (
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 )
 
 type xHeaderSource interface {

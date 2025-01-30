@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	aclV2 "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -164,10 +163,11 @@ func TestMessageSign(t *testing.T) {
 			bt := testBearerToken(cid1, privs[1].PublicKey(), privs[2].PublicKey())
 			require.NoError(t, bt.Sign(signer))
 
-			var bv2 aclV2.BearerToken
-			bt.WriteToV2(&bv2)
-			bv2.GetSignature().SetSign([]byte{1, 2, 3})
-			req.Body.BearerToken = bv2.StableMarshal(nil)
+			pacl := bt.ProtoMessage()
+			pacl.Signature.Sign = []byte{1, 2, 3}
+			b := make([]byte, pacl.MarshaledSize())
+			pacl.MarshalStable(b)
+			req.Body.BearerToken = b
 
 			require.NoError(t, SignMessage(req, &privs[1].PrivateKey))
 			require.Error(t, s.verifyClient(req, cid1, req.GetBody().GetBearerToken(), acl.OpObjectPut))

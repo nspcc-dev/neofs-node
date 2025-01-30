@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Drop creating new eacl tables with public keys (#3096)
 
 ### Updated
+- SDK to the post-api-go version (#3103)
 
 ### Updating from v0.44.2
 Using public keys as a rule target in eACL tables was deprecated, and 

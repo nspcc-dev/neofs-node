@@ -4,9 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	objectV2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	protoobject "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -14,6 +11,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -408,11 +406,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 	}
 
 	var idOwner user.ID
-	var idV2 apirefs.OwnerID
-	if err := idV2.FromGRPCMessage(mOwner); err != nil {
-		panic(err)
-	}
-	err = idOwner.ReadFromV2(idV2)
+	err = idOwner.FromProtoMessage(mOwner)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, fmt.Errorf("invalid object owner: %w", err)
 	}
@@ -421,11 +415,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 
 	if part.Init.ObjectId != nil {
 		obj = new(oid.ID)
-		var objV2 apirefs.ObjectID
-		if err := objV2.FromGRPCMessage(part.Init.ObjectId); err != nil {
-			panic(err)
-		}
-		err = obj.ReadFromV2(objV2)
+		err = obj.FromProtoMessage(part.Init.ObjectId)
 		if err != nil {
 			return RequestInfo{}, user.ID{}, err
 		}
@@ -490,11 +480,7 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		// header length is unchecked for replication because introducing a restriction
 		// should not prevent the replication of objects created before.
 		// See also https://github.com/nspcc-dev/neofs-api/issues/293
-		var h2 objectV2.Header
-		if err := h2.FromGRPCMessage(header); err != nil {
-			panic(err)
-		}
-		hdrLen := h2.StableSize()
+		var hdrLen = header.MarshaledSize()
 		if hdrLen > objectsdk.MaxHeaderLen {
 			return RequestInfo{}, user.ID{}, fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, objectsdk.MaxHeaderLen)
 		}

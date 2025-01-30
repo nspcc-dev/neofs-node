@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -15,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"go.uber.org/zap"
 )
 
@@ -171,7 +171,7 @@ func initNetmapService(c *cfg) {
 	server := netmapService.New(&c.key.PrivateKey, c)
 
 	for _, srv := range c.cfgGRPC.servers {
-		netmapGRPC.RegisterNetmapServiceServer(srv, server)
+		protonetmap.RegisterNetmapServiceServer(srv, server)
 	}
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {

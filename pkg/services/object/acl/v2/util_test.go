@@ -6,14 +6,12 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/acl"
-	protoacl "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	bearertest "github.com/nspcc-dev/neofs-sdk-go/bearer/test"
 	aclsdk "github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -29,17 +27,12 @@ func TestOriginalTokens(t *testing.T) {
 
 	require.NoError(t, bToken.Sign(signer))
 
-	var bTokenV2 acl.BearerToken
-	bToken.WriteToV2(&bTokenV2)
 	// This line is needed because SDK uses some custom format for
 	// reserved filters, so `cid.ID` is not converted to string immediately.
-	require.NoError(t, bToken.ReadFromV2(bTokenV2))
+	require.NoError(t, bToken.FromProtoMessage(bToken.ProtoMessage()))
 
-	var sTokenV2 session.Token
-	sToken.WriteToV2(&sTokenV2)
-
-	mbt := bTokenV2.ToGRPCMessage().(*protoacl.BearerToken)
-	mst := sTokenV2.ToGRPCMessage().(*protosession.SessionToken)
+	mbt := bToken.ProtoMessage()
+	mst := sToken.ProtoMessage()
 	for i := range 10 {
 		metaHeaders := testGenerateMetaHeader(uint32(i), mbt, mst)
 		res, err := originalSessionToken(metaHeaders)
@@ -55,13 +48,13 @@ func TestOriginalTokens(t *testing.T) {
 
 func testGenerateMetaHeader(depth uint32, b *protoacl.BearerToken, s *protosession.SessionToken) *protosession.RequestMetaHeader {
 	metaHeader := new(protosession.RequestMetaHeader)
-	metaHeader.SetBearerToken(b)
-	metaHeader.SetSessionToken(s)
+	metaHeader.BearerToken = b
+	metaHeader.SessionToken = s
 
 	for range depth {
 		link := metaHeader
 		metaHeader = new(protosession.RequestMetaHeader)
-		metaHeader.SetOrigin(link)
+		metaHeader.Origin = link
 	}
 
 	return metaHeader

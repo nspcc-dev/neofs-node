@@ -3,10 +3,8 @@ package util
 import (
 	"fmt"
 
-	apiacl "github.com/nspcc-dev/neofs-api-go/v2/acl"
-	"github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -97,30 +95,22 @@ func CommonPrmFromRequest(req interface {
 	}
 
 	var st *sessionsdk.Object
-	if mt := meta.GetSessionToken(); mt != nil {
-		var st2 session.Token
-		if err := st2.FromGRPCMessage(mt); err != nil {
-			panic(err)
-		}
+	if meta.SessionToken != nil {
 		st = new(sessionsdk.Object)
-		if err := st.ReadFromV2(st2); err != nil {
+		if err := st.FromProtoMessage(meta.SessionToken); err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
 	}
 
 	var bt *bearer.Token
-	if mt := meta.GetBearerToken(); mt != nil {
-		var bt2 apiacl.BearerToken
-		if err := bt2.FromGRPCMessage(mt); err != nil {
-			panic(err)
-		}
+	if meta.BearerToken != nil {
 		bt = new(bearer.Token)
-		if err := bt.ReadFromV2(bt2); err != nil {
+		if err := bt.FromProtoMessage(meta.BearerToken); err != nil {
 			return nil, fmt.Errorf("invalid bearer token: %w", err)
 		}
 	}
 
-	xHdrs := meta.GetXHeaders()
+	xHdrs := meta.XHeaders
 	prm := &CommonPrm{
 		local:  ttl <= maxLocalTTL,
 		token:  st,

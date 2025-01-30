@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	rawclient "github.com/nspcc-dev/neofs-api-go/v2/rpc/client"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -59,16 +58,6 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 
 type clientWrapper struct {
 	*client.Client
-}
-
-func (x clientWrapper) ExecRaw(f func(*grpc.ClientConn) error) error {
-	return x.Client.ExecRaw(func(c *rawclient.Client) error {
-		conn := c.Conn()
-		if conn == nil {
-			return errors.New("missing conn")
-		}
-		return f(conn.(*grpc.ClientConn))
-	})
 }
 
 func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client, error) {
@@ -346,12 +335,6 @@ func (x *multiClient) AnnounceIntermediateTrust(ctx context.Context, epoch uint6
 	})
 }
 
-func (x *multiClient) ExecRaw(f func(*grpc.ClientConn) error) error {
-	return x.iterateClients(context.Background(), func(c clientcore.Client) error {
-		return c.ExecRaw(f)
-	})
-}
-
 func (x *multiClient) Close() error {
 	x.mtx.RLock()
 
@@ -374,11 +357,21 @@ func (x *multiClient) RawForAddress(addr network.Address, f func(*grpc.ClientCon
 		return err
 	}
 
-	err = c.ExecRaw(f)
+	err = f(c.Conn())
 	if err != nil {
 		x.ReportError(err)
 	}
 	return err
+}
+
+func (x *multiClient) Conn() *grpc.ClientConn {
+	var cc *grpc.ClientConn
+
+	_ = x.iterateClients(context.TODO(), func(c clientcore.Client) error {
+		cc = c.Conn()
+		return nil
+	})
+	return cc
 }
 
 func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
