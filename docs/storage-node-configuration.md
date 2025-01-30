@@ -102,12 +102,14 @@ Contains logger parameters.
 logger:
   level: info
   encoding: console
+  timestamp: true
 ```
 
-| Parameter   | Type       | Default value | Description                                                                                       |
-|-------------|------------|---------------|---------------------------------------------------------------------------------------------------|
-| `level`     | `string`   | `info`        | Logging level.<br/>Possible values:  `debug`, `info`, `warn`, `error`, `dpanic`, `panic`, `fatal` |
-| `encoding`  | `string`   | `console`     | Logging encoding.<br/>Possible values: `console`, `json`                                          |
+| Parameter   | Type     | Default value | Description                                                                                         |
+|-------------|----------|---------------|-----------------------------------------------------------------------------------------------------|
+| `level`     | `string` | `info`        | Logging level.<br/>Possible values:  `debug`, `info`, `warn`, `error`, `dpanic`, `panic`, `fatal`   |
+| `encoding`  | `string` | `console`     | Logging encoding.<br/>Possible values: `console`, `json`                                            |
+| `timestamp` | `bool`   | `false`       | Flag to enable timestamps. If the parameter is not set, they will be enabled when you run with tty. |
 
 # `contracts` section
 Contains override values for NeoFS side-chain contract hashes. Most of the time contract

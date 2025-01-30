@@ -1,6 +1,8 @@
 logger:
   level: debug  # logger level: one of "debug", "info" (default), "warn", "error", "dpanic", "panic", "fatal"
   encoding: json # logger encoding: one of "console" (default) or "json"
+  timestamp: true # turn on/off timestamps (default: false, timestamps are disabled,
+    # but if the parameter is not set, they will be enabled when you run with tty)
 
 pprof:
   enabled: true

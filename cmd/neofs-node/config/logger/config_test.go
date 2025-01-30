@@ -14,6 +14,7 @@ func TestLoggerSection_Level(t *testing.T) {
 		emptyConfig := configtest.EmptyConfig()
 		require.Equal(t, loggerconfig.LevelDefault, loggerconfig.Level(emptyConfig))
 		require.Equal(t, loggerconfig.EncodingDefault, loggerconfig.Encoding(emptyConfig))
+		require.False(t, loggerconfig.Timestamp(emptyConfig))
 	})
 
 	const path = "../../../../config/example/node"

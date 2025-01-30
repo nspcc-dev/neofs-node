@@ -67,7 +67,7 @@ func main() {
 	c.Level = logLevel
 	c.Encoding = cfg.GetString("logger.encoding")
 	c.Sampling = nil
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if (term.IsTerminal(int(os.Stdout.Fd())) && !cfg.IsSet("logger.timestamp")) || cfg.GetBool("logger.timestamp") {
 		c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {
 		c.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}

@@ -6,8 +6,9 @@ import (
 
 type valideConfig struct {
 	Logger struct {
-		Level    string `mapstructure:"level"`
-		Encoding string `mapstructure:"encoding"`
+		Level     string `mapstructure:"level"`
+		Encoding  string `mapstructure:"encoding"`
+		Timestamp bool   `mapstructure:"timestamp"`
 	} `mapstructure:"logger"`
 
 	Pprof struct {
