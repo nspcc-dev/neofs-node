@@ -3,7 +3,9 @@ package util
 import (
 	"fmt"
 
+	apiacl "github.com/nspcc-dev/neofs-api-go/v2/acl"
 	"github.com/nspcc-dev/neofs-api-go/v2/session"
+	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	sessionsdk "github.com/nspcc-dev/neofs-sdk-go/session"
 )
@@ -82,49 +84,52 @@ func (p *CommonPrm) ForgetTokens() {
 	}
 }
 
-func CommonPrmFromV2(req interface {
-	GetMetaHeader() *session.RequestMetaHeader
+// CommonPrmFromRequest is a temporary copy-paste of [CommonPrmFromV2].
+func CommonPrmFromRequest(req interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
 }) (*CommonPrm, error) {
 	meta := req.GetMetaHeader()
-	ttl := meta.GetTTL()
+	ttl := meta.GetTtl()
 
 	// unwrap meta header to get original request meta information
 	for meta.GetOrigin() != nil {
 		meta = meta.GetOrigin()
 	}
 
-	var tokenSession *sessionsdk.Object
-	var err error
-
-	if tokenSessionV2 := meta.GetSessionToken(); tokenSessionV2 != nil {
-		tokenSession = new(sessionsdk.Object)
-
-		err = tokenSession.ReadFromV2(*tokenSessionV2)
-		if err != nil {
+	var st *sessionsdk.Object
+	if mt := meta.GetSessionToken(); mt != nil {
+		var st2 session.Token
+		if err := st2.FromGRPCMessage(mt); err != nil {
+			panic(err)
+		}
+		st = new(sessionsdk.Object)
+		if err := st.ReadFromV2(st2); err != nil {
 			return nil, fmt.Errorf("invalid session token: %w", err)
 		}
 	}
 
-	xHdrs := meta.GetXHeaders()
-
-	prm := &CommonPrm{
-		local: ttl <= maxLocalTTL,
-		token: tokenSession,
-		ttl:   ttl - 1, // decrease TTL for new requests
-		xhdrs: make([]string, 0, 2*len(xHdrs)),
-	}
-
-	if tok := meta.GetBearerToken(); tok != nil {
-		prm.bearer = new(bearer.Token)
-		err = prm.bearer.ReadFromV2(*tok)
-		if err != nil {
+	var bt *bearer.Token
+	if mt := meta.GetBearerToken(); mt != nil {
+		var bt2 apiacl.BearerToken
+		if err := bt2.FromGRPCMessage(mt); err != nil {
+			panic(err)
+		}
+		bt = new(bearer.Token)
+		if err := bt.ReadFromV2(bt2); err != nil {
 			return nil, fmt.Errorf("invalid bearer token: %w", err)
 		}
 	}
 
+	xHdrs := meta.GetXHeaders()
+	prm := &CommonPrm{
+		local:  ttl <= maxLocalTTL,
+		token:  st,
+		bearer: bt,
+		ttl:    ttl - 1, // decrease TTL for new requests
+		xhdrs:  make([]string, 0, 2*len(xHdrs)),
+	}
 	for i := range xHdrs {
 		prm.xhdrs = append(prm.xhdrs, xHdrs[i].GetKey(), xHdrs[i].GetValue())
 	}
-
 	return prm, nil
 }

@@ -3,12 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/nspcc-dev/neofs-api-go/v2/object"
 	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -21,14 +22,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
-	deletesvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/delete/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	getsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/get/v2"
 	headsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/head"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
-	putsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/put/v2"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
-	searchsvcV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/search/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/split"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/tombstone"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -48,13 +45,13 @@ import (
 )
 
 type objectSvc struct {
-	put *putsvcV2.Service
+	put *putsvc.Service
 
-	search *searchsvcV2.Service
+	search *searchsvc.Service
 
-	get *getsvcV2.Service
+	get *getsvc.Service
 
-	delete *deletesvcV2.Service
+	delete *deletesvc.Service
 }
 
 func (c *cfg) MaxObjectSize() uint64 {
@@ -68,32 +65,32 @@ func (c *cfg) MaxObjectSize() uint64 {
 	return sz
 }
 
-func (s *objectSvc) Put(ctx context.Context) (objectService.PutObjectStream, error) {
+func (s *objectSvc) Put(ctx context.Context) (*putsvc.Streamer, error) {
 	return s.put.Put(ctx)
 }
 
-func (s *objectSvc) Head(ctx context.Context, req *object.HeadRequest) (*object.HeadResponse, error) {
-	return s.get.Head(ctx, req)
+func (s *objectSvc) Head(ctx context.Context, prm getsvc.HeadPrm) error {
+	return s.get.Head(ctx, prm)
 }
 
-func (s *objectSvc) Search(req *object.SearchRequest, stream objectService.SearchStream) error {
-	return s.search.Search(req, stream)
+func (s *objectSvc) Search(ctx context.Context, prm searchsvc.Prm) error {
+	return s.search.Search(ctx, prm)
 }
 
-func (s *objectSvc) Get(req *object.GetRequest, stream objectService.GetObjectStream) error {
-	return s.get.Get(req, stream)
+func (s *objectSvc) Get(ctx context.Context, prm getsvc.Prm) error {
+	return s.get.Get(ctx, prm)
 }
 
-func (s *objectSvc) Delete(ctx context.Context, req *object.DeleteRequest) (*object.DeleteResponse, error) {
-	return s.delete.Delete(ctx, req)
+func (s *objectSvc) Delete(ctx context.Context, prm deletesvc.Prm) error {
+	return s.delete.Delete(ctx, prm)
 }
 
-func (s *objectSvc) GetRange(req *object.GetRangeRequest, stream objectService.GetObjectRangeStream) error {
-	return s.get.GetRange(req, stream)
+func (s *objectSvc) GetRange(ctx context.Context, prm getsvc.RangePrm) error {
+	return s.get.GetRange(ctx, prm)
 }
 
-func (s *objectSvc) GetRangeHash(ctx context.Context, req *object.GetRangeHashRequest) (*object.GetRangeHashResponse, error) {
-	return s.get.GetRangeHash(ctx, req)
+func (s *objectSvc) GetRangeHash(ctx context.Context, prm getsvc.RangeHashPrm) (*getsvc.RangeHashRes, error) {
+	return s.get.GetRangeHash(ctx, prm)
 }
 
 type delNetInfo struct {
@@ -232,11 +229,6 @@ func initObjectService(c *cfg) {
 
 	*c.cfgObject.getSvc = *sGet // need smth better
 
-	sGetV2 := getsvcV2.NewService(
-		getsvcV2.WithInternalService(sGet),
-		getsvcV2.WithKeyStorage(keyStorage),
-	)
-
 	cnrNodes, err := newContainerNodes(c.cfgObject.cnrSource, c.netMapSource)
 	fatalOnErr(err)
 	c.cfgObject.containerNodes = cnrNodes
@@ -246,11 +238,6 @@ func initObjectService(c *cfg) {
 		searchsvc.WithLocalStorageEngine(ls),
 		searchsvc.WithClientConstructor(coreConstructor),
 		searchsvc.WithKeyStorage(keyStorage),
-	)
-
-	sSearchV2 := searchsvcV2.NewService(
-		searchsvcV2.WithInternalService(sSearch),
-		searchsvcV2.WithKeyStorage(keyStorage),
 	)
 
 	mNumber, err := c.shared.basics.cli.MagicNumber()
@@ -272,11 +259,6 @@ func initObjectService(c *cfg) {
 		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
 	)
 
-	sPutV2 := putsvcV2.NewService(
-		putsvcV2.WithInternalService(sPut),
-		putsvcV2.WithKey(&c.key.PrivateKey),
-	)
-
 	sDelete := deletesvc.New(
 		deletesvc.WithLogger(c.log),
 		deletesvc.WithPutService(sPut),
@@ -289,15 +271,11 @@ func initObjectService(c *cfg) {
 		deletesvc.WithKeyStorage(keyStorage),
 	)
 
-	sDeleteV2 := deletesvcV2.NewService(
-		deletesvcV2.WithInternalService(sDelete),
-	)
-
 	objSvc := &objectSvc{
-		put:    sPutV2,
-		search: sSearchV2,
-		get:    sGetV2,
-		delete: sDeleteV2,
+		put:    sPut,
+		search: sSearch,
+		get:    sGet,
+		delete: sDelete,
 	}
 
 	// cachedFirstObjectsNumber is a total cached objects number; the V2 split scheme
@@ -324,7 +302,11 @@ func initObjectService(c *cfg) {
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 
-	server := objectService.New(objSvc, mNumber, fsChain, (*putObjectServiceWrapper)(sPut), c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
+	storage := storageForObjectService{
+		putSvc: sPut,
+		keys:   keyStorage,
+	}
+	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
 		objectGRPC.RegisterObjectServiceServer(srv, server)
@@ -633,10 +615,21 @@ func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 // maintenance now.
 func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
-type putObjectServiceWrapper putsvc.Service
+type storageForObjectService struct {
+	putSvc *putsvc.Service
+	keys   *util.KeyStorage
+}
 
-func (x *putObjectServiceWrapper) VerifyAndStoreObject(obj objectSDK.Object) error {
-	return (*putsvc.Service)(x).ValidateAndStoreObjectLocally(obj)
+func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {
+	return x.putSvc.ValidateAndStoreObjectLocally(obj)
+}
+
+func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID) (ecdsa.PrivateKey, error) {
+	k, err := x.keys.GetKey(&util.SessionInfo{ID: uid, Owner: usr})
+	if err != nil {
+		return ecdsa.PrivateKey{}, err
+	}
+	return *k, nil
 }
 
 type objectSource struct {
