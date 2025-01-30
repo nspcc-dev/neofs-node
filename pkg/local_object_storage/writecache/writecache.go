@@ -1,7 +1,12 @@
 package writecache
 
 import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -58,8 +63,6 @@ type cache struct {
 	// whether object should be compressed.
 	compressFlags map[string]struct{}
 
-	// flushCh is a channel with objects to flush.
-	flushCh chan *object.Object
 	// closeCh is close channel.
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
@@ -80,9 +83,8 @@ type objectInfo struct {
 }
 
 const (
-	defaultMaxObjectSize   = 64 * 1024 * 1024 // 64 MiB
-	defaultSmallObjectSize = 32 * 1024        // 32 KiB
-	defaultMaxCacheSize    = 1 << 30          // 1 GiB
+	defaultMaxObjectSize = 64 * 1024 * 1024 // 64 MiB
+	defaultMaxCacheSize  = 1 << 30          // 1 GiB
 )
 
 var (
@@ -92,18 +94,13 @@ var (
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		flushCh: make(chan *object.Object),
-		mode:    mode.ReadWrite,
+		mode: mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
-			log:             zap.NewNop(),
-			maxObjectSize:   defaultMaxObjectSize,
-			smallObjectSize: defaultSmallObjectSize,
-			workersCount:    defaultFlushWorkersCount,
-			maxCacheSize:    defaultMaxCacheSize,
-			maxBatchSize:    bbolt.DefaultMaxBatchSize,
-			maxBatchDelay:   bbolt.DefaultMaxBatchDelay,
+			log:           zap.NewNop(),
+			maxObjectSize: defaultMaxObjectSize,
+			maxCacheSize:  defaultMaxCacheSize,
 		},
 	}
 
@@ -112,8 +109,7 @@ func New(opts ...Option) Cache {
 	}
 
 	// Make the LRU cache contain which take approximately 3/4 of the maximum space.
-	// Assume small and big objects are stored in 50-50 proportion.
-	c.maxFlushedMarksCount = int(c.maxCacheSize/c.maxObjectSize+c.maxCacheSize/c.smallObjectSize) / 2 * 3 / 4
+	c.maxFlushedMarksCount = int(c.maxCacheSize/c.maxObjectSize) / 2 * 3 / 4
 	// Trigger the removal when the cache is 7/8 full, so that new items can still arrive.
 	c.maxRemoveBatchSize = c.maxFlushedMarksCount / 8
 
@@ -142,19 +138,42 @@ func (c *cache) Open(readOnly bool) error {
 	// thus we need to create a channel here.
 	c.closeCh = make(chan struct{})
 
+	c.modeMtx.Lock()
+	if readOnly {
+		c.mode = mode.ReadOnly
+	} else {
+		c.mode = mode.ReadWrite
+	}
+	c.modeMtx.Unlock()
+
+	// Migration part
+	if readOnly {
+		c.log.Error("could not migrate cache because it's opened in read-only mode, " +
+			"some objects can be unavailable")
+	} else {
+		err = c.migrate()
+		if err != nil {
+			c.log.Error("could not migrate cache", zap.Error(err))
+			return err
+		}
+	}
+
 	return c.initCounters()
 }
 
 // Init runs necessary services. No-op in read-only mode.
 func (c *cache) Init() error {
-	if !c.db.IsReadOnly() {
+	c.modeMtx.Lock()
+	defer c.modeMtx.Unlock()
+
+	if !c.readOnly() {
 		c.initFlushMarks()
 		c.runFlushLoop()
 	}
 	return nil
 }
 
-// Close closes db connection and stops services. Executes ObjectCounters.FlushAndClose op.
+// Close stops services. Executes ObjectCounters.FlushAndClose op.
 func (c *cache) Close() error {
 	// Finish all in-progress operations.
 	if err := c.SetMode(mode.ReadOnly); err != nil {
@@ -169,12 +188,70 @@ func (c *cache) Close() error {
 		c.closeCh = nil
 	}
 
-	var err error
-	if c.db != nil {
-		err = c.db.Close()
-		if err != nil {
-			c.db = nil
-		}
+	return nil
+}
+
+func (c *cache) migrate() error {
+	path := filepath.Join(c.path, dbName)
+	_, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		c.log.Debug("no migration needed, there is no database file")
+		return nil
 	}
+
+	c.log.Info("migrating database", zap.String("path", path))
+	db, err := bbolt.Open(path, os.ModePerm, &bbolt.Options{
+		NoFreelistSync: true,
+		ReadOnly:       true,
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("could not open database: %w", err)
+	}
+
+	err = db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(defaultBucket)
+		if b == nil {
+			return errors.New("no default bucket")
+		}
+
+		var addr oid.Address
+		return b.ForEach(func(k, v []byte) error {
+			sa := string(k)
+
+			if err := addr.DecodeString(sa); err != nil {
+				c.reportFlushError("can't decode object address from the DB", sa, err)
+				return nil
+			}
+
+			var obj object.Object
+			if err := obj.Unmarshal(v); err != nil {
+				c.reportFlushError("can't unmarshal an object from the DB", sa, err)
+				return nil
+			}
+
+			if err := c.flushObject(&obj, v); err != nil {
+				return err
+			}
+
+			return nil
+		})
+	})
+	if err != nil {
+		db.Close()
+		return fmt.Errorf("could not migrate default bucket: %w", err)
+	}
+
+	err = db.Close()
+	if err != nil {
+		return fmt.Errorf("could not close database: %w", err)
+	}
+
+	err = os.Remove(path)
+	if err != nil {
+		return fmt.Errorf("could not remove database file: %w", err)
+	}
+
+	c.log.Info("successfully migrated and removed database file")
 	return nil
 }

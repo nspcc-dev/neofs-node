@@ -2,7 +2,6 @@ package writecacheconfig
 
 import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	boltdbconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/boltdb"
 )
 
 // Config is a wrapper over the config section
@@ -10,14 +9,8 @@ import (
 type Config config.Config
 
 const (
-	// SmallSizeDefault is a default size of small objects.
-	SmallSizeDefault = 32 << 10
-
 	// MaxSizeDefault is a default value of the object payload size limit.
 	MaxSizeDefault = 64 << 20
-
-	// WorkersNumberDefault is a default number of workers.
-	WorkersNumberDefault = 20
 
 	// SizeLimitDefault is a default write-cache size limit.
 	SizeLimitDefault = 1 << 30
@@ -51,22 +44,6 @@ func (x *Config) Path() string {
 	return p
 }
 
-// SmallObjectSize returns the value of "small_object_size" config parameter.
-//
-// Returns SmallSizeDefault if the value is not a positive number.
-func (x *Config) SmallObjectSize() uint64 {
-	s := config.SizeInBytesSafe(
-		(*config.Config)(x),
-		"small_object_size",
-	)
-
-	if s > 0 {
-		return s
-	}
-
-	return SmallSizeDefault
-}
-
 // MaxObjectSize returns the value of "max_object_size" config parameter.
 //
 // Returns MaxSizeDefault if the value is not a positive number.
@@ -81,22 +58,6 @@ func (x *Config) MaxObjectSize() uint64 {
 	}
 
 	return MaxSizeDefault
-}
-
-// WorkersNumber returns the value of "workers_number" config parameter.
-//
-// Returns WorkersNumberDefault if the value is not a positive number.
-func (x *Config) WorkersNumber() int {
-	c := config.IntSafe(
-		(*config.Config)(x),
-		"workers_number",
-	)
-
-	if c > 0 {
-		return int(c)
-	}
-
-	return WorkersNumberDefault
 }
 
 // SizeLimit returns the value of "capacity" config parameter.
@@ -120,9 +81,4 @@ func (x *Config) SizeLimit() uint64 {
 // Returns false if the value is not a boolean.
 func (x *Config) NoSync() bool {
 	return config.BoolSafe((*config.Config)(x), "no_sync")
-}
-
-// BoltDB returns config instance for querying bolt db specific parameters.
-func (x *Config) BoltDB() *boltdbconfig.Config {
-	return (*boltdbconfig.Config)(x)
 }

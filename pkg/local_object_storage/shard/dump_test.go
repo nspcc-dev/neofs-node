@@ -49,7 +49,6 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	} else {
 		sh = newCustomShard(t, t.TempDir(), true,
 			[]writecache.Option{
-				writecache.WithSmallObjectSize(wcSmallObjectSize),
 				writecache.WithMaxObjectSize(wcBigObjectSize),
 				writecache.WithLogger(zaptest.NewLogger(t)),
 			},
@@ -302,7 +301,6 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	wcPath := filepath.Join(dir, "writecache")
 	wcOpts := []writecache.Option{
 		writecache.WithPath(wcPath),
-		writecache.WithSmallObjectSize(wcSmallObjectSize),
 		writecache.WithMaxObjectSize(wcBigObjectSize),
 	}
 	sh := newCustomShard(t, dir, true, wcOpts, bsOpts(2))

@@ -195,11 +195,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 			wc.Enabled = true
 			wc.Path = writeCacheCfg.Path()
-			wc.MaxBatchSize = writeCacheCfg.BoltDB().MaxBatchSize()
-			wc.MaxBatchDelay = writeCacheCfg.BoltDB().MaxBatchDelay()
 			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
-			wc.SmallObjectSize = writeCacheCfg.SmallObjectSize()
-			wc.FlushWorkerCount = writeCacheCfg.WorkersNumber()
 			wc.SizeLimit = writeCacheCfg.SizeLimit()
 			wc.NoSync = writeCacheCfg.NoSync()
 		}

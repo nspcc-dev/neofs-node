@@ -19,7 +19,6 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -35,7 +34,7 @@ func TestFlush(t *testing.T) {
 	)
 
 	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
-		wc, bs, mb := newCache(t, smallSize, append(opts, WithLogger(zaptest.NewLogger(t)))...)
+		wc, bs, mb := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
 
 		// First set mode for metabase and blobstor to prevent background flushes.
 		require.NoError(t, mb.SetMode(mode.ReadOnly))
@@ -137,23 +136,6 @@ func TestFlush(t *testing.T) {
 
 			check(t, mb, bs, objects)
 		}
-		t.Run("db, invalid address", func(t *testing.T) {
-			testIgnoreErrors(t, func(c *cache) {
-				_, data := newObject(t, 1)
-				require.NoError(t, c.db.Batch(func(tx *bbolt.Tx) error {
-					b := tx.Bucket(defaultBucket)
-					return b.Put([]byte{1, 2, 3}, data)
-				}))
-			})
-		})
-		t.Run("db, invalid object", func(t *testing.T) {
-			testIgnoreErrors(t, func(c *cache) {
-				require.NoError(t, c.db.Batch(func(tx *bbolt.Tx) error {
-					b := tx.Bucket(defaultBucket)
-					return b.Put([]byte(oidtest.Address().EncodeToString()), []byte{1, 2, 3})
-				}))
-			})
-		})
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
 				obj, data := newObject(t, 1)

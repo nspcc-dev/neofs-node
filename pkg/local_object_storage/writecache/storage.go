@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
@@ -28,9 +27,7 @@ type store struct {
 	// MUST NOT be used inside bolt db transaction because it's eviction handler
 	// removes untracked items from the database.
 	flushed simplelru.LRUCache[string, bool]
-	db      *bbolt.DB
 
-	dbKeysToRemove []string
 	fsKeysToRemove []string
 }
 
@@ -40,24 +37,6 @@ func (c *cache) openStore(readOnly bool) error {
 	err := util.MkdirAllX(c.path, os.ModePerm)
 	if err != nil {
 		return err
-	}
-
-	c.db, err = OpenDB(c.path, readOnly)
-	if err != nil {
-		return fmt.Errorf("could not open database: %w", err)
-	}
-
-	c.db.MaxBatchSize = c.maxBatchSize
-	c.db.MaxBatchDelay = c.maxBatchDelay
-
-	if !readOnly {
-		err = c.db.Update(func(tx *bbolt.Tx) error {
-			_, err := tx.CreateBucketIfNotExists(defaultBucket)
-			return err
-		})
-		if err != nil {
-			return fmt.Errorf("could not create default bucket: %w", err)
-		}
 	}
 
 	c.fsTree = fstree.New(
@@ -82,48 +61,12 @@ func (c *cache) openStore(readOnly bool) error {
 // To minimize interference with the client operations, the actual removal
 // is done in batches.
 // It is not thread-safe and is used only as an evict callback to LRU cache.
-func (c *cache) removeFlushed(addr string, fromDatabase bool) {
-	if fromDatabase {
-		c.dbKeysToRemove = append(c.dbKeysToRemove, addr)
-	} else {
-		c.fsKeysToRemove = append(c.fsKeysToRemove, addr)
-	}
+func (c *cache) removeFlushed(addr string, _ bool) {
+	c.fsKeysToRemove = append(c.fsKeysToRemove, addr)
 
-	if len(c.dbKeysToRemove)+len(c.fsKeysToRemove) >= c.maxRemoveBatchSize {
-		c.dbKeysToRemove = c.deleteFromDB(c.dbKeysToRemove)
+	if len(c.fsKeysToRemove) >= c.maxRemoveBatchSize {
 		c.fsKeysToRemove = c.deleteFromDisk(c.fsKeysToRemove)
 	}
-}
-
-func (c *cache) deleteFromDB(keys []string) []string {
-	if len(keys) == 0 {
-		return keys
-	}
-
-	var errorIndex int
-	err := c.db.Batch(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		for errorIndex = range keys {
-			if err := b.Delete([]byte(keys[errorIndex])); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	for i := range errorIndex {
-		c.objCounters.DecDB()
-		storagelog.Write(c.log,
-			storagelog.AddressField(keys[i]),
-			storagelog.StorageTypeField(wcStorageType),
-			storagelog.OpField("db DELETE"),
-		)
-	}
-	if err != nil {
-		c.log.Error("can't remove objects from the database", zap.Error(err))
-	}
-
-	copy(keys, keys[errorIndex:])
-	return keys[:len(keys)-errorIndex]
 }
 
 func (c *cache) deleteFromDisk(keys []string) []string {
@@ -152,7 +95,7 @@ func (c *cache) deleteFromDisk(keys []string) []string {
 			storagelog.Write(c.log,
 				storagelog.AddressField(keys[i]),
 				storagelog.StorageTypeField(wcStorageType),
-				storagelog.OpField("fstree DELETE"),
+				storagelog.OpField("DELETE"),
 			)
 			c.objCounters.DecFS()
 		}

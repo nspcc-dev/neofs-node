@@ -111,11 +111,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
 				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxBatchSize(wcRead.MaxBatchSize),
-				writecache.WithMaxBatchDelay(wcRead.MaxBatchDelay),
 				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
-				writecache.WithSmallObjectSize(wcRead.SmallObjectSize),
-				writecache.WithFlushWorkersCount(wcRead.FlushWorkerCount),
 				writecache.WithMaxCacheSize(wcRead.SizeLimit),
 				writecache.WithNoSync(wcRead.NoSync),
 				writecache.WithLogger(c.log),

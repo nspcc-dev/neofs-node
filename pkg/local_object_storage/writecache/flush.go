@@ -1,165 +1,47 @@
 package writecache
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/mr-tron/base58"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )
 
 const (
-	// flushBatchSize is amount of keys which will be read from cache to be flushed
-	// to the main storage. It is used to reduce contention between cache put
-	// and cache persist.
-	flushBatchSize = 512
-	// defaultFlushWorkersCount is number of workers for putting objects in main storage.
-	defaultFlushWorkersCount = 20
 	// defaultFlushInterval is default time interval between successive flushes.
-	defaultFlushInterval = time.Second
+	defaultFlushInterval = 10 * time.Second
 )
 
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
-	for i := range c.workersCount {
-		c.wg.Add(1)
-		go c.flushWorker(i)
-	}
-
-	c.wg.Add(1)
-	go c.flushBigObjects()
-
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
-
-		tt := time.NewTimer(defaultFlushInterval)
-		defer tt.Stop()
-
+		tick := time.NewTicker(defaultFlushInterval)
 		for {
 			select {
-			case <-tt.C:
-				c.flushDB()
-				tt.Reset(defaultFlushInterval)
+			case <-tick.C:
+				c.modeMtx.RLock()
+				if c.readOnly() {
+					c.modeMtx.RUnlock()
+					break
+				}
+
+				_ = c.flush(true)
+
+				c.modeMtx.RUnlock()
 			case <-c.closeCh:
 				return
 			}
 		}
 	}()
-}
-
-func (c *cache) flushDB() {
-	var lastKey []byte
-	var m []objectInfo
-	for {
-		select {
-		case <-c.closeCh:
-			return
-		default:
-		}
-
-		m = m[:0]
-
-		c.modeMtx.RLock()
-		if c.readOnly() {
-			c.modeMtx.RUnlock()
-			time.Sleep(time.Second)
-			continue
-		}
-
-		// We put objects in batches of fixed size to not interfere with main put cycle a lot.
-		_ = c.db.View(func(tx *bbolt.Tx) error {
-			b := tx.Bucket(defaultBucket)
-			cs := b.Cursor()
-
-			var k, v []byte
-
-			if len(lastKey) == 0 {
-				k, v = cs.First()
-			} else {
-				k, v = cs.Seek(lastKey)
-				if bytes.Equal(k, lastKey) {
-					k, v = cs.Next()
-				}
-			}
-
-			for ; k != nil && len(m) < flushBatchSize; k, v = cs.Next() {
-				if len(lastKey) == len(k) {
-					copy(lastKey, k)
-				} else {
-					lastKey = bytes.Clone(k)
-				}
-
-				m = append(m, objectInfo{
-					addr: string(k),
-					data: bytes.Clone(v),
-				})
-			}
-			return nil
-		})
-
-		var count int
-		for i := range m {
-			if c.flushed.Contains(m[i].addr) {
-				continue
-			}
-
-			obj := object.New()
-			if err := obj.Unmarshal(m[i].data); err != nil {
-				continue
-			}
-
-			count++
-			select {
-			case c.flushCh <- obj:
-			case <-c.closeCh:
-				c.modeMtx.RUnlock()
-				return
-			}
-		}
-
-		if count == 0 {
-			c.modeMtx.RUnlock()
-			break
-		}
-
-		c.modeMtx.RUnlock()
-
-		c.log.Debug("tried to flush items from write-cache",
-			zap.Int("count", count),
-			zap.String("start", base58.Encode(lastKey)))
-	}
-}
-
-func (c *cache) flushBigObjects() {
-	defer c.wg.Done()
-
-	tick := time.NewTicker(defaultFlushInterval * 10)
-	for {
-		select {
-		case <-tick.C:
-			c.modeMtx.RLock()
-			if c.readOnly() {
-				c.modeMtx.RUnlock()
-				break
-			}
-
-			_ = c.flushFSTree(true)
-
-			c.modeMtx.RUnlock()
-		case <-c.closeCh:
-			return
-		}
-	}
 }
 
 func (c *cache) reportFlushError(msg string, addr string, err error) {
@@ -172,7 +54,7 @@ func (c *cache) reportFlushError(msg string, addr string, err error) {
 	}
 }
 
-func (c *cache) flushFSTree(ignoreErrors bool) error {
+func (c *cache) flush(ignoreErrors bool) error {
 	var addrHandler = func(addr oid.Address) error {
 		sAddr := addr.EncodeToString()
 
@@ -207,9 +89,6 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 
 		err = c.flushObject(&obj, data)
 		if err != nil {
-			if ignoreErrors {
-				return nil
-			}
 			return err
 		}
 
@@ -220,26 +99,6 @@ func (c *cache) flushFSTree(ignoreErrors bool) error {
 	}
 
 	return c.fsTree.IterateAddresses(addrHandler, ignoreErrors)
-}
-
-// flushWorker writes objects to the main storage.
-func (c *cache) flushWorker(_ int) {
-	defer c.wg.Done()
-
-	var obj *object.Object
-	for {
-		// Give priority to direct put.
-		select {
-		case obj = <-c.flushCh:
-		case <-c.closeCh:
-			return
-		}
-
-		err := c.flushObject(obj, nil)
-		if err == nil {
-			c.flushed.Add(objectCore.AddressOf(obj).EncodeToString(), true)
-		}
-	}
 }
 
 // flushObject is used to write object directly to the main storage.
@@ -284,45 +143,4 @@ func (c *cache) Flush(ignoreErrors bool) error {
 	defer c.modeMtx.RUnlock()
 
 	return c.flush(ignoreErrors)
-}
-
-func (c *cache) flush(ignoreErrors bool) error {
-	if err := c.flushFSTree(ignoreErrors); err != nil {
-		return err
-	}
-
-	return c.db.View(func(tx *bbolt.Tx) error {
-		var addr oid.Address
-
-		b := tx.Bucket(defaultBucket)
-		cs := b.Cursor()
-		for k, data := cs.Seek(nil); k != nil; k, data = cs.Next() {
-			sa := string(k)
-			if _, ok := c.flushed.Peek(sa); ok {
-				continue
-			}
-
-			if err := addr.DecodeString(sa); err != nil {
-				c.reportFlushError("can't decode object address from the DB", sa, err)
-				if ignoreErrors {
-					continue
-				}
-				return err
-			}
-
-			var obj object.Object
-			if err := obj.Unmarshal(data); err != nil {
-				c.reportFlushError("can't unmarshal an object from the DB", sa, err)
-				if ignoreErrors {
-					continue
-				}
-				return err
-			}
-
-			if err := c.flushObject(&obj, data); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }

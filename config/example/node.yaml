@@ -116,9 +116,7 @@ storage:
 
       writecache:
         enabled: true
-        small_object_size: 16k  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
         max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
-        workers_number: 30  # number of write-cache flusher threads
 
       metabase:
         perm: 0644  # permissions for metabase files(directories: +x for current user and group)

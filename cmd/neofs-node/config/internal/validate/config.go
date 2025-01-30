@@ -141,15 +141,11 @@ type shardDetails struct {
 	ResyncMetabase bool   `mapstructure:"resync_metabase"`
 
 	WriteCache struct {
-		Enabled         bool          `mapstructure:"enabled"`
-		Path            string        `mapstructure:"path"`
-		Capacity        string        `mapstructure:"capacity"`
-		NoSync          bool          `mapstructure:"no_sync"`
-		SmallObjectSize string        `mapstructure:"small_object_size"`
-		MaxObjectSize   string        `mapstructure:"max_object_size"`
-		WorkersNumber   int           `mapstructure:"workers_number"`
-		MaxBatchDelay   time.Duration `mapstructure:"max_batch_delay"`
-		MaxBatchSize    int           `mapstructure:"max_batch_size"`
+		Enabled       bool   `mapstructure:"enabled"`
+		Path          string `mapstructure:"path"`
+		Capacity      string `mapstructure:"capacity"`
+		NoSync        bool   `mapstructure:"no_sync"`
+		MaxObjectSize string `mapstructure:"max_object_size"`
 	} `mapstructure:"writecache"`
 
 	Metabase struct {

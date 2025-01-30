@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
 )
 
@@ -25,23 +24,23 @@ func init() {
 }
 
 func getFunc(cmd *cobra.Command, _ []string) error {
-	db, err := openWC()
+	wc, err := openWC()
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer wc.Close()
 
-	data, err := writecache.Get(db, []byte(vAddress))
+	addr, err := oid.DecodeAddressString(vAddress)
+	if err != nil {
+		return fmt.Errorf("invalid address: %w", err)
+	}
+
+	obj, err := wc.Get(addr)
 	if err != nil {
 		return fmt.Errorf("could not fetch object: %w", err)
 	}
 
-	var o object.Object
-	if err := o.Unmarshal(data); err != nil {
-		return fmt.Errorf("could not unmarshal object: %w", err)
-	}
+	common.PrintObjectHeader(cmd, *obj)
 
-	common.PrintObjectHeader(cmd, o)
-
-	return common.WriteObjectToFile(cmd, vOut, data, vPayloadOnly)
+	return common.WriteObjectToFile(cmd, vOut, obj.Marshal(), vPayloadOnly)
 }

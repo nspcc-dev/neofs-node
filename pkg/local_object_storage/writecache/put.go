@@ -6,7 +6,6 @@ import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.etcd.io/bbolt"
 )
 
 var (
@@ -35,37 +34,11 @@ func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error 
 		data: data,
 	}
 
-	if sz <= c.smallObjectSize {
-		return c.putSmall(oi)
-	}
-	return c.putBig(addr, oi)
+	return c.put(addr, oi)
 }
 
-// putSmall persists small objects to the write-cache database and
-// pushes the to the flush workers queue.
-func (c *cache) putSmall(obj objectInfo) error {
-	cacheSize := c.estimateCacheSize()
-	if c.maxCacheSize < c.incSizeDB(cacheSize) {
-		return ErrOutOfSpace
-	}
-
-	err := c.db.Batch(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultBucket)
-		return b.Put([]byte(obj.addr), obj.data)
-	})
-	if err == nil {
-		storagelog.Write(c.log,
-			storagelog.AddressField(obj.addr),
-			storagelog.StorageTypeField(wcStorageType),
-			storagelog.OpField("db PUT"),
-		)
-		c.objCounters.IncDB()
-	}
-	return err
-}
-
-// putBig writes object to FSTree and pushes it to the flush workers queue.
-func (c *cache) putBig(addr oid.Address, obj objectInfo) error {
+// put writes object to FSTree and pushes it to the flush workers queue.
+func (c *cache) put(addr oid.Address, obj objectInfo) error {
 	cacheSz := c.estimateCacheSize()
 	if c.maxCacheSize < c.incSizeFS(cacheSz) {
 		return ErrOutOfSpace
@@ -85,7 +58,7 @@ func (c *cache) putBig(addr oid.Address, obj objectInfo) error {
 	storagelog.Write(c.log,
 		storagelog.AddressField(obj.addr),
 		storagelog.StorageTypeField(wcStorageType),
-		storagelog.OpField("fstree PUT"),
+		storagelog.OpField("PUT"),
 	)
 
 	return nil

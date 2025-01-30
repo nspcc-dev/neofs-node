@@ -128,9 +128,7 @@
           "enabled": false,
           "no_sync": true,
           "path": "tmp/0/cache",
-          "small_object_size": 16384,
           "max_object_size": 134217728,
-          "workers_number": 30,
           "capacity": 3221225472
         },
         "metabase": {
@@ -173,9 +171,7 @@
         "writecache": {
           "enabled": true,
           "path": "tmp/1/cache",
-          "small_object_size": 16384,
           "max_object_size": 134217728,
-          "workers_number": 30,
           "capacity": 4294967296
         },
         "metabase": {

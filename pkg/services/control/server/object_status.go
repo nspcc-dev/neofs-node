@@ -65,10 +65,7 @@ func (s *Server) ObjectStatus(_ context.Context, request *control.ObjectStatusRe
 		}
 
 		var wcStatus string
-		switch {
-		case sh.Shard.Writecache.PathDB != "":
-			wcStatus = fmt.Sprintf("database path: %q", sh.Shard.Writecache.PathDB)
-		case sh.Shard.Writecache.PathFSTree != "":
+		if sh.Shard.Writecache.PathFSTree != "" {
 			wcStatus = fmt.Sprintf("fsTree path: %q", sh.Shard.Writecache.PathFSTree)
 		}
 

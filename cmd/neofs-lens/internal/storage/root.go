@@ -82,11 +82,7 @@ func openEngine() (*engine.StorageEngine, error) {
 
 			wc.Enabled = true
 			wc.Path = writeCacheCfg.Path()
-			wc.MaxBatchSize = writeCacheCfg.BoltDB().MaxBatchSize()
-			wc.MaxBatchDelay = writeCacheCfg.BoltDB().MaxBatchDelay()
 			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
-			wc.SmallObjectSize = writeCacheCfg.SmallObjectSize()
-			wc.FlushWorkerCount = writeCacheCfg.WorkersNumber()
 			wc.SizeLimit = writeCacheCfg.SizeLimit()
 			wc.NoSync = writeCacheCfg.NoSync()
 		}
@@ -166,11 +162,7 @@ func openEngine() (*engine.StorageEngine, error) {
 		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
 				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxBatchSize(wcRead.MaxBatchSize),
-				writecache.WithMaxBatchDelay(wcRead.MaxBatchDelay),
 				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
-				writecache.WithSmallObjectSize(wcRead.SmallObjectSize),
-				writecache.WithFlushWorkersCount(wcRead.FlushWorkerCount),
 				writecache.WithMaxCacheSize(wcRead.SizeLimit),
 				writecache.WithNoSync(wcRead.NoSync),
 			)

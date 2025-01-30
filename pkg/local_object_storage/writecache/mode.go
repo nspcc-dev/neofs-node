@@ -1,9 +1,6 @@
 package writecache
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 )
@@ -23,20 +20,6 @@ func (c *cache) SetMode(m mode.Mode) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if c.db != nil {
-		if err := c.db.Close(); err != nil {
-			return fmt.Errorf("can't close write-cache database: %w", err)
-		}
-	}
-
-	// Suspend producers to ensure there are channel send operations in fly.
-	// flushCh is populated by `flush` with `modeMtx` taken, thus waiting until it is empty
-	// guarantees that there are no in-fly operations.
-	for len(c.flushCh) != 0 {
-		c.log.Info("waiting for channels to flush")
-		time.Sleep(time.Second)
 	}
 
 	if m.NoMetabase() {
