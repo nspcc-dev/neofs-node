@@ -43,3 +43,14 @@ func Encoding(c *config.Config) string {
 
 	return EncodingDefault
 }
+
+// Timestamp returns the value of "timestamp" config parameter
+// from "logger" section.
+//
+// Returns false if the value is missing or invalid.
+func Timestamp(c *config.Config) bool {
+	return config.BoolSafe(
+		c.Sub("logger"),
+		"timestamp",
+	)
+}

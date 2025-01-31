@@ -87,8 +87,9 @@ type applicationConfiguration struct {
 	_read bool
 
 	logger struct {
-		level    string
-		encoding string
+		level     string
+		encoding  string
+		timestamp bool
 	}
 
 	engine struct {
@@ -147,6 +148,7 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 
 	a.logger.level = loggerconfig.Level(c)
 	a.logger.encoding = loggerconfig.Encoding(c)
+	a.logger.timestamp = loggerconfig.Timestamp(c)
 
 	// Policer
 
@@ -562,7 +564,7 @@ func initCfg(appCfg *config.Config) *cfg {
 	logCfg.Level = c.internals.logLevel
 	logCfg.Encoding = c.logger.encoding
 	logCfg.Sampling = nil
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if (term.IsTerminal(int(os.Stdout.Fd())) && c.cfgReader.Value("logger.timestamp") == nil) || c.logger.timestamp {
 		logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {
 		logCfg.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
