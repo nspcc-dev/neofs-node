@@ -37,6 +37,9 @@
       "path": "/state"
     }
   },
+  "metadata": {
+    "path": "path/to/meta"
+  },
   "grpc": [
     {
       "endpoint": "s01.neofs.devenv:8080",

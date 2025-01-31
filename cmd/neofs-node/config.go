@@ -26,6 +26,7 @@ import (
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	fschainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/fschain"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
+	metaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/meta"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
@@ -46,6 +47,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/policer"
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
@@ -92,6 +94,10 @@ type applicationConfiguration struct {
 		level     string
 		encoding  string
 		timestamp bool
+	}
+
+	metadata struct {
+		path string
 	}
 
 	engine struct {
@@ -158,6 +164,10 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.policer.headTimeout = policerconfig.HeadTimeout(c)
 	a.policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
 	a.policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
+
+	// Meta data
+
+	a.metadata.path = metaconfig.Path(c)
 
 	// Storage Engine
 
@@ -396,6 +406,7 @@ type cfg struct {
 	// configuration of the internal
 	// services
 	cfgGRPC           cfgGRPC
+	cfgMeta           cfgMeta
 	cfgMorph          cfgMorph
 	cfgContainer      cfgContainer
 	cfgNodeInfo       cfgNodeInfo
@@ -425,6 +436,10 @@ type cfgGRPC struct {
 	listeners []net.Listener
 
 	servers []*grpc.Server
+}
+
+type cfgMeta struct {
+	cLister meta.ContainerLister
 }
 
 type cfgMorph struct {

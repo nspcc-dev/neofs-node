@@ -105,6 +105,9 @@ object:
   put:
     pool_size_remote: 100  # number of async workers for remote PUT operations
 
+metadata:
+  path: path/to/meta  # path to meta data storages, required
+
 storage:
   # note: shard configuration can be omitted for relay node (see `node.relay`)
   shard_pool_size: 15 # size of per-shard worker pools used for PUT operations

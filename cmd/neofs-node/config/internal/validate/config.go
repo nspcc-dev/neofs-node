@@ -23,6 +23,10 @@ type valideConfig struct {
 		ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 	} `mapstructure:"prometheus"`
 
+	Meta struct {
+		Path string `mapstructure:"path"`
+	} `mapstructure:"metadata"`
+
 	Node struct {
 		Wallet struct {
 			Path     string `mapstructure:"path"`
