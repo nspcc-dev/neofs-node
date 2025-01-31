@@ -57,12 +57,16 @@ func (cp *Processor) processContainerPut(put putEvent) {
 	cp.approvePutContainer(ctx)
 }
 
-const sysAttrPrefix = "__NEOFS__"
+const (
+	sysAttrPrefix    = "__NEOFS__"
+	sysAttrChainMeta = sysAttrPrefix + "METAINFO_CONSISTENCY"
+)
 
 var allowedSystemAttributes = map[string]struct{}{
 	sysAttrPrefix + "NAME":                        {},
 	sysAttrPrefix + "ZONE":                        {},
 	sysAttrPrefix + "DISABLE_HOMOMORPHIC_HASHING": {},
+	sysAttrChainMeta:                              {},
 }
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
@@ -79,6 +83,10 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		if denyErr == nil && strings.HasPrefix(k, sysAttrPrefix) {
 			if _, ok := allowedSystemAttributes[k]; !ok {
 				denyErr = fmt.Errorf("system attribute %s is not allowed", k)
+			}
+
+			if k == sysAttrChainMeta && !cp.metaEnabled {
+				denyErr = fmt.Errorf("chain meta data attribute is not allowed")
 			}
 		}
 	})
