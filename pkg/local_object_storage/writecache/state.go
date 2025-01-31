@@ -2,41 +2,49 @@ package writecache
 
 import (
 	"fmt"
-	"math"
-	"sync/atomic"
+	"sync"
+
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
-func (c *cache) estimateCacheSize() uint64 {
-	return c.objCounters.FS() * c.maxObjectSize
-}
-
-func (c *cache) incSizeFS(sz uint64) uint64 {
-	return sz + c.maxObjectSize
-}
-
 type counters struct {
-	cFS atomic.Uint64
+	mu     sync.Mutex
+	objMap map[oid.Address]uint64
+	size   uint64
 }
 
-func (x *counters) IncFS() {
-	x.cFS.Add(1)
+func (x *counters) Add(addr oid.Address, size uint64) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	x.size += size
+	x.objMap[addr] = size
 }
 
-func (x *counters) DecFS() {
-	x.cFS.Add(math.MaxUint32)
+func (x *counters) Delete(addr oid.Address) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	x.size -= x.objMap[addr]
+	delete(x.objMap, addr)
 }
 
-func (x *counters) FS() uint64 {
-	return x.cFS.Load()
+func (x *counters) Size() uint64 {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return x.size
 }
 
 func (c *cache) initCounters() error {
-	inFS, err := c.fsTree.NumberOfObjects()
+	var sizeHandler = func(addr oid.Address, size uint64) error {
+		c.objCounters.Add(addr, size)
+		return nil
+	}
+
+	err := c.fsTree.IterateSizes(sizeHandler, false)
 	if err != nil {
 		return fmt.Errorf("could not read write-cache FS counter: %w", err)
 	}
-
-	c.objCounters.cFS.Store(inFS)
 
 	return nil
 }

@@ -101,6 +101,9 @@ func New(opts ...Option) Cache {
 			log:           zap.NewNop(),
 			maxObjectSize: defaultMaxObjectSize,
 			maxCacheSize:  defaultMaxCacheSize,
+			objCounters: counters{
+				objMap: make(map[oid.Address]uint64),
+			},
 		},
 	}
 

@@ -39,8 +39,9 @@ func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error 
 
 // put writes object to FSTree and pushes it to the flush workers queue.
 func (c *cache) put(addr oid.Address, obj objectInfo) error {
-	cacheSz := c.estimateCacheSize()
-	if c.maxCacheSize < c.incSizeFS(cacheSz) {
+	cacheSz := c.objCounters.Size()
+	objSz := uint64(len(obj.data))
+	if c.maxCacheSize < cacheSz+objSz {
 		return ErrOutOfSpace
 	}
 
@@ -54,7 +55,7 @@ func (c *cache) put(addr oid.Address, obj objectInfo) error {
 		c.compressFlags[obj.addr] = struct{}{}
 		c.mtx.Unlock()
 	}
-	c.objCounters.IncFS()
+	c.objCounters.Add(addr, objSz)
 	storagelog.Write(c.log,
 		storagelog.AddressField(obj.addr),
 		storagelog.StorageTypeField(wcStorageType),

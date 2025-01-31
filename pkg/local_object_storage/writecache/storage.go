@@ -97,7 +97,7 @@ func (c *cache) deleteFromDisk(keys []string) []string {
 				storagelog.StorageTypeField(wcStorageType),
 				storagelog.OpField("DELETE"),
 			)
-			c.objCounters.DecFS()
+			c.objCounters.Delete(addr)
 		}
 	}
 

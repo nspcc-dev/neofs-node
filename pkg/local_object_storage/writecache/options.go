@@ -38,7 +38,7 @@ type options struct {
 	// maxCacheSize is the maximum total size of all objects saved in cache.
 	// 1 GiB by default.
 	maxCacheSize uint64
-	// objCounters contains atomic counters for the number of objects stored in cache.
+	// objCounters contains object list along with sizes and overall size of cache.
 	objCounters counters
 	// noSync is true iff FSTree allows unsynchronized writes.
 	noSync bool
