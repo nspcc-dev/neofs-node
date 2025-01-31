@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -56,6 +57,18 @@ func (cp *Processor) processContainerPut(put putEvent) {
 	cp.approvePutContainer(ctx)
 }
 
+const (
+	sysAttrPrefix    = "__NEOFS__"
+	sysAttrChainMeta = sysAttrPrefix + "METAINFO_CONSISTENCY"
+)
+
+var allowedSystemAttributes = map[string]struct{}{
+	sysAttrPrefix + "NAME":                        {},
+	sysAttrPrefix + "ZONE":                        {},
+	sysAttrPrefix + "DISABLE_HOMOMORPHIC_HASHING": {},
+	sysAttrChainMeta:                              {},
+}
+
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	binCnr := ctx.e.Container()
 	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
@@ -63,6 +76,22 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	err := ctx.cnr.Unmarshal(binCnr)
 	if err != nil {
 		return fmt.Errorf("invalid binary container: %w", err)
+	}
+
+	var denyErr error
+	ctx.cnr.IterateAttributes(func(k, v string) {
+		if denyErr == nil && strings.HasPrefix(k, sysAttrPrefix) {
+			if _, ok := allowedSystemAttributes[k]; !ok {
+				denyErr = fmt.Errorf("system attribute %s is not allowed", k)
+			}
+
+			if k == sysAttrChainMeta && !cp.metaEnabled {
+				denyErr = fmt.Errorf("chain meta data attribute is not allowed")
+			}
+		}
+	})
+	if denyErr != nil {
+		return denyErr
 	}
 
 	err = cp.verifySignature(signatureVerificationData{

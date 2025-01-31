@@ -269,4 +269,8 @@ type validConfig struct {
 		BasicIncomeRate int64 `mapstructure:"basic_income_rate"`
 		AuditFee        int64 `mapstructure:"audit_fee"`
 	} `mapstructure:"settlement"`
+
+	Experimental struct {
+		ChainMetaData bool `mapstructure:"chain_meta_data"`
+	} `mapstructure:"experimental"`
 }

@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - `neofs-cli control notary` with `list`, `request` and `sign` commands (#3059)
 - IR `fschain.consensus.keep_only_latest_state` and `fschain.consensus.remove_untraceable_blocks` config options (#3093)
 - `logger.timestamp` config option (#3105)
+- Container system attributes verification on IR side (#3107)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
