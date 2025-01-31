@@ -10,6 +10,10 @@ import (
 )
 
 func (e *StorageEngine) exists(addr oid.Address) (bool, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddExistsDuration)()
+	}
+
 	for _, sh := range e.sortedShards(addr) {
 		exists, err := sh.Exists(addr, false)
 		if err != nil {

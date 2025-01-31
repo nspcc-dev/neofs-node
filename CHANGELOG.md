@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 - The first object of the split object is not deleted (#3089)
 - The parent of the split object is not removed from the metabase (#3089)
 - A split expired object is not deleted after the lock is removed or expired (#3089)
+- `neofs_node_engine_list_containers_time_bucket` and `neofs_node_engine_exists_time_bucket` metrics (#3014)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)

@@ -167,7 +167,7 @@ func (m engineMetrics) register() {
 }
 
 func (m engineMetrics) AddListContainersDuration(d time.Duration) {
-	m.listObjectsDuration.Observe(d.Seconds())
+	m.listContainersDuration.Observe(d.Seconds())
 }
 
 func (m engineMetrics) AddEstimateContainerSizeDuration(d time.Duration) {
