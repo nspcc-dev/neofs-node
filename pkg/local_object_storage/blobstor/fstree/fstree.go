@@ -139,7 +139,7 @@ func addressFromString(s string) (*oid.Address, error) {
 
 // Iterate iterates over all stored objects.
 func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
-	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil)
+	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil, nil)
 }
 
 // IterateAddresses iterates over all objects stored in the underlying storage
@@ -152,13 +152,27 @@ func (t *FSTree) IterateAddresses(f func(addr oid.Address) error, ignoreErrors b
 		errorHandler = func(oid.Address, error) error { return nil }
 	}
 
-	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, f)
+	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, f, nil)
+}
+
+// IterateSizes iterates over all objects stored in the underlying storage
+// and passes their addresses and sizes into f. If f returns an error, IterateSizes
+// returns it and breaks. ignoreErrors allows to continue if internal errors
+// happen.
+func (t *FSTree) IterateSizes(f func(addr oid.Address, size uint64) error, ignoreErrors bool) error {
+	var errorHandler func(oid.Address, error) error
+	if ignoreErrors {
+		errorHandler = func(oid.Address, error) error { return nil }
+	}
+
+	return t.iterate(0, []string{t.RootPath}, nil, errorHandler, nil, f)
 }
 
 func (t *FSTree) iterate(depth uint64, curPath []string,
 	objHandler func(oid.Address, []byte, []byte) error,
 	errorHandler func(oid.Address, error) error,
-	addrHandler func(oid.Address) error) error {
+	addrHandler func(oid.Address) error,
+	sizeHandler func(oid.Address, uint64) error) error {
 	curName := strings.Join(curPath[1:], "")
 	dir := filepath.Join(curPath...)
 	des, err := os.ReadDir(dir)
@@ -177,7 +191,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 		curPath[l] = des[i].Name()
 
 		if !isLast && des[i].IsDir() {
-			err := t.iterate(depth+1, curPath, objHandler, errorHandler, addrHandler)
+			err := t.iterate(depth+1, curPath, objHandler, errorHandler, addrHandler, sizeHandler)
 			if err != nil {
 				// Must be error from handler in case errors are ignored.
 				// Need to report.
@@ -199,24 +213,36 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 		} else {
 			var data []byte
 			p := filepath.Join(curPath...)
-			data, err = getRawObjectBytes(addr.Object(), p)
-			if err != nil && errors.Is(err, apistatus.ObjectNotFound{}) {
-				continue
-			}
-			if err == nil {
-				data, err = t.Decompress(data)
-			}
-			if err != nil {
-				if errorHandler != nil {
-					err = errorHandler(*addr, err)
-					if err == nil {
-						continue
+			if sizeHandler != nil {
+				err = filepath.Walk(p, func(path string, info os.FileInfo, _ error) error {
+					if !info.IsDir() {
+						err = sizeHandler(*addr, uint64(info.Size()))
+						if err != nil {
+							return err
+						}
 					}
+					return nil
+				})
+			} else {
+				data, err = getRawObjectBytes(addr.Object(), p)
+				if err != nil && errors.Is(err, apistatus.ObjectNotFound{}) {
+					continue
 				}
-				return fmt.Errorf("read file %q: %w", p, err)
-			}
+				if err == nil {
+					data, err = t.Decompress(data)
+				}
+				if err != nil {
+					if errorHandler != nil {
+						err = errorHandler(*addr, err)
+						if err == nil {
+							continue
+						}
+					}
+					return fmt.Errorf("read file %q: %w", p, err)
+				}
 
-			err = objHandler(*addr, data, []byte{})
+				err = objHandler(*addr, data, []byte{})
+			}
 		}
 
 		if err != nil {
@@ -454,29 +480,6 @@ func (t *FSTree) GetRange(addr oid.Address, from uint64, length uint64) ([]byte,
 	}
 
 	return payload[from:to], nil
-}
-
-// NumberOfObjects walks the file tree rooted at FSTree's root
-// and returns number of stored objects.
-func (t *FSTree) NumberOfObjects() (uint64, error) {
-	var counter uint64
-
-	// it is simpler to just consider every file
-	// that is not directory as an object
-	err := filepath.WalkDir(t.RootPath,
-		func(_ string, d fs.DirEntry, _ error) error {
-			if !d.IsDir() {
-				counter++
-			}
-
-			return nil
-		},
-	)
-	if err != nil {
-		return 0, fmt.Errorf("could not walk through %q directory: %w", t.RootPath, err)
-	}
-
-	return counter, nil
 }
 
 // Type is fstree storage type used in logs and configuration.

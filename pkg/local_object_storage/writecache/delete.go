@@ -24,7 +24,7 @@ func (c *cache) Delete(addr oid.Address) error {
 			storagelog.StorageTypeField(wcStorageType),
 			storagelog.OpField("DELETE"),
 		)
-		c.objCounters.DecFS()
+		c.objCounters.Delete(addr)
 	}
 
 	return err
