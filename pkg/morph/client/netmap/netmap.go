@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
@@ -83,7 +84,7 @@ func (c *Client) GetCandidates() ([]netmap.NodeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return CollectNodes(inv, sess, &iter)
+	return CollectNodes(inv, sess, &iter, netmapEvent.Candidate2Info)
 }
 
 // NetMap calls "netmap" method (or listNodes for v2 nodes) and decodes
@@ -113,7 +114,7 @@ func (c *Client) NetMap() (*netmap.NetMap, error) {
 }
 
 func collectNetmap(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) (*netmap.NetMap, error) {
-	nodes, err := CollectNodes(inv, sess, iter)
+	nodes, err := CollectNodes(inv, sess, iter, netmapEvent.Node2Info)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,11 @@ func collectNetmap(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) 
 }
 
 // CollectNodes gathers all node data from the provided iterator and closes it.
-func CollectNodes(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) ([]netmap.NodeInfo, error) {
+func CollectNodes[N any, P interface {
+	*N
+	stackitem.Convertible
+}](inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator,
+	converter func(P) (netmap.NodeInfo, error)) ([]netmap.NodeInfo, error) {
 	var nodes []netmap.NodeInfo
 
 	defer func() {
@@ -135,26 +140,16 @@ func CollectNodes(inv *invoker.Invoker, sess uuid.UUID, iter *result.Iterator) (
 	for err == nil && len(items) > 0 {
 		for _, itm := range items {
 			var (
-				n2  netmaprpc.NetmapNode2
+				n2  N
 				ni  netmap.NodeInfo
-				err = n2.FromStackItem(itm)
+				err = P(&n2).FromStackItem(itm)
 			)
 			if err != nil {
-				// TODO: process candidates correctly after the contract update.
 				return nil, err
 			}
-			ni.SetNetworkEndpoints(n2.Addresses...)
-			for k, v := range n2.Attributes {
-				ni.SetAttribute(k, v)
-			}
-			ni.SetPublicKey(n2.Key.Bytes())
-			switch {
-			case n2.State.Cmp(netmaprpc.NodeStateOnline) == 0:
-				ni.SetOnline()
-			case n2.State.Cmp(netmaprpc.NodeStateMaintenance) == 0:
-				ni.SetMaintenance()
-			default:
-				return nil, fmt.Errorf("unsupported node state %v", n2.State)
+			ni, err = converter(P(&n2))
+			if err != nil {
+				return nil, err
 			}
 			nodes = append(nodes, ni)
 		}

@@ -2,34 +2,12 @@ package netmap
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
-	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
-
-// node2Info converts [netmaprpc.NetmapNode2] into [netmap.NodeInfo].
-func node2Info(n2 netmaprpc.NetmapNode2) (netmap.NodeInfo, error) {
-	var ni netmap.NodeInfo
-
-	ni.SetNetworkEndpoints(n2.Addresses...)
-	for k, v := range n2.Attributes {
-		ni.SetAttribute(k, v)
-	}
-	ni.SetPublicKey(n2.Key.Bytes())
-	switch {
-	case n2.State.Cmp(netmaprpc.NodeStateOnline) == 0:
-		ni.SetOnline()
-	case n2.State.Cmp(netmaprpc.NodeStateMaintenance) == 0:
-		ni.SetMaintenance()
-	default:
-		return netmap.NodeInfo{}, fmt.Errorf("unsupported node state %v", n2.State)
-	}
-	return ni, nil
-}
 
 // Process add peer notification by sanity check of new node
 // local epoch timer.
@@ -115,7 +93,7 @@ func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
 	}
 
 	// unmarshal node info
-	nodeInfo, err := node2Info(ev.Node)
+	nodeInfo, err := netmapEvent.Node2Info(&ev.Node)
 	if err != nil {
 		// it will be nice to have tx id at event structure to log it
 		np.log.Warn("can't parse network map candidate")
