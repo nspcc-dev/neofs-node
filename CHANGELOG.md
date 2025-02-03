@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - BoltDB from write-cache (#3091)
 
 ### Updated
+- SDK to the post-api-go version (#3103)
 
 ### Updating from v0.44.2
 Using public keys as a rule target in eACL tables was deprecated, and 

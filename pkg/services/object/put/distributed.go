@@ -9,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -278,14 +277,8 @@ func decodeSignature(b []byte) (neofscrypto.Signature, int, error) {
 		return neofscrypto.Signature{}, 0, fmt.Errorf("unexpected signature format: len: %d, len claimed: %d", len(b), l)
 	}
 
-	sig := new(refs.Signature)
-	err := sig.Unmarshal(b[4 : 4+l])
-	if err != nil {
-		return neofscrypto.Signature{}, 0, fmt.Errorf("decoding signature from proto message: %w", err)
-	}
-
 	var res neofscrypto.Signature
-	err = res.ReadFromV2(*sig)
+	err := res.Unmarshal(b[4 : 4+l])
 	if err != nil {
 		return neofscrypto.Signature{}, 0, fmt.Errorf("invalid signature: %w", err)
 	}

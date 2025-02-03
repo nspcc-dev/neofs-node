@@ -6,23 +6,18 @@ import (
 	"errors"
 	"fmt"
 
-	apiacl "github.com/nspcc-dev/neofs-api-go/v2/acl"
-	protoacl "github.com/nspcc-dev/neofs-api-go/v2/acl/grpc"
-	apicontainer "github.com/nspcc-dev/neofs-api-go/v2/container"
-	protocontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	apisession "github.com/nspcc-dev/neofs-api-go/v2/session"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -74,11 +69,8 @@ func New(s *ecdsa.PrivateKey, net netmap.State, c Contract) protocontainer.Conta
 }
 
 func (s *server) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
-	v := version.Current()
-	var v2 apirefs.Version
-	v.WriteToV2(&v2)
 	return &protosession.ResponseMetaHeader{
-		Version: v2.ToGRPCMessage().(*refs.Version),
+		Version: version.Current().ProtoMessage(),
 		Epoch:   s.net.CurrentEpoch(),
 		Status:  st,
 	}
@@ -99,12 +91,8 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, nil
 	}
 
-	var st2 apisession.Token
-	if err := st2.FromGRPCMessage(m); err != nil {
-		panic(err)
-	}
 	var token session.Container
-	if err := token.ReadFromV2(st2); err != nil {
+	if err := token.FromProtoMessage(m); err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
@@ -150,17 +138,27 @@ func (s *server) checkSessionIssuer(id cid.ID, token session.Container) error {
 		return fmt.Errorf("get container by ID: %w", err)
 	}
 
-	var token2 apisession.Token // TODO: get signature directly from token on SDK upgrade
-	token.WriteToV2(&token2)
-	mSig := token2.GetSignature()
+	mSig, ok := token.Signature()
+	if !ok {
+		return errors.New("missing token signature")
+	}
 
-	var pub neofsecdsa.PublicKey
-	if err := pub.Decode(mSig.GetKey()); err != nil {
-		return fmt.Errorf("invalid public key in the session token signature: %w", err)
+	// No more elegant way to match these for now
+	var pub ecdsa.PublicKey
+
+	switch v := mSig.PublicKey().(type) {
+	case *neofsecdsa.PublicKey:
+		pub = ecdsa.PublicKey(*v)
+	case *neofsecdsa.PublicKeyRFC6979:
+		pub = ecdsa.PublicKey(*v)
+	case *neofsecdsa.PublicKeyWalletConnect:
+		pub = ecdsa.PublicKey(*v)
+	default:
+		return fmt.Errorf("unexpected public key type %T in the session token signature", v)
 	}
 
 	issuer := token.Issuer()
-	if signer := user.NewFromECDSAPublicKey(ecdsa.PublicKey(pub)); signer != issuer {
+	if signer := user.NewFromECDSAPublicKey(pub); signer != issuer {
 		return errors.New("session token is signed not by its issuer")
 	}
 
@@ -176,7 +174,8 @@ func (s *server) makePutResponse(body *protocontainer.PutResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.PutResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
@@ -187,11 +186,7 @@ func (s *server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, 
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
 func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
-	putReq := new(apicontainer.PutRequest)
-	if err := putReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(putReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeFailedPutResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -206,11 +201,7 @@ func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protoc
 	}
 
 	var cnr container.Container
-	var cnr2 apicontainer.Container
-	if err := cnr2.FromGRPCMessage(mCnr); err != nil {
-		panic(err)
-	}
-	if err := cnr.ReadFromV2(cnr2); err != nil {
+	if err := cnr.FromProtoMessage(mCnr); err != nil {
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err))
 	}
 
@@ -224,10 +215,8 @@ func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protoc
 		return s.makeFailedPutResponse(err)
 	}
 
-	var id2 apirefs.ContainerID
-	id.WriteToV2(&id2)
 	respBody := &protocontainer.PutResponse_Body{
-		ContainerId: id2.ToGRPCMessage().(*refs.ContainerID),
+		ContainerId: id.ProtoMessage(),
 	}
 	return s.makePutResponse(respBody, util.StatusOK)
 }
@@ -236,17 +225,14 @@ func (s *server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.DeleteResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
 func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
-	delReq := new(apicontainer.DeleteRequest)
-	if err := delReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(delReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeDeleteResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -260,12 +246,8 @@ func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 		return s.makeDeleteResponse(errors.New("missing ID"))
 	}
 
-	var id2 apirefs.ContainerID
-	if err := id2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
 	var id cid.ID
-	if err := id.ReadFromV2(id2); err != nil {
+	if err := id.FromProtoMessage(mID); err != nil {
 		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err))
 	}
 
@@ -294,7 +276,8 @@ func (s *server) makeGetResponse(body *protocontainer.GetResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.GetResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, error) {
@@ -304,11 +287,7 @@ func (s *server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
-	getReq := new(apicontainer.GetRequest)
-	if err := getReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(getReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeFailedGetResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -317,12 +296,8 @@ func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 		return s.makeFailedGetResponse(errors.New("missing ID"))
 	}
 
-	var id2 apirefs.ContainerID
-	if err := id2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
 	var id cid.ID
-	if err := id.ReadFromV2(id2); err != nil {
+	if err := id.FromProtoMessage(mID); err != nil {
 		return s.makeFailedGetResponse(fmt.Errorf("invalid ID: %w", err))
 	}
 
@@ -331,10 +306,8 @@ func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protoc
 		return s.makeFailedGetResponse(err)
 	}
 
-	var cnr2 apicontainer.Container
-	cnr.WriteToV2(&cnr2)
 	body := &protocontainer.GetResponse_Body{
-		Container: cnr2.ToGRPCMessage().(*protocontainer.Container),
+		Container: cnr.ProtoMessage(),
 	}
 	return s.makeGetResponse(body, nil)
 }
@@ -344,7 +317,8 @@ func (s *server) makeListResponse(body *protocontainer.ListResponse_Body, st *pr
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.ListResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeFailedListResponse(err error) (*protocontainer.ListResponse, error) {
@@ -354,11 +328,7 @@ func (s *server) makeFailedListResponse(err error) (*protocontainer.ListResponse
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
 func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
-	listReq := new(apicontainer.ListRequest)
-	if err := listReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(listReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeFailedListResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -367,12 +337,8 @@ func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 		return s.makeFailedListResponse(errors.New("missing user"))
 	}
 
-	var id2 apirefs.OwnerID
-	if err := id2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
 	var id user.ID
-	if err := id.ReadFromV2(id2); err != nil {
+	if err := id.FromProtoMessage(mID); err != nil {
 		return s.makeFailedListResponse(fmt.Errorf("invalid user: %w", err))
 	}
 
@@ -385,15 +351,11 @@ func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 		return s.makeListResponse(nil, util.StatusOK)
 	}
 
-	cs2 := make([]apirefs.ContainerID, len(cs))
-	for i := range cs {
-		cs[i].WriteToV2(&cs2[i])
-	}
 	body := &protocontainer.ListResponse_Body{
 		ContainerIds: make([]*refs.ContainerID, len(cs)),
 	}
 	for i := range cs {
-		body.ContainerIds[i] = cs2[i].ToGRPCMessage().(*refs.ContainerID)
+		body.ContainerIds[i] = cs[i].ProtoMessage()
 	}
 	return s.makeListResponse(body, util.StatusOK)
 }
@@ -402,17 +364,14 @@ func (s *server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.SetExtendedACLResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
 func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
-	setEACLReq := new(apicontainer.SetExtendedACLRequest)
-	if err := setEACLReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(setEACLReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeSetEACLResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -426,12 +385,8 @@ func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 		return s.makeSetEACLResponse(errors.New("missing eACL"))
 	}
 
-	var eACL2 apiacl.Table
-	if err := eACL2.FromGRPCMessage(mEACL); err != nil {
-		panic(err)
-	}
 	var eACL eacl.Table
-	if err := eACL.ReadFromV2(eACL2); err != nil {
+	if err := eACL.FromProtoMessage(mEACL); err != nil {
 		return s.makeSetEACLResponse(fmt.Errorf("invalid eACL: %w", err))
 	}
 
@@ -461,7 +416,8 @@ func (s *server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	return util.SignResponse(s.signer, resp, apicontainer.GetExtendedACLResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	return resp, nil
 }
 
 func (s *server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtendedACLResponse, error) {
@@ -471,11 +427,7 @@ func (s *server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtend
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
 func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
-	getEACLReq := new(apicontainer.GetExtendedACLRequest)
-	if err := getEACLReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(getEACLReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeFailedGetEACLResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -484,12 +436,8 @@ func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 		return s.makeFailedGetEACLResponse(errors.New("missing ID"))
 	}
 
-	var id2 apirefs.ContainerID
-	if err := id2.FromGRPCMessage(mID); err != nil {
-		panic(err)
-	}
 	var id cid.ID
-	if err := id.ReadFromV2(id2); err != nil {
+	if err := id.FromProtoMessage(mID); err != nil {
 		return s.makeFailedGetEACLResponse(fmt.Errorf("invalid ID: %w", err))
 	}
 
@@ -499,7 +447,7 @@ func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 	}
 
 	body := &protocontainer.GetExtendedACLResponse_Body{
-		Eacl: eACL.ToV2().ToGRPCMessage().(*protoacl.EACLTable),
+		Eacl: eACL.ProtoMessage(),
 	}
 	return s.makeGetEACLResponse(body, util.StatusOK)
 }

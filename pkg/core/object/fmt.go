@@ -134,12 +134,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		} else {
 			// V2 split
 
-			if !firstSet {
-				// first part only
-				if obj.Parent() == nil {
-					return errors.New("v2 split: first object part does not have parent header")
-				}
-			} else {
+			if firstSet {
 				// 2nd+ parts
 
 				typ := obj.Type()

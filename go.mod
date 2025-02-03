@@ -13,13 +13,13 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.12.2
-	github.com/nspcc-dev/hrw/v2 v2.0.1
+	github.com/nspcc-dev/hrw/v2 v2.0.2
 	github.com/nspcc-dev/locode-db v0.6.0
 	github.com/nspcc-dev/neo-go v0.107.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.20.1-0.20241220193924-4da43dfb5a65
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.12.0.20240809202351-256513c1b29b
-	github.com/nspcc-dev/tzhash v1.8.0
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.12.0.20250130151303-051c6238eaea
+	github.com/nspcc-dev/tzhash v1.8.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.9.0
 	github.com/prometheus/client_golang v1.20.2
@@ -34,13 +34,13 @@ require (
 	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/term v0.27.0
-	google.golang.org/grpc v1.64.1
+	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20221202181307-76fa05c21b12 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.14.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -95,7 +95,7 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

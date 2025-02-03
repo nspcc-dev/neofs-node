@@ -44,8 +44,8 @@ type encodedObject struct {
 func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, error) {
 	var res encodedObject
 
-	hdrv2 := hdr.ToV2()
-	hdrLen := hdrv2.StableSize()
+	hdrProto := hdr.ProtoMessage()
+	hdrLen := hdrProto.MarshaledSize()
 	pldFldLen := protowire.SizeTag(fieldNumObjectPayload) + protowire.SizeBytes(pldLen)
 	if pldFldLen > math.MaxInt-hdrLen {
 		return res, fmt.Errorf("binary object is too big for this server: %d+%d>%d", hdrLen, pldLen, math.MaxInt)
@@ -58,7 +58,7 @@ func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, e
 	}
 
 	res.b = res.b[:hdrLen]
-	hdrv2.StableMarshal(res.b)
+	hdrProto.MarshalStable(res.b)
 	res.pldFldOff = len(res.b)
 	res.b = protowire.AppendTag(res.b, fieldNumObjectPayload, protowire.BytesType)
 	res.b = protowire.AppendVarint(res.b, uint64(pldLen))
@@ -79,8 +79,8 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 		return res, fmt.Errorf("sign object ID: %w", err)
 	}
 
-	hdrv2 := hdr.ToV2()
-	hdrLen := hdrv2.StableSize()
+	hdrProto := hdr.ProtoMessage()
+	hdrLen := hdrProto.MarshaledSize()
 	pldFldLen := protowire.SizeTag(fieldNumObjectPayload) + protowire.SizeBytes(pldLen)
 	if pldFldLen > math.MaxInt-hdrLen {
 		return res, fmt.Errorf("binary object is too big for this server: %d+%d>%d", hdrLen, pldFldLen, math.MaxInt)
@@ -124,7 +124,7 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 	res.b = protowire.AppendVarint(res.b, uint64(objFldLen))
 	res.hdrOff = len(res.b)
 	res.b = res.b[:len(res.b)+hdrLen]
-	hdrv2.StableMarshal(res.b[res.hdrOff:])
+	hdrProto.MarshalStable(res.b[res.hdrOff:])
 	res.pldFldOff = len(res.b)
 	res.b = protowire.AppendTag(res.b, fieldNumObjectPayload, protowire.BytesType)
 	res.b = protowire.AppendVarint(res.b, uint64(pldLen))

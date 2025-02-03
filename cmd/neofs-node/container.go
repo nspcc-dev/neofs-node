@@ -8,13 +8,6 @@ import (
 	"errors"
 	"fmt"
 
-	apicontainer "github.com/nspcc-dev/neofs-api-go/v2/container"
-	protocontainer "github.com/nspcc-dev/neofs-api-go/v2/container/grpc"
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -33,9 +26,13 @@ import (
 	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -517,18 +514,16 @@ func (c *usedSpaceService) ExternalAddresses() []string {
 }
 
 func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	v := version.Current()
-	var v2 apirefs.Version
-	v.WriteToV2(&v2)
 	resp := &protocontainer.AnnounceUsedSpaceResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
-			Version: v2.ToGRPCMessage().(*refs.Version),
+			Version: version.Current().ProtoMessage(),
 			Epoch:   c.cfg.networkState.CurrentEpoch(),
 			Status:  st,
 		},
 	}
-	return util.SignResponse(&c.cfg.key.PrivateKey, resp, apicontainer.AnnounceUsedSpaceResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp)
+	return resp, nil
 }
 
 func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.AnnounceUsedSpaceResponse, error) {
@@ -536,11 +531,7 @@ func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.Announ
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	putReq := new(apicontainer.AnnounceUsedSpaceRequest)
-	if err := putReq.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(putReq); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return c.makeStatusResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -566,11 +557,7 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocont
 	var est containerSDK.SizeEstimation
 
 	for _, a := range req.GetBody().GetAnnouncements() {
-		var a2 apicontainer.UsedSpaceAnnouncement
-		if err := a2.FromGRPCMessage(a); err != nil {
-			panic(err)
-		}
-		err = est.ReadFromV2(a2)
+		err = est.FromProtoMessage(a)
 		if err != nil {
 			return c.makeStatusResponse(fmt.Errorf("invalid size announcement: %w", err))
 		}

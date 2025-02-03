@@ -4,13 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	apirefs "github.com/nspcc-dev/neofs-api-go/v2/refs"
-	refs "github.com/nspcc-dev/neofs-api-go/v2/refs/grpc"
-	v2reputation "github.com/nspcc-dev/neofs-api-go/v2/reputation"
-	protoreputation "github.com/nspcc-dev/neofs-api-go/v2/reputation/grpc"
-	protosession "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/signature"
-	protostatus "github.com/nspcc-dev/neofs-api-go/v2/status/grpc"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/common"
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
@@ -31,6 +24,10 @@ import (
 	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	protoreputation "github.com/nspcc-dev/neofs-sdk-go/proto/reputation"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
@@ -259,11 +256,8 @@ type reputationServer struct {
 }
 
 func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status) *protosession.ResponseMetaHeader {
-	v := version.Current()
-	var v2 apirefs.Version
-	v.WriteToV2(&v2)
 	return &protosession.ResponseMetaHeader{
-		Version: v2.ToGRPCMessage().(*refs.Version),
+		Version: version.Current().ProtoMessage(),
 		Epoch:   s.networkState.CurrentEpoch(),
 		Status:  st,
 	}
@@ -273,15 +267,12 @@ func (s *reputationServer) makeLocalResponse(err error) (*protoreputation.Announ
 	resp := &protoreputation.AnnounceLocalTrustResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	return util.SignResponse(&s.key.PrivateKey, resp, v2reputation.AnnounceLocalTrustResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp)
+	return resp, nil
 }
 
 func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
-	req2 := new(v2reputation.AnnounceLocalTrustRequest)
-	if err := req2.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(req2); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeLocalResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -314,15 +305,12 @@ func (s *reputationServer) makeIntermediateResponse(err error) (*protoreputation
 	resp := &protoreputation.AnnounceIntermediateResultResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	return util.SignResponse(&s.key.PrivateKey, resp, v2reputation.AnnounceIntermediateResultResponse{}), nil
+	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp)
+	return resp, nil
 }
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
-	req2 := new(v2reputation.AnnounceIntermediateResultRequest)
-	if err := req2.FromGRPCMessage(req); err != nil {
-		return nil, err
-	}
-	if err := signature.VerifyServiceMessage(req2); err != nil {
+	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeIntermediateResponse(util.ToRequestSignatureVerificationError(err))
 	}
 

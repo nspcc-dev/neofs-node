@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
-	objectGRPC "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -39,6 +38,7 @@ import (
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -309,7 +309,7 @@ func initObjectService(c *cfg) {
 	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
 
 	for _, srv := range c.cfgGRPC.servers {
-		objectGRPC.RegisterObjectServiceServer(srv, server)
+		protoobject.RegisterObjectServiceServer(srv, server)
 	}
 }
 

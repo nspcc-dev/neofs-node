@@ -203,11 +203,15 @@ func (exec *execCtx) buildChainInReverse(prev oid.ID) ([]oid.ID, []objectSDK.Ran
 		chain   = make([]oid.ID, 0)
 		rngs    = make([]objectSDK.Range, 0)
 		seekRng = exec.ctxRange()
-		from    = seekRng.GetOffset()
-		to      = from + seekRng.GetLength()
+		from    uint64
+		to      uint64
 
 		withPrev = true
 	)
+	if seekRng != nil {
+		from = seekRng.GetOffset()
+		to = from + seekRng.GetLength()
+	}
 
 	// fill the chain end-to-start
 	for withPrev {

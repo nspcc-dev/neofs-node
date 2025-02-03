@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	netmapV2 "github.com/nspcc-dev/neofs-api-go/v2/netmap"
-	netmapGRPC "github.com/nspcc-dev/neofs-api-go/v2/netmap/grpc"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -16,6 +14,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"go.uber.org/zap"
 )
 
@@ -172,7 +171,7 @@ func initNetmapService(c *cfg) {
 	server := netmapService.New(&c.key.PrivateKey, c)
 
 	for _, srv := range c.cfgGRPC.servers {
-		netmapGRPC.RegisterNetmapServiceServer(srv, server)
+		protonetmap.RegisterNetmapServiceServer(srv, server)
 	}
 
 	addNewEpochNotificationHandler(c, func(ev event.Event) {
@@ -446,33 +445,22 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 func (c *cfg) reloadNodeAttributes() error {
 	c.cfgNodeInfo.localInfoLock.Lock()
 
-	// TODO(@End-rey): after updating SDK, rewrite with w/o api netmap. See #3005, neofs-sdk-go#635.
-	var ni2 netmapV2.NodeInfo
-	c.cfgNodeInfo.localInfo.WriteToV2(&ni2)
+	oldAttrs := c.cfgNodeInfo.localInfo.GetAttributes()
 
-	oldAttrs := ni2.GetAttributes()
+	c.cfgNodeInfo.localInfo.SetAttributes(nil)
 
-	ni2.SetAttributes(nil)
-
-	err := c.cfgNodeInfo.localInfo.ReadFromV2(ni2)
-	if err != nil {
-		c.cfgNodeInfo.localInfoLock.Unlock()
-		return err
-	}
-
-	err = writeSystemAttributes(c)
+	err := writeSystemAttributes(c)
 	if err != nil {
 		c.cfgNodeInfo.localInfoLock.Unlock()
 		return err
 	}
 	parseAttributes(c)
 
-	c.cfgNodeInfo.localInfo.WriteToV2(&ni2)
+	newAttrs := c.cfgNodeInfo.localInfo.GetAttributes()
 
-	newAttrs := ni2.GetAttributes()
 	c.cfgNodeInfo.localInfoLock.Unlock()
 
-	if nodeAttrsEqual(nodeAttrsToSlice(oldAttrs), nodeAttrsToSlice(newAttrs)) {
+	if nodeAttrsEqual(oldAttrs, newAttrs) {
 		return nil
 	}
 

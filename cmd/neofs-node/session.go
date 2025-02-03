@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	sessionGRPC "github.com/nspcc-dev/neofs-api-go/v2/session/grpc"
 	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -12,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/persistent"
 	"github.com/nspcc-dev/neofs-node/pkg/services/session/storage/temporary"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -50,6 +50,6 @@ func initSessionService(c *cfg) {
 	server := sessionSvc.New(&c.key.PrivateKey, c, c.privateTokenStore)
 
 	for _, srv := range c.cfgGRPC.servers {
-		sessionGRPC.RegisterSessionServiceServer(srv, server)
+		protosession.RegisterSessionServiceServer(srv, server)
 	}
 }

@@ -4,14 +4,12 @@ import (
 	"crypto/rand"
 	"testing"
 
-	objectv2 "github.com/nspcc-dev/neofs-api-go/v2/object"
-	objectgrpc "github.com/nspcc-dev/neofs-api-go/v2/object/grpc"
-	"github.com/nspcc-dev/neofs-api-go/v2/refs"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -22,10 +20,10 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	_, _ = rand.Read(payload)
 	obj := objecttest.Object()
 	obj.SetPayload(payload)
+	obj.SetPayloadSize(uint64(len(payload)))
 	id := oidtest.ID()
 	obj.SetID(id)
 	hdr := *obj.CutPayload()
-	obj.SetPayloadSize(uint64(len(payload)))
 	signer := neofscryptotest.Signer()
 
 	// prepare request
@@ -37,23 +35,20 @@ func TestUnaryReplicateRequest(t *testing.T) {
 	r.b = append(r.b, payload...)
 
 	// decode request
-	var req objectgrpc.ReplicateRequest
+	var req protoobject.ReplicateRequest
 	require.NoError(t, proto.Unmarshal(r.b, &req))
 
 	// check signature
 	require.Equal(t, neofscrypto.PublicKeyBytes(signer.Public()), req.Signature.Key)
 	require.EqualValues(t, signer.Scheme(), req.Signature.Scheme)
 
-	var sigv2 refs.Signature
-	require.NoError(t, sigv2.FromGRPCMessage(req.Signature))
 	var sig neofscrypto.Signature
-	require.NoError(t, sig.ReadFromV2(sigv2))
+	require.NoError(t, sig.FromProtoMessage(req.Signature))
 	require.True(t, sig.Verify(id[:]))
 
 	// check object
-	var objv2 objectv2.Object
-	require.NoError(t, objv2.FromGRPCMessage(req.Object))
-	obj2 := *object.NewFromV2(&objv2)
+	var obj2 object.Object
+	require.NoError(t, obj2.FromProtoMessage(req.Object))
 	require.Equal(t, obj, obj2)
 
 	// check meta signature flag

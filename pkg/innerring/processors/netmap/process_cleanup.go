@@ -2,7 +2,7 @@ package netmap
 
 import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	v2netmap "github.com/nspcc-dev/neofs-api-go/v2/netmap"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +35,7 @@ func (np *Processor) processNetmapCleanupTick(ev netmapCleanupTick) {
 			uint32(ev.epoch),
 			nil,
 			methodUpdateStateNotary,
-			int64(v2netmap.Offline), key.Bytes(),
+			int64(protonetmap.NodeInfo_OFFLINE), key.Bytes(),
 		)
 		if err != nil {
 			np.log.Error("can't invoke netmap.UpdateState", zap.Error(err))
