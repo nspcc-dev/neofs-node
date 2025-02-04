@@ -295,7 +295,8 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 			}
 
 			expArgLen++
-		case currentCode == opcode.PACK || currentCode == opcode.PACKSTRUCT:
+		case currentCode == opcode.PACK || currentCode == opcode.PACKSTRUCT ||
+			currentCode == opcode.PACKMAP:
 			if i == 0 {
 				return errIncorrectArgPacking
 			}
@@ -303,6 +304,9 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 			argsLen, err := IntFromOpcode(ops[i-1])
 			if err != nil {
 				return fmt.Errorf("could not parse argument len: %w", err)
+			}
+			if currentCode == opcode.PACKMAP {
+				argsLen *= 2 // Key + value.
 			}
 
 			expArgLen += argsLen + 1
