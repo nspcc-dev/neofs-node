@@ -295,7 +295,7 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 			}
 
 			expArgLen++
-		case currentCode == opcode.PACK:
+		case currentCode == opcode.PACK || currentCode == opcode.PACKSTRUCT:
 			if i == 0 {
 				return errIncorrectArgPacking
 			}
