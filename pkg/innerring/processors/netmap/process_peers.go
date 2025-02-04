@@ -2,11 +2,34 @@ package netmap
 
 import (
 	"encoding/hex"
+	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
+
+// node2Info converts [netmaprpc.NetmapNode2] into [netmap.NodeInfo].
+func node2Info(n2 netmaprpc.NetmapNode2) (netmap.NodeInfo, error) {
+	var ni netmap.NodeInfo
+
+	ni.SetNetworkEndpoints(n2.Addresses...)
+	for k, v := range n2.Attributes {
+		ni.SetAttribute(k, v)
+	}
+	ni.SetPublicKey(n2.Key.Bytes())
+	switch {
+	case n2.State.Cmp(netmaprpc.NodeStateOnline) == 0:
+		ni.SetOnline()
+	case n2.State.Cmp(netmaprpc.NodeStateMaintenance) == 0:
+		ni.SetMaintenance()
+	default:
+		return netmap.NodeInfo{}, fmt.Errorf("unsupported node state %v", n2.State)
+	}
+	return ni, nil
+}
 
 // Process add peer notification by sanity check of new node
 // local epoch timer.
@@ -36,8 +59,12 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		return
 	}
 
+	np.validateCandidate(tx, nodeInfo)
+}
+
+func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo) {
 	// validate node info
-	err = np.nodeValidator.Verify(nodeInfo)
+	var err = np.nodeValidator.Verify(nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("public_key", hex.EncodeToString(nodeInfo.PublicKey())),
@@ -66,6 +93,35 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 			np.log.Error("can't sign and send notary request calling netmap.AddPeer", zap.Error(err))
 		}
 	}
+}
+
+// Check the new node and allow/reject adding it to netmap.
+func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore new node notification")
+		return
+	}
+
+	// check if notary transaction is valid, see #976
+	originalRequest := ev.NotaryRequest()
+	tx := originalRequest.MainTransaction
+	ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
+	if err != nil || !ok {
+		np.log.Warn("non-halt notary transaction",
+			zap.String("method", "netmap.AddNode"),
+			zap.String("hash", tx.Hash().StringLE()),
+			zap.Error(err))
+		return
+	}
+
+	// unmarshal node info
+	nodeInfo, err := node2Info(ev.Node)
+	if err != nil {
+		// it will be nice to have tx id at event structure to log it
+		np.log.Warn("can't parse network map candidate")
+		return
+	}
+	np.validateCandidate(tx, nodeInfo)
 }
 
 // Process update peer notification by sending approval tx to the smart contract.

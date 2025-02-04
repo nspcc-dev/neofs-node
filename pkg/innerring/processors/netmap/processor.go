@@ -184,7 +184,7 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	var (
 		p event.NotaryParserInfo
 
-		pp = make([]event.NotaryParserInfo, 0, 2)
+		pp = make([]event.NotaryParserInfo, 0, 3)
 	)
 
 	p.SetScriptHash(np.netmapClient.ContractAddress())
@@ -192,6 +192,11 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	// new peer
 	p.SetRequestType(netmapEvent.AddPeerNotaryEvent)
 	p.SetParser(netmapEvent.ParseAddPeerNotary)
+	pp = append(pp, p)
+
+	// new node
+	p.SetRequestType(netmapEvent.AddNodeNotaryEvent)
+	p.SetParser(netmapEvent.ParseAddNodeNotary)
 	pp = append(pp, p)
 
 	// update state
@@ -207,7 +212,7 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	var (
 		h event.NotaryHandlerInfo
 
-		hh = make([]event.NotaryHandlerInfo, 0, 2)
+		hh = make([]event.NotaryHandlerInfo, 0, 3)
 	)
 
 	h.SetScriptHash(np.netmapClient.ContractAddress())
@@ -215,6 +220,11 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// new peer
 	h.SetRequestType(netmapEvent.AddPeerNotaryEvent)
 	h.SetHandler(np.handleAddPeer)
+	hh = append(hh, h)
+
+	// new node
+	h.SetRequestType(netmapEvent.AddNodeNotaryEvent)
+	h.SetHandler(np.handleAddNode)
 	hh = append(hh, h)
 
 	// update state
