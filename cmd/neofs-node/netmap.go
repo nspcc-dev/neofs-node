@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync/atomic"
 
+	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
-	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -183,15 +184,9 @@ func initNetmapService(c *cfg) {
 			return
 		}
 
-		n := ev.(netmapEvent.NewEpoch).EpochNumber()
-
-		const reBootstrapInterval = 2
-
-		if (n-c.cfgNetmap.startEpoch)%reBootstrapInterval == 0 {
-			err := c.bootstrap()
-			if err != nil {
-				c.log.Warn("can't send re-bootstrap tx", zap.Error(err))
-			}
+		err := c.heartbeat()
+		if err != nil {
+			c.log.Warn("can't send heartbeat tx", zap.Error(err))
 		}
 	})
 
@@ -225,8 +220,19 @@ func initNetmapService(c *cfg) {
 // Must be called after initNetmapService.
 func bootstrapNode(c *cfg) {
 	if c.needBootstrap() {
-		err := c.bootstrap()
-		fatalOnErrDetails("bootstrap error", err)
+		if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE {
+			c.log.Info("current state is offline")
+			err := c.bootstrapOnline()
+			fatalOnErrDetails("bootstrap error", err)
+		} else {
+			c.log.Info("network map contains this node, sending heartbeat")
+			err := c.heartbeat()
+			if err != nil {
+				// Not as critical as the one above, will be
+				// updated the next epoch.
+				c.log.Warn("heartbeat error", zap.Error(err))
+			}
+		}
 	}
 }
 
@@ -335,28 +341,34 @@ func addNewEpochAsyncNotificationHandler(c *cfg, h event.Handler) {
 var errRelayBootstrap = errors.New("setting netmap status is forbidden in relay mode")
 
 func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
-	switch st {
-	default:
-		return fmt.Errorf("unsupported status %v", st)
-	case control.NetmapStatus_MAINTENANCE:
-		return c.setMaintenanceStatus(false)
-	case control.NetmapStatus_ONLINE, control.NetmapStatus_OFFLINE:
-	}
-
-	c.stopMaintenance()
-
 	if !c.needBootstrap() {
 		return errRelayBootstrap
 	}
 
-	if st == control.NetmapStatus_ONLINE {
-		c.cfgNetmap.reBoostrapTurnedOff.Store(false)
-		return bootstrapOnline(c)
+	var currentStatus = c.cfgNetmap.state.controlNetmapStatus()
+
+	if currentStatus == st {
+		return nil // no-op
 	}
 
-	c.cfgNetmap.reBoostrapTurnedOff.Store(true)
+	if currentStatus == control.NetmapStatus_OFFLINE {
+		if st != control.NetmapStatus_ONLINE {
+			return errors.New("can't add non-online node to map")
+		}
+		return c.bootstrapOnline()
+	}
 
-	return c.updateNetMapState(func(*nmClient.UpdatePeerPrm) {})
+	switch st {
+	case control.NetmapStatus_OFFLINE:
+		return c.updateNetMapState(nil)
+	case control.NetmapStatus_MAINTENANCE:
+		return c.setMaintenanceStatus(false)
+	case control.NetmapStatus_ONLINE:
+		c.stopMaintenance()
+		return c.updateNetMapState(netmaprpc.NodeStateOnline)
+	default:
+		return fmt.Errorf("unsupported status %v", st)
+	}
 }
 
 func (c *cfg) ForceMaintenance() error {
@@ -375,7 +387,7 @@ func (c *cfg) setMaintenanceStatus(force bool) error {
 		c.startMaintenance()
 
 		if err == nil {
-			err = c.updateNetMapState((*nmClient.UpdatePeerPrm).SetMaintenance)
+			err = c.updateNetMapState(netmaprpc.NodeStateMaintenance)
 		}
 
 		if err != nil {
@@ -388,12 +400,8 @@ func (c *cfg) setMaintenanceStatus(force bool) error {
 
 // calls UpdatePeerState operation of Netmap contract's client for the local node.
 // State setter is used to specify node state to switch to.
-func (c *cfg) updateNetMapState(stateSetter func(*nmClient.UpdatePeerPrm)) error {
-	var prm nmClient.UpdatePeerPrm
-	prm.SetKey(c.key.PublicKey().Bytes())
-	stateSetter(&prm)
-
-	return c.cfgNetmap.wrapper.UpdatePeerState(prm)
+func (c *cfg) updateNetMapState(state *big.Int) error {
+	return c.cfgNetmap.wrapper.UpdatePeerState(c.key.PublicKey().Bytes(), state)
 }
 
 func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
@@ -464,5 +472,5 @@ func (c *cfg) reloadNodeAttributes() error {
 		return nil
 	}
 
-	return c.bootstrap()
+	return c.bootstrapOnline()
 }

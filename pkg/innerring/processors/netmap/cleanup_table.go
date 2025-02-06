@@ -103,12 +103,13 @@ func (c *cleanupTable) touch(keyString string, now uint64, binNodeInfo []byte) b
 	return result
 }
 
-func (c *cleanupTable) flag(keyString string) {
+func (c *cleanupTable) flag(keyString string, now uint64) {
 	c.Lock()
 	defer c.Unlock()
 
 	if access, ok := c.lastAccess[keyString]; ok {
 		access.removeFlag = true
+		access.epoch = now
 		c.lastAccess[keyString] = access
 	}
 }

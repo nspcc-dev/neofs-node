@@ -37,7 +37,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 
 	log.Info("select containers for audit", zap.Int("amount", len(containers)))
 
-	nm, err := ap.netmapClient.GetNetMap(0)
+	nm, err := ap.netmapClient.NetMap()
 	if err != nil {
 		ap.log.Error("can't fetch network map",
 			zap.Error(err))

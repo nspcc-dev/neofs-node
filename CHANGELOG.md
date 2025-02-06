@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 - Write-cache size estimations (#3106)
+- New network map support solving the limit of ~320 nodes per network
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)
@@ -42,6 +43,13 @@ paramteters are removed from `writecache` config. These parameters are related
 to the BoltDB part of the write-cache, which is dropped from the code. 
 Also, because of this, there will be automatic migration from BoltDB by flushing 
 objects to the main storage and removing database file.
+
+This version maintains two network map lists, the old one is used by default
+and the new one will be used once "UseNodeV2" network-wide setting is set to
+non-zero value. Storage nodes add their records to both lists by default, so
+IR nodes must be updated first, otherwise SNs will fail to bootstrap. Monitor
+candidates with neofs-adm and make a switch once all nodes are properly
+migrated to the new list.
 
 ## [0.44.2] - 2024-12-20
 

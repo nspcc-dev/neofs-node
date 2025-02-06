@@ -189,7 +189,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 			break
 		}
 
-		ops = append(ops, Op{code: opCode, param: param})
+		ops = append(ops, Op{code: opCode, param: param, pos: ctx.IP()})
 	}
 
 	opsLen := len(ops)
@@ -227,6 +227,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 	}
 
 	args := ops[:opsLen-4]
+	argScript := nr.MainTransaction.Script[:ops[opsLen-4].pos]
 
 	if len(args) != 0 {
 		err = p.validateParameterOpcodes(args)
@@ -235,6 +236,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		}
 
 		// without args packing opcodes
+		argScript = nr.MainTransaction.Script[:args[len(args)-2].pos]
 		args = args[:len(args)-2]
 	}
 
@@ -244,6 +246,7 @@ func (p preparator) Prepare(nr *payload.P2PNotaryRequest) (NotaryEvent, error) {
 		hash:       contractHash,
 		notaryType: eventType,
 		params:     args,
+		argScript:  argScript,
 		raw:        nr,
 	}, nil
 }
@@ -295,7 +298,8 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 			}
 
 			expArgLen++
-		case currentCode == opcode.PACK:
+		case currentCode == opcode.PACK || currentCode == opcode.PACKSTRUCT ||
+			currentCode == opcode.PACKMAP:
 			if i == 0 {
 				return errIncorrectArgPacking
 			}
@@ -303,6 +307,9 @@ func validateNestedArgs(expArgLen int64, ops []Op) error {
 			argsLen, err := IntFromOpcode(ops[i-1])
 			if err != nil {
 				return fmt.Errorf("could not parse argument len: %w", err)
+			}
+			if currentCode == opcode.PACKMAP {
+				argsLen *= 2 // Key + value.
 			}
 
 			expArgLen += argsLen + 1
@@ -419,6 +426,7 @@ func (p preparator) validateAttributes(aa []transaction.Attribute, alphaKeys key
 }
 
 type parsedNotaryEvent struct {
+	argScript  []byte
 	hash       util.Uint160
 	notaryType NotaryType
 	params     []Op
@@ -435,6 +443,9 @@ func (p parsedNotaryEvent) Type() NotaryType {
 
 func (p parsedNotaryEvent) Params() []Op {
 	return p.params
+}
+func (p parsedNotaryEvent) ArgumentScript() []byte {
+	return p.argScript
 }
 
 func (p parsedNotaryEvent) Raw() *payload.P2PNotaryRequest {

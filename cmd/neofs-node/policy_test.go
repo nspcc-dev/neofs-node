@@ -60,7 +60,7 @@ type testNetwork struct {
 	callsNetmap    []uint64
 }
 
-func (x *testNetwork) GetNetMap(diff uint64) (*netmap.NetMap, error) {
+func (x *testNetwork) NetMap() (*netmap.NetMap, error) {
 	panic("unexpected call")
 }
 

@@ -32,7 +32,7 @@ const defaultContainerCacheSize = 10
 
 // getContainerNodes returns nodes in the container and a position of local key in the list.
 func (s *Service) getContainerNodes(cid cidSDK.ID) ([]netmapSDK.NodeInfo, int, error) {
-	nm, err := s.nmSource.GetNetMap(0)
+	nm, err := s.nmSource.NetMap()
 	if err != nil {
 		return nil, -1, fmt.Errorf("can't get netmap: %w", err)
 	}

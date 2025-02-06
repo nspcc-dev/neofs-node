@@ -22,7 +22,12 @@ var ErrEmptyNetMap = errors.New("empty NepMap")
 
 // InitialTrust returns `initialTrust` as an initial trust value.
 func (i InitialTrustSource) InitialTrust(apireputation.PeerID) (reputation.TrustValue, error) {
-	nm, err := i.NetMap.GetNetMap(1)
+	epoch, err := i.NetMap.Epoch()
+	if err != nil {
+		return reputation.TrustZero, fmt.Errorf("failed to get epoch: %w", err)
+	}
+	epoch = max(1, epoch) // prevent underflow below
+	nm, err := i.NetMap.GetNetMapByEpoch(epoch - 1)
 	if err != nil {
 		return reputation.TrustZero, fmt.Errorf("failed to get NetMap: %w", err)
 	}

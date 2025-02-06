@@ -15,6 +15,7 @@ type NotaryType string
 // provided by Neo:Morph notary event
 // structures.
 type NotaryEvent interface {
+	ArgumentScript() []byte
 	ScriptHash() util.Uint160
 	Type() NotaryType
 	Params() []Op

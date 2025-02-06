@@ -52,7 +52,7 @@ func (s *netMapSrc) GetNetMap(_ uint64) (*netmapSDK.NetMap, error) {
 }
 
 func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error) {
-	nm, err := netmap.GetLatestNetworkMap(b.nmSrc)
+	nm, err := b.nmSrc.NetMap()
 	if err != nil {
 		return nil, fmt.Errorf("could not get network map: %w", err)
 	}

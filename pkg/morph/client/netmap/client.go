@@ -20,14 +20,18 @@ type NodeInfo = netmap.NodeInfo
 // expression (or just declaring a Client variable) is unsafe
 // and can lead to panic.
 type Client struct {
-	client *client.StaticClient // static Netmap contract client
+	client   *client.StaticClient // static Netmap contract client
+	contract util.Uint160
+	nodeV2   bool
 }
 
 const (
+	addNodeMethod          = "addNode"
 	addPeerMethod          = "addPeer"
 	configMethod           = "config"
 	epochMethod            = "epoch"
 	lastEpochBlockMethod   = "lastEpochBlock"
+	listNodesMethod        = "listNodes"
 	innerRingListMethod    = "innerRingList"
 	netMapCandidatesMethod = "netmapCandidates"
 	netMapMethod           = "netmap"
@@ -55,7 +59,16 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		return nil, fmt.Errorf("can't create netmap static client: %w", err)
 	}
 
-	return &Client{client: sc}, nil
+	var c = &Client{
+		client:   sc,
+		contract: contract,
+	}
+	c.nodeV2, err = c.useNodeV2()
+	if err != nil {
+		return nil, fmt.Errorf("can't get v2 node status: %w", err)
+	}
+
+	return c, nil
 }
 
 // Option allows to set an optional
@@ -88,4 +101,10 @@ func (c Client) ContractAddress() util.Uint160 {
 // Morph returns raw morph client.
 func (c Client) Morph() *client.Client {
 	return c.client.Morph()
+}
+
+// IsNodeV2 returns current netmap status, if we're using V2 nodes or not.
+// This is a temporary method, to be removed once completely migrated.
+func (c Client) IsNodeV2() bool {
+	return c.nodeV2
 }

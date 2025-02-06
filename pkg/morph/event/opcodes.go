@@ -12,6 +12,7 @@ import (
 type Op struct {
 	code  opcode.Opcode
 	param []byte
+	pos   int
 }
 
 // Code returns Neo VM opcode.

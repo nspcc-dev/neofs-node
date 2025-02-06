@@ -428,7 +428,7 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 		return nil, err
 	}
 
-	nm, err := netmap.GetLatestNetworkMap(c.nmSrc)
+	nm, err := c.nmSrc.NetMap()
 	if err == nil {
 		key := info.PublicKey()
 

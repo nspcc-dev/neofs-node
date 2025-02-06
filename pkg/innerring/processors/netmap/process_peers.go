@@ -3,6 +3,7 @@ package netmap
 import (
 	"encoding/hex"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
@@ -36,8 +37,12 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		return
 	}
 
+	np.validateCandidate(tx, nodeInfo)
+}
+
+func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo) {
 	// validate node info
-	err = np.nodeValidator.Verify(nodeInfo)
+	var err = np.nodeValidator.Verify(nodeInfo)
 	if err != nil {
 		np.log.Warn("could not verify and update information about network map candidate",
 			zap.String("public_key", hex.EncodeToString(nodeInfo.PublicKey())),
@@ -68,6 +73,35 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 	}
 }
 
+// Check the new node and allow/reject adding it to netmap.
+func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
+	if !np.alphabetState.IsAlphabet() {
+		np.log.Info("non alphabet mode, ignore new node notification")
+		return
+	}
+
+	// check if notary transaction is valid, see #976
+	originalRequest := ev.NotaryRequest()
+	tx := originalRequest.MainTransaction
+	ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
+	if err != nil || !ok {
+		np.log.Warn("non-halt notary transaction",
+			zap.String("method", "netmap.AddNode"),
+			zap.String("hash", tx.Hash().StringLE()),
+			zap.Error(err))
+		return
+	}
+
+	// unmarshal node info
+	nodeInfo, err := netmapEvent.Node2Info(&ev.Node)
+	if err != nil {
+		// it will be nice to have tx id at event structure to log it
+		np.log.Warn("can't parse network map candidate")
+		return
+	}
+	np.validateCandidate(tx, nodeInfo)
+}
+
 // Process update peer notification by sending approval tx to the smart contract.
 func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 	if !np.alphabetState.IsAlphabet() {
@@ -77,7 +111,7 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 
 	// flag node to remove from local view, so it can be re-bootstrapped
 	// again before new epoch will tick
-	np.netmapSnapshot.flag(ev.PublicKey().StringCompressed())
+	np.netmapSnapshot.flag(ev.PublicKey().StringCompressed(), np.epochState.EpochCounter())
 
 	var err error
 
