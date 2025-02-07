@@ -180,17 +180,6 @@ func initNetmapService(c *cfg) {
 	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
-		if !c.needBootstrap() || c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
-			return
-		}
-
-		err := c.heartbeat()
-		if err != nil {
-			c.log.Warn("can't send heartbeat tx", zap.Error(err))
-		}
-	})
-
-	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
 
 		ni, err := c.netmapLocalNodeState(e)
@@ -204,6 +193,15 @@ func initNetmapService(c *cfg) {
 		}
 
 		c.handleLocalNodeInfoFromNetwork(ni)
+
+		if !c.needBootstrap() || c.cfgNetmap.reBoostrapTurnedOff.Load() { // fixes #470
+			return
+		}
+
+		err = c.heartbeat()
+		if err != nil {
+			c.log.Warn("can't send heartbeat tx", zap.Error(err))
+		}
 	})
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
