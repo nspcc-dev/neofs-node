@@ -234,7 +234,7 @@ func (m objectServiceMetrics) HandleOpExecResult(op stat.Method, success bool, d
 	case stat.MethodObjectDelete:
 		m.deleteCounter.inc(success)
 		m.deleteDuration.Observe(d.Seconds())
-	case stat.MethodObjectSearch:
+	case stat.MethodObjectSearch, stat.MethodObjectSearchV2: // FIXME: sep counters?
 		m.searchCounter.inc(success)
 		m.searchDuration.Observe(d.Seconds())
 	case stat.MethodObjectRange:

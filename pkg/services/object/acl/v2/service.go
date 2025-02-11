@@ -12,6 +12,7 @@ import (
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
@@ -177,6 +178,20 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 // SearchRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
 func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest) (RequestInfo, error) {
+	return b.searchRequestToInfo(request)
+}
+
+// SearchV2RequestToInfo resolves RequestInfo from the request to check it using
+// [ACLChecker].
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
+	return b.searchRequestToInfo(request)
+}
+
+// unifies V1 and V2 search request processing.
+func (b Service) searchRequestToInfo(request interface {
+	GetMetaHeader() *protosession.RequestMetaHeader
+	GetVerifyHeader() *protosession.RequestVerificationHeader
+}) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err

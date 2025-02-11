@@ -15,6 +15,7 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -303,10 +304,11 @@ func initObjectService(c *cfg) {
 	)
 
 	storage := storageForObjectService{
+		local:  ls,
 		putSvc: sPut,
 		keys:   keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc)
+	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 
 	for _, srv := range c.cfgGRPC.servers {
 		protoobject.RegisterObjectServiceServer(srv, server)
@@ -603,6 +605,11 @@ func (x *fsChainForObjects) ForEachContainerNodePublicKeyInLastTwoEpochs(id cid.
 	return x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(id, f)
 }
 
+// ForEachContainerNode implements [objectService.FSChain] interface.
+func (x *fsChainForObjects) ForEachContainerNode(cnr cid.ID, f func(netmapsdk.NodeInfo) bool) error {
+	return x.containerNodes.forEachContainerNode(cnr, false, f)
+}
+
 // IsOwnPublicKey checks whether given binary-encoded public key is assigned to
 // local storage node in the network map.
 //
@@ -616,8 +623,14 @@ func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
 type storageForObjectService struct {
+	local  *engine.StorageEngine
 	putSvc *putsvc.Service
 	keys   *util.KeyStorage
+}
+
+// SearchObjects implements [objectService.Storage] interface.
+func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+	return x.local.Search(cnr, fs, attrs, cursor, count)
 }
 
 func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {

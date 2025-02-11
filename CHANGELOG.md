@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - `logger.timestamp` config option (#3105)
 - Container system attributes verification on IR side (#3107)
 - IR `fschain.consensus.rpc.max_websocket_clients` and `fschain.consensus.rpc.session_pool_size` config options (#3126)
+- `ObjectService.SearchV2` SN API (#3111)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
