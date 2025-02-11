@@ -13,6 +13,8 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.etcd.io/bbolt"
 )
 
@@ -67,6 +69,14 @@ func (db *DB) put(
 	cnr := obj.GetContainerID()
 	if cnr.IsZero() {
 		return errors.New("missing container in object")
+	}
+	owner := obj.OwnerID()
+	if owner == nil {
+		return user.ErrZeroID
+	}
+	pldHash, ok := obj.PayloadChecksum()
+	if !ok {
+		return errors.New("missing payload checksum")
 	}
 
 	isParent := si != nil
@@ -150,6 +160,19 @@ func (db *DB) put(
 		if err != nil {
 			return fmt.Errorf("could not increase logical object counter: %w", err)
 		}
+	}
+
+	var ver version.Version
+	if v := obj.Version(); v != nil {
+		ver = *v
+	}
+	var pldHmmHash []byte
+	if h, ok := obj.PayloadHomomorphicHash(); ok {
+		pldHmmHash = h.Value()
+	}
+	if err := putMetadata(tx, cnr, obj.GetID(), ver, *owner, obj.Type(), obj.CreationEpoch(), obj.PayloadSize(),
+		pldHash.Value(), pldHmmHash, obj.SplitID().ToV2(), obj.GetParentID(), obj.GetFirstID(), obj.Attributes()); err != nil {
+		return fmt.Errorf("put metadata: %w", err)
 	}
 
 	return nil

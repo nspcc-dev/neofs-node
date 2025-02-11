@@ -279,7 +279,7 @@ func (db *DB) selectFromFKBT(
 
 	if isNumOp {
 		// TODO: big math takes less code but inefficient
-		filterNum, ok := new(big.Int).SetString(f.Value(), 10)
+		filterNum, ok := parseInt(f.Value())
 		if !ok {
 			db.log.Debug("unexpected non-decimal numeric filter", zap.String("value", f.Value()))
 			return
@@ -648,7 +648,7 @@ func groupFilters(filters object.SearchFilters) (filterGroup, error) {
 			}
 
 			// TODO: big math takes less code but inefficient
-			_, ok := new(big.Int).SetString(filters[i].Value(), 10)
+			_, ok := parseInt(filters[i].Value())
 			if !ok {
 				return res, fmt.Errorf("%w: invalid filter #%d: numeric filter with non-decimal value",
 					objectcore.ErrInvalidSearchQuery, i)
