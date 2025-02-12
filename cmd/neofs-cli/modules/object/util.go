@@ -24,6 +24,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+type flag[T any] struct {
+	f string
+	v T
+}
+
 const (
 	bearerTokenFlag = "bearer"
 
@@ -203,33 +208,39 @@ func _readVerifiedSession(cmd *cobra.Command, dst SessionPrm, key *ecdsa.Private
 		cmdVerb = session.VerbObjectRangeHash
 	}
 
-	tok, err := getSession(cmd)
-	if err != nil {
+	tok, err := getVerifiedSession(cmd, cmdVerb, key, cnr)
+	if err != nil || tok == nil {
 		return err
-	}
-	if tok == nil {
-		return nil
 	}
 
 	common.PrintVerbose(cmd, "Checking session correctness...")
 
-	switch false {
-	case tok.AssertContainer(cnr):
-		return errors.New("unrelated container in the session")
-	case obj == nil || tok.AssertObject(*obj):
+	if obj != nil && !tok.AssertObject(*obj) {
 		return errors.New("unrelated object in the session")
-	case tok.AssertVerb(cmdVerb):
-		return errors.New("wrong verb of the session")
-	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
-		return errors.New("unrelated key in the session")
-	case tok.VerifySignature():
-		return errors.New("invalid signature of the session data")
 	}
 
 	common.PrintVerbose(cmd, "Session is correct.")
 
 	dst.SetSessionToken(tok)
 	return nil
+}
+
+func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecdsa.PrivateKey, cnr cid.ID) (*session.Object, error) {
+	tok, err := getSession(cmd)
+	if err != nil || tok == nil {
+		return tok, err
+	}
+	switch false {
+	case tok.AssertContainer(cnr):
+		return nil, errors.New("unrelated container in the session")
+	case tok.AssertVerb(cmdVerb):
+		return nil, errors.New("wrong verb of the session")
+	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
+		return nil, errors.New("unrelated key in the session")
+	case tok.VerifySignature():
+		return nil, errors.New("invalid signature of the session data")
+	}
+	return tok, nil
 }
 
 // ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.

@@ -24,6 +24,7 @@ func init() {
 		objectDelCmd,
 		objectGetCmd,
 		objectSearchCmd,
+		searchV2Cmd,
 		objectHeadCmd,
 		objectHashCmd,
 		objectRangeCmd,
