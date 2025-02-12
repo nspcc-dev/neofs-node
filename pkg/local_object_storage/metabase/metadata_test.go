@@ -128,6 +128,8 @@ func TestPutMetadata(t *testing.T) {
 			0, 0, 0, 0, 101, 118, 30, 154, 145, 227, 159, 231})
 		assertIntAttr(t, mb, id, "$Object:payloadLength", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 29, 7, 76, 78, 96, 175, 200, 130})
+		assertAttr(t, mb, id, "$Object:ROOT", "1")
+		assertAttr(t, mb, id, "$Object:PHY", "1")
 		assertAttr(t, mb, id, "attr_1", "val_1")
 		assertAttr(t, mb, id, "attr_2", "val_2")
 		assertAttr(t, mb, id, "num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
@@ -670,24 +672,22 @@ func TestDB_SearchObjects(t *testing.T) {
 			}
 		})
 		t.Run("ROOT", func(t *testing.T) {
-			t.Skip("not supported yet")
-			check("$Object:ROOT", 0, "", []uint{0, 1})
 			for _, matcher := range []object.SearchMatchType{
-				object.MatchStringEqual, object.MatchStringNotEqual, object.MatchNotPresent, object.MatchCommonPrefix,
+				object.MatchUnspecified, object.MatchStringEqual, object.MatchStringNotEqual,
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("$Object:ROOT", matcher, "", nil)
+				check("$Object:ROOT", matcher, "", []uint{0, 1})
 			}
+			check("$Object:ROOT", object.MatchNotPresent, "", nil)
 		})
 		t.Run("PHY", func(t *testing.T) {
-			t.Skip("not supported yet")
-			check("$Object;PHY", 0, "", []uint{0, 1, 2, 3})
 			for _, matcher := range []object.SearchMatchType{
-				object.MatchStringEqual, object.MatchStringNotEqual, object.MatchNotPresent, object.MatchCommonPrefix,
+				object.MatchUnspecified, object.MatchStringEqual, object.MatchStringNotEqual,
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("$Object:PHY", matcher, "", nil)
+				check("$Object:PHY", matcher, "", []uint{2, 3, 4, 5})
 			}
+			check("$Object:PHY", object.MatchNotPresent, "", nil)
 		})
 		t.Run("version", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
