@@ -3,19 +3,31 @@ package meta
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -345,4 +357,229 @@ func TestMigrate2to3(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestMigrate3to4(t *testing.T) {
+	db := newDB(t)
+
+	typs := []object.Type{object.TypeRegular, object.TypeTombstone, object.TypeStorageGroup, object.TypeLock, object.TypeLink}
+	objs := make([]object.Object, len(typs))
+	var css, hcss [][]byte
+	for i := range objs {
+		objs[i].SetContainerID(cidtest.ID())
+		id := oidtest.ID()
+		objs[i].SetID(id)
+		ver := version.New(uint32(100*i), uint32(100*i+1))
+		objs[i].SetVersion(&ver)
+		objs[i].SetOwner(usertest.ID())
+		objs[i].SetType(typs[i])
+		objs[i].SetCreationEpoch(rand.Uint64())
+		objs[i].SetPayloadSize(rand.Uint64())
+		objs[i].SetPayloadChecksum(checksum.NewSHA256(id))
+		css = append(css, id[:])
+		var tzh [tz.Size]byte
+		rand.Read(tzh[:]) //nolint:staticcheck
+		objs[i].SetPayloadHomomorphicHash(checksum.NewTillichZemor(tzh))
+		hcss = append(hcss, tzh[:])
+		sid := objecttest.SplitID()
+		objs[i].SetSplitID(&sid)
+		objs[i].SetParentID(oidtest.ID())
+		objs[i].SetFirstID(oidtest.ID())
+		objs[i].SetAttributes(*object.NewAttribute("Index", strconv.Itoa(i)))
+	}
+
+	var par object.Object
+	par.SetContainerID(objs[0].GetContainerID())
+	par.SetID(oidtest.ID())
+	ver := version.New(1000, 1001)
+	par.SetVersion(&ver)
+	par.SetOwner(usertest.ID())
+	par.SetType(typs[0])
+	par.SetCreationEpoch(rand.Uint64())
+	par.SetPayloadSize(rand.Uint64())
+	pcs := oidtest.ID()
+	par.SetPayloadChecksum(checksum.NewSHA256(pcs))
+	var phcs [tz.Size]byte
+	rand.Read(phcs[:]) //nolint:staticcheck
+	par.SetPayloadHomomorphicHash(checksum.NewTillichZemor(phcs))
+	sid := objecttest.SplitID()
+	par.SetSplitID(&sid)
+	par.SetParentID(oidtest.ID())
+	par.SetFirstID(oidtest.ID())
+	par.SetAttributes(*object.NewAttribute("Index", "9999"))
+
+	objs[0].SetParent(&par)
+
+	for _, item := range []struct {
+		pref byte
+		hdr  *object.Object
+	}{
+		{pref: 0x06, hdr: &objs[0]},
+		{pref: 0x06, hdr: &par},
+		{pref: 0x09, hdr: &objs[1]},
+		{pref: 0x08, hdr: &objs[2]},
+		{pref: 0x07, hdr: &objs[3]},
+		{pref: 0x12, hdr: &objs[4]},
+	} {
+		err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+			cnr := item.hdr.GetContainerID()
+			bkt, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{item.pref}, cnr[:]))
+			require.NoError(t, err)
+			id := item.hdr.GetID()
+			return bkt.Put(id[:], item.hdr.Marshal())
+		})
+		require.NoError(t, err)
+	}
+
+	// force old version
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		if err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+			if name[0] == 0xFF {
+				return tx.DeleteBucket(name)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		return bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0})
+	})
+	require.NoError(t, err)
+	// migrate
+	require.NoError(t, db.Init())
+	// check
+	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.Equal(t, []byte{0x04, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		return nil
+	})
+	require.NoError(t, err)
+
+	res, _, err := db.Search(objs[0].GetContainerID(), nil, nil, nil, nil, 1000)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
+	require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+
+	for i := range objs[1:] {
+		res, _, err := db.Search(objs[1+i].GetContainerID(), nil, nil, nil, nil, 1000)
+		require.NoError(t, err, i)
+		require.Len(t, res, 1, i)
+		require.Equal(t, objs[1+i].GetID(), res[0].ID, i)
+	}
+
+	for _, tc := range []struct {
+		attr string
+		val  string
+		cnr  cid.ID
+		exp  oid.ID
+		par  bool
+	}{
+		{attr: "$Object:version", val: "v0.1", cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:version", val: "v100.101", cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:version", val: "v200.201", cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:version", val: "v300.301", cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:version", val: "v400.401", cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:version", val: "v1000.1001", cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:ownerID", val: objs[0].Owner().String(), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:ownerID", val: objs[1].Owner().String(), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:ownerID", val: objs[2].Owner().String(), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:ownerID", val: objs[3].Owner().String(), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:ownerID", val: objs[4].Owner().String(), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:ownerID", val: par.Owner().String(), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:objectType", val: "REGULAR", cnr: objs[0].GetContainerID(), par: true},
+		{attr: "$Object:objectType", val: "TOMBSTONE", cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:objectType", val: "STORAGE_GROUP", cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:objectType", val: "LOCK", cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:objectType", val: "LINK", cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(objs[0].CreationEpoch(), 10), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(objs[1].CreationEpoch(), 10), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(objs[2].CreationEpoch(), 10), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(objs[3].CreationEpoch(), 10), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(objs[4].CreationEpoch(), 10), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:creationEpoch", val: strconv.FormatUint(par.CreationEpoch(), 10), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(objs[0].PayloadSize(), 10), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(objs[1].PayloadSize(), 10), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(objs[2].PayloadSize(), 10), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(objs[3].PayloadSize(), 10), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(objs[4].PayloadSize(), 10), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:payloadLength", val: strconv.FormatUint(par.PayloadSize(), 10), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(css[0]), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(css[1]), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(css[2]), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(css[3]), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(css[4]), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:payloadHash", val: hex.EncodeToString(pcs[:]), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(hcss[0]), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(hcss[1]), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(hcss[2]), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(hcss[3]), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(hcss[4]), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:homomorphicHash", val: hex.EncodeToString(phcs[:]), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:split.splitID", val: objs[0].SplitID().String(), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:split.splitID", val: objs[1].SplitID().String(), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:split.splitID", val: objs[2].SplitID().String(), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:split.splitID", val: objs[3].SplitID().String(), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:split.splitID", val: objs[4].SplitID().String(), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:split.splitID", val: par.SplitID().String(), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:split.parent", val: objs[0].GetParentID().String(), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:split.parent", val: objs[1].GetParentID().String(), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:split.parent", val: objs[2].GetParentID().String(), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:split.parent", val: objs[3].GetParentID().String(), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:split.parent", val: objs[4].GetParentID().String(), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:split.parent", val: par.GetParentID().String(), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "$Object:split.first", val: objs[0].GetFirstID().String(), cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "$Object:split.first", val: objs[1].GetFirstID().String(), cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "$Object:split.first", val: objs[2].GetFirstID().String(), cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "$Object:split.first", val: objs[3].GetFirstID().String(), cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "$Object:split.first", val: objs[4].GetFirstID().String(), cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "$Object:split.first", val: par.GetFirstID().String(), cnr: par.GetContainerID(), exp: par.GetID()},
+		{attr: "Index", val: "0", cnr: objs[0].GetContainerID(), exp: objs[0].GetID()},
+		{attr: "Index", val: "1", cnr: objs[1].GetContainerID(), exp: objs[1].GetID()},
+		{attr: "Index", val: "2", cnr: objs[2].GetContainerID(), exp: objs[2].GetID()},
+		{attr: "Index", val: "3", cnr: objs[3].GetContainerID(), exp: objs[3].GetID()},
+		{attr: "Index", val: "4", cnr: objs[4].GetContainerID(), exp: objs[4].GetID()},
+		{attr: "Index", val: "9999", cnr: par.GetContainerID(), exp: par.GetID()},
+	} {
+		var fs object.SearchFilters
+		fs.AddFilter(tc.attr, tc.val, object.MatchStringEqual)
+		res, _, err := db.Search(tc.cnr, fs, nil, nil, nil, 1000)
+		require.NoError(t, err, tc)
+		if !tc.par {
+			require.Len(t, res, 1, tc)
+			require.Equal(t, tc.exp, res[0].ID, tc)
+		} else {
+			require.Len(t, res, 2, tc)
+			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
+			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+		}
+	}
+
+	for i := range objs {
+		var fs object.SearchFilters
+		fs.AddRootFilter()
+		res, _, err = db.Search(objs[i].GetContainerID(), fs, nil, nil, nil, 1000)
+		require.NoError(t, err, i)
+		require.Len(t, res, 1, i)
+		if i == 0 {
+			require.Equal(t, par.GetID(), res[0].ID)
+		} else {
+			require.Equal(t, objs[i].GetID(), res[0].ID, i)
+		}
+		fs = fs[:0]
+		fs.AddPhyFilter()
+		res, _, err = db.Search(objs[i].GetContainerID(), fs, nil, nil, nil, 1000)
+		require.NoError(t, err, i)
+		if i == 0 {
+			require.Len(t, res, 2)
+			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
+			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+		} else {
+			require.Len(t, res, 1)
+			require.Equal(t, objs[i].GetID(), res[0].ID, i)
+		}
+	}
 }

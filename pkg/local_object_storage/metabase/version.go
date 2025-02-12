@@ -1,17 +1,21 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
 // currentMetaVersion contains current metabase version.
-const currentMetaVersion = 3
+const currentMetaVersion = 4
 
 var versionKey = []byte("version")
 
@@ -74,6 +78,7 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 
 var migrateFrom = map[uint64]func(*DB, *bbolt.Tx) error{
 	2: migrateFrom2Version,
+	3: migrateFrom3Version,
 }
 
 func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
@@ -104,4 +109,51 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 	}
 
 	return updateVersion(tx, 3)
+}
+
+func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
+	c := tx.Cursor()
+	pref := []byte{metadataPrefix}
+	if k, _ := c.Seek(pref); bytes.HasPrefix(k, pref) {
+		return fmt.Errorf("key with prefix 0x%X detected, metadata space is occupied by unexpected data or the version has not been updated to #%d", pref, currentMetaVersion)
+	}
+	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+		switch name[0] {
+		default:
+			return nil
+		case primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix:
+		}
+		if len(name[1:]) != cid.Size {
+			return fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
+		}
+		cnr := cid.ID(name[1:])
+		err := b.ForEach(func(k, v []byte) error {
+			if len(k) != oid.Size {
+				return fmt.Errorf("wrong OID key len %d", len(k))
+			}
+			id := oid.ID(k)
+			var hdr object.Object
+			if err := hdr.Unmarshal(v); err != nil {
+				return fmt.Errorf("decode header of object %s from bucket value: %w", id, err)
+			}
+			par := hdr.Parent()
+			if err := putMetadataForObject(tx, hdr, par == nil, true); err != nil {
+				return fmt.Errorf("put metadata for object %s: %w", id, err)
+			}
+			if par != nil {
+				if err := putMetadataForObject(tx, *par, true, false); err != nil {
+					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("process container 0x%X%s bucket: %w", name[0], cnr, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return updateVersion(tx, 4)
 }
