@@ -164,6 +164,18 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 			return c, err
 		}
 
+		maxWebSocketClients, err := parseConfigUint64Range(v, rpcSection+".max_websocket_clients", "maximum simultaneous websocket client connection number", 1, math.MaxInt32)
+		if err != nil && !errors.Is(err, errMissingConfig) {
+			return c, err
+		}
+		c.RPC.MaxWebSocketClients = uint(maxWebSocketClients)
+
+		sessionPoolSize, err := parseConfigUint64Range(v, rpcSection+".session_pool_size", "maximum number of concurrent iterator sessions", 1, math.MaxInt32)
+		if err != nil && !errors.Is(err, errMissingConfig) {
+			return c, err
+		}
+		c.RPC.SessionPoolSize = uint(sessionPoolSize)
+
 		var rpcTLSSection = rpcSection + ".tls"
 		if v.GetBool(rpcTLSSection + ".enabled") {
 			c.RPC.TLSConfig.Enabled = true
