@@ -197,6 +197,10 @@ func (db *DB) deleteObject(
 		return fmt.Errorf("can't remove fake bucket tree indexes: %w", err)
 	}
 
+	if err = deleteMetadata(tx, obj.GetContainerID(), obj.GetID()); err != nil {
+		return fmt.Errorf("can't remove metadata indexes: %w", err)
+	}
+
 	return nil
 }
 
