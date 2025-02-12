@@ -28,6 +28,10 @@ type Cursor struct {
 // Returns ErrEndOfListing if there are no more objects to return or count
 // parameter set to zero.
 func (e *StorageEngine) ListWithCursor(count uint32, cursor *Cursor) ([]objectcore.AddressWithType, *Cursor, error) {
+	if e.metrics != nil {
+		defer elapsed(e.metrics.AddListObjectsDuration)()
+	}
+
 	result := make([]objectcore.AddressWithType, 0, count)
 
 	// 1. Get available shards and sort them.
