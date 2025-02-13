@@ -111,7 +111,8 @@ func (db *DB) put(
 		return nil
 	}
 
-	if par := obj.Parent(); par != nil && !isParent { // limit depth by two
+	par := obj.Parent()
+	if par != nil && !isParent { // limit depth by two
 		if parID := par.GetID(); !parID.IsZero() { // skip the first object without useful info
 			parentSI, err := splitInfoFromObject(obj)
 			if err != nil {
@@ -171,7 +172,7 @@ func (db *DB) put(
 		pldHmmHash = h.Value()
 	}
 	if err := putMetadata(tx, cnr, obj.GetID(), ver, *owner, obj.Type(), obj.CreationEpoch(), obj.PayloadSize(),
-		pldHash.Value(), pldHmmHash, obj.SplitID().ToV2(), obj.GetParentID(), obj.GetFirstID(), obj.Attributes()); err != nil {
+		pldHash.Value(), pldHmmHash, obj.SplitID().ToV2(), obj.GetParentID(), obj.GetFirstID(), obj.Attributes(), par == nil, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 

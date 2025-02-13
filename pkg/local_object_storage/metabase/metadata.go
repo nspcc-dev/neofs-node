@@ -34,6 +34,8 @@ const (
 	attrIDFixedLen = 1 + oid.Size + utf8DelimiterLen // prefix first
 )
 
+const binPropMarker = "1" // ROOT, PHY, etc.
+
 var (
 	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
@@ -45,10 +47,10 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 }
 
 // TODO: fill on migration.
-// TODO: ROOT and PHY props.
 // TODO: cleaning on obj removal.
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
-	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute) error {
+	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
+	root, phy bool) error {
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
 	if err != nil {
 		return fmt.Errorf("create meta bucket for container: %w", err)
@@ -93,6 +95,16 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 	}
 	if !parentID.IsZero() {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterParentID, string(parentID[:])); err != nil {
+			return err
+		}
+	}
+	if root {
+		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterRoot, binPropMarker); err != nil {
+			return err
+		}
+	}
+	if phy {
+		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPhysical, binPropMarker); err != nil {
 			return err
 		}
 	}
@@ -195,7 +207,7 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, attrs []string, cursor
 func (db *DB) searchInBucket(metaBkt *bbolt.Bucket, fs object.SearchFilters, attrs []string,
 	cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
 	// TODO: make as much as possible outside the Bolt tx
-	primMatcher := fs[0].Operation()
+	primMatcher, primVal := convertFilterValue(fs[0])
 	intPrimMatcher := isNumericOp(primMatcher)
 	notPresentPrimMatcher := primMatcher == object.MatchNotPresent
 	primAttr := fs[0].Header() // attribute emptiness already prevented
@@ -223,7 +235,7 @@ func (db *DB) searchInBucket(metaBkt *bbolt.Bucket, fs object.SearchFilters, att
 		if primMatcher == object.MatchStringEqual || primMatcher == object.MatchCommonPrefix ||
 			primMatcher == object.MatchNumGT || primMatcher == object.MatchNumGE {
 			var err error
-			if primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, fs[0].Value()); err != nil {
+			if primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, primVal); err != nil {
 				return nil, nil, fmt.Errorf("invalid primary filter value: %w", err)
 			}
 		} else {
@@ -279,11 +291,12 @@ nextPrimKey:
 				if i > 0 && attr != primAttr {
 					continue
 				}
-				checkedDBVal, fltVal, err := combineValues(attr, dbVal, fs[i].Value()) // TODO: deduplicate DB value preparation
+				mch, val := convertFilterValue(fs[i])
+				checkedDBVal, fltVal, err := combineValues(attr, dbVal, val) // TODO: deduplicate DB value preparation
 				if err != nil {
 					return nil, nil, fmt.Errorf("invalid key in meta bucket: invalid attribute %s value: %w", attr, err)
 				}
-				if !matchValues(checkedDBVal, fs[i].Operation(), fltVal) {
+				if !matchValues(checkedDBVal, mch, fltVal) {
 					continue nextPrimKey
 				}
 				// TODO: attribute value can be requested, it can be collected here, or we can
@@ -311,7 +324,7 @@ nextPrimKey:
 				if j > 0 && fs[j].Header() != attr {
 					continue
 				}
-				m := fs[j].Operation()
+				m, val := convertFilterValue(fs[j])
 				if dbVal == nil {
 					if m == object.MatchNotPresent {
 						continue
@@ -347,7 +360,7 @@ nextPrimKey:
 				} else {
 					checkedDBVal = dbVal
 				}
-				checkedDBVal, fltVal, err := combineValues(attr, checkedDBVal, fs[j].Value()) // TODO: deduplicate DB value preparation
+				checkedDBVal, fltVal, err := combineValues(attr, checkedDBVal, val) // TODO: deduplicate DB value preparation
 				if err != nil {
 					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid attribute %s value: %w", attr, err))
 				}
@@ -507,7 +520,7 @@ func seekKeyForAttribute(attr, fltVal string) ([]byte, []byte, error) {
 			return nil, nil, fmt.Errorf("decode %q UUID attribute: %w", attr, err)
 		}
 		dbVal = uid[:]
-	case object.FilterVersion, object.FilterType:
+	case object.FilterVersion, object.FilterType, object.FilterRoot, object.FilterPhysical:
 	}
 	key := make([]byte, 1+len(attr)+utf8DelimiterLen+len(dbVal)) // prefix 1st
 	key[0] = metaPrefixAttrIDPlain
@@ -793,4 +806,11 @@ func (x *metaAttributeSeeker) restoreVal(id []byte, attr string, stored []byte) 
 		return uid.String(), nil
 	}
 	return string(stored), nil
+}
+
+func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) {
+	if attr := f.Header(); attr == object.FilterRoot || attr == object.FilterPhysical {
+		return object.MatchStringEqual, binPropMarker
+	}
+	return f.Operation(), f.Value()
 }
