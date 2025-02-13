@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - IR `fschain.consensus.keep_only_latest_state` and `fschain.consensus.remove_untraceable_blocks` config options (#3093)
 - `logger.timestamp` config option (#3105)
 - Container system attributes verification on IR side (#3107)
+- IR `fschain.consensus.rpc.max_websocket_clients` and `fschain.consensus.rpc.session_pool_size` config options (#3126)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)

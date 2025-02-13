@@ -45,8 +45,10 @@ type validConfig struct {
 			} `mapstructure:"validators_history"`
 
 			RPC struct {
-				Listen []string `mapstructure:"listen"`
-				TLS    struct {
+				Listen              []string `mapstructure:"listen"`
+				MaxWebSocketClients uint32   `mapstructure:"max_websocket_clients"`
+				SessionPoolSize     uint32   `mapstructure:"session_pool_size"`
+				TLS                 struct {
 					Enabled  bool     `mapstructure:"enabled"`
 					Listen   []string `mapstructure:"listen"`
 					CertFile string   `mapstructure:"cert_file"`
@@ -102,8 +104,10 @@ type validConfig struct {
 			} `mapstructure:"validators_history"`
 
 			RPC struct {
-				Listen []string `mapstructure:"listen"`
-				TLS    struct {
+				Listen              []string `mapstructure:"listen"`
+				MaxWebSocketClients uint32   `mapstructure:"max_websocket_clients"`
+				SessionPoolSize     uint32   `mapstructure:"session_pool_size"`
+				TLS                 struct {
 					Enabled  bool     `mapstructure:"enabled"`
 					Listen   []string `mapstructure:"listen"`
 					CertFile string   `mapstructure:"cert_file"`

@@ -98,6 +98,16 @@ type RPCConfig struct {
 	//
 	// Optional.
 	TLSConfig
+
+	// The maximum simultaneous websocket client connection number.
+	//
+	// Optional: defaults to 64. Must not be larger than math.MaxInt32.
+	MaxWebSocketClients uint
+
+	// The maximum number of concurrent iterator sessions.
+	//
+	// Optional: defaults to 20. Must not be larger than math.MaxInt32.
+	SessionPoolSize uint
 }
 
 // TLSConfig configures additional RPC serving over TLS.
@@ -351,6 +361,12 @@ func New(cfg Config) (res *Blockchain, err error) {
 	if cfg.P2P.Ping.Timeout == 0 {
 		cfg.P2P.Ping.Timeout = time.Minute
 	}
+	if cfg.RPC.MaxWebSocketClients == 0 {
+		cfg.RPC.MaxWebSocketClients = 64
+	}
+	if cfg.RPC.SessionPoolSize == 0 {
+		cfg.RPC.SessionPoolSize = 20
+	}
 
 	standByCommittee := make([]string, len(cfg.Committee))
 	for i := range cfg.Committee {
@@ -408,6 +424,8 @@ func New(cfg Config) (res *Blockchain, err error) {
 
 	cfgBaseApp.RPC.Enabled = true
 	cfgBaseApp.RPC.Addresses = cfg.RPC.Addresses
+	cfgBaseApp.RPC.MaxWebSocketClients = int(cfg.RPC.MaxWebSocketClients)
+	cfgBaseApp.RPC.SessionPoolSize = int(cfg.RPC.SessionPoolSize)
 	if tlsCfg := cfg.RPC.TLSConfig; tlsCfg.Enabled {
 		cfgBaseApp.RPC.TLSConfig.Enabled = true
 		cfgBaseApp.RPC.TLSConfig.Addresses = tlsCfg.Addresses
