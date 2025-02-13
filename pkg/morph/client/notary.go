@@ -275,7 +275,7 @@ func (c *Client) UpdateNotaryList(notaries keys.PublicKeys, txHash util.Uint256)
 		setDesignateMethod,
 		nonce,
 		vub,
-		noderoles.P2PNotary,
+		int64(noderoles.P2PNotary),
 		notaries,
 	)
 }
@@ -299,7 +299,7 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 		setDesignateMethod,
 		nonce,
 		vub,
-		noderoles.NeoFSAlphabet,
+		int64(noderoles.NeoFSAlphabet),
 		alphas,
 	)
 }
