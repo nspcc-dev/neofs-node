@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
@@ -26,10 +28,12 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	sdknetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -40,6 +44,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
+	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
 )
 
@@ -92,6 +97,15 @@ type FSChain interface {
 	// found.
 	ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error
 
+	// ForEachContainerNode iterates over all nodes matching the referenced
+	// container's storage policy for now and passes their descriptors into f.
+	// IterateContainerNodeKeys breaks without an error when f returns false.
+	// Elements may be repeated.
+	//
+	// Returns [apistatus.ErrContainerNotFound] if referenced container was not
+	// found.
+	ForEachContainerNode(cnr cid.ID, f func(sdknetmap.NodeInfo) bool) error
+
 	// IsOwnPublicKey checks whether given pubKey assigned to Node in the NeoFS
 	// network map.
 	IsOwnPublicKey(pubKey []byte) bool
@@ -117,6 +131,10 @@ type Storage interface {
 	// and, if so, saves it in the Storage. StoreObject is called only when local
 	// node complies with the container's storage policy.
 	VerifyAndStoreObjectLocally(object.Object) error
+
+	// SearchObjects selects up to count container's objects from the given
+	// container matching the specified filters.
+	SearchObjects(_ cid.ID, _ object.SearchFilters, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, *meta.SearchCursor, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -129,6 +147,7 @@ type ACLInfoExtractor interface {
 	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
 	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
 	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
 }
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
@@ -156,27 +175,36 @@ const (
 )
 
 type server struct {
-	handlers    Handlers
-	fsChain     FSChain
-	storage     Storage
-	signer      ecdsa.PrivateKey
-	mNumber     uint32
-	metrics     MetricCollector
-	aclChecker  aclsvc.ACLChecker
-	reqInfoProc ACLInfoExtractor
+	handlers      Handlers
+	fsChain       FSChain
+	storage       Storage
+	signer        ecdsa.PrivateKey
+	mNumber       uint32
+	metrics       MetricCollector
+	aclChecker    aclsvc.ACLChecker
+	reqInfoProc   ACLInfoExtractor
+	nodeClients   searchsvc.ClientConstructor
+	searchWorkers *ants.Pool
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor) protoobject.ObjectServiceServer {
+func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
+	// TODO: configurable capacity
+	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
+	if err != nil {
+		panic(fmt.Errorf("create ants pool: %w", err)) // fails on invalid input only
+	}
 	return &server{
-		handlers:    hs,
-		fsChain:     fsChain,
-		storage:     st,
-		signer:      signer,
-		mNumber:     magicNumber,
-		metrics:     m,
-		aclChecker:  ac,
-		reqInfoProc: rp,
+		handlers:      hs,
+		fsChain:       fsChain,
+		storage:       st,
+		signer:        signer,
+		mNumber:       magicNumber,
+		metrics:       m,
+		aclChecker:    ac,
+		reqInfoProc:   rp,
+		nodeClients:   cs,
+		searchWorkers: sp,
 	}
 }
 
@@ -1848,8 +1876,309 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	return resp, nil
 }
 
-func (s *server) SearchV2(_ context.Context, _ *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
-	return nil, errors.New("unimplemented")
+func (s *server) signSearchResponse(resp *protoobject.SearchV2Response) *protoobject.SearchV2Response {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	return resp
+}
+
+func (s *server) makeStatusSearchResponse(err error) *protoobject.SearchV2Response {
+	return s.signSearchResponse(&protoobject.SearchV2Response{
+		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+	})
+}
+
+func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	var (
+		err error
+		t   = time.Now()
+	)
+	defer func() { s.pushOpExecResult(stat.MethodObjectSearchV2, err, t) }()
+	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+		return s.makeStatusSearchResponse(err), nil
+	}
+
+	if s.fsChain.LocalNodeUnderMaintenance() {
+		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
+	}
+
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	if err != nil {
+		return s.makeStatusSearchResponse(err), nil
+	}
+	if !s.aclChecker.CheckBasicACL(reqInfo) {
+		err = basicACLErr(reqInfo) // needed for defer
+		return s.makeStatusSearchResponse(err), nil
+	}
+	err = s.aclChecker.CheckEACL(req, reqInfo)
+	if err != nil {
+		err = eACLErr(reqInfo, err)
+		return s.makeStatusSearchResponse(err), nil
+	}
+
+	body, err := s.processSearchRequest(ctx, req)
+	if err != nil {
+		return s.makeStatusSearchResponse(err), nil
+	}
+	return s.signSearchResponse(&protoobject.SearchV2Response{Body: body}), nil
+}
+
+func verifySearchFilter(f *protoobject.SearchFilter) error {
+	switch f.Key {
+	case "":
+		return errors.New("missing attribute")
+	case object.FilterContainerID, object.FilterID:
+		return fmt.Errorf("prohibited attribute %s", f.Key)
+	case object.FilterRoot, object.FilterPhysical:
+		if f.MatchType != 0 {
+			return fmt.Errorf("non-zero matcher %s for attribute %s", f.MatchType, f.Key)
+		}
+		if f.Value != "" {
+			return fmt.Errorf("value for attribute %s is prohibited", f.Key)
+		}
+	}
+	return nil
+}
+
+func (s *server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
+	body := req.GetBody()
+	if body == nil {
+		return nil, errors.New("missing body")
+	}
+	if body.ContainerId == nil {
+		return nil, errors.New("missing container ID")
+	}
+	var cnr cid.ID
+	if err := cnr.FromProtoMessage(body.ContainerId); err != nil {
+		return nil, fmt.Errorf("invalid container ID: %w", err)
+	}
+	if body.Version != 1 {
+		return nil, errors.New("unsupported query version")
+	}
+	if body.Count == 0 {
+		return nil, errors.New("zero count")
+	} else if body.Count > 1000 {
+		return nil, fmt.Errorf("number of attributes %d exceeds the limit 1000", body.Count)
+	}
+	if len(body.Filters) > 8 {
+		return nil, fmt.Errorf("number of filter %d exceeds the limit 8", len(body.Filters))
+	}
+	if len(body.Attributes) > 8 {
+		return nil, fmt.Errorf("number of attributes %d exceeds the limit 8", len(body.Attributes))
+	}
+	for i := range body.Filters {
+		if err := verifySearchFilter(body.Filters[i]); err != nil {
+			return nil, fmt.Errorf("invalid filter #%d: %w", i, err)
+		}
+	}
+	for i := range body.Attributes {
+		if body.Attributes[i] == "" {
+			return nil, fmt.Errorf("empty attribute #%d", i)
+		}
+		if body.Attributes[i] == object.FilterContainerID || body.Attributes[i] == object.FilterID {
+			return nil, fmt.Errorf("prohibited attribute %s", body.Attributes[i])
+		}
+	}
+	if len(body.Attributes) > 0 && (len(body.Filters) == 0 || body.Filters[0].Key != body.Attributes[0]) {
+		return nil, errors.New("primary attribute must be filtered 1st")
+	}
+	ttl := req.MetaHeader.GetTtl()
+	if ttl == 0 {
+		return nil, errors.New("zero TTL")
+	}
+	var fs object.SearchFilters
+	if err := fs.FromProtoMessage(body.Filters); err != nil {
+		return nil, fmt.Errorf("invalid filters: %w", err)
+	}
+	var primAttr string
+	if len(fs) > 0 {
+		primAttr = fs[0].Header()
+	}
+	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cursor: %w", err)
+	}
+
+	var res []sdkclient.SearchResultItem
+	var newCursor *meta.SearchCursor
+	count := uint16(body.Count) // legit according to the limit
+	if ttl == 1 {
+		if res, newCursor, err = s.storage.SearchObjects(cnr, fs, body.Attributes, cursor, count); err != nil {
+			return nil, err
+		}
+	} else {
+		var signed bool
+		var resErr error
+		mProcessedNodes := make(map[string]struct{})
+		var sets [][]sdkclient.SearchResultItem
+		var mores []bool
+		var mtx sync.Mutex
+		var wg sync.WaitGroup
+		add := func(set []sdkclient.SearchResultItem, more bool) {
+			mtx.Lock()
+			sets, mores = append(sets, set), append(mores, more)
+			mtx.Unlock()
+		}
+		err = s.fsChain.ForEachContainerNode(cnr, func(node sdknetmap.NodeInfo) bool {
+			nodePub := node.PublicKey()
+			strKey := string(nodePub)
+			if _, ok := mProcessedNodes[strKey]; ok {
+				return true
+			}
+			mProcessedNodes[strKey] = struct{}{}
+			if s.fsChain.IsOwnPublicKey(nodePub) {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if set, crsr, err := s.storage.SearchObjects(cnr, fs, body.Attributes, cursor, count); err == nil {
+						add(set, crsr != nil)
+					} // TODO: else log error
+				}()
+				return true
+			}
+			if !signed {
+				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
+				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(s.signer), req, nil); err != nil {
+					resErr = fmt.Errorf("sign request: %w", err)
+					return false
+				}
+				signed = true
+			}
+			wg.Add(1)
+			if resErr = s.searchWorkers.Submit(func() {
+				defer wg.Done()
+				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
+					add(set, more)
+				} // TODO: else log error
+			}); resErr != nil {
+				wg.Done()
+			}
+			return resErr == nil
+		})
+		wg.Wait()
+		if err == nil {
+			err = resErr
+		}
+		if err != nil {
+			return nil, err
+		}
+		var more bool
+		if res, more = objectcore.MergeSearchResults(count, len(body.Attributes) > 0, sets, mores); more {
+			c, err := meta.CalculateCursor(fs, res[len(res)-1])
+			if err != nil {
+				return nil, fmt.Errorf("recalculate cursor: %w", err)
+			}
+			newCursor = &c
+		}
+	}
+
+	resBody := &protoobject.SearchV2Response_Body{
+		Result: make([]*protoobject.SearchV2Response_OIDWithMeta, len(res)),
+	}
+	for i := range res {
+		resBody.Result[i] = &protoobject.SearchV2Response_OIDWithMeta{
+			Id:         res[i].ID.ProtoMessage(),
+			Attributes: res[i].Attributes,
+		}
+	}
+	if newCursor != nil {
+		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor.Key)
+	}
+	return resBody, nil
+}
+
+func (s *server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+	// TODO: copy-pasted from old search implementation, consider deduplicating in
+	//  the client constructor
+	var endpoints network.AddressGroup
+	if err := endpoints.FromIterator(network.NodeEndpointsIterator(node)); err != nil {
+		// critical error that may ultimately block the storage service. Normally it
+		// should not appear because entry into the network map under strict control.
+		return nil, false, fmt.Errorf("failed to decode network endpoints of the storage node from the network map: %w", err)
+	}
+	var info client.NodeInfo
+	info.SetAddressGroup(endpoints)
+	nodePub := node.PublicKey()
+	info.SetPublicKey(nodePub)
+	c, err := s.nodeClients.Get(info)
+	if err != nil {
+		return nil, false, fmt.Errorf("get node client: %w", err)
+	}
+
+	var firstErr error
+	for i := range endpoints {
+		items, withCursor, err := searchOnRemoteAddress(ctx, c, endpoints[i], nodePub, req)
+		if err == nil {
+			return items, withCursor, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+		// TODO: log error
+	}
+	return nil, false, firstErr
+}
+
+func searchOnRemoteAddress(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
+	req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+	var resp *protoobject.SearchV2Response
+	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
+		var err error
+		resp, err = protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
+		return err
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
+	}
+
+	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
+		return nil, false, client.ErrWrongPublicKey
+	}
+	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+		return nil, false, fmt.Errorf("response verification failed: %w", err)
+	}
+	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
+		return nil, false, err
+	}
+	// TODO: copy-pasted from SDK (*) client code, consider sharing
+	//  (*) added check that cursor is set only when result has count items
+	if resp.Body == nil {
+		return nil, false, nil
+	}
+	n := uint32(len(resp.Body.Result))
+	if n == 0 {
+		if resp.Body.Cursor != "" {
+			return nil, false, errors.New("invalid response body: cursor is set with empty result")
+		}
+		return nil, false, nil
+	}
+	if reqCursor := req.Body.Cursor; reqCursor != "" && resp.Body.Cursor == reqCursor {
+		return nil, false, errors.New("invalid response body: cursor repeats the initial one")
+	}
+	if n > req.Body.Count {
+		return nil, false, errors.New("invalid response body: more items than requested")
+	}
+	if resp.Body.Cursor != "" && n < req.Body.Count {
+		return nil, false, fmt.Errorf("invalid response body: cursor is set with less items than requested %d < %d", n, req.Body.Count)
+	}
+
+	// TODO: we can theoretically do without type conversion, thus avoiding
+	//  additional allocation. At the same time, this will require generic code for merging.
+	res := make([]sdkclient.SearchResultItem, n)
+	for i, r := range resp.Body.Result {
+		switch {
+		case r == nil:
+			return nil, false, fmt.Errorf("invalid response body: nil element #%d", i)
+		case r.Id == nil:
+			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: missing ID", i)
+		case len(r.Attributes) != len(req.Body.Attributes):
+			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: wrong attribute count %d", i, len(r.Attributes))
+		}
+		if err := res[i].ID.FromProtoMessage(r.Id); err != nil {
+			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: invalid ID: %w", i, err)
+		}
+		res[i].Attributes = r.Attributes
+	}
+	return res, resp.Body.Cursor != "", nil
 }
 
 func objectFromMessage(gMsg *protoobject.Object) (*object.Object, error) {

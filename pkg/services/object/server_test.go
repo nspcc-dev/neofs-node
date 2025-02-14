@@ -13,19 +13,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -75,7 +79,10 @@ func (x noCallObjectService) GetRangeHash(context.Context, getsvc.RangeHashPrm) 
 
 type noCallTestFSChain struct{}
 
-func (x *noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
+func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
+	panic("must not be called")
+}
+func (*noCallTestFSChain) ForEachContainerNode(cid.ID, func(netmap.NodeInfo) bool) error {
 	panic("must not be called")
 }
 func (*noCallTestFSChain) IsOwnPublicKey([]byte) bool      { panic("must not be called") }
@@ -86,6 +93,9 @@ func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool { panic("must not be 
 
 type noCallTestStorage struct{}
 
+func (noCallTestStorage) SearchObjects(cid.ID, object.SearchFilters, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+	panic("must not be called")
+}
 func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
 	panic("must not be called")
 }
@@ -122,6 +132,15 @@ func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeReques
 func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+	panic("must not be called")
+}
+
+type noCallClients struct{}
+
+func (noCallClients) Get(clientcore.NodeInfo) (clientcore.MultiAddressClient, error) {
+	panic("must not be called")
+}
 
 type nopACLChecker struct{}
 
@@ -150,6 +169,9 @@ func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.
 	return v2.RequestInfo{}, nil
 }
 func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
+	return v2.RequestInfo{}, nil
+}
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 
@@ -207,6 +229,7 @@ func (x *testFSChain) CurrentEpoch() uint64 { return 0 }
 func (*testFSChain) LocalNodeUnderMaintenance() bool { return false }
 
 type testStorage struct {
+	noCallTestStorage
 	t testing.TB
 	// request data
 	obj *protoobject.Object
@@ -267,7 +290,8 @@ func TestServer_Replicate(t *testing.T) {
 	var noCallStorage noCallTestStorage
 	var noCallACLChecker noCallTestACLChecker
 	var noCallReqProc noCallTestReqInfoExtractor
-	noCallSrv := New(noCallObjSvc, 0, &noCallFSChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+	var noCallCs noCallClients
+	noCallSrv := New(noCallObjSvc, 0, &noCallFSChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 	clientSigner := neofscryptotest.Signer()
 	clientPubKey := neofscrypto.PublicKeyBytes(clientSigner.Public())
 	serverPubKey := neofscrypto.PublicKeyBytes(neofscryptotest.Signer().Public())
@@ -431,7 +455,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("apply storage policy failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
-		srv := New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+		srv := New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 
 		fsChain.cnrErr = errors.New("any error")
 
@@ -443,7 +467,7 @@ func TestServer_Replicate(t *testing.T) {
 
 	t.Run("client or server mismatches object's storage policy", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
-		srv := New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+		srv := New(noCallObjSvc, 0, fsChain, noCallStorage, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 
 		fsChain.serverOutsideCnr = true
 		fsChain.clientOutsideCnr = true
@@ -464,7 +488,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("local storage failure", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+		srv := New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 
 		s.storeErr = errors.New("any error")
 
@@ -480,7 +504,7 @@ func TestServer_Replicate(t *testing.T) {
 		reqForSignature, o := anyValidRequest(t, clientSigner, cnr, objID)
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, reqForSignature.Object)
-		srv := New(noCallObjSvc, mNumber, fsChain, s, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+		srv := New(noCallObjSvc, mNumber, fsChain, s, signer.ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 
 		t.Run("signature not requested", func(t *testing.T) {
 			resp, err := srv.Replicate(context.Background(), reqForSignature)
@@ -520,7 +544,7 @@ func TestServer_Replicate(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		fsChain := newTestFSChain(t, serverPubKey, clientPubKey, cnr)
 		s := newTestStorage(t, req.Object)
-		srv := New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc)
+		srv := New(noCallObjSvc, 0, fsChain, s, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, noCallACLChecker, noCallReqProc, noCallCs)
 
 		resp, err := srv.Replicate(context.Background(), req)
 		require.NoError(t, err)
@@ -543,7 +567,11 @@ func (nopFSChain) CurrentEpochDuration() uint64 {
 	return 240
 }
 
-func (x nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func(pubKey []byte) bool) error {
+func (nopFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, func([]byte) bool) error {
+	return nil
+}
+
+func (nopFSChain) ForEachContainerNode(cid.ID, func(netmap.NodeInfo) bool) error {
 	return nil
 }
 
@@ -559,12 +587,15 @@ func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil 
 func (nopStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
+func (nopStorage) SearchObjects(cid.ID, object.SearchFilters, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+	return nil, nil, nil
+}
 
 func BenchmarkServer_Replicate(b *testing.B) {
 	ctx := context.Background()
 	var fsChain nopFSChain
 
-	srv := New(nil, 0, fsChain, nopStorage{}, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{})
+	srv := New(nil, 0, fsChain, nopStorage{}, neofscryptotest.Signer().ECDSAPrivateKey, nopMetrics{}, nopACLChecker{}, nopReqInfoExtractor{}, noCallClients{})
 
 	for _, tc := range []struct {
 		name      string

@@ -857,3 +857,61 @@ func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) 
 	}
 	return f.Operation(), f.Value()
 }
+
+// CalculateCursor calculates cursor for the given last search result item.
+func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) (SearchCursor, error) {
+	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
+		return SearchCursor{Key: lastItem.ID[:]}, nil
+	}
+	attr := fs[0].Header()
+	var val []byte
+	switch attr {
+	default:
+		if n, ok := new(big.Int).SetString(lastItem.Attributes[0], 10); ok {
+			var res SearchCursor
+			res.Key = make([]byte, len(attr)+utf8DelimiterLen+intValLen+oid.Size)
+			off := copy(res.Key, attr)
+			res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
+			putInt(res.Key[res.ValIDOff:res.ValIDOff+intValLen], n)
+			copy(res.Key[res.ValIDOff+intValLen:], lastItem.ID[:])
+			return res, nil
+		}
+	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+		var err error
+		if val, err = base58.Decode(lastItem.Attributes[0]); err != nil {
+			return SearchCursor{}, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
+		}
+	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
+		ln := hex.DecodedLen(len(lastItem.Attributes[0]))
+		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {
+			return SearchCursor{}, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
+		}
+		var res SearchCursor
+		res.Key = make([]byte, len(attr)+utf8DelimiterLen+ln+oid.Size)
+		off := copy(res.Key, attr)
+		res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
+		var err error
+		if _, err = hex.Decode(res.Key[res.ValIDOff:], []byte(lastItem.Attributes[0])); err != nil {
+			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		}
+		copy(res.Key[res.ValIDOff+ln:], lastItem.ID[:])
+		return res, nil
+	case object.FilterSplitID:
+		uid, err := uuid.Parse(lastItem.Attributes[0])
+		if err != nil {
+			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		}
+		val = uid[:]
+	case object.FilterVersion, object.FilterType:
+	}
+	if val == nil {
+		val = []byte(lastItem.Attributes[0])
+	}
+	var res SearchCursor
+	res.Key = make([]byte, len(attr)+utf8DelimiterLen+len(val)+oid.Size)
+	off := copy(res.Key, attr)
+	res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
+	off = res.ValIDOff + copy(res.Key[res.ValIDOff:], val)
+	copy(res.Key[off:], lastItem.ID[:])
+	return res, nil
+}

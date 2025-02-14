@@ -40,6 +40,8 @@ func getContainerIDFromRequest(req any) (cid.ID, error) {
 		mID = v.GetBody().GetAddress().GetContainerId()
 	case *protoobject.SearchRequest:
 		mID = v.GetBody().GetContainerId()
+	case *protoobject.SearchV2Request:
+		mID = v.GetBody().GetContainerId()
 	case *protoobject.DeleteRequest:
 		mID = v.GetBody().GetAddress().GetContainerId()
 	case *protoobject.GetRangeRequest:
