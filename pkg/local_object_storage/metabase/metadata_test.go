@@ -1464,4 +1464,77 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 		})
 	})
+	t.Run("GC", func(t *testing.T) {
+		s := testEpochState(10)
+		db := newDB(t, WithEpochState(s))
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objs := make([]object.Object, len(ids))
+		const attrPlain, valPlain = "Plain", "Value"
+		const attrInt, valInt = "Int", "100"
+		// store
+		cnr := cidtest.ID()
+		for i := range objs {
+			appendAttribute(&objs[i], attrPlain, valPlain)
+			appendAttribute(&objs[i], attrInt, valInt)
+			objs[i].SetID(ids[i])
+			objs[i].SetContainerID(cnr)
+			if i == 3 {
+				appendAttribute(&objs[i], object.AttributeExpirationEpoch, "11")
+			}
+			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+			require.NoError(t, db.Put(&objs[i], nil, nil))
+		}
+
+		check := func(t testing.TB, exp []oid.ID) {
+			check := func(res []client.SearchResultItem, err error) {
+				require.NoError(t, err)
+				require.Len(t, res, len(exp))
+				for i := range exp {
+					require.Equal(t, exp[i], res[i].ID)
+				}
+			}
+			res, _, err := db.Search(cnr, nil, nil, nil, 1000)
+			check(res, err)
+			var fs object.SearchFilters
+			fs.AddFilter(attrPlain, valPlain, object.MatchStringEqual)
+			res, _, err = db.Search(cnr, fs, []string{attrPlain}, nil, 1000)
+			check(res, err)
+			fs = fs[:0]
+			fs.AddFilter(attrInt, valInt, object.MatchStringEqual)
+			res, _, err = db.Search(cnr, fs, []string{attrInt}, nil, 1000)
+			check(res, err)
+		}
+		// all available
+		check(t, ids)
+		t.Run("garbage mark", func(t *testing.T) {
+			_, _, err := db.MarkGarbage(false, false, oid.NewAddress(cnr, ids[1]))
+			require.NoError(t, err)
+			check(t, slices.Concat(ids[:1], ids[2:]))
+			// lock resurrects the object
+			err = db.Lock(cnr, oidtest.ID(), []oid.ID{ids[1]})
+			require.NoError(t, err)
+			check(t, ids)
+		})
+		t.Run("tombstone", func(t *testing.T) {
+			_, _, err := db.Inhume(oid.NewAddress(cnr, oidtest.ID()), math.MaxUint64, false, oid.NewAddress(cnr, ids[2]))
+			require.NoError(t, err)
+			check(t, slices.Concat(ids[:2], ids[3:]))
+			// lock resurrects the object
+			err = db.Lock(cnr, oidtest.ID(), []oid.ID{ids[2]})
+			require.NoError(t, err)
+			check(t, ids)
+		})
+		t.Run("expired", func(t *testing.T) {
+			*s++
+			check(t, ids)
+			*s++
+			check(t, slices.Concat(ids[:3], ids[4:]))
+			check(t, slices.Concat(ids[:3], ids[4:]))
+		})
+		t.Run("rm", func(t *testing.T) {
+			_, err := db.Delete([]oid.Address{oid.NewAddress(cnr, ids[4])})
+			require.NoError(t, err)
+			check(t, slices.Concat(ids[:3], ids[5:]))
+		})
+	})
 }

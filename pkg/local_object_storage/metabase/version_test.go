@@ -261,12 +261,13 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 	return inhumed, deletedLockObjs, err
 }
 
-const testEpoch = 123
+type epochState uint64
 
-type epochState struct{}
+func (s epochState) CurrentEpoch() uint64 { return uint64(s) }
 
-func (s epochState) CurrentEpoch() uint64 {
-	return testEpoch
+func testEpochState(e uint64) *epochState {
+	s := epochState(e)
+	return &s
 }
 
 func newDB(t testing.TB, opts ...Option) *DB {
@@ -276,7 +277,7 @@ func newDB(t testing.TB, opts ...Option) *DB {
 		append([]Option{
 			WithPath(p),
 			WithPermissions(0o600),
-			WithEpochState(epochState{}),
+			WithEpochState(testEpochState(123)),
 		}, opts...)...,
 	)
 
@@ -292,11 +293,12 @@ func newDB(t testing.TB, opts ...Option) *DB {
 }
 
 func TestMigrate2to3(t *testing.T) {
+	const testEpoch = 123
 	expectedEpoch := uint64(testEpoch + objectconfig.DefaultTombstoneLifetime)
 	expectedEpochRaw := make([]byte, 8)
 	binary.LittleEndian.PutUint64(expectedEpochRaw, expectedEpoch)
 
-	db := newDB(t)
+	db := newDB(t, WithEpochState(testEpochState(testEpoch)))
 
 	testObjs := oidtest.Addresses(1024)
 	tomb := oidtest.Address()
@@ -315,7 +317,7 @@ func TestMigrate2to3(t *testing.T) {
 	require.NoError(t, err)
 
 	db.mode = mode.DegradedReadOnly // Force reload.
-	ok, err := db.Reload(WithPath(db.info.Path), WithEpochState(epochState{}))
+	ok, err := db.Reload(WithPath(db.info.Path), WithEpochState(testEpochState(123)))
 	require.NoError(t, err)
 	require.True(t, ok)
 

@@ -47,7 +47,6 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 }
 
 // TODO: fill on migration.
-// TODO: cleaning on obj removal.
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
 	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
 	root, phy bool) error {
@@ -123,6 +122,44 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 	return nil
 }
 
+func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
+	metaBkt := tx.Bucket(metaBucketKey(cnr))
+	if metaBkt == nil {
+		return nil
+	}
+	pref := slices.Concat([]byte{metaPrefixID}, id[:])
+	if err := metaBkt.Delete(pref); err != nil {
+		return err
+	}
+	// removed keys must be pre-collected according to BoltDB docs.
+	var ks [][]byte
+	pref[0] = metaPrefixIDAttr
+	c := metaBkt.Cursor()
+	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
+		sepInd := bytes.LastIndex(kIDAttr, utf8Delimiter)
+		if sepInd < 0 {
+			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
+		}
+		kAttrID := slices.Clone(kIDAttr)
+		kAttrID[0] = metaPrefixAttrIDPlain
+		copy(kAttrID[1:], kIDAttr[1+oid.Size:])
+		copy(kAttrID[len(kAttrID)-oid.Size:], id[:])
+		if val := kIDAttr[sepInd+utf8DelimiterLen:]; len(val) == intValLen && val[0] <= 1 { // most likely integer
+			kAttrIDInt := slices.Clone(kAttrID)
+			kAttrIDInt[0] = metaPrefixAttrIDInt
+			ks = append(ks, kIDAttr, kAttrID, kAttrIDInt)
+		} else { // non-int
+			ks = append(ks, kIDAttr, kAttrID)
+		}
+	}
+	for i := range ks {
+		if err := metaBkt.Delete(ks[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SearchCursor is a cursor used for continuous search in the DB.
 type SearchCursor struct {
 	Key      []byte // PREFIX_ATTR_DELIM_VAL_ID, prefix is unset
@@ -190,12 +227,8 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, attrs []string, cursor
 	var res []client.SearchResultItem
 	var newCursor *SearchCursor
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		mb := tx.Bucket(metaBucketKey(cnr))
-		if mb == nil {
-			return nil
-		}
 		var err error
-		res, newCursor, err = db.searchInBucket(mb, fs, attrs, cursor, count)
+		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
 		return err
 	})
 	if err != nil {
@@ -204,8 +237,11 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, attrs []string, cursor
 	return res, newCursor, nil
 }
 
-func (db *DB) searchInBucket(metaBkt *bbolt.Bucket, fs object.SearchFilters, attrs []string,
-	cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+	metaBkt := tx.Bucket(metaBucketKey(cnr))
+	if metaBkt == nil {
+		return nil, nil, nil
+	}
 	// TODO: make as much as possible outside the Bolt tx
 	primMatcher, primVal := convertFilterValue(fs[0])
 	intPrimMatcher := isNumericOp(primMatcher)
@@ -265,7 +301,7 @@ func (db *DB) searchInBucket(metaBkt *bbolt.Bucket, fs object.SearchFilters, att
 	var id, dbVal []byte
 	var keyBuf keyBuffer
 	attrSkr := &metaAttributeSeeker{keyBuf: &keyBuf, bkt: metaBkt}
-
+	curEpoch := db.epochState.CurrentEpoch()
 nextPrimKey:
 	for ; bytes.HasPrefix(primKey, primSeekPrefix); primKey, _ = primCursor.Next() {
 		if notPresentPrimMatcher {
@@ -369,6 +405,9 @@ nextPrimKey:
 				}
 			}
 		}
+		if objectStatus(tx, oid.NewAddress(cnr, oid.ID(id)), curEpoch) > 0 { // GC-ed
+			continue nextPrimKey
+		}
 		// object matches, collect attributes
 		collected := make([]string, len(attrs))
 		var primDBVal []byte
@@ -460,6 +499,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 	res := make([]client.SearchResultItem, count)
 	var n uint16
 	var newCursor *SearchCursor
+	curEpoch := db.epochState.CurrentEpoch()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		mb := tx.Bucket(metaBucketKey(cnr))
 		if mb == nil {
@@ -480,6 +520,9 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 				return invalidMetaBucketKeyErr(k, fmt.Errorf("unexpected object key len %d", len(k)))
 			}
 			res[n].ID = oid.ID(k[1:])
+			if objectStatus(tx, oid.NewAddress(cnr, res[n].ID), curEpoch) > 0 { // GC-ed
+				continue
+			}
 			n++
 		}
 		return nil
