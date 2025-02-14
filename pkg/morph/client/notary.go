@@ -767,6 +767,13 @@ func (c *Client) CalculateNonceAndVUB(hash util.Uint256) (nonce uint32, vub uint
 
 	nonce = binary.LittleEndian.Uint32(hash.BytesLE())
 
+	if hash.Equals(util.Uint256{}) {
+		vub, err = c.notaryTxValidationLimit(conn)
+		if err != nil {
+			return 0, 0, fmt.Errorf("could not get vub validation limit: %w", err)
+		}
+		return nonce, vub, nil
+	}
 	height, err := c.getTransactionHeight(conn, hash)
 	if err != nil {
 		return 0, 0, fmt.Errorf("could not get transaction height: %w", err)
