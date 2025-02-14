@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Container system attributes verification on IR side (#3107)
 - IR `fschain.consensus.rpc.max_websocket_clients` and `fschain.consensus.rpc.session_pool_size` config options (#3126)
 - `ObjectService.SearchV2` SN API (#3111)
+- `neofs-cli object searchv2` command (#3119)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
