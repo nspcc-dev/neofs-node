@@ -299,7 +299,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, attrs 
 	collectedPrimKeys := make([][]byte, count) // TODO: can be done w/o slice
 	var n uint16
 	var more bool
-	var id, dbVal []byte
+	var id, dbVal, primDBVal []byte
 	var keyBuf keyBuffer
 	attrSkr := &metaAttributeSeeker{keyBuf: &keyBuf, bkt: metaBkt}
 	curEpoch := db.epochState.CurrentEpoch()
@@ -314,10 +314,11 @@ nextPrimKey:
 			if len(valID) <= oid.Size {
 				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("too small VAL_OID len %d", len(valID)))
 			}
-			dbVal, id = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
+			primDBVal, id = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
+			dbVal = primDBVal
 			if !intPrimMatcher && primKey[0] == metaPrefixAttrIDInt {
 				var err error
-				if dbVal, err = restoreIntAttributeVal(dbVal); err != nil {
+				if dbVal, err = restoreIntAttributeVal(primDBVal); err != nil {
 					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid integer value: %w", err))
 				}
 			}
@@ -411,13 +412,9 @@ nextPrimKey:
 		}
 		// object matches, collect attributes
 		collected := make([]string, len(attrs))
-		var primDBVal []byte
 		var insertI uint16
 		if len(attrs) > 0 {
 			var err error
-			if primDBVal, err = attrSkr.get(id, attrs[0]); err != nil {
-				return nil, nil, err
-			}
 			if cursor != nil { // can be < than previous response chunk
 				if c := bytes.Compare(primDBVal, prevResPrimVal); c < 0 || c == 0 && bytes.Compare(id, prevResOID) <= 0 {
 					continue nextPrimKey
