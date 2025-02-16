@@ -25,6 +25,7 @@ There are some custom types used for brevity:
 | `replicator` | [Replicator service configuration](#replicator-section) |
 | `storage`    | [Storage engine configuration](#storage-section)        |
 | `grpc`       | [gRPC configuration](#grpc-section)                     |
+| `metadata`   | [Meta service configuration](#meta-section)             |
 | `node`       | [Node configuration](#node-section)                     |
 | `object`     | [Object service configuration](#object-section)         |
 | `tree`       | [Tree service configuration](#tree-section)             |
@@ -299,6 +300,17 @@ pilorama:
 | `no_sync`         | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.          |
 
 
+
+# `metadata` section
+
+```yaml
+metadata:
+  path: path/to/meta
+```
+
+| Parameter         | Type       | Default value | Description                           |
+|-------------------|------------|---------------|---------------------------------------|
+| `path`            | `string`   |               | Path to meta data storages, required. |
 
 # `node` section
 
