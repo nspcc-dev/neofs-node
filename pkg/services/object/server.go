@@ -2061,8 +2061,13 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		if err != nil {
 			return nil, err
 		}
+		withAttr := len(body.Attributes) > 0
+		cmpInt := withAttr && len(fs) > 0 && objectcore.IsIntegerSearchOp(fs[0].Operation())
 		var more bool
-		if res, more = objectcore.MergeSearchResults(count, len(body.Attributes) > 0, sets, mores); more {
+		if res, more, err = objectcore.MergeSearchResults(count, withAttr, cmpInt, sets, mores); err != nil {
+			return nil, fmt.Errorf("merge results from container nodes: %w", err)
+		}
+		if more {
 			c, err := meta.CalculateCursor(fs, res[len(res)-1])
 			if err != nil {
 				return nil, fmt.Errorf("recalculate cursor: %w", err)
