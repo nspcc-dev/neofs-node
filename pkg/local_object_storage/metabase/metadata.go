@@ -377,17 +377,17 @@ nextPrimKey:
 				if m == object.MatchNotPresent {
 					continue nextPrimKey
 				}
-				if dbValInt == nil {
-					// do the same as for primary attribute, but unlike there, here we don't know
-					// whether the attribute is expected to be integer or not.
-					dbValInt = new([]byte)
-					if n, ok := new(big.Int).SetString(string(dbVal), 10); ok {
-						*dbValInt = intBytes(n)
-						// TODO: do not make double conversions https://github.com/nspcc-dev/neofs-node/issues/3131#issuecomment-2658691042
-					}
-				}
 				checkedDBVal := dbVal
 				if objectcore.IsIntegerSearchOp(m) {
+					if dbValInt == nil {
+						// do the same as for primary attribute, but unlike there, here we don't know
+						// whether the attribute is expected to be integer or not.
+						dbValInt = new([]byte)
+						if n, ok := new(big.Int).SetString(string(dbVal), 10); ok {
+							*dbValInt = intBytes(n)
+							// TODO: do not make double conversions https://github.com/nspcc-dev/neofs-node/issues/3131#issuecomment-2658691042
+						}
+					}
 					if checkedDBVal = *dbValInt; checkedDBVal == nil {
 						continue nextPrimKey
 					}
