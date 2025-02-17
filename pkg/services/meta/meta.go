@@ -47,7 +47,6 @@ type Meta struct {
 
 	timeout     time.Duration
 	magicNumber uint32
-	cliCtx      context.Context // for client context only, as it is required by the lib
 	ws          *rpcclient.WSClient
 	bCh         chan *block.Header
 	objEv       chan *state.ContainedNotificationEvent
@@ -180,10 +179,8 @@ func (m *Meta) Run(ctx context.Context) error {
 		m.m.Unlock()
 	}()
 
-	m.cliCtx = ctx
-
 	var err error
-	m.ws, err = m.connect()
+	m.ws, err = m.connect(ctx)
 	if err != nil {
 		return fmt.Errorf("connect to NEO RPC: %w", err)
 	}

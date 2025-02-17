@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
@@ -63,7 +64,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 		select {
 		case h, ok := <-m.bCh:
 			if !ok {
-				err := m.reconnect()
+				err := m.reconnect(ctx)
 				if err != nil {
 					return err
 				}
@@ -80,7 +81,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			}()
 		case aer, ok := <-m.objEv:
 			if !ok {
-				err := m.reconnect()
+				err := m.reconnect(ctx)
 				if err != nil {
 					return err
 				}
@@ -93,7 +94,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			m.objNotificationBuff <- aer
 		case aer, ok := <-m.cnrDelEv:
 			if !ok {
-				err := m.reconnect()
+				err := m.reconnect(ctx)
 				if err != nil {
 					return err
 				}
@@ -128,7 +129,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			}()
 		case aer, ok := <-m.cnrPutEv:
 			if !ok {
-				err := m.reconnect()
+				err := m.reconnect(ctx)
 				if err != nil {
 					return err
 				}
@@ -158,7 +159,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			l.Debug("added container storage", zap.Stringer("cID", ev.cID))
 		case aer, ok := <-m.epochEv:
 			if !ok {
-				err := m.reconnect()
+				err := m.reconnect(ctx)
 				if err != nil {
 					return err
 				}
@@ -188,11 +189,11 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 	}
 }
 
-func (m *Meta) reconnect() error {
+func (m *Meta) reconnect(ctx context.Context) error {
 	m.l.Warn("reconnecting to web socket client due to connection lost")
 
 	var err error
-	m.ws, err = m.connect()
+	m.ws, err = m.connect(ctx)
 	if err != nil {
 		return fmt.Errorf("reconnecting to web socket: %w", err)
 	}
@@ -211,27 +212,36 @@ func (m *Meta) reconnect() error {
 	return nil
 }
 
-func (m *Meta) connect() (*rpcclient.WSClient, error) {
+func (m *Meta) connect(ctx context.Context) (*rpcclient.WSClient, error) {
 	m.cfgM.RLock()
 	endpoints := slices.Clone(m.endpoints)
 	m.cfgM.RUnlock()
 
 	var cli *rpcclient.WSClient
 	var err error
-	for _, e := range endpoints {
-		cli, err = rpcclient.NewWS(m.cliCtx, e, rpcclient.WSOptions{
-			Options: rpcclient.Options{
-				DialTimeout: m.timeout,
-			},
-		})
-		if err == nil {
-			break
+outer:
+	for {
+		for _, e := range endpoints {
+			cli, err = rpcclient.NewWS(ctx, e, rpcclient.WSOptions{
+				Options: rpcclient.Options{
+					DialTimeout: m.timeout,
+				},
+			})
+			if err == nil {
+				break outer
+			}
+
+			m.l.Warn("creating rpc client", zap.String("endpoint", e), zap.Error(err))
 		}
 
-		m.l.Warn("creating rpc client", zap.String("endpoint", e), zap.Error(err))
-	}
-	if err != nil {
-		return nil, fmt.Errorf("could not create web socket client, last error: %w", err)
+		const reconnectionCooldown = time.Second * 5
+		m.l.Error("FS chain reconnection failed", zap.Duration("cooldown time", reconnectionCooldown))
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(reconnectionCooldown):
+		}
 	}
 
 	err = cli.Init()
