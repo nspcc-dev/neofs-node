@@ -34,27 +34,27 @@ func appendAttribute(obj *object.Object, k, v string) {
 	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
 }
 
-func assertAttrPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T) {
+func assertAttrPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, valAttrID, valIDAttr T) {
 	k := []byte{prefix}
 	k = append(k, attr...)
 	k = append(k, 0xFF)
-	k = append(k, val...)
+	k = append(k, valAttrID...)
 	k = append(k, id[:]...)
 	require.Equal(t, []byte{}, mb.Get(k))
 	k = []byte{0x03}
 	k = append(k, id[:]...)
 	k = append(k, attr...)
 	k = append(k, 0xFF)
-	k = append(k, val...)
+	k = append(k, valIDAttr...)
 	require.Equal(t, []byte{}, mb.Get(k))
 }
 
 func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T) {
-	assertAttrPrefixed(t, mb, id, 0x02, attr, val)
+	assertAttrPrefixed(t, mb, id, 0x02, attr, val, val)
 }
 
-func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val []byte) {
-	assertAttrPrefixed(t, mb, id, 0x01, attr, val)
+func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
+	assertAttrPrefixed(t, mb, id, 0x01, attr, val, []byte(origin))
 }
 
 func TestPutMetadata(t *testing.T) {
@@ -124,26 +124,26 @@ func TestPutMetadata(t *testing.T) {
 		assertAttr(t, mb, id, "$Object:homomorphicHash", pldHmmHashBytes[:])
 		assertAttr(t, mb, id, "$Object:split.parent", parentID[:])
 		assertAttr(t, mb, id, "$Object:split.first", firstID[:])
-		assertIntAttr(t, mb, id, "$Object:creationEpoch", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		assertIntAttr(t, mb, id, "$Object:creationEpoch", "7311064694303989735", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 101, 118, 30, 154, 145, 227, 159, 231})
-		assertIntAttr(t, mb, id, "$Object:payloadLength", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		assertIntAttr(t, mb, id, "$Object:payloadLength", "2091724451450177666", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 29, 7, 76, 78, 96, 175, 200, 130})
 		assertAttr(t, mb, id, "$Object:ROOT", "1")
 		assertAttr(t, mb, id, "$Object:PHY", "1")
 		assertAttr(t, mb, id, "attr_1", "val_1")
 		assertAttr(t, mb, id, "attr_2", "val_2")
 		assertAttr(t, mb, id, "num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
-		assertIntAttr(t, mb, id, "num_negative_min", []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		assertIntAttr(t, mb, id, "num_negative_min", "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-		assertIntAttr(t, mb, id, "num_negative_min64", []byte{0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		assertIntAttr(t, mb, id, "num_negative_min64", "-9223372036854775808", []byte{0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 127, 255, 255, 255, 255, 255, 255, 255})
-		assertIntAttr(t, mb, id, "num_negative_max", []byte{0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		assertIntAttr(t, mb, id, "num_negative_max", "-1", []byte{0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254})
-		assertIntAttr(t, mb, id, "num_zero", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		assertIntAttr(t, mb, id, "num_zero", "0", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
-		assertIntAttr(t, mb, id, "num_positive_max64", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		assertIntAttr(t, mb, id, "num_positive_max64", "18446744073709551615", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255})
-		assertIntAttr(t, mb, id, "num_positive_max", []byte{1, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		assertIntAttr(t, mb, id, "num_positive_max", "115792089237316195423570985008687907853269984665640564039457584007913129639935", []byte{1, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
 		assertAttr(t, mb, id, "num_positive_overflow", "115792089237316195423570985008687907853269984665640564039457584007913129639936")
 
