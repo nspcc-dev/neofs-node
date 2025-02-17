@@ -696,8 +696,8 @@ func matchValues(dbVal []byte, matcher object.SearchMatchType, fltVal []byte) bo
 	case matcher == object.MatchCommonPrefix:
 		return bytes.HasPrefix(dbVal, fltVal)
 	case objectcore.IsIntegerSearchOp(matcher):
-		var n big.Int
-		return n.UnmarshalText(fltVal) == nil && intMatches(dbVal, matcher, &n)
+		n, ok := new(big.Int).SetString(string(fltVal), 10)
+		return ok && intMatches(dbVal, matcher, n)
 	}
 }
 
