@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,7 +16,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit/auditor"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/placement"
+	storagegroupsvc "github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -226,23 +232,29 @@ func (c *ClientCache) getWrappedClient(info clientcore.NodeInfo) (neofsapiclient
 	return cInternal, nil
 }
 
-func (c ClientCache) ListSG(dst *storagegroup2.SearchSGDst, prm storagegroup2.SearchSGPrm) error {
-	cli, err := c.getWrappedClient(prm.NodeInfo)
+func (c ClientCache) ListSG(ctx context.Context, node clientcore.NodeInfo, cnr cid.ID, notExpiredAt uint64) ([]oid.ID, error) {
+	cli, err := c.Get(node)
 	if err != nil {
-		return fmt.Errorf("could not get API client from cache")
+		return nil, fmt.Errorf("could not get API client from cache: %w", err)
 	}
 
-	var cliPrm neofsapiclient.SearchSGPrm
-
-	cliPrm.SetContext(prm.Context)
-	cliPrm.SetContainerID(prm.Container)
-
-	res, err := cli.SearchSG(cliPrm)
-	if err != nil {
-		return err
+	fs := storagegroupsvc.SearchQuery()
+	fs.AddFilter(object.AttributeExpirationEpoch, strconv.FormatUint(notExpiredAt, 10), object.MatchNumGE)
+	var opts client.SearchObjectsOptions
+	var cursor string
+	var next []client.SearchResultItem
+	var res []oid.ID
+	for {
+		next, cursor, err = cli.SearchObjects(ctx, cnr, fs, nil, cursor, (*neofsecdsa.Signer)(c.key), opts)
+		if err != nil {
+			return nil, fmt.Errorf("search objects RPC: %w", err)
+		}
+		res = slices.Grow(res, len(res)+len(next))
+		for i := range next {
+			res = append(res, next[i].ID)
+		}
+		if cursor == "" {
+			return res, nil
+		}
 	}
-
-	dst.Objects = res.IDList()
-
-	return nil
 }

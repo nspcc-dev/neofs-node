@@ -10,20 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 )
 
-// SearchSGPrm groups the parameters which are formed by Processor to search the storage group objects.
-type SearchSGPrm struct {
-	Context context.Context
-
-	Container cid.ID
-
-	NodeInfo client.NodeInfo
-}
-
-// SearchSGDst groups the target values which Processor expects from SG searching to process.
-type SearchSGDst struct {
-	Objects []oid.ID
-}
-
 // GetSGPrm groups parameter of GetSG operation.
 type GetSGPrm struct {
 	Context context.Context
@@ -37,10 +23,11 @@ type GetSGPrm struct {
 
 // SGSource is a storage group information source interface.
 type SGSource interface {
-	// ListSG must list storage group objects in the container. Formed list must be written to destination.
+	// ListSG must list container's storage group objects not expired at the
+	// specified current epoch.
 	//
 	// Must return any error encountered which did not allow to form the list.
-	ListSG(*SearchSGDst, SearchSGPrm) error
+	ListSG(context.Context, client.NodeInfo, cid.ID, uint64) ([]oid.ID, error)
 
 	// GetSG must return storage group object for the provided CID, OID,
 	// container and netmap state.

@@ -322,6 +322,16 @@ func (x *multiClient) ObjectSearchInit(ctx context.Context, containerID cid.ID, 
 	return
 }
 
+func (x *multiClient) SearchObjects(ctx context.Context, cnr cid.ID, fs objectSDK.SearchFilters, attrs []string, cursor string,
+	signer neofscrypto.Signer, opts client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
+	var res []client.SearchResultItem
+	return res, cursor, x.iterateClients(ctx, func(c clientcore.Client) error {
+		var err error
+		res, cursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
+		return err
+	})
+}
+
 func (x *multiClient) AnnounceLocalTrust(ctx context.Context, epoch uint64, trusts []reputationSDK.Trust, prm client.PrmAnnounceLocalTrust) error {
 	return x.iterateClients(ctx, func(c clientcore.Client) error {
 		return c.AnnounceLocalTrust(ctx, epoch, trusts, prm)

@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 
 ### Changed
+- IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
 
 ### Removed
 
