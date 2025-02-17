@@ -1989,6 +1989,9 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
+	if !meta.PreprocessIntFilters(fs) {
+		return nil, nil
+	}
 	var primAttr string
 	if len(fs) > 0 {
 		primAttr = fs[0].Header()

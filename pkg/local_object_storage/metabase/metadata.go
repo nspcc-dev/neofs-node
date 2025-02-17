@@ -703,20 +703,14 @@ func matchValues(dbVal []byte, matcher object.SearchMatchType, fltVal []byte) bo
 
 func intMatches(dbVal []byte, matcher object.SearchMatchType, fltVal *big.Int) bool {
 	if c := fltVal.Cmp(maxUint256); c >= 0 {
-		if matcher == object.MatchNumGT || c > 0 && matcher == object.MatchNumGE {
-			return false
-		}
 		if matcher == object.MatchNumLE || c > 0 && matcher == object.MatchNumLT {
 			return true
-		}
+		} // > and >= already handled
 	}
 	if c := fltVal.Cmp(maxUint256Neg); c <= 0 {
-		if matcher == object.MatchNumLT || c < 0 && matcher == object.MatchNumLE {
-			return false
-		}
 		if matcher == object.MatchNumGE || c < 0 && matcher == object.MatchNumGT {
 			return true
-		}
+		} // < and <= already handled
 	}
 	fltValBytes := intBytes(fltVal) // TODO: buffer can be useful for other filters
 	switch matcher {
@@ -892,4 +886,29 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	off = res.ValIDOff + copy(res.Key[res.ValIDOff:], val)
 	copy(res.Key[off:], lastItem.ID[:])
 	return res, nil
+}
+
+// PreprocessIntFilters checks whether any object can match numeric filters from
+// the given set, and returns false if not.
+func PreprocessIntFilters(fs object.SearchFilters) bool {
+	for i := range fs {
+		m, val := convertFilterValue(fs[i])
+		if !isNumericOp(m) {
+			continue
+		}
+		n, ok := new(big.Int).SetString(val, 10)
+		if !ok {
+			return false
+		}
+		if c := n.Cmp(maxUint256); c >= 0 {
+			if m == object.MatchNumGT || c > 0 && m == object.MatchNumGE {
+				return false
+			}
+		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
+			if m == object.MatchNumLT || c < 0 && m == object.MatchNumLE {
+				return false
+			}
+		}
+	}
+	return true
 }

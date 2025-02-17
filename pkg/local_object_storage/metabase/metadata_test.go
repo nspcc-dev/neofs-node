@@ -234,11 +234,7 @@ func TestApplyFilter(t *testing.T) {
 		for i, n := range ns {
 			check(n, object.MatchNumGT, ltMin, true)
 			check(n, object.MatchNumGE, ltMin, true)
-			check(n, object.MatchNumLT, ltMin, false)
-			check(n, object.MatchNumLE, ltMin, false)
 
-			check(n, object.MatchNumGT, gtMax, false)
-			check(n, object.MatchNumGE, gtMax, false)
 			check(n, object.MatchNumLT, gtMax, true)
 			check(n, object.MatchNumLE, gtMax, true)
 
@@ -263,13 +259,17 @@ func TestApplyFilter(t *testing.T) {
 			minusOne := new(big.Int).Sub(n, one)
 			check(n, object.MatchNumGT, minusOne, true)
 			check(n, object.MatchNumGE, minusOne, true)
-			check(n, object.MatchNumLT, minusOne, false)
-			check(n, object.MatchNumLE, minusOne, false)
+			if minusOne.Cmp(maxUint256Neg) >= 0 {
+				check(n, object.MatchNumLT, minusOne, false)
+				check(n, object.MatchNumLE, minusOne, false)
+			}
 			plusOne := new(big.Int).Add(n, one)
-			check(n, object.MatchNumGT, plusOne, false)
-			check(n, object.MatchNumGE, plusOne, false)
 			check(n, object.MatchNumLT, plusOne, true)
 			check(n, object.MatchNumLE, plusOne, true)
+			if plusOne.Cmp(maxUint256) <= 0 {
+				check(n, object.MatchNumGT, plusOne, false)
+				check(n, object.MatchNumGE, plusOne, false)
+			}
 		}
 	})
 }
