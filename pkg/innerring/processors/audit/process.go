@@ -118,12 +118,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 
 	ln := len(shuffled)
 
-	var (
-		info clientcore.NodeInfo
-		prm  storagegroup.SearchSGPrm
-	)
-
-	prm.Container = cnr
+	var info clientcore.NodeInfo
 
 	for i := range shuffled { // consider iterating over some part of container
 		log := ap.log.With(
@@ -141,14 +136,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), ap.searchTimeout)
-
-		prm.Context = ctx
-		prm.NodeInfo = info
-
-		var dst storagegroup.SearchSGDst
-
-		err = ap.sgSrc.ListSG(&dst, prm)
-
+		ids, err := ap.sgSrc.ListSG(ctx, info, cnr, ap.epochSrc.EpochCounter())
 		cancel()
 
 		if err != nil {
@@ -156,7 +144,7 @@ func (ap *Processor) findStorageGroups(cnr cid.ID, shuffled netmapcore.Nodes) []
 			continue
 		}
 
-		sg = append(sg, dst.Objects...)
+		sg = append(sg, ids...)
 
 		break // we found storage groups, so break loop
 	}
