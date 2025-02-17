@@ -349,7 +349,7 @@ nextPrimKey:
 		}
 		// apply other filters
 		for i := range fs {
-			if !notPresentPrimMatcher && i == 0 { // 1st already checked
+			if !notPresentPrimMatcher && (i == 0 || fs[i].Header() == fs[0].Header()) { // 1st already checked
 				continue
 			}
 			attr := fs[i].Header() // emptiness already prevented
