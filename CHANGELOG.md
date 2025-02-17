@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 - Write-cache size estimations (#3106)
 - New network map support solving the limit of ~320 nodes per network
+- IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)
