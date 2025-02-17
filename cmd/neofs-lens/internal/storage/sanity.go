@@ -50,8 +50,12 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 	defer func() {
 		for _, sh := range shards {
 			_ = sh.m.Close()
-			_ = sh.p.Close()
-			_ = sh.fsT.Close()
+			if sh.p != nil {
+				_ = sh.p.Close()
+			}
+			if sh.fsT != nil {
+				_ = sh.fsT.Close()
+			}
 		}
 	}()
 
@@ -100,11 +104,15 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 		if err := sh.m.Open(true); err != nil {
 			return fmt.Errorf("open metabase: %w", err)
 		}
-		if err := sh.p.Open(true); err != nil {
-			return fmt.Errorf("open peapod: %w", err)
+		if sh.p != nil {
+			if err := sh.p.Open(true); err != nil {
+				return fmt.Errorf("open peapod: %w", err)
+			}
 		}
-		if err := sh.fsT.Open(true); err != nil {
-			return fmt.Errorf("open fstree: %w", err)
+		if sh.fsT != nil {
+			if err := sh.fsT.Open(true); err != nil {
+				return fmt.Errorf("open fstree: %w", err)
+			}
 		}
 
 		// metabase.Open(true) does not set it mode to RO somehow
@@ -115,11 +123,15 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 		if err := sh.m.Init(); err != nil {
 			return fmt.Errorf("init metabase: %w", err)
 		}
-		if err := sh.p.Init(); err != nil {
-			return fmt.Errorf("init peapod: %w", err)
+		if sh.p != nil {
+			if err := sh.p.Init(); err != nil {
+				return fmt.Errorf("init peapod: %w", err)
+			}
 		}
-		if err := sh.fsT.Init(); err != nil {
-			return fmt.Errorf("init fstree: %w", err)
+		if sh.fsT != nil {
+			if err := sh.fsT.Init(); err != nil {
+				return fmt.Errorf("init fstree: %w", err)
+			}
 		}
 
 		shards = append(shards, sh)
@@ -195,9 +207,17 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 
 			switch id := string(sid); id {
 			case "":
-				err = checkObject(*header, sh.fsT)
+				if sh.fsT != nil {
+					err = checkObject(*header, sh.fsT)
+				} else {
+					err = fmt.Errorf("incorrect metabase, no FSTree, but object found")
+				}
 			case peapod.Type:
-				err = checkObject(*header, sh.p)
+				if sh.p != nil {
+					err = checkObject(*header, sh.p)
+				} else {
+					err = fmt.Errorf("incorrect metabase, no Peapod, but object found")
+				}
 			default:
 				err = fmt.Errorf("uknown storage ID: %s", id)
 			}
