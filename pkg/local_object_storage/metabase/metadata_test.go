@@ -950,6 +950,97 @@ func TestDB_SearchObjects(t *testing.T) {
 					check(tc.key, object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
 				})
 			}
+			t.Run("mixed", func(t *testing.T) {
+				// this test cover cases when same attribute may appear as both int and non-int
+				const attr = "IntMixed"
+				vals := []string{"-11", "-1a", "0", "11", "11a", "12", "no digits", "o"}
+				ids := sortObjectIDs(oidtest.IDs(len(vals)))
+				slices.Reverse(ids)
+				objs := make([]object.Object, len(vals))
+				for i := range objs {
+					appendAttribute(&objs[i], attr, vals[i])
+				}
+				// store
+				cnr := cidtest.ID()
+				for i := range objs {
+					objs[i].SetContainerID(cnr)
+					objs[i].SetID(ids[i])
+					objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
+					require.NoError(t, db.Put(&objs[i], nil, nil))
+				}
+				check := func(tb testing.TB, m object.SearchMatchType, val string, inds ...int) {
+					var fs object.SearchFilters
+					fs.AddFilter(attr, val, m)
+					res, _, err := db.Search(cnr, fs, []string{attr}, nil, 1000)
+					require.NoError(t, err)
+					require.Len(t, res, len(inds))
+					for i, ind := range inds {
+						require.Equal(t, ids[ind], res[i].ID, vals[i])
+					}
+				}
+				t.Run("EQ", func(t *testing.T) {
+					for i := range vals {
+						check(t, object.MatchStringEqual, vals[i], i)
+					}
+				})
+				t.Run("NE", func(t *testing.T) {
+					t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3131")
+					for i := range vals {
+						others := make([]int, 0, len(vals)-1)
+						for j := range vals {
+							if j != i {
+								others = append(others, j)
+							}
+						}
+						check(t, object.MatchStringNotEqual, vals[i], others...)
+					}
+					t.Run("jump while not yet limit", func(t *testing.T) {
+						// iterator starts from int attribute key space, and once it is finished - jumps
+						// to the plain one. It must not forget to check plain attributes since there
+						// can be matching elements that should be returned according to the sorting.
+						var fs object.SearchFilters
+						fs.AddFilter(attr, "missing", object.MatchStringNotEqual)
+						res, cursor, err := db.Search(cnr, fs, []string{attr}, nil, 2)
+						require.NoError(t, err)
+						require.Len(t, res, 2)
+						require.Equal(t, ids[0], res[0].ID)
+						require.Equal(t, ids[1], res[1].ID)
+						require.NotEmpty(t, cursor)
+					})
+				})
+				t.Run("PREFIX", func(t *testing.T) {
+					t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3131")
+					t.Run("negative", func(t *testing.T) {
+						check := func(t testing.TB, val string) {
+							check(t, object.MatchCommonPrefix, val, 0, 1)
+						}
+						t.Run("no digits", func(t *testing.T) { check(t, "-") })
+						t.Run("with digit", func(t *testing.T) { check(t, "-1") })
+					})
+					t.Run("positive", func(t *testing.T) {
+						check(t, object.MatchCommonPrefix, "1", 3, 4, 5)
+						check(t, object.MatchCommonPrefix, "11", 3, 4)
+					})
+				})
+				t.Run("NUM", func(t *testing.T) {
+					t.Run("GT", func(t *testing.T) {
+						check(t, object.MatchNumGT, "-12", 0, 2, 3, 5)
+						check(t, object.MatchNumGT, "-11", 2, 3, 5)
+					})
+					t.Run("GE", func(t *testing.T) {
+						check(t, object.MatchNumGE, "-11", 0, 2, 3, 5)
+						check(t, object.MatchNumGE, "-10", 2, 3, 5)
+					})
+					t.Run("LT", func(t *testing.T) {
+						check(t, object.MatchNumLT, "13", 0, 2, 3, 5)
+						check(t, object.MatchNumLT, "12", 0, 2, 3)
+					})
+					t.Run("LE", func(t *testing.T) {
+						check(t, object.MatchNumLE, "12", 0, 2, 3, 5)
+						check(t, object.MatchNumLE, "11", 0, 2, 3)
+					})
+				})
+			})
 		})
 		t.Run("complex", func(t *testing.T) {
 			type filter struct {
