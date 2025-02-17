@@ -283,7 +283,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 		valID := cursor.Key[cursor.ValIDOff:]
 		prevResPrimVal, prevResOID = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
 	} else {
-		if primMatcher == object.MatchStringEqual || primMatcher == object.MatchCommonPrefix ||
+		if primMatcher == object.MatchStringEqual ||
 			primMatcher == object.MatchNumGT || primMatcher == object.MatchNumGE {
 			var err error
 			if primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, primVal); err != nil {
@@ -293,6 +293,11 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 			jump = !intPrimMatcher
 			primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(primAttr), utf8Delimiter)
 			primSeekPrefix = primSeekKey
+			if primMatcher == object.MatchCommonPrefix && primVal != "-" {
+				if _, ok := new(big.Int).SetString(primVal, 10); !ok { // none of int match this
+					primSeekKey[0], jump = metaPrefixAttrIDPlain, false
+				}
+			}
 		}
 	}
 

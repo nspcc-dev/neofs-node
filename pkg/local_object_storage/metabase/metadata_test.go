@@ -1012,7 +1012,6 @@ func TestDB_SearchObjects(t *testing.T) {
 					})
 				})
 				t.Run("PREFIX", func(t *testing.T) {
-					t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3131")
 					t.Run("negative", func(t *testing.T) {
 						check := func(t testing.TB, val string) {
 							check(t, object.MatchCommonPrefix, val, 0, 1)
