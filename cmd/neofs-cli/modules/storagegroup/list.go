@@ -4,12 +4,16 @@ import (
 	"fmt"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var sgListCmd = &cobra.Command{
@@ -41,33 +45,49 @@ func listSG(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-
+	bt, err := common.ReadBearerToken(cmd, objectCli.BearerTokenFlag)
+	if err != nil {
+		return err
+	}
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {
 		return err
 	}
 
-	var prm internalclient.SearchObjectsPrm
-	err = objectCli.Prepare(cmd, &prm)
-	if err != nil {
-		return err
+	var opts client.SearchObjectsOptions
+	ttl := viper.GetUint32(commonflags.TTL)
+	common.PrintVerbose(cmd, "TTL: %d", ttl)
+	if ttl == 1 {
+		opts.DisableForwarding()
 	}
-	prm.SetClient(cli)
-	prm.SetPrivateKey(*pk)
-	prm.SetContainerID(cnr)
-	prm.SetFilters(storagegroup.SearchQuery())
+	if bt != nil {
+		opts.WithBearerToken(*bt)
+	}
+	opts.WithXHeaders(objectCli.ParseXHeaders(cmd)...)
 
-	res, err := internalclient.SearchObjects(ctx, prm)
-	if err != nil {
-		return fmt.Errorf("rpc error: %w", err)
+	fs := storagegroup.SearchQuery()
+	var sets [][]client.SearchResultItem
+	var next []client.SearchResultItem
+	var cursor string
+	var n int
+	for {
+		next, cursor, err = cli.SearchObjects(ctx, cnr, fs, nil, cursor, (*neofsecdsa.Signer)(pk), opts)
+		if err != nil {
+			return fmt.Errorf("rpc error: %w", err)
+		}
+		sets = append(sets, next)
+		n += len(next)
+		if cursor == "" {
+			break
+		}
 	}
 
-	ids := res.IDList()
+	cmd.Printf("Found %d storage groups.\n", n)
 
-	cmd.Printf("Found %d storage groups.\n", len(ids))
-
-	for i := range ids {
-		cmd.Println(ids[i].String())
+	for i := range sets {
+		for j := range sets[i] {
+			cmd.Println(sets[i][j].ID)
+		}
 	}
 
 	return nil

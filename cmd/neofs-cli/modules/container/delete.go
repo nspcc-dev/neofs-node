@@ -8,6 +8,8 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -80,21 +82,17 @@ Only owner of the container has a permission to remove container.`,
 				fs := objectSDK.NewSearchFilters()
 				fs.AddTypeFilter(objectSDK.MatchStringEqual, objectSDK.TypeLock)
 
-				var searchPrm internalclient.SearchObjectsPrm
-				searchPrm.SetClient(cli)
-				searchPrm.SetPrivateKey(*pk)
-				searchPrm.SetContainerID(id)
-				searchPrm.SetFilters(fs)
-				searchPrm.SetTTL(2)
+				var opts client.SearchObjectsOptions
+				opts.SetCount(1)
 
 				common.PrintVerbose(cmd, "Searching for LOCK objects...")
 
-				res, err := internalclient.SearchObjects(ctx, searchPrm)
+				res, _, err := cli.SearchObjects(ctx, id, fs, nil, "", (*neofsecdsa.Signer)(pk), opts)
 				if err != nil {
 					return fmt.Errorf("can't search for LOCK objects: %w", err)
 				}
 
-				if len(res.IDList()) != 0 {
+				if len(res) != 0 {
 					return fmt.Errorf("Container wasn't removed because LOCK objects were found.\n"+
 						"Use --%s flag to remove anyway.", commonflags.ForceFlag)
 				}

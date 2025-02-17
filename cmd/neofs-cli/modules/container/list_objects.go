@@ -2,15 +2,19 @@ package container
 
 import (
 	"fmt"
+	"slices"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
+	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // flags of list-object command.
@@ -44,40 +48,52 @@ var listContainerObjectsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		bt, err := common.ReadBearerToken(cmd, objectCli.BearerTokenFlag)
+		if err != nil {
+			return err
+		}
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err
 		}
 
-		var prmSearch internalclient.SearchObjectsPrm
 		var prmHead internalclient.HeadObjectPrm
-
-		prmSearch.SetClient(cli)
-
 		if flagVarListObjectsPrintAttr {
 			prmHead.SetClient(cli)
 			prmHead.SetPrivateKey(*pk)
-			err = objectCli.Prepare(cmd, &prmSearch, &prmHead)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = objectCli.Prepare(cmd, &prmSearch)
+			err = objectCli.Prepare(cmd, &prmHead)
 			if err != nil {
 				return err
 			}
 		}
 
-		prmSearch.SetPrivateKey(*pk)
-		prmSearch.SetContainerID(id)
-		prmSearch.SetFilters(*filters)
-
-		res, err := internalclient.SearchObjects(ctx, prmSearch)
-		if err != nil {
-			return fmt.Errorf("rpc error: %w", err)
+		var opts client.SearchObjectsOptions
+		ttl := viper.GetUint32(commonflags.TTL)
+		common.PrintVerbose(cmd, "TTL: %d", ttl)
+		if ttl == 1 {
+			opts.DisableForwarding()
 		}
+		if bt != nil {
+			opts.WithBearerToken(*bt)
+		}
+		opts.WithXHeaders(objectCli.ParseXHeaders(cmd)...)
 
-		objectIDs := res.IDList()
+		var objectIDs []oid.ID
+		var res []client.SearchResultItem
+		var cursor string
+		for {
+			res, cursor, err = cli.SearchObjects(ctx, id, *filters, nil, cursor, (*neofsecdsa.Signer)(pk), opts)
+			if err != nil {
+				return fmt.Errorf("rpc error: %w", err)
+			}
+			objectIDs = slices.Grow(objectIDs, len(objectIDs)+len(res))
+			for i := range res {
+				objectIDs = append(objectIDs, res[i].ID)
+			}
+			if cursor == "" {
+				break
+			}
+		}
 
 		for i := range objectIDs {
 			cmd.Println(objectIDs[i].String())

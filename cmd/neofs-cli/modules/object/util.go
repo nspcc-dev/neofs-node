@@ -30,7 +30,9 @@ type flag[T any] struct {
 }
 
 const (
-	bearerTokenFlag = "bearer"
+	// BearerTokenFlag is a flag for bearer token widely used across object
+	// commands.
+	BearerTokenFlag = "bearer"
 
 	rawFlag     = "raw"
 	rawFlagDesc = "Set raw request option"
@@ -47,7 +49,7 @@ type RPCParameters interface {
 // InitBearer adds bearer token flag to a command.
 func InitBearer(cmd *cobra.Command) {
 	flags := cmd.Flags()
-	flags.String(bearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
+	flags.String(BearerTokenFlag, "", "File with signed JSON or binary encoded bearer token")
 }
 
 // Prepare prepares object-related parameters for a command.
@@ -56,19 +58,20 @@ func Prepare(cmd *cobra.Command, prms ...RPCParameters) error {
 	common.PrintVerbose(cmd, "TTL: %d", ttl)
 
 	for i := range prms {
-		btok, err := common.ReadBearerToken(cmd, bearerTokenFlag)
+		btok, err := common.ReadBearerToken(cmd, BearerTokenFlag)
 		if err != nil {
 			return err
 		}
 
 		prms[i].SetBearerToken(btok)
 		prms[i].SetTTL(ttl)
-		prms[i].SetXHeaders(parseXHeaders(cmd))
+		prms[i].SetXHeaders(ParseXHeaders(cmd))
 	}
 	return nil
 }
 
-func parseXHeaders(cmd *cobra.Command) []string {
+// ParseXHeaders parses comma-separated 'key=value' pairs from '--xhdr' flags.
+func ParseXHeaders(cmd *cobra.Command) []string {
 	xHeaders, _ := cmd.Flags().GetStringSlice(commonflags.XHeadersKey)
 	xs := make([]string, 0, 2*len(xHeaders))
 
