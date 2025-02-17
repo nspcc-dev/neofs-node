@@ -205,16 +205,11 @@ func TestApplyFilter(t *testing.T) {
 		}
 	})
 	t.Run("int", func(t *testing.T) {
-		t.Run("non-int filter value", func(t *testing.T) {
-			for _, matcher := range []object.SearchMatchType{
-				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
-			} {
-				ok := matchValues(make([]byte, intValLen), matcher, []byte("1.5"))
-				require.False(t, ok)
-			}
-		})
 		check := func(dbVal *big.Int, matcher object.SearchMatchType, fltVal *big.Int, exp bool) {
-			check(intBytes(dbVal), matcher, []byte(fltVal.String()), exp)
+			require.Equal(t, exp, intMatches(dbVal, matcher, fltVal))
+			if intWithinLimits(dbVal) && intWithinLimits(fltVal) {
+				require.Equal(t, exp, intBytesMatch(intBytes(dbVal), matcher, intBytes(fltVal)))
+			}
 		}
 		one := big.NewInt(1)
 		max64 := new(big.Int).SetUint64(math.MaxUint64)
@@ -391,7 +386,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		t.Run("BoltDB failure", func(t *testing.T) {
 			db := newDB(t)
 			require.NoError(t, db.boltDB.Close())
-			_, _, err := db.Search(cidtest.ID(), nil, nil, nil, 1)
+			_, _, err := db.Search(cidtest.ID(), nil, nil, nil, nil, 1)
 			require.ErrorContains(t, err, "view BoltDB")
 			require.ErrorIs(t, err, bbolt.ErrDatabaseNotOpen)
 		})
@@ -399,7 +394,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		cnr := cidtest.ID()
 
 		t.Run("no objects", func(t *testing.T) {
-			res, cursor, err := db.Search(cnr, nil, nil, nil, 1)
+			res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 1)
 			require.NoError(t, err)
 			require.Empty(t, cursor)
 			require.Empty(t, res)
@@ -427,7 +422,7 @@ func TestDB_SearchObjects(t *testing.T) {
 				{name: "exact", count: n},
 				{name: "more", count: n + 1},
 			} {
-				res, cursor, err := db.Search(cnr, nil, nil, nil, tc.count)
+				res, cursor, err := db.Search(cnr, nil, nil, nil, nil, tc.count)
 				require.NoError(t, err)
 				require.Empty(t, cursor)
 				require.Len(t, res, n)
@@ -439,7 +434,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("paginated", func(t *testing.T) {
 			// request 3 first
-			res, cursor, err := db.Search(cnr, nil, nil, nil, 3)
+			res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 3)
 			require.NoError(t, err)
 			require.Len(t, res, 3)
 			require.NotNil(t, cursor)
@@ -449,7 +444,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			}
 			// then 6 more
 			cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-			res, cursor, err = db.Search(cnr, nil, nil, cursor, 6)
+			res, cursor, err = db.Search(cnr, nil, nil, nil, cursor, 6)
 			require.NoError(t, err)
 			require.Len(t, res, 6)
 			require.NotNil(t, cursor)
@@ -459,7 +454,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			}
 			// and up to 2 more
 			cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-			res, cursor, err = db.Search(cnr, nil, nil, cursor, 2)
+			res, cursor, err = db.Search(cnr, nil, nil, nil, cursor, 2)
 			require.NoError(t, err)
 			require.Nil(t, cursor)
 			require.Len(t, res, 1)
@@ -482,7 +477,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, _, err = db.Search(cnr, nil, nil, nil, n)
+			_, _, err = db.Search(cnr, nil, nil, nil, nil, n)
 			require.EqualError(t, err, "view BoltDB: invalid meta bucket key (prefix 0x0): unexpected object key len 32")
 		})
 	})
@@ -611,8 +606,13 @@ func TestDB_SearchObjects(t *testing.T) {
 		check := func(k string, m object.SearchMatchType, v string, matchInds []uint) {
 			var fs object.SearchFilters
 			fs.AddFilter(k, v, m)
-
-			res, cursor, err := db.Search(cnr, fs, nil, nil, nAll)
+			fInt, ok := PreprocessIntFilters(fs)
+			if !ok {
+				require.Empty(t, matchInds)
+				return
+			}
+			require.True(t, ok)
+			res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
 			require.NoError(t, err)
 			require.Empty(t, cursor)
 			require.Len(t, res, len(matchInds))
@@ -971,7 +971,9 @@ func TestDB_SearchObjects(t *testing.T) {
 				check := func(tb testing.TB, m object.SearchMatchType, val string, inds ...int) {
 					var fs object.SearchFilters
 					fs.AddFilter(attr, val, m)
-					res, _, err := db.Search(cnr, fs, []string{attr}, nil, 1000)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, _, err := db.Search(cnr, fs, fInt, []string{attr}, nil, 1000)
 					require.NoError(t, err)
 					require.Len(t, res, len(inds))
 					for i, ind := range inds {
@@ -1000,7 +1002,9 @@ func TestDB_SearchObjects(t *testing.T) {
 						// can be matching elements that should be returned according to the sorting.
 						var fs object.SearchFilters
 						fs.AddFilter(attr, "missing", object.MatchStringNotEqual)
-						res, cursor, err := db.Search(cnr, fs, []string{attr}, nil, 2)
+						fInt, ok := PreprocessIntFilters(fs)
+						require.True(t, ok)
+						res, cursor, err := db.Search(cnr, fs, fInt, []string{attr}, nil, 2)
 						require.NoError(t, err)
 						require.Len(t, res, 2)
 						require.Equal(t, ids[0], res[0].ID)
@@ -1123,7 +1127,9 @@ func TestDB_SearchObjects(t *testing.T) {
 					for _, f := range tc.fs {
 						fs.AddFilter(f.k, f.v, f.m)
 					}
-					res, cursor, err := db.Search(cnr, fs, nil, nil, nAll)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(tc.is))
@@ -1223,7 +1229,9 @@ func TestDB_SearchObjects(t *testing.T) {
 				} {
 					var fs object.SearchFilters
 					set(&fs)
-					res, cursor, err := db.Search(cnr, fs, nil, nil, 1000)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Empty(t, res)
@@ -1231,7 +1239,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			t.Run("all", func(t *testing.T) {
 				t.Run("unfiltered", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, nil, nil, nil, 1000)
+					res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(objs))
@@ -1243,7 +1251,7 @@ func TestDB_SearchObjects(t *testing.T) {
 				var fs object.SearchFilters
 				fs.AddFilter(heightAttr, "0", object.MatchNumGE)
 				t.Run("w/o attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, nil, nil, 1000)
+					res, cursor, err := db.Search(cnr, fs, nil, nil, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(heightSorted))
@@ -1253,7 +1261,7 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Empty(t, res[i].Attributes)
 					}
 					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, nil, nil, 2)
+						res, cursor, err := db.Search(cnr, fs, nil, nil, nil, 2)
 						require.NoError(t, err)
 						require.Len(t, res, 2)
 						for i := range 2 {
@@ -1263,7 +1271,7 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
 						//nolint:staticcheck // drop with t.Skip
-						res, cursor, err = db.Search(cnr, fs, nil, cursor, 6)
+						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 6)
 						require.NoError(t, err)
 						t.Skip("paging is broken when prim attribute is not requested, see also https://github.com/nspcc-dev/neofs-node/issues/3058#issuecomment-2553193094")
 						require.Len(t, res, 6)
@@ -1273,7 +1281,7 @@ func TestDB_SearchObjects(t *testing.T) {
 						}
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, nil, cursor, 3)
+						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 3)
 						require.NoError(t, err)
 						require.Len(t, res, 2)
 						for i := range 2 {
@@ -1284,7 +1292,7 @@ func TestDB_SearchObjects(t *testing.T) {
 					})
 				})
 				t.Run("single attribute", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, []string{heightAttr}, nil, 1000)
+					res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr}, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(heightSorted))
@@ -1294,22 +1302,22 @@ func TestDB_SearchObjects(t *testing.T) {
 					}
 				})
 				t.Run("two attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, []string{heightAttr, otherAttr}, nil, 1000)
+					res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Equal(t, heightSorted, res)
 					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, []string{heightAttr, otherAttr}, nil, 2)
+						res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, nil, 2)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[:2], res)
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, []string{heightAttr, otherAttr}, cursor, 6)
+						res, cursor, err = db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, cursor, 6)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[2:8], res)
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, []string{heightAttr, otherAttr}, cursor, 3)
+						res, cursor, err = db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, cursor, 3)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[8:], res)
 						require.Empty(t, cursor)
@@ -1323,7 +1331,9 @@ func TestDB_SearchObjects(t *testing.T) {
 				heightSorted := heightSorted[2:9]
 				ids := ids[1:8]
 				t.Run("w/o attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, nil, nil, 1000)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(ids))
@@ -1333,7 +1343,9 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Empty(t, res[i].Attributes)
 					}
 					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, nil, nil, 2)
+						fInt, ok := PreprocessIntFilters(fs)
+						require.True(t, ok)
+						res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 2)
 						require.NoError(t, err)
 						require.Len(t, res, 2)
 						for i := range 2 {
@@ -1343,7 +1355,7 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
 						//nolint:staticcheck // drop with t.Skip
-						res, cursor, err = db.Search(cnr, fs, nil, cursor, 6)
+						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 6)
 						require.NoError(t, err)
 						t.Skip("paging is broken when prim attribute is not requested, see also https://github.com/nspcc-dev/neofs-node/issues/3058#issuecomment-2553193094")
 						require.Len(t, res, 6)
@@ -1352,7 +1364,7 @@ func TestDB_SearchObjects(t *testing.T) {
 							require.Empty(t, res[i].Attributes)
 						}
 						require.NotEmpty(t, cursor)
-						res, cursor, err = db.Search(cnr, fs, nil, cursor, 3)
+						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 3)
 						require.NoError(t, err)
 						require.Len(t, res, 2)
 						for i := range 2 {
@@ -1363,7 +1375,9 @@ func TestDB_SearchObjects(t *testing.T) {
 					})
 				})
 				t.Run("single attribute", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, []string{heightAttr}, nil, 1000)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr}, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Len(t, res, len(heightSorted))
@@ -1373,22 +1387,26 @@ func TestDB_SearchObjects(t *testing.T) {
 					}
 				})
 				t.Run("two attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, []string{heightAttr, otherAttr}, nil, 1000)
+					fInt, ok := PreprocessIntFilters(fs)
+					require.True(t, ok)
+					res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, nil, 1000)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
 					require.Equal(t, heightSorted, res)
 					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, []string{heightAttr, otherAttr}, nil, 2)
+						fInt, ok := PreprocessIntFilters(fs)
+						require.True(t, ok)
+						res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, nil, 2)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[:2], res)
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, []string{heightAttr, otherAttr}, cursor, 3)
+						res, cursor, err = db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, cursor, 3)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[2:5], res)
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, []string{heightAttr, otherAttr}, cursor, 3)
+						res, cursor, err = db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, cursor, 3)
 						require.NoError(t, err)
 						require.Equal(t, heightSorted[5:], res)
 						require.Empty(t, cursor)
@@ -1424,7 +1442,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			t.Run("none", func(t *testing.T) {
 				var fs object.SearchFilters
 				fs.AddFilter(object.AttributeFilePath, "cat4.jpg", object.MatchStringEqual)
-				res, cursor, err := db.Search(cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
+				res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
 				require.NoError(t, err)
 				require.Empty(t, cursor)
 				require.Empty(t, res)
@@ -1432,7 +1450,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			t.Run("single", func(t *testing.T) {
 				var fs object.SearchFilters
 				fs.AddFilter(object.AttributeFilePath, "cat1.jpg", object.MatchStringEqual)
-				res, cursor, err := db.Search(cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
+				res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
 				require.NoError(t, err)
 				require.Empty(t, cursor)
 				require.Equal(t, []client.SearchResultItem{
@@ -1448,17 +1466,17 @@ func TestDB_SearchObjects(t *testing.T) {
 					}
 					var fs object.SearchFilters
 					fs.AddFilter(object.AttributeFilePath, "cat2.jpg", object.MatchStringEqual)
-					res, cursor, err := db.Search(cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
+					res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
 					require.NoError(t, err)
 					require.Equal(t, fullRes, res)
 					require.Empty(t, cursor)
 					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 2)
+						res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 2)
 						require.NoError(t, err)
 						require.Equal(t, fullRes[:2], res)
 						require.NotEmpty(t, cursor)
 						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, cursor, 1000)
+						res, cursor, err = db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, cursor, 1000)
 						require.NoError(t, err)
 						require.Equal(t, fullRes[2:], res)
 						require.Empty(t, cursor)
@@ -1505,7 +1523,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			var fs object.SearchFilters
 			fs.AddFilter(object.AttributeFilePath, "/home/Downloads/", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "JPEG", object.MatchStringEqual)
-			res, cursor, err := db.Search(cnr, fs, attrs, nil, 1000)
+			res, cursor, err := db.Search(cnr, fs, nil, attrs, nil, 1000)
 			require.NoError(t, err)
 			require.Empty(t, cursor)
 			require.Equal(t, []client.SearchResultItem{
@@ -1516,7 +1534,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			fs = fs[:0]
 			fs.AddFilter(object.AttributeFilePath, "/usr", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "BIN", object.MatchStringEqual)
-			res, cursor, err = db.Search(cnr, fs, attrs, nil, 1000)
+			res, cursor, err = db.Search(cnr, fs, nil, attrs, nil, 1000)
 			require.NoError(t, err)
 			require.Empty(t, cursor)
 			require.Equal(t, []client.SearchResultItem{
@@ -1526,7 +1544,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			fs = fs[:0]
 			fs.AddFilter(object.AttributeFilePath, "/", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "BIN", object.MatchStringNotEqual)
-			res, cursor, err = db.Search(cnr, fs, attrs, nil, 1000)
+			res, cursor, err = db.Search(cnr, fs, nil, attrs, nil, 1000)
 			require.NoError(t, err)
 			require.Empty(t, cursor)
 			require.Equal(t, []client.SearchResultItem{
@@ -1539,14 +1557,14 @@ func TestDB_SearchObjects(t *testing.T) {
 				fs = fs[:0]
 				fs.AddFilter(object.AttributeFilePath, "/home/", object.MatchCommonPrefix)
 				fs.AddFilter("Type", "TEXT", object.MatchStringNotEqual)
-				res, cursor, err := db.Search(cnr, fs, attrs, nil, 1)
+				res, cursor, err := db.Search(cnr, fs, nil, attrs, nil, 1)
 				require.NoError(t, err)
 				require.Equal(t, []client.SearchResultItem{
 					{ID: ids[1], Attributes: []string{"/home/Downloads/cat.jpg", "val1_3", "val2_3"}},
 				}, res)
 				require.NotEmpty(t, cursor)
 				cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-				res, cursor, err = db.Search(cnr, fs, attrs, cursor, 1)
+				res, cursor, err = db.Search(cnr, fs, nil, attrs, cursor, 1)
 				require.NoError(t, err)
 				require.Equal(t, []client.SearchResultItem{
 					{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
@@ -1584,15 +1602,15 @@ func TestDB_SearchObjects(t *testing.T) {
 					require.Equal(t, exp[i], res[i].ID)
 				}
 			}
-			res, _, err := db.Search(cnr, nil, nil, nil, 1000)
+			res, _, err := db.Search(cnr, nil, nil, nil, nil, 1000)
 			check(res, err)
 			var fs object.SearchFilters
 			fs.AddFilter(attrPlain, valPlain, object.MatchStringEqual)
-			res, _, err = db.Search(cnr, fs, []string{attrPlain}, nil, 1000)
+			res, _, err = db.Search(cnr, fs, nil, []string{attrPlain}, nil, 1000)
 			check(res, err)
 			fs = fs[:0]
 			fs.AddFilter(attrInt, valInt, object.MatchStringEqual)
-			res, _, err = db.Search(cnr, fs, []string{attrInt}, nil, 1000)
+			res, _, err = db.Search(cnr, fs, nil, []string{attrInt}, nil, 1000)
 			check(res, err)
 		}
 		// all available

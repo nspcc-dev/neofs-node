@@ -33,13 +33,13 @@ func (s *Shard) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address,
 }
 
 // Search performs Search op on the underlying metabase if it is not disabled.
-func (s *Shard) Search(cnr cid.ID, fs object.SearchFilters, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (s *Shard) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	if s.info.Mode.NoMetabase() {
 		return nil, nil, ErrDegradedMode
 	}
-	res, cursor, err := s.metaBase.Search(cnr, fs, attrs, cursor, count)
+	res, cursor, err := s.metaBase.Search(cnr, fs, fInt, attrs, cursor, count)
 	if err != nil {
 		return nil, nil, fmt.Errorf("call metabase: %w", err)
 	}

@@ -56,7 +56,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -69,7 +69,7 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, attrs []stri
 	if len(shs) == 0 {
 		return nil, nil, nil
 	}
-	items, nextCursor, err := shs[0].Search(cnr, fs, attrs, cursor, count)
+	items, nextCursor, err := shs[0].Search(cnr, fs, fInt, attrs, cursor, count)
 	if err != nil {
 		e.reportShardError(shs[0], "could not select objects from shard", err)
 	}
@@ -80,7 +80,7 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, attrs []stri
 	sets, mores := make([][]client.SearchResultItem, 1, len(shs)), make([]bool, 1, len(shs))
 	sets[0], mores[0] = items, nextCursor != nil
 	for i := range shs {
-		if items, nextCursor, err = shs[i].Search(cnr, fs, attrs, cursor, count); err != nil {
+		if items, nextCursor, err = shs[i].Search(cnr, fs, fInt, attrs, cursor, count); err != nil {
 			e.reportShardError(shs[i], "could not select objects from shard", err)
 			continue
 		}
