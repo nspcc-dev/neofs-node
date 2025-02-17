@@ -45,7 +45,6 @@ type Meta struct {
 	m        sync.RWMutex
 	storages map[cid.ID]*containerStorage
 
-	endpoints   []string
 	timeout     time.Duration
 	magicNumber uint32
 	cliCtx      context.Context // for client context only, as it is required by the lib
@@ -57,13 +56,30 @@ type Meta struct {
 	epochEv     chan *state.ContainedNotificationEvent
 
 	objNotificationBuff chan *state.ContainedNotificationEvent
+
+	// runtime reload fields
+	cfgM      sync.RWMutex
+	endpoints []string
 }
 
 const objsBufferSize = 1024
 
+// Parameters groups arguments for [New] call.
+type Parameters struct {
+	Logger          *zap.Logger
+	ContainerLister ContainerLister
+	Timeout         time.Duration
+	ContainerHash   util.Uint160
+	NetmapHash      util.Uint160
+	RootPath        string
+
+	// fields that support runtime reload
+	NeoEnpoints []string
+}
+
 // New makes [Meta].
-func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoints []string, containerH, nmH util.Uint160, rootPath string) (*Meta, error) {
-	storagesFS, err := os.ReadDir(rootPath)
+func New(p Parameters) (*Meta, error) {
+	storagesFS, err := os.ReadDir(p.RootPath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("read existing container storages: %w", err)
 	}
@@ -72,13 +88,13 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 		sName := s.Name()
 		cID, err := cid.DecodeString(sName)
 		if err != nil {
-			l.Warn("skip unknown container storage entity", zap.String("name", sName), zap.Error(err))
+			p.Logger.Warn("skip unknown container storage entity", zap.String("name", sName), zap.Error(err))
 			continue
 		}
 
-		st, err := storageForContainer(rootPath, cID)
+		st, err := storageForContainer(p.RootPath, cID)
 		if err != nil {
-			l.Warn("skip container storage that cannot be read", zap.String("name", sName), zap.Error(err))
+			p.Logger.Warn("skip container storage that cannot be read", zap.String("name", sName), zap.Error(err))
 			continue
 		}
 
@@ -94,7 +110,7 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 		}
 	}()
 
-	cnrsNetwork, err := cLister.List()
+	cnrsNetwork, err := p.ContainerLister.List()
 	if err != nil {
 		return nil, fmt.Errorf("listing node's containers: %w", err)
 	}
@@ -102,7 +118,7 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 		if _, ok := cnrsNetwork[cID]; !ok {
 			err = storagesRead[cID].drop()
 			if err != nil {
-				l.Warn("could not drop container storage", zap.Stringer("cID", cID), zap.Error(err))
+				p.Logger.Warn("could not drop container storage", zap.Stringer("cID", cID), zap.Error(err))
 			}
 
 			delete(storagesRead, cID)
@@ -111,7 +127,7 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 
 	for cID := range cnrsNetwork {
 		if _, ok := storages[cID]; !ok {
-			st, err := storageForContainer(rootPath, cID)
+			st, err := storageForContainer(p.RootPath, cID)
 			if err != nil {
 				return nil, fmt.Errorf("open container storage %s: %w", cID, err)
 			}
@@ -121,13 +137,13 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 	}
 
 	return &Meta{
-		l:                   l,
-		rootPath:            rootPath,
-		netmapH:             nmH,
-		cnrH:                containerH,
-		cLister:             cLister,
-		endpoints:           endpoints,
-		timeout:             timeout,
+		l:                   p.Logger,
+		rootPath:            p.RootPath,
+		netmapH:             p.NetmapHash,
+		cnrH:                p.ContainerHash,
+		cLister:             p.ContainerLister,
+		endpoints:           p.NeoEnpoints,
+		timeout:             p.Timeout,
 		bCh:                 make(chan *block.Header),
 		objEv:               make(chan *state.ContainedNotificationEvent),
 		cnrDelEv:            make(chan *state.ContainedNotificationEvent),
@@ -135,6 +151,18 @@ func New(l *zap.Logger, cLister ContainerLister, timeout time.Duration, endpoint
 		epochEv:             make(chan *state.ContainedNotificationEvent),
 		objNotificationBuff: make(chan *state.ContainedNotificationEvent, objsBufferSize),
 		storages:            storages}, nil
+}
+
+// Reload updates service in runtime.
+// Currently supported fields:
+//   - endpoints
+func (m *Meta) Reload(p Parameters) error {
+	m.cfgM.Lock()
+	defer m.cfgM.Unlock()
+
+	m.endpoints = p.NeoEnpoints
+
+	return nil
 }
 
 // Run starts notification handling. Must be called only on instances created

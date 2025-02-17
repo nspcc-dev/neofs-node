@@ -381,6 +381,8 @@ type shared struct {
 	metricsCollector *metrics.NodeMetrics
 
 	control *controlSvc.Server
+
+	metaService *meta.Meta
 }
 
 func (s *shared) resetCaches() {
@@ -946,6 +948,16 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			err = c.reloadNodeAttributes()
 			if err != nil {
 				c.log.Error("invalid node attributes configuration", zap.Error(err))
+				continue
+			}
+
+			// Meta service
+
+			var p meta.Parameters
+			p.NeoEnpoints = c.fsChain.endpoints
+			err = c.shared.metaService.Reload(p)
+			if err != nil {
+				c.log.Error("failed to reload meta service configuration", zap.Error(err))
 				continue
 			}
 

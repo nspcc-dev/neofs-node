@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
@@ -211,9 +212,13 @@ func (m *Meta) reconnect() error {
 }
 
 func (m *Meta) connect() (*rpcclient.WSClient, error) {
+	m.cfgM.RLock()
+	endpoints := slices.Clone(m.endpoints)
+	m.cfgM.RUnlock()
+
 	var cli *rpcclient.WSClient
 	var err error
-	for _, e := range m.endpoints {
+	for _, e := range endpoints {
 		cli, err = rpcclient.NewWS(m.cliCtx, e, rpcclient.WSOptions{
 			Options: rpcclient.Options{
 				DialTimeout: m.timeout,
