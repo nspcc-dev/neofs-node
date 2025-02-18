@@ -2,7 +2,6 @@ package container
 
 import (
 	"fmt"
-	"slices"
 
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
@@ -78,7 +77,6 @@ var listContainerObjectsCmd = &cobra.Command{
 		}
 		opts.WithXHeaders(objectCli.ParseXHeaders(cmd)...)
 
-		var objectIDs []oid.ID
 		var res []client.SearchResultItem
 		var cursor string
 		for {
@@ -86,22 +84,14 @@ var listContainerObjectsCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("rpc error: %w", err)
 			}
-			objectIDs = slices.Grow(objectIDs, len(objectIDs)+len(res))
 			for i := range res {
-				objectIDs = append(objectIDs, res[i].ID)
-			}
-			if cursor == "" {
-				break
-			}
-		}
-
-		for i := range objectIDs {
-			cmd.Println(objectIDs[i].String())
-
-			if flagVarListObjectsPrintAttr {
+				cmd.Println(res[i].ID)
+				if !flagVarListObjectsPrintAttr {
+					continue
+				}
 				var addr oid.Address
 				addr.SetContainer(id)
-				addr.SetObject(objectIDs[i])
+				addr.SetObject(res[i].ID)
 				prmHead.SetAddress(addr)
 
 				resHead, err := internalclient.HeadObject(ctx, prmHead)
@@ -121,6 +111,9 @@ var listContainerObjectsCmd = &cobra.Command{
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)
 				}
+			}
+			if cursor == "" {
+				break
 			}
 		}
 		return nil
