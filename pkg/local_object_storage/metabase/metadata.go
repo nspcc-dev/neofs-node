@@ -48,6 +48,27 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
+func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, root, phy bool) error {
+	owner := hdr.Owner()
+	if owner.IsZero() {
+		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
+	}
+	pldHash, ok := hdr.PayloadChecksum()
+	if !ok {
+		return errors.New("missing payload checksum")
+	}
+	var ver version.Version
+	if v := hdr.Version(); v != nil {
+		ver = *v
+	}
+	var pldHmmHash []byte
+	if h, ok := hdr.PayloadHomomorphicHash(); ok {
+		pldHmmHash = h.Value()
+	}
+	return putMetadata(tx, hdr.GetContainerID(), hdr.GetID(), ver, owner, hdr.Type(), hdr.CreationEpoch(), hdr.PayloadSize(), pldHash.Value(),
+		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), root, phy)
+}
+
 // TODO: fill on migration.
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
 	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
