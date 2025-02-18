@@ -93,7 +93,7 @@ func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool { panic("must not be 
 
 type noCallTestStorage struct{}
 
-func (noCallTestStorage) SearchObjects(cid.ID, object.SearchFilters, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (noCallTestStorage) SearchObjects(cid.ID, object.SearchFilters, map[int]meta.ParsedIntFilter, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
 	panic("must not be called")
 }
 func (noCallTestStorage) VerifyAndStoreObjectLocally(object.Object) error {
@@ -587,7 +587,7 @@ func (nopStorage) VerifyAndStoreObjectLocally(object.Object) error { return nil 
 func (nopStorage) GetSessionPrivateKey(user.ID, uuid.UUID) (ecdsa.PrivateKey, error) {
 	return ecdsa.PrivateKey{}, apistatus.ErrSessionTokenNotFound
 }
-func (nopStorage) SearchObjects(cid.ID, object.SearchFilters, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (nopStorage) SearchObjects(cid.ID, object.SearchFilters, map[int]meta.ParsedIntFilter, []string, *meta.SearchCursor, uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
 	return nil, nil, nil
 }
 

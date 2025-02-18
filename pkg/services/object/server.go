@@ -134,7 +134,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ object.SearchFilters, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, *meta.SearchCursor, error)
+	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, *meta.SearchCursor, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1989,6 +1989,10 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
+	fInt, ok := meta.PreprocessIntFilters(fs)
+	if !ok {
+		return nil, nil
+	}
 	var primAttr string
 	if len(fs) > 0 {
 		primAttr = fs[0].Header()
@@ -2002,7 +2006,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	var newCursor *meta.SearchCursor
 	count := uint16(body.Count) // legit according to the limit
 	if ttl == 1 {
-		if res, newCursor, err = s.storage.SearchObjects(cnr, fs, body.Attributes, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(cnr, fs, fInt, body.Attributes, cursor, count); err != nil {
 			return nil, err
 		}
 	} else {
@@ -2029,7 +2033,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if set, crsr, err := s.storage.SearchObjects(cnr, fs, body.Attributes, cursor, count); err == nil {
+					if set, crsr, err := s.storage.SearchObjects(cnr, fs, fInt, body.Attributes, cursor, count); err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
 				}()
