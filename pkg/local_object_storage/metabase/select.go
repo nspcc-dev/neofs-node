@@ -262,7 +262,7 @@ func (db *DB) selectFromFKBT(
 	var nonNumMatcher matcher
 	op := f.Operation()
 
-	isNumOp := isNumericOp(op)
+	isNumOp := objectcore.IsIntegerSearchOp(op)
 	if !isNumOp {
 		var ok bool
 		nonNumMatcher, ok = db.matchers[op]
@@ -520,7 +520,7 @@ func (db *DB) matchSlowFilters(tx *bbolt.Tx, addr oid.Address, f object.SearchFi
 
 	for i := range f {
 		op := f[i].Operation()
-		if isNumericOp(op) {
+		if objectcore.IsIntegerSearchOp(op) {
 			attr := f[i].Header()
 			if attr != object.FilterCreationEpoch && attr != object.FilterPayloadSize {
 				break
@@ -626,7 +626,7 @@ func groupFilters(filters object.SearchFilters) (filterGroup, error) {
 
 	for i := range filters {
 		hdr := filters[i].Header()
-		if isNumericOp(filters[i].Operation()) {
+		if objectcore.IsIntegerSearchOp(filters[i].Operation()) {
 			switch hdr {
 			case
 				object.FilterVersion,
@@ -783,8 +783,4 @@ func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid
 	}
 
 	return res, nil
-}
-
-func isNumericOp(op object.SearchMatchType) bool {
-	return op == object.MatchNumGT || op == object.MatchNumGE || op == object.MatchNumLT || op == object.MatchNumLE
 }

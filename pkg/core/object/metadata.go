@@ -2,35 +2,52 @@ package object
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"slices"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
-// TODO: docs.
-func MergeSearchResults(lim uint16, withAttr bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool) {
+// IsIntegerSearchOp reports whether given op matches integer attributes.
+func IsIntegerSearchOp(op object.SearchMatchType) bool {
+	return op == object.MatchNumGT || op == object.MatchNumGE || op == object.MatchNumLT || op == object.MatchNumLE
+}
+
+// MergeSearchResults merges up to lim elements from sorted search result sets
+// into the one sorted set. Items are compared by the 1st attribute (if
+// withAttr), and then by IDs when equal. If cmpInt is set, attributes are
+// compared numerically. Otherwise, lexicographically. Additional booleans show
+// whether corresponding sets can be continued. If the merged set can be
+// continued itself, true is returned.
+func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool, error) {
 	if lim == 0 || len(sets) == 0 {
-		return nil, false
+		return nil, false, nil
 	}
 	if len(sets) == 1 {
 		n := min(uint16(len(sets[0])), lim)
-		return sets[0][:n], n < lim || slices.Contains(mores, true)
+		return sets[0][:n], n < lim || slices.Contains(mores, true), nil
 	}
 	lim = calcMaxUniqueSearchResults(lim, sets)
 	res := make([]client.SearchResultItem, 0, lim)
 	var more bool
-	var minInt *big.Int
-	for minInd := -1; ; minInd, minInt = -1, nil {
+	var minInt, curInt *big.Int
+	if cmpInt {
+		minInt, curInt = new(big.Int), new(big.Int)
+	}
+	for minInd := -1; ; minInd = -1 {
 		for i := range sets {
 			if len(sets[i]) == 0 {
 				continue
 			}
 			if minInd < 0 {
 				minInd = i
-				if withAttr {
-					minInt, _ = new(big.Int).SetString(sets[i][0].Attributes[0], 10)
+				if cmpInt {
+					if _, ok := minInt.SetString(sets[i][0].Attributes[0], 10); !ok {
+						return nil, false, fmt.Errorf("non-int attribute in result #%d", i)
+					}
 				}
 				continue
 			}
@@ -39,12 +56,11 @@ func MergeSearchResults(lim uint16, withAttr bool, sets [][]client.SearchResultI
 				continue
 			}
 			if withAttr {
-				var curInt *big.Int
-				if minInt != nil {
-					curInt, _ = new(big.Int).SetString(sets[i][0].Attributes[0], 10)
-				}
 				var cmpAttr int
-				if curInt != nil {
+				if cmpInt {
+					if _, ok := curInt.SetString(sets[i][0].Attributes[0], 10); !ok {
+						return nil, false, fmt.Errorf("non-int attribute in result #%d", i)
+					}
 					cmpAttr = curInt.Cmp(minInt)
 				} else {
 					cmpAttr = strings.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
@@ -52,10 +68,8 @@ func MergeSearchResults(lim uint16, withAttr bool, sets [][]client.SearchResultI
 				if cmpAttr != 0 {
 					if cmpAttr < 0 {
 						minInd = i
-						if minInt != nil {
-							minInt = curInt
-						} else {
-							minInt, _ = new(big.Int).SetString(sets[i][0].Attributes[0], 10)
+						if cmpInt {
+							minInt, curInt = curInt, new(big.Int)
 						}
 					}
 					continue
@@ -63,8 +77,8 @@ func MergeSearchResults(lim uint16, withAttr bool, sets [][]client.SearchResultI
 			}
 			if cmpID < 0 {
 				minInd = i
-				if withAttr {
-					minInt, _ = new(big.Int).SetString(sets[minInd][0].Attributes[0], 10)
+				if cmpInt {
+					minInt, curInt = curInt, new(big.Int)
 				}
 			}
 		}
@@ -101,7 +115,7 @@ func MergeSearchResults(lim uint16, withAttr bool, sets [][]client.SearchResultI
 		}
 		sets[minInd] = sets[minInd][1:]
 	}
-	return res, more
+	return res, more, nil
 }
 
 func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) uint16 {

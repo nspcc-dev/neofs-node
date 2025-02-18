@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -244,7 +245,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, attrs 
 	}
 	// TODO: make as much as possible outside the Bolt tx
 	primMatcher, primVal := convertFilterValue(fs[0])
-	intPrimMatcher := isNumericOp(primMatcher)
+	intPrimMatcher := objectcore.IsIntegerSearchOp(primMatcher)
 	notPresentPrimMatcher := primMatcher == object.MatchNotPresent
 	primAttr := fs[0].Header() // attribute emptiness already prevented
 	var primSeekKey, primSeekPrefix []byte
@@ -386,7 +387,7 @@ nextPrimKey:
 					}
 				}
 				var checkedDBVal []byte
-				if isNumericOp(m) {
+				if objectcore.IsIntegerSearchOp(m) {
 					if *dbValInt == nil {
 						continue nextPrimKey
 					}
@@ -700,7 +701,7 @@ func matchValues(dbVal []byte, matcher object.SearchMatchType, fltVal []byte) bo
 		return !bytes.Equal(dbVal, fltVal)
 	case matcher == object.MatchCommonPrefix:
 		return bytes.HasPrefix(dbVal, fltVal)
-	case isNumericOp(matcher):
+	case objectcore.IsIntegerSearchOp(matcher):
 		var n big.Int
 		return n.UnmarshalText(fltVal) == nil && intMatches(dbVal, matcher, &n)
 	}
