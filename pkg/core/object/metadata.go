@@ -27,8 +27,8 @@ func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.Searc
 		return nil, false, nil
 	}
 	if len(sets) == 1 {
-		n := min(uint16(len(sets[0])), lim)
-		return sets[0][:n], n < lim || slices.Contains(mores, true), nil
+		ul := uint16(len(sets[0]))
+		return sets[0][:min(ul, lim)], ul > lim || ul == lim && slices.Contains(mores, true), nil
 	}
 	lim = calcMaxUniqueSearchResults(lim, sets)
 	res := make([]client.SearchResultItem, 0, lim)

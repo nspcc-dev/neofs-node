@@ -58,6 +58,41 @@ func TestMergeSearchResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, res)
 		require.False(t, more)
+		t.Run("single", func(t *testing.T) {
+			// https://github.com/nspcc-dev/neofs-node/issues/3154
+			expRes := make([]client.SearchResultItem, 0)
+			res, more, err := MergeSearchResults(1, false, false, [][]client.SearchResultItem{expRes}, nil)
+			assertMergeResult(t, res, expRes, more, false, err)
+		})
+	})
+	t.Run("single set", func(t *testing.T) {
+		expRes := searchResultFromIDs(4)
+		t.Run("less than limit", func(t *testing.T) {
+			res, more, err := MergeSearchResults(5, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+			assertMergeResult(t, res, expRes, more, false, err)
+		})
+		t.Run("exactly limit", func(t *testing.T) {
+			t.Run("no more", func(t *testing.T) {
+				res, more, err := MergeSearchResults(4, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+				assertMergeResult(t, res, expRes, more, false, err)
+			})
+			t.Run("more", func(t *testing.T) {
+				res, more, err := MergeSearchResults(4, false, false, [][]client.SearchResultItem{expRes}, []bool{true})
+				assertMergeResult(t, res, expRes, more, true, err)
+			})
+		})
+		t.Run("more than limit", func(t *testing.T) {
+			t.Run("no more", func(t *testing.T) {
+				res, more, err := MergeSearchResults(3, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+				require.Len(t, res, 3)
+				assertMergeResult(t, res[:3:3], expRes[:3], more, true, err)
+			})
+			t.Run("more", func(t *testing.T) {
+				res, more, err := MergeSearchResults(3, false, false, [][]client.SearchResultItem{expRes}, []bool{true})
+				require.Len(t, res, 3)
+				assertMergeResult(t, res[:3:3], expRes[:3], more, true, err)
+			})
+		})
 	})
 	t.Run("with empty sets", func(t *testing.T) {
 		all := []client.SearchResultItem{
