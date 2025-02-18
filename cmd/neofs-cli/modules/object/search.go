@@ -222,7 +222,7 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	bt, err := common.ReadBearerToken(cmd, bearerTokenFlag)
+	bt, err := common.ReadBearerToken(cmd, BearerTokenFlag)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 
 	var opts client.SearchObjectsOptions
 	opts.SetCount(uint32(searchCountFlag.v))
-	opts.WithXHeaders(parseXHeaders(cmd)...)
+	opts.WithXHeaders(ParseXHeaders(cmd)...)
 	if viper.GetUint32(commonflags.TTL) == 1 {
 		opts.DisableForwarding()
 	}
