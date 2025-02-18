@@ -16,7 +16,12 @@ func IsIntegerSearchOp(op object.SearchMatchType) bool {
 	return op == object.MatchNumGT || op == object.MatchNumGE || op == object.MatchNumLT || op == object.MatchNumLE
 }
 
-// TODO: docs.
+// MergeSearchResults merges up to lim elements from sorted search result sets
+// into the one sorted set. Items are compared by the 1st attribute (if
+// withAttr), and then by IDs when equal. If cmpInt is set, attributes are
+// compared numerically. Otherwise, lexicographically. Additional booleans show
+// whether corresponding sets can be continued. If the merged set can be
+// continued itself, true is returned.
 func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool, error) {
 	if lim == 0 || len(sets) == 0 {
 		return nil, false, nil
