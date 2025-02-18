@@ -22,31 +22,35 @@ func initMeta(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	c.cfgMeta.cLister = &containerListener{
+	c.cfgMeta.cLister = &metaContainerListener{
 		key:        c.binPublicKey,
 		cnrClient:  c.basics.cCli,
 		containers: c.cfgObject.cnrSource,
 		network:    c.basics.netMapSource,
 	}
 
-	m, err := meta.New(c.log.With(zap.String("service", "meta data")),
-		c.cfgMeta.cLister,
-		c.applicationConfiguration.fsChain.dialTimeout,
-		c.applicationConfiguration.fsChain.endpoints,
-		c.basics.containerSH,
-		c.basics.netmapSH,
-		c.applicationConfiguration.metadata.path)
+	var err error
+	p := meta.Parameters{
+		Logger:          c.log.With(zap.String("service", "meta data")),
+		ContainerLister: c.cfgMeta.cLister,
+		Timeout:         c.applicationConfiguration.fsChain.dialTimeout,
+		NeoEnpoints:     c.applicationConfiguration.fsChain.endpoints,
+		ContainerHash:   c.basics.containerSH,
+		NetmapHash:      c.basics.netmapSH,
+		RootPath:        c.applicationConfiguration.metadata.path,
+	}
+	c.shared.metaService, err = meta.New(p)
 	fatalOnErr(err)
 
 	c.workers = append(c.workers, newWorkerFromFunc(func(ctx context.Context) {
-		err = m.Run(ctx)
+		err = c.shared.metaService.Run(ctx)
 		if err != nil {
 			c.internalErr <- fmt.Errorf("meta data service error: %w", err)
 		}
 	}))
 }
 
-type containerListener struct {
+type metaContainerListener struct {
 	key []byte
 
 	cnrClient  *cntClient.Client
@@ -59,7 +63,7 @@ type containerListener struct {
 	prevRes    map[cid.ID]struct{}
 }
 
-func (c *containerListener) List() (map[cid.ID]struct{}, error) {
+func (c *metaContainerListener) List() (map[cid.ID]struct{}, error) {
 	actualContainers, err := c.cnrClient.List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("read containers: %w", err)
@@ -98,6 +102,13 @@ func (c *containerListener) List() (map[cid.ID]struct{}, error) {
 			cnr, err := c.containers.Get(cID)
 			if err != nil {
 				return fmt.Errorf("read %s container: %w", cID, err)
+			}
+
+			const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
+			switch cnr.Value.Attribute(metaOnChainAttr) {
+			case "optimistic", "strict":
+			default:
+				return nil
 			}
 
 			nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cID)
