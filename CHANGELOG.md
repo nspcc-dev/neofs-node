@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - `neofs_node_engine_list_containers_time_bucket` and `neofs_node_engine_exists_time_bucket` metrics (#3014)
 - `neofs_node_engine_list_objects_time_bucket` metric (#3120)
 - The correct role parameter to invocation (#3127)
+- nil pointer error for `storage sanity` command (#3151)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
