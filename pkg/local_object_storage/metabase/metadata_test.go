@@ -986,7 +986,6 @@ func TestDB_SearchObjects(t *testing.T) {
 					}
 				})
 				t.Run("NE", func(t *testing.T) {
-					t.Skip("https://github.com/nspcc-dev/neofs-node/issues/3131")
 					for i := range vals {
 						others := make([]int, 0, len(vals)-1)
 						for j := range vals {

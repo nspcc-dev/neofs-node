@@ -263,6 +263,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	primAttr := fs[0].Header() // attribute emptiness already prevented
 	var primSeekKey, primSeekPrefix []byte
 	var prevResOID, prevResPrimVal []byte
+	var jump, jumped bool // from int to plain
 	if notPresentPrimMatcher {
 		if cursor != nil {
 			primSeekKey = cursor.Key
@@ -289,11 +290,8 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 				return nil, nil, fmt.Errorf("invalid primary filter value: %w", err)
 			}
 		} else {
-			prefixByte := metaPrefixAttrIDPlain
-			if intPrimMatcher {
-				prefixByte = metaPrefixAttrIDInt
-			}
-			primSeekKey = slices.Concat([]byte{prefixByte}, []byte(primAttr), utf8Delimiter)
+			jump = !intPrimMatcher
+			primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(primAttr), utf8Delimiter)
 			primSeekPrefix = primSeekKey
 		}
 	}
@@ -318,7 +316,16 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	curEpoch := db.epochState.CurrentEpoch()
 	dbValInt := new(big.Int)
 nextPrimKey:
-	for ; bytes.HasPrefix(primKey, primSeekPrefix); primKey, _ = primCursor.Next() {
+	for ; ; primKey, _ = primCursor.Next() {
+		if !bytes.HasPrefix(primKey, primSeekPrefix) {
+			if !jump || jumped {
+				break
+			}
+			primSeekKey[0], jumped = metaPrefixAttrIDPlain, true
+			if primKey, _ = primCursor.Seek(primSeekKey); !bytes.HasPrefix(primKey, primSeekPrefix) {
+				break
+			}
+		}
 		if notPresentPrimMatcher {
 			if id = primKey[1:]; len(id) != oid.Size {
 				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid OID len %d", len(id)))
@@ -420,16 +427,21 @@ nextPrimKey:
 		// object matches, collect attributes
 		collected := make([]string, len(attrs))
 		var insertI uint16
+		if jump && !jumped { // in int space, text should be used
+			dbVal = primDBValParsed
+		} else {
+			dbVal = primDBVal
+		}
 		if len(attrs) > 0 {
 			if cursor != nil { // can be < than previous response chunk
-				if c := bytes.Compare(primDBVal, prevResPrimVal); c < 0 || c == 0 && bytes.Compare(id, prevResOID) <= 0 {
+				if c := bytes.Compare(dbVal, prevResPrimVal); c < 0 || c == 0 && bytes.Compare(id, prevResOID) <= 0 {
 					continue nextPrimKey
 				}
 				// note that if both values are integers, they are already sorted. Otherwise, the order is undefined.
 				// We could treat non-int values as < then the int ones, but the code would have grown huge
 			}
 			for i := range n {
-				if c := bytes.Compare(primDBVal, collectedPrimVals[i]); c < 0 || c == 0 && bytes.Compare(id, res[i].ID[:]) < 0 {
+				if c := bytes.Compare(dbVal, collectedPrimVals[i]); c < 0 || c == 0 && bytes.Compare(id, res[i].ID[:]) < 0 {
 					break
 				}
 				if insertI++; insertI == count {
@@ -470,15 +482,15 @@ nextPrimKey:
 		}
 		if n == count {
 			more = true
-			if len(attrs) > 0 {
+			if len(attrs) > 0 && !jump {
 				break
-			} // else "later" objects may have "less" ID, so we should continue
+			} // else, for empty attrs, "later" objects may have "less" ID, so we should continue
 		}
 		copy(res[insertI+1:], res[insertI:])
 		res[insertI].ID = oid.ID(id)
 		res[insertI].Attributes = collected
 		copy(collectedPrimVals[insertI+1:], collectedPrimVals[insertI:])
-		collectedPrimVals[insertI] = primDBVal
+		collectedPrimVals[insertI] = dbVal
 		copy(collectedPrimKeys[insertI+1:], collectedPrimKeys[insertI:])
 		collectedPrimKeys[insertI] = primKey
 		if n < count {
