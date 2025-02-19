@@ -268,7 +268,7 @@ func (c *Client) UpdateNotaryList(notaries keys.PublicKeys, txHash util.Uint256)
 
 	nonce, vub, err := c.CalculateNonceAndVUB(txHash)
 	if err != nil {
-		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
+		return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
 	}
 
 	return c.notaryInvokeAsCommittee(
@@ -292,7 +292,7 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 
 	nonce, vub, err := c.CalculateNonceAndVUB(txHash)
 	if err != nil {
-		return fmt.Errorf("could not calculate nonce and `valicUntilBlock` values: %w", err)
+		return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
 	}
 
 	return c.notaryInvokeAsCommittee(
