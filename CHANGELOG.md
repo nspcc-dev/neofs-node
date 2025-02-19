@@ -34,6 +34,8 @@ Changelog for NeoFS Node
 
 ### Updated
 - SDK to the post-api-go version (#3103)
+- neofs-contracts to 0.21.0 (#3157)
+- NeoGo to 0.108.0 (#3157)
 
 ### Updating from v0.44.2
 Using public keys as a rule target in eACL tables was deprecated, and 
@@ -53,6 +55,9 @@ non-zero value. Storage nodes add their records to both lists by default, so
 IR nodes must be updated first, otherwise SNs will fail to bootstrap. Monitor
 candidates with neofs-adm and make a switch once all nodes are properly
 migrated to the new list.
+
+IR nodes using embedded CN require chain resynchronization (drop the DB to
+do that) for this release because of NeoGo updates.
 
 ## [0.44.2] - 2024-12-20
 
