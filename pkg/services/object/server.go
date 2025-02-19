@@ -1883,7 +1883,7 @@ func (s *server) signSearchResponse(resp *protoobject.SearchV2Response) *protoob
 
 func (s *server) makeStatusSearchResponse(err error) *protoobject.SearchV2Response {
 	return s.signSearchResponse(&protoobject.SearchV2Response{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(apistatus.FromError(err)),
 	})
 }
 
