@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"math/big"
 	"sync/atomic"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -182,10 +185,31 @@ func initNetmapService(c *cfg) {
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		e := ev.(netmapEvent.NewEpoch).EpochNumber()
 
-		ni, err := c.netmapLocalNodeState(e)
+		var (
+			ni      *netmapSDK.NodeInfo
+			err     error
+			retries uint64
+		)
+
+		expBackoff := backoff.NewExponentialBackOff()
+
+		err = backoff.RetryNotify(
+			func() error {
+				retries++
+				ni, err = c.netmapLocalNodeState(e)
+				if errors.Is(err, rpcclient.ErrWSConnLost) {
+					return backoff.Permanent(err)
+				}
+				return err
+			},
+			expBackoff,
+			func(err error, d time.Duration) {
+				c.log.Info("retrying due to error", zap.Uint64("epoch", e), zap.Error(err), zap.Duration("retry-after", d))
+			})
 		if err != nil {
-			c.log.Error("could not update node state on new epoch",
+			c.log.Error("could not update node state on new epoch after retries",
 				zap.Uint64("epoch", e),
+				zap.Uint64("retries", retries),
 				zap.Error(err),
 			)
 
