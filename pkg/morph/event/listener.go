@@ -69,12 +69,12 @@ type Listener interface {
 	// Has no effect if EnableNotarySupport was not called before Listen or ListenWithError.
 	RegisterNotaryHandler(NotaryHandlerInfo)
 
-	// RegisterBlockHandler must register chain block handler.
+	// RegisterHeaderHandler must register chain header handler.
 	//
-	// The specified handler must be called after each capture and parsing of the new block from chain.
+	// The specified handler will be called after each capture and parsing of the new header from chain.
 	//
 	// Must ignore nil handlers.
-	RegisterBlockHandler(BlockHandler)
+	RegisterHeaderHandler(HeaderHandler)
 
 	// Stop must stop the event listener.
 	Stop()
@@ -110,7 +110,7 @@ type listener struct {
 
 	cli *client.Client
 
-	blockHandlers []BlockHandler
+	headerHandlers []HeaderHandler
 
 	pool *ants.Pool
 }
@@ -192,9 +192,9 @@ func (l *listener) subscribe(errCh chan error) {
 		return
 	}
 
-	if len(l.blockHandlers) > 0 {
-		if err = l.cli.ReceiveBlocks(); err != nil {
-			errCh <- fmt.Errorf("could not subscribe for blocks: %w", err)
+	if len(l.headerHandlers) > 0 {
+		if err = l.cli.ReceiveHeaders(); err != nil {
+			errCh <- fmt.Errorf("could not subscribe for headers: %w", err)
 			return
 		}
 	}
@@ -208,7 +208,7 @@ func (l *listener) subscribe(errCh chan error) {
 }
 
 func (l *listener) listenLoop(ctx context.Context, subErrCh chan error) error {
-	nCh, bCh, notaryCh := l.cli.Notifications()
+	nCh, hCh, notaryCh := l.cli.Notifications()
 	var res error
 
 loop:
@@ -248,16 +248,16 @@ loop:
 				l.log.Warn("listener worker pool drained",
 					zap.Int("capacity", l.pool.Cap()))
 			}
-		case b, ok := <-bCh:
+		case h, ok := <-hCh:
 			if !ok {
-				l.log.Warn("stop event listener by block channel")
-				res = errors.New("new block notification channel is closed")
+				l.log.Warn("header channel closed, stopping event listener")
+				res = errors.New("header notification channel was closed")
 				break loop
 			}
 
 			if err := l.pool.Submit(func() {
-				for i := range l.blockHandlers {
-					l.blockHandlers[i](b)
+				for i := range l.headerHandlers {
+					l.headerHandlers[i](h)
 				}
 			}); err != nil {
 				l.log.Warn("listener worker pool drained",
@@ -558,13 +558,13 @@ func (l *listener) Stop() {
 	})
 }
 
-func (l *listener) RegisterBlockHandler(handler BlockHandler) {
+func (l *listener) RegisterHeaderHandler(handler HeaderHandler) {
 	if handler == nil {
-		l.log.Warn("ignore nil block handler")
+		l.log.Warn("ignore nil header handler")
 		return
 	}
 
-	l.blockHandlers = append(l.blockHandlers, handler)
+	l.headerHandlers = append(l.headerHandlers, handler)
 }
 
 // NewListener create the notification event listener instance and returns Listener interface.

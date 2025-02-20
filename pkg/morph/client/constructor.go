@@ -118,11 +118,11 @@ func New(key *keys.PrivateKey, opts ...Option) (*Client, error) {
 			closeChan: make(chan struct{}),
 			subs: subscriptions{
 				notifyChan:             make(chan *state.ContainedNotificationEvent),
-				blockChan:              make(chan *block.Block),
+				headerChan:             make(chan *block.Header),
 				notaryChan:             make(chan *result.NotaryRequestEvent),
 				subscribedEvents:       make(map[util.Uint160]struct{}),
 				subscribedNotaryEvents: make(map[util.Uint160]struct{}),
-				subscribedToNewBlocks:  false,
+				subscribedToNewHeaders: false,
 			},
 		}
 		conn *connection
@@ -219,7 +219,7 @@ func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
 		gasToken:   gas.New(act),
 		rolemgmt:   rolemgmt.New(act),
 		notifyChan: make(chan *state.ContainedNotificationEvent),
-		blockChan:  make(chan *block.Block),
+		headerChan: make(chan *block.Header),
 		notaryChan: make(chan *result.NotaryRequestEvent),
 	}
 	return conn, nil

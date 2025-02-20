@@ -225,7 +225,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}()
 
-	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
+	s.morphListener.RegisterHeaderHandler(func(b *block.Header) {
 		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
 		)
@@ -241,7 +241,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	})
 
 	if !s.withoutMainNet {
-		s.mainnetListener.RegisterBlockHandler(func(b *block.Block) {
+		s.mainnetListener.RegisterHeaderHandler(func(b *block.Header) {
 			err = s.persistate.SetUInt32(persistateMainChainLastBlockKey, b.Index)
 			if err != nil {
 				s.log.Warn("can't update persistent state",

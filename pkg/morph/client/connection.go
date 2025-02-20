@@ -24,7 +24,7 @@ type connection struct {
 
 	// notification receivers (Client reads notifications from these channels)
 	notifyChan chan *state.ContainedNotificationEvent
-	blockChan  chan *block.Block
+	headerChan chan *block.Header
 	notaryChan chan *result.NotaryRequestEvent
 }
 
@@ -63,7 +63,7 @@ func (c *connection) Close() {
 	_ = c.client.UnsubscribeAll()
 	c.client.Close()
 
-	var notifyCh, blockCh, notaryCh = c.notifyChan, c.blockChan, c.notaryChan
+	var notifyCh, headerCh, notaryCh = c.notifyChan, c.headerChan, c.notaryChan
 drainloop:
 	for {
 		select {
@@ -71,9 +71,9 @@ drainloop:
 			if !ok {
 				notifyCh = nil
 			}
-		case _, ok := <-blockCh:
+		case _, ok := <-headerCh:
 			if !ok {
-				blockCh = nil
+				headerCh = nil
 			}
 		case _, ok := <-notaryCh:
 			if !ok {
