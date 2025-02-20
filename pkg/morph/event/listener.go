@@ -127,9 +127,6 @@ var (
 func (l *listener) ListenWithError(ctx context.Context, intError chan<- error) {
 	l.startOnce.Do(func() {
 		if err := l.listen(ctx); err != nil {
-			l.log.Error("could not start listen to events",
-				zap.Error(err),
-			)
 			intError <- err
 		}
 	})
