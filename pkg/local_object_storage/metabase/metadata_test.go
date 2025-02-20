@@ -34,27 +34,28 @@ func appendAttribute(obj *object.Object, k, v string) {
 	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
 }
 
-func assertAttrPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, valAttrID, valIDAttr T) {
+func assertAttrIDPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T) {
 	k := []byte{prefix}
 	k = append(k, attr...)
 	k = append(k, 0xFF)
-	k = append(k, valAttrID...)
+	k = append(k, val...)
 	k = append(k, id[:]...)
-	require.Equal(t, []byte{}, mb.Get(k))
-	k = []byte{0x03}
-	k = append(k, id[:]...)
-	k = append(k, attr...)
-	k = append(k, 0xFF)
-	k = append(k, valIDAttr...)
 	require.Equal(t, []byte{}, mb.Get(k))
 }
 
 func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T) {
-	assertAttrPrefixed(t, mb, id, 0x02, attr, val, val)
+	assertAttrIDPrefixed(t, mb, id, 0x02, attr, val)
+	k := []byte{0x03}
+	k = append(k, id[:]...)
+	k = append(k, attr...)
+	k = append(k, 0xFF)
+	k = append(k, val...)
+	require.Equal(t, []byte{}, mb.Get(k))
 }
 
 func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
-	assertAttrPrefixed(t, mb, id, 0x01, attr, val, []byte(origin))
+	assertAttr(t, mb, id, attr, origin)
+	assertAttrIDPrefixed(t, mb, id, 0x01, attr, val)
 }
 
 func TestPutMetadata(t *testing.T) {
@@ -302,9 +303,9 @@ func TestIntBucketOrder(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		c := tx.Bucket([]byte("any")).Cursor()
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			n, err := restoreIntAttribute(k)
+			val, err := restoreIntAttribute(k)
 			require.NoError(t, err)
-			collected = append(collected, n.String())
+			collected = append(collected, val)
 		}
 		return nil
 	})

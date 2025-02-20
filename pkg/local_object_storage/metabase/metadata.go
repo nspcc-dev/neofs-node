@@ -163,21 +163,20 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 		if sepInd < 0 {
 			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
-		var kAttrID []byte
-		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+utf8DelimiterLen:]), 10); ok {
-			kAttrID = make([]byte, sepInd+utf8DelimiterLen+intValLen)
-			kAttrID[0] = metaPrefixAttrIDInt
-			off := 1 + copy(kAttrID[1:], kIDAttr[1+oid.Size:sepInd])
-			off += copy(kAttrID[off:], utf8Delimiter)
-			putInt(kAttrID[off:off+intValLen], n)
-			copy(kAttrID[off+intValLen:], id[:])
-		} else {
-			kAttrID = slices.Clone(kIDAttr)
-			kAttrID[0] = metaPrefixAttrIDPlain
-			copy(kAttrID[1:], kIDAttr[1+oid.Size:])
-			copy(kAttrID[len(kAttrID)-oid.Size:], id[:])
-		}
+		kAttrID := slices.Clone(kIDAttr)
+		kAttrID[0] = metaPrefixAttrIDPlain
+		copy(kAttrID[1:], kIDAttr[1+oid.Size:])
+		copy(kAttrID[len(kAttrID)-oid.Size:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
+		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+utf8DelimiterLen:]), 10); ok {
+			kAttrIDInt := make([]byte, sepInd+utf8DelimiterLen+intValLen)
+			kAttrIDInt[0] = metaPrefixAttrIDInt
+			off := 1 + copy(kAttrIDInt[1:], kIDAttr[1+oid.Size:sepInd])
+			off += copy(kAttrIDInt[off:], utf8Delimiter)
+			putInt(kAttrIDInt[off:off+intValLen], n)
+			copy(kAttrIDInt[off+intValLen:], id[:])
+			ks = append(ks, kAttrIDInt)
+		}
 	}
 	for i := range ks {
 		if err := metaBkt.Delete(ks[i]); err != nil {
@@ -284,7 +283,6 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	primAttr := fs[0].Header() // attribute emptiness already prevented
 	var primSeekKey, primSeekPrefix []byte
 	var prevResOID, prevResPrimVal []byte
-	var jump, jumped bool // from int to plain
 	if notPresentPrimMatcher {
 		if cursor != nil {
 			primSeekKey = cursor.Key
@@ -304,20 +302,32 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 		valID := cursor.Key[cursor.ValIDOff:]
 		prevResPrimVal, prevResOID = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
 	} else {
-		if primMatcher == object.MatchStringEqual ||
-			primMatcher == object.MatchNumGT || primMatcher == object.MatchNumGE {
-			var err error
-			if primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, primVal); err != nil {
-				return nil, nil, fmt.Errorf("invalid primary filter value: %w", err)
+		if intPrimMatcher {
+			// we seek 0x01_ATTR_DELIM_VAL either w/ or w/o VAL. We ignore VAL when we need
+			// to start from the lowest int, i.e. filter is auto-matched (e.g. <=MaxUint256) or <(=).
+			f := fInt[0]
+			withVal := !f.auto && (primMatcher == object.MatchNumGT || primMatcher == object.MatchNumGE)
+			kln := 1 + len(primAttr) + utf8DelimiterLen // prefix 1st
+			if withVal {
+				kln += intValLen
+			}
+			primSeekKey = make([]byte, kln)
+			primSeekKey[0] = metaPrefixAttrIDInt
+			off := 1 + copy(primSeekKey[1:], primAttr)
+			off += copy(primSeekKey[off:], utf8Delimiter)
+			primSeekPrefix = primSeekKey[:off]
+			if withVal {
+				copy(primSeekKey[off:], f.b)
 			}
 		} else {
-			jump = !intPrimMatcher
-			primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(primAttr), utf8Delimiter)
-			primSeekPrefix = primSeekKey
-			if primMatcher == object.MatchCommonPrefix && primVal != "-" {
-				if _, ok := new(big.Int).SetString(primVal, 10); !ok { // none of int match this
-					primSeekKey[0], jump = metaPrefixAttrIDPlain, false
-				}
+			var err error
+			if primMatcher != object.MatchStringNotEqual {
+				primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, primVal)
+			} else {
+				primSeekKey, primSeekPrefix, err = seekKeyForAttribute(primAttr, "")
+			}
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid primary filter value: %w", err)
 			}
 		}
 	}
@@ -336,22 +346,13 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	collectedPrimKeys := make([][]byte, count) // TODO: can be done w/o slice
 	var n uint16
 	var more bool
-	var id, dbVal, primDBVal, primDBValParsed []byte
+	var id, dbVal, primDBVal []byte
 	var keyBuf keyBuffer
 	attrSkr := &metaAttributeSeeker{keyBuf: &keyBuf, bkt: metaBkt}
 	curEpoch := db.epochState.CurrentEpoch()
 	dbValInt := new(big.Int)
 nextPrimKey:
-	for ; ; primKey, _ = primCursor.Next() {
-		if !bytes.HasPrefix(primKey, primSeekPrefix) {
-			if !jump || jumped {
-				break
-			}
-			primSeekKey[0], jumped = metaPrefixAttrIDPlain, true
-			if primKey, _ = primCursor.Seek(primSeekKey); !bytes.HasPrefix(primKey, primSeekPrefix) {
-				break
-			}
-		}
+	for ; bytes.HasPrefix(primKey, primSeekPrefix); primKey, _ = primCursor.Next() {
 		if notPresentPrimMatcher {
 			if id = primKey[1:]; len(id) != oid.Size {
 				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid OID len %d", len(id)))
@@ -362,13 +363,6 @@ nextPrimKey:
 				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("too small VAL_OID len %d", len(valID)))
 			}
 			primDBVal, id = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
-			primDBValParsed = primDBVal
-			if !intPrimMatcher && primKey[0] == metaPrefixAttrIDInt {
-				var err error
-				if primDBValParsed, err = restoreIntAttributeVal(primDBVal); err != nil {
-					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid integer value: %w", err))
-				}
-			}
 			for i := range fs {
 				// there may be several filters by primary key, e.g. N >= 10 && N <= 20. We
 				// check them immediately before moving through the DB.
@@ -382,7 +376,7 @@ nextPrimKey:
 					f := fInt[i]
 					matches = f.auto || intBytesMatch(primDBVal, mch, f.b)
 				} else {
-					checkedDBVal, fltVal, err := combineValues(attr, primDBValParsed, val) // TODO: deduplicate DB value preparation
+					checkedDBVal, fltVal, err := combineValues(attr, primDBVal, val) // TODO: deduplicate DB value preparation
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid key in meta bucket: invalid attribute %s value: %w", attr, err)
 					}
@@ -453,21 +447,16 @@ nextPrimKey:
 		// object matches, collect attributes
 		collected := make([]string, len(attrs))
 		var insertI uint16
-		if jump && !jumped { // in int space, text should be used
-			dbVal = primDBValParsed
-		} else {
-			dbVal = primDBVal
-		}
 		if len(attrs) > 0 {
 			if cursor != nil { // can be < than previous response chunk
-				if c := bytes.Compare(dbVal, prevResPrimVal); c < 0 || c == 0 && bytes.Compare(id, prevResOID) <= 0 {
+				if c := bytes.Compare(primDBVal, prevResPrimVal); c < 0 || c == 0 && bytes.Compare(id, prevResOID) <= 0 {
 					continue nextPrimKey
 				}
 				// note that if both values are integers, they are already sorted. Otherwise, the order is undefined.
 				// We could treat non-int values as < then the int ones, but the code would have grown huge
 			}
 			for i := range n {
-				if c := bytes.Compare(dbVal, collectedPrimVals[i]); c < 0 || c == 0 && bytes.Compare(id, res[i].ID[:]) < 0 {
+				if c := bytes.Compare(primDBVal, collectedPrimVals[i]); c < 0 || c == 0 && bytes.Compare(id, res[i].ID[:]) < 0 {
 					break
 				}
 				if insertI++; insertI == count {
@@ -475,13 +464,14 @@ nextPrimKey:
 					continue nextPrimKey
 				}
 			}
-			if primKey[0] == metaPrefixAttrIDInt && intPrimMatcher { // otherwise already parsed during on filter processing above
+			if intPrimMatcher {
 				var err error
-				if primDBValParsed, err = restoreIntAttributeVal(primDBVal); err != nil {
+				if collected[0], err = restoreIntAttribute(primDBVal); err != nil {
 					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid integer value: %w", err))
 				}
+			} else {
+				collected[0] = string(primDBVal)
 			}
-			collected[0] = string(primDBValParsed)
 		} else {
 			if cursor != nil { // can be < than previous response chunk
 				if bytes.Compare(id, prevResOID) <= 0 {
@@ -508,7 +498,7 @@ nextPrimKey:
 		}
 		if n == count {
 			more = true
-			if len(attrs) > 0 && !jump {
+			if len(attrs) > 0 {
 				break
 			} // else, for empty attrs, "later" objects may have "less" ID, so we should continue
 		}
@@ -516,7 +506,7 @@ nextPrimKey:
 		res[insertI].ID = oid.ID(id)
 		res[insertI].Attributes = collected
 		copy(collectedPrimVals[insertI+1:], collectedPrimVals[insertI:])
-		collectedPrimVals[insertI] = dbVal
+		collectedPrimVals[insertI] = primDBVal
 		copy(collectedPrimKeys[insertI+1:], collectedPrimKeys[insertI:])
 		collectedPrimKeys[insertI] = primKey
 		if n < count {
@@ -580,18 +570,17 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 }
 
 func seekKeyForAttribute(attr, fltVal string) ([]byte, []byte, error) {
+	key := make([]byte, 1+len(attr)+utf8DelimiterLen+len(fltVal)) // prefix 1st
+	key[0] = metaPrefixAttrIDPlain
+	off := 1 + copy(key[1:], attr)
+	off += copy(key[off:], utf8Delimiter)
+	prefix := key[:off]
+	if fltVal == "" {
+		return key, prefix, nil
+	}
 	var dbVal []byte
 	switch attr {
 	default:
-		if n, ok := new(big.Int).SetString(fltVal, 10); ok && intWithinLimits(n) {
-			key := make([]byte, 1+len(attr)+utf8DelimiterLen+intValLen) // prefix 1st
-			key[0] = metaPrefixAttrIDInt
-			off := 1 + copy(key[1:], attr)
-			off += copy(key[off:], utf8Delimiter)
-			prefix := key[:off]
-			putInt(key[off:off+intValLen], n)
-			return key, prefix, nil
-		}
 		dbVal = []byte(fltVal)
 	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
 		var err error
@@ -611,11 +600,6 @@ func seekKeyForAttribute(attr, fltVal string) ([]byte, []byte, error) {
 		dbVal = uid[:]
 	case object.FilterVersion, object.FilterType, object.FilterRoot, object.FilterPhysical:
 	}
-	key := make([]byte, 1+len(attr)+utf8DelimiterLen+len(dbVal)) // prefix 1st
-	key[0] = metaPrefixAttrIDPlain
-	off := 1 + copy(key[1:], attr)
-	off += copy(key[off:], utf8Delimiter)
-	prefix := key[:off]
 	copy(key[off:], dbVal)
 	return key, prefix, nil
 }
@@ -705,30 +689,22 @@ func putInt(b []byte, n *big.Int) {
 	}
 }
 
-func restoreIntAttributeVal(b []byte) ([]byte, error) {
-	n, err := restoreIntAttribute(b)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(n.String()), nil
-}
-
-func restoreIntAttribute(b []byte) (*big.Int, error) {
+func restoreIntAttribute(b []byte) (string, error) {
 	if len(b) != intValLen {
-		return nil, fmt.Errorf("invalid len %d", len(b))
+		return "", fmt.Errorf("invalid len %d", len(b))
 	}
 	switch b[0] {
 	default:
-		return nil, fmt.Errorf("invalid sign byte %d", b[0])
+		return "", fmt.Errorf("invalid sign byte %d", b[0])
 	case 1:
-		return new(big.Int).SetBytes(b[1:]), nil
+		return new(big.Int).SetBytes(b[1:]).String(), nil
 	case 0:
 		cp := slices.Clone(b[1:])
 		for i := range cp {
 			cp[i] = ^cp[i]
 		}
 		n := new(big.Int).SetBytes(cp)
-		return n.Neg(n), nil
+		return n.Neg(n).String(), nil
 	}
 }
 
@@ -828,12 +804,7 @@ func putIntAttribute(bkt *bbolt.Bucket, buf *keyBuffer, id oid.ID, attr, origin 
 	if err := bkt.Put(k, nil); err != nil {
 		return fmt.Errorf("put integer object attribute %q to container's meta bucket (attribute-to-ID): %w", attr, err)
 	}
-	k = prepareMetaIDAttrKey(buf, id, attr, len(origin))
-	copy(k[len(k)-len(origin):], origin)
-	if err := bkt.Put(k, nil); err != nil {
-		return fmt.Errorf("put integer object attribute %q to container's meta bucket (ID-to-attribute): %w", attr, err)
-	}
-	return nil
+	return putPlainAttribute(bkt, buf, id, attr, origin)
 }
 
 type metaAttributeSeeker struct {
