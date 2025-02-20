@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math/big"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -90,18 +93,57 @@ func checkDBFiles(t *testing.T, path string, cnrs map[cid.ID]struct{}) {
 	}, 5*time.Second, time.Millisecond*100, "expected to find db files")
 }
 
-func createAndRunTestMeta(t *testing.T) (*Meta, func(), chan struct{}) {
+type testWS struct {
+	m             sync.RWMutex
+	notifications []state.ContainedNotificationEvent
+	err           error
+}
+
+func (t *testWS) swapResults(notifications []state.ContainedNotificationEvent, err error) {
+	t.m.Lock()
+	defer t.m.Unlock()
+
+	t.notifications = notifications
+	t.err = err
+}
+
+func (t *testWS) GetBlockNotifications(blockHash util.Uint256, filters ...*neorpc.NotificationFilter) (*result.BlockNotifications, error) {
+	t.m.RLock()
+	defer t.m.RUnlock()
+
+	return &result.BlockNotifications{
+		Application: t.notifications,
+	}, t.err
+}
+
+func (t *testWS) GetVersion() (*result.Version, error) {
+	panic("not expected for now")
+}
+
+func (t *testWS) ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error) {
+	panic("not expected for now")
+}
+
+func (t *testWS) ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error) {
+	panic("not expected for now")
+}
+
+func (t *testWS) Close() {
+	panic("not expected for now")
+}
+
+func createAndRunTestMeta(t *testing.T, ws wsClient) (*Meta, func(), chan struct{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Meta{
-		l:                   zaptest.NewLogger(t),
-		rootPath:            t.TempDir(),
-		magicNumber:         102938475,
-		bCh:                 make(chan *block.Header),
-		objEv:               make(chan *state.ContainedNotificationEvent),
-		cnrDelEv:            make(chan *state.ContainedNotificationEvent),
-		cnrPutEv:            make(chan *state.ContainedNotificationEvent),
-		epochEv:             make(chan *state.ContainedNotificationEvent),
-		objNotificationBuff: make(chan *state.ContainedNotificationEvent, objsBufferSize),
+		l:           zaptest.NewLogger(t),
+		rootPath:    t.TempDir(),
+		magicNumber: 102938475,
+		bCh:         make(chan *block.Header),
+		cnrDelEv:    make(chan *state.ContainedNotificationEvent),
+		cnrPutEv:    make(chan *state.ContainedNotificationEvent),
+		epochEv:     make(chan *state.ContainedNotificationEvent),
+		blockBuff:   make(chan *block.Header, blockBuffSize),
+		ws:          ws,
 
 		// no-op, to be filled by test cases if needed
 		storages:  make(map[cid.ID]*containerStorage),
@@ -115,7 +157,7 @@ func createAndRunTestMeta(t *testing.T) (*Meta, func(), chan struct{}) {
 	exitCh := make(chan struct{})
 
 	go m.flusher(ctx)
-	go m.objNotificationWorker(ctx, m.objNotificationBuff)
+	go m.blockFetcher(ctx, m.blockBuff)
 	go func() {
 		_ = m.listenNotifications(ctx)
 		exitCh <- struct{}{}
@@ -221,7 +263,8 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 }
 
 func TestObjectPut(t *testing.T) {
-	m, stop, exitCh := createAndRunTestMeta(t)
+	ws := testWS{}
+	m, stop, exitCh := createAndRunTestMeta(t, &ws)
 	t.Cleanup(func() {
 		stop()
 		<-exitCh
@@ -285,12 +328,13 @@ func TestObjectPut(t *testing.T) {
 			}
 		}()
 
-		m.objEv <- &state.ContainedNotificationEvent{
+		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(oID[:]), metaStack}),
 			},
-		}
+		}), nil)
+		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			return checkObject(t, m, cID, oID, fPart, pPart, size, typ, deleted, nil, testVUB, m.magicNumber)
@@ -306,32 +350,13 @@ func TestObjectPut(t *testing.T) {
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
-		stopTest := make(chan struct{})
-		t.Cleanup(func() {
-			close(stopTest)
-		})
-		go func() {
-			var i uint32 = 1
-			tick := time.NewTicker(100 * time.Millisecond)
-			for {
-				select {
-				case <-tick.C:
-					m.bCh <- &block.Header{
-						Index: i,
-					}
-					i++
-				case <-stopTest:
-					return
-				}
-			}
-		}()
-
-		m.objEv <- &state.ContainedNotificationEvent{
+		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(objToDeleteOID[:]), metaStack}),
 			},
-		}
+		}), nil)
+		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			return checkObject(t, m, cID, objToDeleteOID, oid.ID{}, oid.ID{}, size, objectsdk.TypeRegular, nil, nil, testVUB, m.magicNumber)
@@ -346,12 +371,13 @@ func TestObjectPut(t *testing.T) {
 		metaStack, err = stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
-		m.objEv <- &state.ContainedNotificationEvent{
+		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(tsCID[:]), stackitem.Make(tsOID[:]), metaStack}),
 			},
-		}
+		}), nil)
+		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			m.m.RLock()
