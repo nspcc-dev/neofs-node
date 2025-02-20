@@ -245,9 +245,7 @@ routeloop:
 		case ev, ok := <-conn.notaryChan:
 			connLost = handleEv(c.subs.notaryChan, ok, ev)
 		case ok := <-restoreCh:
-			if !ok {
-				connLost = true
-			}
+			connLost = !ok
 		}
 		if connLost {
 			conn = nil
