@@ -60,18 +60,9 @@ func makeNotaryDeposit(c *cfg) error {
 }
 
 func listenMorphNotifications(c *cfg) {
-	// listenerPoolCap is a capacity of a
-	// worker pool inside the listener. It
-	// is used to prevent blocking in neo-go:
-	// the client cannot make RPC requests if
-	// the notification channel is not being
-	// read by another goroutine.
-	const listenerPoolCap = 100
-
 	lis, err := event.NewListener(event.ListenerParams{
-		Logger:             c.log,
-		Client:             c.cfgMorph.client,
-		WorkerPoolCapacity: listenerPoolCap,
+		Logger: c.log,
+		Client: c.cfgMorph.client,
 	})
 	fatalOnErr(err)
 

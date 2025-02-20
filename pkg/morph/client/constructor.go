@@ -54,6 +54,18 @@ type cfg struct {
 
 const (
 	defaultDialTimeout = 5 * time.Second
+
+	// Mostly it's a single event per transaction, with 1s blocks we're
+	// not likely to have more than 5K transactions in a block now.
+	// The default is 512 tx.
+	notifyChanBuf = 5000
+
+	// Headers are more rare and are processed quickly.
+	headerChanBuf = 10
+
+	// Notary events happen about as often as notifications, but their
+	// handling can be truly concurrent.
+	notaryChanBuf = 1000
 )
 
 func defaultConfig() *cfg {
@@ -218,9 +230,9 @@ func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
 		rpcActor:   act,
 		gasToken:   gas.New(act),
 		rolemgmt:   rolemgmt.New(act),
-		notifyChan: make(chan *state.ContainedNotificationEvent),
-		headerChan: make(chan *block.Header),
-		notaryChan: make(chan *result.NotaryRequestEvent),
+		notifyChan: make(chan *state.ContainedNotificationEvent, notifyChanBuf),
+		headerChan: make(chan *block.Header, headerChanBuf),
+		notaryChan: make(chan *result.NotaryRequestEvent, notaryChanBuf),
 	}
 	return conn, nil
 }
