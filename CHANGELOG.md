@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - IR `fschain.consensus.rpc.max_websocket_clients` and `fschain.consensus.rpc.session_pool_size` config options (#3126)
 - `ObjectService.SearchV2` SN API (#3111)
 - `neofs-cli object searchv2` command (#3119)
+- Retries to update node state on new epoch (#3158)
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
