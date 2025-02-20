@@ -34,27 +34,28 @@ func appendAttribute(obj *object.Object, k, v string) {
 	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
 }
 
-func assertAttrPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, valAttrID, valIDAttr T) {
+func assertAttrIDPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T) {
 	k := []byte{prefix}
 	k = append(k, attr...)
 	k = append(k, 0xFF)
-	k = append(k, valAttrID...)
+	k = append(k, val...)
 	k = append(k, id[:]...)
-	require.Equal(t, []byte{}, mb.Get(k))
-	k = []byte{0x03}
-	k = append(k, id[:]...)
-	k = append(k, attr...)
-	k = append(k, 0xFF)
-	k = append(k, valIDAttr...)
 	require.Equal(t, []byte{}, mb.Get(k))
 }
 
 func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T) {
-	assertAttrPrefixed(t, mb, id, 0x02, attr, val, val)
+	assertAttrIDPrefixed(t, mb, id, 0x02, attr, val)
+	k := []byte{0x03}
+	k = append(k, id[:]...)
+	k = append(k, attr...)
+	k = append(k, 0xFF)
+	k = append(k, val...)
+	require.Equal(t, []byte{}, mb.Get(k))
 }
 
 func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
-	assertAttrPrefixed(t, mb, id, 0x01, attr, val, []byte(origin))
+	assertAttr(t, mb, id, attr, origin)
+	assertAttrIDPrefixed(t, mb, id, 0x01, attr, val)
 }
 
 func TestPutMetadata(t *testing.T) {
@@ -302,9 +303,9 @@ func TestIntBucketOrder(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		c := tx.Bucket([]byte("any")).Cursor()
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			n, err := restoreIntAttribute(k)
+			val, err := restoreIntAttribute(k)
 			require.NoError(t, err)
-			collected = append(collected, n.String())
+			collected = append(collected, val)
 		}
 		return nil
 	})
@@ -892,8 +893,8 @@ func TestDB_SearchObjects(t *testing.T) {
 			check("attr_int", object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
 			check("attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
 			check("attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", allInt)
-			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", allInt)
+			check("attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
 			check("attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
 			check("attr_int", object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
 			check("attr_int", object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
@@ -905,13 +906,13 @@ func TestDB_SearchObjects(t *testing.T) {
 			check("attr_int", object.MatchNumLE, "-18446744073709551615", []uint{0, 2})
 			check("attr_int", object.MatchNumLE, "0", []uint{0, 2, 3})
 			check("attr_int", object.MatchNumLE, "18446744073709551615", []uint{0, 2, 3, 4})
-			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0, 1, 2, 3, 4})
+			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
 			check("attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{1, 2, 3, 4})
 			check("attr_int", object.MatchNumGT, "-18446744073709551615", []uint{1, 3, 4})
 			check("attr_int", object.MatchNumGT, "0", []uint{1, 4})
 			check("attr_int", object.MatchNumGT, "18446744073709551615", []uint{1})
 			check("attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-			check("attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0, 1, 2, 3, 4})
+			check("attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
 			check("attr_int", object.MatchNumGE, "-18446744073709551615", []uint{1, 2, 3, 4})
 			check("attr_int", object.MatchNumGE, "0", []uint{1, 3, 4})
 			check("attr_int", object.MatchNumGE, "18446744073709551615", []uint{1, 4})
@@ -980,6 +981,10 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Equal(t, ids[ind], res[i].ID, vals[i])
 					}
 				}
+				all := make([]int, len(vals))
+				for i := range vals {
+					all[i] = i
+				}
 				t.Run("EQ", func(t *testing.T) {
 					for i := range vals {
 						check(t, object.MatchStringEqual, vals[i], i)
@@ -1010,6 +1015,9 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Equal(t, ids[1], res[1].ID)
 						require.NotEmpty(t, cursor)
 					})
+					t.Run("empty", func(t *testing.T) {
+						check(t, object.MatchStringNotEqual, "", all...)
+					})
 				})
 				t.Run("PREFIX", func(t *testing.T) {
 					t.Run("negative", func(t *testing.T) {
@@ -1022,6 +1030,9 @@ func TestDB_SearchObjects(t *testing.T) {
 					t.Run("positive", func(t *testing.T) {
 						check(t, object.MatchCommonPrefix, "1", 3, 4, 5)
 						check(t, object.MatchCommonPrefix, "11", 3, 4)
+					})
+					t.Run("empty", func(t *testing.T) {
+						check(t, object.MatchCommonPrefix, "", all...)
 					})
 				})
 				t.Run("NUM", func(t *testing.T) {
@@ -1058,7 +1069,7 @@ func TestDB_SearchObjects(t *testing.T) {
 					{k: "group_attr_1", m: object.MatchStringEqual, v: "group_val_1"},
 					{k: "attr_int", m: object.MatchNumGE, v: "-115792089237316195423570985008687907853269984665640564039457584007913129639935"},
 				}},
-				{is: []uint{1, 3}, fs: []filter{
+				{is: nil, fs: []filter{
 					{k: "group_attr_2", m: object.MatchStringNotEqual, v: "group_val_1"},
 					{k: "attr_int", m: object.MatchNumLT, v: "115792089237316195423570985008687907853269984665640564039457584007913129639936"},
 				}},
@@ -1126,7 +1137,10 @@ func TestDB_SearchObjects(t *testing.T) {
 						fs.AddFilter(f.k, f.v, f.m)
 					}
 					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
+					if !ok {
+						require.Empty(t, tc.is)
+						return
+					}
 					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
 					require.NoError(t, err)
 					require.Empty(t, cursor)

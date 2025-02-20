@@ -105,7 +105,7 @@ The lowest not used bucket index: 20.
     - `0` + object ID
     - `1` + attribute + `0xFF` + `0|1` + fixed256(value) + object ID: integer attributes. \
       Sign byte is 0 for negatives, 1 otherwise. Bits are inverted for negatives also.
-    - `2` + attribute + `0xFF` + value + object ID: plain non-integer attributes
+    - `2` + attribute + `0xFF` + value + object ID
     - `3` + object ID + attribute + `0xFF` + value
 
 # History
