@@ -980,6 +980,10 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Equal(t, ids[ind], res[i].ID, vals[i])
 					}
 				}
+				all := make([]int, len(vals))
+				for i := range vals {
+					all[i] = i
+				}
 				t.Run("EQ", func(t *testing.T) {
 					for i := range vals {
 						check(t, object.MatchStringEqual, vals[i], i)
@@ -1010,6 +1014,9 @@ func TestDB_SearchObjects(t *testing.T) {
 						require.Equal(t, ids[1], res[1].ID)
 						require.NotEmpty(t, cursor)
 					})
+					t.Run("empty", func(t *testing.T) {
+						check(t, object.MatchStringNotEqual, "", all...)
+					})
 				})
 				t.Run("PREFIX", func(t *testing.T) {
 					t.Run("negative", func(t *testing.T) {
@@ -1022,6 +1029,9 @@ func TestDB_SearchObjects(t *testing.T) {
 					t.Run("positive", func(t *testing.T) {
 						check(t, object.MatchCommonPrefix, "1", 3, 4, 5)
 						check(t, object.MatchCommonPrefix, "11", 3, 4)
+					})
+					t.Run("empty", func(t *testing.T) {
+						check(t, object.MatchCommonPrefix, "", all...)
 					})
 				})
 				t.Run("NUM", func(t *testing.T) {
