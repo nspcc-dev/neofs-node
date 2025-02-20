@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
 )
 
@@ -81,8 +81,6 @@ type ListenerParams struct {
 	Logger *zap.Logger
 
 	Client *client.Client
-
-	WorkerPoolCapacity int
 }
 
 type listener struct {
@@ -106,11 +104,12 @@ type listener struct {
 	cli *client.Client
 
 	headerHandlers []HeaderHandler
-
-	pool *ants.Pool
 }
 
 const newListenerFailMsg = "could not instantiate Listener"
+
+// notaryRoutineNum limits the number of concurrent notary request handlers.
+const notaryRoutineNum = 10
 
 var (
 	errNilLogger = errors.New("nil logger")
@@ -136,14 +135,24 @@ func (l *listener) listen(ctx context.Context) error {
 	// mark listener as started
 	l.started = true
 
-	subErrCh := make(chan error)
+	ctx, cancel := context.WithCancelCause(ctx)
+	notifyCh, headerCh, notaryCh := l.cli.Notifications()
 
-	go l.subscribe(subErrCh)
-
-	return l.listenLoop(ctx, subErrCh)
+	go l.subscribe(cancel)
+	go l.listenForHeaders(ctx, cancel, headerCh)
+	go l.listenForNotary(ctx, cancel, notaryCh)
+	// We need to block this goroutine too
+	l.listenForNotifications(ctx, cancel, notifyCh)
+	err := context.Cause(ctx)
+	if !errors.Is(err, context.Canceled) {
+		// Some real cause.
+		return err
+	}
+	// Upper-layer cancellation.
+	return nil
 }
 
-func (l *listener) subscribe(errCh chan error) {
+func (l *listener) subscribe(cancel context.CancelCauseFunc) {
 	// create the list of listening contract hashes
 	hashes := make([]util.Uint160, 0)
 
@@ -165,84 +174,94 @@ func (l *listener) subscribe(errCh chan error) {
 
 	err := l.cli.ReceiveExecutionNotifications(hashes)
 	if err != nil {
-		errCh <- fmt.Errorf("could not subscribe for notifications: %w", err)
+		cancel(err)
 		return
 	}
 
 	if len(l.headerHandlers) > 0 {
 		if err = l.cli.ReceiveHeaders(); err != nil {
-			errCh <- fmt.Errorf("could not subscribe for headers: %w", err)
+			cancel(err)
 			return
 		}
 	}
 
 	if l.listenNotary {
 		if err = l.cli.ReceiveNotaryRequests(l.notaryMainTXSigner); err != nil {
-			errCh <- fmt.Errorf("could not subscribe for notary requests: %w", err)
+			cancel(err)
 			return
 		}
 	}
 }
 
-func (l *listener) listenLoop(ctx context.Context, subErrCh chan error) error {
-	nCh, hCh, notaryCh := l.cli.Notifications()
-	var res error
+func (l *listener) listenForHeaders(ctx context.Context, cancel context.CancelCauseFunc, headerCh <-chan *block.Header) {
+	for {
+		select {
+		case <-ctx.Done():
+			l.log.Info("header listener stopped",
+				zap.Error(context.Cause(ctx)))
+			return
+		case h, ok := <-headerCh:
+			if !ok {
+				l.log.Warn("header channel closed, stopping event listener")
+				cancel(errors.New("header notification channel was closed"))
+				return
+			}
+
+			for i := range l.headerHandlers {
+				l.headerHandlers[i](h)
+			}
+		}
+	}
+}
+
+func (l *listener) listenForNotary(ctx context.Context, cancel context.CancelCauseFunc, notaryCh <-chan *result.NotaryRequestEvent) {
+	var secondaryCh = make(chan *result.NotaryRequestEvent)
+
+	for range notaryRoutineNum {
+		go func() {
+			for notaryEvent := range secondaryCh {
+				l.parseAndHandleNotary(notaryEvent)
+			}
+		}()
+	}
 
 loop:
 	for {
 		select {
-		case res = <-subErrCh:
-			l.log.Error("stop event listener by error", zap.Error(res))
-			break loop
 		case <-ctx.Done():
-			l.log.Info("stop event listener by context",
-				zap.String("reason", ctx.Err().Error()),
-			)
+			l.log.Info("notary listener stopped",
+				zap.Error(context.Cause(ctx)))
 			break loop
-		case notifyEvent, ok := <-nCh:
-			if !ok {
-				l.log.Warn("stop event listener by notification channel")
-				res = errors.New("event subscriber connection has been terminated")
-				break loop
-			}
-
-			if err := l.pool.Submit(func() {
-				l.parseAndHandleNotification(notifyEvent)
-			}); err != nil {
-				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
-			}
 		case notaryEvent, ok := <-notaryCh:
 			if !ok {
-				l.log.Warn("stop event listener by notary channel")
-				res = errors.New("notary event subscriber connection has been terminated")
+				l.log.Warn("notary channel closed, stopping event listener")
+				cancel(errors.New("notary notification channel was closed"))
 				break loop
 			}
 
-			if err := l.pool.Submit(func() {
-				l.parseAndHandleNotary(notaryEvent)
-			}); err != nil {
-				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
-			}
-		case h, ok := <-hCh:
-			if !ok {
-				l.log.Warn("header channel closed, stopping event listener")
-				res = errors.New("header notification channel was closed")
-				break loop
-			}
-
-			if err := l.pool.Submit(func() {
-				for i := range l.headerHandlers {
-					l.headerHandlers[i](h)
-				}
-			}); err != nil {
-				l.log.Warn("listener worker pool drained",
-					zap.Int("capacity", l.pool.Cap()))
-			}
+			secondaryCh <- notaryEvent
 		}
 	}
-	return res
+	close(secondaryCh)
+}
+
+func (l *listener) listenForNotifications(ctx context.Context, cancel context.CancelCauseFunc, notifyCh <-chan *state.ContainedNotificationEvent) {
+	for {
+		select {
+		case <-ctx.Done():
+			l.log.Info("notification listener stopped",
+				zap.Error(context.Cause(ctx)))
+			return
+		case notifyEvent, ok := <-notifyCh:
+			if !ok {
+				l.log.Warn("notification channel closed, stopping event listener")
+				cancel(errors.New("notification channel was closed"))
+				return
+			}
+
+			l.parseAndHandleNotification(notifyEvent)
+		}
+	}
 }
 
 func (l *listener) parseAndHandleNotification(notifyEvent *state.ContainedNotificationEvent) {
@@ -546,11 +565,6 @@ func (l *listener) RegisterHeaderHandler(handler HeaderHandler) {
 
 // NewListener create the notification event listener instance and returns Listener interface.
 func NewListener(p ListenerParams) (Listener, error) {
-	// defaultPoolCap is a default worker
-	// pool capacity if it was not specified
-	// via params
-	const defaultPoolCap = 100
-
 	switch {
 	case p.Logger == nil:
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilLogger)
@@ -558,21 +572,10 @@ func NewListener(p ListenerParams) (Listener, error) {
 		return nil, fmt.Errorf("%s: %w", newListenerFailMsg, errNilSubscriber)
 	}
 
-	poolCap := p.WorkerPoolCapacity
-	if poolCap == 0 {
-		poolCap = defaultPoolCap
-	}
-
-	pool, err := ants.NewPool(poolCap, ants.WithNonblocking(true))
-	if err != nil {
-		return nil, fmt.Errorf("could not init worker pool: %w", err)
-	}
-
 	return &listener{
 		notificationParsers:  make(map[scriptHashWithType]NotificationParser),
 		notificationHandlers: make(map[scriptHashWithType][]Handler),
 		log:                  p.Logger,
 		cli:                  p.Client,
-		pool:                 pool,
 	}, nil
 }
