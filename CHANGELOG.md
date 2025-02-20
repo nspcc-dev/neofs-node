@@ -35,6 +35,7 @@ Changelog for NeoFS Node
 - Write-cache size estimations (#3106)
 - New network map support solving the limit of ~320 nodes per network
 - Calculation of VUB for zero hash (#3134)
+- More efficient block header subscription is used now instead of block-based one (#3163)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)
