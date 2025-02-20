@@ -40,6 +40,6 @@ func ParseDesignate(e *state.ContainedNotificationEvent) (event.Event, error) {
 
 	return Designate{
 		Role:   noderoles.Role(bi.Int64()),
-		TxHash: e.Container,
+		TxHash: util.Uint256{},
 	}, nil
 }

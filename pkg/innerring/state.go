@@ -123,15 +123,18 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 		nonce uint32 = 1
 		vub   uint32
 		vubP  *uint32
+		hash  util.Uint256
 	)
 
 	if trigger != nil {
-		nonce, vub, err = s.morphClient.CalculateNonceAndVUB(*trigger)
-		if err != nil {
-			return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
-		}
-		vubP = &vub
+		hash = *trigger
 	}
+
+	nonce, vub, err = s.morphClient.CalculateNonceAndVUB(hash)
+	if err != nil {
+		return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
+	}
+	vubP = &vub
 
 	s.contracts.alphabet.iterate(func(ind int, contract util.Uint160) {
 		_, err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)

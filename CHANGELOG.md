@@ -25,11 +25,13 @@ Changelog for NeoFS Node
 - `neofs_node_engine_list_objects_time_bucket` metric (#3120)
 - The correct role parameter to invocation (#3127)
 - nil pointer error for `storage sanity` command (#3151)
+- Process designation event of the mainnet RoleManagement contract (#3134)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 - Write-cache size estimations (#3106)
 - New network map support solving the limit of ~320 nodes per network
+- Calculation of VUB for zero hash (#3134)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)
