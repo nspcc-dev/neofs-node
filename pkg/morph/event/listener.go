@@ -16,11 +16,6 @@ import (
 
 // Listener is an interface of smart contract notification event listener.
 type Listener interface {
-	// Listen must start the event listener.
-	//
-	// Must listen to events with the parser installed.
-	Listen(context.Context)
-
 	// ListenWithError must start the event listener.
 	//
 	// Must listen to events with the parser installed.
@@ -122,21 +117,6 @@ var (
 
 	errNilSubscriber = errors.New("nil event client")
 )
-
-// Listen starts the listening for events with registered handlers.
-//
-// Executes once, all subsequent calls do nothing.
-//
-// Returns an error if listener was already started.
-func (l *listener) Listen(ctx context.Context) {
-	l.startOnce.Do(func() {
-		if err := l.listen(ctx); err != nil {
-			l.log.Error("could not start listen to events",
-				zap.Error(err),
-			)
-		}
-	})
-}
 
 // ListenWithError starts the listening for events with registered handlers and
 // passing error message to intError channel if subscriber channel has been closed.
