@@ -967,15 +967,15 @@ func PreprocessIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, boo
 		}
 		var f ParsedIntFilter
 		if c := n.Cmp(maxUint256); c >= 0 {
-			if m == object.MatchNumGT || c > 0 && m == object.MatchNumGE {
+			if c > 0 || m == object.MatchNumGT {
 				return nil, false
 			}
-			f.auto = m == object.MatchNumLE || c > 0 && m == object.MatchNumLT
+			f.auto = m == object.MatchNumLE
 		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
-			if m == object.MatchNumLT || c < 0 && m == object.MatchNumLE {
+			if c < 0 || m == object.MatchNumLT {
 				return nil, false
 			}
-			f.auto = m == object.MatchNumGE || c < 0 && m == object.MatchNumGT
+			f.auto = m == object.MatchNumGE
 		}
 		if !f.auto {
 			if i == 0 || objectcore.IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {

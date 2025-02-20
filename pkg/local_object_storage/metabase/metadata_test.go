@@ -1058,7 +1058,7 @@ func TestDB_SearchObjects(t *testing.T) {
 					{k: "group_attr_1", m: object.MatchStringEqual, v: "group_val_1"},
 					{k: "attr_int", m: object.MatchNumGE, v: "-115792089237316195423570985008687907853269984665640564039457584007913129639935"},
 				}},
-				{is: []uint{1, 3}, fs: []filter{
+				{is: nil, fs: []filter{
 					{k: "group_attr_2", m: object.MatchStringNotEqual, v: "group_val_1"},
 					{k: "attr_int", m: object.MatchNumLT, v: "115792089237316195423570985008687907853269984665640564039457584007913129639936"},
 				}},
@@ -1126,7 +1126,10 @@ func TestDB_SearchObjects(t *testing.T) {
 						fs.AddFilter(f.k, f.v, f.m)
 					}
 					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
+					if !ok {
+						require.Empty(t, tc.is)
+						return
+					}
 					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
 					require.NoError(t, err)
 					require.Empty(t, cursor)
