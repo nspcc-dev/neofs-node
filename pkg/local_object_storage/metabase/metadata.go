@@ -69,7 +69,6 @@ func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, root, phy bool) error
 		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), root, phy)
 }
 
-// TODO: fill on migration.
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
 	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
 	root, phy bool) error {
