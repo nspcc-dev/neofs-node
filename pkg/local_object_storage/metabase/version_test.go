@@ -17,6 +17,7 @@ import (
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
+	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -582,4 +583,41 @@ func TestMigrate3to4(t *testing.T) {
 			require.Equal(t, objs[i].GetID(), res[0].ID, i)
 		}
 	}
+	t.Run("failure", func(t *testing.T) {
+		t.Run("zero by in attribute", func(t *testing.T) {
+			testWithAttr := func(t *testing.T, k, v, msg string) {
+				db := newDB(t)
+				cnr := cid.ID{74, 207, 174, 156, 40, 231, 114, 55, 114, 92, 232, 152, 106, 247, 193, 112, 158, 52, 3, 52, 184, 14, 75, 215, 86, 203, 76, 88, 158, 253, 241, 195}
+				id := oid.ID{254, 229, 187, 147, 179, 23, 187, 50, 37, 212, 113, 82, 18, 24, 192, 81, 251, 204, 82, 56, 211, 244, 161, 185, 71, 248, 118, 213, 134, 26, 49, 79}
+				var obj object.Object
+				obj.SetContainerID(cnr)
+				obj.SetOwner(usertest.ID())
+				obj.SetPayloadChecksum(checksumtest.Checksum())
+				obj.SetAttributes(
+					*object.NewAttribute("valid key", "valid value"),
+					*object.NewAttribute(k, v),
+				)
+				// put object and force old version
+				require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+					b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+					require.NoError(t, err)
+					require.NoError(t, b.Put(id[:], obj.Marshal()))
+					bkt := tx.Bucket([]byte{0x05})
+					require.NotNil(t, bkt)
+					return bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0})
+				}))
+				require.NoError(t, err)
+				// try to migrate
+				require.EqualError(t, db.Init(), "migrating from meta version 3 failed, consider database resync: "+
+					"process container 0x6632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW bucket: "+
+					"put metadata for object JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv: "+msg)
+			}
+			t.Run("in key", func(t *testing.T) {
+				testWithAttr(t, "k\x00y", "value", "attribute #1 key contains 0x00 byte used in sep")
+			})
+			t.Run("in value", func(t *testing.T) {
+				testWithAttr(t, "key", "va\x00ue", "attribute #1 value contains 0x00 byte used in sep")
+			})
+		})
+	})
 }

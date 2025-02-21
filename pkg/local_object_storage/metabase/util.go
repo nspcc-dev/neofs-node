@@ -12,10 +12,10 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// UTF-8 data separator used in DB.
-var utf8Delimiter = []byte{0xFF}
+// object attribute key and value separator used in DB.
+var attributeDelimiter = []byte{0x00}
 
-const utf8DelimiterLen = 1
+const attributeDelimiterLen = 1
 
 var (
 	// graveyardBucketName stores rows with the objects that have been
