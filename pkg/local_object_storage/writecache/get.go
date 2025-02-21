@@ -11,14 +11,11 @@ import (
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
 func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
-	saddr := addr.EncodeToString()
-
 	obj, err := c.fsTree.Get(addr)
 	if err != nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	c.flushed.Get(saddr)
 	return obj, nil
 }
 
@@ -35,13 +32,10 @@ func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 }
 
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
-	saddr := addr.EncodeToString()
-
 	b, err := c.fsTree.GetBytes(addr)
 	if err != nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	c.flushed.Get(saddr)
 	return b, nil
 }

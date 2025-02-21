@@ -8,6 +8,7 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -58,10 +59,6 @@ func (c *cache) flush(ignoreErrors bool) error {
 	var addrHandler = func(addr oid.Address) error {
 		sAddr := addr.EncodeToString()
 
-		if _, ok := c.store.flushed.Peek(sAddr); ok {
-			return nil
-		}
-
 		data, err := c.fsTree.GetBytes(addr)
 		if err != nil {
 			if errors.As(err, new(apistatus.ObjectNotFound)) {
@@ -92,8 +89,17 @@ func (c *cache) flush(ignoreErrors bool) error {
 			return err
 		}
 
-		// mark object as flushed
-		c.flushed.Add(sAddr, false)
+		err = c.fsTree.Delete(addr)
+		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
+			c.log.Error("can't remove object from write-cache", zap.Error(err))
+		} else if err == nil {
+			storagelog.Write(c.log,
+				storagelog.AddressField(addr),
+				storagelog.StorageTypeField(wcStorageType),
+				storagelog.OpField("DELETE"),
+			)
+			c.objCounters.Delete(addr)
+		}
 
 		return nil
 	}
