@@ -70,20 +70,19 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
-		wc.(*cache).flushed.Add(objects[0].addr.EncodeToString(), true)
-		wc.(*cache).flushed.Add(objects[1].addr.EncodeToString(), false)
+		for _, obj := range objects {
+			_, err := wc.Get(obj.addr)
+			require.NoError(t, err)
+		}
 
 		require.NoError(t, wc.Flush(false))
 
-		for i := range 2 {
-			_, err := mb.Get(objects[i].addr, false)
-			require.Error(t, err)
-
-			_, err = bs.Get(objects[i].addr, nil)
+		check(t, mb, bs, objects)
+		require.Equal(t, wc.(*cache).objCounters.size, uint64(0))
+		for _, obj := range objects {
+			_, err := wc.Get(obj.addr)
 			require.Error(t, err)
 		}
-
-		check(t, mb, bs, objects[2:])
 	})
 
 	t.Run("flush on moving to degraded mode", func(t *testing.T) {
@@ -99,20 +98,9 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, bs.SetMode(mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
-		wc.(*cache).flushed.Add(objects[0].addr.EncodeToString(), true)
-		wc.(*cache).flushed.Add(objects[1].addr.EncodeToString(), false)
-
 		require.NoError(t, wc.SetMode(mode.Degraded))
 
-		for i := range 2 {
-			_, err := mb.Get(objects[i].addr, false)
-			require.Error(t, err)
-
-			_, err = bs.Get(objects[i].addr, nil)
-			require.Error(t, err)
-		}
-
-		check(t, mb, bs, objects[2:])
+		check(t, mb, bs, objects)
 	})
 
 	t.Run("ignore errors", func(t *testing.T) {
