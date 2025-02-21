@@ -1994,10 +1994,12 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, nil
 	}
 	var primAttr string
+	var primInt bool
 	if len(fs) > 0 {
 		primAttr = fs[0].Header()
+		primInt = objectcore.IsIntegerSearchOp(fs[0].Operation())
 	}
-	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr)
+	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr, primInt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cursor: %w", err)
 	}

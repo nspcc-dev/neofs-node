@@ -2,14 +2,12 @@ package meta
 
 import (
 	"testing"
-	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestNonUTF8Delimiter(t *testing.T) {
-	t.Run("len", func(t *testing.T) { require.Len(t, utf8Delimiter, utf8DelimiterLen) })
-	t.Run("format", func(t *testing.T) { require.False(t, utf8.Valid(utf8Delimiter)) })
+func TestAttributeDelimiter(t *testing.T) {
+	t.Run("len", func(t *testing.T) { require.Len(t, attributeDelimiter, attributeDelimiterLen) })
 }
 
 func TestKeyBuffer(t *testing.T) {
