@@ -119,7 +119,7 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 			return err
 		}
 	}
-	if !hasParent {
+	if !hasParent && typ == object.TypeRegular {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterRoot, binPropMarker); err != nil {
 			return err
 		}

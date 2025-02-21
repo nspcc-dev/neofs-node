@@ -34,28 +34,32 @@ func appendAttribute(obj *object.Object, k, v string) {
 	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
 }
 
-func assertAttrIDPrefixed[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T) {
+func assertPrefixedAttrIDPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T, exp bool) {
 	k := []byte{prefix}
 	k = append(k, attr...)
 	k = append(k, 0xFF)
 	k = append(k, val...)
 	k = append(k, id[:]...)
-	require.Equal(t, []byte{}, mb.Get(k))
+	require.Equal(t, exp, mb.Get(k) != nil)
 }
 
-func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T) {
-	assertAttrIDPrefixed(t, mb, id, 0x02, attr, val)
+func assertAttrPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T, exp bool) {
+	assertPrefixedAttrIDPresence(t, mb, id, 0x02, attr, val, exp)
 	k := []byte{0x03}
 	k = append(k, id[:]...)
 	k = append(k, attr...)
 	k = append(k, 0xFF)
 	k = append(k, val...)
-	require.Equal(t, []byte{}, mb.Get(k))
+	require.Equal(t, exp, mb.Get(k) != nil)
+}
+
+func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T) {
+	assertAttrPresence(t, mb, id, attr, val, true)
 }
 
 func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
 	assertAttr(t, mb, id, attr, origin)
-	assertAttrIDPrefixed(t, mb, id, 0x01, attr, val)
+	assertPrefixedAttrIDPresence(t, mb, id, 0x01, attr, val, true)
 }
 
 func TestPutMetadata(t *testing.T) {
@@ -129,7 +133,7 @@ func TestPutMetadata(t *testing.T) {
 			0, 0, 0, 0, 101, 118, 30, 154, 145, 227, 159, 231})
 		assertIntAttr(t, mb, id, "$Object:payloadLength", "2091724451450177666", []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 29, 7, 76, 78, 96, 175, 200, 130})
-		assertAttr(t, mb, id, "$Object:ROOT", "1")
+		assertAttrPresence(t, mb, id, "$Object:ROOT", "1", false)
 		assertAttr(t, mb, id, "$Object:PHY", "1")
 		assertAttr(t, mb, id, "attr_1", "val_1")
 		assertAttr(t, mb, id, "attr_2", "val_2")
