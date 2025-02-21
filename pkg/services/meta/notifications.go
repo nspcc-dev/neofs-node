@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
@@ -30,12 +29,6 @@ func (m *Meta) subscribeForMeta() error {
 	_, err := m.ws.ReceiveHeadersOfAddedBlocks(nil, m.bCh)
 	if err != nil {
 		return fmt.Errorf("subscribe for block headers: %w", err)
-	}
-
-	objEv := objPutEvName
-	_, err = m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &objEv}, m.objEv)
-	if err != nil {
-		return fmt.Errorf("subscribe for object notifications: %w", err)
 	}
 
 	cnrDeleteEv := cnrDeleteName
@@ -72,26 +65,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			go func() {
-				err := m.handleBlock(h.Index)
-				if err != nil {
-					m.l.Error(fmt.Sprintf("processing %d block", h.Index), zap.Error(err))
-					return
-				}
-			}()
-		case aer, ok := <-m.objEv:
-			if !ok {
-				err := m.reconnect(ctx)
-				if err != nil {
-					return err
-				}
-
-				continue
-			}
-
-			// TODO: https://github.com/nspcc-dev/neo-go/issues/3779 receive somehow notifications from blocks
-
-			m.objNotificationBuff <- aer
+			m.blockBuff <- h
 		case aer, ok := <-m.cnrDelEv:
 			if !ok {
 				err := m.reconnect(ctx)
@@ -192,6 +166,9 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 func (m *Meta) reconnect(ctx context.Context) error {
 	m.l.Warn("reconnecting to web socket client due to connection lost")
 
+	m.cliM.Lock()
+	defer m.cliM.Unlock()
+
 	var err error
 	m.ws, err = m.connect(ctx)
 	if err != nil {
@@ -199,7 +176,6 @@ func (m *Meta) reconnect(ctx context.Context) error {
 	}
 
 	m.bCh = make(chan *block.Header)
-	m.objEv = make(chan *state.ContainedNotificationEvent)
 	m.cnrDelEv = make(chan *state.ContainedNotificationEvent)
 	m.cnrPutEv = make(chan *state.ContainedNotificationEvent)
 	m.epochEv = make(chan *state.ContainedNotificationEvent)
@@ -253,80 +229,6 @@ outer:
 }
 
 const (
-	collapseDepth = 10
-)
-
-func (m *Meta) handleBlock(ind uint32) error {
-	l := m.l.With(zap.Uint32("block", ind))
-	l.Debug("handling block")
-
-	m.m.RLock()
-	defer m.m.RUnlock()
-
-	for _, st := range m.storages {
-		// TODO: parallelize depending on what can parallelize well
-
-		st.m.Lock()
-
-		root := st.mpt.StateRoot()
-		st.mpt.Store.Put([]byte{rootKey}, root[:])
-		p := st.path
-		if st.opsBatch != nil {
-			_, err := st.mpt.PutBatch(mpt.MapToMPTBatch(st.opsBatch))
-			if err != nil {
-				st.m.Unlock()
-				return fmt.Errorf("put batch for %d block to %q storage: %w", ind, p, err)
-			}
-
-			st.opsBatch = nil
-		}
-
-		st.m.Unlock()
-
-		st.mpt.Flush(ind)
-	}
-
-	// TODO drop containers that node does not belong to anymore?
-
-	l.Debug("handled block successfully")
-
-	return nil
-}
-
-func (m *Meta) objNotificationWorker(ctx context.Context, ch <-chan *state.ContainedNotificationEvent) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case n := <-ch:
-			l := m.l.With(zap.Stringer("notification container", n.Container))
-
-			ev, err := parseObjNotification(n)
-			if err != nil {
-				l.Error("invalid object notification received", zap.Error(err))
-				continue
-			}
-
-			m.m.RLock()
-			_, ok := m.storages[ev.cID]
-			m.m.RUnlock()
-			if !ok {
-				l.Debug("skipping object notification", zap.Stringer("inactual container", ev.cID))
-				continue
-			}
-
-			err = m.handleObjectNotification(ev)
-			if err != nil {
-				l.Error("handling object notification", zap.Error(err))
-				return
-			}
-
-			l.Debug("handled object notification successfully", zap.Stringer("cID", ev.cID), zap.Stringer("oID", ev.oID))
-		}
-	}
-}
-
-const (
 	// MPT key prefixes.
 	oidIndex = iota
 	sizeIndex
@@ -365,7 +267,7 @@ type objEvent struct {
 	typ            objectsdk.Type
 }
 
-func parseObjNotification(ev *state.ContainedNotificationEvent) (objEvent, error) {
+func parseObjNotification(ev state.ContainedNotificationEvent) (objEvent, error) {
 	const expectedNotificationArgs = 3
 	var res objEvent
 
@@ -487,15 +389,12 @@ func getFromMap(m *stackitem.Map, key string) stackitem.Item {
 	return m.Value().([]stackitem.MapElement)[i].Value
 }
 
-func (m *Meta) handleObjectNotification(e objEvent) error {
+func (m *Meta) handleObjectNotification(s *containerStorage, e objEvent) error {
 	if magic := uint32(e.network.Uint64()); magic != m.magicNumber {
 		return fmt.Errorf("wrong magic number %d, expected: %d", magic, m.magicNumber)
 	}
 
-	m.m.RLock()
-	defer m.m.RUnlock()
-
-	err := m.storages[e.cID].putObject(e)
+	err := s.putObject(e)
 	if err != nil {
 		return err
 	}

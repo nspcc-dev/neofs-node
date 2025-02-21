@@ -9,7 +9,8 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
-	"github.com/nspcc-dev/neo-go/pkg/rpcclient"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
@@ -32,6 +33,17 @@ type ContainerLister interface {
 	List() (map[cid.ID]struct{}, error)
 }
 
+// wsClient is for test purposes only.
+type wsClient interface {
+	GetBlockNotifications(blockHash util.Uint256, filters ...*neorpc.NotificationFilter) (*result.BlockNotifications, error)
+	GetVersion() (*result.Version, error)
+
+	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)
+	ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error)
+
+	Close()
+}
+
 // Meta handles object meta information received from FS chain and object
 // storages. Chain information is stored in Merkle-Patricia Tries. Full objects
 // index is built and stored as a simple KV storage.
@@ -47,21 +59,21 @@ type Meta struct {
 
 	timeout     time.Duration
 	magicNumber uint32
-	ws          *rpcclient.WSClient
+	cliM        sync.RWMutex
+	ws          wsClient
 	bCh         chan *block.Header
-	objEv       chan *state.ContainedNotificationEvent
 	cnrDelEv    chan *state.ContainedNotificationEvent
 	cnrPutEv    chan *state.ContainedNotificationEvent
 	epochEv     chan *state.ContainedNotificationEvent
 
-	objNotificationBuff chan *state.ContainedNotificationEvent
+	blockBuff chan *block.Header
 
 	// runtime reload fields
 	cfgM      sync.RWMutex
 	endpoints []string
 }
 
-const objsBufferSize = 1024
+const blockBuffSize = 1024
 
 // Parameters groups arguments for [New] call.
 type Parameters struct {
@@ -136,20 +148,19 @@ func New(p Parameters) (*Meta, error) {
 	}
 
 	return &Meta{
-		l:                   p.Logger,
-		rootPath:            p.RootPath,
-		netmapH:             p.NetmapHash,
-		cnrH:                p.ContainerHash,
-		cLister:             p.ContainerLister,
-		endpoints:           p.NeoEnpoints,
-		timeout:             p.Timeout,
-		bCh:                 make(chan *block.Header),
-		objEv:               make(chan *state.ContainedNotificationEvent),
-		cnrDelEv:            make(chan *state.ContainedNotificationEvent),
-		cnrPutEv:            make(chan *state.ContainedNotificationEvent),
-		epochEv:             make(chan *state.ContainedNotificationEvent),
-		objNotificationBuff: make(chan *state.ContainedNotificationEvent, objsBufferSize),
-		storages:            storages}, nil
+		l:         p.Logger,
+		rootPath:  p.RootPath,
+		netmapH:   p.NetmapHash,
+		cnrH:      p.ContainerHash,
+		cLister:   p.ContainerLister,
+		endpoints: p.NeoEnpoints,
+		timeout:   p.Timeout,
+		bCh:       make(chan *block.Header),
+		cnrDelEv:  make(chan *state.ContainedNotificationEvent),
+		cnrPutEv:  make(chan *state.ContainedNotificationEvent),
+		epochEv:   make(chan *state.ContainedNotificationEvent),
+		blockBuff: make(chan *block.Header, blockBuffSize),
+		storages:  storages}, nil
 }
 
 // Reload updates service in runtime.
@@ -198,13 +209,16 @@ func (m *Meta) Run(ctx context.Context) error {
 	}
 
 	go m.flusher(ctx)
-	go m.objNotificationWorker(ctx, m.objNotificationBuff)
+	go m.blockFetcher(ctx, m.blockBuff)
 
 	return m.listenNotifications(ctx)
 }
 
 func (m *Meta) flusher(ctx context.Context) {
-	const flushInterval = time.Second
+	const (
+		flushInterval = time.Second
+		collapseDepth = 10
+	)
 
 	t := time.NewTicker(flushInterval)
 	defer t.Stop()
