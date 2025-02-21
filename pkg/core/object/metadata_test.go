@@ -33,7 +33,7 @@ func assertMergeResult(t testing.TB, res, expRes []client.SearchResultItem, more
 func TestMergeSearchResults(t *testing.T) {
 	t.Run("failures", func(t *testing.T) {
 		t.Run("non-int attribute", func(t *testing.T) {
-			_, _, err := MergeSearchResults(1000, true, true, [][]client.SearchResultItem{
+			_, _, err := MergeSearchResults(1000, "any", true, [][]client.SearchResultItem{
 				{{ID: oidtest.ID(), Attributes: []string{"1"}}, {ID: oidtest.ID(), Attributes: []string{"2"}}},
 				{{ID: oidtest.ID(), Attributes: []string{"2"}}, {ID: oidtest.ID(), Attributes: []string{"3"}}},
 				{{ID: oidtest.ID(), Attributes: []string{"3"}}, {ID: oidtest.ID(), Attributes: []string{"four"}}},
@@ -42,53 +42,53 @@ func TestMergeSearchResults(t *testing.T) {
 		})
 	})
 	t.Run("zero limit", func(t *testing.T) {
-		res, more, err := MergeSearchResults(0, false, false, [][]client.SearchResultItem{searchResultFromIDs(2)}, nil)
+		res, more, err := MergeSearchResults(0, "", false, [][]client.SearchResultItem{searchResultFromIDs(2)}, nil)
 		require.NoError(t, err)
 		require.Nil(t, res)
 		require.False(t, more)
 	})
 	t.Run("no sets", func(t *testing.T) {
-		res, more, err := MergeSearchResults(1000, false, false, nil, nil)
+		res, more, err := MergeSearchResults(1000, "", false, nil, nil)
 		require.NoError(t, err)
 		require.Nil(t, res)
 		require.False(t, more)
 	})
 	t.Run("empty sets only", func(t *testing.T) {
-		res, more, err := MergeSearchResults(1000, false, false, make([][]client.SearchResultItem, 1000), nil)
+		res, more, err := MergeSearchResults(1000, "", false, make([][]client.SearchResultItem, 1000), nil)
 		require.NoError(t, err)
 		require.Empty(t, res)
 		require.False(t, more)
 		t.Run("single", func(t *testing.T) {
 			// https://github.com/nspcc-dev/neofs-node/issues/3154
 			expRes := make([]client.SearchResultItem, 0)
-			res, more, err := MergeSearchResults(1, false, false, [][]client.SearchResultItem{expRes}, nil)
+			res, more, err := MergeSearchResults(1, "", false, [][]client.SearchResultItem{expRes}, nil)
 			assertMergeResult(t, res, expRes, more, false, err)
 		})
 	})
 	t.Run("single set", func(t *testing.T) {
 		expRes := searchResultFromIDs(4)
 		t.Run("less than limit", func(t *testing.T) {
-			res, more, err := MergeSearchResults(5, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+			res, more, err := MergeSearchResults(5, "", false, [][]client.SearchResultItem{expRes}, []bool{false})
 			assertMergeResult(t, res, expRes, more, false, err)
 		})
 		t.Run("exactly limit", func(t *testing.T) {
 			t.Run("no more", func(t *testing.T) {
-				res, more, err := MergeSearchResults(4, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+				res, more, err := MergeSearchResults(4, "", false, [][]client.SearchResultItem{expRes}, []bool{false})
 				assertMergeResult(t, res, expRes, more, false, err)
 			})
 			t.Run("more", func(t *testing.T) {
-				res, more, err := MergeSearchResults(4, false, false, [][]client.SearchResultItem{expRes}, []bool{true})
+				res, more, err := MergeSearchResults(4, "", false, [][]client.SearchResultItem{expRes}, []bool{true})
 				assertMergeResult(t, res, expRes, more, true, err)
 			})
 		})
 		t.Run("more than limit", func(t *testing.T) {
 			t.Run("no more", func(t *testing.T) {
-				res, more, err := MergeSearchResults(3, false, false, [][]client.SearchResultItem{expRes}, []bool{false})
+				res, more, err := MergeSearchResults(3, "", false, [][]client.SearchResultItem{expRes}, []bool{false})
 				require.Len(t, res, 3)
 				assertMergeResult(t, res[:3:3], expRes[:3], more, true, err)
 			})
 			t.Run("more", func(t *testing.T) {
-				res, more, err := MergeSearchResults(3, false, false, [][]client.SearchResultItem{expRes}, []bool{true})
+				res, more, err := MergeSearchResults(3, "", false, [][]client.SearchResultItem{expRes}, []bool{true})
 				require.Len(t, res, 3)
 				assertMergeResult(t, res[:3:3], expRes[:3], more, true, err)
 			})
@@ -109,7 +109,7 @@ func TestMergeSearchResults(t *testing.T) {
 			nil,
 			all,
 		}
-		res, more, err := MergeSearchResults(1000, true, true, sets, nil)
+		res, more, err := MergeSearchResults(1000, "any", true, sets, nil)
 		assertMergeResult(t, res, all, more, false, err)
 	})
 	t.Run("concat", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestMergeSearchResults(t *testing.T) {
 			for i := range len(all) / 2 {
 				sets = append(sets, []client.SearchResultItem{all[2*i], all[2*i+1]})
 			}
-			res, more, err := MergeSearchResults(1000, false, false, sets, nil)
+			res, more, err := MergeSearchResults(1000, "", false, sets, nil)
 			assertMergeResult(t, res, all, more, false, err)
 			t.Run("reverse", func(t *testing.T) {
 				var sets [][]client.SearchResultItem
@@ -127,7 +127,7 @@ func TestMergeSearchResults(t *testing.T) {
 					sets = append(sets, []client.SearchResultItem{all[2*i], all[2*i+1]})
 				}
 				slices.Reverse(sets)
-				res, more, err := MergeSearchResults(1000, false, false, sets, nil)
+				res, more, err := MergeSearchResults(1000, "", false, sets, nil)
 				assertMergeResult(t, res, all, more, false, err)
 			})
 		})
@@ -141,7 +141,7 @@ func TestMergeSearchResults(t *testing.T) {
 			for i := range len(all) / 2 {
 				sets = append(sets, []client.SearchResultItem{all[2*i], all[2*i+1]})
 			}
-			res, more, err := MergeSearchResults(1000, true, true, sets, nil)
+			res, more, err := MergeSearchResults(1000, "any", true, sets, nil)
 			assertMergeResult(t, res, all, more, false, err)
 			t.Run("reverse", func(t *testing.T) {
 				var sets [][]client.SearchResultItem
@@ -149,7 +149,7 @@ func TestMergeSearchResults(t *testing.T) {
 					sets = append(sets, []client.SearchResultItem{all[2*i], all[2*i+1]})
 				}
 				slices.Reverse(sets)
-				res, more, err := MergeSearchResults(1000, true, true, sets, nil)
+				res, more, err := MergeSearchResults(1000, "any", true, sets, nil)
 				assertMergeResult(t, res, all, more, false, err)
 			})
 		})
@@ -160,7 +160,7 @@ func TestMergeSearchResults(t *testing.T) {
 		for i := range len(all) - 1 {
 			sets = append(sets, []client.SearchResultItem{all[i], all[i+1]})
 		}
-		res, more, err := MergeSearchResults(1000, false, false, sets, nil)
+		res, more, err := MergeSearchResults(1000, "", false, sets, nil)
 		assertMergeResult(t, res, all, more, false, err)
 		t.Run("with attributes", func(t *testing.T) {
 			all := searchResultFromIDs(10)
@@ -172,14 +172,14 @@ func TestMergeSearchResults(t *testing.T) {
 			for i := range len(all) - 1 {
 				sets = append(sets, []client.SearchResultItem{all[i], all[i+1]})
 			}
-			res, more, err := MergeSearchResults(1000, true, true, sets, nil)
+			res, more, err := MergeSearchResults(1000, "any", true, sets, nil)
 			assertMergeResult(t, res, all, more, false, err)
 		})
 	})
 	t.Run("cursors", func(t *testing.T) {
 		all := searchResultFromIDs(10)
 		t.Run("more items in last set", func(t *testing.T) {
-			res, more, err := MergeSearchResults(5, false, false, [][]client.SearchResultItem{
+			res, more, err := MergeSearchResults(5, "", false, [][]client.SearchResultItem{
 				all[:3],
 				all[:6],
 				all[:2],
@@ -187,7 +187,7 @@ func TestMergeSearchResults(t *testing.T) {
 			assertMergeResult(t, res, all[:5], more, true, err)
 		})
 		t.Run("more items in other set", func(t *testing.T) {
-			res, more, err := MergeSearchResults(5, false, false, [][]client.SearchResultItem{
+			res, more, err := MergeSearchResults(5, "", false, [][]client.SearchResultItem{
 				all[:3],
 				all[:5],
 				all,
@@ -195,7 +195,7 @@ func TestMergeSearchResults(t *testing.T) {
 			assertMergeResult(t, res, all[:5], more, true, err)
 		})
 		t.Run("flag", func(t *testing.T) {
-			res, more, err := MergeSearchResults(5, false, false, [][]client.SearchResultItem{
+			res, more, err := MergeSearchResults(5, "", false, [][]client.SearchResultItem{
 				all[:1],
 				all[:5],
 				all[:2],
@@ -227,7 +227,7 @@ func TestMergeSearchResults(t *testing.T) {
 			{all[6:7], all[0:1], all[5:6], all[1:2], all[4:5], all[2:3], all[3:4]},
 			{all[5:], all[1:3], all[0:4], all[3:]},
 		} {
-			res, more, err := MergeSearchResults(uint16(len(all)), true, true, sets, nil)
+			res, more, err := MergeSearchResults(uint16(len(all)), "any", true, sets, nil)
 			assertMergeResult(t, res, all, more, false, err)
 		}
 		t.Run("mixed", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestMergeSearchResults(t *testing.T) {
 				{all[6:7], all[0:1], all[5:], all[1:2], all[4:5], all[2:3], all[3:4]},
 				{all[5:], all[1:3], all[0:4], all[3:]},
 			} {
-				res, more, err := MergeSearchResults(uint16(len(all)), true, false, sets, nil)
+				res, more, err := MergeSearchResults(uint16(len(all)), "any", false, sets, nil)
 				assertMergeResult(t, res, all, more, false, err)
 			}
 		})
