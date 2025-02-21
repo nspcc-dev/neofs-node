@@ -27,6 +27,7 @@ Changelog for NeoFS Node
 - The correct role parameter to invocation (#3127)
 - nil pointer error for `storage sanity` command (#3151)
 - Process designation event of the mainnet RoleManagement contract (#3134)
+- Storage nodes running out of GAS because `putContainerSize` was not paid for by proxy (#3167)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)

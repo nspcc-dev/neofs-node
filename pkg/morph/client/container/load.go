@@ -40,6 +40,11 @@ func (c *Client) AnnounceLoad(p AnnounceLoadPrm) error {
 	prm.SetArgs(p.a.Epoch(), cnr[:], p.a.Value(), p.key)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
+	// no magic bugs with notary requests anymore, this operation should
+	// _always_ be notary signed so make it one more time even if it is
+	// a repeated flag setting
+	prm.RequireAlphabetSignature()
+
 	err := c.client.Invoke(prm)
 	if err != nil {
 		return fmt.Errorf("could not invoke method (%s): %w", putSizeMethod, err)
