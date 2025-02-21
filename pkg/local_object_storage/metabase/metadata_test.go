@@ -489,9 +489,9 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 
 		cc, err := CalculateCursor(fs, res[n-1])
 		require.NoError(t, err, "cursor: %q", strCursor)
-		require.Equal(t, c.Key, cc.Key, "cursor: %q", strCursor)
+		require.Equal(t, c, cc, "cursor: %q", strCursor)
 
-		strCursor = base64.StdEncoding.EncodeToString(c.Key)
+		strCursor = base64.StdEncoding.EncodeToString(c)
 		cursor, err = NewSearchCursorFromString(strCursor, primAttr, primInt)
 		require.NoErrorf(t, err, "cursor: %q", strCursor)
 	}

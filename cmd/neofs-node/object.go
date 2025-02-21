@@ -629,7 +629,7 @@ type storageForObjectService struct {
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	return x.local.Search(cnr, fs, fInt, attrs, cursor, count)
 }
 

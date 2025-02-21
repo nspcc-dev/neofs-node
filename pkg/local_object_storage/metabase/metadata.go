@@ -268,12 +268,12 @@ type ParsedIntFilter struct {
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if blindlyProcess(fs) {
 		return nil, nil, nil
 	}
 	var res []client.SearchResultItem
-	var newCursor *SearchCursor
+	var newCursor []byte
 	var err error
 	if len(fs) == 0 {
 		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count)
@@ -286,9 +286,9 @@ func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedInt
 	return res, newCursor, nil
 }
 
-func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
-	var newCursor *SearchCursor
+	var newCursor []byte
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
 		res, newCursor, err = db.searchTx(tx, cnr, fs, fInt, attrs, cursor, count)
@@ -300,7 +300,7 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedInt
 	return res, newCursor, nil
 }
 
-func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return nil, nil, nil
@@ -557,18 +557,15 @@ nextPrimKey:
 			n++
 		}
 	}
-	var newCursor *SearchCursor
+	var newCursor []byte
 	if more {
-		newCursor = &SearchCursor{
-			Key:      slices.Clone(collectedPrimKeys[n-1][1:]),
-			ValIDOff: len(primSeekPrefix),
-		}
+		newCursor = slices.Clone(collectedPrimKeys[n-1][1:])
 	}
 	return res[:n], newCursor, nil
 }
 
 // TODO: can be merged with filtered code?
-func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var seekKey []byte
 	if cursor != nil {
 		seekKey = cursor.Key
@@ -578,7 +575,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 	}
 	res := make([]client.SearchResultItem, count)
 	var n uint16
-	var newCursor *SearchCursor
+	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		mb := tx.Bucket(metaBucketKey(cnr))
@@ -593,7 +590,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 		}
 		for ; k[0] == metaPrefixID; k, _ = mbc.Next() {
 			if n == count { // there are still elements
-				newCursor = &SearchCursor{Key: res[n-1].ID[:]}
+				newCursor = res[n-1].ID[:]
 				return nil
 			}
 			if len(k) != oid.Size+1 {
@@ -907,15 +904,15 @@ func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) 
 }
 
 // CalculateCursor calculates cursor for the given last search result item.
-func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) (SearchCursor, error) {
+func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) ([]byte, error) {
 	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
-		return SearchCursor{Key: lastItem.ID[:]}, nil
+		return lastItem.ID[:], nil
 	}
 	attr := fs[0].Header()
 	var lastItemVal string
 	if len(lastItem.Attributes) == 0 {
 		if attr != object.FilterRoot && attr != object.FilterPhysical {
-			return SearchCursor{Key: lastItem.ID[:]}, nil
+			return lastItem.ID[:], nil
 		}
 		lastItemVal = binPropMarker
 	} else {
@@ -927,42 +924,39 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 		if objectcore.IsIntegerSearchOp(fs[0].Operation()) {
 			n, ok := new(big.Int).SetString(lastItemVal, 10)
 			if !ok {
-				return SearchCursor{}, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
+				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
 			}
-			var res SearchCursor
-			res.Key = make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
-			off := copy(res.Key, attr)
-			res.ValIDOff = off + copy(res.Key[off:], attributeDelimiter)
-			putInt(res.Key[res.ValIDOff:res.ValIDOff+intValLen], n)
-			copy(res.Key[res.ValIDOff+intValLen:], lastItem.ID[:])
+			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
+			off := copy(res, attr)
+			off += copy(res[off:], attributeDelimiter)
+			putInt(res[off:off+intValLen], n)
+			copy(res[off+intValLen:], lastItem.ID[:])
 			return res, nil
 		}
 	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
 		var err error
 		if val, err = base58.Decode(lastItemVal); err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
+			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
 		}
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		ln := hex.DecodedLen(len(lastItemVal))
 		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {
-			return SearchCursor{}, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
+			return nil, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
 		}
-		var res SearchCursor
-		res.Key = make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
-		off := copy(res.Key, attr)
-		res.ValIDOff = off + copy(res.Key[off:], attributeDelimiter)
+		res := make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
+		off := copy(res, attr)
+		off += copy(res[off:], attributeDelimiter)
 		var err error
-		if _, err = hex.Decode(res.Key[res.ValIDOff:], []byte(lastItemVal)); err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		if _, err = hex.Decode(res[off:], []byte(lastItemVal)); err != nil {
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
 		}
-		off = res.ValIDOff + ln
-		off += copy(res.Key[off:], attributeDelimiter)
-		copy(res.Key[off:], lastItem.ID[:])
+		off += copy(res[off+ln:], attributeDelimiter)
+		copy(res[off:], lastItem.ID[:])
 		return res, nil
 	case object.FilterSplitID:
 		uid, err := uuid.Parse(lastItemVal)
 		if err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
 		}
 		val = uid[:]
 	case object.FilterVersion, object.FilterType:
@@ -970,14 +964,13 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	if val == nil {
 		val = []byte(lastItemVal)
 	}
-	var res SearchCursor
 	kln := len(attr) + attributeDelimiterLen + len(val) + attributeDelimiterLen + oid.Size
-	res.Key = make([]byte, kln)
-	off := copy(res.Key, attr)
-	res.ValIDOff = off + copy(res.Key[off:], attributeDelimiter)
-	off = res.ValIDOff + copy(res.Key[res.ValIDOff:], val)
-	off += copy(res.Key[off:], attributeDelimiter)
-	copy(res.Key[off:], lastItem.ID[:])
+	res := make([]byte, kln)
+	off := copy(res, attr)
+	off += copy(res[off:], attributeDelimiter)
+	off += copy(res[off:], val)
+	off += copy(res[off:], attributeDelimiter)
+	copy(res[off:], lastItem.ID[:])
 	return res, nil
 }
 
