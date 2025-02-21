@@ -16,6 +16,7 @@ import (
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -334,6 +335,29 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			err := v.checkAttributes(obj)
 			require.Equal(t, errEmptyAttrVal, err)
+		})
+
+		t.Run("zero byte", func(t *testing.T) {
+			objWithAttr := func(k, v string) *object.Object {
+				obj := blankValidObject(usertest.User())
+				obj.SetAttributes(
+					*object.NewAttribute("valid key", "valid value"),
+					*object.NewAttribute(k, v),
+				)
+				return obj
+			}
+			t.Run("in key", func(t *testing.T) {
+				obj := objWithAttr("k\x00y", "value")
+				require.EqualError(t, v.Validate(obj, true), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
+				obj.SetID(oidtest.ID())
+				require.EqualError(t, v.Validate(obj, false), "invalid attributes: invalid attribute #1: invalid key: illegal zero byte")
+			})
+			t.Run("in value", func(t *testing.T) {
+				obj := objWithAttr("key", "va\x00ue")
+				require.EqualError(t, v.Validate(obj, true), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
+				obj.SetID(oidtest.ID())
+				require.EqualError(t, v.Validate(obj, false), "invalid attributes: invalid attribute #1: invalid value: illegal zero byte")
+			})
 		})
 	})
 }
