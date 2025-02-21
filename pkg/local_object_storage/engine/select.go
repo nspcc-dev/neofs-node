@@ -86,9 +86,12 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int
 		}
 		sets, mores = append(sets, items), append(mores, nextCursor != nil)
 	}
-	withAttr := len(attrs) > 0
-	cmpInt := withAttr && len(fs) > 0 && objectcore.IsIntegerSearchOp(fs[0].Operation())
-	res, more, err := objectcore.MergeSearchResults(count, withAttr, cmpInt, sets, mores)
+	var firstAttr string
+	if len(attrs) > 0 {
+		firstAttr = fs[0].Header()
+	}
+	cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
+	res, more, err := objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores)
 	if err != nil || !more {
 		return res, nil, err
 	}

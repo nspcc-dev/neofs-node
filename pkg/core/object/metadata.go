@@ -9,6 +9,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // IsIntegerSearchOp reports whether given op matches integer attributes.
@@ -22,7 +24,7 @@ func IsIntegerSearchOp(op object.SearchMatchType) bool {
 // compared numerically. Otherwise, lexicographically. Additional booleans show
 // whether corresponding sets can be continued. If the merged set can be
 // continued itself, true is returned.
-func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool, error) {
+func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]client.SearchResultItem, mores []bool) ([]client.SearchResultItem, bool, error) {
 	if lim == 0 || len(sets) == 0 {
 		return nil, false, nil
 	}
@@ -37,6 +39,9 @@ func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.Searc
 	if cmpInt {
 		minInt, curInt = new(big.Int), new(big.Int)
 	}
+	var minOID, curOID oid.ID
+	var minUsr, curUsr user.ID
+	var err error
 	for minInd := -1; ; minInd = -1 {
 		for i := range sets {
 			if len(sets[i]) == 0 {
@@ -55,7 +60,7 @@ func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.Searc
 			if cmpID == 0 {
 				continue
 			}
-			if withAttr {
+			if firstAttr != "" {
 				var cmpAttr int
 				if cmpInt {
 					if _, ok := curInt.SetString(sets[i][0].Attributes[0], 10); !ok {
@@ -63,7 +68,26 @@ func MergeSearchResults(lim uint16, withAttr, cmpInt bool, sets [][]client.Searc
 					}
 					cmpAttr = curInt.Cmp(minInt)
 				} else {
-					cmpAttr = strings.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
+					switch firstAttr {
+					default:
+						cmpAttr = strings.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
+					case object.FilterParentID, object.FilterFirstSplitObject:
+						if err = curOID.DecodeString(sets[i][0].Attributes[0]); err == nil {
+							err = minOID.DecodeString(sets[minInd][0].Attributes[0])
+						}
+						if err != nil {
+							return nil, false, fmt.Errorf("invalid %q attribute value: %w", firstAttr, err)
+						}
+						cmpAttr = bytes.Compare(curOID[:], minOID[:])
+					case object.FilterOwnerID:
+						if err = curUsr.DecodeString(sets[i][0].Attributes[0]); err == nil {
+							err = minUsr.DecodeString(sets[minInd][0].Attributes[0])
+						}
+						if err != nil {
+							return nil, false, fmt.Errorf("invalid %q attribute value: %w", firstAttr, err)
+						}
+						cmpAttr = bytes.Compare(curUsr[:], minUsr[:])
+					}
 				}
 				if cmpAttr != 0 {
 					if cmpAttr < 0 {
