@@ -48,7 +48,7 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
-func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, root, phy bool) error {
+func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
 	owner := hdr.Owner()
 	if owner.IsZero() {
 		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
@@ -66,12 +66,12 @@ func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, root, phy bool) error
 		pldHmmHash = h.Value()
 	}
 	return putMetadata(tx, hdr.GetContainerID(), hdr.GetID(), ver, owner, hdr.Type(), hdr.CreationEpoch(), hdr.PayloadSize(), pldHash.Value(),
-		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), root, phy)
+		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), hasParent, phy)
 }
 
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
 	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
-	root, phy bool) error {
+	hasParent, phy bool) error {
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
 	if err != nil {
 		return fmt.Errorf("create meta bucket for container: %w", err)
@@ -119,7 +119,7 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 			return err
 		}
 	}
-	if root {
+	if !hasParent {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterRoot, binPropMarker); err != nil {
 			return err
 		}

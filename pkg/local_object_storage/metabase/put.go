@@ -172,7 +172,7 @@ func (db *DB) put(
 		pldHmmHash = h.Value()
 	}
 	if err := putMetadata(tx, cnr, obj.GetID(), ver, *owner, obj.Type(), obj.CreationEpoch(), obj.PayloadSize(),
-		pldHash.Value(), pldHmmHash, obj.SplitID().ToV2(), obj.GetParentID(), obj.GetFirstID(), obj.Attributes(), par == nil, !isParent); err != nil {
+		pldHash.Value(), pldHmmHash, obj.SplitID().ToV2(), obj.GetParentID(), obj.GetFirstID(), obj.Attributes(), par != nil, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 
