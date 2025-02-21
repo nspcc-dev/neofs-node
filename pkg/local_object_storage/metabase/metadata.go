@@ -167,7 +167,7 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 		copy(kAttrID[1:], kIDAttr[1+oid.Size:])
 		copy(kAttrID[len(kAttrID)-oid.Size:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
-		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+utf8DelimiterLen:]), 10); ok {
+		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+utf8DelimiterLen:]), 10); ok && intWithinLimits(n) {
 			kAttrIDInt := make([]byte, sepInd+utf8DelimiterLen+intValLen)
 			kAttrIDInt[0] = metaPrefixAttrIDInt
 			off := 1 + copy(kAttrIDInt[1:], kIDAttr[1+oid.Size:sepInd])
