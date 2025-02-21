@@ -34,21 +34,30 @@ func appendAttribute(obj *object.Object, k, v string) {
 	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
 }
 
-func assertPrefixedAttrIDPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, prefix byte, attr string, val T, exp bool) {
+func assertPrefixedAttrIDPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, isInt bool, attr string, val T, exp bool) {
+	var prefix byte
+	if isInt {
+		prefix = 0x01
+	} else {
+		prefix = 0x02
+	}
 	k := []byte{prefix}
 	k = append(k, attr...)
-	k = append(k, 0xFF)
+	k = append(k, 0x00)
 	k = append(k, val...)
+	if !isInt {
+		k = append(k, 0x00)
+	}
 	k = append(k, id[:]...)
 	require.Equal(t, exp, mb.Get(k) != nil)
 }
 
 func assertAttrPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, val T, exp bool) {
-	assertPrefixedAttrIDPresence(t, mb, id, 0x02, attr, val, exp)
+	assertPrefixedAttrIDPresence(t, mb, id, false, attr, val, exp)
 	k := []byte{0x03}
 	k = append(k, id[:]...)
 	k = append(k, attr...)
-	k = append(k, 0xFF)
+	k = append(k, 0x00)
 	k = append(k, val...)
 	require.Equal(t, exp, mb.Get(k) != nil)
 }
@@ -59,7 +68,7 @@ func assertAttr[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, at
 
 func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origin string, val []byte) {
 	assertAttr(t, mb, id, attr, origin)
-	assertPrefixedAttrIDPresence(t, mb, id, 0x01, attr, val, true)
+	assertPrefixedAttrIDPresence(t, mb, id, true, attr, val, true)
 }
 
 func TestPutMetadata(t *testing.T) {
@@ -113,6 +122,25 @@ func TestPutMetadata(t *testing.T) {
 	obj.SetPayloadHomomorphicHash(pldHmmHash)
 	obj.SetSplitID(object.NewSplitIDFromV2(splitID))
 	obj.SetAttributes(attrs...)
+
+	t.Run("failure", func(t *testing.T) {
+		t.Run("zero by in attribute", func(t *testing.T) {
+			testWithAttr := func(t *testing.T, k, v, msg string) {
+				obj := obj
+				obj.SetAttributes(
+					*object.NewAttribute("valid key", "valid value"),
+					*object.NewAttribute(k, v),
+				)
+				require.EqualError(t, db.Put(&obj, nil, nil), msg)
+			}
+			t.Run("in key", func(t *testing.T) {
+				testWithAttr(t, "k\x00y", "value", "put metadata: attribute #1 key contains 0x00 byte used in sep")
+			})
+			t.Run("in value", func(t *testing.T) {
+				testWithAttr(t, "key", "va\x00ue", "put metadata: attribute #1 value contains 0x00 byte used in sep")
+			})
+		})
+	})
 
 	err := db.Put(&obj, nil, nil)
 	require.NoError(t, err)
@@ -330,25 +358,25 @@ func TestIntBucketOrder(t *testing.T) {
 
 func TestNewSearchCursorFromString(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		res, err := NewSearchCursorFromString("", "any")
+		res, err := NewSearchCursorFromString("", "any", false)
 		require.NoError(t, err)
 		require.Nil(t, res)
 	})
 	t.Run("not a Base64", func(t *testing.T) {
-		_, err := NewSearchCursorFromString("???", "any")
+		_, err := NewSearchCursorFromString("???", "any", false)
 		require.ErrorContains(t, err, "decode cursor from Base64")
 	})
 	t.Run("no attribute", func(t *testing.T) {
 		t.Run("undersize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA==", "")
+			_, err := NewSearchCursorFromString("q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA==", "", false)
 			require.EqualError(t, err, "wrong OID cursor len 31")
 		})
 		t.Run("oversize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB", "")
+			_, err := NewSearchCursorFromString("ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB", "", false)
 			require.EqualError(t, err, "wrong OID cursor len 33")
 		})
 		id := oidtest.ID()
-		res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(id[:]), "")
+		res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(id[:]), "", false)
 		require.NoError(t, err)
 		require.NotEmpty(t, res)
 		require.Equal(t, id[:], res.Key[1:])
@@ -358,31 +386,31 @@ func TestNewSearchCursorFromString(t *testing.T) {
 	t.Run("header overflow", func(t *testing.T) {
 		b := make([]byte, object.MaxHeaderLen+1)
 		rand.Read(b) //nolint:staticcheck
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr)
+		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
 		require.EqualError(t, err, "cursor len 16385 exceeds the limit 16384")
 	})
 	t.Run("no delimiter", func(t *testing.T) {
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString([]byte(attr)), attr)
+		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString([]byte(attr)), attr, false)
 		require.EqualError(t, err, "missing delimiter")
 	})
 	t.Run("wrong attribute", func(t *testing.T) {
-		b := slices.Concat([]byte(attr+"other"), utf8Delimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr)
+		b := slices.Concat([]byte(attr+"other"), attributeDelimiter)
+		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
 		require.EqualError(t, err, "wrong attribute")
 	})
-	t.Run("no value", func(t *testing.T) {
-		b := slices.Concat([]byte(attr), utf8Delimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr)
-		require.EqualError(t, err, "missing value")
+	t.Run("no value and OID", func(t *testing.T) {
+		b := slices.Concat([]byte(attr), attributeDelimiter)
+		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
+		require.EqualError(t, err, "invalid VAL_OID: too short len 0")
 	})
 	const val = "any_val"
 	id := oidtest.ID()
-	b := slices.Concat([]byte(attr), utf8Delimiter, []byte(val), id[:])
-	res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr)
+	b := slices.Concat([]byte(attr), attributeDelimiter, []byte(val), attributeDelimiter, id[:])
+	res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
 	require.NoError(t, err)
 	require.NotEmpty(t, res.Key)
 	require.Equal(t, b, res.Key[1:])
-	require.Equal(t, 1+len(attr)+utf8DelimiterLen, res.ValIDOff)
+	require.Equal(t, 1+len(attr)+attributeDelimiterLen, res.ValIDOff)
 }
 
 func TestDB_SearchObjects(t *testing.T) {
