@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
@@ -32,8 +33,8 @@ const (
 )
 
 const (
-	intValLen      = 33                              // prefix byte for sign + fixed256 in metaPrefixAttrIDInt
-	attrIDFixedLen = 1 + oid.Size + utf8DelimiterLen // prefix first
+	intValLen      = 33                                   // prefix byte for sign + fixed256 in metaPrefixAttrIDInt
+	attrIDFixedLen = 1 + oid.Size + attributeDelimiterLen // prefix first
 )
 
 const binPropMarker = "1" // ROOT, PHY, etc.
@@ -72,6 +73,15 @@ func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) 
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
 	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
 	hasParent, phy bool) error {
+	for i := range attrs {
+		if strings.IndexByte(attrs[i].Key(), attributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d key contains 0x%02X byte used in sep", i, attributeDelimiter[0])
+		}
+		if strings.IndexByte(attrs[i].Value(), attributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d value contains 0x%02X byte used in sep", i, attributeDelimiter[0])
+		}
+	}
+
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
 	if err != nil {
 		return fmt.Errorf("create meta bucket for container: %w", err)
@@ -158,20 +168,21 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 	pref[0] = metaPrefixIDAttr
 	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
-		sepInd := bytes.LastIndex(kIDAttr, utf8Delimiter)
+		sepInd := bytes.LastIndex(kIDAttr, attributeDelimiter)
 		if sepInd < 0 {
 			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
-		kAttrID := slices.Clone(kIDAttr)
+		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
 		kAttrID[0] = metaPrefixAttrIDPlain
-		copy(kAttrID[1:], kIDAttr[1+oid.Size:])
-		copy(kAttrID[len(kAttrID)-oid.Size:], id[:])
+		off := 1 + copy(kAttrID[1:], kIDAttr[1+oid.Size:])
+		off += copy(kAttrID[off:], attributeDelimiter)
+		copy(kAttrID[off:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
-		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+utf8DelimiterLen:]), 10); ok && intWithinLimits(n) {
-			kAttrIDInt := make([]byte, sepInd+utf8DelimiterLen+intValLen)
+		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+attributeDelimiterLen:]), 10); ok && intWithinLimits(n) {
+			kAttrIDInt := make([]byte, sepInd+attributeDelimiterLen+intValLen)
 			kAttrIDInt[0] = metaPrefixAttrIDInt
 			off := 1 + copy(kAttrIDInt[1:], kIDAttr[1+oid.Size:sepInd])
-			off += copy(kAttrIDInt[off:], utf8Delimiter)
+			off += copy(kAttrIDInt[off:], attributeDelimiter)
 			putInt(kAttrIDInt[off:off+intValLen], n)
 			copy(kAttrIDInt[off+intValLen:], id[:])
 			ks = append(ks, kAttrIDInt)
@@ -191,9 +202,25 @@ type SearchCursor struct {
 	ValIDOff int
 }
 
+// splits VAL_DELIM_OID.
+func splitValOID(b []byte) ([]byte, []byte, error) {
+	if len(b) < oid.Size {
+		return nil, nil, fmt.Errorf("too short len %d", len(b))
+	}
+	idOff := len(b) - oid.Size
+	val, ok := bytes.CutSuffix(b[:idOff], attributeDelimiter)
+	if !ok {
+		return nil, nil, errors.New("missing delimiter")
+	}
+	if len(val) == 0 {
+		return nil, nil, errors.New("missing value")
+	}
+	return val, b[idOff:], nil
+}
+
 // NewSearchCursorFromString decodes cursor from the string according to the
 // primary attribute.
-func NewSearchCursorFromString(s, primAttr string) (*SearchCursor, error) {
+func NewSearchCursorFromString(s, primAttr string, isInt bool) (*SearchCursor, error) {
 	if s == "" {
 		return nil, nil
 	}
@@ -212,7 +239,7 @@ func NewSearchCursorFromString(s, primAttr string) (*SearchCursor, error) {
 	if n > object.MaxHeaderLen {
 		return nil, fmt.Errorf("cursor len %d exceeds the limit %d", n, object.MaxHeaderLen)
 	}
-	ind := bytes.Index(b[1:], utf8Delimiter) // 1st is prefix
+	ind := bytes.Index(b[1:], attributeDelimiter) // 1st is prefix
 	if ind < 0 {
 		return nil, errors.New("missing delimiter")
 	}
@@ -220,9 +247,15 @@ func NewSearchCursorFromString(s, primAttr string) (*SearchCursor, error) {
 		return nil, errors.New("wrong attribute")
 	}
 	var res SearchCursor
-	res.ValIDOff = 1 + len(primAttr) + len(utf8Delimiter)
-	if len(b[res.ValIDOff:]) <= oid.Size {
-		return nil, errors.New("missing value")
+	res.ValIDOff = 1 + len(primAttr) + len(attributeDelimiter)
+	if isInt {
+		if len(b[res.ValIDOff:]) <= oid.Size {
+			return nil, errors.New("missing value")
+		}
+	} else {
+		if _, _, err = splitValOID(b[res.ValIDOff:]); err != nil {
+			return nil, fmt.Errorf("invalid VAL_OID: %w", err)
+		}
 	}
 	res.Key = b
 	return &res, nil
@@ -238,12 +271,12 @@ type ParsedIntFilter struct {
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if blindlyProcess(fs) {
 		return nil, nil, nil
 	}
 	var res []client.SearchResultItem
-	var newCursor *SearchCursor
+	var newCursor []byte
 	var err error
 	if len(fs) == 0 {
 		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count)
@@ -256,9 +289,9 @@ func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedInt
 	return res, newCursor, nil
 }
 
-func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
-	var newCursor *SearchCursor
+	var newCursor []byte
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
 		res, newCursor, err = db.searchTx(tx, cnr, fs, fInt, attrs, cursor, count)
@@ -270,7 +303,7 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedInt
 	return res, newCursor, nil
 }
 
-func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return nil, nil, nil
@@ -279,10 +312,11 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	primMatcher, primVal := convertFilterValue(fs[0])
 	intPrimMatcher := objectcore.IsIntegerSearchOp(primMatcher)
 	notPresentPrimMatcher := primMatcher == object.MatchNotPresent
+	idIter := len(attrs) == 0 || notPresentPrimMatcher
 	primAttr := fs[0].Header() // attribute emptiness already prevented
 	var primSeekKey, primSeekPrefix []byte
 	var prevResOID, prevResPrimVal []byte
-	if notPresentPrimMatcher {
+	if idIter {
 		if cursor != nil {
 			primSeekKey = cursor.Key
 		} else {
@@ -299,21 +333,28 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 		}
 		primSeekPrefix = primSeekKey[:cursor.ValIDOff]
 		valID := cursor.Key[cursor.ValIDOff:]
-		prevResPrimVal, prevResOID = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
+		if intPrimMatcher {
+			prevResPrimVal, prevResOID = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
+		} else {
+			var err error
+			if prevResPrimVal, prevResOID, err = splitValOID(valID); err != nil {
+				return nil, nil, fmt.Errorf("invalid VAL_OID: %w", err)
+			}
+		}
 	} else {
 		if intPrimMatcher {
 			// we seek 0x01_ATTR_DELIM_VAL either w/ or w/o VAL. We ignore VAL when we need
 			// to start from the lowest int, i.e. filter is auto-matched (e.g. <=MaxUint256) or <(=).
 			f := fInt[0]
 			withVal := !f.auto && (primMatcher == object.MatchNumGT || primMatcher == object.MatchNumGE)
-			kln := 1 + len(primAttr) + utf8DelimiterLen // prefix 1st
+			kln := 1 + len(primAttr) + attributeDelimiterLen // prefix 1st
 			if withVal {
 				kln += intValLen
 			}
 			primSeekKey = make([]byte, kln)
 			primSeekKey[0] = metaPrefixAttrIDInt
 			off := 1 + copy(primSeekKey[1:], primAttr)
-			off += copy(primSeekKey[off:], utf8Delimiter)
+			off += copy(primSeekKey[off:], attributeDelimiter)
 			primSeekPrefix = primSeekKey[:off]
 			if withVal {
 				copy(primSeekKey[off:], f.b)
@@ -352,16 +393,24 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	dbValInt := new(big.Int)
 nextPrimKey:
 	for ; bytes.HasPrefix(primKey, primSeekPrefix); primKey, _ = primCursor.Next() {
-		if notPresentPrimMatcher {
+		if idIter {
 			if id = primKey[1:]; len(id) != oid.Size {
 				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid OID len %d", len(id)))
 			}
 		} else { // apply primary filter
 			valID := primKey[len(primSeekPrefix):] // VAL_OID
-			if len(valID) <= oid.Size {
-				return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("too small VAL_OID len %d", len(valID)))
+			if intPrimMatcher {
+				if len(valID) <= oid.Size {
+					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("too small VAL_OID len %d", len(valID)))
+				}
+				primDBVal, id = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
+			} else {
+				var err error
+				if primDBVal, id, err = splitValOID(valID); err != nil {
+					fmt.Println(string(valID))
+					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid VAL_OID: %w", err))
+				}
 			}
-			primDBVal, id = valID[:len(valID)-oid.Size], valID[len(valID)-oid.Size:]
 			for i := range fs {
 				// there may be several filters by primary key, e.g. N >= 10 && N <= 20. We
 				// check them immediately before moving through the DB.
@@ -391,7 +440,7 @@ nextPrimKey:
 		}
 		// apply other filters
 		for i := range fs {
-			if !notPresentPrimMatcher && (i == 0 || fs[i].Header() == fs[0].Header()) { // 1st already checked
+			if !idIter && (i == 0 || fs[i].Header() == fs[0].Header()) { // 1st already checked
 				continue
 			}
 			attr := fs[i].Header() // emptiness already prevented
@@ -512,18 +561,15 @@ nextPrimKey:
 			n++
 		}
 	}
-	var newCursor *SearchCursor
+	var newCursor []byte
 	if more {
-		newCursor = &SearchCursor{
-			Key:      slices.Clone(collectedPrimKeys[n-1][1:]),
-			ValIDOff: len(primSeekPrefix),
-		}
+		newCursor = slices.Clone(collectedPrimKeys[n-1][1:])
 	}
 	return res[:n], newCursor, nil
 }
 
 // TODO: can be merged with filtered code?
-func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, *SearchCursor, error) {
+func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var seekKey []byte
 	if cursor != nil {
 		seekKey = cursor.Key
@@ -533,7 +579,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 	}
 	res := make([]client.SearchResultItem, count)
 	var n uint16
-	var newCursor *SearchCursor
+	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		mb := tx.Bucket(metaBucketKey(cnr))
@@ -548,7 +594,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 		}
 		for ; k[0] == metaPrefixID; k, _ = mbc.Next() {
 			if n == count { // there are still elements
-				newCursor = &SearchCursor{Key: res[n-1].ID[:]}
+				newCursor = res[n-1].ID[:]
 				return nil
 			}
 			if len(k) != oid.Size+1 {
@@ -569,10 +615,10 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *SearchCursor, count uint16) (
 }
 
 func seekKeyForAttribute(attr, fltVal string) ([]byte, []byte, error) {
-	key := make([]byte, 1+len(attr)+utf8DelimiterLen+len(fltVal)) // prefix 1st
+	key := make([]byte, 1+len(attr)+attributeDelimiterLen+len(fltVal)) // prefix 1st
 	key[0] = metaPrefixAttrIDPlain
 	off := 1 + copy(key[1:], attr)
-	off += copy(key[off:], utf8Delimiter)
+	off += copy(key[off:], attributeDelimiter)
 	prefix := key[:off]
 	if fltVal == "" {
 		return key, prefix, nil
@@ -759,16 +805,23 @@ func intWithinLimits(n *big.Int) bool { return n.Cmp(maxUint256Neg) >= 0 && n.Cm
 // makes PREFIX_ATTR_DELIM_VAL_OID with unset VAL space, and returns offset of
 // the VAL. Reuses previously allocated buffer if it is sufficient.
 func prepareMetaAttrIDKey(buf *keyBuffer, id oid.ID, attr string, valLen int, intAttr bool) ([]byte, int) {
-	k := buf.alloc(attrIDFixedLen + len(attr) + valLen)
+	kln := attrIDFixedLen + len(attr) + valLen
+	if !intAttr {
+		kln += attributeDelimiterLen
+	}
+	k := buf.alloc(kln)
 	if intAttr {
 		k[0] = metaPrefixAttrIDInt
 	} else {
 		k[0] = metaPrefixAttrIDPlain
 	}
 	off := 1 + copy(k[1:], attr)
-	off += copy(k[off:], utf8Delimiter)
+	off += copy(k[off:], attributeDelimiter)
 	valOff := off
 	off += valLen
+	if !intAttr {
+		off += copy(k[off:], attributeDelimiter)
+	}
 	copy(k[off:], id[:])
 	return k, valOff
 }
@@ -779,7 +832,7 @@ func prepareMetaIDAttrKey(buf *keyBuffer, id oid.ID, attr string, valLen int) []
 	k[0] = metaPrefixIDAttr
 	off := 1 + copy(k[1:], id[:])
 	off += copy(k[off:], attr)
-	copy(k[off:], utf8Delimiter)
+	copy(k[off:], attributeDelimiter)
 	return k
 }
 
@@ -817,7 +870,7 @@ func (x *metaAttributeSeeker) get(id []byte, attr string) ([]byte, error) {
 	pref[0] = metaPrefixIDAttr
 	off := 1 + copy(pref[1:], id)
 	off += copy(pref[off:], attr)
-	copy(pref[off:], utf8Delimiter)
+	copy(pref[off:], attributeDelimiter)
 	if x.crsr == nil {
 		x.crsr = x.bkt.Cursor()
 	}
@@ -855,15 +908,15 @@ func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) 
 }
 
 // CalculateCursor calculates cursor for the given last search result item.
-func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) (SearchCursor, error) {
-	if len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
-		return SearchCursor{Key: lastItem.ID[:]}, nil
+func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) ([]byte, error) {
+	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
+		return lastItem.ID[:], nil
 	}
 	attr := fs[0].Header()
 	var lastItemVal string
 	if len(lastItem.Attributes) == 0 {
 		if attr != object.FilterRoot && attr != object.FilterPhysical {
-			return SearchCursor{Key: lastItem.ID[:]}, nil
+			return lastItem.ID[:], nil
 		}
 		lastItemVal = binPropMarker
 	} else {
@@ -872,39 +925,42 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	var val []byte
 	switch attr {
 	default:
-		if n, ok := new(big.Int).SetString(lastItemVal, 10); ok {
-			var res SearchCursor
-			res.Key = make([]byte, len(attr)+utf8DelimiterLen+intValLen+oid.Size)
-			off := copy(res.Key, attr)
-			res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
-			putInt(res.Key[res.ValIDOff:res.ValIDOff+intValLen], n)
-			copy(res.Key[res.ValIDOff+intValLen:], lastItem.ID[:])
+		if objectcore.IsIntegerSearchOp(fs[0].Operation()) {
+			n, ok := new(big.Int).SetString(lastItemVal, 10)
+			if !ok {
+				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
+			}
+			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
+			off := copy(res, attr)
+			off += copy(res[off:], attributeDelimiter)
+			putInt(res[off:off+intValLen], n)
+			copy(res[off+intValLen:], lastItem.ID[:])
 			return res, nil
 		}
 	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
 		var err error
 		if val, err = base58.Decode(lastItemVal); err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
+			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
 		}
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		ln := hex.DecodedLen(len(lastItemVal))
 		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {
-			return SearchCursor{}, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
+			return nil, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
 		}
-		var res SearchCursor
-		res.Key = make([]byte, len(attr)+utf8DelimiterLen+ln+oid.Size)
-		off := copy(res.Key, attr)
-		res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
+		res := make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
+		off := copy(res, attr)
+		off += copy(res[off:], attributeDelimiter)
 		var err error
-		if _, err = hex.Decode(res.Key[res.ValIDOff:], []byte(lastItemVal)); err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		if _, err = hex.Decode(res[off:], []byte(lastItemVal)); err != nil {
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
 		}
-		copy(res.Key[res.ValIDOff+ln:], lastItem.ID[:])
+		off += copy(res[off+ln:], attributeDelimiter)
+		copy(res[off:], lastItem.ID[:])
 		return res, nil
 	case object.FilterSplitID:
 		uid, err := uuid.Parse(lastItemVal)
 		if err != nil {
-			return SearchCursor{}, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
 		}
 		val = uid[:]
 	case object.FilterVersion, object.FilterType:
@@ -912,12 +968,13 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	if val == nil {
 		val = []byte(lastItemVal)
 	}
-	var res SearchCursor
-	res.Key = make([]byte, len(attr)+utf8DelimiterLen+len(val)+oid.Size)
-	off := copy(res.Key, attr)
-	res.ValIDOff = off + copy(res.Key[off:], utf8Delimiter)
-	off = res.ValIDOff + copy(res.Key[res.ValIDOff:], val)
-	copy(res.Key[off:], lastItem.ID[:])
+	kln := len(attr) + attributeDelimiterLen + len(val) + attributeDelimiterLen + oid.Size
+	res := make([]byte, kln)
+	off := copy(res, attr)
+	off += copy(res[off:], attributeDelimiter)
+	off += copy(res[off:], val)
+	off += copy(res[off:], attributeDelimiter)
+	copy(res[off:], lastItem.ID[:])
 	return res, nil
 }
 
@@ -950,9 +1007,8 @@ func PreprocessIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, boo
 		if !f.auto {
 			if i == 0 || objectcore.IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {
 				f.b = intBytes(n)
-			} else {
-				f.n = n
 			}
+			f.n = n
 		}
 		// TODO: #1148 there are more auto-cases (like <=X AND >=X, <X AND >X), cover more here
 		fInt[i] = f

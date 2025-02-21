@@ -134,7 +134,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, *meta.SearchCursor, error)
+	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1883,7 +1883,7 @@ func (s *server) signSearchResponse(resp *protoobject.SearchV2Response) *protoob
 
 func (s *server) makeStatusSearchResponse(err error) *protoobject.SearchV2Response {
 	return s.signSearchResponse(&protoobject.SearchV2Response{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		MetaHeader: s.makeResponseMetaHeader(apistatus.FromError(err)),
 	})
 }
 
@@ -1994,16 +1994,18 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		return nil, nil
 	}
 	var primAttr string
+	var primInt bool
 	if len(fs) > 0 {
 		primAttr = fs[0].Header()
+		primInt = objectcore.IsIntegerSearchOp(fs[0].Operation())
 	}
-	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr)
+	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr, primInt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cursor: %w", err)
 	}
 
 	var res []sdkclient.SearchResultItem
-	var newCursor *meta.SearchCursor
+	var newCursor []byte
 	count := uint16(body.Count) // legit according to the limit
 	if ttl == 1 {
 		if res, newCursor, err = s.storage.SearchObjects(cnr, fs, fInt, body.Attributes, cursor, count); err != nil {
@@ -2072,11 +2074,9 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			return nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
-			c, err := meta.CalculateCursor(fs, res[len(res)-1])
-			if err != nil {
+			if newCursor, err = meta.CalculateCursor(fs, res[len(res)-1]); err != nil {
 				return nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
-			newCursor = &c
 		}
 	}
 
@@ -2090,7 +2090,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		}
 	}
 	if newCursor != nil {
-		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor.Key)
+		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor)
 	}
 	return resBody, nil
 }
