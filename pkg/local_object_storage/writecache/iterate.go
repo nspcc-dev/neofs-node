@@ -18,9 +18,6 @@ func (c *cache) Iterate(handler func(oid.Address, []byte) error, ignoreErrors bo
 	}
 
 	var addrHandler = func(addr oid.Address) error {
-		if _, ok := c.flushed.Peek(addr.EncodeToString()); ok {
-			return nil
-		}
 		data, err := c.fsTree.GetBytes(addr)
 		if err != nil {
 			if ignoreErrors || errors.As(err, new(apistatus.ObjectNotFound)) {
