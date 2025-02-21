@@ -76,8 +76,10 @@ func verifyHeaderForMetadata(hdr object.Object) error {
 	return nil
 }
 
-// returns BoltDB errors only.
-func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
+// PutMetadataForObject fills object meta-data indexes using bbolt transaction.
+// Transaction must be writable. Additional bucket for container's meta-data
+// may be created using {255, CID...} form as a key.
+func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
 	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(hdr.GetContainerID()))
 	if err != nil {
 		return fmt.Errorf("create meta bucket for container: %w", err)

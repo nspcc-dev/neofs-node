@@ -238,7 +238,7 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 	}
 	par := hdr.Parent()
 	hasParent := par != nil
-	if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
+	if err := PutMetadataForObject(tx, hdr, hasParent, true); err != nil {
 		return false, fmt.Errorf("put metadata for object %s: %w", oid.ID(id), err)
 	}
 	if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
@@ -248,7 +248,7 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 				zap.Stringer("parent", par.GetID()), zap.Binary("data", bin))
 			return false, nil
 		}
-		if err := putMetadataForObject(tx, *par, false, false); err != nil {
+		if err := PutMetadataForObject(tx, *par, false, false); err != nil {
 			return false, fmt.Errorf("put metadata for parent of object %s: %w", oid.ID(id), err)
 		}
 	}
