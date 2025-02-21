@@ -225,7 +225,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}()
 
-	s.morphListener.RegisterBlockHandler(func(b *block.Block) {
+	s.morphListener.RegisterHeaderHandler(func(b *block.Header) {
 		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
 		)
@@ -241,7 +241,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	})
 
 	if !s.withoutMainNet {
-		s.mainnetListener.RegisterBlockHandler(func(b *block.Block) {
+		s.mainnetListener.RegisterHeaderHandler(func(b *block.Header) {
 			err = s.persistate.SetUInt32(persistateMainChainLastBlockKey, b.Index)
 			if err != nil {
 				s.log.Warn("can't update persistent state",
@@ -1062,18 +1062,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 }
 
 func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
-	// listenerPoolCap is a capacity of a
-	// worker pool inside the listener. It
-	// is used to prevent blocking in neo-go:
-	// the client cannot make RPC requests if
-	// the notification channel is not being
-	// read by another goroutine.
-	const listenerPoolCap = 300
-
 	listener, err := event.NewListener(event.ListenerParams{
-		Logger:             p.log.With(zap.String("chain", p.name)),
-		Client:             cli,
-		WorkerPoolCapacity: listenerPoolCap,
+		Logger: p.log.With(zap.String("chain", p.name)),
+		Client: cli,
 	})
 	if err != nil {
 		return nil, err

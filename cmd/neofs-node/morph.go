@@ -60,18 +60,9 @@ func makeNotaryDeposit(c *cfg) error {
 }
 
 func listenMorphNotifications(c *cfg) {
-	// listenerPoolCap is a capacity of a
-	// worker pool inside the listener. It
-	// is used to prevent blocking in neo-go:
-	// the client cannot make RPC requests if
-	// the notification channel is not being
-	// read by another goroutine.
-	const listenerPoolCap = 100
-
 	lis, err := event.NewListener(event.ListenerParams{
-		Logger:             c.log,
-		Client:             c.cfgMorph.client,
-		WorkerPoolCapacity: listenerPoolCap,
+		Logger: c.log,
+		Client: c.cfgMorph.client,
 	})
 	fatalOnErr(err)
 
@@ -94,7 +85,7 @@ func listenMorphNotifications(c *cfg) {
 	registerNotificationHandlers(c.shared.basics.netmapSH, lis, c.cfgNetmap.parsers, c.cfgNetmap.subscribers)
 	registerNotificationHandlers(c.shared.basics.containerSH, lis, c.cfgContainer.parsers, c.cfgContainer.subscribers)
 
-	registerBlockHandler(lis, func(block *block.Block) {
+	lis.RegisterHeaderHandler(func(block *block.Header) {
 		c.log.Debug("new block", zap.Uint32("index", block.Index))
 
 		c.networkState.block.Store(block.Index)
@@ -135,10 +126,6 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 			lis.RegisterNotificationHandler(hi)
 		}
 	}
-}
-
-func registerBlockHandler(lis event.Listener, handler event.BlockHandler) {
-	lis.RegisterBlockHandler(handler)
 }
 
 // lookupScriptHashesInNNS looks up for contract script hashes in NNS contract of side
