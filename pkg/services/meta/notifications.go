@@ -286,8 +286,6 @@ func (m *Meta) handleBlock(ind uint32) error {
 		st.mpt.Flush(ind)
 	}
 
-	// TODO drop containers that node does not belong to anymore?
-
 	l.Debug("handled block successfully")
 
 	return nil
