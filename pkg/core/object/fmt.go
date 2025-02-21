@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -415,22 +416,38 @@ func (v *FormatValidator) checkExpiration(obj object.Object) error {
 var (
 	errDuplAttr     = errors.New("duplication of attributes detected")
 	errEmptyAttrVal = errors.New("empty attribute value")
+	errZeroByte     = errors.New("illegal zero byte")
 )
+
+func checkZeroByte(k, v string) error {
+	if strings.IndexByte(k, 0x00) >= 0 {
+		return fmt.Errorf("invalid key: %w", errZeroByte)
+	}
+	if strings.IndexByte(v, 0x00) >= 0 {
+		return fmt.Errorf("invalid value: %w", errZeroByte)
+	}
+	return nil
+}
 
 func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 	as := obj.Attributes()
 
 	mUnique := make(map[string]struct{}, len(as))
 
-	for _, a := range as {
+	for i, a := range as {
 		key := a.Key()
 
 		if _, was := mUnique[key]; was {
 			return errDuplAttr
 		}
 
+		val := a.Value()
 		if a.Value() == "" {
 			return errEmptyAttrVal
+		}
+
+		if err := checkZeroByte(key, val); err != nil {
+			return fmt.Errorf("invalid attribute #%d: %w", i, err)
 		}
 
 		mUnique[key] = struct{}{}
