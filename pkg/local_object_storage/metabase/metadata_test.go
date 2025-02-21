@@ -677,7 +677,7 @@ func TestDB_SearchObjects(t *testing.T) {
 				object.MatchUnspecified, object.MatchStringEqual, object.MatchStringNotEqual,
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("$Object:ROOT", matcher, "", []uint{0, 1})
+				check("$Object:ROOT", matcher, "", []uint{0})
 			}
 			check("$Object:ROOT", object.MatchNotPresent, "", nil)
 		})
