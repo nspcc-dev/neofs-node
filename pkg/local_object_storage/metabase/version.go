@@ -137,11 +137,12 @@ func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
 				return fmt.Errorf("decode header of object %s from bucket value: %w", id, err)
 			}
 			par := hdr.Parent()
-			if err := putMetadataForObject(tx, hdr, par == nil, true); err != nil {
+			hasParent := par != nil
+			if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
 				return fmt.Errorf("put metadata for object %s: %w", id, err)
 			}
-			if par != nil {
-				if err := putMetadataForObject(tx, *par, true, false); err != nil {
+			if hasParent {
+				if err := putMetadataForObject(tx, *par, false, false); err != nil {
 					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
 				}
 			}

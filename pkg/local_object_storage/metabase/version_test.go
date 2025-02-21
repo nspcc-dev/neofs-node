@@ -563,11 +563,11 @@ func TestMigrate3to4(t *testing.T) {
 		fs.AddRootFilter()
 		res, _, err = db.Search(objs[i].GetContainerID(), fs, nil, nil, nil, 1000)
 		require.NoError(t, err, i)
-		require.Len(t, res, 1, i)
 		if i == 0 {
+			require.Len(t, res, 1)
 			require.Equal(t, par.GetID(), res[0].ID)
 		} else {
-			require.Equal(t, objs[i].GetID(), res[0].ID, i)
+			require.Empty(t, res, i)
 		}
 		fs = fs[:0]
 		fs.AddPhyFilter()
