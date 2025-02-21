@@ -49,7 +49,10 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
-func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
+// PutMetadataForObject fills object meta-data indexes using bbolt transaction.
+// Transaction must be writable. Additional bucket for container's meta-data
+// may be created using {255, CID...} form as a key.
+func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
 	owner := hdr.Owner()
 	if owner.IsZero() {
 		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
