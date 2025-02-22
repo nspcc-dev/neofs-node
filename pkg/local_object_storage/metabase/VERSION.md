@@ -103,10 +103,10 @@ The lowest not used bucket index: 20.
   - Name: `255` + container ID
   - Keys without values
     - `0` + object ID
-    - `1` + attribute + `0xFF` + `0|1` + fixed256(value) + object ID: integer attributes. \
+    - `1` + attribute + `0x00` + `0|1` + fixed256(value) + object ID: integer attributes. \
       Sign byte is 0 for negatives, 1 otherwise. Bits are inverted for negatives also.
-    - `2` + attribute + `0xFF` + value + object ID
-    - `3` + object ID + attribute + `0xFF` + value
+    - `2` + attribute + `0x00` + value + `0x00` + object ID
+    - `3` + object ID + attribute + `0x00` + value
 
 # History
 
