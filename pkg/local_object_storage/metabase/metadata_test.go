@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -367,61 +366,170 @@ func TestIntBucketOrder(t *testing.T) {
 	}, collected)
 }
 
-func TestNewSearchCursorFromString(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		res, err := NewSearchCursorFromString("", "any", false)
-		require.NoError(t, err)
-		require.Nil(t, res)
-	})
-	t.Run("not a Base64", func(t *testing.T) {
-		_, err := NewSearchCursorFromString("???", "any", false)
-		require.ErrorContains(t, err, "decode cursor from Base64")
-	})
-	t.Run("no attribute", func(t *testing.T) {
-		t.Run("undersize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA==", "", false)
-			require.EqualError(t, err, "wrong OID cursor len 31")
+func assertInvalidCursorErr(t *testing.T, fs object.SearchFilters, attrs []string, cursor, msg string) {
+	_, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.ErrorIs(t, err, errInvalidCursor)
+	require.EqualError(t, err, errInvalidCursor.Error()+": "+msg)
+}
+
+func assertCursor(t *testing.T, fs object.SearchFilters, attrs []string, cursor string, expPrefix, expKey []byte) {
+	c, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	require.Equal(t, expPrefix, c.primKeysPrefix)
+	require.Equal(t, expKey, c.primSeekKey)
+}
+
+var invalidListingCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 31 for listing query", cursor: "q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA=="},
+	{name: "oversize", err: "wrong len 33 for listing query", cursor: "ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB"},
+}
+
+// for 'attr: 123' last result.
+var invalidIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 69 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHtK9i0PSRtkhlwPKwf9Zq0nzwbbzlJYFufLmRJyRPPI"},
+	{name: "oversize", err: "wrong len 71 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHt8duMfXsAHeMC6T9hwwUvq/LP7HQ0ovGK8PSK2cddFGAA="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvAZL3wws1klEuoU+mT625g8fNHuSjTyDL/leSvB2hNOA=="},
+	{name: "wrong delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cgEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvgYmA9Vxu0yP68nUexGmMRce5YyV/7EQ3g5jjj7ELcRg=="},
+	{name: "invalid sign", err: "invalid sign byte 0xFF",
+		cursor: "YXR0cgD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHv3+vwsBFrKukaYtBo1r7SCNPeLBr1d+4RDR9viyyRiZw=="},
+}
+
+// for 'attr: hello' last result.
+var invalidNonIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "no value", err: "too short len 38",
+		cursor: "YnR0cgAAR7tSRzMOSbFjFs5YvSPr3V6Ps8hmv+GdwAt3PMmVnYs="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgBoZWxsbwC5XU/eTk5N+i+RuLa4XQ4lcFd3wqN0LFye13unXZ2SBA=="},
+	{name: "wrong key-value delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cv9oZWxsbwD3kqge4Gmjjus4zLTKQs4gxxbRD4pK1N5Lu6NQuJ43UQ=="},
+	{name: "wrong value-OID delimiter", err: "wrong value-OID delimiter",
+		cursor: "YXR0cgBoZWxsb/+IlGDk7Bu+PC410JNSmNyajZ0lphLjqtgWDLyNn5Gh4w=="},
+}
+
+func TestPreprocessSearchQuery_Cursors(t *testing.T) {
+	t.Run("listing", func(t *testing.T) {
+		test := func(t *testing.T, fs object.SearchFilters, attrs []string) {
+			t.Run("initial", func(t *testing.T) {
+				assertCursor(t, fs, attrs, "", []byte{0x00}, []byte{0x00})
+			})
+			t.Run("invalid cursor", func(t *testing.T) {
+				for _, tc := range invalidListingCursorTestcases {
+					t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, attrs, tc.cursor, tc.err) })
+				}
+			})
+			id := oidtest.ID()
+			assertCursor(t, fs, attrs, base64.StdEncoding.EncodeToString(id[:]), []byte{0x00}, slices.Concat([]byte{0x00}, id[:]))
+		}
+		t.Run("unfiltered", func(t *testing.T) { test(t, nil, nil) })
+		t.Run("w/o attributes", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "val", object.MatchStringNotEqual)
+			test(t, fs, nil)
 		})
-		t.Run("oversize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB", "", false)
-			require.EqualError(t, err, "wrong OID cursor len 33")
+		t.Run("filter no attribute", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "", object.MatchNotPresent)
+			test(t, fs, []string{"attr"})
+		})
+	})
+	t.Run("int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "123", op)
+					pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+					if op == object.MatchNumGT || op == object.MatchNumGE {
+						assertCursor(t, fs, []string{"attr"}, "", pref, slices.Concat(pref, intBytes(big.NewInt(123))))
+					} else {
+						assertCursor(t, fs, []string{"attr"}, "", pref, pref)
+					}
+				})
+			}
+		})
+		t.Run("invalid cursor", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "123", object.MatchNumGT)
+			for _, tc := range invalidIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := make([]byte, object.MaxHeaderLen+1)
+				rand.Read(b) //nolint:staticcheck
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
 		})
 		id := oidtest.ID()
-		res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(id[:]), "", false)
+		for _, n := range []*big.Int{
+			maxUint256Neg, big.NewInt(math.MinInt64), big.NewInt(-1), big.NewInt(0),
+			big.NewInt(1), big.NewInt(math.MaxInt64), maxUint256,
+		} {
+			ib := intBytes(n)
+			b := slices.Concat([]byte("attr"), []byte{0x00}, ib, id[:])
+			var fs object.SearchFilters
+			fs.AddFilter("attr", n.String(), object.MatchNumGE)
+
+			c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+			require.NoError(t, err)
+			require.NotNil(t, c)
+
+			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+			require.Equal(t, pref, c.primKeysPrefix)
+
+			require.Len(t, fInt, 1)
+			f, ok := fInt[0]
+			require.True(t, ok)
+			if n.Cmp(maxUint256Neg) == 0 {
+				require.Equal(t, ParsedIntFilter{auto: true}, f)
+			} else {
+				require.Equal(t, ParsedIntFilter{n: n, b: ib}, f)
+			}
+		}
+	})
+	t.Run("non-int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchStringEqual, object.MatchStringNotEqual, object.MatchCommonPrefix} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "hello", op)
+					pref := slices.Concat([]byte{0x02}, []byte("attr"), []byte{0x00})
+					key := pref
+					if op != object.MatchStringNotEqual {
+						key = slices.Concat(pref, []byte("hello"))
+					}
+					assertCursor(t, fs, []string{"attr"}, "", pref, key)
+				})
+			}
+		})
+		var fs object.SearchFilters
+		fs.AddFilter("attr", "hello", object.MatchStringEqual)
+		t.Run("invalid cursor", func(t *testing.T) {
+			for _, tc := range invalidNonIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := make([]byte, object.MaxHeaderLen+1)
+				rand.Read(b) //nolint:staticcheck
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
+		})
+		id := oidtest.ID()
+		pref := slices.Concat([]byte("attr"), []byte{0x00})
+		b := slices.Concat(pref, []byte("hello"), []byte{0x00}, id[:])
+		c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 		require.NoError(t, err)
-		require.NotEmpty(t, res)
-		require.Equal(t, id[:], res.Key[1:])
-		require.Zero(t, res.ValIDOff)
+		require.Empty(t, fInt)
+		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.primKeysPrefix)
+		require.Equal(t, slices.Concat([]byte{0x02}, b), c.primSeekKey)
 	})
-	const attr = "any_attr"
-	t.Run("header overflow", func(t *testing.T) {
-		b := make([]byte, object.MaxHeaderLen+1)
-		rand.Read(b) //nolint:staticcheck
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "cursor len 16385 exceeds the limit 16384")
-	})
-	t.Run("no delimiter", func(t *testing.T) {
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString([]byte(attr)), attr, false)
-		require.EqualError(t, err, "missing delimiter")
-	})
-	t.Run("wrong attribute", func(t *testing.T) {
-		b := slices.Concat([]byte(attr+"other"), attributeDelimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "wrong attribute")
-	})
-	t.Run("no value and OID", func(t *testing.T) {
-		b := slices.Concat([]byte(attr), attributeDelimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "invalid VAL_OID: too short len 0")
-	})
-	const val = "any_val"
-	id := oidtest.ID()
-	b := slices.Concat([]byte(attr), attributeDelimiter, []byte(val), attributeDelimiter, id[:])
-	res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, res.Key)
-	require.Equal(t, b, res.Key[1:])
-	require.Equal(t, 1+len(attr)+attributeDelimiterLen, res.ValIDOff)
 }
 
 func cloneIntFilterMap(src map[int]ParsedIntFilter) map[int]ParsedIntFilter {
@@ -443,32 +551,33 @@ func cloneIntFilterMap(src map[int]ParsedIntFilter) map[int]ParsedIntFilter {
 	return dst
 }
 
+func cloneSearchCursor(c *SearchCursor) *SearchCursor {
+	if c == nil {
+		return nil
+	}
+	return &SearchCursor{primKeysPrefix: slices.Clone(c.primKeysPrefix), primSeekKey: slices.Clone(c.primSeekKey)}
+}
+
 func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, all []client.SearchResultItem, lim uint16) {
-	fInt, ok := PreprocessIntFilters(fs)
-	if !ok {
-		require.Empty(t, all)
-		return
-	}
-	fIntClone := cloneIntFilterMap(fInt)
-
-	var primAttr string
-	var primInt bool
-	if len(attrs) > 0 {
-		require.NotEmpty(t, fs)
-		require.Equal(t, attrs[0], fs[0].Header())
-		if fs[0].Operation() != object.MatchNotPresent {
-			primAttr, primInt = attrs[0], objectcore.IsIntegerSearchOp(fs[0].Operation())
-		}
-	}
-
 	var strCursor string
-	var cursor *SearchCursor
 	nAttr := len(attrs)
 	for {
-		res, c, err := db.Search(cnr, fs, fInt, attrs, cursor, lim)
-		if len(fInt) > 0 {
-			require.Equal(t, fIntClone, fInt, "int filter map mutation detected", "cursor: %q", strCursor)
+		cursor, fInt, err := PreprocessSearchQuery(fs, attrs, strCursor)
+		if err != nil {
+			if len(all) == 0 {
+				require.ErrorIs(t, err, ErrUnreachableQuery)
+			} else {
+				require.NoError(t, err)
+			}
+			return
 		}
+
+		cursorClone := cloneSearchCursor(cursor)
+		fIntClone := cloneIntFilterMap(fInt)
+
+		res, c, err := db.Search(cnr, fs, fInt, attrs, cursor, lim)
+		require.Equal(t, cursorClone, cursor, "cursor mutation detected", "cursor: %q", strCursor)
+		require.Equal(t, fIntClone, fInt, "int filter map mutation detected", "cursor: %q", strCursor)
 		require.NoError(t, err, "cursor: %q", strCursor)
 
 		n := min(len(all), int(lim))
@@ -492,8 +601,6 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 		require.Equal(t, c, cc, "cursor: %q", strCursor)
 
 		strCursor = base64.StdEncoding.EncodeToString(c)
-		cursor, err = NewSearchCursorFromString(strCursor, primAttr, primInt)
-		require.NoErrorf(t, err, "cursor: %q", strCursor)
 	}
 }
 
@@ -574,7 +681,10 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, _, err = db.Search(cnr, nil, nil, nil, nil, n)
+			cursor, fInt, err := PreprocessSearchQuery(nil, nil, "")
+			require.NoError(t, err)
+
+			_, _, err = db.Search(cnr, nil, fInt, nil, cursor, n)
 			require.EqualError(t, err, "view BoltDB: invalid meta bucket key (prefix 0x0): unexpected object key len 32")
 		})
 	})

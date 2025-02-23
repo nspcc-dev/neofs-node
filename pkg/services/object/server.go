@@ -1989,19 +1989,12 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
-	fInt, ok := meta.PreprocessIntFilters(fs)
-	if !ok {
-		return nil, nil
-	}
-	var primAttr string
-	var primInt bool
-	if len(fs) > 0 {
-		primAttr = fs[0].Header()
-		primInt = objectcore.IsIntegerSearchOp(fs[0].Operation())
-	}
-	cursor, err := meta.NewSearchCursorFromString(body.Cursor, primAttr, primInt)
+	cursor, fInt, err := meta.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
 	if err != nil {
-		return nil, fmt.Errorf("invalid cursor: %w", err)
+		if errors.Is(err, meta.ErrUnreachableQuery) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
 	var res []sdkclient.SearchResultItem
