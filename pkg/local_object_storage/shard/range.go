@@ -14,6 +14,9 @@ import (
 // GetRange reads part of an object from shard. If skipMeta is specified
 // data will be fetched directly from the blobstor, bypassing metabase.
 //
+// Zero length is interpreted as requiring full object length independent of the
+// offset.
+//
 // Returns any error encountered that
 // did not allow to completely read the object part.
 //
@@ -46,9 +49,15 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 		}
 
 		payload := o.Payload()
+		pLen := uint64(len(payload))
 		from := offset
-		to := from + length
-		if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+		var to uint64
+		if length != 0 {
+			to = from + length
+		} else {
+			to = pLen
+		}
+		if to < from || pLen < from || pLen < to {
 			return logicerr.Wrap(apistatus.ObjectOutOfRange{})
 		}
 

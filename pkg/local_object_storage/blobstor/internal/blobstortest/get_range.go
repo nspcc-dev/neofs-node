@@ -54,4 +54,18 @@ func TestGetRange(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		_, err := s.GetRange(objects[0].addr, 10, math.MaxUint64-2)
 		require.ErrorAs(t, err, new(apistatus.ObjectOutOfRange))
 	})
+
+	t.Run("zero range", func(t *testing.T) {
+		for i := range objects {
+			res, err := s.GetRange(objects[i].addr, 0, 0)
+			require.NoError(t, err)
+			pld := objects[i].obj.Payload()
+			require.Equal(t, pld, res)
+			if off := len(pld) / 2; off > 0 {
+				res, err = s.GetRange(objects[i].addr, uint64(off), 0)
+				require.NoError(t, err)
+				require.Equal(t, pld[off:], res)
+			}
+		}
+	})
 }

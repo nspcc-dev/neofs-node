@@ -40,6 +40,9 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 	}
 
 	exec.collectedObject = lastObj.Parent()
+	if r := exec.ctxRange(); r != nil && r.GetLength() == 0 {
+		r.SetLength(exec.collectedObject.PayloadSize())
+	}
 
 	// copied from V1, and it has the same problems as V1;
 	// see it for comments and optimization suggestions
@@ -58,6 +61,10 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	}
 
 	exec.collectedObject = linkObj.Parent()
+	rng := exec.ctxRange()
+	if rng != nil && rng.GetLength() == 0 {
+		rng.SetLength(exec.collectedObject.PayloadSize())
+	}
 
 	var link objectSDK.Link
 	err := linkObj.ReadLink(&link)
@@ -66,7 +73,7 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 		return false
 	}
 
-	if exec.ctxRange() == nil {
+	if rng == nil {
 		// GET case
 
 		if exec.writeCollectedHeader() {
@@ -81,12 +88,13 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	}
 
 	// RANGE case
-
-	rng := exec.ctxRange()
 	seekOff := rng.GetOffset()
 	seekLen := rng.GetLength()
-	seekTo := seekOff + seekLen
 	parSize := linkObj.Parent().PayloadSize()
+	if seekLen == 0 {
+		seekLen = parSize
+	}
+	seekTo := seekOff + seekLen
 
 	if seekTo < seekOff || parSize < seekOff || parSize < seekTo {
 		var errOutOfRange apistatus.ObjectOutOfRange

@@ -11,6 +11,9 @@ import (
 // GetRange reads object payload data from b.
 // If the descriptor is present, only one sub-storage is tried,
 // Otherwise, each sub-storage is tried in order.
+//
+// Zero length is interpreted as requiring full object length independent of the
+// offset.
 func (b *BlobStor) GetRange(addr oid.Address, offset uint64, length uint64, storageID []byte) ([]byte, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()

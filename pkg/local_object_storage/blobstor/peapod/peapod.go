@@ -372,9 +372,15 @@ func (x *Peapod) GetRange(addr oid.Address, from uint64, length uint64) ([]byte,
 	}
 
 	payload := obj.Payload()
-	to := from + length
+	pLen := uint64(len(payload))
+	var to uint64
+	if length != 0 {
+		to = from + length
+	} else {
+		to = pLen
+	}
 
-	if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
+	if to < from || pLen < from || pLen < to {
 		return nil, logicerr.Wrap(apistatus.ObjectOutOfRange{})
 	}
 

@@ -152,7 +152,11 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 
 				payload := obj.Payload()
 				from := rng.GetOffset()
-				to := from + rng.GetLength()
+				ln := rng.GetLength()
+				if ln == 0 {
+					ln = obj.PayloadSize()
+				}
+				to := from + ln
 
 				if pLen := uint64(len(payload)); to < from || pLen < from || pLen < to {
 					return nil, new(apistatus.ObjectOutOfRange)
