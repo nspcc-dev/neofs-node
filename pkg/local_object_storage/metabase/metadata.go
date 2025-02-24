@@ -434,6 +434,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 	var more bool
 	var id, dbVal, primDBVal []byte
 	var keyBuf keyBuffer
+	var wasPrimMatch bool
 	attrSkr := &metaAttributeSeeker{keyBuf: &keyBuf, bkt: metaBkt}
 	curEpoch := db.epochState.CurrentEpoch()
 	dbValInt := new(big.Int)
@@ -476,8 +477,12 @@ nextPrimKey:
 					matches = matchValues(checkedDBVal, mch, fltVal)
 				}
 				if !matches {
+					if mch != object.MatchStringNotEqual && (wasPrimMatch || mch != object.MatchNumGT) {
+						break nextPrimKey
+					}
 					continue nextPrimKey
 				}
+				wasPrimMatch = true
 				// TODO: attribute value can be requested, it can be collected here, or we can
 				//  detect earlier when an object goes beyond the already collected result. The
 				//  code can become even more complex. Same below
