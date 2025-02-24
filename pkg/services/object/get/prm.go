@@ -3,7 +3,6 @@ package getsvc
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"hash"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -23,30 +22,6 @@ type RangePrm struct {
 	commonPrm
 
 	rng *object.Range
-}
-
-var (
-	errRangeZeroLength = errors.New("zero range length")
-	errRangeOverflow   = errors.New("range overflow")
-)
-
-// Validate pre-validates `OBJECTRANGE` request's parameters content
-// without access to the requested object's payload.
-func (p RangePrm) Validate() error {
-	if p.rng != nil {
-		off := p.rng.GetOffset()
-		l := p.rng.GetLength()
-
-		if l == 0 {
-			return errRangeZeroLength
-		}
-
-		if off+l <= off {
-			return errRangeOverflow
-		}
-	}
-
-	return nil
 }
 
 // RangeHashPrm groups parameters of GetRange service call.
