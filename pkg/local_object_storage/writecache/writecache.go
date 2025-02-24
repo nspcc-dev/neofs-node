@@ -67,8 +67,6 @@ type cache struct {
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
 	wg sync.WaitGroup
-	// store contains underlying database.
-	store
 	// fsTree contains big files stored directly on file-system.
 	fsTree *fstree.FSTree
 }
@@ -110,11 +108,6 @@ func New(opts ...Option) Cache {
 	for i := range opts {
 		opts[i](&c.options)
 	}
-
-	// Make the LRU cache contain which take approximately 3/4 of the maximum space.
-	c.maxFlushedMarksCount = int(c.maxCacheSize/c.maxObjectSize) / 2 * 3 / 4
-	// Trigger the removal when the cache is 7/8 full, so that new items can still arrive.
-	c.maxRemoveBatchSize = c.maxFlushedMarksCount / 8
 
 	return c
 }
