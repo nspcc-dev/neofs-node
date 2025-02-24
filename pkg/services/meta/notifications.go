@@ -119,6 +119,15 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
+			ok, err = m.cLister.IsMineWithMeta(ev.cID)
+			if err != nil {
+				l.Error("can't get container data", zap.Error(err))
+				continue
+			}
+			if !ok {
+				continue
+			}
+
 			m.m.Lock()
 
 			st, err := storageForContainer(m.rootPath, ev.cID)

@@ -31,6 +31,9 @@ type ContainerLister interface {
 	// List returns node's containers that support chain-based meta data and
 	// any error that does not allow listing.
 	List() (map[cid.ID]struct{}, error)
+	// IsMineWithMeta checks if the given CID has meta enabled and current
+	// node belongs to it.
+	IsMineWithMeta(cid.ID) (bool, error)
 }
 
 // wsClient is for test purposes only.

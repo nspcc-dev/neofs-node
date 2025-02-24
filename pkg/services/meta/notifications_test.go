@@ -39,6 +39,10 @@ type testContainerLister struct {
 	resErr error
 }
 
+func (t *testContainerLister) IsMineWithMeta(id cid.ID) (bool, error) {
+	return true, nil
+}
+
 func (t *testContainerLister) List() (map[cid.ID]struct{}, error) {
 	return t.res, t.resErr
 }

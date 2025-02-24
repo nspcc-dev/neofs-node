@@ -63,6 +63,47 @@ type metaContainerListener struct {
 	prevRes    map[cid.ID]struct{}
 }
 
+func (c *metaContainerListener) IsMineWithMeta(id cid.ID) (bool, error) {
+	curEpoch, err := c.network.Epoch()
+	if err != nil {
+		return false, fmt.Errorf("read current NeoFS epoch: %w", err)
+	}
+	networkMap, err := c.network.GetNetMapByEpoch(curEpoch)
+	if err != nil {
+		return false, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
+	}
+	return c.isMineWithMeta(id, networkMap)
+}
+
+func (c *metaContainerListener) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (bool, error) {
+	cnr, err := c.containers.Get(id)
+	if err != nil {
+		return false, fmt.Errorf("read %s container: %w", id, err)
+	}
+
+	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
+	switch cnr.Value.Attribute(metaOnChainAttr) {
+	case "optimistic", "strict":
+	default:
+		return false, nil
+	}
+
+	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), id)
+	if err != nil {
+		return false, fmt.Errorf("apply container storage policy to %s container: %w", id, err)
+	}
+
+	for _, nodeSet := range nodeSets {
+		for _, node := range nodeSet {
+			if bytes.Equal(node.PublicKey(), c.key) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 func (c *metaContainerListener) List() (map[cid.ID]struct{}, error) {
 	actualContainers, err := c.cnrClient.List(nil)
 	if err != nil {
@@ -99,33 +140,14 @@ func (c *metaContainerListener) List() (map[cid.ID]struct{}, error) {
 	var wg errgroup.Group
 	for _, cID := range actualContainers {
 		wg.Go(func() error {
-			cnr, err := c.containers.Get(cID)
-			if err != nil {
-				return fmt.Errorf("read %s container: %w", cID, err)
+			ok, err := c.isMineWithMeta(cID, networkMap)
+			if err != nil || !ok {
+				return err
 			}
 
-			const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
-			switch cnr.Value.Attribute(metaOnChainAttr) {
-			case "optimistic", "strict":
-			default:
-				return nil
-			}
-
-			nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cID)
-			if err != nil {
-				return fmt.Errorf("apply container storage policy to %s container: %w", cID, err)
-			}
-
-			for _, nodeSet := range nodeSets {
-				for _, node := range nodeSet {
-					if bytes.Equal(node.PublicKey(), c.key) {
-						locM.Lock()
-						res[cID] = struct{}{}
-						locM.Unlock()
-						return nil
-					}
-				}
-			}
+			locM.Lock()
+			res[cID] = struct{}{}
+			locM.Unlock()
 
 			return nil
 		})
