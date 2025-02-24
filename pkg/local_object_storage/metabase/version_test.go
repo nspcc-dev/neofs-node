@@ -18,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -459,17 +458,12 @@ func TestMigrate3to4(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	res, _, err := db.Search(objs[0].GetContainerID(), nil, nil, nil, nil, 1000)
-	require.NoError(t, err)
-	require.Len(t, res, 2)
-	require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
-	require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+	exp := searchResultForIDs(sortObjectIDs([]oid.ID{objs[0].GetID(), par.GetID()}))
+	assertSearchResult(t, db, objs[0].GetContainerID(), nil, nil, exp)
 
 	for i := range objs[1:] {
-		res, _, err := db.Search(objs[1+i].GetContainerID(), nil, nil, nil, nil, 1000)
-		require.NoError(t, err, i)
-		require.Len(t, res, 1, i)
-		require.Equal(t, objs[1+i].GetID(), res[0].ID, i)
+		exp := searchResultForIDs([]oid.ID{objs[1+i].GetID()})
+		assertSearchResult(t, db, objs[1+i].GetContainerID(), nil, nil, exp)
 	}
 
 	for _, tc := range []struct {
@@ -547,41 +541,31 @@ func TestMigrate3to4(t *testing.T) {
 	} {
 		var fs object.SearchFilters
 		fs.AddFilter(tc.attr, tc.val, object.MatchStringEqual)
-		res, _, err := db.Search(tc.cnr, fs, nil, nil, nil, 1000)
-		require.NoError(t, err, tc)
 		if !tc.par {
-			require.Len(t, res, 1, tc)
-			require.Equal(t, tc.exp, res[0].ID, tc)
+			exp = searchResultForIDs([]oid.ID{tc.exp})
 		} else {
-			require.Len(t, res, 2, tc)
-			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
-			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+			exp = searchResultForIDs(sortObjectIDs([]oid.ID{objs[0].GetID(), par.GetID()}))
 		}
+		assertSearchResult(t, db, tc.cnr, fs, nil, exp)
 	}
 
 	for i := range objs {
 		var fs object.SearchFilters
 		fs.AddRootFilter()
-		res, _, err = db.Search(objs[i].GetContainerID(), fs, nil, nil, nil, 1000)
-		require.NoError(t, err, i)
 		if i == 0 {
-			require.Len(t, res, 1)
-			require.Equal(t, par.GetID(), res[0].ID)
+			exp = searchResultForIDs([]oid.ID{par.GetID()})
 		} else {
-			require.Empty(t, res, i)
+			exp = nil
 		}
+		assertSearchResult(t, db, objs[i].GetContainerID(), fs, nil, exp)
 		fs = fs[:0]
 		fs.AddPhyFilter()
-		res, _, err = db.Search(objs[i].GetContainerID(), fs, nil, nil, nil, 1000)
-		require.NoError(t, err, i)
 		if i == 0 {
-			require.Len(t, res, 2)
-			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == objs[0].GetID() }))
-			require.True(t, slices.ContainsFunc(res, func(r client.SearchResultItem) bool { return r.ID == par.GetID() }))
+			exp = searchResultForIDs(sortObjectIDs([]oid.ID{objs[0].GetID(), par.GetID()}))
 		} else {
-			require.Len(t, res, 1)
-			require.Equal(t, objs[i].GetID(), res[0].ID, i)
+			exp = searchResultForIDs([]oid.ID{objs[i].GetID()})
 		}
+		assertSearchResult(t, db, objs[i].GetContainerID(), fs, nil, exp)
 	}
 	t.Run("failure", func(t *testing.T) {
 		t.Run("zero by in attribute", func(t *testing.T) {

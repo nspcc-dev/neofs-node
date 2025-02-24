@@ -3,6 +3,8 @@ package meta
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
+	"maps"
 	"math"
 	"math/big"
 	"math/rand"
@@ -28,6 +30,14 @@ func sortObjectIDs(ids []oid.ID) []oid.ID {
 	s := slices.Clone(ids)
 	slices.SortFunc(s, func(a, b oid.ID) int { return bytes.Compare(a[:], b[:]) })
 	return s
+}
+
+func searchResultForIDs(ids []oid.ID) []client.SearchResultItem {
+	res := make([]client.SearchResultItem, len(ids))
+	for i := range ids {
+		res[i].ID = ids[i]
+	}
+	return res
 }
 
 func appendAttribute(obj *object.Object, k, v string) {
@@ -356,61 +366,268 @@ func TestIntBucketOrder(t *testing.T) {
 	}, collected)
 }
 
-func TestNewSearchCursorFromString(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		res, err := NewSearchCursorFromString("", "any", false)
-		require.NoError(t, err)
-		require.Nil(t, res)
-	})
-	t.Run("not a Base64", func(t *testing.T) {
-		_, err := NewSearchCursorFromString("???", "any", false)
-		require.ErrorContains(t, err, "decode cursor from Base64")
-	})
-	t.Run("no attribute", func(t *testing.T) {
-		t.Run("undersize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA==", "", false)
-			require.EqualError(t, err, "wrong OID cursor len 31")
+func assertInvalidCursorErr(t *testing.T, fs object.SearchFilters, attrs []string, cursor, msg string) {
+	_, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.ErrorIs(t, err, errInvalidCursor)
+	require.EqualError(t, err, errInvalidCursor.Error()+": "+msg)
+}
+
+func assertCursor(t *testing.T, fs object.SearchFilters, attrs []string, cursor string, expPrefix, expKey []byte) {
+	c, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	require.Equal(t, expPrefix, c.primKeysPrefix)
+	require.Equal(t, expKey, c.primSeekKey)
+}
+
+var invalidListingCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 31 for listing query", cursor: "q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA=="},
+	{name: "oversize", err: "wrong len 33 for listing query", cursor: "ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB"},
+}
+
+// for 'attr: 123' last result.
+var invalidIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 69 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHtK9i0PSRtkhlwPKwf9Zq0nzwbbzlJYFufLmRJyRPPI"},
+	{name: "oversize", err: "wrong len 71 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHt8duMfXsAHeMC6T9hwwUvq/LP7HQ0ovGK8PSK2cddFGAA="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvAZL3wws1klEuoU+mT625g8fNHuSjTyDL/leSvB2hNOA=="},
+	{name: "wrong delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cgEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvgYmA9Vxu0yP68nUexGmMRce5YyV/7EQ3g5jjj7ELcRg=="},
+	{name: "invalid sign", err: "invalid sign byte 0xFF",
+		cursor: "YXR0cgD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHv3+vwsBFrKukaYtBo1r7SCNPeLBr1d+4RDR9viyyRiZw=="},
+}
+
+// for 'attr: hello' last result.
+var invalidNonIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "no value", err: "too short len 38",
+		cursor: "YnR0cgAAR7tSRzMOSbFjFs5YvSPr3V6Ps8hmv+GdwAt3PMmVnYs="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgBoZWxsbwC5XU/eTk5N+i+RuLa4XQ4lcFd3wqN0LFye13unXZ2SBA=="},
+	{name: "wrong key-value delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cv9oZWxsbwD3kqge4Gmjjus4zLTKQs4gxxbRD4pK1N5Lu6NQuJ43UQ=="},
+	{name: "wrong value-OID delimiter", err: "wrong value-OID delimiter",
+		cursor: "YXR0cgBoZWxsb/+IlGDk7Bu+PC410JNSmNyajZ0lphLjqtgWDLyNn5Gh4w=="},
+}
+
+func TestPreprocessSearchQuery_Cursors(t *testing.T) {
+	t.Run("listing", func(t *testing.T) {
+		test := func(t *testing.T, fs object.SearchFilters, attrs []string) {
+			t.Run("initial", func(t *testing.T) {
+				assertCursor(t, fs, attrs, "", []byte{0x00}, []byte{0x00})
+			})
+			t.Run("invalid cursor", func(t *testing.T) {
+				for _, tc := range invalidListingCursorTestcases {
+					t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, attrs, tc.cursor, tc.err) })
+				}
+			})
+			id := oidtest.ID()
+			assertCursor(t, fs, attrs, base64.StdEncoding.EncodeToString(id[:]), []byte{0x00}, slices.Concat([]byte{0x00}, id[:]))
+		}
+		t.Run("unfiltered", func(t *testing.T) { test(t, nil, nil) })
+		t.Run("w/o attributes", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "val", object.MatchStringNotEqual)
+			test(t, fs, nil)
 		})
-		t.Run("oversize", func(t *testing.T) {
-			_, err := NewSearchCursorFromString("ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB", "", false)
-			require.EqualError(t, err, "wrong OID cursor len 33")
+		t.Run("filter no attribute", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "", object.MatchNotPresent)
+			test(t, fs, []string{"attr"})
+		})
+	})
+	t.Run("int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "123", op)
+					pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+					if op == object.MatchNumGT || op == object.MatchNumGE {
+						assertCursor(t, fs, []string{"attr"}, "", pref, slices.Concat(pref, intBytes(big.NewInt(123))))
+					} else {
+						assertCursor(t, fs, []string{"attr"}, "", pref, pref)
+					}
+				})
+			}
+		})
+		t.Run("invalid cursor", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "123", object.MatchNumGT)
+			for _, tc := range invalidIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := make([]byte, object.MaxHeaderLen+1)
+				rand.Read(b) //nolint:staticcheck
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
 		})
 		id := oidtest.ID()
-		res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(id[:]), "", false)
+		for _, n := range []*big.Int{
+			maxUint256Neg, big.NewInt(math.MinInt64), big.NewInt(-1), big.NewInt(0),
+			big.NewInt(1), big.NewInt(math.MaxInt64), maxUint256,
+		} {
+			ib := intBytes(n)
+			b := slices.Concat([]byte("attr"), []byte{0x00}, ib, id[:])
+			var fs object.SearchFilters
+			fs.AddFilter("attr", n.String(), object.MatchNumGE)
+
+			c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+			require.NoError(t, err)
+			require.NotNil(t, c)
+
+			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+			require.Equal(t, pref, c.primKeysPrefix)
+
+			require.Len(t, fInt, 1)
+			f, ok := fInt[0]
+			require.True(t, ok)
+			if n.Cmp(maxUint256Neg) == 0 {
+				require.Equal(t, ParsedIntFilter{auto: true}, f)
+			} else {
+				require.Equal(t, ParsedIntFilter{n: n, b: ib}, f)
+			}
+		}
+	})
+	t.Run("non-int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchStringEqual, object.MatchStringNotEqual, object.MatchCommonPrefix} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "hello", op)
+					pref := slices.Concat([]byte{0x02}, []byte("attr"), []byte{0x00})
+					key := pref
+					if op != object.MatchStringNotEqual {
+						key = slices.Concat(pref, []byte("hello"))
+					}
+					assertCursor(t, fs, []string{"attr"}, "", pref, key)
+				})
+			}
+		})
+		var fs object.SearchFilters
+		fs.AddFilter("attr", "hello", object.MatchStringEqual)
+		t.Run("invalid cursor", func(t *testing.T) {
+			for _, tc := range invalidNonIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := make([]byte, object.MaxHeaderLen+1)
+				rand.Read(b) //nolint:staticcheck
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
+		})
+		id := oidtest.ID()
+		pref := slices.Concat([]byte("attr"), []byte{0x00})
+		b := slices.Concat(pref, []byte("hello"), []byte{0x00}, id[:])
+		c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 		require.NoError(t, err)
-		require.NotEmpty(t, res)
-		require.Equal(t, id[:], res.Key[1:])
-		require.Zero(t, res.ValIDOff)
+		require.Empty(t, fInt)
+		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.primKeysPrefix)
+		require.Equal(t, slices.Concat([]byte{0x02}, b), c.primSeekKey)
 	})
-	const attr = "any_attr"
-	t.Run("header overflow", func(t *testing.T) {
-		b := make([]byte, object.MaxHeaderLen+1)
-		rand.Read(b) //nolint:staticcheck
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "cursor len 16385 exceeds the limit 16384")
-	})
-	t.Run("no delimiter", func(t *testing.T) {
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString([]byte(attr)), attr, false)
-		require.EqualError(t, err, "missing delimiter")
-	})
-	t.Run("wrong attribute", func(t *testing.T) {
-		b := slices.Concat([]byte(attr+"other"), attributeDelimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "wrong attribute")
-	})
-	t.Run("no value and OID", func(t *testing.T) {
-		b := slices.Concat([]byte(attr), attributeDelimiter)
-		_, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-		require.EqualError(t, err, "invalid VAL_OID: too short len 0")
-	})
-	const val = "any_val"
-	id := oidtest.ID()
-	b := slices.Concat([]byte(attr), attributeDelimiter, []byte(val), attributeDelimiter, id[:])
-	res, err := NewSearchCursorFromString(base64.StdEncoding.EncodeToString(b), attr, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, res.Key)
-	require.Equal(t, b, res.Key[1:])
-	require.Equal(t, 1+len(attr)+attributeDelimiterLen, res.ValIDOff)
+}
+
+func cloneIntFilterMap(src map[int]ParsedIntFilter) map[int]ParsedIntFilter {
+	if src == nil {
+		return nil
+	}
+	dst := maps.Clone(src)
+	for k, f := range src {
+		var n *big.Int
+		if f.n != nil {
+			n = new(big.Int).Set(f.n)
+		}
+		dst[k] = ParsedIntFilter{
+			auto: f.auto,
+			n:    n,
+			b:    slices.Clone(f.b),
+		}
+	}
+	return dst
+}
+
+func cloneSearchCursor(c *SearchCursor) *SearchCursor {
+	if c == nil {
+		return nil
+	}
+	return &SearchCursor{primKeysPrefix: slices.Clone(c.primKeysPrefix), primSeekKey: slices.Clone(c.primSeekKey)}
+}
+
+func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, all []client.SearchResultItem, lim uint16) {
+	var strCursor string
+	nAttr := len(attrs)
+	for {
+		cursor, fInt, err := PreprocessSearchQuery(fs, attrs, strCursor)
+		if err != nil {
+			if len(all) == 0 {
+				require.ErrorIs(t, err, ErrUnreachableQuery)
+			} else {
+				require.NoError(t, err)
+			}
+			return
+		}
+
+		cursorClone := cloneSearchCursor(cursor)
+		fIntClone := cloneIntFilterMap(fInt)
+
+		res, c, err := db.Search(cnr, fs, fInt, attrs, cursor, lim)
+		require.Equal(t, cursorClone, cursor, "cursor mutation detected", "cursor: %q", strCursor)
+		require.Equal(t, fIntClone, fInt, "int filter map mutation detected", "cursor: %q", strCursor)
+		require.NoError(t, err, "cursor: %q", strCursor)
+
+		n := min(len(all), int(lim))
+		require.Len(t, res, n)
+		for i := range n { // all[:n] == res assert can lead to huge output when failed
+			require.Equalf(t, all[i].ID, res[i].ID, "cursor: %q, i: %d", strCursor, i)
+			require.Len(t, res[i].Attributes, nAttr)
+			if nAttr > 0 {
+				require.Equal(t, all[i].Attributes[:nAttr], res[i].Attributes)
+			}
+		}
+
+		if all = all[n:]; len(all) == 0 {
+			require.Nilf(t, c, "cursor: %q", strCursor)
+			break
+		}
+		require.NotNilf(t, c, "cursor: %q", strCursor)
+
+		cc, err := CalculateCursor(fs, res[n-1])
+		require.NoError(t, err, "cursor: %q", strCursor)
+		require.Equal(t, c, cc, "cursor: %q", strCursor)
+
+		strCursor = base64.StdEncoding.EncodeToString(c)
+	}
+}
+
+func assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, expRes []client.SearchResultItem, lim uint16) {
+	_assertSearchResultWithLimit(t, db, cnr, fs, attrs, expRes, lim)
+	if len(attrs) > 0 {
+		expRes = slices.Clone(expRes)
+		slices.SortFunc(expRes, func(a, b client.SearchResultItem) int { return bytes.Compare(a.ID[:], b.ID[:]) })
+		_assertSearchResultWithLimit(t, db, cnr, fs, nil, expRes, lim)
+	}
+}
+
+func assertSearchResult(t *testing.T, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, expRes []client.SearchResultItem) {
+	for _, lim := range []uint16{1000, 1, 2} {
+		t.Run(fmt.Sprintf("limit=%d", lim), func(t *testing.T) {
+			assertSearchResultWithLimit(t, db, cnr, fs, attrs, expRes, lim)
+		})
+	}
+}
+
+func assertSearchResultIndexes(t *testing.T, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, all []client.SearchResultItem, inds []uint) {
+	require.True(t, slices.IsSorted(inds))
+	expRes := make([]client.SearchResultItem, len(inds))
+	for i := range inds {
+		expRes[i] = all[inds[i]]
+	}
+	assertSearchResult(t, db, cnr, fs, attrs, expRes)
 }
 
 func TestDB_SearchObjects(t *testing.T) {
@@ -427,10 +644,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		cnr := cidtest.ID()
 
 		t.Run("no objects", func(t *testing.T) {
-			res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 1)
-			require.NoError(t, err)
-			require.Empty(t, cursor)
-			require.Empty(t, res)
+			assertSearchResult(t, db, cnr, nil, nil, nil)
 		})
 
 		const n = 10
@@ -446,53 +660,10 @@ func TestDB_SearchObjects(t *testing.T) {
 		}
 
 		idsSorted := sortObjectIDs(ids)
+		all := searchResultForIDs(idsSorted)
 
-		t.Run("all at once", func(t *testing.T) {
-			for _, tc := range []struct {
-				name  string
-				count uint16
-			}{
-				{name: "exact", count: n},
-				{name: "more", count: n + 1},
-			} {
-				res, cursor, err := db.Search(cnr, nil, nil, nil, nil, tc.count)
-				require.NoError(t, err)
-				require.Empty(t, cursor)
-				require.Len(t, res, n)
-				for i := range idsSorted {
-					require.Equal(t, idsSorted[i], res[i].ID, i)
-					require.Empty(t, res[i].Attributes)
-				}
-			}
-		})
 		t.Run("paginated", func(t *testing.T) {
-			// request 3 first
-			res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 3)
-			require.NoError(t, err)
-			require.Len(t, res, 3)
-			require.NotNil(t, cursor)
-			for i := range 3 {
-				require.Equal(t, idsSorted[i], res[i].ID, i)
-				require.Empty(t, res[i].Attributes)
-			}
-			// then 6 more
-			cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-			res, cursor, err = db.Search(cnr, nil, nil, nil, cursor, 6)
-			require.NoError(t, err)
-			require.Len(t, res, 6)
-			require.NotNil(t, cursor)
-			for i := range 6 {
-				require.Equal(t, idsSorted[3+i], res[i].ID, i)
-				require.Empty(t, res[i].Attributes)
-			}
-			// and up to 2 more
-			cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-			res, cursor, err = db.Search(cnr, nil, nil, nil, cursor, 2)
-			require.NoError(t, err)
-			require.Nil(t, cursor)
-			require.Len(t, res, 1)
-			require.Equal(t, idsSorted[n-1], res[0].ID)
-			require.Empty(t, res[0].Attributes)
+			assertSearchResult(t, db, cnr, nil, nil, all)
 		})
 		t.Run("corrupted element", func(t *testing.T) {
 			err := db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -510,7 +681,10 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, _, err = db.Search(cnr, nil, nil, nil, nil, n)
+			cursor, fInt, err := PreprocessSearchQuery(nil, nil, "")
+			require.NoError(t, err)
+
+			_, _, err = db.Search(cnr, nil, fInt, nil, cursor, n)
 			require.EqualError(t, err, "view BoltDB: invalid meta bucket key (prefix 0x0): unexpected object key len 32")
 		})
 	})
@@ -636,27 +810,16 @@ func TestDB_SearchObjects(t *testing.T) {
 			require.NoError(t, db.Put(&phys[i], nil, nil))
 		}
 
-		check := func(k string, m object.SearchMatchType, v string, matchInds []uint) {
-			var fs object.SearchFilters
-			fs.AddFilter(k, v, m)
-			fInt, ok := PreprocessIntFilters(fs)
-			if !ok {
-				require.Empty(t, matchInds)
-				return
-			}
-			require.True(t, ok)
-			res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
-			require.NoError(t, err)
-			require.Empty(t, cursor)
-			require.Len(t, res, len(matchInds))
-			for i, ind := range matchInds {
-				require.Equal(t, ids[ind], res[i].ID)
-				require.Empty(t, res[i].Attributes)
-			}
+		check := func(t *testing.T, k string, m object.SearchMatchType, v string, matchInds []uint) {
+			t.Run(fmt.Sprintf("%s %s", m, v), func(t *testing.T) {
+				var fs object.SearchFilters
+				fs.AddFilter(k, v, m)
+				assertSearchResultIndexes(t, db, cnr, fs, nil, searchResultForIDs(ids[:]), matchInds)
+			})
 		}
 
 		t.Run("all", func(t *testing.T) {
-			check("attr_common", object.MatchStringEqual, "val_common", all)
+			check(t, "attr_common", object.MatchStringEqual, "val_common", all)
 		})
 		t.Run("user attributes", func(t *testing.T) {
 			// unique
@@ -664,15 +827,15 @@ func TestDB_SearchObjects(t *testing.T) {
 				si := strconv.Itoa(i)
 				key := "unique_attr_" + si
 				val := "unique_val_" + si
-				check(key, object.MatchStringEqual, val, []uint{uint(i)})
-				check(key, object.MatchStringNotEqual, "other_val", []uint{uint(i)})
+				check(t, key, object.MatchStringEqual, val, []uint{uint(i)})
+				check(t, key, object.MatchStringNotEqual, "other_val", []uint{uint(i)})
 				for j := range val {
-					check(key, object.MatchCommonPrefix, val[:j], []uint{uint(i)})
+					check(t, key, object.MatchCommonPrefix, val[:j], []uint{uint(i)})
 				}
 				for _, matcher := range []object.SearchMatchType{
 					object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 				} {
-					check(key, matcher, val, nil)
+					check(t, key, matcher, val, nil)
 				}
 				var others []uint
 				for j := range all {
@@ -680,28 +843,28 @@ func TestDB_SearchObjects(t *testing.T) {
 						others = append(others, uint(j))
 					}
 				}
-				check(key, object.MatchNotPresent, "", others)
+				check(t, key, object.MatchNotPresent, "", others)
 			}
 			// group
 			const val1 = "group_val_1"
-			check("group_attr_1", object.MatchStringEqual, val1, group1)
-			check("group_attr_1", object.MatchStringNotEqual, val1, nil)
-			check("group_attr_1", object.MatchNotPresent, val1, group2)
+			check(t, "group_attr_1", object.MatchStringEqual, val1, group1)
+			check(t, "group_attr_1", object.MatchStringNotEqual, val1, nil)
+			check(t, "group_attr_1", object.MatchNotPresent, val1, group2)
 			for i := range val1 {
-				check("group_attr_1", object.MatchCommonPrefix, val1[:i], group1)
+				check(t, "group_attr_1", object.MatchCommonPrefix, val1[:i], group1)
 			}
 			const val2 = "group_val_2"
-			check("group_attr_2", object.MatchStringEqual, val2, group2)
-			check("group_attr_2", object.MatchStringNotEqual, val2, nil)
-			check("group_attr_2", object.MatchNotPresent, val2, group1)
+			check(t, "group_attr_2", object.MatchStringEqual, val2, group2)
+			check(t, "group_attr_2", object.MatchStringNotEqual, val2, nil)
+			check(t, "group_attr_2", object.MatchNotPresent, val2, group1)
 			for i := range val1 {
-				check("group_attr_2", object.MatchCommonPrefix, val2[:i], group2)
+				check(t, "group_attr_2", object.MatchCommonPrefix, val2[:i], group2)
 			}
 			for _, matcher := range []object.SearchMatchType{
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("group_attr_1", matcher, val1, nil)
-				check("group_attr_2", matcher, val2, nil)
+				check(t, "group_attr_1", matcher, val1, nil)
+				check(t, "group_attr_2", matcher, val2, nil)
 			}
 		})
 		t.Run("ROOT", func(t *testing.T) {
@@ -709,22 +872,22 @@ func TestDB_SearchObjects(t *testing.T) {
 				object.MatchUnspecified, object.MatchStringEqual, object.MatchStringNotEqual,
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("$Object:ROOT", matcher, "", []uint{0})
+				check(t, "$Object:ROOT", matcher, "", []uint{0})
 			}
-			check("$Object:ROOT", object.MatchNotPresent, "", nil)
+			check(t, "$Object:ROOT", object.MatchNotPresent, "", nil)
 		})
 		t.Run("PHY", func(t *testing.T) {
 			for _, matcher := range []object.SearchMatchType{
 				object.MatchUnspecified, object.MatchStringEqual, object.MatchStringNotEqual,
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("$Object:PHY", matcher, "", []uint{2, 3, 4, 5})
+				check(t, "$Object:PHY", matcher, "", []uint{2, 3, 4, 5})
 			}
-			check("$Object:PHY", object.MatchNotPresent, "", nil)
+			check(t, "$Object:PHY", object.MatchNotPresent, "", nil)
 		})
 		t.Run("version", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:version", m, v, matchInds)
+				check(t, "$Object:version", m, v, matchInds)
 			}
 			check(object.MatchStringEqual, "v100.200", group1)
 			check(object.MatchStringNotEqual, "v100.200", group2)
@@ -750,7 +913,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("owner", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:ownerID", m, v, matchInds)
+				check(t, "$Object:ownerID", m, v, matchInds)
 			}
 			check(object.MatchStringEqual, "NfzJyPrn1hRGuVJNvMYLTfWZGW2ZVR9Qmj", group1)
 			check(object.MatchStringNotEqual, "NfzJyPrn1hRGuVJNvMYLTfWZGW2ZVR9Qmj", group2)
@@ -770,7 +933,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("type", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:objectType", m, v, matchInds)
+				check(t, "$Object:objectType", m, v, matchInds)
 			}
 			check(object.MatchStringEqual, "REGULAR", group1)
 			check(object.MatchStringNotEqual, "REGULAR", group2)
@@ -797,7 +960,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("payload checksum", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:payloadHash", m, v, matchInds)
+				check(t, "$Object:payloadHash", m, v, matchInds)
 			}
 			check(object.MatchStringEqual, "8a61b9ff3de0983ed7ad7aa21db22ff91e5a2a07128cd45e3646282f90e4efd7", []uint{0})
 			check(object.MatchStringEqual, "d501baff2dec96b7dec7d634e5ec13ed8be33048bfa4e8285a37dabc0537e677", []uint{1})
@@ -825,7 +988,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("payload homomorphic checksum", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:homomorphicHash", m, v, matchInds)
+				check(t, "$Object:homomorphicHash", m, v, matchInds)
 			}
 			check(object.MatchStringEqual, "a73a37d54475df580b324d70f3d1ac922200af91f196dd9cb0f8f1cca5fefdf0cb3dbc4aaac639416e3fdd4c540e616e6b44ac6b56a3b194e8011925192a8be2", []uint{0})
 			check(object.MatchStringEqual, "f72b6eb562c6dd5e69930ab51ca8a98b13bfa18013cd89df3254dbc615f86b8f8c042649fe76e01f54bea7216957fe6716ec0a33d6b6de25ec15a53f295196d1", []uint{1})
@@ -854,7 +1017,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("split ID", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:split.splitID", m, v, matchInds)
+				check(t, "$Object:split.splitID", m, v, matchInds)
 			}
 			group1, group2, all := []uint{2, 4}, []uint{3, 5}, []uint{2, 3, 4, 5}
 			check(object.MatchStringEqual, "8b69e76d-5e95-4639-8213-46786c41ab73", group1)
@@ -873,7 +1036,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("first ID", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:split.first", m, v, matchInds)
+				check(t, "$Object:split.first", m, v, matchInds)
 			}
 			group1, group2, all := []uint{2, 4}, []uint{3, 5}, []uint{2, 3, 4, 5}
 			check(object.MatchStringEqual, "61hnJaKip8c1QxvC2iT4Txfpxf37QBNRaw1XCeq72DbC", group1)
@@ -894,7 +1057,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		})
 		t.Run("parent ID", func(t *testing.T) {
 			check := func(m object.SearchMatchType, v string, matchInds []uint) {
-				check("$Object:split.parent", m, v, matchInds)
+				check(t, "$Object:split.parent", m, v, matchInds)
 			}
 			group1, group2, all := []uint{2, 4}, []uint{3, 5}, []uint{2, 3, 4, 5}
 			check(object.MatchStringEqual, "RSYscGLzKw1nkeVRGpowYTGgtgodXJrMyyiHTGGJW3S", group1)
@@ -916,39 +1079,39 @@ func TestDB_SearchObjects(t *testing.T) {
 			for _, matcher := range []object.SearchMatchType{
 				object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE,
 			} {
-				check("global_non_integer", matcher, "123", nil)
+				check(t, "global_non_integer", matcher, "123", nil)
 				// TODO: also check that BoltDB is untouched in following cases
-				check("attr_int", matcher, "text", nil)
-				check("attr_int", matcher, "1.5", nil)
+				check(t, "attr_int", matcher, "text", nil)
+				check(t, "attr_int", matcher, "1.5", nil)
 			}
-			check("attr_int", object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
-			check("attr_int", object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-			check("attr_int", object.MatchNumLT, "-18446744073709551615", []uint{0})
-			check("attr_int", object.MatchNumLT, "0", []uint{0, 2})
-			check("attr_int", object.MatchNumLT, "18446744073709551615", []uint{0, 2, 3})
-			check("attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0, 2, 3, 4})
-			check("attr_int", object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0})
-			check("attr_int", object.MatchNumLE, "-18446744073709551615", []uint{0, 2})
-			check("attr_int", object.MatchNumLE, "0", []uint{0, 2, 3})
-			check("attr_int", object.MatchNumLE, "18446744073709551615", []uint{0, 2, 3, 4})
-			check("attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
-			check("attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{1, 2, 3, 4})
-			check("attr_int", object.MatchNumGT, "-18446744073709551615", []uint{1, 3, 4})
-			check("attr_int", object.MatchNumGT, "0", []uint{1, 4})
-			check("attr_int", object.MatchNumGT, "18446744073709551615", []uint{1})
-			check("attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-			check("attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
-			check("attr_int", object.MatchNumGE, "-18446744073709551615", []uint{1, 2, 3, 4})
-			check("attr_int", object.MatchNumGE, "0", []uint{1, 3, 4})
-			check("attr_int", object.MatchNumGE, "18446744073709551615", []uint{1, 4})
-			check("attr_int", object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{1})
+			check(t, "attr_int", object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639936", nil)
+			check(t, "attr_int", object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+			check(t, "attr_int", object.MatchNumLT, "-18446744073709551615", []uint{0})
+			check(t, "attr_int", object.MatchNumLT, "0", []uint{0, 2})
+			check(t, "attr_int", object.MatchNumLT, "18446744073709551615", []uint{0, 2, 3})
+			check(t, "attr_int", object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0, 2, 3, 4})
+			check(t, "attr_int", object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{0})
+			check(t, "attr_int", object.MatchNumLE, "-18446744073709551615", []uint{0, 2})
+			check(t, "attr_int", object.MatchNumLE, "0", []uint{0, 2, 3})
+			check(t, "attr_int", object.MatchNumLE, "18446744073709551615", []uint{0, 2, 3, 4})
+			check(t, "attr_int", object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
+			check(t, "attr_int", object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{1, 2, 3, 4})
+			check(t, "attr_int", object.MatchNumGT, "-18446744073709551615", []uint{1, 3, 4})
+			check(t, "attr_int", object.MatchNumGT, "0", []uint{1, 4})
+			check(t, "attr_int", object.MatchNumGT, "18446744073709551615", []uint{1})
+			check(t, "attr_int", object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+			check(t, "attr_int", object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", allInt)
+			check(t, "attr_int", object.MatchNumGE, "-18446744073709551615", []uint{1, 2, 3, 4})
+			check(t, "attr_int", object.MatchNumGE, "0", []uint{1, 3, 4})
+			check(t, "attr_int", object.MatchNumGE, "18446744073709551615", []uint{1, 4})
+			check(t, "attr_int", object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", []uint{1})
 			for _, tc := range []struct {
 				name, key  string
 				val1, val2 string
@@ -957,30 +1120,30 @@ func TestDB_SearchObjects(t *testing.T) {
 				{name: "payload length", key: "$Object:payloadLength", val1: "20", val2: "21"},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					check(tc.key, object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-					check(tc.key, object.MatchNumLT, "0", nil)
-					check(tc.key, object.MatchNumLT, tc.val1, nil)
-					check(tc.key, object.MatchNumLT, tc.val2, group1)
-					check(tc.key, object.MatchNumLT, "18446744073709551615", all)
-					check(tc.key, object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
-					check(tc.key, object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-					check(tc.key, object.MatchNumLE, "0", nil)
-					check(tc.key, object.MatchNumLE, tc.val1, group1)
-					check(tc.key, object.MatchNumLE, tc.val2, all)
-					check(tc.key, object.MatchNumLE, "18446744073709551615", all)
-					check(tc.key, object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
-					check(tc.key, object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
-					check(tc.key, object.MatchNumGT, "0", all)
-					check(tc.key, object.MatchNumGT, tc.val1, group2)
-					check(tc.key, object.MatchNumGT, tc.val2, nil)
-					check(tc.key, object.MatchNumGT, "18446744073709551615", nil)
-					check(tc.key, object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
-					check(tc.key, object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
-					check(tc.key, object.MatchNumGE, "0", all)
-					check(tc.key, object.MatchNumGE, tc.val1, all)
-					check(tc.key, object.MatchNumGE, tc.val2, group2)
-					check(tc.key, object.MatchNumGE, "18446744073709551615", nil)
-					check(tc.key, object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+					check(t, tc.key, object.MatchNumLT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+					check(t, tc.key, object.MatchNumLT, "0", nil)
+					check(t, tc.key, object.MatchNumLT, tc.val1, nil)
+					check(t, tc.key, object.MatchNumLT, tc.val2, group1)
+					check(t, tc.key, object.MatchNumLT, "18446744073709551615", all)
+					check(t, tc.key, object.MatchNumLT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
+					check(t, tc.key, object.MatchNumLE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+					check(t, tc.key, object.MatchNumLE, "0", nil)
+					check(t, tc.key, object.MatchNumLE, tc.val1, group1)
+					check(t, tc.key, object.MatchNumLE, tc.val2, all)
+					check(t, tc.key, object.MatchNumLE, "18446744073709551615", all)
+					check(t, tc.key, object.MatchNumLE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
+					check(t, tc.key, object.MatchNumGT, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
+					check(t, tc.key, object.MatchNumGT, "0", all)
+					check(t, tc.key, object.MatchNumGT, tc.val1, group2)
+					check(t, tc.key, object.MatchNumGT, tc.val2, nil)
+					check(t, tc.key, object.MatchNumGT, "18446744073709551615", nil)
+					check(t, tc.key, object.MatchNumGT, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
+					check(t, tc.key, object.MatchNumGE, "-115792089237316195423570985008687907853269984665640564039457584007913129639935", all)
+					check(t, tc.key, object.MatchNumGE, "0", all)
+					check(t, tc.key, object.MatchNumGE, tc.val1, all)
+					check(t, tc.key, object.MatchNumGE, tc.val2, group2)
+					check(t, tc.key, object.MatchNumGE, "18446744073709551615", nil)
+					check(t, tc.key, object.MatchNumGE, "115792089237316195423570985008687907853269984665640564039457584007913129639935", nil)
 				})
 			}
 			t.Run("mixed", func(t *testing.T) {
@@ -1001,59 +1164,41 @@ func TestDB_SearchObjects(t *testing.T) {
 					objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 					require.NoError(t, db.Put(&objs[i], nil, nil))
 				}
-				check := func(tb testing.TB, m object.SearchMatchType, val string, inds ...int) {
+				fullRes := searchResultForIDs(ids)
+				for i := range vals {
+					fullRes[i].Attributes = []string{vals[i]}
+				}
+				check := func(t *testing.T, m object.SearchMatchType, val string, inds ...uint) {
 					var fs object.SearchFilters
 					fs.AddFilter(attr, val, m)
-					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
-					res, _, err := db.Search(cnr, fs, fInt, []string{attr}, nil, 1000)
-					require.NoError(t, err)
-					require.Len(t, res, len(inds))
-					for i, ind := range inds {
-						require.Equal(t, ids[ind], res[i].ID, vals[i])
-					}
+					assertSearchResultIndexes(t, db, cnr, fs, []string{attr}, fullRes, inds)
 				}
-				all := make([]int, len(vals))
+				all := make([]uint, len(vals))
 				for i := range vals {
-					all[i] = i
+					all[i] = uint(i)
 				}
 				t.Run("EQ", func(t *testing.T) {
 					for i := range vals {
-						check(t, object.MatchStringEqual, vals[i], i)
+						check(t, object.MatchStringEqual, vals[i], uint(i))
 					}
 				})
 				t.Run("NE", func(t *testing.T) {
 					for i := range vals {
-						others := make([]int, 0, len(vals)-1)
+						others := make([]uint, 0, len(vals)-1)
 						for j := range vals {
 							if j != i {
-								others = append(others, j)
+								others = append(others, uint(j))
 							}
 						}
 						check(t, object.MatchStringNotEqual, vals[i], others...)
 					}
-					t.Run("jump while not yet limit", func(t *testing.T) {
-						// iterator starts from int attribute key space, and once it is finished - jumps
-						// to the plain one. It must not forget to check plain attributes since there
-						// can be matching elements that should be returned according to the sorting.
-						var fs object.SearchFilters
-						fs.AddFilter(attr, "missing", object.MatchStringNotEqual)
-						fInt, ok := PreprocessIntFilters(fs)
-						require.True(t, ok)
-						res, cursor, err := db.Search(cnr, fs, fInt, []string{attr}, nil, 2)
-						require.NoError(t, err)
-						require.Len(t, res, 2)
-						require.Equal(t, ids[0], res[0].ID)
-						require.Equal(t, ids[1], res[1].ID)
-						require.NotEmpty(t, cursor)
-					})
 					t.Run("empty", func(t *testing.T) {
 						check(t, object.MatchStringNotEqual, "", all...)
 					})
 				})
 				t.Run("PREFIX", func(t *testing.T) {
 					t.Run("negative", func(t *testing.T) {
-						check := func(t testing.TB, val string) {
+						check := func(t *testing.T, val string) {
 							check(t, object.MatchCommonPrefix, val, 0, 1)
 						}
 						t.Run("no digits", func(t *testing.T) { check(t, "-") })
@@ -1168,19 +1313,7 @@ func TestDB_SearchObjects(t *testing.T) {
 					for _, f := range tc.fs {
 						fs.AddFilter(f.k, f.v, f.m)
 					}
-					fInt, ok := PreprocessIntFilters(fs)
-					if !ok {
-						require.Empty(t, tc.is)
-						return
-					}
-					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, nAll)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(tc.is))
-					for i, ind := range tc.is {
-						require.Equal(t, ids[ind], res[i].ID)
-						require.Empty(t, res[i].Attributes)
-					}
+					assertSearchResultIndexes(t, db, cnr, fs, nil, searchResultForIDs(ids[:]), tc.is)
 				})
 			}
 		})
@@ -1273,99 +1406,23 @@ func TestDB_SearchObjects(t *testing.T) {
 				} {
 					var fs object.SearchFilters
 					set(&fs)
-					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
-					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Empty(t, res)
+					assertSearchResult(t, db, cnr, fs, nil, nil)
 				}
 			})
 			t.Run("all", func(t *testing.T) {
 				t.Run("unfiltered", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, nil, nil, nil, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(objs))
-					for i := range res {
-						require.Equal(t, ids[i], res[i].ID)
-						require.Empty(t, res[i].Attributes)
-					}
+					assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(ids))
 				})
 				var fs object.SearchFilters
 				fs.AddFilter(heightAttr, "0", object.MatchNumGE)
 				t.Run("w/o attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, nil, nil, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(heightSorted))
-					for i := range res {
-						// expected order by IDs
-						require.Equal(t, ids[i], res[i].ID)
-						require.Empty(t, res[i].Attributes)
-					}
-					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, nil, nil, nil, 2)
-						require.NoError(t, err)
-						require.Len(t, res, 2)
-						for i := range 2 {
-							require.Equal(t, ids[i], res[i].ID)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						//nolint:staticcheck // drop with t.Skip
-						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 6)
-						require.NoError(t, err)
-						t.Skip("paging is broken when prim attribute is not requested, see also https://github.com/nspcc-dev/neofs-node/issues/3058#issuecomment-2553193094")
-						require.Len(t, res, 6)
-						for i := range 6 {
-							require.Equal(t, ids[2+i], res[i].ID, i)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 3)
-						require.NoError(t, err)
-						require.Len(t, res, 2)
-						for i := range 2 {
-							require.Equal(t, ids[8+i], res[i].ID)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.Empty(t, cursor)
-					})
+					assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs(ids))
 				})
 				t.Run("single attribute", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr}, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(heightSorted))
-					for i, r := range heightSorted {
-						require.Equal(t, r.ID, res[i].ID)
-						require.Equal(t, []string{r.Attributes[0]}, res[i].Attributes)
-					}
+					assertSearchResult(t, db, cnr, fs, []string{heightAttr}, heightSorted)
 				})
 				t.Run("two attributes", func(t *testing.T) {
-					res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Equal(t, heightSorted, res)
-					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, nil, 2)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[:2], res)
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, cursor, 6)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[2:8], res)
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, nil, []string{heightAttr, otherAttr}, cursor, 3)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[8:], res)
-						require.Empty(t, cursor)
-					})
+					assertSearchResult(t, db, cnr, fs, []string{heightAttr, otherAttr}, heightSorted)
 				})
 			})
 			t.Run("partial", func(t *testing.T) {
@@ -1375,86 +1432,13 @@ func TestDB_SearchObjects(t *testing.T) {
 				heightSorted := heightSorted[2:9]
 				ids := ids[1:8]
 				t.Run("w/o attributes", func(t *testing.T) {
-					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
-					res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(ids))
-					for i := range res {
-						// expected order by IDs
-						require.Equal(t, ids[i], res[i].ID)
-						require.Empty(t, res[i].Attributes)
-					}
-					t.Run("paging", func(t *testing.T) {
-						fInt, ok := PreprocessIntFilters(fs)
-						require.True(t, ok)
-						res, cursor, err := db.Search(cnr, fs, fInt, nil, nil, 2)
-						require.NoError(t, err)
-						require.Len(t, res, 2)
-						for i := range 2 {
-							require.Equal(t, ids[i], res[i].ID)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						//nolint:staticcheck // drop with t.Skip
-						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 6)
-						require.NoError(t, err)
-						t.Skip("paging is broken when prim attribute is not requested, see also https://github.com/nspcc-dev/neofs-node/issues/3058#issuecomment-2553193094")
-						require.Len(t, res, 6)
-						for i := range 6 {
-							require.Equal(t, ids[2+i], res[i].ID, i)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.NotEmpty(t, cursor)
-						res, cursor, err = db.Search(cnr, fs, nil, nil, cursor, 3)
-						require.NoError(t, err)
-						require.Len(t, res, 2)
-						for i := range 2 {
-							require.Equal(t, ids[8+i], res[i].ID)
-							require.Empty(t, res[i].Attributes)
-						}
-						require.Empty(t, cursor)
-					})
+					assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs(ids))
 				})
 				t.Run("single attribute", func(t *testing.T) {
-					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
-					res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr}, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Len(t, res, len(heightSorted))
-					for i, r := range heightSorted {
-						require.Equal(t, r.ID, res[i].ID)
-						require.Equal(t, []string{r.Attributes[0]}, res[i].Attributes)
-					}
+					assertSearchResult(t, db, cnr, fs, []string{heightAttr}, heightSorted)
 				})
 				t.Run("two attributes", func(t *testing.T) {
-					fInt, ok := PreprocessIntFilters(fs)
-					require.True(t, ok)
-					res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, nil, 1000)
-					require.NoError(t, err)
-					require.Empty(t, cursor)
-					require.Equal(t, heightSorted, res)
-					t.Run("paging", func(t *testing.T) {
-						fInt, ok := PreprocessIntFilters(fs)
-						require.True(t, ok)
-						res, cursor, err := db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, nil, 2)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[:2], res)
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, cursor, 3)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[2:5], res)
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, fInt, []string{heightAttr, otherAttr}, cursor, 3)
-						require.NoError(t, err)
-						require.Equal(t, heightSorted[5:], res)
-						require.Empty(t, cursor)
-					})
+					assertSearchResult(t, db, cnr, fs, []string{heightAttr, otherAttr}, heightSorted)
 				})
 			})
 		})
@@ -1486,20 +1470,14 @@ func TestDB_SearchObjects(t *testing.T) {
 			t.Run("none", func(t *testing.T) {
 				var fs object.SearchFilters
 				fs.AddFilter(object.AttributeFilePath, "cat4.jpg", object.MatchStringEqual)
-				res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
-				require.NoError(t, err)
-				require.Empty(t, cursor)
-				require.Empty(t, res)
+				assertSearchResult(t, db, cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil)
 			})
 			t.Run("single", func(t *testing.T) {
 				var fs object.SearchFilters
 				fs.AddFilter(object.AttributeFilePath, "cat1.jpg", object.MatchStringEqual)
-				res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
-				require.NoError(t, err)
-				require.Empty(t, cursor)
-				require.Equal(t, []client.SearchResultItem{
+				assertSearchResult(t, db, cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, []client.SearchResultItem{
 					{ID: ids[0], Attributes: []string{"cat1.jpg", "1738760790"}},
-				}, res)
+				})
 			})
 			t.Run("multiple", func(t *testing.T) {
 				t.Run("both attributes", func(t *testing.T) {
@@ -1510,21 +1488,7 @@ func TestDB_SearchObjects(t *testing.T) {
 					}
 					var fs object.SearchFilters
 					fs.AddFilter(object.AttributeFilePath, "cat2.jpg", object.MatchStringEqual)
-					res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 1000)
-					require.NoError(t, err)
-					require.Equal(t, fullRes, res)
-					require.Empty(t, cursor)
-					t.Run("paging", func(t *testing.T) {
-						res, cursor, err := db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, nil, 2)
-						require.NoError(t, err)
-						require.Equal(t, fullRes[:2], res)
-						require.NotEmpty(t, cursor)
-						cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-						res, cursor, err = db.Search(cnr, fs, nil, []string{object.AttributeFilePath, object.AttributeTimestamp}, cursor, 1000)
-						require.NoError(t, err)
-						require.Equal(t, fullRes[2:], res)
-						require.Empty(t, cursor)
-					})
+					assertSearchResult(t, db, cnr, fs, []string{object.AttributeFilePath, object.AttributeTimestamp}, fullRes)
 				})
 			})
 		})
@@ -1567,53 +1531,33 @@ func TestDB_SearchObjects(t *testing.T) {
 			var fs object.SearchFilters
 			fs.AddFilter(object.AttributeFilePath, "/home/Downloads/", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "JPEG", object.MatchStringEqual)
-			res, cursor, err := db.Search(cnr, fs, nil, attrs, nil, 1000)
-			require.NoError(t, err)
-			require.Empty(t, cursor)
-			require.Equal(t, []client.SearchResultItem{
+			assertSearchResult(t, db, cnr, fs, attrs, []client.SearchResultItem{
 				{ID: ids[1], Attributes: []string{"/home/Downloads/cat.jpg", "val1_3", "val2_3"}},
 				{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
-			}, res)
+			})
 
 			fs = fs[:0]
 			fs.AddFilter(object.AttributeFilePath, "/usr", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "BIN", object.MatchStringEqual)
-			res, cursor, err = db.Search(cnr, fs, nil, attrs, nil, 1000)
-			require.NoError(t, err)
-			require.Empty(t, cursor)
-			require.Equal(t, []client.SearchResultItem{
+			assertSearchResult(t, db, cnr, fs, attrs, []client.SearchResultItem{
 				{ID: ids[2], Attributes: []string{"/usr/local/bin/go", "val1_2", "val2_2"}},
-			}, res)
+			})
 
 			fs = fs[:0]
 			fs.AddFilter(object.AttributeFilePath, "/", object.MatchCommonPrefix)
 			fs.AddFilter("Type", "BIN", object.MatchStringNotEqual)
-			res, cursor, err = db.Search(cnr, fs, nil, attrs, nil, 1000)
-			require.NoError(t, err)
-			require.Empty(t, cursor)
-			require.Equal(t, []client.SearchResultItem{
+			assertSearchResult(t, db, cnr, fs, attrs, []client.SearchResultItem{
 				{ID: ids[1], Attributes: []string{"/home/Downloads/cat.jpg", "val1_3", "val2_3"}},
 				{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
 				{ID: ids[0], Attributes: []string{"/var/log/neofs/node", "val1_4", "val2_4"}},
-			}, res)
+			})
 
-			t.Run("paging", func(t *testing.T) {
-				fs = fs[:0]
-				fs.AddFilter(object.AttributeFilePath, "/home/", object.MatchCommonPrefix)
-				fs.AddFilter("Type", "TEXT", object.MatchStringNotEqual)
-				res, cursor, err := db.Search(cnr, fs, nil, attrs, nil, 1)
-				require.NoError(t, err)
-				require.Equal(t, []client.SearchResultItem{
-					{ID: ids[1], Attributes: []string{"/home/Downloads/cat.jpg", "val1_3", "val2_3"}},
-				}, res)
-				require.NotEmpty(t, cursor)
-				cursor.Key = slices.Concat([]byte{0}, cursor.Key)
-				res, cursor, err = db.Search(cnr, fs, nil, attrs, cursor, 1)
-				require.NoError(t, err)
-				require.Equal(t, []client.SearchResultItem{
-					{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
-				}, res)
-				require.Empty(t, cursor)
+			fs = fs[:0]
+			fs.AddFilter(object.AttributeFilePath, "/home/", object.MatchCommonPrefix)
+			fs.AddFilter("Type", "TEXT", object.MatchStringNotEqual)
+			assertSearchResult(t, db, cnr, fs, attrs, []client.SearchResultItem{
+				{ID: ids[1], Attributes: []string{"/home/Downloads/cat.jpg", "val1_3", "val2_3"}},
+				{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
 			})
 		})
 	})
@@ -1640,24 +1584,10 @@ func TestDB_SearchObjects(t *testing.T) {
 			require.NoError(t, db.Put(&objs[i], nil, nil))
 		}
 
-		check := func(t testing.TB, exp []oid.ID) {
-			check := func(res []client.SearchResultItem, err error) {
-				require.NoError(t, err)
-				require.Len(t, res, len(exp))
-				for i := range exp {
-					require.Equal(t, exp[i], res[i].ID)
-				}
-			}
-			res, _, err := db.Search(cnr, nil, nil, nil, nil, 1000)
-			check(res, err)
+		check := func(t *testing.T, exp []oid.ID) {
 			var fs object.SearchFilters
 			fs.AddFilter(attrPlain, valPlain, object.MatchStringEqual)
-			res, _, err = db.Search(cnr, fs, nil, []string{attrPlain}, nil, 1000)
-			check(res, err)
-			fs = fs[:0]
-			fs.AddFilter(attrInt, valInt, object.MatchStringEqual)
-			res, _, err = db.Search(cnr, fs, nil, []string{attrInt}, nil, 1000)
-			check(res, err)
+			assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs(exp))
 		}
 		// all available
 		check(t, ids)

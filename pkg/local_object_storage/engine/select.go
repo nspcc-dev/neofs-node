@@ -56,7 +56,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, *meta.SearchCursor, error) {
+func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -102,5 +102,5 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int
 	// note: if the last res element is the last element of some shard, we could
 	// skip cursor calculation and win a bit. At the same time, this would require
 	// merging logic complication, so for now we just always do it.
-	return res[:count], &c, nil
+	return res[:count], c, nil
 }
