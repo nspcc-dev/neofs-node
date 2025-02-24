@@ -1378,9 +1378,10 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 
 	rln := body.Range.GetLength()
 	if rln == 0 { // includes nil range
-		return getsvc.RangePrm{}, errors.New("zero range length")
-	}
-	if body.Range.Offset+rln <= body.Range.Offset {
+		if body.Range.Offset != 0 {
+			return getsvc.RangePrm{}, errors.New("zero range length")
+		} // else whole payload
+	} else if body.Range.Offset+rln <= body.Range.Offset {
 		return getsvc.RangePrm{}, errors.New("range overflow")
 	}
 

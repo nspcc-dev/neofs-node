@@ -95,8 +95,15 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 			if tc.hasErr {
 				require.ErrorAs(t, err, &apistatus.ObjectOutOfRange{})
 			} else {
+				ln := tc.rng.GetLength()
+				var to uint64
+				if ln != 0 {
+					to = tc.rng.GetOffset() + ln
+				} else {
+					to = uint64(len(obj.Payload()))
+				}
 				require.Equal(t,
-					payload[tc.rng.GetOffset():tc.rng.GetOffset()+tc.rng.GetLength()],
+					payload[tc.rng.GetOffset():to],
 					res.Payload())
 			}
 		})

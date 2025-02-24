@@ -111,8 +111,11 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 	if rng := exec.ctxRange(); rng != nil {
 		seekOff := rng.GetOffset()
 		seekLen := rng.GetLength()
-		seekTo := seekOff + seekLen
 		parSize := par.PayloadSize()
+		if seekLen == 0 {
+			seekLen = parSize
+		}
+		seekTo := seekOff + seekLen
 
 		if seekTo < seekOff || parSize < seekOff || parSize < seekTo {
 			var errOutOfRange apistatus.ObjectOutOfRange
@@ -138,7 +141,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 		}
 
 		payload = child.Payload()[from:to]
-		rng.SetLength(rng.GetLength() - to + from)
+		rng.SetLength(seekLen - to + from)
 	} else {
 		payload = child.Payload()
 	}

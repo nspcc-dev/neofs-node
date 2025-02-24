@@ -202,10 +202,10 @@ func getRangeList(cmd *cobra.Command) ([]*object.Range, error) {
 		}
 
 		if length == 0 {
-			return nil, fmt.Errorf("invalid '%s' range: zero length", vs[i])
-		}
-
-		if offset+length <= offset {
+			if offset != 0 {
+				return nil, fmt.Errorf("invalid '%s' range: zero length with non-zero offset", vs[i])
+			}
+		} else if offset+length <= offset {
 			return nil, fmt.Errorf("invalid '%s' range: uint64 overflow", vs[i])
 		}
 
