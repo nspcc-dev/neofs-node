@@ -29,12 +29,14 @@ Changelog for NeoFS Node
 - Process designation event of the mainnet RoleManagement contract (#3134)
 - Storage nodes running out of GAS because `putContainerSize` was not paid for by proxy (#3167)
 - Write-cache flushing loop to drop objects (#3169)
+- FS chain client pool overflows and event ordering (#3163)
 
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 - Write-cache size estimations (#3106)
 - New network map support solving the limit of ~320 nodes per network
 - Calculation of VUB for zero hash (#3134)
+- More efficient block header subscription is used now instead of block-based one (#3163)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)

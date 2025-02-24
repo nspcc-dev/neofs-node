@@ -7,8 +7,8 @@ import (
 // Handler is an Event processing function.
 type Handler func(Event)
 
-// BlockHandler is a chain block processing function.
-type BlockHandler func(*block.Block)
+// HeaderHandler is a chain header processing function.
+type HeaderHandler func(*block.Header)
 
 // NotificationHandlerInfo is a structure that groups
 // the parameters of the handler of particular

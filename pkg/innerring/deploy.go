@@ -64,12 +64,21 @@ func (x *fsChain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
 		return ch, nil
 	}
 
-	err := x.client.ReceiveBlocks()
+	err := x.client.ReceiveHeaders()
 	if err != nil {
 		return nil, fmt.Errorf("listen to new blocks over Neo RPC WebSocket multi-endpoint: %w", err)
 	}
 
-	_, ch, _ := x.client.Notifications()
+	_, headerCh, _ := x.client.Notifications()
+	ch := make(chan *block.Block)
+	go func() {
+		// Client closure will stop it
+		for h := range headerCh {
+			ch <- &block.Block{Header: *h} // Deploy doesn't care about transactions, so it's safe.
+		}
+		close(ch)
+	}()
+
 	return ch, nil
 }
 
