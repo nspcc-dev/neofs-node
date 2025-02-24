@@ -138,7 +138,7 @@ func (exec *execCtx) initFromChild(obj oid.ID) (prev *oid.ID, children []oid.ID)
 		}
 
 		payload = child.Payload()[from:to]
-		rng.SetLength(rng.GetLength() - to + from)
+		rng.SetLength(seekLen - to + from)
 	} else {
 		payload = child.Payload()
 	}
