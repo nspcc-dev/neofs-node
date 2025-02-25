@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - Calculation of VUB for zero hash (#3134)
 - More efficient block header subscription is used now instead of block-based one (#3163)
 - `ObjectService.GetRange(Hash)` ops now handle zero ranges as full payload (#3071)
+- Add some GAS to system fee of notary transactions (#3176)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)

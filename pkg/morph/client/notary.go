@@ -487,6 +487,10 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 		t.ValidUntilBlock = until
 		t.Nonce = nonce
 
+		// Add 10% GAS to prevent this errors:
+		// "at instruction 1689 (SYSCALL): System.Runtime.Log failed: insufficient amount of gas"
+		t.SystemFee += t.SystemFee / 10
+
 		return nil
 	}, args...))
 
