@@ -106,6 +106,10 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("auth container creation: %w", err)
 	}
 
+	if err = ctx.cnr.PlacementPolicy().Verify(); err != nil {
+		return fmt.Errorf("invalid storage policy: %w", err)
+	}
+
 	// check homomorphic hashing setting
 	err = checkHomomorphicHashing(cp.netState, ctx.cnr)
 	if err != nil {
