@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math/big"
 	"os"
+	"path"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	utilcore "github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -27,6 +29,7 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -492,4 +495,46 @@ func TestObjectPut(t *testing.T) {
 			return true
 		}, 3*time.Second, time.Millisecond*100, "object was not deleted")
 	})
+}
+
+func TestCompatibility(t *testing.T) {
+	o := objecttest.Object()
+	o.SetSplitID(nil) // no split info is expected for split V2 era
+
+	// database from engine's metabases
+
+	db, err := bbolt.Open(path.Join(t.TempDir(), "db.db"), 0600, bbolt.DefaultOptions)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	metabaseMap := make(map[string][]byte)
+
+	err = db.Update(func(tx *bbolt.Tx) error {
+		err = meta.PutMetadataForObject(tx, o, true, true)
+		require.NoError(t, err)
+
+		cID := o.GetContainerID()
+		metaBucketKey := []byte{255}
+		metaBucketKey = append(metaBucketKey, cID[:]...)
+
+		b := tx.Bucket(metaBucketKey)
+		return b.ForEach(func(k, v []byte) error {
+			metabaseMap[string(k)] = v
+			return nil
+		})
+	})
+	require.NoError(t, err)
+
+	// batch for meta-data service
+
+	serviceMap := make(map[string][]byte)
+	fillObjectIndex(serviceMap, o)
+
+	require.Equal(t, len(metabaseMap), len(serviceMap))
+	for k := range metabaseMap {
+		_, found := serviceMap[k]
+		require.Truef(t, found, "%s key not found: %v", k, []byte(k))
+	}
 }
