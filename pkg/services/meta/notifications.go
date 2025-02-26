@@ -119,7 +119,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			ok, err = m.cLister.IsMineWithMeta(ev.cID)
+			ok, err = m.net.IsMineWithMeta(ev.cID)
 			if err != nil {
 				l.Error("can't get container data", zap.Error(err))
 				continue
@@ -240,6 +240,9 @@ outer:
 const (
 	// MPT key prefixes.
 	oidIndex = iota
+	attrToIntIndex
+	attrToPlainIndex
+	oidToAttrIndex
 	sizeIndex
 	firstPartIndex
 	previousPartIndex
@@ -398,12 +401,17 @@ func getFromMap(m *stackitem.Map, key string) stackitem.Item {
 	return m.Value().([]stackitem.MapElement)[i].Value
 }
 
-func (m *Meta) handleObjectNotification(s *containerStorage, e objEvent) error {
+func (m *Meta) handleObjectNotification(ctx context.Context, s *containerStorage, e objEvent) error {
 	if magic := uint32(e.network.Uint64()); magic != m.magicNumber {
 		return fmt.Errorf("wrong magic number %d, expected: %d", magic, m.magicNumber)
 	}
 
-	err := s.putObject(e)
+	h, err := m.net.Head(ctx, e.cID, e.oID)
+	if err != nil {
+		return fmt.Errorf("HEAD object: %w", err)
+	}
+
+	err = s.putObject(e, h)
 	if err != nil {
 		return err
 	}
@@ -488,7 +496,7 @@ func parseEpochNotification(ev *state.ContainedNotificationEvent) (int64, error)
 func (m *Meta) handleEpochNotification(e int64) error {
 	m.l.Debug("handling new epoch notification", zap.Int64("epoch", e))
 
-	cnrsNetwork, err := m.cLister.List()
+	cnrsNetwork, err := m.net.List()
 	if err != nil {
 		return fmt.Errorf("list containers: %w", err)
 	}

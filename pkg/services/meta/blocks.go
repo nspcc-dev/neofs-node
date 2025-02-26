@@ -8,9 +8,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
-func (m *Meta) handleBlock(b *block.Header) error {
+func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	h := b.Hash()
 	ind := b.Index
 	l := m.l.With(zap.Stringer("block hash", h), zap.Uint32("index", ind))
@@ -35,6 +36,11 @@ func (m *Meta) handleBlock(b *block.Header) error {
 	m.m.RLock()
 	defer m.m.RUnlock()
 
+	var wg errgroup.Group
+	wg.SetLimit(1024)
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
+
 	for _, n := range res.Application {
 		ev, err := parseObjNotification(n)
 		if err != nil {
@@ -48,13 +54,21 @@ func (m *Meta) handleBlock(b *block.Header) error {
 			continue
 		}
 
-		err = m.handleObjectNotification(s, ev)
-		if err != nil {
-			l.Error("handling object notification", zap.Error(err))
-			continue
-		}
+		wg.Go(func() error {
+			err := m.handleObjectNotification(ctx, s, ev)
+			if err != nil {
+				return fmt.Errorf("handling %s/%s object notification: %w", ev.cID, ev.oID, err)
+			}
 
-		l.Debug("handled object notification successfully", zap.Stringer("cID", ev.cID), zap.Stringer("oID", ev.oID))
+			l.Debug("handled object notification successfully", zap.Stringer("cID", ev.cID), zap.Stringer("oID", ev.oID))
+
+			return nil
+		})
+	}
+
+	err = wg.Wait()
+	if err != nil {
+		l.Error("failed to handle block's notifications", zap.Error(err))
 	}
 
 	for _, st := range m.storages {
@@ -91,7 +105,7 @@ func (m *Meta) blockFetcher(ctx context.Context, buff <-chan *block.Header) {
 		case <-ctx.Done():
 			return
 		case b := <-buff:
-			err := m.handleBlock(b)
+			err := m.handleBlock(ctx, b)
 			if err != nil {
 				m.l.Error("block handling failed", zap.Error(err))
 				continue
