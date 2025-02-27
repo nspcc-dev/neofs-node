@@ -40,6 +40,7 @@ Changelog for NeoFS Node
 - `ObjectService.GetRange(Hash)` ops now handle zero ranges as full payload (#3071)
 - Add some GAS to system fee of notary transactions (#3176)
 - IR now applies sane limits to containers' storage policies recently added to the protocol (#3075)
+- Make flushing objects in write-cache in parallel (#3179)
 
 ### Removed
 - Drop creating new eacl tables with public keys (#3096)

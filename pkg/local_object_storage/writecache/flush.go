@@ -18,31 +18,73 @@ import (
 const (
 	// defaultFlushInterval is default time interval between successive flushes.
 	defaultFlushInterval = 10 * time.Second
+	// defaultWorkerCount is a default number of workers that flush objects.
+	defaultWorkerCount = 20
 )
 
 // runFlushLoop starts background workers which periodically flush objects to the blobstor.
 func (c *cache) runFlushLoop() {
+	for i := range c.workersCount {
+		c.wg.Add(1)
+		go c.flushWorker(i)
+	}
+
 	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
-		tick := time.NewTicker(defaultFlushInterval)
-		for {
-			select {
-			case <-tick.C:
-				c.modeMtx.RLock()
-				if c.readOnly() {
-					c.modeMtx.RUnlock()
-					break
-				}
+	go c.flushScheduler()
+}
 
-				_ = c.flush(true)
+func (c *cache) flushScheduler() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(defaultFlushInterval)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-ticker.C:
+			c.modeMtx.RLock()
+			if c.readOnly() {
 				c.modeMtx.RUnlock()
-			case <-c.closeCh:
+				continue
+			}
+			c.modeMtx.RUnlock()
+			err := c.fsTree.IterateAddresses(func(addr oid.Address) error {
+				select {
+				case c.flushCh <- addr:
+					return nil
+				case <-c.closeCh:
+					return errors.New("closed during iteration")
+				}
+			}, true)
+			if err != nil {
+				c.log.Warn("iteration failed", zap.Error(err))
+			}
+		case <-c.closeCh:
+			return
+		}
+	}
+}
+
+func (c *cache) flushWorker(id int) {
+	defer c.wg.Done()
+	for {
+		select {
+		case addr, ok := <-c.flushCh:
+			if !ok {
 				return
 			}
+			c.modeMtx.RLock()
+			if c.readOnly() {
+				c.modeMtx.RUnlock()
+				continue
+			}
+			if err := c.flushSingle(addr, true); err != nil {
+				c.log.Warn("flush failed", zap.Int("worker", id), zap.Error(err))
+			}
+			c.modeMtx.RUnlock()
+		case <-c.closeCh:
+			return
 		}
-	}()
+	}
 }
 
 func (c *cache) reportFlushError(msg string, addr string, err error) {
@@ -55,56 +97,52 @@ func (c *cache) reportFlushError(msg string, addr string, err error) {
 	}
 }
 
-func (c *cache) flush(ignoreErrors bool) error {
-	var addrHandler = func(addr oid.Address) error {
-		sAddr := addr.EncodeToString()
+func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
+	sAddr := addr.EncodeToString()
 
-		data, err := c.fsTree.GetBytes(addr)
-		if err != nil {
-			if errors.As(err, new(apistatus.ObjectNotFound)) {
-				// an object can be removed b/w iterating over it
-				// and reading its payload; not an error
-				return nil
-			}
-
-			c.reportFlushError("can't read a file", sAddr, err)
-			if ignoreErrors {
-				return nil
-			}
-			return err
+	data, err := c.fsTree.GetBytes(addr)
+	if err != nil {
+		if errors.As(err, new(apistatus.ObjectNotFound)) {
+			// an object can be removed b/w iterating over it
+			// and reading its payload; not an error
+			return nil
 		}
 
-		var obj object.Object
-		err = obj.Unmarshal(data)
-		if err != nil {
-			c.reportFlushError("can't unmarshal an object", sAddr, err)
-			if ignoreErrors {
-				return nil
-			}
-			return err
+		c.reportFlushError("can't read a file", sAddr, err)
+		if ignoreErrors {
+			return nil
 		}
-
-		err = c.flushObject(&obj, data)
-		if err != nil {
-			return err
-		}
-
-		err = c.fsTree.Delete(addr)
-		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
-			c.log.Error("can't remove object from write-cache", zap.Error(err))
-		} else if err == nil {
-			storagelog.Write(c.log,
-				storagelog.AddressField(addr),
-				storagelog.StorageTypeField(wcStorageType),
-				storagelog.OpField("DELETE"),
-			)
-			c.objCounters.Delete(addr)
-		}
-
-		return nil
+		return err
 	}
 
-	return c.fsTree.IterateAddresses(addrHandler, ignoreErrors)
+	var obj object.Object
+	err = obj.Unmarshal(data)
+	if err != nil {
+		c.reportFlushError("can't unmarshal an object", sAddr, err)
+		if ignoreErrors {
+			return nil
+		}
+		return err
+	}
+
+	err = c.flushObject(&obj, data)
+	if err != nil {
+		return err
+	}
+
+	err = c.fsTree.Delete(addr)
+	if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
+		c.log.Error("can't remove object from write-cache", zap.Error(err))
+	} else if err == nil {
+		storagelog.Write(c.log,
+			storagelog.AddressField(addr),
+			storagelog.StorageTypeField(wcStorageType),
+			storagelog.OpField("DELETE"),
+		)
+		c.objCounters.Delete(addr)
+	}
+
+	return nil
 }
 
 // flushObject is used to write object directly to the main storage.
@@ -149,4 +187,10 @@ func (c *cache) Flush(ignoreErrors bool) error {
 	defer c.modeMtx.RUnlock()
 
 	return c.flush(ignoreErrors)
+}
+
+func (c *cache) flush(ignoreErrors bool) error {
+	return c.fsTree.IterateAddresses(func(addr oid.Address) error {
+		return c.flushSingle(addr, ignoreErrors)
+	}, ignoreErrors)
 }

@@ -1,10 +1,12 @@
 package writecache
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
@@ -202,6 +204,79 @@ func TestFlush(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestFlushPerformance(t *testing.T) {
+	objectCounts := []int{100, 1000}
+	workerCounts := []int{1, 4, 16}
+
+	for _, objCount := range objectCounts {
+		for _, workerCount := range workerCounts {
+			t.Run(fmt.Sprintf("objects=%d_workers=%d", objCount, workerCount), func(t *testing.T) {
+				t.Parallel()
+				wc, bs, mb := newCache(t, WithFlushWorkersCount(workerCount))
+				defer wc.Close()
+
+				objects := make([]objectPair, objCount)
+				for i := range objects {
+					objects[i] = putObject(t, wc, 1+(i%2)*1024)
+				}
+				for _, obj := range objects {
+					_, err := wc.Get(obj.addr)
+					require.NoError(t, err)
+				}
+				require.NoError(t, wc.Close())
+
+				require.NoError(t, bs.SetMode(mode.ReadWrite))
+				require.NoError(t, mb.SetMode(mode.ReadWrite))
+
+				require.NoError(t, wc.Open(false))
+				require.NoError(t, wc.Init())
+				start := time.Now()
+				waitForFlush(t, wc, objects)
+				duration := time.Since(start)
+
+				for i := range objects {
+					id, err := mb.StorageID(objects[i].addr)
+					require.NoError(t, err)
+
+					res, err := bs.Get(objects[i].addr, id)
+					require.NoError(t, err)
+					require.Equal(t, objects[i].obj, res)
+				}
+				require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
+				for _, obj := range objects {
+					_, err := wc.Get(obj.addr)
+					require.Error(t, err)
+				}
+
+				t.Logf("Flush took %v for %d objects with %d workers", duration-defaultFlushInterval, objCount, workerCount)
+			})
+		}
+	}
+}
+
+func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
+	timeout := time.After(60 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cachedCount := 0
+			for _, obj := range objects {
+				if _, err := wc.Get(obj.addr); err == nil {
+					cachedCount++
+				}
+			}
+			if cachedCount == 0 {
+				return
+			}
+		case <-timeout:
+			t.Fatalf("Flush did not complete within 60 seconds, %d objects still cached", len(objects))
+		}
+	}
 }
 
 func putObject(t *testing.T, c Cache, size int) objectPair {
