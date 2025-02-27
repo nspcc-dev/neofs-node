@@ -101,9 +101,9 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			m.m.RLock()
+			m.stM.RLock()
 			_, ok = m.storages[ev.cID]
-			m.m.RUnlock()
+			m.stM.RUnlock()
 			if !ok {
 				l.Debug("skipping container notification", zap.Stringer("inactual container", ev.cID))
 				continue
@@ -195,16 +195,16 @@ func (m *Meta) reconnect(ctx context.Context) error {
 		return fmt.Errorf("reconnecting to web socket: %w", err)
 	}
 
-	m.m.RLock()
+	m.stM.RLock()
 	if len(m.storages) > 0 {
 		m.bCh = make(chan *block.Header)
 		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
 		if err != nil {
-			m.m.RUnlock()
+			m.stM.RUnlock()
 			return fmt.Errorf("subscription for blocks: %w", err)
 		}
 	}
-	m.m.RUnlock()
+	m.stM.RUnlock()
 
 	m.cnrDelEv = make(chan *state.ContainedNotificationEvent)
 	m.cnrPutEv = make(chan *state.ContainedNotificationEvent)
@@ -469,8 +469,8 @@ func parseCnrNotification(ev *state.ContainedNotificationEvent) (cnrEvent, error
 }
 
 func (m *Meta) dropContainer(cID cid.ID) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.stM.Lock()
+	defer m.stM.Unlock()
 
 	st, ok := m.storages[cID]
 	if !ok {
@@ -493,8 +493,8 @@ func (m *Meta) dropContainer(cID cid.ID) error {
 
 func (m *Meta) addContainer(cID cid.ID) error {
 	var err error
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.stM.Lock()
+	defer m.stM.Unlock()
 
 	if len(m.storages) == 0 {
 		m.cliM.Lock()
@@ -544,8 +544,8 @@ func (m *Meta) handleEpochNotification(e int64) error {
 		return fmt.Errorf("list containers: %w", err)
 	}
 
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.stM.Lock()
+	defer m.stM.Unlock()
 
 	for cID, st := range m.storages {
 		_, ok := cnrsNetwork[cID]

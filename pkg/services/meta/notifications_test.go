@@ -214,9 +214,9 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 		return true
 	}
 
-	m.m.RLock()
+	m.stM.RLock()
 	st := m.storages[cID]
-	m.m.RUnlock()
+	m.stM.RUnlock()
 
 	st.m.RLock()
 	defer st.m.RUnlock()
@@ -384,9 +384,9 @@ func TestObjectPut(t *testing.T) {
 		bCH <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
-			m.m.RLock()
+			m.stM.RLock()
 			st := m.storages[tsCID]
-			m.m.RUnlock()
+			m.stM.RUnlock()
 
 			st.m.RLock()
 			defer st.m.RUnlock()

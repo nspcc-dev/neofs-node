@@ -32,8 +32,8 @@ func (m *Meta) handleBlock(b *block.Header) error {
 		return nil
 	}
 
-	m.m.RLock()
-	defer m.m.RUnlock()
+	m.stM.RLock()
+	defer m.stM.RUnlock()
 
 	for _, n := range res.Application {
 		ev, err := parseObjNotification(n)
