@@ -25,14 +25,31 @@ const (
 	newEpochName  = "NewEpoch"
 )
 
-func (m *Meta) subscribeForMeta() error {
-	_, err := m.ws.ReceiveHeadersOfAddedBlocks(nil, m.bCh)
+// subscribeForBlocks reqauires [Meta.cliM] to be taken.
+func (m *Meta) subscribeForBlocks(ch chan<- *block.Header) (string, error) {
+	m.l.Debug("subscribe for blocks")
+	return m.ws.ReceiveHeadersOfAddedBlocks(nil, ch)
+}
+
+func (m *Meta) unsubscribeFromBlocks() {
+	var err error
+	m.cliM.Lock()
+	defer m.cliM.Unlock()
+
+	err = m.ws.Unsubscribe(m.blockSubID)
 	if err != nil {
-		return fmt.Errorf("subscribe for block headers: %w", err)
+		m.l.Warn("could not unsubscribe from blocks", zap.String("ID", m.blockSubID))
+		return
 	}
 
+	m.blockSubID = ""
+
+	m.l.Debug("successfully unsubscribed from blocks")
+}
+
+func (m *Meta) subscribeForMeta() error {
 	cnrDeleteEv := cnrDeleteName
-	_, err = m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &cnrDeleteEv}, m.cnrDelEv)
+	_, err := m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &cnrDeleteEv}, m.cnrDelEv)
 	if err != nil {
 		return fmt.Errorf("subscribe for container removal notifications: %w", err)
 	}
@@ -84,9 +101,9 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			m.m.RLock()
+			m.stM.RLock()
 			_, ok = m.storages[ev.cID]
-			m.m.RUnlock()
+			m.stM.RUnlock()
 			if !ok {
 				l.Debug("skipping container notification", zap.Stringer("inactual container", ev.cID))
 				continue
@@ -128,16 +145,10 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			m.m.Lock()
-
-			st, err := storageForContainer(m.rootPath, ev.cID)
+			err = m.addContainer(ev.cID)
 			if err != nil {
-				m.m.Unlock()
-				return fmt.Errorf("open new storage for %s container: %w", ev.cID, err)
+				return fmt.Errorf("could not handle new %s container: %w", ev.cID, err)
 			}
-			m.storages[ev.cID] = st
-
-			m.m.Unlock()
 
 			l.Debug("added container storage", zap.Stringer("cID", ev.cID))
 		case aer, ok := <-m.epochEv:
@@ -184,7 +195,17 @@ func (m *Meta) reconnect(ctx context.Context) error {
 		return fmt.Errorf("reconnecting to web socket: %w", err)
 	}
 
-	m.bCh = make(chan *block.Header)
+	m.stM.RLock()
+	if len(m.storages) > 0 {
+		m.bCh = make(chan *block.Header)
+		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
+		if err != nil {
+			m.stM.RUnlock()
+			return fmt.Errorf("subscription for blocks: %w", err)
+		}
+	}
+	m.stM.RUnlock()
+
 	m.cnrDelEv = make(chan *state.ContainedNotificationEvent)
 	m.cnrPutEv = make(chan *state.ContainedNotificationEvent)
 	m.epochEv = make(chan *state.ContainedNotificationEvent)
@@ -448,8 +469,8 @@ func parseCnrNotification(ev *state.ContainedNotificationEvent) (cnrEvent, error
 }
 
 func (m *Meta) dropContainer(cID cid.ID) error {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.stM.Lock()
+	defer m.stM.Unlock()
 
 	st, ok := m.storages[cID]
 	if !ok {
@@ -462,6 +483,36 @@ func (m *Meta) dropContainer(cID cid.ID) error {
 	}
 
 	delete(m.storages, cID)
+
+	if len(m.storages) == 0 {
+		m.unsubscribeFromBlocks()
+	}
+
+	return nil
+}
+
+func (m *Meta) addContainer(cID cid.ID) error {
+	var err error
+	m.stM.Lock()
+	defer m.stM.Unlock()
+
+	if len(m.storages) == 0 {
+		m.cliM.Lock()
+
+		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
+		if err != nil {
+			m.cliM.Unlock()
+			return fmt.Errorf("blocks subscription: %w", err)
+		}
+
+		m.cliM.Unlock()
+	}
+
+	st, err := storageForContainer(m.rootPath, cID)
+	if err != nil {
+		return fmt.Errorf("open new storage for %s container: %w", cID, err)
+	}
+	m.storages[cID] = st
 
 	return nil
 }
@@ -493,8 +544,8 @@ func (m *Meta) handleEpochNotification(e int64) error {
 		return fmt.Errorf("list containers: %w", err)
 	}
 
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.stM.Lock()
+	defer m.stM.Unlock()
 
 	for cID, st := range m.storages {
 		_, ok := cnrsNetwork[cID]
@@ -518,6 +569,17 @@ func (m *Meta) handleEpochNotification(e int64) error {
 		}
 
 		m.storages[cID] = st
+	}
+
+	m.cliM.Lock()
+	defer m.cliM.Unlock()
+	if len(m.storages) > 0 && m.blockSubID == "" {
+		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
+		if err != nil {
+			return fmt.Errorf("blocks subscription: %w", err)
+		}
+	} else if len(m.storages) == 0 && m.blockSubID != "" {
+		m.unsubscribeFromBlocks()
 	}
 
 	m.l.Debug("handled new epoch successfully", zap.Int64("epoch", e))

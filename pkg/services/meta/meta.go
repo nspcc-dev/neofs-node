@@ -43,6 +43,7 @@ type wsClient interface {
 
 	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)
 	ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error)
+	Unsubscribe(id string) error
 
 	Close()
 }
@@ -57,13 +58,14 @@ type Meta struct {
 	cnrH     util.Uint160
 	cLister  ContainerLister
 
-	m        sync.RWMutex
+	stM      sync.RWMutex
 	storages map[cid.ID]*containerStorage
 
 	timeout     time.Duration
 	magicNumber uint32
 	cliM        sync.RWMutex
 	ws          wsClient
+	blockSubID  string
 	bCh         chan *block.Header
 	cnrDelEv    chan *state.ContainedNotificationEvent
 	cnrPutEv    chan *state.ContainedNotificationEvent
@@ -182,7 +184,7 @@ func (m *Meta) Reload(p Parameters) error {
 // with [New]. Blocked until context is done.
 func (m *Meta) Run(ctx context.Context) error {
 	defer func() {
-		m.m.Lock()
+		m.stM.Lock()
 		for _, st := range m.storages {
 			st.m.Lock()
 			_ = st.db.Close()
@@ -190,7 +192,7 @@ func (m *Meta) Run(ctx context.Context) error {
 		}
 		maps.Clear(m.storages)
 
-		m.m.Unlock()
+		m.stM.Unlock()
 	}()
 
 	var err error
@@ -205,6 +207,17 @@ func (m *Meta) Run(ctx context.Context) error {
 		return fmt.Errorf("get version: %w", err)
 	}
 	m.magicNumber = uint32(v.Protocol.Network)
+
+	m.stM.RLock()
+	hasContainers := len(m.storages) > 0
+	m.stM.RUnlock()
+
+	if hasContainers {
+		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
+		if err != nil {
+			return fmt.Errorf("block subscription: %w", err)
+		}
+	}
 
 	err = m.subscribeForMeta()
 	if err != nil {
@@ -229,7 +242,7 @@ func (m *Meta) flusher(ctx context.Context) {
 	for {
 		select {
 		case <-t.C:
-			m.m.RLock()
+			m.stM.RLock()
 
 			var wg errgroup.Group
 			wg.SetLimit(1024)
@@ -256,7 +269,7 @@ func (m *Meta) flusher(ctx context.Context) {
 
 			err := wg.Wait()
 
-			m.m.RUnlock()
+			m.stM.RUnlock()
 
 			if err != nil {
 				m.l.Error("storage flusher failed", zap.Error(err))
