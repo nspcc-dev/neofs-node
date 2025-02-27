@@ -52,15 +52,15 @@ Changelog for NeoFS Node
 - NeoGo to 0.108.0 (#3157)
 
 ### Updating from v0.44.2
-Using public keys as a rule target in eACL tables was deprecated, and 
-since this realese it is not supported to create new eACL table with keys, 
-use addresses instead. 
+Using public keys as a rule target in eACL tables was deprecated, and
+since this realese it is not supported to create new eACL table with keys,
+use addresses instead.
 For more information call `neofs-cli acl extended create -h`.
 
 `small_object_size`, `workers_number`, `max_batch_size` and `max_batch_delay`
 paramteters are removed from `writecache` config. These parameters are related
-to the BoltDB part of the write-cache, which is dropped from the code. 
-Also, because of this, there will be automatic migration from BoltDB by flushing 
+to the BoltDB part of the write-cache, which is dropped from the code.
+Also, because of this, there will be automatic migration from BoltDB by flushing
 objects to the main storage and removing database file.
 
 This version maintains two network map lists, the old one is used by default
