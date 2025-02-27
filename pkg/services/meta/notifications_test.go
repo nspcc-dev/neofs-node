@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math/big"
 	"os"
+	"path"
 	"sync"
 	"testing"
 	"time"
@@ -20,12 +21,15 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
+	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	utilcore "github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -34,17 +38,46 @@ const (
 	testObjectSize = 1234567
 )
 
-type testContainerLister struct {
-	res    map[cid.ID]struct{}
-	resErr error
+type testNetwork struct {
+	m sync.RWMutex
+
+	resCIDs    map[cid.ID]struct{}
+	resObjects map[oid.Address]objectsdk.Object
+	resErr     error
 }
 
-func (t *testContainerLister) IsMineWithMeta(id cid.ID) (bool, error) {
+func (t *testNetwork) setContainers(v map[cid.ID]struct{}) {
+	t.m.Lock()
+	t.resCIDs = v
+	t.m.Unlock()
+}
+
+func (t *testNetwork) setObjects(v map[oid.Address]objectsdk.Object) {
+	t.m.Lock()
+	t.resObjects = v
+	t.m.Unlock()
+}
+
+func (t *testNetwork) Head(_ context.Context, cID cid.ID, oID oid.ID) (objectsdk.Object, error) {
+	t.m.RLock()
+	defer t.m.RUnlock()
+
+	var addr oid.Address
+	addr.SetContainer(cID)
+	addr.SetObject(oID)
+
+	return t.resObjects[addr], t.resErr
+}
+
+func (t *testNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
 	return true, nil
 }
 
-func (t *testContainerLister) List() (map[cid.ID]struct{}, error) {
-	return t.res, t.resErr
+func (t *testNetwork) List() (map[cid.ID]struct{}, error) {
+	t.m.RLock()
+	defer t.m.RUnlock()
+
+	return t.resCIDs, t.resErr
 }
 
 func testContainers(t *testing.T, num int) []cid.ID {
@@ -57,9 +90,7 @@ func testContainers(t *testing.T, num int) []cid.ID {
 	return res
 }
 
-func newEpoch(m *Meta, cnrs map[cid.ID]struct{}, epoch int) {
-	m.cLister = &testContainerLister{res: cnrs, resErr: nil}
-
+func newEpoch(m *Meta, epoch int) {
 	m.epochEv <- &state.ContainedNotificationEvent{
 		NotificationEvent: state.NotificationEvent{
 			Name: newEpochName,
@@ -136,7 +167,7 @@ func (t *testWS) Close() {
 	panic("not expected for now")
 }
 
-func createAndRunTestMeta(t *testing.T, ws wsClient) (*Meta, func(), chan struct{}) {
+func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Meta, func(), chan struct{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Meta{
 		l:           zaptest.NewLogger(t),
@@ -153,7 +184,7 @@ func createAndRunTestMeta(t *testing.T, ws wsClient) (*Meta, func(), chan struct
 		storages:  make(map[cid.ID]*containerStorage),
 		netmapH:   util.Uint160{},
 		cnrH:      util.Uint160{},
-		cLister:   &testContainerLister{},
+		net:       network,
 		endpoints: []string{},
 		timeout:   time.Second,
 	}
@@ -174,7 +205,7 @@ func createAndRunTestMeta(t *testing.T, ws wsClient) (*Meta, func(), chan struct
 // [object.EncodeReplicationMetaInfo] can be improved at the time [object]
 // package will do it.
 func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart oid.ID, pSize uint64, typ objectsdk.Type, deleted, locked []oid.ID, _ uint64, _ uint32) bool {
-	get := func(trie *mpt.Trie, st storage.Store, key, expV []byte) bool {
+	getBoth := func(trie *mpt.Trie, st storage.Store, key, expV []byte) bool {
 		mptV, err := trie.Get(key)
 		if err != nil {
 			if errors.Is(err, mpt.ErrNotFound) {
@@ -197,6 +228,20 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 		return true
 	}
 
+	getMPT := func(trie *mpt.Trie, st storage.Store, key, expV []byte) bool {
+		v, err := trie.Get(key)
+		if err != nil {
+			if errors.Is(err, mpt.ErrNotFound) {
+				return false
+			}
+			t.Fatalf("failed to get oid value from mpt: %v", err)
+		}
+
+		require.Equal(t, expV, v)
+
+		return true
+	}
+
 	m.m.RLock()
 	st := m.storages[cID]
 	m.m.RUnlock()
@@ -206,30 +251,9 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 
 	commSuffix := oID[:]
 
-	ok := get(st.mpt, st.db, append([]byte{oidIndex}, commSuffix...), []byte{})
+	ok := getBoth(st.mpt, st.db, append([]byte{oidIndex}, commSuffix...), []byte{})
 	if !ok {
 		return false
-	}
-
-	var sizeB big.Int
-	sizeB.SetUint64(pSize)
-	ok = get(st.mpt, st.db, append([]byte{sizeIndex}, commSuffix...), sizeB.Bytes())
-	if !ok {
-		return false
-	}
-
-	if firstPart != (oid.ID{}) {
-		ok = get(st.mpt, st.db, append([]byte{firstPartIndex}, commSuffix...), firstPart[:])
-		if !ok {
-			return false
-		}
-	}
-
-	if previousPart != (oid.ID{}) {
-		ok = get(st.mpt, st.db, append([]byte{previousPartIndex}, commSuffix...), previousPart[:])
-		if !ok {
-			return false
-		}
 	}
 
 	if len(deleted) != 0 {
@@ -238,7 +262,7 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 			expVal = append(expVal, d[:]...)
 		}
 
-		ok = get(st.mpt, st.db, append([]byte{deletedIndex}, commSuffix...), expVal)
+		ok = getBoth(st.mpt, st.db, append([]byte{deletedIndex}, commSuffix...), expVal)
 		if !ok {
 			return false
 		}
@@ -250,14 +274,35 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 			expVal = append(expVal, l[:]...)
 		}
 
-		ok = get(st.mpt, st.db, append([]byte{lockedIndex}, commSuffix...), expVal)
+		ok = getBoth(st.mpt, st.db, append([]byte{lockedIndex}, commSuffix...), expVal)
+		if !ok {
+			return false
+		}
+	}
+
+	var sizeB big.Int
+	sizeB.SetUint64(pSize)
+	ok = getMPT(st.mpt, st.db, append([]byte{sizeIndex}, commSuffix...), sizeB.Bytes())
+	if !ok {
+		return false
+	}
+
+	if firstPart != (oid.ID{}) {
+		ok = getMPT(st.mpt, st.db, append([]byte{firstPartIndex}, commSuffix...), firstPart[:])
+		if !ok {
+			return false
+		}
+	}
+
+	if previousPart != (oid.ID{}) {
+		ok = getMPT(st.mpt, st.db, append([]byte{previousPartIndex}, commSuffix...), previousPart[:])
 		if !ok {
 			return false
 		}
 	}
 
 	if typ != objectsdk.TypeRegular {
-		ok = get(st.mpt, st.db, append([]byte{typeIndex}, commSuffix...), []byte{byte(typ)})
+		ok = getMPT(st.mpt, st.db, append([]byte{typeIndex}, commSuffix...), []byte{byte(typ)})
 		if !ok {
 			return false
 		}
@@ -268,7 +313,8 @@ func checkObject(t *testing.T, m *Meta, cID cid.ID, oID, firstPart, previousPart
 
 func TestObjectPut(t *testing.T) {
 	ws := testWS{}
-	m, stop, exitCh := createAndRunTestMeta(t, &ws)
+	net := testNetwork{}
+	m, stop, exitCh := createAndRunTestMeta(t, &ws, &net)
 	t.Cleanup(func() {
 		stop()
 		<-exitCh
@@ -278,7 +324,10 @@ func TestObjectPut(t *testing.T) {
 	mTestCnrs := utilcore.SliceToMap(testCnrs)
 
 	var epoch int
-	newEpoch(m, mTestCnrs, epoch)
+	net.setContainers(mTestCnrs)
+	newEpoch(m, epoch)
+
+	time.Sleep(time.Second)
 
 	t.Run("storages for containers", func(t *testing.T) {
 		checkDBFiles(t, m.rootPath, mTestCnrs)
@@ -286,16 +335,18 @@ func TestObjectPut(t *testing.T) {
 
 	t.Run("drop storage", func(t *testing.T) {
 		newContainers := utilcore.SliceToMap(testCnrs[1:])
+		net.setContainers(newContainers)
 
 		epoch++
-		newEpoch(m, newContainers, epoch)
+		newEpoch(m, epoch)
 		checkDBFiles(t, m.rootPath, newContainers)
 	})
 
 	t.Run("add storage", func(t *testing.T) {
 		// add just dropped storage back
 		epoch++
-		newEpoch(m, mTestCnrs, epoch)
+		net.setContainers(mTestCnrs)
+		newEpoch(m, epoch)
 		checkDBFiles(t, m.rootPath, mTestCnrs)
 	})
 
@@ -307,6 +358,18 @@ func TestObjectPut(t *testing.T) {
 		size := uint64(testObjectSize)
 		typ := objectsdk.TypeTombstone
 		deleted := []oid.ID{oidtest.ID(), oidtest.ID(), oidtest.ID()}
+
+		o := objecttest.Object()
+		o.SetContainerID(cID)
+		o.SetID(oID)
+		o.SetFirstID(fPart)
+		o.SetPreviousID(pPart)
+		o.SetPayloadSize(size)
+		o.SetType(typ)
+
+		var addr oid.Address
+		addr.SetContainer(cID)
+		addr.SetObject(oID)
 
 		metaRaw := object.EncodeReplicationMetaInfo(cID, oID, fPart, pPart, size, typ, deleted, nil, testVUB, m.magicNumber)
 		metaStack, err := stackitem.Deserialize(metaRaw)
@@ -332,12 +395,13 @@ func TestObjectPut(t *testing.T) {
 			}
 		}()
 
-		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
+		net.setObjects(map[oid.Address]objectsdk.Object{addr: o})
+		ws.swapResults([]state.ContainedNotificationEvent{{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(oID[:]), metaStack}),
 			},
-		}), nil)
+		}}, nil)
 		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
@@ -350,16 +414,26 @@ func TestObjectPut(t *testing.T) {
 		objToDeleteOID := oidtest.ID()
 		size := uint64(testObjectSize)
 
+		o := objecttest.Object()
+		o.SetContainerID(cID)
+		o.SetID(objToDeleteOID)
+		o.SetPayloadSize(size)
+
+		var addr oid.Address
+		addr.SetContainer(cID)
+		addr.SetObject(objToDeleteOID)
+
 		metaRaw := object.EncodeReplicationMetaInfo(cID, objToDeleteOID, oid.ID{}, oid.ID{}, size, objectsdk.TypeRegular, nil, nil, testVUB, m.magicNumber)
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
-		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
+		net.setObjects(map[oid.Address]objectsdk.Object{addr: o})
+		ws.swapResults([]state.ContainedNotificationEvent{{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(objToDeleteOID[:]), metaStack}),
 			},
-		}), nil)
+		}}, nil)
 		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
@@ -371,16 +445,26 @@ func TestObjectPut(t *testing.T) {
 		tsSize := uint64(testObjectSize)
 		deleted := []oid.ID{objToDeleteOID}
 
+		ts := objecttest.Object()
+		ts.SetContainerID(tsCID)
+		ts.SetID(tsOID)
+		ts.SetPayloadSize(tsSize)
+
+		var tsAddr oid.Address
+		tsAddr.SetContainer(tsCID)
+		tsAddr.SetObject(tsOID)
+
 		metaRaw = object.EncodeReplicationMetaInfo(tsCID, tsOID, oid.ID{}, oid.ID{}, tsSize, objectsdk.TypeTombstone, deleted, nil, testVUB, m.magicNumber)
 		metaStack, err = stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
-		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
+		net.setObjects(map[oid.Address]objectsdk.Object{tsAddr: ts})
+		ws.swapResults([]state.ContainedNotificationEvent{{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(tsCID[:]), stackitem.Make(tsOID[:]), metaStack}),
 			},
-		}), nil)
+		}}, nil)
 		m.bCh <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
@@ -417,4 +501,47 @@ func TestObjectPut(t *testing.T) {
 			return true
 		}, 3*time.Second, time.Millisecond*100, "object was not deleted")
 	})
+}
+
+func TestCompatibility(t *testing.T) {
+	o := objecttest.Object()
+	o.SetSplitID(nil) // no split info is expected for split V2 era
+
+	// database from engine's metabases
+
+	db, err := bbolt.Open(path.Join(t.TempDir(), "db.db"), 0600, bbolt.DefaultOptions)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	metabaseMap := make(map[string][]byte)
+
+	err = db.Update(func(tx *bbolt.Tx) error {
+		err = meta.PutMetadataForObject(tx, o, true, true)
+		require.NoError(t, err)
+
+		cID := o.GetContainerID()
+		metaBucketKey := []byte{255}
+		metaBucketKey = append(metaBucketKey, cID[:]...)
+
+		b := tx.Bucket(metaBucketKey)
+		return b.ForEach(func(k, v []byte) error {
+			metabaseMap[string(k)] = v
+			return nil
+		})
+	})
+	require.NoError(t, err)
+
+	// batch for meta-data service
+
+	serviceMap := make(map[string][]byte)
+	err = fillObjectIndex(serviceMap, o)
+	require.NoError(t, err)
+
+	require.Equal(t, len(metabaseMap), len(serviceMap))
+	for k := range metabaseMap {
+		_, found := serviceMap[k]
+		require.Truef(t, found, "%s key not found: %v", k, []byte(k))
+	}
 }

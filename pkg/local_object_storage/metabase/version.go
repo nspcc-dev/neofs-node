@@ -138,11 +138,11 @@ func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
 			}
 			par := hdr.Parent()
 			hasParent := par != nil
-			if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
+			if err := PutMetadataForObject(tx, hdr, hasParent, true); err != nil {
 				return fmt.Errorf("put metadata for object %s: %w", id, err)
 			}
 			if hasParent {
-				if err := putMetadataForObject(tx, *par, false, false); err != nil {
+				if err := PutMetadataForObject(tx, *par, false, false); err != nil {
 					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
 				}
 			}
