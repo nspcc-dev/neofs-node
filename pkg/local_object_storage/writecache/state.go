@@ -37,6 +37,9 @@ func (x *counters) Size() uint64 {
 
 func (c *cache) initCounters() error {
 	var sizeHandler = func(addr oid.Address, size uint64) error {
+		if _, ok := c.objCounters.objMap[addr]; ok {
+			return nil
+		}
 		c.objCounters.Add(addr, size)
 		return nil
 	}
