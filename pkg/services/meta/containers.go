@@ -2,9 +2,9 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"math/big"
 	"os"
 	"path"
@@ -20,11 +20,12 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"golang.org/x/sync/errgroup"
 )
 
 type containerStorage struct {
-	m        sync.RWMutex
-	opsBatch map[string][]byte
+	m           sync.RWMutex
+	mptOpsBatch map[string][]byte
 
 	path string
 	mpt  *mpt.Trie
@@ -48,50 +49,85 @@ func (s *containerStorage) drop() error {
 	return nil
 }
 
-func (s *containerStorage) putObject(e objEvent, h objectsdk.Object) error {
+func (s *containerStorage) putMPTIndexes(ee []objEvent) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	dbKVs := make(map[string][]byte)
-	commonKVs := make(map[string][]byte) // for MPT and raw index storage
-	commsuffix := e.oID[:]
+	for _, e := range ee {
+		commsuffix := e.oID[:]
+		if s.mptOpsBatch == nil {
+			s.mptOpsBatch = make(map[string][]byte)
+		}
 
-	// batching that is implemented for MPT ignores key's first byte
+		// batching that is implemented for MPT ignores key's first byte
 
-	commonKVs[string(append([]byte{0, oidIndex}, commsuffix...))] = []byte{}
-	if len(e.deletedObjects) > 0 {
-		commonKVs[string(append([]byte{0, deletedIndex}, commsuffix...))] = e.deletedObjects
-		deleteObjectsOps(s.opsBatch, dbKVs, s.db, e.deletedObjects)
+		s.mptOpsBatch[string(append([]byte{0, oidIndex}, commsuffix...))] = []byte{}
+		if len(e.deletedObjects) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, deletedIndex}, commsuffix...))] = e.deletedObjects
+		}
+		if len(e.lockedObjects) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, lockedIndex}, commsuffix...))] = e.lockedObjects
+		}
+		s.mptOpsBatch[string(append([]byte{0, sizeIndex}, commsuffix...))] = e.size.Bytes()
+		if len(e.firstObject) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, firstPartIndex}, commsuffix...))] = e.firstObject
+		}
+		if len(e.prevObject) > 0 {
+			s.mptOpsBatch[string(append([]byte{0, previousPartIndex}, commsuffix...))] = e.prevObject
+		}
+		if e.typ != objectsdk.TypeRegular {
+			s.mptOpsBatch[string(append([]byte{0, typeIndex}, commsuffix...))] = []byte{byte(e.typ)}
+		}
 	}
-	if len(e.lockedObjects) > 0 {
-		commonKVs[string(append([]byte{0, lockedIndex}, commsuffix...))] = e.lockedObjects
-	}
-	s.opsBatch[string(append([]byte{0, sizeIndex}, commsuffix...))] = e.size.Bytes()
-	if len(e.firstObject) > 0 {
-		s.opsBatch[string(append([]byte{0, firstPartIndex}, commsuffix...))] = e.firstObject
-	}
-	if len(e.prevObject) > 0 {
-		s.opsBatch[string(append([]byte{0, previousPartIndex}, commsuffix...))] = e.prevObject
-	}
-	if e.typ != objectsdk.TypeRegular {
-		s.opsBatch[string(append([]byte{0, typeIndex}, commsuffix...))] = []byte{byte(e.typ)}
+}
+
+func (s *containerStorage) putRawIndexes(ctx context.Context, ee []objEvent, net NeoFSNetwork) error {
+	var wg errgroup.Group
+	wg.SetLimit(10)
+	objects := make([]objectsdk.Object, len(ee))
+
+	for i, e := range ee {
+		wg.Go(func() error {
+			h, err := net.Head(ctx, e.cID, e.oID)
+			if err != nil {
+				// TODO define behavior with status (non-network) errors; maybe it is near #3140
+				return fmt.Errorf("HEAD object: %w", err)
+			}
+			objects[i] = h
+			return nil
+		})
 	}
 
-	if s.opsBatch == nil {
-		s.opsBatch = make(map[string][]byte)
-	}
-	maps.Copy(s.opsBatch, commonKVs)
-
-	fullIndex := mptToStoreBatch(commonKVs)
-	maps.Copy(fullIndex, dbKVs)
-	err := fillObjectIndex(fullIndex, h)
+	err := wg.Wait()
 	if err != nil {
-		return fmt.Errorf("filling full header index: %w", err)
+		return err
 	}
 
-	err = s.db.PutChangeSet(fullIndex, nil)
+	s.m.Lock()
+	defer s.m.Unlock()
+	batch := make(map[string][]byte)
+
+	for i, e := range ee {
+		commsuffix := e.oID[:]
+
+		batch[string(append([]byte{oidIndex}, commsuffix...))] = []byte{}
+		if len(e.deletedObjects) > 0 {
+			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObjects
+			deleteObjectsOps(batch, s.db, e.deletedObjects)
+		}
+		if len(e.lockedObjects) > 0 {
+			batch[string(append([]byte{lockedIndex}, commsuffix...))] = e.lockedObjects
+		}
+
+		err = fillObjectIndex(batch, objects[i])
+		if err != nil {
+			return fmt.Errorf("filling full header index: %w", err)
+		}
+	}
+
+	err = s.db.PutChangeSet(batch, nil)
 	if err != nil {
-		return fmt.Errorf("put MPT KVs to the raw storage manually: %w", err)
+		return fmt.Errorf("put change set to DB: %w", err)
 	}
 
 	return nil
@@ -160,8 +196,7 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) error {
 	return nil
 }
 
-// deleteObjectsOps returns (MPT, DB) batch operations pair.
-func deleteObjectsOps(mptKV, dbKV map[string][]byte, s storage.Store, objects []byte) {
+func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte) {
 	rng := storage.SeekRange{}
 
 	// nil value means "delete" operation
@@ -243,16 +278,6 @@ func lastObjectKey(rawOID []byte) []byte {
 	res = append(res, lastEnumIndex-1)
 
 	return append(res, rawOID...)
-}
-
-// mptToStoreBatch drops the first byte from every key in the map.
-func mptToStoreBatch(b map[string][]byte) map[string][]byte {
-	res := make(map[string][]byte, len(b))
-	for k, v := range b {
-		res[k[1:]] = v
-	}
-
-	return res
 }
 
 func storageForContainer(rootPath string, cID cid.ID) (*containerStorage, error) {

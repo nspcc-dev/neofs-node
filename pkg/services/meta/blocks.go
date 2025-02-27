@@ -3,6 +3,7 @@ package meta
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
@@ -36,11 +37,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	m.m.RLock()
 	defer m.m.RUnlock()
 
-	var wg errgroup.Group
-	wg.SetLimit(1024)
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
-
+	evsByStorage := make(map[*containerStorage][]objEvent)
 	for _, n := range res.Application {
 		ev, err := parseObjNotification(n)
 		if err != nil {
@@ -48,28 +45,54 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 			continue
 		}
 
-		s, ok := m.storages[ev.cID]
+		if magic := uint32(ev.network.Uint64()); magic != m.magicNumber {
+			l.Warn("skipping object notification with wrong magic number", zap.Uint32("expected", m.magicNumber), zap.Uint32("got", magic))
+		}
+
+		st, ok := m.storages[ev.cID]
 		if !ok {
 			l.Debug("skipping object notification", zap.Stringer("inactual container", ev.cID))
 			continue
 		}
 
-		wg.Go(func() error {
-			err := m.handleObjectNotification(ctx, s, ev)
-			if err != nil {
-				return fmt.Errorf("handling %s/%s object notification: %w", ev.cID, ev.oID, err)
-			}
-
-			l.Debug("handled object notification successfully", zap.Stringer("cID", ev.cID), zap.Stringer("oID", ev.oID))
-
-			return nil
-		})
+		evsByStorage[st] = append(evsByStorage[st], ev)
 	}
 
-	err = wg.Wait()
-	if err != nil {
-		l.Error("failed to handle block's notifications", zap.Error(err))
-	}
+	var wg sync.WaitGroup
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		for st, ee := range evsByStorage {
+			st.putMPTIndexes(ee)
+		}
+	}()
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		var internalWg errgroup.Group
+		internalWg.SetLimit(1024)
+
+		for st, evs := range evsByStorage {
+			internalWg.Go(func() error {
+				err := st.putRawIndexes(ctx, evs, m.net)
+				if err != nil {
+					l.Error("failed to put raw indexes", zap.String("storage", st.path), zap.Error(err))
+				}
+
+				// do not stop other routines ever
+				return nil
+			})
+		}
+
+		// errors are logged, no errors are returned to WG
+		_ = internalWg.Wait()
+	}()
+
+	wg.Wait()
+
+	// TODO commit mpt changes
 
 	for _, st := range m.storages {
 		// TODO: parallelize depending on what can parallelize well
@@ -79,14 +102,14 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 		root := st.mpt.StateRoot()
 		st.mpt.Store.Put([]byte{rootKey}, root[:])
 		p := st.path
-		if st.opsBatch != nil {
-			_, err := st.mpt.PutBatch(mpt.MapToMPTBatch(st.opsBatch))
+		if st.mptOpsBatch != nil {
+			_, err := st.mpt.PutBatch(mpt.MapToMPTBatch(st.mptOpsBatch))
 			if err != nil {
 				st.m.Unlock()
 				return fmt.Errorf("put batch for %d block to %q storage: %w", ind, p, err)
 			}
 
-			st.opsBatch = nil
+			st.mptOpsBatch = nil
 		}
 
 		st.m.Unlock()
