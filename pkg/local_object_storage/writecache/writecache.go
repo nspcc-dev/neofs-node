@@ -63,6 +63,8 @@ type cache struct {
 	// whether object should be compressed.
 	compressFlags map[string]struct{}
 
+	// flushCh is a channel with objects to flush.
+	flushCh chan oid.Address
 	// closeCh is close channel.
 	closeCh chan struct{}
 	// wg is a wait group for flush workers.
@@ -92,7 +94,8 @@ var (
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		mode: mode.ReadWrite,
+		flushCh: make(chan oid.Address),
+		mode:    mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{
@@ -102,6 +105,7 @@ func New(opts ...Option) Cache {
 			objCounters: counters{
 				objMap: make(map[oid.Address]uint64),
 			},
+			workersCount: defaultWorkerCount,
 		},
 	}
 

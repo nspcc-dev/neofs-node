@@ -38,6 +38,8 @@ type options struct {
 	// maxCacheSize is the maximum total size of all objects saved in cache.
 	// 1 GiB by default.
 	maxCacheSize uint64
+	// workersCount is the number of workers flushing objects in parallel.
+	workersCount int
 	// objCounters contains object list along with sizes and overall size of cache.
 	objCounters counters
 	// noSync is true iff FSTree allows unsynchronized writes.
@@ -79,6 +81,15 @@ func WithMaxObjectSize(sz uint64) Option {
 	return func(o *options) {
 		if sz > 0 {
 			o.maxObjectSize = sz
+		}
+	}
+}
+
+// WithFlushWorkersCount sets number of workers to flushing objects in parallel.
+func WithFlushWorkersCount(c int) Option {
+	return func(o *options) {
+		if c > 0 {
+			o.workersCount = c
 		}
 	}
 }
