@@ -43,6 +43,7 @@ type wsClient interface {
 
 	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)
 	ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error)
+	Unsubscribe(id string) error
 
 	Close()
 }
@@ -64,6 +65,7 @@ type Meta struct {
 	magicNumber uint32
 	cliM        sync.RWMutex
 	ws          wsClient
+	blockSubID  string
 	bCh         chan *block.Header
 	cnrDelEv    chan *state.ContainedNotificationEvent
 	cnrPutEv    chan *state.ContainedNotificationEvent
@@ -205,6 +207,17 @@ func (m *Meta) Run(ctx context.Context) error {
 		return fmt.Errorf("get version: %w", err)
 	}
 	m.magicNumber = uint32(v.Protocol.Network)
+
+	m.m.RLock()
+	hasContainers := len(m.storages) > 0
+	m.m.RUnlock()
+
+	if hasContainers {
+		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
+		if err != nil {
+			return fmt.Errorf("block subscription: %w", err)
+		}
+	}
 
 	err = m.subscribeForMeta()
 	if err != nil {

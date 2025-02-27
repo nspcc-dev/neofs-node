@@ -99,8 +99,21 @@ func checkDBFiles(t *testing.T, path string, cnrs map[cid.ID]struct{}) {
 
 type testWS struct {
 	m             sync.RWMutex
+	bCh           chan<- *block.Header
 	notifications []state.ContainedNotificationEvent
 	err           error
+}
+
+func (t *testWS) blockCh() chan<- *block.Header {
+	t.m.RLock()
+	defer t.m.RUnlock()
+
+	return t.bCh
+}
+
+func (t *testWS) Unsubscribe(id string) error {
+	// TODO implement me
+	panic("not expected for now")
 }
 
 func (t *testWS) swapResults(notifications []state.ContainedNotificationEvent, err error) {
@@ -125,7 +138,11 @@ func (t *testWS) GetVersion() (*result.Version, error) {
 }
 
 func (t *testWS) ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error) {
-	panic("not expected for now")
+	t.m.Lock()
+	t.bCh = rcvr
+	t.m.Unlock()
+
+	return "", nil
 }
 
 func (t *testWS) ReceiveExecutionNotifications(flt *neorpc.NotificationFilter, rcvr chan<- *state.ContainedNotificationEvent) (string, error) {
@@ -312,25 +329,7 @@ func TestObjectPut(t *testing.T) {
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
-		stopTest := make(chan struct{})
-		t.Cleanup(func() {
-			close(stopTest)
-		})
-		go func() {
-			var i uint32 = 1
-			tick := time.NewTicker(100 * time.Millisecond)
-			for {
-				select {
-				case <-tick.C:
-					m.bCh <- &block.Header{
-						Index: i,
-					}
-					i++
-				case <-stopTest:
-					return
-				}
-			}
-		}()
+		bCH := ws.blockCh()
 
 		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
 			NotificationEvent: state.NotificationEvent{
@@ -338,7 +337,7 @@ func TestObjectPut(t *testing.T) {
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(oID[:]), metaStack}),
 			},
 		}), nil)
-		m.bCh <- &block.Header{Index: 0}
+		bCH <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			return checkObject(t, m, cID, oID, fPart, pPart, size, typ, deleted, nil, testVUB, m.magicNumber)
@@ -354,13 +353,14 @@ func TestObjectPut(t *testing.T) {
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
+		bCH := ws.blockCh()
 		ws.swapResults(append(ws.notifications, state.ContainedNotificationEvent{
 			NotificationEvent: state.NotificationEvent{
 				Name: objPutEvName,
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(cID[:]), stackitem.Make(objToDeleteOID[:]), metaStack}),
 			},
 		}), nil)
-		m.bCh <- &block.Header{Index: 0}
+		bCH <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			return checkObject(t, m, cID, objToDeleteOID, oid.ID{}, oid.ID{}, size, objectsdk.TypeRegular, nil, nil, testVUB, m.magicNumber)
@@ -381,7 +381,7 @@ func TestObjectPut(t *testing.T) {
 				Item: stackitem.NewArray([]stackitem.Item{stackitem.Make(tsCID[:]), stackitem.Make(tsOID[:]), metaStack}),
 			},
 		}), nil)
-		m.bCh <- &block.Header{Index: 0}
+		bCH <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
 			m.m.RLock()
