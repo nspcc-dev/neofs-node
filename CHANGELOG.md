@@ -4,6 +4,26 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.45.0
+
+## [0.45.0] - 2025-02-27 - Sapsido
+
+Unleashing the true scaling potential of NeoFS this release is the first one
+to break the old ~320 node limit. It also brings a new powerful search API and
+distributed settings management commands. Write cache received some care and
+improved its efficiency. A number of other optimizations and fixes is included
+as well.
+
+### Added
 - Initial support for meta-on-chain for objects (#2877)
 - First split-object part into the CLI output (#3064)
 - `neofs-cli control notary` with `list`, `request` and `sign` commands (#3059)
@@ -17,7 +37,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - `neofs-cli object delete` command output (#3056)
-- Make the error message more clearer when validating IR configuration (#3072)
+- More clear error message when validating IR configuration (#3072)
 - Panic during shutdown if N3 client connection is lost (#3073)
 - The first object of the split object is not deleted (#3089)
 - The parent of the split object is not removed from the metabase (#3089)
@@ -34,7 +54,7 @@ Changelog for NeoFS Node
 ### Changed
 - Number of cuncurrenly handled notifications from the chain was increased from 10 to 300 for IR (#3068)
 - Write-cache size estimations (#3106)
-- New network map support solving the limit of ~320 nodes per network
+- New network map support solving the limit of ~320 nodes per network (#3088)
 - Calculation of VUB for zero hash (#3134)
 - More efficient block header subscription is used now instead of block-based one (#3163)
 - `ObjectService.GetRange(Hash)` ops now handle zero ranges as full payload (#3071)
@@ -52,15 +72,15 @@ Changelog for NeoFS Node
 - NeoGo to 0.108.0 (#3157)
 
 ### Updating from v0.44.2
-Using public keys as a rule target in eACL tables was deprecated, and 
-since this realese it is not supported to create new eACL table with keys, 
-use addresses instead. 
+Using public keys as a rule target in eACL tables was deprecated, and
+since this realese it is not supported to create new eACL table with keys,
+use addresses instead.
 For more information call `neofs-cli acl extended create -h`.
 
 `small_object_size`, `workers_number`, `max_batch_size` and `max_batch_delay`
 paramteters are removed from `writecache` config. These parameters are related
-to the BoltDB part of the write-cache, which is dropped from the code. 
-Also, because of this, there will be automatic migration from BoltDB by flushing 
+to the BoltDB part of the write-cache, which is dropped from the code.
+Also, because of this, there will be automatic migration from BoltDB by flushing
 objects to the main storage and removing database file.
 
 This version maintains two network map lists, the old one is used by default
@@ -2243,7 +2263,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...master
+[0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.43.0...v0.44.0
