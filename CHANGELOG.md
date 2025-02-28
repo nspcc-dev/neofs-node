@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Zero range denial by `neofs-cli object range|hash` commands (#3182)
 
 ### Changed
 
