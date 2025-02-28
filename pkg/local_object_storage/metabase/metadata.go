@@ -111,8 +111,10 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadChecksum, string(pldHash)); err != nil {
 		return err
 	}
-	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(pldHmmHash)); err != nil {
-		return err
+	if len(pldHmmHash) > 0 {
+		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(pldHmmHash)); err != nil {
+			return err
+		}
 	}
 	if len(splitID) > 0 {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterSplitID, string(splitID)); err != nil {

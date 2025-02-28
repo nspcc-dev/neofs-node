@@ -193,6 +193,23 @@ func TestPutMetadata(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+
+	t.Run("no homomorphic checksum", func(t *testing.T) {
+		cnr := cidtest.OtherID(cnr)
+		var obj object.Object
+		obj.SetContainerID(cnr)
+		obj.SetID(id)
+		obj.SetPayloadChecksum(pldHash) // Put requires
+
+		require.NoError(t, db.Put(&obj, nil, nil))
+
+		require.NoError(t, db.boltDB.View(func(tx *bbolt.Tx) error {
+			mb := tx.Bucket(append([]byte{0xFF}, cnr[:]...))
+			require.NotNil(t, mb, "missing container's meta bucket")
+			assertAttrPresence(t, mb, id, "$Object:homomorphicHash", "", false)
+			return nil
+		}))
+	})
 }
 
 func TestApplyFilter(t *testing.T) {
