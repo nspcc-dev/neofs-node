@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Zero range denial by `neofs-cli object range|hash` commands (#3182)
 - Not all the components needed for write-cache migration were initialized (#3186)
 - Homomorphic hash indexes with empty values in meta bucket (#3187)
+- Failure of 1st split-chain child processing during metabase migration (#3187)
 
 ### Changed
 
