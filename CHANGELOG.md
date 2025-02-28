@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Zero range denial by `neofs-cli object range|hash` commands (#3182)
 
 ### Changed
+- IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
 
 ### Removed
 

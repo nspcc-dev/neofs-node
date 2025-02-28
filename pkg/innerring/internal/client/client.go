@@ -8,9 +8,7 @@ import (
 	"io"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object_manager/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -31,57 +29,6 @@ func (x *Client) WrapBasicClient(c clientcore.Client) {
 // SetPrivateKey sets a private key to sign RPC requests.
 func (x *Client) SetPrivateKey(key *ecdsa.PrivateKey) {
 	x.signer = user.NewAutoIDSigner(*key)
-}
-
-// SearchSGPrm groups parameters of SearchSG operation.
-type SearchSGPrm struct {
-	contextPrm
-
-	cnrID cid.ID
-}
-
-// SetContainerID sets the ID of the container to search for storage groups.
-func (x *SearchSGPrm) SetContainerID(id cid.ID) {
-	x.cnrID = id
-}
-
-// SearchSGRes groups the resulting values of SearchSG operation.
-type SearchSGRes struct {
-	cliRes []oid.ID
-}
-
-// IDList returns a list of IDs of storage groups in the container.
-func (x SearchSGRes) IDList() []oid.ID {
-	return x.cliRes
-}
-
-var sgFilter = storagegroup.SearchQuery()
-
-// SearchSG lists objects of storage group type in the container.
-//
-// Returns any error which prevented the operation from completing correctly in error return.
-func (x Client) SearchSG(prm SearchSGPrm) (*SearchSGRes, error) {
-	var cliPrm client.PrmObjectSearch
-	cliPrm.SetFilters(sgFilter)
-
-	rdr, err := x.c.ObjectSearchInit(prm.ctx, prm.cnrID, x.signer, cliPrm)
-	if err != nil {
-		return nil, fmt.Errorf("init object search: %w", err)
-	}
-
-	var list []oid.ID
-
-	err = rdr.Iterate(func(id oid.ID) bool {
-		list = append(list, id)
-		return false
-	})
-	if err != nil {
-		return nil, fmt.Errorf("search objects using NeoFS API: %w", err)
-	}
-
-	return &SearchSGRes{
-		cliRes: list,
-	}, nil
 }
 
 // GetObjectPrm groups parameters of GetObject operation.
