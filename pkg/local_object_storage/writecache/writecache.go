@@ -146,18 +146,6 @@ func (c *cache) Open(readOnly bool) error {
 	}
 	c.modeMtx.Unlock()
 
-	// Migration part
-	if readOnly {
-		c.log.Error("could not migrate cache because it's opened in read-only mode, " +
-			"some objects can be unavailable")
-	} else {
-		err = c.migrate()
-		if err != nil {
-			c.log.Error("could not migrate cache", zap.Error(err))
-			return err
-		}
-	}
-
 	return c.initCounters()
 }
 
@@ -166,7 +154,18 @@ func (c *cache) Init() error {
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 
-	if !c.readOnly() {
+	// Migration part
+	if c.readOnly() {
+		c.log.Error("could not migrate cache because it's opened in read-only mode, " +
+			"some objects can be unavailable")
+	} else {
+		err := c.migrate()
+		if err != nil {
+			c.log.Error("could not migrate cache", zap.Error(err))
+			return err
+		}
+
+		// Flush part
 		c.initFlushMarks()
 		c.runFlushLoop()
 	}
