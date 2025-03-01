@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Failure of 1st split-chain child processing during metabase migration (#3187)
 
 ### Changed
+- IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
 
 ### Removed
 
