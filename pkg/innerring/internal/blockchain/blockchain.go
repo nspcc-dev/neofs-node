@@ -277,6 +277,11 @@ type Config struct {
 	//
 	// Optional.
 	Ledger LedgerConfig
+
+	// Memory pool size for P2PNotaryRequestPayloads.
+	//
+	// Optional: defaults to 1000.
+	P2PNotaryRequestPayloadPoolSize uint32
 }
 
 // New returns new Blockchain configured by the specified Config. New panics if
@@ -367,6 +372,9 @@ func New(cfg Config) (res *Blockchain, err error) {
 	if cfg.RPC.SessionPoolSize == 0 {
 		cfg.RPC.SessionPoolSize = 20
 	}
+	if cfg.P2PNotaryRequestPayloadPoolSize == 0 {
+		cfg.P2PNotaryRequestPayloadPoolSize = 1000
+	}
 
 	standByCommittee := make([]string, len(cfg.Committee))
 	for i := range cfg.Committee {
@@ -383,6 +391,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseProto.SeedList = cfg.SeedNodes
 	cfgBaseProto.VerifyTransactions = true
 	cfgBaseProto.P2PSigExtensions = true
+	cfgBaseProto.P2PNotaryRequestPayloadPoolSize = int(cfg.P2PNotaryRequestPayloadPoolSize)
 	cfgBaseProto.MaxTraceableBlocks = cfg.TraceableChainLength
 	cfgBaseProto.Hardforks = cfg.HardForks
 	if cfg.ValidatorsHistory != nil {
