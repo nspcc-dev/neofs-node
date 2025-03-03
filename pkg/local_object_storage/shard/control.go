@@ -311,6 +311,6 @@ func (s *Shard) Reload(opts ...Option) error {
 		}
 	}
 
-	s.log.Info("trying to restore read-write mode")
-	return s.setMode(mode.ReadWrite)
+	s.log.Info("trying to set mode", zap.Stringer("mode", c.info.Mode))
+	return s.setMode(c.info.Mode)
 }

@@ -25,7 +25,7 @@ comparing paths from `shard.blobstor` section. After this we have 3 sets:
    These are closed.
 2. Shards that are added. These are opened and initialized.
 3. Shards that remain in the configuration.
-   For these shards we apply reload to a `metabase` only. If `resync_metabase` is true, the metabase is also resynchronized.
+   For these shards we apply reload to a `metabase` and for a mode. If `resync_metabase` is true, the metabase is also resynchronized.
 
 ### Metabase
 
