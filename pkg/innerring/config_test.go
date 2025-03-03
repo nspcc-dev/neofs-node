@@ -45,6 +45,8 @@ const validBlockchainConfigOptions = `
       4: 1
       12: 4
     rpc:
+      max_websocket_clients: 100
+      session_pool_size: 100
       listen:
         - localhost:30000
         - localhost:30001
@@ -72,6 +74,9 @@ const validBlockchainConfigOptions = `
         interval: 44s
         timeout: 55s
     set_roles_in_genesis: true
+    keep_only_latest_state: true
+    remove_untraceable_blocks: true
+    p2p_notary_request_payload_pool_size: 100
 `
 
 func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *viper.Viper {
@@ -172,6 +177,8 @@ func TestParseBlockchainConfig(t *testing.T) {
 			Committee:     validCommittee,
 			BlockInterval: time.Second,
 			RPC: blockchain.RPCConfig{
+				MaxWebSocketClients: 100,
+				SessionPoolSize:     100,
 				Addresses: []string{
 					"localhost:30000",
 					"localhost:30001",
@@ -220,6 +227,11 @@ func TestParseBlockchainConfig(t *testing.T) {
 				12: 4,
 			},
 			SetRolesInGenesis: true,
+			Ledger: blockchain.LedgerConfig{
+				KeepOnlyLatestState:     true,
+				RemoveUntraceableBlocks: true,
+			},
+			P2PNotaryRequestPayloadPoolSize: 100,
 		}, c)
 	})
 
@@ -279,6 +291,10 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
 			{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
 			{kvF("rpc.listen", []string{"not a TCP address"})},
+			{kvF("rpc.max_websocket_clients", -1)},
+			{kvF("rpc.max_websocket_clients", math.MaxInt32+1)},
+			{kvF("rpc.session_pool_size", -1)},
+			{kvF("rpc.session_pool_size", math.MaxInt32+1)},
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
@@ -303,6 +319,12 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("set_roles_in_genesis", "True")},
 			{kvF("set_roles_in_genesis", "False")},
 			{kvF("set_roles_in_genesis", "not a boolean")},
+			{kvF("p2p_notary_request_payload_pool_size", -1)},
+			{kvF("keep_only_latest_state", 1)},
+			{kvF("keep_only_latest_state", "True")},
+			{kvF("remove_untraceable_blocks", 1)},
+			{kvF("remove_untraceable_blocks", "True")},
+			{kvF("p2p_notary_request_payload_pool_size", math.MaxUint32+1)},
 		} {
 			var reportMsg []string
 
