@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Not all the components needed for write-cache migration were initialized (#3186)
 - Homomorphic hash indexes with empty values in meta bucket (#3187)
 - Failure of 1st split-chain child processing during metabase migration (#3187)
+- Retries to sending notary request (#3193)
 
 ### Changed
 
