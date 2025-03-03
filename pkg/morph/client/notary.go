@@ -8,7 +8,9 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -424,11 +426,33 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 	var mainH = mainTx.Hash()
 	fbTx.Nonce = binary.BigEndian.Uint32(mainH[:])
 
-	mainH, fbH, untilActual, err := nAct.SendRequest(mainTx, fbTx)
-	if await {
-		_, err = nAct.Wait(mainH, fbH, untilActual, err)
-	}
-	if err != nil && !alreadyOnChainError(err) {
+	var (
+		retries     uint64
+		fbH         util.Uint256
+		untilActual uint32
+	)
+	expBackoff := backoff.NewExponentialBackOff()
+	err = backoff.RetryNotify(
+		func() error {
+			retries++
+			mainH, fbH, untilActual, err = nAct.SendRequest(mainTx, fbTx)
+			if await {
+				_, err = nAct.Wait(mainH, fbH, untilActual, err)
+			}
+			if alreadyOnChainError(err) {
+				return nil
+			}
+			return err
+		},
+		expBackoff,
+		func(err error, d time.Duration) {
+			c.logger.Info("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
+		})
+	if err != nil {
+		c.logger.Error("can't send notary request after retries",
+			zap.Uint64("retries", retries),
+			zap.Error(err),
+		)
 		return err
 	}
 
