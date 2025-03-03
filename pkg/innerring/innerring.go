@@ -1152,7 +1152,7 @@ func (s *Server) initConfigFromBlockchain() error {
 	s.epochDuration.Store(epochDuration)
 	s.initialEpochTickDelta.Store(delta)
 
-	s.log.Debug("read config from blockchain",
+	s.log.Info("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Uint64("epoch", epoch),
