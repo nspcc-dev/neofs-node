@@ -70,9 +70,10 @@ type validConfig struct {
 					Timeout  time.Duration `mapstructure:"timeout"`
 				} `mapstructure:"ping"`
 			} `mapstructure:"p2p"`
-			SetRolesInGenesis       bool `mapstructure:"set_roles_in_genesis"`
-			KeepOnlyLatestState     bool `mapstructure:"keep_only_latest_state"`
-			RemoveUntraceableBlocks bool `mapstructure:"remove_untraceable_blocks"`
+			SetRolesInGenesis               bool   `mapstructure:"set_roles_in_genesis"`
+			KeepOnlyLatestState             bool   `mapstructure:"keep_only_latest_state"`
+			RemoveUntraceableBlocks         bool   `mapstructure:"remove_untraceable_blocks"`
+			P2PNotaryRequestPayloadPoolSize uint32 `mapstructure:"p2p_notary_request_payload_pool_size"`
 		} `mapstructure:"consensus"`
 	} `mapstructure:"morph"`
 
@@ -129,9 +130,10 @@ type validConfig struct {
 					Timeout  time.Duration `mapstructure:"timeout"`
 				} `mapstructure:"ping"`
 			} `mapstructure:"p2p"`
-			SetRolesInGenesis       bool `mapstructure:"set_roles_in_genesis"`
-			KeepOnlyLatestState     bool `mapstructure:"keep_only_latest_state"`
-			RemoveUntraceableBlocks bool `mapstructure:"remove_untraceable_blocks"`
+			SetRolesInGenesis               bool   `mapstructure:"set_roles_in_genesis"`
+			KeepOnlyLatestState             bool   `mapstructure:"keep_only_latest_state"`
+			RemoveUntraceableBlocks         bool   `mapstructure:"remove_untraceable_blocks"`
+			P2PNotaryRequestPayloadPoolSize uint32 `mapstructure:"p2p_notary_request_payload_pool_size"`
 		} `mapstructure:"consensus"`
 	} `mapstructure:"fschain"`
 

@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- IR `fschain.consensus.p2p_notary_request_payload_pool_size` config option (#3195)
 
 ### Fixed
 - Zero range denial by `neofs-cli object range|hash` commands (#3182)

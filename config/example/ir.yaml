@@ -96,6 +96,8 @@ fschain:
     keep_only_latest_state: true # Optional flag that specifies if MPT should only store the latest state.
     remove_untraceable_blocks: false # Optional flag that denotes whether old blocks should be removed
       # from cache and database.
+    p2p_notary_request_payload_pool_size: 100 # Optional size of the node's P2P Notary request payloads memory pool.
+    # Defaults to 1000. Must be unsigned integer in range [1:2147483647].
 
 fschain_autodeploy: true # Optional flag to run auto-deployment procedure of the FS chain. By default,
   # the chain is expected to be deployed/updated in the background (e.g. via NeoFS ADM tool).

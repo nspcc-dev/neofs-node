@@ -127,6 +127,13 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 	}
 
+	p2pNotaryRequestPayloadPoolSize, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".p2p_notary_request_payload_pool_size",
+		"Size of the node's P2P Notary request payloads memory pool", 1, math.MaxUint32)
+	if err != nil && !errors.Is(err, errMissingConfig) {
+		return c, err
+	}
+	c.P2PNotaryRequestPayloadPoolSize = uint32(p2pNotaryRequestPayloadPoolSize)
+
 	var validatorsHistoryKey = cfgPathFSChainLocalConsensus + ".validators_history"
 	if v.IsSet(validatorsHistoryKey) {
 		c.ValidatorsHistory = make(map[uint32]uint32)
