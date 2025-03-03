@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Failure of 1st split-chain child processing during metabase migration (#3187)
 
 ### Changed
+- Use iterators for container listings (#3196)
 
 ### Removed
 

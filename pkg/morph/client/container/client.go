@@ -27,7 +27,7 @@ const (
 	putMethod     = "put"
 	deleteMethod  = "delete"
 	getMethod     = "get"
-	listMethod    = "list"
+	listMethod    = "containersOf"
 	eaclMethod    = "eACL"
 	setEACLMethod = "setEACL"
 
