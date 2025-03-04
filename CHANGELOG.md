@@ -12,10 +12,12 @@ Changelog for NeoFS Node
 - Homomorphic hash indexes with empty values in meta bucket (#3187)
 - Failure of 1st split-chain child processing during metabase migration (#3187)
 - Retries to sending notary request (#3193)
+- Initial epoch tick by a just-started IR (#3007)
 
 ### Changed
 - Use iterators for container listings (#3196)
 - Also reloading shard mode with SIGHUP (#3192)
+- IR logs INFO its state on start based on read FS chain's internals (#3197)
 
 ### Removed
 

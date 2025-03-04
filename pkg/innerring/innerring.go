@@ -1142,44 +1142,43 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read epoch duration: %w", err)
 	}
 
-	// get next epoch delta tick
-	delta, err := s.nextEpochBlockDelta()
+	lastTick, err := s.netmapClient.LastEpochBlock()
 	if err != nil {
-		return err
+		return fmt.Errorf("can't read last epoch block: %w", err)
 	}
+
+	blockHeight, err := s.morphClient.BlockCount()
+	if err != nil {
+		return fmt.Errorf("can't get FS chain height: %w", err)
+	}
+
+	// get next epoch delta tick
+	delta := nextEpochBlockDelta(uint32(epochDuration), blockHeight, lastTick)
 
 	s.epochCounter.Store(epoch)
 	s.epochDuration.Store(epochDuration)
 	s.initialEpochTickDelta.Store(delta)
 
-	s.log.Debug("read config from blockchain",
+	s.log.Info("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
 		zap.Bool("alphabet", s.IsAlphabet()),
 		zap.Uint64("epoch", epoch),
 		zap.Uint32("precision", s.precision),
-		zap.Uint32("init_epoch_tick_delta", delta),
+		zap.Uint32("last epoch tick block", lastTick),
+		zap.Uint32("current chain height", blockHeight),
+		zap.Uint32("next epoch tick after (blocks)", delta),
 	)
 
 	return nil
 }
 
-func (s *Server) nextEpochBlockDelta() (uint32, error) {
-	epochBlock, err := s.netmapClient.LastEpochBlock()
-	if err != nil {
-		return 0, fmt.Errorf("can't read last epoch block: %w", err)
+func nextEpochBlockDelta(duration, currentHeight, lastTick uint32) uint32 {
+	delta := duration + lastTick
+	if delta < currentHeight {
+		return 0
 	}
 
-	blockHeight, err := s.morphClient.BlockCount()
-	if err != nil {
-		return 0, fmt.Errorf("can't get FS chain height: %w", err)
-	}
-
-	delta := uint32(s.epochDuration.Load()) + epochBlock
-	if delta < blockHeight {
-		return 0, nil
-	}
-
-	return delta - blockHeight, nil
+	return delta - currentHeight
 }
 
 // onlyActiveHandler wrapper around event handler that executes it
