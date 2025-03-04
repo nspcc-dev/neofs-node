@@ -439,10 +439,13 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 			if await {
 				_, err = nAct.Wait(mainH, fbH, untilActual, err)
 			}
-			if alreadyOnChainError(err) {
-				return nil
+			if err != nil && !alreadyOnChainError(err) {
+				if errors.Is(err, neorpc.ErrMempoolCapReached) {
+					return err
+				}
+				return backoff.Permanent(err)
 			}
-			return err
+			return nil
 		},
 		expBackoff,
 		func(err error, d time.Duration) {
