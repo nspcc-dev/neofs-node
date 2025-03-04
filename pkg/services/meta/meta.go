@@ -13,6 +13,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
@@ -26,14 +28,18 @@ const (
 	rootKey = 0x00
 )
 
-// ContainerLister is a source of actual containers current node belongs to.
-type ContainerLister interface {
+// NeoFSNetwork describes current NeoFS storage network state.
+type NeoFSNetwork interface {
 	// List returns node's containers that support chain-based meta data and
 	// any error that does not allow listing.
 	List() (map[cid.ID]struct{}, error)
 	// IsMineWithMeta checks if the given CID has meta enabled and current
 	// node belongs to it.
 	IsMineWithMeta(cid.ID) (bool, error)
+	// Head returns actual object header from the NeoFS network (non-local
+	// objects should also be returned). Missing, removed object statuses
+	// must be reported according to API statuses from SDK.
+	Head(context.Context, cid.ID, oid.ID) (object.Object, error)
 }
 
 // wsClient is for test purposes only.
@@ -56,7 +62,7 @@ type Meta struct {
 	rootPath string
 	netmapH  util.Uint160
 	cnrH     util.Uint160
-	cLister  ContainerLister
+	net      NeoFSNetwork
 
 	stM      sync.RWMutex
 	storages map[cid.ID]*containerStorage
@@ -82,12 +88,12 @@ const blockBuffSize = 1024
 
 // Parameters groups arguments for [New] call.
 type Parameters struct {
-	Logger          *zap.Logger
-	ContainerLister ContainerLister
-	Timeout         time.Duration
-	ContainerHash   util.Uint160
-	NetmapHash      util.Uint160
-	RootPath        string
+	Logger        *zap.Logger
+	Network       NeoFSNetwork
+	Timeout       time.Duration
+	ContainerHash util.Uint160
+	NetmapHash    util.Uint160
+	RootPath      string
 
 	// fields that support runtime reload
 	NeoEnpoints []string
@@ -126,7 +132,7 @@ func New(p Parameters) (*Meta, error) {
 		}
 	}()
 
-	cnrsNetwork, err := p.ContainerLister.List()
+	cnrsNetwork, err := p.Network.List()
 	if err != nil {
 		return nil, fmt.Errorf("listing node's containers: %w", err)
 	}
@@ -157,7 +163,7 @@ func New(p Parameters) (*Meta, error) {
 		rootPath:  p.RootPath,
 		netmapH:   p.NetmapHash,
 		cnrH:      p.ContainerHash,
-		cLister:   p.ContainerLister,
+		net:       p.Network,
 		endpoints: p.NeoEnpoints,
 		timeout:   p.Timeout,
 		bCh:       make(chan *block.Header),
