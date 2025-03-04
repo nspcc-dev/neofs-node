@@ -1,11 +1,16 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
+	"go.uber.org/zap"
 )
 
 // StaticClient is a wrapper over Neo:Morph client
@@ -127,13 +132,17 @@ func (i *InvokePrmOptional) RequireAlphabetSignature() {
 func (s StaticClient) Invoke(prm InvokePrm) error {
 	fee := s.fees.feeForMethod(prm.method)
 
+	var (
+		invokeFunc func() error
+		err        error
+	)
+
 	if s.tryNotary || prm.signByAlphabet {
 		if s.alpha {
 			var (
 				nonce uint32 = 1
 				vubP  *uint32
 				vub   uint32
-				err   error
 			)
 
 			if prm.hash != nil {
@@ -145,20 +154,43 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 				vubP = &vub
 			}
 
-			_, err = s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
-			return err
+			invokeFunc = func() error {
+				_, err := s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
+				return err
+			}
+		} else {
+			invokeFunc = func() error {
+				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, fee, prm.method, prm.args...)
+			}
 		}
-
-		return s.client.NotaryInvokeNotAlpha(s.scScriptHash, fee, prm.method, prm.args...)
+	} else {
+		invokeFunc = func() error {
+			return s.client.Invoke(
+				s.scScriptHash,
+				prm.await,
+				fee,
+				prm.method,
+				prm.args...,
+			)
+		}
 	}
 
-	return s.client.Invoke(
-		s.scScriptHash,
-		prm.await,
-		fee,
-		prm.method,
-		prm.args...,
-	)
+	expBackoff := backoff.NewExponentialBackOff()
+	return backoff.RetryNotify(
+		func() error {
+			err = invokeFunc()
+			if err != nil {
+				if errors.Is(err, neorpc.ErrMempoolCapReached) {
+					return err
+				}
+				return backoff.Permanent(err)
+			}
+			return nil
+		},
+		expBackoff,
+		func(err error, d time.Duration) {
+			s.client.logger.Debug("retrying due to error", zap.Error(err), zap.Duration("retry-after", d))
+		})
 }
 
 // RunAlphabetNotaryScript invokes script by sending tx to notary contract in

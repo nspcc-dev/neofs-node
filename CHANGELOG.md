@@ -11,8 +11,8 @@ Changelog for NeoFS Node
 - Not all the components needed for write-cache migration were initialized (#3186)
 - Homomorphic hash indexes with empty values in meta bucket (#3187)
 - Failure of 1st split-chain child processing during metabase migration (#3187)
-- Retries to sending notary request (#3193)
 - Initial epoch tick by a just-started IR (#3007)
+- Missing retries when sending transaction/notary request leading to request failure in case of temporary errors (#3193, #3200)
 
 ### Changed
 - Use iterators for container listings (#3196)
