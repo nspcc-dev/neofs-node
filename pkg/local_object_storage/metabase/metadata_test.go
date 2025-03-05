@@ -82,6 +82,8 @@ func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origi
 	assertPrefixedAttrIDPresence(t, mb, id, true, attr, val, true)
 }
 
+func TestHeaderLimit(t *testing.T) { require.Less(t, object.MaxHeaderLen, bbolt.MaxKeySize) }
+
 func TestPutMetadata(t *testing.T) {
 	db := newDB(t)
 	cnr := cidtest.ID()

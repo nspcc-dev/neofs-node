@@ -676,4 +676,51 @@ func TestMigrate3to4(t *testing.T) {
 			"data":      base64.StdEncoding.EncodeToString(invalidProtobuf),
 		})
 	})
+	t.Run("header limit overflow", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objs := make([]object.Object, len(ids))
+		objBins := make([][]byte, len(ids))
+		for i := range ids {
+			objs[i].SetContainerID(cnr)
+			objs[i].SetID(ids[i])
+			objs[i].SetOwner(usertest.ID())
+			objs[i].SetPayloadChecksum(checksumtest.Checksum())
+			objBins[i] = objs[i].Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objBins {
+				require.NoError(t, b.Put(ids[i][:], objBins[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		// corrupt one object
+		bigAttrVal := make([]byte, 16<<10)
+		rand.Read(bigAttrVal)                                                                              //nolint:staticcheck
+		objs[1].SetAttributes(*object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
+		objBins[1] = objs[1].Marshal()
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NotNil(t, b)
+			require.NoError(t, b.Put(ids[1][:], objBins[1]))
+			return nil
+		}))
+		// migrate
+		require.EqualError(t, db.Init(), fmt.Sprintf("migrating from meta version 3 failed, consider database resync: "+
+			"process container 0x6%s bucket: invalid object %s: header len %d exceeds the limit", cnr, ids[1], objs[1].HeaderLen()))
+	})
 }
