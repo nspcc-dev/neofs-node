@@ -87,7 +87,7 @@ func notaryPreparator(localAcc util.Uint160, alphaKeys client.AlphabetKeys, bc B
 
 	dummyInvocationScript := append([]byte{byte(opcode.PUSHDATA1), 64}, make([]byte, 64)...)
 
-	const txCacheSize = 1000
+	const txCacheSize = 50000
 	cache, _ := lru.New[util.Uint256, struct{}](txCacheSize)
 
 	return preparator{
