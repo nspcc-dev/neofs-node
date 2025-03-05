@@ -139,12 +139,18 @@ func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
 				return nil
 			}
+			if err := verifyHeaderForMetadata(hdr); err != nil {
+				return fmt.Errorf("invalid object %s: %w", id, err)
+			}
 			par := hdr.Parent()
 			hasParent := par != nil
 			if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
 				return fmt.Errorf("put metadata for object %s: %w", id, err)
 			}
 			if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
+				if err := verifyHeaderForMetadata(hdr); err != nil {
+					return fmt.Errorf("invalid parent of object %s: %w", id, err)
+				}
 				if err := putMetadataForObject(tx, *par, false, false); err != nil {
 					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
 				}

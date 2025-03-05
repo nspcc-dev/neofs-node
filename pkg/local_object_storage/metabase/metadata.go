@@ -49,30 +49,19 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
-func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
-	owner := hdr.Owner()
-	if owner.IsZero() {
+// checks whether given header corresponds to metadata bucket requirements and
+// limits.
+func verifyHeaderForMetadata(hdr object.Object) error {
+	if hdr.GetContainerID().IsZero() {
+		return fmt.Errorf("invalid container: %w", cid.ErrZero)
+	}
+	if hdr.Owner().IsZero() {
 		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
 	}
-	pldHash, ok := hdr.PayloadChecksum()
-	if !ok {
+	if _, ok := hdr.PayloadChecksum(); !ok {
 		return errors.New("missing payload checksum")
 	}
-	var ver version.Version
-	if v := hdr.Version(); v != nil {
-		ver = *v
-	}
-	var pldHmmHash []byte
-	if h, ok := hdr.PayloadHomomorphicHash(); ok {
-		pldHmmHash = h.Value()
-	}
-	return putMetadata(tx, hdr.GetContainerID(), hdr.GetID(), ver, owner, hdr.Type(), hdr.CreationEpoch(), hdr.PayloadSize(), pldHash.Value(),
-		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), hasParent, phy)
-}
-
-func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
-	payloadLen uint64, pldHash, pldHmmHash, splitID []byte, parentID, firstID oid.ID, attrs []object.Attribute,
-	hasParent, phy bool) error {
+	attrs := hdr.Attributes()
 	for i := range attrs {
 		if strings.IndexByte(attrs[i].Key(), attributeDelimiter[0]) >= 0 {
 			return fmt.Errorf("attribute #%d key contains 0x%02X byte used in sep", i, attributeDelimiter[0])
@@ -81,11 +70,16 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 			return fmt.Errorf("attribute #%d value contains 0x%02X byte used in sep", i, attributeDelimiter[0])
 		}
 	}
+	return nil
+}
 
-	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(cnr))
+// returns BoltDB errors only.
+func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
+	metaBkt, err := tx.CreateBucketIfNotExists(metaBucketKey(hdr.GetContainerID()))
 	if err != nil {
 		return fmt.Errorf("create meta bucket for container: %w", err)
 	}
+	id := hdr.GetID()
 	idk := [1 + oid.Size]byte{metaPrefixID}
 	copy(idk[1:], id[:])
 	if err := metaBkt.Put(idk[:], nil); err != nil {
@@ -93,45 +87,55 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 	}
 
 	var keyBuf keyBuffer
+	var ver version.Version
+	if v := hdr.Version(); v != nil {
+		ver = *v
+	}
 	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterVersion, ver.String()); err != nil {
 		return err
 	}
+	owner := hdr.Owner()
 	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterOwnerID, string(owner[:])); err != nil {
 		return err
 	}
+	typ := hdr.Type()
 	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterType, typ.String()); err != nil {
 		return err
 	}
+	creationEpoch := hdr.CreationEpoch()
 	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterCreationEpoch, strconv.FormatUint(creationEpoch, 10), new(big.Int).SetUint64(creationEpoch)); err != nil {
 		return err
 	}
+	payloadLen := hdr.PayloadSize()
 	if err = putIntAttribute(metaBkt, &keyBuf, id, object.FilterPayloadSize, strconv.FormatUint(payloadLen, 10), new(big.Int).SetUint64(payloadLen)); err != nil {
 		return err
 	}
-	if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadChecksum, string(pldHash)); err != nil {
-		return err
-	}
-	if len(pldHmmHash) > 0 {
-		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(pldHmmHash)); err != nil {
+	if h, ok := hdr.PayloadChecksum(); ok {
+		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadChecksum, string(h.Value())); err != nil {
 			return err
 		}
 	}
-	if len(splitID) > 0 {
+	if h, ok := hdr.PayloadHomomorphicHash(); ok {
+		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterPayloadHomomorphicHash, string(h.Value())); err != nil {
+			return err
+		}
+	}
+	if splitID := hdr.SplitID().ToV2(); len(splitID) > 0 {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterSplitID, string(splitID)); err != nil {
 			return err
 		}
 	}
-	if !firstID.IsZero() {
+	if firstID := hdr.GetFirstID(); !firstID.IsZero() {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterFirstSplitObject, string(firstID[:])); err != nil {
 			return err
 		}
 	}
-	if !parentID.IsZero() {
+	if parentID := hdr.GetParentID(); !parentID.IsZero() {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterParentID, string(parentID[:])); err != nil {
 			return err
 		}
 	}
-	if !hasParent && typ == object.TypeRegular {
+	if !hasParent && hdr.Type() == object.TypeRegular {
 		if err = putPlainAttribute(metaBkt, &keyBuf, id, object.FilterRoot, binPropMarker); err != nil {
 			return err
 		}
@@ -141,6 +145,7 @@ func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner
 			return err
 		}
 	}
+	attrs := hdr.Attributes()
 	for i := range attrs {
 		ak, av := attrs[i].Key(), attrs[i].Value()
 		if n, isInt := parseInt(av); isInt && intWithinLimits(n) {
