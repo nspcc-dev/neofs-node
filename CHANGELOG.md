@@ -18,12 +18,16 @@ Changelog for NeoFS Node
 - Use iterators for container listings (#3196)
 - Also reloading shard mode with SIGHUP (#3192)
 - IR logs INFO its state on start based on read FS chain's internals (#3197)
+- Use list instead of maps for options in node config (#3204)
 
 ### Removed
 
 ### Updated
 
 ### Updating from v0.45.0
+The node config has been changed. Now instead of the fields `node.attribute_*` and 
+`storage.shard.*` there will be lists `node.attributes` and `storage.shard.shards`.
+Please rewrite this fields in your configuration files.
 
 ## [0.45.0] - 2025-02-27 - Sapsido
 

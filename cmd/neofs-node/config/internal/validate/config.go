@@ -45,7 +45,7 @@ type valideConfig struct {
 			Path string `mapstructure:"path"`
 		} `mapstructure:"persistent_state"`
 
-		Attribute map[string]string `mapstructure:",remain" prefix:"attribute_"`
+		Attributes []string `mapstructure:"attributes"`
 	} `mapstructure:"node"`
 
 	GRPC []struct {
@@ -135,8 +135,8 @@ type valideConfig struct {
 		PutRetryTimeout       time.Duration `mapstructure:"put_retry_timeout"`
 		IgnoreUninitedShards  bool          `mapstructure:"ignore_uninited_shards"`
 		Shard                 struct {
-			Default   shardDetails            `mapstructure:"default"`
-			ShardList map[string]shardDetails `mapstructure:",remain" prefix:""`
+			Default   shardDetails   `mapstructure:"default"`
+			ShardList []shardDetails `mapstructure:"shards"`
 		} `mapstructure:"shard"`
 	} `mapstructure:"storage"`
 }

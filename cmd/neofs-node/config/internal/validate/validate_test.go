@@ -29,9 +29,10 @@ node:
     - /dns4/s02.neofs.devenv/tcp/8081
     - grpc://127.0.0.1:8082
     - grpcs://localhost:8083
-  attribute_0: "Price:11"
-  attribute_1: UN-LOCODE:RU MSK
-  attribute_2: VerifiedNodesDomain:nodes.some-org.neofs
+  attributes:
+    - "Price:11"
+    - UN-LOCODE:RU MSK
+    - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
   persistent_sessions:
     path: /sessions
@@ -53,9 +54,10 @@ node:
     - /dns4/s02.neofs.devenv/tcp/8081
     - grpc://127.0.0.1:8082
     - grpcs://localhost:8083
-  attribute_0: "Price:11"
-  attribute_1: UN-LOCODE:RU MSK
-  attribute_2: VerifiedNodesDomain:nodes.some-org.neofs
+  attributes:
+    - "Price:11"
+    - UN-LOCODE:RU MSK
+    - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
   persistent_sessions:
     path: /sessions
@@ -73,9 +75,10 @@ node:
     address: 
       password: "password"
   addresses: s01.neofs.devenv:8080
-  attribute_0: "Price:11"
-  attribute_1: UN-LOCODE:RU MSK
-  attribute_2: VerifiedNodesDomain:nodes.some-org.neofs
+  attributes:
+    - "Price:11"
+    - UN-LOCODE:RU MSK
+    - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true
   persistent_sessions:
     path: /sessions
@@ -93,9 +96,10 @@ node:
     address: "NcpJzXcSDrh5CCizf4K9Ro6w4t59J5LKzz"
     password: "password"
   addresses: s01.neofs.devenv:8080
-  attribute_0: "Price:11"
-  attribute_1: UN-LOCODE:RU MSK
-  attribute_2: VerifiedNodesDomain:nodes.some-org.neofs
+  attributes:
+    - "Price:11"
+    - UN-LOCODE:RU MSK
+    - VerifiedNodesDomain:nodes.some-org.neofs
   attr: attr
   relay: true
   persistent_sessions:
@@ -160,6 +164,92 @@ grpc:
       enabled: false
   - endpoint: s03.neofs.devenv:8080
   - unknown: field
+`,
+			wantErr: true,
+		},
+		{
+			name: "good storage config",
+			config: `
+storage:
+  shard_pool_size: 15
+  put_retry_timeout: 5s
+  shard_ro_error_threshold: 100
+  ignore_uninited_shards: true
+
+  shard:
+    default:
+      resync_metabase: true
+
+      writecache:
+        enabled: true
+        max_object_size: 134217728
+
+      metabase:
+        perm: 0644
+        max_batch_size: 200
+        max_batch_delay: 20ms
+
+      pilorama:
+        max_batch_delay: 5ms
+        max_batch_size: 100
+
+      compress: false
+      small_object_size: 100 kb
+
+      blobstor:
+        - perm: 0644
+          depth: 5
+
+      gc:
+        remover_batch_size: 200
+        remover_sleep_interval: 5m
+
+    shards:
+      - mode: read-only
+        resync_metabase: false
+        writecache:
+          enabled: false
+          no_sync: true
+          path: tmp/0/cache
+          capacity: 3221225472
+
+        metabase:
+          path: tmp/0/meta
+          max_batch_size: 100
+          max_batch_delay: 10ms
+
+        blobstor:
+          - type: fstree
+            path: tmp/0/blob
+
+        pilorama:
+          path: tmp/0/blob/pilorama.db
+          max_batch_delay: 10ms
+          max_batch_size: 200
+`,
+			wantErr: false,
+		},
+		{
+			name: "unknown filed storage.shard.0",
+			config: `
+storage:
+  shard_pool_size: 15
+  put_retry_timeout: 5s
+  shard_ro_error_threshold: 100
+  ignore_uninited_shards: true
+
+  shard:
+    default:
+      resync_metabase: true
+
+    0:
+      mode: read-only
+      resync_metabase: false
+      writecache:
+        enabled: false
+        no_sync: true
+        path: tmp/0/cache
+        capacity: 3221225472
 `,
 			wantErr: true,
 		},

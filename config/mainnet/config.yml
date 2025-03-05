@@ -5,9 +5,10 @@ node:
     password: <password>
   addresses:
     - <announced.address:port>
-  attribute_0: UN-LOCODE:<XX YYY>
-  attribute_1: Price:100000
-  attribute_2: User-Agent:NeoFS\/0.27
+  attributes:
+    - UN-LOCODE:<XX YYY>
+    - Price:100000
+    - User-Agent:NeoFS\/0.27
 
 grpc:
   - endpoint: <listen.local.address:port>
@@ -16,23 +17,23 @@ grpc:
 
 storage:
   shard:
-    0:
-      metabase:
-        path: /storage/path/metabase
-        perm: 0600
-      blobstor:
-        - path: /storage/path/peapod.db
-          type: peapod
+    shards:
+      - metabase:
+          path: /storage/path/metabase
           perm: 0600
-        - path: /storage/path/fstree
-          type: fstree
-          perm: 0600
-          depth: 4
-      writecache:
-        enabled: false
-      gc:
-        remover_batch_size: 100
-        remover_sleep_interval: 1m
+        blobstor:
+          - path: /storage/path/peapod.db
+            type: peapod
+            perm: 0600
+          - path: /storage/path/fstree
+            type: fstree
+            perm: 0600
+            depth: 4
+        writecache:
+          enabled: false
+        gc:
+          remover_batch_size: 100
+          remover_sleep_interval: 1m
 
 logger:
   level: info

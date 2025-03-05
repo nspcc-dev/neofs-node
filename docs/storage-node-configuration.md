@@ -166,7 +166,8 @@ Local storage engine configuration.
 
 ## `shard` subsection
 
-Contains configuration for each shard. Keys must be consecutive numbers starting from zero.
+Contains configuration of shards.
+`shards` subsection contains an array of configurations for each shard.
 `default` subsection has the same format and specifies defaults for missing values.
 The following table describes configuration for each shard.
 
@@ -322,7 +323,7 @@ node:
     password: password
   addresses:
     - grpc://external.ip:8082
-  attribute:
+  attributes:
     - "Price:11"
     - "UN-LOCODE:RU MSK"
     - "key:value"
@@ -337,7 +338,7 @@ node:
 |-----------------------|---------------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
 | `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration.                                                                                                |
 | `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                                                                  |
-| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
+| `attributes`          | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |
 | `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                                                                        |
 | `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                                                                      |

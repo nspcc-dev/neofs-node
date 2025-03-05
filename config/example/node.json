@@ -26,9 +26,11 @@
       "grpc://127.0.0.1:8082",
       "grpcs://localhost:8083"
     ],
-    "attribute_0": "Price:11",
-    "attribute_1": "UN-LOCODE:RU MSK",
-    "attribute_2": "VerifiedNodesDomain:nodes.some-org.neofs",
+    "attributes": [
+      "Price:11",
+      "UN-LOCODE:RU MSK",
+      "VerifiedNodesDomain:nodes.some-org.neofs"
+    ],
     "relay": true,
     "persistent_sessions": {
       "path": "/sessions"
@@ -125,98 +127,100 @@
     "put_retry_timeout": "5s",
     "ignore_uninited_shards": true,
     "shard": {
-      "0": {
-        "mode": "read-only",
-        "resync_metabase": false,
-        "writecache": {
-          "enabled": false,
-          "no_sync": true,
-          "path": "tmp/0/cache",
-          "max_object_size": 134217728,
-          "capacity": 3221225472
-        },
-        "metabase": {
-          "path": "tmp/0/meta",
-          "perm": "0644",
-          "max_batch_size": 100,
-          "max_batch_delay": "10ms"
-        },
-        "compress": true,
-        "compression_exclude_content_types": [
-          "audio/*", "video/*"
-        ],
-        "small_object_size": 102400,
-        "blobstor": [
-          {
-            "type": "peapod",
-            "path": "tmp/0/blob/peapod.db",
-            "perm": "0644"
-          },
-          {
-            "type": "fstree",
-            "path": "tmp/0/blob",
-            "perm": "0644",
-            "depth": 5
-          }
-        ],
-        "pilorama": {
-          "path": "tmp/0/blob/pilorama.db",
-          "max_batch_delay": "10ms",
-          "max_batch_size": 200
-        },
-        "gc": {
-          "remover_batch_size": 150,
-          "remover_sleep_interval": "2m"
-        }
-      },
-      "1": {
-        "mode": "read-write",
-        "resync_metabase": true,
-        "writecache": {
-          "enabled": true,
-          "path": "tmp/1/cache",
-          "max_object_size": 134217728,
-          "capacity": 4294967296
-        },
-        "metabase": {
-          "path": "tmp/1/meta",
-          "perm": "0644",
-          "max_batch_size": 200,
-          "max_batch_delay": "20ms"
-        },
-        "compress": false,
-        "small_object_size": 102400,
-        "blobstor": [
-          {
-            "type": "peapod",
-            "path": "tmp/1/blob/peapod.db",
-            "perm": "0644",
-            "flush_interval": "30ms"
-          },
-          {
-            "type": "fstree",
-            "path": "tmp/1/blob",
+      "shards": [
+        {
+          "mode": "read-only",
+          "resync_metabase": false,
+          "writecache": {
+            "enabled": false,
             "no_sync": true,
+            "path": "tmp/0/cache",
+            "max_object_size": 134217728,
+            "capacity": 3221225472
+          },
+          "metabase": {
+            "path": "tmp/0/meta",
             "perm": "0644",
-            "depth": 5,
-            "flush_interval": "20ms",
-            "combined_count_limit": 64,
-            "combined_size_limit": "16M",
-            "combined_size_threshold": "512K"
+            "max_batch_size": 100,
+            "max_batch_delay": "10ms"
+          },
+          "compress": true,
+          "compression_exclude_content_types": [
+            "audio/*", "video/*"
+          ],
+          "small_object_size": 102400,
+          "blobstor": [
+            {
+              "type": "peapod",
+              "path": "tmp/0/blob/peapod.db",
+              "perm": "0644"
+            },
+            {
+              "type": "fstree",
+              "path": "tmp/0/blob",
+              "perm": "0644",
+              "depth": 5
+            }
+          ],
+          "pilorama": {
+            "path": "tmp/0/blob/pilorama.db",
+            "max_batch_delay": "10ms",
+            "max_batch_size": 200
+          },
+          "gc": {
+            "remover_batch_size": 150,
+            "remover_sleep_interval": "2m"
           }
-        ],
-        "pilorama": {
-          "path": "tmp/1/blob/pilorama.db",
-          "perm": "0644",
-          "no_sync": true,
-          "max_batch_delay": "5ms",
-          "max_batch_size": 100
         },
-        "gc": {
-          "remover_batch_size": 200,
-          "remover_sleep_interval": "5m"
+        {
+          "mode": "read-write",
+          "resync_metabase": true,
+          "writecache": {
+            "enabled": true,
+            "path": "tmp/1/cache",
+            "max_object_size": 134217728,
+            "capacity": 4294967296
+          },
+          "metabase": {
+            "path": "tmp/1/meta",
+            "perm": "0644",
+            "max_batch_size": 200,
+            "max_batch_delay": "20ms"
+          },
+          "compress": false,
+          "small_object_size": 102400,
+          "blobstor": [
+            {
+              "type": "peapod",
+              "path": "tmp/1/blob/peapod.db",
+              "perm": "0644",
+              "flush_interval": "30ms"
+            },
+            {
+              "type": "fstree",
+              "path": "tmp/1/blob",
+              "no_sync": true,
+              "perm": "0644",
+              "depth": 5,
+              "flush_interval": "20ms",
+              "combined_count_limit": 64,
+              "combined_size_limit": "16M",
+              "combined_size_threshold": "512K"
+            }
+          ],
+          "pilorama": {
+            "path": "tmp/1/blob/pilorama.db",
+            "perm": "0644",
+            "no_sync": true,
+            "max_batch_delay": "5ms",
+            "max_batch_size": 100
+          },
+          "gc": {
+            "remover_batch_size": 200,
+            "remover_sleep_interval": "5m"
+          }
         }
-      }
+      ]
     }
   }
 }
