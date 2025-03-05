@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Use iterators for container listings (#3196)
 - Also reloading shard mode with SIGHUP (#3192)
 - IR logs INFO its state on start based on read FS chain's internals (#3197)
+- IR cache size for handled notary requests (#3205)
 
 ### Removed
 
