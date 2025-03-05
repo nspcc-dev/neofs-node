@@ -140,7 +140,9 @@ func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 				return nil
 			}
 			if err := verifyHeaderForMetadata(hdr); err != nil {
-				return fmt.Errorf("invalid object %s: %w", id, err)
+				db.log.Info("invalid header in the container bucket, ignoring", zap.Error(err),
+					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
+				return nil
 			}
 			par := hdr.Parent()
 			hasParent := par != nil
@@ -149,7 +151,10 @@ func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 			}
 			if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
 				if err := verifyHeaderForMetadata(hdr); err != nil {
-					return fmt.Errorf("invalid parent of object %s: %w", id, err)
+					db.log.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
+						zap.Stringer("container", cnr), zap.Stringer("child", id),
+						zap.Stringer("parent", par.GetID()), zap.Binary("data", v))
+					return nil
 				}
 				if err := putMetadataForObject(tx, *par, false, false); err != nil {
 					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
