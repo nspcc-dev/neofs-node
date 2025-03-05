@@ -2,8 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -25,11 +27,16 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
+	"google.golang.org/protobuf/proto"
 )
 
 type epochStateImpl struct{}
@@ -290,6 +297,7 @@ func newDB(t testing.TB, opts ...Option) *DB {
 			WithPath(p),
 			WithPermissions(0o600),
 			WithEpochState(testEpochState(123)),
+			WithContainers(mockContainers{}),
 		}, opts...)...,
 	)
 
@@ -570,7 +578,12 @@ func TestMigrate3to4(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		t.Run("zero by in attribute", func(t *testing.T) {
 			testWithAttr := func(t *testing.T, k, v, msg string) {
-				db := newDB(t)
+				var logBuf zaptest.Buffer
+				db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
+					zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+					zap.CombineWriteSyncers(&logBuf),
+					zapcore.InfoLevel,
+				))))
 				cnr := cid.ID{74, 207, 174, 156, 40, 231, 114, 55, 114, 92, 232, 152, 106, 247, 193, 112, 158, 52, 3, 52, 184, 14, 75, 215, 86, 203, 76, 88, 158, 253, 241, 195}
 				id := oid.ID{254, 229, 187, 147, 179, 23, 187, 50, 37, 212, 113, 82, 18, 24, 192, 81, 251, 204, 82, 56, 211, 244, 161, 185, 71, 248, 118, 213, 134, 26, 49, 79}
 				var obj object.Object
@@ -591,10 +604,23 @@ func TestMigrate3to4(t *testing.T) {
 					return bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0})
 				}))
 				require.NoError(t, err)
-				// try to migrate
-				require.EqualError(t, db.Init(), "migrating from meta version 3 failed, consider database resync: "+
-					"process container 0x6632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW bucket: "+
-					"put metadata for object JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv: "+msg)
+				// migrate
+				require.NoError(t, db.Init())
+				// assert ignored
+				assertSearchResult(t, db, cnr, nil, nil, nil)
+				// assert log message
+				msgs := logBuf.Lines()
+				require.Len(t, msgs, 1)
+				var m map[string]any
+				require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+				require.Subset(t, m, map[string]any{
+					"level":     "info",
+					"msg":       "invalid header in the container bucket, ignoring",
+					"error":     msg,
+					"container": "632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW",
+					"object":    "JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv",
+					"data":      base64.StdEncoding.EncodeToString(obj.Marshal()),
+				})
 			}
 			t.Run("in key", func(t *testing.T) {
 				testWithAttr(t, "k\x00y", "value", "attribute #1 key contains 0x00 byte used in sep")
@@ -603,5 +629,208 @@ func TestMigrate3to4(t *testing.T) {
 				testWithAttr(t, "key", "va\x00ue", "attribute #1 value contains 0x00 byte used in sep")
 			})
 		})
+	})
+	t.Run("invalid protobuf", func(t *testing.T) {
+		var logBuf zaptest.Buffer
+		db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zap.CombineWriteSyncers(&logBuf),
+			zapcore.InfoLevel,
+		))))
+		invalidProtobuf := []byte("Hello, protobuf!")
+		errProto := proto.Unmarshal(invalidProtobuf, new(protoobject.Object))
+		require.Error(t, errProto)
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objs := make([][]byte, len(ids))
+		for i := range ids {
+			var obj object.Object
+			obj.SetContainerID(cnr)
+			obj.SetID(ids[i])
+			obj.SetOwner(usertest.ID())
+			obj.SetPayloadChecksum(checksumtest.Checksum())
+			objs[i] = obj.Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objs {
+				require.NoError(t, b.Put(ids[i][:], objs[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		// corrupt one object
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NotNil(t, b)
+			require.NoError(t, b.Put(ids[1][:], invalidProtobuf))
+			return nil
+		}))
+		// migrate
+		require.NoError(t, db.Init())
+		// assert all others are available
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(slices.Concat(ids[:1], ids[2:])))
+		// assert log message
+		msgs := logBuf.Lines()
+		require.Len(t, msgs, 1)
+		var m map[string]any
+		require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+		require.Subset(t, m, map[string]any{
+			"level":     "info",
+			"msg":       "invalid object binary in the container bucket's value, ignoring",
+			"error":     errProto.Error(),
+			"container": cnr.String(),
+			"object":    ids[1].String(),
+			"data":      base64.StdEncoding.EncodeToString(invalidProtobuf),
+		})
+	})
+	t.Run("header limit overflow", func(t *testing.T) {
+		var logBuf zaptest.Buffer
+		db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zap.CombineWriteSyncers(&logBuf),
+			zapcore.InfoLevel,
+		))))
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objs := make([]object.Object, len(ids))
+		objBins := make([][]byte, len(ids))
+		for i := range ids {
+			objs[i].SetContainerID(cnr)
+			objs[i].SetID(ids[i])
+			objs[i].SetOwner(usertest.ID())
+			objs[i].SetPayloadChecksum(checksumtest.Checksum())
+			objBins[i] = objs[i].Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objBins {
+				require.NoError(t, b.Put(ids[i][:], objBins[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		// corrupt one object
+		bigAttrVal := make([]byte, 16<<10)
+		rand.Read(bigAttrVal)                                                                              //nolint:staticcheck
+		objs[1].SetAttributes(*object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
+		objBins[1] = objs[1].Marshal()
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NotNil(t, b)
+			require.NoError(t, b.Put(ids[1][:], objBins[1]))
+			return nil
+		}))
+		// migrate
+		require.NoError(t, db.Init())
+		// assert all others are available
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(slices.Concat(ids[:1], ids[2:])))
+		// assert log message
+		msgs := logBuf.Lines()
+		require.Len(t, msgs, 1)
+		var m map[string]any
+		require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+		require.Subset(t, m, map[string]any{
+			"level":     "info",
+			"msg":       "invalid header in the container bucket, ignoring",
+			"error":     fmt.Sprintf("header len %d exceeds the limit", objs[1].HeaderLen()),
+			"container": cnr.String(),
+			"object":    ids[1].String(),
+			"data":      base64.StdEncoding.EncodeToString(objBins[1]),
+		})
+	})
+	t.Run("container presence", func(t *testing.T) {
+		var cnrs mockContainers
+		var logBuf zaptest.Buffer
+		db := newDB(t, WithContainers(&cnrs), WithLogger(zap.New(zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zap.CombineWriteSyncers(&logBuf),
+			zapcore.InfoLevel,
+		))))
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objBins := make([][]byte, len(ids))
+		for i := range ids {
+			objs[i].SetContainerID(cnr)
+			objs[i].SetID(ids[i])
+			objs[i].SetOwner(usertest.ID())
+			objs[i].SetPayloadChecksum(checksumtest.Checksum())
+			objBins[i] = objs[i].Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objBins {
+				require.NoError(t, b.Put(ids[i][:], objBins[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		t.Run("failed to check", func(t *testing.T) {
+			anyErr := errors.New("any error")
+			cnrs.err = anyErr
+			err = db.Init()
+			cnrs.err = nil
+			require.ErrorIs(t, err, anyErr)
+			require.EqualError(t, err, "migrating from meta version 3 failed, consider database resync: "+
+				"check container presence: "+anyErr.Error())
+		})
+		t.Run("missing", func(t *testing.T) {
+			cnrs.absent = true
+			require.NoError(t, db.Init())
+			cnrs.absent = false
+			// return version#3 back
+			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+				bkt := tx.Bucket([]byte{0x05})
+				require.NotNil(t, bkt)
+				require.Equal(t, []byte{0x04, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+				return nil
+			}))
+			// assert none were migrated
+			assertSearchResult(t, db, cnr, nil, nil, nil)
+			// assert log message
+			msgs := logBuf.Lines()
+			require.Len(t, msgs, 1)
+			var m map[string]any
+			require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+			require.Subset(t, m, map[string]any{"level": "info", "msg": "container no longer exists, ignoring", "container": cnr.String()})
+		})
+		// migrate
+		require.NoError(t, db.Init())
+		// assert all others are available
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(ids))
 	})
 }

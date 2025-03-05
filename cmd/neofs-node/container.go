@@ -24,6 +24,7 @@ import (
 	loadstorage "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apiClient "github.com/nspcc-dev/neofs-sdk-go/client"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -717,4 +718,17 @@ func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *sessio
 	}
 
 	return nil
+}
+
+type containerPresenceChecker struct{ src containerCore.Source }
+
+// Exists implements [meta.Containers].
+func (x containerPresenceChecker) Exists(id cid.ID) (bool, error) {
+	if _, err := x.src.Get(id); err != nil {
+		if errors.Is(err, apistatus.ErrContainerNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

@@ -21,6 +21,7 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
@@ -80,6 +81,8 @@ func assertIntAttr(t testing.TB, mb *bbolt.Bucket, id oid.ID, attr string, origi
 	assertAttr(t, mb, id, attr, origin)
 	assertPrefixedAttrIDPresence(t, mb, id, true, attr, val, true)
 }
+
+func TestHeaderLimit(t *testing.T) { require.Less(t, object.MaxHeaderLen, bbolt.MaxKeySize) }
 
 func TestPutMetadata(t *testing.T) {
 	db := newDB(t)
@@ -144,10 +147,10 @@ func TestPutMetadata(t *testing.T) {
 				require.EqualError(t, db.Put(&obj, nil, nil), msg)
 			}
 			t.Run("in key", func(t *testing.T) {
-				testWithAttr(t, "k\x00y", "value", "put metadata: attribute #1 key contains 0x00 byte used in sep")
+				testWithAttr(t, "k\x00y", "value", "attribute #1 key contains 0x00 byte used in sep")
 			})
 			t.Run("in value", func(t *testing.T) {
-				testWithAttr(t, "key", "va\x00ue", "put metadata: attribute #1 value contains 0x00 byte used in sep")
+				testWithAttr(t, "key", "va\x00ue", "attribute #1 value contains 0x00 byte used in sep")
 			})
 		})
 	})
@@ -199,6 +202,7 @@ func TestPutMetadata(t *testing.T) {
 		var obj object.Object
 		obj.SetContainerID(cnr)
 		obj.SetID(id)
+		obj.SetOwner(usertest.ID())     // Put requires
 		obj.SetPayloadChecksum(pldHash) // Put requires
 
 		require.NoError(t, db.Put(&obj, nil, nil))
@@ -670,6 +674,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		for i := range objs {
 			objs[i].SetContainerID(cnr)
 			objs[i].SetID(ids[i])
+			objs[i].SetOwner(usertest.ID())                     // required to Put
 			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // required to Put
 
 			err := db.Put(&objs[i], nil, nil)
@@ -1178,6 +1183,7 @@ func TestDB_SearchObjects(t *testing.T) {
 				for i := range objs {
 					objs[i].SetContainerID(cnr)
 					objs[i].SetID(ids[i])
+					objs[i].SetOwner(usertest.ID())                     // Put requires
 					objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 					require.NoError(t, db.Put(&objs[i], nil, nil))
 				}
@@ -1407,6 +1413,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			cnr := cidtest.ID()
 			for i := range objs {
 				objs[i].SetContainerID(cnr)
+				objs[i].SetOwner(usertest.ID())                     // Put requires
 				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 				require.NoError(t, db.Put(&objs[i], nil, nil))
 			}
@@ -1481,6 +1488,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			for i := range objs {
 				objs[i].SetID(ids[i])
 				objs[i].SetContainerID(cnr)
+				objs[i].SetOwner(usertest.ID())                     // Put requires
 				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 				require.NoError(t, db.Put(&objs[i], nil, nil))
 			}
@@ -1539,6 +1547,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			for i := range objs {
 				objs[i].SetID(ids[len(ids)-i-1])
 				objs[i].SetContainerID(cnr)
+				objs[i].SetOwner(usertest.ID())                     // Put requires
 				objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 				require.NoError(t, db.Put(&objs[i], nil, nil))
 			}
@@ -1597,6 +1606,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			if i == 3 {
 				appendAttribute(&objs[i], object.AttributeExpirationEpoch, "11")
 			}
+			objs[i].SetOwner(usertest.ID())                     // Put requires
 			objs[i].SetPayloadChecksum(checksumtest.Checksum()) // Put requires
 			require.NoError(t, db.Put(&objs[i], nil, nil))
 		}
