@@ -25,11 +25,12 @@ node:
     - grpc://127.0.0.1:8082
     - grpcs://localhost:8083
   # List of colon-separated key-value attributes.
-  attribute_0: "Price:11"
-  attribute_1: UN-LOCODE:RU MSK
+  attributes:
+    - "Price:11"
+    - UN-LOCODE:RU MSK
   # Next attribute specifies optional NeoFS NNS domain in order to enter the storage node into a private node group
   # (kind of subnet). The node must have public key from the corresponding access list. See docs for more detailed information.
-  attribute_2: VerifiedNodesDomain:nodes.some-org.neofs
+    - VerifiedNodesDomain:nodes.some-org.neofs
   relay: true  # start Storage node in relay mode without bootstrapping into the Network map
   persistent_sessions:
     path: /sessions  # path to persistent session tokens file of Storage node (default: in-memory sessions)
@@ -115,42 +116,41 @@ storage:
   shard_ro_error_threshold: 100 # amount of errors to occur before shard is made read-only (default: 0, ignore errors)
   ignore_uninited_shards: true # do we need to ignore uninited shards (default: false, fail on any shard failure)
 
-  shard:
-    default: # section with the default shard parameters
-      resync_metabase: true  # sync metabase with blobstor on start, expensive, leave false until complete understanding
+  shard_defaults: # section with the default shard parameters
+    resync_metabase: true  # sync metabase with blobstor on start, expensive, leave false until complete understanding
 
-      writecache:
-        enabled: true
-        max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
+    writecache:
+      enabled: true
+      max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
 
-      metabase:
-        perm: 0644  # permissions for metabase files(directories: +x for current user and group)
-        max_batch_size: 200
-        max_batch_delay: 20ms
+    metabase:
+      perm: 0644  # permissions for metabase files(directories: +x for current user and group)
+      max_batch_size: 200
+      max_batch_delay: 20ms
 
-      pilorama:
-        max_batch_delay: 5ms # maximum delay for a batch of operations to be executed
-        max_batch_size: 100 # maximum amount of operations in a single batch
+    pilorama:
+      max_batch_delay: 5ms # maximum delay for a batch of operations to be executed
+      max_batch_size: 100 # maximum amount of operations in a single batch
 
-      compress: false  # turn on/off zstd(level 3) compression of stored objects
-      small_object_size: 100 kb  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
+    compress: false  # turn on/off zstd(level 3) compression of stored objects
+    small_object_size: 100 kb  # size threshold for "small" objects which are cached in key-value DB, not in FS, bytes
 
-      blobstor:
-        - perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
-        - perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
-          depth: 5  # max depth of object tree storage in FS
+    blobstor:
+      - perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
+      - perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
+        depth: 5  # max depth of object tree storage in FS
 
-      gc:
-        remover_batch_size: 200  # number of objects to be removed by the garbage collector
-        remover_sleep_interval: 5m  # frequency of the garbage collector invocation
+    gc:
+      remover_batch_size: 200  # number of objects to be removed by the garbage collector
+      remover_sleep_interval: 5m  # frequency of the garbage collector invocation
 
-    0:
-      mode: read-only  # mode of the shard, must be one of the:
-        # read-write (default)
-        # read-only
-        # degraded
-        # degraded-read-only
-        # disabled (do not work with the shard, allows to not remove it from the config)
+  shards:
+    - mode: read-only  # mode of the shard, must be one of the:
+      # read-write (default)
+      # read-only
+      # degraded
+      # degraded-read-only
+      # disabled (do not work with the shard, allows to not remove it from the config)
       resync_metabase: false  # sync metabase with blobstor on start, expensive, leave false until complete understanding
 
       writecache:
@@ -184,8 +184,7 @@ storage:
         remover_batch_size: 150  # number of objects to be removed by the garbage collector
         remover_sleep_interval: 2m  # frequency of the garbage collector invocation
 
-    1:
-      writecache:
+    - writecache:
         path: tmp/1/cache  # write-cache root directory
         capacity: 4 G  # approximate write-cache total size, bytes
 

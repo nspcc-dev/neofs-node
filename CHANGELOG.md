@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - IR contract approval no longer supports neofsid accounts (#3256)
 - IR no longer processes bind/unbind neofsid requests (#3256)
 - SN `ExternalAddr` attribute is ignored now (#3235)
+- Use list instead of maps for options in node config (#3204)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
@@ -23,6 +24,12 @@ Changelog for NeoFS Node
 
 `apiclient.allow_external` field must be dropped from any SN configuration.
 Also, SN `ExternalAddr` attribute is no-op now and should also be removed.
+
+The node config has been changed. Instead of the field `node.attribute_*`,
+now there is a list `node.attributes`. Instead of `storage.shard.*`,
+there is a list `storage.shards` with configuration of each shard and
+`storage.shard.default` now is a `storage.shard_defaults` option with a configuration
+of a default values of shards. Please rewrite this fields in your configuration files.
 
 ## [0.45.2] - 2025-03-25
 
