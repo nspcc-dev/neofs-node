@@ -2,8 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -25,11 +27,16 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
+	"google.golang.org/protobuf/proto"
 )
 
 type epochStateImpl struct{}
@@ -602,6 +609,71 @@ func TestMigrate3to4(t *testing.T) {
 			t.Run("in value", func(t *testing.T) {
 				testWithAttr(t, "key", "va\x00ue", "attribute #1 value contains 0x00 byte used in sep")
 			})
+		})
+	})
+	t.Run("invalid protobuf", func(t *testing.T) {
+		var logBuf zaptest.Buffer
+		db := newDB(t, WithLogger(zap.New(zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zap.CombineWriteSyncers(&logBuf),
+			zapcore.InfoLevel,
+		))))
+		invalidProtobuf := []byte("Hello, protobuf!")
+		errProto := proto.Unmarshal(invalidProtobuf, new(protoobject.Object))
+		require.Error(t, errProto)
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objs := make([][]byte, len(ids))
+		for i := range ids {
+			var obj object.Object
+			obj.SetContainerID(cnr)
+			obj.SetID(ids[i])
+			obj.SetOwner(usertest.ID())
+			obj.SetPayloadChecksum(checksumtest.Checksum())
+			objs[i] = obj.Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objs {
+				require.NoError(t, b.Put(ids[i][:], objs[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		// corrupt one object
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NotNil(t, b)
+			require.NoError(t, b.Put(ids[1][:], invalidProtobuf))
+			return nil
+		}))
+		// migrate
+		require.NoError(t, db.Init())
+		// assert all others are available
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(slices.Concat(ids[:1], ids[2:])))
+		// assert log message
+		msgs := logBuf.Lines()
+		require.Len(t, msgs, 1)
+		var m map[string]any
+		require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+		require.Subset(t, m, map[string]any{
+			"level":     "info",
+			"msg":       "invalid object binary in the container bucket's value, ignoring",
+			"error":     errProto.Error(),
+			"container": cnr.String(),
+			"object":    ids[1].String(),
+			"data":      base64.StdEncoding.EncodeToString(invalidProtobuf),
 		})
 	})
 }
