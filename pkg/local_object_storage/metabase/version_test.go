@@ -297,6 +297,7 @@ func newDB(t testing.TB, opts ...Option) *DB {
 			WithPath(p),
 			WithPermissions(0o600),
 			WithEpochState(testEpochState(123)),
+			WithContainers(mockContainers{}),
 		}, opts...)...,
 	)
 
@@ -759,5 +760,77 @@ func TestMigrate3to4(t *testing.T) {
 			"object":    ids[1].String(),
 			"data":      base64.StdEncoding.EncodeToString(objBins[1]),
 		})
+	})
+	t.Run("container presence", func(t *testing.T) {
+		var cnrs mockContainers
+		var logBuf zaptest.Buffer
+		db := newDB(t, WithContainers(&cnrs), WithLogger(zap.New(zapcore.NewCore(
+			zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+			zap.CombineWriteSyncers(&logBuf),
+			zapcore.InfoLevel,
+		))))
+		cnr := cidtest.ID()
+		ids := sortObjectIDs(oidtest.IDs(5))
+		objBins := make([][]byte, len(ids))
+		for i := range ids {
+			objs[i].SetContainerID(cnr)
+			objs[i].SetID(ids[i])
+			objs[i].SetOwner(usertest.ID())
+			objs[i].SetPayloadChecksum(checksumtest.Checksum())
+			objBins[i] = objs[i].Marshal()
+		}
+		// store objects and force version#3
+		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+			b, err := tx.CreateBucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
+			require.NoError(t, err)
+			for i := range objBins {
+				require.NoError(t, b.Put(ids[i][:], objBins[i]))
+			}
+			bkt := tx.Bucket([]byte{0x05})
+			require.NotNil(t, bkt)
+			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+			return nil
+		}))
+		// assert all available
+		resSelect, err := db.Select(cnr, nil)
+		require.NoError(t, err)
+		require.Len(t, resSelect, len(ids))
+		for i := range ids {
+			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
+		}
+		t.Run("failed to check", func(t *testing.T) {
+			anyErr := errors.New("any error")
+			cnrs.err = anyErr
+			err = db.Init()
+			cnrs.err = nil
+			require.ErrorIs(t, err, anyErr)
+			require.EqualError(t, err, "migrating from meta version 3 failed, consider database resync: "+
+				"check container presence: "+anyErr.Error())
+		})
+		t.Run("missing", func(t *testing.T) {
+			cnrs.absent = true
+			require.NoError(t, db.Init())
+			cnrs.absent = false
+			// return version#3 back
+			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+				bkt := tx.Bucket([]byte{0x05})
+				require.NotNil(t, bkt)
+				require.Equal(t, []byte{0x04, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+				return nil
+			}))
+			// assert none were migrated
+			assertSearchResult(t, db, cnr, nil, nil, nil)
+			// assert log message
+			msgs := logBuf.Lines()
+			require.Len(t, msgs, 1)
+			var m map[string]any
+			require.NoError(t, json.Unmarshal([]byte(msgs[0]), &m))
+			require.Subset(t, m, map[string]any{"level": "info", "msg": "container no longer exists, ignoring", "container": cnr.String()})
+		})
+		// migrate
+		require.NoError(t, db.Init())
+		// assert all others are available
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(ids))
 	})
 }

@@ -128,6 +128,12 @@ func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 			return fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
 		}
 		cnr := cid.ID(name[1:])
+		if exists, err := db.cfg.containers.Exists(cnr); err != nil {
+			return fmt.Errorf("check container presence: %w", err)
+		} else if !exists {
+			db.log.Info("container no longer exists, ignoring", zap.Stringer("container", cnr))
+			return nil
+		}
 		err := b.ForEach(func(k, v []byte) error {
 			if len(k) != oid.Size {
 				return fmt.Errorf("wrong OID key len %d", len(k))

@@ -13,6 +13,7 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -28,6 +29,13 @@ type matcher struct {
 type EpochState interface {
 	// CurrentEpoch must return current epoch height.
 	CurrentEpoch() uint64
+}
+
+// Containers provides access to information about NeoFS containers required for
+// DB to process.
+type Containers interface {
+	// Exists checks presence of the referenced container.
+	Exists(cid.ID) (bool, error)
 }
 
 // DB represents local metabase of storage node.
@@ -56,6 +64,7 @@ type cfg struct {
 	log *zap.Logger
 
 	epochState EpochState
+	containers Containers
 }
 
 func defaultCfg() *cfg {
@@ -345,3 +354,6 @@ func WithEpochState(s EpochState) Option {
 		c.epochState = s
 	}
 }
+
+// WithContainers return option to specify container source.
+func WithContainers(cs Containers) Option { return func(c *cfg) { c.containers = cs } }
