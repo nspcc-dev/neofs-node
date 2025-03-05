@@ -49,6 +49,8 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
+var errDB = errors.New("DB error")
+
 func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) error {
 	owner := hdr.Owner()
 	if owner.IsZero() {
@@ -66,8 +68,23 @@ func putMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) 
 	if h, ok := hdr.PayloadHomomorphicHash(); ok {
 		pldHmmHash = h.Value()
 	}
-	return putMetadata(tx, hdr.GetContainerID(), hdr.GetID(), ver, owner, hdr.Type(), hdr.CreationEpoch(), hdr.PayloadSize(), pldHash.Value(),
-		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), hdr.Attributes(), hasParent, phy)
+	attrs := hdr.Attributes()
+	for i := range attrs {
+		if strings.IndexByte(attrs[i].Key(), attributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d key contains 0x%02X byte used in sep", i, attributeDelimiter[0])
+		}
+		if strings.IndexByte(attrs[i].Value(), attributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d value contains 0x%02X byte used in sep", i, attributeDelimiter[0])
+		}
+		if len(attrs[i].Value()) > bbolt.MaxKeySize {
+			return fmt.Errorf("attribute #%d value len is too big %d", i, len(attrs[i].Value()))
+		}
+	}
+	if err := putMetadata(tx, hdr.GetContainerID(), hdr.GetID(), ver, owner, hdr.Type(), hdr.CreationEpoch(), hdr.PayloadSize(), pldHash.Value(),
+		pldHmmHash, hdr.SplitID().ToV2(), hdr.GetParentID(), hdr.GetFirstID(), attrs, hasParent, phy); err != nil {
+		return fmt.Errorf("%w: %w", errDB, err)
+	}
+	return nil
 }
 
 func putMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID, ver version.Version, owner user.ID, typ object.Type, creationEpoch uint64,
