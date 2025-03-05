@@ -24,7 +24,6 @@ import (
 	sc "github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neo-go/pkg/vm/vmstate"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
@@ -417,25 +416,17 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 		return fmt.Errorf("faield to sign notary request: %w", err)
 	}
 
-	// Adjust nonce to always have a single fallback (and notary request)
-	// for the same main tx.
-	fbTx, err := nAct.FbActor.MakeUnsignedRun([]byte{byte(opcode.RET)}, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create fallback tx: %w", err)
-	}
-	var mainH = mainTx.Hash()
-	fbTx.Nonce = binary.BigEndian.Uint32(mainH[:])
-
 	var (
 		retries     uint64
 		fbH         util.Uint256
+		mainH       util.Uint256
 		untilActual uint32
 	)
 	expBackoff := backoff.NewExponentialBackOff()
 	err = backoff.RetryNotify(
 		func() error {
 			retries++
-			mainH, fbH, untilActual, err = nAct.SendRequest(mainTx, fbTx)
+			mainH, fbH, untilActual, err = nAct.Notarize(mainTx, nil)
 			if await {
 				_, err = nAct.Wait(mainH, fbH, untilActual, err)
 			}
