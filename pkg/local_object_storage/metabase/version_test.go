@@ -601,7 +601,7 @@ func TestMigrate3to4(t *testing.T) {
 				// try to migrate
 				require.EqualError(t, db.Init(), "migrating from meta version 3 failed, consider database resync: "+
 					"process container 0x6632qzc5qrxpvB1PZam23Xq5AXQ5Kbt2h6G1gtWDb8AzW bucket: "+
-					"put metadata for object JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv: "+msg)
+					"invalid object JA1jTW3qwWK9hWs95tesMVbrSLpjCjW6URv8xM7woPnv: "+msg)
 			}
 			t.Run("in key", func(t *testing.T) {
 				testWithAttr(t, "k\x00y", "value", "attribute #1 key contains 0x00 byte used in sep")
