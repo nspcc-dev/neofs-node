@@ -52,6 +52,9 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 // checks whether given header corresponds to metadata bucket requirements and
 // limits.
 func verifyHeaderForMetadata(hdr object.Object) error {
+	if ln := hdr.HeaderLen(); ln > object.MaxHeaderLen {
+		return fmt.Errorf("header len %d exceeds the limit", ln)
+	}
 	if hdr.GetContainerID().IsZero() {
 		return fmt.Errorf("invalid container: %w", cid.ErrZero)
 	}
