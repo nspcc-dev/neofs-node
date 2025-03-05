@@ -19,8 +19,9 @@ contracts:
   reputation: 376c23a2ae1fad088c82046abb59984e3c4519d9
 
 node:
-  attribute_0: Deployed:SelfHosted
-  attribute_1: User-Agent:NeoFS\/0.27
+  attributes:
+    - Deployed:SelfHosted
+    - User-Agent:NeoFS\/0.27
 
 prometheus:
   enabled: true
@@ -29,20 +30,20 @@ prometheus:
 
 storage:
   shard:
-    0:
-      metabase:
-        path: /storage/metabase
-        perm: 0777
-      blobstor:
-        - path: /storage/path/peapod.db
-          type: peapod
-          perm: 0600
-        - path: /storage/path/fstree
-          type: fstree
-          perm: 0600
-          depth: 4
-      writecache:
-        enabled: false
-      gc:
-        remover_batch_size: 100
-        remover_sleep_interval: 1m
+    shards:
+      - metabase:
+          path: /storage/metabase
+          perm: 0777
+        blobstor:
+          - path: /storage/path/peapod.db
+            type: peapod
+            perm: 0600
+          - path: /storage/path/fstree
+            type: fstree
+            perm: 0600
+            depth: 4
+        writecache:
+          enabled: false
+        gc:
+          remover_batch_size: 100
+          remover_sleep_interval: 1m

@@ -28,10 +28,10 @@ var ErrNoShardConfigured = errors.New("no shard configured")
 //
 // Panics if N is not a positive number while shards are required.
 func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config) error) error {
-	c = c.Sub(subsection)
+	c = c.Sub(subsection).Sub("shard")
 
-	c = c.Sub("shard")
 	def := c.Sub("default")
+	shards := c.Sub("shards")
 
 	alive := 0
 	i := uint64(0)
@@ -39,7 +39,7 @@ func IterateShards(c *config.Config, required bool, f func(*shardconfig.Config) 
 		si := strconv.FormatUint(i, 10)
 
 		sc := shardconfig.From(
-			c.Sub(si),
+			shards.Sub(si),
 		)
 
 		// Path for the blobstor can't be present in the default section, because different shards
