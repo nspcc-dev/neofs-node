@@ -183,6 +183,12 @@ func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Co
 		}
 		c.RPC.SessionPoolSize = uint(sessionPoolSize)
 
+		maxGasInvoke, err := parseConfigUint64Range(v, rpcSection+".max_gas_invoke", "maximum amount of GAS which can be spent during an RPC call", 1, math.MaxInt32)
+		if err != nil && !errors.Is(err, errMissingConfig) {
+			return c, err
+		}
+		c.RPC.MaxGasInvoke = uint(maxGasInvoke)
+
 		var rpcTLSSection = rpcSection + ".tls"
 		if v.GetBool(rpcTLSSection + ".enabled") {
 			c.RPC.TLSConfig.Enabled = true

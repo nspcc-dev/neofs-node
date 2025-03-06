@@ -48,6 +48,7 @@ type validConfig struct {
 				Listen              []string `mapstructure:"listen"`
 				MaxWebSocketClients uint32   `mapstructure:"max_websocket_clients"`
 				SessionPoolSize     uint32   `mapstructure:"session_pool_size"`
+				MaxGasInvoke        uint32   `mapstructure:"max_gas_invoke"`
 				TLS                 struct {
 					Enabled  bool     `mapstructure:"enabled"`
 					Listen   []string `mapstructure:"listen"`
@@ -108,6 +109,7 @@ type validConfig struct {
 				Listen              []string `mapstructure:"listen"`
 				MaxWebSocketClients uint32   `mapstructure:"max_websocket_clients"`
 				SessionPoolSize     uint32   `mapstructure:"session_pool_size"`
+				MaxGasInvoke        uint32   `mapstructure:"max_gas_invoke"`
 				TLS                 struct {
 					Enabled  bool     `mapstructure:"enabled"`
 					Listen   []string `mapstructure:"listen"`

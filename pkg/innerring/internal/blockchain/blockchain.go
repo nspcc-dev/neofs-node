@@ -108,6 +108,11 @@ type RPCConfig struct {
 	//
 	// Optional: defaults to 20. Must not be larger than math.MaxInt32.
 	SessionPoolSize uint
+
+	// The maximum amount of GAS which can be spent during an RPC call.
+	//
+	// Optional: defaults to 100. Must not be larger than math.MaxInt32.
+	MaxGasInvoke uint
 }
 
 // TLSConfig configures additional RPC serving over TLS.
@@ -375,6 +380,9 @@ func New(cfg Config) (res *Blockchain, err error) {
 	if cfg.P2PNotaryRequestPayloadPoolSize == 0 {
 		cfg.P2PNotaryRequestPayloadPoolSize = 1000
 	}
+	if cfg.RPC.MaxGasInvoke == 0 {
+		cfg.RPC.MaxGasInvoke = 100
+	}
 
 	standByCommittee := make([]string, len(cfg.Committee))
 	for i := range cfg.Committee {
@@ -420,7 +428,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 	cfgBaseApp.P2PNotary.Enabled = true
 	cfgBaseApp.P2PNotary.UnlockWallet = cfg.Wallet
 	cfgBaseApp.RPC.StartWhenSynchronized = true
-	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(100)
+	cfgBaseApp.RPC.MaxGasInvoke = fixedn.Fixed8FromInt64(int64(cfg.RPC.MaxGasInvoke))
 	cfgBaseApp.RPC.SessionEnabled = true
 	cfgBaseApp.P2P.Addresses = cfg.P2P.ListenAddresses
 	cfgBaseApp.P2P.DialTimeout = cfg.P2P.DialTimeout
