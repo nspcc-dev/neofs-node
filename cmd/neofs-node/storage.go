@@ -185,6 +185,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				meta.WithLogger(c.log),
 				meta.WithEpochState(c.cfgNetmap.state),
 				meta.WithContainers(containerPresenceChecker{src: c.cfgObject.cnrSource}),
+				meta.WithInitContext(c.ctx),
 			),
 			shard.WithPiloramaOptions(piloramaOpts...),
 			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),

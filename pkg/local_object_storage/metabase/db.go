@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"io/fs"
@@ -65,6 +66,8 @@ type cfg struct {
 
 	epochState EpochState
 	containers Containers
+
+	initCtx context.Context
 }
 
 func defaultCfg() *cfg {
@@ -75,6 +78,7 @@ func defaultCfg() *cfg {
 		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
 		boltBatchSize:  bbolt.DefaultMaxBatchSize,
 		log:            zap.L(),
+		initCtx:        context.Background(),
 	}
 }
 
@@ -357,3 +361,10 @@ func WithEpochState(s EpochState) Option {
 
 // WithContainers return option to specify container source.
 func WithContainers(cs Containers) Option { return func(c *cfg) { c.containers = cs } }
+
+// WithInitContext allows to specify context for [DB.Init] operation.
+func WithInitContext(ctx context.Context) Option {
+	// TODO: accept context parameter instead. Current approach allowed to reduce
+	//  code changes.
+	return func(c *cfg) { c.initCtx = ctx }
+}

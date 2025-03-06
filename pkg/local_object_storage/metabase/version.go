@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -127,6 +128,11 @@ func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
 func migrateFrom3Version(db *DB) error {
 	var fromBkt, afterObj []byte
 	for {
+		select {
+		case <-db.initCtx.Done():
+			return context.Cause(db.initCtx)
+		default:
+		}
 		if err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 			var err error
 			if fromBkt, afterObj, err = migrateContainersToMetaBucket(db.log, db.cfg.containers, tx, fromBkt, afterObj); err == nil {
