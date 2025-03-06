@@ -191,9 +191,10 @@ func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, 
 	} else {
 		k, v = c.First()
 	}
+	metaBkt := tx.Bucket(metaBucketKey(cnr)) // may be nil
 	var done uint
 	for ; k != nil; k, v = c.Next() {
-		ok, err := migrateObjectToMetaBucket(l, tx, cnr, k, v)
+		ok, err := migrateObjectToMetaBucket(l, tx, metaBkt, cnr, k, v)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -206,7 +207,7 @@ func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, 
 	return done, k, nil
 }
 
-func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, cnr cid.ID, id, bin []byte) (bool, error) {
+func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucket, cnr cid.ID, id, bin []byte) (bool, error) {
 	if len(id) != oid.Size {
 		return false, fmt.Errorf("wrong OID key len %d", len(id))
 	}
@@ -220,6 +221,13 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, cnr cid.ID, id, bin 
 		l.Info("invalid header in the container bucket, ignoring", zap.Error(err),
 			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
 		return false, nil
+	}
+	if metaBkt != nil {
+		key := [1 + oid.Size]byte{metaPrefixID}
+		copy(key[1:], id)
+		if metaBkt.Get(key[:]) != nil {
+			return false, nil
+		}
 	}
 	par := hdr.Parent()
 	hasParent := par != nil
