@@ -2,9 +2,11 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -25,13 +27,20 @@ var versionKey = []byte("version")
 // the current code version.
 var ErrOutdatedVersion = logicerr.New("invalid version, resynchronization is required")
 
-func (db *DB) checkVersion(tx *bbolt.Tx) error {
-	stored, knownVersion := getVersion(tx)
+func (db *DB) checkVersion() error {
+	var stored uint64
+	var knownVersion bool
+	if err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		stored, knownVersion = getVersion(tx)
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	switch {
 	case !knownVersion:
 		// new database, write version
-		return updateVersion(tx, currentMetaVersion)
+		return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, currentMetaVersion) })
 	case stored == currentMetaVersion:
 		return nil
 	case stored > currentMetaVersion:
@@ -45,7 +54,7 @@ func (db *DB) checkVersion(tx *bbolt.Tx) error {
 			return fmt.Errorf("%w: expected=%d, stored=%d", ErrOutdatedVersion, currentMetaVersion, stored)
 		}
 
-		err := migrate(db, tx)
+		err := migrate(db)
 		if err != nil {
 			return fmt.Errorf("migrating from meta version %d failed, consider database resync: %w", i, err)
 		}
@@ -77,13 +86,17 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	return 0, false
 }
 
-var migrateFrom = map[uint64]func(*DB, *bbolt.Tx) error{
+var migrateFrom = map[uint64]func(*DB) error{
 	2: migrateFrom2Version,
 	3: migrateFrom3Version,
 }
 
-func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
-	tsExpiration := db.epochState.CurrentEpoch() + objectconfig.DefaultTombstoneLifetime
+func migrateFrom2Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error { return migrateFrom2VersionTx(tx, db.epochState) })
+}
+
+func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
+	tsExpiration := epochState.CurrentEpoch() + objectconfig.DefaultTombstoneLifetime
 	bkt := tx.Bucket(graveyardBucketName)
 	if bkt == nil {
 		return errors.New("graveyard bucket is nil")
@@ -112,69 +125,132 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 	return updateVersion(tx, 3)
 }
 
-func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
-	c := tx.Cursor()
-	pref := []byte{metadataPrefix}
-	if k, _ := c.Seek(pref); bytes.HasPrefix(k, pref) {
-		return fmt.Errorf("key with prefix 0x%X detected, metadata space is occupied by unexpected data or the version has not been updated to #%d", pref, currentMetaVersion)
+func migrateFrom3Version(db *DB) error {
+	var fromBkt, afterObj []byte
+	for {
+		select {
+		case <-db.initCtx.Done():
+			return context.Cause(db.initCtx)
+		default:
+		}
+		if err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+			var err error
+			if fromBkt, afterObj, err = migrateContainersToMetaBucket(db.log, db.cfg.containers, tx, fromBkt, afterObj); err == nil {
+				fromBkt, afterObj = slices.Clone(fromBkt), slices.Clone(afterObj) // needed after the tx lifetime
+			}
+			return err
+		}); err != nil {
+			return err
+		}
+		if fromBkt == nil {
+			break
+		}
 	}
-	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, 4) })
+}
+
+func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt, afterObj []byte) ([]byte, []byte, error) {
+	c := tx.Cursor()
+	var name []byte
+	if fromBkt != nil {
+		name, _ = c.Seek(fromBkt)
+	} else {
+		name, _ = c.First()
+	}
+	rem := uint(1000)
+	var done uint
+	var err error
+	for ; name != nil; name, _ = c.Next() {
 		switch name[0] {
 		default:
-			return nil
+			continue
 		case primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix:
 		}
 		if len(name[1:]) != cid.Size {
-			return fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
+			return nil, nil, fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
 		}
 		cnr := cid.ID(name[1:])
-		if exists, err := db.cfg.containers.Exists(cnr); err != nil {
-			return fmt.Errorf("check container presence: %w", err)
+		if exists, err := cs.Exists(cnr); err != nil {
+			return nil, nil, fmt.Errorf("check container presence: %w", err)
 		} else if !exists {
-			db.log.Info("container no longer exists, ignoring", zap.Stringer("container", cnr))
-			return nil
+			l.Info("container no longer exists, ignoring", zap.Stringer("container", cnr))
+			continue
 		}
-		err := b.ForEach(func(k, v []byte) error {
-			if len(k) != oid.Size {
-				return fmt.Errorf("wrong OID key len %d", len(k))
-			}
-			id := oid.ID(k)
-			var hdr object.Object
-			if err := hdr.Unmarshal(v); err != nil {
-				db.log.Info("invalid object binary in the container bucket's value, ignoring", zap.Error(err),
-					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
-				return nil
-			}
-			if err := verifyHeaderForMetadata(hdr); err != nil {
-				db.log.Info("invalid header in the container bucket, ignoring", zap.Error(err),
-					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
-				return nil
-			}
-			par := hdr.Parent()
-			hasParent := par != nil
-			if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
-				return fmt.Errorf("put metadata for object %s: %w", id, err)
-			}
-			if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
-				if err := verifyHeaderForMetadata(hdr); err != nil {
-					db.log.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
-						zap.Stringer("container", cnr), zap.Stringer("child", id),
-						zap.Stringer("parent", par.GetID()), zap.Binary("data", v))
-					return nil
-				}
-				if err := putMetadataForObject(tx, *par, false, false); err != nil {
-					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("process container 0x%X%s bucket: %w", name[0], cnr, err)
+		b := tx.Bucket(name) // must not be nil, bbolt/Tx.ForEach follows the same assumption
+		if done, afterObj, err = migrateContainerToMetaBucket(l, tx, b.Cursor(), cnr, afterObj, rem); err != nil {
+			return nil, nil, fmt.Errorf("process container 0x%X%s bucket: %w", name[0], cnr, err)
 		}
-		return nil
-	})
-	if err != nil {
-		return err
+		if done == rem {
+			break
+		}
+		rem -= done
 	}
-	return updateVersion(tx, 4)
+	return name, afterObj, nil
+}
+
+func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
+	var k, v []byte
+	if after != nil {
+		if k, v = c.Seek(after); bytes.Equal(k, after) {
+			k, v = c.Next()
+		}
+	} else {
+		k, v = c.First()
+	}
+	metaBkt := tx.Bucket(metaBucketKey(cnr)) // may be nil
+	var done uint
+	for ; k != nil; k, v = c.Next() {
+		ok, err := migrateObjectToMetaBucket(l, tx, metaBkt, cnr, k, v)
+		if err != nil {
+			return 0, nil, err
+		}
+		if ok {
+			done++
+			if done == limit {
+				break
+			}
+		}
+	}
+	return done, k, nil
+}
+
+func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucket, cnr cid.ID, id, bin []byte) (bool, error) {
+	if len(id) != oid.Size {
+		return false, fmt.Errorf("wrong OID key len %d", len(id))
+	}
+	var hdr object.Object
+	if err := hdr.Unmarshal(bin); err != nil {
+		l.Info("invalid object binary in the container bucket's value, ignoring", zap.Error(err),
+			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
+		return false, nil
+	}
+	if err := verifyHeaderForMetadata(hdr); err != nil {
+		l.Info("invalid header in the container bucket, ignoring", zap.Error(err),
+			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
+		return false, nil
+	}
+	if metaBkt != nil {
+		key := [1 + oid.Size]byte{metaPrefixID}
+		copy(key[1:], id)
+		if metaBkt.Get(key[:]) != nil {
+			return false, nil
+		}
+	}
+	par := hdr.Parent()
+	hasParent := par != nil
+	if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
+		return false, fmt.Errorf("put metadata for object %s: %w", oid.ID(id), err)
+	}
+	if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
+		if err := verifyHeaderForMetadata(hdr); err != nil {
+			l.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
+				zap.Stringer("container", cnr), zap.Stringer("child", oid.ID(id)),
+				zap.Stringer("parent", par.GetID()), zap.Binary("data", bin))
+			return false, nil
+		}
+		if err := putMetadataForObject(tx, *par, false, false); err != nil {
+			return false, fmt.Errorf("put metadata for parent of object %s: %w", oid.ID(id), err)
+		}
+	}
+	return true, nil
 }

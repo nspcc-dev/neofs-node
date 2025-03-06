@@ -833,4 +833,114 @@ func TestMigrate3to4(t *testing.T) {
 		// assert all others are available
 		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(ids))
 	})
+	t.Run("various object sets", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			m    map[object.Type][]uint
+		}{
+			{name: "no objects", m: nil},
+			{name: "empty containers only", m: map[object.Type][]uint{
+				object.TypeRegular:      make([]uint, 3),
+				object.TypeTombstone:    make([]uint, 5),
+				object.TypeStorageGroup: make([]uint, 10),
+				object.TypeLock:         make([]uint, 1),
+				object.TypeLink:         make([]uint, 100),
+			}},
+			{name: "some containers are empty", m: map[object.Type][]uint{
+				object.TypeRegular:      {1, 7, 0, 20},
+				object.TypeTombstone:    {0, 15, 0},
+				object.TypeStorageGroup: make([]uint, 10),
+			}},
+			{name: "some containers are empty", m: map[object.Type][]uint{
+				object.TypeRegular:      {1, 7, 0, 20},
+				object.TypeTombstone:    {0, 15, 0},
+				object.TypeStorageGroup: make([]uint, 10),
+			}},
+			{name: "one big container", m: map[object.Type][]uint{
+				object.TypeRegular: {3999},
+			}},
+			{name: "big counts", m: map[object.Type][]uint{
+				object.TypeRegular:      {200, 700, 600},
+				object.TypeTombstone:    {20, 30},
+				object.TypeStorageGroup: {10, 0, 20, 0, 30, 0, 40, 0},
+				object.TypeLock:         {1, 2, 3, 4, 5, 6, 7, 8, 9},
+				object.TypeLink:         {99},
+			}},
+			{name: "big counts aligned", m: map[object.Type][]uint{
+				object.TypeRegular:      {1000},
+				object.TypeTombstone:    {500, 500, 500},
+				object.TypeStorageGroup: {200, 200, 200, 200, 200},
+			}},
+			{name: "big counts not aligned", m: map[object.Type][]uint{
+				object.TypeRegular:      {999, 999},
+				object.TypeTombstone:    {999},
+				object.TypeStorageGroup: {999, 999, 999},
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) { testMigrationV3To4(t, tc.m) })
+		}
+	})
+}
+
+func TestSlicesCloneNil(t *testing.T) {
+	// not stated in docs, but migrateContainersToMetaBucket relies on this
+	require.Nil(t, slices.Clone([]byte(nil)))
+}
+
+func testMigrationV3To4(t *testing.T, mAll map[object.Type][]uint) {
+	db := newDB(t)
+	// force version#3
+	require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket([]byte{0x05})
+		require.NotNil(t, bkt)
+		require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
+		return nil
+	}))
+	// store configured objects
+	mCnrs := make(map[cid.ID][]oid.ID)
+	for typ, counts := range mAll {
+		for _, count := range counts {
+			cnr := cidtest.ID()
+			var ids []oid.ID
+			for range count {
+				id := oidtest.ID()
+				require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+					var obj object.Object
+					obj.SetID(id)
+					obj.SetContainerID(cnr)
+					obj.SetOwner(usertest.ID())
+					obj.SetPayloadChecksum(checksumtest.Checksum())
+
+					var prefix byte
+					switch typ {
+					default:
+						t.Fatalf("unexpected object type %v", typ)
+					case object.TypeRegular:
+						prefix = 0x06
+					case object.TypeTombstone:
+						prefix = 0x09
+					case object.TypeStorageGroup:
+						prefix = 0x08
+					case object.TypeLock:
+						prefix = 0x07
+					case object.TypeLink:
+						prefix = 0x12
+					}
+					b, err := tx.CreateBucketIfNotExists(slices.Concat([]byte{prefix}, cnr[:]))
+					require.NoError(t, err)
+					require.NoError(t, b.Put(id[:], obj.Marshal()))
+					return nil
+				}))
+				ids = append(ids, id)
+			}
+			mCnrs[cnr] = ids
+		}
+	}
+	// migrate
+	require.NoError(t, db.Init())
+	// TODO: would also be nice to check tx num which is known
+	// check all objects are available
+	for cnr, ids := range mCnrs {
+		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(sortObjectIDs(ids)))
+	}
 }

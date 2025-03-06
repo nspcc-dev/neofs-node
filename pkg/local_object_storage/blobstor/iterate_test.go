@@ -192,7 +192,8 @@ func TestIterate_IgnoreErrors(t *testing.T) {
 	//	n := 0
 	//	expectedErr := errors.New("expected error")
 	//	prm.SetIterationHandler(func(e IterationElement) error {
-	//		if n++; n == objCount/2 {
+	//		n++
+	//		if n == objCount/2 {
 	//			return expectedErr
 	//		}
 	//		return nil

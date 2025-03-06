@@ -157,7 +157,8 @@ func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) ui
 					}
 				}
 			}
-			if n++; n == lim {
+			n++
+			if n == lim {
 				return n
 			}
 		}
