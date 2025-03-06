@@ -3,8 +3,16 @@ package meta
 import (
 	"testing"
 
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/stretchr/testify/require"
 )
+
+type mockContainers struct {
+	absent bool
+	err    error
+}
+
+func (x mockContainers) Exists(cid.ID) (bool, error) { return !x.absent, x.err }
 
 func TestAttributeDelimiter(t *testing.T) {
 	t.Run("len", func(t *testing.T) { require.Len(t, attributeDelimiter, attributeDelimiterLen) })

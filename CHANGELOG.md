@@ -19,6 +19,8 @@ Changelog for NeoFS Node
 - Also reloading shard mode with SIGHUP (#3192)
 - IR logs INFO its state on start based on read FS chain's internals (#3197)
 - IR cache size for handled notary requests (#3205)
+- Metabase V3->4 migration routine no longer breaks on broken binary or proto-violating object encounter (#3203)
+- Metabase V3->4 migration routine skips objects from the removed containers (#3203)
 
 ### Removed
 

@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 // currentMetaVersion contains current metabase version.
@@ -111,7 +112,7 @@ func migrateFrom2Version(db *DB, tx *bbolt.Tx) error {
 	return updateVersion(tx, 3)
 }
 
-func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
+func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 	c := tx.Cursor()
 	pref := []byte{metadataPrefix}
 	if k, _ := c.Seek(pref); bytes.HasPrefix(k, pref) {
@@ -127,6 +128,12 @@ func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
 			return fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
 		}
 		cnr := cid.ID(name[1:])
+		if exists, err := db.cfg.containers.Exists(cnr); err != nil {
+			return fmt.Errorf("check container presence: %w", err)
+		} else if !exists {
+			db.log.Info("container no longer exists, ignoring", zap.Stringer("container", cnr))
+			return nil
+		}
 		err := b.ForEach(func(k, v []byte) error {
 			if len(k) != oid.Size {
 				return fmt.Errorf("wrong OID key len %d", len(k))
@@ -134,7 +141,14 @@ func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
 			id := oid.ID(k)
 			var hdr object.Object
 			if err := hdr.Unmarshal(v); err != nil {
-				return fmt.Errorf("decode header of object %s from bucket value: %w", id, err)
+				db.log.Info("invalid object binary in the container bucket's value, ignoring", zap.Error(err),
+					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
+				return nil
+			}
+			if err := verifyHeaderForMetadata(hdr); err != nil {
+				db.log.Info("invalid header in the container bucket, ignoring", zap.Error(err),
+					zap.Stringer("container", cnr), zap.Stringer("object", id), zap.Binary("data", v))
+				return nil
 			}
 			par := hdr.Parent()
 			hasParent := par != nil
@@ -142,6 +156,12 @@ func migrateFrom3Version(_ *DB, tx *bbolt.Tx) error {
 				return fmt.Errorf("put metadata for object %s: %w", id, err)
 			}
 			if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
+				if err := verifyHeaderForMetadata(hdr); err != nil {
+					db.log.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
+						zap.Stringer("container", cnr), zap.Stringer("child", id),
+						zap.Stringer("parent", par.GetID()), zap.Binary("data", v))
+					return nil
+				}
 				if err := putMetadataForObject(tx, *par, false, false); err != nil {
 					return fmt.Errorf("put metadata for parent of object %s: %w", id, err)
 				}
