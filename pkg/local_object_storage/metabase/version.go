@@ -205,7 +205,8 @@ func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, 
 			return 0, nil, err
 		}
 		if ok {
-			if done++; done == limit {
+			done++
+			if done == limit {
 				break
 			}
 		}
