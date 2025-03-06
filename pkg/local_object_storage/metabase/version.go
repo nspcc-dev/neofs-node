@@ -125,10 +125,11 @@ func migrateFrom3Version(db *DB, tx *bbolt.Tx) error {
 }
 
 func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx) error {
-	return tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
+	c := tx.Cursor()
+	for name, _ := c.First(); name != nil; name, _ = c.Next() {
 		switch name[0] {
 		default:
-			return nil
+			continue
 		case primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix:
 		}
 		if len(name[1:]) != cid.Size {
@@ -139,13 +140,14 @@ func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx) e
 			return fmt.Errorf("check container presence: %w", err)
 		} else if !exists {
 			l.Info("container no longer exists, ignoring", zap.Stringer("container", cnr))
-			return nil
+			continue
 		}
+		b := tx.Bucket(name) // must not be nil, bbolt/Tx.ForEach follows the same assumption
 		if err := migrateContainerToMetaBucket(l, tx, b.Cursor(), cnr); err != nil {
 			return fmt.Errorf("process container 0x%X%s bucket: %w", name[0], cnr, err)
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, cnr cid.ID) error {
