@@ -16,10 +16,10 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"golang.org/x/sync/errgroup"
 )
@@ -121,7 +121,7 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, ee []objEvent, net
 			batch[string(append([]byte{lockedIndex}, commsuffix...))] = e.lockedObjects
 		}
 
-		err = validateHeader(objects[i])
+		err = object.VerifyHeaderForMetadata(objects[i])
 		if err != nil {
 			return fmt.Errorf("invalid %s header: %w", e.oID, err)
 		}
@@ -132,18 +132,6 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, ee []objEvent, net
 	err = s.db.PutChangeSet(batch, nil)
 	if err != nil {
 		return fmt.Errorf("put change set to DB: %w", err)
-	}
-
-	return nil
-}
-
-func validateHeader(h objectsdk.Object) error {
-	if h.Owner().IsZero() {
-		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
-	}
-	_, ok := h.PayloadChecksum()
-	if !ok {
-		return errors.New("missing payload checksum")
 	}
 
 	return nil
@@ -245,7 +233,7 @@ func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []
 			// DB reversed indexes
 			case oidToAttrIndex:
 				withoutOID := k[1+oid.Size:]
-				i := bytes.Index(withoutOID, attributeDelimiter)
+				i := bytes.Index(withoutOID, object.AttributeDelimiter)
 				if i < 0 {
 					err = fmt.Errorf("unexpected attribute index without delimeter: %s", string(k))
 					return false
@@ -254,10 +242,10 @@ func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []
 				attrV := withoutOID[i+attributeDelimiterLen:]
 
 				// drop reverse plain index
-				keyToDrop := make([]byte, 0, len(k)+len(attributeDelimiter))
+				keyToDrop := make([]byte, 0, len(k)+len(object.AttributeDelimiter))
 				keyToDrop = append(keyToDrop, attrPlainToOIDIndex)
 				keyToDrop = append(keyToDrop, withoutOID...)
-				keyToDrop = append(keyToDrop, attributeDelimiter...)
+				keyToDrop = append(keyToDrop, object.AttributeDelimiter...)
 				keyToDrop = append(keyToDrop, o...)
 
 				dbKV[string(keyToDrop)] = nil
@@ -268,7 +256,7 @@ func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []
 					keyToDrop = keyToDrop[:0]
 					keyToDrop = append(keyToDrop, attrIntToOIDIndex)
 					keyToDrop = append(keyToDrop, attrK...)
-					keyToDrop = append(keyToDrop, attributeDelimiter...)
+					keyToDrop = append(keyToDrop, object.AttributeDelimiter...)
 					keyToDrop = keyToDrop[:len(keyToDrop)+intValLen]
 					putBigInt(keyToDrop[len(keyToDrop)-intValLen:], vInt)
 					keyToDrop = append(keyToDrop, o...)
@@ -329,9 +317,6 @@ func storageForContainer(rootPath string, cID cid.ID) (*containerStorage, error)
 	}, nil
 }
 
-// object attribute key and value separator used in DB.
-var attributeDelimiter = []byte{0x00}
-
 const (
 	intValLen             = 33 // prefix byte for sign + fixed256 in attrIntToOIDIndex
 	attributeDelimiterLen = 1
@@ -358,7 +343,7 @@ func putPlainAttribute(batch map[string][]byte, id oid.ID, k, v string) {
 	resKey = append(resKey, oidToAttrIndex)
 	resKey = append(resKey, id[:]...)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, attributeDelimiter...)
+	resKey = append(resKey, object.AttributeDelimiter...)
 	resKey = append(resKey, v...)
 
 	batch[string(resKey)] = []byte{}
@@ -367,9 +352,9 @@ func putPlainAttribute(batch map[string][]byte, id oid.ID, k, v string) {
 	// PREFIX_ATTR_DELIM_VAL_DELIM_OID
 	resKey = append(resKey, attrPlainToOIDIndex)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, attributeDelimiter...)
+	resKey = append(resKey, object.AttributeDelimiter...)
 	resKey = append(resKey, v...)
-	resKey = append(resKey, attributeDelimiter...)
+	resKey = append(resKey, object.AttributeDelimiter...)
 	resKey = append(resKey, id[:]...)
 
 	batch[string(resKey)] = []byte{}
@@ -383,7 +368,7 @@ func putIntAttribute(batch map[string][]byte, id oid.ID, k, vRaw string, vParsed
 	// PREFIX_ATTR_DELIM_VAL_OID
 	resKey = append(resKey, attrIntToOIDIndex)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, attributeDelimiter...)
+	resKey = append(resKey, object.AttributeDelimiter...)
 
 	resKey = resKey[:len(resKey)+intValLen]
 	putBigInt(resKey[len(resKey)-intValLen:], vParsed)

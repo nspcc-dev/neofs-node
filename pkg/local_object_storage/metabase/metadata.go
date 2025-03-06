@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
@@ -47,33 +46,6 @@ var (
 
 func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
-}
-
-// checks whether given header corresponds to metadata bucket requirements and
-// limits.
-func verifyHeaderForMetadata(hdr object.Object) error {
-	if ln := hdr.HeaderLen(); ln > object.MaxHeaderLen {
-		return fmt.Errorf("header len %d exceeds the limit", ln)
-	}
-	if hdr.GetContainerID().IsZero() {
-		return fmt.Errorf("invalid container: %w", cid.ErrZero)
-	}
-	if hdr.Owner().IsZero() {
-		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
-	}
-	if _, ok := hdr.PayloadChecksum(); !ok {
-		return errors.New("missing payload checksum")
-	}
-	attrs := hdr.Attributes()
-	for i := range attrs {
-		if strings.IndexByte(attrs[i].Key(), attributeDelimiter[0]) >= 0 {
-			return fmt.Errorf("attribute #%d key contains 0x%02X byte used in sep", i, attributeDelimiter[0])
-		}
-		if strings.IndexByte(attrs[i].Value(), attributeDelimiter[0]) >= 0 {
-			return fmt.Errorf("attribute #%d value contains 0x%02X byte used in sep", i, attributeDelimiter[0])
-		}
-	}
-	return nil
 }
 
 // PutMetadataForObject fills object meta-data indexes using bbolt transaction.
@@ -180,21 +152,21 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 	pref[0] = metaPrefixIDAttr
 	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
-		sepInd := bytes.LastIndex(kIDAttr, attributeDelimiter)
+		sepInd := bytes.LastIndex(kIDAttr, objectcore.AttributeDelimiter)
 		if sepInd < 0 {
 			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
 		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
 		kAttrID[0] = metaPrefixAttrIDPlain
 		off := 1 + copy(kAttrID[1:], kIDAttr[1+oid.Size:])
-		off += copy(kAttrID[off:], attributeDelimiter)
+		off += copy(kAttrID[off:], objectcore.AttributeDelimiter)
 		copy(kAttrID[off:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
 		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+attributeDelimiterLen:]), 10); ok && intWithinLimits(n) {
 			kAttrIDInt := make([]byte, sepInd+attributeDelimiterLen+intValLen)
 			kAttrIDInt[0] = metaPrefixAttrIDInt
 			off := 1 + copy(kAttrIDInt[1:], kIDAttr[1+oid.Size:sepInd])
-			off += copy(kAttrIDInt[off:], attributeDelimiter)
+			off += copy(kAttrIDInt[off:], objectcore.AttributeDelimiter)
 			putInt(kAttrIDInt[off:off+intValLen], n)
 			copy(kAttrIDInt[off+intValLen:], id[:])
 			ks = append(ks, kAttrIDInt)
@@ -307,7 +279,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			if !bytes.Equal(primKeysPrefix[1:1+len(attrs[0])], []byte(attrs[0])) {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, errWrongPrimaryAttribute)
 			}
-			if !bytes.Equal(primKeysPrefix[1+len(attrs[0]):], attributeDelimiter) {
+			if !bytes.Equal(primKeysPrefix[1+len(attrs[0]):], objectcore.AttributeDelimiter) {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, errWrongKeyValDelim)
 			}
 			if primSeekKey[len(primKeysPrefix)] > 1 {
@@ -321,10 +293,10 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			if !bytes.Equal(primKeysPrefix[1:1+len(attrs[0])], []byte(attrs[0])) {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, errWrongPrimaryAttribute)
 			}
-			if !bytes.Equal(primKeysPrefix[1+len(attrs[0]):], attributeDelimiter) {
+			if !bytes.Equal(primKeysPrefix[1+len(attrs[0]):], objectcore.AttributeDelimiter) {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, errWrongKeyValDelim)
 			}
-			if !bytes.Equal(primSeekKey[len(primSeekKey)-oid.Size-attributeDelimiterLen:][:attributeDelimiterLen], attributeDelimiter) {
+			if !bytes.Equal(primSeekKey[len(primSeekKey)-oid.Size-attributeDelimiterLen:][:attributeDelimiterLen], objectcore.AttributeDelimiter) {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, errWrongValOIDDelim)
 			}
 		}
@@ -354,15 +326,15 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			if objectcore.IsIntegerSearchOp(primMatcher) {
 				f := fInt[0]
 				if !f.auto && (primMatcher == object.MatchNumGE || primMatcher == object.MatchNumGT) {
-					primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(attrs[0]), attributeDelimiter, f.b)
+					primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(attrs[0]), objectcore.AttributeDelimiter, f.b)
 					primKeysPrefix = primSeekKey[:1+len(attrs[0])+attributeDelimiterLen]
 				} else {
-					primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(attrs[0]), attributeDelimiter)
+					primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(attrs[0]), objectcore.AttributeDelimiter)
 					primKeysPrefix = primSeekKey
 				}
 			} else {
 				// according to the condition above, primValDB is empty for '!=' matcher as it should be
-				primSeekKey = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attrs[0]), attributeDelimiter, primValDB)
+				primSeekKey = slices.Concat([]byte{metaPrefixAttrIDPlain}, []byte(attrs[0]), objectcore.AttributeDelimiter, primValDB)
 				primKeysPrefix = primSeekKey[:1+len(attrs[0])+attributeDelimiterLen]
 			}
 		}
@@ -377,7 +349,7 @@ func splitValOID(b []byte) ([]byte, []byte, error) {
 	}
 	idOff := len(b) - oid.Size
 	valLn := idOff - attributeDelimiterLen
-	if !bytes.Equal(b[valLn:idOff], attributeDelimiter) {
+	if !bytes.Equal(b[valLn:idOff], objectcore.AttributeDelimiter) {
 		return nil, nil, errWrongValOIDDelim
 	}
 	return b[:valLn], b[idOff:], nil
@@ -800,11 +772,11 @@ func prepareMetaAttrIDKey(buf *keyBuffer, id oid.ID, attr string, valLen int, in
 		k[0] = metaPrefixAttrIDPlain
 	}
 	off := 1 + copy(k[1:], attr)
-	off += copy(k[off:], attributeDelimiter)
+	off += copy(k[off:], objectcore.AttributeDelimiter)
 	valOff := off
 	off += valLen
 	if !intAttr {
-		off += copy(k[off:], attributeDelimiter)
+		off += copy(k[off:], objectcore.AttributeDelimiter)
 	}
 	copy(k[off:], id[:])
 	return k, valOff
@@ -816,7 +788,7 @@ func prepareMetaIDAttrKey(buf *keyBuffer, id oid.ID, attr string, valLen int) []
 	k[0] = metaPrefixIDAttr
 	off := 1 + copy(k[1:], id[:])
 	off += copy(k[off:], attr)
-	copy(k[off:], attributeDelimiter)
+	copy(k[off:], objectcore.AttributeDelimiter)
 	return k
 }
 
@@ -854,7 +826,7 @@ func (x *metaAttributeSeeker) get(id []byte, attr string) ([]byte, error) {
 	pref[0] = metaPrefixIDAttr
 	off := 1 + copy(pref[1:], id)
 	off += copy(pref[off:], attr)
-	copy(pref[off:], attributeDelimiter)
+	copy(pref[off:], objectcore.AttributeDelimiter)
 	if x.crsr == nil {
 		x.crsr = x.bkt.Cursor()
 	}
@@ -916,7 +888,7 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 			}
 			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
 			off := copy(res, attr)
-			off += copy(res[off:], attributeDelimiter)
+			off += copy(res[off:], objectcore.AttributeDelimiter)
 			putInt(res[off:off+intValLen], n)
 			copy(res[off+intValLen:], lastItem.ID[:])
 			return res, nil
@@ -933,12 +905,12 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 		}
 		res := make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
 		off := copy(res, attr)
-		off += copy(res[off:], attributeDelimiter)
+		off += copy(res[off:], objectcore.AttributeDelimiter)
 		var err error
 		if _, err = hex.Decode(res[off:], []byte(lastItemVal)); err != nil {
 			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
 		}
-		off += copy(res[off+ln:], attributeDelimiter)
+		off += copy(res[off+ln:], objectcore.AttributeDelimiter)
 		copy(res[off:], lastItem.ID[:])
 		return res, nil
 	case object.FilterSplitID:
@@ -955,9 +927,9 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	kln := len(attr) + attributeDelimiterLen + len(val) + attributeDelimiterLen + oid.Size
 	res := make([]byte, kln)
 	off := copy(res, attr)
-	off += copy(res[off:], attributeDelimiter)
+	off += copy(res[off:], objectcore.AttributeDelimiter)
 	off += copy(res[off:], val)
-	off += copy(res[off:], attributeDelimiter)
+	off += copy(res[off:], objectcore.AttributeDelimiter)
 	copy(res[off:], lastItem.ID[:])
 	return res, nil
 }

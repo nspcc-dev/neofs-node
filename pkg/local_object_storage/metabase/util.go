@@ -12,9 +12,6 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// object attribute key and value separator used in DB.
-var attributeDelimiter = []byte{0x00}
-
 const attributeDelimiterLen = 1
 
 var (
