@@ -22,12 +22,18 @@ Changelog for NeoFS Node
 - IR cache size for handled notary requests (#3205)
 - Metabase V3->4 migration routine no longer breaks on broken binary or proto-violating object encounter (#3203)
 - Metabase V3->4 migration routine skips objects from the removed containers (#3203)
+- Use list instead of maps for options in node config (#3204)
 
 ### Removed
 
 ### Updated
 
 ### Updating from v0.45.0
+The node config has been changed. Instead of the field `node.attribute_*`,
+now there will be a list `node.attributes`. Instead of `storage.shard.*`,
+there will be a list `storage.shards` with configuration of each shard and
+`storage.shard.default` now is a `storage.shards_default` option with a configuration
+of a default values of shards. Please rewrite this fields in your configuration files.
 
 ## [0.45.0] - 2025-02-27 - Sapsido
 
