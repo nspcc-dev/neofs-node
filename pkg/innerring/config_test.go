@@ -47,6 +47,7 @@ const validBlockchainConfigOptions = `
     rpc:
       max_websocket_clients: 100
       session_pool_size: 100
+      max_gas_invoke: 200
       listen:
         - localhost:30000
         - localhost:30001
@@ -179,6 +180,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 			RPC: blockchain.RPCConfig{
 				MaxWebSocketClients: 100,
 				SessionPoolSize:     100,
+				MaxGasInvoke:        200,
 				Addresses: []string{
 					"localhost:30000",
 					"localhost:30001",
@@ -295,6 +297,8 @@ func TestParseBlockchainConfig(t *testing.T) {
 			{kvF("rpc.max_websocket_clients", math.MaxInt32+1)},
 			{kvF("rpc.session_pool_size", -1)},
 			{kvF("rpc.session_pool_size", math.MaxInt32+1)},
+			{kvF("rpc.max_gas_invoke", -1)},
+			{kvF("rpc.max_gas_invoke", math.MaxInt32+1)},
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
 			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided

@@ -63,6 +63,8 @@ fschain:
         # Must be unsigned integer in range [1:2147483647].
       session_pool_size: 100 # Optional maximum number of concurrent iterator sessions. Defaults to 20.
         # Must be unsigned integer in range [1:2147483647].
+      max_gas_invoke: 200 # Optional maximum amount of GAS which can be spent during an RPC call,
+        # should be taken in GAS units. Defaults to 100. Must be unsigned integer in range [1:2147483647].
       tls: # Additional addresses to listen to using TLS setup; must not overlap with `listen` section
         enabled: false # Additional TLS serving switcher
         listen: # Addresses to listen to; required to be at least 1-length if 'enabled' is 'true'
