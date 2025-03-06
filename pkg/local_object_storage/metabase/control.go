@@ -93,15 +93,15 @@ func (db *DB) init(reset bool) error {
 		string(bucketNameLocked):            {},
 	}
 
+	if !reset {
+		// Normal open, check version and update if not initialized.
+		if err := db.checkVersion(); err != nil {
+			return err
+		}
+	}
+
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var err error
-		if !reset {
-			// Normal open, check version and update if not initialized.
-			err := db.checkVersion(tx)
-			if err != nil {
-				return err
-			}
-		}
 		for k := range mStaticBuckets {
 			name := []byte(k)
 			if reset {

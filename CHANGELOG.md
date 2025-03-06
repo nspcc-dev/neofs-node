@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - IR cache size for handled notary requests (#3205)
 - Metabase V3->4 migration routine no longer breaks on broken binary or proto-violating object encounter (#3203)
 - Metabase V3->4 migration routine skips objects from the removed containers (#3203)
+- Metabase V3->4 migration routine processes up to 1000 objects per BoltDB transaction and keeps the progress (#3202)
 
 ### Removed
 
