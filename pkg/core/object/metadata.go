@@ -2,6 +2,7 @@ package object
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"math/big"
@@ -72,7 +73,7 @@ func MergeSearchResults(lim uint16, firstAttr string, cmpInt bool, sets [][]clie
 				} else {
 					switch firstAttr {
 					default:
-						cmpAttr = strings.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
+						cmpAttr = cmp.Compare(sets[i][0].Attributes[0], sets[minInd][0].Attributes[0])
 					case object.FilterParentID, object.FilterFirstSplitObject:
 						if err = curOID.DecodeString(sets[i][0].Attributes[0]); err == nil {
 							err = minOID.DecodeString(sets[minInd][0].Attributes[0])

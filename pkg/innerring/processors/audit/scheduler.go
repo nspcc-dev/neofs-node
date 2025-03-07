@@ -1,10 +1,10 @@
 package audit
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
@@ -25,7 +25,7 @@ func (ap *Processor) selectContainersToAudit(epoch uint64) ([]cid.ID, error) {
 	)
 
 	sort.Slice(containers, func(i, j int) bool {
-		return strings.Compare(containers[i].EncodeToString(), containers[j].EncodeToString()) < 0
+		return cmp.Compare(containers[i].EncodeToString(), containers[j].EncodeToString()) < 0
 	})
 
 	ind := ap.irList.InnerRingIndex()
