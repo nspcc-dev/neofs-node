@@ -16,7 +16,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -196,7 +195,7 @@ func (m *Meta) Run(ctx context.Context) error {
 			_ = st.db.Close()
 			st.m.Unlock()
 		}
-		maps.Clear(m.storages)
+		clear(m.storages)
 
 		m.stM.Unlock()
 	}()
