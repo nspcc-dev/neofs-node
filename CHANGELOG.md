@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- Minimum required version of Go to 1.23 (#2918)
 
 ### Updating from v0.45.1
 
