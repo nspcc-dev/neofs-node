@@ -140,7 +140,7 @@ func initReputationService(c *cfg) {
 
 	eigenTrustCalculator := eigentrustcalc.New(
 		eigentrustcalc.Prm{
-			AlphaProvider: c.cfgNetmap.wrapper,
+			AlphaProvider: c.nCli,
 			InitialTrustSource: intermediatereputation.InitialTrustSource{
 				NetMap: nmSrc,
 			},
@@ -167,7 +167,7 @@ func initReputationService(c *cfg) {
 			DaughtersTrustCalculator: &intermediatereputation.DaughtersTrustCalculator{
 				Calculator: eigenTrustCalculator,
 			},
-			IterationsProvider: c.cfgNetmap.wrapper,
+			IterationsProvider: c.nCli,
 			WorkerPool:         c.cfgReputation.workerPool,
 		},
 		eigentrustctrl.WithLogger(c.log),
@@ -217,14 +217,14 @@ func initReputationService(c *cfg) {
 
 			log := c.log.With(zap.Uint64("epoch", epoch))
 
-			duration, err := c.cfgNetmap.wrapper.EpochDuration()
+			duration, err := c.nCli.EpochDuration()
 			if err != nil {
 				log.Debug("could not fetch epoch duration", zap.Error(err))
 				return
 			}
 			c.networkState.updateEpochDuration(duration)
 
-			iterations, err := c.cfgNetmap.wrapper.EigenTrustIterations()
+			iterations, err := c.nCli.EigenTrustIterations()
 			if err != nil {
 				log.Debug("could not fetch iteration number", zap.Error(err))
 				return

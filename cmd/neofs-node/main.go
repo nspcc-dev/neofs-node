@@ -146,7 +146,7 @@ func initApp(c *cfg) {
 	c.shared.control.MarkReady(
 		c.cfgObject.cfgLocalStorage.localStorage,
 		c.netMapSource,
-		c.cfgObject.cnrSource,
+		c.cnrSrc,
 		c.replicator,
 		c,
 		treeSynchronizer{c.treeService},

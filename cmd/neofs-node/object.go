@@ -56,7 +56,7 @@ type objectSvc struct {
 }
 
 func (c *cfg) MaxObjectSize() uint64 {
-	sz, err := c.cfgNetmap.wrapper.MaxObjectSize()
+	sz, err := c.nCli.MaxObjectSize()
 	if err != nil {
 		c.log.Error("could not get max object size value",
 			zap.Error(err),
@@ -193,7 +193,7 @@ func initObjectService(c *cfg) {
 	c.shared.policer = policer.New(
 		policer.WithLogger(c.log),
 		policer.WithLocalStorage(ls),
-		policer.WithContainerSource(c.cfgObject.cnrSource),
+		policer.WithContainerSource(c.cnrSrc),
 		policer.WithPlacementBuilder(
 			placement.NewNetworkMapSourceBuilder(c.netMapSource),
 		),
@@ -230,7 +230,7 @@ func initObjectService(c *cfg) {
 
 	*c.cfgObject.getSvc = *sGet // need smth better
 
-	cnrNodes, err := newContainerNodes(c.cfgObject.cnrSource, c.netMapSource)
+	cnrNodes, err := newContainerNodes(c.cnrSrc, c.netMapSource)
 	fatalOnErr(err)
 	c.cfgObject.containerNodes = cnrNodes
 
@@ -251,7 +251,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithContainerClient(c.cCli),
 		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c)),
 		putsvc.WithObjectStorage(storageEngine{engine: ls}),
-		putsvc.WithContainerSource(c.cfgObject.cnrSource),
+		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkMapSource(c.netMapSource),
 		putsvc.WithNetworkState(c.cfgNetmap.state),
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
@@ -291,13 +291,11 @@ func initObjectService(c *cfg) {
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapper(netmapSourceWithNodes{Source: c.netMapSource, fsChain: fsChain}),
-		v2.WithContainerSource(
-			c.cfgObject.cnrSource,
-		),
+		v2.WithContainerSource(c.cnrSrc),
 	)
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
 		SetNetmapState(c.cfgNetmap.state).
-		SetEACLSource(c.cfgObject.eaclSource).
+		SetEACLSource(c.eaclSrc).
 		SetValidator(eaclSDK.NewValidator()).
 		SetLocalStorage(ls).
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),

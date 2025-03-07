@@ -50,23 +50,7 @@ func initContainerService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	cnrCli := c.shared.basics.cCli
-
-	cnrs := &containersInChain{contractClient: cnrCli}
-	cnrSrc := cntClient.AsContainerSource(cnrCli)
-	eaclFetcher := &morphEACLFetcher{cnrCli}
-
-	if c.shared.basics.ttl <= 0 {
-		c.cfgObject.eaclSource = eaclFetcher
-		cnrs.eacl = eaclFetcher
-		c.cfgObject.cnrSource = cnrSrc
-		cnrs.get = cnrSrc
-		cnrs.lister = cnrCli
-	} else {
-		cnrCache := c.shared.basics.containerCache
-		cnrListCache := c.shared.basics.containerListCache
-		eaclCache := c.shared.basics.eaclCache
-
+	if c.containerCache != nil {
 		subscribeToContainerCreation(c, func(e event.Event) {
 			ev := e.(containerEvent.PutSuccess)
 
@@ -74,9 +58,9 @@ func initContainerService(c *cfg) {
 			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
 			//  but don't forget about the profit of reading the new container and caching it:
 			//  creation success are most commonly tracked by polling GET op.
-			cnr, err := cnrCache.Get(ev.ID)
+			cnr, err := c.containerCache.Get(ev.ID)
 			if err == nil {
-				cnrListCache.update(cnr.Value.Owner(), ev.ID, true)
+				c.containerListCache.update(cnr.Value.Owner(), ev.ID, true)
 			} else {
 				// unlike removal, we expect successful receive of the container
 				// after successful creation, so logging can be useful
@@ -98,26 +82,17 @@ func initContainerService(c *cfg) {
 			// It's strange to read already removed container, but we can successfully hit
 			// the cache.
 			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
-			cnr, err := cnrCache.Get(ev.ID)
+			cnr, err := c.containerCache.Get(ev.ID)
 			if err == nil {
-				cnrListCache.update(cnr.Value.Owner(), ev.ID, false)
+				c.containerListCache.update(cnr.Value.Owner(), ev.ID, false)
 			}
 
-			cnrCache.handleRemoval(ev.ID)
+			c.containerCache.handleRemoval(ev.ID)
 
 			c.log.Debug("container removal event's receipt",
 				zap.Stringer("id", ev.ID),
 			)
 		})
-
-		c.cfgObject.eaclSource = eaclCache
-		c.cfgObject.cnrSource = cnrCache
-
-		cnrs.lister = cnrListCache
-		cnrs.eacl = c.cfgObject.eaclSource
-		cnrs.get = c.cfgObject.cnrSource
-		cnrs.cacheEnabled = true
-		cnrs.eacls = eaclCache
 	}
 
 	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
@@ -131,7 +106,7 @@ func initContainerService(c *cfg) {
 
 	resultWriter := &morphLoadWriter{
 		log:            estimationsLogger,
-		cnrMorphClient: cnrCli,
+		cnrMorphClient: c.cCli,
 		key:            pubKey,
 	}
 
@@ -145,7 +120,7 @@ func initContainerService(c *cfg) {
 	loadPlacementBuilder := &loadPlacementBuilder{
 		log:    estimationsLogger,
 		nmSrc:  c.netMapSource,
-		cnrSrc: cnrSrc,
+		cnrSrc: c.cnrSrc,
 	}
 
 	routeBuilder := placementrouter.New(placementrouter.Prm{
@@ -191,7 +166,7 @@ func initContainerService(c *cfg) {
 	})
 
 	server := &usedSpaceService{
-		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, cnrs),
+		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, (*containersInChain)(&c.basics)),
 		loadWriterProvider:     loadRouter,
 		loadPlacementBuilder:   loadPlacementBuilder,
 		routeBuilder:           routeBuilder,
@@ -631,23 +606,10 @@ func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.Si
 	return nil
 }
 
-type containersInChain struct {
-	eacl containerCore.EACLSource
-
-	get containerCore.Source
-
-	lister interface {
-		List(*user.ID) ([]cid.ID, error)
-	}
-
-	contractClient *cntClient.Client
-
-	cacheEnabled bool
-	eacls        *ttlEACLStorage
-}
+type containersInChain basics
 
 func (x *containersInChain) Get(id cid.ID) (containerSDK.Container, error) {
-	c, err := x.get.Get(id)
+	c, err := x.cnrSrc.Get(id)
 	if err != nil {
 		return containerSDK.Container{}, err
 	}
@@ -655,7 +617,7 @@ func (x *containersInChain) Get(id cid.ID) (containerSDK.Container, error) {
 }
 
 func (x *containersInChain) GetEACL(id cid.ID) (eacl.Table, error) {
-	c, err := x.eacl.GetEACL(id)
+	c, err := x.eaclSrc.GetEACL(id)
 	if err != nil {
 		return eacl.Table{}, err
 	}
@@ -663,7 +625,7 @@ func (x *containersInChain) GetEACL(id cid.ID) (eacl.Table, error) {
 }
 
 func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {
-	return x.lister.List(&id)
+	return x.cnrLst.List(&id)
 }
 
 func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st *session.Container) (cid.ID, error) {
@@ -682,7 +644,7 @@ func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st 
 	if v := cnr.Attribute("__NEOFS__METAINFO_CONSISTENCY"); v == "optimistic" || v == "strict" {
 		prm.EnableMeta()
 	}
-	if err := x.contractClient.Put(prm); err != nil {
+	if err := x.cCli.Put(prm); err != nil {
 		return cid.ID{}, err
 	}
 
@@ -697,7 +659,7 @@ func (x *containersInChain) Delete(id cid.ID, _, sig []byte, st *session.Contain
 	if st != nil {
 		prm.SetToken(st.Marshal())
 	}
-	return x.contractClient.Delete(prm)
+	return x.cCli.Delete(prm)
 }
 
 func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *session.Container) error {
@@ -709,12 +671,12 @@ func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *sessio
 	if st != nil {
 		prm.SetToken(st.Marshal())
 	}
-	if err := x.contractClient.PutEACL(prm); err != nil {
+	if err := x.cCli.PutEACL(prm); err != nil {
 		return err
 	}
 
-	if x.cacheEnabled {
-		x.eacls.InvalidateEACL(eACL.GetCID())
+	if x.eaclCache != nil {
+		x.eaclCache.InvalidateEACL(eACL.GetCID())
 	}
 
 	return nil

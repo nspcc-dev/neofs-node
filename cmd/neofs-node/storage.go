@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
-	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -25,7 +24,15 @@ import (
 )
 
 func initLocalStorage(c *cfg) {
-	ls := engine.New(c.engineOpts()...)
+	ls := engine.New([]engine.Option{
+		engine.WithShardPoolSize(c.engine.shardPoolSize),
+		engine.WithErrorThreshold(c.engine.errorThreshold),
+		engine.WithLogger(c.log),
+		engine.WithIgnoreUninitedShards(c.engine.isIgnoreUninitedShards),
+		engine.WithObjectPutRetryTimeout(c.engine.objectPutRetryDeadline),
+		engine.WithContainersSource(c.cnrSrc),
+		engine.WithMetrics(c.metricsCollector),
+	}...)
 
 	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
 		ls.HandleNewEpoch(ev.(netmap.NewEpoch).EpochNumber())
@@ -73,29 +80,6 @@ func initLocalStorage(c *cfg) {
 			c.log.Info("all components of the storage engine closed successfully")
 		}
 	})
-}
-
-func (c *cfg) engineOpts() []engine.Option {
-	opts := make([]engine.Option, 0, 4)
-
-	opts = append(opts,
-		engine.WithShardPoolSize(c.engine.shardPoolSize),
-		engine.WithErrorThreshold(c.engine.errorThreshold),
-
-		engine.WithLogger(c.log),
-		engine.WithIgnoreUninitedShards(c.engine.isIgnoreUninitedShards),
-		engine.WithObjectPutRetryTimeout(c.engine.objectPutRetryDeadline),
-	)
-
-	if c.shared.basics.ttl > 0 {
-		opts = append(opts, engine.WithContainersSource(c.shared.basics.containerCache))
-	} else {
-		opts = append(opts, engine.WithContainersSource(cntClient.AsContainerSource(c.shared.basics.cCli)))
-	}
-
-	opts = append(opts, engine.WithMetrics(c.metricsCollector))
-
-	return opts
 }
 
 type shardOptsWithID struct {

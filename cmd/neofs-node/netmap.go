@@ -168,8 +168,6 @@ func initNetmapService(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	c.cfgNetmap.wrapper = c.shared.basics.nCli
-
 	initNetmapState(c)
 
 	server := netmapService.New(&c.key.PrivateKey, c)
@@ -304,7 +302,7 @@ func initNetmapState(c *cfg) {
 }
 
 func getNetworkState(c *cfg) (uint64, *netmapSDK.NodeInfo, error) {
-	epoch, err := c.cfgNetmap.wrapper.Epoch()
+	epoch, err := c.nCli.Epoch()
 	if err != nil {
 		return 0, nil, fmt.Errorf("could not get current epoch number: %w", err)
 	}
@@ -325,7 +323,7 @@ func updateLocalState(c *cfg, epoch uint64, ni *netmapSDK.NodeInfo) {
 
 func (c *cfg) netmapLocalNodeState(epoch uint64) (*netmapSDK.NodeInfo, error) {
 	// calculate current network state
-	nm, err := c.cfgNetmap.wrapper.GetNetMapByEpoch(epoch)
+	nm, err := c.nCli.GetNetMapByEpoch(epoch)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +396,7 @@ func (c *cfg) ForceMaintenance() error {
 }
 
 func (c *cfg) setMaintenanceStatus(force bool) error {
-	netSettings, err := c.cfgNetmap.wrapper.ReadNetworkConfiguration()
+	netSettings, err := c.nCli.ReadNetworkConfiguration()
 	if err != nil {
 		err = fmt.Errorf("read network settings to check maintenance allowance: %w", err)
 	} else if !netSettings.MaintenanceModeAllowed {
@@ -423,7 +421,7 @@ func (c *cfg) setMaintenanceStatus(force bool) error {
 // calls UpdatePeerState operation of Netmap contract's client for the local node.
 // State setter is used to specify node state to switch to.
 func (c *cfg) updateNetMapState(state *big.Int) error {
-	return c.cfgNetmap.wrapper.UpdatePeerState(c.key.PublicKey().Bytes(), state)
+	return c.nCli.UpdatePeerState(c.key.PublicKey().Bytes(), state)
 }
 
 func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
@@ -437,7 +435,7 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 		return netmapSDK.NetworkInfo{}, fmt.Errorf("ms per block: %w", err)
 	}
 
-	netInfoMorph, err := c.cfgNetmap.wrapper.ReadNetworkConfiguration()
+	netInfoMorph, err := c.nCli.ReadNetworkConfiguration()
 	if err != nil {
 		return netmapSDK.NetworkInfo{}, fmt.Errorf("read network configuration using netmap contract client: %w", err)
 	}
