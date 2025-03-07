@@ -56,6 +56,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -325,7 +326,6 @@ func (c *internals) stopMaintenance() {
 
 type basics struct {
 	networkState *networkState
-	netMapSource netmapCore.Source
 
 	key          *keys.PrivateKey
 	binPublicKey []byte
@@ -334,9 +334,7 @@ type basics struct {
 	nCli *nmClient.Client
 	cCli *cntClient.Client
 
-	ttl time.Duration
-
-	// caches are non-nil only if ttl > 0
+	// all caches are non-nil iff caching is enabled in config
 	containerCache     *ttlContainerStorage
 	eaclCache          *ttlEACLStorage
 	containerListCache *ttlContainerLister
@@ -347,6 +345,14 @@ type basics struct {
 	netmapSH     neogoutil.Uint160
 	reputationSH neogoutil.Uint160
 	proxySH      neogoutil.Uint160
+
+	// either cached or not
+	cnrSrc container.Source
+	cnrLst interface {
+		List(*user.ID) ([]cid.ID, error)
+	}
+	eaclSrc      container.EACLSource
+	netMapSource netmapCore.Source
 }
 
 // shared contains component-specific structs/helpers that should
@@ -459,8 +465,6 @@ type cfgContainer struct {
 }
 
 type cfgNetmap struct {
-	wrapper *nmClient.Client
-
 	parsers map[event.Type]event.NotificationParser
 
 	subscribers map[event.Type][]event.Handler
@@ -481,10 +485,6 @@ type cfgNodeInfo struct {
 
 type cfgObject struct {
 	getSvc *getsvc.Service
-
-	cnrSource container.Source
-
-	eaclSource container.EACLSource
 
 	poolLock sync.RWMutex
 	pool     cfgObjectRoutines
@@ -722,19 +722,13 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	fatalOnErr(err)
 	nState.block.Store(currBlock)
 
-	cnrWrap, err := cntClient.NewFromMorph(cli, b.containerSH, 0)
+	b.cCli, err = cntClient.NewFromMorph(cli, b.containerSH, 0)
 	fatalOnErr(err)
 
-	cnrSrc := cntClient.AsContainerSource(cnrWrap)
-
-	eACLFetcher := &morphEACLFetcher{
-		w: cnrWrap,
-	}
-
-	nmWrap, err := nmClient.NewFromMorph(cli, b.netmapSH, 0)
+	b.nCli, err = nmClient.NewFromMorph(cli, b.netmapSH, 0)
 	fatalOnErr(err)
 
-	eDuration, err := nmWrap.EpochDuration()
+	eDuration, err := b.nCli.EpochDuration()
 	fatalOnErr(err)
 	nState.updateEpochDuration(eDuration)
 
@@ -746,27 +740,25 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 		c.log.Debug("fschain.cache_ttl fetched from network", zap.Duration("value", ttl))
 	}
 
-	var netmapSource netmapCore.Source
-	if ttl < 0 {
-		netmapSource = nmWrap
-	} else {
-		b.netmapCache = newCachedNetmapStorage(nState, nmWrap)
-		b.containerCache = newCachedContainerStorage(cnrSrc, ttl)
-		b.eaclCache = newCachedEACLStorage(eACLFetcher, ttl)
-		b.containerListCache = newCachedContainerLister(cnrWrap, ttl)
-
-		// use RPC node as source of netmap (with caching)
-		netmapSource = b.netmapCache
+	b.netMapSource = b.nCli
+	b.cnrSrc = cntClient.AsContainerSource(b.cCli)
+	b.eaclSrc = &morphEACLFetcher{w: b.cCli}
+	b.cnrLst = b.cCli
+	if ttl >= 0 {
+		b.netmapCache = newCachedNetmapStorage(nState, b.netMapSource)
+		b.netMapSource = b.netmapCache
+		b.containerCache = newCachedContainerStorage(b.cnrSrc, ttl)
+		b.cnrSrc = b.containerCache
+		b.eaclCache = newCachedEACLStorage(b.eaclSrc, ttl)
+		b.eaclSrc = b.eaclCache
+		b.containerListCache = newCachedContainerLister(b.cCli, ttl)
+		b.cnrLst = b.containerListCache
 	}
 
-	b.netMapSource = netmapSource
 	b.networkState = nState
 	b.key = key
 	b.binPublicKey = key.PublicKey().Bytes()
 	b.cli = cli
-	b.nCli = nmWrap
-	b.cCli = cnrWrap
-	b.ttl = ttl
 
 	return b
 }
@@ -847,7 +839,7 @@ func (c *cfg) bootstrapOnline() error {
 	c.cfgNodeInfo.localInfoLock.RUnlock()
 	ni.SetOnline()
 
-	return c.cfgNetmap.wrapper.AddPeer(ni, c.key.PublicKey())
+	return c.nCli.AddPeer(ni, c.key.PublicKey())
 }
 
 // heartbeat sends AddNode and/or UpdatePeer transactions with the current
@@ -857,7 +849,7 @@ func (c *cfg) heartbeat() error {
 		currentStatus = c.cfgNetmap.state.controlNetmapStatus()
 		st            *big.Int
 	)
-	if !c.cfgNetmap.wrapper.IsNodeV2() {
+	if !c.nCli.IsNodeV2() {
 		err := c.bootstrapOnline()
 		if err != nil {
 			return err

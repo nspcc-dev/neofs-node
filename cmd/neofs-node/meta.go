@@ -28,7 +28,7 @@ func initMeta(c *cfg) {
 	c.cfgMeta.network = &neofsNetwork{
 		key:        c.binPublicKey,
 		cnrClient:  c.basics.cCli,
-		containers: c.cfgObject.cnrSource,
+		containers: c.cnrSrc,
 		network:    c.basics.netMapSource,
 		header:     c.cfgObject.getSvc,
 	}

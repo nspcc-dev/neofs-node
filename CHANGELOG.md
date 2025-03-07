@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- NPE in metabase V3->4 migration routine (#3212)
 
 ### Changed
 
