@@ -13,6 +13,15 @@ Changelog for NeoFS Node
 
 ### Updated
 - Minimum required version of Go to 1.23 (#2918)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13` (#3199)
+- `github.com/nspcc-dev/neo-go` dependency to `v0.108.1` (#3199)
+- `github.com/nspcc-dev/hrw/v2` dependency to `v2.0.3` (#3199)
+- `github.com/stretchr/testify` dependency to `v1.10.0` (#3199)
+- `golang.org/x/exp` dependency to `v0.0.0-20250210185358-939b2ce775ac` (#3199)
+- `golang.org/x/net` dependency to `v0.32.0` (#3199)
+- `golang.org/x/sync` dependency to `v0.11.0` (#3199)
+- `google.golang.org/grpc` dependency to `v1.70.0` (#3199)
+- `google.golang.org/protobuf` dependency to `v1.36.5` (#3199)
 
 ### Updating from v0.45.1
 
