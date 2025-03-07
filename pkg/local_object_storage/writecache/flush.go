@@ -36,7 +36,6 @@ func (c *cache) runFlushLoop() {
 func (c *cache) flushScheduler() {
 	defer c.wg.Done()
 	ticker := time.NewTicker(defaultFlushInterval)
-	defer ticker.Stop()
 
 	for {
 		select {

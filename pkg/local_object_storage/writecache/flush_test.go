@@ -259,7 +259,6 @@ func TestFlushPerformance(t *testing.T) {
 func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
 	timeout := time.After(60 * time.Second)
 	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
 
 	for {
 		select {

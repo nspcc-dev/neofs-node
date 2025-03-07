@@ -243,7 +243,6 @@ func (m *Meta) flusher(ctx context.Context) {
 	)
 
 	t := time.NewTicker(flushInterval)
-	defer t.Stop()
 
 	for {
 		select {

@@ -137,7 +137,6 @@ func (gc *gc) tickRemover() {
 	defer gc.wg.Done()
 
 	timer := time.NewTimer(gc.removerInterval)
-	defer timer.Stop()
 
 	for {
 		select {
