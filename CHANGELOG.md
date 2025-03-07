@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.45.1
+
+## [0.45.1] - 2025-03-07
+
+### Added
 - IR `fschain.consensus.p2p_notary_request_payload_pool_size` config option (#3195)
 - IR `fschain.consensus.rpc.max_gas_invoke` config option (#3208)
 
@@ -24,12 +38,6 @@ Changelog for NeoFS Node
 - Metabase V3->4 migration routine skips objects from the removed containers (#3203)
 - Metabase V3->4 migration routine processes up to 1000 objects per BoltDB transaction and keeps the progress (#3202)
 - Metabase V3->4 migration routine stops gracefully on OS signal (#3202)
-
-### Removed
-
-### Updated
-
-### Updating from v0.45.0
 
 ## [0.45.0] - 2025-02-27 - Sapsido
 
@@ -2279,7 +2287,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...master
+[0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...v0.44.1
