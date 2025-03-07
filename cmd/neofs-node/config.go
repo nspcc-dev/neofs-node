@@ -347,6 +347,8 @@ type basics struct {
 	netmapSH     neogoutil.Uint160
 	reputationSH neogoutil.Uint160
 	proxySH      neogoutil.Uint160
+
+	cnrSrc container.Source
 }
 
 // shared contains component-specific structs/helpers that should
@@ -749,9 +751,11 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	var netmapSource netmapCore.Source
 	if ttl < 0 {
 		netmapSource = nmWrap
+		b.cnrSrc = cntClient.AsContainerSource(cnrWrap)
 	} else {
 		b.netmapCache = newCachedNetmapStorage(nState, nmWrap)
 		b.containerCache = newCachedContainerStorage(cnrSrc, ttl)
+		b.cnrSrc = b.containerCache
 		b.eaclCache = newCachedEACLStorage(eACLFetcher, ttl)
 		b.containerListCache = newCachedContainerLister(cnrWrap, ttl)
 
