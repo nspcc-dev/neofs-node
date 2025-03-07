@@ -26,8 +26,6 @@ func TestChildrenExpiration(t *testing.T) {
 	const numOfShards = 5
 	const currEpoch = 10
 	es := &epochState{e: currEpoch}
-	owner := usertest.ID()
-
 	e := New()
 	for i := range numOfShards {
 		_, err := e.AddShard(
@@ -140,7 +138,7 @@ func TestChildrenExpiration(t *testing.T) {
 		linkObj.SetParent(parent)
 		linkObj.SetParentID(parentID)
 		linkObj.SetFirstID(child1ID)
-		linkObj.SetOwnerID(&owner)
+		linkObj.SetOwner(usertest.ID())
 		linkObj.CalculateAndSetPayloadChecksum()
 		require.NoError(t, linkObj.CalculateAndSetID())
 

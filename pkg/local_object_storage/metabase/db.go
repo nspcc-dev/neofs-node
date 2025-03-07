@@ -97,7 +97,7 @@ func New(opts ...Option) *DB {
 	return &DB{
 		cfg: c,
 		matchers: map[object.SearchMatchType]matcher{
-			object.MatchUnknown: {
+			object.MatchUnspecified: {
 				matchSlow:   unknownMatcher,
 				matchBucket: unknownMatcherBucket,
 			},

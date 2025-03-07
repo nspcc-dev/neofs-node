@@ -66,8 +66,8 @@ func headersFromObject(obj *object.Object, cnr cid.ID, oid *oid.ID) []eaclSDK.He
 			res = append(res, oidHeader(*oid))
 		}
 
-		if idOwner := obj.OwnerID(); idOwner != nil {
-			res = append(res, ownerIDHeader(*idOwner))
+		if idOwner := obj.Owner(); !idOwner.IsZero() {
+			res = append(res, ownerIDHeader(idOwner))
 		}
 
 		cs, ok := obj.PayloadChecksum()

@@ -587,7 +587,6 @@ func (x *Blockchain) Run(ctx context.Context) (err error) {
 
 	// await synchronization with the network
 	t := time.NewTicker(x.core.GetConfig().TimePerBlock)
-	defer t.Stop()
 
 	for {
 		x.logger.Info("waiting for synchronization with the blockchain network...")

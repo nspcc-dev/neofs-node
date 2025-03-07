@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -483,8 +484,7 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
 			}
 			t.Run("header overflow", func(t *testing.T) {
-				b := make([]byte, object.MaxHeaderLen+1)
-				rand.Read(b) //nolint:staticcheck
+				b := testutil.RandByteSlice(object.MaxHeaderLen + 1)
 				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
 			})
 		})
@@ -537,8 +537,7 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
 			}
 			t.Run("header overflow", func(t *testing.T) {
-				b := make([]byte, object.MaxHeaderLen+1)
-				rand.Read(b) //nolint:staticcheck
+				b := testutil.RandByteSlice(object.MaxHeaderLen + 1)
 				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
 			})
 		})

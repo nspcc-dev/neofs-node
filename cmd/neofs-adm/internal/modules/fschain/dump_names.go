@@ -2,6 +2,7 @@ package fschain
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"sort"
 	"strings"
@@ -70,7 +71,7 @@ func dumpNames(cmd *cobra.Command, _ []string) error {
 			return len(iParts) < len(jParts)
 		}
 		for k := len(iParts) - 1; k >= 0; k-- {
-			var c = strings.Compare(iParts[k], jParts[k])
+			var c = cmp.Compare(iParts[k], jParts[k])
 			if c != 0 {
 				return c == -1
 			}

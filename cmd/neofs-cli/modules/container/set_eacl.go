@@ -131,7 +131,6 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 			const waitInterval = time.Second
 
 			t := time.NewTimer(waitInterval)
-			defer t.Stop()
 
 			for ; ; t.Reset(waitInterval) {
 				select {

@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// object lock command.
 var objectLockCmd = &cobra.Command{
 	Use:   "lock",
 	Short: "Lock object in container",
@@ -51,8 +50,6 @@ var objectLockCmd = &cobra.Command{
 			return err
 		}
 
-		idOwner := user.NewFromECDSAPublicKey(key.PublicKey)
-
 		var lock objectSDK.Lock
 		lock.WriteMembers(lockList)
 
@@ -81,7 +78,7 @@ var objectLockCmd = &cobra.Command{
 
 		obj := objectSDK.New()
 		obj.SetContainerID(cnr)
-		obj.SetOwnerID(&idOwner)
+		obj.SetOwner(user.NewFromECDSAPublicKey(key.PublicKey))
 		obj.SetType(objectSDK.TypeLock)
 		obj.SetAttributes(expirationAttr)
 		obj.SetPayload(lock.Marshal())

@@ -94,7 +94,6 @@ func (x *Peapod) flushLoop() {
 	defer close(x.chFlushDone)
 
 	t := time.NewTimer(x.flushInterval)
-	defer t.Stop()
 
 	for {
 		select {
