@@ -152,7 +152,7 @@ func putSG(cmd *cobra.Command, _ []string) error {
 
 	obj := object.New()
 	obj.SetContainerID(cnr)
-	obj.SetOwnerID(&ownerID)
+	obj.SetOwner(ownerID)
 
 	storagegroupSDK.WriteToObject(*sg, obj)
 
