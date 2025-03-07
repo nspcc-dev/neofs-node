@@ -11,8 +11,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
+	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,22 +25,23 @@ func initMeta(c *cfg) {
 		initMorphComponents(c)
 	}
 
-	c.cfgMeta.cLister = &metaContainerListener{
+	c.cfgMeta.network = &neofsNetwork{
 		key:        c.binPublicKey,
 		cnrClient:  c.basics.cCli,
 		containers: c.cfgObject.cnrSource,
 		network:    c.basics.netMapSource,
+		header:     c.cfgObject.getSvc,
 	}
 
 	var err error
 	p := meta.Parameters{
-		Logger:          c.log.With(zap.String("service", "meta data")),
-		ContainerLister: c.cfgMeta.cLister,
-		Timeout:         c.applicationConfiguration.fsChain.dialTimeout,
-		NeoEnpoints:     c.applicationConfiguration.fsChain.endpoints,
-		ContainerHash:   c.basics.containerSH,
-		NetmapHash:      c.basics.netmapSH,
-		RootPath:        c.applicationConfiguration.metadata.path,
+		Logger:        c.log.With(zap.String("service", "meta data")),
+		Network:       c.cfgMeta.network,
+		Timeout:       c.applicationConfiguration.fsChain.dialTimeout,
+		NeoEnpoints:   c.applicationConfiguration.fsChain.endpoints,
+		ContainerHash: c.basics.containerSH,
+		NetmapHash:    c.basics.netmapSH,
+		RootPath:      c.applicationConfiguration.metadata.path,
 	}
 	c.shared.metaService, err = meta.New(p)
 	fatalOnErr(err)
@@ -50,12 +54,13 @@ func initMeta(c *cfg) {
 	}))
 }
 
-type metaContainerListener struct {
+type neofsNetwork struct {
 	key []byte
 
 	cnrClient  *cntClient.Client
 	containers container.Source
 	network    netmap.Source
+	header     *getsvc.Service
 
 	m          sync.RWMutex
 	prevCnrs   []cid.ID
@@ -63,7 +68,18 @@ type metaContainerListener struct {
 	prevRes    map[cid.ID]struct{}
 }
 
-func (c *metaContainerListener) IsMineWithMeta(id cid.ID) (bool, error) {
+func (c *neofsNetwork) Head(ctx context.Context, cID cid.ID, oID oid.ID) (object.Object, error) {
+	var hw headerWriter
+	var hPrm getsvc.HeadPrm
+	hPrm.SetHeaderWriter(&hw)
+	hPrm.WithAddress(oid.NewAddress(cID, oID))
+
+	err := c.header.Head(ctx, hPrm)
+
+	return *hw.h, err
+}
+
+func (c *neofsNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
 	curEpoch, err := c.network.Epoch()
 	if err != nil {
 		return false, fmt.Errorf("read current NeoFS epoch: %w", err)
@@ -75,7 +91,7 @@ func (c *metaContainerListener) IsMineWithMeta(id cid.ID) (bool, error) {
 	return c.isMineWithMeta(id, networkMap)
 }
 
-func (c *metaContainerListener) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (bool, error) {
+func (c *neofsNetwork) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (bool, error) {
 	cnr, err := c.containers.Get(id)
 	if err != nil {
 		return false, fmt.Errorf("read %s container: %w", id, err)
@@ -104,7 +120,7 @@ func (c *metaContainerListener) isMineWithMeta(id cid.ID, networkMap *netmapsdk.
 	return false, nil
 }
 
-func (c *metaContainerListener) List() (map[cid.ID]struct{}, error) {
+func (c *neofsNetwork) List() (map[cid.ID]struct{}, error) {
 	actualContainers, err := c.cnrClient.List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("read containers: %w", err)

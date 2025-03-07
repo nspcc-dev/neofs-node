@@ -441,7 +441,7 @@ type cfgGRPC struct {
 }
 
 type cfgMeta struct {
-	cLister meta.ContainerLister
+	network meta.NeoFSNetwork
 }
 
 type cfgMorph struct {

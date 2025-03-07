@@ -2,12 +2,14 @@ package object
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
 	"strings"
 
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -164,4 +166,34 @@ func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) ui
 		}
 	}
 	return n
+}
+
+// AttributeDelimiter is attribute key and value separator used in metadata DB.
+var AttributeDelimiter = []byte{0x00}
+
+// VerifyHeaderForMetadata checks whether given header corresponds to metadata
+// bucket requirements and limits.
+func VerifyHeaderForMetadata(hdr object.Object) error {
+	if ln := hdr.HeaderLen(); ln > object.MaxHeaderLen {
+		return fmt.Errorf("header len %d exceeds the limit", ln)
+	}
+	if hdr.GetContainerID().IsZero() {
+		return fmt.Errorf("invalid container: %w", cid.ErrZero)
+	}
+	if hdr.Owner().IsZero() {
+		return fmt.Errorf("invalid owner: %w", user.ErrZeroID)
+	}
+	if _, ok := hdr.PayloadChecksum(); !ok {
+		return errors.New("missing payload checksum")
+	}
+	attrs := hdr.Attributes()
+	for i := range attrs {
+		if strings.IndexByte(attrs[i].Key(), AttributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d key contains 0x%02X byte used in sep", i, AttributeDelimiter[0])
+		}
+		if strings.IndexByte(attrs[i].Value(), AttributeDelimiter[0]) >= 0 {
+			return fmt.Errorf("attribute #%d value contains 0x%02X byte used in sep", i, AttributeDelimiter[0])
+		}
+	}
+	return nil
 }

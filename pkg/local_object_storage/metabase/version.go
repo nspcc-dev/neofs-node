@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -224,7 +225,7 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
 		return false, nil
 	}
-	if err := verifyHeaderForMetadata(hdr); err != nil {
+	if err := objectcore.VerifyHeaderForMetadata(hdr); err != nil {
 		l.Info("invalid header in the container bucket, ignoring", zap.Error(err),
 			zap.Stringer("container", cnr), zap.Stringer("object", oid.ID(id)), zap.Binary("data", bin))
 		return false, nil
@@ -238,17 +239,17 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 	}
 	par := hdr.Parent()
 	hasParent := par != nil
-	if err := putMetadataForObject(tx, hdr, hasParent, true); err != nil {
+	if err := PutMetadataForObject(tx, hdr, hasParent, true); err != nil {
 		return false, fmt.Errorf("put metadata for object %s: %w", oid.ID(id), err)
 	}
 	if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
-		if err := verifyHeaderForMetadata(hdr); err != nil {
+		if err := objectcore.VerifyHeaderForMetadata(hdr); err != nil {
 			l.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
 				zap.Stringer("container", cnr), zap.Stringer("child", oid.ID(id)),
 				zap.Stringer("parent", par.GetID()), zap.Binary("data", bin))
 			return false, nil
 		}
-		if err := putMetadataForObject(tx, *par, false, false); err != nil {
+		if err := PutMetadataForObject(tx, *par, false, false); err != nil {
 			return false, fmt.Errorf("put metadata for parent of object %s: %w", oid.ID(id), err)
 		}
 	}

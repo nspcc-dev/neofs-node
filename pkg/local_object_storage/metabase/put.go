@@ -64,7 +64,7 @@ func (db *DB) Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) err
 func (db *DB) put(
 	tx *bbolt.Tx, obj *objectSDK.Object, id []byte,
 	si *objectSDK.SplitInfo, currEpoch uint64, hdrBin []byte) error {
-	if err := verifyHeaderForMetadata(*obj); err != nil {
+	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
 	}
 
@@ -152,7 +152,7 @@ func (db *DB) put(
 		}
 	}
 
-	if err := putMetadataForObject(tx, *obj, par != nil, !isParent); err != nil {
+	if err := PutMetadataForObject(tx, *obj, par != nil, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 
