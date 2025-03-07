@@ -98,12 +98,10 @@ func (exec *execCtx) initTombstoneObject() bool {
 
 	tokenSession := exec.commonParameters().SessionToken()
 	if tokenSession != nil {
-		issuer := tokenSession.Issuer()
-		exec.tombstoneObj.SetOwnerID(&issuer)
+		exec.tombstoneObj.SetOwner(tokenSession.Issuer())
 	} else {
 		// make local node a tombstone object owner
-		localUser := exec.svc.netInfo.LocalNodeID()
-		exec.tombstoneObj.SetOwnerID(&localUser)
+		exec.tombstoneObj.SetOwner(exec.svc.netInfo.LocalNodeID())
 	}
 
 	var a object.Attribute

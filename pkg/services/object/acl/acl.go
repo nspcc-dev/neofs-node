@@ -232,7 +232,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 1. First check token lifetime. Simplest verification.
-	if token.InvalidAt(st.CurrentEpoch()) {
+	if !token.ValidAt(st.CurrentEpoch()) {
 		return errBearerExpired
 	}
 

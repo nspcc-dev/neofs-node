@@ -97,7 +97,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		}
 		payloadReader = bytes.NewReader(objTemp.Payload())
 		cnr = objTemp.GetContainerID()
-		ownerID = *objTemp.OwnerID()
+		ownerID = objTemp.Owner()
 	} else {
 		fi, err := f.Stat()
 		if err != nil {
@@ -119,7 +119,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	}
 
 	obj.SetContainerID(cnr)
-	obj.SetOwnerID(&ownerID)
+	obj.SetOwner(ownerID)
 	obj.SetAttributes(attrs...)
 
 	var prm internalclient.PutObjectPrm
