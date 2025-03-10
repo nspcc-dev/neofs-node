@@ -28,8 +28,6 @@ const (
 	persistentSessionsSubsection = "persistent_sessions"
 	persistentStateSubsection    = "persistent_state"
 
-	attributePrefix = "attribute"
-
 	// PersistentStatePathDefault is a default path for persistent state file.
 	PersistentStatePathDefault = ".neofs-storage-state"
 
@@ -89,7 +87,7 @@ func Attributes(c *config.Config) (attrs []string) {
 	const maxAttributes = 100
 
 	for i := range maxAttributes {
-		attr := config.StringSafe(c.Sub(subsection), attributePrefix+"_"+strconv.Itoa(i))
+		attr := config.StringSafe(c.Sub(subsection).Sub("attributes"), strconv.Itoa(i))
 		if attr == "" {
 			return
 		}
