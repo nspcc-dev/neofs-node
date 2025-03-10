@@ -1,9 +1,9 @@
 package container
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -63,9 +63,7 @@ func pubKeys(nodes []netmap.NodeInfo) [][]byte {
 
 	// arrays take parts in transaction that should be multi-singed, so order
 	// is important to be the same
-	slices.SortFunc(res, func(a, b []byte) int {
-		return strings.Compare(string(a), string(b))
-	})
+	slices.SortFunc(res, bytes.Compare)
 
 	return res
 }

@@ -164,7 +164,7 @@ func printContainerID(cmd *cobra.Command, recv func() cid.ID) {
 func printHeader(cmd *cobra.Command, obj *object.Object) error {
 	printObjectID(cmd, obj.GetID)
 	printContainerID(cmd, obj.GetContainerID)
-	cmd.Printf("Owner: %s\n", obj.OwnerID())
+	cmd.Printf("Owner: %s\n", obj.Owner())
 	cmd.Printf("CreatedAt: %d\n", obj.CreationEpoch())
 	cmd.Printf("Size: %d\n", obj.PayloadSize())
 	common.PrintChecksum(cmd, "HomoHash", obj.PayloadHomomorphicHash)

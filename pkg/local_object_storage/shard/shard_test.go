@@ -114,8 +114,7 @@ func generateObjectWithPayload(cnr cid.ID, data []byte) *object.Object {
 
 	obj := object.New()
 	obj.SetID(oidtest.ID())
-	owner := usertest.ID()
-	obj.SetOwnerID(&owner)
+	obj.SetOwner(usertest.ID())
 	obj.SetContainerID(cnr)
 	obj.SetVersion(&ver)
 	obj.SetPayload(data)

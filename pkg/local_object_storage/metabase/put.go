@@ -311,7 +311,7 @@ func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 	key := make([]byte, bucketKeySize)
 	err := f(tx, namedBucketItem{
 		name: ownerBucketName(cnr, key),
-		key:  []byte(obj.OwnerID().EncodeToString()),
+		key:  []byte(obj.Owner().EncodeToString()),
 		val:  objKey,
 	})
 	if err != nil {

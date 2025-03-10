@@ -202,7 +202,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("incorrect session token signature")
 	}
 
-	if issuer, owner := token.Issuer(), obj.OwnerID(); issuer != *owner { // nil check was performed above
+	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above
 		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
 	}
 
@@ -459,7 +459,7 @@ func (v *FormatValidator) checkAttributes(obj *object.Object) error {
 var errIncorrectOwner = errors.New("incorrect object owner")
 
 func (v *FormatValidator) checkOwner(obj *object.Object) error {
-	if idOwner := obj.OwnerID(); idOwner == nil {
+	if obj.Owner().IsZero() {
 		return errIncorrectOwner
 	}
 

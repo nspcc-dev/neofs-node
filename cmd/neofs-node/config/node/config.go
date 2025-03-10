@@ -57,7 +57,7 @@ type stringAddressGroup []string
 
 func (x stringAddressGroup) IterateAddresses(f func(string) bool) {
 	for i := range x {
-		if f(x[i]) {
+		if !f(x[i]) {
 			break
 		}
 	}

@@ -1,6 +1,10 @@
 package netmap
 
-import "github.com/nspcc-dev/neofs-sdk-go/netmap"
+import (
+	"slices"
+
+	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+)
 
 // Node is a named type of netmap.NodeInfo which provides interface needed
 // in the current repository. Node is expected to be used everywhere instead
@@ -17,12 +21,8 @@ func (x Node) PublicKey() []byte {
 // IterateAddresses iterates over all announced network addresses
 // and passes them into f. Handler MUST NOT be nil.
 func (x Node) IterateAddresses(f func(string) bool) {
-	(netmap.NodeInfo)(x).IterateNetworkEndpoints(f)
-	for _, addr := range (netmap.NodeInfo)(x).ExternalAddresses() {
-		if f(addr) {
-			return
-		}
-	}
+	(netmap.NodeInfo)(x).IterateNetworkEndpoints(func(s string) bool { return !f(s) })
+	slices.Values((netmap.NodeInfo)(x).ExternalAddresses())(f)
 }
 
 // NumberOfAddresses returns number of announced network addresses.

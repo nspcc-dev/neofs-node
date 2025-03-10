@@ -125,7 +125,6 @@ Only owner of the container has a permission to remove container.`,
 			const waitInterval = time.Second
 
 			t := time.NewTimer(waitInterval)
-			defer t.Stop()
 
 			for ; ; t.Reset(waitInterval) {
 				select {

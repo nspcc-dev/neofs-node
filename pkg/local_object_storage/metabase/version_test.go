@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -385,8 +386,7 @@ func TestMigrate3to4(t *testing.T) {
 		objs[i].SetPayloadSize(rand.Uint64())
 		objs[i].SetPayloadChecksum(checksum.NewSHA256(id))
 		css = append(css, id[:])
-		var tzh [tz.Size]byte
-		rand.Read(tzh[:]) //nolint:staticcheck
+		tzh := [tz.Size]byte(testutil.RandByteSlice(tz.Size))
 		objs[i].SetPayloadHomomorphicHash(checksum.NewTillichZemor(tzh))
 		hcss = append(hcss, tzh[:])
 		sid := objecttest.SplitID()
@@ -407,8 +407,7 @@ func TestMigrate3to4(t *testing.T) {
 	par.SetPayloadSize(rand.Uint64())
 	pcs := oidtest.ID()
 	par.SetPayloadChecksum(checksum.NewSHA256(pcs))
-	var phcs [tz.Size]byte
-	rand.Read(phcs[:]) //nolint:staticcheck
+	phcs := [tz.Size]byte(testutil.RandByteSlice(tz.Size))
 	par.SetPayloadHomomorphicHash(checksum.NewTillichZemor(phcs))
 	sid := objecttest.SplitID()
 	par.SetSplitID(&sid)
@@ -733,8 +732,7 @@ func TestMigrate3to4(t *testing.T) {
 			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
 		}
 		// corrupt one object
-		bigAttrVal := make([]byte, 16<<10)
-		rand.Read(bigAttrVal)                                                                              //nolint:staticcheck
+		bigAttrVal := testutil.RandByteSlice(16 << 10)
 		objs[1].SetAttributes(*object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
 		objBins[1] = objs[1].Marshal()
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {

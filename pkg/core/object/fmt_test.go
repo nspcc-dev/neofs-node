@@ -21,11 +21,9 @@ import (
 )
 
 func blankValidObject(signer user.Signer) *object.Object {
-	idOwner := signer.UserID()
-
 	obj := object.New()
 	obj.SetContainerID(cidtest.ID())
-	obj.SetOwnerID(&idOwner)
+	obj.SetOwner(signer.UserID())
 
 	return obj
 }
@@ -105,8 +103,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		tok.SetAuthKey((*neofsecdsa.PublicKey)(&ownerKey.PrivateKey.PublicKey))
 		require.NoError(t, tok.Sign(signer))
 		obj.SetSessionToken(&tok)
-		owner := signer.UserID()
-		obj.SetOwnerID(&owner)
+		obj.SetOwner(signer.UserID())
 
 		require.NoError(t, obj.SetIDWithSignature(signer))
 
@@ -120,8 +117,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		obj.SetContainerID(cidtest.ID())
 		tok := sessiontest.ObjectSigned(signer)
 		obj.SetSessionToken(&tok)
-		owner := signer.UserID()
-		obj.SetOwnerID(&owner)
+		obj.SetOwner(signer.UserID())
 
 		t.Run("wrong signature", func(t *testing.T) {
 			require.NoError(t, obj.SetIDWithSignature(signer))
@@ -131,7 +127,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		})
 
 		t.Run("wrong owner", func(t *testing.T) {
-			obj.SetOwnerID(&user.ID{})
+			obj.SetOwner(user.ID{})
 
 			require.NoError(t, obj.SetIDWithSignature(signer))
 			require.Error(t, v.Validate(obj, false))

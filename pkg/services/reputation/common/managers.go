@@ -62,7 +62,7 @@ func (x nodeServer) PublicKey() []byte {
 }
 
 func (x nodeServer) IterateAddresses(f func(string) bool) {
-	(apiNetmap.NodeInfo)(x).IterateNetworkEndpoints(f)
+	(apiNetmap.NodeInfo)(x).IterateNetworkEndpoints(func(s string) bool { return !f(s) })
 }
 
 func (x nodeServer) NumberOfAddresses() int {

@@ -29,7 +29,7 @@ func (c *Context) buildCoverage() {
 	// and process all placement vectors
 	c.iterateSGMembersPlacementRand(func(id oid.ID, ind int, nodes []netmap.NodeInfo) bool {
 		c.processObjectPlacement(id, nodes, policy.ReplicaNumberByIndex(ind))
-		return c.containerCovered()
+		return !c.containerCovered()
 	})
 }
 
@@ -128,7 +128,7 @@ func (c *Context) composePair(id oid.ID, n1, n2 netmap.NodeInfo) {
 func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, []netmap.NodeInfo) bool) {
 	// iterate over storage groups members for all storage groups (one by one)
 	// with randomly shuffled members
-	c.iterateSGMembersRand(func(id oid.ID) bool {
+	for id := range c.iterateSGMembersRand {
 		// build placement vector for the current object
 		nn, err := c.buildPlacement(id)
 		if err != nil {
@@ -137,21 +137,19 @@ func (c *Context) iterateSGMembersPlacementRand(f func(oid.ID, int, []netmap.Nod
 				zap.Error(err),
 			)
 
-			return false
+			continue
 		}
 
 		for i, nodes := range nn {
-			if f(id, i, nodes) {
-				return true
+			if !f(id, i, nodes) {
+				return
 			}
 		}
-
-		return false
-	})
+	}
 }
 
 func (c *Context) iterateSGMembersRand(f func(oid.ID) bool) {
-	c.iterateSGInfo(func(members []oid.ID) bool {
+	for members := range c.iterateSGInfo {
 		ln := len(members)
 
 		processed := make(map[uint64]struct{}, ln-1)
@@ -160,13 +158,11 @@ func (c *Context) iterateSGMembersRand(f func(oid.ID) bool) {
 			ind := nextRandUint64(uint64(ln), processed)
 			processed[ind] = struct{}{}
 
-			if f(members[ind]) {
-				return true
+			if !f(members[ind]) {
+				return
 			}
 		}
-
-		return false
-	})
+	}
 }
 
 func (c *Context) iterateSGInfo(f func([]oid.ID) bool) {
@@ -178,7 +174,7 @@ func (c *Context) iterateSGInfo(f func([]oid.ID) bool) {
 	// to be shuffled since it is a Search response
 	// with unpredictable order
 	for i := range c.sgMembersCache {
-		if f(c.sgMembersCache[i]) {
+		if !f(c.sgMembersCache[i]) {
 			return
 		}
 	}

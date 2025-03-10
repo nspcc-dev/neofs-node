@@ -146,18 +146,18 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 	newHeight := uint64(math.MaxUint64)
 	for _, n := range nodes {
 		height := from
-		n.IterateNetworkEndpoints(func(addr string) bool {
+	loop:
+		for addr := range func(f func(string) bool) { n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 			var a network.Address
 			if err := a.FromString(addr); err != nil {
-				return false
+				continue
 			}
 
 			cc, err := grpc.NewClient(a.URIAddr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				// Failed to connect, try the next address.
-				return false
+				continue
 			}
-			defer cc.Close()
 
 			treeClient := NewTreeServiceClient(cc)
 			for {
@@ -166,11 +166,12 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 					height = h
 				}
 				if err != nil || h <= height {
+					_ = cc.Close()
 					// Error with the response, try the next node.
-					return true
+					break loop
 				}
 			}
-		})
+		}
 		if height <= from { // do not increase starting height on fail
 			newHeight = from
 		} else if height < newHeight { // take minimum across all clients

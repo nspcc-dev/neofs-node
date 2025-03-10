@@ -32,11 +32,6 @@ func (p *Policer) shardPolicyWorker(ctx context.Context) {
 	)
 
 	t := time.NewTimer(repCooldown)
-	defer func() {
-		if !t.Stop() {
-			<-t.C
-		}
-	}()
 
 	for {
 		select {
@@ -99,7 +94,6 @@ func (p *Policer) poolCapacityWorker(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			neofsSysLoad := p.loader.ObjectServiceLoad()

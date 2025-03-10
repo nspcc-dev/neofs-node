@@ -520,7 +520,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 		if req.token.ExpiredAt(currentEpoch) {
 			return info, apistatus.SessionTokenExpired{}
 		}
-		if req.token.InvalidAt(currentEpoch) {
+		if !req.token.ValidAt(currentEpoch) {
 			return info, fmt.Errorf("%s: token is invalid at %d epoch)",
 				invalidRequestMessage, currentEpoch)
 		}

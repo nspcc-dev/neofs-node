@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -100,10 +101,9 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 func (x *multiClient) updateGroup(group network.AddressGroup) {
 	// Firstly, remove old clients.
 	cache := make([]string, 0, group.Len())
-	group.IterateAddresses(func(a network.Address) bool {
+	for a := range slices.Values(group) {
 		cache = append(cache, a.String())
-		return false
-	})
+	}
 
 	x.addrMtx.RLock()
 	oldGroup := x.addr
@@ -148,11 +148,12 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 	group := x.addr
 	x.addrMtx.RUnlock()
 
-	group.IterateAddresses(func(addr network.Address) bool {
+loop:
+	for addr := range slices.Values(group) {
 		select {
 		case <-ctx.Done():
 			firstErr = context.Canceled
-			return true
+			break loop
 		default:
 		}
 
@@ -178,8 +179,10 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 			x.ReportError(err)
 		}
 
-		return success
-	})
+		if success {
+			break
+		}
+	}
 
 	return firstErr
 }
