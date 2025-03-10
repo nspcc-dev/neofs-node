@@ -69,18 +69,20 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 		sig, ok := tok.Signature()
 		if !ok {
-			return errors.New("invalid session token signature")
+			return errors.New("missing session token signature")
 		}
-		switch sig.Scheme() {
+		switch scheme := sig.Scheme(); scheme {
 		default:
-			return errors.New("invalid session token signature")
+			return fmt.Errorf("unknown signature scheme %v", scheme)
+		case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_WALLETCONNECT:
+			return fmt.Errorf("wrong signature scheme %v", scheme)
 		case neofscrypto.ECDSA_DETERMINISTIC_SHA256:
 			var signerPub neofsecdsa.PublicKeyRFC6979
 			if err = signerPub.Decode(sig.PublicKeyBytes()); err != nil {
 				return fmt.Errorf("invalid issuer public key: %w", err)
 			}
 			if !signerPub.Verify(tok.SignedData(), sig.Value()) {
-				return errors.New("invalid session token signature")
+				return errors.New("session token signature mismatch")
 			}
 			// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
 			if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
