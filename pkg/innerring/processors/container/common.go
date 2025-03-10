@@ -2,11 +2,17 @@ package container
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -66,18 +72,65 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("decode session token: %w", err)
 		}
 
-		if !tok.VerifySignature() {
-			return errors.New("invalid session token signature")
+		sig, ok := tok.Signature()
+		if !ok {
+			return errors.New("missing session token signature")
 		}
+		switch scheme := sig.Scheme(); scheme {
+		default:
+			return fmt.Errorf("unknown signature scheme %v", scheme)
+		case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_WALLETCONNECT:
+			return fmt.Errorf("wrong signature scheme %v", scheme)
+		case neofscrypto.ECDSA_DETERMINISTIC_SHA256:
+			var signerPub neofsecdsa.PublicKeyRFC6979
+			if err = signerPub.Decode(sig.PublicKeyBytes()); err != nil {
+				return fmt.Errorf("invalid issuer public key: %w", err)
+			}
+			if !signerPub.Verify(tok.SignedData(), sig.Value()) {
+				return errors.New("session token signature mismatch")
+			}
+			// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
+			if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
+				return errors.New("session token is not signed by the container owner")
+			}
+		case 3: // TODO: use const after SDK upgrade
+			// call contract func Verify(height uint32, dataHash interop.Hash256, sig []byte, other ...any) bool
+			height, err := cp.cnrClient.Morph().BlockCount()
+			if err != nil {
+				return fmt.Errorf("get current FS chain height: %w", err)
+			}
 
-		var signerPub neofsecdsa.PublicKeyRFC6979
-		if err = signerPub.Decode(tok.IssuerPublicKeyBytes()); err != nil {
-			return fmt.Errorf("invalid issuer public key: %w", err)
-		}
+			dataHash := sha256.Sum256(tok.SignedData())
 
-		// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
-		if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
-			return errors.New("session token is not signed by the container owner")
+			// sys:
+			w := io.NewBufBinWriter()
+			emit.Int(w.BinWriter, int64(height))
+			emit.Bytes(w.BinWriter, dataHash[:])
+
+			// user:
+			//
+			// invocation script:
+			// emit.Bytes(w.BinWriter, sig)
+			//
+			// verification script
+			// emit.Any(w.BinWriter, arg1)
+			// ...
+			// emit.Any(w.BinWriter, argN)
+			// emit.Opcodes(w.BinWriter, 3+N)
+			// emit.AppCallNoArgs(w.BinWriter, contract, method, callflag.ReadStates)
+
+			// FIXME: user scripts must be verified:
+			//  - they must have expected format
+			//  - verification one must call allowed contract and its method
+			//  Now any dummy contract always returning 'true' allows to bypass authorization
+			script := slices.Concat(w.Bytes(), v.signature, v.binPublicKey)
+			ok, err := unwrap.Bool(cp.cnrClient.Morph().InvokeScript(script, nil)) // TODO: need signers?
+			if err != nil {
+				return fmt.Errorf("run contract auth script: %w", err)
+			}
+			if !ok {
+				return errors.New("contract auth script returned false")
+			}
 		}
 
 		if keyProvided && !tok.AssertAuthKey(&key) {
