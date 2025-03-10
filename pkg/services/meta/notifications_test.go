@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"maps"
 	"math/big"
 	"os"
 	"path"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +26,7 @@ import (
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	utilcore "github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
@@ -34,8 +37,9 @@ import (
 )
 
 const (
-	testVUB        = 12345
-	testObjectSize = 1234567
+	testNetworkMagic = 123
+	testVUB          = 12345
+	testObjectSize   = 1234567
 )
 
 type testNetwork struct {
@@ -369,8 +373,7 @@ func TestObjectPut(t *testing.T) {
 		fPart := oidtest.ID()
 		pPart := oidtest.ID()
 		size := uint64(testObjectSize)
-		typ := objectsdk.TypeTombstone
-		deleted := []oid.ID{oidtest.ID(), oidtest.ID(), oidtest.ID()}
+		typ := objectsdk.TypeRegular
 
 		o := objecttest.Object()
 		o.SetContainerID(cID)
@@ -380,7 +383,7 @@ func TestObjectPut(t *testing.T) {
 		o.SetPayloadSize(size)
 		o.SetType(typ)
 
-		metaRaw := object.EncodeReplicationMetaInfo(cID, oID, fPart, pPart, size, typ, deleted, nil, testVUB, m.magicNumber)
+		metaRaw := object.EncodeReplicationMetaInfo(cID, oID, fPart, pPart, size, typ, nil, nil, testVUB, m.magicNumber)
 		metaStack, err := stackitem.Deserialize(metaRaw)
 		require.NoError(t, err)
 
@@ -396,7 +399,7 @@ func TestObjectPut(t *testing.T) {
 		bCH <- &block.Header{Index: 0}
 
 		require.Eventually(t, func() bool {
-			return checkObject(t, m, cID, oID, fPart, pPart, size, typ, deleted, nil, testVUB, m.magicNumber)
+			return checkObject(t, m, cID, oID, fPart, pPart, size, typ, nil, nil, testVUB, m.magicNumber)
 		}, 3*time.Second, time.Millisecond*100, "object was not handled properly")
 	})
 
@@ -494,6 +497,116 @@ func TestObjectPut(t *testing.T) {
 
 			return true
 		}, 3*time.Second, time.Millisecond*100, "object was not deleted")
+	})
+}
+
+func TestValidation(t *testing.T) {
+	cID := cidtest.ID()
+	ctx := context.Background()
+	l := zaptest.NewLogger(t)
+
+	path.Join(t.TempDir(), "db.db")
+	s, err := storageForContainer(path.Join(t.TempDir(), "db.db"), cID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = s.drop()
+	})
+
+	t.Run("delete non-existent", func(t *testing.T) {
+		objToDelete := oidtest.ID()
+		ev := objEvent{
+			cID:            cID,
+			oID:            oidtest.ID(),
+			size:           big.NewInt(testObjectSize),
+			network:        big.NewInt(testNetworkMagic),
+			deletedObjects: objToDelete[:],
+			typ:            objectsdk.TypeTombstone,
+		}
+
+		require.ErrorContains(t, isOpAllowed(s.db, ev), "object-to-delete is missing")
+	})
+
+	t.Run("lock non-existent", func(t *testing.T) {
+		objToLock := oidtest.ID()
+		ev := objEvent{
+			cID:           cID,
+			oID:           oidtest.ID(),
+			size:          big.NewInt(testObjectSize),
+			network:       big.NewInt(testNetworkMagic),
+			lockedObjects: objToLock[:],
+			typ:           objectsdk.TypeLock,
+		}
+
+		require.ErrorContains(t, isOpAllowed(s.db, ev), "presence check")
+	})
+
+	t.Run("delete locked", func(t *testing.T) {
+		obj1 := objecttest.Object()
+		oID1 := obj1.GetID()
+		obj1.SetContainerID(cID)
+		obj2 := objecttest.Object()
+		oID2 := obj2.GetID()
+		obj2.SetContainerID(cID)
+
+		net := &testNetwork{}
+		ee := []objEvent{
+			{
+				cID:     cID,
+				oID:     oID1,
+				size:    big.NewInt(testObjectSize),
+				network: big.NewInt(testNetworkMagic),
+			},
+			{
+				cID:     cID,
+				oID:     oID2,
+				size:    big.NewInt(testObjectSize),
+				network: big.NewInt(testNetworkMagic),
+			},
+		}
+		net.setObjects(map[oid.Address]objectsdk.Object{
+			oid.NewAddress(cID, oID1): obj1,
+			oid.NewAddress(cID, oID2): obj2,
+		})
+
+		s.putObjects(ctx, l, 0, ee, net)
+
+		lock := objecttest.Object()
+		lock.SetContainerID(cID)
+		lock.SetType(objectsdk.TypeLock)
+
+		ee = []objEvent{
+			{
+				cID:           cID,
+				oID:           lock.GetID(),
+				size:          big.NewInt(testObjectSize),
+				network:       big.NewInt(testNetworkMagic),
+				lockedObjects: slices.Concat(oID1[:], oID2[:]),
+				typ:           objectsdk.TypeLock,
+			},
+		}
+		net.setObjects(map[oid.Address]objectsdk.Object{
+			oid.NewAddress(cID, lock.GetID()): lock,
+		})
+
+		s.putObjects(ctx, l, 0, ee, net)
+
+		ts := objecttest.Object()
+		ts.SetContainerID(cID)
+		ts.SetType(objectsdk.TypeTombstone)
+
+		e := objEvent{
+			cID:            cID,
+			oID:            ts.GetID(),
+			size:           big.NewInt(testObjectSize),
+			network:        big.NewInt(testNetworkMagic),
+			deletedObjects: slices.Concat(oID1[:], oID2[:]),
+			typ:            objectsdk.TypeTombstone,
+		}
+		net.setObjects(map[oid.Address]objectsdk.Object{
+			oid.NewAddress(cID, ts.GetID()): ts,
+		})
+
+		require.ErrorContains(t, isOpAllowed(s.db, e), fmt.Sprintf("is locked by %s", lock.GetID()))
 	})
 }
 

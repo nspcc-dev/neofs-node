@@ -3,10 +3,8 @@ package meta
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
-	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -59,62 +57,18 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 		evsByStorage[st] = append(evsByStorage[st], ev)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	var wg errgroup.Group
+	wg.SetLimit(1024)
 
-		for st, ee := range evsByStorage {
-			st.putMPTIndexes(ee)
-		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		var internalWg errgroup.Group
-		internalWg.SetLimit(1024)
-
-		for st, evs := range evsByStorage {
-			internalWg.Go(func() error {
-				err := st.putRawIndexes(ctx, evs, m.net)
-				if err != nil {
-					l.Error("failed to put raw indexes", zap.String("storage", st.path), zap.Error(err))
-				}
-
-				// do not stop other routines ever
-				return nil
-			})
-		}
-
-		// errors are logged, no errors are returned to WG
-		_ = internalWg.Wait()
-	}()
-
-	wg.Wait()
-
-	for st := range evsByStorage {
-		// TODO: parallelize depending on what can parallelize well
-
-		st.m.Lock()
-
-		root := st.mpt.StateRoot()
-		st.mpt.Store.Put([]byte{rootKey}, root[:])
-		p := st.path
-
-		_, err := st.mpt.PutBatch(mpt.MapToMPTBatch(st.mptOpsBatch))
-		if err != nil {
-			st.m.Unlock()
-			return fmt.Errorf("put batch for %d block to %q storage: %w", ind, p, err)
-		}
-
-		clear(st.mptOpsBatch)
-
-		st.m.Unlock()
-
-		st.mpt.Flush(ind)
+	for st, evs := range evsByStorage {
+		wg.Go(func() error {
+			st.putObjects(ctx, l.With(zap.String("storage", st.path)), ind, evs, m.net)
+			return nil
+		})
 	}
 
+	// errors are logged, no errors are returned to WG
+	_ = wg.Wait()
 	l.Debug("handled block successfully")
 
 	return nil

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"path"
@@ -21,7 +22,7 @@ import (
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"golang.org/x/sync/errgroup"
+	"go.uber.org/zap"
 )
 
 type containerStorage struct {
@@ -50,11 +51,46 @@ func (s *containerStorage) drop() error {
 	return nil
 }
 
-func (s *containerStorage) putMPTIndexes(ee []objEvent) {
+type eventWithMptKVs struct {
+	ev            objEvent
+	additionalKVs map[string][]byte
+}
+
+func (s *containerStorage) putObjects(ctx context.Context, l *zap.Logger, bInd uint32, ee []objEvent, net NeoFSNetwork) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	for _, e := range ee {
+	// raw indexes are responsible for object validation and only after
+	// object is taken as a valid one, it goes to the slower-on-read MPT
+	// storage via objCh
+	objCh := make(chan eventWithMptKVs, len(ee))
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := s.putRawIndexes(ctx, l, ee, net, objCh)
+		if err != nil {
+			l.Error("failed to put raw indexes", zap.Error(err))
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := s.putMPTIndexes(bInd, objCh)
+		if err != nil {
+			l.Error("failed to put mpt indexes", zap.Error(err))
+		}
+	}()
+	wg.Wait()
+}
+
+// lock should be taken.
+func (s *containerStorage) putMPTIndexes(bInd uint32, ch <-chan eventWithMptKVs) error {
+	for evWithKeys := range ch {
+		maps.Copy(s.mptOpsBatch, evWithKeys.additionalKVs)
+
+		e := evWithKeys.ev
 		commsuffix := e.oID[:]
 
 		// batching that is implemented for MPT ignores key's first byte
@@ -77,61 +113,124 @@ func (s *containerStorage) putMPTIndexes(ee []objEvent) {
 			s.mptOpsBatch[string(append([]byte{0, typeIndex}, commsuffix...))] = []byte{byte(e.typ)}
 		}
 	}
+
+	root := s.mpt.StateRoot()
+	s.mpt.Store.Put([]byte{rootKey}, root[:])
+
+	_, err := s.mpt.PutBatch(mpt.MapToMPTBatch(s.mptOpsBatch))
+	if err != nil {
+		return fmt.Errorf("put batch to MPT storage: %w", err)
+	}
+	clear(s.mptOpsBatch)
+
+	s.mpt.Flush(bInd)
+
+	return nil
 }
 
-func (s *containerStorage) putRawIndexes(ctx context.Context, ee []objEvent, net NeoFSNetwork) error {
-	var wg errgroup.Group
-	wg.SetLimit(10)
-	objects := make([]objectsdk.Object, len(ee))
-
-	for i, e := range ee {
-		wg.Go(func() error {
-			h, err := net.Head(ctx, e.cID, e.oID)
-			if err != nil {
-				// TODO define behavior with status (non-network) errors; maybe it is near #3140
-				return fmt.Errorf("HEAD object: %w", err)
-			}
-
-			objects[i] = h
-			return nil
-		})
-	}
-
-	err := wg.Wait()
-	if err != nil {
-		return err
-	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
+// lock should be taken.
+func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee []objEvent, net NeoFSNetwork, res chan<- eventWithMptKVs) (finalErr error) {
 	batch := make(map[string][]byte)
+	defer func() {
+		close(res)
 
-	for i, e := range ee {
+		if finalErr == nil && len(batch) > 0 {
+			err := s.db.PutChangeSet(batch, nil)
+			if err != nil {
+				finalErr = fmt.Errorf("put change set to DB: %w", err)
+			}
+		}
+	}()
+
+	for _, e := range ee {
+		err := isOpAllowed(s.db, e)
+		if err != nil {
+			l.Warn("skip object", zap.Stringer("oid", e.oID), zap.String("reason", err.Error()))
+			continue
+		}
+
+		evWithMpt := eventWithMptKVs{ev: e}
+
+		h, err := net.Head(ctx, e.cID, e.oID)
+		if err != nil {
+			// TODO define behavior with status (non-network) errors; maybe it is near #3140
+			return fmt.Errorf("HEAD %s object: %w", e.oID, err)
+		}
+
 		commsuffix := e.oID[:]
 
 		batch[string(append([]byte{oidIndex}, commsuffix...))] = []byte{}
 		if len(e.deletedObjects) > 0 {
 			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObjects
-			err = deleteObjectsOps(batch, s.mptOpsBatch, s.db, e.deletedObjects)
+			evWithMpt.additionalKVs, err = deleteObjectsOps(batch, s.db, e.deletedObjects)
 			if err != nil {
-				return fmt.Errorf("cleaning operations for %s object: %w", e.oID, err)
+				l.Error("cleaning deleted object", zap.Stringer("oid", e.oID), zap.Error(err))
+				continue
 			}
 		}
 		if len(e.lockedObjects) > 0 {
 			batch[string(append([]byte{lockedIndex}, commsuffix...))] = e.lockedObjects
+
+			for locked := range slices.Chunk(e.lockedObjects, oid.Size) {
+				batch[string(append([]byte{lockedByIndex}, locked...))] = commsuffix
+			}
 		}
 
-		err = object.VerifyHeaderForMetadata(objects[i])
+		err = object.VerifyHeaderForMetadata(h)
 		if err != nil {
-			return fmt.Errorf("invalid %s header: %w", e.oID, err)
+			l.Error("header verification", zap.Stringer("oid", e.oID), zap.Error(err))
+			continue
 		}
 
-		fillObjectIndex(batch, objects[i])
+		res <- evWithMpt
+
+		fillObjectIndex(batch, h)
 	}
 
-	err = s.db.PutChangeSet(batch, nil)
-	if err != nil {
-		return fmt.Errorf("put change set to DB: %w", err)
+	return finalErr
+}
+
+func isOpAllowed(db storage.Store, e objEvent) error {
+	if len(e.deletedObjects) == 0 && len(e.lockedObjects) == 0 {
+		return nil
+	}
+
+	key := make([]byte, 1+oid.Size)
+
+	for obj := range slices.Chunk(e.deletedObjects, oid.Size) {
+		copy(key[1:], obj)
+
+		// delete object that does not exist
+		key[0] = oidIndex
+		_, err := db.Get(key)
+		if err != nil {
+			if errors.Is(err, storage.ErrKeyNotFound) {
+				return fmt.Errorf("%s object-to-delete is missing", oid.ID(obj))
+			}
+			return fmt.Errorf("%s object-to-delete's presence check: %w", oid.ID(obj), err)
+		}
+
+		// delete object that is locked
+		key[0] = lockedByIndex
+		v, err := db.Get(key)
+		if err != nil {
+			if errors.Is(err, storage.ErrKeyNotFound) {
+				continue
+			}
+			return fmt.Errorf("%s object-to-delete's lock status check: %w", oid.ID(obj), err)
+		}
+		return fmt.Errorf("%s object-to-delete is locked by %s", oid.ID(obj), oid.ID(v))
+	}
+
+	for obj := range slices.Chunk(e.lockedObjects, oid.Size) {
+		copy(key[1:], obj)
+
+		// lock object that does not exist
+		key[0] = oidIndex
+		_, err := db.Get(key)
+		if err != nil {
+			return fmt.Errorf("%s object-to-lock's presence check: %w", oid.ID(obj), err)
+		}
 	}
 
 	return nil
@@ -192,8 +291,9 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	}
 }
 
-func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []byte) error {
+func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte) (map[string][]byte, error) {
 	rng := storage.SeekRange{}
+	mptKV := make(map[string][]byte)
 
 	// nil value means "delete" operation
 
@@ -271,11 +371,11 @@ func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []
 			return true
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return mptKV, nil
 }
 
 // lastObjectKey returns the least possible key in sorted DB list that
