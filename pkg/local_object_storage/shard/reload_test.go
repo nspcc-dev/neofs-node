@@ -127,10 +127,9 @@ func newObject(t testing.TB) *objectSDK.Object {
 	ver := version.Current()
 
 	x.SetID(oidtest.ID())
-	owner := usertest.ID()
 	x.SetPayload([]byte{1, 2, 3})
 	x.SetPayloadSize(3)
-	x.SetOwnerID(&owner)
+	x.SetOwner(usertest.ID())
 	x.SetContainerID(cidtest.ID())
 	x.SetType(objectSDK.TypeRegular)
 	x.SetVersion(&ver)

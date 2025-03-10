@@ -329,7 +329,6 @@ func awaitTx(cmd *cobra.Command, c Client, txs []hashVUBPair) error {
 	const pollInterval = time.Second
 
 	tick := time.NewTicker(pollInterval)
-	defer tick.Stop()
 
 	at := trigger.Application
 

@@ -436,10 +436,8 @@ func depositGas(cmd *cobra.Command, acc *wallet.Account, network string) error {
 
 	cmd.Print("Waiting for transactions to persist.")
 	tick := time.NewTicker(time.Second / 2)
-	defer tick.Stop()
 
 	timer := time.NewTimer(time.Second * 20)
-	defer timer.Stop()
 
 	at := trigger.Application
 

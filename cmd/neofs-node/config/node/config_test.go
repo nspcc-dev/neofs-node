@@ -1,12 +1,12 @@
 package nodeconfig
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
-	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,14 +68,12 @@ func TestNodeSection(t *testing.T) {
 
 		ind := 0
 
-		addrs.IterateAddresses(func(addr network.Address) bool {
+		for addr := range slices.Values(addrs) {
 			require.Equal(t, expectedAddr[ind].str, addr.String())
 			require.Equal(t, expectedAddr[ind].host, addr.URIAddr())
 
 			ind++
-
-			return false
-		})
+		}
 
 		require.Equal(t, true, relay)
 

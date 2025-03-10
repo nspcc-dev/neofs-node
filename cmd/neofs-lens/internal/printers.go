@@ -19,7 +19,7 @@ func PrintObjectHeader(cmd *cobra.Command, h object.Object) {
 	cmd.Println("Type:", h.Type())
 	printContainerID(cmd, h.GetContainerID)
 	printObjectID(cmd, h.GetID)
-	cmd.Println("Owner:", h.OwnerID())
+	cmd.Println("Owner:", h.Owner())
 	cmd.Println("CreatedAt:", h.CreationEpoch())
 	cmd.Println("PayloadSize:", h.PayloadSize())
 	cmd.Println("Attributes:")

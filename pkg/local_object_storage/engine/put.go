@@ -161,11 +161,9 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 
 func (e *StorageEngine) putToShardWithDeadLine(sh shardWrapper, ind int, pool util.WorkerPool, addr oid.Address, obj *objectSDK.Object, objBin []byte, hdrLen int) bool {
 	timer := time.NewTimer(e.cfg.objectPutTimeout)
-	defer timer.Stop()
 
 	const putCooldown = 100 * time.Millisecond
 	ticker := time.NewTicker(putCooldown)
-	defer ticker.Stop()
 
 	for {
 		select {

@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           cache: true
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Check out code
         uses: actions/checkout@v4
@@ -46,14 +46,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, macos-14]
-        go: [ '1.22', '1.23' ]
+        go: [ '1.23', '1.24' ]
         exclude:
           # Only the latest Go version MacOS.
           - os: macos-14
-            go: '1.22'
+            go: '1.23'
           # Exclude the latest Go version for Ubuntu as Coverage uses it.
           - os: ubuntu-22.04
-            go: '1.23'
+            go: '1.24'
 
     steps:
       - name: Setup go

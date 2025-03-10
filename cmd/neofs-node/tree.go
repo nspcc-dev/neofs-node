@@ -74,7 +74,6 @@ func initTreeService(c *cfg) {
 	} else {
 		go func() {
 			tick := time.NewTicker(d)
-			defer tick.Stop()
 
 			for range tick.C {
 				err := c.treeService.SynchronizeAll()

@@ -21,33 +21,11 @@ type AddressGroup []Address
 func StringifyGroup(x AddressGroup) string {
 	var s string
 
-	iterateAllAddresses(x, func(addr Address) {
+	for addr := range slices.Values(x) {
 		s += addr.String()
-	})
+	}
 
 	return s
-}
-
-// IterateAddresses iterates over all network addresses of the node.
-//
-// Breaks iterating on handler's true return.
-//
-// Handler should not be nil.
-func (x AddressGroup) IterateAddresses(f func(Address) bool) {
-	for i := range x {
-		if f(x[i]) {
-			break
-		}
-	}
-}
-
-// iterateAllAddresses iterates over all network addresses of g
-// and passes each of them to f.
-func iterateAllAddresses(g AddressGroup, f func(Address)) {
-	g.IterateAddresses(func(addr Address) bool {
-		f(addr)
-		return false
-	})
 }
 
 // Len returns number of addresses in AddressGroup.
@@ -69,7 +47,7 @@ func (x AddressGroup) Swap(i, j int) {
 // MultiAddressIterator is an interface of network address group.
 type MultiAddressIterator interface {
 	// IterateAddresses must iterate over network addresses and pass each one
-	// to the handler until it returns true.
+	// to the handler until it returns false.
 	IterateAddresses(func(string) bool)
 
 	// NumberOfAddresses must return number of addresses in group.
@@ -125,22 +103,20 @@ func (x *AddressGroup) FromIterator(iter MultiAddressIterator) error {
 
 // iterateParsedAddresses parses each address from MultiAddressIterator and passes it to f
 // until 1st parsing failure or f's error.
-func iterateParsedAddresses(iter MultiAddressIterator, f func(s Address) error) (err error) {
-	iter.IterateAddresses(func(s string) bool {
+func iterateParsedAddresses(iter MultiAddressIterator, f func(s Address) error) error {
+	for s := range iter.IterateAddresses {
 		var a Address
 
-		err = a.FromString(s)
+		err := a.FromString(s)
 		if err != nil {
-			err = fmt.Errorf("could not parse address from string: %w", err)
-			return true
+			return fmt.Errorf("could not parse address from string: %w", err)
 		}
 
-		err = f(a)
-
-		return err != nil
-	})
-
-	return
+		if err = f(a); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // WriteToNodeInfo writes AddressGroup to netmap.NodeInfo structure.
@@ -148,10 +124,10 @@ func WriteToNodeInfo(g AddressGroup, ni *netmap.NodeInfo) {
 	num := g.Len()
 	addrs := make([]string, 0, num)
 
-	iterateAllAddresses(g, func(addr Address) {
+	for addr := range slices.Values(g) {
 		ni.SetNetworkEndpoints()
 		addrs = append(addrs, addr.String())
-	})
+	}
 
 	ni.SetNetworkEndpoints(addrs...)
 }

@@ -26,9 +26,9 @@ func PrettyPrintNodeInfo(cmd *cobra.Command, node netmap.NodeInfo,
 
 	cmd.Printf("%sNode %d: %s %s ", indent, index+1, hex.EncodeToString(node.PublicKey()), strState)
 
-	netmap.IterateNetworkEndpoints(node, func(endpoint string) {
+	for endpoint := range func(f func(string) bool) { node.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 		cmd.Printf("%s ", endpoint)
-	})
+	}
 	cmd.Println()
 
 	if !short {

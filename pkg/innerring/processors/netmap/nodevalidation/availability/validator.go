@@ -23,33 +23,25 @@ func (v Validator) Verify(nodeInfo netmap.NodeInfo) error {
 	var results []*client.ResEndpointInfo
 	var err error
 
-	nodeInfo.IterateNetworkEndpoints(func(s string) bool {
+	for s := range func(f func(string) bool) { nodeInfo.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 		var res *client.ResEndpointInfo
 		var c *client.Client
 
 		c, err = createSDKClient(s)
 		if err != nil {
-			err = fmt.Errorf("'%s': client creation: %w", s, err)
-			return true
+			return fmt.Errorf("'%s': client creation: %w", s, err)
 		}
-		defer func() {
-			_ = c.Close()
-		}()
 
 		timeoutContext, cancel := context.WithTimeout(context.Background(), pingTimeout)
-		defer cancel()
 
 		res, err = c.EndpointInfo(timeoutContext, client.PrmEndpointInfo{})
+		cancel()
+		_ = c.Close()
 		if err != nil {
-			err = fmt.Errorf("'%s': could not ping node with `EndpointInfo`: %w", s, err)
-			return true
+			return fmt.Errorf("'%s': could not ping node with `EndpointInfo`: %w", s, err)
 		}
 
 		results = append(results, res)
-		return false
-	})
-	if err != nil {
-		return err
 	}
 
 	for _, res := range results {
@@ -108,21 +100,14 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 	}
 
 	expAddrM := make(map[string]struct{}, niExp.NumberOfAttributes())
-	niExp.IterateNetworkEndpoints(func(s string) bool {
+	for s := range func(f func(string) bool) { niExp.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 		expAddrM[s] = struct{}{}
-		return false
-	})
+	}
 
-	niGot.IterateNetworkEndpoints(func(s string) bool {
+	for s := range func(f func(string) bool) { niGot.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 		if _, ok := expAddrM[s]; !ok {
-			err = fmt.Errorf("got unexpected address: %s", s)
-			return true
+			return fmt.Errorf("got unexpected address: %s", s)
 		}
-
-		return false
-	})
-	if err != nil {
-		return err
 	}
 
 	return nil

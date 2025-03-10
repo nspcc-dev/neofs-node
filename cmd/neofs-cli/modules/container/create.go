@@ -152,7 +152,6 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			const waitInterval = time.Second
 
 			t := time.NewTimer(waitInterval)
-			defer t.Stop()
 
 			for ; ; t.Reset(waitInterval) {
 				select {

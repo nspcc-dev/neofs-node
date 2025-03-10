@@ -801,7 +801,7 @@ func BenchmarkSelect(b *testing.B) {
 	})
 	b.Run("unknown", func(b *testing.B) {
 		fs := objectSDK.SearchFilters{}
-		fs.AddFilter("myHeader", strconv.Itoa(objCount/2), objectSDK.MatchUnknown)
+		fs.AddFilter("myHeader", strconv.Itoa(objCount/2), objectSDK.MatchUnspecified)
 		benchmarkSelect(b, db, cid, fs, 0)
 	})
 }

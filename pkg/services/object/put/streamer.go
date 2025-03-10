@@ -110,14 +110,14 @@ func (p *Streamer) initTarget(prm *PutInitPrm) error {
 	// In case session token is missing, the line above returns the default key.
 	// If it isn't owner key, replication attempts will fail, thus this check.
 	if sToken == nil {
-		ownerObj := prm.hdr.OwnerID()
-		if ownerObj == nil {
+		ownerObj := prm.hdr.Owner()
+		if ownerObj.IsZero() {
 			return errors.New("missing object owner")
 		}
 
 		ownerSession := user.NewFromECDSAPublicKey(signer.PublicKey)
 
-		if *ownerObj != ownerSession {
+		if ownerObj != ownerSession {
 			return fmt.Errorf("(%T) session token is missing but object owner id is different from the default key", p)
 		}
 	}
