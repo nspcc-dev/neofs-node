@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -198,7 +199,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("session token is not for object's signer")
 	}
 
-	if !token.VerifySignature() {
+	if _, err := icrypto.VerifyTokenSignature(token); err != nil {
 		return errors.New("incorrect session token signature")
 	}
 
