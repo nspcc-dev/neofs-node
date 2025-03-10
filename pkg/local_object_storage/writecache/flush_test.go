@@ -217,6 +217,9 @@ func TestFlushPerformance(t *testing.T) {
 				wc, bs, mb := newCache(t, WithFlushWorkersCount(workerCount))
 				defer wc.Close()
 
+				require.NoError(t, mb.SetMode(mode.ReadOnly))
+				require.NoError(t, bs.SetMode(mode.ReadOnly))
+
 				objects := make([]objectPair, objCount)
 				for i := range objects {
 					objects[i] = putObject(t, wc, 1+(i%2)*1024)
