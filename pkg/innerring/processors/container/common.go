@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
@@ -66,17 +67,13 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("decode session token: %w", err)
 		}
 
-		if !tok.VerifySignature() {
+		pub, ok := crypto.VerifyTokenSignature(&tok)
+		if !ok {
 			return errors.New("invalid session token signature")
 		}
 
-		var signerPub neofsecdsa.PublicKeyRFC6979
-		if err = signerPub.Decode(tok.IssuerPublicKeyBytes()); err != nil {
-			return fmt.Errorf("invalid issuer public key: %w", err)
-		}
-
 		// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
-		if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
+		if user.NewFromECDSAPublicKey(*pub) != v.ownerContainer {
 			return errors.New("session token is not signed by the container owner")
 		}
 

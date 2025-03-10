@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -240,7 +241,8 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 		return nil, errors.New("wrong verb of the session")
 	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
 		return nil, errors.New("unrelated key in the session")
-	case tok.VerifySignature():
+	}
+	if _, ok := crypto.VerifyTokenSignature(tok); !ok {
 		return nil, errors.New("invalid signature of the session data")
 	}
 	return tok, nil

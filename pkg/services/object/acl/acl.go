@@ -8,6 +8,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
@@ -237,7 +238,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	}
 
 	// 2. Then check if bearer token is signed correctly.
-	if !token.VerifySignature() {
+	if _, ok := crypto.VerifyTokenSignature(token); !ok {
 		return errBearerInvalidSignature
 	}
 

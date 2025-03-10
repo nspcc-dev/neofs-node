@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -198,7 +199,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("session token is not for object's signer")
 	}
 
-	if !token.VerifySignature() {
+	if _, ok := crypto.VerifyTokenSignature(token); !ok {
 		return errors.New("incorrect session token signature")
 	}
 
