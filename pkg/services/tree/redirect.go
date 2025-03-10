@@ -22,20 +22,18 @@ func (s *Service) forEachNode(ctx context.Context, cntNodes []netmapSDK.NodeInfo
 
 	var called bool
 	for _, n := range cntNodes {
-		var stop bool
-		n.IterateNetworkEndpoints(func(endpoint string) bool {
+		for endpoint := range func(f func(string) bool) { n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 			c, err := s.cache.get(endpoint)
 			if err != nil {
-				return false
+				continue
 			}
 
 			s.log.Debug("redirecting tree service query", zap.String("endpoint", endpoint))
 			called = true
-			stop = f(c)
-			return true
-		})
-		if stop {
-			return nil
+			if f(c) {
+				return nil
+			}
+			break
 		}
 	}
 	if !called {

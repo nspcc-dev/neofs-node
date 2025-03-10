@@ -1,6 +1,7 @@
 package loadroute
 
 import (
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	loadcontroller "github.com/nspcc-dev/neofs-node/pkg/services/container/announcement/load/controller"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 )
@@ -12,13 +13,7 @@ type ServerInfo interface {
 	// from the route in a binary representation.
 	PublicKey() []byte
 
-	// IterateAddresses iterates over network addresses of the node
-	// in the route. Breaks iterating on true return
-	// of the handler.
-	IterateAddresses(func(string) bool)
-
-	// NumberOfAddresses returns number of server's network addresses.
-	NumberOfAddresses() int
+	network.MultiAddressIterator
 
 	// ExternalAddresses returns external node's addresses.
 	ExternalAddresses() []string

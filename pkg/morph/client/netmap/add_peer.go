@@ -2,6 +2,7 @@ package netmap
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
@@ -27,10 +28,7 @@ func (c *Client) AddPeer(ni netmap.NodeInfo, pkey *keys.PublicKey) error {
 		Key:        pkey,
 		State:      netmaprpc.NodeStateOnline,
 	}
-	ni.IterateNetworkEndpoints(func(addr string) bool {
-		node.Addresses = append(node.Addresses, addr)
-		return false
-	})
+	node.Addresses = slices.Collect(func(f func(s string) bool) { ni.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) })
 	ni.IterateAttributes(func(k, v string) {
 		node.Attributes[k] = v
 	})

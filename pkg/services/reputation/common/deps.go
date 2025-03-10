@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/nspcc-dev/neofs-node/pkg/network"
 	"github.com/nspcc-dev/neofs-node/pkg/services/reputation"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 )
@@ -70,13 +71,7 @@ type ServerInfo interface {
 	// from the route in a binary representation.
 	PublicKey() []byte
 
-	// IterateAddresses iterates over network addresses of the node
-	// in the route. Breaks iterating on true return
-	// of the handler.
-	IterateAddresses(func(string) bool)
-
-	// NumberOfAddresses returns number of server's network addresses.
-	NumberOfAddresses() int
+	network.MultiAddressIterator
 
 	// ExternalAddresses returns external addresses of a node.
 	ExternalAddresses() []string

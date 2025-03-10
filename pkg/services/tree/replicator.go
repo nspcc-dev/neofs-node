@@ -62,21 +62,23 @@ func (s *Service) replicationWorker(ctx context.Context) {
 			var lastErr error
 			var lastAddr string
 
-			task.n.IterateNetworkEndpoints(func(addr string) bool {
+			for addr := range func(f func(string) bool) { task.n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
 				lastAddr = addr
 
 				c, err := s.cache.get(addr)
 				if err != nil {
 					lastErr = fmt.Errorf("can't create client: %w", err)
-					return false
+					continue
 				}
 
 				ctx, cancel := context.WithTimeout(ctx, s.replicatorTimeout)
 				_, lastErr = c.Apply(ctx, task.req)
 				cancel()
 
-				return lastErr == nil
-			})
+				if lastErr == nil {
+					break
+				}
+			}
 
 			if lastErr != nil {
 				if errors.Is(lastErr, errRecentlyFailed) {
