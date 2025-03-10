@@ -503,7 +503,7 @@ func New(cfg Config) (res *Blockchain, err error) {
 
 	notaryService, err := notary.NewNotary(cfgNotary, netServer.Net, netServer.GetNotaryPool(), func(tx *transaction.Transaction) error {
 		err := netServer.RelayTxn(tx)
-		if err != nil && !errors.Is(err, core.ErrAlreadyExists) {
+		if err != nil && !errors.Is(err, core.ErrAlreadyExists) && !errors.Is(err, core.ErrAlreadyInPool) {
 			return fmt.Errorf("relay completed notary transaction %s: %w", tx.Hash().StringLE(), err)
 		}
 

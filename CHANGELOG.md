@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - NPE in metabase V3->4 migration routine (#3212)
+- "new transaction callback finished with error" logs for "already exists in mempool" error (#3218)
 
 ### Changed
 
