@@ -72,10 +72,12 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("verify session token signature: %w", err)
 		}
 
-		// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
-		if user.NewFromECDSAPublicKey(*pub) != v.ownerContainer {
-			return errors.New("session token is not signed by the container owner")
-		}
+		if pub != nil {
+			// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?
+			if user.NewFromECDSAPublicKey(*pub) != v.ownerContainer {
+				return errors.New("session token is not signed by the container owner")
+			}
+		} // FIXME: else authorize owner via N3 signature
 
 		if keyProvided && !tok.AssertAuthKey(&key) {
 			return errors.New("signed with a non-session key")

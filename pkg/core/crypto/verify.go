@@ -5,8 +5,13 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 )
@@ -42,6 +47,40 @@ func verifyECDSAWalletConnectSignature(pubBin, sig []byte, signedDataFn signedDa
 	})
 }
 
+func verifyN3Signature(verifScript, invocScript []byte, signedDataFn signedDataFunc) error {
+	if len(verifScript) > 0 {
+		// TODO: scripts may be stateless like simple- or multi-signature, they do not require exec on a VM
+		iatEpoch := tok.Iat()
+		iatHeight, err := interface {
+			HeightAtEpoch(uint64) (uint32, error)
+		}(nil).HeightAtEpoch(tok.Iat())
+		if err != nil {
+			return fmt.Errorf("get FS chain height (session iat: epoch#%d): %w", iatEpoch, err)
+		}
+		blkHdr, err := interface {
+			GetBlockHeaderByIndex(uint32) (block.Header, error)
+		}(nil).GetBlockHeaderByIndex(iatHeight)
+		if err != nil {
+			return fmt.Errorf("get FS chain block header (session iat: epoch#%d, height#%d): %w", iatHeight, iatEpoch, err)
+		}
+		// FIXME: add signed token data to the exec context
+		tx := &transaction.Transaction{
+			Script:  slices.Concat(invocScript, verifScript),
+			Signers: []transaction.Signer{{Account: acc}},
+			// FIXME: what else?
+		}
+		// w8 4 https://github.com/nspcc-dev/neo-go/issues/3836
+		ok, err := unwrap.Bool(cp.cnrClient.Morph().InvokeContainedScript(tx, blkHdr, trigger.Verification))
+		if err != nil {
+			return fmt.Errorf("invoke contained auth script on FS chain (session iat: epoch#%d, height#%d): %w", iatHeight, iatEpoch, err)
+		}
+		if !ok {
+			return fmt.Errorf("auth script run on FS chain resulted in false (session iat: epoch#%d, height#%d)", iatHeight, iatEpoch)
+		}
+	} else { // FIXME: what?
+	}
+}
+
 // VerifyTokenSignature verifies t signature.
 func VerifyTokenSignature[T interface {
 	Signature() (neofscrypto.Signature, bool)
@@ -69,6 +108,10 @@ func VerifyTokenSignature[T interface {
 		var err error
 		if pub, err = verifyECDSAWalletConnectSignature(sig.PublicKeyBytes(), sig.Value(), t.SignedData); err != nil {
 			return nil, fmt.Errorf("%s scheme: %w", neofscrypto.ECDSA_WALLETCONNECT, err)
+		}
+	case 3: // TODO: use const after SDK upgrade
+		if err := verifyN3Signature(sig.PublicKeyBytes(), sig.Value(), t.SignedData); err != nil {
+			return nil, fmt.Errorf("%s scheme: %w", "N3", err) // TODO: use const after SDK upgrade
 		}
 	}
 	return pub, nil
