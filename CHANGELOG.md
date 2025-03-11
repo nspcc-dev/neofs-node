@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - "new transaction callback finished with error" logs for "already exists in mempool" error (#3218)
 
 ### Changed
+- Retry flush from write-cache after 10s delay if an error is received (#3221)
 
 ### Removed
 
