@@ -18,6 +18,8 @@ import (
 const (
 	// defaultFlushInterval is default time interval between successive flushes.
 	defaultFlushInterval = 10 * time.Second
+	// defaultErrorDelay is default time delay for retrying a flush after receiving an error.
+	defaultErrorDelay = 10 * time.Second
 	// defaultWorkerCount is a default number of workers that flush objects.
 	defaultWorkerCount = 20
 )
@@ -39,6 +41,15 @@ func (c *cache) flushScheduler() {
 
 	for {
 		select {
+		case <-c.flushErrCh:
+			c.log.Warn("flush scheduler paused due to error",
+				zap.Duration("delay", defaultErrorDelay))
+
+			time.Sleep(defaultErrorDelay)
+
+			for len(c.flushErrCh) > 0 {
+				<-c.flushErrCh
+			}
 		case <-ticker.C:
 			c.modeMtx.RLock()
 			if c.readOnly() {
@@ -48,6 +59,12 @@ func (c *cache) flushScheduler() {
 			c.modeMtx.RUnlock()
 			err := c.fsTree.IterateAddresses(func(addr oid.Address) error {
 				select {
+				case <-c.flushErrCh:
+					select {
+					case c.flushErrCh <- struct{}{}:
+					default:
+					}
+					return errors.New("stopping iteration due to error")
 				case c.flushCh <- addr:
 					return nil
 				case <-c.closeCh:
@@ -76,10 +93,19 @@ func (c *cache) flushWorker(id int) {
 				c.modeMtx.RUnlock()
 				continue
 			}
-			if err := c.flushSingle(addr, true); err != nil {
-				c.log.Warn("flush failed", zap.Int("worker", id), zap.Error(err))
-			}
+			err := c.flushSingle(addr, true)
 			c.modeMtx.RUnlock()
+
+			if err != nil {
+				select {
+				case c.flushErrCh <- struct{}{}:
+				default:
+				}
+				c.log.Error("worker can't flush an object due to error",
+					zap.Int("worker", id),
+					zap.Stringer("addr", addr),
+					zap.Error(err))
+			}
 		case <-c.closeCh:
 			return
 		}
