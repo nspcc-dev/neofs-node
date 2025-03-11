@@ -118,7 +118,7 @@ func New(opts ...Option) Cache {
 
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
 func (c *cache) SetLogger(l *zap.Logger) {
-	c.log = l
+	c.log = l.With(zap.String("substorage", wcStorageType))
 }
 
 func (c *cache) DumpInfo() Info {
@@ -151,6 +151,11 @@ func (c *cache) Open(readOnly bool) error {
 
 // Init runs necessary services. No-op in read-only mode.
 func (c *cache) Init() error {
+	err := c.fsTree.Init()
+	if err != nil {
+		return fmt.Errorf("init FSTree: %w", err)
+	}
+
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 

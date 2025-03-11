@@ -101,6 +101,7 @@ func New(opts ...Option) *FSTree {
 		combinedSizeLimit:     8 * 1024 * 1024,
 		combinedSizeThreshold: 128 * 1024,
 		combinedWriteInterval: 10 * time.Millisecond,
+		log:                   zap.NewNop(),
 	}
 	for i := range opts {
 		opts[i](f)
