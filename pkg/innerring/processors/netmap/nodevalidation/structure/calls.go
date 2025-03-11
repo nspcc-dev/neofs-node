@@ -18,7 +18,9 @@ func (v *Validator) Verify(n netmap.NodeInfo) error {
 	n.IterateAttributes(func(key, _ string) {
 		if _, alreadyHave := attrM[key]; alreadyHave {
 			err = fmt.Errorf("repeating node attribute: '%s'", key)
+			return
 		}
+		attrM[key] = struct{}{}
 	})
 
 	return err
