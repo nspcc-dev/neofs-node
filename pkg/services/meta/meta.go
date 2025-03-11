@@ -2,6 +2,7 @@ package meta
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -98,8 +99,36 @@ type Parameters struct {
 	NeoEnpoints []string
 }
 
+func validatePrm(p Parameters) error {
+	if p.RootPath == "" {
+		return errors.New("empty path")
+	}
+	if p.Logger == nil {
+		return errors.New("missing logger")
+	}
+	if len(p.NeoEnpoints) == 0 {
+		return errors.New("no endpoints to NeoFS chain network")
+	}
+	if p.Network == nil {
+		return errors.New("missing NeoFS network state")
+	}
+	if (p.ContainerHash == util.Uint160{}) {
+		return errors.New("missing container contract hash")
+	}
+	if (p.NetmapHash == util.Uint160{}) {
+		return errors.New("missing netmap contract hash")
+	}
+
+	return nil
+}
+
 // New makes [Meta].
 func New(p Parameters) (*Meta, error) {
+	err := validatePrm(p)
+	if err != nil {
+		return nil, err
+	}
+
 	storagesFS, err := os.ReadDir(p.RootPath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("read existing container storages: %w", err)

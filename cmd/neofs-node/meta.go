@@ -43,6 +43,9 @@ func initMeta(c *cfg) {
 		NetmapHash:    c.basics.netmapSH,
 		RootPath:      c.applicationConfiguration.metadata.path,
 	}
+	if p.RootPath == "" {
+		p.RootPath = "metadata"
+	}
 	c.shared.metaService, err = meta.New(p)
 	fatalOnErr(err)
 

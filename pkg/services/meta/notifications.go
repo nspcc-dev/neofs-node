@@ -259,7 +259,7 @@ outer:
 }
 
 const (
-	// MPT key prefixes.
+	// MPT-only key prefixes.
 	oidIndex = iota
 	attrIntToOIDIndex
 	attrPlainToOIDIndex
@@ -270,6 +270,9 @@ const (
 	deletedIndex
 	lockedIndex
 	typeIndex
+
+	// storage-only key prefixes.
+	lockedByIndex
 
 	lastEnumIndex
 )
