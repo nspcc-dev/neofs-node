@@ -151,6 +151,11 @@ func (c *cache) Open(readOnly bool) error {
 
 // Init runs necessary services. No-op in read-only mode.
 func (c *cache) Init() error {
+	err := c.fsTree.Init()
+	if err != nil {
+		return fmt.Errorf("init FSTree: %w", err)
+	}
+
 	c.modeMtx.Lock()
 	defer c.modeMtx.Unlock()
 
