@@ -227,7 +227,7 @@ func deleteObjectsOps(dbKV, mptKV map[string][]byte, s storage.Store, objects []
 			switch k[0] {
 			// DB-only keys
 			case firstPartIndex, previousPartIndex, typeIndex:
-			// common keys for DB and MTP storages
+			// common keys for DB and MPT storages
 			case oidIndex, deletedIndex, lockedIndex:
 				mptKV[string(append([]byte{0}, k...))] = nil
 			// DB reversed indexes
