@@ -23,7 +23,7 @@ func (v Validator) Verify(nodeInfo netmap.NodeInfo) error {
 	var results []*client.ResEndpointInfo
 	var err error
 
-	for s := range func(f func(string) bool) { nodeInfo.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+	for s := range nodeInfo.NetworkEndpoints() {
 		var res *client.ResEndpointInfo
 		var c *client.Client
 
@@ -75,8 +75,6 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 		return nil
 	}
 
-	var err error
-
 	if exp, got := niExp.PublicKey(), niGot.PublicKey(); !bytes.Equal(exp, got) {
 		return fmt.Errorf("public key: got %x, expect %x", got, exp)
 	}
@@ -85,14 +83,11 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 		return fmt.Errorf("attr number: got %d, expect %d", got, exp)
 	}
 
-	niExp.IterateAttributes(func(key, value string) {
+	for key, value := range niExp.Attributes() {
 		vGot := niGot.Attribute(key)
 		if vGot != value {
-			err = fmt.Errorf("non-equal %s attribute: got %s, expect %s", key, vGot, value)
+			return fmt.Errorf("non-equal %s attribute: got %s, expect %s", key, vGot, value)
 		}
-	})
-	if err != nil {
-		return err
 	}
 
 	if exp, got := niExp.NumberOfNetworkEndpoints(), niGot.NumberOfNetworkEndpoints(); exp != got {
@@ -100,11 +95,11 @@ func compareNodeInfos(niExp, niGot netmap.NodeInfo) error {
 	}
 
 	expAddrM := make(map[string]struct{}, niExp.NumberOfAttributes())
-	for s := range func(f func(string) bool) { niExp.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+	for s := range niExp.NetworkEndpoints() {
 		expAddrM[s] = struct{}{}
 	}
 
-	for s := range func(f func(string) bool) { niGot.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+	for s := range niGot.NetworkEndpoints() {
 		if _, ok := expAddrM[s]; !ok {
 			return fmt.Errorf("got unexpected address: %s", s)
 		}

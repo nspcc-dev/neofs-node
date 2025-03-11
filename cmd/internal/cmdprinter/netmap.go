@@ -26,15 +26,15 @@ func PrettyPrintNodeInfo(cmd *cobra.Command, node netmap.NodeInfo,
 
 	cmd.Printf("%sNode %d: %s %s ", indent, index+1, hex.EncodeToString(node.PublicKey()), strState)
 
-	for endpoint := range func(f func(string) bool) { node.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+	for endpoint := range node.NetworkEndpoints() {
 		cmd.Printf("%s ", endpoint)
 	}
 	cmd.Println()
 
 	if !short {
-		node.IterateAttributes(func(key, value string) {
+		for key, value := range node.Attributes() {
 			cmd.Printf("%s\t%s: %s\n", indent, key, value)
-		})
+		}
 	}
 }
 

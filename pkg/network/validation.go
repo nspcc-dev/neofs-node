@@ -35,7 +35,7 @@ var (
 type NodeEndpointsIterator netmap.NodeInfo
 
 func (x NodeEndpointsIterator) IterateAddresses(f func(string) bool) {
-	(netmap.NodeInfo)(x).IterateNetworkEndpoints(func(s string) bool { return !f(s) })
+	(netmap.NodeInfo)(x).NetworkEndpoints()(f)
 }
 
 func (x NodeEndpointsIterator) NumberOfAddresses() int {

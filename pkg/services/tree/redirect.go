@@ -22,7 +22,7 @@ func (s *Service) forEachNode(ctx context.Context, cntNodes []netmapSDK.NodeInfo
 
 	var called bool
 	for _, n := range cntNodes {
-		for endpoint := range func(f func(string) bool) { n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+		for endpoint := range n.NetworkEndpoints() {
 			c, err := s.cache.get(endpoint)
 			if err != nil {
 				continue

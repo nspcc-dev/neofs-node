@@ -28,10 +28,10 @@ func (c *Client) AddPeer(ni netmap.NodeInfo, pkey *keys.PublicKey) error {
 		Key:        pkey,
 		State:      netmaprpc.NodeStateOnline,
 	}
-	node.Addresses = slices.Collect(func(f func(s string) bool) { ni.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) })
-	ni.IterateAttributes(func(k, v string) {
+	node.Addresses = slices.Collect(ni.NetworkEndpoints())
+	for k, v := range ni.Attributes() {
 		node.Attributes[k] = v
-	})
+	}
 
 	prm := client.InvokePrm{}
 	prm.SetMethod(addNodeMethod)

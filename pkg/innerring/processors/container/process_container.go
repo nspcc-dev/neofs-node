@@ -78,20 +78,16 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		return fmt.Errorf("invalid binary container: %w", err)
 	}
 
-	var denyErr error
-	ctx.cnr.IterateAttributes(func(k, v string) {
-		if denyErr == nil && strings.HasPrefix(k, sysAttrPrefix) {
+	for k := range ctx.cnr.Attributes() {
+		if strings.HasPrefix(k, sysAttrPrefix) {
 			if _, ok := allowedSystemAttributes[k]; !ok {
-				denyErr = fmt.Errorf("system attribute %s is not allowed", k)
+				return fmt.Errorf("system attribute %s is not allowed", k)
 			}
 
 			if k == sysAttrChainMeta && !cp.metaEnabled {
-				denyErr = fmt.Errorf("chain meta data attribute is not allowed")
+				return fmt.Errorf("chain meta data attribute is not allowed")
 			}
 		}
-	})
-	if denyErr != nil {
-		return denyErr
 	}
 
 	err = cp.verifySignature(signatureVerificationData{

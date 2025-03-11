@@ -18,6 +18,6 @@ func TestValidator_Verify(t *testing.T) {
 			{"key1", "val3"},
 			{"key2", "val4"},
 		})
-		require.EqualError(t, v.Verify(n), "repeating node attribute: 'key2'")
+		require.EqualError(t, v.Verify(n), "repeating node attribute: 'key1'")
 	})
 }
