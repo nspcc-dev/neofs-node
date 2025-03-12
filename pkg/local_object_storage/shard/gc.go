@@ -217,10 +217,12 @@ func (s *Shard) collectExpiredObjects(e Event) {
 	expired, err := s.getExpiredObjects(e.(newEpoch).epoch, func(typ object.Type) bool {
 		return typ != object.TypeLock
 	})
-	if err != nil || len(expired) == 0 {
-		if err != nil {
-			log.Warn("iterator over expired objects failed", zap.Error(err))
-		}
+	if err != nil {
+		log.Warn("iterator over expired objects failed", zap.Error(err))
+		return
+	}
+	if len(expired) == 0 {
+		log.Debug("no expired objects")
 		return
 	}
 
