@@ -36,6 +36,7 @@ type BlockTimer struct {
 	once bool
 
 	deltaCfg
+	stopped bool
 }
 
 // DeltaOption is an option of delta-interval handler.
@@ -162,7 +163,9 @@ func (t *BlockTimer) reset() {
 // Executes all callbacks which are awaiting execution at the new block.
 func (t *BlockTimer) Tick(h uint32) {
 	t.mtx.Lock()
-	t.tick(h)
+	if !t.stopped {
+		t.tick(h)
+	}
 	t.mtx.Unlock()
 }
 
@@ -190,4 +193,10 @@ func (t *BlockTimer) tick(h uint32) {
 	for i := range t.ps {
 		t.ps[i].tick(h)
 	}
+}
+
+func (t *BlockTimer) Stop() {
+	t.mtx.Lock()
+	t.stopped = true
+	t.mtx.Unlock()
 }

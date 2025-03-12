@@ -247,3 +247,19 @@ func TestBlockTimer_TickSameHeight(t *testing.T) {
 		})
 	})
 }
+
+func TestBlockTimer_Stop(t *testing.T) {
+	const interval = 5
+	var triggers int
+	bt := timer.NewBlockTimer(func() (uint32, error) { return interval, nil }, func() { triggers++ })
+	require.NoError(t, bt.Reset())
+
+	tickN(bt, 2*interval)
+	require.EqualValues(t, 2, triggers)
+
+	triggers = 0
+	bt.Stop()
+
+	tickN(bt, 2*interval)
+	require.Zero(t, triggers)
+}
