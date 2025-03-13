@@ -90,32 +90,6 @@ func TestBlockTimer(t *testing.T) {
 	require.Equal(t, intervalNum/2, uint32(doubleCallCounter))
 }
 
-func TestDeltaPulse(t *testing.T) {
-	blockDur := uint32(9)
-	baseCallCounter := uint32(0)
-
-	bt := timer.NewBlockTimer(timer.StaticBlockMeter(blockDur), func() {
-		baseCallCounter++
-	})
-
-	deltaCallCounter := uint32(0)
-
-	div := uint32(3)
-
-	bt.OnDelta(1, div, func() {
-		deltaCallCounter++
-	}, timer.WithPulse())
-
-	require.NoError(t, bt.Reset())
-
-	intervalNum := uint32(7)
-
-	tickN(bt, intervalNum*blockDur)
-
-	require.Equal(t, intervalNum, uint32(baseCallCounter))
-	require.Equal(t, intervalNum*div, uint32(deltaCallCounter))
-}
-
 func TestDeltaReset(t *testing.T) {
 	blockDur := uint32(6)
 	baseCallCounter := 0

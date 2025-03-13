@@ -35,22 +35,8 @@ type BlockTimer struct {
 
 	once bool
 
-	deltaCfg
+	pulse   bool
 	stopped bool
-}
-
-// DeltaOption is an option of delta-interval handler.
-type DeltaOption func(*deltaCfg)
-
-type deltaCfg struct {
-	pulse bool
-}
-
-// WithPulse returns option to call delta-interval handler multiple times.
-func WithPulse() DeltaOption {
-	return func(c *deltaCfg) {
-		c.pulse = true
-	}
 }
 
 // StaticBlockMeter returns BlockMeters that always returns (d, nil).
@@ -65,14 +51,12 @@ func StaticBlockMeter(d uint32) BlockMeter {
 // Reset should be called before timer ticking.
 func NewBlockTimer(dur BlockMeter, h BlockTickHandler) *BlockTimer {
 	return &BlockTimer{
-		mtx: new(sync.Mutex),
-		dur: dur,
-		mul: 1,
-		div: 1,
-		h:   h,
-		deltaCfg: deltaCfg{
-			pulse: true,
-		},
+		mtx:   new(sync.Mutex),
+		dur:   dur,
+		mul:   1,
+		div:   1,
+		h:     h,
+		pulse: true,
 	}
 }
 
@@ -95,22 +79,14 @@ func NewOneTickTimer(dur BlockMeter, h BlockTickHandler) *BlockTimer {
 //
 // If WithPulse option is provided, handler is executed (mul / div * BlockMeter()) block
 // during base interval.
-func (t *BlockTimer) OnDelta(mul, div uint32, h BlockTickHandler, opts ...DeltaOption) {
-	c := deltaCfg{
-		pulse: false,
-	}
-
-	for i := range opts {
-		opts[i](&c)
-	}
-
+func (t *BlockTimer) OnDelta(mul, div uint32, h BlockTickHandler) {
 	t.ps = append(t.ps, BlockTimer{
 		mul:  mul,
 		div:  div,
 		h:    h,
 		once: t.once,
 
-		deltaCfg: c,
+		pulse: false,
 	})
 }
 
