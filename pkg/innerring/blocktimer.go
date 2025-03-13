@@ -38,26 +38,6 @@ type (
 	}
 )
 
-func (s *Server) addBlockTimer(t *timer.BlockTimer) {
-	s.blockTimers = append(s.blockTimers, t)
-}
-
-func (s *Server) startBlockTimers() error {
-	for i := range s.blockTimers {
-		if err := s.blockTimers[i].Reset(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *Server) tickTimers(h uint32) {
-	for i := range s.blockTimers {
-		s.blockTimers[i].Tick(h)
-	}
-}
-
 func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 	epochTimer := timer.NewBlockTimer(
 		func() (uint32, error) {

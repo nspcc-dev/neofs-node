@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Panic if logger is not set in FSTree (#3220)
 - Not initialized FSTree in the write-cache (#3220)
 - Potential approval of network map candidate with duplicated attribute by IR (#3224)
+- Unscheduled attempt to tick the epoch when new epoch event has already arrived in IR (#3226)
 
 ### Changed
 

@@ -72,8 +72,8 @@ type (
 		// event producers
 		morphListener   event.Listener
 		mainnetListener event.Listener
-		blockTimers     []*timer.BlockTimer
 		epochTimer      *timer.BlockTimer
+		initEpochTimer  atomic.Pointer[timer.BlockTimer]
 
 		morphClient   *client.Client
 		mainnetClient *client.Client
@@ -208,7 +208,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		func() {
 			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
 		})
-	s.addBlockTimer(initialEpochTicker)
+	s.initEpochTimer.Store(initialEpochTicker)
 
 	morphErr := make(chan error)
 	mainnnetErr := make(chan error)
@@ -237,7 +237,10 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 				zap.Uint32("block_index", b.Index))
 		}
 
-		s.tickTimers(b.Index)
+		s.epochTimer.Tick(b.Index)
+		if initEpochTimer := s.initEpochTimer.Load(); initEpochTimer != nil {
+			initEpochTimer.Tick(b.Index)
+		}
 	})
 
 	if !s.withoutMainNet {
@@ -260,8 +263,11 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
-	if err := s.startBlockTimers(); err != nil {
-		return fmt.Errorf("could not start block timers: %w", err)
+	if err = s.epochTimer.Reset(); err != nil {
+		return fmt.Errorf("could not start new epoch block timer: %w", err)
+	}
+	if err = initialEpochTicker.Reset(); err != nil {
+		return fmt.Errorf("could not start initial new epoch block timer: %w", err)
 	}
 
 	s.startWorkers(ctx)
@@ -1056,8 +1062,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		},
 	})
 
-	server.addBlockTimer(server.epochTimer)
-
 	return server, nil
 }
 
@@ -1222,11 +1226,8 @@ func (s *Server) restartMorph() error {
 		return fmt.Errorf("FS chain config reinitialization: %w", err)
 	}
 
-	for _, t := range s.blockTimers {
-		err = t.Reset()
-		if err != nil {
-			return fmt.Errorf("could not reset block timers: %w", err)
-		}
+	if err = s.epochTimer.Reset(); err != nil {
+		return fmt.Errorf("could not reset new epoch block timer: %w", err)
 	}
 
 	s.log.Info("internal services have been restarted after RPC connection loss...")
