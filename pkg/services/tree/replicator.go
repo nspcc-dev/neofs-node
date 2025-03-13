@@ -62,7 +62,7 @@ func (s *Service) replicationWorker(ctx context.Context) {
 			var lastErr error
 			var lastAddr string
 
-			for addr := range func(f func(string) bool) { task.n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+			for addr := range task.n.NetworkEndpoints() {
 				lastAddr = addr
 
 				c, err := s.cache.get(addr)

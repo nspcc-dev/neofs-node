@@ -69,11 +69,11 @@ func prettyPrintNodeInfo(cmd *cobra.Command, i netmap.NodeInfo) {
 
 	cmd.Println("state:", stateWord)
 
-	for s := range func(f func(string) bool) { i.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+	for s := range i.NetworkEndpoints() {
 		cmd.Println("address:", s)
 	}
 
-	i.IterateAttributes(func(key, value string) {
+	for key, value := range i.Attributes() {
 		cmd.Printf("attribute: %s=%s\n", key, value)
-	})
+	}
 }

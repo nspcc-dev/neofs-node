@@ -60,9 +60,9 @@ var netInfoCmd = &cobra.Command{
 		cmd.Printf(format, "Maintenance mode allowed", netInfo.MaintenanceModeAllowed())
 
 		cmd.Println("NeoFS network configuration (other)")
-		netInfo.IterateRawNetworkParameters(func(name string, value []byte) {
+		for name, value := range netInfo.RawNetworkParameters() {
 			cmd.Printf(format, name, hex.EncodeToString(value))
-		})
+		}
 		return nil
 	},
 }

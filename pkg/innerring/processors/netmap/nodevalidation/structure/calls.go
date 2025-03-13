@@ -15,11 +15,12 @@ func (v *Validator) Verify(n netmap.NodeInfo) error {
 	}
 
 	attrM := make(map[string]struct{}, n.NumberOfAttributes())
-	n.IterateAttributes(func(key, _ string) {
+	for key := range n.Attributes() {
 		if _, alreadyHave := attrM[key]; alreadyHave {
-			err = fmt.Errorf("repeating node attribute: '%s'", key)
+			return fmt.Errorf("repeating node attribute: '%s'", key)
 		}
-	})
+		attrM[key] = struct{}{}
+	}
 
-	return err
+	return nil
 }

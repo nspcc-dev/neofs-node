@@ -105,9 +105,9 @@ func prettyPrintContainer(cmd *cobra.Command, cnr container.Container, jsonEncod
 	cmd.Println("created:", cnr.CreatedAt())
 
 	cmd.Println("attributes:")
-	cnr.IterateAttributes(func(key, val string) {
+	for key, val := range cnr.Attributes() {
 		cmd.Printf("\t%s=%s\n", key, val)
-	})
+	}
 
 	cmd.Println("placement policy:")
 	if err := cnr.PlacementPolicy().WriteStringTo((*stringWriter)(cmd)); err != nil {

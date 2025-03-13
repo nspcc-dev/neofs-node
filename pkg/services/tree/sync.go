@@ -147,7 +147,7 @@ func (s *Service) synchronizeTree(ctx context.Context, d pilorama.CIDDescriptor,
 	for _, n := range nodes {
 		height := from
 	loop:
-		for addr := range func(f func(string) bool) { n.IterateNetworkEndpoints(func(s string) bool { return !f(s) }) } {
+		for addr := range n.NetworkEndpoints() {
 			var a network.Address
 			if err := a.FromString(addr); err != nil {
 				continue

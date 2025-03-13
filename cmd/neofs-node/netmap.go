@@ -144,7 +144,7 @@ func nodeKeyFromNetmap(c *cfg) []byte {
 
 func (c *cfg) iterateNetworkAddresses(f func(string) bool) {
 	ni := c.cfgNodeInfo.localInfo
-	ni.IterateNetworkEndpoints(func(s string) bool { return !f(s) })
+	ni.NetworkEndpoints()(f)
 }
 
 func (c *cfg) addressNum() int {

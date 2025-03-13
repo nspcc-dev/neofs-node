@@ -73,9 +73,9 @@ var listContainersCmd = &cobra.Command{
 
 				res, err := internalclient.GetContainer(ctx, prmGet)
 				if err == nil {
-					res.Container().IterateUserAttributes(func(key, val string) {
+					for key, val := range res.Container().UserAttributes() {
 						cmd.Printf("  %s: %s\n", key, val)
-					})
+					}
 				} else {
 					cmd.Printf("  failed to read attributes: %v\n", err)
 				}

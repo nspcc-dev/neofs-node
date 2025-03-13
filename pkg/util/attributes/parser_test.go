@@ -23,12 +23,12 @@ func testAttributeMap(t *testing.T, mSrc, mExp map[string]string) {
 		mExp = mSrc
 	}
 
-	node.IterateAttributes(func(key, value string) {
+	for key, value := range node.Attributes() {
 		v, ok := mExp[key]
 		require.True(t, ok)
 		require.Equal(t, value, v)
 		delete(mExp, key)
-	})
+	}
 
 	require.Empty(t, mExp)
 }
