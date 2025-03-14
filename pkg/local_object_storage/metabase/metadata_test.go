@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
@@ -389,17 +390,17 @@ func TestIntBucketOrder(t *testing.T) {
 }
 
 func assertInvalidCursorErr(t *testing.T, fs object.SearchFilters, attrs []string, cursor, msg string) {
-	_, _, err := PreprocessSearchQuery(fs, attrs, cursor)
-	require.ErrorIs(t, err, errInvalidCursor)
-	require.EqualError(t, err, errInvalidCursor.Error()+": "+msg)
+	_, _, err := objectcore.PreprocessSearchQuery(fs, attrs, cursor)
+	require.ErrorIs(t, err, objectcore.ErrInvalidCursor)
+	require.EqualError(t, err, objectcore.ErrInvalidCursor.Error()+": "+msg)
 }
 
 func assertCursor(t *testing.T, fs object.SearchFilters, attrs []string, cursor string, expPrefix, expKey []byte) {
-	c, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	c, _, err := objectcore.PreprocessSearchQuery(fs, attrs, cursor)
 	require.NoError(t, err)
 	require.NotNil(t, c)
-	require.Equal(t, expPrefix, c.primKeysPrefix)
-	require.Equal(t, expKey, c.primSeekKey)
+	require.Equal(t, expPrefix, c.PrimaryKeysPrefix)
+	require.Equal(t, expKey, c.PrimarySeekKey)
 }
 
 var invalidListingCursorTestcases = []struct{ name, err, cursor string }{
@@ -498,20 +499,20 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 			var fs object.SearchFilters
 			fs.AddFilter("attr", n.String(), object.MatchNumGE)
 
-			c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+			c, fInt, err := objectcore.PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 			require.NoError(t, err)
 			require.NotNil(t, c)
 
 			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
-			require.Equal(t, pref, c.primKeysPrefix)
+			require.Equal(t, pref, c.PrimaryKeysPrefix)
 
 			require.Len(t, fInt, 1)
 			f, ok := fInt[0]
 			require.True(t, ok)
 			if n.Cmp(maxUint256Neg) == 0 {
-				require.Equal(t, ParsedIntFilter{auto: true}, f)
+				require.Equal(t, objectcore.ParsedIntFilter{AutoMatch: true}, f)
 			} else {
-				require.Equal(t, ParsedIntFilter{n: n, b: ib}, f)
+				require.Equal(t, objectcore.ParsedIntFilter{IntValue: n, RawValue: ib}, f)
 			}
 		}
 	})
@@ -544,48 +545,48 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 		id := oidtest.ID()
 		pref := slices.Concat([]byte("attr"), []byte{0x00})
 		b := slices.Concat(pref, []byte("hello"), []byte{0x00}, id[:])
-		c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+		c, fInt, err := objectcore.PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 		require.NoError(t, err)
 		require.Empty(t, fInt)
-		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.primKeysPrefix)
-		require.Equal(t, slices.Concat([]byte{0x02}, b), c.primSeekKey)
+		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.PrimaryKeysPrefix)
+		require.Equal(t, slices.Concat([]byte{0x02}, b), c.PrimarySeekKey)
 	})
 }
 
-func cloneIntFilterMap(src map[int]ParsedIntFilter) map[int]ParsedIntFilter {
+func cloneIntFilterMap(src map[int]objectcore.ParsedIntFilter) map[int]objectcore.ParsedIntFilter {
 	if src == nil {
 		return nil
 	}
 	dst := maps.Clone(src)
 	for k, f := range src {
 		var n *big.Int
-		if f.n != nil {
-			n = new(big.Int).Set(f.n)
+		if f.IntValue != nil {
+			n = new(big.Int).Set(f.IntValue)
 		}
-		dst[k] = ParsedIntFilter{
-			auto: f.auto,
-			n:    n,
-			b:    slices.Clone(f.b),
+		dst[k] = objectcore.ParsedIntFilter{
+			AutoMatch: f.AutoMatch,
+			IntValue:  n,
+			RawValue:  slices.Clone(f.RawValue),
 		}
 	}
 	return dst
 }
 
-func cloneSearchCursor(c *SearchCursor) *SearchCursor {
+func cloneSearchCursor(c *objectcore.SearchCursor) *objectcore.SearchCursor {
 	if c == nil {
 		return nil
 	}
-	return &SearchCursor{primKeysPrefix: slices.Clone(c.primKeysPrefix), primSeekKey: slices.Clone(c.primSeekKey)}
+	return &objectcore.SearchCursor{PrimaryKeysPrefix: slices.Clone(c.PrimaryKeysPrefix), PrimarySeekKey: slices.Clone(c.PrimarySeekKey)}
 }
 
 func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.SearchFilters, attrs []string, all []client.SearchResultItem, lim uint16) {
 	var strCursor string
 	nAttr := len(attrs)
 	for {
-		cursor, fInt, err := PreprocessSearchQuery(fs, attrs, strCursor)
+		cursor, fInt, err := objectcore.PreprocessSearchQuery(fs, attrs, strCursor)
 		if err != nil {
 			if len(all) == 0 {
-				require.ErrorIs(t, err, ErrUnreachableQuery)
+				require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
 			} else {
 				require.NoError(t, err)
 			}
@@ -702,7 +703,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			cursor, fInt, err := PreprocessSearchQuery(nil, nil, "")
+			cursor, fInt, err := objectcore.PreprocessSearchQuery(nil, nil, "")
 			require.NoError(t, err)
 
 			_, _, err = db.Search(cnr, nil, fInt, nil, cursor, n)

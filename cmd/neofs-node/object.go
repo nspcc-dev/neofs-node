@@ -14,8 +14,8 @@ import (
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
@@ -627,7 +627,7 @@ type storageForObjectService struct {
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	return x.local.Search(cnr, fs, fInt, attrs, cursor, count)
 }
 
