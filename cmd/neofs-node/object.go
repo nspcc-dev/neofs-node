@@ -308,7 +308,7 @@ func initObjectService(c *cfg) {
 		putSvc: sPut,
 		keys:   keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor, c.internals.log.With(zap.String("scope", "SEARCHV2")))
 
 	for _, srv := range c.cfgGRPC.servers {
 		protoobject.RegisterObjectServiceServer(srv, server)

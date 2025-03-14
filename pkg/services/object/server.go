@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -45,6 +46,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -185,10 +187,11 @@ type server struct {
 	reqInfoProc   ACLInfoExtractor
 	nodeClients   searchsvc.ClientConstructor
 	searchWorkers *ants.Pool
+	searchLog     *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
+func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor, sl *zap.Logger) protoobject.ObjectServiceServer {
 	// TODO: configurable capacity
 	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
 	if err != nil {
@@ -205,6 +208,7 @@ func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ec
 		reqInfoProc:   rp,
 		nodeClients:   cs,
 		searchWorkers: sp,
+		searchLog:     sl,
 	}
 }
 
@@ -1893,7 +1897,14 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectSearchV2, err, t) }()
+	defer func() {
+		if err != nil {
+			s.searchLog.Info("request failed", zap.Stringer("took", time.Since(t)), zap.Error(err))
+		} else {
+			s.searchLog.Info("request succeeded", zap.Stringer("took", time.Since(t)))
+		}
+		s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
@@ -2046,9 +2057,15 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			wg.Add(1)
 			if resErr = s.searchWorkers.Submit(func() {
 				defer wg.Done()
+				es := slices.Collect(func(yield func(string) bool) { node.IterateNetworkEndpoints(func(s string) bool { return !yield(s) }) })
+				s.searchLog.Info("processing remote node...", zap.Strings("endpoints", es))
+				snc := time.Now()
 				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
+					s.searchLog.Info("remote node succeeded", zap.Strings("endpoints", es), zap.Stringer("took", time.Since(snc)))
 					add(set, more)
-				} // TODO: else log error
+				} else {
+					s.searchLog.Info("remote node failed", zap.Strings("endpoints", es), zap.Stringer("took", time.Since(snc)), zap.Error(err))
+				}
 			}); resErr != nil {
 				wg.Done()
 			}
@@ -2112,10 +2129,14 @@ func (s *server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 
 	var firstErr error
 	for i := range endpoints {
+		s.searchLog.Info("processing remote node endpoint...", zap.Stringer("endpoint", endpoints[i]))
+		snc := time.Now()
 		items, withCursor, err := searchOnRemoteAddress(ctx, c, endpoints[i], nodePub, req)
 		if err == nil {
+			s.searchLog.Info("remote node endpoint succeeded", zap.Stringer("endpoint", endpoints[i]), zap.Stringer("took", time.Since(snc)))
 			return items, withCursor, nil
 		}
+		s.searchLog.Info("remote node endpoint failed", zap.Stringer("endpoint", endpoints[i]), zap.Stringer("took", time.Since(snc)), zap.Error(err))
 		if firstErr == nil {
 			firstErr = err
 		}
