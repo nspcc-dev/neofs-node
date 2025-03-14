@@ -17,7 +17,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"go.etcd.io/bbolt"
@@ -282,71 +281,10 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 	return res[:n], newCursor, nil
 }
 
-// combines attribute's DB and NeoFS API SearchV2 values to the matchable
-// format. Returns DB errors only.
-func combineValues(attr string, dbVal []byte, fltVal string) ([]byte, []byte, error) {
-	switch attr {
-	case object.FilterOwnerID:
-		if len(dbVal) != user.IDSize {
-			return nil, nil, fmt.Errorf("invalid owner len %d != %d", len(dbVal), user.IDSize)
-		}
-		if b, _ := base58.Decode(fltVal); len(b) == user.IDSize {
-			return dbVal, b, nil
-		}
-		// consider filter 'owner PREFIX N':
-		//  - any object matches it
-		//  - decoded filter byte is always 21 while the DB one is always 53
-		// so we'd get false mismatch. To avoid this, we have to decode each DB val.
-		dbVal = []byte(base58.Encode(dbVal))
-	case object.FilterFirstSplitObject, object.FilterParentID:
-		if len(dbVal) != oid.Size {
-			return nil, nil, fmt.Errorf("invalid OID len %d != %d", len(dbVal), oid.Size)
-		}
-		if b, _ := base58.Decode(fltVal); len(b) == oid.Size {
-			return dbVal, b, nil
-		}
-		// same as owner
-		dbVal = []byte(base58.Encode(dbVal))
-	case object.FilterPayloadChecksum:
-		if len(dbVal) != sha256.Size {
-			return nil, nil, fmt.Errorf("invalid payload checksum len %d != %d", len(dbVal), sha256.Size)
-		}
-		if b, err := hex.DecodeString(fltVal); err == nil {
-			return dbVal, b, nil
-		}
-		dbVal = []byte(hex.EncodeToString(dbVal))
-	case object.FilterPayloadHomomorphicHash:
-		if len(dbVal) != tz.Size {
-			return nil, nil, fmt.Errorf("invalid payload homomorphic hash len %d != %d", len(dbVal), tz.Size)
-		}
-		if b, err := hex.DecodeString(fltVal); err == nil {
-			return dbVal, b, nil
-		}
-		dbVal = []byte(hex.EncodeToString(dbVal))
-	case object.FilterSplitID:
-		if len(dbVal) != 16 {
-			return nil, nil, fmt.Errorf("invalid split ID len %d != 16", len(dbVal))
-		}
-		uid, err := uuid.Parse(fltVal)
-		if err == nil {
-			return dbVal, uid[:], nil
-		}
-		copy(uid[:], dbVal)
-		dbVal = []byte(uid.String())
-	}
-	return dbVal, []byte(fltVal), nil
-}
-
 func metaBucketKey(cnr cid.ID) []byte {
 	k := [1 + cid.Size]byte{metadataPrefix}
 	copy(k[1:], cnr[:])
 	return k[:]
-}
-
-func intBytes(n *big.Int) []byte {
-	b := make([]byte, intValLen)
-	putInt(b, n)
-	return b
 }
 
 func putInt(b []byte, n *big.Int) {
@@ -531,13 +469,6 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 		return uid.String(), nil
 	}
 	return string(stored), nil
-}
-
-func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) {
-	if attr := f.Header(); attr == object.FilterRoot || attr == object.FilterPhysical {
-		return object.MatchStringEqual, binPropMarker
-	}
-	return f.Operation(), f.Value()
 }
 
 // CalculateCursor calculates cursor for the given last search result item.

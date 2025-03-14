@@ -3,12 +3,16 @@ package object_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"math"
+	"math/big"
 	"slices"
 	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	. "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -361,4 +365,174 @@ func TestMergeSearchResults(t *testing.T) {
 			testSysAttrOrder(t, object.FilterSplitID, hs, strs, uuid.UUID.String, func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
 		})
 	})
+}
+
+var (
+	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
+	maxUint256Neg = new(big.Int).Neg(maxUint256)
+)
+
+func TestPreprocessSearchQuery_Cursors(t *testing.T) {
+	t.Run("listing", func(t *testing.T) {
+		test := func(t *testing.T, fs object.SearchFilters, attrs []string) {
+			t.Run("initial", func(t *testing.T) {
+				assertCursor(t, fs, attrs, "", []byte{0x00}, []byte{0x00})
+			})
+			t.Run("invalid cursor", func(t *testing.T) {
+				for _, tc := range invalidListingCursorTestcases {
+					t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, attrs, tc.cursor, tc.err) })
+				}
+			})
+			id := oidtest.ID()
+			assertCursor(t, fs, attrs, base64.StdEncoding.EncodeToString(id[:]), []byte{0x00}, slices.Concat([]byte{0x00}, id[:]))
+		}
+		t.Run("unfiltered", func(t *testing.T) { test(t, nil, nil) })
+		t.Run("w/o attributes", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "val", object.MatchStringNotEqual)
+			test(t, fs, nil)
+		})
+		t.Run("filter no attribute", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "", object.MatchNotPresent)
+			test(t, fs, []string{"attr"})
+		})
+	})
+	t.Run("int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchNumGT, object.MatchNumGE, object.MatchNumLT, object.MatchNumLE} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "123", op)
+					pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+					if op == object.MatchNumGT || op == object.MatchNumGE {
+						assertCursor(t, fs, []string{"attr"}, "", pref, slices.Concat(pref, BigIntBytes(big.NewInt(123))))
+					} else {
+						assertCursor(t, fs, []string{"attr"}, "", pref, pref)
+					}
+				})
+			}
+		})
+		t.Run("invalid cursor", func(t *testing.T) {
+			var fs object.SearchFilters
+			fs.AddFilter("attr", "123", object.MatchNumGT)
+			for _, tc := range invalidIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := testutil.RandByteSlice(object.MaxHeaderLen + 1)
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
+		})
+		id := oidtest.ID()
+		for _, n := range []*big.Int{
+			maxUint256Neg, big.NewInt(math.MinInt64), big.NewInt(-1), big.NewInt(0),
+			big.NewInt(1), big.NewInt(math.MaxInt64), maxUint256,
+		} {
+			ib := BigIntBytes(n)
+			b := slices.Concat([]byte("attr"), []byte{0x00}, ib, id[:])
+			var fs object.SearchFilters
+			fs.AddFilter("attr", n.String(), object.MatchNumGE)
+
+			c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+			require.NoError(t, err)
+			require.NotNil(t, c)
+
+			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
+			require.Equal(t, pref, c.PrimaryKeysPrefix)
+
+			require.Len(t, fInt, 1)
+			f, ok := fInt[0]
+			require.True(t, ok)
+			if n.Cmp(maxUint256Neg) == 0 {
+				require.Equal(t, ParsedIntFilter{AutoMatch: true}, f)
+			} else {
+				require.Equal(t, ParsedIntFilter{IntValue: n, RawValue: ib}, f)
+			}
+		}
+	})
+	t.Run("non-int", func(t *testing.T) {
+		t.Run("initial", func(t *testing.T) {
+			for _, op := range []object.SearchMatchType{object.MatchStringEqual, object.MatchStringNotEqual, object.MatchCommonPrefix} {
+				t.Run(op.String(), func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter("attr", "hello", op)
+					pref := slices.Concat([]byte{0x02}, []byte("attr"), []byte{0x00})
+					key := pref
+					if op != object.MatchStringNotEqual {
+						key = slices.Concat(pref, []byte("hello"))
+					}
+					assertCursor(t, fs, []string{"attr"}, "", pref, key)
+				})
+			}
+		})
+		var fs object.SearchFilters
+		fs.AddFilter("attr", "hello", object.MatchStringEqual)
+		t.Run("invalid cursor", func(t *testing.T) {
+			for _, tc := range invalidNonIntCursorTestcases {
+				t.Run(tc.name, func(t *testing.T) { assertInvalidCursorErr(t, fs, []string{"attr"}, tc.cursor, tc.err) })
+			}
+			t.Run("header overflow", func(t *testing.T) {
+				b := testutil.RandByteSlice(object.MaxHeaderLen + 1)
+				assertInvalidCursorErr(t, fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b), "len 16385 exceeds the limit 16384")
+			})
+		})
+		id := oidtest.ID()
+		pref := slices.Concat([]byte("attr"), []byte{0x00})
+		b := slices.Concat(pref, []byte("hello"), []byte{0x00}, id[:])
+		c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+		require.NoError(t, err)
+		require.Empty(t, fInt)
+		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.PrimaryKeysPrefix)
+		require.Equal(t, slices.Concat([]byte{0x02}, b), c.PrimarySeekKey)
+	})
+}
+
+func assertInvalidCursorErr(t *testing.T, fs object.SearchFilters, attrs []string, cursor, msg string) {
+	_, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.ErrorIs(t, err, ErrInvalidCursor)
+	require.EqualError(t, err, ErrInvalidCursor.Error()+": "+msg)
+}
+
+func assertCursor(t *testing.T, fs object.SearchFilters, attrs []string, cursor string, expPrefix, expKey []byte) {
+	c, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	require.NoError(t, err)
+	require.NotNil(t, c)
+	require.Equal(t, expPrefix, c.PrimaryKeysPrefix)
+	require.Equal(t, expKey, c.PrimarySeekKey)
+}
+
+var invalidListingCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 31 for listing query", cursor: "q/WZCxCa19Y5lnEkCl/eL3TuEQdRmEtItzOe8TdsJA=="},
+	{name: "oversize", err: "wrong len 33 for listing query", cursor: "ebTksjW7LcatKlCnNIiqQXyhZKdD2iMvcDsYSokVYyYB"},
+}
+
+// for 'attr: 123' last result.
+var invalidIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "undersize", err: "wrong len 69 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHtK9i0PSRtkhlwPKwf9Zq0nzwbbzlJYFufLmRJyRPPI"},
+	{name: "oversize", err: "wrong len 71 for int query",
+		cursor: "YXR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHt8duMfXsAHeMC6T9hwwUvq/LP7HQ0ovGK8PSK2cddFGAA="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvAZL3wws1klEuoU+mT625g8fNHuSjTyDL/leSvB2hNOA=="},
+	{name: "wrong delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cgEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHvgYmA9Vxu0yP68nUexGmMRce5YyV/7EQ3g5jjj7ELcRg=="},
+	{name: "invalid sign", err: "invalid sign byte 0xFF",
+		cursor: "YXR0cgD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHv3+vwsBFrKukaYtBo1r7SCNPeLBr1d+4RDR9viyyRiZw=="},
+}
+
+// for 'attr: hello' last result.
+var invalidNonIntCursorTestcases = []struct{ name, err, cursor string }{
+	{name: "not a Base64", err: "decode Base64: illegal base64 data at input byte 0", cursor: "???"},
+	{name: "no value", err: "too short len 38",
+		cursor: "YnR0cgAAR7tSRzMOSbFjFs5YvSPr3V6Ps8hmv+GdwAt3PMmVnYs="},
+	{name: "other primary attribute", err: "wrong primary attribute",
+		cursor: "YnR0cgBoZWxsbwC5XU/eTk5N+i+RuLa4XQ4lcFd3wqN0LFye13unXZ2SBA=="},
+	{name: "wrong key-value delimiter", err: "wrong key-value delimiter",
+		cursor: "YXR0cv9oZWxsbwD3kqge4Gmjjus4zLTKQs4gxxbRD4pK1N5Lu6NQuJ43UQ=="},
+	{name: "wrong value-OID delimiter", err: "wrong value-OID delimiter",
+		cursor: "YXR0cgBoZWxsb/+IlGDk7Bu+PC410JNSmNyajZ0lphLjqtgWDLyNn5Gh4w=="},
 }

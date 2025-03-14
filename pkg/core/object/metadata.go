@@ -19,7 +19,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/tzhash/tz"
-	"go.etcd.io/bbolt"
 )
 
 // IsIntegerSearchOp reports whether given op matches integer attributes.
@@ -175,31 +174,6 @@ func calcMaxUniqueSearchResults(lim uint16, sets [][]client.SearchResultItem) ui
 	return n
 }
 
-var (
-	// ErrUnreachableQuery is returned when no object ever matches a particular
-	// search query.
-	ErrUnreachableQuery = errors.New("unreachable query")
-	// ErrWrongValOIDDelim is returned when data base stores unexpected
-	// attribute's value delimeter.
-	ErrWrongValOIDDelim = errors.New("wrong value-OID delimiter")
-	// ErrInvalidCursor is returned when [SearchCursor] has invalid seek
-	// values.
-	ErrInvalidCursor = errors.New("invalid cursor")
-
-	// AttributeDelimiter is attribute key and value separator used in metadata DB.
-	AttributeDelimiter = []byte{0x00}
-
-	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
-	maxUint256Neg = new(big.Int).Neg(maxUint256)
-
-	errInvalidPrimaryFilter  = errors.New("invalid primary filter")
-	errWrongPrimaryAttribute = errors.New("wrong primary attribute")
-	errWrongKeyValDelim      = errors.New("wrong key-value delimiter")
-
-	metaOIDPrefix = []byte{metaPrefixID}
-)
-
 // VerifyHeaderForMetadata checks whether given header corresponds to metadata
 // bucket requirements and limits.
 func VerifyHeaderForMetadata(hdr object.Object) error {
@@ -227,18 +201,78 @@ func VerifyHeaderForMetadata(hdr object.Object) error {
 	return nil
 }
 
+var (
+	// ErrUnreachableQuery is returned when no object ever matches a particular
+	// search query.
+	ErrUnreachableQuery = errors.New("unreachable query")
+	// ErrWrongValOIDDelim is returned when data base stores unexpected
+	// attribute's value delimeter.
+	ErrWrongValOIDDelim = errors.New("wrong value-OID delimiter")
+	// ErrInvalidCursor is returned when [SearchCursor] has invalid seek
+	// values.
+	ErrInvalidCursor = errors.New("invalid cursor")
+
+	errInvalidPrimaryFilter  = errors.New("invalid primary filter")
+	errWrongPrimaryAttribute = errors.New("wrong primary attribute")
+	errWrongKeyValDelim      = errors.New("wrong key-value delimiter")
+
+	// AttributeDelimiter is attribute key and value separator used in metadata DB.
+	AttributeDelimiter = []byte{0x00}
+	metaOIDPrefix      = []byte{metaPrefixID}
+
+	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
+	maxUint256Neg = new(big.Int).Neg(maxUint256)
+)
+
+// SearchCursor is a cursor used for continuous search in the DB.
+type SearchCursor struct {
+	// PrimarySeekKey defines the last key that was already handled.
+	PrimarySeekKey []byte
+	// PrimaryKeysPrefix defines what part of primary key is prefix.
+	PrimaryKeysPrefix []byte
+}
+
+// ParsedIntFilter is returned by [PreprocessIntFilters] to pass into the
+// [DB.Search].
+type ParsedIntFilter struct {
+	// AutoMatch means every existing value if acceptable for filters.
+	AutoMatch bool
+	// IntValue is parsed integer value from attribute.
+	IntValue *big.Int
+	// RawValue is raw attribute value in the original form.
+	RawValue []byte
+}
+
+// AttributeGetter provides access to attributes based on data base's indexes.
 type AttributeGetter interface {
+	// Get must return attribute value for a pair of object ID and attribute
+	// value. (nil, nil) must be returned if value is missing. err should mean
+	// only data base errors.
 	Get(oID []byte, attributeKey string) (attributeValue []byte, err error)
 }
 
+// AdditionalObjectChecker is an additional check that may be provided to
+// [MetaDataKVHandler]. `false` return value stops object from being recorded
+// to [SearchResult], `true` keeps searching without additional filtering.
 type AdditionalObjectChecker func(oid.ID) (match bool)
 
+// SearchResult is a [MetaDataKVHandler] operation's results holder.
 type SearchResult struct {
 	Objects             []client.SearchResultItem
 	UpdatedSearchCursor []byte
 	Err                 error
 }
 
+// MetaDataKVHandler returns a handler that filters out and writes search results
+// for Search NeoFS operation (see [client.SearchObjects] for details) based on
+// the provided arguments. resHolder must not be nil. additionalCheck may or may
+// not be nil, it will be called once on every object that matches all the previous
+// (filters-based) checks. fInt must have preparsed (from string attribute form)
+// integer values from the fs.
+// Returned handler must be called on a sorted list of key-value pairs without
+// any pair omission and/or duplication. Pairs must be common NeoFS indexes for
+// object header's fields. See [meta] (storage engine's package) for details.
 func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, additionalCheck AdditionalObjectChecker, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) func(k, v []byte) bool {
 	if wantCap := int(count); cap(resHolder.Objects) != wantCap {
 		resHolder.Objects = slices.Grow(resHolder.Objects, wantCap)
@@ -366,7 +400,7 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 				}
 			}
 		}
-		if !additionalCheck(oid.ID(id)) {
+		if additionalCheck != nil && !additionalCheck(oid.ID(id)) {
 			return true
 		}
 		// object matches
@@ -411,17 +445,6 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 	}
 }
 
-// SearchCursor is a cursor used for continuous search in the DB.
-type SearchCursor struct{ PrimaryKeysPrefix, PrimarySeekKey []byte }
-
-// ParsedIntFilter is returned by [PreprocessIntFilters] to pass into the
-// [DB.Search].
-type ParsedIntFilter struct {
-	AutoMatch bool
-	IntValue  *big.Int
-	RawValue  []byte
-}
-
 func convertFilterValue(f object.SearchFilter) (object.SearchMatchType, string) {
 	if attr := f.Header(); attr == object.FilterRoot || attr == object.FilterPhysical {
 		return object.MatchStringEqual, binPropMarker
@@ -433,52 +456,16 @@ func invalidMetaBucketKeyErr(key []byte, cause error) error {
 	return fmt.Errorf("invalid meta bucket key (prefix 0x%X): %w", key[0], cause)
 }
 
-type keyBuffer []byte
-
-func (x *keyBuffer) alloc(ln int) []byte {
-	if len(*x) < ln {
-		*x = make([]byte, ln)
-	}
-	return (*x)[:ln]
-}
-
-type metaAttributeSeeker struct {
-	keyBuf *keyBuffer
-	bkt    *bbolt.Bucket
-	crsr   *bbolt.Cursor
-}
-
-func (x *metaAttributeSeeker) get(id []byte, attr string) ([]byte, error) {
-	pref := x.keyBuf.alloc(attrIDFixedLen + len(attr))
-	pref[0] = metaPrefixIDAttr
-	off := 1 + copy(pref[1:], id)
-	off += copy(pref[off:], attr)
-	copy(pref[off:], AttributeDelimiter)
-	if x.crsr == nil {
-		x.crsr = x.bkt.Cursor()
-	}
-	key, _ := x.crsr.Seek(pref)
-	if !bytes.HasPrefix(key, pref) {
-		return nil, nil
-	}
-	if len(key[len(pref):]) == 0 {
-		return nil, invalidMetaBucketKeyErr(key, errors.New("missing attribute value"))
-	}
-	return key[len(pref):], nil
-}
-
 const (
 	metaPrefixID = byte(iota)
 	metaPrefixAttrIDInt
 	metaPrefixAttrIDPlain
-	metaPrefixIDAttr
 )
 
 const (
 	attributeDelimiterLen = 1
-	binPropMarker         = "1"                                  // ROOT, PHY, etc.
-	intValLen             = 33                                   // prefix byte for sign + fixed256 in metaPrefixAttrIDInt
-	attrIDFixedLen        = 1 + oid.Size + attributeDelimiterLen // prefix first
+	binPropMarker         = "1" // ROOT, PHY, etc.
+	intValLen             = 33  // prefix byte for sign + fixed256 in metaPrefixAttrIDInt
 )
 
 // splits VAL_DELIM_OID.
@@ -815,7 +802,7 @@ func parseIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, bool) {
 		}
 		if !f.AutoMatch {
 			if i == 0 || IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {
-				f.RawValue = intBytes(n)
+				f.RawValue = BigIntBytes(n)
 			}
 			f.IntValue = n
 		}
@@ -823,6 +810,15 @@ func parseIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, bool) {
 		fInt[i] = f
 	}
 	return fInt, true
+}
+
+// BigIntBytes returns integer's raw representation. Int must belong to
+// [-maxUint256; maxUint256] interval. Result's lenght is fixed: 33 bytes,
+// first describes sign.
+func BigIntBytes(n *big.Int) []byte {
+	b := make([]byte, intValLen)
+	putInt(b, n)
+	return b
 }
 
 func putInt(b []byte, n *big.Int) {
@@ -841,10 +837,4 @@ func putInt(b []byte, n *big.Int) {
 			b[1+i] = ^b[1+i]
 		}
 	}
-}
-
-func intBytes(n *big.Int) []byte {
-	b := make([]byte, intValLen)
-	putInt(b, n)
-	return b
 }
