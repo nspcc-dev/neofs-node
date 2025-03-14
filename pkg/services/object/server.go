@@ -133,7 +133,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1912,9 +1912,9 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
-	cursor, fInt, err := meta.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+	cursor, fInt, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
 	if err != nil {
-		if errors.Is(err, meta.ErrUnreachableQuery) {
+		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil
 		}
 		return nil, err
