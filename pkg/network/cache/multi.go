@@ -68,7 +68,8 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 
 	prmInit.SetSignMessageBuffers(x.opts.Buffers)
 
-	prmDial.SetServerURI(addr.URIAddr())
+	endpoint := addr.URIAddr()
+	prmDial.SetServerURI(endpoint)
 
 	if x.opts.DialTimeout > 0 {
 		prmDial.SetTimeout(x.opts.DialTimeout)
@@ -87,10 +88,15 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 		return nil, fmt.Errorf("can't create SDK client: %w", err)
 	}
 
+	st := time.Now()
+	x.opts.Logger.Info("dialing node endpoint...", zap.String("endpoint", endpoint), zap.Stringer("dial timeout", x.opts.DialTimeout),
+		zap.Stringer("stream timeout", x.opts.StreamTimeout))
 	err = c.Dial(prmDial)
 	if err != nil {
+		x.opts.Logger.Info("node endpoint dial failed", zap.String("endpoint", endpoint), zap.Stringer("took", time.Since(st)), zap.Error(err))
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
+	x.opts.Logger.Info("node endpoint dial succeeded", zap.String("endpoint", endpoint), zap.Stringer("took", time.Since(st)))
 
 	return clientWrapper{c}, nil
 }
@@ -121,6 +127,8 @@ func (x *multiClient) updateGroup(group network.AddressGroup) {
 		}
 	}
 
+	x.opts.Logger.Info("node address group needs an update", zap.String("old", network.StringifyGroup(oldGroup)), zap.String("new", network.StringifyGroup(group)))
+
 	x.mtx.Lock()
 	defer x.mtx.Unlock()
 loop:
@@ -131,6 +139,7 @@ loop:
 			}
 		}
 		delete(x.clients, a)
+		x.opts.Logger.Info("dropped conn to the node", zap.String("address", a))
 	}
 
 	// Then add new clients.
@@ -174,8 +183,7 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 		}
 
 		if err != nil {
-			err = fmt.Errorf("%s node client: %w", addr, err)
-			x.ReportError(err)
+			x.ReportError(addr, err)
 		}
 
 		return success
@@ -184,17 +192,23 @@ func (x *multiClient) iterateClients(ctx context.Context, f func(clientcore.Clie
 	return firstErr
 }
 
-func (x *multiClient) ReportError(err error) {
+func (x *multiClient) ReportError(addr network.Address, err error) {
 	if errors.Is(err, errRecentlyFailed) {
+		x.opts.Logger.Info("node endpoint recently failed, skip invalidation",
+			zap.Stringer("cause address", addr), zap.Error(err))
 		return
 	}
 
 	if status.Code(err) == codes.Canceled || errors.Is(err, context.Canceled) {
+		x.opts.Logger.Info("node endpoint failed with cancelled context, skip invalidation",
+			zap.Stringer("cause address", addr), zap.Error(err))
 		return
 	}
 
 	// NeoFS status responses mean connection is OK
 	if errors.Is(err, apistatus.Error) {
+		x.opts.Logger.Info("node endpoint failed with API status, skip invalidation",
+			zap.Stringer("cause address", addr), zap.Error(err))
 		return
 	}
 
@@ -203,6 +217,8 @@ func (x *multiClient) ReportError(err error) {
 	// as a connection error
 	var siErr *objectSDK.SplitInfoError
 	if errors.As(err, &siErr) {
+		x.opts.Logger.Info("node endpoint failed with split info status, skip invalidation",
+			zap.Stringer("cause address", addr))
 		return
 	}
 
@@ -215,20 +231,24 @@ func (x *multiClient) ReportError(err error) {
 	group := x.addr
 	x.addrMtx.RUnlock()
 
-	for _, sc := range x.clients {
-		sc.invalidate()
+	for a, sc := range x.clients {
+		sc.invalidate(x.opts.Logger.With(zap.String("address", a), zap.Stringer("cause address", addr), zap.String("cause", err.Error())))
 	}
 
 	x.mtx.RUnlock()
 
 	x.opts.Logger.Info("invalidated cached clients to the node caused by the error",
-		zap.Stringers("address group", group), zap.Error(err))
+		zap.Stringers("address group", group), zap.Stringer("cause address", addr), zap.Error(err))
 }
 
-func (s *singleClient) invalidate() {
+func (s *singleClient) invalidate(l *zap.Logger) {
 	s.Lock()
 	if s.client != nil {
-		_ = s.client.Close()
+		if err := s.client.Close(); err != nil {
+			l.Info("node endpoint conn close failed", zap.Error(err))
+		} else {
+			l.Info("node endpoint conn close succeeded")
+		}
 	}
 	s.client = nil
 	s.Unlock()
@@ -359,7 +379,7 @@ func (x *multiClient) RawForAddress(addr network.Address, f func(*grpc.ClientCon
 
 	err = f(c.Conn())
 	if err != nil {
-		x.ReportError(err)
+		x.ReportError(addr, err)
 	}
 	return err
 }
@@ -388,8 +408,11 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 			c.RUnlock()
 			return cl, nil
 		}
-		if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
+		passed := time.Since(c.lastAttempt)
+		if x.opts.ReconnectTimeout != 0 && passed < x.opts.ReconnectTimeout {
 			c.RUnlock()
+			x.opts.Logger.Info("node endpoint unavailability not timed out yet",
+				zap.String("endpoint", strAddr), zap.Stringer("last try", c.lastAttempt), zap.Stringer("passed", passed))
 			return nil, errRecentlyFailed
 		}
 		c.RUnlock()
@@ -411,15 +434,26 @@ func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
 		return c.client, nil
 	}
 
-	if x.opts.ReconnectTimeout != 0 && time.Since(c.lastAttempt) < x.opts.ReconnectTimeout {
+	passed := time.Since(c.lastAttempt)
+	if x.opts.ReconnectTimeout != 0 && passed < x.opts.ReconnectTimeout {
+		x.opts.Logger.Info("node unavailability after previous failure not timed out yet",
+			zap.String("endpoint", strAddr), zap.Stringer("last try", c.lastAttempt), zap.Stringer("passed", passed))
 		return nil, errRecentlyFailed
 	}
+
+	x.opts.Logger.Info("node endpoint unavailability timed out, retrying...",
+		zap.String("endpoint", strAddr), zap.Stringer("last try", c.lastAttempt))
 
 	cl, err := x.createForAddress(addr)
 	if err != nil {
 		c.lastAttempt = time.Now()
+		x.opts.Logger.Info("marked node endpoint unavailable for some time, will retry after timeout",
+			zap.String("endpoint", strAddr), zap.Stringer("now", c.lastAttempt), zap.Stringer("timeout", x.opts.ReconnectTimeout))
 		return nil, err
 	}
+
+	x.opts.Logger.Info("successfully connected to the node endpoint",
+		zap.String("endpoint", strAddr), zap.Stringer("previous attempt", c.lastAttempt))
 
 	c.client = cl
 	return cl, nil

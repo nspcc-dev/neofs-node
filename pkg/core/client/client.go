@@ -43,7 +43,7 @@ type MultiAddressClient interface {
 	// endpoint-by-endpoint until success.
 	RawForAddress(multiAddr network.Address, op func(*grpc.ClientConn) error) error
 
-	ReportError(error)
+	ReportError(network.Address, error)
 }
 
 // NodeInfo groups information about a NeoFS storage node needed for Client construction.

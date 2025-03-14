@@ -608,13 +608,19 @@ func initCfg(appCfg *config.Config) *cfg {
 		Buffers:          &buffers,
 		Logger:           c.internals.log,
 	}
+	roCacheOpts := cacheOpts
+	roCacheOpts.Logger = cacheOpts.Logger.With(zap.String("scope", "DIALCACHE_READ"))
+	putCacheOpts := cacheOpts
+	putCacheOpts.Logger = cacheOpts.Logger.With(zap.String("scope", "DIALCACHE_WRITE"))
+	bgCacheOpts := cacheOpts
+	bgCacheOpts.Logger = cacheOpts.Logger.With(zap.String("scope", "DIALCACHE_BACKGROUND"))
 	basicSharedConfig := initBasics(c, key, persistate)
 	c.shared = shared{
 		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		clientCache:    cache.NewSDKClientCache(cacheOpts),
-		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
-		putClientCache: cache.NewSDKClientCache(cacheOpts),
+		clientCache:    cache.NewSDKClientCache(roCacheOpts),
+		bgClientCache:  cache.NewSDKClientCache(bgCacheOpts),
+		putClientCache: cache.NewSDKClientCache(putCacheOpts),
 		persistate:     persistate,
 	}
 	c.cfgContainer = cfgContainer{
