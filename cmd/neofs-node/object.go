@@ -12,12 +12,14 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -302,9 +304,11 @@ func initObjectService(c *cfg) {
 	)
 
 	storage := storageForObjectService{
-		local:  ls,
-		putSvc: sPut,
-		keys:   keyStorage,
+		cnrs:        c.shared.cnrSrc,
+		localEngine: ls,
+		metaSvc:     c.shared.metaService,
+		putSvc:      sPut,
+		keys:        keyStorage,
 	}
 	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 
@@ -621,14 +625,27 @@ func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
 type storageForObjectService struct {
-	local  *engine.StorageEngine
-	putSvc *putsvc.Service
-	keys   *util.KeyStorage
+	cnrs        container.Source
+	localEngine *engine.StorageEngine
+	metaSvc     *meta.Meta
+	putSvc      *putsvc.Service
+	keys        *util.KeyStorage
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return x.local.Search(cnr, fs, fInt, attrs, cursor, count)
+func (x storageForObjectService) SearchObjects(cID cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	cnr, err := x.cnrs.Get(cID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching container: %w", err)
+	}
+
+	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
+	switch cnr.Value.Attribute(metaOnChainAttr) {
+	case "optimistic", "strict":
+		return x.metaSvc.Search(cID, fs, fInt, attrs, cursor, count)
+	default:
+		return x.localEngine.Search(cID, fs, fInt, attrs, cursor, count)
+	}
 }
 
 func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {

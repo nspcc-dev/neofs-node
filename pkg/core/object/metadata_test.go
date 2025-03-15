@@ -1,4 +1,4 @@
-package object_test
+package object
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
-	. "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -367,12 +366,6 @@ func TestMergeSearchResults(t *testing.T) {
 	})
 }
 
-var (
-	maxUint256 = new(big.Int).SetBytes([]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255})
-	maxUint256Neg = new(big.Int).Neg(maxUint256)
-)
-
 func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 	t.Run("listing", func(t *testing.T) {
 		test := func(t *testing.T, fs object.SearchFilters, attrs []string) {
@@ -535,4 +528,123 @@ var invalidNonIntCursorTestcases = []struct{ name, err, cursor string }{
 		cursor: "YXR0cv9oZWxsbwD3kqge4Gmjjus4zLTKQs4gxxbRD4pK1N5Lu6NQuJ43UQ=="},
 	{name: "wrong value-OID delimiter", err: "wrong value-OID delimiter",
 		cursor: "YXR0cgBoZWxsb/+IlGDk7Bu+PC410JNSmNyajZ0lphLjqtgWDLyNn5Gh4w=="},
+}
+
+func intWithinLimits(n *big.Int) bool { return n.Cmp(maxUint256Neg) >= 0 && n.Cmp(maxUint256) <= 0 }
+
+func TestApplyFilter(t *testing.T) {
+	t.Run("unsupported matcher", func(t *testing.T) {
+		ok := matchValues(nil, 9, nil)
+		require.False(t, ok)
+	})
+	t.Run("not present", func(t *testing.T) {
+		require.Panics(t, func() { _ = matchValues(nil, object.MatchNotPresent, nil) })
+	})
+	check := func(dbVal []byte, m object.SearchMatchType, fltVal []byte, exp bool) {
+		ok := matchValues(dbVal, m, fltVal)
+		require.Equal(t, exp, ok)
+	}
+	anyData := []byte("Hello, world!")
+	t.Run("EQ", func(t *testing.T) {
+		check := func(dbVal, fltVal []byte, exp bool) { check(dbVal, object.MatchStringEqual, fltVal, exp) }
+		check(nil, nil, true)
+		check([]byte{}, nil, true)
+		check(anyData, anyData, true)
+		check(anyData, anyData[:len(anyData)-1], false)
+		check(anyData, append(anyData, 1), false)
+		for i := range anyData {
+			dbVal := slices.Clone(anyData)
+			dbVal[i]++
+			check(dbVal, anyData, false)
+		}
+	})
+	t.Run("NE", func(t *testing.T) {
+		check := func(dbVal, fltVal []byte, exp bool) { check(dbVal, object.MatchStringNotEqual, fltVal, exp) }
+		check(nil, nil, false)
+		check([]byte{}, nil, false)
+		check(anyData, anyData, false)
+		check(anyData, anyData[:len(anyData)-1], true)
+		check(anyData, append(anyData, 1), true)
+		for i := range anyData {
+			dbVal := slices.Clone(anyData)
+			dbVal[i]++
+			check(dbVal, anyData, true)
+		}
+	})
+	t.Run("has prefix", func(t *testing.T) {
+		check := func(dbVal, fltVal []byte, exp bool) { check(dbVal, object.MatchCommonPrefix, fltVal, exp) }
+		check(nil, nil, true)
+		check([]byte{}, nil, true)
+		check(anyData, anyData, true)
+		check(anyData, anyData[:len(anyData)-1], true)
+		check(anyData, append(anyData, 1), false)
+		for i := range anyData {
+			check(anyData, anyData[:i], true)
+			changed := slices.Concat(anyData[:i], []byte{anyData[i] + 1}, anyData[i+1:])
+			check(anyData, changed[:i+1], false)
+		}
+	})
+	t.Run("int", func(t *testing.T) {
+		check := func(dbVal *big.Int, matcher object.SearchMatchType, fltVal *big.Int, exp bool) {
+			require.Equal(t, exp, intMatches(dbVal, matcher, fltVal))
+			if intWithinLimits(dbVal) && intWithinLimits(fltVal) {
+				require.Equal(t, exp, intBytesMatch(BigIntBytes(dbVal), matcher, BigIntBytes(fltVal)))
+			}
+		}
+		one := big.NewInt(1)
+		max64 := new(big.Int).SetUint64(math.MaxUint64)
+		ltMin := new(big.Int).Sub(maxUint256Neg, one)
+		gtMax := new(big.Int).Add(maxUint256, one)
+		ns := []*big.Int{
+			maxUint256Neg,
+			new(big.Int).Add(maxUint256Neg, big.NewInt(1)),
+			new(big.Int).Neg(max64),
+			big.NewInt(-1),
+			big.NewInt(0),
+			one,
+			max64,
+			new(big.Int).Sub(maxUint256, big.NewInt(1)),
+			maxUint256,
+		}
+		for i, n := range ns {
+			check(n, object.MatchNumGT, ltMin, true)
+			check(n, object.MatchNumGE, ltMin, true)
+
+			check(n, object.MatchNumLT, gtMax, true)
+			check(n, object.MatchNumLE, gtMax, true)
+
+			check(n, object.MatchNumGT, n, false)
+			check(n, object.MatchNumGE, n, true)
+			check(n, object.MatchNumLT, n, false)
+			check(n, object.MatchNumLE, n, true)
+
+			for j := range i {
+				check(n, object.MatchNumGT, ns[j], true)
+				check(n, object.MatchNumGE, ns[j], true)
+				check(n, object.MatchNumLT, ns[j], false)
+				check(n, object.MatchNumLE, ns[j], false)
+			}
+			for j := i + 1; j < len(ns); j++ {
+				check(n, object.MatchNumGT, ns[j], false)
+				check(n, object.MatchNumGE, ns[j], false)
+				check(n, object.MatchNumLT, ns[j], true)
+				check(n, object.MatchNumLE, ns[j], true)
+			}
+
+			minusOne := new(big.Int).Sub(n, one)
+			check(n, object.MatchNumGT, minusOne, true)
+			check(n, object.MatchNumGE, minusOne, true)
+			if minusOne.Cmp(maxUint256Neg) >= 0 {
+				check(n, object.MatchNumLT, minusOne, false)
+				check(n, object.MatchNumLE, minusOne, false)
+			}
+			plusOne := new(big.Int).Add(n, one)
+			check(n, object.MatchNumLT, plusOne, true)
+			check(n, object.MatchNumLE, plusOne, true)
+			if plusOne.Cmp(maxUint256) <= 0 {
+				check(n, object.MatchNumGT, plusOne, false)
+				check(n, object.MatchNumGE, plusOne, false)
+			}
+		}
+	})
 }
