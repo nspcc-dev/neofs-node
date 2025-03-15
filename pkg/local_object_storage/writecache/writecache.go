@@ -59,6 +59,9 @@ type cache struct {
 	mode    mode.Mode
 	modeMtx sync.RWMutex
 
+	// flushErrCh is a channel for error handling while flushing.
+	flushErrCh chan struct{}
+
 	// compressFlags maps address of a big object to boolean value indicating
 	// whether object should be compressed.
 	compressFlags map[string]struct{}
@@ -94,8 +97,9 @@ var (
 // New creates new writecache instance.
 func New(opts ...Option) Cache {
 	c := &cache{
-		flushCh: make(chan oid.Address),
-		mode:    mode.ReadWrite,
+		flushCh:    make(chan oid.Address),
+		flushErrCh: make(chan struct{}, 1),
+		mode:       mode.ReadWrite,
 
 		compressFlags: make(map[string]struct{}),
 		options: options{

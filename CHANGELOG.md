@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 - Potential approval of network map candidate with duplicated attribute by IR (#3224)
 
 ### Changed
+- Retry flush from write-cache after 10s delay if an error is received (#3221)
 
 ### Removed
 
