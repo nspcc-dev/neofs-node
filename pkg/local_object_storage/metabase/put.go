@@ -460,7 +460,7 @@ func updateStorageID(tx *bbolt.Tx, addr oid.Address, id []byte) error {
 	return bkt.Put(objectKey(addr.Object(), key), id)
 }
 
-// updateSpliInfo for existing objects if storage filled with extra information
+// updateSplitInfo for existing objects if storage filled with extra information
 // about last object in split hierarchy or linking object.
 func updateSplitInfo(tx *bbolt.Tx, addr oid.Address, from *objectSDK.SplitInfo) error {
 	key := make([]byte, bucketKeySize)
