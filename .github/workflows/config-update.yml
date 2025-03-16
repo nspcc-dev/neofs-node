@@ -17,7 +17,7 @@ jobs:
 
       - name: Get changed config-related files
         id: config-diff
-        uses: tj-actions/changed-files@v42
+        uses: tj-actions/changed-files@v46
         with:
           files: |
             config/**
@@ -25,7 +25,7 @@ jobs:
 
       - name: Get changed doc files
         id: docs-diff
-        uses: tj-actions/changed-files@v42
+        uses: tj-actions/changed-files@v46
         with:
           files: docs/**
 
