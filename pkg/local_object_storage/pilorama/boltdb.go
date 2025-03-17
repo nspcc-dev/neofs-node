@@ -405,7 +405,7 @@ func (t *boltForest) getTreeBuckets(tx *bbolt.Tx, treeRoot []byte) (*bbolt.Bucke
 	return bLog, bData, nil
 }
 
-// applyOperations applies log operations. Assumes lm are sorted by timestamp.
+// applyOperation applies log operations. Assumes lm are sorted by timestamp.
 func (t *boltForest) applyOperation(logBucket, treeBucket *bbolt.Bucket, ms []*Move, lm *LogMove) error {
 	var tmp LogMove
 	var cKey [17]byte
