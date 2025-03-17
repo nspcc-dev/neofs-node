@@ -69,7 +69,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 
 		tokSigner, err := icrypto.VerifyTokenSignature(&tok)
 		if err != nil {
-			return errors.New("invalid session token signature")
+			return fmt.Errorf("verify session token signature: %w", err)
 		}
 
 		if tokSigner != v.ownerContainer {

@@ -221,7 +221,7 @@ func TestServer_Delete(t *testing.T) {
 				require.NotNil(t, resp.MetaHeader.Status)
 				sts := resp.MetaHeader.Status
 				require.EqualValues(t, 1024, sts.Code, st)
-				require.Equal(t, "invalid signature", sts.Message)
+				require.Equal(t, "signature mismatch", sts.Message)
 				require.Zero(t, sts.Details)
 			})
 			t.Run("token lifetime", func(t *testing.T) {

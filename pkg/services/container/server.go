@@ -100,7 +100,7 @@ func (s *server) getVerifiedSessionToken(req interface {
 
 	signer, err := icrypto.VerifyTokenSignature(&token)
 	if err != nil {
-		return nil, errors.New("invalid signature")
+		return nil, fmt.Errorf("verify signature: %w", err)
 	}
 	if signer != token.Issuer() {
 		return nil, errors.New("session token is signed not by its issuer")

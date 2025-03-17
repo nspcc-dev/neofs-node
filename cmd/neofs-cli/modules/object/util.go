@@ -243,7 +243,7 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 		return nil, errors.New("unrelated key in the session")
 	}
 	if _, err := icrypto.VerifyTokenSignature(tok); err != nil {
-		return nil, errors.New("invalid signature of the session data")
+		return nil, fmt.Errorf("verify session token signature: %w", err)
 	}
 	return tok, nil
 }

@@ -68,7 +68,6 @@ type Checker struct {
 var (
 	errEACLDeniedByRule         = errors.New("denied by rule")
 	errBearerExpired            = errors.New("bearer token has expired")
-	errBearerInvalidSignature   = errors.New("bearer token has invalid signature")
 	errBearerInvalidContainerID = errors.New("bearer token was created for another container")
 	errBearerNotSignedByOwner   = errors.New("bearer token is not signed by the container owner")
 	errBearerInvalidOwner       = errors.New("bearer token owner differs from the request sender")
@@ -240,7 +239,7 @@ func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
 	// 2. Then check if bearer token is signed correctly.
 	_, err := icrypto.VerifyTokenSignature(token)
 	if err != nil {
-		return errBearerInvalidSignature
+		return fmt.Errorf("verify bearer token signature: %w", err)
 	}
 
 	// 3. Then check if container is either empty or equal to the container in the request.

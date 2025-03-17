@@ -115,7 +115,7 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	// 1. First check signature of session token.
 	signer, err := icrypto.VerifyTokenSignature(token)
 	if err != nil {
-		return nil, nil, errInvalidSessionSig
+		return nil, nil, fmt.Errorf("verify session token signature: %w", err)
 	}
 
 	// 2. Then check if session token owner issued the session token
