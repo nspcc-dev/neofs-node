@@ -1,15 +1,19 @@
 package writecache
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -21,6 +25,8 @@ import (
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	versionSDK "github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -259,6 +265,88 @@ func TestFlushPerformance(t *testing.T) {
 	}
 }
 
+func TestFlushErrorRetry(t *testing.T) {
+	workerCounts := []int{1, 3, 16}
+
+	for _, workerCount := range workerCounts {
+		t.Run(fmt.Sprintf("worker=%d", workerCount), func(t *testing.T) {
+			dir := t.TempDir()
+			mb := meta.New(
+				meta.WithPath(filepath.Join(dir, "meta")),
+				meta.WithEpochState(dummyEpoch{}))
+			require.NoError(t, mb.Open(false))
+			require.NoError(t, mb.Init())
+
+			fsTree := fstree.New(
+				fstree.WithPath(filepath.Join(dir, "blob")),
+				fstree.WithDepth(0),
+				fstree.WithDirNameLen(1))
+
+			sub1 := &mockWriter{full: true, Storage: fsTree}
+			bs := blobstor.New(
+				blobstor.WithStorages([]blobstor.SubStorage{{Storage: sub1}}),
+				blobstor.WithCompressObjects(true))
+			require.NoError(t, bs.Open(false))
+			require.NoError(t, bs.Init())
+
+			var logBuf safeBuffer
+			multiSyncer := zapcore.NewMultiWriteSyncer(
+				zapcore.Lock(zapcore.AddSync(os.Stderr)),
+				zapcore.Lock(zapcore.AddSync(&logBuf)))
+			logger := zap.New(
+				zapcore.NewCore(
+					zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+					multiSyncer,
+					zapcore.WarnLevel,
+				),
+			)
+			wc := New(WithPath(filepath.Join(dir, "writecache")),
+				WithMetabase(mb),
+				WithBlobstor(bs),
+				WithFlushWorkersCount(workerCount),
+				WithLogger(logger))
+			require.NoError(t, wc.Open(false))
+			require.NoError(t, wc.Init())
+
+			defer wc.Close()
+
+			objects := make([]objectPair, 5)
+			for i := range objects {
+				objects[i] = putObject(t, wc, 1024)
+			}
+
+			start := time.Now()
+			go func() {
+				time.Sleep(defaultFlushInterval + 1*time.Second)
+				sub1.SetFull(false) // Allow to put objects
+			}()
+
+			waitForFlush(t, wc, objects)
+			duration := time.Since(start)
+
+			for i := range objects {
+				id, err := mb.StorageID(objects[i].addr)
+				require.NoError(t, err)
+				res, err := bs.Get(objects[i].addr, id)
+				require.NoError(t, err)
+				require.Equal(t, objects[i].obj, res)
+			}
+
+			require.True(t, duration >= (defaultErrorDelay+defaultFlushInterval),
+				"Flush completed too quickly (%v), expected at least %v retry delay",
+				duration, (defaultErrorDelay + defaultFlushInterval))
+
+			logOutput := logBuf.String()
+			require.Contains(t, logOutput, "worker can't flush an object due to error")
+			require.Contains(t, logOutput, "flush scheduler paused due to error")
+			require.Contains(t, logOutput, common.ErrNoSpace.Error())
+
+			require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
+			t.Logf("Flush completed in %v after retrying", duration)
+		})
+	}
+}
+
 func waitForFlush(t *testing.T, wc Cache, objects []objectPair) {
 	timeout := time.After(60 * time.Second)
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -310,4 +398,42 @@ type dummyEpoch struct{}
 
 func (dummyEpoch) CurrentEpoch() uint64 {
 	return 0
+}
+
+type mockWriter struct {
+	common.Storage
+	mu   sync.Mutex
+	full bool
+}
+
+func (x *mockWriter) Put(addr oid.Address, data []byte) error {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if x.full {
+		return common.ErrNoSpace
+	}
+	return x.Storage.Put(addr, data)
+}
+
+func (x *mockWriter) SetFull(full bool) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.full = full
+}
+
+type safeBuffer struct {
+	buf bytes.Buffer
+	mu  sync.Mutex
+}
+
+func (s *safeBuffer) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
 }

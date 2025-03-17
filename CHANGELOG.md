@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Unscheduled attempt to tick the epoch when new epoch event has already arrived in IR (#3226)
 
 ### Changed
+- Retry flush from write-cache after 10s delay if an error is received (#3221)
 
 ### Removed
 
