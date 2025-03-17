@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 - IR no longer processes bind/unbind neofsid requests (#3256)
 - SN `ExternalAddr` attribute is ignored now (#3235)
 - Use list instead of maps for options in node config (#3204)
+- Token authentication errors are more detailed in status responses now (#3216)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

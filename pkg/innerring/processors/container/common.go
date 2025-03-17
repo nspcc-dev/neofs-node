@@ -68,7 +68,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		}
 
 		if err = icrypto.AuthenticateToken(&tok); err != nil {
-			return errors.New("invalid session token signature")
+			return fmt.Errorf("authenticate session token: %w", err)
 		}
 
 		if !tok.AssertVerb(v.verb) {

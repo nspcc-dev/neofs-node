@@ -99,7 +99,7 @@ func (s *server) getVerifiedSessionToken(req interface {
 	}
 
 	if err := icrypto.AuthenticateToken(&token); err != nil {
-		return nil, errors.New("invalid signature")
+		return nil, fmt.Errorf("authenticate: %w", err)
 	}
 
 	var expVerb session.ContainerVerb

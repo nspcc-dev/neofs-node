@@ -200,7 +200,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 	}
 
 	if err := icrypto.AuthenticateToken(token); err != nil {
-		return errors.New("incorrect session token signature")
+		return fmt.Errorf("authenticate session token: %w", err)
 	}
 
 	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above

@@ -115,6 +115,6 @@ func TestIsValidBearer(t *testing.T) {
 		bt.AttachSignature(neofscrypto.NewSignatureFromRawKey(cnrOwner.Signer.Scheme(), cnrOwner.PublicKeyBytes, sig))
 
 		err = isValidBearer(bt, cidtest.ID(), cnrOwner.ID, brr.PublicKeyBytes, curEpoch)
-		require.EqualError(t, err, "bearer token has invalid signature")
+		require.EqualError(t, err, "authenticate bearer token: issuer mismatches signature")
 	})
 }

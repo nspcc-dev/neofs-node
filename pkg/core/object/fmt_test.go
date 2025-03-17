@@ -162,7 +162,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, obj.Sign(sessionSubj))
 
 			err = v.Validate(obj, false)
-			require.EqualError(t, err, "(*object.FormatValidator) could not validate signature key: incorrect session token signature")
+			require.EqualError(t, err, "(*object.FormatValidator) could not validate signature key: authenticate session token: issuer mismatches signature")
 		})
 	})
 

@@ -113,7 +113,7 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	if err := icrypto.AuthenticateToken(token); err != nil {
-		return nil, nil, errInvalidSessionSig
+		return nil, nil, fmt.Errorf("authenticate session token: %w", err)
 	}
 	tokenIssuer := token.Issuer()
 	return &tokenIssuer, token.IssuerPublicKeyBytes(), nil
