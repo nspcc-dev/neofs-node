@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -285,7 +286,7 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
-	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, &c.isMaintenance)
+	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance)
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
@@ -302,11 +303,12 @@ func initObjectService(c *cfg) {
 	)
 
 	storage := storageForObjectService{
-		local:  ls,
-		putSvc: sPut,
-		keys:   keyStorage,
+		local:   ls,
+		metaSvc: c.shared.metaService,
+		putSvc:  sPut,
+		keys:    keyStorage,
 	}
-	server := objectService.New(objSvc, mNumber, fsChain, storage, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	server := objectService.New(objSvc, mNumber, fsChain, storage, c.metaService, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
 
 	for _, srv := range c.cfgGRPC.servers {
 		protoobject.RegisterObjectServiceServer(srv, server)
@@ -579,14 +581,16 @@ func (x *remoteContainerNodes) ForEachRemoteContainerNode(cnr cid.ID, f func(net
 }
 
 type fsChainForObjects struct {
+	containercore.Source
 	netmap.StateDetailed
 	containerNodes *containerNodes
 	isLocalPubKey  func([]byte) bool
 	isMaintenance  *atomic.Bool
 }
 
-func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, isMaintenance *atomic.Bool) *fsChainForObjects {
+func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool) *fsChainForObjects {
 	return &fsChainForObjects{
+		Source:         cnrSource,
 		StateDetailed:  ns,
 		containerNodes: cnrNodes,
 		isLocalPubKey:  isLocalPubKey,
@@ -621,14 +625,15 @@ func (x *fsChainForObjects) IsOwnPublicKey(pubKey []byte) bool {
 func (x *fsChainForObjects) LocalNodeUnderMaintenance() bool { return x.isMaintenance.Load() }
 
 type storageForObjectService struct {
-	local  *engine.StorageEngine
-	putSvc *putsvc.Service
-	keys   *util.KeyStorage
+	local   *engine.StorageEngine
+	metaSvc *meta.Meta
+	putSvc  *putsvc.Service
+	keys    *util.KeyStorage
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cnr cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return x.local.Search(cnr, fs, fInt, attrs, cursor, count)
+func (x storageForObjectService) SearchObjects(cID cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	return x.local.Search(cID, fs, fInt, attrs, cursor, count)
 }
 
 func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {

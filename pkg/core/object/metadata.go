@@ -406,7 +406,7 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 		if len(attrs) > 0 {
 			var err error
 			if intPrimMatcher {
-				if collected[0], err = restoreIntAttribute(primDBVal); err != nil {
+				if collected[0], err = RestoreIntAttribute(primDBVal); err != nil {
 					resHolder.Err = invalidMetaBucketKeyErr(k, fmt.Errorf("invalid integer value: %w", err))
 					return false
 				}
@@ -563,7 +563,9 @@ func matchValues(dbVal []byte, matcher object.SearchMatchType, fltVal []byte) bo
 	}
 }
 
-func restoreIntAttribute(b []byte) (string, error) {
+// RestoreIntAttribute restores from raw signed uint256 format its string
+// representation.
+func RestoreIntAttribute(b []byte) (string, error) {
 	if len(b) != intValLen {
 		return "", fmt.Errorf("invalid len %d", len(b))
 	}

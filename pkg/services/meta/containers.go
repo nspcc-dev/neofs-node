@@ -439,6 +439,7 @@ func storageForContainer(l *zap.Logger, rootPath string, cID cid.ID) (*container
 const (
 	intValLen             = 33 // prefix byte for sign + fixed256 in attrIntToOIDIndex
 	attributeDelimiterLen = 1
+	attrIDFixedLen        = 1 + oid.Size + attributeDelimiterLen
 )
 
 func parseInt(s string) (*big.Int, bool) {
