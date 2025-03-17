@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -98,8 +99,8 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if !token.VerifySignature() {
-		return nil, errors.New("invalid signature")
+	if _, err := crypto.VerifyTokenSignature(&token); err != nil {
+		return nil, fmt.Errorf("verify signature: %w", err)
 	}
 
 	var expVerb session.ContainerVerb

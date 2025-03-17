@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neofs-node/pkg/core/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -115,8 +116,8 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	// 1. First check signature of session token.
-	if !token.VerifySignature() {
-		return nil, nil, errInvalidSessionSig
+	if _, err := crypto.VerifyTokenSignature(token); err != nil {
+		return nil, nil, fmt.Errorf("verify session token signature: %w", err)
 	}
 
 	// 2. Then check if session token owner issued the session token
