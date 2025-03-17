@@ -196,6 +196,9 @@ func (s *Server) WriteReport(r *audit.Report) error {
 // counter in the netmap contract. It is used to synchronize this even production
 // based on the block with a notification of the last epoch.
 func (s *Server) ResetEpochTimer(h uint32) error {
+	if initEpochTimer := s.initEpochTimer.Swap(nil); initEpochTimer != nil {
+		initEpochTimer.Stop()
+	}
 	s.epochTimer.Tick(h)
 	return s.epochTimer.Reset()
 }
