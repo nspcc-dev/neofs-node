@@ -67,9 +67,9 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("decode session token: %w", err)
 		}
 
-		pub, ok := crypto.VerifyTokenSignature(&tok)
-		if !ok {
-			return errors.New("invalid session token signature")
+		pub, err := crypto.VerifyTokenSignature(&tok)
+		if err != nil {
+			return fmt.Errorf("verify session token signature: %w", err)
 		}
 
 		// TODO(@cthulhu-rider): #1387 check bound keys via NeoFSID contract?

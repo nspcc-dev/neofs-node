@@ -199,8 +199,8 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("session token is not for object's signer")
 	}
 
-	if _, ok := crypto.VerifyTokenSignature(token); !ok {
-		return errors.New("incorrect session token signature")
+	if _, err := crypto.VerifyTokenSignature(token); err != nil {
+		return fmt.Errorf("verify session token signature: %w", err)
 	}
 
 	if issuer, owner := token.Issuer(), obj.OwnerID(); issuer != *owner { // nil check was performed above

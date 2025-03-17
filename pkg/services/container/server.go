@@ -99,8 +99,8 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if _, ok := crypto.VerifyTokenSignature(&token); !ok {
-		return nil, errors.New("invalid signature")
+	if _, err := crypto.VerifyTokenSignature(&token); err != nil {
+		return nil, fmt.Errorf("verify signature: %w", err)
 	}
 
 	var expVerb session.ContainerVerb

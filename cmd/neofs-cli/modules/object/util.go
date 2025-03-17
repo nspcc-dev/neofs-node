@@ -242,8 +242,8 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
 		return nil, errors.New("unrelated key in the session")
 	}
-	if _, ok := crypto.VerifyTokenSignature(tok); !ok {
-		return nil, errors.New("invalid signature of the session data")
+	if _, err := crypto.VerifyTokenSignature(tok); err != nil {
+		return nil, fmt.Errorf("verify session token signature: %w", err)
 	}
 	return tok, nil
 }

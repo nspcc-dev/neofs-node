@@ -116,8 +116,8 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	// 1. First check signature of session token.
-	if _, ok := crypto.VerifyTokenSignature(token); !ok {
-		return nil, nil, errInvalidSessionSig
+	if _, err := crypto.VerifyTokenSignature(token); err != nil {
+		return nil, nil, fmt.Errorf("verify session token signature: %w", err)
 	}
 
 	// 2. Then check if session token owner issued the session token
