@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Unscheduled attempt to tick the epoch when new epoch event has already arrived in IR (#3226)
 
 ### Changed
+- Use list instead of maps for options in node config (#3204)
 
 ### Removed
 
@@ -30,6 +31,11 @@ Changelog for NeoFS Node
 - `google.golang.org/protobuf` dependency to `v1.36.5` (#3199)
 
 ### Updating from v0.45.1
+The node config has been changed. Instead of the field `node.attribute_*`,
+now there will be a list `node.attributes`. Instead of `storage.shard.*`,
+there will be a list `storage.shards` with configuration of each shard and
+`storage.shard.default` now is a `storage.shards_default` option with a configuration
+of a default values of shards. Please rewrite this fields in your configuration files.
 
 ## [0.45.1] - 2025-03-07
 
@@ -2303,8 +2309,7 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...master
-[0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...master
 [0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.1...v0.44.2
 [0.44.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.0...v0.44.1
