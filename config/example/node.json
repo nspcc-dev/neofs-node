@@ -96,10 +96,11 @@
     ]
   },
   "apiclient": {
-    "dial_timeout": "15s",
     "stream_timeout": "20s",
-    "reconnect_timeout": "30s",
-    "allow_external": true
+    "allow_external": true,
+    "min_connection_time": "30s",
+    "ping_interval": "20s",
+    "ping_timeout": "10s"
   },
   "policer": {
     "head_timeout": "15s",

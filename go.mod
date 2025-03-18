@@ -19,7 +19,7 @@ require (
 	github.com/nspcc-dev/neo-go v0.108.1
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.21.0
-	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250311165714-441b37a4bc03
+	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250321142002-deaf535d8219
 	github.com/nspcc-dev/tzhash v1.8.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/panjf2000/ants/v2 v2.9.0
@@ -32,7 +32,7 @@ require (
 	go.etcd.io/bbolt v1.3.11
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.28.0
 	golang.org/x/term v0.27.0
