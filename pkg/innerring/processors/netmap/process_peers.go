@@ -37,10 +37,10 @@ func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
 		return
 	}
 
-	np.validateCandidate(tx, nodeInfo)
+	np.validateCandidate(tx, nodeInfo, false)
 }
 
-func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo) {
+func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo, v2 bool) {
 	// validate node info
 	var err = np.nodeValidator.Verify(nodeInfo)
 	if err != nil {
@@ -62,7 +62,7 @@ func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo net
 
 	updated := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter(), nodeInfoBinary)
 
-	if updated {
+	if v2 || updated {
 		np.log.Info("approving network map candidate",
 			zap.String("key", keyString))
 
@@ -99,7 +99,7 @@ func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
 		np.log.Warn("can't parse network map candidate")
 		return
 	}
-	np.validateCandidate(tx, nodeInfo)
+	np.validateCandidate(tx, nodeInfo, true)
 }
 
 // Process update peer notification by sending approval tx to the smart contract.
