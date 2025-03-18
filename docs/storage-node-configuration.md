@@ -373,16 +373,18 @@ Configuration for the NeoFS API client used for communication with other NeoFS n
 
 ```yaml
 apiclient:
-  dial_timeout: 15s
   stream_timeout: 20s
-  reconnect_timeout: 30s
+  min_connection_time: 20s
+  ping_interval: 10s
+  ping_timeout: 5s
 ```
 | Parameter           | Type     | Default value | Description                                                          |
 |---------------------|----------|---------------|----------------------------------------------------------------------|
-| `dial_timeout`      | `duration` | `1m`          | Timeout for dialing connections to other storage or inner ring nodes. |
 | `stream_timeout`    | `duration` | `15s`         | Timeout for individual operations in a streaming RPC.                |
-| `reconnect_timeout` | `duration` | `30s`         | Time to wait before reconnecting to a failed node.                   |
 | `allow_external`    | `bool`     | `false`       | Allow to fallback to addresses in `ExternalAddr` attribute.          |
+| `min_connection_timeout` | `duration` | `20s` | Minimum time allotted to open connection with remote SNs. |
+| `ping_interval` | `duration` | `10s` | Remote SNs ping time interval. |
+| `ping_timeout` | `duration` | `10s` | Timeout for remote SN pings. |
 
 # `policer` section
 

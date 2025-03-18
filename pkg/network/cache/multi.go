@@ -28,7 +28,7 @@ import (
 
 type singleClient struct {
 	sync.RWMutex
-	client      clientcore.Client
+	client      *client.Client
 	lastAttempt time.Time
 }
 
@@ -57,11 +57,7 @@ func newMultiClient(addr network.AddressGroup, opts ClientCacheOpts) *multiClien
 	}
 }
 
-type clientWrapper struct {
-	*client.Client
-}
-
-func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client, error) {
+func (x *multiClient) createForAddress(addr network.Address) (*client.Client, error) {
 	var (
 		prmInit client.PrmInit
 		prmDial client.PrmDial
@@ -93,7 +89,7 @@ func (x *multiClient) createForAddress(addr network.Address) (clientcore.Client,
 		return nil, fmt.Errorf("can't init SDK client: %w", err)
 	}
 
-	return clientWrapper{c}, nil
+	return c, nil
 }
 
 // updateGroup replaces current multiClient addresses with a new group.
@@ -367,17 +363,7 @@ func (x *multiClient) RawForAddress(addr network.Address, f func(*grpc.ClientCon
 	return err
 }
 
-func (x *multiClient) Conn() *grpc.ClientConn {
-	var cc *grpc.ClientConn
-
-	_ = x.iterateClients(context.TODO(), func(c clientcore.Client) error {
-		cc = c.Conn()
-		return nil
-	})
-	return cc
-}
-
-func (x *multiClient) client(addr network.Address) (clientcore.Client, error) {
+func (x *multiClient) client(addr network.Address) (*client.Client, error) {
 	strAddr := addr.String()
 
 	x.mtx.RLock()

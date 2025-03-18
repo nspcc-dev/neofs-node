@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `min_connection_timeout`, `ping_interval` and `ping_timeout` options to 'apiclient' SN config section (#3234)
 
 ### Fixed
 - NPE in metabase V3->4 migration routine (#3212)
@@ -15,11 +16,14 @@ Changelog for NeoFS Node
 - Missing v2 SN approval from IR for netmap node v1 networks (#3238)
 - Collecting of converted attributes in SN `ObjectService.SearchV2` handler (#3230)
 - Corrupted data in metabase stops GC cycle and makes problem objects to be kept forever (#3239)
+- Requests hanging after SN disappears from the network (#3234)
 
 ### Changed
 - Retry flush from write-cache after 10s delay if an error is received (#3221)
+- SN-SN connection management (#3234)
 
 ### Removed
+- `dial_timeout` and `reconnect_timeout` options from `apiclient` SN config section (#3234)
 
 ### Updated
 - Minimum required version of Go to 1.23 (#2918)
@@ -34,6 +38,17 @@ Changelog for NeoFS Node
 - `google.golang.org/protobuf` dependency to `v1.36.5` (#3199)
 
 ### Updating from v0.45.1
+Following SN configurations must be dropped:
+- `apiclient.dial_timeout`
+- `apiclient.reconnect_timeout`
+
+They are replaced by the next ones:
+- `apiclient.min_connection_timeout`
+- `apiclient.ping_interval`
+- `apiclient.ping_timeout`
+
+These options allow to tune SN-SN connections' keepalive behavior. Defaults
+work in most cases, so do not specify any values unless you have a clear need.
 
 ## [0.45.1] - 2025-03-07
 

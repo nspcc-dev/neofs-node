@@ -341,7 +341,7 @@ type reputationClientConstructor struct {
 	trustStorage *truststorage.Storage
 
 	basicConstructor interface {
-		Get(coreclient.NodeInfo) (coreclient.Client, error)
+		Get(coreclient.NodeInfo) (coreclient.MultiAddressClient, error)
 	}
 }
 
@@ -443,7 +443,7 @@ func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.
 				prm.SetPeer(peer)
 
 				return &reputationClient{
-					MultiAddressClient: cl.(coreclient.MultiAddressClient),
+					MultiAddressClient: cl,
 					prm:                prm,
 					cons:               c,
 				}, nil
