@@ -365,9 +365,9 @@ type shared struct {
 	privateTokenStore sessionStorage
 	persistate        *state.PersistentStorage
 
-	clientCache    *cache.ClientCache
-	bgClientCache  *cache.ClientCache
-	putClientCache *cache.ClientCache
+	clientCache    *cache.Clients
+	bgClientCache  *cache.Clients
+	putClientCache *cache.Clients
 	localAddr      network.AddressGroup
 
 	ownerIDFromKey user.ID // user ID calculated from key
@@ -600,21 +600,21 @@ func initCfg(appCfg *config.Config) *cfg {
 		return &b
 	}
 
-	cacheOpts := cache.ClientCacheOpts{
-		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
-		StreamTimeout:    apiclientconfig.StreamTimeout(appCfg),
-		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
-		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
-		Buffers:          &buffers,
-		Logger:           c.internals.log,
-	}
 	basicSharedConfig := initBasics(c, key, persistate)
+	streamTimeout := apiclientconfig.StreamTimeout(appCfg)
+	minConnTimeout := apiclientconfig.MinConnTime(appCfg)
+	pingInterval := apiclientconfig.PingInterval(appCfg)
+	pingTimeout := apiclientconfig.PingTimeout(appCfg)
+	newClientCache := func(scope string) *cache.Clients {
+		return cache.NewClients(c.log.With(zap.String("scope", scope)), &buffers, streamTimeout,
+			minConnTimeout, pingInterval, pingTimeout)
+	}
 	c.shared = shared{
 		basics:         basicSharedConfig,
 		localAddr:      netAddr,
-		clientCache:    cache.NewSDKClientCache(cacheOpts),
-		bgClientCache:  cache.NewSDKClientCache(cacheOpts),
-		putClientCache: cache.NewSDKClientCache(cacheOpts),
+		clientCache:    newClientCache("read"),
+		bgClientCache:  newClientCache("background"),
+		putClientCache: newClientCache("put"),
 		persistate:     persistate,
 	}
 	c.cfgContainer = cfgContainer{

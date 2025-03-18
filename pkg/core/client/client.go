@@ -30,8 +30,6 @@ type Client interface {
 	ObjectHash(ctx context.Context, containerID cid.ID, objectID oid.ID, signer user.Signer, prm client.PrmObjectHash) ([][]byte, error)
 	AnnounceLocalTrust(ctx context.Context, epoch uint64, trusts []reputationSDK.Trust, prm client.PrmAnnounceLocalTrust) error
 	AnnounceIntermediateTrust(ctx context.Context, epoch uint64, trust reputationSDK.PeerToPeerTrust, prm client.PrmAnnounceIntermediateTrust) error
-	Conn() *grpc.ClientConn
-	Close() error
 }
 
 // MultiAddressClient is an interface of the
@@ -39,11 +37,9 @@ type Client interface {
 type MultiAddressClient interface {
 	Client
 
-	// RawForAddress executes op over gRPC connections to given multi-address
+	// ForEachGRPCConn executes op over gRPC connections to given multi-address
 	// endpoint-by-endpoint until success.
-	RawForAddress(multiAddr network.Address, op func(*grpc.ClientConn) error) error
-
-	ReportError(error)
+	ForEachGRPCConn(context.Context, func(context.Context, *grpc.ClientConn) error) error
 }
 
 // NodeInfo groups information about a NeoFS storage node needed for Client construction.
