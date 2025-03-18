@@ -13,11 +13,15 @@ Changelog for NeoFS Node
 - IR no longer processes bind/unbind neofsid requests (#3256)
 
 ### Removed
+- SN `apiclient.allow_external` config (#3235)
 
 ### Updated
 
 ### Updating from v0.45.2
 `contracts.neofsid` IR configuration is gone and no longer needed.
+
+`apiclient.allow_external` field must be dropped from any SN configuration.
+Also, SN `ExternalAddr` attribute is no-op now and should also be removed.
 
 ## [0.45.2] - 2025-03-25
 

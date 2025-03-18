@@ -102,7 +102,6 @@ type valideConfig struct {
 
 	APIClient struct {
 		StreamTimeout     time.Duration `mapstructure:"stream_timeout"`
-		AllowExternal     bool          `mapstructure:"allow_external"`
 		MinConnectionTime time.Duration `mapstructure:"min_connection_time"`
 		PingInterval      time.Duration `mapstructure:"ping_interval"`
 		PingTimeout       time.Duration `mapstructure:"ping_timeout"`

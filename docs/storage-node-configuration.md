@@ -381,7 +381,6 @@ apiclient:
 | Parameter           | Type     | Default value | Description                                                          |
 |---------------------|----------|---------------|----------------------------------------------------------------------|
 | `stream_timeout`    | `duration` | `15s`         | Timeout for individual operations in a streaming RPC.                |
-| `allow_external`    | `bool`     | `false`       | Allow to fallback to addresses in `ExternalAddr` attribute.          |
 | `min_connection_timeout` | `duration` | `20s` | Minimum time allotted to open connection with remote SNs. |
 | `ping_interval` | `duration` | `10s` | Remote SNs ping time interval. |
 | `ping_timeout` | `duration` | `10s` | Timeout for remote SN pings. |
