@@ -26,7 +26,6 @@ type (
 		StreamTimeout    time.Duration
 		ReconnectTimeout time.Duration
 		ResponseCallback func(client.ResponseMetaInfo) error
-		AllowExternal    bool
 		Buffers          *sync.Pool
 		Logger           *zap.Logger
 	}
@@ -44,9 +43,6 @@ func NewSDKClientCache(opts ClientCacheOpts) *ClientCache {
 // Get function returns existing client or creates a new one.
 func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	netAddr := info.AddressGroup()
-	if c.opts.AllowExternal {
-		netAddr = append(netAddr, info.ExternalAddressGroup()...)
-	}
 	cacheKey := string(info.PublicKey())
 
 	c.mu.RLock()

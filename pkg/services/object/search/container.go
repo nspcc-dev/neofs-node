@@ -49,17 +49,6 @@ func (exec *execCtx) executeOnContainer(ectx context.Context) {
 		var info client.NodeInfo
 		info.SetAddressGroup(endpoints)
 		info.SetPublicKey(pubKey)
-		if ext := node.ExternalAddresses(); len(ext) > 0 {
-			var externalEndpoints network.AddressGroup
-			err = externalEndpoints.FromStringSlice(ext)
-			if err != nil {
-				// less critical since the main ones must work, but also important
-				lg.Warn("failed to decode external network endpoints of the storage node from the network map, ignore them",
-					zap.Strings("endpoints", ext), zap.Error(err))
-			} else {
-				info.SetExternalAddressGroup(externalEndpoints)
-			}
-		}
 
 		wg.Add(1)
 		go func() {

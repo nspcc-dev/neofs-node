@@ -47,8 +47,6 @@ type MultiAddressClient interface {
 type NodeInfo struct {
 	addrGroup network.AddressGroup
 
-	externalAddrGroup network.AddressGroup
-
 	key []byte
 }
 
@@ -60,16 +58,6 @@ func (x *NodeInfo) SetAddressGroup(v network.AddressGroup) {
 // AddressGroup returns a group of network addresses.
 func (x NodeInfo) AddressGroup() network.AddressGroup {
 	return x.addrGroup
-}
-
-// SetExternalAddressGroup sets an external group of network addresses.
-func (x *NodeInfo) SetExternalAddressGroup(v network.AddressGroup) {
-	x.externalAddrGroup = v
-}
-
-// ExternalAddressGroup returns a group of network addresses.
-func (x NodeInfo) ExternalAddressGroup() network.AddressGroup {
-	return x.externalAddrGroup
 }
 
 // SetPublicKey sets a public key in a binary format.

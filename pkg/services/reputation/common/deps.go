@@ -72,7 +72,4 @@ type ServerInfo interface {
 	PublicKey() []byte
 
 	network.MultiAddressIterator
-
-	// ExternalAddresses returns external addresses of a node.
-	ExternalAddresses() []string
 }

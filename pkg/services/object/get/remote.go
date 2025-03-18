@@ -12,7 +12,6 @@ import (
 func (exec *execCtx) processNode(info client.NodeInfo) bool {
 	l := exec.log.With(
 		zap.Stringers("address group", info.AddressGroup()),
-		zap.Stringers("external address group", info.ExternalAddressGroup()),
 	)
 
 	l.Debug("processing node...")

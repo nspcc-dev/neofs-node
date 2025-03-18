@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
 - IR contract approval no longer supports neofsid accounts (#3256)
 - IR no longer processes bind/unbind neofsid requests (#3256)
+- SN `ExternalAddr` attribute is ignored now (#3235)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

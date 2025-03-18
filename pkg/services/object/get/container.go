@@ -30,7 +30,7 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.status = statusUndefined
 	mProcessedNodes := make(map[string]struct{})
-	var endpoints, externalEndpoints network.AddressGroup
+	var endpoints network.AddressGroup
 	var j, jLim uint
 	primary := true
 
@@ -74,16 +74,6 @@ func (exec *execCtx) executeOnContainer() {
 			var info client.NodeInfo
 			info.SetAddressGroup(endpoints)
 			info.SetPublicKey(bKey)
-			if ext := nodeLists[i][j].ExternalAddresses(); len(ext) > 0 {
-				if err = externalEndpoints.FromStringSlice(ext); err != nil {
-					// less critical since the main ones must work, but also important
-					exec.log.Warn("failed to decode external network endpoints of the storage node, ignore them",
-						zap.String("public key", netmap.StringifyPublicKey(nodeLists[i][j])),
-						zap.Strings("endpoints", ext), zap.Error(err))
-				} else {
-					info.SetExternalAddressGroup(externalEndpoints)
-				}
-			}
 
 			if exec.processNode(info) {
 				exec.log.Debug("completing the operation")
