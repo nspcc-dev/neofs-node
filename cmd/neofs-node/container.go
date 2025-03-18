@@ -466,13 +466,6 @@ func (c *cfg) NumberOfAddresses() int {
 	return c.addressNum()
 }
 
-func (c *cfg) ExternalAddresses() []string {
-	c.cfgNodeInfo.localInfoLock.RLock()
-	defer c.cfgNodeInfo.localInfoLock.RUnlock()
-
-	return c.cfgNodeInfo.localInfo.ExternalAddresses()
-}
-
 func (c *usedSpaceService) PublicKey() []byte {
 	return nodeKeyFromNetmap(c.cfg)
 }
@@ -483,10 +476,6 @@ func (c *usedSpaceService) IterateAddresses(f func(string) bool) {
 
 func (c *usedSpaceService) NumberOfAddresses() int {
 	return c.cfg.addressNum()
-}
-
-func (c *usedSpaceService) ExternalAddresses() []string {
-	return c.cfg.ExternalAddresses()
 }
 
 func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status) (*protocontainer.AnnounceUsedSpaceResponse, error) {
@@ -561,10 +550,6 @@ func (*containerOnlyKeyRemoteServerInfo) IterateAddresses(func(string) bool) {
 
 func (*containerOnlyKeyRemoteServerInfo) NumberOfAddresses() int {
 	return 0
-}
-
-func (*containerOnlyKeyRemoteServerInfo) ExternalAddresses() []string {
-	return nil
 }
 
 func (l *loadPlacementBuilder) isNodeFromContainerKey(epoch uint64, cnr cid.ID, key []byte) (bool, error) {

@@ -69,10 +69,6 @@ func (x nodeServer) NumberOfAddresses() int {
 	return (apiNetmap.NodeInfo)(x).NumberOfNetworkEndpoints()
 }
 
-func (x nodeServer) ExternalAddresses() []string {
-	return (apiNetmap.NodeInfo)(x).ExternalAddresses()
-}
-
 type hashableUint uint64
 
 func (h hashableUint) Hash() uint64 {

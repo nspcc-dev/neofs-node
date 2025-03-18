@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Retry flush from write-cache after 10s delay if an error is received (#3221)
+- SN `ExternalAddr` attribute is ignored now (#3235)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

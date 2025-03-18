@@ -8,10 +8,9 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
-func nodeInfoFromKeyAddr(dst *NodeInfo, k []byte, a, external network.AddressGroup) {
+func nodeInfoFromKeyAddr(dst *NodeInfo, k []byte, a network.AddressGroup) {
 	dst.SetPublicKey(k)
 	dst.SetAddressGroup(a)
-	dst.SetExternalAddressGroup(external)
 }
 
 // NodeInfoFromRawNetmapElement fills NodeInfo structure from the interface of raw netmap member's descriptor.
@@ -21,7 +20,6 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 	PublicKey() []byte
 	IterateAddresses(func(string) bool)
 	NumberOfAddresses() int
-	ExternalAddresses() []string
 }) error {
 	var a network.AddressGroup
 
@@ -30,14 +28,7 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 		return fmt.Errorf("parse network address: %w", err)
 	}
 
-	var external network.AddressGroup
-
-	ext := info.ExternalAddresses()
-	if len(ext) > 0 {
-		_ = external.FromStringSlice(ext)
-	}
-
-	nodeInfoFromKeyAddr(dst, info.PublicKey(), a, external)
+	nodeInfoFromKeyAddr(dst, info.PublicKey(), a)
 
 	return nil
 }
@@ -48,9 +39,8 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 func NodeInfoFromNetmapElement(dst *NodeInfo, info interface {
 	PublicKey() []byte
 	Addresses() network.AddressGroup
-	ExternalAddresses() network.AddressGroup
 }) {
-	nodeInfoFromKeyAddr(dst, info.PublicKey(), info.Addresses(), info.ExternalAddresses())
+	nodeInfoFromKeyAddr(dst, info.PublicKey(), info.Addresses())
 }
 
 // AssertKeyResponseCallback returns client response callback which checks if the response was signed by the expected key.
