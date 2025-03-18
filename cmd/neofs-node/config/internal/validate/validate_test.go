@@ -233,7 +233,7 @@ apiclient:
 			y.Reset(tc.yaml)
 			require.NoError(t, v.ReadConfig(&y))
 			err := ValidateStruct(v)
-			require.ErrorIs(t, err, configvalidator.ErrUnknowField)
+			require.ErrorIs(t, err, configvalidator.ErrUnknownField)
 			require.EqualError(t, err, fmt.Sprintf("unknown field: %s", tc.field))
 		})
 	}
