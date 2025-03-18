@@ -382,7 +382,6 @@ apiclient:
 | `dial_timeout`      | `duration` | `1m`          | Timeout for dialing connections to other storage or inner ring nodes. |
 | `stream_timeout`    | `duration` | `15s`         | Timeout for individual operations in a streaming RPC.                |
 | `reconnect_timeout` | `duration` | `30s`         | Time to wait before reconnecting to a failed node.                   |
-| `allow_external`    | `bool`     | `false`       | Allow to fallback to addresses in `ExternalAddr` attribute.          |
 
 # `policer` section
 
