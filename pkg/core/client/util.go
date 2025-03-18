@@ -8,11 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 )
 
-func nodeInfoFromKeyAddr(dst *NodeInfo, k []byte, a network.AddressGroup) {
-	dst.SetPublicKey(k)
-	dst.SetAddressGroup(a)
-}
-
 // NodeInfoFromRawNetmapElement fills NodeInfo structure from the interface of raw netmap member's descriptor.
 //
 // Args must not be nil.
@@ -28,19 +23,10 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 		return fmt.Errorf("parse network address: %w", err)
 	}
 
-	nodeInfoFromKeyAddr(dst, info.PublicKey(), a)
+	dst.SetPublicKey(info.PublicKey())
+	dst.SetAddressGroup(a)
 
 	return nil
-}
-
-// NodeInfoFromNetmapElement fills NodeInfo structure from the interface of the parsed netmap member's descriptor.
-//
-// Args must not be nil.
-func NodeInfoFromNetmapElement(dst *NodeInfo, info interface {
-	PublicKey() []byte
-	Addresses() network.AddressGroup
-}) {
-	nodeInfoFromKeyAddr(dst, info.PublicKey(), info.Addresses())
 }
 
 // AssertKeyResponseCallback returns client response callback which checks if the response was signed by the expected key.
