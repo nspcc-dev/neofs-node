@@ -18,7 +18,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
 	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -2016,7 +2015,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			return nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
-			if newCursor, err = meta.CalculateCursor(fs, res[len(res)-1]); err != nil {
+			if newCursor, err = objectcore.CalculateCursor(fs, res[len(res)-1]); err != nil {
 				return nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
 		}
