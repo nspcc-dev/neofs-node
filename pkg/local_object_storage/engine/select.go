@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -95,7 +94,7 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int
 	if err != nil || !more {
 		return res, nil, err
 	}
-	c, err := meta.CalculateCursor(fs, res[len(res)-1])
+	c, err := objectcore.CalculateCursor(fs, res[len(res)-1])
 	if err != nil {
 		return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 	}
