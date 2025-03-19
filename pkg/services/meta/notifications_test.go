@@ -166,7 +166,7 @@ func (t *testWS) swapResults(notifications []state.ContainedNotificationEvent, e
 	t.err = err
 }
 
-func (t *testWS) GetBlockNotifications(blockHash util.Uint256, filters ...*neorpc.NotificationFilter) (*result.BlockNotifications, error) {
+func (t *testWS) GetBlockNotifications(blockHash util.Uint256, filters *neorpc.NotificationFilter) (*result.BlockNotifications, error) {
 	t.m.RLock()
 	defer t.m.RUnlock()
 

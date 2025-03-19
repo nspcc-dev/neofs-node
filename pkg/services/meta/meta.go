@@ -51,7 +51,7 @@ type NeoFSNetwork interface {
 
 // wsClient is for test purposes only.
 type wsClient interface {
-	GetBlockNotifications(blockHash util.Uint256, filters ...*neorpc.NotificationFilter) (*result.BlockNotifications, error)
+	GetBlockNotifications(blockHash util.Uint256, filters *neorpc.NotificationFilter) (*result.BlockNotifications, error)
 	GetVersion() (*result.Version, error)
 
 	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)
