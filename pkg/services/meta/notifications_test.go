@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"maps"
 	"math/big"
 	"os"
 	"path"
@@ -24,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	utilcore "github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -50,9 +48,18 @@ type testNetwork struct {
 	resErr     error
 }
 
-func (t *testNetwork) setContainers(v map[cid.ID]struct{}) {
+func cidMap(v []cid.ID) map[cid.ID]struct{} {
+	var cids = make(map[cid.ID]struct{}, len(v))
+	for _, c := range v {
+		cids[c] = struct{}{}
+	}
+	return cids
+}
+
+func (t *testNetwork) setContainers(v []cid.ID) {
+	var cids = cidMap(v)
 	t.m.Lock()
-	t.resCIDs = v
+	t.resCIDs = cids
 	t.m.Unlock()
 }
 
@@ -99,15 +106,15 @@ func newEpoch(m *Meta, epoch int) {
 	}
 }
 
-func checkDBFiles(t *testing.T, path string, cnrs map[cid.ID]struct{}) {
+func checkDBFiles(t *testing.T, path string, cnrs []cid.ID) {
 	require.Eventually(t, func() bool {
 		entries, err := os.ReadDir(path)
 		if err != nil {
 			return false
 		}
 
-		cnrsCopy := maps.Clone(cnrs)
-		if len(entries) != len(cnrsCopy) {
+		cnrsMap := cidMap(cnrs)
+		if len(entries) != len(cnrsMap) {
 			return false
 		}
 		for _, e := range entries {
@@ -117,11 +124,11 @@ func checkDBFiles(t *testing.T, path string, cnrs map[cid.ID]struct{}) {
 				t.Fatal("unexpected db file name", e.Name())
 			}
 
-			if _, ok := cnrsCopy[cID]; !ok {
+			if _, ok := cnrsMap[cID]; !ok {
 				return false
 			}
 
-			delete(cnrsCopy, cID)
+			delete(cnrsMap, cID)
 		}
 
 		return true
@@ -338,20 +345,19 @@ func TestObjectPut(t *testing.T) {
 	})
 
 	testCnrs := testContainers(t, 10)
-	mTestCnrs := utilcore.SliceToMap(testCnrs)
 
 	var epoch int
-	net.setContainers(mTestCnrs)
+	net.setContainers(testCnrs)
 	newEpoch(m, epoch)
 
 	time.Sleep(time.Second)
 
 	t.Run("storages for containers", func(t *testing.T) {
-		checkDBFiles(t, m.rootPath, mTestCnrs)
+		checkDBFiles(t, m.rootPath, testCnrs)
 	})
 
 	t.Run("drop storage", func(t *testing.T) {
-		newContainers := utilcore.SliceToMap(testCnrs[1:])
+		var newContainers = testCnrs[1:]
 		net.setContainers(newContainers)
 
 		epoch++
@@ -362,9 +368,9 @@ func TestObjectPut(t *testing.T) {
 	t.Run("add storage", func(t *testing.T) {
 		// add just dropped storage back
 		epoch++
-		net.setContainers(mTestCnrs)
+		net.setContainers(testCnrs)
 		newEpoch(m, epoch)
-		checkDBFiles(t, m.rootPath, mTestCnrs)
+		checkDBFiles(t, m.rootPath, testCnrs)
 	})
 
 	t.Run("put object", func(t *testing.T) {
