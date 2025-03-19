@@ -184,7 +184,7 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 
 		res <- evWithMpt
 
-		fillObjectIndex(batch, h)
+		fillObjectIndex(batch, h, false)
 	}
 
 	return finalErr
@@ -238,7 +238,7 @@ func isOpAllowed(db storage.Store, e objEvent) error {
 
 const binPropertyMarker = "1" // ROOT, PHY, etc.
 
-func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
+func fillObjectIndex(batch map[string][]byte, h objectsdk.Object, isParent bool) {
 	id := h.GetID()
 	typ := h.Type()
 	owner := h.Owner()
@@ -246,8 +246,9 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	pSize := h.PayloadSize()
 	fPart := h.GetFirstID()
 	parID := h.GetParentID()
-	hasParent := h.Parent() != nil
-	phy := hasParent || (fPart.IsZero() && parID.IsZero())
+	par := h.Parent()
+	hasParent := par != nil
+	phy := !isParent
 	pldHash, _ := h.PayloadChecksum()
 	var ver version.Version
 	if v := h.Version(); v != nil {
@@ -275,7 +276,7 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	if !parID.IsZero() {
 		putPlainAttribute(batch, id, objectsdk.FilterParentID, string(parID[:]))
 	}
-	if !hasParent && typ == objectsdk.TypeRegular {
+	if !hasParent && fPart.IsZero() && typ == objectsdk.TypeRegular {
 		putPlainAttribute(batch, id, objectsdk.FilterRoot, binPropertyMarker)
 	}
 	if phy {
@@ -288,6 +289,10 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 		} else {
 			putPlainAttribute(batch, id, ak, av)
 		}
+	}
+
+	if hasParent && !parID.IsZero() {
+		fillObjectIndex(batch, *par, true)
 	}
 }
 
