@@ -1,30 +1,21 @@
 package innerring
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neo-go/pkg/config/netmode"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-contract/deploy"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
-	"github.com/spf13/cast"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 )
 
 // Various configuration paths.
 var (
-	cfgPathFSChain               = "fschain"
-	cfgPathFSChainRPCEndpoints   = cfgPathFSChain + ".endpoints"
-	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
-	cfgPathFSChainValidators     = cfgPathFSChain + ".validators"
+	cfgFSChainName               = "fschain"
+	cfgPathFSChainLocalConsensus = cfgFSChainName + ".consensus"
 )
 
 // Default ports for listening on TCP addresses.
@@ -33,258 +24,170 @@ const (
 	rpcDefaultListenPort = "30333"
 )
 
-// checks whether Inner Ring app is configured to initialize underlying FS chain
-// or await for a background deployment. Returns an error if
-// the configuration format is violated.
-func isAutoDeploymentMode(cfg *viper.Viper) (bool, error) {
-	res, err := parseConfigBool(cfg, "fschain_autodeploy", "flag to auto-deploy the FS chain")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return false, err
-	}
-
-	return res, nil
-}
-
 // checks if Inner Ring app is configured to be launched in local consensus
 // mode. Returns error if neither NeoFS chain RPC endpoints nor local consensus
 // is configured.
-func isLocalConsensusMode(cfg *viper.Viper) (bool, error) {
-	endpointsUnset := !cfg.IsSet(cfgPathFSChainRPCEndpoints)
-	if endpointsUnset && !cfg.IsSet(cfgPathFSChainLocalConsensus) {
+func isLocalConsensusMode(cfg *config.Config) (bool, error) {
+	endpointsUnset := cfg.FSChain.Endpoints == nil
+	if endpointsUnset && !cfg.IsSet(cfgFSChainName+".consensus") {
 		return false, fmt.Errorf("either '%s' or '%s' must be configured",
-			cfgPathFSChainRPCEndpoints, cfgPathFSChainLocalConsensus)
+			cfgFSChainName+".endpoints", cfgFSChainName+".consensus")
 	}
 
 	return endpointsUnset, nil
 }
 
-func parseBlockchainConfig(v *viper.Viper, _logger *zap.Logger) (c blockchain.Config, err error) {
-	if !v.IsSet(cfgPathFSChainLocalConsensus) {
-		return c, fmt.Errorf("missing root section '%s'", cfgPathFSChainLocalConsensus)
+func validateBlockchainConfig(cfg *config.Config) error {
+	var err error
+	cfgFSChainLocalConsensus := &cfg.FSChain.Consensus
+
+	if !cfg.IsSet(cfgPathFSChainLocalConsensus) {
+		return fmt.Errorf("missing root section '%s'", cfgPathFSChainLocalConsensus)
 	}
 
-	_uint, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".magic", "network magic", 1, math.MaxUint32)
-	if err != nil {
-		return c, err
+	if cfgFSChainLocalConsensus.Magic == 0 {
+		return fmt.Errorf("magic not set or zero '%s'", cfgPathFSChainLocalConsensus+".magic")
 	}
-	c.NetworkMagic = netmode.Magic(_uint)
 
 	var storageSection = cfgPathFSChainLocalConsensus + ".storage"
-	if !v.IsSet(storageSection) {
-		return c, fmt.Errorf("missing storage section '%s'", storageSection)
-	}
-	var storageTypeKey = storageSection + ".type"
-	if !v.IsSet(storageTypeKey) {
-		return c, fmt.Errorf("missing storage type '%s'", storageTypeKey)
-	}
-	var storagePathKey = storageSection + ".path"
-	switch typ := v.GetString(storageTypeKey); typ {
-	default:
-		return c, fmt.Errorf("unsupported storage type '%s': '%s'", storageTypeKey, typ)
-	case dbconfig.BoltDB:
-		if !v.IsSet(storagePathKey) {
-			return c, fmt.Errorf("missing path to the BoltDB '%s'", storagePathKey)
-		}
-		c.Storage = blockchain.BoltDB(v.GetString(storagePathKey))
-	case dbconfig.LevelDB:
-		if !v.IsSet(storagePathKey) {
-			return c, fmt.Errorf("missing path to the LevelDB '%s'", storagePathKey)
-		}
-		c.Storage = blockchain.LevelDB(v.GetString(storagePathKey))
+	switch typ := cfgFSChainLocalConsensus.Storage.Type; typ {
 	case dbconfig.InMemoryDB:
-		c.Storage = blockchain.InMemory()
+	case dbconfig.BoltDB, dbconfig.LevelDB:
+		if cfgFSChainLocalConsensus.Storage.Path == "" {
+			return fmt.Errorf("missing path to the BoltDB '%s'", storageSection+".path")
+		}
+	default:
+		return fmt.Errorf("unsupported storage type '%s': '%s'", storageSection+".type", typ)
 	}
 
 	var committeeKey = cfgPathFSChainLocalConsensus + ".committee"
-	c.Committee, err = parseConfigPublicKeys(v, committeeKey, "committee members")
+	if cfgFSChainLocalConsensus.Committee.Len() == 0 {
+		return fmt.Errorf("empty committee members '%s'", committeeKey)
+	}
+
+	err = checkDurationPositive(cfgFSChainLocalConsensus.TimePerBlock, cfgPathFSChainLocalConsensus+".time_per_block")
 	if err != nil {
-		return c, err
-	} else if len(c.Committee) == 0 {
-		return c, fmt.Errorf("empty committee members '%s'", committeeKey)
+		return err
 	}
 
-	c.BlockInterval, err = parseConfigDurationPositive(v, cfgPathFSChainLocalConsensus+".time_per_block", "block interval")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
+	cfgFSChainLocalConsensus.SeedNodes, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.SeedNodes,
+		cfgPathFSChainLocalConsensus+".seed_nodes", p2pDefaultListenPort)
+	if err != nil {
+		return err
 	}
 
-	traceableChainLength, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".max_traceable_blocks", "traceable chain length", 1, math.MaxUint32)
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-	c.TraceableChainLength = uint32(traceableChainLength)
-
-	c.SeedNodes, err = parseConfigAddressesTCP(v, cfgPathFSChainLocalConsensus+".seed_nodes", "seed nodes", p2pDefaultListenPort)
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-
-	var hardForksKey = cfgPathFSChainLocalConsensus + ".hardforks"
-	if v.IsSet(hardForksKey) {
-		c.HardForks, err = parseConfigMapUint32(v, hardForksKey, "hard forks", math.MaxUint32)
-		if err != nil {
-			return c, err
+	for k := range cfgFSChainLocalConsensus.Hardforks.Name {
+		if k == "" {
+			return fmt.Errorf("missing hardforks name '%s'", cfgPathFSChainLocalConsensus+".hardforks")
 		}
 	}
 
-	p2pNotaryRequestPayloadPoolSize, err := parseConfigUint64Range(v, cfgPathFSChainLocalConsensus+".p2p_notary_request_payload_pool_size",
-		"Size of the node's P2P Notary request payloads memory pool", 1, math.MaxUint32)
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-	c.P2PNotaryRequestPayloadPoolSize = uint32(p2pNotaryRequestPayloadPoolSize)
+	if len(cfgFSChainLocalConsensus.ValidatorsHistory.Height) > 0 {
+		committeeSize := uint32(cfgFSChainLocalConsensus.Committee.Len())
 
-	var validatorsHistoryKey = cfgPathFSChainLocalConsensus + ".validators_history"
-	if v.IsSet(validatorsHistoryKey) {
-		c.ValidatorsHistory = make(map[uint32]uint32)
-		committeeSize := uint64(c.Committee.Len())
-		err = parseConfigMap(v, validatorsHistoryKey, "validators history", func(name string, val any) error {
-			height, err := strconv.ParseUint(name, 10, 32)
-			if err != nil {
-				return fmt.Errorf("parse unsigned integer: %w", err)
+		for k, v := range cfgFSChainLocalConsensus.ValidatorsHistory.Height {
+			if k%committeeSize != 0 {
+				return fmt.Errorf("height %d is not a multiple of the %q size", k, committeeKey)
 			}
-
-			if height%committeeSize != 0 {
-				return fmt.Errorf("height %d is not a multiple of the %q size", height, committeeKey)
+			if v <= 0 {
+				return fmt.Errorf("value %d for %d is not a positive number", v, k)
+			} else if v > committeeSize {
+				return fmt.Errorf("value exceeds %q size: %d > %d", committeeKey, v, committeeSize)
 			}
-
-			num, err := cast.ToUint32E(val)
-			if err != nil {
-				return err
-			} else if num <= 0 {
-				return fmt.Errorf("value %d is out of allowable range", num)
-			} else if num > uint32(c.Committee.Len()) {
-				return fmt.Errorf("value exceeds %q size: %d > %d", committeeKey, num, c.Committee.Len())
-			}
-			c.ValidatorsHistory[uint32(height)] = num
-			return nil
-		})
-		if err != nil {
-			return c, err
 		}
 	}
 
 	var rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
-	if v.IsSet(rpcSection) {
-		c.RPC.Addresses, err = parseConfigAddressesTCP(v, rpcSection+".listen", "network addresses to listen insecure Neo RPC on", rpcDefaultListenPort)
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+	if cfg.IsSet(rpcSection) {
+		cfgFSChainLocalConsensus.RPC.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.RPC.Listen,
+			rpcSection+".listen", rpcDefaultListenPort)
+		if err != nil {
+			return err
 		}
 
-		maxWebSocketClients, err := parseConfigUint64Range(v, rpcSection+".max_websocket_clients", "maximum simultaneous websocket client connection number", 1, math.MaxInt32)
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+		err = checkIntMax(cfgFSChainLocalConsensus.RPC.MaxWebSocketClients, rpcSection+".max_websocket_clients")
+		if err != nil {
+			return err
 		}
-		c.RPC.MaxWebSocketClients = uint(maxWebSocketClients)
-
-		sessionPoolSize, err := parseConfigUint64Range(v, rpcSection+".session_pool_size", "maximum number of concurrent iterator sessions", 1, math.MaxInt32)
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+		err = checkIntMax(cfgFSChainLocalConsensus.RPC.MaxGasInvoke, rpcSection+".max_gas_invoke")
+		if err != nil {
+			return err
 		}
-		c.RPC.SessionPoolSize = uint(sessionPoolSize)
-
-		maxGasInvoke, err := parseConfigUint64Range(v, rpcSection+".max_gas_invoke", "maximum amount of GAS which can be spent during an RPC call", 1, math.MaxInt32)
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+		err = checkIntMax(cfgFSChainLocalConsensus.RPC.SessionPoolSize, rpcSection+".session_pool_size")
+		if err != nil {
+			return err
 		}
-		c.RPC.MaxGasInvoke = uint(maxGasInvoke)
 
 		var rpcTLSSection = rpcSection + ".tls"
-		if v.GetBool(rpcTLSSection + ".enabled") {
-			c.RPC.TLSConfig.Enabled = true
-
-			c.RPC.TLSConfig.Addresses, err = parseConfigAddressesTCP(v, rpcTLSSection+".listen", "network addresses to listen to Neo RPC over TLS", rpcDefaultListenPort)
+		if cfgFSChainLocalConsensus.RPC.TLS.Enabled {
+			rpcTLSListen := rpcTLSSection + ".listen"
+			if len(cfgFSChainLocalConsensus.RPC.TLS.Listen) == 0 {
+				return fmt.Errorf("missing tls listen section '%s'", rpcTLSListen)
+			}
+			cfgFSChainLocalConsensus.RPC.TLS.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.RPC.TLS.Listen,
+				rpcTLSListen, rpcDefaultListenPort)
 			if err != nil {
-				return c, err
+				return err
 			}
 
-			var certCfgKey = rpcTLSSection + ".cert_file"
-			c.RPC.TLSConfig.CertFile = v.GetString(certCfgKey)
-			if strings.TrimSpace(c.RPC.TLSConfig.CertFile) == "" {
-				return c, fmt.Errorf("RPC TLS setup is enabled but no certificate ('%s') is provided", certCfgKey)
+			if strings.TrimSpace(cfgFSChainLocalConsensus.RPC.TLS.CertFile) == "" {
+				return fmt.Errorf("RPC TLS setup is enabled but no certificate ('%s') is provided", rpcTLSSection+".cert_file")
 			}
 
-			var keyCfgKey = rpcTLSSection + ".key_file"
-			c.RPC.TLSConfig.KeyFile = v.GetString(keyCfgKey)
-			if strings.TrimSpace(c.RPC.TLSConfig.KeyFile) == "" {
-				return c, fmt.Errorf("RPC TLS setup is enabled but no key ('%s') is provided", keyCfgKey)
+			if strings.TrimSpace(cfgFSChainLocalConsensus.RPC.TLS.KeyFile) == "" {
+				return fmt.Errorf("RPC TLS setup is enabled but no key ('%s') is provided", rpcTLSSection+".key_file")
 			}
 		}
 	}
 
-	minPeersConfigured := false
 	var p2pSection = cfgPathFSChainLocalConsensus + ".p2p"
-	if v.IsSet(p2pSection) {
-		c.P2P.DialTimeout, err = parseConfigDurationPositive(v, p2pSection+".dial_timeout", "P2P dial timeout")
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+	if cfg.IsSet(p2pSection) {
+		err = checkDurationPositive(cfgFSChainLocalConsensus.P2P.DialTimeout, p2pSection+".dial_timeout")
+		if err != nil {
+			return err
 		}
-		c.P2P.ProtoTickInterval, err = parseConfigDurationPositive(v, p2pSection+".proto_tick_interval", "P2P protocol tick interval")
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+		err = checkDurationPositive(cfgFSChainLocalConsensus.P2P.ProtoTickInterval, p2pSection+".proto_tick_interval")
+		if err != nil {
+			return err
 		}
-		c.P2P.ListenAddresses, err = parseConfigAddressesTCP(v, p2pSection+".listen", "network addresses to listen Neo P2P on", p2pDefaultListenPort)
-		if err != nil && !errors.Is(err, errMissingConfig) {
-			return c, err
+		cfgFSChainLocalConsensus.P2P.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.P2P.Listen,
+			p2pSection+".listen", p2pDefaultListenPort)
+		if err != nil {
+			return err
 		}
+
 		var p2pPeersSection = p2pSection + ".peers"
-		if v.IsSet(p2pPeersSection) {
-			minPeers, err := parseConfigUint64Max(v, p2pPeersSection+".min", "minimum number of P2P peers", math.MaxInt32)
-			if err != nil {
-				if !errors.Is(err, errMissingConfig) {
-					return c, err
-				}
-				// defaults below
-			} else {
-				c.P2P.MinPeers = uint(minPeers)
-				// zero can be set explicitly, so prevent overriding it
-				minPeersConfigured = true
-			}
-			maxPeers, err := parseConfigUint64Range(v, p2pPeersSection+".max", "maximum number of P2P peers", 1, math.MaxInt32)
-			if err != nil && !errors.Is(err, errMissingConfig) {
-				return c, err
-			}
-			c.P2P.MaxPeers = uint(maxPeers)
-			attemptConnPeers, err := parseConfigUint64Range(v, p2pPeersSection+".attempts", "number of P2P connection attempts", 1, math.MaxInt32)
-			if err != nil && !errors.Is(err, errMissingConfig) {
-				return c, err
-			}
-			c.P2P.AttemptConnPeers = uint(attemptConnPeers)
+		err = checkIntMax(cfgFSChainLocalConsensus.P2P.Peers.Min, p2pPeersSection+".min")
+		if err != nil {
+			return err
 		}
+		err = checkIntMax(cfgFSChainLocalConsensus.P2P.Peers.Max, p2pPeersSection+".max")
+		if err != nil {
+			return err
+		}
+		err = checkIntMax(cfgFSChainLocalConsensus.P2P.Peers.Attempts, p2pPeersSection+".attempts")
+		if err != nil {
+			return err
+		}
+
 		var pingSection = p2pSection + ".ping"
-		if v.IsSet(pingSection) {
-			c.P2P.Ping.Interval, err = parseConfigDurationPositive(v, pingSection+".interval", "P2P ping interval")
+		if cfg.IsSet(pingSection) {
+			err = checkDurationPositive(cfgFSChainLocalConsensus.P2P.Ping.Interval, pingSection+".interval")
 			if err != nil {
-				return c, err
+				return err
 			}
-			c.P2P.Ping.Timeout, err = parseConfigDurationPositive(v, pingSection+".timeout", "P2P ping timeout")
+			err = checkDurationPositive(cfgFSChainLocalConsensus.P2P.Ping.Timeout, pingSection+".timeout")
 			if err != nil {
-				return c, err
+				return err
 			}
 		}
 	}
-	if !minPeersConfigured {
-		n := uint(len(c.Committee))
-		c.P2P.MinPeers = n - (n-1)/3 - 1
+	if !cfg.IsSet(p2pSection + ".peers.min") {
+		n := uint32(cfgFSChainLocalConsensus.Committee.Len())
+		cfgFSChainLocalConsensus.P2P.Peers.Min = n - (n-1)/3 - 1
 	}
 
-	c.SetRolesInGenesis, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".set_roles_in_genesis", "flag to set roles for the committee in the genesis block")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-
-	c.Ledger.KeepOnlyLatestState, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".keep_only_latest_state", "flag to store only the latest states")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-	c.Ledger.RemoveUntraceableBlocks, err = parseConfigBool(v, cfgPathFSChainLocalConsensus+".remove_untraceable_blocks", "flag to remove old blocks")
-	if err != nil && !errors.Is(err, errMissingConfig) {
-		return c, err
-	}
-
-	c.Logger = _logger
-
-	return c, nil
+	return nil
 }
 
 // sets NeoFS network settings to be used for FS chain
@@ -304,208 +207,30 @@ func setNetworkSettingsDefaults(netCfg *deploy.NetworkConfiguration) {
 	netCfg.MaintenanceModeAllowed = false
 }
 
-type nnsConfig struct {
-	systemEmail string
-}
-
-func parseNNSConfig(v *viper.Viper) (c nnsConfig, err error) {
-	const rootSection = "nns"
-
-	c.systemEmail, err = parseConfigString(v, rootSection+".system_email", "system email for NNS")
-	if errors.Is(err, errMissingConfig) {
-		err = nil
-	}
-
-	return
-}
-
-var errMissingConfig = errors.New("config value is missing")
-
-func parseConfigUint64Condition(v *viper.Viper, key, desc string, cond func(uint64) error) (uint64, error) {
-	var res uint64
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		switch val := v.Get(key).(type) {
-		case float32, float64:
-			// cast.ToUint64E just drops mantissa
-			return 0, fmt.Errorf("unable to cast %#v of type %T to uint64", val, val)
-		default:
-			res, err = cast.ToUint64E(val)
-		}
-		if err == nil && cond != nil {
-			err = cond(res)
-		}
-	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (unsigned integer): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigUint64Range(v *viper.Viper, key, desc string, minV, maxV uint64) (uint64, error) {
-	return parseConfigUint64Condition(v, key, desc, func(val uint64) error {
-		if val < minV || val > maxV {
-			return fmt.Errorf("out of allowable range [%d:%d]", minV, maxV)
-		}
-		return nil
-	})
-}
-
-func parseConfigUint64Max(v *viper.Viper, key, desc string, maxV uint64) (uint64, error) {
-	return parseConfigUint64Range(v, key, desc, 0, maxV)
-}
-
-func parseConfigDurationCondition(v *viper.Viper, key, desc string, cond func(time.Duration) error) (time.Duration, error) {
-	var res time.Duration
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		res, err = cast.ToDurationE(v.Get(key))
-		if err == nil && cond != nil {
-			err = cond(res)
-		}
-	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (duration): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigDurationPositive(v *viper.Viper, key, desc string) (time.Duration, error) {
-	return parseConfigDurationCondition(v, key, desc, func(d time.Duration) error {
-		if d <= 0 {
-			return errors.New("must be positive")
-		}
-		return nil
-	})
-}
-
-func parseConfigStrings(v *viper.Viper, key, desc string) ([]string, error) {
-	var res []string
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		res, err = cast.ToStringSliceE(v.Get(key))
-	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (string array): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigPublicKeys(v *viper.Viper, key, desc string) (keys.PublicKeys, error) {
-	ss, err := parseConfigStrings(v, key, desc)
-	if err != nil {
-		return nil, err
-	}
-	res, err := keys.NewPublicKeysFromStrings(ss)
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (public keys): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigAddressesTCP(v *viper.Viper, key, desc string, defaultPort string) ([]string, error) {
-	ss, err := parseConfigStrings(v, key, desc)
-	if err != nil {
-		return nil, err
-	}
-	for i := range ss {
-		if !strings.Contains(ss[i], ":") {
-			ss[i] += ":" + defaultPort
-		}
-		_, err = net.ResolveTCPAddr("tcp", ss[i])
-		if err != nil {
-			return ss, fmt.Errorf("invalid %s '%s' (TCP addresses): %w", desc, key, err)
-		}
-	}
-	return ss, nil
-}
-
-func parseConfigMap(v *viper.Viper, key, desc string, f func(name string, val any) error) error {
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		var m map[string]any
-		m, err = cast.ToStringMapE(v.Get(key))
-		if err == nil {
-			for name, val := range m {
-				err = f(name, val)
-				if err != nil {
-					err = fmt.Errorf("invalid element '%s': %w", name, err)
-					break
-				}
-			}
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("invalid %s '%s' (dictionary): %w", desc, key, err)
+func checkDurationPositive(val time.Duration, key string) error {
+	if val < 0 {
+		return fmt.Errorf("invalid '%s' (duration): must be positive", key)
 	}
 	return nil
 }
 
-func parseConfigMapUint32(v *viper.Viper, key, desc string, limit uint64) (map[string]uint32, error) {
-	res := make(map[string]uint32)
-	return res, parseConfigMap(v, key, desc, func(name string, val any) error {
-		if name == "" {
-			return errors.New("empty key")
-		}
-		u64, err := cast.ToUint64E(val)
-		if err == nil {
-			if u64 > limit {
-				err = fmt.Errorf("value overflows limit %v", u64)
-			} else {
-				res[name] = uint32(u64)
-			}
-		}
-		return err
-	})
+func checkIntMax(val uint32, key string) error {
+	if val > math.MaxInt32 {
+		return fmt.Errorf("invalid '%s' (int): greater than %d", key, math.MaxInt32)
+	}
+
+	return nil
 }
 
-func parseConfigBool(v *viper.Viper, key, desc string) (bool, error) {
-	var res bool
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		switch val := v.GetString(key); val {
-		default:
-			err = errors.New("neither true nor false")
-		case "false":
-		case "true":
-			res = true
+func parseConfigAddressesTCP(ss []string, key string, defaultPort string) ([]string, error) {
+	for i := range ss {
+		if !strings.Contains(ss[i], ":") {
+			ss[i] += ":" + defaultPort
+		}
+		_, err := net.ResolveTCPAddr("tcp", ss[i])
+		if err != nil {
+			return ss, fmt.Errorf("invalid '%s' (TCP addresses): %w", key, err)
 		}
 	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (boolean): %w", desc, key, err)
-	}
-	return res, nil
-}
-
-func parseConfigString(v *viper.Viper, key, desc string) (string, error) {
-	var res string
-	var err error
-	if !v.IsSet(key) {
-		err = errMissingConfig
-	}
-	if err == nil {
-		res, err = cast.ToStringE(v.Get(key))
-		if err == nil && res == "" {
-			err = errMissingConfig
-		}
-	}
-	if err != nil {
-		return res, fmt.Errorf("invalid %s '%s' (string): %w", desc, key, err)
-	}
-	return res, nil
+	return ss, nil
 }
