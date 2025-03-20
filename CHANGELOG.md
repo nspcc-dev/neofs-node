@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Not initialized FSTree in the write-cache (#3220)
 - Potential approval of network map candidate with duplicated attribute by IR (#3224)
 - Unscheduled attempt to tick the epoch when new epoch event has already arrived in IR (#3226)
+- Missing v2 SN approval from IR for netmap node v1 networks (#3238)
 
 ### Changed
 - Retry flush from write-cache after 10s delay if an error is received (#3221)
