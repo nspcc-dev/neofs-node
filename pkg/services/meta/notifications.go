@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -172,7 +173,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			go func() {
 				err = m.handleEpochNotification(epoch)
 				if err != nil {
-					l.Error("handling new epoch notification", zap.Int64("epoch", epoch), zap.Error(err))
+					l.Error("handling new epoch notification", zap.Uint64("epoch", epoch), zap.Error(err))
 					return
 				}
 			}()
@@ -510,7 +511,7 @@ func (m *Meta) addContainer(cID cid.ID) error {
 	return nil
 }
 
-func parseEpochNotification(ev *state.ContainedNotificationEvent) (int64, error) {
+func parseEpochNotification(ev *state.ContainedNotificationEvent) (uint64, error) {
 	const expectedNotificationArgs = 1
 
 	arr, ok := ev.Item.Value().([]stackitem.Item)
@@ -526,11 +527,12 @@ func parseEpochNotification(ev *state.ContainedNotificationEvent) (int64, error)
 		return 0, fmt.Errorf("unexpected epoch stack item: %T", arr[0].Value())
 	}
 
-	return epoch.Int64(), nil
+	return epoch.Uint64(), nil
 }
 
-func (m *Meta) handleEpochNotification(e int64) error {
-	m.l.Debug("handling new epoch notification", zap.Int64("epoch", e))
+func (m *Meta) handleEpochNotification(e uint64) error {
+	l := m.l.With(zap.Uint64("epoch", e))
+	l.Debug("handling new epoch notification")
 
 	cnrsNetwork, err := m.net.List()
 	if err != nil {
@@ -538,14 +540,13 @@ func (m *Meta) handleEpochNotification(e int64) error {
 	}
 
 	m.stM.Lock()
-	defer m.stM.Unlock()
 
 	for cID, st := range m.storages {
 		_, ok := cnrsNetwork[cID]
 		if !ok {
 			err = st.drop()
 			if err != nil {
-				m.l.Warn("drop inactual container", zap.Int64("epoch", e), zap.Stringer("cID", cID), zap.Error(err))
+				l.Warn("drop inactual container", zap.Stringer("cID", cID), zap.Error(err))
 			}
 
 			delete(m.storages, cID)
@@ -558,24 +559,43 @@ func (m *Meta) handleEpochNotification(e int64) error {
 
 		st, err := storageForContainer(m.rootPath, cID)
 		if err != nil {
+			m.stM.Unlock()
 			return fmt.Errorf("create storage for container %s: %w", cID, err)
 		}
 
 		m.storages[cID] = st
 	}
 
+	m.stM.Unlock()
+
 	m.cliM.Lock()
-	defer m.cliM.Unlock()
 	if len(m.storages) > 0 && m.blockSubID == "" {
 		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
 		if err != nil {
+			m.cliM.Unlock()
 			return fmt.Errorf("blocks subscription: %w", err)
 		}
 	} else if len(m.storages) == 0 && m.blockSubID != "" {
 		m.unsubscribeFromBlocks()
 	}
+	m.cliM.Unlock()
 
-	m.l.Debug("handled new epoch successfully", zap.Int64("epoch", e))
+	m.stM.RLock()
+	defer m.stM.RUnlock()
+	var gcWG sync.WaitGroup
+	for cID, st := range m.storages {
+		gcWG.Add(1)
+		go func() {
+			defer gcWG.Done()
+			err := st.handleNewEpoch(e)
+			if err != nil {
+				l.Error("handling new epoch", zap.Stringer("cID", cID), zap.Error(err))
+			}
+		}()
+	}
+	gcWG.Wait()
+
+	l.Debug("handled new epoch successfully")
 
 	return nil
 }
