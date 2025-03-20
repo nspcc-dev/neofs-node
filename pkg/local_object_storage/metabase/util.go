@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"math/big"
@@ -185,15 +184,6 @@ func attributeBucketName(cnr cid.ID, attributeKey string, key []byte) []byte {
 	key[0] = userAttributePrefix
 	copy(key[1:], cnr[:])
 	return append(key[:bucketKeySize], attributeKey...)
-}
-
-// returns <CID> from attributeBucketName result, nil otherwise.
-func cidFromAttributeBucket(val []byte, attributeKey string) []byte {
-	if len(val) < bucketKeySize || val[0] != userAttributePrefix || !bytes.Equal(val[bucketKeySize:], []byte(attributeKey)) {
-		return nil
-	}
-
-	return val[1:bucketKeySize]
 }
 
 // payloadHashBucketName returns <CID>_payloadhash.
