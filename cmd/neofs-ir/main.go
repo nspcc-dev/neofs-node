@@ -12,9 +12,9 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -60,14 +60,14 @@ func main() {
 	cfg, err := newConfig(*configFile)
 	exitErr(err)
 
-	logLevel, err := zap.ParseAtomicLevel(cfg.GetString("logger.level"))
+	logLevel, err := zap.ParseAtomicLevel(cfg.Logger.Level)
 	exitErr(err)
 
 	c := zap.NewProductionConfig()
 	c.Level = logLevel
-	c.Encoding = cfg.GetString("logger.encoding")
+	c.Encoding = cfg.Logger.Encoding
 	c.Sampling = nil
-	if (term.IsTerminal(int(os.Stdout.Fd())) && !cfg.IsSet("logger.timestamp")) || cfg.GetBool("logger.timestamp") {
+	if (term.IsTerminal(int(os.Stdout.Fd())) && !cfg.IsSet("logger.timestamp")) || cfg.Logger.Timestamp {
 		c.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {
 		c.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
@@ -137,25 +137,26 @@ func main() {
 	exitWithCode(err)
 }
 
-func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
+func initHTTPServers(cfg *config.Config, log *zap.Logger) []*httputil.Server {
 	items := []struct {
-		cfgPrefix string
-		handler   func() http.Handler
+		service config.BasicService
+		name    string
+		handler func() http.Handler
 	}{
-		{"prometheus", promhttp.Handler},
-		{"pprof", httputil.Handler},
+		{cfg.Prometheus, "prometheus", promhttp.Handler},
+		{cfg.Pprof, "pprof", httputil.Handler},
 	}
 
 	httpServers := make([]*httputil.Server, 0, len(items))
 
 	for _, item := range items {
-		if !cfg.GetBool(item.cfgPrefix + ".enabled") {
-			log.Info(item.cfgPrefix + " is disabled, skip")
+		if !item.service.Enabled {
+			log.Info(item.name + " is disabled, skip")
 			continue
 		}
-		log.Info(item.cfgPrefix + " is enabled")
+		log.Info(item.name + " is enabled")
 
-		addr := cfg.GetString(item.cfgPrefix + ".address")
+		addr := item.service.Address
 
 		var prm httputil.Prm
 
@@ -165,7 +166,7 @@ func initHTTPServers(cfg *viper.Viper, log *zap.Logger) []*httputil.Server {
 		httpServers = append(httpServers,
 			httputil.New(prm,
 				httputil.WithShutdownTimeout(
-					cfg.GetDuration(item.cfgPrefix+".shutdown_timeout"),
+					item.service.ShutdownTimeout,
 				),
 			),
 		)
