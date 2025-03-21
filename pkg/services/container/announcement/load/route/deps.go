@@ -14,9 +14,6 @@ type ServerInfo interface {
 	PublicKey() []byte
 
 	network.MultiAddressIterator
-
-	// ExternalAddresses returns external node's addresses.
-	ExternalAddresses() []string
 }
 
 // Builder groups methods to route values in the network.

@@ -54,11 +54,3 @@ func ReconnectTimeout(c *config.Config) time.Duration {
 
 	return 0
 }
-
-// AllowExternal returns the value of "allow_external" config parameter
-// from "apiclient" section.
-//
-// Returns false if the value is missing or invalid.
-func AllowExternal(c *config.Config) bool {
-	return config.BoolSafe(c.Sub(subsection), "allow_external")
-}

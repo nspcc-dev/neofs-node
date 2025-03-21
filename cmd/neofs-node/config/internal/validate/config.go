@@ -103,7 +103,6 @@ type valideConfig struct {
 	APIClient struct {
 		DialTimeout      time.Duration `mapstructure:"dial_timeout"`
 		StreamTimeout    time.Duration `mapstructure:"stream_timeout"`
-		AllowExternal    bool          `mapstructure:"allow_external"`
 		ReconnectTimeout time.Duration `mapstructure:"reconnect_timeout"`
 	} `mapstructure:"apiclient"`
 

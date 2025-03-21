@@ -503,16 +503,6 @@ func (x placementIterator) convertNodeInfo(nodeInfo netmap.NodeInfo) (client.Nod
 	if err := endpoints.FromIterator(network.NodeEndpointsIterator(nodeInfo)); err != nil {
 		return res, err
 	}
-	if ext := nodeInfo.ExternalAddresses(); len(ext) > 0 {
-		var externalEndpoints network.AddressGroup
-		if err := externalEndpoints.FromStringSlice(ext); err != nil {
-			// less critical since the main ones must work, but also important
-			x.log.Warn("failed to decode external network endpoints of the storage node from the network map, ignore them",
-				zap.String("public key", netmap.StringifyPublicKey(nodeInfo)), zap.Strings("endpoints", ext), zap.Error(err))
-		} else {
-			res.SetExternalAddressGroup(externalEndpoints)
-		}
-	}
 	res.SetAddressGroup(endpoints)
 	res.SetPublicKey(nodeInfo.PublicKey())
 	return res, nil

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nspcc-dev/neofs-node/cmd/internal/configvalidator"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -215,4 +216,25 @@ func TestCheckForUnknownFieldsExamples(t *testing.T) {
 		require.NoError(t, v.ReadInConfig())
 		require.NoError(t, ValidateStruct(v))
 	})
+}
+
+func TestRemovedConfigurations(t *testing.T) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	var y strings.Reader
+
+	for _, tc := range []struct{ field, yaml string }{
+		{field: "apiclient.allow_external", yaml: `
+apiclient:
+  allow_external: any
+`},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			y.Reset(tc.yaml)
+			require.NoError(t, v.ReadConfig(&y))
+			err := ValidateStruct(v)
+			require.ErrorIs(t, err, configvalidator.ErrUnknownField)
+			require.EqualError(t, err, fmt.Sprintf("unknown field: %s", tc.field))
+		})
+	}
 }

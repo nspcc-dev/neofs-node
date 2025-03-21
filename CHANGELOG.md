@@ -16,8 +16,10 @@ Changelog for NeoFS Node
 
 ### Changed
 - Retry flush from write-cache after 10s delay if an error is received (#3221)
+- SN `ExternalAddr` attribute is ignored now (#3235)
 
 ### Removed
+- SN `apiclient.allow_external` config (#3235)
 
 ### Updated
 - Minimum required version of Go to 1.23 (#2918)
@@ -32,6 +34,8 @@ Changelog for NeoFS Node
 - `google.golang.org/protobuf` dependency to `v1.36.5` (#3199)
 
 ### Updating from v0.45.1
+`apiclient.allow_external` field must be dropped from any SN configuration.
+Also, SN `ExternalAddr` is no-op now and should also be removed.
 
 ## [0.45.1] - 2025-03-07
 

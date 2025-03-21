@@ -603,7 +603,6 @@ func initCfg(appCfg *config.Config) *cfg {
 	cacheOpts := cache.ClientCacheOpts{
 		DialTimeout:      apiclientconfig.DialTimeout(appCfg),
 		StreamTimeout:    apiclientconfig.StreamTimeout(appCfg),
-		AllowExternal:    apiclientconfig.AllowExternal(appCfg),
 		ReconnectTimeout: apiclientconfig.ReconnectTimeout(appCfg),
 		Buffers:          &buffers,
 		Logger:           c.internals.log,

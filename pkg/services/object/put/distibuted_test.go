@@ -27,10 +27,6 @@ func allocNodes(n []uint) [][]netmap.NodeInfo {
 				"localhost:"+strconv.Itoa(1e4+i*100+2*j),
 				"localhost:"+strconv.Itoa(1e4+i*100+2*j+1),
 			)
-			res[i][j].SetExternalAddresses(
-				"external:"+strconv.Itoa(1e4+i*100+2*j),
-				"external:"+strconv.Itoa(1e4+i*100+2*j+1),
-			)
 		}
 	}
 	return res
@@ -132,16 +128,13 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[0][0].PublicKey(), cnrNodes[0][1].PublicKey(),
 		}, node.info.PublicKey())
 		require.Len(t, node.info.AddressGroup(), 2)
-		var expNetAddrs, expNetAddrsExt []string
+		var expNetAddrs []string
 		if bytes.Equal(node.info.PublicKey(), cnrNodes[0][0].PublicKey()) {
 			expNetAddrs = []string{"localhost:10000", "localhost:10001"}
-			expNetAddrsExt = []string{"external:10000", "external:10001"}
 		} else {
 			expNetAddrs = []string{"localhost:10002", "localhost:10003"}
-			expNetAddrsExt = []string{"external:10002", "external:10003"}
 		}
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
-		require.ElementsMatch(t, expNetAddrsExt, []string{node.info.ExternalAddressGroup()[0].URIAddr(), node.info.ExternalAddressGroup()[1].URIAddr()})
 	}
 	require.True(t, withLocal)
 	for _, node := range handlerCalls[3:6] {
@@ -150,20 +143,16 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[1][0].PublicKey(), cnrNodes[1][2].PublicKey(), cnrNodes[1][3].PublicKey(),
 		}, node.info.PublicKey())
 		require.Len(t, node.info.AddressGroup(), 2)
-		var expNetAddrs, expNetAddrsExt []string
+		var expNetAddrs []string
 		switch key := node.info.PublicKey(); {
 		case bytes.Equal(key, cnrNodes[1][0].PublicKey()):
 			expNetAddrs = []string{"localhost:10100", "localhost:10101"}
-			expNetAddrsExt = []string{"external:10100", "external:10101"}
 		case bytes.Equal(key, cnrNodes[1][2].PublicKey()):
 			expNetAddrs = []string{"localhost:10104", "localhost:10105"}
-			expNetAddrsExt = []string{"external:10104", "external:10105"}
 		case bytes.Equal(key, cnrNodes[1][3].PublicKey()):
 			expNetAddrs = []string{"localhost:10106", "localhost:10107"}
-			expNetAddrsExt = []string{"external:10106", "external:10107"}
 		}
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
-		require.ElementsMatch(t, expNetAddrsExt, []string{node.info.ExternalAddressGroup()[0].URIAddr(), node.info.ExternalAddressGroup()[1].URIAddr()})
 	}
 	for _, node := range handlerCalls[6:] {
 		require.False(t, node.local)
@@ -171,20 +160,16 @@ func TestIterateNodesForObject(t *testing.T) {
 			cnrNodes[2][1].PublicKey(), cnrNodes[2][2].PublicKey(), cnrNodes[2][3].PublicKey(),
 		}, node.info.PublicKey())
 		require.Len(t, node.info.AddressGroup(), 2)
-		var expNetAddrs, expNetAddrsExt []string
+		var expNetAddrs []string
 		switch key := node.info.PublicKey(); {
 		case bytes.Equal(key, cnrNodes[2][1].PublicKey()):
 			expNetAddrs = []string{"localhost:10202", "localhost:10203"}
-			expNetAddrsExt = []string{"external:10202", "external:10203"}
 		case bytes.Equal(key, cnrNodes[2][2].PublicKey()):
 			expNetAddrs = []string{"localhost:10204", "localhost:10205"}
-			expNetAddrsExt = []string{"external:10204", "external:10205"}
 		case bytes.Equal(key, cnrNodes[2][3].PublicKey()):
 			expNetAddrs = []string{"localhost:10206", "localhost:10207"}
-			expNetAddrsExt = []string{"external:10206", "external:10207"}
 		}
 		require.ElementsMatch(t, expNetAddrs, []string{node.info.AddressGroup()[0].URIAddr(), node.info.AddressGroup()[1].URIAddr()})
-		require.ElementsMatch(t, expNetAddrsExt, []string{node.info.ExternalAddressGroup()[0].URIAddr(), node.info.ExternalAddressGroup()[1].URIAddr()})
 	}
 
 	t.Run("local only", func(t *testing.T) {
