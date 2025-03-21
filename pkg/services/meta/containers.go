@@ -162,7 +162,7 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 		batch[string(append([]byte{oidIndex}, commsuffix...))] = []byte{}
 		if len(e.deletedObjects) > 0 {
 			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObjects
-			evWithMpt.additionalKVs, err = deleteObjectsOps(batch, s.db, e.deletedObjects)
+			evWithMpt.additionalKVs, err = deleteObjectsOps(batch, s.db, e.deletedObjects, false)
 			if err != nil {
 				l.Error("cleaning deleted object", zap.Stringer("oid", e.oID), zap.Error(err))
 				continue
@@ -291,7 +291,7 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	}
 }
 
-func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte) (map[string][]byte, error) {
+func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte, canDeleteLockObjects bool) (map[string][]byte, error) {
 	rng := storage.SeekRange{}
 	mptKV := make(map[string][]byte)
 
@@ -324,11 +324,18 @@ func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte) (
 
 			dbKV[string(k)] = nil
 
-			switch k[0] {
+			switch pref := k[0]; pref {
 			// DB-only keys
-			case firstPartIndex, previousPartIndex, typeIndex:
+			case firstPartIndex, previousPartIndex, typeIndex, lockedByIndex:
+			case lockedIndex:
+				if canDeleteLockObjects {
+					mptKV[string(append([]byte{0}, k...))] = nil
+					for lockedObj := range slices.Chunk(v, oid.Size) {
+						dbKV[string(append([]byte{lockedByIndex}, lockedObj...))] = nil
+					}
+				}
 			// common keys for DB and MPT storages
-			case oidIndex, deletedIndex, lockedIndex:
+			case oidIndex, deletedIndex:
 				mptKV[string(append([]byte{0}, k...))] = nil
 			// DB reversed indexes
 			case oidToAttrIndex:
@@ -490,4 +497,93 @@ func putBigInt(b []byte, bInt *big.Int) {
 			b[1+i] = ^b[1+i]
 		}
 	}
+}
+
+func (s *containerStorage) handleNewEpoch(e uint64) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	var err error
+	oidsToDelete := make(map[oid.ID]struct{})
+	var eBig big.Int
+	eBig.SetUint64(e)
+	lastValidEpochUint256 := make([]byte, intValLen)
+	putBigInt(lastValidEpochUint256, &eBig)
+
+	var rng storage.SeekRange
+	rng.Prefix = slices.Concat([]byte{attrIntToOIDIndex}, []byte(objectsdk.AttributeExpirationEpoch), object.AttributeDelimiter)
+	commPrefLen := len(rng.Prefix)
+
+	s.db.Seek(rng, func(k, _ []byte) bool {
+		if len(k) != commPrefLen+intValLen+oid.Size {
+			err = fmt.Errorf("unknown expiration attr index with %d len", len(k))
+			return false
+		}
+		if bytes.Compare(k[commPrefLen:commPrefLen+intValLen], lastValidEpochUint256) >= 0 {
+			return false
+		}
+		oidsToDelete[oid.ID(k[commPrefLen+intValLen:])] = struct{}{}
+
+		return true
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(oidsToDelete) == 0 {
+		return nil
+	}
+
+	rawOIDs := make([]byte, 0, oid.Size*len(oidsToDelete))
+
+	// check locked status
+	for oID := range oidsToDelete {
+		rawOID := oID[:]
+
+		lock, err := s.db.Get(append([]byte{lockedByIndex}, rawOID...))
+		if err != nil {
+			if errors.Is(err, storage.ErrKeyNotFound) {
+				rawOIDs = append(rawOIDs, rawOID...)
+				continue
+			}
+			return fmt.Errorf("check %s object-to-delete lock status: %w", oID, err)
+		}
+
+		_, ok := oidsToDelete[oid.ID(lock)]
+		if ok {
+			// if lock expires in the same epoch, object is free to delete
+			rawOIDs = append(rawOIDs, rawOID...)
+		}
+	}
+
+	dbBatch := make(map[string][]byte)
+	mptBatch, err := deleteObjectsOps(dbBatch, s.db, rawOIDs, true)
+	if err != nil {
+		return fmt.Errorf("making delete operations batch: %w", err)
+	}
+
+	var wg sync.WaitGroup
+
+	var mptErr error
+	var dbErr error
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err := s.mpt.PutBatch(mpt.MapToMPTBatch(mptBatch))
+		if err != nil {
+			mptErr = fmt.Errorf("mpt delete operations application: %w", err)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := s.db.PutChangeSet(dbBatch, nil)
+		if err != nil {
+			dbErr = fmt.Errorf("raw db delete operations application: %w", err)
+		}
+	}()
+
+	wg.Wait()
+
+	return errors.Join(mptErr, dbErr)
 }
