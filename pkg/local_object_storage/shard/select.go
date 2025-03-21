@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -33,7 +33,7 @@ func (s *Shard) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address,
 }
 
 // Search performs Search op on the underlying metabase if it is not disabled.
-func (s *Shard) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (s *Shard) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	if s.info.Mode.NoMetabase() {
