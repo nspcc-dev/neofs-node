@@ -23,7 +23,6 @@ import (
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
-	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -256,42 +255,25 @@ func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ct
 }
 
 func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddressClient) error {
-	var firstErr error
 	nodePub := node.PublicKey()
-	addrs := node.AddressGroup()
-	for i := range addrs {
-		err := putToRemoteNode(x.ctx, c, addrs[i], nodePub, x.initReq, x.chunkReqs)
-		if err == nil {
-			return nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-		// TODO: log error
-	}
-	return firstErr
+	return c.ForEachGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return putToRemoteNode(ctx, conn, nodePub, x.initReq, x.chunkReqs) // TODO: log error
+	})
 }
 
-func putToRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
+func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 	initReq *protoobject.PutRequest, chunkReqs []*protoobject.PutRequest) error {
-	var stream protoobject.ObjectService_PutClient
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		stream, err = protoobject.NewObjectServiceClient(conn).Put(ctx)
-		return err
-	})
+	stream, err := protoobject.NewObjectServiceClient(conn).Put(ctx)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
 
 	err = stream.Send(initReq)
 	if err != nil {
-		internalclient.ReportError(c, err)
 		return fmt.Errorf("sending the initial message to stream failed: %w", err)
 	}
 	for i := range chunkReqs {
 		if err := stream.Send(chunkReqs[i]); err != nil {
-			internalclient.ReportError(c, err)
 			return fmt.Errorf("sending the chunk %d failed: %w", i, err)
 		}
 	}
@@ -714,33 +696,20 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 			return nil, err
 		}
 
-		var firstErr error
 		nodePub := node.PublicKey()
-		addrs := node.AddressGroup()
-		for i := range addrs {
-			hdr, err := getHeaderFromRemoteNode(ctx, c, addrs[i], nodePub, req, bID)
-			if err == nil {
-				hdr.SetID(addr.Object())
-				return hdr, nil
-			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			// TODO: log error
-		}
-		return nil, firstErr
+		var hdr *object.Object
+		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			var err error
+			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req, bID)
+			return err // TODO: log error
+		})
 	})
 	return p, nil
 }
 
-func getHeaderFromRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte, req *protoobject.HeadRequest,
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.HeadRequest,
 	bID []byte) (*object.Object, error) {
-	var resp *protoobject.HeadResponse
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		resp, err = protoobject.NewObjectServiceClient(conn).Head(ctx, req)
-		return err
-	})
+	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
 	}
@@ -962,32 +931,20 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 			return nil, err
 		}
 
-		var firstErr error
 		nodePub := node.PublicKey()
-		addrs := node.AddressGroup()
-		for i := range addrs {
-			hs, err := getHashesFromRemoteNode(ctx, c, addrs[i], nodePub, req)
-			if err == nil {
-				return hs, nil
-			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			// TODO: log error
-		}
-		return nil, firstErr
+		var hs [][]byte
+		return hs, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			var err error
+			hs, err = getHashesFromRemoteNode(ctx, conn, nodePub, req)
+			return err // TODO: log error
+		})
 	})
 	return p, nil
 }
 
-func getHashesFromRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
+func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 	req *protoobject.GetRangeHashRequest) ([][]byte, error) {
-	var resp *protoobject.GetRangeHashResponse
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		resp, err = protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req)
-		return err
-	})
+	resp, err := protoobject.NewObjectServiceClient(conn).GetRangeHash(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
 	}
@@ -1159,32 +1116,21 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 			return nil, err
 		}
 
-		var firstErr error
 		nodePub := node.PublicKey()
-		addrs := node.AddressGroup()
-		for i := range addrs {
-			err := continueGetFromRemoteNode(ctx, c, addrs[i], nodePub, req, stream, &onceHdr, &respondedPayload)
+		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			err := continueGetFromRemoteNode(ctx, conn, nodePub, req, stream, &onceHdr, &respondedPayload)
 			if errors.Is(err, io.EOF) {
-				return nil, nil
+				return nil
 			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			// TODO: log error
-		}
-		return nil, firstErr
+			return err // TODO: log error
+		})
 	})
 	return p, nil
 }
 
-func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte, req *protoobject.GetRequest,
+func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.GetRequest,
 	stream *getStream, onceHdr *sync.Once, respondedPayload *int) error {
-	var getStream protoobject.ObjectService_GetClient
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		getStream, err = protoobject.NewObjectServiceClient(conn).Get(ctx, req)
-		return err
-	})
+	getStream, err := protoobject.NewObjectServiceClient(conn).Get(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
@@ -1200,7 +1146,6 @@ func continueGetFromRemoteNode(ctx context.Context, c client.MultiAddressClient,
 				}
 				return io.EOF
 			}
-			internalclient.ReportError(c, err)
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
@@ -1423,32 +1368,21 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 			return nil, err
 		}
 
-		var firstErr error
 		nodePub := node.PublicKey()
-		addrs := node.AddressGroup()
-		for i := range addrs {
-			err := continueRangeFromRemoteNode(ctx, c, addrs[i], nodePub, req, stream, &respondedPayload)
+		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			err := continueRangeFromRemoteNode(ctx, conn, nodePub, req, stream, &respondedPayload)
 			if errors.Is(err, io.EOF) {
-				return nil, nil
+				return nil
 			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			// TODO: log error
-		}
-		return nil, firstErr
+			return err // TODO: log error
+		})
 	})
 	return p, nil
 }
 
-func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte, req *protoobject.GetRangeRequest,
+func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.GetRangeRequest,
 	stream *rangeStream, respondedPayload *int) error {
-	var rangeStream protoobject.ObjectService_GetRangeClient
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		rangeStream, err = protoobject.NewObjectServiceClient(conn).GetRange(ctx, req)
-		return err
-	})
+	rangeStream, err := protoobject.NewObjectServiceClient(conn).GetRange(ctx, req)
 	if err != nil {
 		return fmt.Errorf("stream opening failed: %w", err)
 	}
@@ -1460,7 +1394,6 @@ func continueRangeFromRemoteNode(ctx context.Context, c client.MultiAddressClien
 			if errors.Is(err, io.EOF) {
 				return io.EOF
 			}
-			internalclient.ReportError(c, err)
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
@@ -1648,31 +1581,20 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 			return nil, err
 		}
 
-		var firstErr error
 		nodePub := node.PublicKey()
-		addrs := node.AddressGroup()
-		for i := range addrs {
-			res, err := searchOnRemoteNode(ctx, c, addrs[i], nodePub, req)
-			if err == nil {
-				return res, nil
-			}
-			if firstErr == nil {
-				firstErr = err
-			}
-			// TODO: log error
-		}
-		return nil, firstErr
+		var res []oid.ID
+		return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+			var err error
+			res, err = searchOnRemoteNode(ctx, conn, nodePub, req)
+			return err // TODO: log error
+		})
 	})
 	return p, nil
 }
 
-func searchOnRemoteNode(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte, req *protoobject.SearchRequest) ([]oid.ID, error) {
-	var searchStream protoobject.ObjectService_SearchClient
-	if err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		searchStream, err = protoobject.NewObjectServiceClient(conn).Search(ctx, req)
-		return err
-	}); err != nil {
+func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.SearchRequest) ([]oid.ID, error) {
+	searchStream, err := protoobject.NewObjectServiceClient(conn).Search(ctx, req)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1893,7 +1815,7 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectSearchV2, err, t) }()
+	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
@@ -2110,28 +2032,18 @@ func (s *server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}
 
-	var firstErr error
-	for i := range endpoints {
-		items, withCursor, err := searchOnRemoteAddress(ctx, c, endpoints[i], nodePub, req)
-		if err == nil {
-			return items, withCursor, nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-		// TODO: log error
-	}
-	return nil, false, firstErr
+	var items []sdkclient.SearchResultItem
+	var more bool
+	return items, more, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		var err error
+		items, more, err = searchOnRemoteAddress(ctx, conn, nodePub, req)
+		return err // TODO: log error
+	})
 }
 
-func searchOnRemoteAddress(ctx context.Context, c client.MultiAddressClient, addr network.Address, nodePub []byte,
+func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 	req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
-	var resp *protoobject.SearchV2Response
-	err := c.RawForAddress(addr, func(conn *grpc.ClientConn) error {
-		var err error
-		resp, err = protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
-		return err
-	})
+	resp, err := protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
 	if err != nil {
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}

@@ -283,7 +283,7 @@ type remoteLoadAnnounceProvider struct {
 	netmapKeys netmapCore.AnnouncedKeys
 
 	clientCache interface {
-		Get(client.NodeInfo) (client.Client, error)
+		Get(client.NodeInfo) (client.MultiAddressClient, error)
 	}
 
 	deadEndProvider loadcontroller.WriterProvider

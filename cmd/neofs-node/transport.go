@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
@@ -26,19 +25,18 @@ func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte
 		return nil, fmt.Errorf("connect to remote node: %w", err)
 	}
 
-	var resp protoobject.ReplicateResponse
-	conn := c.Conn()
-	if conn == nil {
-		return nil, errors.New("can't get grpc connection to node")
-	}
-	// this will be changed during NeoFS API Go deprecation. Code most likely be
-	// placed in SDK
-	err = conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
-	if err != nil {
-		return nil, fmt.Errorf("API transport (op=%s): %w", protoobject.ObjectService_Replicate_FullMethodName, err)
-	}
-
-	return replicationResultFromResponse(&resp)
+	var res []byte
+	return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		// this will be changed during NeoFS API Go deprecation. Code most likely be
+		// placed in SDK
+		var resp protoobject.ReplicateResponse
+		err := conn.Invoke(ctx, protoobject.ObjectService_Replicate_FullMethodName, req, &resp, binaryMessageOnly)
+		if err != nil {
+			return fmt.Errorf("API transport (op=%s): %w", protoobject.ObjectService_Replicate_FullMethodName, err)
+		}
+		res, err = replicationResultFromResponse(&resp)
+		return err
+	})
 }
 
 // [encoding.Codec] making Marshal to accept and forward []byte messages only.

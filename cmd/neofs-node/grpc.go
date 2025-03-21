@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 func initGRPC(c *cfg) {
@@ -53,6 +54,10 @@ func initGRPC(c *cfg) {
 	grpcconfig.IterateEndpoints(c.cfgReader, func(sc *grpcconfig.Config) {
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
+			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+				MinTime:             5 * time.Second, // w/o this server sends GoAway with ENHANCE_YOUR_CALM code "too_many_pings"
+				PermitWithoutStream: true,
+			}),
 		}
 		if maxRecvMsgSizeOpt != nil {
 			// TODO(@cthulhu-rider): the setting can be server-global only now, support
