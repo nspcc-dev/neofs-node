@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/internal/uriutil"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -270,9 +271,26 @@ func (x *connections) all(f func(ma string, c *client.Client) bool) {
 func (x *connections) forEach(ctx context.Context, f func(context.Context, *client.Client) error) error {
 	var firstErr error
 	for ma, c := range x.all {
+		t := time.Now()
+		op, _ := ctx.Value("op").(string)
+		if op != "" {
+			x.log.Info("TTTTTT endpoint start",
+				zap.String("op", op),
+				zap.String("address", ma),
+				zap.String("until deadline", testutil.TillContextDeadline(ctx)),
+				zap.Stringer("state", c.Conn().GetState()))
+		}
 		err := f(ctx, c)
 		if err == nil {
 			return nil
+		}
+		if op != "" {
+			x.log.Info("TTTTTT endpoint finish",
+				zap.String("op", op),
+				zap.String("address", ma),
+				zap.Stringer("took", time.Since(t)),
+				zap.Stringer("state", c.Conn().GetState()),
+				zap.Error(err))
 		}
 		if !isTempError(err) {
 			return newEndpointError(ma, err)
@@ -298,7 +316,7 @@ func (x *connections) ContainerAnnounceUsedSpace(ctx context.Context, es []conta
 
 func (x *connections) ObjectPutInit(ctx context.Context, hdr object.Object, signer user.Signer, opts client.PrmObjectPutInit) (client.ObjectWriter, error) {
 	var res client.ObjectWriter
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "Put", "announce"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectPutInit(ctx, hdr, signer, opts)
 		return err
@@ -309,10 +327,22 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 	// same as forEach but with specific error handling
 	var firstErr error
 	for ma, c := range x.all {
+		t := time.Now()
+		x.log.Info("TTTTTT endpoint start",
+			zap.String("op", "Replicate"),
+			zap.String("address", ma),
+			zap.String("until deadline", testutil.TillContextDeadline(ctx)),
+			zap.Stringer("state", c.Conn().GetState()))
 		sig, err := c.ReplicateObject(ctx, id, src, signer, signedReplication)
 		if err == nil {
 			return sig, nil
 		}
+		x.log.Info("TTTTTT endpoint finish",
+			zap.String("op", "Replicate"),
+			zap.String("address", ma),
+			zap.Stringer("took", time.Since(t)),
+			zap.Stringer("state", c.Conn().GetState()),
+			zap.Error(err))
 		if !isTempError(err) {
 			return nil, newEndpointError(ma, err)
 		}
@@ -328,7 +358,7 @@ func (x *connections) ReplicateObject(ctx context.Context, id oid.ID, src io.Rea
 
 func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, signer user.Signer, opts client.PrmObjectDelete) (oid.ID, error) {
 	var res oid.ID
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "op", "Delete"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectDelete(ctx, cnr, obj, signer, opts)
 		return err
@@ -338,7 +368,7 @@ func (x *connections) ObjectDelete(ctx context.Context, cnr cid.ID, obj oid.ID, 
 func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectGet) (object.Object, *client.PayloadReader, error) {
 	var res1 object.Object
 	var res2 *client.PayloadReader
-	return res1, res2, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res1, res2, x.forEach(context.WithValue(ctx, "op", "Get"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res1, res2, err = c.ObjectGetInit(ctx, cnr, id, signer, opts)
 		return err
@@ -347,7 +377,7 @@ func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, 
 
 func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHead) (*object.Object, error) {
 	var res *object.Object
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "op", "Head"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHead(ctx, cnr, id, signer, opts)
 		return err
@@ -356,7 +386,7 @@ func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, sig
 
 func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer user.Signer, opts client.PrmObjectSearch) (*client.ObjectListReader, error) {
 	var res *client.ObjectListReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "op", "Search"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectSearchInit(ctx, cnr, signer, opts)
 		return err
@@ -365,7 +395,7 @@ func (x *connections) ObjectSearchInit(ctx context.Context, cnr cid.ID, signer u
 
 func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID, off, ln uint64, signer user.Signer, opts client.PrmObjectRange) (*client.ObjectRangeReader, error) {
 	var res *client.ObjectRangeReader
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "op", "Range"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectRangeInit(ctx, cnr, id, off, ln, signer, opts)
 		return err
@@ -374,7 +404,7 @@ func (x *connections) ObjectRangeInit(ctx context.Context, cnr cid.ID, id oid.ID
 
 func (x *connections) ObjectHash(ctx context.Context, cnr cid.ID, id oid.ID, signer user.Signer, opts client.PrmObjectHash) ([][]byte, error) {
 	var res [][]byte
-	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+	return res, x.forEach(context.WithValue(ctx, "op", "Hash"), func(ctx context.Context, c *client.Client) error {
 		var err error
 		res, err = c.ObjectHash(ctx, cnr, id, signer, opts)
 		return err

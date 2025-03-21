@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -44,6 +45,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -184,10 +186,11 @@ type server struct {
 	reqInfoProc   ACLInfoExtractor
 	nodeClients   searchsvc.ClientConstructor
 	searchWorkers *ants.Pool
+	log           *zap.Logger
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
+func New(l *zap.Logger, hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
 	// TODO: configurable capacity
 	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
 	if err != nil {
@@ -204,6 +207,7 @@ func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ec
 		reqInfoProc:   rp,
 		nodeClients:   cs,
 		searchWorkers: sp,
+		log:           l,
 	}
 }
 
@@ -256,7 +260,7 @@ func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ct
 
 func (x *putStream) sendToRemoteNode(node client.NodeInfo, c client.MultiAddressClient) error {
 	nodePub := node.PublicKey()
-	return c.ForEachGRPCConn(x.ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	return c.ForEachGRPCConn(context.WithValue(x.ctx, "op", "Put forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 		return putToRemoteNode(ctx, conn, nodePub, x.initReq, x.chunkReqs) // TODO: log error
 	})
 }
@@ -400,10 +404,14 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 }
 
 func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
+	s.log.Info("TTTTTT Put start", zap.String("until deadline", testutil.TillContextDeadline(gStream.Context())))
 	t := time.Now()
 	stream, err := s.handlers.Put(gStream.Context())
 
-	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectPut, err, t)
+		s.log.Info("TTTTTT Put finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err != nil {
 		return err
 	}
@@ -484,11 +492,15 @@ func (x *deleteResponseBody) SetAddress(addr oid.Address) {
 }
 
 func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*protoobject.DeleteResponse, error) {
+	s.log.Info("TTTTTT Delete start", zap.String("until deadline", testutil.TillContextDeadline(ctx)))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectDelete, err, t)
+		s.log.Info("TTTTTT Delete finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
@@ -521,6 +533,8 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	if err != nil {
 		return s.makeStatusDeleteResponse(fmt.Errorf("invalid object address: %w", err)), nil
 	}
+
+	s.log.Info("TTTTTT Delete addr", zap.Stringer("object", addr))
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
@@ -563,11 +577,15 @@ func (s *server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 }
 
 func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	s.log.Info("TTTTTT Head start", zap.String("until deadline", testutil.TillContextDeadline(ctx)))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectHead, err, t)
+		s.log.Info("TTTTTT Head finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 
 	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusHeadResponse(err), nil
@@ -592,7 +610,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	}
 
 	var resp protoobject.HeadResponse
-	p, err := convertHeadPrm(s.signer, req, &resp)
+	p, err := convertHeadPrm(s.log, s.signer, req, &resp)
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
@@ -647,7 +665,7 @@ func (x *headResponse) WriteHeader(hdr *object.Object) error {
 
 // converts original request into parameters accepted by the internal handler.
 // Note that the response is untouched within this call.
-func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
+func convertHeadPrm(l *zap.Logger, signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp *protoobject.HeadResponse) (getsvc.HeadPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -658,6 +676,8 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.HeadPrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
+
+	l.Info("TTTTTT Head addr", zap.Stringer("object", addr))
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
@@ -698,7 +718,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 
 		nodePub := node.PublicKey()
 		var hdr *object.Object
-		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return hdr, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Head forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req, bID)
 			return err // TODO: log error
@@ -811,11 +831,15 @@ func (s *server) makeStatusHashResponse(err error) *protoobject.GetRangeHashResp
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
 func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHashRequest) (*protoobject.GetRangeHashResponse, error) {
+	s.log.Info("TTTTTT Hash start", zap.String("until deadline", testutil.TillContextDeadline(ctx)))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectHash, err, t)
+		s.log.Info("TTTTTT Hash finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -838,7 +862,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(err), nil
 	}
 
-	p, err := convertHashPrm(s.signer, s.storage, req)
+	p, err := convertHashPrm(s.log, s.signer, s.storage, req)
 	if err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -855,7 +879,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 }
 
 // converts original request into parameters accepted by the internal handler.
-func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
+func convertHashPrm(l *zap.Logger, signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRangeHashRequest) (getsvc.RangeHashPrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -866,6 +890,8 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.RangeHashPrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
+
+	l.Info("TTTTTT Hash addr", zap.Stringer("object", addr))
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
@@ -933,7 +959,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 
 		nodePub := node.PublicKey()
 		var hs [][]byte
-		return hs, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return hs, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Hash forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			hs, err = getHashesFromRemoteNode(ctx, conn, nodePub, req)
 			return err // TODO: log error
@@ -1024,11 +1050,15 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
+	s.log.Info("TTTTTT Get start", zap.String("until deadline", testutil.TillContextDeadline(gStream.Context())))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectGet, err, t)
+		s.log.Info("TTTTTT Get finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -1051,7 +1081,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, err)
 	}
 
-	p, err := convertGetPrm(s.signer, req, &getStream{
+	p, err := convertGetPrm(s.log, s.signer, req, &getStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
@@ -1069,7 +1099,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
+func convertGetPrm(l *zap.Logger, signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream *getStream) (getsvc.Prm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1080,6 +1110,8 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.Prm{}, fmt.Errorf("invalid object address: %w", err)
 	}
+
+	l.Info("TTTTTT Get addr", zap.Stringer("object", addr))
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
@@ -1117,7 +1149,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 		}
 
 		nodePub := node.PublicKey()
-		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return nil, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Get forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 			err := continueGetFromRemoteNode(ctx, conn, nodePub, req, stream, &onceHdr, &respondedPayload)
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -1264,11 +1296,15 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
+	s.log.Info("TTTTTT Range start", zap.String("until deadline", testutil.TillContextDeadline(gStream.Context())))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectRange, err, t)
+		s.log.Info("TTTTTT Range finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1291,7 +1327,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 
-	p, err := convertRangePrm(s.signer, req, &rangeStream{
+	p, err := convertRangePrm(s.log, s.signer, req, &rangeStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
@@ -1309,7 +1345,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
+func convertRangePrm(l *zap.Logger, signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, stream *rangeStream) (getsvc.RangePrm, error) {
 	body := req.GetBody()
 	ma := body.GetAddress()
 	if ma == nil { // includes nil body
@@ -1320,6 +1356,8 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	if err := addr.FromProtoMessage(ma); err != nil {
 		return getsvc.RangePrm{}, fmt.Errorf("invalid object address: %w", err)
 	}
+
+	l.Info("TTTTTT Range addr", zap.Stringer("object", addr))
 
 	rln := body.Range.GetLength()
 	if rln == 0 { // includes nil range
@@ -1369,7 +1407,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 		}
 
 		nodePub := node.PublicKey()
-		return nil, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return nil, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Range forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 			err := continueRangeFromRemoteNode(ctx, conn, nodePub, req, stream, &respondedPayload)
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -1484,11 +1522,15 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 }
 
 func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.ObjectService_SearchServer) error {
+	s.log.Info("TTTTTT Search start", zap.String("until deadline", testutil.TillContextDeadline(gStream.Context())))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectSearch, err, t)
+		s.log.Info("TTTTTT Search finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
@@ -1511,7 +1553,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
-	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
+	p, err := convertSearchPrm(s.log, gStream.Context(), s.signer, req, &searchStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
@@ -1529,7 +1571,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 // converts original request into parameters accepted by the internal handler.
 // Note that the stream is untouched within this call, errors are not reported
 // into it.
-func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoobject.SearchRequest, stream *searchStream) (searchsvc.Prm, error) {
+func convertSearchPrm(l *zap.Logger, ctx context.Context, signer ecdsa.PrivateKey, req *protoobject.SearchRequest, stream *searchStream) (searchsvc.Prm, error) {
 	body := req.GetBody()
 	mc := body.GetContainerId()
 	if mc == nil {
@@ -1540,6 +1582,8 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 	if err := id.FromProtoMessage(mc); err != nil {
 		return searchsvc.Prm{}, fmt.Errorf("invalid container ID: %w", err)
 	}
+
+	l.Info("TTTTTT Search addr", zap.Stringer("container", id))
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
@@ -1583,7 +1627,7 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 
 		nodePub := node.PublicKey()
 		var res []oid.ID
-		return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+		return res, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Search forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
 			res, err = searchOnRemoteNode(ctx, conn, nodePub, req)
 			return err // TODO: log error
@@ -1630,7 +1674,12 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 }
 
 // Replicate serves neo.fs.v2.object.ObjectService/Replicate RPC.
-func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
+func (s *server) Replicate(ctx context.Context, req *protoobject.ReplicateRequest) (*protoobject.ReplicateResponse, error) {
+	s.log.Info("TTTTTT Replicate start", zap.String("until deadline", testutil.TillContextDeadline(ctx)))
+	t := time.Now()
+	defer func() {
+		s.log.Info("TTTTTT Replicate finish", zap.Stringer("took", time.Since(t)))
+	}()
 	if req.Object == nil {
 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
 			Code: codeInternal, Message: "binary object field is missing/empty",
@@ -1811,11 +1860,15 @@ func (s *server) makeStatusSearchResponse(err error) *protoobject.SearchV2Respon
 }
 
 func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	s.log.Info("TTTTTT SearchV2 start", zap.String("until deadline", testutil.TillContextDeadline(ctx)))
 	var (
 		err error
 		t   = time.Now()
 	)
-	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+	defer func() {
+		s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+		s.log.Info("TTTTTT SearchV2 finish", zap.Stringer("took", time.Since(t)), zap.Error(err))
+	}()
 	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
@@ -1838,7 +1891,7 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.makeStatusSearchResponse(err), nil
 	}
 
-	body, err := s.processSearchRequest(ctx, req)
+	body, err := s.processSearchRequest(s.log, ctx, req)
 	if err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
@@ -1862,7 +1915,7 @@ func verifySearchFilter(f *protoobject.SearchFilter) error {
 	return nil
 }
 
-func (s *server) processSearchRequest(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
+func (s *server) processSearchRequest(l *zap.Logger, ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response_Body, error) {
 	body := req.GetBody()
 	if body == nil {
 		return nil, errors.New("missing body")
@@ -1874,6 +1927,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := cnr.FromProtoMessage(body.ContainerId); err != nil {
 		return nil, fmt.Errorf("invalid container ID: %w", err)
 	}
+	l.Info("TTTTTT SearchV2 addr", zap.Stringer("container", cnr))
 	if body.Version != 1 {
 		return nil, errors.New("unsupported query version")
 	}
@@ -2034,7 +2088,7 @@ func (s *server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 
 	var items []sdkclient.SearchResultItem
 	var more bool
-	return items, more, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	return items, more, c.ForEachGRPCConn(context.WithValue(ctx, "op", "SearchV2 forward"), func(ctx context.Context, conn *grpc.ClientConn) error {
 		var err error
 		items, more, err = searchOnRemoteAddress(ctx, conn, nodePub, req)
 		return err // TODO: log error

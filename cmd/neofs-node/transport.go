@@ -26,7 +26,7 @@ func (x *transport) SendReplicationRequestToNode(ctx context.Context, req []byte
 	}
 
 	var res []byte
-	return res, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
+	return res, c.ForEachGRPCConn(context.WithValue(ctx, "op", "Replicate"), func(ctx context.Context, conn *grpc.ClientConn) error {
 		// this will be changed during NeoFS API Go deprecation. Code most likely be
 		// placed in SDK
 		var resp protoobject.ReplicateResponse
