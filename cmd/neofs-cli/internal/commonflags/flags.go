@@ -33,7 +33,7 @@ const (
 
 	Timeout          = "timeout"
 	TimeoutShorthand = "t"
-	TimeoutDefault   = 15 * time.Second
+	TimeoutDefault   = 30 * time.Second
 	TimeoutUsage     = "Timeout for the operation"
 
 	Verbose          = "verbose"

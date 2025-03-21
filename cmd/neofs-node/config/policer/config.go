@@ -10,7 +10,7 @@ const (
 	subsection = "policer"
 
 	// HeadTimeoutDefault is a default object.Head request timeout in policer.
-	HeadTimeoutDefault = 5 * time.Second
+	HeadTimeoutDefault = 15 * time.Second
 
 	// ReplicationCooldownDefault is a default cooldown time b/w replication tasks
 	// submitting.
