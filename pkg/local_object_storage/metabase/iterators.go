@@ -1,9 +1,11 @@
 package meta
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"strconv"
+	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -56,61 +58,100 @@ func (db *DB) IterateExpired(epoch uint64, h ExpiredObjectHandler) error {
 	})
 }
 
-func (db *DB) iterateExpired(tx *bbolt.Tx, epoch uint64, h ExpiredObjectHandler) error {
+func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
+	if !bytes.HasPrefix(k, expStart) || len(k) < len(expStart)+32+objectKeySize {
+		return math.MaxUint64, oid.ID{}
+	}
+	var (
+		f256 = k[len(expStart) : len(expStart)+32]
+		oidB = k[len(expStart)+32:]
+		id   oid.ID
+	)
+	for i := range len(f256) - 8 {
+		if f256[i] != 0 { // BE integer, too big.
+			return math.MaxUint64, oid.ID{}
+		}
+	}
+	var err = id.Decode(oidB)
+	if err != nil {
+		return math.MaxUint64, oid.ID{}
+	}
+
+	return binary.BigEndian.Uint64(f256[32-8:]), id
+}
+
+func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandler) error {
+	var (
+		expStart  = make([]byte, 1+len(object.AttributeExpirationEpoch)+1+1)
+		typPrefix = make([]byte, 1+objectKeySize+len(object.FilterType)+1)
+	)
+
+	expStart[0] = metaPrefixAttrIDInt
+	copy(expStart[1:], object.AttributeExpirationEpoch)
+	expStart[len(expStart)-1] = 1 // Positive integer.
+
+	typPrefix[0] = metaPrefixIDAttr
+	copy(typPrefix[1+objectKeySize:], object.FilterType)
+
 	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
-		cidBytes := cidFromAttributeBucket(name, object.AttributeExpirationEpoch)
-		if cidBytes == nil {
+		if len(name) != bucketKeySize || name[0] != metadataPrefix {
 			return nil
 		}
 
 		var cnrID cid.ID
-		err := cnrID.Decode(cidBytes)
+		err := cnrID.Decode(name[1:])
 		if err != nil {
-			db.log.Error("could not parse container ID of expired bucket", zap.Error(err))
+			db.log.Error("could not parse container ID of metadata bucket", zap.Error(err))
 			return nil
 		}
 
-		return b.ForEach(func(expKey, _ []byte) error {
-			bktExpired := b.Bucket(expKey)
-			if bktExpired == nil {
-				return nil
+		var cur = b.Cursor()
+		expKey, _ := cur.Seek(expStart)
+		expEpoch, id := keyToEpochOID(expKey, expStart)
+
+		for ; expEpoch < curEpoch && !id.IsZero(); expEpoch, id = keyToEpochOID(expKey, expStart) {
+			// Ignore locked objects.
+			//
+			// To slightly optimize performance we can check only REGULAR objects
+			// (only they can be locked), but it's more reliable.
+			if objectLocked(tx, cnrID, id) {
+				expKey, _ = cur.Next()
+				continue
 			}
 
-			expiresAfter, err := strconv.ParseUint(string(expKey), 10, 64)
-			if err != nil {
-				db.log.Error("could not parse expiration epoch", zap.Error(err))
-				return nil
-			} else if expiresAfter >= epoch {
-				return nil
+			copy(typPrefix[1:], id[:])
+
+			var (
+				addr   oid.Address
+				typCur = b.Cursor()
+				typ    object.Type
+			)
+
+			addr.SetContainer(cnrID)
+			addr.SetObject(id)
+
+			typKey, _ := typCur.Seek(typPrefix)
+			if bytes.HasPrefix(typKey, typPrefix) {
+				var success = typ.DecodeString(string(typKey[len(typPrefix):]))
+				if !success {
+					db.log.Warn("can't parse object type", zap.Stringer("object", addr))
+					// Keep going, treat as regular.
+				}
+			} else {
+				db.log.Warn("object type not found", zap.Stringer("object", addr))
+				// Keep going, treat as regular.
 			}
 
-			return bktExpired.ForEach(func(idKey, _ []byte) error {
-				var id oid.ID
-
-				err = id.Decode(idKey)
-				if err != nil {
-					db.log.Error("could not parse ID of expired object", zap.Error(err))
-					return nil
-				}
-
-				// Ignore locked objects.
-				//
-				// To slightly optimize performance we can check only REGULAR objects
-				// (only they can be locked), but it's more reliable.
-				if objectLocked(tx, cnrID, id) {
-					return nil
-				}
-
-				var addr oid.Address
-				addr.SetContainer(cnrID)
-				addr.SetObject(id)
-
-				return h(&ExpiredObject{
-					typ:  firstIrregularObjectType(tx, cnrID, idKey),
-					addr: addr,
-				})
+			var err = h(&ExpiredObject{
+				typ:  typ,
+				addr: addr,
 			})
-		})
+			if err != nil {
+				return err
+			}
+			expKey, _ = cur.Next()
+		}
+		return nil
 	})
 
 	if errors.Is(err, ErrInterruptIterator) {

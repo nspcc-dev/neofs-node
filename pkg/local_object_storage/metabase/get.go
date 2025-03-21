@@ -6,7 +6,6 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -165,38 +164,6 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
 	}
 
 	return logicerr.Wrap(apistatus.ObjectNotFound{})
-}
-
-// ListContainerObjects returns objects stored in the metabase that
-// belong to the provided container. No more than limit objects per
-// call. Negative limit values make the result empty.
-// Note: metabase can store information about a locked object,
-// but it will not be included to the result if the object is
-// not stored in the metabase (in other words, no information
-// in the regular objects index).
-func (db *DB) ListContainerObjects(cID cid.ID, limit int) ([]oid.ID, error) {
-	if limit <= 0 {
-		return nil, nil
-	}
-
-	db.modeMtx.RLock()
-	defer db.modeMtx.RUnlock()
-
-	if db.mode.NoMetabase() {
-		return nil, ErrDegradedMode
-	}
-
-	var err error
-	resMap := make(map[oid.ID]struct{})
-
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		return listContainerObjects(tx, cID, resMap, limit)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return util.MapToSlice(resMap), nil
 }
 
 func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, limit int) error {

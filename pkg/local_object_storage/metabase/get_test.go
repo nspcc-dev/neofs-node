@@ -3,7 +3,6 @@ package meta_test
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"os"
 	"runtime"
 	"testing"
@@ -268,10 +267,10 @@ func TestDB_GetContainer(t *testing.T) {
 	err = metaInhume(db, object.AddressOf(o1), object.AddressOf(o8))
 	require.NoError(t, err)
 
-	objs, err := db.ListContainerObjects(cID, math.MaxInt64)
+	objs, err := db.Select(cID, objectSDK.SearchFilters{})
 	require.NoError(t, err)
 
-	require.Len(t, objs, 6)
+	require.Len(t, objs, 5) // Tombstone is not returned.
 }
 
 func metaGet(db *meta.DB, addr oid.Address, raw bool) (*objectSDK.Object, error) {
