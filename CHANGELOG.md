@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Unscheduled attempt to tick the epoch when new epoch event has already arrived in IR (#3226)
 - Missing v2 SN approval from IR for netmap node v1 networks (#3238)
 - Collecting of converted attributes in SN `ObjectService.SearchV2` handler (#3230)
+- Corrupted data in metabase stops GC cycle and makes problem objects to be kept forever (#3239)
 
 ### Changed
 - Retry flush from write-cache after 10s delay if an error is received (#3221)
