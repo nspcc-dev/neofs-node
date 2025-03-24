@@ -847,7 +847,7 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		return hex.EncodeToString(stored), nil
 	case object.FilterSplitID:
-		uid, err := uuid.ParseBytes(stored)
+		uid, err := uuid.FromBytes(stored)
 		if err != nil {
 			return "", invalidMetaBucketKeyErr([]byte{metaPrefixAttrIDPlain}, fmt.Errorf("decode split ID: decode UUID: %w", err))
 		}
