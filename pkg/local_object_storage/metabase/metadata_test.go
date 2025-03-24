@@ -1635,6 +1635,12 @@ func TestDB_SearchObjects(t *testing.T) {
 				cnr := cidtest.ID()
 				obj.SetContainerID(cnr)
 				require.NoError(t, db.Put(&obj, nil, nil))
+				t.Run("primary", func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter(tc.attr, tc.val, object.MatchStringEqual)
+					fs.AddFilter(userAttr1, userAttrVal1, object.MatchStringEqual)
+					assertSearchResult(t, db, cnr, fs, []string{tc.attr}, []client.SearchResultItem{{ID: id, Attributes: []string{tc.val}}})
+				})
 				t.Run("secondary", func(t *testing.T) {
 					var fs object.SearchFilters
 					fs.AddFilter(userAttr1, userAttrVal1, object.MatchStringEqual)
