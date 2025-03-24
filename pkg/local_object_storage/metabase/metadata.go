@@ -534,13 +534,15 @@ nextPrimKey:
 		// collect attributes
 		collected := make([]string, len(attrs))
 		if len(attrs) > 0 {
+			var err error
 			if intPrimMatcher {
-				var err error
 				if collected[0], err = restoreIntAttribute(primDBVal); err != nil {
 					return nil, nil, invalidMetaBucketKeyErr(primKey, fmt.Errorf("invalid integer value: %w", err))
 				}
 			} else {
-				collected[0] = string(primDBVal)
+				if collected[0], err = restoreAttributeValue(fs[0].Header(), primDBVal); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 		for i := 1; i < len(attrs); i++ {
@@ -847,7 +849,7 @@ func restoreAttributeValue(attr string, stored []byte) (string, error) {
 	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
 		return hex.EncodeToString(stored), nil
 	case object.FilterSplitID:
-		uid, err := uuid.ParseBytes(stored)
+		uid, err := uuid.FromBytes(stored)
 		if err != nil {
 			return "", invalidMetaBucketKeyErr([]byte{metaPrefixAttrIDPlain}, fmt.Errorf("decode split ID: decode UUID: %w", err))
 		}

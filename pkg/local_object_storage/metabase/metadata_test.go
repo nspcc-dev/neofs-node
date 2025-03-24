@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"maps"
@@ -12,6 +13,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -24,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
+	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
 )
@@ -1585,6 +1588,67 @@ func TestDB_SearchObjects(t *testing.T) {
 				{ID: ids[3], Attributes: []string{"/home/Downloads/dog.jpg", "val1_1", "val2_1"}},
 			})
 		})
+
+		db := newDB(t)
+		id := oidtest.ID()
+		ver := version.New(123, 456)
+		uid := uuid.UUID{143, 198, 73, 4, 7, 21, 74, 215, 163, 144, 59, 117, 62, 93, 110, 163}
+		fmt.Println(uid)
+		var splitID object.SplitID
+		splitID.SetUUID(uid)
+		const userAttr1, userAttrVal1 = "hello", "world"
+		const userAttr2, userAttrVal2 = "foo", "bar"
+
+		var obj object.Object
+		obj.SetID(id)
+		obj.SetVersion(&ver)
+		obj.SetCreationEpoch(720095763387318213)
+		obj.SetPayloadSize(7974916746359921405)
+		obj.SetOwner(user.ID{53, 128, 35, 128, 69, 168, 68, 161, 126, 161, 182, 128, 85, 91, 199, 49, 100, 216, 200, 164, 17, 127, 44, 123, 211})
+		obj.SetType(object.TypeTombstone)
+		obj.SetPayloadChecksum(checksum.NewSHA256([sha256.Size]byte{105, 23, 175, 222, 242, 223, 82, 69, 207, 193, 106,
+			168, 9, 238, 85, 29, 34, 68, 233, 54, 143, 217, 223, 248, 236, 227, 121, 195, 155, 187, 37, 242}))
+		obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor([tz.Size]byte{171, 152, 81, 127, 134, 240, 228, 236, 10, 131,
+			10, 114, 174, 138, 120, 108, 165, 104, 36, 100, 129, 235, 160, 213, 96, 230, 190, 15, 196, 5, 252, 194, 205, 48,
+			236, 57, 117, 238, 170, 36, 251, 104, 62, 124, 1, 206, 131, 226, 221, 111, 73, 54, 235, 100, 49, 32, 252, 255,
+			92, 51, 30, 77, 180, 53}))
+		obj.SetParentID(oid.ID{146, 29, 179, 9, 47, 100, 26, 60, 219, 24, 253, 162, 255, 167, 39, 143, 234, 249, 77, 247, 52, 61, 3, 239, 110, 167, 61, 199, 138, 223, 198, 245})
+		obj.SetFirstID(oid.ID{35, 78, 81, 228, 188, 71, 53, 15, 64, 54, 230, 84, 94, 176, 193, 118, 225, 186, 208, 33, 175, 155, 154, 205, 116, 5, 247, 138, 65, 155, 210, 145})
+		obj.SetSplitID(&splitID)
+		appendAttribute(&obj, userAttr1, userAttrVal1)
+		appendAttribute(&obj, userAttr2, userAttrVal2)
+
+		for _, tc := range []struct{ name, attr, val string }{
+			{name: "version", attr: "$Object:version", val: "v123.456"},
+			{name: "owner", attr: "$Object:ownerID", val: "NXbWCy4NfKve5AXQRh8ZnKuzo4nHmNxbPg"},
+			{name: "creation epoch", attr: "$Object:creationEpoch", val: "720095763387318213"},
+			{name: "payload length", attr: "$Object:payloadLength", val: "7974916746359921405"},
+			{name: "type", attr: "$Object:objectType", val: "TOMBSTONE"},
+			{name: "payload hash", attr: "$Object:payloadHash", val: "6917afdef2df5245cfc16aa809ee551d2244e9368fd9dff8ece379c39bbb25f2"},
+			{name: "payload homomorphic hash", attr: "$Object:homomorphicHash", val: "ab98517f86f0e4ec0a830a72ae8a786ca568246481eba0d560e6be0fc405fcc2cd30ec3975eeaa24fb683e7c01ce83e2dd6f4936eb643120fcff5c331e4db435"},
+			{name: "split-parent", attr: "$Object:split.parent", val: "AqNnq29xxX33yEBX8XMtcwMyCCqD876BSjHsvroTUK5n"},
+			{name: "split-id", attr: "$Object:split.splitID", val: "8fc64904-0715-4ad7-a390-3b753e5d6ea3"},
+			{name: "split-first", attr: "$Object:split.first", val: "3NpY5tNeZEBBma7TpesPCaT3uDNKPtvgdELXsuf8uMeG"},
+			{name: "user-defined", attr: userAttr2, val: userAttrVal2},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				cnr := cidtest.ID()
+				obj.SetContainerID(cnr)
+				require.NoError(t, db.Put(&obj, nil, nil))
+				t.Run("primary", func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter(tc.attr, tc.val, object.MatchStringEqual)
+					fs.AddFilter(userAttr1, userAttrVal1, object.MatchStringEqual)
+					assertSearchResult(t, db, cnr, fs, []string{tc.attr}, []client.SearchResultItem{{ID: id, Attributes: []string{tc.val}}})
+				})
+				t.Run("secondary", func(t *testing.T) {
+					var fs object.SearchFilters
+					fs.AddFilter(userAttr1, userAttrVal1, object.MatchStringEqual)
+					fs.AddFilter(tc.attr, tc.val, object.MatchStringEqual)
+					assertSearchResult(t, db, cnr, fs, []string{userAttr1, tc.attr}, []client.SearchResultItem{{ID: id, Attributes: []string{userAttrVal1, tc.val}}})
+				})
+			})
+		}
 	})
 	t.Run("GC", func(t *testing.T) {
 		s := testEpochState(10)
