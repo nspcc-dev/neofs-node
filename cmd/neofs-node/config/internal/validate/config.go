@@ -101,10 +101,11 @@ type valideConfig struct {
 	} `mapstructure:"fschain"`
 
 	APIClient struct {
-		DialTimeout      time.Duration `mapstructure:"dial_timeout"`
-		StreamTimeout    time.Duration `mapstructure:"stream_timeout"`
-		AllowExternal    bool          `mapstructure:"allow_external"`
-		ReconnectTimeout time.Duration `mapstructure:"reconnect_timeout"`
+		StreamTimeout     time.Duration `mapstructure:"stream_timeout"`
+		AllowExternal     bool          `mapstructure:"allow_external"`
+		MinConnectionTime time.Duration `mapstructure:"min_connection_time"`
+		PingInterval      time.Duration `mapstructure:"ping_interval"`
+		PingTimeout       time.Duration `mapstructure:"ping_timeout"`
 	} `mapstructure:"apiclient"`
 
 	Policer struct {

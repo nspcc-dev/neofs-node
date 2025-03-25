@@ -84,10 +84,11 @@ fschain: # previously there was a 'morph', now use this section name
     - wss://rpc2.morph.fs.neo.org:40341/ws
 
 apiclient:
-  dial_timeout: 15s  # timeout for NEOFS API client connection (default: 1m)
   stream_timeout: 20s # timeout for individual operations in a streaming RPC (default: 1m)
   allow_external: true # allow to fallback to addresses in `ExternalAddr` attribute
-  reconnect_timeout: 30s # time to wait before reconnecting to a failed node
+  min_connection_time: 30s  # min time allotted for remote SN connection (default: 20s)
+  ping_interval: 20s  # inactivity period after which remote SN is pinged (default: 10s)
+  ping_timeout: 10s  # timeout for remote SN pings (default: 5s)
 
 policer:
   head_timeout: 15s  # timeout for the Policer HEAD remote operation

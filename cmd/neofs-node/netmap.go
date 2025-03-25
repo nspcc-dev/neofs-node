@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	netmapService "github.com/nspcc-dev/neofs-node/pkg/services/netmap"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -233,6 +236,32 @@ func initNetmapService(c *cfg) {
 				zap.Error(err),
 			)
 		}
+	})
+
+	addNewEpochAsyncNotificationHandler(c, func(ev event.Event) {
+		epoch := ev.(netmapEvent.NewEpoch).EpochNumber()
+		l := c.log.With(zap.Uint64("epoch", epoch))
+		l.Info("new epoch event, requesting new network map to sync SN connection caches...")
+
+		nm, err := c.shared.netMapSource.GetNetMapByEpoch(epoch)
+		if err != nil {
+			l.Info("failed to get network map by new epoch from event to sync SN connection cache", zap.Error(err))
+			return
+		}
+
+		nodes := nm.Nodes()
+		local := slices.IndexFunc(nodes, func(node netmapSDK.NodeInfo) bool { return c.IsLocalKey(node.PublicKey()) })
+		var wg sync.WaitGroup
+		l.Info("syncing SN connection caches with the new network map...")
+		for _, c := range []*cache.Clients{c.clientCache, c.putClientCache, c.bgClientCache} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				c.SyncWithNewNetmap(nodes, local)
+			}()
+		}
+		wg.Wait()
+		l.Info("finished syncing SN connection caches with the new network map")
 	})
 }
 

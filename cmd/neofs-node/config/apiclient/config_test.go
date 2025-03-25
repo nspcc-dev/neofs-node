@@ -14,19 +14,21 @@ func TestApiclientSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
-		require.Equal(t, apiclientconfig.DialTimeoutDefault, apiclientconfig.DialTimeout(empty))
 		require.Equal(t, apiclientconfig.StreamTimeoutDefault, apiclientconfig.StreamTimeout(empty))
-		require.Equal(t, time.Duration(0), apiclientconfig.ReconnectTimeout(empty))
 		require.False(t, apiclientconfig.AllowExternal(empty))
+		require.Equal(t, 20*time.Second, apiclientconfig.MinConnTime(empty))
+		require.Equal(t, 10*time.Second, apiclientconfig.PingInterval(empty))
+		require.Equal(t, 5*time.Second, apiclientconfig.PingTimeout(empty))
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		require.Equal(t, 15*time.Second, apiclientconfig.DialTimeout(c))
 		require.Equal(t, 20*time.Second, apiclientconfig.StreamTimeout(c))
-		require.Equal(t, 30*time.Second, apiclientconfig.ReconnectTimeout(c))
 		require.True(t, apiclientconfig.AllowExternal(c))
+		require.Equal(t, 30*time.Second, apiclientconfig.MinConnTime(c))
+		require.Equal(t, 20*time.Second, apiclientconfig.PingInterval(c))
+		require.Equal(t, 10*time.Second, apiclientconfig.PingTimeout(c))
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
