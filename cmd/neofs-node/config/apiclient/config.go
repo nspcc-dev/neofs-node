@@ -41,7 +41,7 @@ func MinConnTime(c *config.Config) time.Duration {
 	if v > 0 {
 		return v
 	}
-	return 20 * time.Second
+	return 5 * time.Second
 }
 
 // PingInterval returns the value of "ping_interval" config parameter from
