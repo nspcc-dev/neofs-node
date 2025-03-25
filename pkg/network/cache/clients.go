@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
@@ -242,6 +244,16 @@ func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error)
 		return res, fmt.Errorf("init NeoFS API client from gRPC client conn: %w", err)
 	}
 	grpcConn.Connect()
+	if runtime.GOOS == "darwin" {
+		if grpcConn.GetState() == connectivity.Idle {
+			x.log.Info("TTTTTT waiting for conn IDLE state change...")
+			ctx, cancel := context.WithTimeout(context.Background(), x.minConnTimeout)
+			defer cancel()
+			if !grpcConn.WaitForStateChange(ctx, connectivity.Idle) {
+				return nil, fmt.Errorf("wait for state change from IDLE state: %w", ctx.Err())
+			}
+		}
+	}
 	return res, nil
 }
 
