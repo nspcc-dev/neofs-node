@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.45.2
+
+## [0.45.2] - 2025-03-25
+
+### Added
 - `min_connection_timeout`, `ping_interval` and `ping_timeout` options to 'apiclient' SN config section (#3234)
 
 ### Fixed
@@ -2322,7 +2336,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...master
+[0.45.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...v0.45.2
 [0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.1...v0.44.2
