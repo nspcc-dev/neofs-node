@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -155,6 +157,15 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 
 		if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
 			return false, false, 0, nil
+		}
+
+		if !errors.Is(err, logicerr.Error) {
+			// data corruption, it should be removed anyway
+			err = deleteAllDataByAddress(tx, addr)
+			if err != nil {
+				db.log.Warn("cleaning corrupted object failed", zap.Stringer("addr", addr), zap.Error(err))
+				return false, false, 0, nil
+			}
 		}
 
 		return false, false, 0, err
@@ -311,6 +322,42 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 		name: toMoveItBucketName,
 		key:  addrKey,
 	})
+
+	return nil
+}
+
+func deleteAllDataByAddress(tx *bbolt.Tx, addr oid.Address) error {
+	cID := addr.Container()
+	oID := addr.Object()
+	objKey := objectKey(oID, make([]byte, objectKeySize))
+	addrKey := addressKey(addr, make([]byte, addressKeySize))
+	bucketName := make([]byte, bucketKeySize)
+
+	bkts := [][]byte{
+		slices.Clone(primaryBucketName(cID, bucketName)),
+		slices.Clone(tombstoneBucketName(cID, bucketName)),
+		slices.Clone(storageGroupBucketName(cID, bucketName)),
+		slices.Clone(bucketNameLockers(cID, bucketName)),
+		slices.Clone(linkObjectsBucketName(cID, bucketName)),
+		slices.Clone(parentBucketName(cID, bucketName)),
+		slices.Clone(smallBucketName(cID, bucketName)),
+		slices.Clone(rootBucketName(cID, bucketName)),
+	}
+	for _, bkt := range bkts {
+		delUniqueIndexItem(tx, namedBucketItem{
+			name: bkt,
+			key:  objKey,
+		})
+	}
+	delUniqueIndexItem(tx, namedBucketItem{
+		name: toMoveItBucketName,
+		key:  addrKey,
+	})
+
+	err := deleteMetadata(tx, cID, oID)
+	if err != nil {
+		return fmt.Errorf("metadata removal: %w", err)
+	}
 
 	return nil
 }
