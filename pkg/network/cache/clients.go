@@ -394,6 +394,17 @@ func (x *connections) AnnounceIntermediateTrust(ctx context.Context, epoch uint6
 	})
 }
 
+func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.SearchFilters, attrs []string, cursor string,
+	signer neofscrypto.Signer, opts client.SearchObjectsOptions) ([]client.SearchResultItem, string, error) {
+	var resItems []client.SearchResultItem
+	var resCursor string
+	return resItems, resCursor, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
+		var err error
+		resItems, resCursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
+		return err
+	})
+}
+
 func isTempError(err error) bool {
 	st, ok := status.FromError(err)
 	return ok && st.Code() == codes.Unavailable
