@@ -104,8 +104,6 @@ func TestObjectExpiration(t *testing.T) {
 		lock := objecttest.Object()
 		lock.SetContainerID(cID)
 		setExpiration(&lock, lockExp)
-		ts := objecttest.Object()
-		ts.SetContainerID(cID)
 
 		st, err := storageForContainer(t.TempDir(), cID)
 		require.NoError(t, err)
