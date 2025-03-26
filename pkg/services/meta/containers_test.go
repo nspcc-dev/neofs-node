@@ -54,7 +54,7 @@ func TestObjectExpiration(t *testing.T) {
 		})
 
 		net := testNetwork{}
-		net.setContainers(map[cid.ID]struct{}{cID: {}})
+		net.setContainers([]cid.ID{cID})
 		net.setObjects(objsToAddrMap(oo))
 		ee := make([]objEvent, 0, objNum)
 		for _, o := range oo {
@@ -114,7 +114,7 @@ func TestObjectExpiration(t *testing.T) {
 		})
 
 		net := testNetwork{}
-		net.setContainers(map[cid.ID]struct{}{cID: {}})
+		net.setContainers([]cid.ID{cID})
 		net.setObjects(objsToAddrMap([]object.Object{o, lock}))
 
 		eObj := objEvent{
