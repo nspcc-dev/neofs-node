@@ -29,6 +29,7 @@ type containerStorage struct {
 	m           sync.RWMutex
 	mptOpsBatch map[string][]byte
 
+	l    *zap.Logger
 	path string
 	mpt  *mpt.Trie
 	db   storage.Store
@@ -162,7 +163,7 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 		batch[string(append([]byte{oidIndex}, commsuffix...))] = []byte{}
 		if len(e.deletedObjects) > 0 {
 			batch[string(append([]byte{deletedIndex}, commsuffix...))] = e.deletedObjects
-			evWithMpt.additionalKVs, err = deleteObjectsOps(batch, s.db, e.deletedObjects, false)
+			evWithMpt.additionalKVs, err = s.deleteObjectsOps(batch, e.deletedObjects, false)
 			if err != nil {
 				l.Error("cleaning deleted object", zap.Stringer("oid", e.oID), zap.Error(err))
 				continue
@@ -296,9 +297,14 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object, isParent bool)
 	}
 }
 
-func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte, canDeleteLockObjects bool) (map[string][]byte, error) {
+func (s *containerStorage) deleteObjectsOps(dbKV map[string][]byte, objects []byte, canDeleteLockObjects bool) (map[string][]byte, error) {
 	rng := storage.SeekRange{}
 	mptKV := make(map[string][]byte)
+
+	if len(objects) == 0 {
+		return mptKV, nil
+	}
+	objects = s.expandChildren(objects)
 
 	// nil value means "delete" operation
 
@@ -311,7 +317,7 @@ func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte, c
 		var objFound bool
 		var err error
 
-		s.Seek(rng, func(k, v []byte) bool {
+		s.db.Seek(rng, func(k, v []byte) bool {
 			if bytes.Compare(k, stopKey) > 0 {
 				return false
 			}
@@ -399,7 +405,7 @@ func lastObjectKey(rawOID []byte) []byte {
 	return append(res, rawOID...)
 }
 
-func storageForContainer(rootPath string, cID cid.ID) (*containerStorage, error) {
+func storageForContainer(l *zap.Logger, rootPath string, cID cid.ID) (*containerStorage, error) {
 	p := path.Join(rootPath, cID.EncodeToString())
 
 	st, err := storage.NewBoltDBStore(dbconfig.BoltDBOptions{FilePath: p, ReadOnly: false})
@@ -422,6 +428,7 @@ func storageForContainer(rootPath string, cID cid.ID) (*containerStorage, error)
 	}
 
 	return &containerStorage{
+		l:           l.With(zap.Stringer("cid", cID)),
 		path:        p,
 		mpt:         mpt.NewTrie(prevRootNode, mpt.ModeLatest, storage.NewMemCachedStore(st)),
 		db:          st,
@@ -562,7 +569,7 @@ func (s *containerStorage) handleNewEpoch(e uint64) error {
 	}
 
 	dbBatch := make(map[string][]byte)
-	mptBatch, err := deleteObjectsOps(dbBatch, s.db, rawOIDs, true)
+	mptBatch, err := s.deleteObjectsOps(dbBatch, rawOIDs, true)
 	if err != nil {
 		return fmt.Errorf("making delete operations batch: %w", err)
 	}
@@ -591,4 +598,130 @@ func (s *containerStorage) handleNewEpoch(e uint64) error {
 	wg.Wait()
 
 	return errors.Join(mptErr, dbErr)
+}
+
+func (s *containerStorage) expandChildren(rootOIDs []byte) []byte {
+	// sorting before every SEEK is used for exact single operation for every
+	// children searching subroutine; search is done in 3 steps:
+	//  1. root -> last/link object search
+	//  2. last/link -> first part ID search
+	//  3. first part ID -> all children search
+
+	var childrenWithParentID [][]byte
+	var rng storage.SeekRange
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterParentID), object.AttributeDelimiter)
+	rootsSorted := slices.SortedFunc(slices.Chunk(rootOIDs, oid.Size), bytes.Compare)
+	rng.Start = rootsSorted[0]
+	keyLenExp := len(rng.Prefix) + len(rng.Start) + attributeDelimiterLen + oid.Size
+
+	s.db.Seek(rng, func(k, _ []byte) bool {
+		if len(k) != keyLenExp {
+			s.l.Warn("unexpected parent ID index's len",
+				zap.Int("expected", keyLenExp),
+				zap.Int("actual", len(k)),
+				zap.String("key", fmt.Sprintf("%x", k)),
+			)
+
+			return true
+		}
+		currRoot := k[len(rng.Prefix) : len(rng.Prefix)+oid.Size]
+		for len(rootsSorted) > 0 {
+			switch bytes.Compare(currRoot, rootsSorted[0]) {
+			case -1:
+				return true
+			case +1:
+				rootsSorted = rootsSorted[1:]
+				continue
+			case 0:
+				childrenWithParentID = append(childrenWithParentID, slices.Clone(k[len(rng.Prefix)+oid.Size+attributeDelimiterLen:]))
+				rootsSorted = rootsSorted[1:]
+				return true
+			}
+		}
+
+		return len(rootsSorted) != 0
+	})
+
+	if len(childrenWithParentID) == 0 {
+		// all objects are roots, no additional children
+		return rootOIDs
+	}
+
+	firstPartOIDs := make([][]byte, 0, len(childrenWithParentID))
+	slices.SortFunc(childrenWithParentID, bytes.Compare)
+	rng.Prefix = []byte{oidToAttrIndex}
+	rng.Start = slices.Concat(childrenWithParentID[0], []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	keyLenExp = len(rng.Prefix) + len(rng.Start) + oid.Size
+
+	s.db.Seek(rng, func(k, _ []byte) bool {
+		if len(k) != keyLenExp {
+			s.l.Warn("unexpected first object ID index's len",
+				zap.Int("expected", keyLenExp),
+				zap.Int("actual", len(k)),
+				zap.Int("index prefix", oidToAttrIndex),
+				zap.String("key", fmt.Sprintf("%x", k)),
+			)
+
+			return true
+		}
+		currChild := k[1 : 1+oid.Size]
+		for len(childrenWithParentID) > 0 {
+			switch bytes.Compare(currChild, childrenWithParentID[0]) {
+			case -1:
+			case +1:
+				// should never happen, it means we have info
+				// about child object with parent ID but child
+				// object does not have first part ID, nothing
+				// can be done, just skip
+				childrenWithParentID = childrenWithParentID[1:]
+				continue
+			case 0:
+				firstPartOIDs = append(firstPartOIDs, k[1+oid.Size+len(objectsdk.FilterFirstSplitObject)+attributeDelimiterLen:])
+				childrenWithParentID = childrenWithParentID[1:]
+			}
+		}
+
+		return len(childrenWithParentID) != 0
+	})
+
+	if len(firstPartOIDs) == 0 {
+		// unexpected but nothing to do
+		return rootOIDs
+	}
+
+	slices.SortFunc(firstPartOIDs, bytes.Compare)
+	children := slices.Concat(firstPartOIDs...) // first objects are children too
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	rng.Start = firstPartOIDs[0]
+	keyLenExp = len(rng.Prefix) + len(rng.Start) + attributeDelimiterLen + oid.Size
+
+	s.db.Seek(rng, func(k, _ []byte) bool {
+		if len(k) != keyLenExp {
+			s.l.Warn("unexpected first object ID index's len",
+				zap.Int("expected", keyLenExp),
+				zap.Int("actual", len(k)),
+				zap.Int("index prefix", attrPlainToOIDIndex),
+				zap.String("key", fmt.Sprintf("%x", k)),
+			)
+
+			return true
+		}
+		currChild := k[len(rng.Prefix) : len(rng.Prefix)+oid.Size]
+		for len(firstPartOIDs) > 0 {
+			switch bytes.Compare(currChild, firstPartOIDs[0]) {
+			case -1:
+				return true
+			case +1:
+				firstPartOIDs = firstPartOIDs[1:]
+				continue
+			case 0:
+				children = append(children, slices.Clone(k[len(rng.Prefix)+oid.Size+attributeDelimiterLen:])...)
+				return true
+			}
+		}
+
+		return false
+	})
+
+	return slices.Concat(rootOIDs, children)
 }

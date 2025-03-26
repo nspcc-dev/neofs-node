@@ -517,7 +517,7 @@ func TestValidation(t *testing.T) {
 	l := zaptest.NewLogger(t)
 
 	path.Join(t.TempDir(), "db.db")
-	s, err := storageForContainer(path.Join(t.TempDir(), "db.db"), cID)
+	s, err := storageForContainer(zaptest.NewLogger(t), path.Join(t.TempDir(), "db.db"), cID)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = s.drop()

@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -41,13 +42,14 @@ func TestObjectExpiration(t *testing.T) {
 		var oo []object.Object
 		for i := range objNum {
 			o := objecttest.Object()
+			o.ResetRelations()
 			o.SetContainerID(cID)
 			setExpiration(&o, uint64(i))
 
 			oo = append(oo, o)
 		}
 
-		st, err := storageForContainer(t.TempDir(), cID)
+		st, err := storageForContainer(zaptest.NewLogger(t), t.TempDir(), cID)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			_ = st.drop()
@@ -99,13 +101,15 @@ func TestObjectExpiration(t *testing.T) {
 
 		o := objecttest.Object()
 		oID := o.GetID()
+		o.ResetRelations()
 		o.SetContainerID(cID)
 		setExpiration(&o, objExp)
 		lock := objecttest.Object()
+		lock.ResetRelations()
 		lock.SetContainerID(cID)
 		setExpiration(&lock, lockExp)
 
-		st, err := storageForContainer(t.TempDir(), cID)
+		st, err := storageForContainer(zaptest.NewLogger(t), t.TempDir(), cID)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			_ = st.drop()
@@ -151,5 +155,143 @@ func TestObjectExpiration(t *testing.T) {
 			require.Fail(t, "no KV after expirations are expected")
 			return true
 		})
+	})
+}
+
+func objectChain(cID cid.ID, length int) (object.Object, []object.Object) {
+	reset := func(o *object.Object) {
+		o.SetContainerID(cID)
+		o.ResetRelations()
+		o.SetType(object.TypeRegular)
+	}
+
+	root := objecttest.Object()
+	reset(&root)
+	first := objecttest.Object()
+	reset(&first)
+
+	children := make([]object.Object, length-1)
+	children[0] = first
+	for i := range children {
+		if i != 0 {
+			children[i] = objecttest.Object()
+			reset(&children[i])
+			children[i].SetFirstID(first.GetID())
+			children[i].SetPreviousID(children[i-1].GetID())
+		}
+		if i == len(children)-1 {
+			children[i].SetParentID(root.GetID())
+			children[i].SetParent(&root)
+		}
+	}
+
+	link := objecttest.Object()
+	reset(&link)
+	link.SetFirstID(first.GetID())
+	link.SetParentID(root.GetID())
+	link.SetParent(&root)
+	link.SetType(object.TypeLink)
+
+	return root, append(children, link)
+}
+
+type bigObj struct {
+	root     object.Object
+	children []object.Object
+}
+
+func TestBigObjects(t *testing.T) {
+	cID := cidtest.ID()
+	l := zaptest.NewLogger(t)
+	ctx := context.Background()
+
+	var bigObjs []bigObj
+	for range 10 {
+		root, children := objectChain(cID, 10)
+		bigObjs = append(bigObjs, bigObj{root, children})
+	}
+
+	var rawObjSlice []object.Object
+	for _, obj := range bigObjs {
+		rawObjSlice = append(rawObjSlice, obj.children...)
+	}
+
+	net := testNetwork{}
+	net.setContainers([]cid.ID{cID})
+	net.setObjects(objsToAddrMap(rawObjSlice))
+	ee := make([]objEvent, 0, len(rawObjSlice))
+	for _, o := range rawObjSlice {
+		ev := objEvent{
+			cID:     cID,
+			oID:     o.GetID(),
+			size:    big.NewInt(testObjectSize),
+			network: big.NewInt(testNetworkMagic),
+		}
+		ev.typ = o.Type()
+		if id := o.GetPreviousID(); !id.IsZero() {
+			ev.prevObject = id[:]
+		}
+		if id := o.GetFirstID(); !id.IsZero() {
+			ev.firstObject = id[:]
+		}
+
+		ee = append(ee, ev)
+	}
+
+	st, err := storageForContainer(zaptest.NewLogger(t), t.TempDir(), cID)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = st.drop()
+	})
+
+	st.putObjects(ctx, l, 0, ee, &net)
+
+	tsObj := objecttest.Object()
+	tsObj.ResetRelations()
+	tsObj.SetContainerID(cID)
+	tsObj.SetType(object.TypeTombstone)
+	tsEv := objEvent{
+		cID:     cID,
+		oID:     tsObj.GetID(),
+		size:    big.NewInt(testObjectSize),
+		network: big.NewInt(testNetworkMagic),
+	}
+	net.setObjects(objsToAddrMap([]object.Object{tsObj}))
+
+	for _, bigO := range bigObjs {
+		rID := bigO.root.GetID()
+		tsEv.deletedObjects = rID[:]
+
+		st.putObjects(ctx, l, 0, []objEvent{tsEv}, &net)
+
+		k := make([]byte, 1+oid.Size)
+		k[0] = oidIndex
+
+		for _, child := range bigO.children {
+			chID := child.GetID()
+			copy(k[1:], chID[:])
+
+			_, err = st.db.Get(k)
+			require.ErrorIs(t, err, storage.ErrKeyNotFound)
+		}
+	}
+
+	// only last operation from TS should be kept
+	tsID := tsObj.GetID()
+	st.db.Seek(storage.SeekRange{}, func(k, _ []byte) bool {
+		switch k[0] {
+		case oidIndex, oidToAttrIndex, deletedIndex:
+			if bytes.Equal(k[1:1+oid.Size], tsID[:]) {
+				return true
+			}
+		case attrIntToOIDIndex, attrPlainToOIDIndex:
+			if bytes.Equal(k[len(k)-oid.Size:], tsID[:]) {
+				return true
+			}
+		default:
+		}
+
+		t.Fatalf("empty db is expected after full clean, found key: %d", k[0])
+		return true
 	})
 }
