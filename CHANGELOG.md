@@ -38,6 +38,7 @@ Changelog for NeoFS Node
 - Tree service related CLI commands (#3270)
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)
 
 ### Updating from v0.45.2
 `apiclient.allow_external` field must be dropped from any SN configuration.

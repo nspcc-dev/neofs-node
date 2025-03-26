@@ -215,7 +215,7 @@ func getUnsignedObject() object.Object {
 	par.SetType(typ)
 	par.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(payload)))
 	par.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(payload)))
-	par.SetAttributes(*object.NewAttribute("690530953", "39483258"), *object.NewAttribute("7208331", "31080424839"))
+	par.SetAttributes(object.NewAttribute("690530953", "39483258"), object.NewAttribute("7208331", "31080424839"))
 	par.SetID(oid.ID{156, 209, 245, 87, 177, 145, 183, 8, 181, 92, 171, 193, 58, 125, 77, 11, 28, 161, 217, 151, 17, 212, 232, 88, 6,
 		180, 184, 86, 250, 85, 25, 180})
 
@@ -229,7 +229,7 @@ func getUnsignedObject() object.Object {
 	child.SetType(typ)
 	child.SetPayloadHomomorphicHash(checksum.NewTillichZemor(tz.Sum(childPayload)))
 	child.SetPayloadChecksum(checksum.NewSHA256(sha256.Sum256(childPayload)))
-	child.SetAttributes(*object.NewAttribute("31429585", "689450942"), *object.NewAttribute("129849325", "859384298"))
+	child.SetAttributes(object.NewAttribute("31429585", "689450942"), object.NewAttribute("129849325", "859384298"))
 	child.SetParent(&par)
 	child.SetID(oid.ID{44, 189, 3, 215, 147, 16, 210, 126, 212, 84, 39, 229, 126, 136, 236, 141, 39, 54, 124, 41, 200, 92, 84, 6,
 		172, 47, 157, 83, 58, 189, 86, 66})
