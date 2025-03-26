@@ -337,8 +337,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			objWithAttr := func(k, v string) *object.Object {
 				obj := blankValidObject(usertest.User())
 				obj.SetAttributes(
-					*object.NewAttribute("valid key", "valid value"),
-					*object.NewAttribute(k, v),
+					object.NewAttribute("valid key", "valid value"),
+					object.NewAttribute(k, v),
 				)
 				return obj
 			}
