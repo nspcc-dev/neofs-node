@@ -13,8 +13,10 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 const (
@@ -131,14 +133,24 @@ func PutMetadataForObject(tx *bbolt.Tx, hdr object.Object, hasParent, phy bool) 
 	return nil
 }
 
-func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
+func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent bool) (uint64, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
-		return nil
+		return 0, nil
 	}
+	var err error
+	var parent oid.ID
+	var size uint64
+	if !isParent {
+		v := metaBkt.Get(slices.Concat([]byte{metaPrefixIDAttr}, id[:], []byte(object.FilterPhysical), objectcore.MetaAttributeDelimiter, []byte(binPropMarker)))
+		if v == nil {
+			return 0, nil
+		}
+	}
+	bktKeyBuff := make([]byte, bucketKeySize)
 	pref := slices.Concat([]byte{metaPrefixID}, id[:])
 	if err := metaBkt.Delete(pref); err != nil {
-		return err
+		return 0, err
 	}
 	// removed keys must be pre-collected according to BoltDB docs.
 	var ks [][]byte
@@ -147,7 +159,75 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
 		sepInd := bytes.LastIndex(kIDAttr, objectcore.MetaAttributeDelimiter)
 		if sepInd < 1+oid.Size {
-			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
+			return 0, fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
+		}
+		attrK := kIDAttr[1+oid.Size : sepInd]
+		attrV := kIDAttr[sepInd+attributeDelimiterLen:]
+		switch kStr := string(attrK); kStr {
+		case object.FilterType:
+			var typ object.Type
+			if !isParent && typ.DecodeString(string(attrV)) {
+				err := delUniqueIndexes(tx, cnr, id, typ, isParent)
+				if err != nil {
+					return 0, err
+				}
+			}
+		case object.FilterOwnerID:
+			if len(attrV) == user.IDSize {
+				owner := user.ID(attrV)
+				delFKBTIndexItem(tx, namedBucketItem{
+					name: ownerBucketName(cnr, bktKeyBuff),
+					key:  []byte(owner.EncodeToString()),
+					val:  id[:],
+				})
+			} else {
+				l.Warn("unexpected object's owner index",
+					zap.Stringer("addr", oid.NewAddress(cnr, id)),
+					zap.Int("len", len(attrV)),
+				)
+			}
+		case object.FilterPayloadChecksum:
+			delListIndexItem(tx, namedBucketItem{
+				name: payloadHashBucketName(cnr, bktKeyBuff),
+				key:  attrV,
+				val:  id[:],
+			})
+		case object.FilterParentID:
+			if len(attrV) == oid.Size {
+				parent = oid.ID(attrV)
+			}
+			delUniqueIndexItem(tx, namedBucketItem{
+				name: parentBucketName(cnr, bktKeyBuff),
+				key:  attrV,
+			})
+			delListIndexItem(tx, namedBucketItem{
+				name: parentBucketName(cnr, bktKeyBuff),
+				key:  attrV,
+				val:  id[:],
+			})
+		case object.FilterSplitID:
+			delListIndexItem(tx, namedBucketItem{
+				name: splitBucketName(cnr, bktKeyBuff),
+				key:  attrV,
+				val:  id[:],
+			})
+		case object.FilterFirstSplitObject:
+			delListIndexItem(tx, namedBucketItem{
+				name: firstObjectIDBucketName(cnr, bktKeyBuff),
+				key:  attrV,
+				val:  id[:],
+			})
+		case object.FilterPayloadSize:
+			size, _ = strconv.ParseUint(string(attrV), 10, 64)
+		default:
+			const systemFieldPrefix = "$Object:"
+			if !bytes.HasPrefix(attrK, []byte(systemFieldPrefix)) {
+				delFKBTIndexItem(tx, namedBucketItem{
+					name: attributeBucketName(cnr, kStr, bktKeyBuff),
+					key:  attrV,
+					val:  id[:],
+				})
+			}
 		}
 		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
 		kAttrID[0] = metaPrefixAttrIDPlain
@@ -167,10 +247,21 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 	}
 	for i := range ks {
 		if err := metaBkt.Delete(ks[i]); err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return nil
+
+	if !parent.IsZero() {
+		_, err = deleteMetadata(tx, l, cnr, parent, true)
+		if err != nil {
+			l.Warn("parent removal",
+				zap.Stringer("child", oid.NewAddress(cnr, id)),
+				zap.Stringer("parent", oid.NewAddress(cnr, parent)),
+				zap.Error(err))
+		}
+	}
+
+	return size, nil
 }
 
 // Search selects up to count container's objects from the given container
