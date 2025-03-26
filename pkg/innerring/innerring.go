@@ -40,7 +40,6 @@ import (
 	balanceClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	neofsClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/neofs"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -721,11 +720,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 
-	neofsIDClient, err := neofsid.NewFromMorph(server.morphClient, server.contracts.neofsID, 0, neofsid.AsAlphabet())
-	if err != nil {
-		return nil, err
-	}
-
 	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
 		server.feeConfig.MainChainFee(), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
@@ -978,7 +972,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			Log:                 log,
 			PoolSize:            cfg.GetInt("workers.neofs"),
 			NeoFSContract:       server.contracts.neofs,
-			NeoFSIDClient:       neofsIDClient,
 			BalanceClient:       server.balanceClient,
 			NetmapClient:        server.netmapClient,
 			MorphClient:         server.morphClient,

@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/balance"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	neofsEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/neofs"
@@ -50,8 +49,6 @@ type (
 		mintEmitThreshold   uint64
 		mintEmitValue       fixedn.Fixed8
 		gasBalanceThreshold int64
-
-		neofsIDClient *neofsid.Client
 	}
 
 	// Params of the processor constructor.
@@ -59,7 +56,6 @@ type (
 		Log                 *zap.Logger
 		PoolSize            int
 		NeoFSContract       util.Uint160
-		NeoFSIDClient       *neofsid.Client
 		BalanceClient       *balance.Client
 		NetmapClient        *nmClient.Client
 		MorphClient         *client.Client
@@ -124,8 +120,6 @@ func New(p *Params) (*Processor, error) {
 		mintEmitThreshold:   p.MintEmitThreshold,
 		mintEmitValue:       p.MintEmitValue,
 		gasBalanceThreshold: p.GasBalanceThreshold,
-
-		neofsIDClient: p.NeoFSIDClient,
 	}, nil
 }
 
@@ -200,16 +194,6 @@ func (np *Processor) ListenerNotificationHandlers() []event.NotificationHandlerI
 	// config handler
 	h.SetType(event.TypeFromString(configNotification))
 	h.SetHandler(np.handleConfig)
-	handlers = append(handlers, h)
-
-	// bind handler
-	h.SetType(event.TypeFromString(bindNotification))
-	h.SetHandler(np.handleBind)
-	handlers = append(handlers, h)
-
-	// unbind handler
-	h.SetType(event.TypeFromString(unbindNotification))
-	h.SetHandler(np.handleUnbind)
 	handlers = append(handlers, h)
 
 	return handlers
