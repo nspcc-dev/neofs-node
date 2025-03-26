@@ -246,7 +246,6 @@ type validConfig struct {
 		Audit      string `mapstructure:"audit"`
 		Balance    string `mapstructure:"balance"`
 		Container  string `mapstructure:"container"`
-		NeoFSID    string `mapstructure:"neofsid"`
 		Netmap     string `mapstructure:"netmap"`
 		Proxy      string `mapstructure:"proxy"`
 		Reputation string `mapstructure:"reputation"`

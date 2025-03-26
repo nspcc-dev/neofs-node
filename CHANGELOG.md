@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 ### Updated
 
 ### Updating from v0.45.2
+`contracts.neofsid` IR configuration is gone and no longer needed.
 
 ## [0.45.2] - 2025-03-25
 
