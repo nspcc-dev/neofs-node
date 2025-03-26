@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -709,23 +709,44 @@ func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
 
 	epoch := db.epochState.CurrentEpoch()
 	res := make([]oid.Address, 0)
-	cIDToOIDs := make(map[cid.ID][]oid.ID)
-	for _, a := range addresses {
-		cIDToOIDs[a.Container()] = append(cIDToOIDs[a.Container()], a.Object())
-	}
 
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
-		for cID, oIDs := range cIDToOIDs {
-			expired, err := filterExpired(tx, epoch, cID, oIDs)
-			if err != nil {
-				return err
+		var (
+			curCID     cid.ID
+			metaBkt    *bbolt.Bucket
+			metaBktKey = make([]byte, bucketKeySize)
+			expKey     = make([]byte, 1+objectKeySize+len(object.AttributeExpirationEpoch)+1)
+		)
+		metaBktKey[0] = metadataPrefix
+
+		expKey[0] = metaPrefixIDAttr
+		copy(expKey[1+objectKeySize:], object.AttributeExpirationEpoch)
+
+		for _, a := range addresses {
+			if metaBkt == nil || curCID != a.Container() {
+				curCID = a.Container()
+				copy(metaBktKey[1:], curCID[:])
+				metaBkt = tx.Bucket(metaBktKey)
+				if metaBkt == nil {
+					continue
+				}
 			}
+			var oID = a.Object()
 
-			for _, oID := range expired {
-				var a oid.Address
-				a.SetContainer(cID)
-				a.SetObject(oID)
+			copy(expKey[1:], oID[:])
 
+			var (
+				cur  = metaBkt.Cursor()
+				k, _ = cur.Seek(expKey)
+			)
+			if !bytes.HasPrefix(k, expKey) {
+				continue
+			}
+			expiration, err := strconv.ParseUint(string(k[len(expKey):]), 10, 64)
+			if err != nil {
+				continue
+			}
+			if expiration < epoch {
 				res = append(res, a)
 			}
 		}
@@ -733,52 +754,6 @@ func (db *DB) FilterExpired(addresses []oid.Address) ([]oid.Address, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func filterExpired(tx *bbolt.Tx, epoch uint64, cID cid.ID, oIDs []oid.ID) ([]oid.ID, error) {
-	objKey := make([]byte, objectKeySize)
-	expAttr := object.AttributeExpirationEpoch
-	expirationBucketKey := make([]byte, bucketKeySize+len(expAttr))
-
-	res := make([]oid.ID, 0)
-	notHandled := util.SliceToMap(oIDs)
-	expirationBucket := tx.Bucket(attributeBucketName(cID, expAttr, expirationBucketKey))
-	if expirationBucket == nil {
-		return nil, nil
-	}
-
-	err := expirationBucket.ForEach(func(expBktKey, _ []byte) error {
-		exp, err := strconv.ParseUint(string(expBktKey), 10, 64)
-		if err != nil {
-			return fmt.Errorf("could not parse expiration epoch: %w", err)
-		} else if exp >= epoch {
-			return nil
-		}
-
-		epochExpirationBucket := expirationBucket.Bucket(expBktKey)
-		if epochExpirationBucket == nil {
-			return nil
-		}
-
-		for oID := range notHandled {
-			key := objectKey(oID, objKey)
-			if epochExpirationBucket.Get(key) != nil {
-				delete(notHandled, oID)
-				res = append(res, oID)
-			}
-		}
-
-		if len(notHandled) == 0 {
-			return errBreakBucketForEach
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, errBreakBucketForEach) {
 		return nil, err
 	}
 
