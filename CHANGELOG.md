@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
+- IR contract approval no longer supports neofsid accounts (#3256)
 
 ### Removed
 

@@ -940,7 +940,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		PoolSize:        cfg.GetInt("workers.container"),
 		AlphabetState:   server,
 		ContainerClient: cnrClient,
-		NeoFSIDClient:   neofsIDClient,
 		NetworkState:    server.netmapClient,
 		MetaEnabled:     cfg.GetBool("experimental.chain_meta_data"),
 	})
