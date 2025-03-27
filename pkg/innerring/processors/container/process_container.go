@@ -202,6 +202,7 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		verb:            session.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,
+		binPublicKey:    cnr.Signature.PublicKeyBytes(),
 		binTokenSession: e.SessionToken(),
 		signature:       e.Signature(),
 		signedData:      binCnr,

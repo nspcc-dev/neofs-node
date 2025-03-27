@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/client/neofsid"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -25,7 +24,6 @@ type (
 		pool          *ants.Pool
 		alphabetState AlphabetState
 		cnrClient     *container.Client // notary must be enabled
-		idClient      *neofsid.Client
 		netState      NetworkState
 		metaEnabled   bool
 	}
@@ -36,7 +34,6 @@ type (
 		PoolSize        int
 		AlphabetState   AlphabetState
 		ContainerClient *container.Client
-		NeoFSIDClient   *neofsid.Client
 		NetworkState    NetworkState
 		MetaEnabled     bool
 	}
@@ -72,8 +69,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: global state is not set")
 	case p.ContainerClient == nil:
 		return nil, errors.New("ir/container: Container client is not set")
-	case p.NeoFSIDClient == nil:
-		return nil, errors.New("ir/container: NeoFS ID client is not set")
 	case p.NetworkState == nil:
 		return nil, errors.New("ir/container: network state is not set")
 	}
@@ -90,7 +85,6 @@ func New(p *Params) (*Processor, error) {
 		pool:          pool,
 		alphabetState: p.AlphabetState,
 		cnrClient:     p.ContainerClient,
-		idClient:      p.NeoFSIDClient,
 		netState:      p.NetworkState,
 		metaEnabled:   p.MetaEnabled,
 	}, nil

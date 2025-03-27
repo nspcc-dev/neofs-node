@@ -191,7 +191,6 @@ contracts:
   audit: 219e37aed2180b87e7fe945dbf97d67125e8d73f      # Optional: override address of audit contract in sidechain
   balance: d2aa48d14b17b11bc4c68205027884a96706dd16    # Optional: override address of balance contract in sidechain
   container: ed4a7a66fe3f9bfe50f214b49be8f215a3c886b6  # Optional: override address of container contract in sidechain
-  neofsid: 9f5866decbc751a099e74c7c7bc89f609201755a    # Optional: override address of neofsid contract in sidechain
   netmap: 83c600c81d47a1b1b7cf58eb49ae7ee7240dc742     # Optional: override address of netmap contract in sidechain
   proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain
   reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
