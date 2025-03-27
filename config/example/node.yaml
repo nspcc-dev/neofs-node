@@ -85,7 +85,6 @@ fschain: # previously there was a 'morph', now use this section name
 
 apiclient:
   stream_timeout: 20s # timeout for individual operations in a streaming RPC (default: 1m)
-  allow_external: true # allow to fallback to addresses in `ExternalAddr` attribute
   min_connection_time: 30s  # min time allotted for remote SN connection (default: 20s)
   ping_interval: 20s  # inactivity period after which remote SN is pinged (default: 10s)
   ping_timeout: 10s  # timeout for remote SN pings (default: 5s)

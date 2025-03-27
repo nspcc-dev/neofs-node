@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// ErrUnknowField returns when an unknown field appears in the config.
-var ErrUnknowField = errors.New("unknown field")
+// ErrUnknownField returns when an unknown field appears in the config.
+var ErrUnknownField = errors.New("unknown field")
 
 // CheckForUnknownFields validates the config struct for unknown fields with the config map.
 // If the field in the config is a map of a key and some value, need to use `mapstructure:,remain` and
@@ -29,7 +29,7 @@ func checkForUnknownFields(configMap map[string]any, config any, currentPath str
 		_, other := expectedFields[",remain"]
 		_, exists := expectedFields[key]
 		if !exists && !other {
-			return fmt.Errorf("%w: %s", ErrUnknowField, fullPath)
+			return fmt.Errorf("%w: %s", ErrUnknownField, fullPath)
 		}
 
 		var fieldVal reflect.Value
@@ -55,7 +55,7 @@ func checkForUnknownFields(configMap map[string]any, config any, currentPath str
 		}
 
 		if !fieldVal.IsValid() {
-			return fmt.Errorf("%w: %s", ErrUnknowField, fullPath)
+			return fmt.Errorf("%w: %s", ErrUnknownField, fullPath)
 		}
 
 		nestedMap, okMap := val.(map[string]any)
@@ -73,7 +73,7 @@ func checkForUnknownFields(configMap map[string]any, config any, currentPath str
 				return err
 			}
 		} else if okMap != (fieldVal.Kind() == reflect.Struct) {
-			return fmt.Errorf("%w: %s", ErrUnknowField, fullPath)
+			return fmt.Errorf("%w: %s", ErrUnknownField, fullPath)
 		}
 	}
 

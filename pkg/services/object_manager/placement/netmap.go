@@ -22,21 +22,18 @@ type netMapBuilder struct {
 	containerCache simplelru.LRUCache[string, [][]netmapSDK.NodeInfo]
 }
 
-type netMapSrc struct {
-	netmap.Source
-
-	nm *netmapSDK.NetMap
-}
-
 // defaultContainerCacheSize is the default size for the container cache.
 const defaultContainerCacheSize = 1000
 
-func NewNetworkMapBuilder(nm *netmapSDK.NetMap) Builder {
-	cache, _ := simplelru.NewLRU[string, [][]netmapSDK.NodeInfo](defaultContainerCacheSize, nil) // no error
-	return &netMapBuilder{
-		nmSrc:          &netMapSrc{nm: nm},
-		containerCache: cache,
-	}
+// Builder is an interface of the
+// object placement vector builder.
+type Builder interface {
+	// BuildPlacement returns the list of placement vectors
+	// for object according to the placement policy.
+	//
+	// Must return all container nodes if object identifier
+	// is nil.
+	BuildPlacement(cid.ID, *oid.ID, netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error)
 }
 
 func NewNetworkMapSourceBuilder(nmSrc netmap.Source) Builder {
@@ -45,10 +42,6 @@ func NewNetworkMapSourceBuilder(nmSrc netmap.Source) Builder {
 		nmSrc:          nmSrc,
 		containerCache: cache,
 	}
-}
-
-func (s *netMapSrc) GetNetMap(_ uint64) (*netmapSDK.NetMap, error) {
-	return s.nm, nil
 }
 
 func (b *netMapBuilder) BuildPlacement(cnr cid.ID, obj *oid.ID, p netmapSDK.PlacementPolicy) ([][]netmapSDK.NodeInfo, error) {

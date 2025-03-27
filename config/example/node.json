@@ -97,7 +97,6 @@
   },
   "apiclient": {
     "stream_timeout": "20s",
-    "allow_external": true,
     "min_connection_time": "30s",
     "ping_interval": "20s",
     "ping_timeout": "10s"

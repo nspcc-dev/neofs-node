@@ -15,7 +15,6 @@ func TestApiclientSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.Equal(t, apiclientconfig.StreamTimeoutDefault, apiclientconfig.StreamTimeout(empty))
-		require.False(t, apiclientconfig.AllowExternal(empty))
 		require.Equal(t, 20*time.Second, apiclientconfig.MinConnTime(empty))
 		require.Equal(t, 10*time.Second, apiclientconfig.PingInterval(empty))
 		require.Equal(t, 5*time.Second, apiclientconfig.PingTimeout(empty))
@@ -25,7 +24,6 @@ func TestApiclientSection(t *testing.T) {
 
 	var fileConfigTest = func(c *config.Config) {
 		require.Equal(t, 20*time.Second, apiclientconfig.StreamTimeout(c))
-		require.True(t, apiclientconfig.AllowExternal(c))
 		require.Equal(t, 30*time.Second, apiclientconfig.MinConnTime(c))
 		require.Equal(t, 20*time.Second, apiclientconfig.PingInterval(c))
 		require.Equal(t, 10*time.Second, apiclientconfig.PingTimeout(c))

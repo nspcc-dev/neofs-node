@@ -26,14 +26,6 @@ func StreamTimeout(c *config.Config) time.Duration {
 	return StreamTimeoutDefault
 }
 
-// AllowExternal returns the value of "allow_external" config parameter
-// from "apiclient" section.
-//
-// Returns false if the value is missing or invalid.
-func AllowExternal(c *config.Config) bool {
-	return config.BoolSafe(c.Sub(subsection), "allow_external")
-}
-
 // MinConnTime returns the value of "min_connection_time" config parameter
 // from "apiclient" section. Defaults to 20s.
 func MinConnTime(c *config.Config) time.Duration {
