@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	embeddedcontracts "github.com/nspcc-dev/neofs-contract/contracts"
 	"github.com/nspcc-dev/neofs-contract/deploy"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -26,12 +28,11 @@ type contracts struct {
 	proxy      util.Uint160 // in morph
 	processing util.Uint160 // in mainnet
 	reputation util.Uint160 // in morph
-	neofsID    util.Uint160 // in morph
 
 	alphabet alphabetContracts // in morph
 }
 
-func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
+func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contracts, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -39,14 +40,14 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 
 	if !withoutMainNet {
 		_logger.Debug("decoding configured NeoFS contract...")
-		result.neofs, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.neofs"))
+		result.neofs, err = util.Uint160DecodeStringLE(cfg.NeoFS)
 		if err != nil {
 			return nil, fmt.Errorf("can't get neofs script hash: %w", err)
 		}
 
 		if !withoutMainNotary {
 			_logger.Debug("decoding configured Processing contract...")
-			result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
+			result.processing, err = util.Uint160DecodeStringLE(cfg.Processing)
 			if err != nil {
 				return nil, fmt.Errorf("can't get processing script hash: %w", err)
 			}
@@ -55,33 +56,33 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 
 	nnsCtx := &nnsContext{Context: ctx}
 
-	result.proxy, err = parseContract(nnsCtx, _logger, cfg, morph, "contracts.proxy", client.NNSProxyContractName)
+	result.proxy, err = parseContract(nnsCtx, _logger, cfg.Proxy, morph, "contracts.proxy", client.NNSProxyContractName)
 	if err != nil {
 		return nil, fmt.Errorf("can't get proxy script hash: %w", err)
 	}
 
 	targets := [...]struct {
-		cfgName string
-		nnsName string
-		dest    *util.Uint160
+		contract string
+		cfgName  string
+		nnsName  string
+		dest     *util.Uint160
 	}{
-		{"contracts.netmap", client.NNSNetmapContractName, &result.netmap},
-		{"contracts.balance", client.NNSBalanceContractName, &result.balance},
-		{"contracts.container", client.NNSContainerContractName, &result.container},
-		{"contracts.audit", client.NNSAuditContractName, &result.audit},
-		{"contracts.reputation", client.NNSReputationContractName, &result.reputation},
-		{"contracts.neofsid", client.NNSNeoFSIDContractName, &result.neofsID},
+		{cfg.Netmap, "contracts.netmap", client.NNSNetmapContractName, &result.netmap},
+		{cfg.Balance, "contracts.balance", client.NNSBalanceContractName, &result.balance},
+		{cfg.Container, "contracts.container", client.NNSContainerContractName, &result.container},
+		{cfg.Audit, "contracts.audit", client.NNSAuditContractName, &result.audit},
+		{cfg.Reputation, "contracts.reputation", client.NNSReputationContractName, &result.reputation},
 	}
 
 	for _, t := range targets {
-		*t.dest, err = parseContract(nnsCtx, _logger, cfg, morph, t.cfgName, t.nnsName)
+		*t.dest, err = parseContract(nnsCtx, _logger, t.contract, morph, t.cfgName, t.nnsName)
 		if err != nil {
 			name := strings.TrimPrefix(t.cfgName, "contracts.")
 			return nil, fmt.Errorf("can't get %s script hash: %w", name, err)
 		}
 	}
 
-	result.alphabet, err = parseAlphabetContracts(nnsCtx, _logger, cfg, morph)
+	result.alphabet, err = parseAlphabetContracts(nnsCtx, _logger, &cfg.Alphabet, morph)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 	return result, nil
 }
 
-func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client) (alphabetContracts, error) {
+func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *config.Alphabet, morph *client.Client) (alphabetContracts, error) {
 	committee, err := morph.Committee()
 	if err != nil {
 		return nil, fmt.Errorf("get FS chain committee: %w", err)
@@ -102,9 +103,22 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Vip
 		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
 	}
 
+	v := reflect.ValueOf(cfg)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
 	for ind := range num {
 		letter := glagolitsa.LetterByIndex(ind)
-		contractHash, err := parseContract(ctx, _logger, cfg, morph,
+
+		// Capitalize to match public field
+		r := []rune(letter)
+		r[0] = unicode.ToUpper(r[0])
+		letter = string(r)
+		field := v.FieldByName(letter)
+		if !field.IsValid() {
+			return nil, fmt.Errorf("invalid alphabet %s contract", letter)
+		}
+		contractHash, err := parseContract(ctx, _logger, field.Interface().(string), morph,
 			"contracts.alphabet."+letter,
 			client.NNSAlphabetContractName(ind),
 		)
@@ -132,10 +146,10 @@ type nnsContext struct {
 	nnsDeployed bool
 }
 
-func parseContract(ctx *nnsContext, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, cfgName, nnsName string) (res util.Uint160, err error) {
-	if cfg.IsSet(cfgName) {
+func parseContract(ctx *nnsContext, _logger *zap.Logger, contract string, morph *client.Client, cfgName, nnsName string) (res util.Uint160, err error) {
+	if contract != "" {
 		_logger.Debug("decoding configured contract...", zap.String("config key", cfgName))
-		return util.Uint160DecodeStringLE(cfg.GetString(cfgName))
+		return util.Uint160DecodeStringLE(contract)
 	}
 
 	msPerBlock, err := morph.MsPerBlock()

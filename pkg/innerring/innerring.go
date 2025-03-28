@@ -2,7 +2,6 @@ package innerring
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"sync"
@@ -55,7 +54,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -94,7 +92,6 @@ type (
 		metrics *metrics.InnerRingServiceMetrics
 
 		// notary configuration
-		feeConfig        *config.FeeConfig
 		mainNotaryConfig *notaryConfig
 
 		// internal variables
@@ -135,7 +132,7 @@ type (
 
 	chainParams struct {
 		log  *zap.Logger
-		cfg  *viper.Viper
+		cfg  *config.BasicChain
 		key  *keys.PrivateKey
 		name string
 		from uint32 // block height
@@ -312,14 +309,11 @@ func (s *Server) registerCloser(f func() error) {
 }
 
 // New creates instance of inner ring server structure.
-func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) (*Server, error) {
+func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<- error) (*Server, error) {
 	var err error
 	server := &Server{log: log}
 
 	server.setHealthStatus(control.HealthStatus_HEALTH_STATUS_UNDEFINED)
-
-	// parse notary support
-	server.feeConfig = config.NewFeeConfig(cfg)
 
 	server.persistate, err = initPersistentStateStorage(cfg)
 	if err != nil {
@@ -353,20 +347,16 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
-	if cfg.IsSet(deprecatedMorphPrefix+".endpoints") || cfg.IsSet(deprecatedMorphPrefix+".consensus") {
+	if (cfg.IsSet(deprecatedMorphPrefix+".endpoints") || cfg.IsSet(deprecatedMorphPrefix+".consensus")) &&
+		!(cfg.IsSet(fsChainPrefix+".endpoints") || cfg.IsSet(fsChainPrefix+".consensus")) {
 		log.Warn("config section 'morph' is deprecated, use 'fschain'")
-		cfgPathFSChain = deprecatedMorphPrefix
+		cfgFSChainName = deprecatedMorphPrefix
+		cfgPathFSChainLocalConsensus = cfgFSChainName + ".consensus"
 	}
-	if cfg.IsSet(fsChainPrefix+".endpoints") || cfg.IsSet(fsChainPrefix+".consensus") {
-		cfgPathFSChain = fsChainPrefix
-	}
-	cfgPathFSChainRPCEndpoints = cfgPathFSChain + ".endpoints"
-	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
-	cfgPathFSChainValidators = cfgPathFSChain + ".validators"
 	fsChainParams := chainParams{
 		log:  log,
-		cfg:  cfg,
-		name: cfgPathFSChain,
+		cfg:  &cfg.FSChain.BasicChain,
+		name: cfgFSChainName,
 		from: fromFSChainBlock,
 	}
 
@@ -375,11 +365,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, fmt.Errorf("file path to the node Neo wallet is not configured '%s'", walletPathKey)
 	}
 
-	walletPath := cfg.GetString(walletPathKey)
-	walletPass := cfg.GetString("wallet.password")
+	walletPath := cfg.Wallet.Path
+	walletPass := cfg.Wallet.Password
 
 	// parse default validators
-	server.predefinedValidators, err = parsePredefinedValidators(cfg)
+	server.predefinedValidators = cfg.FSChain.Validators
 	if err != nil {
 		return nil, fmt.Errorf("can't parse predefined validators list: %w", err)
 	}
@@ -412,11 +402,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
-	isAutoDeploy, err := isAutoDeploymentMode(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	isLocalConsensus, err := isLocalConsensusMode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid consensus configuration: %w", err)
@@ -429,7 +414,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 		server.key = singleAcc.PrivateKey()
 	} else {
-		acc, err := utilConfig.LoadAccount(walletPath, cfg.GetString("wallet.address"), walletPass)
+		acc, err := utilConfig.LoadAccount(walletPath, cfg.Wallet.Address, walletPass)
 		if err != nil {
 			return nil, fmt.Errorf("ir: %w", err)
 		}
@@ -449,7 +434,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// create morph client
 	if isLocalConsensus {
 		// go on a local blockchain
-		cfgBlockchain, err := parseBlockchainConfig(cfg, log)
+		err := validateBlockchainConfig(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
 		}
@@ -459,14 +444,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 
 		if len(server.predefinedValidators) == 0 {
-			server.predefinedValidators = cfgBlockchain.Committee
+			server.predefinedValidators = cfg.FSChain.Consensus.Committee
 		}
 
-		cfgBlockchain.Wallet.Path = walletPath
-		cfgBlockchain.Wallet.Password = walletPass
-		cfgBlockchain.ErrorListener = errChan
-
-		server.bc, err = blockchain.New(cfgBlockchain)
+		server.bc, err = blockchain.New(&cfg.FSChain.Consensus, &cfg.Wallet, errChan, log)
 		if err != nil {
 			return nil, fmt.Errorf("init internal blockchain: %w", err)
 		}
@@ -500,7 +481,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		fsChainOpts[1] = client.WithLogger(log)
 		fsChainOpts[2] = client.WithSingleClient(localWSClient)
 
-		if !isAutoDeploy {
+		if !cfg.FSChainAutodeploy {
 			fsChainOpts = append(fsChainOpts, client.WithAutoFSChainScope())
 		}
 
@@ -510,13 +491,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	} else {
 		if len(server.predefinedValidators) == 0 {
-			return nil, fmt.Errorf("empty '%s' list in config", cfgPathFSChainValidators)
+			return nil, fmt.Errorf("empty '%s' list in config", cfgFSChainName+".validators")
 		}
 
 		// fallback to the pure RPC architecture
 
 		fsChainParams.key = server.key
-		fsChainParams.withAutoFSChainScope = !isAutoDeploy
+		fsChainParams.withAutoFSChainScope = !cfg.FSChainAutodeploy
 
 		server.morphClient, err = server.createClient(ctx, fsChainParams, errChan)
 		if err != nil {
@@ -524,7 +505,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
-	if isAutoDeploy {
+	if cfg.FSChainAutodeploy {
 		log.Info("auto-deployment configured, initializing FS chain...")
 
 		var fschain *fsChain
@@ -538,18 +519,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			//
 			// connection switch/loose callbacks are not needed, so just create
 			// another one-time client instead of server.createClient
-			endpoints := cfg.GetStringSlice(cfgPathFSChainRPCEndpoints)
-			if len(endpoints) == 0 {
-				return nil, fmt.Errorf("configuration of FS chain RPC endpoints '%s' is missing or empty", cfgPathFSChainRPCEndpoints)
+			if len(cfg.FSChain.Endpoints) == 0 {
+				return nil, fmt.Errorf("configuration of FS chain RPC endpoints '%s' is missing or empty", cfgFSChainName+".endpoints")
 			}
 
 			clnt, err = client.New(server.key,
 				client.WithContext(ctx),
 				client.WithLogger(log),
-				client.WithDialTimeout(cfg.GetDuration(fsChainParams.name+".dial_timeout")),
-				client.WithEndpoints(endpoints),
-				client.WithReconnectionRetries(cfg.GetInt(fsChainParams.name+".reconnections_number")),
-				client.WithReconnectionsDelay(cfg.GetDuration(fsChainParams.name+".reconnections_delay")),
+				client.WithDialTimeout(cfg.FSChain.DialTimeout),
+				client.WithEndpoints(cfg.FSChain.Endpoints),
+				client.WithReconnectionRetries(cfg.FSChain.ReconnectionsNumber),
+				client.WithReconnectionsDelay(cfg.FSChain.ReconnectionsDelay),
 				client.WithMinRequiredBlockHeight(fsChainParams.from),
 			)
 			if err != nil {
@@ -566,17 +546,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
 		deployPrm.Glagolitsa = &glagolitsa.Glagolitsa{}
 
-		nnsCfg, err := parseNNSConfig(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("invalid NNS configuration: %w", err)
-		}
-
 		err = readEmbeddedContracts(&deployPrm)
 		if err != nil {
 			return nil, err
 		}
 
-		deployPrm.NNS.SystemEmail = nnsCfg.systemEmail
+		deployPrm.NNS.SystemEmail = cfg.NNS.SystemEmail
 		if deployPrm.NNS.SystemEmail == "" {
 			deployPrm.NNS.SystemEmail = "nonexistent@nspcc.io"
 		}
@@ -608,7 +583,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		return nil, err
 	}
 
-	server.withoutMainNet = cfg.GetBool("without_mainnet")
+	server.withoutMainNet = cfg.WithoutMainnet
 
 	if server.withoutMainNet {
 		// This works as long as event Listener starts listening loop once,
@@ -620,6 +595,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		mainnetChain := fsChainParams
 		mainnetChain.withAutoFSChainScope = false
 		mainnetChain.name = mainnetPrefix
+		mainnetChain.cfg = &cfg.Mainnet
 
 		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
@@ -650,7 +626,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 	// get all script hashes of contracts
 	server.contracts, err = initContracts(ctx, log,
-		cfg,
+		&cfg.Contracts,
 		server.morphClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
@@ -683,7 +659,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 	server.pubKey = server.key.PublicKey().Bytes()
 
-	auditPool, err := ants.NewPool(cfg.GetInt("audit.task.exec_pool_size"))
+	auditPool, err := ants.NewPool(cfg.Audit.Task.ExecPoolSize)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +697,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	}
 
 	neofsCli, err := neofsClient.NewFromMorph(server.mainnetClient, server.contracts.neofs,
-		server.feeConfig.MainChainFee(), neofsClient.TryNotary(), neofsClient.AsAlphabet())
+		fixedn.Fixed8(cfg.Fee.MainChain), neofsClient.TryNotary(), neofsClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +716,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		server.morphClient,
 		irf,
 		server.key.PublicKey(),
-		cfg.GetDuration("indexer.cache_timeout"),
+		cfg.Indexer.CacheTimeout,
 	)
 
 	var buffers sync.Pool
@@ -752,24 +728,24 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	clientCache := newClientCache(&clientCacheParams{
 		Log:          log,
 		Key:          &server.key.PrivateKey,
-		SGTimeout:    cfg.GetDuration("audit.timeout.get"),
-		HeadTimeout:  cfg.GetDuration("audit.timeout.head"),
-		RangeTimeout: cfg.GetDuration("audit.timeout.rangehash"),
+		SGTimeout:    cfg.Audit.Timeout.Get,
+		HeadTimeout:  cfg.Audit.Timeout.Head,
+		RangeTimeout: cfg.Audit.Timeout.RangeHash,
 		Buffers:      &buffers,
 	})
 
 	server.registerNoErrCloser(clientCache.cache.CloseAll)
 
-	pdpPoolSize := cfg.GetInt("audit.pdp.pairs_pool_size")
-	porPoolSize := cfg.GetInt("audit.por.pool_size")
+	pdpPoolSize := cfg.Audit.PDP.PairsPoolSize
+	porPoolSize := cfg.Audit.POR.PoolSize
 
 	// create audit processor dependencies
 	server.auditTaskManager = audittask.New(
-		audittask.WithQueueCapacity(cfg.GetUint32("audit.task.queue_capacity")),
+		audittask.WithQueueCapacity(cfg.Audit.Task.QueueCapacity),
 		audittask.WithWorkerPool(auditPool),
 		audittask.WithLogger(log),
 		audittask.WithContainerCommunicator(clientCache),
-		audittask.WithMaxPDPSleepInterval(cfg.GetDuration("audit.pdp.max_sleep_interval")),
+		audittask.WithMaxPDPSleepInterval(cfg.Audit.PDP.MaxSleepInterval),
 		audittask.WithPDPWorkerPoolGenerator(func() (util2.WorkerPool, error) {
 			return ants.NewPool(pdpPoolSize)
 		}),
@@ -789,7 +765,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		EpochSource:      server,
 		SGSource:         clientCache,
 		Key:              &server.key.PrivateKey,
-		RPCSearchTimeout: cfg.GetDuration("audit.timeout.search"),
+		RPCSearchTimeout: cfg.Audit.Timeout.Search,
 		TaskManager:      server.auditTaskManager,
 		Reporter:         server,
 	})
@@ -848,7 +824,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 
 	var alphaSync event.Handler
 
-	if server.withoutMainNet || cfg.GetBool("governance.disable") {
+	if server.withoutMainNet || cfg.Governance.Disable {
 		alphaSync = func(event.Event) {
 			log.Debug("alphabet keys sync is disabled")
 		}
@@ -891,13 +867,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
-		PoolSize:         cfg.GetInt("workers.netmap"),
+		PoolSize:         cfg.Workers.Netmap,
 		NetmapClient:     server.netmapClient,
 		EpochTimer:       server,
 		EpochState:       server,
 		AlphabetState:    server,
-		CleanupEnabled:   cfg.GetBool("netmap_cleaner.enabled"),
-		CleanupThreshold: cfg.GetUint64("netmap_cleaner.threshold"),
+		CleanupEnabled:   cfg.NetmapCleaner.Enabled,
+		CleanupThreshold: cfg.NetmapCleaner.Threshold,
 		ContainerWrapper: cnrClient,
 		HandleAudit: server.onlyActiveEventHandler(
 			auditProcessor.StartAuditHandler(),
@@ -930,11 +906,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// container processor
 	containerProcessor, err := container.New(&container.Params{
 		Log:             log,
-		PoolSize:        cfg.GetInt("workers.container"),
+		PoolSize:        cfg.Workers.Container,
 		AlphabetState:   server,
 		ContainerClient: cnrClient,
 		NetworkState:    server.netmapClient,
-		MetaEnabled:     cfg.GetBool("experimental.chain_meta_data"),
+		MetaEnabled:     cfg.Experimental.ChainMetaData,
 	})
 	if err != nil {
 		return nil, err
@@ -950,7 +926,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// create balance processor
 	balanceProcessor, err := balance.New(&balance.Params{
 		Log:           log,
-		PoolSize:      cfg.GetInt("workers.balance"),
+		PoolSize:      cfg.Workers.Balance,
 		NeoFSClient:   neofsCli,
 		BalanceSC:     server.contracts.balance,
 		AlphabetState: server,
@@ -969,7 +945,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		// create mainnnet neofs processor
 		neofsProcessor, err := neofs.New(&neofs.Params{
 			Log:                 log,
-			PoolSize:            cfg.GetInt("workers.neofs"),
+			PoolSize:            cfg.Workers.NeoFS,
 			NeoFSContract:       server.contracts.neofs,
 			BalanceClient:       server.balanceClient,
 			NetmapClient:        server.netmapClient,
@@ -977,10 +953,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 			EpochState:          server,
 			AlphabetState:       server,
 			Converter:           precisionConverter,
-			MintEmitCacheSize:   cfg.GetInt("emit.mint.cache_size"),
-			MintEmitThreshold:   cfg.GetUint64("emit.mint.threshold"),
-			MintEmitValue:       fixedn.Fixed8(cfg.GetInt64("emit.mint.value")),
-			GasBalanceThreshold: cfg.GetInt64("emit.gas.balance_threshold"),
+			MintEmitCacheSize:   cfg.Emit.Mint.CacheSize,
+			MintEmitThreshold:   cfg.Emit.Mint.Threshold,
+			MintEmitValue:       fixedn.Fixed8(cfg.Emit.Mint.Value),
+			GasBalanceThreshold: cfg.Emit.Gas.BalanceThreshold,
 		})
 		if err != nil {
 			return nil, err
@@ -995,12 +971,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// create alphabet processor
 	alphabetProcessor, err := alphabet.New(&alphabet.Params{
 		Log:               log,
-		PoolSize:          cfg.GetInt("workers.alphabet"),
+		PoolSize:          cfg.Workers.Alphabet,
 		AlphabetContracts: server.contracts.alphabet,
 		NetmapClient:      server.netmapClient,
 		MorphClient:       server.morphClient,
 		IRList:            server,
-		StorageEmission:   cfg.GetUint64("emit.storage.amount"),
+		StorageEmission:   cfg.Emit.Storage.Amount,
 	})
 	if err != nil {
 		return nil, err
@@ -1014,7 +990,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 	// create reputation processor
 	reputationProcessor, err := reputation.New(&reputation.Params{
 		Log:               log,
-		PoolSize:          cfg.GetInt("workers.reputation"),
+		PoolSize:          cfg.Workers.Reputation,
 		EpochState:        server,
 		AlphabetState:     server,
 		ReputationWrapper: reputationClient,
@@ -1039,17 +1015,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		newEpochHandlers:   server.newEpochTickHandlers(),
 		cnrWrapper:         cnrClient,
 		epoch:              server,
-		stopEstimationDMul: cfg.GetUint32("timers.stop_estimation.mul"),
-		stopEstimationDDiv: cfg.GetUint32("timers.stop_estimation.div"),
+		stopEstimationDMul: cfg.Timers.StopEstimation.Mul,
+		stopEstimationDDiv: cfg.Timers.StopEstimation.Div,
 		collectBasicIncome: subEpochEventHandler{
 			handler:     settlementProcessor.HandleIncomeCollectionEvent,
-			durationMul: cfg.GetUint32("timers.collect_basic_income.mul"),
-			durationDiv: cfg.GetUint32("timers.collect_basic_income.div"),
+			durationMul: cfg.Timers.CollectBasicIncome.Mul,
+			durationDiv: cfg.Timers.CollectBasicIncome.Div,
 		},
 		distributeBasicIncome: subEpochEventHandler{
 			handler:     settlementProcessor.HandleIncomeDistributionEvent,
-			durationMul: cfg.GetUint32("timers.distribute_basic_income.mul"),
-			durationDiv: cfg.GetUint32("timers.distribute_basic_income.div"),
+			durationMul: cfg.Timers.CollectBasicIncome.Mul,
+			durationDiv: cfg.Timers.CollectBasicIncome.Div,
 		},
 	})
 
@@ -1069,17 +1045,17 @@ func createListener(cli *client.Client, p chainParams) (event.Listener, error) {
 }
 
 func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<- error) (*client.Client, error) {
-	endpoints := p.cfg.GetStringSlice(p.name + ".endpoints")
+	endpoints := p.cfg.Endpoints
 	if len(endpoints) == 0 {
 		return nil, fmt.Errorf("%s chain client endpoints not provided", p.name)
 	}
 	var options = []client.Option{
 		client.WithContext(ctx),
 		client.WithLogger(p.log),
-		client.WithDialTimeout(p.cfg.GetDuration(p.name + ".dial_timeout")),
+		client.WithDialTimeout(p.cfg.DialTimeout),
 		client.WithEndpoints(endpoints),
-		client.WithReconnectionRetries(p.cfg.GetInt(p.name + ".reconnections_number")),
-		client.WithReconnectionsDelay(p.cfg.GetDuration(p.name + ".reconnections_delay")),
+		client.WithReconnectionRetries(p.cfg.ReconnectionsNumber),
+		client.WithReconnectionsDelay(p.cfg.ReconnectionsDelay),
 		client.WithConnSwitchCallback(func() {
 			var err error
 
@@ -1099,12 +1075,6 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 	}
 
 	return client.New(p.key, options...)
-}
-
-func parsePredefinedValidators(cfg *viper.Viper) (keys.PublicKeys, error) {
-	publicKeyStrings := cfg.GetStringSlice(cfgPathFSChainValidators)
-
-	return ParsePublicKeysFromStrings(publicKeyStrings)
 }
 
 // ParsePublicKeysFromStrings returns slice of neo public keys from slice
@@ -1230,22 +1200,13 @@ func (s *Server) restartMainChain() error {
 	return nil
 }
 
-func serveControl(server *Server, log *zap.Logger, cfg *viper.Viper, errChan chan<- error) error {
-	controlSvcEndpoint := cfg.GetString("control.grpc.endpoint")
+func serveControl(server *Server, log *zap.Logger, cfg *config.Config, errChan chan<- error) error {
+	controlSvcEndpoint := cfg.Control.GRPC.Endpoint
 	if controlSvcEndpoint != "" {
-		authKeysStr := cfg.GetStringSlice("control.authorized_keys")
-		authKeys := make([][]byte, 0, len(authKeysStr))
+		authKeys := make([][]byte, 0, len(cfg.Control.AuthorizedKeys))
 
-		for i := range authKeysStr {
-			key, err := hex.DecodeString(authKeysStr[i])
-			if err != nil {
-				return fmt.Errorf("could not parse Control authorized key %s: %w",
-					authKeysStr[i],
-					err,
-				)
-			}
-
-			authKeys = append(authKeys, key)
+		for _, v := range cfg.Control.AuthorizedKeys {
+			authKeys = append(authKeys, v.Bytes())
 		}
 
 		lis, err := net.Listen("tcp", controlSvcEndpoint)
@@ -1277,8 +1238,8 @@ func serveControl(server *Server, log *zap.Logger, cfg *viper.Viper, errChan cha
 	return nil
 }
 
-func serveMetrics(server *Server, cfg *viper.Viper) {
-	if cfg.GetString("prometheus.address") != "" {
+func serveMetrics(server *Server, cfg *config.Config) {
+	if cfg.Prometheus.Address != "" {
 		m := metrics.NewInnerRingMetrics(misc.Version)
 		server.metrics = &m
 	}
