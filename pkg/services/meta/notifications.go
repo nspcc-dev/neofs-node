@@ -37,9 +37,11 @@ func (m *Meta) unsubscribeFromBlocks() {
 	m.cliM.Lock()
 	defer m.cliM.Unlock()
 
+	m.l.Debug("unsubscribing from blocks")
+
 	err = m.ws.Unsubscribe(m.blockSubID)
 	if err != nil {
-		m.l.Warn("could not unsubscribe from blocks", zap.String("ID", m.blockSubID))
+		m.l.Warn("could not unsubscribe from blocks", zap.String("ID", m.blockSubID), zap.Error(err))
 		return
 	}
 
@@ -544,6 +546,8 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 	for cID, st := range m.storages {
 		_, ok := cnrsNetwork[cID]
 		if !ok {
+			l.Debug("drop container node does not belong to", zap.Stringer("cid", cID))
+
 			err = st.drop()
 			if err != nil {
 				l.Warn("drop inactual container", zap.Stringer("cID", cID), zap.Error(err))
