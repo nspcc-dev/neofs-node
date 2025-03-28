@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -66,16 +67,12 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("decode session token: %w", err)
 		}
 
-		if !tok.VerifySignature() {
-			return errors.New("invalid session token signature")
+		tokSigner, err := icrypto.VerifyTokenSignature(&tok)
+		if err != nil {
+			return fmt.Errorf("verify session token signature: %w", err)
 		}
 
-		var signerPub neofsecdsa.PublicKeyRFC6979
-		if err = signerPub.Decode(tok.IssuerPublicKeyBytes()); err != nil {
-			return fmt.Errorf("invalid issuer public key: %w", err)
-		}
-
-		if user.NewFromECDSAPublicKey(ecdsa.PublicKey(signerPub)) != v.ownerContainer {
+		if tokSigner != v.ownerContainer {
 			return errors.New("session token is not signed by the container owner")
 		}
 
