@@ -534,7 +534,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 	l := m.l.With(zap.Uint64("epoch", e))
 	l.Debug("handling new epoch notification")
 
-	cnrsNetwork, err := m.net.List()
+	cnrsNetwork, err := m.net.List(e)
 	if err != nil {
 		return fmt.Errorf("list containers: %w", err)
 	}

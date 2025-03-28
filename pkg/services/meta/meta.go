@@ -30,9 +30,11 @@ const (
 
 // NeoFSNetwork describes current NeoFS storage network state.
 type NeoFSNetwork interface {
+	// Epoch returns current epoch in the NeoFS network.
+	Epoch() (uint64, error)
 	// List returns node's containers that support chain-based meta data and
 	// any error that does not allow listing.
-	List() (map[cid.ID]struct{}, error)
+	List(uint64) (map[cid.ID]struct{}, error)
 	// IsMineWithMeta checks if the given CID has meta enabled and current
 	// node belongs to it.
 	IsMineWithMeta(cid.ID) (bool, error)
@@ -160,7 +162,11 @@ func New(p Parameters) (*Meta, error) {
 		}
 	}()
 
-	cnrsNetwork, err := p.Network.List()
+	e, err := p.Network.Epoch()
+	if err != nil {
+		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
+	}
+	cnrsNetwork, err := p.Network.List(e)
 	if err != nil {
 		return nil, fmt.Errorf("listing node's containers: %w", err)
 	}
