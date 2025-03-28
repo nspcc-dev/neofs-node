@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -149,43 +151,107 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 		}
 	}
 
-	// unmarshal object, work only with physically stored (raw == true) objects
-	obj, err := db.get(tx, addr, key, false, true, currEpoch)
-	if err != nil {
-		var siErr *objectSDK.SplitInfoError
-		var notFoundErr apistatus.ObjectNotFound
+	{
+		// TODO: drop duplicated indexes' cleanup
 
-		if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
-			return false, false, 0, nil
+		// unmarshal object, work only with physically stored (raw == true) objects
+		obj, err := db.get(tx, addr, key, false, true, currEpoch)
+		if err != nil {
+			var siErr *objectSDK.SplitInfoError
+			var notFoundErr apistatus.ObjectNotFound
+
+			if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
+				return false, false, 0, nil
+			}
+
+			if !errors.Is(err, logicerr.Error) {
+				// data corruption, it should be removed anyway
+				err = deleteAllDataByAddress(tx, addr)
+				if err != nil {
+					db.log.Warn("cleaning corrupted object failed", zap.Stringer("addr", addr), zap.Error(err))
+					return false, false, 0, nil
+				}
+			}
+
+			return false, false, 0, err
 		}
 
-		if !errors.Is(err, logicerr.Error) {
-			// data corruption, it should be removed anyway
-			err = deleteAllDataByAddress(tx, addr)
+		// if object is an only link to a parent, then remove parent
+		if parent := obj.Parent(); parent != nil && !parent.GetID().IsZero() {
+			err = db.deleteObject(tx, parent, true)
 			if err != nil {
-				db.log.Warn("cleaning corrupted object failed", zap.Stringer("addr", addr), zap.Error(err))
-				return false, false, 0, nil
+				return false, false, 0, fmt.Errorf("could not remove parent object: %w", err)
 			}
 		}
 
-		return false, false, 0, err
-	}
-
-	// if object is an only link to a parent, then remove parent
-	if parent := obj.Parent(); parent != nil && !parent.GetID().IsZero() {
-		err = db.deleteObject(tx, parent, true)
+		// remove object
+		err = db.deleteObject(tx, obj, false)
 		if err != nil {
-			return false, false, 0, fmt.Errorf("could not remove parent object: %w", err)
+			return false, false, 0, fmt.Errorf("could not remove object: %w", err)
 		}
 	}
 
-	// remove object
-	err = db.deleteObject(tx, obj, false)
+	size, parent, err := getSizeAndParent(tx, addr.Container(), addr.Object())
 	if err != nil {
-		return false, false, 0, fmt.Errorf("could not remove object: %w", err)
+		if errors.As(err, &apistatus.ObjectNotFound{}) {
+			return false, false, 0, nil
+		}
+
+		return false, false, 0, fmt.Errorf("fetching object's size and parent: %w", err)
+	}
+	err = deleteMetadata(tx, addr.Container(), addr.Object())
+	if err != nil {
+		return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
 
-	return true, removeAvailableObject, obj.PayloadSize(), nil
+	if !parent.IsZero() {
+		err = deleteMetadata(tx, addr.Container(), parent)
+		if err != nil {
+			return false, false, 0, fmt.Errorf("can't remove %s parent metadata indexes: %w", parent.String(), err)
+		}
+	}
+
+	return true, removeAvailableObject, size, nil
+}
+
+func getSizeAndParent(tx *bbolt.Tx, cID cid.ID, oID oid.ID) (uint64, oid.ID, error) {
+	bkt := tx.Bucket(metaBucketKey(cID))
+	c := bkt.Cursor()
+
+	startPref := make([]byte, 1+oid.Size)
+	startPref[0] = metaPrefixID
+	copy(startPref[1:], oID[:])
+
+	k, _ := c.Seek(startPref)
+	if !bytes.Equal(k, startPref) {
+		return 0, oid.ID{}, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
+
+	var size uint64
+	var parent oid.ID
+
+	for k, _ = c.Next(); bytes.HasPrefix(k[1:], oID[:]); k, _ = c.Next() {
+		if k[0] != metaPrefixIDAttr {
+			continue
+		}
+		if len(k) < 1+oid.Size {
+			return size, parent, fmt.Errorf("unexpected metadata key's len: %d (%x)", len(k), k)
+		}
+
+		switch attr := k[1+oid.Size:]; {
+		case bytes.HasPrefix(attr, []byte(objectSDK.FilterParentID)):
+			parent = oid.ID(attr[len(objectSDK.FilterParentID)+1:])
+		case bytes.HasPrefix(attr, []byte(objectSDK.FilterPayloadSize)):
+			v := string(k[len(objectSDK.FilterPayloadSize)+1:])
+			size, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				return size, parent, fmt.Errorf("error parsing object's size from '%s' attribute value: %w", v, err)
+			}
+		default:
+			continue
+		}
+	}
+	return size, parent, nil
 }
 
 func (db *DB) deleteObject(
@@ -206,10 +272,6 @@ func (db *DB) deleteObject(
 	err = updateFKBTIndexes(tx, obj, delFKBTIndexItem)
 	if err != nil {
 		return fmt.Errorf("can't remove fake bucket tree indexes: %w", err)
-	}
-
-	if err = deleteMetadata(tx, obj.GetContainerID(), obj.GetID()); err != nil {
-		return fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
 
 	return nil
