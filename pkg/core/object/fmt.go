@@ -199,8 +199,12 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("session token is not for object's signer")
 	}
 
-	if _, err := icrypto.VerifyTokenSignature(token); err != nil {
+	tokenSigner, err := icrypto.VerifyTokenSignature(token)
+	if err != nil {
 		return fmt.Errorf("verify session token signature: %w", err)
+	}
+	if tokenSigner != token.Issuer() {
+		return errors.New("session token is signed not by its issuer")
 	}
 
 	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above
