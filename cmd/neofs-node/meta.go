@@ -71,6 +71,10 @@ type neofsNetwork struct {
 	prevRes    map[cid.ID]struct{}
 }
 
+func (c *neofsNetwork) Epoch() (uint64, error) {
+	return c.network.Epoch()
+}
+
 func (c *neofsNetwork) Head(ctx context.Context, cID cid.ID, oID oid.ID) (object.Object, error) {
 	var hw headerWriter
 	var hPrm getsvc.HeadPrm
@@ -123,27 +127,18 @@ func (c *neofsNetwork) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (
 	return false, nil
 }
 
-func (c *neofsNetwork) List() (map[cid.ID]struct{}, error) {
+func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 	actualContainers, err := c.cnrClient.List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("read containers: %w", err)
 	}
-	curEpoch, err := c.network.Epoch()
+	networkMap, err := c.network.GetNetMapByEpoch(e)
 	if err != nil {
-		return nil, fmt.Errorf("read current NeoFS epoch: %w", err)
-	}
-	networkMap, err := c.network.GetNetMapByEpoch(curEpoch)
-	if err != nil {
-		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
+		return nil, fmt.Errorf("read network map at the epoch #%d: %w", e, err)
 	}
 
 	c.m.RLock()
-	if c.prevNetMap != nil && c.prevCnrs != nil {
-		cnrsSame := slices.Equal(c.prevCnrs, actualContainers)
-		if !cnrsSame {
-			c.m.RUnlock()
-			return c.prevRes, nil
-		}
+	if c.prevNetMap != nil && c.prevCnrs != nil && slices.Equal(c.prevCnrs, actualContainers) {
 		netmapSame := slices.EqualFunc(c.prevNetMap.Nodes(), networkMap.Nodes(), func(n1 netmapsdk.NodeInfo, n2 netmapsdk.NodeInfo) bool {
 			return bytes.Equal(n1.PublicKey(), n2.PublicKey())
 		})

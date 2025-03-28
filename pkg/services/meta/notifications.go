@@ -32,14 +32,14 @@ func (m *Meta) subscribeForBlocks(ch chan<- *block.Header) (string, error) {
 	return m.ws.ReceiveHeadersOfAddedBlocks(nil, ch)
 }
 
+// unsubscribeFromBlocks requires [Meta.cliM] to be taken.
 func (m *Meta) unsubscribeFromBlocks() {
 	var err error
-	m.cliM.Lock()
-	defer m.cliM.Unlock()
+	m.l.Debug("unsubscribing from blocks")
 
 	err = m.ws.Unsubscribe(m.blockSubID)
 	if err != nil {
-		m.l.Warn("could not unsubscribe from blocks", zap.String("ID", m.blockSubID))
+		m.l.Warn("could not unsubscribe from blocks", zap.String("ID", m.blockSubID), zap.Error(err))
 		return
 	}
 
@@ -198,7 +198,7 @@ func (m *Meta) reconnect(ctx context.Context) error {
 
 	m.stM.RLock()
 	if len(m.storages) > 0 {
-		m.bCh = make(chan *block.Header)
+		m.bCh = make(chan *block.Header, notificationBuffSize)
 		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
 		if err != nil {
 			m.stM.RUnlock()
@@ -207,9 +207,9 @@ func (m *Meta) reconnect(ctx context.Context) error {
 	}
 	m.stM.RUnlock()
 
-	m.cnrDelEv = make(chan *state.ContainedNotificationEvent)
-	m.cnrPutEv = make(chan *state.ContainedNotificationEvent)
-	m.epochEv = make(chan *state.ContainedNotificationEvent)
+	m.cnrDelEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
+	m.cnrPutEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
+	m.epochEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
 
 	err = m.subscribeForMeta()
 	if err != nil {
@@ -479,7 +479,9 @@ func (m *Meta) dropContainer(cID cid.ID) error {
 	delete(m.storages, cID)
 
 	if len(m.storages) == 0 {
+		m.cliM.Lock()
 		m.unsubscribeFromBlocks()
+		m.cliM.Unlock()
 	}
 
 	return nil
@@ -534,7 +536,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 	l := m.l.With(zap.Uint64("epoch", e))
 	l.Debug("handling new epoch notification")
 
-	cnrsNetwork, err := m.net.List()
+	cnrsNetwork, err := m.net.List(e)
 	if err != nil {
 		return fmt.Errorf("list containers: %w", err)
 	}
@@ -544,6 +546,8 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 	for cID, st := range m.storages {
 		_, ok := cnrsNetwork[cID]
 		if !ok {
+			l.Debug("drop container node does not belong to", zap.Stringer("cid", cID))
+
 			err = st.drop()
 			if err != nil {
 				l.Warn("drop inactual container", zap.Stringer("cID", cID), zap.Error(err))
