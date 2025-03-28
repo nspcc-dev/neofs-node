@@ -6,8 +6,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -95,5 +98,23 @@ func TestStickyCheck(t *testing.T) {
 		assertFn(false, true, false, true)
 		assertFn(false, false, true, true)
 		assertFn(false, true, true, true)
+	})
+}
+
+func TestIsValidBearer(t *testing.T) {
+	t.Run("signed not by issuer", func(t *testing.T) {
+		const curEpoch = 100
+		brr := usertest.User()
+		cnrOwner := usertest.User()
+		var bt bearer.Token
+		bt.SetExp(curEpoch)
+		bt.SetIssuer(usertest.OtherID(cnrOwner.ID))
+
+		sig, err := cnrOwner.Sign(bt.SignedData())
+		require.NoError(t, err)
+		bt.AttachSignature(neofscrypto.NewSignatureFromRawKey(cnrOwner.Signer.Scheme(), cnrOwner.PublicKeyBytes, sig))
+
+		err = isValidBearer(bt, cidtest.ID(), cnrOwner.ID, brr.PublicKeyBytes, curEpoch)
+		require.EqualError(t, err, "bearer token has invalid signature")
 	})
 }
