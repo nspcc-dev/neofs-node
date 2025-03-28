@@ -13,8 +13,10 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	eaclV2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/eacl/v2"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -168,9 +170,10 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		table = bearerTok.EACLTable()
 	}
 
-	// if bearer token is not present, isValidBearer returns true
-	if err := isValidBearer(reqInfo, c.state); err != nil {
-		return err
+	if bt := reqInfo.Bearer(); bt != nil {
+		if err := isValidBearer(*bt, reqInfo.ContainerID(), reqInfo.ContainerOwner(), reqInfo.SenderKey(), c.state.CurrentEpoch()); err != nil {
+			return err
+		}
 	}
 
 	hdrSrcOpts := make([]eaclV2.Option, 0, 3)
@@ -221,41 +224,35 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 // isValidBearer checks whether bearer token was correctly signed by authorized
 // entity. This method might be defined on whole ACL service because it will
 // require fetching current epoch to check lifetime.
-func isValidBearer(reqInfo v2.RequestInfo, st netmap.State) error {
-	ownerCnr := reqInfo.ContainerOwner()
-
-	token := reqInfo.Bearer()
-
-	// 0. Check if bearer token is present in reqInfo.
-	if token == nil {
-		return nil
-	}
-
+func isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, reqSenderKey []byte, curEpoch uint64) error {
 	// 1. First check token lifetime. Simplest verification.
-	if !token.ValidAt(st.CurrentEpoch()) {
+	if !token.ValidAt(curEpoch) {
 		return errBearerExpired
 	}
 
 	// 2. Then check if bearer token is signed correctly.
-	_, err := icrypto.VerifyTokenSignature(token)
+	signer, err := icrypto.VerifyTokenSignature(&token)
 	if err != nil {
 		return fmt.Errorf("verify bearer token signature: %w", err)
+	}
+	if issuer := token.Issuer(); !issuer.IsZero() && signer != issuer {
+		return errors.New("bearer token is signed not by its issuer")
 	}
 
 	// 3. Then check if container is either empty or equal to the container in the request.
 	cnr := token.EACLTable().GetCID()
-	if !cnr.IsZero() && cnr != reqInfo.ContainerID() {
+	if !cnr.IsZero() && cnr != reqCnr {
 		return errBearerInvalidContainerID
 	}
 
 	// 4. Then check if container owner signed this token.
-	if token.ResolveIssuer() != ownerCnr {
+	if signer != ownerCnr {
 		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
 	// 5. Then check if request sender has rights to use this token.
-	pubKey, err := keys.NewPublicKeyFromBytes(reqInfo.SenderKey(), elliptic.P256())
+	pubKey, err := keys.NewPublicKeyFromBytes(reqSenderKey, elliptic.P256())
 	if err != nil {
 		return fmt.Errorf("decode sender public key: %w", err)
 	}
