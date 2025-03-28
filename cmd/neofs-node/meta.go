@@ -138,12 +138,7 @@ func (c *neofsNetwork) List(e uint64) (map[cid.ID]struct{}, error) {
 	}
 
 	c.m.RLock()
-	if c.prevNetMap != nil && c.prevCnrs != nil {
-		cnrsSame := slices.Equal(c.prevCnrs, actualContainers)
-		if !cnrsSame {
-			c.m.RUnlock()
-			return c.prevRes, nil
-		}
+	if c.prevNetMap != nil && c.prevCnrs != nil && slices.Equal(c.prevCnrs, actualContainers) {
 		netmapSame := slices.EqualFunc(c.prevNetMap.Nodes(), networkMap.Nodes(), func(n1 netmapsdk.NodeInfo, n2 netmapsdk.NodeInfo) bool {
 			return bytes.Equal(n1.PublicKey(), n2.PublicKey())
 		})
