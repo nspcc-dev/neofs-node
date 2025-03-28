@@ -184,7 +184,7 @@ func (s *containerStorage) putRawIndexes(ctx context.Context, l *zap.Logger, ee 
 
 		res <- evWithMpt
 
-		fillObjectIndex(batch, h)
+		fillObjectIndex(batch, h, false)
 	}
 
 	return finalErr
@@ -238,7 +238,7 @@ func isOpAllowed(db storage.Store, e objEvent) error {
 
 const binPropertyMarker = "1" // ROOT, PHY, etc.
 
-func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
+func fillObjectIndex(batch map[string][]byte, h objectsdk.Object, isParent bool) {
 	id := h.GetID()
 	typ := h.Type()
 	owner := h.Owner()
@@ -246,8 +246,9 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	pSize := h.PayloadSize()
 	fPart := h.GetFirstID()
 	parID := h.GetParentID()
-	hasParent := h.Parent() != nil
-	phy := hasParent || (fPart.IsZero() && parID.IsZero())
+	par := h.Parent()
+	hasParent := par != nil
+	phy := !isParent
 	pldHash, _ := h.PayloadChecksum()
 	var ver version.Version
 	if v := h.Version(); v != nil {
@@ -275,7 +276,7 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 	if !parID.IsZero() {
 		putPlainAttribute(batch, id, objectsdk.FilterParentID, string(parID[:]))
 	}
-	if !hasParent && typ == objectsdk.TypeRegular {
+	if !hasParent && fPart.IsZero() && typ == objectsdk.TypeRegular {
 		putPlainAttribute(batch, id, objectsdk.FilterRoot, binPropertyMarker)
 	}
 	if phy {
@@ -289,11 +290,20 @@ func fillObjectIndex(batch map[string][]byte, h objectsdk.Object) {
 			putPlainAttribute(batch, id, ak, av)
 		}
 	}
+
+	if hasParent && !parID.IsZero() {
+		fillObjectIndex(batch, *par, true)
+	}
 }
 
 func deleteObjectsOps(dbKV map[string][]byte, s storage.Store, objects []byte, canDeleteLockObjects bool) (map[string][]byte, error) {
 	rng := storage.SeekRange{}
 	mptKV := make(map[string][]byte)
+
+	if len(objects) == 0 {
+		return mptKV, nil
+	}
+	objects = expandChildren(s, objects)
 
 	// nil value means "delete" operation
 
@@ -586,4 +596,116 @@ func (s *containerStorage) handleNewEpoch(e uint64) error {
 	wg.Wait()
 
 	return errors.Join(mptErr, dbErr)
+}
+
+func expandChildren(st storage.Store, rootOIDs []byte) []byte {
+	if len(rootOIDs) == 0 {
+		return nil
+	}
+
+	// sorting before every SEEK is used for exact single operation for every
+	// children searching subroutine; search is done in 3 steps:
+	//  1. root -> last/link object search
+	//  2. last/link -> first part ID search
+	//  3. first part ID -> all children search
+
+	var childrenWithParentID [][]byte
+	var rng storage.SeekRange
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterParentID), object.AttributeDelimiter)
+
+	rootsSorted := slices.SortedFunc(slices.Chunk(rootOIDs, oid.Size), bytes.Compare)
+	rng.Start = rootsSorted[0]
+
+	st.Seek(rng, func(k, _ []byte) bool {
+		if len(k) < len(rng.Prefix)+oid.Size+attributeDelimiterLen+oid.Size {
+			// unexpected, just skip
+			return true
+		}
+		currRoot := k[len(rng.Prefix) : len(rng.Prefix)+oid.Size]
+		for len(rootsSorted) > 0 {
+			switch bytes.Compare(currRoot, rootsSorted[0]) {
+			case -1:
+				return true
+			case +1:
+				rootsSorted = rootsSorted[1:]
+				continue
+			case 0:
+				childrenWithParentID = append(childrenWithParentID, slices.Clone(k[len(rng.Prefix)+oid.Size+attributeDelimiterLen:]))
+				rootsSorted = rootsSorted[1:]
+				return true
+			}
+		}
+		if len(rootsSorted) == 0 {
+			return false
+		}
+
+		return true
+	})
+
+	if len(childrenWithParentID) == 0 {
+		// all objects are roots, no additional children
+		return rootOIDs
+	}
+
+	firstPartOIDs := make([][]byte, 0, len(childrenWithParentID))
+	slices.SortFunc(childrenWithParentID, bytes.Compare)
+	rng.Prefix = []byte{oidToAttrIndex}
+	rng.Start = slices.Concat(childrenWithParentID[0], []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	st.Seek(rng, func(k, _ []byte) bool {
+		currChild := k[1 : 1+oid.Size]
+		for len(childrenWithParentID) > 0 {
+			switch bytes.Compare(currChild, childrenWithParentID[0]) {
+			case -1:
+			case +1:
+				// should never happen, it means we have info
+				// about child object with parent ID but child
+				// object does not have first part ID, nothing
+				// can be done, just skip
+				childrenWithParentID = childrenWithParentID[1:]
+				continue
+			case 0:
+				firstPartOIDs = append(firstPartOIDs, k[1+oid.Size+len(objectsdk.FilterFirstSplitObject)+attributeDelimiterLen:])
+				childrenWithParentID = childrenWithParentID[1:]
+			}
+		}
+
+		if len(childrenWithParentID) == 0 {
+			return false
+		}
+
+		return true
+	})
+
+	if len(firstPartOIDs) == 0 {
+		// unexpected but nothing to do
+		return rootOIDs
+	}
+
+	slices.SortFunc(firstPartOIDs, bytes.Compare)
+	children := slices.Concat(firstPartOIDs...) // first objects are children too
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	rng.Start = firstPartOIDs[0]
+
+	st.Seek(rng, func(k, _ []byte) bool {
+		currChild := k[len(rng.Prefix) : len(rng.Prefix)+oid.Size]
+		if len(firstPartOIDs) == 0 {
+			return false
+		}
+		for len(firstPartOIDs) > 0 {
+			switch bytes.Compare(currChild, firstPartOIDs[0]) {
+			case -1:
+				return true
+			case +1:
+				firstPartOIDs = firstPartOIDs[1:]
+				continue
+			case 0:
+				children = append(children, slices.Clone(k[len(rng.Prefix)+oid.Size+attributeDelimiterLen:])...)
+				return true
+			}
+		}
+
+		return true
+	})
+
+	return slices.Concat(rootOIDs, children)
 }
