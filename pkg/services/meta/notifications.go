@@ -198,7 +198,7 @@ func (m *Meta) reconnect(ctx context.Context) error {
 
 	m.stM.RLock()
 	if len(m.storages) > 0 {
-		m.bCh = make(chan *block.Header)
+		m.bCh = make(chan *block.Header, notificationBuffSize)
 		m.blockSubID, err = m.subscribeForBlocks(m.bCh)
 		if err != nil {
 			m.stM.RUnlock()
@@ -207,9 +207,9 @@ func (m *Meta) reconnect(ctx context.Context) error {
 	}
 	m.stM.RUnlock()
 
-	m.cnrDelEv = make(chan *state.ContainedNotificationEvent)
-	m.cnrPutEv = make(chan *state.ContainedNotificationEvent)
-	m.epochEv = make(chan *state.ContainedNotificationEvent)
+	m.cnrDelEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
+	m.cnrPutEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
+	m.epochEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
 
 	err = m.subscribeForMeta()
 	if err != nil {

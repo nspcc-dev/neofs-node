@@ -26,6 +26,11 @@ const (
 	// rootKey is the key for the last known state root in KV data base
 	// associated with MPT.
 	rootKey = 0x00
+
+	// notificationBuffSize is a nesessary buffer for neo-go's client proper
+	// notification work; it is required to always read notifications without
+	// any blocking or making additional RPC.
+	notificationBuffSize = 100
 )
 
 // NeoFSNetwork describes current NeoFS storage network state.
@@ -200,10 +205,10 @@ func New(p Parameters) (*Meta, error) {
 		net:       p.Network,
 		endpoints: p.NeoEnpoints,
 		timeout:   p.Timeout,
-		bCh:       make(chan *block.Header),
-		cnrDelEv:  make(chan *state.ContainedNotificationEvent),
-		cnrPutEv:  make(chan *state.ContainedNotificationEvent),
-		epochEv:   make(chan *state.ContainedNotificationEvent),
+		bCh:       make(chan *block.Header, notificationBuffSize),
+		cnrDelEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		cnrPutEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		epochEv:   make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		blockBuff: make(chan *block.Header, blockBuffSize),
 		storages:  storages}, nil
 }
