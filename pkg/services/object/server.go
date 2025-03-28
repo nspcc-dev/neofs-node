@@ -15,10 +15,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	metasvc "github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
@@ -85,6 +86,7 @@ type MetricCollector interface {
 // FSChain provides access to the FS chain required to serve NeoFS API Object
 // service.
 type FSChain interface {
+	container.Source
 	netmap.StateDetailed
 
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
@@ -133,7 +135,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -177,6 +179,7 @@ type server struct {
 	handlers      Handlers
 	fsChain       FSChain
 	storage       Storage
+	meta          *metasvc.Meta
 	signer        ecdsa.PrivateKey
 	mNumber       uint32
 	metrics       MetricCollector
@@ -187,7 +190,7 @@ type server struct {
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
+func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
 	// TODO: configurable capacity
 	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
 	if err != nil {
@@ -197,6 +200,7 @@ func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, signer ec
 		handlers:      hs,
 		fsChain:       fsChain,
 		storage:       st,
+		meta:          metaSvc,
 		signer:        signer,
 		mNumber:       magicNumber,
 		metrics:       m,
@@ -1870,8 +1874,8 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if body.ContainerId == nil {
 		return nil, errors.New("missing container ID")
 	}
-	var cnr cid.ID
-	if err := cnr.FromProtoMessage(body.ContainerId); err != nil {
+	var cID cid.ID
+	if err := cID.FromProtoMessage(body.ContainerId); err != nil {
 		return nil, fmt.Errorf("invalid container ID: %w", err)
 	}
 	if body.Version != 1 {
@@ -1912,22 +1916,40 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
-	cursor, fInt, err := meta.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+	cursor, fInt, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
 	if err != nil {
-		if errors.Is(err, meta.ErrUnreachableQuery) {
+		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil
 		}
 		return nil, err
 	}
 
+	cnr, err := s.fsChain.Get(cID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching container: %w", err)
+	}
+	var handleWithMetaService bool
+	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
+	switch cnr.Value.Attribute(metaOnChainAttr) {
+	case "optimistic", "strict":
+		handleWithMetaService = true
+	default:
+	}
+
 	var res []sdkclient.SearchResultItem
 	var newCursor []byte
 	count := uint16(body.Count) // legit according to the limit
-	if ttl == 1 {
-		if res, newCursor, err = s.storage.SearchObjects(cnr, fs, fInt, body.Attributes, cursor, count); err != nil {
+	switch {
+	case ttl == 1:
+		if res, newCursor, err = s.storage.SearchObjects(cID, fs, fInt, body.Attributes, cursor, count); err != nil {
 			return nil, err
 		}
-	} else {
+	case handleWithMetaService:
+		res, newCursor, err = s.meta.Search(cID, fs, fInt, body.Attributes, cursor, count)
+		if err != nil {
+			return nil, err
+		}
+	default:
 		var signed bool
 		var resErr error
 		mProcessedNodes := make(map[string]struct{})
@@ -1940,7 +1962,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			sets, mores = append(sets, set), append(mores, more)
 			mtx.Unlock()
 		}
-		err = s.fsChain.ForEachContainerNode(cnr, func(node sdknetmap.NodeInfo) bool {
+		err = s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
@@ -1951,7 +1973,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if set, crsr, err := s.storage.SearchObjects(cnr, fs, fInt, body.Attributes, cursor, count); err == nil {
+					if set, crsr, err := s.storage.SearchObjects(cID, fs, fInt, body.Attributes, cursor, count); err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
 				}()
@@ -1993,7 +2015,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			return nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
-			if newCursor, err = meta.CalculateCursor(fs, res[len(res)-1]); err != nil {
+			if newCursor, err = objectcore.CalculateCursor(fs, res[len(res)-1]); err != nil {
 				return nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
 		}

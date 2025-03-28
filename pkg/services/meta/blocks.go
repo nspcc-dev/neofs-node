@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -54,6 +55,8 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 			continue
 		}
 
+		m.l.Debug("received object notification", zap.Stringer("address", oid.NewAddress(ev.cID, ev.oID)))
+
 		evsByStorage[st] = append(evsByStorage[st], ev)
 	}
 
@@ -69,7 +72,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 
 	// errors are logged, no errors are returned to WG
 	_ = wg.Wait()
-	l.Debug("handled block successfully")
+	l.Debug("handled block successfully", zap.Int("num of notifications", len(res.Application)))
 
 	return nil
 }
