@@ -48,6 +48,10 @@ type testNetwork struct {
 	resErr     error
 }
 
+func (t *testNetwork) Epoch() (uint64, error) {
+	return 123, nil
+}
+
 func cidMap(v []cid.ID) map[cid.ID]struct{} {
 	var cids = make(map[cid.ID]struct{}, len(v))
 	for _, c := range v {
@@ -80,7 +84,7 @@ func (t *testNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
 	return true, nil
 }
 
-func (t *testNetwork) List() (map[cid.ID]struct{}, error) {
+func (t *testNetwork) List(uint64) (map[cid.ID]struct{}, error) {
 	t.m.RLock()
 	defer t.m.RUnlock()
 
