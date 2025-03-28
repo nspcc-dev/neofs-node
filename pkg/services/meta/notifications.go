@@ -32,11 +32,9 @@ func (m *Meta) subscribeForBlocks(ch chan<- *block.Header) (string, error) {
 	return m.ws.ReceiveHeadersOfAddedBlocks(nil, ch)
 }
 
+// unsubscribeFromBlocks requires [Meta.cliM] to be taken.
 func (m *Meta) unsubscribeFromBlocks() {
 	var err error
-	m.cliM.Lock()
-	defer m.cliM.Unlock()
-
 	m.l.Debug("unsubscribing from blocks")
 
 	err = m.ws.Unsubscribe(m.blockSubID)
@@ -481,7 +479,9 @@ func (m *Meta) dropContainer(cID cid.ID) error {
 	delete(m.storages, cID)
 
 	if len(m.storages) == 0 {
+		m.cliM.Lock()
 		m.unsubscribeFromBlocks()
+		m.cliM.Unlock()
 	}
 
 	return nil
