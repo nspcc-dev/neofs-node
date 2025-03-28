@@ -79,10 +79,6 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return errors.New("session token is not signed by the container owner")
 		}
 
-		if !tok.AssertAuthKey(&key) {
-			return errors.New("signed with a non-session key")
-		}
-
 		if !tok.AssertVerb(v.verb) {
 			return errWrongSessionVerb
 		}
