@@ -156,18 +156,20 @@ fschain:
 
 Local storage engine configuration.
 
-| Parameter                  | Type                               | Default value | Description                                                                                                                                                                                                                                 |
-|----------------------------|------------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `shard_pool_size`          | `int`                              | `20`          | Pool size for shard workers. Limits the amount of concurrent `PUT` operations on each shard.                                                                                                                                                |
-| `shard_ro_error_threshold` | `int`                              | `0`           | Maximum amount of storage errors to encounter before shard automatically moves to `Degraded` or `ReadOnly` mode.                                                                                                                            |
-| `ignore_uninited_shards`   | `bool`                             | `false`       | Flag that specifies whether uninited shards should be ignored.                                                                                                                                                                              |
-| `put_retry_deadline`       | `duration`                         | `0`           | If an object cannot be PUT to storage, node tries to PUT it to the best shard for it (according to placement sorting) and only to it for this long before operation error is returned. Defalt value does not apply any retry policy at all. |
-| `shard`                    | [Shard config](#shard-subsection)  |               | Configuration for separate shards.                                                                                                                                                                                                          |
+| Parameter                  | Type                           | Default value | Description                                                                                                                                                                                                                                 |
+|----------------------------|--------------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `shard_pool_size`          | `int`                          | `20`          | Pool size for shard workers. Limits the amount of concurrent `PUT` operations on each shard.                                                                                                                                                |
+| `shard_ro_error_threshold` | `int`                          | `0`           | Maximum amount of storage errors to encounter before shard automatically moves to `Degraded` or `ReadOnly` mode.                                                                                                                            |
+| `ignore_uninited_shards`   | `bool`                         | `false`       | Flag that specifies whether uninited shards should be ignored.                                                                                                                                                                              |
+| `put_retry_deadline`       | `duration`                     | `0`           | If an object cannot be PUT to storage, node tries to PUT it to the best shard for it (according to placement sorting) and only to it for this long before operation error is returned. Defalt value does not apply any retry policy at all. |
+| `shard_defaults`           | [Shard config](#shards-config) |               | Configuration for default values in shards.                                                                                                                                                                                                 |
+| `shards`                   | [Shard config](#shards-config) |               | Configuration for seprate shards.                                                                                                                                                                                                           |
 
-## `shard` subsection
+## `shards` config
 
-Contains configuration for each shard. Keys must be consecutive numbers starting from zero.
-`default` subsection has the same format and specifies defaults for missing values.
+Contains configuration of shards.
+`shards` subsection contains an array of configurations for each shard.
+`shard_defaults` subsection has the same format and specifies defaults for missing values.
 The following table describes configuration for each shard.
 
 | Parameter                           | Type                                         | Default value | Description                                                                                                                                                                                                       |
@@ -322,7 +324,7 @@ node:
     password: password
   addresses:
     - grpc://external.ip:8082
-  attribute:
+  attributes:
     - "Price:11"
     - "UN-LOCODE:RU MSK"
     - "key:value"
@@ -337,7 +339,7 @@ node:
 |-----------------------|---------------------------------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
 | `wallet`              | [Wallet config](#wallet-subsection)                           |               | Wallet configuration.                                                                                                |
 | `addresses`           | `[]string`                                                    |               | Addresses advertised in the netmap.                                                                                  |
-| `attribute`           | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
+| `attributes`          | `[]string`                                                    |               | Node attributes as a list of key-value pairs in `<key>:<value>` format. See also docs about verified nodes' domains. |
 | `relay`               | `bool`                                                        |               | Enable relay mode.                                                                                                   |
 | `persistent_sessions` | [Persistent sessions config](#persistent_sessions-subsection) |               | Persistent session token store configuration.                                                                        |
 | `persistent_state`    | [Persistent state config](#persistent_state-subsection)       |               | Persistent state configuration.                                                                                      |

@@ -5,9 +5,10 @@ node:
     password: <password>
   addresses:
     - <announced.address:port>
-  attribute_0: UN-LOCODE:<XX YYY>
-  attribute_1: Price:100000
-  attribute_2: User-Agent:NeoFS\/0.27
+  attributes:
+    - UN-LOCODE:<XX YYY>
+    - Price:100000
+    - User-Agent:NeoFS\/0.27
 
 grpc:
   - endpoint: <listen.local.address:port>
@@ -15,9 +16,8 @@ grpc:
       enabled: false
 
 storage:
-  shard:
-    0:
-      metabase:
+  shards:
+    - metabase:
         path: /storage/path/metabase
         perm: 0600
       blobstor:
