@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessiontest "github.com/nspcc-dev/neofs-sdk-go/session/test"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -141,6 +142,27 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			require.NoError(t, obj.SetIDWithSignature(wrongSigner))
 			require.Error(t, v.Validate(obj, false))
+		})
+
+		t.Run("signed not by issuer", func(t *testing.T) {
+			sessionSubj := usertest.User()
+			otherUser := usertest.User()
+
+			var st session.Object
+			st.SetAuthKey(sessionSubj.Public())
+			st.SetIssuer(sessionSubj.ID)
+
+			sig, err := otherUser.Sign(st.SignedData())
+			require.NoError(t, err)
+			st.AttachSignature(neofscrypto.NewSignature(otherUser.Scheme(), otherUser.Public(), sig))
+
+			obj := blankValidObject(sessionSubj)
+			obj.SetSessionToken(&st)
+			require.NoError(t, obj.CalculateAndSetID())
+			require.NoError(t, obj.Sign(sessionSubj))
+
+			err = v.Validate(obj, false)
+			require.EqualError(t, err, "(*object.FormatValidator) could not validate signature key: incorrect session token signature")
 		})
 	})
 
