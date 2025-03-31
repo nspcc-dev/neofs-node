@@ -14,7 +14,5 @@ var (
 	errEmptyBody               = malformedRequestError("empty body")
 	errEmptyVerificationHeader = malformedRequestError("empty verification header")
 	errEmptyBodySig            = malformedRequestError("empty at body signature")
-	errInvalidSessionSig       = malformedRequestError("invalid session token signature")
-	errInvalidSessionOwner     = malformedRequestError("invalid session token owner")
 	errInvalidVerb             = malformedRequestError("session token verb is invalid")
 )

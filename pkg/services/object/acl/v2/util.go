@@ -1,12 +1,10 @@
 package v2
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -114,21 +112,11 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 }
 
 func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
-	// 1. First check signature of session token.
-	if !token.VerifySignature() {
-		return nil, nil, errInvalidSessionSig
+	if err := icrypto.AuthenticateToken(token); err != nil {
+		return nil, nil, fmt.Errorf("authenticate session token: %w", err)
 	}
-
-	// 2. Then check if session token owner issued the session token
 	tokenIssuer := token.Issuer()
-	key := token.IssuerPublicKeyBytes()
-
-	if !isOwnerFromKey(tokenIssuer, key) {
-		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
-		return nil, nil, errInvalidSessionOwner
-	}
-
-	return &tokenIssuer, key, nil
+	return &tokenIssuer, token.IssuerPublicKeyBytes(), nil
 }
 
 func originalBodySignature(v *protosession.RequestVerificationHeader) *refs.Signature {
@@ -141,19 +129,6 @@ func originalBodySignature(v *protosession.RequestVerificationHeader) *refs.Sign
 	}
 
 	return v.GetBodySignature()
-}
-
-func isOwnerFromKey(id user.ID, key []byte) bool {
-	if key == nil {
-		return false
-	}
-
-	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
-	if err != nil {
-		return false
-	}
-
-	return id == user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
 }
 
 // assertVerb checks that token verb corresponds to op.
