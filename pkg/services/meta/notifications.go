@@ -504,7 +504,7 @@ func (m *Meta) addContainer(cID cid.ID) error {
 		m.cliM.Unlock()
 	}
 
-	st, err := storageForContainer(m.rootPath, cID)
+	st, err := storageForContainer(m.l, m.rootPath, cID)
 	if err != nil {
 		return fmt.Errorf("open new storage for %s container: %w", cID, err)
 	}
@@ -561,7 +561,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 			continue
 		}
 
-		st, err := storageForContainer(m.rootPath, cID)
+		st, err := storageForContainer(m.l, m.rootPath, cID)
 		if err != nil {
 			m.stM.Unlock()
 			return fmt.Errorf("create storage for container %s: %w", cID, err)

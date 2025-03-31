@@ -419,6 +419,7 @@ func TestObjectPut(t *testing.T) {
 		size := uint64(testObjectSize)
 
 		o := objecttest.Object()
+		o.ResetRelations()
 		o.SetContainerID(cID)
 		o.SetID(objToDeleteOID)
 		o.SetPayloadSize(size)
@@ -484,7 +485,7 @@ func TestObjectPut(t *testing.T) {
 			}
 
 			tempM := make(map[string][]byte)
-			fillObjectIndex(tempM, o)
+			fillObjectIndex(tempM, o, false)
 			// dbKeys := maps.Keys(tempM) // go 1.23+
 			dbKeys := make([][]byte, 0, len(tempM))
 			for k := range tempM {
@@ -516,7 +517,7 @@ func TestValidation(t *testing.T) {
 	l := zaptest.NewLogger(t)
 
 	path.Join(t.TempDir(), "db.db")
-	s, err := storageForContainer(path.Join(t.TempDir(), "db.db"), cID)
+	s, err := storageForContainer(zaptest.NewLogger(t), path.Join(t.TempDir(), "db.db"), cID)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = s.drop()
@@ -623,6 +624,7 @@ func TestValidation(t *testing.T) {
 func TestCompatibility(t *testing.T) {
 	o := objecttest.Object()
 	o.SetSplitID(nil) // no split info is expected for split V2 era
+	o.ResetRelations()
 
 	// database from engine's metabases
 
@@ -653,7 +655,7 @@ func TestCompatibility(t *testing.T) {
 	// batch for meta-data service
 
 	serviceMap := make(map[string][]byte)
-	fillObjectIndex(serviceMap, o)
+	fillObjectIndex(serviceMap, o, false)
 
 	require.Equal(t, len(metabaseMap), len(serviceMap))
 	for k := range metabaseMap {

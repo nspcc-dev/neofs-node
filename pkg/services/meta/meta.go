@@ -149,7 +149,7 @@ func New(p Parameters) (*Meta, error) {
 			continue
 		}
 
-		st, err := storageForContainer(p.RootPath, cID)
+		st, err := storageForContainer(p.Logger, p.RootPath, cID)
 		if err != nil {
 			p.Logger.Warn("skip container storage that cannot be read", zap.String("name", sName), zap.Error(err))
 			continue
@@ -188,7 +188,7 @@ func New(p Parameters) (*Meta, error) {
 
 	for cID := range cnrsNetwork {
 		if _, ok := storages[cID]; !ok {
-			st, err := storageForContainer(p.RootPath, cID)
+			st, err := storageForContainer(p.Logger, p.RootPath, cID)
 			if err != nil {
 				return nil, fmt.Errorf("open container storage %s: %w", cID, err)
 			}
