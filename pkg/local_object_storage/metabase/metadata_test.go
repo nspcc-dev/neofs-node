@@ -46,7 +46,7 @@ func searchResultForIDs(ids []oid.ID) []client.SearchResultItem {
 }
 
 func appendAttribute(obj *object.Object, k, v string) {
-	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
+	obj.SetAttributes(append(obj.Attributes(), object.NewAttribute(k, v))...)
 }
 
 func assertPrefixedAttrIDPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, isInt bool, attr string, val T, exp bool) {
@@ -112,7 +112,7 @@ func TestPutMetadata(t *testing.T) {
 	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes)
 	splitID := []byte{240, 204, 35, 185, 222, 70, 69, 124, 160, 224, 208, 185, 9, 114, 37, 109}
 	var attrs []object.Attribute
-	addAttr := func(k, v string) { attrs = append(attrs, *object.NewAttribute(k, v)) }
+	addAttr := func(k, v string) { attrs = append(attrs, object.NewAttribute(k, v)) }
 	addAttr("attr_1", "val_1")
 	addAttr("attr_2", "val_2")
 	addAttr("num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
@@ -145,8 +145,8 @@ func TestPutMetadata(t *testing.T) {
 			testWithAttr := func(t *testing.T, k, v, msg string) {
 				obj := obj
 				obj.SetAttributes(
-					*object.NewAttribute("valid key", "valid value"),
-					*object.NewAttribute(k, v),
+					object.NewAttribute("valid key", "valid value"),
+					object.NewAttribute(k, v),
 				)
 				require.EqualError(t, db.Put(&obj, nil, nil), msg)
 			}
@@ -773,8 +773,8 @@ func TestDB_SearchObjects(t *testing.T) {
 			{243, 182, 238, 220, 63, 48, 185, 147, 9, 88, 42, 126, 12, 160, 157, 214, 169, 35, 76, 233, 91, 250, 87, 141, 223, 166, 239, 42, 15, 233, 197, 110, 143, 106, 134, 200, 44, 229, 101, 217, 33, 108, 2, 17, 12, 15, 228, 64, 121, 166, 130, 117, 36, 58, 210, 249, 190, 107, 247, 218, 205, 238, 217, 124},
 		}
 		groupAttrs := [nRoot]object.Attribute{
-			*object.NewAttribute("group_attr_1", "group_val_1"),
-			*object.NewAttribute("group_attr_2", "group_val_2"),
+			object.NewAttribute("group_attr_1", "group_val_1"),
+			object.NewAttribute("group_attr_2", "group_val_2"),
 		}
 		types := [nRoot]object.Type{object.TypeRegular, object.TypeStorageGroup}
 		splitIDs := [nRoot][]byte{
@@ -803,10 +803,10 @@ func TestDB_SearchObjects(t *testing.T) {
 			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(hmmChecksums[nGlobal]))
 			si := strconv.Itoa(nGlobal)
 			obj.SetAttributes(
-				*object.NewAttribute("attr_common", "val_common"),
-				*object.NewAttribute("unique_attr_"+si, "unique_val_"+si),
+				object.NewAttribute("attr_common", "val_common"),
+				object.NewAttribute("unique_attr_"+si, "unique_val_"+si),
 				groupAttrs[nGroup],
-				*object.NewAttribute("global_non_integer", "not an integer"),
+				object.NewAttribute("global_non_integer", "not an integer"),
 			)
 		}
 
