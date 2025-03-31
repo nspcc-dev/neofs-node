@@ -7,7 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
-- In-object session token signed not by its issuer is no longer passed (#3216)
+- In-object session token signed not by its issuer is no longer passed by SN and CLI (#3216)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)

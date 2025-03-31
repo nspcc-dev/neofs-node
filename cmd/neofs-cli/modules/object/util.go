@@ -3,11 +3,13 @@ package object
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	internal "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -241,6 +243,14 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
 		return nil, errors.New("unrelated key in the session")
 	case tok.VerifySignature():
+		return nil, errors.New("invalid signature of the session data")
+	}
+	tokenSig, _ := tok.Signature() // non-zero, otherwise VerifySignature would fail
+	pub, err := keys.NewPublicKeyFromBytes(tokenSig.PublicKeyBytes(), elliptic.P256())
+	if err != nil {
+		return nil, errors.New("invalid signature of the session data")
+	}
+	if signer := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pub)); signer != tok.Issuer() {
 		return nil, errors.New("invalid signature of the session data")
 	}
 	return tok, nil
