@@ -2,19 +2,16 @@ package object
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/storagegroup"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // FormatValidator represents an object format validator.
@@ -202,15 +199,7 @@ func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
 		return errors.New("session token is not for object's signer")
 	}
 
-	if !token.VerifySignature() {
-		return errors.New("incorrect session token signature")
-	}
-	tokenSig, _ := token.Signature() // non-zero, otherwise VerifySignature would fail
-	pub, err := keys.NewPublicKeyFromBytes(tokenSig.PublicKeyBytes(), elliptic.P256())
-	if err != nil {
-		return errors.New("incorrect session token signature")
-	}
-	if signer := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pub)); signer != token.Issuer() {
+	if err := icrypto.AuthenticateToken(token); err != nil {
 		return errors.New("incorrect session token signature")
 	}
 

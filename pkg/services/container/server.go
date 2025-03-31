@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"slices"
 
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -98,7 +98,7 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if !token.VerifySignature() {
+	if err := icrypto.AuthenticateToken(&token); err != nil {
 		return nil, errors.New("invalid signature")
 	}
 
@@ -134,34 +134,10 @@ func (s *server) getVerifiedSessionToken(req interface {
 	return &token, nil
 }
 
-func (s *server) checkSessionIssuer(id cid.ID, token session.Container) error {
+func (s *server) checkSessionIssuer(id cid.ID, issuer user.ID) error {
 	cnr, err := s.contract.Get(id)
 	if err != nil {
 		return fmt.Errorf("get container by ID: %w", err)
-	}
-
-	mSig, ok := token.Signature()
-	if !ok {
-		return errors.New("missing token signature")
-	}
-
-	// No more elegant way to match these for now
-	var pub ecdsa.PublicKey
-
-	switch v := mSig.PublicKey().(type) {
-	case *neofsecdsa.PublicKey:
-		pub = ecdsa.PublicKey(*v)
-	case *neofsecdsa.PublicKeyRFC6979:
-		pub = ecdsa.PublicKey(*v)
-	case *neofsecdsa.PublicKeyWalletConnect:
-		pub = ecdsa.PublicKey(*v)
-	default:
-		return fmt.Errorf("unexpected public key type %T in the session token signature", v)
-	}
-
-	issuer := token.Issuer()
-	if signer := user.NewFromECDSAPublicKey(pub); signer != issuer {
-		return errors.New("session token is signed not by its issuer")
 	}
 
 	if owner := cnr.Owner(); issuer != owner {
@@ -313,7 +289,7 @@ func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*
 		return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
 	}
 	if st != nil {
-		if err := s.checkSessionIssuer(id, *st); err != nil {
+		if err := s.checkSessionIssuer(id, st.Issuer()); err != nil {
 			return s.makeDeleteResponse(fmt.Errorf("verify session issuer: %w", err))
 		}
 		if !st.AppliedTo(id) {
@@ -453,7 +429,7 @@ func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtend
 	}
 	if st != nil {
 		id := eACL.GetCID()
-		if err := s.checkSessionIssuer(id, *st); err != nil {
+		if err := s.checkSessionIssuer(id, st.Issuer()); err != nil {
 			return s.makeSetEACLResponse(fmt.Errorf("verify session issuer: %w", err))
 		}
 		if !st.AppliedTo(id) {

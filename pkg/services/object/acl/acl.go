@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -231,15 +232,7 @@ func isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, reqSende
 	}
 
 	// 2. Then check if bearer token is signed correctly.
-	if !token.VerifySignature() {
-		return errBearerInvalidSignature
-	}
-	sig, _ := token.Signature() // non-zero, otherwise VerifySignature would fail
-	pub, err := keys.NewPublicKeyFromBytes(sig.PublicKeyBytes(), elliptic.P256())
-	if err != nil {
-		return errBearerInvalidSignature
-	}
-	if signer := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pub)); signer != token.Issuer() {
+	if err := icrypto.AuthenticateToken(&token); err != nil {
 		return errBearerInvalidSignature
 	}
 
