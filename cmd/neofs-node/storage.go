@@ -90,21 +90,18 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 	shards := make([]shardOptsWithID, 0, len(c.engine.shards))
 
 	for _, shCfg := range c.engine.shards {
-		var writeCacheOpts []writecache.Option
-		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
-			writeCacheOpts = append(writeCacheOpts,
-				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
-				writecache.WithMaxCacheSize(wcRead.SizeLimit),
-				writecache.WithNoSync(wcRead.NoSync),
-				writecache.WithLogger(c.log),
-			)
-		}
-
+		var (
+			wcMaxBatchSize      uint64
+			wcMaxBatchCount     int
+			wcMaxBatchThreshold uint64
+		)
 		var ss []blobstor.SubStorage
 		for _, sRead := range shCfg.SubStorages {
 			switch sRead.Typ {
 			case fstree.Type:
+				wcMaxBatchSize = uint64(sRead.CombinedSizeLimit)
+				wcMaxBatchCount = sRead.CombinedCountLimit
+				wcMaxBatchThreshold = uint64(sRead.CombinedSizeThreshold)
 				ss = append(ss, blobstor.SubStorage{
 					Storage: fstree.New(
 						fstree.WithPath(sRead.Path),
@@ -130,6 +127,20 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				// should never happen, that has already
 				// been handled: when the config was read
 			}
+		}
+
+		var writeCacheOpts []writecache.Option
+		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
+			writeCacheOpts = append(writeCacheOpts,
+				writecache.WithPath(wcRead.Path),
+				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
+				writecache.WithMaxCacheSize(wcRead.SizeLimit),
+				writecache.WithNoSync(wcRead.NoSync),
+				writecache.WithLogger(c.log),
+				writecache.WithMaxFlushBatchSize(wcMaxBatchSize),
+				writecache.WithMaxFlushBatchCount(wcMaxBatchCount),
+				writecache.WithMaxFlushBatchThreshold(wcMaxBatchThreshold),
+			)
 		}
 
 		var sh shardOptsWithID
