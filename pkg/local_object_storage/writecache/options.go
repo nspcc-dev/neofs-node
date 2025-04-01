@@ -21,7 +21,7 @@ type Metabase interface {
 // blob is an interface for the blobstor.
 type blob interface {
 	Put(oid.Address, *objectSDK.Object, []byte) ([]byte, error)
-	PutBatch([]*objectSDK.Object) ([]byte, error)
+	PutBatch([]blobstor.PutBatchPrm) ([]byte, error)
 	NeedsCompression(obj *objectSDK.Object) bool
 	Exists(oid.Address, []byte) (bool, error)
 }
@@ -47,6 +47,12 @@ type options struct {
 	noSync bool
 	// reportError is the function called when encountering disk errors in background workers.
 	reportError func(string, error)
+	// maxFlushBatchSize is a maximum size at which the batch is flushed.
+	maxFlushBatchSize uint64
+	// maxFlushBatchCount is a maximum count of small object that is flushed in batch.
+	maxFlushBatchCount int
+	// maxFlushBatchThreshold is a maximum size of small object that put in a batch.
+	maxFlushBatchThreshold uint64
 }
 
 // WithLogger sets logger.
@@ -113,5 +119,32 @@ func WithNoSync(noSync bool) Option {
 func WithReportErrorFunc(f func(string, error)) Option {
 	return func(o *options) {
 		o.reportError = f
+	}
+}
+
+// WithMaxFlushBatchSize sets maximum batch size to flush.
+func WithMaxFlushBatchSize(sz uint64) Option {
+	return func(o *options) {
+		if sz > 0 {
+			o.maxFlushBatchSize = sz
+		}
+	}
+}
+
+// WithMaxFlushBatchCount sets maximum batch delay to flush small objects.
+func WithMaxFlushBatchCount(c int) Option {
+	return func(o *options) {
+		if c > 0 {
+			o.maxFlushBatchCount = c
+		}
+	}
+}
+
+// WithMaxFlushBatchThreshold sets maximum size of small object to put in batch.
+func WithMaxFlushBatchThreshold(sz uint64) Option {
+	return func(o *options) {
+		if sz > 0 {
+			o.maxFlushBatchThreshold = sz
+		}
 	}
 }

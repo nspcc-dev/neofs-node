@@ -109,7 +109,10 @@ func New(opts ...Option) Cache {
 			objCounters: counters{
 				objMap: make(map[oid.Address]uint64),
 			},
-			workersCount: defaultWorkerCount,
+			workersCount:           defaultWorkerCount,
+			maxFlushBatchSize:      defaultMaxBatchSize,
+			maxFlushBatchCount:     defaultMaxBatchCount,
+			maxFlushBatchThreshold: defaultMaxBatchTreshold,
 		},
 	}
 
