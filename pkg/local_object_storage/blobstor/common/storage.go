@@ -28,6 +28,7 @@ type Storage interface {
 	GetRange(oid.Address, uint64, uint64) ([]byte, error)
 	Exists(oid.Address) (bool, error)
 	Put(oid.Address, []byte) error
+	PutBatch(map[oid.Address][]byte) error
 	Delete(oid.Address) error
 	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error) error
 	IterateAddresses(func(oid.Address) error, bool) error

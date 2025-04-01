@@ -21,6 +21,7 @@ type Metabase interface {
 // blob is an interface for the blobstor.
 type blob interface {
 	Put(oid.Address, *objectSDK.Object, []byte) ([]byte, error)
+	PutBatch([]*objectSDK.Object) ([]byte, error)
 	NeedsCompression(obj *objectSDK.Object) bool
 	Exists(oid.Address, []byte) (bool, error)
 }

@@ -71,6 +71,14 @@ func TestCompression(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	testPutBatch := func(t *testing.T, b *BlobStor, i int) {
+		_, err = b.PutBatch([]PutBatchPrm{
+			{Addr: object.AddressOf(smallObj[i]), Obj: smallObj[i]},
+			{Addr: object.AddressOf(bigObj[i]), Obj: bigObj[i]},
+		})
+		require.NoError(t, err)
+	}
+
 	// Put and Get uncompressed object
 	blobStor := newBlobStor(t, false)
 	testPut(t, blobStor, 0)
@@ -87,6 +95,25 @@ func TestCompression(t *testing.T) {
 	testGet(t, blobStor, 0) // get old uncompressed object
 	testGet(t, blobStor, 1) // get compressed object with compression disabled
 	testPut(t, blobStor, 2)
+	testGet(t, blobStor, 2)
+	require.NoError(t, blobStor.Close())
+
+	// PutBatch and Get uncompressed object
+	blobStor = newBlobStor(t, false)
+	testPutBatch(t, blobStor, 0)
+	testGet(t, blobStor, 0)
+	require.NoError(t, blobStor.Close())
+
+	blobStor = newBlobStor(t, true)
+	testGet(t, blobStor, 0) // get uncompressed object with compress enabled
+	testPutBatch(t, blobStor, 1)
+	testGet(t, blobStor, 1)
+	require.NoError(t, blobStor.Close())
+
+	blobStor = newBlobStor(t, false)
+	testGet(t, blobStor, 0) // get old uncompressed object
+	testGet(t, blobStor, 1) // get compressed object with compression disabled
+	testPutBatch(t, blobStor, 2)
 	testGet(t, blobStor, 2)
 	require.NoError(t, blobStor.Close())
 }
