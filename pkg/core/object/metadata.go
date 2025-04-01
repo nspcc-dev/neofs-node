@@ -835,3 +835,74 @@ func putInt(b []byte, n *big.Int) {
 		}
 	}
 }
+
+// CalculateCursor calculates cursor for the given last search result item.
+func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) ([]byte, error) {
+	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
+		return lastItem.ID[:], nil
+	}
+	attr := fs[0].Header()
+	var lastItemVal string
+	if len(lastItem.Attributes) == 0 {
+		if attr != object.FilterRoot && attr != object.FilterPhysical {
+			return lastItem.ID[:], nil
+		}
+		lastItemVal = binPropMarker
+	} else {
+		lastItemVal = lastItem.Attributes[0]
+	}
+	var val []byte
+	switch attr {
+	default:
+		if IsIntegerSearchOp(fs[0].Operation()) {
+			n, ok := new(big.Int).SetString(lastItemVal, 10)
+			if !ok {
+				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
+			}
+			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
+			off := copy(res, attr)
+			off += copy(res[off:], MetaAttributeDelimiter)
+			putInt(res[off:off+intValLen], n)
+			copy(res[off+intValLen:], lastItem.ID[:])
+			return res, nil
+		}
+	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
+		var err error
+		if val, err = base58.Decode(lastItemVal); err != nil {
+			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
+		}
+	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
+		ln := hex.DecodedLen(len(lastItemVal))
+		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {
+			return nil, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
+		}
+		res := make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
+		off := copy(res, attr)
+		off += copy(res[off:], MetaAttributeDelimiter)
+		var err error
+		if _, err = hex.Decode(res[off:], []byte(lastItemVal)); err != nil {
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		}
+		off += copy(res[off+ln:], MetaAttributeDelimiter)
+		copy(res[off:], lastItem.ID[:])
+		return res, nil
+	case object.FilterSplitID:
+		uid, err := uuid.Parse(lastItemVal)
+		if err != nil {
+			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
+		}
+		val = uid[:]
+	case object.FilterVersion, object.FilterType:
+	}
+	if val == nil {
+		val = []byte(lastItemVal)
+	}
+	kln := len(attr) + attributeDelimiterLen + len(val) + attributeDelimiterLen + oid.Size
+	res := make([]byte, kln)
+	off := copy(res, attr)
+	off += copy(res[off:], MetaAttributeDelimiter)
+	off += copy(res[off:], val)
+	off += copy(res[off:], MetaAttributeDelimiter)
+	copy(res[off:], lastItem.ID[:])
+	return res, nil
+}

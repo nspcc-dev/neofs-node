@@ -2,23 +2,18 @@ package meta
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
 
-	"github.com/google/uuid"
-	"github.com/mr-tron/base58"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
-	"github.com/nspcc-dev/tzhash/tz"
 	"go.etcd.io/bbolt"
 )
 
@@ -387,75 +382,4 @@ func (x *metaAttributeSeeker) Get(id []byte, attr string) (attributeValue []byte
 		return nil, invalidMetaBucketKeyErr(key, errors.New("missing attribute value"))
 	}
 	return key[len(pref):], nil
-}
-
-// CalculateCursor calculates cursor for the given last search result item.
-func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) ([]byte, error) {
-	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
-		return lastItem.ID[:], nil
-	}
-	attr := fs[0].Header()
-	var lastItemVal string
-	if len(lastItem.Attributes) == 0 {
-		if attr != object.FilterRoot && attr != object.FilterPhysical {
-			return lastItem.ID[:], nil
-		}
-		lastItemVal = binPropMarker
-	} else {
-		lastItemVal = lastItem.Attributes[0]
-	}
-	var val []byte
-	switch attr {
-	default:
-		if objectcore.IsIntegerSearchOp(fs[0].Operation()) {
-			n, ok := new(big.Int).SetString(lastItemVal, 10)
-			if !ok {
-				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)
-			}
-			res := make([]byte, len(attr)+attributeDelimiterLen+intValLen+oid.Size)
-			off := copy(res, attr)
-			off += copy(res[off:], objectcore.MetaAttributeDelimiter)
-			putInt(res[off:off+intValLen], n)
-			copy(res[off+intValLen:], lastItem.ID[:])
-			return res, nil
-		}
-	case object.FilterOwnerID, object.FilterFirstSplitObject, object.FilterParentID:
-		var err error
-		if val, err = base58.Decode(lastItemVal); err != nil {
-			return nil, fmt.Errorf("decode %q attribute value from Base58: %w", attr, err)
-		}
-	case object.FilterPayloadChecksum, object.FilterPayloadHomomorphicHash:
-		ln := hex.DecodedLen(len(lastItemVal))
-		if attr == object.FilterPayloadChecksum && ln != sha256.Size || attr == object.FilterPayloadHomomorphicHash && ln != tz.Size {
-			return nil, fmt.Errorf("wrong %q attribute decoded len %d", attr, ln)
-		}
-		res := make([]byte, len(attr)+attributeDelimiterLen+ln+attributeDelimiterLen+oid.Size)
-		off := copy(res, attr)
-		off += copy(res[off:], objectcore.MetaAttributeDelimiter)
-		var err error
-		if _, err = hex.Decode(res[off:], []byte(lastItemVal)); err != nil {
-			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
-		}
-		off += copy(res[off+ln:], objectcore.MetaAttributeDelimiter)
-		copy(res[off:], lastItem.ID[:])
-		return res, nil
-	case object.FilterSplitID:
-		uid, err := uuid.Parse(lastItemVal)
-		if err != nil {
-			return nil, fmt.Errorf("decode %q attribute from HEX: %w", attr, err)
-		}
-		val = uid[:]
-	case object.FilterVersion, object.FilterType:
-	}
-	if val == nil {
-		val = []byte(lastItemVal)
-	}
-	kln := len(attr) + attributeDelimiterLen + len(val) + attributeDelimiterLen + oid.Size
-	res := make([]byte, kln)
-	off := copy(res, attr)
-	off += copy(res[off:], objectcore.MetaAttributeDelimiter)
-	off += copy(res[off:], val)
-	off += copy(res[off:], objectcore.MetaAttributeDelimiter)
-	copy(res[off:], lastItem.ID[:])
-	return res, nil
 }

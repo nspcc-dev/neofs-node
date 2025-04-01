@@ -338,7 +338,7 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 		}
 		require.NotNilf(t, c, "cursor: %q", strCursor)
 
-		cc, err := CalculateCursor(fs, res[n-1])
+		cc, err := objectcore.CalculateCursor(fs, res[n-1])
 		require.NoError(t, err, "cursor: %q", strCursor)
 		require.Equal(t, c, cc, "cursor: %q", strCursor)
 
