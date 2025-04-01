@@ -90,10 +90,15 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.Error(t, v.Validate(nil, true))
 	})
 
-	t.Run("nil identifier", func(t *testing.T) {
-		obj := object.New()
-
-		require.ErrorIs(t, v.Validate(obj, false), errNilID)
+	t.Run("invalid identifier", func(t *testing.T) {
+		t.Run("missing", func(t *testing.T) {
+			obj := smallECDSASHA512
+			obj.ResetID()
+			require.ErrorIs(t, v.Validate(&obj, false), errNilID)
+		})
+		t.Run("wrong", func(t *testing.T) {
+			require.EqualError(t, v.Validate(&wrongIDECDSASHA512, false), "(*object.FormatValidator) could not validate header fields: invalid identifier: incorrect object identifier")
+		})
 	})
 
 	t.Run("nil container identifier", func(t *testing.T) {
@@ -534,6 +539,8 @@ var (
 	smallECDSASHA512        object.Object
 	smallECDSARFC6979       object.Object
 	smallECDSAWalletConnect object.Object
+
+	wrongIDECDSASHA512 object.Object
 )
 
 var (
@@ -611,4 +618,14 @@ func init() {
 		164, 37, 91, 103, 137, 183, 250, 198, 162, 23, 131, 43, 36, 243, 142, 150, 255, 142, 219, 254, 19, 130,
 	})
 	smallECDSAWalletConnect.SetSignature(&smallECDSAWalletConnectSig)
+
+	wrongIDECDSASHA512 = getUnsignedObject()
+	wrongIDECDSASHA512.SetID(oid.ID{5, 104, 41, 144, 139, 252, 213, 27, 84, 108, 178, 104, 182, 49, 128, 141, 144, 15, 139, 244, 204,
+		2, 226, 103, 252, 111, 14, 47, 71, 26, 84, 74})
+	wrongIDECDSASHA512Sig := neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA, []byte{
+		4, 92, 245, 104, 184, 113, 204, 219, 76, 50, 55, 231, 229, 25, 199, 232, 194, 230, 88, 219, 156, 61, 221, 243, 74, 88, 150,
+		85, 95, 199, 11, 131, 175, 86, 51, 244, 175, 158, 60, 199, 156, 162, 222, 54, 26, 244, 39, 18, 169, 149, 139, 15, 210, 215, 34, 0,
+		12, 176, 88, 229, 163, 246, 39, 240, 109,
+	})
+	wrongIDECDSASHA512.SetSignature(&wrongIDECDSASHA512Sig)
 }
