@@ -66,6 +66,24 @@ func prepare(t *testing.T, count int, s common.Storage, minSize, maxSize uint64)
 	return objects
 }
 
+func prepareBatch(t *testing.T, count int, s common.Storage, minSize, maxSize uint64) []objectDesc {
+	objects := make([]objectDesc, count)
+	mObj := make(map[oid.Address][]byte, len(objects))
+
+	for i := range objects {
+		objects[i].obj = NewObject(minSize + uint64(rand.IntN(int(maxSize-minSize+1)))) // not too large
+		objects[i].addr = objectCore.AddressOf(objects[i].obj)
+		objects[i].raw = objects[i].obj.Marshal()
+
+		mObj[objects[i].addr] = objects[i].raw
+	}
+
+	err := s.PutBatch(mObj)
+	require.NoError(t, err)
+
+	return objects
+}
+
 // NewObject creates a regular object of specified size with a random payload.
 func NewObject(sz uint64) *objectSDK.Object {
 	raw := objectSDK.New()

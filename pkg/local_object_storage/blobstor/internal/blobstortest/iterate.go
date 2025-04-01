@@ -15,6 +15,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	objects := prepare(t, 10, s, minSize, maxSize)
+	objects = append(objects, prepareBatch(t, 10, s, minSize, maxSize)...)
 
 	// Delete random object to ensure it is not iterated over.
 	const delID = 2

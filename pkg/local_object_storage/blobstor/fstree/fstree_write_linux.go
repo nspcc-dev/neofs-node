@@ -72,6 +72,17 @@ func newSpecificWriter(t *FSTree) writer {
 }
 
 func (w *linuxWriter) newSyncBatch() (*syncBatch, error) {
+	sb, err := w.createBatch()
+	if err != nil {
+		return nil, err
+	}
+	sb.lock.Lock()
+	sb.timer = time.AfterFunc(w.combinedWriteInterval, sb.sync)
+	sb.ready = make(chan struct{})
+	return sb, nil
+}
+
+func (w *linuxWriter) createBatch() (*syncBatch, error) {
 	fd, err := unix.Open(w.root, w.bFlags, w.perm)
 	if err != nil {
 		return nil, err
@@ -79,11 +90,8 @@ func (w *linuxWriter) newSyncBatch() (*syncBatch, error) {
 	sb := &syncBatch{
 		fd:       fd,
 		procname: "/proc/self/fd/" + strconv.FormatUint(uint64(fd), 10),
-		ready:    make(chan struct{}),
 		noSync:   w.noSync,
 	}
-	sb.lock.Lock()
-	sb.timer = time.AfterFunc(w.combinedWriteInterval, sb.sync)
 	return sb, nil
 }
 
@@ -113,8 +121,12 @@ func (b *syncBatch) intSync() {
 	if b.err == nil && err != nil {
 		b.err = err
 	}
-	close(b.ready)
-	_ = b.timer.Stop() // True is stopped, but false is "AfterFunc already running".
+	if b.ready != nil {
+		close(b.ready)
+	}
+	if b.timer != nil {
+		_ = b.timer.Stop() // True is stopped, but false is "AfterFunc already running".
+	}
 }
 
 func (b *syncBatch) wait() error {
@@ -243,4 +255,21 @@ func (w *linuxWriter) writeFile(p string, data []byte) error {
 		return fmt.Errorf("unix close: %w", errClose)
 	}
 	return nil
+}
+
+func (w *linuxWriter) writeBatch(objs []writeDataUnit) error {
+	sb, err := w.createBatch()
+	if err != nil {
+		return fmt.Errorf("create batch: %w", err)
+	}
+
+	for _, obj := range objs {
+		err = sb.write(obj.id, obj.path, obj.data)
+		if err != nil {
+			return fmt.Errorf("write object: %w", err)
+		}
+	}
+
+	sb.intSync()
+	return sb.err
 }

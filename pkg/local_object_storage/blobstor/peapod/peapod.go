@@ -425,6 +425,17 @@ func (x *Peapod) Put(addr oid.Address, data []byte) error {
 	})
 }
 
+// PutBatch calls the Put method for each object.
+func (x *Peapod) PutBatch(objs map[oid.Address][]byte) error {
+	for addr, data := range objs {
+		err := x.Put(addr, data)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Delete removes data associated with the given object address from the
 // underlying database. Delete returns apistatus.ErrObjectNotFound if object is
 // missing.
