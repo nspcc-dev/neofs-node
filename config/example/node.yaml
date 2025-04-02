@@ -66,14 +66,7 @@ control:
   grpc:
     endpoint: localhost:8090  # endpoint that is listened by the Control Service
 
-contracts:  # FS chain NEOFS contract script hashes; optional, override values retrieved from NNS contract
-  balance: 5263abba1abedbf79bb57f3e40b50b4425d2d6cd
-  container: 5d084790d7aa36cea7b53fe897380dab11d2cd3c
-  netmap: 0cce9e948dca43a6b592efe59ddb4ecb89bdd9ca
-  reputation: 441995f631c1da2b133462b71859494a5cd45e90
-  proxy: ad7c6b55b737b696e5c82c85445040964a03e97f
-
-fschain: # previously there was a 'morph', now use this section name
+fschain:
   dial_timeout: 30s  # timeout for FS chain NEO RPC client connection (default: 1m)
   cache_ttl: 15s  # FS chain cache TTL value (min interval between similar calls). Negative value disables caching.
                   # Default value: block time. It is recommended to have this value less or equal to block time.

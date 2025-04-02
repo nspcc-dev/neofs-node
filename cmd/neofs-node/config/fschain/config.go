@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	subsection                = "fschain"
-	deprecatedMorphSubsection = "morph"
+	subsection = "fschain"
 
 	// DialTimeoutDefault is a default dial timeout of FS chain client connection.
 	DialTimeoutDefault = time.Minute
@@ -30,15 +29,11 @@ const (
 // Throws panic if list is empty.
 func Endpoints(c *config.Config) []string {
 	endpoints := config.StringSliceSafe(c.Sub(subsection), "endpoints")
-	morphEndpoints := config.StringSliceSafe(c.Sub(deprecatedMorphSubsection), "endpoints")
 
-	if len(endpoints) == 0 && len(morphEndpoints) == 0 {
+	if len(endpoints) == 0 {
 		panic(fmt.Errorf("no FS chain RPC endpoints, see `fschain.endpoints` section"))
 	}
-	if len(endpoints) > 0 {
-		return endpoints
-	}
-	return morphEndpoints
+	return endpoints
 }
 
 // DialTimeout returns the value of "dial_timeout" config parameter
@@ -47,13 +42,9 @@ func Endpoints(c *config.Config) []string {
 // Returns DialTimeoutDefault if the value is not positive duration.
 func DialTimeout(c *config.Config) time.Duration {
 	v := config.DurationSafe(c.Sub(subsection), "dial_timeout")
-	morphV := config.DurationSafe(c.Sub(deprecatedMorphSubsection), "dial_timeout")
 
 	if v > 0 {
 		return v
-	}
-	if morphV > 0 {
-		return morphV
 	}
 
 	return DialTimeoutDefault
@@ -65,13 +56,9 @@ func DialTimeout(c *config.Config) time.Duration {
 // Returns CacheTTLDefault if value is zero or invalid. Supports negative durations.
 func CacheTTL(c *config.Config) time.Duration {
 	res := config.DurationSafe(c.Sub(subsection), "cache_ttl")
-	morphRes := config.DurationSafe(c.Sub(deprecatedMorphSubsection), "cache_ttl")
 
 	if res != 0 {
 		return res
-	}
-	if morphRes != 0 {
-		return morphRes
 	}
 
 	return CacheTTLDefault
@@ -83,13 +70,9 @@ func CacheTTL(c *config.Config) time.Duration {
 // Returns 0 if value is not specified.
 func ReconnectionRetriesNumber(c *config.Config) int {
 	res := config.Int(c.Sub(subsection), "reconnections_number")
-	morphRes := config.Int(c.Sub(deprecatedMorphSubsection), "reconnections_number")
 
 	if res != 0 {
 		return int(res)
-	}
-	if morphRes != 0 {
-		return int(morphRes)
 	}
 
 	return ReconnectionRetriesNumberDefault
@@ -101,13 +84,9 @@ func ReconnectionRetriesNumber(c *config.Config) int {
 // Returns 0 if value is not specified.
 func ReconnectionRetriesDelay(c *config.Config) time.Duration {
 	res := config.DurationSafe(c.Sub(subsection), "reconnections_delay")
-	morphRes := config.DurationSafe(c.Sub(deprecatedMorphSubsection), "reconnections_delay")
 
 	if res != 0 {
 		return res
-	}
-	if morphRes != 0 {
-		return morphRes
 	}
 
 	return ReconnectionRetriesDelayDefault

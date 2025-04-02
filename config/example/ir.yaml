@@ -188,20 +188,6 @@ netmap_cleaner:
 contracts:
   neofs: ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62      # Address of NeoFS contract in mainchain; ignore if mainchain is disabled
   processing: 597f5894867113a41e192801709c02497f611de8 # Address of processing contract in mainchain; ignore if mainchain is disabled
-  audit: 219e37aed2180b87e7fe945dbf97d67125e8d73f      # Optional: override address of audit contract in sidechain
-  balance: d2aa48d14b17b11bc4c68205027884a96706dd16    # Optional: override address of balance contract in sidechain
-  container: ed4a7a66fe3f9bfe50f214b49be8f215a3c886b6  # Optional: override address of container contract in sidechain
-  netmap: 83c600c81d47a1b1b7cf58eb49ae7ee7240dc742     # Optional: override address of netmap contract in sidechain
-  proxy: abc8794bb40a21f2db5f21ae62741eb46c8cad1c      # Optional: override address of proxy contract in sidechain
-  reputation: d793b842ff0c103fe89e385069e82a27602135ff # Optional: override address of reputation contract in sidechain
-  alphabet:
-    az: c1d211fceeb4b1dc76b8e4054d11fdf887e418ea      # Optional: override address of az alphabet contract in sidechain
-    buky: e2ba789320899658b100f331bdebb74474757920    # Optional: override address of buky alphabet contract in sidechain
-    vedi: 9623c11fd49aa18220458fbaae0396749c669e19    # Optional: override address of vedi alphabet contract in sidechain
-    glagoli: 39617441b8e06c55e4fc3ce660be9101b6c1f866 # Optional: override address of glagoli alphabet contract in sidechain
-    dobro: e6122b65d45c8feeb04455d67814394c147ed4d1   # Optional: override address of dobro alphabet contract in sidechain
-    yest: cdbca5cb5d48a4472923844d0e3ee6328cf86d38    # Optional: override address of yest contract in sidechain
-    zhivete: f584699bc2ff457d339fb09f16217042c1a42101 # Optional: override address of zhivete contract in sidechain
 
 pprof:
   enabled: true

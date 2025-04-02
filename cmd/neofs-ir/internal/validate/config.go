@@ -17,67 +17,6 @@ type validConfig struct {
 
 	WithoutMainnet bool `mapstructure:"without_mainnet"`
 
-	Morph struct {
-		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
-		ReconnectionsNumber int           `mapstructure:"reconnections_number"`
-		ReconnectionsDelay  time.Duration `mapstructure:"reconnections_delay"`
-		Endpoints           []string      `mapstructure:"endpoints"`
-		Validators          []string      `mapstructure:"validators"`
-		Consensus           struct {
-			Magic     uint32   `mapstructure:"magic"`
-			Committee []string `mapstructure:"committee"`
-
-			Storage struct {
-				Type string `mapstructure:"type"`
-				Path string `mapstructure:"path"`
-			} `mapstructure:"storage"`
-
-			TimePerBlock       time.Duration `mapstructure:"time_per_block"`
-			MaxTraceableBlocks uint32        `mapstructure:"max_traceable_blocks"`
-			SeedNodes          []string      `mapstructure:"seed_nodes"`
-
-			Hardforks struct {
-				Name map[string]uint32 `mapstructure:",remain" prefix:""`
-			} `mapstructure:"hardforks"`
-
-			ValidatorsHistory struct {
-				Height map[string]int `mapstructure:",remain" prefix:""`
-			} `mapstructure:"validators_history"`
-
-			RPC struct {
-				Listen              []string `mapstructure:"listen"`
-				MaxWebSocketClients uint32   `mapstructure:"max_websocket_clients"`
-				SessionPoolSize     uint32   `mapstructure:"session_pool_size"`
-				MaxGasInvoke        uint32   `mapstructure:"max_gas_invoke"`
-				TLS                 struct {
-					Enabled  bool     `mapstructure:"enabled"`
-					Listen   []string `mapstructure:"listen"`
-					CertFile string   `mapstructure:"cert_file"`
-					KeyFile  string   `mapstructure:"key_file"`
-				} `mapstructure:"tls"`
-			} `mapstructure:"rpc"`
-
-			P2P struct {
-				DialTimeout       time.Duration `mapstructure:"dial_timeout"`
-				ProtoTickInterval time.Duration `mapstructure:"proto_tick_interval"`
-				Listen            []string      `mapstructure:"listen"`
-				Peers             struct {
-					Min      int `mapstructure:"min"`
-					Max      int `mapstructure:"max"`
-					Attempts int `mapstructure:"attempts"`
-				} `mapstructure:"peers"`
-				Ping struct {
-					Interval time.Duration `mapstructure:"interval"`
-					Timeout  time.Duration `mapstructure:"timeout"`
-				} `mapstructure:"ping"`
-			} `mapstructure:"p2p"`
-			SetRolesInGenesis               bool   `mapstructure:"set_roles_in_genesis"`
-			KeepOnlyLatestState             bool   `mapstructure:"keep_only_latest_state"`
-			RemoveUntraceableBlocks         bool   `mapstructure:"remove_untraceable_blocks"`
-			P2PNotaryRequestPayloadPoolSize uint32 `mapstructure:"p2p_notary_request_payload_pool_size"`
-		} `mapstructure:"consensus"`
-	} `mapstructure:"morph"`
-
 	FSChain struct {
 		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
 		ReconnectionsNumber int           `mapstructure:"reconnections_number"`
@@ -243,21 +182,6 @@ type validConfig struct {
 	Contracts struct {
 		NeoFS      string `mapstructure:"neofs"`
 		Processing string `mapstructure:"processing"`
-		Audit      string `mapstructure:"audit"`
-		Balance    string `mapstructure:"balance"`
-		Container  string `mapstructure:"container"`
-		Netmap     string `mapstructure:"netmap"`
-		Proxy      string `mapstructure:"proxy"`
-		Reputation string `mapstructure:"reputation"`
-		Alphabet   struct {
-			AZ      string `mapstructure:"az"`
-			Buky    string `mapstructure:"buky"`
-			Vedi    string `mapstructure:"vedi"`
-			Glagoli string `mapstructure:"glagoli"`
-			Dobro   string `mapstructure:"dobro"`
-			Yest    string `mapstructure:"yest"`
-			Zhivete string `mapstructure:"zhivete"`
-		} `mapstructure:"alphabet"`
 	} `mapstructure:"contracts"`
 
 	Pprof struct {

@@ -76,22 +76,6 @@ type valideConfig struct {
 		} `mapstructure:"grpc"`
 	} `mapstructure:"control"`
 
-	Contracts struct {
-		Balance    string `mapstructure:"balance"`
-		Container  string `mapstructure:"container"`
-		Netmap     string `mapstructure:"netmap"`
-		Reputation string `mapstructure:"reputation"`
-		Proxy      string `mapstructure:"proxy"`
-	} `mapstructure:"contracts"`
-
-	Morph struct {
-		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
-		CacheTTL            time.Duration `mapstructure:"cache_ttl"`
-		ReconnectionsNumber int           `mapstructure:"reconnections_number"`
-		ReconnectionsDelay  time.Duration `mapstructure:"reconnections_delay"`
-		Endpoints           []string      `mapstructure:"endpoints"`
-	} `mapstructure:"morph"`
-
 	FSChain struct {
 		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
 		CacheTTL            time.Duration `mapstructure:"cache_ttl"`

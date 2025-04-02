@@ -145,9 +145,7 @@ type (
 )
 
 const (
-	deprecatedMorphPrefix = "morph"
-	fsChainPrefix         = "fschain"
-	mainnetPrefix         = "mainnet"
+	mainnetPrefix = "mainnet"
 
 	// extra blocks to overlap two deposits, we do that to make sure that
 	// there won't be any blocks without deposited assets in notary contract;
@@ -353,16 +351,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		}
 	}
 
-	if cfg.IsSet(deprecatedMorphPrefix+".endpoints") || cfg.IsSet(deprecatedMorphPrefix+".consensus") {
-		log.Warn("config section 'morph' is deprecated, use 'fschain'")
-		cfgPathFSChain = deprecatedMorphPrefix
-	}
-	if cfg.IsSet(fsChainPrefix+".endpoints") || cfg.IsSet(fsChainPrefix+".consensus") {
-		cfgPathFSChain = fsChainPrefix
-	}
-	cfgPathFSChainRPCEndpoints = cfgPathFSChain + ".endpoints"
-	cfgPathFSChainLocalConsensus = cfgPathFSChain + ".consensus"
-	cfgPathFSChainValidators = cfgPathFSChain + ".validators"
 	fsChainParams := chainParams{
 		log:  log,
 		cfg:  cfg,
@@ -1083,7 +1071,7 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 		client.WithConnSwitchCallback(func() {
 			var err error
 
-			if p.name == fsChainPrefix || p.name == deprecatedMorphPrefix {
+			if p.name == cfgPathFSChain {
 				err = s.restartMorph()
 			} else {
 				err = s.restartMainChain()
