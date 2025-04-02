@@ -20,12 +20,11 @@ Changelog for NeoFS Node
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
 - Support `morph` name for `fschain` config (#3262)
+- All fields from the `contracts` section in IR config, except `contracts.neofs` and `contracts.processing` (#3262)
 
 ### Updated
 
 ### Updating from v0.45.2
-`contracts.neofsid` IR configuration is gone and no longer needed.
-
 `apiclient.allow_external` field must be dropped from any SN configuration.
 Also, SN `ExternalAddr` attribute is no-op now and should also be removed.
 
@@ -38,6 +37,10 @@ of a default values of shards. Please rewrite this fields in your configuration 
 The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release. 
 Compatibility code has been removed in this release. 
 Please rename `morph` to `fschain` in your configuration files.
+
+Currently, in IR configuration only 2 fields are supported in the `contracts` section:
+`contracts.neofs` and `contracts.processing`. The rest of the contracts, 
+along with the alphabet, were removed from the config.
 
 ## [0.45.2] - 2025-03-25
 
