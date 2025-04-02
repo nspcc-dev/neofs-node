@@ -158,7 +158,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	}
 
 	if !unprepared {
-		if err := v.validateSignatureKey(obj); err != nil {
+		if err := validateSignatureKey(obj); err != nil {
 			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
 		}
 
@@ -179,7 +179,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	return nil
 }
 
-func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
+func validateSignatureKey(obj *object.Object) error {
 	// FIXME(@cthulhu-rider): temp solution, see neofs-sdk-go#233
 	sig := obj.Signature()
 	if sig == nil {
