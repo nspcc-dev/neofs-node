@@ -159,7 +159,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 
 	if !unprepared {
 		if err := validateSignatureKey(obj); err != nil {
-			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
+			return fmt.Errorf("could not validate signature key: %w", err)
 		}
 
 		if err := v.checkExpiration(*obj); err != nil {
@@ -167,7 +167,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		}
 
 		if err := obj.CheckHeaderVerificationFields(); err != nil {
-			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
+			return fmt.Errorf("could not validate header fields: %w", err)
 		}
 	}
 
@@ -247,7 +247,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		// ignore regular objects, they do not need payload formatting
 	case object.TypeLink:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in the link object", v)
+			return ContentMeta{}, errors.New("empty payload in the link object")
 		}
 
 		firstObjID, set := o.FirstID()
@@ -273,13 +273,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		}
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in tombstone", v)
+			return ContentMeta{}, errors.New("empty payload in tombstone")
 		}
 
 		tombstone := object.NewTombstone()
 
 		if err := tombstone.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("could not unmarshal tombstone content: %w", err)
 		}
 
 		// check if the tombstone has the same expiration in the body and the header
@@ -306,13 +306,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		meta.objs = idList
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in SG", v)
+			return ContentMeta{}, errors.New("empty payload in SG")
 		}
 
 		var sg storagegroup.StorageGroup
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("could not unmarshal SG content: %w", err)
 		}
 
 		mm := sg.Members()
