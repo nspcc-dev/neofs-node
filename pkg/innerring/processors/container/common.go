@@ -50,15 +50,6 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	var err error
 	var key neofsecdsa.PublicKeyRFC6979
 
-	if v.binPublicKey == nil {
-		return errors.New("can't verify signature, key missing")
-	}
-
-	err = key.Decode(v.binPublicKey)
-	if err != nil {
-		return fmt.Errorf("decode public key: %w", err)
-	}
-
 	if len(v.binTokenSession) > 0 {
 		var tok session.Container
 
@@ -93,6 +84,15 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		}
 
 		return nil
+	}
+
+	if v.binPublicKey == nil {
+		return errors.New("can't verify signature, key missing")
+	}
+
+	err = key.Decode(v.binPublicKey)
+	if err != nil {
+		return fmt.Errorf("decode public key: %w", err)
 	}
 
 	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
