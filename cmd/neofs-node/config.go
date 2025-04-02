@@ -645,12 +645,6 @@ func initCfg(appCfg *config.Config) *cfg {
 
 	c.veryLastClosers = make(map[string]func())
 
-	// warning if there is morph section
-
-	if c.cfgReader.Value("morph") != nil {
-		c.log.Warn("config section 'morph' is deprecated, use 'fschain'")
-	}
-
 	c.onShutdown(c.clientCache.CloseAll)    // clean up connections
 	c.onShutdown(c.bgClientCache.CloseAll)  // clean up connections
 	c.onShutdown(c.putClientCache.CloseAll) // clean up connections

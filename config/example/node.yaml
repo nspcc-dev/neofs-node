@@ -73,7 +73,7 @@ contracts:  # FS chain NEOFS contract script hashes; optional, override values r
   reputation: 441995f631c1da2b133462b71859494a5cd45e90
   proxy: ad7c6b55b737b696e5c82c85445040964a03e97f
 
-fschain: # previously there was a 'morph', now use this section name
+fschain:
   dial_timeout: 30s  # timeout for FS chain NEO RPC client connection (default: 1m)
   cache_ttl: 15s  # FS chain cache TTL value (min interval between similar calls). Negative value disables caching.
                   # Default value: block time. It is recommended to have this value less or equal to block time.

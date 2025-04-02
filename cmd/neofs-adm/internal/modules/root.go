@@ -2,7 +2,6 @@ package modules
 
 import (
 	"os"
-	"slices"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/fschain"
@@ -45,10 +44,6 @@ func init() {
 
 	rootCmd.AddCommand(autocomplete.Command("neofs-adm"))
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
-
-	if slices.Contains(os.Args, "morph") {
-		rootCmd.Println("Warning: 'morph' is deprecated, use 'fschain' instead")
-	}
 }
 
 func Execute() error {

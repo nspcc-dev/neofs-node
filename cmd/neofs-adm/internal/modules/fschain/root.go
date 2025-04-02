@@ -64,9 +64,8 @@ const (
 var (
 	// RootCmd is a root command of config section.
 	RootCmd = &cobra.Command{
-		Use:     "fschain",
-		Short:   "Section FS chain network configuration commands",
-		Aliases: []string{"morph"},
+		Use:   "fschain",
+		Short: "Section FS chain network configuration commands",
 	}
 
 	generateAlphabetCmd = &cobra.Command{

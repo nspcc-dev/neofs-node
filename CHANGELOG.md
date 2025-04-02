@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
+- Support `morph` name for `fschain` config (#3262)
 
 ### Updated
 
@@ -33,6 +34,10 @@ now there is a list `node.attributes`. Instead of `storage.shard.*`,
 there is a list `storage.shards` with configuration of each shard and
 `storage.shard.default` now is a `storage.shard_defaults` option with a configuration
 of a default values of shards. Please rewrite this fields in your configuration files.
+
+The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release. 
+Compatibility code has been removed in this release. 
+Please rename `morph` to `fschain` in your configuration files.
 
 ## [0.45.2] - 2025-03-25
 
