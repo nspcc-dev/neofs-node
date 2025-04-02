@@ -25,7 +25,7 @@ const (
 
 	// rootKey is the key for the last known state root in KV data base
 	// associated with MPT.
-	rootKey = 0x00
+	rootKey = 0xff
 
 	// notificationBuffSize is a nesessary buffer for neo-go's client proper
 	// notification work; it is required to always read notifications without
@@ -51,7 +51,7 @@ type NeoFSNetwork interface {
 
 // wsClient is for test purposes only.
 type wsClient interface {
-	GetBlockNotifications(blockHash util.Uint256, filters ...*neorpc.NotificationFilter) (*result.BlockNotifications, error)
+	GetBlockNotifications(blockHash util.Uint256, filters *neorpc.NotificationFilter) (*result.BlockNotifications, error)
 	GetVersion() (*result.Version, error)
 
 	ReceiveHeadersOfAddedBlocks(flt *neorpc.BlockFilter, rcvr chan<- *block.Header) (string, error)

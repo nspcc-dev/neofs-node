@@ -16,7 +16,7 @@ type mockContainers struct {
 func (x mockContainers) Exists(cid.ID) (bool, error) { return !x.absent, x.err }
 
 func TestAttributeDelimiter(t *testing.T) {
-	t.Run("len", func(t *testing.T) { require.Len(t, object.AttributeDelimiter, attributeDelimiterLen) })
+	t.Run("len", func(t *testing.T) { require.Len(t, object.MetaAttributeDelimiter, attributeDelimiterLen) })
 }
 
 func TestKeyBuffer(t *testing.T) {

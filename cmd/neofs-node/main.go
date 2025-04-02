@@ -135,8 +135,8 @@ func initApp(c *cfg) {
 	initAndLog(c, "accounting", initAccountingService)
 	initAndLog(c, "session", initSessionService)
 	initAndLog(c, "reputation", initReputationService)
-	initAndLog(c, "object", initObjectService)
 	initAndLog(c, "meta", initMeta)
+	initAndLog(c, "object", initObjectService)
 	initAndLog(c, "tree", initTreeService)
 
 	initAndLog(c, "morph notifications", listenMorphNotifications)

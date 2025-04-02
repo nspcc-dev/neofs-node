@@ -351,7 +351,7 @@ func (s *containerStorage) deleteObjectsOps(dbKV map[string][]byte, objects []by
 			// DB reversed indexes
 			case oidToAttrIndex:
 				withoutOID := k[1+oid.Size:]
-				i := bytes.Index(withoutOID, object.AttributeDelimiter)
+				i := bytes.Index(withoutOID, object.MetaAttributeDelimiter)
 				if i < 0 {
 					err = fmt.Errorf("unexpected attribute index without delimeter: %s", string(k))
 					return false
@@ -360,10 +360,10 @@ func (s *containerStorage) deleteObjectsOps(dbKV map[string][]byte, objects []by
 				attrV := withoutOID[i+attributeDelimiterLen:]
 
 				// drop reverse plain index
-				keyToDrop := make([]byte, 0, len(k)+len(object.AttributeDelimiter))
+				keyToDrop := make([]byte, 0, len(k)+len(object.MetaAttributeDelimiter))
 				keyToDrop = append(keyToDrop, attrPlainToOIDIndex)
 				keyToDrop = append(keyToDrop, withoutOID...)
-				keyToDrop = append(keyToDrop, object.AttributeDelimiter...)
+				keyToDrop = append(keyToDrop, object.MetaAttributeDelimiter...)
 				keyToDrop = append(keyToDrop, o...)
 
 				dbKV[string(keyToDrop)] = nil
@@ -374,7 +374,7 @@ func (s *containerStorage) deleteObjectsOps(dbKV map[string][]byte, objects []by
 					keyToDrop = keyToDrop[:0]
 					keyToDrop = append(keyToDrop, attrIntToOIDIndex)
 					keyToDrop = append(keyToDrop, attrK...)
-					keyToDrop = append(keyToDrop, object.AttributeDelimiter...)
+					keyToDrop = append(keyToDrop, object.MetaAttributeDelimiter...)
 					keyToDrop = keyToDrop[:len(keyToDrop)+intValLen]
 					putBigInt(keyToDrop[len(keyToDrop)-intValLen:], vInt)
 					keyToDrop = append(keyToDrop, o...)
@@ -439,6 +439,7 @@ func storageForContainer(l *zap.Logger, rootPath string, cID cid.ID) (*container
 const (
 	intValLen             = 33 // prefix byte for sign + fixed256 in attrIntToOIDIndex
 	attributeDelimiterLen = 1
+	attrIDFixedLen        = 1 + oid.Size + attributeDelimiterLen
 )
 
 func parseInt(s string) (*big.Int, bool) {
@@ -462,7 +463,7 @@ func putPlainAttribute(batch map[string][]byte, id oid.ID, k, v string) {
 	resKey = append(resKey, oidToAttrIndex)
 	resKey = append(resKey, id[:]...)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, object.AttributeDelimiter...)
+	resKey = append(resKey, object.MetaAttributeDelimiter...)
 	resKey = append(resKey, v...)
 
 	batch[string(resKey)] = []byte{}
@@ -471,9 +472,9 @@ func putPlainAttribute(batch map[string][]byte, id oid.ID, k, v string) {
 	// PREFIX_ATTR_DELIM_VAL_DELIM_OID
 	resKey = append(resKey, attrPlainToOIDIndex)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, object.AttributeDelimiter...)
+	resKey = append(resKey, object.MetaAttributeDelimiter...)
 	resKey = append(resKey, v...)
-	resKey = append(resKey, object.AttributeDelimiter...)
+	resKey = append(resKey, object.MetaAttributeDelimiter...)
 	resKey = append(resKey, id[:]...)
 
 	batch[string(resKey)] = []byte{}
@@ -487,7 +488,7 @@ func putIntAttribute(batch map[string][]byte, id oid.ID, k, vRaw string, vParsed
 	// PREFIX_ATTR_DELIM_VAL_OID
 	resKey = append(resKey, attrIntToOIDIndex)
 	resKey = append(resKey, k...)
-	resKey = append(resKey, object.AttributeDelimiter...)
+	resKey = append(resKey, object.MetaAttributeDelimiter...)
 
 	resKey = resKey[:len(resKey)+intValLen]
 	putBigInt(resKey[len(resKey)-intValLen:], vParsed)
@@ -523,7 +524,7 @@ func (s *containerStorage) handleNewEpoch(e uint64) error {
 	putBigInt(lastValidEpochUint256, &eBig)
 
 	var rng storage.SeekRange
-	rng.Prefix = slices.Concat([]byte{attrIntToOIDIndex}, []byte(objectsdk.AttributeExpirationEpoch), object.AttributeDelimiter)
+	rng.Prefix = slices.Concat([]byte{attrIntToOIDIndex}, []byte(objectsdk.AttributeExpirationEpoch), object.MetaAttributeDelimiter)
 	commPrefLen := len(rng.Prefix)
 
 	s.db.Seek(rng, func(k, _ []byte) bool {
@@ -609,7 +610,7 @@ func (s *containerStorage) expandChildren(rootOIDs []byte) []byte {
 
 	var childrenWithParentID [][]byte
 	var rng storage.SeekRange
-	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterParentID), object.AttributeDelimiter)
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterParentID), object.MetaAttributeDelimiter)
 	rootsSorted := slices.SortedFunc(slices.Chunk(rootOIDs, oid.Size), bytes.Compare)
 	rng.Start = rootsSorted[0]
 	keyLenExp := len(rng.Prefix) + len(rng.Start) + attributeDelimiterLen + oid.Size
@@ -650,7 +651,7 @@ func (s *containerStorage) expandChildren(rootOIDs []byte) []byte {
 	firstPartOIDs := make([][]byte, 0, len(childrenWithParentID))
 	slices.SortFunc(childrenWithParentID, bytes.Compare)
 	rng.Prefix = []byte{oidToAttrIndex}
-	rng.Start = slices.Concat(childrenWithParentID[0], []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	rng.Start = slices.Concat(childrenWithParentID[0], []byte(objectsdk.FilterFirstSplitObject), object.MetaAttributeDelimiter)
 	keyLenExp = len(rng.Prefix) + len(rng.Start) + oid.Size
 
 	s.db.Seek(rng, func(k, _ []byte) bool {
@@ -691,7 +692,7 @@ func (s *containerStorage) expandChildren(rootOIDs []byte) []byte {
 
 	slices.SortFunc(firstPartOIDs, bytes.Compare)
 	children := slices.Concat(firstPartOIDs...) // first objects are children too
-	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterFirstSplitObject), object.AttributeDelimiter)
+	rng.Prefix = slices.Concat([]byte{attrPlainToOIDIndex}, []byte(objectsdk.FilterFirstSplitObject), object.MetaAttributeDelimiter)
 	rng.Start = firstPartOIDs[0]
 	keyLenExp = len(rng.Prefix) + len(rng.Start) + attributeDelimiterLen + oid.Size
 

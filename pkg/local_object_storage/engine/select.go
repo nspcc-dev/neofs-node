@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -56,7 +55,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]meta.ParsedIntFilter, attrs []string, cursor *meta.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -95,7 +94,7 @@ func (e *StorageEngine) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int
 	if err != nil || !more {
 		return res, nil, err
 	}
-	c, err := meta.CalculateCursor(fs, res[len(res)-1])
+	c, err := objectcore.CalculateCursor(fs, res[len(res)-1])
 	if err != nil {
 		return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 	}
