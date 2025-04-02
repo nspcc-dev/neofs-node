@@ -189,7 +189,7 @@ func validateSignature(obj *object.Object) error {
 
 	token := obj.SessionToken()
 	if token == nil {
-		if !obj.VerifySignature() {
+		if err := icrypto.AuthenticateObject(*obj); err != nil {
 			return errors.New("invalid signature")
 		}
 		return nil
@@ -210,7 +210,7 @@ func validateSignature(obj *object.Object) error {
 		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
 	}
 
-	if !obj.VerifySignature() {
+	if err := icrypto.AuthenticateObject(*obj); err != nil {
 		return errors.New("invalid signature")
 	}
 

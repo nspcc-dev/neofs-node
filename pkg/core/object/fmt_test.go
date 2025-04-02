@@ -142,21 +142,17 @@ func TestFormatValidator_Validate(t *testing.T) {
 			for _, tc := range []struct {
 				name      string
 				changePub func([]byte) []byte
-				skip      bool
 			}{
 				{name: "nil", changePub: func([]byte) []byte { return nil }},
 				{name: "empty", changePub: func([]byte) []byte { return []byte{} }},
 				{name: "undersize", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
 				{name: "oversize", changePub: func(k []byte) []byte { return append(k, 1) }},
-				{name: "prefix 0", changePub: func(k []byte) []byte { return []byte{0x00} }, skip: true},
+				{name: "prefix 0", changePub: func(k []byte) []byte { return []byte{0x00} }},
 				{name: "prefix 1", changePub: func(k []byte) []byte { return []byte{0x01} }},
 				{name: "prefix 4", changePub: func(k []byte) []byte { return []byte{0x04} }},
 				{name: "prefix 5", changePub: func(k []byte) []byte { return []byte{0x05} }},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					if tc.skip {
-						t.Skip()
-					}
 					pub := slices.Clone(signer.PublicKeyBytes)
 					sig.SetPublicKeyBytes(tc.changePub(pub))
 					obj.SetSignature(&sig)
