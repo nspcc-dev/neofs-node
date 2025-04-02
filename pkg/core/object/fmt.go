@@ -162,8 +162,8 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("could not validate header fields: invalid identifier: %w", err)
 		}
 
-		if err := validateSignature(obj); err != nil {
-			return fmt.Errorf("could not validate signature: %w", err)
+		if err := icrypto.AuthenticateObject(*obj); err != nil {
+			return fmt.Errorf("authenticate: %w", err)
 		}
 
 		if err := v.checkExpiration(*obj); err != nil {
@@ -174,44 +174,6 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	if par != nil && (firstSet || splitID != nil) {
 		// Parent object already exists.
 		return v.Validate(par, false)
-	}
-
-	return nil
-}
-
-func validateSignature(obj *object.Object) error {
-	// FIXME(@cthulhu-rider): temp solution, see neofs-sdk-go#233
-	sig := obj.Signature()
-	if sig == nil {
-		// TODO(@cthulhu-rider): #1387 use "const" error
-		return errors.New("missing signature")
-	}
-
-	token := obj.SessionToken()
-	if token == nil {
-		if err := icrypto.AuthenticateObject(*obj); err != nil {
-			return fmt.Errorf("authenticate: %w", err)
-		}
-		return nil
-	}
-
-	if sig.PublicKey() == nil {
-		return errors.New("missing public key")
-	}
-	if !token.AssertAuthKey(sig.PublicKey()) {
-		return errors.New("session token is not for object's signer")
-	}
-
-	if err := icrypto.AuthenticateToken(token); err != nil {
-		return fmt.Errorf("authenticate session token: %w", err)
-	}
-
-	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above
-		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
-	}
-
-	if err := icrypto.AuthenticateObject(*obj); err != nil {
-		return fmt.Errorf("authenticate: %w", err)
 	}
 
 	return nil

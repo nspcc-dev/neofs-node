@@ -112,7 +112,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("invalid signature", func(t *testing.T) {
 		t.Run("unsigned", func(t *testing.T) {
 			obj, _ := minUnsignedObject(t)
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: missing signature")
+			require.EqualError(t, v.Validate(&obj, false), "authenticate: missing signature")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -122,7 +122,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(3, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: unsupported scheme 3")
+			require.EqualError(t, v.Validate(&obj, false), "authenticate: unsupported scheme 3")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -132,7 +132,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(neofscrypto.ECDSA_WALLETCONNECT, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
+			require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
 		})
 		t.Run("invalid public key", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -157,7 +157,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 					pub := slices.Clone(signer.PublicKeyBytes)
 					sig.SetPublicKeyBytes(tc.changePub(pub))
 					obj.SetSignature(&sig)
-					require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
+					require.EqualError(t, v.Validate(&obj, false), "authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
 				})
 			}
 		})
@@ -179,7 +179,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 						cp[i]++
 						newSig := neofscrypto.NewSignatureFromRawKey(sig.Scheme(), sig.PublicKeyBytes(), cp)
 						tc.object.SetSignature(&newSig)
-						require.EqualError(t, v.Validate(&tc.object, false), fmt.Sprintf("could not validate signature: authenticate: scheme %s: signature mismatch", tc.scheme))
+						require.EqualError(t, v.Validate(&tc.object, false), fmt.Sprintf("authenticate: scheme %s: signature mismatch", tc.scheme))
 					}
 				})
 			}
@@ -253,7 +253,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, obj.Sign(sessionSubj))
 
 			err = v.Validate(obj, false)
-			require.EqualError(t, err, "could not validate signature: authenticate session token: issuer mismatches signature")
+			require.EqualError(t, err, "authenticate: session token: issuer mismatches signature")
 		})
 	})
 

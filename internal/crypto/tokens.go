@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"errors"
+	"fmt"
 
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -23,12 +24,20 @@ func AuthenticateToken[T interface {
 	if !ok {
 		return errMissingSignature
 	}
-	pub, err := verifySignature(sig, token.SignedData)
-	if err != nil {
-		return err
-	}
-	if user.NewFromECDSAPublicKey(*pub) != issuer {
-		return errIssuerMismatch
+	switch scheme := sig.Scheme(); scheme {
+	default:
+		return fmt.Errorf("unsupported scheme %v", scheme)
+	case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_DETERMINISTIC_SHA256, neofscrypto.ECDSA_WALLETCONNECT:
+		pub, err := decodeECDSAPublicKey(sig.PublicKeyBytes())
+		if err != nil {
+			return schemeError(scheme, fmt.Errorf("decode public key: %w", err))
+		}
+		if !verifyECDSAFns[scheme](*pub, sig.Value(), token.SignedData()) {
+			return schemeError(scheme, errSignatureMismatch)
+		}
+		if user.NewFromECDSAPublicKey(*pub) != issuer {
+			return errIssuerMismatch
+		}
 	}
 	return nil
 }
