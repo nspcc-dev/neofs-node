@@ -162,12 +162,12 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("could not validate signature key: %w", err)
 		}
 
-		if err := v.checkExpiration(*obj); err != nil {
-			return fmt.Errorf("object did not pass expiration check: %w", err)
-		}
-
 		if err := obj.CheckHeaderVerificationFields(); err != nil {
 			return fmt.Errorf("could not validate header fields: %w", err)
+		}
+
+		if err := v.checkExpiration(*obj); err != nil {
+			return fmt.Errorf("object did not pass expiration check: %w", err)
 		}
 	}
 
