@@ -8,6 +8,7 @@ import (
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // AuthenticateObject checks whether obj is signed correctly by its owner.
@@ -49,6 +50,9 @@ func AuthenticateObject(obj object.Object) error {
 	case neofscrypto.ECDSA_SHA512, neofscrypto.ECDSA_DETERMINISTIC_SHA256, neofscrypto.ECDSA_WALLETCONNECT:
 		if !verifyECDSAFns[scheme](*ecdsaPub, sig.Value(), obj.GetID().Marshal()) {
 			return schemeError(scheme, errSignatureMismatch)
+		}
+		if sessionToken == nil && user.NewFromECDSAPublicKey(*ecdsaPub) != obj.Owner() {
+			return errors.New("owner mismatches signature")
 		}
 	}
 

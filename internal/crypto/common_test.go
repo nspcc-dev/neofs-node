@@ -31,7 +31,7 @@ var (
 	// 	},
 	// 	D: new(big.Int).SetBytes([]byte{65, 188, 132, 92, 41, 230, 185, 242, 177, 45, 170, 2, 169, 227, 46, 7, 247, 72, 140, 216,
 	// 		201, 49, 53, 138, 59, 7, 116, 42, 98, 96, 187, 6}),
-	// }
+	// }.
 	sessionSubjECDSAPriv = ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			Curve: elliptic.P256(),

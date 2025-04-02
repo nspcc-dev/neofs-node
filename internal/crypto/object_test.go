@@ -76,6 +76,20 @@ func TestAuthenticateObject(t *testing.T) {
 			})
 		}
 	})
+	t.Run("wrong owner", func(t *testing.T) {
+		for _, tc := range []struct {
+			scheme neofscrypto.Scheme
+			object object.Object
+		}{
+			{scheme: neofscrypto.ECDSA_SHA512, object: wrongOwnerObjectECDSASHA512},
+			{scheme: neofscrypto.ECDSA_DETERMINISTIC_SHA256, object: wrongOwnerObjectECDSARFC6979},
+			{scheme: neofscrypto.ECDSA_WALLETCONNECT, object: wrongOwnerObjectECDSAWalletConnect},
+		} {
+			t.Run(tc.scheme.String(), func(t *testing.T) {
+				require.EqualError(t, icrypto.AuthenticateObject(tc.object), "owner mismatches signature")
+			})
+		}
+	})
 	t.Run("invalid session", func(t *testing.T) {
 		t.Run("no issuer", func(t *testing.T) {
 			for _, tc := range []struct {
@@ -176,6 +190,10 @@ var (
 	objectWithWrongOwnerSessionECDSASHA512        object.Object
 	objectWithWrongOwnerSessionECDSARFC6979       object.Object
 	objectWithWrongOwnerSessionECDSAWalletConnect object.Object
+
+	wrongOwnerObjectECDSASHA512        object.Object
+	wrongOwnerObjectECDSARFC6979       object.Object
+	wrongOwnerObjectECDSAWalletConnect object.Object
 )
 
 func getUnsignedObject() object.Object {
@@ -412,4 +430,34 @@ func init() {
 		23, 56, 163, 197, 96, 243, 75, 222, 8, 0, 135, 21, 129, 252, 121, 97, 54, 151, 72, 254, 185, 201, 149, 129, 76, 67,
 	})
 	objectWithWrongOwnerSessionECDSAWalletConnect.SetSignature(&objectWithWrongOwnerSessionECDSAWalletConnectSig)
+
+	wrongOwnerObjectECDSASHA512 = getUnsignedObject()
+	wrongOwnerObjectECDSASHA512.SetID(oid.ID{44, 189, 3, 215, 147, 16, 210, 126, 212, 84, 39, 229, 126, 136, 236, 141, 39, 54,
+		124, 41, 200, 92, 84, 6, 172, 47, 157, 83, 58, 189, 86, 66})
+	wrongOwnerObjectECDSASHA512Sig := neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, otherAccECDSAPub, []byte{
+		4, 182, 116, 44, 1, 109, 129, 83, 233, 98, 104, 220, 128, 73, 167, 206, 228, 48, 172, 216, 38, 167, 122, 108, 36, 2, 165,
+		193, 173, 42, 85, 20, 211, 140, 213, 176, 167, 68, 228, 174, 31, 90, 7, 26, 229, 195, 64, 233, 119, 79, 207, 135, 136, 233,
+		102, 20, 14, 231, 176, 14, 105, 12, 184, 48, 42,
+	})
+	wrongOwnerObjectECDSASHA512.SetSignature(&wrongOwnerObjectECDSASHA512Sig)
+
+	wrongOwnerObjectECDSARFC6979 = getUnsignedObject()
+	wrongOwnerObjectECDSARFC6979.SetID(oid.ID{44, 189, 3, 215, 147, 16, 210, 126, 212, 84, 39, 229, 126, 136, 236, 141, 39, 54,
+		124, 41, 200, 92, 84, 6, 172, 47, 157, 83, 58, 189, 86, 66})
+	wrongOwnerObjectECDSARFC6979Sig := neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, otherAccECDSAPub, []byte{
+		46, 226, 87, 254, 177, 142, 165, 224, 10, 122, 73, 8, 243, 21, 56, 105, 62, 127, 110, 70, 170, 72, 150, 44, 103, 3, 37, 175,
+		161, 138, 81, 207, 139, 43, 112, 12, 20, 245, 98, 125, 52, 30, 116, 54, 27, 187, 162, 144, 114, 48, 59, 93, 28, 169, 50, 198,
+		1, 176, 72, 98, 224, 132, 67, 6,
+	})
+	wrongOwnerObjectECDSARFC6979.SetSignature(&wrongOwnerObjectECDSARFC6979Sig)
+
+	wrongOwnerObjectECDSAWalletConnect = getUnsignedObject()
+	wrongOwnerObjectECDSAWalletConnect.SetID(oid.ID{44, 189, 3, 215, 147, 16, 210, 126, 212, 84, 39, 229, 126, 136, 236, 141, 39, 54,
+		124, 41, 200, 92, 84, 6, 172, 47, 157, 83, 58, 189, 86, 66})
+	wrongOwnerObjectECDSAWalletConnectSig := neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, otherAccECDSAPub, []byte{
+		16, 86, 240, 172, 222, 176, 55, 147, 127, 230, 250, 91, 182, 58, 91, 249, 26, 40, 127, 205, 229, 249, 197, 115, 225, 138,
+		238, 18, 176, 250, 214, 173, 111, 81, 207, 28, 7, 37, 9, 179, 183, 236, 193, 27, 114, 163, 57, 129, 177, 65, 138, 161, 46, 51,
+		232, 172, 250, 107, 116, 51, 234, 38, 6, 176, 173, 112, 156, 165, 118, 123, 69, 94, 68, 74, 62, 72, 6, 167, 85, 182,
+	})
+	wrongOwnerObjectECDSAWalletConnect.SetSignature(&wrongOwnerObjectECDSAWalletConnectSig)
 }
