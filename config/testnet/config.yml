@@ -12,12 +12,6 @@ fschain:
     - wss://rpc07.morph.testnet.fs.neo.org:51331/ws
   dial_timeout: 1m
 
-contracts:
-  balance: e0420c216003747626670d1424569c17c79015bf
-  container: 9dbd2b5e67568ed285c3d6f96bac4edf5e1efba0
-  netmap: d4b331639799e2958d4bc5b711b469d79de94e01
-  reputation: 376c23a2ae1fad088c82046abb59984e3c4519d9
-
 node:
   attributes:
     - Deployed:SelfHosted

@@ -128,32 +128,25 @@ func registerNotificationHandlers(scHash util.Uint160, lis event.Listener, parse
 	}
 }
 
-// lookupScriptHashesInNNS looks up for contract script hashes in NNS contract of side
-// chain if they were not specified in config file.
-func lookupScriptHashesInNNS(morphCli *client.Client, cfgRead applicationConfiguration, b *basics) {
+// lookupScriptHashesInNNS looks up for contract script hashes in NNS contract of side chain.
+func lookupScriptHashesInNNS(morphCli *client.Client, b *basics) {
 	var (
 		err error
 
-		emptyHash = util.Uint160{}
-		targets   = [...]struct {
-			hashRead  util.Uint160
+		targets = [...]struct {
 			finalHash *util.Uint160
 			nnsName   string
 		}{
-			{cfgRead.contracts.balance, &b.balanceSH, client.NNSBalanceContractName},
-			{cfgRead.contracts.container, &b.containerSH, client.NNSContainerContractName},
-			{cfgRead.contracts.netmap, &b.netmapSH, client.NNSNetmapContractName},
-			{cfgRead.contracts.reputation, &b.reputationSH, client.NNSReputationContractName},
-			{cfgRead.contracts.proxy, &b.proxySH, client.NNSProxyContractName},
+			{&b.balanceSH, client.NNSBalanceContractName},
+			{&b.containerSH, client.NNSContainerContractName},
+			{&b.netmapSH, client.NNSNetmapContractName},
+			{&b.reputationSH, client.NNSReputationContractName},
+			{&b.proxySH, client.NNSProxyContractName},
 		}
 	)
 
 	for _, t := range targets {
-		if emptyHash.Equals(t.hashRead) {
-			*t.finalHash, err = morphCli.NNSContractAddress(t.nnsName)
-			fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
-		} else {
-			*t.finalHash = t.hashRead
-		}
+		*t.finalHash, err = morphCli.NNSContractAddress(t.nnsName)
+		fatalOnErrDetails(fmt.Sprintf("can't resolve %s in NNS", t.nnsName), err)
 	}
 }

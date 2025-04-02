@@ -20,7 +20,6 @@ import (
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
-	contractsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/contracts"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
@@ -123,14 +122,6 @@ type applicationConfiguration struct {
 		reconnectionRetriesNumber int
 		reconnectionRetriesDelay  time.Duration
 	}
-
-	contracts struct {
-		netmap     neogoutil.Uint160
-		balance    neogoutil.Uint160
-		container  neogoutil.Uint160
-		reputation neogoutil.Uint160
-		proxy      neogoutil.Uint160
-	}
 }
 
 // readConfig fills applicationConfiguration with raw configuration values
@@ -184,14 +175,6 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 	a.fsChain.cacheTTL = fschainconfig.CacheTTL(c)
 	a.fsChain.reconnectionRetriesNumber = fschainconfig.ReconnectionRetriesNumber(c)
 	a.fsChain.reconnectionRetriesDelay = fschainconfig.ReconnectionRetriesDelay(c)
-
-	// Contracts
-
-	a.contracts.balance = contractsconfig.Balance(c)
-	a.contracts.container = contractsconfig.Container(c)
-	a.contracts.netmap = contractsconfig.Netmap(c)
-	a.contracts.proxy = contractsconfig.Proxy(c)
-	a.contracts.reputation = contractsconfig.Reputation(c)
 
 	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
 		var sh storage.ShardCfg
@@ -626,7 +609,7 @@ func initCfg(appCfg *config.Config) *cfg {
 		needBootstrap: !relayOnly,
 	}
 	c.cfgMorph = cfgMorph{
-		proxyScriptHash: contractsconfig.Proxy(appCfg),
+		proxyScriptHash: c.proxySH,
 	}
 	c.cfgObject = cfgObject{
 		pool:              initObjectPool(appCfg),
@@ -709,7 +692,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 		fatalOnErr(err)
 	}
 
-	lookupScriptHashesInNNS(cli, c.applicationConfiguration, &b)
+	lookupScriptHashesInNNS(cli, &b)
 
 	nState := newNetworkState(c.log)
 	currBlock, err := cli.BlockCount()

@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - SN `apiclient.allow_external` config (#3235)
 - Support `morph` name for `fschain` config (#3262)
 - All fields from the `contracts` section in IR config, except `contracts.neofs` and `contracts.processing` (#3262)
+- Section `contracts` in SN config (#3262) 
 
 ### Updated
 
@@ -41,6 +42,8 @@ Please rename `morph` to `fschain` in your configuration files.
 Currently, in IR configuration only 2 fields are supported in the `contracts` section:
 `contracts.neofs` and `contracts.processing`. The rest of the contracts, 
 along with the alphabet, were removed from the config.
+
+In SN configuration section `contracts` is gone and no longer needed.
 
 ## [0.45.2] - 2025-03-25
 

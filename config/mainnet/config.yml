@@ -56,9 +56,3 @@ fschain:
     - wss://rpc6.morph.fs.neo.org:40341/ws
     - wss://rpc7.morph.fs.neo.org:40341/ws
   dial_timeout: 1m
-
-contracts:
-  balance: dc1ec98d9d0c5f9dfade16144defe08cffc5ca55
-  container: 1b6e68d299b570e1cb7e86eadfdc06aa2e8e0cc5
-  netmap: 7c5bdb23e36cc7cce95bf42f3ab9e452c2501df1
-  reputation: 7ad824fd1eeb1565be2cee3889214b9aa605d2fc

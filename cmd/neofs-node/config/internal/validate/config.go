@@ -76,14 +76,6 @@ type valideConfig struct {
 		} `mapstructure:"grpc"`
 	} `mapstructure:"control"`
 
-	Contracts struct {
-		Balance    string `mapstructure:"balance"`
-		Container  string `mapstructure:"container"`
-		Netmap     string `mapstructure:"netmap"`
-		Reputation string `mapstructure:"reputation"`
-		Proxy      string `mapstructure:"proxy"`
-	} `mapstructure:"contracts"`
-
 	FSChain struct {
 		DialTimeout         time.Duration `mapstructure:"dial_timeout"`
 		CacheTTL            time.Duration `mapstructure:"cache_ttl"`

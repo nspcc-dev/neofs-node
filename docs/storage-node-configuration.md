@@ -18,7 +18,6 @@ There are some custom types used for brevity:
 | `pprof`      | [PProf configuration](#pprof-section)                   |
 | `prometheus` | [Prometheus metrics configuration](#prometheus-section) |
 | `control`    | [Control service configuration](#control-section)       |
-| `contracts`  | [Override NeoFS contracts hashes](#contracts-section)   |
 | `fschain`    | [N3 blockchain client configuration](#fschain-section)  |
 | `apiclient`  | [NeoFS API client configuration](#apiclient-section)    |
 | `policer`    | [Policer service configuration](#policer-section)       |
@@ -111,27 +110,6 @@ logger:
 | `level`     | `string` | `info`        | Logging level.<br/>Possible values:  `debug`, `info`, `warn`, `error`, `dpanic`, `panic`, `fatal`   |
 | `encoding`  | `string` | `console`     | Logging encoding.<br/>Possible values: `console`, `json`                                            |
 | `timestamp` | `bool`   | `false`       | Flag to enable timestamps. If the parameter is not set, they will be enabled when you run with tty. |
-
-# `contracts` section
-Contains override values for NeoFS side-chain contract hashes. Most of the time contract
-hashes are fetched from the NNS contract, so this section can be omitted.
-
-```yaml
-contracts:
-  balance: 5263abba1abedbf79bb57f3e40b50b4425d2d6cd
-  container: 5d084790d7aa36cea7b53fe897380dab11d2cd3c
-  netmap: 0cce9e948dca43a6b592efe59ddb4ecb89bdd9ca
-  reputation: 441995f631c1da2b133462b71859494a5cd45e90
-  proxy: ad7c6b55b737b696e5c82c85445040964a03e97f
-```
-
-| Parameter    | Type      | Default value | Description               |
-|--------------|-----------|---------------|---------------------------|
-| `audit`      | `hash160` |               | Audit contract hash.      |
-| `balance`    | `hash160` |               | Balance contract hash.    |
-| `container`  | `hash160` |               | Container contract hash.  |
-| `netmap`     | `hash160` |               | Netmap contract hash.     |
-| `reputation` | `hash160` |               | Reputation contract hash. |
 
 # `fschain` section
 
