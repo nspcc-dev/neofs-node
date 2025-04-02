@@ -111,7 +111,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	t.Run("invalid signature", func(t *testing.T) {
 		t.Run("unsigned", func(t *testing.T) {
 			obj, _ := minUnsignedObject(t)
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature key: missing signature")
+			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: missing signature")
 		})
 		t.Run("unsupported scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -121,7 +121,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(3, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate header fields: invalid signature")
+			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -131,7 +131,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(neofscrypto.ECDSA_WALLETCONNECT, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate header fields: invalid signature")
+			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
 		})
 		t.Run("invalid public key", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -160,7 +160,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 					pub := slices.Clone(signer.PublicKeyBytes)
 					sig.SetPublicKeyBytes(tc.changePub(pub))
 					obj.SetSignature(&sig)
-					require.EqualError(t, v.Validate(&obj, false), "could not validate header fields: invalid signature")
+					require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
 				})
 			}
 		})
@@ -182,7 +182,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 						cp[i]++
 						newSig := neofscrypto.NewSignatureFromRawKey(sig.Scheme(), sig.PublicKeyBytes(), cp)
 						tc.object.SetSignature(&newSig)
-						require.EqualError(t, v.Validate(&tc.object, false), "could not validate header fields: invalid signature")
+						require.EqualError(t, v.Validate(&tc.object, false), "could not validate signature: invalid signature")
 					}
 				})
 			}
@@ -256,7 +256,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			require.NoError(t, obj.Sign(sessionSubj))
 
 			err = v.Validate(obj, false)
-			require.EqualError(t, err, "could not validate signature key: authenticate session token: issuer mismatches signature")
+			require.EqualError(t, err, "could not validate signature: authenticate session token: issuer mismatches signature")
 		})
 	})
 

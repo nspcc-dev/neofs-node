@@ -162,12 +162,8 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("could not validate header fields: invalid identifier: %w", err)
 		}
 
-		if err := validateSignatureKey(obj); err != nil {
-			return fmt.Errorf("could not validate signature key: %w", err)
-		}
-
-		if !obj.VerifySignature() {
-			return errors.New("could not validate header fields: invalid signature")
+		if err := validateSignature(obj); err != nil {
+			return fmt.Errorf("could not validate signature: %w", err)
 		}
 
 		if err := v.checkExpiration(*obj); err != nil {
@@ -183,7 +179,7 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	return nil
 }
 
-func validateSignatureKey(obj *object.Object) error {
+func validateSignature(obj *object.Object) error {
 	// FIXME(@cthulhu-rider): temp solution, see neofs-sdk-go#233
 	sig := obj.Signature()
 	if sig == nil {
@@ -193,6 +189,9 @@ func validateSignatureKey(obj *object.Object) error {
 
 	token := obj.SessionToken()
 	if token == nil {
+		if !obj.VerifySignature() {
+			return errors.New("invalid signature")
+		}
 		return nil
 	}
 
@@ -209,6 +208,10 @@ func validateSignatureKey(obj *object.Object) error {
 
 	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above
 		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
+	}
+
+	if !obj.VerifySignature() {
+		return errors.New("invalid signature")
 	}
 
 	return nil
