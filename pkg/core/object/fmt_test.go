@@ -2,6 +2,7 @@ package object
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"testing"
@@ -121,7 +122,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(3, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
+			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: unsupported scheme 3")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -131,7 +132,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignature(neofscrypto.ECDSA_WALLETCONNECT, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
+			require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: scheme ECDSA_RFC6979_SHA256_WALLET_CONNECT: signature mismatch")
 		})
 		t.Run("invalid public key", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)
@@ -140,23 +141,23 @@ func TestFormatValidator_Validate(t *testing.T) {
 			sig := neofscrypto.NewSignatureFromRawKey(signer.Scheme(), signer.PublicKeyBytes, sigBytes)
 
 			for _, tc := range []struct {
-				name      string
+				name, err string
 				changePub func([]byte) []byte
 			}{
-				{name: "nil", changePub: func([]byte) []byte { return nil }},
-				{name: "empty", changePub: func([]byte) []byte { return []byte{} }},
-				{name: "undersize", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
-				{name: "oversize", changePub: func(k []byte) []byte { return append(k, 1) }},
-				{name: "prefix 0", changePub: func(k []byte) []byte { return []byte{0x00} }},
-				{name: "prefix 1", changePub: func(k []byte) []byte { return []byte{0x01} }},
-				{name: "prefix 4", changePub: func(k []byte) []byte { return []byte{0x04} }},
-				{name: "prefix 5", changePub: func(k []byte) []byte { return []byte{0x05} }},
+				{name: "nil", err: "EOF", changePub: func([]byte) []byte { return nil }},
+				{name: "empty", err: "EOF", changePub: func([]byte) []byte { return []byte{} }},
+				{name: "undersize", err: "unexpected EOF", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
+				{name: "oversize", err: "extra data", changePub: func(k []byte) []byte { return append(k, 1) }},
+				{name: "prefix 0", err: "invalid prefix 0", changePub: func(k []byte) []byte { return []byte{0x00} }},
+				{name: "prefix 1", err: "invalid prefix 1", changePub: func(k []byte) []byte { return []byte{0x01} }},
+				{name: "prefix 4", err: "EOF", changePub: func(k []byte) []byte { return []byte{0x04} }},
+				{name: "prefix 5", err: "invalid prefix 5", changePub: func(k []byte) []byte { return []byte{0x05} }},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					pub := slices.Clone(signer.PublicKeyBytes)
 					sig.SetPublicKeyBytes(tc.changePub(pub))
 					obj.SetSignature(&sig)
-					require.EqualError(t, v.Validate(&obj, false), "could not validate signature: invalid signature")
+					require.EqualError(t, v.Validate(&obj, false), "could not validate signature: authenticate: scheme ECDSA_SHA512: decode public key: "+tc.err)
 				})
 			}
 		})
@@ -178,7 +179,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 						cp[i]++
 						newSig := neofscrypto.NewSignatureFromRawKey(sig.Scheme(), sig.PublicKeyBytes(), cp)
 						tc.object.SetSignature(&newSig)
-						require.EqualError(t, v.Validate(&tc.object, false), "could not validate signature: invalid signature")
+						require.EqualError(t, v.Validate(&tc.object, false), fmt.Sprintf("could not validate signature: authenticate: scheme %s: signature mismatch", tc.scheme))
 					}
 				})
 			}

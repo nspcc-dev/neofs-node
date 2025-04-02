@@ -190,7 +190,7 @@ func validateSignature(obj *object.Object) error {
 	token := obj.SessionToken()
 	if token == nil {
 		if err := icrypto.AuthenticateObject(*obj); err != nil {
-			return errors.New("invalid signature")
+			return fmt.Errorf("authenticate: %w", err)
 		}
 		return nil
 	}
@@ -211,7 +211,7 @@ func validateSignature(obj *object.Object) error {
 	}
 
 	if err := icrypto.AuthenticateObject(*obj); err != nil {
-		return errors.New("invalid signature")
+		return fmt.Errorf("authenticate: %w", err)
 	}
 
 	return nil
