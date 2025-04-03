@@ -18,8 +18,7 @@ func (ap *Processor) processEmit() {
 		return
 	}
 
-	contract, ok := ap.alphabetContracts.GetByIndex(index)
-	if !ok {
+	if index >= len(ap.alphabetContracts) {
 		ap.log.Debug("node is out of alphabet range, ignore gas emission event",
 			zap.Int("index", index))
 
@@ -27,7 +26,7 @@ func (ap *Processor) processEmit() {
 	}
 
 	// there is no signature collecting, so we don't need extra fee
-	err := ap.morphClient.Invoke(contract, false, 0, emitMethod)
+	err := ap.morphClient.Invoke(ap.alphabetContracts[index], false, 0, emitMethod)
 	if err != nil {
 		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))
 

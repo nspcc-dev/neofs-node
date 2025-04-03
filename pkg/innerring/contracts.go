@@ -27,7 +27,7 @@ type contracts struct {
 	reputation util.Uint160 // in morph
 	neofsID    util.Uint160 // in morph
 
-	alphabet alphabetContracts // in morph
+	alphabet []util.Uint160 // in morph
 }
 
 func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
@@ -82,14 +82,14 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 	return result, nil
 }
 
-func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.Client) (alphabetContracts, error) {
+func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.Client) ([]util.Uint160, error) {
 	committee, err := morph.Committee()
 	if err != nil {
 		return nil, fmt.Errorf("get FS chain committee: %w", err)
 	}
 	num := len(committee)
 
-	alpha := newAlphabetContracts()
+	alpha := make([]util.Uint160, 0, num)
 
 	if num > glagolitsa.Size {
 		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
@@ -106,7 +106,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.
 			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
 		}
 
-		alpha.set(ind, contractHash)
+		alpha = append(alpha, contractHash)
 	}
 
 	if len(alpha) != int(num) {

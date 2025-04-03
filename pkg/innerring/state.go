@@ -96,7 +96,7 @@ func (s *Server) AlphabetIndex() int {
 
 func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	index := s.InnerRingIndex()
-	if s.contracts.alphabet.indexOutOfRange(index) {
+	if index >= len(s.contracts.alphabet) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
 
 		return nil
@@ -136,7 +136,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	}
 	vubP = &vub
 
-	s.contracts.alphabet.iterate(func(ind int, contract util.Uint160) {
+	for ind, contract := range s.contracts.alphabet {
 		_, err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
@@ -144,7 +144,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 				zap.Uint64("epoch", epoch),
 				zap.Error(err))
 		}
-	})
+	}
 
 	return nil
 }
