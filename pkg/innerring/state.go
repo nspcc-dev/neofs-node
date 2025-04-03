@@ -6,10 +6,10 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -154,7 +154,7 @@ func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 	for ind, contract := range s.contracts.alphabet {
 		validator, err := s.morphClient.AccountVote(contract)
 		if err != nil {
-			return false, fmt.Errorf("receiving %s's vote: %w", glagolitsa.LetterByIndex(ind), err)
+			return false, fmt.Errorf("receiving %s's vote: %w", client.NNSAlphabetContractName(ind), err)
 		}
 
 		if validator == nil {

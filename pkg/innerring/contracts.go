@@ -11,7 +11,6 @@ import (
 	embeddedcontracts "github.com/nspcc-dev/neofs-contract/contracts"
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -91,19 +90,15 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.
 
 	alpha := make([]util.Uint160, 0, num)
 
-	if num > glagolitsa.Size {
-		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
-	}
-
 	for ind := range num {
-		letter := glagolitsa.LetterByIndex(ind)
-		contractHash, err := parseContract(ctx, _logger, morph, client.NNSAlphabetContractName(ind))
+		name := client.NNSAlphabetContractName(ind)
+		contractHash, err := parseContract(ctx, _logger, morph, name)
 		if err != nil {
 			if errors.Is(err, client.ErrNNSRecordNotFound) {
 				break
 			}
 
-			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
+			return nil, fmt.Errorf("invalid alphabet %s contract: %w", name, err)
 		}
 
 		alpha = append(alpha, contractHash)

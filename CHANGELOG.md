@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - SN `ExternalAddr` attribute is ignored now (#3235)
 - Use list instead of maps for options in node config (#3204)
 - Token and object authentication errors are more detailed in status responses now (#3216, #3264)
+- IR uses NNS names for alphabet contracts now instead of Glagolitsa (#3268)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

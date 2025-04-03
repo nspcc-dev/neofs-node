@@ -51,7 +51,6 @@ import (
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
 	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
@@ -142,6 +141,10 @@ type (
 
 		withAutoFSChainScope bool
 	}
+
+	// fakeGlagolitsa is made for transition period until contracts are updated
+	// to a non-glagolithic version.
+	fakeGlagolitsa struct{}
 )
 
 const (
@@ -152,6 +155,9 @@ const (
 	// make sure it is bigger than any extra rounding value in notary client.
 	notaryExtraBlocks = 300
 )
+
+func (_ fakeGlagolitsa) Size() int                    { return 100500 }
+func (_ fakeGlagolitsa) LetterByIndex(ind int) string { return client.NNSAlphabetContractName(ind) }
 
 // Start runs all event providers.
 func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
@@ -552,7 +558,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *viper.Viper, errChan chan<- 
 		deployPrm.Blockchain = fschain
 		deployPrm.LocalAccount = singleAcc
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
-		deployPrm.Glagolitsa = &glagolitsa.Glagolitsa{}
+		deployPrm.Glagolitsa = fakeGlagolitsa{}
 
 		nnsCfg, err := parseNNSConfig(cfg)
 		if err != nil {
