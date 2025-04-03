@@ -22,6 +22,9 @@ prometheus:
   address: localhost:9090
   shutdown_timeout: 15s
 
+grpc:
+  - endpoint: localhost:30512
+
 storage:
   shards:
     - metabase:

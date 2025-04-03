@@ -44,9 +44,10 @@ func main() {
 		os.Exit(SuccessReturnCode)
 	}
 
-	appCfg := config.New(config.Prm{}, config.WithConfigFile(*configFile))
+	appCfg, err := config.New(config.WithConfigFile(*configFile))
+	fatalOnErr(err)
 
-	err := validateConfig(appCfg)
+	err = validateConfig(appCfg)
 	fatalOnErr(err)
 
 	if *dryRunFlag {

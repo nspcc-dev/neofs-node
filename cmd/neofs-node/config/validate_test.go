@@ -1,13 +1,11 @@
-package validate
+package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/cmd/internal/configvalidator"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -253,77 +251,28 @@ morph:
 `,
 			wantErr: true,
 		},
+		{
+			name: "unknow filed apiclient.allow_external",
+			config: `
+apiclient:
+  allow_external: any
+`,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := viper.New()
-			v.SetConfigType("yaml")
-			require.NoError(t, v.ReadConfig(strings.NewReader(tt.config)))
+			tempDir := t.TempDir()
+			configFilePath := filepath.Join(tempDir, "config.yaml")
 
-			err := ValidateStruct(v)
+			err := os.WriteFile(configFilePath, []byte(tt.config), 0644)
+			require.NoError(t, err)
+
+			_, err = New(WithConfigFile(configFilePath))
 			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckForUnknownFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
-		})
-	}
-}
-
-func TestCheckForUnknownFieldsExamples(t *testing.T) {
-	const exampleConfigPrefix = "../../../../../config/"
-	t.Run("example json", func(t *testing.T) {
-		path := filepath.Join(exampleConfigPrefix, "example/node.json")
-		v := viper.New()
-		v.SetConfigFile(path)
-
-		require.NoError(t, v.ReadInConfig())
-		require.NoError(t, ValidateStruct(v))
-	})
-
-	t.Run("example yaml", func(t *testing.T) {
-		path := filepath.Join(exampleConfigPrefix, "example/node.yaml")
-		v := viper.New()
-		v.SetConfigFile(path)
-
-		require.NoError(t, v.ReadInConfig())
-		require.NoError(t, ValidateStruct(v))
-	})
-
-	t.Run("mainnet", func(t *testing.T) {
-		p := filepath.Join(exampleConfigPrefix, "mainnet/config.yml")
-		v := viper.New()
-		v.SetConfigFile(p)
-
-		require.NoError(t, v.ReadInConfig())
-		require.NoError(t, ValidateStruct(v))
-	})
-	t.Run("testnet", func(t *testing.T) {
-		p := filepath.Join(exampleConfigPrefix, "testnet/config.yml")
-		v := viper.New()
-		v.SetConfigFile(p)
-
-		require.NoError(t, v.ReadInConfig())
-		require.NoError(t, ValidateStruct(v))
-	})
-}
-
-func TestRemovedConfigurations(t *testing.T) {
-	v := viper.New()
-	v.SetConfigType("yaml")
-	var y strings.Reader
-
-	for _, tc := range []struct{ field, yaml string }{
-		{field: "apiclient.allow_external", yaml: `
-apiclient:
-  allow_external: any
-`},
-	} {
-		t.Run(tc.field, func(t *testing.T) {
-			y.Reset(tc.yaml)
-			require.NoError(t, v.ReadConfig(&y))
-			err := ValidateStruct(v)
-			require.ErrorIs(t, err, configvalidator.ErrUnknownField)
-			require.EqualError(t, err, fmt.Sprintf("unknown field: %s", tc.field))
 		})
 	}
 }

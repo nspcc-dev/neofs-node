@@ -12,23 +12,19 @@ import (
 
 func TestMetricsSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
-		to := metricsconfig.ShutdownTimeout(configtest.EmptyConfig())
-		addr := metricsconfig.Address(configtest.EmptyConfig())
+		emptyConfig := configtest.EmptyConfig()
 
-		require.Equal(t, metricsconfig.ShutdownTimeoutDefault, to)
-		require.Equal(t, metricsconfig.AddressDefault, addr)
-		require.False(t, metricsconfig.Enabled(configtest.EmptyConfig()))
+		require.Equal(t, metricsconfig.ShutdownTimeoutDefault, emptyConfig.Prometheus.ShutdownTimeout)
+		require.Equal(t, metricsconfig.AddressDefault, emptyConfig.Prometheus.Address)
+		require.False(t, emptyConfig.Prometheus.Enabled)
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		to := metricsconfig.ShutdownTimeout(c)
-		addr := metricsconfig.Address(c)
-
-		require.Equal(t, 15*time.Second, to)
-		require.Equal(t, "localhost:9090", addr)
-		require.True(t, metricsconfig.Enabled(c))
+		require.Equal(t, 15*time.Second, c.Prometheus.ShutdownTimeout)
+		require.Equal(t, "localhost:9090", c.Prometheus.Address)
+		require.True(t, c.Prometheus.Enabled)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

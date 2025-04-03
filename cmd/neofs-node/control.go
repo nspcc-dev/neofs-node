@@ -11,12 +11,12 @@ import (
 )
 
 func initControlService(c *cfg) {
-	endpoint := controlconfig.GRPC(c.cfgReader).Endpoint()
+	endpoint := c.appCfg.Control.GRPC.Endpoint
 	if endpoint == controlconfig.GRPCEndpointDefault {
 		return
 	}
 
-	pubs := controlconfig.AuthorizedKeys(c.cfgReader)
+	pubs := c.appCfg.Control.AuthorizedKeys
 	rawPubs := make([][]byte, 0, len(pubs)+1) // +1 for node key
 
 	rawPubs = append(rawPubs, c.key.PublicKey().Bytes())

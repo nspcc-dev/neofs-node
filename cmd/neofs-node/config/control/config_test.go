@@ -5,7 +5,6 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/stretchr/testify/require"
 )
@@ -14,8 +13,8 @@ func TestControlSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
-		require.Empty(t, controlconfig.AuthorizedKeys(empty))
-		require.Equal(t, controlconfig.GRPCEndpointDefault, controlconfig.GRPC(empty).Endpoint())
+		require.Empty(t, empty.Control.AuthorizedKeys)
+		require.Empty(t, empty.Control.GRPC.Endpoint)
 	})
 
 	const path = "../../../../config/example/node"
@@ -25,8 +24,8 @@ func TestControlSection(t *testing.T) {
 	pubs[1], _ = keys.NewPublicKeyFromString("028f42cfcb74499d7b15b35d9bff260a1c8d27de4f446a627406a382d8961486d6")
 
 	var fileConfigTest = func(c *config.Config) {
-		require.Equal(t, pubs, controlconfig.AuthorizedKeys(c))
-		require.Equal(t, "localhost:8090", controlconfig.GRPC(c).Endpoint())
+		require.Equal(t, pubs, c.Control.AuthorizedKeys)
+		require.Equal(t, "localhost:8090", c.Control.GRPC.Endpoint)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)
