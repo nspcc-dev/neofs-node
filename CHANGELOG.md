@@ -8,6 +8,7 @@ Changelog for NeoFS Node
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
 - In-object session token signed not by its issuer is no longer passed by SN and CLI (#3216)
+- Object signed not by its owner is no longer passed by SN (#3264)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
@@ -15,7 +16,7 @@ Changelog for NeoFS Node
 - IR no longer processes bind/unbind neofsid requests (#3256)
 - SN `ExternalAddr` attribute is ignored now (#3235)
 - Use list instead of maps for options in node config (#3204)
-- Token authentication errors are more detailed in status responses now (#3216)
+- Token and object authentication errors are more detailed in status responses now (#3216, #3264)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

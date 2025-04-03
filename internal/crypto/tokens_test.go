@@ -318,26 +318,6 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 	}
 }
 
-var (
-	// ECDSA private key used in tests.
-	// privECDSA = ecdsa.PrivateKey{
-	// 	PublicKey: ecdsa.PublicKey{
-	// 		Curve: elliptic.P256(),
-	// 		X: new(big.Int).SetBytes([]byte{206, 67, 193, 231, 254, 180, 127, 78, 101, 154, 23, 161, 134, 77, 122, 34, 234, 85,
-	// 			149, 44, 32, 223, 244, 140, 28, 194, 76, 214, 239, 121, 174, 40}),
-	// 		Y: new(big.Int).SetBytes([]byte{170, 190, 155, 176, 31, 11, 4, 14, 103, 210, 53, 0, 73, 46, 81, 129, 163, 217, 81, 51, 111,
-	// 			135, 223, 253, 48, 104, 240, 197, 122, 37, 197, 78}),
-	// 	},
-	// 	D: new(big.Int).SetBytes([]byte{185, 97, 226, 151, 175, 3, 234, 11, 168, 211, 53, 141, 136, 102, 100, 222, 73, 174, 234, 157,
-	// 		139, 192, 66, 145, 13, 173, 12, 120, 22, 134, 52, 180}),
-	// }
-	// corresponds to the private key.
-	pubECDSA = []byte{2, 206, 67, 193, 231, 254, 180, 127, 78, 101, 154, 23, 161, 134, 77, 122, 34, 234, 85, 149, 44, 32, 223,
-		244, 140, 28, 194, 76, 214, 239, 121, 174, 40}
-	// corresponds to pubECDSA.
-	issuer = user.ID{53, 57, 243, 96, 136, 255, 217, 227, 204, 13, 243, 228, 109, 31, 226, 226, 236, 62, 13, 190, 156, 135, 252, 236, 8}
-)
-
 // set in init.
 var (
 	bearerECDSASHA512        bearer.Token
@@ -379,7 +359,7 @@ var (
 
 func getUnsignedBearerToken() bearer.Token {
 	token := getUnsignedNoIssuerBearerToken()
-	token.SetIssuer(issuer)
+	token.SetIssuer(mainAcc)
 	return token
 }
 
@@ -421,34 +401,34 @@ func getUnsignedNoIssuerBearerToken() bearer.Token {
 
 func init() {
 	noIssuerBearerECDSASHA512 = getUnsignedNoIssuerBearerToken()
-	noIssuerBearerECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
+	noIssuerBearerECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub,
 		[]byte{4, 204, 76, 110, 86, 216, 105, 252, 77, 37, 76, 1, 226, 63, 139, 117, 10, 120, 248, 158, 162, 6, 183, 176, 137, 239,
 			94, 180, 219, 189, 31, 90, 122, 1, 195, 159, 41, 114, 234, 213, 88, 222, 145, 131, 50, 227, 5, 66, 223, 95, 169, 143,
 			214, 204, 21, 225, 250, 181, 185, 191, 30, 57, 85, 174, 37}))
 	noIssuerBearerECDSARFC6979 = getUnsignedNoIssuerBearerToken()
-	noIssuerBearerECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
+	noIssuerBearerECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub,
 		[]byte{51, 140, 113, 50, 171, 210, 111, 39, 165, 27, 16, 197, 71, 125, 117, 244, 110, 24, 38, 210, 45, 162, 231, 89, 67, 194,
 			60, 5, 120, 166, 40, 2, 2, 127, 135, 127, 52, 92, 185, 190, 133, 96, 191, 102, 173, 170, 248, 31, 250, 220, 69, 94,
 			188, 223, 15, 63, 207, 86, 244, 45, 175, 48, 203, 184}))
 	noIssuerBearerECDSAWalletConnect = getUnsignedNoIssuerBearerToken()
-	noIssuerBearerECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
+	noIssuerBearerECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub,
 		[]byte{123, 167, 61, 198, 10, 150, 163, 146, 229, 232, 111, 52, 205, 136, 25, 159, 186, 198, 186, 174, 54, 137, 219, 228,
 			150, 10, 98, 118, 56, 109, 215, 206, 170, 13, 160, 32, 231, 223, 201, 103, 150, 153, 126, 135, 124, 37, 251, 150, 213,
 			166, 93, 163, 79, 214, 57, 50, 165, 188, 210, 154, 54, 207, 50, 107, 85, 161, 160, 44, 251, 105, 236, 34, 130, 208, 153,
 			113, 8, 227, 37, 171}))
 
 	bearerECDSASHA512 = getUnsignedBearerToken()
-	bearerECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
+	bearerECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub,
 		[]byte{4, 24, 46, 114, 115, 87, 30, 161, 12, 157, 233, 102, 164, 152, 92, 252, 86, 217, 60, 103, 248, 192, 199, 197, 191, 28,
 			203, 118, 79, 196, 159, 38, 197, 177, 204, 10, 234, 35, 233, 233, 218, 53, 99, 68, 11, 112, 255, 66, 15, 245, 184, 45,
 			78, 6, 97, 7, 45, 205, 7, 180, 192, 160, 167, 122, 80}))
 	bearerECDSARFC6979 = getUnsignedBearerToken()
-	bearerECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
+	bearerECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub,
 		[]byte{88, 202, 56, 197, 167, 0, 36, 144, 69, 8, 212, 61, 92, 95, 253, 41, 29, 235, 215, 207, 184, 191, 120, 217, 186, 51,
 			242, 206, 1, 156, 112, 106, 123, 157, 161, 118, 157, 205, 12, 211, 82, 170, 145, 113, 199, 3, 165, 120, 136, 98, 190, 219,
 			68, 21, 31, 50, 241, 117, 201, 180, 48, 158, 221, 16}))
 	bearerECDSAWalletConnect = getUnsignedBearerToken()
-	bearerECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
+	bearerECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub,
 		[]byte{57, 245, 245, 144, 82, 146, 66, 67, 245, 218, 107, 248, 31, 102, 61, 191, 222, 19, 209, 39, 241, 108, 17, 133, 114,
 			69, 110, 246, 134, 80, 93, 124, 31, 128, 34, 19, 225, 139, 194, 206, 251, 5, 213, 225, 183, 57, 213, 137, 42, 208,
 			183, 63, 182, 215, 85, 186, 134, 184, 110, 126, 158, 1, 229, 168, 17, 123, 106, 49, 155, 41, 80, 189, 245, 157, 118, 231,
@@ -475,7 +455,7 @@ func init() {
 
 func getUnsignedObjectSessionToken() session.Object {
 	token := getUnsignedNoIssuerObjectSessionToken()
-	token.SetIssuer(issuer)
+	token.SetIssuer(mainAcc)
 	return token
 }
 
@@ -485,13 +465,7 @@ func getUnsignedNoIssuerObjectSessionToken() session.Object {
 	token.SetIat(943083305)
 	token.SetNbf(1362292619)
 	token.SetExp(1922557325)
-	token.SetAuthKey((*neofsecdsa.PublicKey)(&ecdsa.PublicKey{
-		Curve: elliptic.P256(),
-		X: new(big.Int).SetBytes([]byte{220, 224, 31, 226, 169, 69, 255, 105, 70, 179, 115, 1, 105, 169, 19, 197, 6, 105, 51, 122,
-			138, 225, 171, 48, 158, 92, 142, 63, 9, 26, 146, 128}),
-		Y: new(big.Int).SetBytes([]byte{154, 136, 236, 210, 242, 177, 50, 23, 63, 115, 1, 203, 226, 209, 251, 207, 173, 33, 193,
-			71, 37, 47, 58, 133, 199, 71, 80, 46, 210, 6, 172, 249}),
-	}))
+	token.SetAuthKey((*neofsecdsa.PublicKey)(&sessionSubjECDSAPriv.PublicKey))
 	token.BindContainer(cid.ID{61, 208, 16, 128, 106, 78, 90, 196, 156, 65, 180, 142, 62, 137, 245, 242, 69, 250, 212, 176, 35, 114,
 		239, 114, 53, 231, 19, 14, 46, 67, 163, 155})
 	token.LimitByObjects(
@@ -505,61 +479,66 @@ func getUnsignedNoIssuerObjectSessionToken() session.Object {
 
 func init() {
 	noIssuerObjectSessionECDSASHA512 = getUnsignedNoIssuerObjectSessionToken()
-	noIssuerObjectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
-		[]byte{4, 243, 14, 177, 173, 198, 253, 187, 178, 38, 39, 215, 229, 237, 251, 226, 56, 108, 183, 54, 78, 187, 113, 138, 79, 125,
-			41, 42, 44, 137, 24, 208, 93, 71, 131, 132, 196, 69, 161, 118, 143, 221, 174, 93, 220, 134, 190, 26, 163, 209, 246, 17,
-			83, 134, 1, 127, 137, 8, 186, 61, 55, 245, 213, 91, 86}))
+	noIssuerObjectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub, []byte{
+		4, 22, 215, 84, 85, 251, 200, 43, 152, 167, 138, 61, 31, 173, 150, 192, 144, 230, 61, 250, 29, 234, 172, 95, 100, 244,
+		152, 27, 234, 44, 210, 245, 194, 55, 180, 143, 176, 178, 175, 147, 32, 235, 88, 154, 174, 145, 253, 198, 46, 182, 59, 131,
+		7, 200, 128, 112, 6, 202, 242, 49, 197, 81, 55, 30, 29,
+	}))
 	noIssuerObjectSessionECDSARFC6979 = getUnsignedNoIssuerObjectSessionToken()
-	noIssuerObjectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
-		[]byte{113, 100, 121, 226, 12, 101, 211, 239, 192, 199, 32, 57, 206, 117, 214, 145, 52, 116, 234, 150, 0, 156, 40, 210, 253,
-			125, 193, 43, 193, 111, 165, 7, 130, 206, 151, 45, 90, 137, 83, 8, 255, 64, 185, 52, 203, 221, 218, 104, 243, 64, 157, 11,
-			32, 5, 77, 90, 122, 4, 136, 5, 136, 26, 240, 20}))
+	noIssuerObjectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub, []byte{
+		171, 144, 139, 130, 66, 173, 139, 18, 62, 143, 35, 8, 110, 6, 25, 153, 157, 86, 72, 110, 117, 167, 114, 20, 186, 68, 23, 217, 85,
+		228, 144, 209, 71, 105, 206, 232, 16, 207, 141, 250, 149, 141, 199, 136, 231, 148, 202, 23, 149, 4, 215, 43, 176, 12, 253,
+		123, 249, 95, 13, 71, 139, 170, 225, 99,
+	}))
 	noIssuerObjectSessionECDSAWalletConnect = getUnsignedNoIssuerObjectSessionToken()
-	noIssuerObjectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
-		[]byte{65, 219, 42, 75, 78, 144, 98, 151, 144, 52, 221, 178, 67, 179, 51, 105, 30, 52, 107, 81, 107, 16, 205, 214, 94, 47, 220,
-			157, 246, 150, 105, 96, 105, 255, 143, 109, 61, 56, 70, 168, 239, 250, 63, 114, 95, 0, 156, 216, 111, 164, 61, 75, 14, 230,
-			150, 85, 33, 222, 203, 71, 61, 235, 242, 246, 68, 98, 248, 14, 178, 198, 11, 118, 10, 217, 64, 95, 80, 89, 143, 183}))
+	noIssuerObjectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub, []byte{
+		248, 138, 164, 175, 29, 50, 151, 77, 182, 104, 254, 69, 68, 244, 139, 174, 149, 67, 211, 119, 79, 216, 207, 84, 129, 246, 44,
+		62, 244, 253, 104, 71, 175, 206, 158, 104, 26, 201, 194, 170, 110, 86, 240, 161, 54, 70, 204, 136, 75, 225, 212, 140, 54,
+		188, 145, 49, 226, 228, 112, 131, 133, 194, 223, 248, 199, 0, 130, 255, 101, 250, 80, 81, 251, 154, 119, 132, 5, 88, 9, 132,
+	}))
 
 	objectSessionECDSASHA512 = getUnsignedObjectSessionToken()
-	objectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
-		[]byte{4, 28, 202, 157, 26, 79, 157, 138, 57, 192, 241, 26, 117, 143, 238, 99, 237, 77, 253, 163, 29, 221, 221, 120, 79, 1,
-			109, 144, 38, 139, 47, 229, 205, 142, 7, 247, 232, 105, 251, 138, 23, 70, 26, 11, 233, 173, 47, 147, 4, 39, 22, 216,
-			128, 225, 172, 182, 41, 120, 4, 141, 244, 127, 110, 131, 204}))
+	objectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub, []byte{
+		4, 234, 25, 39, 233, 164, 213, 161, 189, 90, 161, 25, 165, 255, 91, 180, 144, 83, 30, 213, 6, 248, 215, 222, 191, 120, 164,
+		1, 179, 138, 252, 226, 112, 62, 202, 226, 91, 129, 252, 114, 192, 18, 47, 121, 131, 21, 152, 77, 220, 230, 17, 166, 250,
+		83, 182, 201, 5, 35, 249, 159, 210, 193, 203, 7, 43,
+	}))
 	objectSessionECDSARFC6979 = getUnsignedObjectSessionToken()
-	objectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
-		[]byte{87, 5, 15, 37, 110, 117, 51, 217, 92, 117, 65, 121, 125, 215, 187, 223, 133, 29, 137, 208, 244, 224, 37, 111, 66, 198,
-			189, 37, 141, 240, 9, 180, 43, 162, 166, 192, 2, 227, 156, 176, 177, 120, 62, 241, 54, 58, 91, 148, 162, 36, 213, 174, 214,
-			150, 14, 227, 153, 245, 37, 32, 50, 34, 237, 213}))
+	objectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub, []byte{
+		149, 11, 191, 84, 202, 5, 141, 238, 9, 190, 98, 36, 108, 38, 177, 246, 211, 162, 235, 202, 80, 111, 110, 191, 132, 48, 227,
+		96, 236, 125, 88, 46, 170, 101, 47, 0, 45, 166, 33, 190, 81, 79, 198, 252, 195, 195, 52, 83, 129, 117, 226, 150, 65, 174, 167,
+		111, 253, 188, 11, 47, 39, 209, 98, 193,
+	}))
 	objectSessionECDSAWalletConnect = getUnsignedObjectSessionToken()
-	objectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
-		[]byte{207, 27, 192, 58, 184, 90, 215, 225, 19, 236, 90, 142, 217, 197, 154, 148, 131, 11, 24, 162, 2, 124, 108, 100, 180, 193,
-			149, 129, 150, 123, 21, 212, 250, 62, 69, 218, 114, 226, 255, 231, 162, 214, 244, 105, 102, 63, 111, 236, 158, 245, 193,
-			220, 142, 244, 164, 16, 190, 42, 165, 71, 174, 247, 246, 23, 122, 94, 24, 203, 121, 174, 47, 174, 62, 65, 101, 140, 173,
-			123, 43, 238}))
+	objectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub, []byte{
+		166, 39, 233, 70, 43, 233, 16, 38, 180, 202, 165, 97, 191, 62, 41, 101, 246, 225, 100, 118, 77, 108, 69, 29, 145, 9, 57, 149,
+		138, 158, 192, 125, 57, 112, 59, 16, 249, 3, 52, 145, 94, 161, 6, 82, 174, 210, 25, 248, 111, 174, 136, 121, 110, 188, 170,
+		122, 41, 66, 66, 236, 17, 122, 0, 9, 29, 25, 122, 108, 22, 195, 60, 14, 17, 190, 178, 183, 231, 146, 13, 149,
+	}))
 
-	otherPub := []byte{2, 139, 48, 108, 130, 11, 53, 126, 210, 151, 229, 248, 130, 199, 34, 40, 3, 183, 115, 197, 206, 239, 202, 248,
-		222, 155, 186, 221, 11, 68, 161, 177, 253}
 	wrongIssuerObjectSessionECDSASHA512 = objectSessionECDSASHA512
-	wrongIssuerObjectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, otherPub,
-		[]byte{4, 241, 20, 145, 98, 203, 90, 123, 249, 49, 243, 210, 197, 233, 139, 97, 55, 241, 47, 82, 229, 200, 190, 66, 243,
-			63, 32, 20, 217, 25, 31, 75, 118, 195, 154, 45, 127, 203, 217, 82, 176, 187, 78, 195, 73, 166, 12, 193, 20, 9, 97, 142,
-			215, 56, 82, 34, 100, 92, 207, 39, 219, 67, 109, 176, 20}))
+	wrongIssuerObjectSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, otherAccECDSAPub, []byte{
+		4, 121, 124, 82, 115, 170, 163, 134, 129, 185, 146, 45, 154, 56, 25, 247, 101, 252, 97, 210, 136, 179, 214, 76, 142, 170, 185,
+		231, 118, 194, 102, 101, 138, 191, 82, 155, 148, 244, 106, 236, 59, 66, 64, 212, 66, 85, 20, 169, 142, 38, 227, 122, 103,
+		149, 180, 131, 247, 229, 244, 213, 41, 141, 218, 202, 50,
+	}))
 	wrongIssuerObjectSessionECDSARFC6979 = objectSessionECDSARFC6979
-	wrongIssuerObjectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, otherPub,
-		[]byte{64, 160, 40, 82, 234, 43, 99, 28, 140, 150, 103, 134, 179, 4, 211, 195, 146, 10, 194, 99, 22, 43, 129, 114, 215, 85, 195,
-			171, 88, 160, 172, 152, 31, 210, 254, 120, 1, 104, 65, 137, 183, 147, 66, 194, 84, 28, 3, 147, 86, 196, 210, 129, 64, 254,
-			104, 81, 193, 135, 223, 180, 37, 236, 15, 13}))
+	wrongIssuerObjectSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, otherAccECDSAPub, []byte{
+		152, 212, 212, 103, 166, 42, 177, 141, 159, 24, 32, 215, 134, 241, 74, 60, 2, 109, 219, 145, 94, 120, 249, 88, 227, 98,
+		124, 124, 96, 190, 48, 230, 130, 255, 117, 78, 224, 105, 245, 216, 63, 148, 11, 210, 224, 92, 227, 228, 78, 151, 64, 58,
+		166, 140, 188, 15, 150, 198, 96, 255, 120, 90, 112, 173,
+	}))
 	wrongIssuerObjectSessionECDSAWalletConnect = objectSessionECDSAWalletConnect
-	wrongIssuerObjectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, otherPub,
-		[]byte{222, 98, 253, 242, 184, 230, 122, 121, 169, 18, 140, 181, 208, 22, 154, 9, 216, 214, 197, 150, 204, 51, 189, 246, 187,
-			28, 87, 118, 104, 169, 204, 130, 217, 36, 205, 25, 24, 137, 25, 24, 174, 208, 217, 231, 59, 123, 211, 209, 241, 36, 58,
-			224, 97, 155, 2, 112, 54, 99, 18, 137, 120, 124, 18, 164, 78, 123, 191, 255, 127, 72, 184, 78, 58, 248, 214, 194, 172, 137,
-			254, 97}))
+	wrongIssuerObjectSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, otherAccECDSAPub, []byte{
+		131, 32, 202, 201, 52, 46, 173, 3, 50, 124, 67, 88, 60, 202, 233, 132, 14, 134, 200, 37, 207, 100, 12, 24, 126, 226,
+		206, 251, 246, 115, 241, 144, 40, 127, 40, 124, 119, 202, 215, 100, 66, 150, 44, 12, 70, 39, 144, 251, 97, 229, 183, 105,
+		173, 73, 66, 178, 249, 47, 112, 229, 221, 113, 94, 13, 30, 237, 70, 230, 99, 86, 233, 48, 194, 213, 7, 188, 43, 154, 26, 196,
+	}))
 }
 
 func getUnsignedContainerSessionToken() session.Container {
 	token := getUnsignedNoIssuerContainerSessionToken()
-	token.SetIssuer(issuer)
+	token.SetIssuer(mainAcc)
 	return token
 }
 
@@ -584,33 +563,33 @@ func getUnsignedNoIssuerContainerSessionToken() session.Container {
 
 func init() {
 	noIssuerContainerSessionECDSASHA512 = getUnsignedNoIssuerContainerSessionToken()
-	noIssuerContainerSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
+	noIssuerContainerSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub,
 		[]byte{4, 204, 80, 21, 241, 156, 27, 25, 244, 157, 202, 127, 98, 86, 13, 2, 74, 72, 76, 108, 189, 202, 170, 221, 119, 20,
 			22, 149, 19, 90, 87, 50, 117, 147, 21, 162, 18, 226, 5, 106, 160, 26, 119, 209, 16, 102, 196, 33, 144, 113, 170, 150, 4, 2,
 			22, 187, 63, 215, 18, 186, 240, 128, 163, 244, 121}))
 	noIssuerContainerSessionECDSARFC6979 = getUnsignedNoIssuerContainerSessionToken()
-	noIssuerContainerSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
+	noIssuerContainerSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub,
 		[]byte{68, 49, 22, 94, 69, 250, 135, 121, 37, 107, 31, 199, 212, 57, 175, 29, 87, 196, 60, 116, 114, 251, 167, 1, 211, 249, 38,
 			59, 229, 8, 48, 9, 203, 255, 230, 86, 202, 23, 44, 86, 195, 20, 186, 188, 39, 191, 178, 235, 153, 107, 72, 16, 47, 96,
 			229, 107, 113, 158, 215, 236, 217, 246, 237, 238}))
 	noIssuerContainerSessionECDSAWalletConnect = getUnsignedNoIssuerContainerSessionToken()
-	noIssuerContainerSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
+	noIssuerContainerSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub,
 		[]byte{100, 66, 51, 67, 244, 236, 20, 108, 176, 57, 207, 145, 206, 21, 247, 126, 165, 25, 151, 245, 173, 140, 173, 194, 169, 21,
 			185, 100, 110, 151, 189, 123, 237, 167, 190, 37, 12, 126, 48, 53, 111, 232, 1, 87, 143, 31, 206, 203, 21, 74, 162, 140, 124,
 			28, 80, 36, 149, 14, 74, 178, 125, 51, 211, 189, 227, 20, 180, 194, 165, 2, 124, 202, 207, 253, 61, 159, 6, 62, 9, 71}))
 
 	containerSessionECDSASHA512 = getUnsignedContainerSessionToken()
-	containerSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, pubECDSA,
+	containerSessionECDSASHA512.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_SHA512, mainAccECDSAPub,
 		[]byte{4, 246, 8, 104, 140, 174, 164, 156, 136, 51, 29, 220, 22, 140, 66, 194, 117, 0, 136, 161, 36, 149, 15, 198, 223, 67, 245,
 			105, 188, 250, 237, 233, 128, 143, 192, 88, 86, 251, 221, 63, 215, 35, 61, 192, 162, 181, 17, 221, 232, 239, 108, 36,
 			216, 31, 36, 12, 122, 47, 139, 205, 164, 148, 121, 244, 214}))
 	containerSessionECDSARFC6979 = getUnsignedContainerSessionToken()
-	containerSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, pubECDSA,
+	containerSessionECDSARFC6979.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_DETERMINISTIC_SHA256, mainAccECDSAPub,
 		[]byte{36, 211, 229, 6, 32, 80, 212, 215, 189, 64, 218, 18, 16, 131, 170, 38, 177, 51, 203, 110, 71, 76, 228, 60, 105, 189, 142,
 			25, 187, 163, 82, 8, 122, 129, 251, 253, 159, 29, 248, 177, 121, 215, 58, 231, 48, 217, 226, 47, 136, 20, 36, 252, 211,
 			58, 40, 76, 178, 105, 190, 173, 35, 153, 9, 144}))
 	containerSessionECDSAWalletConnect = getUnsignedContainerSessionToken()
-	containerSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, pubECDSA,
+	containerSessionECDSAWalletConnect.AttachSignature(neofscrypto.NewSignatureFromRawKey(neofscrypto.ECDSA_WALLETCONNECT, mainAccECDSAPub,
 		[]byte{98, 180, 29, 63, 253, 79, 106, 117, 129, 135, 175, 73, 114, 210, 60, 144, 188, 163, 68, 18, 78, 164, 219, 69, 9, 198, 123, 31,
 			251, 31, 21, 161, 30, 113, 97, 64, 194, 113, 213, 194, 54, 134, 39, 35, 248, 30, 182, 45, 218, 107, 187, 23, 13, 202, 248,
 			106, 212, 116, 159, 233, 156, 186, 225, 246, 50, 229, 124, 186, 177, 197, 150, 242, 192, 108, 99, 220, 104, 50, 4, 54}))

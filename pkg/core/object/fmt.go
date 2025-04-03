@@ -158,53 +158,22 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	}
 
 	if !unprepared {
-		if err := v.validateSignatureKey(obj); err != nil {
-			return fmt.Errorf("(%T) could not validate signature key: %w", v, err)
+		if err := obj.VerifyID(); err != nil {
+			return fmt.Errorf("could not validate header fields: invalid identifier: %w", err)
+		}
+
+		if err := icrypto.AuthenticateObject(*obj); err != nil {
+			return fmt.Errorf("authenticate: %w", err)
 		}
 
 		if err := v.checkExpiration(*obj); err != nil {
 			return fmt.Errorf("object did not pass expiration check: %w", err)
-		}
-
-		if err := obj.CheckHeaderVerificationFields(); err != nil {
-			return fmt.Errorf("(%T) could not validate header fields: %w", v, err)
 		}
 	}
 
 	if par != nil && (firstSet || splitID != nil) {
 		// Parent object already exists.
 		return v.Validate(par, false)
-	}
-
-	return nil
-}
-
-func (v *FormatValidator) validateSignatureKey(obj *object.Object) error {
-	// FIXME(@cthulhu-rider): temp solution, see neofs-sdk-go#233
-	sig := obj.Signature()
-	if sig == nil {
-		// TODO(@cthulhu-rider): #1387 use "const" error
-		return errors.New("missing signature")
-	}
-
-	token := obj.SessionToken()
-	if token == nil {
-		return nil
-	}
-
-	if sig.PublicKey() == nil {
-		return errors.New("missing public key")
-	}
-	if !token.AssertAuthKey(sig.PublicKey()) {
-		return errors.New("session token is not for object's signer")
-	}
-
-	if err := icrypto.AuthenticateToken(token); err != nil {
-		return fmt.Errorf("authenticate session token: %w", err)
-	}
-
-	if issuer, owner := token.Issuer(), obj.Owner(); issuer != owner { // nil check was performed above
-		return fmt.Errorf("different object owner %s and session issuer %s", owner, issuer)
 	}
 
 	return nil
@@ -247,7 +216,7 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		// ignore regular objects, they do not need payload formatting
 	case object.TypeLink:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in the link object", v)
+			return ContentMeta{}, errors.New("empty payload in the link object")
 		}
 
 		firstObjID, set := o.FirstID()
@@ -273,13 +242,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		}
 	case object.TypeTombstone:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in tombstone", v)
+			return ContentMeta{}, errors.New("empty payload in tombstone")
 		}
 
 		tombstone := object.NewTombstone()
 
 		if err := tombstone.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal tombstone content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("could not unmarshal tombstone content: %w", err)
 		}
 
 		// check if the tombstone has the same expiration in the body and the header
@@ -306,13 +275,13 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 		meta.objs = idList
 	case object.TypeStorageGroup:
 		if len(o.Payload()) == 0 {
-			return ContentMeta{}, fmt.Errorf("(%T) empty payload in SG", v)
+			return ContentMeta{}, errors.New("empty payload in SG")
 		}
 
 		var sg storagegroup.StorageGroup
 
 		if err := sg.Unmarshal(o.Payload()); err != nil {
-			return ContentMeta{}, fmt.Errorf("(%T) could not unmarshal SG content: %w", v, err)
+			return ContentMeta{}, fmt.Errorf("could not unmarshal SG content: %w", err)
 		}
 
 		mm := sg.Members()
