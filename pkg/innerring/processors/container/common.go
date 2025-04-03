@@ -1,13 +1,11 @@
 package container
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -48,7 +46,6 @@ type signatureVerificationData struct {
 //   - session is "alive"
 func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	var err error
-	var key neofsecdsa.PublicKeyRFC6979
 
 	if len(v.binTokenSession) > 0 {
 		var tok session.Container
@@ -90,16 +87,10 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		return errors.New("can't verify signature, key missing")
 	}
 
-	err = key.Decode(v.binPublicKey)
-	if err != nil {
-		return fmt.Errorf("decode public key: %w", err)
-	}
-
 	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-	idFromKey := user.NewFromECDSAPublicKey(ecdsa.PublicKey(key))
-
-	if v.ownerContainer == idFromKey {
-		if key.Verify(v.signedData, v.signature) {
+	err = icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
+	if !errors.Is(err, icrypto.ErrOwnerSignatureMismatch) {
+		if err == nil {
 			return nil
 		}
 
