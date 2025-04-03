@@ -1,14 +1,11 @@
 package config
 
 type opts struct {
-	path     string
-	validate bool
+	path string
 }
 
 func defaultOpts() *opts {
-	return &opts{
-		validate: true,
-	}
+	return new(opts)
 }
 
 // Option allows to set an optional parameter of the Config.
@@ -19,13 +16,5 @@ type Option func(*opts)
 func WithConfigFile(path string) Option {
 	return func(o *opts) {
 		o.path = path
-	}
-}
-
-// WithValidate returns an option that is responsible
-// for whether the config structure needs to be validated.
-func WithValidate(validate bool) Option {
-	return func(o *opts) {
-		o.validate = validate
 	}
 }

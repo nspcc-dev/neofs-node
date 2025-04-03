@@ -8,7 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -20,23 +20,23 @@ func TestEngineSection(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
 		require.ErrorIs(t,
-			engineconfig.IterateShards(empty, true, nil),
+			engineconfig.IterateShards(&empty.Storage, true, nil),
 			engineconfig.ErrNoShardConfigured)
 
 		handlerCalled := false
 
 		require.NoError(t,
-			engineconfig.IterateShards(empty, false, func(_ *shardconfig.Config) error {
+			engineconfig.IterateShards(&empty.Storage, false, func(*shardconfig.ShardDetails) error {
 				handlerCalled = true
 				return nil
 			}))
 
 		require.False(t, handlerCalled)
 
-		require.EqualValues(t, 0, engineconfig.ShardErrorThreshold(empty))
-		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, engineconfig.ShardPoolSize(empty))
-		require.EqualValues(t, mode.ReadWrite, shardconfig.From(empty).Mode())
-		require.Zero(t, engineconfig.ObjectPutRetryDeadline(empty))
+		require.EqualValues(t, 0, empty.Storage.ShardROErrorThreshold)
+		require.EqualValues(t, engineconfig.ShardPoolSizeDefault, empty.Storage.ShardPoolSize)
+		require.EqualValues(t, mode.ReadWrite, empty.Storage.Default.Mode)
+		require.Zero(t, empty.Storage.PutRetryTimeout)
 	})
 
 	const path = "../../../../config/example/node"
@@ -44,93 +44,90 @@ func TestEngineSection(t *testing.T) {
 	var fileConfigTest = func(c *config.Config) {
 		num := 0
 
-		require.EqualValues(t, 100, engineconfig.ShardErrorThreshold(c))
-		require.EqualValues(t, 15, engineconfig.ShardPoolSize(c))
-		require.EqualValues(t, 5*time.Second, engineconfig.ObjectPutRetryDeadline(c))
-		require.EqualValues(t, true, engineconfig.IgnoreUninitedShards(c))
+		require.EqualValues(t, 100, c.Storage.ShardROErrorThreshold)
+		require.EqualValues(t, 15, c.Storage.ShardPoolSize)
+		require.EqualValues(t, 5*time.Second, c.Storage.PutRetryTimeout)
+		require.EqualValues(t, true, c.Storage.IgnoreUninitedShards)
 
-		err := engineconfig.IterateShards(c, true, func(sc *shardconfig.Config) error {
+		err := engineconfig.IterateShards(&c.Storage, true, func(sc *shardconfig.ShardDetails) error {
 			defer func() {
 				num++
 			}()
 
-			wc := sc.WriteCache()
-			meta := sc.Metabase()
-			blob := sc.BlobStor()
-			ss := blob.Storages()
-			gc := sc.GC()
+			wc := sc.WriteCache
+			meta := sc.Metabase
+			ss := sc.Blobstor
+			gc := sc.GC
 
 			switch num {
 			case 0:
-				require.Equal(t, false, wc.Enabled())
-				require.Equal(t, true, wc.NoSync())
+				require.False(t, *wc.Enabled)
+				require.True(t, *wc.NoSync)
 
-				require.Equal(t, "tmp/0/cache", wc.Path())
-				require.EqualValues(t, 134217728, wc.MaxObjectSize())
-				require.EqualValues(t, 3221225472, wc.SizeLimit())
+				require.Equal(t, "tmp/0/cache", wc.Path)
+				require.EqualValues(t, 134217728, wc.MaxObjectSize)
+				require.EqualValues(t, 3221225472, wc.Capacity)
 
-				require.Equal(t, "tmp/0/meta", meta.Path())
-				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
-				require.Equal(t, 100, meta.BoltDB().MaxBatchSize())
-				require.Equal(t, 10*time.Millisecond, meta.BoltDB().MaxBatchDelay())
+				require.Equal(t, "tmp/0/meta", meta.Path)
+				require.Equal(t, fs.FileMode(0644), meta.Perm)
+				require.Equal(t, internal.Size(100), meta.MaxBatchSize)
+				require.Equal(t, 10*time.Millisecond, meta.MaxBatchDelay)
 
-				require.Equal(t, true, sc.Compress())
-				require.Equal(t, []string{"audio/*", "video/*"}, sc.UncompressableContentTypes())
-				require.EqualValues(t, 102400, sc.SmallSizeLimit())
+				require.True(t, *sc.Compress)
+				require.Equal(t, []string{"audio/*", "video/*"}, sc.CompressionExcludeContentTypes)
+				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
 				require.Equal(t, 2, len(ss))
-				require.Equal(t, "tmp/0/blob/peapod.db", ss[0].Path())
-				require.EqualValues(t, 0644, ss[0].Perm())
-				require.EqualValues(t, peapod.Type, ss[0].Type())
-				require.EqualValues(t, 10*time.Millisecond, ss[0].FlushInterval())
+				require.Equal(t, "tmp/0/blob/peapod.db", ss[0].Path)
+				require.EqualValues(t, 0644, ss[0].Perm)
+				require.EqualValues(t, peapod.Type, ss[0].Type)
+				require.EqualValues(t, 10*time.Millisecond, ss[0].FlushInterval)
 
-				require.Equal(t, "tmp/0/blob", ss[1].Path())
-				require.EqualValues(t, 0644, ss[1].Perm())
+				require.Equal(t, "tmp/0/blob", ss[1].Path)
+				require.EqualValues(t, 0644, ss[1].Perm)
 
-				fst := fstreeconfig.From((*config.Config)(ss[1]))
-				require.EqualValues(t, 5, fst.Depth())
-				require.Equal(t, false, fst.NoSync())
+				require.EqualValues(t, 5, ss[1].Depth)
+				require.False(t, *ss[1].NoSync)
 
-				require.EqualValues(t, 150, gc.RemoverBatchSize())
-				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval())
+				require.EqualValues(t, 150, gc.RemoverBatchSize)
+				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval)
 
-				require.Equal(t, false, sc.ResyncMetabase())
-				require.Equal(t, mode.ReadOnly, sc.Mode())
+				require.False(t, *sc.ResyncMetabase)
+				require.Equal(t, mode.ReadOnly, sc.Mode)
 			case 1:
-				require.Equal(t, true, wc.Enabled())
-				require.Equal(t, false, wc.NoSync())
+				require.True(t, *wc.Enabled)
+				require.False(t, *wc.NoSync)
 
-				require.Equal(t, "tmp/1/cache", wc.Path())
-				require.EqualValues(t, 134217728, wc.MaxObjectSize())
-				require.EqualValues(t, 4294967296, wc.SizeLimit())
+				require.Equal(t, "tmp/1/cache", wc.Path)
+				require.EqualValues(t, 134217728, wc.MaxObjectSize)
+				require.EqualValues(t, 4294967296, wc.Capacity)
 
-				require.Equal(t, "tmp/1/meta", meta.Path())
-				require.Equal(t, fs.FileMode(0644), meta.BoltDB().Perm())
-				require.Equal(t, 200, meta.BoltDB().MaxBatchSize())
-				require.Equal(t, 20*time.Millisecond, meta.BoltDB().MaxBatchDelay())
+				require.Equal(t, "tmp/1/meta", meta.Path)
+				require.Equal(t, fs.FileMode(0644), meta.Perm)
+				require.EqualValues(t, 200, meta.MaxBatchSize)
+				require.Equal(t, 20*time.Millisecond, meta.MaxBatchDelay)
 
-				require.Equal(t, false, sc.Compress())
-				require.Equal(t, []string(nil), sc.UncompressableContentTypes())
-				require.EqualValues(t, 102400, sc.SmallSizeLimit())
+				require.False(t, *sc.Compress)
+				require.Equal(t, []string(nil), sc.CompressionExcludeContentTypes)
+				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
 				require.Equal(t, 2, len(ss))
-				require.Equal(t, "tmp/1/blob/peapod.db", ss[0].Path())
-				require.EqualValues(t, 0644, ss[0].Perm())
-				require.EqualValues(t, peapod.Type, ss[0].Type())
-				require.EqualValues(t, 30*time.Millisecond, ss[0].FlushInterval())
+				require.Equal(t, "tmp/1/blob/peapod.db", ss[0].Path)
+				require.EqualValues(t, 0644, ss[0].Perm)
+				require.EqualValues(t, peapod.Type, ss[0].Type)
+				require.EqualValues(t, 30*time.Millisecond, ss[0].FlushInterval)
 
-				require.Equal(t, "tmp/1/blob", ss[1].Path())
-				require.EqualValues(t, 0644, ss[1].Perm())
+				require.Equal(t, "tmp/1/blob", ss[1].Path)
+				require.EqualValues(t, 0644, ss[1].Perm)
 
-				fst := fstreeconfig.From((*config.Config)(ss[1]))
-				require.EqualValues(t, 5, fst.Depth())
-				require.Equal(t, true, fst.NoSync())
+				require.EqualValues(t, 5, ss[1].Depth)
+				require.True(t, *ss[1].NoSync)
 
-				require.EqualValues(t, 200, gc.RemoverBatchSize())
-				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval())
+				require.EqualValues(t, 200, gc.RemoverBatchSize)
+				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval)
 
-				require.Equal(t, true, sc.ResyncMetabase())
-				require.Equal(t, mode.ReadWrite, sc.Mode())
+				require.True(t, *sc.ResyncMetabase)
+				require.Equal(t, mode.ReadWrite, sc.Mode)
 			}
 			return nil
 		})

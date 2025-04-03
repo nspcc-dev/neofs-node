@@ -1,4 +1,4 @@
-package nodeconfig
+package nodeconfig_test
 
 import (
 	"slices"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/address"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
+	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/stretchr/testify/require"
 )
@@ -17,30 +18,25 @@ func TestNodeSection(t *testing.T) {
 		require.Panics(
 			t,
 			func() {
-				BootstrapAddresses(empty)
+				empty.Node.BootstrapAddresses()
 			},
 		)
 
-		attribute := Attributes(empty)
-		relay := Relay(empty)
-		persisessionsPath := PersistentSessions(empty).Path()
-		persistatePath := PersistentState(empty).Path()
-
-		require.Empty(t, attribute)
-		require.Equal(t, false, relay)
-		require.Equal(t, "", persisessionsPath)
-		require.Equal(t, PersistentStatePathDefault, persistatePath)
+		require.Empty(t, empty.Node.Attributes)
+		require.Equal(t, false, empty.Node.Relay)
+		require.Equal(t, "", empty.Node.PersistentSessions.Path)
+		require.Equal(t, nodeconfig.PersistentStatePathDefault, empty.Node.PersistentState.Path)
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		addrs := BootstrapAddresses(c)
-		attributes := Attributes(c)
-		relay := Relay(c)
-		wKey := Wallet(c)
-		persisessionsPath := PersistentSessions(c).Path()
-		persistatePath := PersistentState(c).Path()
+		addrs := c.Node.BootstrapAddresses()
+		attributes := c.Node.Attributes
+		relay := c.Node.Relay
+		wKey := c.Node.PrivateKey()
+		persisessionsPath := c.Node.PersistentSessions.Path
+		persistatePath := c.Node.PersistentState.Path
 
 		expectedAddr := []struct {
 			str  string
@@ -84,7 +80,7 @@ func TestNodeSection(t *testing.T) {
 
 		require.NotNil(t, wKey)
 		require.Equal(t,
-			config.StringSafe(c.Sub("node").Sub("wallet"), "address"),
+			c.Node.Wallet.Address,
 			address.Uint160ToString(wKey.GetScriptHash()))
 
 		require.Equal(t, "/sessions", persisessionsPath)

@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
-	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -182,7 +181,7 @@ func initObjectService(c *cfg) {
 	c.shared.replicator = replicator.New(
 		replicator.WithLogger(c.log),
 		replicator.WithPutTimeout(
-			replicatorconfig.PutTimeout(c.cfgReader),
+			c.appCfg.Replicator.PutTimeout,
 		),
 		replicator.WithLocalStorage(ls),
 		replicator.WithRemoteSender(
@@ -201,7 +200,7 @@ func initObjectService(c *cfg) {
 			headsvc.NewRemoteHeader(keyStorage, clientConstructor),
 		),
 		policer.WithNetmapKeys(c),
-		policer.WithHeadTimeout(c.applicationConfiguration.policer.headTimeout),
+		policer.WithHeadTimeout(c.appCfg.Policer.HeadTimeout),
 		policer.WithReplicator(c.replicator),
 		policer.WithRedundantCopyCallback(func(addr oid.Address) {
 			err := ls.Delete(addr)
@@ -211,12 +210,12 @@ func initObjectService(c *cfg) {
 				)
 			}
 		}),
-		policer.WithMaxCapacity(c.applicationConfiguration.policer.maxCapacity),
+		policer.WithMaxCapacity(c.appCfg.Policer.MaxWorkers),
 		policer.WithPool(c.cfgObject.pool.replication),
 		policer.WithNodeLoader(c),
 		policer.WithNetwork(c),
-		policer.WithReplicationCooldown(c.applicationConfiguration.policer.replicationCooldown),
-		policer.WithObjectBatchSize(c.applicationConfiguration.policer.objectBatchSize),
+		policer.WithReplicationCooldown(c.appCfg.Policer.ReplicationCooldown),
+		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
 
 	c.workers = append(c.workers, c.shared.policer)

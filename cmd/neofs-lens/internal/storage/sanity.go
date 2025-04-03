@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	commonb "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
@@ -59,29 +58,31 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 		}
 	}()
 
-	appCfg := config.New(config.Prm{}, config.WithConfigFile(vConfig))
-	err := engineconfig.IterateShards(appCfg, false, func(sc *shardconfig.Config) error {
+	appCfg, err := config.New(config.WithConfigFile(vConfig))
+	if err != nil {
+		return fmt.Errorf("failed to load config file: %w", err)
+	}
+	err = engineconfig.IterateShards(&appCfg.Storage, false, func(sc *shardconfig.ShardDetails) error {
 		var sh storageShard
 
-		blobStorCfg := sc.BlobStor()
-		metaCfg := sc.Metabase()
+		metaCfg := sc.Metabase
 
 		sh.m = meta.New(
-			meta.WithPath(metaCfg.Path()),
-			meta.WithPermissions(metaCfg.BoltDB().Perm()),
-			meta.WithMaxBatchSize(metaCfg.BoltDB().MaxBatchSize()),
-			meta.WithMaxBatchDelay(metaCfg.BoltDB().MaxBatchDelay()),
+			meta.WithPath(metaCfg.Path),
+			meta.WithPermissions(metaCfg.Perm),
+			meta.WithMaxBatchSize(int(metaCfg.MaxBatchSize)),
+			meta.WithMaxBatchDelay(metaCfg.MaxBatchDelay),
 			meta.WithBoltDBOptions(&bbolt.Options{Timeout: time.Second}),
 			meta.WithLogger(zap.NewNop()),
 			meta.WithEpochState(epochState{}),
 		)
 
-		for _, subCfg := range blobStorCfg.Storages() {
-			switch subCfg.Type() {
+		for _, subCfg := range sc.Blobstor {
+			switch subCfg.Type {
 			default:
-				return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type())
+				return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type)
 			case peapod.Type:
-				sh.p = peapod.New(subCfg.Path(), subCfg.Perm(), subCfg.FlushInterval())
+				sh.p = peapod.New(subCfg.Path, subCfg.Perm, subCfg.FlushInterval)
 
 				var compressCfg compression.Config
 				err := compressCfg.Init()
@@ -91,12 +92,11 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 
 				sh.p.SetCompressor(&compressCfg)
 			case fstree.Type:
-				fstreeCfg := fstreeconfig.From((*config.Config)(subCfg))
 				sh.fsT = fstree.New(
-					fstree.WithPath(subCfg.Path()),
-					fstree.WithPerm(subCfg.Perm()),
-					fstree.WithDepth(fstreeCfg.Depth()),
-					fstree.WithNoSync(fstreeCfg.NoSync()),
+					fstree.WithPath(subCfg.Path),
+					fstree.WithPerm(subCfg.Perm),
+					fstree.WithDepth(subCfg.Depth),
+					fstree.WithNoSync(*subCfg.NoSync),
 				)
 			}
 		}

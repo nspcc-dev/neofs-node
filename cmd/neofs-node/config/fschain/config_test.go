@@ -14,11 +14,11 @@ func TestFSChainSection(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		empty := configtest.EmptyConfig()
 
-		require.Panics(t, func() { fschainconfig.Endpoints(empty) })
-		require.Equal(t, fschainconfig.DialTimeoutDefault, fschainconfig.DialTimeout(empty))
-		require.Equal(t, fschainconfig.CacheTTLDefault, fschainconfig.CacheTTL(empty))
-		require.Equal(t, 5, fschainconfig.ReconnectionRetriesNumber(empty))
-		require.Equal(t, 5*time.Second, fschainconfig.ReconnectionRetriesDelay(empty))
+		require.Empty(t, empty.FSChain.Endpoints)
+		require.Equal(t, fschainconfig.DialTimeoutDefault, empty.FSChain.DialTimeout)
+		require.Equal(t, fschainconfig.CacheTTLDefault, empty.FSChain.CacheTTL)
+		require.Equal(t, 5, empty.FSChain.ReconnectionsNumber)
+		require.Equal(t, 5*time.Second, empty.FSChain.ReconnectionsDelay)
 	})
 
 	const path = "../../../../config/example/node"
@@ -26,11 +26,11 @@ func TestFSChainSection(t *testing.T) {
 	rpcs := []string{"wss://rpc1.morph.fs.neo.org:40341/ws", "wss://rpc2.morph.fs.neo.org:40341/ws"}
 
 	var fileConfigTest = func(c *config.Config) {
-		require.Equal(t, rpcs, fschainconfig.Endpoints(c))
-		require.Equal(t, 30*time.Second, fschainconfig.DialTimeout(c))
-		require.Equal(t, 15*time.Second, fschainconfig.CacheTTL(c))
-		require.Equal(t, 6, fschainconfig.ReconnectionRetriesNumber(c))
-		require.Equal(t, 6*time.Second, fschainconfig.ReconnectionRetriesDelay(c))
+		require.Equal(t, rpcs, c.FSChain.Endpoints)
+		require.Equal(t, 30*time.Second, c.FSChain.DialTimeout)
+		require.Equal(t, 15*time.Second, c.FSChain.CacheTTL)
+		require.Equal(t, 6, c.FSChain.ReconnectionsNumber)
+		require.Equal(t, 6*time.Second, c.FSChain.ReconnectionsDelay)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

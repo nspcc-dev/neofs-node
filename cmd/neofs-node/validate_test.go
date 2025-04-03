@@ -26,13 +26,15 @@ func TestValidate(t *testing.T) {
 	t.Run("mainnet", func(t *testing.T) {
 		os.Clearenv() // ENVs have priority over config files, so we do this in tests
 		p := filepath.Join(exampleConfigPrefix, "mainnet/config.yml")
-		c := config.New(config.Prm{}, config.WithConfigFile(p))
+		c, err := config.New(config.WithConfigFile(p))
+		require.NoError(t, err)
 		require.NoError(t, validateConfig(c))
 	})
 	t.Run("testnet", func(t *testing.T) {
 		os.Clearenv() // ENVs have priority over config files, so we do this in tests
 		p := filepath.Join(exampleConfigPrefix, "testnet/config.yml")
-		c := config.New(config.Prm{}, config.WithConfigFile(p))
+		c, err := config.New(config.WithConfigFile(p))
+		require.NoError(t, err)
 		require.NoError(t, validateConfig(c))
 	})
 }

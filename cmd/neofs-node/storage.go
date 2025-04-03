@@ -24,11 +24,11 @@ import (
 
 func initLocalStorage(c *cfg) {
 	ls := engine.New([]engine.Option{
-		engine.WithShardPoolSize(c.engine.shardPoolSize),
-		engine.WithErrorThreshold(c.engine.errorThreshold),
+		engine.WithShardPoolSize(uint32(c.appCfg.Storage.ShardPoolSize)),
+		engine.WithErrorThreshold(uint32(c.appCfg.Storage.ShardROErrorThreshold)),
 		engine.WithLogger(c.log),
-		engine.WithIgnoreUninitedShards(c.engine.isIgnoreUninitedShards),
-		engine.WithObjectPutRetryTimeout(c.engine.objectPutRetryDeadline),
+		engine.WithIgnoreUninitedShards(c.appCfg.Storage.IgnoreUninitedShards),
+		engine.WithObjectPutRetryTimeout(c.appCfg.Storage.PutRetryTimeout),
 		engine.WithContainersSource(c.cnrSrc),
 		engine.WithMetrics(c.metricsCollector),
 	}...)
@@ -87,17 +87,17 @@ type shardOptsWithID struct {
 }
 
 func (c *cfg) shardOpts() []shardOptsWithID {
-	shards := make([]shardOptsWithID, 0, len(c.engine.shards))
+	shards := make([]shardOptsWithID, 0, len(c.appCfg.Storage.ShardList))
 
-	for _, shCfg := range c.engine.shards {
+	for _, shCfg := range c.appCfg.Storage.ShardList {
 		var (
 			wcMaxBatchSize      uint64
 			wcMaxBatchCount     int
 			wcMaxBatchThreshold uint64
 		)
 		var ss []blobstor.SubStorage
-		for _, sRead := range shCfg.SubStorages {
-			switch sRead.Typ {
+		for _, sRead := range shCfg.Blobstor {
+			switch sRead.Type {
 			case fstree.Type:
 				wcMaxBatchSize = uint64(sRead.CombinedSizeLimit)
 				wcMaxBatchCount = sRead.CombinedCountLimit
@@ -107,10 +107,10 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 						fstree.WithPath(sRead.Path),
 						fstree.WithPerm(sRead.Perm),
 						fstree.WithDepth(sRead.Depth),
-						fstree.WithNoSync(sRead.NoSync),
+						fstree.WithNoSync(*sRead.NoSync),
 						fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
-						fstree.WithCombinedSizeLimit(sRead.CombinedSizeLimit),
-						fstree.WithCombinedSizeThreshold(sRead.CombinedSizeThreshold),
+						fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
+						fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
 						fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
 						return true
@@ -120,7 +120,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				ss = append(ss, blobstor.SubStorage{
 					Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
 					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < shCfg.SmallSizeObjectLimit
+						return uint64(len(data)) < uint64(shCfg.SmallObjectSize)
 					},
 				})
 			default:
@@ -130,12 +130,12 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		}
 
 		var writeCacheOpts []writecache.Option
-		if wcRead := shCfg.WritecacheCfg; wcRead.Enabled {
+		if wcRead := shCfg.WriteCache; *wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
 				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxObjectSize(wcRead.MaxObjSize),
-				writecache.WithMaxCacheSize(wcRead.SizeLimit),
-				writecache.WithNoSync(wcRead.NoSync),
+				writecache.WithMaxObjectSize(uint64(wcRead.MaxObjectSize)),
+				writecache.WithMaxCacheSize(uint64(wcRead.Capacity)),
+				writecache.WithNoSync(*wcRead.NoSync),
 				writecache.WithLogger(c.log),
 				writecache.WithMaxFlushBatchSize(wcMaxBatchSize),
 				writecache.WithMaxFlushBatchCount(wcMaxBatchCount),
@@ -148,20 +148,20 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		sh.configID = shCfg.ID()
 		sh.shOpts = []shard.Option{
 			shard.WithLogger(c.log),
-			shard.WithResyncMetabase(shCfg.ResyncMetabase),
+			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
 			shard.WithBlobStorOptions(
-				blobstor.WithCompressObjects(shCfg.Compress),
-				blobstor.WithUncompressableContentTypes(shCfg.UncompressableContentType),
+				blobstor.WithCompressObjects(*shCfg.Compress),
+				blobstor.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
 				blobstor.WithStorages(ss),
 
 				blobstor.WithLogger(c.log),
 			),
 			shard.WithMetaBaseOptions(
-				meta.WithPath(shCfg.MetaCfg.Path),
-				meta.WithPermissions(shCfg.MetaCfg.Perm),
-				meta.WithMaxBatchSize(shCfg.MetaCfg.MaxBatchSize),
-				meta.WithMaxBatchDelay(shCfg.MetaCfg.MaxBatchDelay),
+				meta.WithPath(shCfg.Metabase.Path),
+				meta.WithPermissions(shCfg.Metabase.Perm),
+				meta.WithMaxBatchSize(int(shCfg.Metabase.MaxBatchSize)),
+				meta.WithMaxBatchDelay(shCfg.Metabase.MaxBatchDelay),
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: time.Second,
 				}),
@@ -171,10 +171,10 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				meta.WithContainers(containerPresenceChecker{src: c.cnrSrc}),
 				meta.WithInitContext(c.ctx),
 			),
-			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),
+			shard.WithWriteCache(*shCfg.WriteCache.Enabled),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
-			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),
-			shard.WithGCRemoverSleepInterval(shCfg.GcCfg.RemoverSleepInterval),
+			shard.WithRemoverBatchSize(int(shCfg.GC.RemoverBatchSize)),
+			shard.WithGCRemoverSleepInterval(shCfg.GC.RemoverSleepInterval),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)
 				fatalOnErr(err)
