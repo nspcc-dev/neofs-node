@@ -83,10 +83,6 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		return nil
 	}
 
-	if v.binPublicKey == nil {
-		return errors.New("can't verify signature, key missing")
-	}
-
 	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
 	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
 }
