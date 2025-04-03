@@ -1,14 +1,14 @@
 package crypto
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 // AuthenticateContainerRequest checks whether given payload of the request of
-// the container is signed correctly by its owner. Returns
-// [ErrOwnerSignatureMismatch] if owner mismatches the signature.
+// the container is signed correctly by its owner.
 func AuthenticateContainerRequest(owner user.ID, pubBin, sig, payload []byte) error {
 	switch len(pubBin) {
 	default:
@@ -22,7 +22,7 @@ func AuthenticateContainerRequest(owner user.ID, pubBin, sig, payload []byte) er
 			return errSignatureMismatch
 		}
 		if user.NewFromECDSAPublicKey(*pub) != owner {
-			return ErrOwnerSignatureMismatch
+			return errors.New("owner mismatches signature")
 		}
 	}
 	return nil

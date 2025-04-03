@@ -36,7 +36,6 @@ func TestAuthenticateContainerRequest(t *testing.T) {
 	t.Run("owner mismatch", func(t *testing.T) {
 		err := icrypto.AuthenticateContainerRequest(otherAcc, mainAccECDSAPub, containerSig, containerPayload)
 		require.EqualError(t, err, "owner mismatches signature")
-		require.ErrorIs(t, err, icrypto.ErrOwnerSignatureMismatch)
 	})
 
 	err := icrypto.AuthenticateContainerRequest(mainAcc, mainAccECDSAPub, containerSig, containerPayload)

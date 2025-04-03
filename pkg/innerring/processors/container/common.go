@@ -88,16 +88,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	}
 
 	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-	err = icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
-	if !errors.Is(err, icrypto.ErrOwnerSignatureMismatch) {
-		if err == nil {
-			return nil
-		}
-
-		return errors.New("invalid signature calculated by container owner's key")
-	}
-
-	return errors.New("signature is invalid or calculated with the key not bound to the container owner")
+	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {
