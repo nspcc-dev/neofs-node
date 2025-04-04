@@ -13,6 +13,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -102,11 +103,92 @@ func TestVerifyRequestSignatures(t *testing.T) {
 	})
 }
 
+func TestAuthenticateRequest(t *testing.T) {
+	t.Run("correctly signed", func(t *testing.T) {
+		author, authorPub, err := icrypto.AuthenticateRequest(getObjectSignedRequest)
+		require.NoError(t, err)
+		require.Equal(t, reqAuthorECDSA, author)
+		require.Equal(t, reqSignerECDSAPub, authorPub)
+	})
+	t.Run("invalid", func(t *testing.T) {
+		t.Run("nil", func(t *testing.T) {
+			t.Run("untyped", func(t *testing.T) {
+				require.Panics(t, func() {
+					_ = icrypto.VerifyRequestSignatures[*protoobject.GetRequest_Body](nil)
+				})
+			})
+			t.Run("typed", func(t *testing.T) {
+				_, _, err := icrypto.AuthenticateRequest((*protoobject.GetRequest)(nil))
+				assertInvalidRequestSignatureError(t, err, "missing verification header")
+			})
+		})
+		t.Run("without verification header", func(t *testing.T) {
+			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+			req.VerifyHeader = nil
+			_, _, err := icrypto.AuthenticateRequest(req)
+			assertInvalidRequestSignatureError(t, err, "missing verification header")
+		})
+		for _, tc := range invalidOriginalRequestVerificationHeaderTestcases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+				req.MetaHeader = req.MetaHeader.Origin
+				req.VerifyHeader = req.VerifyHeader.Origin
+				tc.corrupt(req.VerifyHeader)
+				_, _, err := icrypto.AuthenticateRequest(req)
+				assertInvalidRequestSignatureError(t, err, "invalid verification header at depth 0: "+tc.msg)
+
+				t.Run("resigned", func(t *testing.T) {
+					req := &protoobject.GetRequest{
+						Body:         req.Body,
+						MetaHeader:   &protosession.RequestMetaHeader{Origin: req.MetaHeader},
+						VerifyHeader: req.VerifyHeader,
+					}
+					req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofscryptotest.Signer(), req, nil)
+					require.NoError(t, err)
+
+					_, _, err := icrypto.AuthenticateRequest(req)
+					assertInvalidRequestSignatureError(t, err, "invalid verification header at depth 1: "+tc.msg)
+				})
+			})
+		}
+		t.Run("resigned", func(t *testing.T) {
+			for _, tc := range []struct {
+				name, msg string
+				corrupt   func(valid *protoobject.GetRequest)
+			}{
+				{name: "redundant verification header", msg: "incorrect number of verification headers",
+					corrupt: func(valid *protoobject.GetRequest) {
+						valid.VerifyHeader = &protosession.RequestVerificationHeader{Origin: valid.VerifyHeader}
+					},
+				},
+				{name: "lacking verification header", msg: "incorrect number of verification headers",
+					corrupt: func(valid *protoobject.GetRequest) {
+						valid.MetaHeader = &protosession.RequestMetaHeader{Origin: valid.MetaHeader}
+					},
+				},
+				{name: "with body signature", msg: "invalid verification header at depth 0: body signature is set in non-origin verification header",
+					corrupt: func(valid *protoobject.GetRequest) {
+						valid.VerifyHeader.BodySignature = new(refs.Signature)
+					},
+				},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+					tc.corrupt(req)
+					_, _, err := icrypto.AuthenticateRequest(req)
+					assertInvalidRequestSignatureError(t, err, tc.msg)
+				})
+			}
+		})
+	})
+}
+
 var (
 	reqSignerECDSAPub = []byte{3, 222, 100, 155, 214, 54, 45, 96, 2, 218, 144, 121, 166, 210, 58, 194, 143, 221, 111, 63, 87,
 		254, 66, 2, 236, 94, 45, 93, 30, 39, 191, 127, 80}
 	reqSignerL2ECDSAPub = []byte{3, 95, 195, 112, 130, 26, 227, 140, 73, 208, 191, 208, 134, 199, 189, 139, 238, 55, 22, 49,
 		165, 67, 146, 187, 82, 232, 85, 95, 144, 75, 87, 243, 21}
+	reqAuthorECDSA = user.ID{53, 94, 109, 46, 227, 240, 62, 49, 226, 121, 130, 173, 20, 100, 30, 107, 220, 221, 46, 82, 151, 137, 253, 44, 237}
 )
 
 var reqMetaHdr = &protosession.RequestMetaHeader{

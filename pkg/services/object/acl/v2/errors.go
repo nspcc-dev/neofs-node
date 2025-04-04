@@ -11,8 +11,6 @@ func malformedRequestError(reason string) error {
 }
 
 var (
-	errEmptyBody               = malformedRequestError("empty body")
-	errEmptyVerificationHeader = malformedRequestError("empty verification header")
-	errEmptyBodySig            = malformedRequestError("empty at body signature")
-	errInvalidVerb             = malformedRequestError("session token verb is invalid")
+	errEmptyBody   = malformedRequestError("empty body")
+	errInvalidVerb = malformedRequestError("session token verb is invalid")
 )

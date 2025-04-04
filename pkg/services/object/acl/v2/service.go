@@ -83,7 +83,7 @@ func New(opts ...Option) Service {
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo, error) {
+func (b Service) GetRequestToInfo(request *protoobject.GetRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -112,10 +112,11 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectGet)
@@ -130,7 +131,7 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 
 // HeadRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInfo, error) {
+func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -159,10 +160,11 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHead)
@@ -177,21 +179,21 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 
 // SearchRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest) (RequestInfo, error) {
-	return b.searchRequestToInfo(request)
+func (b Service) SearchRequestToInfo(request *protoobject.SearchRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
+	return b.searchRequestToInfo(request, author, authorPub)
 }
 
 // SearchV2RequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request) (RequestInfo, error) {
-	return b.searchRequestToInfo(request)
+func (b Service) SearchV2RequestToInfo(request *protoobject.SearchV2Request, author user.ID, authorPub []byte) (RequestInfo, error) {
+	return b.searchRequestToInfo(request, author, authorPub)
 }
 
 // unifies V1 and V2 search request processing.
 func (b Service) searchRequestToInfo(request interface {
 	GetMetaHeader() *protosession.RequestMetaHeader
 	GetVerifyHeader() *protosession.RequestVerificationHeader
-}) (RequestInfo, error) {
+}, author user.ID, authorPub []byte) (RequestInfo, error) {
 	id, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -215,10 +217,11 @@ func (b Service) searchRequestToInfo(request interface {
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, id, acl.OpObjectSearch)
@@ -231,7 +234,7 @@ func (b Service) searchRequestToInfo(request interface {
 
 // DeleteRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (RequestInfo, error) {
+func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -260,10 +263,11 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectDelete)
@@ -278,7 +282,7 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 
 // RangeRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (RequestInfo, error) {
+func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -307,10 +311,11 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectRange)
@@ -325,7 +330,7 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 
 // HashRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker].
-func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (RequestInfo, error) {
+func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest, author user.ID, authorPub []byte) (RequestInfo, error) {
 	cnr, err := getContainerIDFromRequest(request)
 	if err != nil {
 		return RequestInfo{}, err
@@ -354,10 +359,11 @@ func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (Re
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	reqInfo, err := b.findRequestInfo(req, cnr, acl.OpObjectHash)
@@ -374,7 +380,7 @@ var ErrSkipRequest = errors.New("skip request")
 
 // PutRequestToInfo resolves RequestInfo from the request to check it using
 // [ACLChecker]. Returns [ErrSkipRequest] if check should not be performed.
-func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo, user.ID, error) {
+func (b Service) PutRequestToInfo(request *protoobject.PutRequest, author user.ID, authorPub []byte) (RequestInfo, user.ID, error) {
 	body := request.GetBody()
 	if body == nil {
 		return RequestInfo{}, user.ID{}, errEmptyBody
@@ -462,10 +468,11 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 	}
 
 	req := MetaWithToken{
-		vheader: request.GetVerifyHeader(),
-		token:   sTok,
-		bearer:  bTok,
-		src:     request,
+		author:    author,
+		authorPub: authorPub,
+		token:     sTok,
+		bearer:    bTok,
+		src:       request,
 	}
 
 	verb := acl.OpObjectPut

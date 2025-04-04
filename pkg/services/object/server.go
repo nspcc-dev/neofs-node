@@ -142,14 +142,14 @@ type Storage interface {
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
 // checks from various types of grpc requests.
 type ACLInfoExtractor interface {
-	PutRequestToInfo(*protoobject.PutRequest) (aclsvc.RequestInfo, user.ID, error)
-	DeleteRequestToInfo(*protoobject.DeleteRequest) (aclsvc.RequestInfo, error)
-	HeadRequestToInfo(*protoobject.HeadRequest) (aclsvc.RequestInfo, error)
-	HashRequestToInfo(*protoobject.GetRangeHashRequest) (aclsvc.RequestInfo, error)
-	GetRequestToInfo(*protoobject.GetRequest) (aclsvc.RequestInfo, error)
-	RangeRequestToInfo(*protoobject.GetRangeRequest) (aclsvc.RequestInfo, error)
-	SearchRequestToInfo(*protoobject.SearchRequest) (aclsvc.RequestInfo, error)
-	SearchV2RequestToInfo(*protoobject.SearchV2Request) (aclsvc.RequestInfo, error)
+	PutRequestToInfo(*protoobject.PutRequest, user.ID, []byte) (aclsvc.RequestInfo, user.ID, error)
+	DeleteRequestToInfo(*protoobject.DeleteRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	HeadRequestToInfo(*protoobject.HeadRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	HashRequestToInfo(*protoobject.GetRangeHashRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	GetRequestToInfo(*protoobject.GetRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	RangeRequestToInfo(*protoobject.GetRangeRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	SearchRequestToInfo(*protoobject.SearchRequest, user.ID, []byte) (aclsvc.RequestInfo, error)
+	SearchV2RequestToInfo(*protoobject.SearchV2Request, user.ID, []byte) (aclsvc.RequestInfo, error)
 }
 
 const accessDeniedACLReasonFmt = "access to operation %s is denied by basic ACL check"
@@ -435,7 +435,9 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignatures(req); err != nil {
+		var author user.ID
+		var authorPub []byte
+		if author, authorPub, err = icrypto.AuthenticateRequest(req); err != nil {
 			err = s.sendStatusPutResponse(gStream, err) // assign for defer
 			return err
 		}
@@ -448,7 +450,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return errors.New("malformed request: empty body")
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
+		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req, author, authorPub); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
 				return s.sendStatusPutResponse(gStream, err)
 			}
@@ -495,7 +497,8 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
@@ -503,7 +506,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
@@ -574,7 +577,8 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
 
@@ -582,7 +586,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
@@ -821,7 +825,9 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
 
@@ -829,7 +835,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -1034,7 +1040,9 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
 
@@ -1042,7 +1050,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -1274,7 +1282,9 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 
@@ -1282,7 +1292,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1494,7 +1504,9 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
@@ -1502,7 +1514,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
@@ -1821,7 +1833,9 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+
+	author, authorPub, err := icrypto.AuthenticateRequest(req)
+	if err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
 
@@ -1829,7 +1843,7 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req, author, authorPub)
 	if err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}

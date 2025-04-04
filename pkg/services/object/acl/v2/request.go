@@ -1,16 +1,10 @@
 package v2
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"fmt"
-
-	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -107,39 +101,20 @@ func (r RequestInfo) RequestRole() acl.Role {
 // MetaWithToken groups session and bearer tokens,
 // verification header and raw API request.
 type MetaWithToken struct {
-	vheader *protosession.RequestVerificationHeader
-	token   *sessionSDK.Object
-	bearer  *bearer.Token
-	src     any
+	author    user.ID
+	authorPub []byte
+	token     *sessionSDK.Object
+	bearer    *bearer.Token
+	src       any
 }
 
 // RequestOwner returns ownerID and its public key
 // according to internal meta information.
 func (r MetaWithToken) RequestOwner() (*user.ID, []byte, error) {
-	if r.vheader == nil {
-		return nil, nil, errEmptyVerificationHeader
-	}
-
 	// if session token is presented, use it as truth source
 	if r.token != nil {
 		// verify signature of session token
 		return ownerFromToken(r.token)
 	}
-
-	// otherwise get original body signature
-	bodySignature := originalBodySignature(r.vheader)
-	if bodySignature == nil {
-		return nil, nil, errEmptyBodySig
-	}
-
-	key := bodySignature.GetKey()
-
-	pubKey, err := keys.NewPublicKeyFromBytes(key, elliptic.P256())
-	if err != nil {
-		return nil, nil, fmt.Errorf("decode public key: %w", err)
-	}
-
-	idSender := user.NewFromECDSAPublicKey(ecdsa.PublicKey(*pubKey))
-
-	return &idSender, key, nil
+	return &r.author, r.authorPub, nil
 }
