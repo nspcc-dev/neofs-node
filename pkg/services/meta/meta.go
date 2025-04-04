@@ -79,8 +79,8 @@ type Meta struct {
 	cliM        sync.RWMutex
 	ws          wsClient
 	blockSubID  string
+	cnrSubID    string
 	bCh         chan *block.Header
-	cnrDelEv    chan *state.ContainedNotificationEvent
 	cnrPutEv    chan *state.ContainedNotificationEvent
 	epochEv     chan *state.ContainedNotificationEvent
 
@@ -206,7 +206,6 @@ func New(p Parameters) (*Meta, error) {
 		endpoints: p.NeoEnpoints,
 		timeout:   p.Timeout,
 		bCh:       make(chan *block.Header, notificationBuffSize),
-		cnrDelEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		cnrPutEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		epochEv:   make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		blockBuff: make(chan *block.Header, blockBuffSize),
@@ -262,9 +261,14 @@ func (m *Meta) Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("block subscription: %w", err)
 		}
+	} else {
+		m.cnrSubID, err = m.subscribeForNewContainers(m.cnrPutEv)
+		if err != nil {
+			return fmt.Errorf("new container subscription: %w", err)
+		}
 	}
 
-	err = m.subscribeForMeta()
+	err = m.subscribeEvents()
 	if err != nil {
 		return fmt.Errorf("subscribe for meta notifications: %w", err)
 	}

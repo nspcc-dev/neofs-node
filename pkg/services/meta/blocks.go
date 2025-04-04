@@ -17,11 +17,9 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	l := m.l.With(zap.Stringer("block hash", h), zap.Uint32("index", ind))
 	l.Debug("handling block")
 
-	evName := objPutEvName
 	m.cliM.RLock()
 	res, err := m.ws.GetBlockNotifications(h, &neorpc.NotificationFilter{
 		Contract: &m.cnrH,
-		Name:     &evName,
 	})
 	if err != nil {
 		m.cliM.RUnlock()
@@ -34,30 +32,88 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 		return nil
 	}
 
-	m.stM.RLock()
-	defer m.stM.RUnlock()
-
 	evsByStorage := make(map[*containerStorage][]objEvent)
 	for _, n := range res.Application {
-		ev, err := parseObjNotification(n)
-		if err != nil {
-			l.Error("invalid object notification received", zap.Error(err))
+		l := m.l.With(zap.Stringer("tx", n.Container))
+
+		switch n.Name {
+		case objPutEvName:
+			ev, err := parseObjNotification(n)
+			if err != nil {
+				l.Error("invalid object notification received", zap.Error(err))
+				continue
+			}
+
+			if magic := uint32(ev.network.Uint64()); magic != m.magicNumber {
+				l.Warn("skipping object notification with wrong magic number", zap.Uint32("expected", m.magicNumber), zap.Uint32("got", magic))
+				continue
+			}
+
+			m.stM.RLock()
+			st, ok := m.storages[ev.cID]
+			m.stM.RUnlock()
+			if !ok {
+				l.Debug("skipping object notification", zap.Stringer("container", ev.cID))
+				continue
+			}
+
+			m.l.Debug("received object notification", zap.Stringer("address", oid.NewAddress(ev.cID, ev.oID)))
+
+			evsByStorage[st] = append(evsByStorage[st], ev)
+		case cnrDeleteName:
+			ev, err := parseCnrNotification(n)
+			if err != nil {
+				l.Error("invalid container removal notification received", zap.Error(err))
+				continue
+			}
+
+			m.stM.RLock()
+			_, ok := m.storages[ev.cID]
+			m.stM.RUnlock()
+			if !ok {
+				l.Debug("skipping container notification", zap.Stringer("container", ev.cID))
+				continue
+			}
+
+			err = m.dropContainer(ev.cID)
+			if err != nil {
+				l.Error("deleting container failed", zap.Error(err))
+				continue
+			}
+
+			l.Debug("deleted container", zap.Stringer("cID", ev.cID))
+		case cnrPutName:
+			ev, err := parseCnrNotification(n)
+			if err != nil {
+				l.Error("invalid container notification received", zap.Error(err))
+				continue
+			}
+
+			ok, err := m.net.IsMineWithMeta(ev.cID)
+			if err != nil {
+				l.Error("can't get container data", zap.Error(err))
+				continue
+			}
+			if !ok {
+				l.Debug("skip new inactual container", zap.Stringer("cid", ev.cID))
+				continue
+			}
+
+			err = m.addContainer(ev.cID)
+			if err != nil {
+				l.Error("could not handle new container", zap.Stringer("cID", ev.cID), zap.Error(err))
+				continue
+			}
+
+			l.Debug("added container storage", zap.Stringer("cID", ev.cID))
+		default:
+			l.Debug("skip notification", zap.String("event name", n.Name))
 			continue
 		}
+	}
 
-		if magic := uint32(ev.network.Uint64()); magic != m.magicNumber {
-			l.Warn("skipping object notification with wrong magic number", zap.Uint32("expected", m.magicNumber), zap.Uint32("got", magic))
-		}
-
-		st, ok := m.storages[ev.cID]
-		if !ok {
-			l.Debug("skipping object notification", zap.Stringer("inactual container", ev.cID))
-			continue
-		}
-
-		m.l.Debug("received object notification", zap.Stringer("address", oid.NewAddress(ev.cID, ev.oID)))
-
-		evsByStorage[st] = append(evsByStorage[st], ev)
+	if len(evsByStorage) == 0 {
+		return nil
 	}
 
 	var wg errgroup.Group

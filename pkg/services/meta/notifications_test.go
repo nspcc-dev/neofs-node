@@ -202,7 +202,6 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 		rootPath:    t.TempDir(),
 		magicNumber: 102938475,
 		bCh:         make(chan *block.Header),
-		cnrDelEv:    make(chan *state.ContainedNotificationEvent),
 		cnrPutEv:    make(chan *state.ContainedNotificationEvent),
 		epochEv:     make(chan *state.ContainedNotificationEvent),
 		blockBuff:   make(chan *block.Header, blockBuffSize),
