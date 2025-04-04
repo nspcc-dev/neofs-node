@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	"github.com/nspcc-dev/neo-go/cli/input"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,7 +24,7 @@ type configTemplate struct {
 	ContainerFee            int
 	ContainerAliasFee       int
 	WithdrawFee             int
-	Glagolitics             []string
+	AlphabetNames           []string
 	HomomorphicHashDisabled bool
 }
 
@@ -42,7 +42,7 @@ network:
     container_alias: {{ .ContainerAliasFee }}
     withdraw: {{ .WithdrawFee}}
 # if credentials section is omitted, then neofs-adm will require manual password input
-credentials:{{ range.Glagolitics}}
+credentials:{{ range.AlphabetNames}}
   {{.}}: password{{end}}
 `
 
@@ -117,7 +117,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 		ContainerFee:            1000,          // 0.000000001 * 7 GAS per container (Fixed12)
 		ContainerAliasFee:       500,           // ContainerFee / 2
 		WithdrawFee:             1_0000_0000,   // 1.0 GAS (Fixed8)
-		Glagolitics:             make([]string, 0, credSize),
+		AlphabetNames:           make([]string, 0, credSize),
 	}
 
 	appDir, err := filepath.Abs(appDir)
@@ -127,7 +127,7 @@ func generateConfigExample(appDir string, credSize int) (string, error) {
 	tmpl.AlphabetDir = filepath.Join(appDir, "alphabet-wallets")
 
 	for i := range credSize {
-		tmpl.Glagolitics = append(tmpl.Glagolitics, glagolitsa.LetterByIndex(i))
+		tmpl.AlphabetNames = append(tmpl.AlphabetNames, client.NNSAlphabetContractName(i))
 	}
 
 	t, err := template.New("config.yml").Parse(configTxtTemplate)

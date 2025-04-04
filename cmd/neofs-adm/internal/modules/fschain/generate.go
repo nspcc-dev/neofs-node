@@ -17,7 +17,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -60,13 +60,13 @@ func initializeWallets(v *viper.Viper, walletDir string, size int) ([]string, er
 	passwords := make([]string, size)
 
 	for i := range wallets {
-		letter := glagolitsa.LetterByIndex(i)
-		password, err := config.GetPassword(v, letter)
+		name := client.NNSAlphabetContractName(i)
+		password, err := config.GetPassword(v, name)
 		if err != nil {
 			return nil, fmt.Errorf("can't fetch password: %w", err)
 		}
 
-		p := filepath.Join(walletDir, letter+".json")
+		p := filepath.Join(walletDir, name+".json")
 		f, err := os.OpenFile(p, os.O_CREATE, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("can't create wallet file: %w", err)
