@@ -82,8 +82,11 @@ func (c *neofsNetwork) Head(ctx context.Context, cID cid.ID, oID oid.ID) (object
 	hPrm.WithAddress(oid.NewAddress(cID, oID))
 
 	err := c.header.Head(ctx, hPrm)
+	if err != nil {
+		return object.Object{}, err
+	}
 
-	return *hw.h, err
+	return *hw.h, nil
 }
 
 func (c *neofsNetwork) IsMineWithMeta(id cid.ID) (bool, error) {
