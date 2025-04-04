@@ -67,7 +67,7 @@ func (s *server) makeFailedBalanceResponse(err error) (*protoaccounting.BalanceR
 // [BalanceContract] and returns result in the response.
 func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedBalanceResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeFailedBalanceResponse(err)
 	}
 
 	mUsr := req.GetBody().GetOwnerId()

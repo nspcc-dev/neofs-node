@@ -436,7 +436,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 		}
 
 		if err = icrypto.VerifyRequestSignatures(req); err != nil {
-			err = s.sendStatusPutResponse(gStream, util.ToRequestSignatureVerificationError(err)) // assign for defer
+			err = s.sendStatusPutResponse(gStream, err) // assign for defer
 			return err
 		}
 

@@ -74,7 +74,7 @@ func (s *server) makeStatusNodeInfoResponse(err error) (*protonetmap.LocalNodeIn
 // [NodeState].
 func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNodeInfoResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeStatusNodeInfoResponse(err)
 	}
 
 	n, err := s.contract.LocalNodeInfo()
@@ -106,7 +106,7 @@ func (s *server) makeStatusNetInfoResponse(err error) (*protonetmap.NetworkInfoR
 // [Contract].
 func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequest) (*protonetmap.NetworkInfoResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNetInfoResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeStatusNetInfoResponse(err)
 	}
 
 	n, err := s.contract.GetNetworkInfo()
@@ -136,7 +136,7 @@ func (s *server) makeStatusNetmapResponse(err error) (*protonetmap.NetmapSnapsho
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNetmapResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeStatusNetmapResponse(err)
 	}
 
 	n, err := s.contract.GetNetworkMap()

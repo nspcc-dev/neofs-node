@@ -497,7 +497,7 @@ func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.Announ
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return c.makeStatusResponse(util.ToRequestSignatureVerificationError(err))
+		return c.makeStatusResponse(err)
 	}
 
 	var passedRoute []loadroute.ServerInfo

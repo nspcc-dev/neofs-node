@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	protoacl "github.com/nspcc-dev/neofs-sdk-go/proto/acl"
@@ -15,6 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+func assertInvalidRequestSignatureError(t testing.TB, actual error, expected string) {
+	require.EqualError(t, actual, "status: code = 1026 message = "+expected)
+	var st apistatus.SignatureVerification
+	require.ErrorAs(t, actual, &st)
+	require.Equal(t, expected, st.Message())
+}
 
 func TestVerifyRequestSignatures(t *testing.T) {
 	t.Run("correctly signed", func(t *testing.T) {
@@ -30,14 +38,14 @@ func TestVerifyRequestSignatures(t *testing.T) {
 			})
 			t.Run("typed", func(t *testing.T) {
 				err := icrypto.VerifyRequestSignatures((*protoobject.GetRequest)(nil))
-				require.EqualError(t, err, "missing verification header")
+				assertInvalidRequestSignatureError(t, err, "missing verification header")
 			})
 		})
 		t.Run("without verification header", func(t *testing.T) {
 			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
 			req.VerifyHeader = nil
 			err := icrypto.VerifyRequestSignatures(req)
-			require.EqualError(t, err, "missing verification header")
+			assertInvalidRequestSignatureError(t, err, "missing verification header")
 		})
 		for _, tc := range invalidOriginalRequestVerificationHeaderTestcases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -46,7 +54,7 @@ func TestVerifyRequestSignatures(t *testing.T) {
 				req.VerifyHeader = req.VerifyHeader.Origin
 				tc.corrupt(req.VerifyHeader)
 				err := icrypto.VerifyRequestSignatures(req)
-				require.EqualError(t, err, "invalid verification header at depth 0: "+tc.msg)
+				assertInvalidRequestSignatureError(t, err, "invalid verification header at depth 0: "+tc.msg)
 
 				t.Run("resigned", func(t *testing.T) {
 					req := &protoobject.GetRequest{
@@ -58,7 +66,7 @@ func TestVerifyRequestSignatures(t *testing.T) {
 					require.NoError(t, err)
 
 					err := icrypto.VerifyRequestSignatures(req)
-					require.EqualError(t, err, "invalid verification header at depth 1: "+tc.msg)
+					assertInvalidRequestSignatureError(t, err, "invalid verification header at depth 1: "+tc.msg)
 				})
 			})
 		}
@@ -87,7 +95,7 @@ func TestVerifyRequestSignatures(t *testing.T) {
 					req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
 					tc.corrupt(req)
 					err := icrypto.VerifyRequestSignatures(req)
-					require.EqualError(t, err, tc.msg)
+					assertInvalidRequestSignatureError(t, err, tc.msg)
 				})
 			}
 		})

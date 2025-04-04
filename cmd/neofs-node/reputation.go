@@ -273,7 +273,7 @@ func (s *reputationServer) makeLocalResponse(err error) (*protoreputation.Announ
 
 func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeLocalResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeLocalResponse(err)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
@@ -311,7 +311,7 @@ func (s *reputationServer) makeIntermediateResponse(err error) (*protoreputation
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeIntermediateResponse(util.ToRequestSignatureVerificationError(err))
+		return s.makeIntermediateResponse(err)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
