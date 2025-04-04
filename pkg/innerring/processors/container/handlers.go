@@ -6,6 +6,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
 )
 
@@ -67,6 +68,10 @@ func (cp *Processor) handleAnnounceLoad(ev event.Event) {
 
 	cp.log.Info("notification",
 		zap.String("type", "announce load"),
+		zap.Stringer("cid", cid.ID(e.ContainerID())),
+		zap.Uint64("epoch", e.Epoch()),
+		zap.Uint64("size", e.Value()),
+		zap.Binary("reporter", e.Key()),
 	)
 
 	// send an event to the worker pool
