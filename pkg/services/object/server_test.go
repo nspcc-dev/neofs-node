@@ -114,28 +114,28 @@ func (noCallTestACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { panic
 
 type noCallTestReqInfoExtractor struct{}
 
-func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (noCallTestReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, user.ID, []byte) (v2.RequestInfo, user.ID, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
-func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+func (noCallTestReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, user.ID, []byte) (v2.RequestInfo, error) {
 	panic("must not be called")
 }
 
@@ -153,28 +153,28 @@ func (nopACLChecker) StickyBitCheck(v2.RequestInfo, user.ID) bool { return true 
 
 type nopReqInfoExtractor struct{}
 
-func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest) (v2.RequestInfo, user.ID, error) {
+func (nopReqInfoExtractor) PutRequestToInfo(*protoobject.PutRequest, user.ID, []byte) (v2.RequestInfo, user.ID, error) {
 	return v2.RequestInfo{}, user.ID{}, nil
 }
-func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) DeleteRequestToInfo(*protoobject.DeleteRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HeadRequestToInfo(*protoobject.HeadRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) HashRequestToInfo(*protoobject.GetRangeHashRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) GetRequestToInfo(*protoobject.GetRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) RangeRequestToInfo(*protoobject.GetRangeRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchRequestToInfo(*protoobject.SearchRequest, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
-func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request) (v2.RequestInfo, error) {
+func (nopReqInfoExtractor) SearchV2RequestToInfo(*protoobject.SearchV2Request, user.ID, []byte) (v2.RequestInfo, error) {
 	return v2.RequestInfo{}, nil
 }
 

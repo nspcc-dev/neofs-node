@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"math/big"
 
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	protoaccounting "github.com/nspcc-dev/neofs-sdk-go/proto/accounting"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -66,8 +66,8 @@ func (s *server) makeFailedBalanceResponse(err error) (*protoaccounting.BalanceR
 // Balance gets current balance of the requested user using underlying
 // [BalanceContract] and returns result in the response.
 func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
-		return s.makeFailedBalanceResponse(util.ToRequestSignatureVerificationError(err))
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+		return s.makeFailedBalanceResponse(err)
 	}
 
 	mUsr := req.GetBody().GetOwnerId()

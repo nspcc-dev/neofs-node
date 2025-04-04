@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -65,7 +66,7 @@ func (s *server) makeFailedCreateResponse(err error) (*protosession.CreateRespon
 // Create generates new private session key and saves it in the underlying
 // [KeyStorage].
 func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedCreateResponse(err)
 	}
 

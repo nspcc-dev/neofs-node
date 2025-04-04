@@ -39,11 +39,3 @@ func ToStatus(err error) *protostatus.Status {
 	}
 	return apistatus.FromError(err)
 }
-
-// ToRequestSignatureVerificationError constructs status error describing
-// request signature verification failure with the given cause.
-func ToRequestSignatureVerificationError(cause error) error {
-	var err apistatus.SignatureVerification
-	err.SetMessage(cause.Error())
-	return err
-}
