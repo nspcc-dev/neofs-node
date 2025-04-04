@@ -14,6 +14,7 @@ func TestExists(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
 	objects := prepare(t, 1, s, minSize, maxSize)
+	objects = append(objects, prepareBatch(t, 1, s, minSize, maxSize)...)
 
 	t.Run("missing object", func(t *testing.T) {
 		res, err := s.Exists(oidtest.Address())
@@ -22,8 +23,10 @@ func TestExists(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	})
 
 	t.Run("existing object", func(t *testing.T) {
-		res, err := s.Exists(objects[0].addr)
-		require.NoError(t, err)
-		require.True(t, res)
+		for i := range objects {
+			res, err := s.Exists(objects[i].addr)
+			require.NoError(t, err)
+			require.True(t, res)
+		}
 	})
 }

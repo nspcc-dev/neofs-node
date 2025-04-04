@@ -56,6 +56,13 @@ type Info struct {
 type writer interface {
 	writeData(oid.ID, string, []byte) error
 	finalize() error
+	writeBatch([]writeDataUnit) error
+}
+
+type writeDataUnit struct {
+	id   oid.ID
+	path string
+	data []byte
 }
 
 const (
@@ -341,6 +348,33 @@ func (t *FSTree) Put(addr oid.Address, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("write object data into file %q: %w", p, err)
 	}
+	return nil
+}
+
+// PutBatch puts a batch of objects in the storage.
+func (t *FSTree) PutBatch(objs map[oid.Address][]byte) error {
+	if t.readOnly {
+		return common.ErrReadOnly
+	}
+
+	writeDataUnits := make([]writeDataUnit, 0, len(objs))
+	for addr, data := range objs {
+		p := t.treePath(addr)
+		if err := util.MkdirAllX(filepath.Dir(p), t.Permissions); err != nil {
+			return fmt.Errorf("mkdirall for %q: %w", p, err)
+		}
+		writeDataUnits = append(writeDataUnits, writeDataUnit{
+			id:   addr.Object(),
+			path: p,
+			data: t.Compress(data),
+		})
+	}
+
+	err := t.writer.writeBatch(writeDataUnits)
+	if err != nil {
+		return fmt.Errorf("cannot write batch: %w", err)
+	}
+
 	return nil
 }
 

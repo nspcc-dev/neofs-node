@@ -184,19 +184,6 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		sh.UncompressableContentType = sc.UncompressableContentTypes()
 		sh.SmallSizeObjectLimit = sc.SmallSizeLimit()
 
-		// write-cache
-
-		writeCacheCfg := sc.WriteCache()
-		if writeCacheCfg.Enabled() {
-			wc := &sh.WritecacheCfg
-
-			wc.Enabled = true
-			wc.Path = writeCacheCfg.Path()
-			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
-			wc.SizeLimit = writeCacheCfg.SizeLimit()
-			wc.NoSync = writeCacheCfg.NoSync()
-		}
-
 		// blobstor with substorages
 
 		blobStorCfg := sc.BlobStor()
@@ -231,6 +218,19 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		}
 
 		sh.SubStorages = ss
+
+		// write-cache
+
+		writeCacheCfg := sc.WriteCache()
+		if writeCacheCfg.Enabled() {
+			wc := &sh.WritecacheCfg
+
+			wc.Enabled = true
+			wc.Path = writeCacheCfg.Path()
+			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
+			wc.SizeLimit = writeCacheCfg.SizeLimit()
+			wc.NoSync = writeCacheCfg.NoSync()
+		}
 
 		// meta
 

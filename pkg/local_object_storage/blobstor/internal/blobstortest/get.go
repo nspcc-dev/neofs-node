@@ -14,8 +14,6 @@ func TestGet(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	require.NoError(t, s.Init())
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
 
-	objects := prepare(t, 2, s, minSize, maxSize)
-
 	t.Run("missing object", func(t *testing.T) {
 		addr := oidtest.Address()
 		_, err := s.Get(addr)
@@ -23,6 +21,9 @@ func TestGet(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		_, err = s.GetBytes(addr)
 		require.ErrorAs(t, err, new(apistatus.ObjectNotFound))
 	})
+
+	objects := prepare(t, 2, s, minSize, maxSize)
+	objects = append(objects, prepareBatch(t, 2, s, minSize, maxSize)...)
 
 	for i := range objects {
 		// Regular.
