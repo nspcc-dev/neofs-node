@@ -184,17 +184,3 @@ func (x *RestoreShardResponse) SetBody(v *RestoreShardResponse_Body) {
 		x.Body = v
 	}
 }
-
-// SetBody sets list shards request body.
-func (x *SynchronizeTreeRequest) SetBody(v *SynchronizeTreeRequest_Body) {
-	if x != nil {
-		x.Body = v
-	}
-}
-
-// SetBody sets list shards response body.
-func (x *SynchronizeTreeResponse) SetBody(v *SynchronizeTreeResponse_Body) {
-	if x != nil {
-		x.Body = v
-	}
-}

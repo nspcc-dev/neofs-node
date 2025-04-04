@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -44,8 +43,7 @@ func TestShardReload(t *testing.T) {
 		WithLogger(l),
 		WithBlobStorOptions(blobOpts...),
 		WithMetaBaseOptions(metaOpts...),
-		WithPiloramaOptions(
-			pilorama.WithPath(filepath.Join(p, "pilorama")))}
+	}
 
 	sh := New(opts...)
 	require.NoError(t, sh.Open())

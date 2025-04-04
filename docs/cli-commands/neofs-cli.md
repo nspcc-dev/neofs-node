@@ -37,6 +37,5 @@ neofs-cli [flags]
 * [neofs-cli object](neofs-cli_object.md)	 - Operations with Objects
 * [neofs-cli session](neofs-cli_session.md)	 - Operations with session token
 * [neofs-cli storagegroup](neofs-cli_storagegroup.md)	 - Operations with Storage Groups
-* [neofs-cli tree](neofs-cli_tree.md)	 - Operations with the Tree service
 * [neofs-cli util](neofs-cli_util.md)	 - Utility operations
 

@@ -70,8 +70,6 @@ type cfg struct {
 
 	nodeState NodeState
 
-	treeService TreeService
-
 	storage *engine.StorageEngine
 }
 
@@ -93,7 +91,7 @@ func New(key *ecdsa.PrivateKey, authorizedKeys [][]byte, healthChecker HealthChe
 
 // MarkReady marks server available. Before this call none of the other calls
 // are available except for the health checks.
-func (s *Server) MarkReady(e *engine.StorageEngine, nm netmap.Source, c container.Source, r *replicator.Replicator, st NodeState, tr TreeService) {
+func (s *Server) MarkReady(e *engine.StorageEngine, nm netmap.Source, c container.Source, r *replicator.Replicator, st NodeState) {
 	panicOnNil := func(name string, service any) {
 		if service == nil {
 			panic(fmt.Sprintf("'%s' is nil", name))
@@ -105,14 +103,12 @@ func (s *Server) MarkReady(e *engine.StorageEngine, nm netmap.Source, c containe
 	panicOnNil("container source", c)
 	panicOnNil("replicator", r)
 	panicOnNil("node state", st)
-	panicOnNil("tree service", st)
 
 	s.storage = e
 	s.netMapSrc = nm
 	s.cnrSrc = c
 	s.replicator = r
 	s.nodeState = st
-	s.treeService = tr
 
 	s.available.Store(true)
 }

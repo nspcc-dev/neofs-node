@@ -37,11 +37,7 @@ func (s *Shard) setMode(m mode.Mode) error {
 		components = append(components, s.writeCache)
 	}
 
-	if s.pilorama != nil {
-		components = append(components, s.pilorama)
-	}
-
-	// The usual flow of the requests (pilorama is independent):
+	// The usual flow of the requests:
 	// writecache -> blobstor -> metabase
 	// For mode.ReadOnly and mode.Degraded the order is:
 	// writecache -> blobstor -> metabase

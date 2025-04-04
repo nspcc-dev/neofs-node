@@ -17,7 +17,6 @@ import (
 	objectCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/object"
 	sessionCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/session"
 	sgCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/storagegroup"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/tree"
 	utilCli "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/modules/util"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/util/gendoc"
@@ -85,7 +84,6 @@ func init() {
 	rootCmd.AddCommand(objectCli.Cmd)
 	rootCmd.AddCommand(sgCli.Cmd)
 	rootCmd.AddCommand(containerCli.Cmd)
-	rootCmd.AddCommand(tree.Cmd)
 	rootCmd.AddCommand(gendoc.Command(rootCmd))
 }
 

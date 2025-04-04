@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -45,10 +44,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
-			),
-			shard.WithPiloramaOptions(
-				pilorama.WithPath(filepath.Join(dir, fmt.Sprintf("%d.pilorama", i))),
-				pilorama.WithPerm(0700)))
+			))
 		require.NoError(t, err)
 	}
 	require.NoError(t, e.Open())

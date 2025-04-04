@@ -6,7 +6,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -23,8 +22,6 @@ type Shard struct {
 	writeCache writecache.Cache
 
 	blobStor *blobstor.BlobStor
-
-	pilorama pilorama.ForestStorage
 
 	metaBase *meta.DB
 }
@@ -85,8 +82,6 @@ type cfg struct {
 
 	writeCacheOpts []writecache.Option
 
-	piloramaOpts []pilorama.Option
-
 	log *zap.Logger
 
 	gcCfg gcCfg
@@ -140,10 +135,6 @@ func New(opts ...Option) *Shard {
 				writecache.WithMetabase(mb))...)
 	}
 
-	if s.piloramaOpts != nil {
-		s.pilorama = pilorama.NewBoltForest(c.piloramaOpts...)
-	}
-
 	s.fillInfo()
 
 	return s
@@ -174,13 +165,6 @@ func WithMetaBaseOptions(opts ...meta.Option) Option {
 func WithWriteCacheOptions(opts ...writecache.Option) Option {
 	return func(c *cfg) {
 		c.writeCacheOpts = opts
-	}
-}
-
-// WithPiloramaOptions returns option to set internal write cache options.
-func WithPiloramaOptions(opts ...pilorama.Option) Option {
-	return func(c *cfg) {
-		c.piloramaOpts = opts
 	}
 }
 
@@ -296,9 +280,6 @@ func (s *Shard) fillInfo() {
 
 	if s.cfg.useWriteCache {
 		s.cfg.info.WriteCacheInfo = s.writeCache.DumpInfo()
-	}
-	if s.pilorama != nil {
-		s.cfg.info.PiloramaInfo = s.pilorama.DumpInfo()
 	}
 }
 

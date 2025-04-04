@@ -141,7 +141,6 @@ func generateShardInfo(id int) *control.ShardInfo {
 		{Type: fstree.Type, Path: filepath.Join(path, "fstree")},
 		{Type: peapod.Type, Path: filepath.Join(path, "peapod.db")}}
 	si.SetWriteCachePath(filepath.Join(path, "writecache"))
-	si.SetPiloramaPath(filepath.Join(path, "pilorama"))
 
 	return si
 }

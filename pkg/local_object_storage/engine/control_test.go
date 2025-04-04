@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -29,7 +28,6 @@ func TestInitializationFailure(t *testing.T) {
 		blobstor   string
 		metabase   string
 		writecache string
-		pilorama   string
 	}
 
 	existsDir := filepath.Join(t.TempDir(), "shard")
@@ -54,7 +52,6 @@ func TestInitializationFailure(t *testing.T) {
 				meta.WithEpochState(epochState{})),
 			shard.WithWriteCache(true),
 			shard.WithWriteCacheOptions(writecache.WithPath(c.writecache)),
-			shard.WithPiloramaOptions(pilorama.WithPath(c.pilorama)),
 		}
 	}
 
@@ -66,7 +63,6 @@ func TestInitializationFailure(t *testing.T) {
 			blobstor:   filepath.Join(badDir, "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
-			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
 		}))
 	})
 	t.Run("metabase", func(t *testing.T) {
@@ -77,7 +73,6 @@ func TestInitializationFailure(t *testing.T) {
 			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(badDir, "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
-			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
 		}))
 	})
 	t.Run("write-cache", func(t *testing.T) {
@@ -88,18 +83,6 @@ func TestInitializationFailure(t *testing.T) {
 			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(badDir, "2"),
-			pilorama:   filepath.Join(existsDir, t.Name(), "3"),
-		}))
-	})
-	t.Run("pilorama", func(t *testing.T) {
-		badDir := filepath.Join(badDir, t.Name())
-		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
-		require.NoError(t, os.Chmod(badDir, 0))
-		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
-			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
-			metabase:   filepath.Join(existsDir, t.Name(), "1"),
-			writecache: filepath.Join(existsDir, t.Name(), "2"),
-			pilorama:   filepath.Join(badDir, "3"),
 		}))
 	})
 }

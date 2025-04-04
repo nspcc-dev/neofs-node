@@ -137,7 +137,7 @@ message ShardInfo {
     // Amount of errors occured.
     uint32 errorCount = 6;
 
-    // Path to shard's pilorama storage.
+    // Path to shard's pilorama storage. DEPRECATED.
     string pilorama_path = 7 [json_name = "piloramaPath"];
 }
 

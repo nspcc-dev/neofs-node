@@ -63,14 +63,6 @@
       "endpoint": "s03.neofs.devenv:8080"
     }
   ],
-  "tree": {
-    "enabled": true,
-    "cache_size": 15,
-    "replication_channel_capacity": 32,
-    "replication_worker_count": 32,
-    "replication_timeout": "5s",
-    "sync_interval": "1h"
-  },
   "control": {
     "authorized_keys": [
       "035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11",
@@ -154,11 +146,6 @@
             "depth": 5
           }
         ],
-        "pilorama": {
-          "path": "tmp/0/blob/pilorama.db",
-          "max_batch_delay": "10ms",
-          "max_batch_size": 200
-        },
         "gc": {
           "remover_batch_size": 150,
           "remover_sleep_interval": "2m"
@@ -200,13 +187,6 @@
             "combined_size_threshold": "512K"
           }
         ],
-        "pilorama": {
-          "path": "tmp/1/blob/pilorama.db",
-          "perm": "0644",
-          "no_sync": true,
-          "max_batch_delay": "5ms",
-          "max_batch_size": 100
-        },
         "gc": {
           "remover_batch_size": 200,
           "remover_sleep_interval": "5m"

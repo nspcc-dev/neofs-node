@@ -137,7 +137,6 @@ func initApp(c *cfg) {
 	initAndLog(c, "reputation", initReputationService)
 	initAndLog(c, "meta", initMeta)
 	initAndLog(c, "object", initObjectService)
-	initAndLog(c, "tree", initTreeService)
 
 	initAndLog(c, "morph notifications", listenMorphNotifications)
 
@@ -149,7 +148,6 @@ func initApp(c *cfg) {
 		c.cnrSrc,
 		c.replicator,
 		c,
-		treeSynchronizer{c.treeService},
 	)
 }
 

@@ -189,10 +189,6 @@ storage:
       max_batch_size: 200
       max_batch_delay: 20ms
 
-    pilorama:
-      max_batch_delay: 5ms
-      max_batch_size: 100
-
     compress: false
     small_object_size: 100 kb
 
@@ -221,11 +217,6 @@ storage:
       blobstor:
       - type: fstree
         path: tmp/0/blob
-
-      pilorama:
-        path: tmp/0/blob/pilorama.db
-        max_batch_delay: 10ms
-        max_batch_size: 200
 `,
 			wantErr: false,
 		},

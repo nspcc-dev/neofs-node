@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -196,7 +195,6 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 
 	sh := shard.New(
 		shard.WithBlobStorOptions(blobOpts...),
-		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(path, "pilorama"))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(path, "meta")),
 			meta.WithEpochState(epochState{})),

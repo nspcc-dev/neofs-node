@@ -22,7 +22,6 @@ func (s *Shard) ContainerSize(cnr cid.ID) (uint64, error) {
 // including:
 // - Metabase;
 // - Blobstor;
-// - Pilorama (if configured);
 // - Write-cache (if configured).
 func (s *Shard) DeleteContainer(_ context.Context, cID cid.ID) error {
 	s.m.RLock()

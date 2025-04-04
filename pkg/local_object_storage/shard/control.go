@@ -45,10 +45,6 @@ func (s *Shard) Open() error {
 		components = append(components, s.writeCache)
 	}
 
-	if s.pilorama != nil {
-		components = append(components, s.pilorama)
-	}
-
 	for i, component := range components {
 		if err := component.Open(false); err != nil {
 			if component == s.metaBase {
@@ -106,10 +102,6 @@ func (s *Shard) Init() error {
 
 	if s.hasWriteCache() {
 		components = append(components, s.writeCache)
-	}
-
-	if s.pilorama != nil {
-		components = append(components, s.pilorama)
 	}
 
 	for _, component := range components {
@@ -246,10 +238,6 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []
 // Close releases all Shard's components.
 func (s *Shard) Close() error {
 	components := []interface{ Close() error }{}
-
-	if s.pilorama != nil {
-		components = append(components, s.pilorama)
-	}
 
 	if s.hasWriteCache() {
 		components = append(components, s.writeCache)

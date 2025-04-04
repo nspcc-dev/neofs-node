@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -126,7 +125,6 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 			blobstor.WithStorages(
 				newStorages(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id)),
 					1<<20))),
-		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.pilorama", id)))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
@@ -161,8 +159,6 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 				meta.WithPermissions(0700),
 				meta.WithEpochState(epochState{}),
 			),
-			shard.WithPiloramaOptions(
-				pilorama.WithPath(filepath.Join(t.Name(), fmt.Sprintf("pilorama%d", i)))),
 			shard.WithExpiredObjectsCallback(engine.processExpiredObjects),
 		}, extraOpts...)...)
 		require.NoError(t, err)

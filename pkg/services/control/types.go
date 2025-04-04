@@ -102,11 +102,6 @@ func (x *ShardInfo) SetWriteCachePath(v string) {
 	x.WritecachePath = v
 }
 
-// SetPiloramaPath sets path to shard's pilorama.
-func (x *ShardInfo) SetPiloramaPath(v string) {
-	x.PiloramaPath = v
-}
-
 // SetMode sets path to shard's work mode.
 func (x *ShardInfo) SetMode(v ShardMode) {
 	x.Mode = v

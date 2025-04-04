@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -74,7 +73,6 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
 		),
-		shard.WithPiloramaOptions(pilorama.WithPath(filepath.Join(rootPath, "pilorama"))),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
 			append(

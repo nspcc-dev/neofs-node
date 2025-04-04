@@ -14,7 +14,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -94,18 +93,6 @@ func openEngine() (*engine.StorageEngine, error) {
 		metabaseCfg := sc.Metabase()
 		gcCfg := sc.GC()
 
-		if config.BoolSafe(appCfg.Sub("tree"), "enabled") {
-			piloramaCfg := sc.Pilorama()
-			pr := &sh.PiloramaCfg
-
-			pr.Enabled = true
-			pr.Path = piloramaCfg.Path()
-			pr.Perm = piloramaCfg.Perm()
-			pr.NoSync = piloramaCfg.NoSync()
-			pr.MaxBatchSize = piloramaCfg.MaxBatchSize()
-			pr.MaxBatchDelay = piloramaCfg.MaxBatchDelay()
-		}
-
 		ss := make([]storage.SubStorageCfg, 0, len(storagesCfg))
 		for i := range storagesCfg {
 			var sCfg storage.SubStorageCfg
@@ -168,17 +155,6 @@ func openEngine() (*engine.StorageEngine, error) {
 			)
 		}
 
-		var piloramaOpts []pilorama.Option
-		if prRead := shCfg.PiloramaCfg; prRead.Enabled {
-			piloramaOpts = append(piloramaOpts,
-				pilorama.WithPath(prRead.Path),
-				pilorama.WithPerm(prRead.Perm),
-				pilorama.WithNoSync(prRead.NoSync),
-				pilorama.WithMaxBatchSize(prRead.MaxBatchSize),
-				pilorama.WithMaxBatchDelay(prRead.MaxBatchDelay),
-			)
-		}
-
 		var ss []blobstor.SubStorage
 		for _, sRead := range shCfg.SubStorages {
 			switch sRead.Typ {
@@ -231,7 +207,6 @@ func openEngine() (*engine.StorageEngine, error) {
 
 				meta.WithEpochState(epochState{}),
 			),
-			shard.WithPiloramaOptions(piloramaOpts...),
 			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),

@@ -81,7 +81,6 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 
 		if b1.Shards[i].GetMetabasePath() != b2.Shards[i].GetMetabasePath() ||
 			b1.Shards[i].GetWritecachePath() != b2.Shards[i].GetWritecachePath() ||
-			b1.Shards[i].GetPiloramaPath() != b2.Shards[i].GetPiloramaPath() ||
 			!bytes.Equal(b1.Shards[i].GetShard_ID(), b2.Shards[i].GetShard_ID()) ||
 			!compareBlobstorInfo(info1, info2) {
 			return false
@@ -158,22 +157,4 @@ func equalSetShardModeRequestBodies(b1, b2 *control.SetShardModeRequest_Body) bo
 	}
 
 	return true
-}
-
-func TestSynchronizeTreeRequest_Body_StableMarshal(t *testing.T) {
-	testStableMarshal(t,
-		&control.SynchronizeTreeRequest_Body{
-			ContainerId: []byte{1, 2, 3, 4, 5, 6, 7},
-			TreeId:      "someID",
-			Height:      42,
-		},
-		new(control.SynchronizeTreeRequest_Body),
-		func(m1, m2 protoMessage) bool {
-			b1 := m1.(*control.SynchronizeTreeRequest_Body)
-			b2 := m2.(*control.SynchronizeTreeRequest_Body)
-			return bytes.Equal(b1.GetContainerId(), b2.GetContainerId()) &&
-				b1.GetTreeId() == b2.GetTreeId() &&
-				b1.GetHeight() == b2.GetHeight()
-		},
-	)
 }
