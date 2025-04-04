@@ -397,7 +397,7 @@ type ShardInfo struct {
 	Mode ShardMode `protobuf:"varint,5,opt,name=mode,proto3,enum=control.ShardMode" json:"mode,omitempty"`
 	// Amount of errors occured.
 	ErrorCount uint32 `protobuf:"varint,6,opt,name=errorCount,proto3" json:"errorCount,omitempty"`
-	// Path to shard's pilorama storage.
+	// Path to shard's pilorama storage. DEPRECATED.
 	PiloramaPath  string `protobuf:"bytes,7,opt,name=pilorama_path,json=piloramaPath,proto3" json:"pilorama_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

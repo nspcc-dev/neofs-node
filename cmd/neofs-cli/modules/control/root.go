@@ -32,7 +32,6 @@ func init() {
 		setNetmapStatusCmd,
 		dropObjectsCmd,
 		shardsCmd,
-		synchronizeTreeCmd,
 		objectCmd,
 		notaryCmd,
 	)
@@ -41,7 +40,6 @@ func init() {
 	initControlSetNetmapStatusCmd()
 	initControlDropObjectsCmd()
 	initControlShardsCmd()
-	initControlSynchronizeTreeCmd()
 	initControlObjectsCmd()
 	initControlNotaryCmd()
 }

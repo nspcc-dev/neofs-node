@@ -10,7 +10,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -52,8 +51,6 @@ func TestShardOpen(t *testing.T) {
 					},
 				})),
 			WithMetaBaseOptions(meta.WithPath(metaPath), meta.WithEpochState(epochState{})),
-			WithPiloramaOptions(
-				pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 			WithWriteCache(true),
 			WithWriteCacheOptions(
 				writecache.WithPath(filepath.Join(dir, "wc"))))
@@ -101,7 +98,6 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	sh := New(
 		WithBlobStorOptions(blobOpts...),
-		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")), meta.WithEpochState(epochState{})))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
@@ -123,7 +119,6 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	sh = New(
 		WithBlobStorOptions(blobOpts...),
-		WithPiloramaOptions(pilorama.WithPath(filepath.Join(dir, "pilorama"))),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
 		WithResyncMetabase(true))
 	require.NoError(t, sh.Open())
@@ -163,8 +158,6 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithPath(filepath.Join(p, "wc")),
 			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
 		),
-		WithPiloramaOptions(
-			pilorama.WithPath(filepath.Join(p, "pilorama"))),
 	)
 
 	// open Blobstor
@@ -324,8 +317,6 @@ func TestResyncMetabase(t *testing.T) {
 			writecache.WithPath(filepath.Join(p, "wc")),
 			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
 		),
-		WithPiloramaOptions(
-			pilorama.WithPath(filepath.Join(p, "pilorama_another"))),
 	)
 
 	// open Blobstor

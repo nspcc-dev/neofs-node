@@ -116,7 +116,6 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 			pathPrinter("Metabase", i.GetMetabasePath())+
 			sb.String()+
 			pathPrinter("Write-cache", i.GetWritecachePath())+
-			pathPrinter("Pilorama", i.GetPiloramaPath())+
 			fmt.Sprintf("Error count: %d\n", i.GetErrorCount()),
 			base58.Encode(i.Shard_ID),
 			shardModeToString(i.GetMode()),

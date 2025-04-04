@@ -9,7 +9,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -59,17 +58,10 @@ func TestEngineSection(t *testing.T) {
 			meta := sc.Metabase()
 			blob := sc.BlobStor()
 			ss := blob.Storages()
-			pl := sc.Pilorama()
 			gc := sc.GC()
 
 			switch num {
 			case 0:
-				require.Equal(t, "tmp/0/blob/pilorama.db", pl.Path())
-				require.Equal(t, fs.FileMode(piloramaconfig.PermDefault), pl.Perm())
-				require.False(t, pl.NoSync())
-				require.Equal(t, pl.MaxBatchDelay(), 10*time.Millisecond)
-				require.Equal(t, pl.MaxBatchSize(), 200)
-
 				require.Equal(t, false, wc.Enabled())
 				require.Equal(t, true, wc.NoSync())
 
@@ -105,12 +97,6 @@ func TestEngineSection(t *testing.T) {
 				require.Equal(t, false, sc.ResyncMetabase())
 				require.Equal(t, mode.ReadOnly, sc.Mode())
 			case 1:
-				require.Equal(t, "tmp/1/blob/pilorama.db", pl.Path())
-				require.Equal(t, fs.FileMode(0644), pl.Perm())
-				require.True(t, pl.NoSync())
-				require.Equal(t, 5*time.Millisecond, pl.MaxBatchDelay())
-				require.Equal(t, 100, pl.MaxBatchSize())
-
 				require.Equal(t, true, wc.Enabled())
 				require.Equal(t, false, wc.NoSync())
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	statusSDK "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -39,8 +38,6 @@ func TestChildrenExpiration(t *testing.T) {
 				meta.WithPermissions(0700),
 				meta.WithEpochState(es),
 			),
-			shard.WithPiloramaOptions(
-				pilorama.WithPath(filepath.Join(t.TempDir(), fmt.Sprintf("pilorama%d", i)))),
 			shard.WithExpiredObjectsCallback(e.processExpiredObjects),
 			shard.WithGCWorkerPoolInitializer(func(sz int) util.WorkerPool {
 				pool, err := ants.NewPool(sz)

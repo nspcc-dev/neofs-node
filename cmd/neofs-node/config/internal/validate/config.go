@@ -145,14 +145,6 @@ type shardDetails struct {
 	Compress                       bool     `mapstructure:"compress"`
 	CompressionExcludeContentTypes []string `mapstructure:"compression_exclude_content_types"`
 
-	Pilorama struct {
-		Path          string        `mapstructure:"path"`
-		Perm          string        `mapstructure:"perm"`
-		MaxBatchDelay time.Duration `mapstructure:"max_batch_delay"`
-		MaxBatchSize  int           `mapstructure:"max_batch_size"`
-		NoSync        bool          `mapstructure:"no_sync"`
-	} `mapstructure:"pilorama"`
-
 	Blobstor []struct {
 		Type                  string        `mapstructure:"type"`
 		Path                  string        `mapstructure:"path"`

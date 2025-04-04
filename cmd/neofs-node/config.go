@@ -52,7 +52,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/replicator"
 	trustcontroller "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/controller"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
-	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -205,18 +204,6 @@ func (a *applicationConfiguration) readConfig(c *config.Config) error {
 		metabaseCfg := sc.Metabase()
 		gcCfg := sc.GC()
 
-		if config.BoolSafe(c.Sub("tree"), "enabled") {
-			piloramaCfg := sc.Pilorama()
-			pr := &sh.PiloramaCfg
-
-			pr.Enabled = true
-			pr.Path = piloramaCfg.Path()
-			pr.Perm = piloramaCfg.Perm()
-			pr.NoSync = piloramaCfg.NoSync()
-			pr.MaxBatchSize = piloramaCfg.MaxBatchSize()
-			pr.MaxBatchDelay = piloramaCfg.MaxBatchDelay()
-		}
-
 		ss := make([]storage.SubStorageCfg, 0, len(storagesCfg))
 		for i := range storagesCfg {
 			var sCfg storage.SubStorageCfg
@@ -364,8 +351,6 @@ type shared struct {
 	policer *policer.Policer
 
 	replicator *replicator.Replicator
-
-	treeService *tree.Service
 
 	metricsCollector *metrics.NodeMetrics
 

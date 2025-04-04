@@ -7,7 +7,6 @@ import (
 	blobstorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor"
 	gcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/gc"
 	metabaseconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/metabase"
-	piloramaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/pilorama"
 	writecacheconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 )
@@ -80,14 +79,6 @@ func (x *Config) WriteCache() *writecacheconfig.Config {
 	return writecacheconfig.From(
 		(*config.Config)(x).
 			Sub("writecache"),
-	)
-}
-
-// Pilorama returns "pilorama" subsection as a piloramaconfig.Config.
-func (x *Config) Pilorama() *piloramaconfig.Config {
-	return piloramaconfig.From(
-		(*config.Config)(x).
-			Sub("pilorama"),
 	)
 }
 

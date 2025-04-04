@@ -28,5 +28,4 @@ Operations with storage node
 * [neofs-cli control object](neofs-cli_control_object.md)	 - Direct object operations with storage engine
 * [neofs-cli control set-status](neofs-cli_control_set-status.md)	 - Set status of the storage node in NeoFS network map
 * [neofs-cli control shards](neofs-cli_control_shards.md)	 - Operations with storage node's shards
-* [neofs-cli control synchronize-tree](neofs-cli_control_synchronize-tree.md)	 - Synchronize log for the tree
 

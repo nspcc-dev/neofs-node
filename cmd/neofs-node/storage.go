@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/pilorama"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -102,17 +101,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 			)
 		}
 
-		var piloramaOpts []pilorama.Option
-		if prRead := shCfg.PiloramaCfg; prRead.Enabled {
-			piloramaOpts = append(piloramaOpts,
-				pilorama.WithPath(prRead.Path),
-				pilorama.WithPerm(prRead.Perm),
-				pilorama.WithNoSync(prRead.NoSync),
-				pilorama.WithMaxBatchSize(prRead.MaxBatchSize),
-				pilorama.WithMaxBatchDelay(prRead.MaxBatchDelay),
-			)
-		}
-
 		var ss []blobstor.SubStorage
 		for _, sRead := range shCfg.SubStorages {
 			switch sRead.Typ {
@@ -171,7 +159,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				meta.WithContainers(containerPresenceChecker{src: c.cnrSrc}),
 				meta.WithInitContext(c.ctx),
 			),
-			shard.WithPiloramaOptions(piloramaOpts...),
 			shard.WithWriteCache(shCfg.WritecacheCfg.Enabled),
 			shard.WithWriteCacheOptions(writeCacheOpts...),
 			shard.WithRemoverBatchSize(shCfg.GcCfg.RemoverBatchSize),

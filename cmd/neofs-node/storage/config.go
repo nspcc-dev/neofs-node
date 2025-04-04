@@ -41,15 +41,6 @@ type ShardCfg struct {
 		SizeLimit        uint64
 		NoSync           bool
 	}
-
-	PiloramaCfg struct {
-		Enabled       bool
-		Path          string
-		Perm          fs.FileMode
-		NoSync        bool
-		MaxBatchSize  int
-		MaxBatchDelay time.Duration
-	}
 }
 type SubStorageCfg struct {
 	// common for all storages

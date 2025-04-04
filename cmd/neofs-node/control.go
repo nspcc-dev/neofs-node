@@ -1,25 +1,14 @@
 package main
 
 import (
-	"context"
 	"net"
 
 	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
-	"github.com/nspcc-dev/neofs-node/pkg/services/tree"
-	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
-
-type treeSynchronizer struct {
-	treeSvc *tree.Service
-}
-
-func (t treeSynchronizer) Synchronize(ctx context.Context, cnr cid.ID, treeID string) error {
-	return t.treeSvc.SynchronizeTree(ctx, cnr, treeID)
-}
 
 func initControlService(c *cfg) {
 	endpoint := controlconfig.GRPC(c.cfgReader).Endpoint()

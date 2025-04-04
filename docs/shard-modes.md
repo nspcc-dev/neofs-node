@@ -25,13 +25,11 @@ For transitions to `read-write` mode the order is:
 1. `metabase`
 2. `blobstor`
 3. `writecache`
-4. `pilorama`
 
 For transitions to all other modes the order is:
 1. `writecache`
 2. `blobstor`
 3. `metabase`
-4. `pilorama`
 
 The motivation is to avoid transient errors because write-cache can write to both blobstor and metabase.
 Thus, when we want to _stop_ write operations, write-cache needs to change mode before them.

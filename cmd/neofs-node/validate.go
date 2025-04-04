@@ -8,7 +8,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
-	treeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/tree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"go.uber.org/zap/zapcore"
@@ -42,14 +41,6 @@ func validateConfig(c *config.Config) error {
 
 		if err := addPath(paths, "metabase", shardNum, sc.Metabase().Path()); err != nil {
 			return err
-		}
-
-		treeConfig := treeconfig.Tree(c)
-		if treeConfig.Enabled() {
-			err := addPath(paths, "pilorama", shardNum, sc.Pilorama().Path())
-			if err != nil {
-				return err
-			}
 		}
 
 		blobstor := sc.BlobStor().Storages()

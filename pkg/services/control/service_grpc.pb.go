@@ -38,8 +38,6 @@ type ControlServiceClient interface {
 	DumpShard(ctx context.Context, in *DumpShardRequest, opts ...grpc.CallOption) (*DumpShardResponse, error)
 	// Restore objects from dump.
 	RestoreShard(ctx context.Context, in *RestoreShardRequest, opts ...grpc.CallOption) (*RestoreShardResponse, error)
-	// Synchronizes all log operations for the specified tree.
-	SynchronizeTree(ctx context.Context, in *SynchronizeTreeRequest, opts ...grpc.CallOption) (*SynchronizeTreeResponse, error)
 	// EvacuateShard moves all data from one shard to the others.
 	EvacuateShard(ctx context.Context, in *EvacuateShardRequest, opts ...grpc.CallOption) (*EvacuateShardResponse, error)
 	// FlushCache moves all data from one shard to the others.
@@ -153,15 +151,6 @@ func (c *controlServiceClient) RestoreShard(ctx context.Context, in *RestoreShar
 	return out, nil
 }
 
-func (c *controlServiceClient) SynchronizeTree(ctx context.Context, in *SynchronizeTreeRequest, opts ...grpc.CallOption) (*SynchronizeTreeResponse, error) {
-	out := new(SynchronizeTreeResponse)
-	err := c.cc.Invoke(ctx, "/control.ControlService/SynchronizeTree", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *controlServiceClient) EvacuateShard(ctx context.Context, in *EvacuateShardRequest, opts ...grpc.CallOption) (*EvacuateShardResponse, error) {
 	out := new(EvacuateShardResponse)
 	err := c.cc.Invoke(ctx, "/control.ControlService/EvacuateShard", in, out, opts...)
@@ -218,8 +207,6 @@ type ControlServiceServer interface {
 	DumpShard(context.Context, *DumpShardRequest) (*DumpShardResponse, error)
 	// Restore objects from dump.
 	RestoreShard(context.Context, *RestoreShardRequest) (*RestoreShardResponse, error)
-	// Synchronizes all log operations for the specified tree.
-	SynchronizeTree(context.Context, *SynchronizeTreeRequest) (*SynchronizeTreeResponse, error)
 	// EvacuateShard moves all data from one shard to the others.
 	EvacuateShard(context.Context, *EvacuateShardRequest) (*EvacuateShardResponse, error)
 	// FlushCache moves all data from one shard to the others.
@@ -257,9 +244,6 @@ func (UnimplementedControlServiceServer) DumpShard(context.Context, *DumpShardRe
 }
 func (UnimplementedControlServiceServer) RestoreShard(context.Context, *RestoreShardRequest) (*RestoreShardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestoreShard not implemented")
-}
-func (UnimplementedControlServiceServer) SynchronizeTree(context.Context, *SynchronizeTreeRequest) (*SynchronizeTreeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SynchronizeTree not implemented")
 }
 func (UnimplementedControlServiceServer) EvacuateShard(context.Context, *EvacuateShardRequest) (*EvacuateShardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EvacuateShard not implemented")
@@ -432,24 +416,6 @@ func _ControlService_RestoreShard_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlService_SynchronizeTree_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SynchronizeTreeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ControlServiceServer).SynchronizeTree(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/control.ControlService/SynchronizeTree",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).SynchronizeTree(ctx, req.(*SynchronizeTreeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ControlService_EvacuateShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EvacuateShardRequest)
 	if err := dec(in); err != nil {
@@ -556,10 +522,6 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestoreShard",
 			Handler:    _ControlService_RestoreShard_Handler,
-		},
-		{
-			MethodName: "SynchronizeTree",
-			Handler:    _ControlService_SynchronizeTree_Handler,
 		},
 		{
 			MethodName: "EvacuateShard",

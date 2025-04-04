@@ -27,7 +27,6 @@ There are some custom types used for brevity:
 | `metadata`   | [Meta service configuration](#meta-section)             |
 | `node`       | [Node configuration](#node-section)                     |
 | `object`     | [Object service configuration](#object-section)         |
-| `tree`       | [Tree service configuration](#tree-section)             |
 
 
 # `control` section
@@ -161,7 +160,6 @@ The following table describes configuration for each shard.
 | `blobstor`                          | [Blobstor config](#blobstor-subsection)      |               | Blobstor configuration.                                                                                                                                                                                           |
 | `small_object_size`                 | `size`                                       | `1M`          | Maximum size of an object stored in peapod.                                                                                                                                                                       |
 | `gc`                                | [GC config](#gc-subsection)                  |               | GC configuration.                                                                                                                                                                                                 |
-| `pilorama`                          | [Pilorama Config](#pilorama-subsection)      |               | Pilorama configuration.                                                                                                                                                                                           |
 
 ### `blobstor` subsection
 
@@ -261,24 +259,6 @@ writecache:
 | `capacity`          | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. |
 | `no_sync`           | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                       |
 | `max_object_size`   | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
-
-### `pilorama` subsection
-
-```yaml
-pilorama:
-  path: path/to/pilorama.db
-  max_batch_delay: 10ms
-  max_batch_size: 200
-```
-
-| Parameter         | Type       | Default value | Description                                                                             |
-|-------------------|------------|---------------|-----------------------------------------------------------------------------------------|
-| `path`            | `string`   |               | Path to the pilorama database. If omitted, `pilorama.db` file is created blobstor.path. |
-| `perm`            | file mode  | `0640`        | Permissions to set for the database file.                                               |
-| `max_batch_size`  | `int`      | `1000`        | Maximum amount of write operations to perform in a single transaction.                  |
-| `max_batch_delay` | `duration` | `10ms`        | Maximum delay before a batch starts.                                                    |
-| `no_sync`         | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.          |
-
 
 
 # `metadata` section
@@ -412,25 +392,3 @@ object:
 |-----------------------------|-------|---------------|------------------------------------------------------------------------------------------------|
 | `delete.tombstone_lifetime` | `int` | `5`           | Tombstone lifetime for removed objects in epochs.                                              |
 | `put.pool_size_remote`      | `int` | `10`          | Max pool size for performing remote `PUT` operations. Used by Policer and Replicator services. |
-
-# `tree` section
-Contains tree-service related parameters.
-
-```yaml
-tree:
-  enabled: true
-  cache_size: 15
-  replication_worker_count: 32
-  replication_channel_capacity: 32
-  replication_timeout: 5s
-  sync_interval: 1h
-```
-
-| Parameter                      | Type       | Default value | Description                            |
-|--------------------------------|------------|---------------|----------------------------------------|
-| `enabled`                      | `bool`     | `false`       | Flag to enable the service.            |
-| `cache_size`                   | `int`      |               | Size for container cache.              |
-| `replication_worker_count`     | `int`      |               | Number of replication workers.         |
-| `replication_channel_capacity` | `int`      |               | Capacity of replication channel.       |
-| `replication_timeout`          | `duration` |               | Timeout for replication process.       |
-| `sync_interval`                | `duration` |               | Interval for syncronization all trees. |

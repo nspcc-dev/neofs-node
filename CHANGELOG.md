@@ -23,6 +23,9 @@ Changelog for NeoFS Node
 - Support `morph` name for `fschain` config (#3262)
 - All fields from the `contracts` section in IR config, except `contracts.neofs` and `contracts.processing` (#3262)
 - Section `contracts` in SN config (#3262) 
+- `tree` SN configuration section (#3270)
+- `pilorama` shard configuration section for SN (#3270)
+- Tree service related CLI commands (#3270)
 
 ### Updated
 
@@ -45,6 +48,9 @@ Currently, in IR configuration only 2 fields are supported in the `contracts` se
 along with the alphabet, were removed from the config.
 
 In SN configuration section `contracts` is gone and no longer needed.
+
+Experimental tree service is completely removed in this release, please drop
+`tree` and `pilorama` configuration sections as well as pilorama DB files.
 
 ## [0.45.2] - 2025-03-25
 
