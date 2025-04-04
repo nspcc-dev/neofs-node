@@ -13,7 +13,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -212,7 +211,7 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
 func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedPutResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -265,7 +264,7 @@ func (s *server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
 func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeDeleteResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -320,7 +319,7 @@ func (s *server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -361,7 +360,7 @@ func (s *server) makeFailedListResponse(err error) (*protocontainer.ListResponse
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
 func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedListResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -404,7 +403,7 @@ func (s *server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
 func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeSetEACLResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -460,7 +459,7 @@ func (s *server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtend
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
 func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeFailedGetEACLResponse(util.ToRequestSignatureVerificationError(err))
 	}
 

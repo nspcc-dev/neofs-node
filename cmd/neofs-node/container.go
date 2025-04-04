@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -27,7 +28,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -496,7 +496,7 @@ func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.Announ
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return c.makeStatusResponse(util.ToRequestSignatureVerificationError(err))
 	}
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -73,7 +73,7 @@ func (s *server) makeStatusNodeInfoResponse(err error) (*protonetmap.LocalNodeIn
 // LocalNodeInfo returns current state of the local node from the underlying
 // [NodeState].
 func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNodeInfoResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -105,7 +105,7 @@ func (s *server) makeStatusNetInfoResponse(err error) (*protonetmap.NetworkInfoR
 // NetworkInfo returns current network configuration from the underlying
 // [Contract].
 func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequest) (*protonetmap.NetworkInfoResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNetInfoResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
@@ -135,7 +135,7 @@ func (s *server) makeStatusNetmapResponse(err error) (*protonetmap.NetmapSnapsho
 
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusNetmapResponse(util.ToRequestSignatureVerificationError(err))
 	}
 
