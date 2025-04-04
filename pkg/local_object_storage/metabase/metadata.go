@@ -146,7 +146,7 @@ func deleteMetadata(tx *bbolt.Tx, cnr cid.ID, id oid.ID) error {
 	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
 		sepInd := bytes.LastIndex(kIDAttr, objectcore.MetaAttributeDelimiter)
-		if sepInd < 0 {
+		if sepInd < 1+oid.Size {
 			return fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
 		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
