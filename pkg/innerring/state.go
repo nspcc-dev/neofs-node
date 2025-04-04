@@ -120,7 +120,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	epoch := s.EpochCounter()
 
 	var (
-		nonce uint32 = 1
+		nonce uint32
 		vub   uint32
 		vubP  *uint32
 		hash  util.Uint256
