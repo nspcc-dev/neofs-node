@@ -15,7 +15,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/term"
@@ -62,7 +62,7 @@ func TestGenerateAlphabet(t *testing.T) {
 	require.NoError(t, generateAlphabetCreds(generateAlphabetCmd, nil))
 
 	for i := range uint64(size) {
-		p := filepath.Join(walletDir, glagolitsa.LetterByIndex(int(i))+".json")
+		p := filepath.Join(walletDir, client.NNSAlphabetContractName(int(i))+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")
 		require.Equal(t, 3, len(w.Accounts), "not all accounts were created")

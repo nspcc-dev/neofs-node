@@ -12,7 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/vm"
 	"github.com/nspcc-dev/neo-go/pkg/wallet"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -83,7 +83,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 
 	var pubs []string
 	for i := range size {
-		p := filepath.Join(dir, glagolitsa.LetterByIndex(i)+".json")
+		p := filepath.Join(dir, client.NNSAlphabetContractName(i)+".json")
 		w, err := wallet.NewWalletFromFile(p)
 		require.NoError(t, err, "wallet doesn't exist")
 		for _, acc := range w.Accounts {
@@ -99,7 +99,7 @@ func generateTestData(t *testing.T, dir string, size int) {
 	cfg := config.Config{}
 	cfg.ProtocolConfiguration.ValidatorsCount = uint32(size)
 	cfg.ProtocolConfiguration.TimePerBlock = time.Second
-	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by glagolic letters
+	cfg.ProtocolConfiguration.StandbyCommittee = pubs // sorted by alphabet number
 	cfg.ProtocolConfiguration.P2PSigExtensions = true
 	cfg.ProtocolConfiguration.VerifyTransactions = true
 	data, err := yaml.Marshal(cfg)
@@ -111,6 +111,6 @@ func generateTestData(t *testing.T, dir string, size int) {
 
 func setTestCredentials(v *viper.Viper, size int) {
 	for i := range size {
-		v.Set("credentials."+glagolitsa.LetterByIndex(i), strconv.FormatUint(uint64(i), 10))
+		v.Set("credentials."+client.NNSAlphabetContractName(i), strconv.FormatUint(uint64(i), 10))
 	}
 }

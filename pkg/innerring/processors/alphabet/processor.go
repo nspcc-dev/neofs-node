@@ -3,6 +3,7 @@ package alphabet
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -19,23 +20,11 @@ type (
 		AlphabetIndex() int
 	}
 
-	// Contracts is an interface of the storage
-	// of the alphabet contract addresses.
-	Contracts interface {
-		// GetByIndex must return the address of the
-		// alphabet contract by index of the glagolitic
-		// letter (e.g 0 for Az, 40 for Izhitsa).
-		//
-		// Must return false if the index does not
-		// match any alphabet contract.
-		GetByIndex(int) (util.Uint160, bool)
-	}
-
 	// Processor of events produced for alphabet contracts in FS chain.
 	Processor struct {
 		log               *zap.Logger
 		pool              *ants.Pool
-		alphabetContracts Contracts
+		alphabetContracts []util.Uint160
 		netmapClient      *nmClient.Client
 		morphClient       *client.Client
 		irList            Indexer
@@ -46,7 +35,7 @@ type (
 	Params struct {
 		Log               *zap.Logger
 		PoolSize          int
-		AlphabetContracts Contracts
+		AlphabetContracts []util.Uint160
 		NetmapClient      *nmClient.Client
 		MorphClient       *client.Client
 		IRList            Indexer
@@ -75,7 +64,7 @@ func New(p *Params) (*Processor, error) {
 	return &Processor{
 		log:               p.Log,
 		pool:              pool,
-		alphabetContracts: p.AlphabetContracts,
+		alphabetContracts: slices.Clone(p.AlphabetContracts),
 		netmapClient:      p.NetmapClient,
 		morphClient:       p.MorphClient,
 		irList:            p.IRList,

@@ -24,7 +24,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-const lastGlagoliticLetter = 41
+// maxAlphabetSize limits the loop over alphabet names below.
+const maxAlphabetSize = 255
 
 type contractDumpInfo struct {
 	hash       util.Uint160
@@ -54,7 +55,7 @@ func dumpContractHashes(cmd *cobra.Command, _ []string) error {
 	infos := []contractDumpInfo{{name: nnsContract, hash: nnsHash}}
 
 	irSize := 0
-	for ; irSize < lastGlagoliticLetter; irSize++ {
+	for ; irSize < maxAlphabetSize; irSize++ {
 		ok, err := nnsReader.IsAvailable(getAlphabetNNSDomain(irSize) + "." + nns.ContractTLD)
 		if err != nil {
 			return err

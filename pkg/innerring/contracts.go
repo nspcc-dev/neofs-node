@@ -11,7 +11,6 @@ import (
 	embeddedcontracts "github.com/nspcc-dev/neofs-contract/contracts"
 	"github.com/nspcc-dev/neofs-contract/deploy"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -27,7 +26,7 @@ type contracts struct {
 	reputation util.Uint160 // in morph
 	neofsID    util.Uint160 // in morph
 
-	alphabet alphabetContracts // in morph
+	alphabet []util.Uint160 // in morph
 }
 
 func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
@@ -82,31 +81,27 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 	return result, nil
 }
 
-func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.Client) (alphabetContracts, error) {
+func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.Client) ([]util.Uint160, error) {
 	committee, err := morph.Committee()
 	if err != nil {
 		return nil, fmt.Errorf("get FS chain committee: %w", err)
 	}
 	num := len(committee)
 
-	alpha := newAlphabetContracts()
-
-	if num > glagolitsa.Size {
-		return nil, fmt.Errorf("amount of alphabet contracts overflows glagolitsa %d > %d", num, glagolitsa.Size)
-	}
+	alpha := make([]util.Uint160, 0, num)
 
 	for ind := range num {
-		letter := glagolitsa.LetterByIndex(ind)
-		contractHash, err := parseContract(ctx, _logger, morph, client.NNSAlphabetContractName(ind))
+		name := client.NNSAlphabetContractName(ind)
+		contractHash, err := parseContract(ctx, _logger, morph, name)
 		if err != nil {
 			if errors.Is(err, client.ErrNNSRecordNotFound) {
 				break
 			}
 
-			return nil, fmt.Errorf("invalid alphabet %s contract: %w", letter, err)
+			return nil, fmt.Errorf("invalid alphabet %s contract: %w", name, err)
 		}
 
-		alpha.set(ind, contractHash)
+		alpha = append(alpha, contractHash)
 	}
 
 	if len(alpha) != int(num) {
