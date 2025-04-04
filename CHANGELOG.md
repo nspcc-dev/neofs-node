@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Use list instead of maps for options in node config (#3204)
 - Token and object authentication errors are more detailed in status responses now (#3216, #3264)
 - IR uses NNS names for alphabet contracts now instead of Glagolitsa (#3268)
+- neofs-adm can handle any wallet names in its configuration (#3268)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

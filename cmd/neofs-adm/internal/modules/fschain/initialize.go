@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -18,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-adm/internal/modules/config"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -196,32 +196,21 @@ func openAlphabetWallets(v *viper.Viper, walletDir string) ([]*wallet.Wallet, er
 		return nil, fmt.Errorf("can't read alphabet wallets dir: %w", err)
 	}
 
-	var size int
-loop:
-	for i := range walletFiles {
-		name := glagolitsa.LetterByIndex(i) + ".json"
-		for j := range walletFiles {
-			if walletFiles[j].Name() == name {
-				size++
-				continue loop
-			}
-		}
-		break
-	}
-	if size == 0 {
-		return nil, errors.New("alphabet wallets dir is empty (run `generate-alphabet` command first)")
-	}
+	var wallets []*wallet.Wallet
 
-	wallets := make([]*wallet.Wallet, size)
-	for i := range size {
-		letter := glagolitsa.LetterByIndex(i)
-		p := filepath.Join(walletDir, letter+".json")
+	for _, walletFile := range walletFiles {
+		walletName, isJson := strings.CutSuffix(walletFile.Name(), ".json")
+		if walletFile.IsDir() || !isJson {
+			continue // Ignore garbage.
+		}
+
+		p := filepath.Join(walletDir, walletFile.Name())
 		w, err := wallet.NewWalletFromFile(p)
 		if err != nil {
-			return nil, fmt.Errorf("can't open wallet: %w", err)
+			continue // Ignore garbage.
 		}
 
-		password, err := config.GetPassword(v, letter)
+		password, err := config.GetPassword(v, walletName)
 		if err != nil {
 			return nil, fmt.Errorf("can't fetch password: %w", err)
 		}
@@ -232,7 +221,10 @@ loop:
 			}
 		}
 
-		wallets[i] = w
+		wallets = append(wallets, w)
+	}
+	if len(wallets) == 0 {
+		return nil, errors.New("alphabet wallets dir is empty (run `generate-alphabet` command first)")
 	}
 
 	return wallets, nil
