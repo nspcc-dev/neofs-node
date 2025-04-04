@@ -27,7 +27,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	"github.com/nspcc-dev/neofs-contract/common"
 	"github.com/nspcc-dev/neofs-contract/rpc/nns"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 )
 
@@ -565,7 +565,7 @@ func (c *initializeContext) getAlphabetDeployItems(i, n int) []any {
 	items[0] = false
 	items[1] = c.Contracts[netmapContract].Hash
 	items[2] = c.Contracts[proxyContract].Hash
-	items[3] = glagolitsa.LetterByIndex(i)
+	items[3] = client.NNSAlphabetContractName(i)
 	items[4] = int64(i)
 	items[5] = int64(n)
 	return items
