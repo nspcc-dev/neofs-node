@@ -216,11 +216,25 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		return fmt.Errorf("could not close object stream: %w", err)
 	}
 
-	if t.localNodeInContainer && !node.local {
+	if t.localNodeInContainer {
 		// These should technically be errors, but we don't have
 		// a complete implementation now, so errors are substituted with logs.
 		var l = t.placementIterator.log.With(zap.Stringer("oid", t.obj.GetID()),
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
+
+		if node.local {
+			sig, err := t.localNodeSigner.Sign(t.objSharedMeta)
+			if err != nil {
+				l.Info("failed to sign object metadata", zap.Error(err))
+				return nil
+			}
+
+			t.metaMtx.Lock()
+			t.collectedSignatures = append(t.collectedSignatures, sig)
+			t.metaMtx.Unlock()
+
+			return nil
+		}
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {
