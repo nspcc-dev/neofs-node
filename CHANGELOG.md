@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Distribute load in writecache during flushing (#3261)
 - Faster migration in peapod-to-fstree (#3280)
 - `peapod-to-fstree` migrates only objects with existing containers (#3283)
+- Storage Node now prohibits parents with their own parents (object split of already split object) (#2451) 
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
