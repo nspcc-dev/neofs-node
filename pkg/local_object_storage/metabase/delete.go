@@ -2,14 +2,10 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"slices"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
-	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -149,70 +145,12 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 		}
 	}
 
-	// unmarshal object, work only with physically stored (raw == true) objects
-	obj, err := db.get(tx, addr, key, false, true, currEpoch)
+	payloadSize, err := deleteMetadata(tx, db.log, addr.Container(), addr.Object(), false)
 	if err != nil {
-		var siErr *objectSDK.SplitInfoError
-		var notFoundErr apistatus.ObjectNotFound
-
-		if errors.As(err, &notFoundErr) || errors.As(err, &siErr) {
-			return false, false, 0, nil
-		}
-
-		if !errors.Is(err, logicerr.Error) {
-			// data corruption, it should be removed anyway
-			err = deleteAllDataByAddress(tx, addr)
-			if err != nil {
-				db.log.Warn("cleaning corrupted object failed", zap.Stringer("addr", addr), zap.Error(err))
-				return false, false, 0, nil
-			}
-		}
-
-		return false, false, 0, err
+		return false, false, 0, fmt.Errorf("can't remove metadata indexes: %w", err)
 	}
 
-	// if object is an only link to a parent, then remove parent
-	if parent := obj.Parent(); parent != nil && !parent.GetID().IsZero() {
-		err = db.deleteObject(tx, parent, true)
-		if err != nil {
-			return false, false, 0, fmt.Errorf("could not remove parent object: %w", err)
-		}
-	}
-
-	// remove object
-	err = db.deleteObject(tx, obj, false)
-	if err != nil {
-		return false, false, 0, fmt.Errorf("could not remove object: %w", err)
-	}
-
-	return true, removeAvailableObject, obj.PayloadSize(), nil
-}
-
-func (db *DB) deleteObject(
-	tx *bbolt.Tx,
-	obj *objectSDK.Object,
-	isParent bool,
-) error {
-	err := delUniqueIndexes(tx, obj, isParent)
-	if err != nil {
-		return fmt.Errorf("can't remove unique indexes")
-	}
-
-	err = updateListIndexes(tx, obj, delListIndexItem)
-	if err != nil {
-		return fmt.Errorf("can't remove list indexes: %w", err)
-	}
-
-	err = updateFKBTIndexes(tx, obj, delFKBTIndexItem)
-	if err != nil {
-		return fmt.Errorf("can't remove fake bucket tree indexes: %w", err)
-	}
-
-	if err = deleteMetadata(tx, obj.GetContainerID(), obj.GetID()); err != nil {
-		return fmt.Errorf("can't remove metadata indexes: %w", err)
-	}
-
-	return nil
+	return true, removeAvailableObject, payloadSize, nil
 }
 
 func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
@@ -222,30 +160,29 @@ func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	}
 }
 
-func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
+func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	bkt := tx.Bucket(item.name)
 	if bkt == nil {
-		return nil
+		return
 	}
 
 	fkbtRoot := bkt.Bucket(item.key)
 	if fkbtRoot == nil {
-		return nil
+		return
 	}
 
 	_ = fkbtRoot.Delete(item.val) // ignore error, best effort there
-	return nil
 }
 
-func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
+func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	bkt := tx.Bucket(item.name)
 	if bkt == nil {
-		return nil
+		return
 	}
 
 	lst, err := decodeList(bkt.Get(item.key))
 	if err != nil || len(lst) == 0 {
-		return nil
+		return
 	}
 
 	// remove element from the list
@@ -261,30 +198,28 @@ func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	if len(lst) == 0 {
 		_ = bkt.Delete(item.key) // ignore error, best effort there
 
-		return nil
+		return
 	}
 
 	// if list is not empty, then update it
 	encodedLst, err := encodeList(lst)
 	if err != nil {
-		return nil // ignore error, best effort there
+		return // ignore error, best effort there
 	}
 
 	_ = bkt.Put(item.key, encodedLst) // ignore error, best effort there
-	return nil
 }
 
-func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error {
-	addr := object.AddressOf(obj)
+func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, isParent bool) error {
+	addr := oid.NewAddress(cnr, oID)
 
-	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
+	objKey := objectKey(oID, make([]byte, objectKeySize))
 	addrKey := addressKey(addr, make([]byte, addressKeySize))
-	cnr := addr.Container()
 	bucketName := make([]byte, bucketKeySize)
 
 	// add value to primary unique bucket
 	if !isParent {
-		switch obj.Type() {
+		switch typ {
 		case objectSDK.TypeRegular:
 			bucketName = primaryBucketName(cnr, bucketName)
 		case objectSDK.TypeTombstone:
@@ -322,42 +257,6 @@ func delUniqueIndexes(tx *bbolt.Tx, obj *objectSDK.Object, isParent bool) error 
 		name: toMoveItBucketName,
 		key:  addrKey,
 	})
-
-	return nil
-}
-
-func deleteAllDataByAddress(tx *bbolt.Tx, addr oid.Address) error {
-	cID := addr.Container()
-	oID := addr.Object()
-	objKey := objectKey(oID, make([]byte, objectKeySize))
-	addrKey := addressKey(addr, make([]byte, addressKeySize))
-	bucketName := make([]byte, bucketKeySize)
-
-	bkts := [][]byte{
-		slices.Clone(primaryBucketName(cID, bucketName)),
-		slices.Clone(tombstoneBucketName(cID, bucketName)),
-		slices.Clone(storageGroupBucketName(cID, bucketName)),
-		slices.Clone(bucketNameLockers(cID, bucketName)),
-		slices.Clone(linkObjectsBucketName(cID, bucketName)),
-		slices.Clone(parentBucketName(cID, bucketName)),
-		slices.Clone(smallBucketName(cID, bucketName)),
-		slices.Clone(rootBucketName(cID, bucketName)),
-	}
-	for _, bkt := range bkts {
-		delUniqueIndexItem(tx, namedBucketItem{
-			name: bkt,
-			key:  objKey,
-		})
-	}
-	delUniqueIndexItem(tx, namedBucketItem{
-		name: toMoveItBucketName,
-		key:  addrKey,
-	})
-
-	err := deleteMetadata(tx, cID, oID)
-	if err != nil {
-		return fmt.Errorf("metadata removal: %w", err)
-	}
 
 	return nil
 }
