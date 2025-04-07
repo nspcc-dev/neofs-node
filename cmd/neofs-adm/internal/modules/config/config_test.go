@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -35,10 +35,10 @@ func TestGenerateConfigExample(t *testing.T) {
 	require.Equal(t, 100000000, v.GetInt("network.fee.withdraw"))
 
 	for i := range n {
-		key := "credentials." + glagolitsa.LetterByIndex(i)
+		key := "credentials." + client.NNSAlphabetContractName(i)
 		require.Equal(t, "password", v.GetString(key))
 	}
 
-	key := "credentials." + glagolitsa.LetterByIndex(n)
+	key := "credentials." + client.NNSAlphabetContractName(n)
 	require.Equal(t, "", v.GetString(key))
 }

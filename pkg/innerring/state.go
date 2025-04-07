@@ -6,10 +6,10 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	auditClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/services/audit"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
-	"github.com/nspcc-dev/neofs-node/pkg/util/glagolitsa"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -96,7 +96,7 @@ func (s *Server) AlphabetIndex() int {
 
 func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *util.Uint256) error {
 	index := s.InnerRingIndex()
-	if s.contracts.alphabet.indexOutOfRange(index) {
+	if index >= len(s.contracts.alphabet) {
 		s.log.Info("ignore validator vote: node not in alphabet range")
 
 		return nil
@@ -120,7 +120,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	epoch := s.EpochCounter()
 
 	var (
-		nonce uint32 = 1
+		nonce uint32
 		vub   uint32
 		vubP  *uint32
 		hash  util.Uint256
@@ -136,7 +136,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	}
 	vubP = &vub
 
-	s.contracts.alphabet.iterate(func(ind int, contract util.Uint160) {
+	for ind, contract := range s.contracts.alphabet {
 		_, err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
@@ -144,7 +144,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 				zap.Uint64("epoch", epoch),
 				zap.Error(err))
 		}
-	})
+	}
 
 	return nil
 }
@@ -154,7 +154,7 @@ func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 	for ind, contract := range s.contracts.alphabet {
 		validator, err := s.morphClient.AccountVote(contract)
 		if err != nil {
-			return false, fmt.Errorf("receiving %s's vote: %w", glagolitsa.LetterByIndex(ind), err)
+			return false, fmt.Errorf("receiving %s's vote: %w", client.NNSAlphabetContractName(ind), err)
 		}
 
 		if validator == nil {
