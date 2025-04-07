@@ -17,7 +17,6 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -313,24 +312,6 @@ func initObjectService(c *cfg) {
 	for _, srv := range c.cfgGRPC.servers {
 		protoobject.RegisterObjectServiceServer(srv, server)
 	}
-}
-
-type morphEACLFetcher struct {
-	w *cntClient.Client
-}
-
-func (s *morphEACLFetcher) GetEACL(cnr cid.ID) (*containercore.EACL, error) {
-	eaclInfo, err := s.w.GetEACL(cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	if !eaclInfo.Signature.Verify(eaclInfo.Value.Marshal()) {
-		// TODO(@cthulhu-rider): #1387 use "const" error
-		return nil, errors.New("invalid signature of the eACL table")
-	}
-
-	return eaclInfo, nil
 }
 
 type reputationClientConstructor struct {
