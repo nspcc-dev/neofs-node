@@ -704,7 +704,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	b.netMapSource = b.nCli
 	b.cnrSrc = cntClient.AsContainerSource(b.cCli)
-	b.eaclSrc = &morphEACLFetcher{w: b.cCli}
+	b.eaclSrc = b.cCli
 	b.cnrLst = b.cCli
 	if ttl >= 0 {
 		b.netmapCache = newCachedNetmapStorage(nState, b.netMapSource)
