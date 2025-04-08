@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/storage/dbconfig"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/internal/blockchain"
+	"github.com/nspcc-dev/neofs-node/internal/configutil"
+	irconfig "github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
+
+const irEnvPrefix = "neofs_ir"
 
 // YAML configuration of the IR consensus with all required fields.
 const validBlockchainConfigMinimal = `
@@ -80,18 +85,25 @@ const validBlockchainConfigOptions = `
     p2p_notary_request_payload_pool_size: 100
 `
 
-func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *viper.Viper {
+func unmarshalConfig(tb testing.TB, v *viper.Viper) *irconfig.Config {
+	var cfg irconfig.Config
+	err := configutil.Unmarshal(v, &cfg, irEnvPrefix)
+	require.NoError(tb, err)
+	return &cfg
+}
+
+func _newConfigFromYAML(tb testing.TB, yaml1, yaml2 string) *irconfig.Config {
 	v := viper.New()
 	v.SetConfigType("yaml")
 
 	err := v.ReadConfig(strings.NewReader(yaml1 + yaml2))
 	require.NoError(tb, err)
 
-	return v
+	return unmarshalConfig(tb, v)
 }
 
 // returns viper.Viper initialized from valid blockchain configuration above.
-func newValidBlockchainConfig(tb testing.TB, full bool) *viper.Viper {
+func newValidBlockchainConfig(tb testing.TB, full bool) *irconfig.Config {
 	if full {
 		return _newConfigFromYAML(tb, validBlockchainConfigMinimal, validBlockchainConfigOptions)
 	}
@@ -99,51 +111,31 @@ func newValidBlockchainConfig(tb testing.TB, full bool) *viper.Viper {
 	return _newConfigFromYAML(tb, validBlockchainConfigMinimal, "")
 }
 
-// resets value by key. Currently, viper doesn't provide unset method. Here is a
-// workaround suggested in https://github.com/spf13/viper/issues/632.
-func resetConfig(tb testing.TB, v *viper.Viper, key string) {
-	mAll := v.AllSettings()
-	mAllCp := mAll
+// resets value by key.
+func resetConfig(tb testing.TB, field any) {
+	v := reflect.ValueOf(field)
 
-	parts := strings.Split(key, ".")
-	for i, k := range parts {
-		v, ok := mAllCp[k]
-		if !ok {
-			// Doesn't exist no action needed
-			break
-		}
-
-		switch len(parts) {
-		case i + 1:
-			// Last part so delete.
-			delete(mAllCp, k)
-		default:
-			m, ok := v.(map[string]any)
-			require.Truef(tb, ok, "unsupported type: %T for %q", v, strings.Join(parts[0:i], "."))
-			mAllCp = m
-		}
+	if v.Kind() != reflect.Ptr {
+		tb.Fatal("ResetField: argument must be a pointer")
 	}
 
-	*v = *viper.New()
+	elem := v.Elem()
 
-	for key, val := range mAll {
-		v.Set(key, val)
-	}
+	elem.Set(reflect.Zero(elem.Type()))
 }
 
-func commiteeN(t testing.TB, n int) []string {
-	res := make([]string, n)
+func commiteeN(t testing.TB, n int) keys.PublicKeys {
+	res := make(keys.PublicKeys, n)
 	for i := range res {
 		k, err := keys.NewPrivateKey()
 		require.NoError(t, err)
-		res[i] = k.PublicKey().StringCompressed()
+		res[i] = k.PublicKey()
 	}
 	return res
 }
 
 func TestParseBlockchainConfig(t *testing.T) {
 	fullConfig := true
-	_logger := zap.NewNop()
 
 	validCommittee, err := keys.NewPublicKeysFromStrings([]string{
 		"02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6",
@@ -154,108 +146,177 @@ func TestParseBlockchainConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("minimal", func(t *testing.T) {
-		v := newValidBlockchainConfig(t, !fullConfig)
-		c, err := parseBlockchainConfig(v, _logger)
+		cfg := newValidBlockchainConfig(t, !fullConfig)
+
+		err := validateBlockchainConfig(cfg)
 		require.NoError(t, err)
 
-		require.Equal(t, blockchain.Config{
-			Logger:       _logger,
-			NetworkMagic: 15405,
-			Committee:    validCommittee,
-			Storage:      blockchain.BoltDB("chain.db"),
-			P2P:          blockchain.P2PConfig{MinPeers: 2},
-		}, c)
+		cfg.UnsetAll()
+		require.Equal(t, &irconfig.Config{
+			FSChain: irconfig.Chain{
+				Consensus: irconfig.Consensus{
+					Magic:     15405,
+					Committee: validCommittee,
+					Storage: irconfig.Storage{
+						Type: dbconfig.BoltDB,
+						Path: "chain.db",
+					},
+					P2P: irconfig.P2P{
+						Peers: irconfig.Peers{Min: 2}},
+				},
+			},
+		}, cfg)
 	})
 
 	t.Run("full", func(t *testing.T) {
-		v := newValidBlockchainConfig(t, fullConfig)
-		c, err := parseBlockchainConfig(v, _logger)
+		cfg := newValidBlockchainConfig(t, fullConfig)
+		err := validateBlockchainConfig(cfg)
 		require.NoError(t, err)
 
-		require.Equal(t, blockchain.Config{
-			Logger:        _logger,
-			NetworkMagic:  15405,
-			Committee:     validCommittee,
-			BlockInterval: time.Second,
-			RPC: blockchain.RPCConfig{
-				MaxWebSocketClients: 100,
-				SessionPoolSize:     100,
-				MaxGasInvoke:        200,
-				Addresses: []string{
-					"localhost:30000",
-					"localhost:30001",
-					"localhost:30333",
-				},
-				TLSConfig: blockchain.TLSConfig{
-					Enabled:  true,
-					CertFile: "/path/to/cert",
-					KeyFile:  "/path/to/key",
-					Addresses: []string{
-						"localhost:30002",
-						"localhost:30003",
-						"localhost:30333",
+		cfg.UnsetAll()
+		require.Equal(t, &irconfig.Config{
+			FSChain: irconfig.Chain{
+				Consensus: irconfig.Consensus{
+					Magic:        15405,
+					Committee:    validCommittee,
+					TimePerBlock: time.Second,
+					RPC: irconfig.RPC{
+						MaxWebSocketClients: 100,
+						SessionPoolSize:     100,
+						MaxGasInvoke:        200,
+						Listen: []string{
+							"localhost:30000",
+							"localhost:30001",
+							"localhost:30333",
+						},
+						TLS: irconfig.TLS{
+							Enabled:  true,
+							CertFile: "/path/to/cert",
+							KeyFile:  "/path/to/key",
+							Listen: []string{
+								"localhost:30002",
+								"localhost:30003",
+								"localhost:30333",
+							},
+						},
 					},
+					MaxTraceableBlocks: 200,
+					Hardforks: irconfig.Hardforks{
+						Name: map[string]uint32{
+							"name": 1730000,
+						},
+					},
+					SeedNodes: []string{
+						"localhost:20000",
+						"localhost:20001",
+						"localhost:20333",
+					},
+					P2P: irconfig.P2P{
+						Peers: irconfig.Peers{
+							Min:      1,
+							Max:      5,
+							Attempts: 20,
+						},
+						Ping: irconfig.Ping{
+							Interval: 44 * time.Second,
+							Timeout:  55 * time.Second,
+						},
+						DialTimeout:       111 * time.Second,
+						ProtoTickInterval: 222 * time.Second,
+						Listen: []string{
+							"localhost:20100",
+							"localhost:20101",
+							"localhost:20333",
+						},
+					},
+					Storage: irconfig.Storage{
+						Type: dbconfig.BoltDB,
+						Path: "chain.db",
+					},
+					ValidatorsHistory: irconfig.ValidatorsHistory{
+						Height: map[uint32]uint32{
+							0:  4,
+							4:  1,
+							12: 4,
+						},
+					},
+					SetRolesInGenesis:               true,
+					KeepOnlyLatestState:             true,
+					RemoveUntraceableBlocks:         true,
+					P2PNotaryRequestPayloadPoolSize: 100,
 				},
 			},
-			TraceableChainLength: 200,
-			HardForks: map[string]uint32{
-				"name": 1730000,
-			},
-			SeedNodes: []string{
-				"localhost:20000",
-				"localhost:20001",
-				"localhost:20333",
-			},
-			P2P: blockchain.P2PConfig{
-				MinPeers:         1,
-				AttemptConnPeers: 20,
-				MaxPeers:         5,
-				Ping: blockchain.PingConfig{
-					Interval: 44 * time.Second,
-					Timeout:  55 * time.Second,
-				},
-				DialTimeout:       111 * time.Second,
-				ProtoTickInterval: 222 * time.Second,
-				ListenAddresses: []string{
-					"localhost:20100",
-					"localhost:20101",
-					"localhost:20333",
-				},
-			},
-			Storage: blockchain.BoltDB("chain.db"),
-			ValidatorsHistory: map[uint32]uint32{
-				0:  4,
-				4:  1,
-				12: 4,
-			},
-			SetRolesInGenesis: true,
-			Ledger: blockchain.LedgerConfig{
-				KeepOnlyLatestState:     true,
-				RemoveUntraceableBlocks: true,
-			},
-			P2PNotaryRequestPayloadPoolSize: 100,
-		}, c)
+		}, cfg)
 	})
 
 	t.Run("incomplete", func(t *testing.T) {
-		for _, requiredKey := range []string{
-			"magic",
-			"committee",
-			"storage",
-			"storage.type",
-		} {
-			v := newValidBlockchainConfig(t, !fullConfig)
-			resetConfig(t, v, "fschain.consensus."+requiredKey)
-			_, err := parseBlockchainConfig(v, _logger)
-			require.Error(t, err, requiredKey)
+		tests := []struct {
+			name string
+			yaml string
+		}{
+			{
+				name: "magic",
+				yaml: `
+fschain:
+  consensus:
+    committee:
+      - 02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6
+    storage:
+      type: boltdb
+      path: chain.db
+`,
+			},
+			{
+				name: "committee",
+				yaml: `
+fschain:
+  consensus:
+    magic: 15405
+    storage:
+      type: boltdb
+      path: chain.db
+`,
+			},
+			{
+				name: "storage",
+				yaml: `
+fschain:
+  consensus:
+    magic: 15405
+    committee:
+      - 02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6
+`,
+			},
+			{
+				name: "storage.type",
+				yaml: `
+fschain:
+  consensus:
+    magic: 15405
+    committee:
+      - 02cddc58c3f7d27b5c9967dd90fbd4269798cbbb9cd7b137d886aca209cb734fb6
+    storage:
+      path: chain.db
+`,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := _newConfigFromYAML(t, tt.yaml, "")
+				err := validateBlockchainConfig(cfg)
+				t.Log(err)
+				require.Error(t, err, tt.name)
+			})
 		}
 	})
 
 	t.Run("invalid", func(t *testing.T) {
-		v := newValidBlockchainConfig(t, fullConfig)
-		resetConfig(t, v, "fschain.consensus")
-		_, err := parseBlockchainConfig(v, _logger)
-		require.Error(t, err)
+		t.Run("without consensus", func(t *testing.T) {
+			cfg := newValidBlockchainConfig(t, fullConfig)
+			resetConfig(t, &cfg.FSChain.Consensus)
+			err := validateBlockchainConfig(cfg)
+			require.Error(t, err)
+		})
 
 		type kv struct {
 			key string
@@ -266,73 +327,15 @@ func TestParseBlockchainConfig(t *testing.T) {
 			return kv{k, v}
 		}
 
-		for _, testCase := range [][]kv{
-			{kvF("magic", "not an integer")},
-			{kvF("magic", -1)},
-			{kvF("magic", 0)},
-			{kvF("magic", 0.1)},
-			{kvF("magic", math.MaxUint32+1)},
-			{kvF("committee", []string{})},
-			{kvF("committee", []string{"not a key"})},
-			{kvF("storage.type", "random string")},
-			{kvF("time_per_block", "not a duration")},
-			{kvF("time_per_block", -time.Second)},
-			{kvF("max_traceable_blocks", -1)},
-			{kvF("max_traceable_blocks", math.MaxUint32+1)},
-			{kvF("seed_nodes", []string{"not a TCP address"})},
-			{kvF("hardforks", "not a dictionary")},
-			{kvF("hardforks", map[string]any{"": 1})},
-			{kvF("hardforks", map[string]any{"name": "not a number"})},
-			{kvF("hardforks", map[string]any{"name": -1})},
-			{kvF("hardforks", map[string]any{"name": math.MaxUint32 + 1})},
-			{kvF("validators_history", map[string]any{"not a number": 1})},
-			{kvF("validators_history", map[string]any{"0": "not a number"})},
-			{kvF("validators_history", map[string]any{"-1": 1})},
-			{kvF("validators_history", map[string]any{"0": -1})},
-			{kvF("validators_history", map[string]any{"0": math.MaxUint32 + 1})},
-			{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
-			{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
-			{kvF("rpc.listen", []string{"not a TCP address"})},
-			{kvF("rpc.max_websocket_clients", -1)},
-			{kvF("rpc.max_websocket_clients", math.MaxInt32+1)},
-			{kvF("rpc.session_pool_size", -1)},
-			{kvF("rpc.session_pool_size", math.MaxInt32+1)},
-			{kvF("rpc.max_gas_invoke", -1)},
-			{kvF("rpc.max_gas_invoke", math.MaxInt32+1)},
-			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
-			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
-			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
-			{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
-			{kvF("p2p.listen", []string{"not a TCP address"})},
-			{kvF("p2p.dial_timeout", "not a duration")},
-			{kvF("p2p.dial_timeout", -time.Second)},
-			{kvF("p2p.proto_tick_interval", "not a duration")},
-			{kvF("p2p.proto_tick_interval", -time.Second)},
-			{kvF("p2p.ping.interval", "not a duration")},
-			{kvF("p2p.ping.interval", -time.Second)},
-			{kvF("p2p.ping.timeout", "not a duration")},
-			{kvF("p2p.ping.timeout", -time.Second)},
-			{kvF("p2p.peers.min", -1)},
-			{kvF("p2p.peers.min", math.MaxInt32+1)},
-			{kvF("p2p.peers.max", -1)},
-			{kvF("p2p.peers.max", math.MaxInt32+1)},
-			{kvF("p2p.peers.attempts", -1)},
-			{kvF("p2p.peers.attempts", math.MaxInt32+1)},
-			{kvF("set_roles_in_genesis", "not a boolean")},
-			{kvF("set_roles_in_genesis", 1)},
-			{kvF("set_roles_in_genesis", "True")},
-			{kvF("set_roles_in_genesis", "False")},
-			{kvF("set_roles_in_genesis", "not a boolean")},
-			{kvF("p2p_notary_request_payload_pool_size", -1)},
-			{kvF("keep_only_latest_state", 1)},
-			{kvF("keep_only_latest_state", "True")},
-			{kvF("remove_untraceable_blocks", 1)},
-			{kvF("remove_untraceable_blocks", "True")},
-			{kvF("p2p_notary_request_payload_pool_size", math.MaxUint32+1)},
-		} {
+		processViper := func(t *testing.T, testCase []kv) (*viper.Viper, []string) {
 			var reportMsg []string
 
-			v := newValidBlockchainConfig(t, fullConfig)
+			v := viper.New()
+			v.SetConfigType("yaml")
+
+			err := v.ReadConfig(strings.NewReader(validBlockchainConfigMinimal + validBlockchainConfigOptions))
+			require.NoError(t, err)
+
 			for _, kvPair := range testCase {
 				key := kvPair.key
 				val := kvPair.val
@@ -341,54 +344,123 @@ func TestParseBlockchainConfig(t *testing.T) {
 				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
 			}
 
-			_, err := parseBlockchainConfig(v, _logger)
-			require.Error(t, err, strings.Join(reportMsg, ", "))
+			return v, reportMsg
 		}
+
+		t.Run("invalid unmarshaling", func(t *testing.T) {
+			for _, testCase := range [][]kv{
+				{kvF("magic", "not an integer")},
+				{kvF("magic", -1)},
+				{kvF("magic", 0.1)},
+				{kvF("magic", math.MaxUint32+1)},
+				{kvF("committee", []string{"not a key"})},
+				{kvF("time_per_block", "not a duration")},
+				{kvF("max_traceable_blocks", -1)},
+				{kvF("max_traceable_blocks", math.MaxUint32+1)},
+				{kvF("hardforks", "not a dictionary")},
+				{kvF("hardforks", map[string]any{"name": "not a number"})},
+				{kvF("hardforks", map[string]any{"name": -1})},
+				{kvF("hardforks", map[string]any{"name": math.MaxUint32 + 1})},
+				{kvF("validators_history", map[string]any{"not a number": 1})},
+				{kvF("validators_history", map[string]any{"0": "not a number"})},
+				{kvF("validators_history", map[string]any{"-1": 1})},
+				{kvF("validators_history", map[string]any{"0": -1})},
+				{kvF("validators_history", map[string]any{"0": math.MaxUint32 + 1})},
+				{kvF("rpc.max_websocket_clients", -1)},
+				{kvF("rpc.session_pool_size", -1)},
+				{kvF("rpc.max_gas_invoke", -1)},
+				{kvF("p2p.dial_timeout", "not a duration")},
+				{kvF("p2p.proto_tick_interval", "not a duration")},
+				{kvF("p2p.ping.interval", "not a duration")},
+				{kvF("p2p.ping.timeout", "not a duration")},
+				{kvF("p2p.peers.min", -1)},
+				{kvF("p2p.peers.max", -1)},
+				{kvF("p2p.peers.attempts", -1)},
+				{kvF("set_roles_in_genesis", "not a boolean")},
+				{kvF("set_roles_in_genesis", "not a boolean")},
+				{kvF("p2p_notary_request_payload_pool_size", -1)},
+				{kvF("p2p_notary_request_payload_pool_size", math.MaxUint32+1)},
+			} {
+				v, reportMsg := processViper(t, testCase)
+				var cfg irconfig.Config
+				err = configutil.Unmarshal(v, &cfg, irEnvPrefix)
+				require.Error(t, err, strings.Join(reportMsg, ", "))
+			}
+		})
+
+		t.Run("invalid validation", func(t *testing.T) {
+			for _, testCase := range [][]kv{
+				{kvF("magic", 0)},
+				{kvF("committee", []string{})},
+				{kvF("storage.type", "random string")},
+				{kvF("time_per_block", -time.Second)},
+				{kvF("seed_nodes", []string{"not a TCP address"})},
+				{kvF("hardforks", map[string]any{"": 1})},
+				{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
+				{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
+				{kvF("rpc.listen", []string{"not a TCP address"})},
+				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
+				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
+				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
+				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
+				{kvF("p2p.listen", []string{"not a TCP address"})},
+				{kvF("p2p.dial_timeout", -time.Second)},
+				{kvF("p2p.proto_tick_interval", -time.Second)},
+				{kvF("p2p.ping.interval", -time.Second)},
+				{kvF("p2p.ping.timeout", -time.Second)},
+				{kvF("rpc.max_websocket_clients", math.MaxInt32+1)},
+				{kvF("rpc.session_pool_size", math.MaxInt32+1)},
+				{kvF("rpc.max_gas_invoke", math.MaxInt32+1)},
+				{kvF("p2p.peers.min", math.MaxInt32+1)},
+				{kvF("p2p.peers.max", math.MaxInt32+1)},
+				{kvF("p2p.peers.attempts", math.MaxInt32+1)},
+			} {
+				v, reportMsg := processViper(t, testCase)
+				cfg := unmarshalConfig(t, v)
+
+				err = validateBlockchainConfig(cfg)
+				require.Error(t, err, strings.Join(reportMsg, ", "))
+			}
+		})
 	})
 
 	t.Run("enums", func(t *testing.T) {
 		t.Run("storage", func(t *testing.T) {
-			v := newValidBlockchainConfig(t, fullConfig)
+			cfg := newValidBlockchainConfig(t, fullConfig)
 			const path = "path/to/db"
 
-			v.Set("fschain.consensus.storage.path", path)
-			v.Set("fschain.consensus.storage.type", "boltdb")
-			c, err := parseBlockchainConfig(v, _logger)
+			cfg.FSChain.Consensus.Storage.Path = path
+			cfg.FSChain.Consensus.Storage.Type = "boltdb"
+			err := validateBlockchainConfig(cfg)
 			require.NoError(t, err)
-			require.Equal(t, blockchain.BoltDB(path), c.Storage)
 
-			resetConfig(t, v, "fschain.consensus.storage.path")
-			_, err = parseBlockchainConfig(v, _logger)
+			resetConfig(t, &cfg.FSChain.Consensus.Storage.Path)
+			cfg.Unset("fschain.consensus.storage.path")
+			err = validateBlockchainConfig(cfg)
 			require.Error(t, err)
 
-			v.Set("fschain.consensus.storage.path", path)
-			v.Set("fschain.consensus.storage.type", "leveldb")
-			c, err = parseBlockchainConfig(v, _logger)
+			cfg.FSChain.Consensus.Storage.Path = path
+			cfg.FSChain.Consensus.Storage.Type = "leveldb"
+			err = validateBlockchainConfig(cfg)
 			require.NoError(t, err)
-			require.Equal(t, blockchain.LevelDB(path), c.Storage)
 
-			resetConfig(t, v, "fschain.consensus.storage.path")
-			_, err = parseBlockchainConfig(v, _logger)
+			resetConfig(t, &cfg.FSChain.Consensus.Storage.Path)
+			cfg.Unset("fschain.consensus.storage.path")
+			err = validateBlockchainConfig(cfg)
 			require.Error(t, err)
 
 			// no path needed
-			v.Set("fschain.consensus.storage.type", "inmemory")
-			c, err = parseBlockchainConfig(v, _logger)
+			cfg.FSChain.Consensus.Storage.Type = "inmemory"
+			err = validateBlockchainConfig(cfg)
 			require.NoError(t, err)
-			require.Equal(t, blockchain.InMemory(), c.Storage)
 		})
 	})
 }
 
 func TestIsLocalConsensusMode(t *testing.T) {
 	t.Run("ENV", func(t *testing.T) {
-		v := viper.New()
-		v.AutomaticEnv()
-		v.SetEnvPrefix("neofs_ir")
-		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
 		const envKeyEndpoints = "NEOFS_IR_FSCHAIN_ENDPOINTS"
-		const envKeyConsensus = "NEOFS_IR_FSCHAIN_CONSENSUS"
+		const envKeyConsensus = "NEOFS_IR_FSCHAIN_CONSENSUS_MAGIC"
 		var err error
 
 		for _, tc := range []struct {
@@ -417,6 +489,11 @@ func TestIsLocalConsensusMode(t *testing.T) {
 				expected:     2,
 			},
 		} {
+			v := viper.New()
+			v.AutomaticEnv()
+			v.SetEnvPrefix(irEnvPrefix)
+			v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
 			if tc.setEndpoints {
 				err = os.Setenv(envKeyEndpoints, "any")
 			} else {
@@ -425,13 +502,15 @@ func TestIsLocalConsensusMode(t *testing.T) {
 			require.NoError(t, err, tc)
 
 			if tc.setConsensus {
-				err = os.Setenv(envKeyConsensus, "any")
+				err = os.Setenv(envKeyConsensus, "123")
 			} else {
 				err = os.Unsetenv(envKeyConsensus)
 			}
 			require.NoError(t, err, tc)
 
-			res, err := isLocalConsensusMode(v)
+			cfg := unmarshalConfig(t, v)
+
+			res, err := isLocalConsensusMode(cfg)
 			switch tc.expected {
 			default:
 				t.Fatalf("unexpected result value %v", tc.expected)
@@ -457,208 +536,85 @@ fschain:
 `))
 		require.NoError(t, err)
 
-		res, err := isLocalConsensusMode(v)
+		cfg := unmarshalConfig(t, v)
+
+		res, err := isLocalConsensusMode(cfg)
 		require.NoError(t, err)
 		require.False(t, res)
 
-		resetConfig(t, v, "fschain.endpoints")
+		resetConfig(t, &cfg.FSChain.Endpoints)
 
-		_, err = isLocalConsensusMode(v)
+		_, err = isLocalConsensusMode(cfg)
 		require.Error(t, err)
 
-		v.Set("fschain.consensus", "any")
+		cfg.FSChain.Consensus = irconfig.Consensus{}
+		cfg.Set("fschain.consensus")
 
-		res, err = isLocalConsensusMode(v)
+		res, err = isLocalConsensusMode(cfg)
 		require.NoError(t, err)
 		require.True(t, res)
 	})
 }
 
-// YAML configuration of the NNS with all required fields.
-const validNNSConfig = `
-nns:
-  system_email: usr@domain.io
-`
-
-// returns viper.Viper initialized from valid NNS configuration above.
-func newValidNNSConfig(tb testing.TB) *viper.Viper {
-	return _newConfigFromYAML(tb, validNNSConfig, "")
-}
-
-func TestParseNNSConfig(t *testing.T) {
-	t.Run("default", func(t *testing.T) {
-		c, err := parseNNSConfig(viper.New())
-		require.NoError(t, err)
-
-		require.Zero(t, c)
-	})
-
-	t.Run("minimal", func(t *testing.T) {
-		v := newValidNNSConfig(t)
-		c, err := parseNNSConfig(v)
-		require.NoError(t, err)
-
-		require.Equal(t, nnsConfig{
-			systemEmail: "usr@domain.io",
-		}, c)
-	})
-
-	t.Run("incomplete", func(t *testing.T) {
-		for _, requiredKey := range []string{
-			"system_email",
-		} {
-			v := newValidNNSConfig(t)
-			resetConfig(t, v, "nns."+requiredKey)
-			c, err := parseNNSConfig(v)
-			require.NoError(t, err)
-			require.Zero(t, c.systemEmail)
-		}
-	})
-
-	t.Run("invalid", func(t *testing.T) {
-		type kv struct {
-			key string
-			val any
-		}
-
-		kvF := func(k string, v any) kv {
-			return kv{k, v}
-		}
-
-		for _, testCase := range [][]kv{
-			{kvF("system_email", map[string]any{"1": 2})}, // any non-string value
-		} {
-			var reportMsg []string
-
-			v := newValidNNSConfig(t)
-			for _, kvPair := range testCase {
-				key := kvPair.key
-				val := kvPair.val
-
-				v.Set("nns."+key, val)
-				reportMsg = append(reportMsg, fmt.Sprintf("%s=%v", key, val))
-			}
-
-			_, err := parseNNSConfig(v)
-			require.Error(t, err, strings.Join(reportMsg, ", "))
-		}
-	})
-}
-
-func TestIsAutoDeploymentMode(t *testing.T) {
-	t.Run("ENV", func(t *testing.T) {
-		v := viper.New()
-		v.AutomaticEnv()
-		v.SetEnvPrefix("neofs_ir")
-		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-		const envKey = "NEOFS_IR_FSCHAIN_AUTODEPLOY"
-
-		err := os.Unsetenv(envKey)
-		require.NoError(t, err)
-
-		b, err := isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.False(t, b)
-
-		err = os.Setenv(envKey, "true")
-		require.NoError(t, err)
-
-		b, err = isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.True(t, b)
-
-		err = os.Setenv(envKey, "not a boolean")
-		require.NoError(t, err)
-
-		_, err = isAutoDeploymentMode(v)
-		require.Error(t, err)
-
-		err = os.Setenv(envKey, "false")
-		require.NoError(t, err)
-
-		b, err = isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.False(t, b)
-	})
-
-	t.Run("YAML", func(t *testing.T) {
-		v := viper.New()
-		v.SetConfigType("yaml")
-		err := v.ReadConfig(strings.NewReader(`
-fschain_autodeploy: true
-`))
-		require.NoError(t, err)
-
-		b, err := isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.True(t, b)
-
-		resetConfig(t, v, "fschain_autodeploy")
-
-		b, err = isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.False(t, b)
-
-		v.Set("fschain_autodeploy", "not a boolean")
-
-		_, err = isAutoDeploymentMode(v)
-		require.Error(t, err)
-
-		v.Set("fschain_autodeploy", "false")
-
-		b, err = isAutoDeploymentMode(v)
-		require.NoError(t, err)
-		require.False(t, b)
-	})
-}
-
 func TestP2PMinPeers(t *testing.T) {
-	l := zap.NewNop()
-	assert := func(t testing.TB, v *viper.Viper, exp uint) {
-		c, err := parseBlockchainConfig(v, l)
+	assert := func(t testing.TB, cfg *irconfig.Config, exp uint) {
+		err := validateBlockchainConfig(cfg)
 		require.NoError(t, err)
-		require.EqualValues(t, exp, c.P2P.MinPeers)
+		require.EqualValues(t, exp, cfg.FSChain.Consensus.P2P.Peers.Min)
 	}
 
-	v := newValidBlockchainConfig(t, true)
-	v.Set("fschain.consensus.p2p.peers.min", 123)
-	assert(t, v, 123)
+	cfg := newValidBlockchainConfig(t, true)
+
+	cfg.FSChain.Consensus.P2P.Peers.Min = 123
+	assert(t, cfg, 123)
 
 	t.Run("explicit zero", func(t *testing.T) {
-		v := newValidBlockchainConfig(t, false)
-		v.Set("fschain.consensus.p2p.peers.min", 0)
-		assert(t, v, 0)
+		cfg := newValidBlockchainConfig(t, false)
+		cfg.FSChain.Consensus.P2P.Peers.Min = 0
+		cfg.Set("fschain.consensus.p2p.peers.min")
+		assert(t, cfg, 0)
 	})
 	t.Run("default", func(t *testing.T) {
-		assertDefault := func(t testing.TB, v *viper.Viper) {
+		assertDefault := func(t testing.TB, cfg *irconfig.Config) {
 			setCommitteeN := func(n int) {
-				v.Set("fschain.consensus.committee", commiteeN(t, n))
-				resetConfig(t, v, "fschain.consensus.validators_history") // checked against committee size
+				cfg.FSChain.Consensus.Committee = commiteeN(t, n)
+				resetConfig(t, &cfg.FSChain.Consensus.ValidatorsHistory) // checked against committee size
 			}
 			setCommitteeN(4)
-			assert(t, v, 2)
+			assert(t, cfg, 2)
 			setCommitteeN(7)
-			assert(t, v, 4)
+			assert(t, cfg, 4)
 			setCommitteeN(21)
-			assert(t, v, 14)
+			assert(t, cfg, 14)
 		}
 		t.Run("missing P2P section", func(t *testing.T) {
-			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "fschain.consensus.p2p")
-			assertDefault(t, v)
+			cfg := newValidBlockchainConfig(t, true)
+			resetConfig(t, &cfg.FSChain.Consensus.P2P)
+			cfg.Unset("fschain.consensus.p2p")
+			assertDefault(t, cfg)
 		})
 		t.Run("missing peers section", func(t *testing.T) {
-			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "fschain.consensus.p2p.peers")
-			require.True(t, v.IsSet("fschain.consensus.p2p"))
-			assertDefault(t, v)
+			cfg := newValidBlockchainConfig(t, true)
+			resetConfig(t, &cfg.FSChain.Consensus.P2P.Peers)
+			cfg.Unset("fschain.consensus.p2p.peers")
+			require.True(t, cfg.IsSet("fschain.consensus.p2p"))
+			assertDefault(t, cfg)
 		})
 		t.Run("missing config itself", func(t *testing.T) {
-			v := newValidBlockchainConfig(t, true)
-			resetConfig(t, v, "fschain.consensus.p2p.peers.min")
-			require.True(t, v.IsSet("fschain.consensus.p2p.peers"))
-			assertDefault(t, v)
+			cfg := newValidBlockchainConfig(t, true)
+			resetConfig(t, &cfg.FSChain.Consensus.P2P.Peers.Min)
+			cfg.Unset("fschain.consensus.p2p.peers.min")
+			require.True(t, cfg.IsSet("fschain.consensus.p2p.peers"))
+			assertDefault(t, cfg)
 		})
 	})
+}
+
+func TestEnvOverride(t *testing.T) {
+	const envKeyMagic = "NEOFS_IR_FSCHAIN_CONSENSUS_MAGIC"
+	const magic = 123
+	require.NoError(t, os.Setenv(envKeyMagic, strconv.Itoa(magic)))
+	cfg := newValidBlockchainConfig(t, false)
+
+	require.Equal(t, cfg.FSChain.Consensus.Magic, uint32(magic))
 }

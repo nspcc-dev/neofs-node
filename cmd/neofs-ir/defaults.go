@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-ir/internal/validate"
+	"github.com/nspcc-dev/neofs-node/internal/configutil"
+	irconfig "github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/spf13/viper"
 )
 
-func newConfig(path string) (*viper.Viper, error) {
+func newConfig(path string) (*irconfig.Config, error) {
 	const innerRingPrefix = "neofs_ir"
 
 	var (
@@ -36,12 +37,13 @@ func newConfig(path string) (*viper.Viper, error) {
 		}
 	}
 
-	err = validate.ValidateStruct(v)
+	var cfg irconfig.Config
+	err = configutil.Unmarshal(v, &cfg, innerRingPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("failed config validation: %w", err)
+		return nil, fmt.Errorf("unable to decode config: %w", err)
 	}
 
-	return v, nil
+	return &cfg, nil
 }
 
 func defaultConfiguration(cfg *viper.Viper) {

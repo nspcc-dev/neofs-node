@@ -10,8 +10,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	embeddedcontracts "github.com/nspcc-dev/neofs-contract/contracts"
 	"github.com/nspcc-dev/neofs-contract/deploy"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/config"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -24,12 +24,11 @@ type contracts struct {
 	proxy      util.Uint160 // in morph
 	processing util.Uint160 // in mainnet
 	reputation util.Uint160 // in morph
-	neofsID    util.Uint160 // in morph
 
 	alphabet []util.Uint160 // in morph
 }
 
-func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
+func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contracts, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -37,14 +36,14 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 
 	if !withoutMainNet {
 		_logger.Debug("decoding configured NeoFS contract...")
-		result.neofs, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.neofs"))
+		result.neofs, err = util.Uint160DecodeStringLE(cfg.NeoFS)
 		if err != nil {
 			return nil, fmt.Errorf("can't get neofs script hash: %w", err)
 		}
 
 		if !withoutMainNotary {
 			_logger.Debug("decoding configured Processing contract...")
-			result.processing, err = util.Uint160DecodeStringLE(cfg.GetString("contracts.processing"))
+			result.processing, err = util.Uint160DecodeStringLE(cfg.Processing)
 			if err != nil {
 				return nil, fmt.Errorf("can't get processing script hash: %w", err)
 			}
@@ -62,7 +61,6 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *viper.Viper, m
 		{client.NNSContainerContractName, &result.container},
 		{client.NNSAuditContractName, &result.audit},
 		{client.NNSReputationContractName, &result.reputation},
-		{client.NNSNeoFSIDContractName, &result.neofsID},
 		{client.NNSProxyContractName, &result.proxy},
 	}
 
