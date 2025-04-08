@@ -685,7 +685,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 	if meta == nil {
 		return getsvc.HeadPrm{}, errors.New("missing meta header")
 	}
-	bID := addr.Object().Marshal()
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -704,15 +703,14 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 		var hdr *object.Object
 		return hdr, c.ForEachGRPCConn(ctx, func(ctx context.Context, conn *grpc.ClientConn) error {
 			var err error
-			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req, bID)
+			hdr, err = getHeaderFromRemoteNode(ctx, conn, nodePub, req)
 			return err // TODO: log error
 		})
 	})
 	return p, nil
 }
 
-func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.HeadRequest,
-	bID []byte) (*object.Object, error) {
+func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte, req *protoobject.HeadRequest) (*object.Object, error) {
 	resp, err := protoobject.NewObjectServiceClient(conn).Head(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("sending the request failed: %w", err)
@@ -767,14 +765,6 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 		if v.Header.Signature == nil {
 			// TODO(@cthulhu-rider): #1387 use "const" error
 			return nil, errors.New("missing signature")
-		}
-
-		var sig neofscrypto.Signature
-		if err := sig.FromProtoMessage(v.Header.Signature); err != nil {
-			return nil, fmt.Errorf("can't read signature: %w", err)
-		}
-		if !sig.Verify(bID) {
-			return nil, errors.New("invalid object ID signature")
 		}
 
 		hdr = v.Header.Header
