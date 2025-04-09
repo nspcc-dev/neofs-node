@@ -8,6 +8,7 @@ import (
 	intermediatereputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/intermediate"
 	localreputation "github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/local"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/reputation/ticker"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
@@ -24,7 +25,6 @@ import (
 	localroutes "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/routes"
 	truststorage "github.com/nspcc-dev/neofs-node/pkg/services/reputation/local/storage"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	protoreputation "github.com/nspcc-dev/neofs-sdk-go/proto/reputation"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
@@ -272,8 +272,8 @@ func (s *reputationServer) makeLocalResponse(err error) (*protoreputation.Announ
 }
 
 func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
-		return s.makeLocalResponse(util.ToRequestSignatureVerificationError(err))
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+		return s.makeLocalResponse(err)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
@@ -310,8 +310,8 @@ func (s *reputationServer) makeIntermediateResponse(err error) (*protoreputation
 }
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
-		return s.makeIntermediateResponse(util.ToRequestSignatureVerificationError(err))
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+		return s.makeIntermediateResponse(err)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())

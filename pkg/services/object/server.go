@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -434,8 +435,8 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
-			err = s.sendStatusPutResponse(gStream, util.ToRequestSignatureVerificationError(err)) // assign for defer
+		if err = icrypto.VerifyRequestSignatures(req); err != nil {
+			err = s.sendStatusPutResponse(gStream, err) // assign for defer
 			return err
 		}
 
@@ -494,7 +495,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
@@ -573,7 +574,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	if err := neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err := icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
 
@@ -810,7 +811,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
 
@@ -1023,7 +1024,7 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
 
@@ -1263,7 +1264,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 
@@ -1483,7 +1484,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
@@ -1810,7 +1811,7 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = neofscrypto.VerifyRequestWithBuffer(req, nil); err != nil {
+	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
 
