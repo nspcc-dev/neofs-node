@@ -13,6 +13,7 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -102,11 +103,43 @@ func TestVerifyRequestSignatures(t *testing.T) {
 	})
 }
 
+func TestGetRequestAuthor(t *testing.T) {
+	t.Run("correctly signed", func(t *testing.T) {
+		author, authorPub, err := icrypto.GetRequestAuthor(getObjectSignedRequest.VerifyHeader)
+		require.NoError(t, err)
+		require.Equal(t, reqAuthorECDSA, author)
+		require.Equal(t, reqSignerECDSAPub, authorPub)
+	})
+	t.Run("invalid", func(t *testing.T) {
+		t.Run("nil", func(t *testing.T) {
+			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+			req.VerifyHeader = nil
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			require.EqualError(t, err, "missing verification header")
+		})
+		t.Run("without body signature", func(t *testing.T) {
+			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+			req.VerifyHeader = req.VerifyHeader.Origin
+			req.VerifyHeader.BodySignature = nil
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			require.EqualError(t, err, "missing body signature")
+		})
+		t.Run("unsupported body signature scheme", func(t *testing.T) {
+			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
+			req.VerifyHeader = req.VerifyHeader.Origin
+			req.VerifyHeader.BodySignature.Scheme = 3
+			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
+			require.EqualError(t, err, "unsupported scheme 3")
+		})
+	})
+}
+
 var (
 	reqSignerECDSAPub = []byte{3, 222, 100, 155, 214, 54, 45, 96, 2, 218, 144, 121, 166, 210, 58, 194, 143, 221, 111, 63, 87,
 		254, 66, 2, 236, 94, 45, 93, 30, 39, 191, 127, 80}
 	reqSignerL2ECDSAPub = []byte{3, 95, 195, 112, 130, 26, 227, 140, 73, 208, 191, 208, 134, 199, 189, 139, 238, 55, 22, 49,
 		165, 67, 146, 187, 82, 232, 85, 95, 144, 75, 87, 243, 21}
+	reqAuthorECDSA = user.ID{53, 94, 109, 46, 227, 240, 62, 49, 226, 121, 130, 173, 20, 100, 30, 107, 220, 221, 46, 82, 151, 137, 253, 44, 237}
 )
 
 var reqMetaHdr = &protosession.RequestMetaHeader{

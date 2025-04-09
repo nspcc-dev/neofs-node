@@ -119,18 +119,6 @@ func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
 	return &tokenIssuer, token.IssuerPublicKeyBytes(), nil
 }
 
-func originalBodySignature(v *protosession.RequestVerificationHeader) *refs.Signature {
-	if v == nil {
-		return nil
-	}
-
-	for v.GetOrigin() != nil {
-		v = v.GetOrigin()
-	}
-
-	return v.GetBodySignature()
-}
-
 // assertVerb checks that token verb corresponds to op.
 func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
 	//nolint:exhaustive
