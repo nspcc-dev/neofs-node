@@ -28,7 +28,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 	dir := t.TempDir()
 	const nObjects = 100
 
-	src := fstree.New(fstree.WithPath(dir))
+	src := peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond)
 
 	require.NoError(t, src.Open(false))
 	require.NoError(t, src.Init())
@@ -47,7 +47,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 
 	require.NoError(t, src.Close())
 
-	dst := peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond)
+	dst := fstree.New(fstree.WithPath(dir))
 
 	err := copier(dst, src)
 	require.NoError(t, err)
