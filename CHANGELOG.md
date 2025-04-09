@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - neofs-adm can handle any wallet names in its configuration (#3268)
 - neofs-adm uses alphabet0/1/2 names for wallet files by default now (#3268)
 - Distribute load in writecache during flushing (#3261)
+- Faster migration in peapod-to-fstree (#3280)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

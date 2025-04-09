@@ -48,20 +48,24 @@ func main() {
 	err = engineconfig.IterateShards(appCfg, false, func(sc *shardconfig.Config) error {
 		log.Printf("processing shard %d...\n", i)
 
-		var ppd, fstr common.Storage
-		storagesCfg := sc.BlobStor().Storages()
+		var (
+			countLimit  int
+			ppd, fstr   common.Storage
+			storagesCfg = sc.BlobStor().Storages()
+		)
 
 		for i := range storagesCfg {
 			switch storagesCfg[i].Type() {
 			case fstree.Type:
 				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
+				countLimit = sub.CombinedCountLimit()
 
 				fstr = fstree.New(
 					fstree.WithPath(storagesCfg[i].Path()),
 					fstree.WithPerm(storagesCfg[i].Perm()),
 					fstree.WithDepth(sub.Depth()),
 					fstree.WithNoSync(sub.NoSync()),
-					fstree.WithCombinedCountLimit(sub.CombinedCountLimit()),
+					fstree.WithCombinedCountLimit(countLimit),
 					fstree.WithCombinedSizeLimit(sub.CombinedSizeLimit()),
 					fstree.WithCombinedSizeThreshold(sub.CombinedSizeThreshold()),
 					fstree.WithCombinedWriteInterval(storagesCfg[i].FlushInterval()),
@@ -104,9 +108,9 @@ func main() {
 		ppd.SetCompressor(&compressCfg)
 		fstr.SetCompressor(&compressCfg)
 
-		log.Printf("migrating data from Peapod '%s' to Fstree '%s'...\n", ppd.Path(), fstr.Path())
+		log.Printf("migrating data from Peapod '%s' to Fstree '%s' (batches of %d objects)...\n", ppd.Path(), fstr.Path(), countLimit)
 
-		err = common.Copy(fstr, ppd)
+		err = common.CopyBatched(fstr, ppd, countLimit)
 		if err != nil {
 			log.Fatal("migration failed: ", err)
 		}
