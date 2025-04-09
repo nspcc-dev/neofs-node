@@ -51,14 +51,6 @@ grpc:
       enabled: false  # use TLS for a gRPC connection
   - endpoint: s03.neofs.devenv:8080
 
-tree:
-  enabled: true
-  cache_size: 15
-  replication_worker_count: 32
-  replication_channel_capacity: 32
-  replication_timeout: 5s
-  sync_interval: 1h
-
 control:
   authorized_keys:  # list of hex-encoded public keys that have rights to use the Control Service
     - 035839e45d472a3b7769a2a1bd7d54c4ccd4943c3b40f547870e83a8fcbfb3ce11
