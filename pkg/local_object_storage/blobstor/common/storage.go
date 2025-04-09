@@ -37,6 +37,13 @@ type Storage interface {
 // Copy copies all objects from source Storage into the destination one. If any
 // object cannot be stored, Copy immediately fails.
 func Copy(dst, src Storage) error {
+	return CopyBatched(dst, src, 0)
+}
+
+// CopyBatched copies all objects from source Storage into the destination one
+// using batched API. If any batch cannot be stored, Copy immediately fails.
+// batchSize less than or equal to 1 makes it the same as [Copy].
+func CopyBatched(dst, src Storage, batchSize int) error {
 	err := src.Open(true)
 	if err != nil {
 		return fmt.Errorf("open source sub-storage: %w", err)
@@ -61,6 +68,8 @@ func Copy(dst, src Storage) error {
 		return fmt.Errorf("initialize destination sub-storage: %w", err)
 	}
 
+	var objBatch = make(map[oid.Address][]byte)
+
 	err = src.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
 		exists, err := dst.Exists(addr)
 		if err != nil {
@@ -69,9 +78,20 @@ func Copy(dst, src Storage) error {
 			return nil
 		}
 
-		err = dst.Put(addr, data)
-		if err != nil {
-			return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
+		if batchSize <= 1 {
+			err = dst.Put(addr, data)
+			if err != nil {
+				return fmt.Errorf("put object %s into destination sub-storage: %w", addr, err)
+			}
+			return nil
+		}
+		objBatch[addr] = data
+		if len(objBatch) == batchSize {
+			err = dst.PutBatch(objBatch)
+			if err != nil {
+				return fmt.Errorf("put batch into destination sub-storage: %w", err)
+			}
+			clear(objBatch)
 		}
 		return nil
 	}, nil)
@@ -79,5 +99,11 @@ func Copy(dst, src Storage) error {
 		return fmt.Errorf("iterate over source sub-storage: %w", err)
 	}
 
+	if len(objBatch) > 0 {
+		err = dst.PutBatch(objBatch)
+		if err != nil {
+			return fmt.Errorf("put batch into destination sub-storage: %w", err)
+		}
+	}
 	return nil
 }
