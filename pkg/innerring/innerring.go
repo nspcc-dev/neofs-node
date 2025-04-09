@@ -542,7 +542,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		deployPrm.Blockchain = fschain
 		deployPrm.LocalAccount = singleAcc
 		deployPrm.ValidatorMultiSigAccount = consensusAcc
-		deployPrm.Glagolitsa = fakeGlagolitsa{}
 
 		err = readEmbeddedContracts(&deployPrm)
 		if err != nil {

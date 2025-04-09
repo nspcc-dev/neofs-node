@@ -117,6 +117,11 @@ func WithCustomFeeForNamedPut(fee fixedn.Fixed8) Option {
 }
 
 func decodeSignature(bPubKey, sig []byte) (neofscrypto.Signature, error) {
+	if len(bPubKey) != 33 {
+		// TODO: use const from SDK
+		return neofscrypto.NewSignatureFromRawKey(3, bPubKey, sig), nil
+	}
+
 	var pubKey neofsecdsa.PublicKeyRFC6979
 
 	err := pubKey.Decode(bPubKey)

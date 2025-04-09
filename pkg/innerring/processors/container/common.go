@@ -84,7 +84,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	}
 
 	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
+	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData, cp.cnrClient.Morph())
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {

@@ -17,7 +17,8 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/nspcc-dev/hrw/v2 v2.0.3
 	github.com/nspcc-dev/locode-db v0.6.0
-	github.com/nspcc-dev/neo-go v0.108.2-0.20250227114656-68d7e8e01cd8
+	github.com/nspcc-dev/neo-go v0.108.2-0.20250321124255-553db45fef26
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250127125426-50cb21333e4f
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.21.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250321142002-deaf535d8219
@@ -73,7 +74,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.3.2 // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20240830112754-291b000d1f3b // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250127125426-50cb21333e4f // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
@@ -106,3 +106,5 @@ retract (
 	v1.22.1 // Contains retraction only.
 	v1.22.0 // Published accidentally.
 )
+
+replace github.com/nspcc-dev/neofs-contract => ../contracts

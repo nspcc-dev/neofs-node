@@ -156,7 +156,7 @@ func (s *server) makePutResponse(body *protocontainer.PutResponse_Body, st *prot
 }
 
 func (s *server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
-	return s.makePutResponse(nil, util.ToStatus(err))
+	return s.makePutResponse(nil, apistatus.FromError(err))
 }
 
 const (

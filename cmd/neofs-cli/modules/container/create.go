@@ -1,12 +1,21 @@
 package container
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
+	"github.com/nspcc-dev/neo-go/pkg/io"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/callflag"
+	"github.com/nspcc-dev/neo-go/pkg/util"
+	"github.com/nspcc-dev/neo-go/pkg/vm/emit"
+	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	internalclient "github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/client"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
@@ -14,6 +23,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/spf13/cobra"
@@ -130,6 +140,34 @@ It will be stored in FS chain when inner ring will accepts it.`,
 
 		if tok != nil {
 			putPrm.WithinSession(*tok)
+		}
+
+		{
+			const contractStr = "14ea01377f0b7357e449efce51ef2258c2ae1827"
+			contract, err := util.Uint160DecodeStringLE(contractStr)
+			if err != nil {
+				panic(err)
+			}
+
+			verifBuf := io.NewBufBinWriter()
+			emit.Int(verifBuf.BinWriter, 2)
+			emit.Opcodes(verifBuf.BinWriter, opcode.PACK)
+			emit.AppCallNoArgs(verifBuf.BinWriter, contract, "verifySignature", callflag.ReadOnly)
+
+			verif := verifBuf.Bytes()
+			cnr.SetOwner(user.NewFromScriptHash(hash.Hash160(verif)))
+			putPrm.SetContainer(cnr)
+
+			b := make([]byte, 4+sha256.Size)
+			binary.LittleEndian.PutUint32(b, 15405)
+			h := sha256.Sum256(cnr.SignedData())
+			copy(b[4:], h[:])
+
+			invocBuf := io.NewBufBinWriter()
+			emit.Bytes(invocBuf.BinWriter, (&keys.PrivateKey{PrivateKey: *key}).SignHash(sha256.Sum256(b)))
+			emit.String(invocBuf.BinWriter, "Bob")
+
+			putPrm.AttachSignature(neofscrypto.NewSignatureFromRawKey(3, verif, invocBuf.Bytes()))
 		}
 
 		res, err := internalclient.PutContainer(ctx, putPrm)

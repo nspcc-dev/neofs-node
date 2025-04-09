@@ -186,14 +186,12 @@ github.com/nspcc-dev/hrw/v2 v2.0.3 h1:GUIitIiDpAaQat9SZccp7XVAuwtqaM40+uZ9D8Q4A8
 github.com/nspcc-dev/hrw/v2 v2.0.3/go.mod h1:VWlFSGGPcHG1abuIDJb5u83tIF2EqOatC8Z7svZmgWQ=
 github.com/nspcc-dev/locode-db v0.6.0 h1:EdRUug+sL0EMLZgucLETD6bnegKjyEZh+D5x4r5VMvY=
 github.com/nspcc-dev/locode-db v0.6.0/go.mod h1:mJLXdzlcRucr3AFUvf5fJH+rFv1bJuU85e1jtDHDTz8=
-github.com/nspcc-dev/neo-go v0.108.2-0.20250227114656-68d7e8e01cd8 h1:iTVVzI+LVsgiGsXvekr4Z60Cc9wMgcWdFBGqtwprhgs=
-github.com/nspcc-dev/neo-go v0.108.2-0.20250227114656-68d7e8e01cd8/go.mod h1:DlISaevW5zhfzg2KgCxtR/m8wQObPuht03kEXSf0g2w=
+github.com/nspcc-dev/neo-go v0.108.2-0.20250321124255-553db45fef26 h1:yVqyabnPzT2E0p22RuD03yT9wwcUPSluxeHKLvoDsMU=
+github.com/nspcc-dev/neo-go v0.108.2-0.20250321124255-553db45fef26/go.mod h1:DlISaevW5zhfzg2KgCxtR/m8wQObPuht03kEXSf0g2w=
 github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250127125426-50cb21333e4f h1:UO5Zf0FDlBrAXSp0C+R3f6jA9Ozb/lJvzHLTjQwt2SA=
 github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250127125426-50cb21333e4f/go.mod h1:kVLzmbeJJdbIPF2bUYhD8YppIiLXnRQj5yqNZvzbOL0=
 github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea h1:mK0EMGLvunXcFyq7fBURS/CsN4MH+4nlYiqn6pTwWAU=
 github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea/go.mod h1:YzhD4EZmC9Z/PNyd7ysC7WXgIgURc9uCG1UWDeV027Y=
-github.com/nspcc-dev/neofs-contract v0.21.0 h1:dJkrZr7C8ngMiShwdUl27nbLCGez1KD7W1l7RRXFoN8=
-github.com/nspcc-dev/neofs-contract v0.21.0/go.mod h1:TKR2DJiZCdzq9CPljI101c9S3uK5CsVK5WQrX4C+Y7A=
 github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250321142002-deaf535d8219 h1:dN9Z4GejCZO3DgW9zFLSYVg8W+ShNk965nJ5vQ1bkcY=
 github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250321142002-deaf535d8219/go.mod h1:j/NUu5iOGFkOVYM42XoC1X9DZD0/y89Pws++w5vxtQk=
 github.com/nspcc-dev/rfc6979 v0.2.3 h1:QNVykGZ3XjFwM/88rGfV3oj4rKNBy+nYI6jM7q19hDI=
