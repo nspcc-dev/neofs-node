@@ -150,14 +150,14 @@ func migrateConfigToFstree(dstPath, srcPath string) error {
 		return fmt.Errorf("unexpected 'storage' section type: %T instead of %T", v, mStorage)
 	}
 
-	v, ok = mStorage["shard"]
+	v, ok = mStorage["shards"]
 	if !ok {
-		return errors.New("missing 'storage.shard' section")
+		return errors.New("missing 'storage.shards' section")
 	}
 
-	mShards, ok := v.(map[any]any)
+	sShards, ok := v.([]any)
 	if !ok {
-		return fmt.Errorf("unexpected 'storage.shard' section type: %T instead of %T", v, mShards)
+		return fmt.Errorf("unexpected 'storage.shards' section type: %T instead of %T", v, sShards)
 	}
 
 	replacePeapodWithFstree := func(mShard map[string]any, shardDesc any) error {
@@ -229,11 +229,11 @@ func migrateConfigToFstree(dstPath, srcPath string) error {
 		return nil
 	}
 
-	v, ok = mShards["default"]
+	v, ok = mStorage["shard_defaults"]
 	if ok {
 		mShard, ok := v.(map[string]any)
 		if !ok {
-			return fmt.Errorf("unexpected 'storage.shard.default' section type: %T instead of %T", v, mShard)
+			return fmt.Errorf("unexpected 'storage.shard_defaults' section type: %T instead of %T", v, mShard)
 		}
 
 		err = replacePeapodWithFstree(mShard, "default")
@@ -242,18 +242,12 @@ func migrateConfigToFstree(dstPath, srcPath string) error {
 		}
 	}
 
-	for i := 0; ; i++ {
-		v, ok = mShards[i]
-		if !ok {
-			if i == 0 {
-				return errors.New("missing numbered shards")
-			}
-			break
-		}
+	for i := range sShards {
+		v = sShards[i]
 
 		mShard, ok := v.(map[string]any)
 		if !ok {
-			return fmt.Errorf("unexpected 'storage.shard.%d' section type: %T instead of %T", i, v, mStorage)
+			return fmt.Errorf("unexpected 'storage.shards.%d' section type: %T instead of %T", i, v, mStorage)
 		}
 
 		err = replacePeapodWithFstree(mShard, i)

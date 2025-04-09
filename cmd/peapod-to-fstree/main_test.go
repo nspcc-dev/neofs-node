@@ -19,15 +19,13 @@ func Test_migrateConfigToFstree(t *testing.T) {
 			name: "right config 1",
 			config: `
 storage:
-  shard:
-    default:
-
-      blobstor:
-        - perm: 0644
-        - perm: 0644
-          depth: 5
-    0:
-      resync_metabase: true
+  shard_defaults:
+    blobstor:
+      - perm: 0644
+      - perm: 0644
+        depth: 5
+  shards:
+    - resync_metabase: true
       metabase:
         path: /home/endrey/neo/neofs-node/storage/metabase
         perm: 0777
@@ -47,40 +45,36 @@ storage:
 `,
 			wantErr: false,
 			resConfig: `storage:
-    shard:
-        0:
-            blobstor:
-                - depth: 4
-                  path: /home/endrey/neo/neofs-node/storage/path/fstree
-                  perm: 384
-                  type: fstree
-            gc:
-                remover_batch_size: 100
-                remover_sleep_interval: 1m
-            metabase:
-                path: /home/endrey/neo/neofs-node/storage/metabase
-                perm: 511
-            resync_metabase: true
-            writecache:
-                enabled: false
-        default:
-            blobstor:
-                - depth: 5
-                  perm: 420
+    shard_defaults:
+        blobstor:
+            - depth: 5
+              perm: 420
+    shards:
+        - blobstor:
+            - depth: 4
+              path: /home/endrey/neo/neofs-node/storage/path/fstree
+              perm: 384
+              type: fstree
+          gc:
+            remover_batch_size: 100
+            remover_sleep_interval: 1m
+          metabase:
+            path: /home/endrey/neo/neofs-node/storage/metabase
+            perm: 511
+          resync_metabase: true
+          writecache:
+            enabled: false
 `,
 		},
 		{
 			name: "right config 2, w/o peapod in shard",
 			config: `
 storage:
-  shard:
-    default:
-
+  shard_defaults:
       blobstor:
         - perm: 0644
-
-    0:
-      resync_metabase: true
+  shards:
+    - resync_metabase: true
       metabase:
         path: /home/endrey/neo/neofs-node/storage/metabase
         perm: 0777
@@ -97,38 +91,35 @@ storage:
 `,
 			wantErr: false,
 			resConfig: `storage:
-    shard:
-        0:
-            blobstor:
-                - depth: 4
-                  path: /home/endrey/neo/neofs-node/storage/path/fstree
-                  perm: 384
-                  type: fstree
-            gc:
-                remover_batch_size: 100
-                remover_sleep_interval: 1m
-            metabase:
-                path: /home/endrey/neo/neofs-node/storage/metabase
-                perm: 511
-            resync_metabase: true
-            writecache:
-                enabled: false
-        default:
-            blobstor: []
+    shard_defaults:
+        blobstor: []
+    shards:
+        - blobstor:
+            - depth: 4
+              path: /home/endrey/neo/neofs-node/storage/path/fstree
+              perm: 384
+              type: fstree
+          gc:
+            remover_batch_size: 100
+            remover_sleep_interval: 1m
+          metabase:
+            path: /home/endrey/neo/neofs-node/storage/metabase
+            perm: 511
+          resync_metabase: true
+          writecache:
+            enabled: false
 `,
 		},
 		{
 			name: "fstree not provided",
 			config: `
 storage:
-  shard:
-    default:
-
+  shard_defaults:
       blobstor:
         - perm: 0644
           depth: 5
-    0:
-      resync_metabase: true
+  shards:
+    - resync_metabase: true
       metabase:
         path: /home/endrey/neo/neofs-node/storage/metabase
         perm: 0777
