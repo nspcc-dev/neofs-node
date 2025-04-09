@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,27 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
-	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
-	"go.etcd.io/bbolt"
 	"gopkg.in/yaml.v3"
 )
-
-type epochState struct{}
-
-func (s epochState) CurrentEpoch() uint64 {
-	return 0
-}
 
 func main() {
 	nodeCfgPath := flag.String("config", "", "Path to storage node's YAML configuration file")
@@ -120,50 +109,6 @@ func main() {
 		err = common.Copy(fstr, ppd)
 		if err != nil {
 			log.Fatal("migration failed: ", err)
-		}
-
-		log.Println("updating metabase indexes...")
-
-		readOnly := false
-		metabase := meta.New(
-			meta.WithPath(sc.Metabase().Path()),
-			meta.WithBoltDBOptions(&bbolt.Options{
-				ReadOnly: readOnly,
-				Timeout:  time.Second,
-			}),
-			meta.WithEpochState(epochState{}),
-		)
-		if err := metabase.Open(readOnly); err != nil {
-			return fmt.Errorf("could not open metabase in shard %d: %w", i, err)
-		}
-
-		var cursor *meta.Cursor
-		var addrs []objectcore.AddressWithType
-		for {
-			addrs, cursor, err = metabase.ListWithCursor(1024, cursor)
-			if err != nil {
-				if errors.Is(err, meta.ErrEndOfListing) {
-					break
-				}
-
-				return fmt.Errorf("listing objects in metabase: %w", err)
-			}
-
-			for _, obj := range addrs {
-				addr := obj.Address
-
-				storageId, err := metabase.StorageID(addr)
-				if err != nil {
-					return fmt.Errorf("could not get storage id for address %s: %w", addr, err)
-				}
-
-				if bytes.Equal(storageId, []byte("peapod")) {
-					err = metabase.UpdateStorageID(addr, []byte{})
-					if err != nil {
-						return fmt.Errorf("could not update storage id for address %s: %w", addr, err)
-					}
-				}
-			}
 		}
 
 		log.Printf("data successfully migrated in the shard %d, going to the next one...\n", i)
