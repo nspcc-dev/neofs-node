@@ -33,6 +33,16 @@ func (w *genericWriter) finalize() error {
 	return nil
 }
 
+func (w *genericWriter) writeBatch(objs []writeDataUnit) error {
+	for _, obj := range objs {
+		err := w.writeData(obj.id, obj.path, obj.data)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w *genericWriter) writeData(_ oid.ID, p string, data []byte) error {
 	// Here is a situation:
 	// Feb 09 13:10:37 buky neofs-node[32445]: 2023-02-09T13:10:37.161Z        info        log/log.go:13        local object storage operation        {"shard_id": "SkT8BfjouW6t93oLuzQ79s", "address": "7NxFz4SruSi8TqXacr2Ae22nekMhgYk1sfkddJo9PpWk/5enyUJGCyU1sfrURDnHEjZFdbGqANVhayYGfdSqtA6wA", "op": "PUT", "type": "fstree", "storage_id": ""}

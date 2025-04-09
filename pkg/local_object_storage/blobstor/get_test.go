@@ -46,6 +46,9 @@ func (x *getBytesOnlySubStorage) Exists(_ oid.Address) (bool, error) {
 func (x *getBytesOnlySubStorage) Put(oid.Address, []byte) error {
 	panic("must not be called")
 }
+func (x *getBytesOnlySubStorage) PutBatch(map[oid.Address][]byte) error {
+	panic("must not be called")
+}
 
 func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")

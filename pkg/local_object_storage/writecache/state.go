@@ -2,13 +2,14 @@ package writecache
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
 type counters struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	objMap map[oid.Address]uint64
 	size   uint64
 }
@@ -30,9 +31,15 @@ func (x *counters) Delete(addr oid.Address) {
 }
 
 func (x *counters) Size() uint64 {
-	x.mu.Lock()
-	defer x.mu.Unlock()
+	x.mu.RLock()
+	defer x.mu.RUnlock()
 	return x.size
+}
+
+func (x *counters) Map() map[oid.Address]uint64 {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	return maps.Clone(x.objMap)
 }
 
 func (c *cache) initCounters() error {

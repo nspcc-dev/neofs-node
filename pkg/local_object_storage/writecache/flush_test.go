@@ -37,8 +37,8 @@ type objectPair struct {
 
 func TestFlush(t *testing.T) {
 	const (
-		objCount  = 4
-		smallSize = 256
+		objCount = 4
+		bigSize  = defaultMaxBatchTreshold
 	)
 
 	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
@@ -54,7 +54,7 @@ func TestFlush(t *testing.T) {
 	putObjects := func(t *testing.T, c Cache) []objectPair {
 		objects := make([]objectPair, objCount)
 		for i := range objects {
-			objects[i] = putObject(t, c, 1+(i%2)*smallSize)
+			objects[i] = putObject(t, c, 1+(i%2)*bigSize)
 		}
 		return objects
 	}
@@ -86,7 +86,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, wc.Flush(false))
 
 		check(t, mb, bs, objects)
-		require.Equal(t, wc.(*cache).objCounters.size, uint64(0))
+		require.Equal(t, wc.(*cache).objCounters.Size(), uint64(0))
 		for _, obj := range objects {
 			_, err := wc.Get(obj.addr)
 			require.Error(t, err)
@@ -162,13 +162,13 @@ func TestFlush(t *testing.T) {
 		objects := []objectPair{
 			// removed
 			putObject(t, wc, 1),
-			putObject(t, wc, smallSize+1),
+			putObject(t, wc, bigSize+1),
 			// not found
 			putObject(t, wc, 1),
-			putObject(t, wc, smallSize+1),
+			putObject(t, wc, bigSize+1),
 			// ok
 			putObject(t, wc, 1),
-			putObject(t, wc, smallSize+1),
+			putObject(t, wc, bigSize+1),
 		}
 
 		require.NoError(t, wc.Close())
@@ -228,7 +228,8 @@ func TestFlushPerformance(t *testing.T) {
 
 				objects := make([]objectPair, objCount)
 				for i := range objects {
-					objects[i] = putObject(t, wc, 1+(i%2)*1024)
+					// some big objects and some small
+					objects[i] = putObject(t, wc, 1+(i%2)*defaultMaxBatchTreshold)
 				}
 				for _, obj := range objects {
 					_, err := wc.Get(obj.addr)
@@ -259,7 +260,7 @@ func TestFlushPerformance(t *testing.T) {
 					require.Error(t, err)
 				}
 
-				t.Logf("Flush took %v for %d objects with %d workers", duration-defaultFlushInterval, objCount, workerCount)
+				t.Logf("Flush took %v for %d objects with %d workers", duration, objCount, workerCount)
 			})
 		}
 	}
@@ -297,7 +298,7 @@ func TestFlushErrorRetry(t *testing.T) {
 				zapcore.NewCore(
 					zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
 					multiSyncer,
-					zapcore.WarnLevel,
+					zapcore.DebugLevel,
 				),
 			)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
@@ -317,7 +318,7 @@ func TestFlushErrorRetry(t *testing.T) {
 
 			start := time.Now()
 			go func() {
-				time.Sleep(defaultFlushInterval + 1*time.Second)
+				time.Sleep(2 * time.Second)
 				sub1.SetFull(false) // Allow to put objects
 			}()
 
@@ -332,18 +333,57 @@ func TestFlushErrorRetry(t *testing.T) {
 				require.Equal(t, objects[i].obj, res)
 			}
 
-			require.True(t, duration >= (defaultErrorDelay+defaultFlushInterval),
+			require.True(t, duration >= (defaultErrorDelay),
 				"Flush completed too quickly (%v), expected at least %v retry delay",
-				duration, (defaultErrorDelay + defaultFlushInterval))
+				duration, (defaultErrorDelay))
 
 			logOutput := logBuf.String()
-			require.Contains(t, logOutput, "worker can't flush an object due to error")
 			require.Contains(t, logOutput, "flush scheduler paused due to error")
 			require.Contains(t, logOutput, common.ErrNoSpace.Error())
 
 			require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
 			t.Logf("Flush completed in %v after retrying", duration)
 		})
+	}
+}
+
+func TestFlushScheduler(t *testing.T) {
+	wc, bs, mb := newCache(t)
+	defer wc.Close()
+
+	require.NoError(t, bs.SetMode(mode.ReadWrite))
+	require.NoError(t, mb.SetMode(mode.ReadWrite))
+
+	objects := make([]objectPair, 2)
+	objects[0] = putObject(t, wc, 1)
+	objects[1] = putObject(t, wc, defaultMaxBatchTreshold+1)
+
+	for _, obj := range objects {
+		_, err := wc.Get(obj.addr)
+		require.NoError(t, err)
+	}
+	require.NoError(t, wc.Close())
+
+	require.NoError(t, bs.SetMode(mode.ReadWrite))
+	require.NoError(t, mb.SetMode(mode.ReadWrite))
+
+	require.NoError(t, wc.Open(false))
+	require.NoError(t, wc.Init())
+
+	waitForFlush(t, wc, objects)
+
+	for i := range objects {
+		id, err := mb.StorageID(objects[i].addr)
+		require.NoError(t, err)
+
+		res, err := bs.Get(objects[i].addr, id)
+		require.NoError(t, err)
+		require.Equal(t, objects[i].obj, res)
+	}
+	require.Equal(t, uint64(0), wc.(*cache).objCounters.Size())
+	for _, obj := range objects {
+		_, err := wc.Get(obj.addr)
+		require.Error(t, err)
 	}
 }
 
@@ -413,6 +453,15 @@ func (x *mockWriter) Put(addr oid.Address, data []byte) error {
 		return common.ErrNoSpace
 	}
 	return x.Storage.Put(addr, data)
+}
+
+func (x *mockWriter) PutBatch(m map[oid.Address][]byte) error {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	if x.full {
+		return common.ErrNoSpace
+	}
+	return x.Storage.PutBatch(m)
 }
 
 func (x *mockWriter) SetFull(full bool) {
