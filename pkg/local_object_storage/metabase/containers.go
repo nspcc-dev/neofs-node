@@ -231,6 +231,14 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			}
 		}
 
+		cnrGCBkt := tx.Bucket(garbageContainersBucketName)
+		if cnrGCBkt != nil {
+			err = cnrGCBkt.Delete(cIDRaw)
+			if err != nil {
+				return fmt.Errorf("garbage containers cleanup: %w", err)
+			}
+		}
+
 		return nil
 	})
 }
