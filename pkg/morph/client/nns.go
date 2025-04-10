@@ -19,8 +19,6 @@ const (
 	NNSBalanceContractName = nns.NameBalance
 	// NNSContainerContractName is a name of the container contract in NNS.
 	NNSContainerContractName = nns.NameContainer
-	// NNSNeoFSIDContractName is a name of the neofsid contract in NNS.
-	NNSNeoFSIDContractName = nns.NameNeoFSID
 	// NNSNetmapContractName is a name of the netmap contract in NNS.
 	NNSNetmapContractName = nns.NameNetmap
 	// NNSProxyContractName is a name of the proxy contract in NNS.
