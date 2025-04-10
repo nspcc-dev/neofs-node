@@ -1,24 +1,53 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
+	"syscall"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
+	fschainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/fschain"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"gopkg.in/yaml.v3"
 )
+
+type onlyObjectsWithContainersStorage struct {
+	common.Storage
+	containers    map[cid.ID]struct{}
+	read, skipped int
+}
+
+func (s *onlyObjectsWithContainersStorage) Iterate(objHandler func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error) error {
+	return s.Storage.Iterate(func(addr oid.Address, data []byte, id []byte) error {
+		s.read++
+
+		_, found := s.containers[addr.Container()]
+		if !found {
+			s.skipped++
+			return nil
+		}
+
+		return objHandler(addr, data, id)
+	}, nil)
+}
 
 func main() {
 	nodeCfgPath := flag.String("config", "", "Path to storage node's YAML configuration file")
@@ -43,6 +72,7 @@ func main() {
 	log.Println("configuration successfully migrated, migrating data in shards...")
 
 	appCfg := config.New(config.Prm{}, config.WithConfigFile(*nodeCfgPath))
+	cnrs := actualContainers(appCfg)
 
 	i := uint64(0)
 	err = engineconfig.IterateShards(appCfg, false, func(sc *shardconfig.Config) error {
@@ -110,12 +140,14 @@ func main() {
 
 		log.Printf("migrating data from Peapod '%s' to Fstree '%s' (batches of %d objects)...\n", ppd.Path(), fstr.Path(), countLimit)
 
-		err = common.CopyBatched(fstr, ppd, countLimit)
+		onlyActualObjectsPeapod := onlyObjectsWithContainersStorage{Storage: ppd, containers: cnrs}
+
+		err = common.CopyBatched(fstr, &onlyActualObjectsPeapod, countLimit)
 		if err != nil {
 			log.Fatal("migration failed: ", err)
 		}
 
-		log.Printf("data successfully migrated in the shard %d, going to the next one...\n", i)
+		log.Printf("data successfully migrated (read objects: %d, skipped: %d) in the shard %d, going to the next one...\n", onlyActualObjectsPeapod.read, onlyActualObjectsPeapod.skipped, i)
 
 		i++
 		return nil
@@ -267,4 +299,51 @@ func migrateConfigToFstree(dstPath, srcPath string) error {
 	}
 
 	return nil
+}
+
+func actualContainers(appCfg *config.Config) map[cid.ID]struct{} {
+	wsEndpts := fschainconfig.Endpoints(appCfg)
+	if len(wsEndpts) == 0 {
+		log.Fatal("missing fschain endpoints in config")
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
+	defer cancel()
+
+	pk, err := keys.NewPrivateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c, err := client.New(pk, client.WithContext(ctx), client.WithAutoFSChainScope(), client.WithEndpoints(wsEndpts))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
+	cnrHash, err := c.NNSContractAddress(client.NNSContainerContractName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("using container contract hash: %s\n", cnrHash)
+
+	cnrCli, err := container.NewFromMorph(c, cnrHash, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cnrs, err := cnrCli.List(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("actual containers number: %d\n", len(cnrs))
+
+	res := make(map[cid.ID]struct{})
+	for _, cnr := range cnrs {
+		res[cnr] = struct{}{}
+	}
+
+	return res
 }
