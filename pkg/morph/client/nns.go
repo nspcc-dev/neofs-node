@@ -113,19 +113,15 @@ func autoFSChainScope(ws *rpcclient.WSClient, conf *cfg) error {
 	if err != nil {
 		return fmt.Errorf("resolve Netmap contract address by NNS domain name %q: %w", nns.NameNetmap, err)
 	}
-	neofsIDHash, err := nnsReader.ResolveFSContract(nns.NameNeoFSID)
-	if err != nil {
-		return fmt.Errorf("resolve NeoFS ID contract address by NNS domain name %q: %w", nns.NameNeoFSID, err)
-	}
 
-	conf.signer = GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	conf.signer = GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash)
 	return nil
 }
 
 // GetUniversalSignerScope returns a universal (applicable for any valid NeoFS
 // contract call) scope that should be used by IR and SNs. It contains a set of
 // Rules for contracts calling each other and a regular CalledByEntry permission.
-func GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash util.Uint160) *transaction.Signer {
+func GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash util.Uint160) *transaction.Signer {
 	return &transaction.Signer{
 		Scopes: transaction.CalledByEntry | transaction.Rules,
 		Rules: []transaction.WitnessRule{{
@@ -139,12 +135,6 @@ func GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDH
 			Condition: &transaction.ConditionAnd{
 				(*transaction.ConditionCalledByContract)(&cntHash),
 				(*transaction.ConditionScriptHash)(&nnsHash),
-			},
-		}, {
-			Action: transaction.WitnessAllow,
-			Condition: &transaction.ConditionAnd{
-				(*transaction.ConditionCalledByContract)(&cntHash),
-				(*transaction.ConditionScriptHash)(&neofsIDHash),
 			},
 		}, {
 			Action: transaction.WitnessAllow,

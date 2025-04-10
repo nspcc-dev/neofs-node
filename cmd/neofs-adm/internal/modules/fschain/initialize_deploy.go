@@ -39,7 +39,6 @@ const (
 	auditContract      = "audit"
 	balanceContract    = "balance"
 	containerContract  = "container"
-	neofsIDContract    = "neofsid"
 	netmapContract     = "netmap"
 	proxyContract      = "proxy"
 	reputationContract = "reputation"
