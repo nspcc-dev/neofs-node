@@ -69,7 +69,6 @@ var (
 		auditContract,
 		balanceContract,
 		containerContract,
-		neofsIDContract,
 		proxyContract,
 		reputationContract,
 	}
@@ -501,13 +500,9 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 		items = append(items,
 			c.Contracts[netmapContract].Hash,
 			c.Contracts[balanceContract].Hash,
-			c.Contracts[neofsIDContract].Hash,
+			util.Uint160{}, // no longer used (https://github.com/nspcc-dev/neofs-contract/issues/474)
 			nnsHash,
 			"container")
-	case neofsIDContract:
-		items = append(items,
-			c.Contracts[netmapContract].Hash,
-			c.Contracts[containerContract].Hash)
 	case netmapContract:
 		configParam := []any{}
 		for _, kf := range []struct {
