@@ -273,12 +273,8 @@ func (c *initializeContext) getSigner(fancyScope bool, acc *wallet.Account) tran
 	if err != nil && c.Contracts[netmapContract] != nil {
 		netmapHash = c.Contracts[netmapContract].Hash
 	}
-	neofsIDHash, err := nnsReader.ResolveFSContract(nns.NameNeoFSID)
-	if err != nil && c.Contracts[neofsIDContract] != nil {
-		neofsIDHash = c.Contracts[neofsIDContract].Hash
-	}
 
-	signer = morphClient.GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash, neofsIDHash)
+	signer = morphClient.GetUniversalSignerScope(nnsHash, balanceHash, cntHash, netmapHash)
 	// Deploy-only rules.
 	signer.Rules = append(signer.Rules, transaction.WitnessRule{
 		Action: transaction.WitnessAllow,
