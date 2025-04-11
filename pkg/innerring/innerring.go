@@ -1144,7 +1144,7 @@ func nextEpochBlockDelta(duration, currentHeight, lastTick uint32) uint32 {
 	return delta - currentHeight
 }
 
-// onlyActiveHandler wrapper around event handler that executes it
+// onlyActiveEventHandler wrapper around event handler that executes it
 // only if inner ring node state is active.
 func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
 	return func(ev event.Event) {
@@ -1154,7 +1154,7 @@ func (s *Server) onlyActiveEventHandler(f event.Handler) event.Handler {
 	}
 }
 
-// onlyAlphabet wrapper around event handler that executes it
+// onlyAlphabetEventHandler wrapper around event handler that executes it
 // only if inner ring node is alphabet node.
 func (s *Server) onlyAlphabetEventHandler(f event.Handler) event.Handler {
 	return func(ev event.Event) {
