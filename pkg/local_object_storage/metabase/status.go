@@ -108,9 +108,14 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 			continue
 		}
 
+		v := b.Get(objKey)
+		if v == nil {
+			continue
+		}
+
 		res = append(res, BucketValue{
 			BucketIndex: int(bucketKey[0]), // the first byte is always a prefix
-			Value:       bytes.Clone(b.Get(objKey)),
+			Value:       bytes.Clone(v),
 		})
 	}
 
@@ -125,19 +130,27 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 			continue
 		}
 
+		v := b.Get(cIDRaw)
+		if v == nil {
+			continue
+		}
+
 		res = append(res, BucketValue{
 			BucketIndex: int(bucketKey),
-			Value:       bytes.Clone(b.Get(cIDRaw)),
+			Value:       bytes.Clone(v),
 		})
 	}
 
 	if b := tx.Bucket(bucketNameLocked); b != nil {
 		b = b.Bucket(cIDRaw)
 		if b != nil {
-			res = append(res, BucketValue{
-				BucketIndex: lockedPrefix,
-				Value:       bytes.Clone(b.Get(objKey)),
-			})
+			v := b.Get(objKey)
+			if v != nil {
+				res = append(res, BucketValue{
+					BucketIndex: lockedPrefix,
+					Value:       bytes.Clone(v),
+				})
+			}
 		}
 	}
 
