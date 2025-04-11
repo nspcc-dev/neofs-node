@@ -60,6 +60,12 @@ func statusFunc(cmd *cobra.Command, _ []string) error {
 		cmd.Printf("\tBucket: %d\n"+
 			"\tValue (HEX): %s\n", bucket.BucketIndex, valStr)
 	}
+	if len(res.HeaderIndex) > 0 {
+		cmd.Println("Header field indexes:")
+		for _, field := range res.HeaderIndex {
+			cmd.Printf("\t%s: %x\n", field.K, field.V)
+		}
+	}
 
 	return nil
 }

@@ -3,7 +3,9 @@ package meta
 import (
 	"bytes"
 	"fmt"
+	"slices"
 
+	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -16,14 +18,21 @@ type BucketValue struct {
 	Value       []byte
 }
 
+// HeaderField is object header's field index.
+type HeaderField struct {
+	K []byte
+	V []byte
+}
+
 // ObjectStatus represents the status of the object in the Metabase.
 type ObjectStatus struct {
-	Version   uint64
-	Buckets   []BucketValue
-	State     []string
-	Path      string
-	StorageID string
-	Error     error
+	Version     uint64
+	Buckets     []BucketValue
+	HeaderIndex []HeaderField
+	State       []string
+	Path        string
+	StorageID   string
+	Error       error
 }
 
 // ObjectStatus returns the status of the object in the Metabase. It contains state, path, storageID
@@ -54,7 +63,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		objKey := objectKey(address.Object(), make([]byte, objectKeySize))
 		key := make([]byte, bucketKeySize)
 
-		res.Buckets = readBuckets(tx, cID, objKey)
+		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, objKey)
 
 		if objectLocked(tx, cID, oID) {
 			res.State = append(res.State, "LOCKED")
@@ -83,8 +92,9 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	return res, err
 }
 
-func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
-	var res []BucketValue
+func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []HeaderField) {
+	var oldIndexes []BucketValue
+	var newIndexes []HeaderField
 	cIDRaw := containerKey(cID, make([]byte, cidSize))
 
 	objectBuckets := [][]byte{
@@ -113,7 +123,7 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 			continue
 		}
 
-		res = append(res, BucketValue{
+		oldIndexes = append(oldIndexes, BucketValue{
 			BucketIndex: int(bucketKey[0]), // the first byte is always a prefix
 			Value:       bytes.Clone(v),
 		})
@@ -135,7 +145,7 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 			continue
 		}
 
-		res = append(res, BucketValue{
+		oldIndexes = append(oldIndexes, BucketValue{
 			BucketIndex: int(bucketKey),
 			Value:       bytes.Clone(v),
 		})
@@ -146,7 +156,7 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 		if b != nil {
 			v := b.Get(objKey)
 			if v != nil {
-				res = append(res, BucketValue{
+				oldIndexes = append(oldIndexes, BucketValue{
 					BucketIndex: lockedPrefix,
 					Value:       bytes.Clone(v),
 				})
@@ -154,5 +164,23 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) []BucketValue {
 		}
 	}
 
-	return res
+	mBucket := tx.Bucket(metaBucketKey(cID))
+	if mBucket == nil {
+		return oldIndexes, nil
+	}
+
+	c := mBucket.Cursor()
+	pref := slices.Concat([]byte{metaPrefixIDAttr}, objKey)
+	k, _ := c.Seek(pref)
+	for ; bytes.HasPrefix(k, pref); k, _ = c.Next() {
+		kCut := k[len(pref):]
+		k, v, found := bytes.Cut(kCut, object.MetaAttributeDelimiter)
+		if !found {
+			continue
+		}
+
+		newIndexes = append(newIndexes, HeaderField{K: slices.Clone(k), V: slices.Clone(v)})
+	}
+
+	return oldIndexes, newIndexes
 }
