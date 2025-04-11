@@ -128,6 +128,10 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 	par := obj.Parent()
 
 	if obj.HasParent() {
+		if par != nil && par.HasParent() {
+			return errors.New("parent object has a parent itself")
+		}
+
 		if splitID != nil {
 			// V1 split
 			if firstSet {
