@@ -5,25 +5,24 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	metricsconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/metrics"
 	httputil "github.com/nspcc-dev/neofs-node/pkg/util/http"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func initMetrics(c *cfg) *httputil.Server {
-	if !metricsconfig.Enabled(c.cfgReader) {
+	if !c.appCfg.Prometheus.Enabled {
 		c.log.Info("prometheus is disabled")
 		return nil
 	}
 
 	var prm httputil.Prm
 
-	prm.Address = metricsconfig.Address(c.cfgReader)
+	prm.Address = c.appCfg.Prometheus.Address
 	prm.Handler = promhttp.Handler()
 
 	srv := httputil.New(prm,
 		httputil.WithShutdownTimeout(
-			metricsconfig.ShutdownTimeout(c.cfgReader),
+			c.appCfg.Prometheus.ShutdownTimeout,
 		),
 	)
 
@@ -38,16 +37,16 @@ type metricConfig struct {
 
 func writeMetricConfig(c *config.Config) metricConfig {
 	return metricConfig{
-		enabled:         metricsconfig.Enabled(c),
-		shutdownTimeout: metricsconfig.ShutdownTimeout(c),
-		address:         metricsconfig.Address(c),
+		enabled:         c.Prometheus.Enabled,
+		shutdownTimeout: c.Prometheus.ShutdownTimeout,
+		address:         c.Prometheus.Address,
 	}
 }
 
 func (m1 metricConfig) isUpdated(c *config.Config) bool {
-	return m1.enabled != metricsconfig.Enabled(c) ||
-		m1.shutdownTimeout != metricsconfig.ShutdownTimeout(c) ||
-		m1.address != metricsconfig.Address(c)
+	return m1.enabled != c.Prometheus.Enabled ||
+		m1.shutdownTimeout != c.Prometheus.ShutdownTimeout ||
+		m1.address != c.Prometheus.Address
 }
 
 func (c *cfg) setShardsCapacity() error {

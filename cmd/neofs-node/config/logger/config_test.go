@@ -12,16 +12,16 @@ import (
 func TestLoggerSection_Level(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		emptyConfig := configtest.EmptyConfig()
-		require.Equal(t, loggerconfig.LevelDefault, loggerconfig.Level(emptyConfig))
-		require.Equal(t, loggerconfig.EncodingDefault, loggerconfig.Encoding(emptyConfig))
-		require.False(t, loggerconfig.Timestamp(emptyConfig))
+		require.Equal(t, loggerconfig.LevelDefault, emptyConfig.Logger.Level)
+		require.Equal(t, loggerconfig.EncodingDefault, emptyConfig.Logger.Encoding)
+		require.False(t, emptyConfig.Logger.Timestamp)
 	})
 
 	const path = "../../../../config/example/node"
 
 	var fileConfigTest = func(c *config.Config) {
-		require.Equal(t, "debug", loggerconfig.Level(c))
-		require.Equal(t, "json", loggerconfig.Encoding(c))
+		require.Equal(t, "debug", c.Logger.Level)
+		require.Equal(t, "json", c.Logger.Encoding)
 	}
 
 	configtest.ForEachFileType(path, fileConfigTest)

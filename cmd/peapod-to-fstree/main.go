@@ -12,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
@@ -42,43 +41,45 @@ func main() {
 
 	log.Println("configuration successfully migrated, migrating data in shards...")
 
-	appCfg := config.New(config.Prm{}, config.WithConfigFile(*nodeCfgPath))
+	appCfg, err := config.New(config.WithConfigFile(*nodeCfgPath))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	i := uint64(0)
-	err = engineconfig.IterateShards(appCfg, false, func(sc *shardconfig.Config) error {
+	err = engineconfig.IterateShards(&appCfg.Storage, false, func(sc *shardconfig.ShardDetails) error {
 		log.Printf("processing shard %d...\n", i)
 
 		var (
 			countLimit  int
 			ppd, fstr   common.Storage
-			storagesCfg = sc.BlobStor().Storages()
+			storagesCfg = sc.Blobstor
 		)
 
-		for i := range storagesCfg {
-			switch storagesCfg[i].Type() {
+		for _, storageCfg := range storagesCfg {
+			switch storageCfg.Type {
 			case fstree.Type:
-				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
-				countLimit = sub.CombinedCountLimit()
+				countLimit = storageCfg.CombinedCountLimit
 
 				fstr = fstree.New(
-					fstree.WithPath(storagesCfg[i].Path()),
-					fstree.WithPerm(storagesCfg[i].Perm()),
-					fstree.WithDepth(sub.Depth()),
-					fstree.WithNoSync(sub.NoSync()),
+					fstree.WithPath(storageCfg.Path),
+					fstree.WithPerm(storageCfg.Perm),
+					fstree.WithDepth(storageCfg.Depth),
+					fstree.WithNoSync(*storageCfg.NoSync),
 					fstree.WithCombinedCountLimit(countLimit),
-					fstree.WithCombinedSizeLimit(sub.CombinedSizeLimit()),
-					fstree.WithCombinedSizeThreshold(sub.CombinedSizeThreshold()),
-					fstree.WithCombinedWriteInterval(storagesCfg[i].FlushInterval()),
+					fstree.WithCombinedSizeLimit(int(storageCfg.CombinedSizeLimit)),
+					fstree.WithCombinedSizeThreshold(int(storageCfg.CombinedSizeThreshold)),
+					fstree.WithCombinedWriteInterval(storageCfg.FlushInterval),
 				)
 
 			case peapod.Type:
 				ppd = peapod.New(
-					storagesCfg[i].Path(),
-					storagesCfg[i].Perm(),
-					storagesCfg[i].FlushInterval(),
+					storageCfg.Path,
+					storageCfg.Perm,
+					storageCfg.FlushInterval,
 				)
 			default:
-				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
+				return fmt.Errorf("invalid storage type: %s", storageCfg.Type)
 			}
 		}
 
@@ -97,8 +98,8 @@ func main() {
 		}
 
 		var compressCfg compression.Config
-		compressCfg.Enabled = sc.Compress()
-		compressCfg.UncompressableContentTypes = sc.UncompressableContentTypes()
+		compressCfg.Enabled = *sc.Compress
+		compressCfg.UncompressableContentTypes = sc.CompressionExcludeContentTypes
 
 		err := compressCfg.Init()
 		if err != nil {

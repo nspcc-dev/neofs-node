@@ -4,17 +4,16 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/locode-db/pkg/locodedb"
-	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/util/attributes"
 	"go.uber.org/zap"
 )
 
 func parseAttributes(c *cfg) {
-	if nodeconfig.Relay(c.cfgReader) {
+	if c.appCfg.Node.Relay {
 		return
 	}
 
-	fatalOnErr(attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, nodeconfig.Attributes(c.cfgReader)))
+	fatalOnErr(attributes.ReadNodeAttributes(&c.cfgNodeInfo.localInfo, c.appCfg.Node.Attributes))
 
 	// expand UN/LOCODE attribute if any found; keep user's attributes
 	// if any conflicts appear

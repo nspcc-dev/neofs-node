@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	grpcconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/grpc"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 	"golang.org/x/net/netutil"
@@ -51,7 +50,7 @@ func initGRPC(c *cfg) {
 	}
 
 	var successCount int
-	grpcconfig.IterateEndpoints(c.cfgReader, func(sc *grpcconfig.Config) {
+	for _, sc := range c.appCfg.GRPC {
 		serverOpts := []grpc.ServerOption{
 			grpc.MaxSendMsgSize(maxMsgSize),
 			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
@@ -67,10 +66,10 @@ func initGRPC(c *cfg) {
 			serverOpts = append(serverOpts, maxRecvMsgSizeOpt)
 		}
 
-		tlsCfg := sc.TLS()
+		tlsCfg := sc.TLS
 
-		if tlsCfg != nil {
-			cert, err := tls.LoadX509KeyPair(tlsCfg.CertificateFile(), tlsCfg.KeyFile())
+		if tlsCfg.Key != "" {
+			cert, err := tls.LoadX509KeyPair(tlsCfg.Certificate, tlsCfg.Key)
 			if err != nil {
 				c.log.Error("could not read certificate from file", zap.Error(err))
 				return
@@ -83,13 +82,13 @@ func initGRPC(c *cfg) {
 			serverOpts = append(serverOpts, grpc.Creds(creds))
 		}
 
-		lis, err := net.Listen("tcp", sc.Endpoint())
+		lis, err := net.Listen("tcp", sc.Endpoint)
 		if err != nil {
 			c.log.Error("can't listen gRPC endpoint", zap.Error(err))
 			return
 		}
 
-		if connLimit := sc.ConnectionLimit(); connLimit > 0 {
+		if connLimit := sc.ConnLimit; connLimit > 0 {
 			lis = netutil.LimitListener(lis, connLimit)
 		}
 
@@ -103,7 +102,7 @@ func initGRPC(c *cfg) {
 
 		c.cfgGRPC.servers = append(c.cfgGRPC.servers, srv)
 		successCount++
-	})
+	}
 
 	if successCount == 0 {
 		fatalOnErr(errors.New("could not listen to any gRPC endpoints"))
