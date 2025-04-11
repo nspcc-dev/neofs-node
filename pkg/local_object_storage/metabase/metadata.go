@@ -157,12 +157,10 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 	pref[0] = metaPrefixIDAttr
 	c := metaBkt.Cursor()
 	for kIDAttr, _ := c.Seek(pref); bytes.HasPrefix(kIDAttr, pref); kIDAttr, _ = c.Next() {
-		sepInd := bytes.LastIndex(kIDAttr, objectcore.MetaAttributeDelimiter)
-		if sepInd < 1+oid.Size {
+		attrK, attrV, found := bytes.Cut(kIDAttr[len(pref):], objectcore.MetaAttributeDelimiter)
+		if !found {
 			return 0, fmt.Errorf("invalid key with prefix 0x%X in meta bucket: missing delimiter", kIDAttr[0])
 		}
-		attrK := kIDAttr[1+oid.Size : sepInd]
-		attrV := kIDAttr[sepInd+attributeDelimiterLen:]
 		switch kStr := string(attrK); kStr {
 		case object.FilterType:
 			var typ object.Type
@@ -235,10 +233,10 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 		off += copy(kAttrID[off:], objectcore.MetaAttributeDelimiter)
 		copy(kAttrID[off:], id[:])
 		ks = append(ks, kIDAttr, kAttrID)
-		if n, ok := new(big.Int).SetString(string(kIDAttr[sepInd+attributeDelimiterLen:]), 10); ok && intWithinLimits(n) {
-			kAttrIDInt := make([]byte, sepInd+attributeDelimiterLen+intValLen)
+		if n, ok := new(big.Int).SetString(string(attrV), 10); ok && intWithinLimits(n) {
+			kAttrIDInt := make([]byte, 1+len(attrK)+attributeDelimiterLen+intValLen+oid.Size)
 			kAttrIDInt[0] = metaPrefixAttrIDInt
-			off := 1 + copy(kAttrIDInt[1:], kIDAttr[1+oid.Size:sepInd])
+			off := 1 + copy(kAttrIDInt[1:], attrK)
 			off += copy(kAttrIDInt[off:], objectcore.MetaAttributeDelimiter)
 			putInt(kAttrIDInt[off:off+intValLen], n)
 			copy(kAttrIDInt[off+intValLen:], id[:])
