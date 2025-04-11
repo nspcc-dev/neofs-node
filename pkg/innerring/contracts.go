@@ -177,7 +177,6 @@ func readEmbeddedContracts(deployPrm *deploy.Prm) error {
 		"NeoFS Audit":        &deployPrm.AuditContract.Common,
 		"NeoFS Balance":      &deployPrm.BalanceContract.Common,
 		"NeoFS Container":    &deployPrm.ContainerContract.Common,
-		"NeoFS ID":           &deployPrm.NeoFSIDContract.Common,
 		"NeoFS Netmap":       &deployPrm.NetmapContract.Common,
 		"NeoFS Notary Proxy": &deployPrm.ProxyContract.Common,
 		"NeoFS Reputation":   &deployPrm.ReputationContract.Common,
