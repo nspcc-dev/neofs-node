@@ -1676,6 +1676,12 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 			Message: "missing header field in the object field",
 		}}, nil
 	}
+	if hdrLen := hdr.MarshaledSize(); hdrLen > object.MaxHeaderLen {
+		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+			Code:    codeInternal,
+			Message: fmt.Sprintf("header exceeds size limitation (%d > %d)", hdrLen, object.MaxHeaderLen),
+		}}, nil
+	}
 
 	gCnrMsg := hdr.GetContainerId()
 	if gCnrMsg == nil {
