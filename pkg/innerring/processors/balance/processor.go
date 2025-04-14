@@ -23,7 +23,7 @@ type (
 		ToFixed8(int64) int64
 	}
 
-	// Processor of events produced by balance contract in the morphchain.
+	// Processor of events produced by balance contract in the FS chain.
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool

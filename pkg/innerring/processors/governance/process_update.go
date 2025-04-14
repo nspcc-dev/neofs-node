@@ -27,7 +27,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 		return
 	}
 
-	fsChainAlphabet, err := gp.morphClient.Committee()
+	fsChainAlphabet, err := gp.fsChainClient.Committee()
 	if err != nil {
 		gp.log.Error("can't fetch alphabet list from FS chain",
 			zap.Error(err))
@@ -76,7 +76,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 				zap.String("after", prettyKeys(newInnerRing)),
 			)
 
-			err = gp.morphClient.UpdateNeoFSAlphabetList(newInnerRing, txHash)
+			err = gp.fsChainClient.UpdateNeoFSAlphabetList(newInnerRing, txHash)
 
 			if err != nil {
 				gp.log.Error("can't update inner ring list with new alphabet keys",
@@ -86,7 +86,7 @@ func (gp *Processor) processAlphabetSync(txHash util.Uint256) {
 	}
 
 	// 3. Update notary role in FS chain.
-	err = gp.morphClient.UpdateNotaryList(newAlphabet, txHash)
+	err = gp.fsChainClient.UpdateNotaryList(newAlphabet, txHash)
 	if err != nil {
 		gp.log.Error("can't update list of notary nodes in FS chain",
 			zap.Error(err))

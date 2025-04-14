@@ -40,7 +40,7 @@ type (
 		neofsContract       util.Uint160
 		balanceClient       *balance.Client
 		netmapClient        *nmClient.Client
-		morphClient         *client.Client
+		fsChain             *client.Client
 		epochState          EpochState
 		alphabetState       AlphabetState
 		converter           PrecisionConverter
@@ -58,7 +58,7 @@ type (
 		NeoFSContract       util.Uint160
 		BalanceClient       *balance.Client
 		NetmapClient        *nmClient.Client
-		MorphClient         *client.Client
+		FSChainClient       *client.Client
 		EpochState          EpochState
 		AlphabetState       AlphabetState
 		Converter           PrecisionConverter
@@ -83,8 +83,8 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/neofs: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/neofs: neo:morph client is not set")
+	case p.FSChainClient == nil:
+		return nil, errors.New("ir/neofs: neo: FS chain client is not set")
 	case p.EpochState == nil:
 		return nil, errors.New("ir/neofs: global state is not set")
 	case p.AlphabetState == nil:
@@ -111,7 +111,7 @@ func New(p *Params) (*Processor, error) {
 		neofsContract:       p.NeoFSContract,
 		balanceClient:       p.BalanceClient,
 		netmapClient:        p.NetmapClient,
-		morphClient:         p.MorphClient,
+		fsChain:             p.FSChainClient,
 		epochState:          p.EpochState,
 		alphabetState:       p.AlphabetState,
 		converter:           p.Converter,

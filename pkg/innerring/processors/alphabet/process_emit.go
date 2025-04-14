@@ -26,7 +26,7 @@ func (ap *Processor) processEmit() {
 	}
 
 	// there is no signature collecting, so we don't need extra fee
-	err := ap.morphClient.Invoke(ap.alphabetContracts[index], false, 0, emitMethod)
+	err := ap.fsChainClient.Invoke(ap.alphabetContracts[index], false, 0, emitMethod)
 	if err != nil {
 		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))
 
@@ -69,7 +69,7 @@ func (ap *Processor) processEmit() {
 			continue
 		}
 
-		err = ap.morphClient.TransferGas(key.GetScriptHash(), gasPerNode)
+		err = ap.fsChainClient.TransferGas(key.GetScriptHash(), gasPerNode)
 		if err != nil {
 			ap.log.Warn("can't transfer gas",
 				zap.String("receiver", key.Address()),

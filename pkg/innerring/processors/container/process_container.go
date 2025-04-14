@@ -34,7 +34,7 @@ type putContainerContext struct {
 }
 
 // Process a new container from the user by checking the container sanity
-// and sending approve tx back to the morph.
+// and sending approve tx back to the FS chain.
 func (cp *Processor) processContainerPut(put putEvent) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
@@ -162,7 +162,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 }
 
 // Process delete container operation from the user by checking container sanity
-// and sending approve tx back to morph.
+// and sending approve tx back to FS chain.
 func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container delete")

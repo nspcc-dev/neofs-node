@@ -15,7 +15,7 @@ type (
 	BasicIncomeDistributeEvent = AuditEvent
 )
 
-// MorphEvent implements Neo:Morph event.
+// MorphEvent implements Neo: FS chain event.
 func (e AuditEvent) MorphEvent() {}
 
 // NewAuditEvent creates new AuditEvent for epoch.
