@@ -80,13 +80,6 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 func (cp *Processor) approveSetEACL(e container.SetEACL) {
 	var err error
 
-	prm := cntClient.PutEACLPrm{}
-
-	prm.SetTable(e.Table())
-	prm.SetKey(e.PublicKey())
-	prm.SetSignature(e.Signature())
-	prm.SetToken(e.SessionToken())
-
 	nr := e.NotaryRequest()
 	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
 

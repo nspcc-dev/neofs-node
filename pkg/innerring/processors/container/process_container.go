@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/network/payload"
-	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	containerSDK "github.com/nspcc-dev/neofs-sdk-go/container"
@@ -216,12 +215,6 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 
 func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
 	var err error
-
-	prm := cntClient.DeletePrm{}
-
-	prm.SetCID(e.ContainerID())
-	prm.SetSignature(e.Signature())
-	prm.SetToken(e.SessionToken())
 
 	nr := e.NotaryRequest()
 	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
