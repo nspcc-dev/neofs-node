@@ -51,10 +51,7 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 		return nil, fmt.Errorf("could not get byte array of eACL signature (%s): %w", eaclMethod, err)
 	}
 
-	// Client may not return errors if the table is missing, so check this case additionally.
-	// The absence of a signature in the response can be taken as an eACL absence criterion,
-	// since unsigned table cannot be approved in the storage by design.
-	if len(sig) == 0 {
+	if len(rawEACL) == 0 {
 		var errEACLNotFound apistatus.EACLNotFound
 
 		return nil, errEACLNotFound
