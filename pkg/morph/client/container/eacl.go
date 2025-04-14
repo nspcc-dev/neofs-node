@@ -2,7 +2,9 @@ package container
 
 import (
 	"fmt"
+	"strings"
 
+	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -22,6 +24,9 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 
 	prms, err := c.client.TestInvoke(prm)
 	if err != nil {
+		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
+			return nil, apistatus.ErrContainerNotFound
+		}
 		return nil, fmt.Errorf("could not perform test invocation (%s): %w", eaclMethod, err)
 	} else if ln := len(prms); ln != 1 {
 		return nil, fmt.Errorf("unexpected stack item count (%s): %d", eaclMethod, ln)
