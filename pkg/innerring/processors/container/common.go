@@ -81,7 +81,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 	}
 
 	if v.rfc6979 {
-		return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.verifScript, v.invocScript, v.signedData)
+		return icrypto.AuthenticateContainerRequestRFC6979(v.ownerContainer, v.verifScript, v.invocScript, v.signedData)
 	}
 	return icrypto.AuthenticateContainerRequestN3(v.ownerContainer, v.invocScript, v.verifScript, v.signedData, cp.cnrClient.Morph())
 }

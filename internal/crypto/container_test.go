@@ -14,13 +14,13 @@ func TestAuthenticateContainerRequest(t *testing.T) {
 			name, err string
 			changePub func([]byte) []byte
 		}{
-			{name: "nil", err: "invalid/unsupported public key length 0", changePub: func([]byte) []byte { return nil }},
-			{name: "empty", err: "invalid/unsupported public key length 0", changePub: func([]byte) []byte { return []byte{} }},
-			{name: "undersize", err: "invalid/unsupported public key length 32", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
-			{name: "oversize", err: "invalid/unsupported public key length 34", changePub: func(k []byte) []byte { return append(k, 1) }},
+			{name: "nil", err: "decode public key: EOF", changePub: func([]byte) []byte { return nil }},
+			{name: "empty", err: "decode public key: EOF", changePub: func([]byte) []byte { return []byte{} }},
+			{name: "undersize", err: "decode public key: unexpected EOF", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
+			{name: "oversize", err: "decode public key: extra data", changePub: func(k []byte) []byte { return append(k, 1) }},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				err := icrypto.AuthenticateContainerRequest(mainAcc, tc.changePub(mainAccECDSAPub), containerSig, containerPayload)
+				err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, tc.changePub(mainAccECDSAPub), containerSig, containerPayload)
 				require.EqualError(t, err, tc.err)
 			})
 		}
@@ -29,16 +29,16 @@ func TestAuthenticateContainerRequest(t *testing.T) {
 		for i := range containerSig {
 			cp := slices.Clone(containerSig)
 			cp[i]++
-			err := icrypto.AuthenticateContainerRequest(mainAcc, mainAccECDSAPub, cp, containerPayload)
+			err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, mainAccECDSAPub, cp, containerPayload)
 			require.EqualError(t, err, "signature mismatch")
 		}
 	})
 	t.Run("owner mismatch", func(t *testing.T) {
-		err := icrypto.AuthenticateContainerRequest(otherAcc, mainAccECDSAPub, containerSig, containerPayload)
+		err := icrypto.AuthenticateContainerRequestRFC6979(otherAcc, mainAccECDSAPub, containerSig, containerPayload)
 		require.EqualError(t, err, "owner mismatches signature")
 	})
 
-	err := icrypto.AuthenticateContainerRequest(mainAcc, mainAccECDSAPub, containerSig, containerPayload)
+	err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, mainAccECDSAPub, containerSig, containerPayload)
 	require.NoError(t, err)
 }
 
