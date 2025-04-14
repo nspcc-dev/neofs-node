@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - In-object session token signed not by its issuer is no longer passed by SN and CLI (#3216)
 - Object signed not by its owner is no longer passed by SN (#3264)
 - Metabase indexes cleanup (#3290)
+- Missing container status returned by `ContainerService.GetExtendedACL` SN server (#3294)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
