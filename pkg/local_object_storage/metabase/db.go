@@ -75,8 +75,8 @@ func defaultCfg() *cfg {
 		info: Info{
 			Permission: os.ModePerm, // 0777
 		},
-		boltBatchDelay: bbolt.DefaultMaxBatchDelay,
-		boltBatchSize:  bbolt.DefaultMaxBatchSize,
+		boltBatchDelay: 10 * time.Millisecond,
+		boltBatchSize:  1000,
 		log:            zap.L(),
 		initCtx:        context.Background(),
 	}
