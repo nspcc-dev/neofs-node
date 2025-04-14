@@ -24,7 +24,7 @@ type putEvent interface {
 }
 
 type putContainerContext struct {
-	e putEvent
+	e containerEvent.CreateContainerRequest
 
 	// must be filled when verifying raw data from e
 	cID cid.ID
@@ -34,14 +34,14 @@ type putContainerContext struct {
 
 // Process a new container from the user by checking the container sanity
 // and sending approve tx back to the FS chain.
-func (cp *Processor) processContainerPut(put putEvent) {
+func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
 		return
 	}
 
 	ctx := &putContainerContext{
-		e: put,
+		e: req,
 	}
 
 	err := cp.checkPutContainer(ctx)
@@ -69,7 +69,7 @@ var allowedSystemAttributes = map[string]struct{}{
 }
 
 func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
-	binCnr := ctx.e.Container()
+	binCnr := ctx.e.Container
 	ctx.cID = cid.NewFromMarshalledContainer(binCnr)
 
 	err := ctx.cnr.Unmarshal(binCnr)
@@ -92,9 +92,9 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 	err = cp.verifySignature(signatureVerificationData{
 		ownerContainer:  ctx.cnr.Owner(),
 		verb:            session.VerbContainerPut,
-		binTokenSession: ctx.e.SessionToken(),
-		binPublicKey:    ctx.e.PublicKey(),
-		signature:       ctx.e.Signature(),
+		binTokenSession: ctx.e.SessionToken,
+		binPublicKey:    ctx.e.VerificationScript,
+		signature:       ctx.e.InvocationScript,
 		signedData:      binCnr,
 	})
 	if err != nil {
@@ -125,8 +125,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 	var err error
 
-	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, true)
+	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(&e.MainTransaction, true)
 
 	if err != nil {
 		cp.log.Error("could not approve put container",
@@ -162,7 +161,7 @@ func (cp *Processor) approvePutContainer(ctx *putContainerContext) {
 
 // Process delete container operation from the user by checking container sanity
 // and sending approve tx back to FS chain.
-func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
+func (cp *Processor) processContainerDelete(e containerEvent.RemoveContainerRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container delete")
 		return
@@ -180,20 +179,22 @@ func (cp *Processor) processContainerDelete(e *containerEvent.Delete) {
 	cp.approveDeleteContainer(e)
 }
 
-func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
-	binCnr := e.ContainerID()
-
+func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequest) error {
 	var idCnr cid.ID
 
-	err := idCnr.Decode(binCnr)
+	err := idCnr.Decode(req.ID)
 	if err != nil {
 		return fmt.Errorf("invalid container ID: %w", err)
 	}
 
 	// receive owner of the related container
-	cnr, err := cp.cnrClient.Get(binCnr)
+	cnr, err := cp.cnrClient.Get(req.ID)
 	if err != nil {
 		return fmt.Errorf("could not receive the container: %w", err)
+	}
+
+	if req.VerificationScript == nil { // 'delete' case
+		req.VerificationScript = cnr.Signature.PublicKeyBytes()
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
@@ -201,10 +202,10 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 		verb:            session.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,
-		binPublicKey:    cnr.Signature.PublicKeyBytes(),
-		binTokenSession: e.SessionToken(),
-		signature:       e.Signature(),
-		signedData:      binCnr,
+		binPublicKey:    req.VerificationScript,
+		binTokenSession: req.SessionToken,
+		signature:       req.InvocationScript,
+		signedData:      req.ID,
 	})
 	if err != nil {
 		return fmt.Errorf("auth container removal: %w", err)
@@ -213,11 +214,8 @@ func (cp *Processor) checkDeleteContainer(e *containerEvent.Delete) error {
 	return nil
 }
 
-func (cp *Processor) approveDeleteContainer(e *containerEvent.Delete) {
-	var err error
-
-	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
+func (cp *Processor) approveDeleteContainer(e containerEvent.RemoveContainerRequest) {
+	err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&e.MainTransaction, false)
 
 	if err != nil {
 		cp.log.Error("could not approve delete container",
@@ -231,16 +229,13 @@ func checkNNS(ctx *putContainerContext, cnr containerSDK.Container) error {
 	ctx.d = cnr.ReadDomain()
 
 	// if PutNamed event => check if values in container correspond to args
-	if named, ok := ctx.e.(interface {
-		Name() string
-		Zone() string
-	}); ok {
-		if name := named.Name(); name != ctx.d.Name() {
-			return fmt.Errorf("names differ %s/%s", name, ctx.d.Name())
+	if ctx.e.DomainName != "" {
+		if ctx.e.DomainName != ctx.d.Name() {
+			return fmt.Errorf("names differ %s/%s", ctx.e.DomainName, ctx.d.Name())
 		}
 
-		if zone := named.Zone(); zone != ctx.d.Zone() {
-			return fmt.Errorf("zones differ %s/%s", zone, ctx.d.Zone())
+		if ctx.e.DomainZone != ctx.d.Zone() {
+			return fmt.Errorf("zones differ %s/%s", ctx.e.DomainZone, ctx.d.Zone())
 		}
 	}
 

@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Expose metrics about write-cache (#3293)
+- IR supports recently added Container contract's `create`, `remove` and `putEACL` methods now (#3282)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
