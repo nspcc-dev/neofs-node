@@ -41,7 +41,6 @@ type signatureVerificationData struct {
 //   - session token decodes correctly
 //   - signature is valid
 //   - session issued by the container owner
-//   - v.binPublicKey is a public session key
 //   - session context corresponds to the container and verb in v
 //   - session is "alive"
 func (cp *Processor) verifySignature(v signatureVerificationData) error {
