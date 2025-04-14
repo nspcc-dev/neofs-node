@@ -10,6 +10,7 @@ type NodeMetrics struct {
 	objectServiceMetrics
 	engineMetrics
 	stateMetrics
+	writecacheMetrics
 	epoch prometheus.Gauge
 }
 
@@ -25,6 +26,9 @@ func NewNodeMetrics(version string) *NodeMetrics {
 	state := newStateMetrics()
 	state.register()
 
+	writecache := newWritecacheMetrics()
+	writecache.register()
+
 	epoch := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: storageNodeNameSpace,
 		Subsystem: stateSubsystem,
@@ -37,6 +41,7 @@ func NewNodeMetrics(version string) *NodeMetrics {
 		objectServiceMetrics: objectService,
 		engineMetrics:        engine,
 		stateMetrics:         state,
+		writecacheMetrics:    writecache,
 		epoch:                epoch,
 	}
 }

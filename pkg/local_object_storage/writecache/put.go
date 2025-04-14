@@ -28,6 +28,10 @@ func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error 
 		return ErrBigObject
 	}
 
+	if c.metrics.mr != nil {
+		defer elapsed(c.metrics.AddWCPutDuration)()
+	}
+
 	oi := objectInfo{
 		addr: addr.EncodeToString(),
 		obj:  obj,
@@ -56,6 +60,8 @@ func (c *cache) put(addr oid.Address, obj objectInfo) error {
 		c.mtx.Unlock()
 	}
 	c.objCounters.Add(addr, objSz)
+	c.metrics.IncWCObjectCount()
+	c.metrics.AddWCSize(objSz)
 	storagelog.Write(c.log,
 		storagelog.AddressField(obj.addr),
 		storagelog.StorageTypeField(wcStorageType),

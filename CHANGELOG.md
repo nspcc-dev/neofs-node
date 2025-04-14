@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Expose metrics about write-cache (#3293)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)

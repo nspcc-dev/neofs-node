@@ -53,6 +53,7 @@ func (s *Shard) UpdateID() (err error) {
 	s.blobStor.SetLogger(s.log)
 	if s.hasWriteCache() {
 		s.writeCache.SetLogger(s.log)
+		s.writeCache.SetShardIDMetrics(s.info.ID.String())
 	}
 
 	if len(id) != 0 {

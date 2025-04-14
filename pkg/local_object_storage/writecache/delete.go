@@ -15,16 +15,20 @@ func (c *cache) Delete(addr oid.Address) error {
 		return ErrReadOnly
 	}
 
-	saddr := addr.EncodeToString()
+	return c.delete(addr)
+}
 
+func (c *cache) delete(addr oid.Address) error {
 	err := c.fsTree.Delete(addr)
 	if err == nil {
 		storagelog.Write(c.log,
-			storagelog.AddressField(saddr),
+			storagelog.AddressField(addr),
 			storagelog.StorageTypeField(wcStorageType),
 			storagelog.OpField("DELETE"),
 		)
 		c.objCounters.Delete(addr)
+		c.metrics.DecWCObjectCount()
+		c.metrics.SetWCSize(c.objCounters.Size())
 	}
 
 	return err
