@@ -636,10 +636,11 @@ func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st 
 	return cid.NewFromMarshalledContainer(data), nil
 }
 
-func (x *containersInChain) Delete(id cid.ID, _, sig []byte, st *session.Container) error {
+func (x *containersInChain) Delete(id cid.ID, pub, sig []byte, st *session.Container) error {
 	var prm cntClient.DeletePrm
 	prm.SetCID(id[:])
 	prm.SetSignature(sig)
+	prm.SetKey(pub)
 	prm.RequireAlphabetSignature()
 	if st != nil {
 		prm.SetToken(st.Marshal())

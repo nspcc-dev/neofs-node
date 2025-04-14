@@ -84,6 +84,10 @@ func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 		}
 	}
 
+	if len(pub) == 0 {
+		return &res, nil
+	}
+
 	res.Signature, err = decodeSignature(pub, sig)
 	if err != nil {
 		return nil, fmt.Errorf("decode signature: %w", err)

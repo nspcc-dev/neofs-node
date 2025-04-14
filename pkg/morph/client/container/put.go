@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 )
 
 // PutPrm groups parameters of Put operation.
@@ -65,7 +66,7 @@ func (c *Client) Put(p PutPrm) error {
 	}
 
 	var prm client.InvokePrm
-	prm.SetMethod(putMethod)
+	prm.SetMethod(fschaincontracts.CreateContainerMethod)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 	prm.SetArgs(p.cnr, p.sig, p.key, p.token, p.name, p.zone, p.enableMetaOnChain)
 
@@ -76,7 +77,14 @@ func (c *Client) Put(p PutPrm) error {
 
 	err := c.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
+		if isMethodNotFoundError(err, fschaincontracts.CreateContainerMethod) {
+			prm.SetMethod(putMethod)
+			if err = c.client.Invoke(prm); err != nil {
+				return fmt.Errorf("could not invoke method (%s): %w", putMethod, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.CreateContainerMethod, err)
 	}
 	return nil
 }

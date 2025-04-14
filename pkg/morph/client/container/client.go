@@ -3,8 +3,10 @@ package container
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
+	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -125,4 +127,16 @@ func decodeSignature(bPubKey, sig []byte) (neofscrypto.Signature, error) {
 	}
 
 	return neofscrypto.NewSignature(neofscrypto.ECDSA_DETERMINISTIC_SHA256, &pubKey, sig), nil
+}
+
+func isMethodNotFoundError(err error, mtd string) bool {
+	var exc unwrap.Exception
+	if errors.As(err, &exc) {
+		return isMethodNotFoundException(string(exc), mtd)
+	}
+	return isMethodNotFoundException(err.Error(), mtd)
+}
+
+func isMethodNotFoundException(msg, mtd string) bool {
+	return strings.Contains(msg, "method not found: "+mtd)
 }

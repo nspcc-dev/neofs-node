@@ -96,6 +96,10 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 		}
 	}
 
+	if len(pub) == 0 {
+		return &cnr, nil
+	}
+
 	cnr.Signature, err = decodeSignature(pub, sigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("decode signature: %w", err)
