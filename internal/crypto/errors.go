@@ -9,6 +9,8 @@ import (
 
 var errIssuerMismatch = errors.New("issuer mismatches signature")
 
+var errOwnerMismatch = errors.New("owner mismatches signature")
+
 var errMissingSignature = errors.New("missing signature")
 
 var errSignatureMismatch = errors.New("signature mismatch")

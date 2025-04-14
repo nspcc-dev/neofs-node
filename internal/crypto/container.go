@@ -1,9 +1,10 @@
 package crypto
 
 import (
-	"errors"
+	"crypto/sha256"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -22,8 +23,21 @@ func AuthenticateContainerRequest(owner user.ID, pubBin, sig, payload []byte) er
 			return errSignatureMismatch
 		}
 		if user.NewFromECDSAPublicKey(*pub) != owner {
-			return errors.New("owner mismatches signature")
+			return errOwnerMismatch
 		}
 	}
 	return nil
+}
+
+// AuthenticateContainerRequestN3 checks N3 witness of the container owner sent
+// along with specified request payload against the current FS chain state.
+func AuthenticateContainerRequestN3(owner user.ID, invocScript, verifScript, payload []byte, fsChain N3ScriptRunner) error {
+	verifScriptHash := hash.Hash160(verifScript)
+	if user.NewFromScriptHash(verifScriptHash) != owner {
+		return errOwnerMismatch
+	}
+
+	return verifyN3ScriptsNow(fsChain, verifScriptHash, invocScript, verifScript, func() [sha256.Size]byte {
+		return sha256.Sum256(payload)
+	})
 }

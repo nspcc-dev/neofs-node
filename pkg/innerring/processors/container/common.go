@@ -25,22 +25,20 @@ type signatureVerificationData struct {
 
 	binTokenSession []byte
 
-	binPublicKey []byte
-
-	signature []byte
+	verifScript []byte
+	invocScript []byte
+	rfc6979     bool
 
 	signedData []byte
 }
 
 // verifySignature is a common method of Container service authentication. Asserts that:
 //   - for trusted parties: session is valid (*) and issued by container owner
-//   - operation data is signed by container owner or trusted party
-//   - operation data signature is correct
+//   - operation data is witnessed by container owner or trusted party
 //
 // (*) includes:
 //   - session token decodes correctly
-//   - signature is valid
-//   - session issued by the container owner
+//   - session issued and witnessed by the container owner
 //   - session context corresponds to the container and verb in v
 //   - session is "alive"
 func (cp *Processor) verifySignature(v signatureVerificationData) error {
@@ -75,15 +73,17 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("check session lifetime: %w", err)
 		}
 
-		if !tok.VerifySessionDataSignature(v.signedData, v.signature) {
+		if !tok.VerifySessionDataSignature(v.signedData, v.invocScript) {
 			return errors.New("invalid signature calculated with session key")
 		}
 
 		return nil
 	}
 
-	// TODO(@cthulhu-rider): #1387 use another approach after neofs-sdk-go#233
-	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.binPublicKey, v.signature, v.signedData)
+	if v.rfc6979 {
+		return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.verifScript, v.invocScript, v.signedData)
+	}
+	return icrypto.AuthenticateContainerRequestN3(v.ownerContainer, v.invocScript, v.verifScript, v.signedData, cp.cnrClient.Morph())
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {
