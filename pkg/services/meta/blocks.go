@@ -60,7 +60,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 			m.l.Debug("received object notification", zap.Stringer("address", oid.NewAddress(ev.cID, ev.oID)))
 
 			evsByStorage[st] = append(evsByStorage[st], ev)
-		case cnrDeleteName:
+		case cnrDeleteName, cnrRmName:
 			ev, err := parseCnrNotification(n)
 			if err != nil {
 				l.Error("invalid container removal notification received", zap.Error(err))
@@ -82,7 +82,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 			}
 
 			l.Debug("deleted container", zap.Stringer("cID", ev.cID))
-		case cnrPutName:
+		case cnrPutName, cnrCrtName:
 			ev, err := parseCnrNotification(n)
 			if err != nil {
 				l.Error("invalid container notification received", zap.Error(err))

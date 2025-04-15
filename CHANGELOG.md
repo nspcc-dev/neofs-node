@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Expose metrics about write-cache (#3293)
 - IR supports recently added Container contract's `create`, `remove` and `putEACL` methods now (#3282)
 - SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
+- SN listens and handles recently added Container contract's `Created` and `Removed` notifications (#3282)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
