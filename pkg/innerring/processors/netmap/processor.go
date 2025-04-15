@@ -126,10 +126,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
-	// Override any setting for v2, it's managed by contract.
-	if p.NetmapClient.IsNodeV2() {
-		p.CleanupEnabled = false
-	}
+	p.CleanupEnabled = false
 
 	return &Processor{
 		log:            p.Log,
@@ -194,11 +191,6 @@ func (np *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 
 	p.SetScriptHash(np.netmapClient.ContractAddress())
 
-	// new peer
-	p.SetRequestType(netmapEvent.AddPeerNotaryEvent)
-	p.SetParser(netmapEvent.ParseAddPeerNotary)
-	pp = append(pp, p)
-
 	// new node
 	p.SetRequestType(netmapEvent.AddNodeNotaryEvent)
 	p.SetParser(netmapEvent.ParseAddNodeNotary)
@@ -221,11 +213,6 @@ func (np *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	)
 
 	h.SetScriptHash(np.netmapClient.ContractAddress())
-
-	// new peer
-	h.SetRequestType(netmapEvent.AddPeerNotaryEvent)
-	h.SetHandler(np.handleAddPeer)
-	hh = append(hh, h)
 
 	// new node
 	h.SetRequestType(netmapEvent.AddNodeNotaryEvent)

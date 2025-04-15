@@ -39,25 +39,6 @@ func (np *Processor) handleNewEpoch(ev event.Event) {
 	}
 }
 
-func (np *Processor) handleAddPeer(ev event.Event) {
-	newPeer := ev.(netmapEvent.AddPeer)
-
-	np.log.Info("notification",
-		zap.String("type", "add peer"),
-	)
-
-	// send an event to the worker pool
-
-	err := np.pool.Submit(func() {
-		np.processAddPeer(newPeer)
-	})
-	if err != nil {
-		// there system can be moved into controlled degradation stage
-		np.log.Warn("netmap worker pool drained",
-			zap.Int("capacity", np.pool.Cap()))
-	}
-}
-
 func (np *Processor) handleAddNode(ev event.Event) {
 	newNode := ev.(netmapEvent.AddNode)
 

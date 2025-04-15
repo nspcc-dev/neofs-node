@@ -811,12 +811,6 @@ func (c *cfg) heartbeat() error {
 		currentStatus = c.cfgNetmap.state.controlNetmapStatus()
 		st            *big.Int
 	)
-	if !c.nCli.IsNodeV2() {
-		err := c.bootstrapOnline()
-		if err != nil {
-			return err
-		}
-	}
 	switch currentStatus {
 	case control.NetmapStatus_MAINTENANCE:
 		st = netmaprpc.NodeStateMaintenance

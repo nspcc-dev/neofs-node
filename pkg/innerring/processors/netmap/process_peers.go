@@ -9,37 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Process add peer notification by sanity check of new node
-// local epoch timer.
-func (np *Processor) processAddPeer(ev netmapEvent.AddPeer) {
-	if !np.alphabetState.IsAlphabet() {
-		np.log.Info("non alphabet mode, ignore new peer notification")
-		return
-	}
-
-	// check if notary transaction is valid, see #976
-	originalRequest := ev.NotaryRequest()
-	tx := originalRequest.MainTransaction
-	ok, err := np.netmapClient.Morph().IsValidScript(tx.Script, tx.Signers)
-	if err != nil || !ok {
-		np.log.Warn("non-halt notary transaction",
-			zap.String("method", "netmap.AddPeer"),
-			zap.String("hash", tx.Hash().StringLE()),
-			zap.Error(err))
-		return
-	}
-
-	// unmarshal node info
-	var nodeInfo netmap.NodeInfo
-	if err := nodeInfo.Unmarshal(ev.Node()); err != nil {
-		// it will be nice to have tx id at event structure to log it
-		np.log.Warn("can't parse network map candidate")
-		return
-	}
-
-	np.validateCandidate(tx, nodeInfo, false)
-}
-
 func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo, v2 bool) {
 	// validate node info
 	var err = np.nodeValidator.Verify(nodeInfo)

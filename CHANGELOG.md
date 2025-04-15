@@ -39,6 +39,7 @@ Changelog for NeoFS Node
 - `tree` SN configuration section (#3270)
 - `pilorama` shard configuration section for SN (#3270)
 - Tree service related CLI commands (#3270)
+- Netmap v1 node support (#3304)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)

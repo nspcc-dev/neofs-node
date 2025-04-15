@@ -151,10 +151,6 @@ func (c *Client) MaintenanceModeAllowed() (bool, error) {
 	return c.readBoolConfig(MaintenanceModeAllowedConfig)
 }
 
-func (c *Client) useNodeV2() (bool, error) {
-	return c.readBoolConfig("UseNodeV2")
-}
-
 func (c *Client) readUInt64Config(key string) (uint64, error) {
 	v, err := c.config([]byte(key), IntegerAssert)
 	if err != nil {
