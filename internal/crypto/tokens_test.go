@@ -29,9 +29,9 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := bearerECDSASHA512
 		sig, _ := token.Signature()
-		sig.SetScheme(3)
+		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 3")
+		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -128,9 +128,9 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := objectSessionECDSASHA512
 		sig, _ := token.Signature()
-		sig.SetScheme(3)
+		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 3")
+		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -227,9 +227,9 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := containerSessionECDSASHA512
 		sig, _ := token.Signature()
-		sig.SetScheme(3)
+		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 3")
+		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {

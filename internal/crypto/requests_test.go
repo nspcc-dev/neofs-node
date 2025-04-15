@@ -127,9 +127,9 @@ func TestGetRequestAuthor(t *testing.T) {
 		t.Run("unsupported body signature scheme", func(t *testing.T) {
 			req := proto.Clone(getObjectSignedRequest).(*protoobject.GetRequest)
 			req.VerifyHeader = req.VerifyHeader.Origin
-			req.VerifyHeader.BodySignature.Scheme = 3
+			req.VerifyHeader.BodySignature.Scheme = 4
 			_, _, err := icrypto.GetRequestAuthor(req.VerifyHeader)
-			require.EqualError(t, err, "unsupported scheme 3")
+			require.EqualError(t, err, "unsupported scheme 4")
 		})
 	})
 }

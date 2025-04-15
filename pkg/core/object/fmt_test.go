@@ -119,10 +119,10 @@ func TestFormatValidator_Validate(t *testing.T) {
 
 			sigBytes, err := signer.Sign(obj.GetID().Marshal())
 			require.NoError(t, err)
-			sig := neofscrypto.NewSignature(3, signer.Public(), sigBytes)
+			sig := neofscrypto.NewSignature(4, signer.Public(), sigBytes)
 			obj.SetSignature(&sig)
 
-			require.EqualError(t, v.Validate(&obj, false), "authenticate: unsupported scheme 3")
+			require.EqualError(t, v.Validate(&obj, false), "authenticate: unsupported scheme 4")
 		})
 		t.Run("wrong scheme", func(t *testing.T) {
 			obj, signer := minUnsignedObject(t)

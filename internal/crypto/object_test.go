@@ -25,9 +25,9 @@ func TestAuthenticateObject(t *testing.T) {
 	t.Run("unsupported scheme", func(t *testing.T) {
 		obj := objectECDSASHA512
 		sig := *obj.Signature()
-		sig.SetScheme(3)
+		sig.SetScheme(4)
 		obj.SetSignature(&sig)
-		require.EqualError(t, icrypto.AuthenticateObject(obj), "unsupported scheme 3")
+		require.EqualError(t, icrypto.AuthenticateObject(obj), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {

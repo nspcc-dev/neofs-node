@@ -284,7 +284,7 @@ func initObjectService(c *cfg) {
 	// every object part in every chain will try to refer to the first part, so caching
 	// should help a lot here
 	const cachedFirstObjectsNumber = 1000
-	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance)
+	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
 
 	aclSvc := v2.New(
 		v2.WithLogger(c.log),
@@ -566,15 +566,17 @@ type fsChainForObjects struct {
 	containerNodes *containerNodes
 	isLocalPubKey  func([]byte) bool
 	isMaintenance  *atomic.Bool
+	*morphClient.Client
 }
 
-func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool) *fsChainForObjects {
+func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) bool, ns netmap.StateDetailed, cnrSource containercore.Source, isMaintenance *atomic.Bool, fsChainCli *morphClient.Client) *fsChainForObjects {
 	return &fsChainForObjects{
 		Source:         cnrSource,
 		StateDetailed:  ns,
 		containerNodes: cnrNodes,
 		isLocalPubKey:  isLocalPubKey,
 		isMaintenance:  isMaintenance,
+		Client:         fsChainCli,
 	}
 }
 
