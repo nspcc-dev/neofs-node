@@ -15,9 +15,6 @@ var dropObjectsCmd = &cobra.Command{
 	Long:  "Drop objects from the node's local storage",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
-		defer cancel()
-
 		pk, err := key.Get(cmd)
 		if err != nil {
 			return err
@@ -40,6 +37,9 @@ var dropObjectsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
 
 		cli, err := getClient(ctx)
 		if err != nil {

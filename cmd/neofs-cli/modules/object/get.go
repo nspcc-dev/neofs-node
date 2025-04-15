@@ -43,9 +43,6 @@ func initObjectGetCmd() {
 }
 
 func getObject(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -73,6 +70,9 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {

@@ -26,9 +26,6 @@ var setExtendedACLCmd = &cobra.Command{
 Container ID in EACL table will be substituted with ID from the CLI.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := getAwaitContext(cmd)
-		defer cancel()
-
 		id, err := parseContainerID()
 		if err != nil {
 			return err
@@ -49,6 +46,10 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := getAwaitContext(cmd)
+		defer cancel()
+
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err

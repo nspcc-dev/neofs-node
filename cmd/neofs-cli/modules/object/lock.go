@@ -23,9 +23,6 @@ var objectLockCmd = &cobra.Command{
 	Long:  "Lock object in container",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
-		defer cancel()
-
 		cidRaw, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
 		var cnr cid.ID
@@ -85,6 +82,9 @@ var objectLockCmd = &cobra.Command{
 
 		var prm internalclient.PutObjectPrm
 		prm.SetPrivateKey(*key)
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
 
 		err = ReadOrOpenSession(ctx, cmd, &prm, key, cnr)
 		if err != nil {

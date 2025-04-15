@@ -26,8 +26,6 @@ var accountingBalanceCmd = &cobra.Command{
 	Long:  `Get internal balance of NeoFS account`,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := context.Background()
-
 		var idUser user.ID
 
 		pk, err := key.GetOrGenerate(cmd)
@@ -42,6 +40,7 @@ var accountingBalanceCmd = &cobra.Command{
 			return fmt.Errorf("can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}
 
+		ctx := context.Background()
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err

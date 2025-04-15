@@ -60,9 +60,6 @@ func initObjectPutCmd() {
 }
 
 func putObject(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	binary, _ := cmd.Flags().GetBool(binaryFlag)
 	cidVal, _ := cmd.Flags().GetString(commonflags.CIDFlag)
 
@@ -112,6 +109,9 @@ func putObject(cmd *cobra.Command, _ []string) error {
 		}
 		ownerID = user.NewFromECDSAPublicKey(pk.PublicKey)
 	}
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	attrs, err := parseObjectAttrs(cmd, ctx)
 	if err != nil {

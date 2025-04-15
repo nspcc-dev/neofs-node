@@ -102,9 +102,6 @@ func initControlSetShardModeCmd() {
 }
 
 func setShardMode(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	pk, err := key.Get(cmd)
 	if err != nil {
 		return err
@@ -137,6 +134,9 @@ func setShardMode(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	cli, err := getClient(ctx)
 	if err != nil {

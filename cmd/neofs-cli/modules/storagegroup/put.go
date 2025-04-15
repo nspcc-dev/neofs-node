@@ -53,8 +53,6 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	// Track https://github.com/nspcc-dev/neofs-node/issues/2595.
 	exp, _ := cmd.Flags().GetUint64(commonflags.ExpireAt)
 	lifetime, _ := cmd.Flags().GetUint64(commonflags.Lifetime)
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
 
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
@@ -91,6 +89,9 @@ func putSG(cmd *cobra.Command, _ []string) error {
 		getCnrPrm internalclient.GetContainerPrm
 		getPrm    internalclient.GetObjectPrm
 	)
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {
