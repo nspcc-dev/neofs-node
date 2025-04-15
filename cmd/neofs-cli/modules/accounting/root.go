@@ -18,6 +18,7 @@ var Cmd = &cobra.Command{
 		_ = viper.BindPFlag(commonflags.WalletPath, flags.Lookup(commonflags.WalletPath))
 		_ = viper.BindPFlag(commonflags.Account, flags.Lookup(commonflags.Account))
 		_ = viper.BindPFlag(commonflags.RPC, flags.Lookup(commonflags.RPC))
+		_ = viper.BindPFlag(commonflags.Timeout, flags.Lookup(commonflags.Timeout))
 	},
 }
 

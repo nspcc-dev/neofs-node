@@ -13,6 +13,8 @@ Changelog for NeoFS Node
 - Metabase indexes cleanup (#3290)
 - Missing container status returned by `ContainerService.GetExtendedACL` SN server (#3294)
 - Exit code of CLI commands for already removed object (#3300)
+- CLI timeout can expire before RPC (#3302)
+- `accounting balance` request without timeout (#3302)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)

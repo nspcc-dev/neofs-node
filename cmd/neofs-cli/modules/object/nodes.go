@@ -24,9 +24,6 @@ var objectNodesCmd = &cobra.Command{
 	Long:  "Show nodes taking part in an object placement at the current epoch.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
-		defer cancel()
-
 		var cnrID cid.ID
 		err := readCID(cmd, &cnrID)
 		if err != nil {
@@ -38,6 +35,9 @@ var objectNodesCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
 
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {

@@ -22,9 +22,6 @@ var deleteContainerCmd = &cobra.Command{
 Only owner of the container has a permission to remove container.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := getAwaitContext(cmd)
-		defer cancel()
-
 		id, err := parseContainerID()
 		if err != nil {
 			return err
@@ -39,6 +36,10 @@ Only owner of the container has a permission to remove container.`,
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := getAwaitContext(cmd)
+		defer cancel()
+
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err

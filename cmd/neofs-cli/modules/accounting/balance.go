@@ -1,7 +1,6 @@
 package accounting
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 
@@ -26,8 +25,6 @@ var accountingBalanceCmd = &cobra.Command{
 	Long:  `Get internal balance of NeoFS account`,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := context.Background()
-
 		var idUser user.ID
 
 		pk, err := key.GetOrGenerate(cmd)
@@ -41,6 +38,9 @@ var accountingBalanceCmd = &cobra.Command{
 		} else {
 			return fmt.Errorf("can't decode owner ID wallet address: %w", idUser.DecodeString(balanceOwner))
 		}
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
 
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
@@ -63,11 +63,10 @@ var accountingBalanceCmd = &cobra.Command{
 }
 
 func initAccountingBalanceCmd() {
+	commonflags.Init(accountingBalanceCmd)
+
 	ff := accountingBalanceCmd.Flags()
 
-	ff.StringP(commonflags.WalletPath, commonflags.WalletPathShorthand, commonflags.WalletPathDefault, commonflags.WalletPathUsage)
-	ff.StringP(commonflags.Account, commonflags.AccountShorthand, commonflags.AccountDefault, commonflags.AccountUsage)
-	ff.StringP(commonflags.RPC, commonflags.RPCShorthand, commonflags.RPCDefault, commonflags.RPCUsage)
 	ff.String(ownerFlag, "", "owner of balance account (omit to use owner from private key)")
 }
 

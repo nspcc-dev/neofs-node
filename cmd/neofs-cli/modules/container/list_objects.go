@@ -32,9 +32,6 @@ var listContainerObjectsCmd = &cobra.Command{
 	Long:  `List existing objects in container`,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
-		defer cancel()
-
 		id, err := parseContainerID()
 		if err != nil {
 			return err
@@ -51,6 +48,10 @@ var listContainerObjectsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
+
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err

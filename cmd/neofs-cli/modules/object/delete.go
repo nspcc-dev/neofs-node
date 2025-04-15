@@ -36,9 +36,6 @@ func initObjectDeleteCmd() {
 }
 
 func deleteObject(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	var cnr cid.ID
 	var objAddrs []oid.Address
 
@@ -91,6 +88,9 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	for _, addr := range objAddrs {
 		id := addr.Object()

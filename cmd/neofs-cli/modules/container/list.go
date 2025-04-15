@@ -28,9 +28,6 @@ var listContainersCmd = &cobra.Command{
 	Long:  "List all created containers",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, cancel := commonflags.GetCommandContext(cmd)
-		defer cancel()
-
 		var idUser user.ID
 
 		key, err := key.GetOrGenerate(cmd)
@@ -46,6 +43,9 @@ var listContainersCmd = &cobra.Command{
 				return fmt.Errorf("invalid user ID: %w", err)
 			}
 		}
+
+		ctx, cancel := commonflags.GetCommandContext(cmd)
+		defer cancel()
 
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {

@@ -42,9 +42,6 @@ func initSGGetCmd() {
 }
 
 func getSG(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	var cnr cid.ID
 	var obj oid.ID
 
@@ -57,6 +54,9 @@ func getSG(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	buf := bytes.NewBuffer(nil)
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
 
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {

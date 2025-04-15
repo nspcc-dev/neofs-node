@@ -33,9 +33,6 @@ func initSGDeleteCmd() {
 }
 
 func delSG(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	pk, err := key.GetOrGenerate(cmd)
 	if err != nil {
 		return err
@@ -51,6 +48,10 @@ func delSG(cmd *cobra.Command, _ []string) error {
 
 	var prm internalclient.DeleteObjectPrm
 	prm.SetPrivateKey(*pk)
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	err = objectCli.OpenSession(ctx, cmd, &prm, pk, cnr, obj)
 	if err != nil {
 		return err

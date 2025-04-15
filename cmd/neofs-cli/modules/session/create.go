@@ -59,8 +59,6 @@ func init() {
 }
 
 func createSession(cmd *cobra.Command, _ []string) error {
-	ctx := context.Background()
-
 	privKey, err := key.Get(cmd)
 	if err != nil {
 		return err
@@ -72,6 +70,7 @@ func createSession(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("can't parse endpoint: %w", err)
 	}
 
+	ctx := context.Background()
 	c, err := internalclient.GetSDKClient(ctx, netAddr)
 	if err != nil {
 		return fmt.Errorf("can't create client: %w", err)

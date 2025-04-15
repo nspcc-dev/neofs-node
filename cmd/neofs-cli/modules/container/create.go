@@ -41,9 +41,6 @@ It will be stored in FS chain when inner ring will accepts it.`,
 			return errors.New("--global-name requires a name attribute")
 		}
 
-		ctx, cancel := getAwaitContext(cmd)
-		defer cancel()
-
 		placementPolicy, err := parseContainerPolicy(cmd, containerPolicy)
 		if err != nil {
 			return err
@@ -53,6 +50,10 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		if err != nil {
 			return err
 		}
+
+		ctx, cancel := getAwaitContext(cmd)
+		defer cancel()
+
 		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 		if err != nil {
 			return err

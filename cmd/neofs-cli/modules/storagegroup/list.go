@@ -32,9 +32,6 @@ func initSGListCmd() {
 }
 
 func listSG(cmd *cobra.Command, _ []string) error {
-	ctx, cancel := commonflags.GetCommandContext(cmd)
-	defer cancel()
-
 	var cnr cid.ID
 	err := readCID(cmd, &cnr)
 	if err != nil {
@@ -49,6 +46,10 @@ func listSG(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := commonflags.GetCommandContext(cmd)
+	defer cancel()
+
 	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
 	if err != nil {
 		return err
