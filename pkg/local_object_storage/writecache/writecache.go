@@ -41,6 +41,7 @@ type Cache interface {
 	Put(oid.Address, *object.Object, []byte) error
 	SetMode(mode.Mode) error
 	SetLogger(*zap.Logger)
+	SetShardIDMetrics(string)
 	DumpInfo() Info
 	Flush(bool) error
 
@@ -104,6 +105,7 @@ func New(opts ...Option) Cache {
 		compressFlags: make(map[string]struct{}),
 		options: options{
 			log:           zap.NewNop(),
+			metrics:       new(metricsWithID),
 			maxObjectSize: defaultMaxObjectSize,
 			maxCacheSize:  defaultMaxCacheSize,
 			objCounters: counters{
@@ -126,6 +128,11 @@ func New(opts ...Option) Cache {
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
 func (c *cache) SetLogger(l *zap.Logger) {
 	c.log = l.With(zap.String("substorage", wcStorageType))
+}
+
+// SetShardIDMetrics sets shard id for metrics. It is used after the shard ID was generated.
+func (c *cache) SetShardIDMetrics(id string) {
+	c.metrics.id = id
 }
 
 func (c *cache) DumpInfo() Info {

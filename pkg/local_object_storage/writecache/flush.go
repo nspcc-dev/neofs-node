@@ -9,7 +9,6 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -226,6 +225,9 @@ func (c *cache) reportFlushError(msg string, addr string, err error) {
 }
 
 func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
+	if c.metrics.mr != nil {
+		defer elapsed(c.metrics.AddWCFlushSingleDuration)()
+	}
 	obj, data, err := c.getObject(addr)
 	if err != nil {
 		if ignoreErrors {
@@ -242,16 +244,9 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 		return err
 	}
 
-	err = c.fsTree.Delete(addr)
+	err = c.delete(addr)
 	if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 		c.log.Error("can't remove object from write-cache", zap.Error(err))
-	} else if err == nil {
-		storagelog.Write(c.log,
-			storagelog.AddressField(addr),
-			storagelog.StorageTypeField(wcStorageType),
-			storagelog.OpField("DELETE"),
-		)
-		c.objCounters.Delete(addr)
 	}
 
 	return nil
@@ -297,6 +292,10 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 
 	if c.readOnly() {
 		return nil
+	}
+
+	if c.metrics.mr != nil {
+		defer elapsed(c.metrics.AddWCFlushBatchDuration)()
 	}
 
 	objs := make([]blobstor.PutBatchPrm, 0, len(addrs))
@@ -347,16 +346,9 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 				obj.Addr.EncodeToString(), err)
 		}
 
-		err = c.fsTree.Delete(obj.Addr)
+		err = c.delete(obj.Addr)
 		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
-		} else if err == nil {
-			storagelog.Write(c.log,
-				storagelog.AddressField(obj.Addr),
-				storagelog.StorageTypeField(wcStorageType),
-				storagelog.OpField("DELETE"),
-			)
-			c.objCounters.Delete(obj.Addr)
 		}
 	}
 	return err

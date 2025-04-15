@@ -48,6 +48,8 @@ func (c *cache) initCounters() error {
 			return nil
 		}
 		c.objCounters.Add(addr, size)
+		c.metrics.IncWCObjectCount()
+		c.metrics.AddWCSize(size)
 		return nil
 	}
 

@@ -140,6 +140,7 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 				writecache.WithMaxFlushBatchSize(wcMaxBatchSize),
 				writecache.WithMaxFlushBatchCount(wcMaxBatchCount),
 				writecache.WithMaxFlushBatchThreshold(wcMaxBatchThreshold),
+				writecache.WithMetrics(c.metricsCollector),
 			)
 		}
 

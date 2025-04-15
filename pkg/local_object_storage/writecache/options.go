@@ -53,6 +53,8 @@ type options struct {
 	maxFlushBatchCount int
 	// maxFlushBatchThreshold is a maximum size of small object that put in a batch.
 	maxFlushBatchThreshold uint64
+	// metrics is the metrics register instance for write-cache.
+	metrics *metricsWithID
 }
 
 // WithLogger sets logger.
@@ -146,5 +148,12 @@ func WithMaxFlushBatchThreshold(sz uint64) Option {
 		if sz > 0 {
 			o.maxFlushBatchThreshold = sz
 		}
+	}
+}
+
+// WithMetrics sets a metrics register instance for write-cache.
+func WithMetrics(m metricRegister) Option {
+	return func(o *options) {
+		o.metrics.mr = m
 	}
 }
