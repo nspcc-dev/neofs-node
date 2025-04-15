@@ -38,9 +38,9 @@ func connectListenerWithProcessor(l event.Listener, p ContractProcessor) {
 	}
 }
 
-// bindMorphProcessor connects morph chain listener handlers.
-func bindMorphProcessor(proc ContractProcessor, s *Server) error {
-	connectListenerWithProcessor(s.morphListener, proc)
+// bindFSChainProcessor connects FS chain listener handlers.
+func bindFSChainProcessor(proc ContractProcessor, s *Server) error {
+	connectListenerWithProcessor(s.fsChainListener, proc)
 	return nil
 }
 

@@ -59,7 +59,7 @@ type (
 		irFetcher     IRFetcher
 
 		mainnetClient *client.Client
-		morphClient   *client.Client
+		fsChainClient *client.Client
 
 		designate util.Uint160
 	}
@@ -73,7 +73,7 @@ type (
 		Voter         Voter
 		IRFetcher     IRFetcher
 
-		MorphClient   *client.Client
+		FSChainClient *client.Client
 		MainnetClient *client.Client
 		NeoFSClient   *neofscontract.Client
 		NetmapClient  *nmClient.Client
@@ -87,7 +87,7 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/governance: logger is not set")
 	case p.MainnetClient == nil:
 		return nil, errors.New("ir/governance: neo:mainnet client is not set")
-	case p.MorphClient == nil:
+	case p.FSChainClient == nil:
 		return nil, errors.New("ir/governance: neo: FS client is not set")
 	case p.AlphabetState == nil:
 		return nil, errors.New("ir/governance: global state is not set")
@@ -117,7 +117,7 @@ func New(p *Params) (*Processor, error) {
 		voter:         p.Voter,
 		irFetcher:     p.IRFetcher,
 		mainnetClient: p.MainnetClient,
-		morphClient:   p.MorphClient,
+		fsChainClient: p.FSChainClient,
 		designate:     designate,
 	}, nil
 }

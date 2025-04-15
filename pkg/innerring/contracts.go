@@ -17,18 +17,18 @@ import (
 
 type contracts struct {
 	neofs      util.Uint160 // in mainnet
-	netmap     util.Uint160 // in morph
-	balance    util.Uint160 // in morph
-	container  util.Uint160 // in morph
-	audit      util.Uint160 // in morph
-	proxy      util.Uint160 // in morph
+	netmap     util.Uint160 // in FS chain
+	balance    util.Uint160 // in FS chain
+	container  util.Uint160 // in FS chain
+	audit      util.Uint160 // in FS chain
+	proxy      util.Uint160 // in FS chain
 	processing util.Uint160 // in mainnet
-	reputation util.Uint160 // in morph
+	reputation util.Uint160 // in FS chain
 
-	alphabet []util.Uint160 // in morph
+	alphabet []util.Uint160 // in FS chain
 }
 
-func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contracts, morph *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
+func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contracts, fsChain *client.Client, withoutMainNet, withoutMainNotary bool) (*contracts, error) {
 	var (
 		result = new(contracts)
 		err    error
@@ -65,13 +65,13 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contrac
 	}
 
 	for _, t := range targets {
-		*t.dest, err = parseContract(nnsCtx, _logger, morph, t.nnsName)
+		*t.dest, err = parseContract(nnsCtx, _logger, fsChain, t.nnsName)
 		if err != nil {
 			return nil, fmt.Errorf("can't get %s script hash: %w", t.nnsName, err)
 		}
 	}
 
-	result.alphabet, err = parseAlphabetContracts(nnsCtx, _logger, morph)
+	result.alphabet, err = parseAlphabetContracts(nnsCtx, _logger, fsChain)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +79,8 @@ func initContracts(ctx context.Context, _logger *zap.Logger, cfg *config.Contrac
 	return result, nil
 }
 
-func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.Client) ([]util.Uint160, error) {
-	committee, err := morph.Committee()
+func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, fsChain *client.Client) ([]util.Uint160, error) {
+	committee, err := fsChain.Committee()
 	if err != nil {
 		return nil, fmt.Errorf("get FS chain committee: %w", err)
 	}
@@ -90,7 +90,7 @@ func parseAlphabetContracts(ctx *nnsContext, _logger *zap.Logger, morph *client.
 
 	for ind := range num {
 		name := client.NNSAlphabetContractName(ind)
-		contractHash, err := parseContract(ctx, _logger, morph, name)
+		contractHash, err := parseContract(ctx, _logger, fsChain, name)
 		if err != nil {
 			if errors.Is(err, client.ErrNNSRecordNotFound) {
 				break
@@ -115,8 +115,8 @@ type nnsContext struct {
 	nnsDeployed bool
 }
 
-func parseContract(ctx *nnsContext, _logger *zap.Logger, morph *client.Client, nnsName string) (res util.Uint160, err error) {
-	msPerBlock, err := morph.MsPerBlock()
+func parseContract(ctx *nnsContext, _logger *zap.Logger, fsChain *client.Client, nnsName string) (res util.Uint160, err error) {
+	msPerBlock, err := fsChain.MsPerBlock()
 	if err != nil {
 		return res, fmt.Errorf("get ms per block protocol config: %w", err)
 	}
@@ -133,7 +133,7 @@ func parseContract(ctx *nnsContext, _logger *zap.Logger, morph *client.Client, n
 			default:
 			}
 
-			_, err = morph.NNSHash()
+			_, err = fsChain.NNSHash()
 			if err == nil {
 				ctx.nnsDeployed = true
 				break
@@ -156,7 +156,7 @@ func parseContract(ctx *nnsContext, _logger *zap.Logger, morph *client.Client, n
 		default:
 		}
 
-		res, err = morph.NNSContractAddress(nnsName)
+		res, err = fsChain.NNSContractAddress(nnsName)
 		if !errors.Is(err, client.ErrNNSRecordNotFound) {
 			return
 		}

@@ -130,14 +130,14 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 		hash = *trigger
 	}
 
-	nonce, vub, err = s.morphClient.CalculateNonceAndVUB(hash)
+	nonce, vub, err = s.fsChainClient.CalculateNonceAndVUB(hash)
 	if err != nil {
 		return fmt.Errorf("could not calculate nonce and `validUntilBlock` values: %w", err)
 	}
 	vubP = &vub
 
 	for ind, contract := range s.contracts.alphabet {
-		_, err := s.morphClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
+		_, err := s.fsChainClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int("alphabet_index", ind),
@@ -152,7 +152,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 func (s *Server) alreadyVoted(validatorsToVote keys.PublicKeys) (bool, error) {
 	currentValidators := make(map[keys.PublicKey]struct{}, len(s.contracts.alphabet))
 	for ind, contract := range s.contracts.alphabet {
-		validator, err := s.morphClient.AccountVote(contract)
+		validator, err := s.fsChainClient.AccountVote(contract)
 		if err != nil {
 			return false, fmt.Errorf("receiving %s's vote: %w", client.NNSAlphabetContractName(ind), err)
 		}

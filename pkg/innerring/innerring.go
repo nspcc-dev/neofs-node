@@ -66,12 +66,12 @@ type (
 		bc *blockchain.Blockchain
 
 		// event producers
-		morphListener   event.Listener
+		fsChainListener event.Listener
 		mainnetListener event.Listener
 		epochTimer      *timer.BlockTimer
 		initEpochTimer  atomic.Pointer[timer.BlockTimer]
 
-		morphClient   *client.Client
+		fsChainClient *client.Client
 		mainnetClient *client.Client
 		auditClient   *auditClient.Client
 		balanceClient *balanceClient.Client
@@ -210,7 +210,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		})
 	s.initEpochTimer.Store(initialEpochTicker)
 
-	morphErr := make(chan error)
+	fsChainErr := make(chan error)
 	mainnnetErr := make(chan error)
 
 	// anonymous function to multiplex error channels
@@ -218,14 +218,14 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		select {
 		case <-ctx.Done():
 			return
-		case err := <-morphErr:
+		case err := <-fsChainErr:
 			intError <- fmt.Errorf("FS chain: %w", err)
 		case err := <-mainnnetErr:
 			intError <- fmt.Errorf("mainnet: %w", err)
 		}
 	}()
 
-	s.morphListener.RegisterHeaderHandler(func(b *block.Header) {
+	s.fsChainListener.RegisterHeaderHandler(func(b *block.Header) {
 		s.log.Debug("new block",
 			zap.Uint32("index", b.Index),
 		)
@@ -260,7 +260,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		}
 	}
 
-	go s.morphListener.ListenWithError(ctx, morphErr)      // listen for neo:morph events
+	go s.fsChainListener.ListenWithError(ctx, fsChainErr)  // listen for neo:fs events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
 	if err = s.epochTimer.Reset(); err != nil {
@@ -285,7 +285,7 @@ func (s *Server) startWorkers(ctx context.Context) {
 func (s *Server) Stop() {
 	s.setHealthStatus(control.HealthStatus_SHUTTING_DOWN)
 
-	go s.morphListener.Stop()
+	go s.fsChainListener.Stop()
 	go s.mainnetListener.Stop()
 
 	for _, c := range s.closers {
@@ -429,7 +429,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	var localWSClient *rpcclient.WSClient // set if isLocalConsensus only
 
-	// create morph client
+	// create FS chain client
 	if isLocalConsensus {
 		// go on a local blockchain
 		err := validateBlockchainConfig(cfg)
@@ -483,9 +483,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			fsChainOpts = append(fsChainOpts, client.WithAutoFSChainScope())
 		}
 
-		server.morphClient, err = client.New(server.key, fsChainOpts...)
+		server.fsChainClient, err = client.New(server.key, fsChainOpts...)
 		if err != nil {
-			return nil, fmt.Errorf("init internal morph client: %w", err)
+			return nil, fmt.Errorf("init internal FS chain client: %w", err)
 		}
 	} else {
 		if len(server.predefinedValidators) == 0 {
@@ -497,7 +497,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		fsChainParams.key = server.key
 		fsChainParams.withAutoFSChainScope = !cfg.FSChainAutodeploy
 
-		server.morphClient, err = server.createClient(ctx, fsChainParams, errChan)
+		server.fsChainClient, err = server.createClient(ctx, fsChainParams, errChan)
 		if err != nil {
 			return nil, err
 		}
@@ -509,7 +509,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		var fschain *fsChain
 		var clnt *client.Client // set if not isLocalConsensus only
 		if isLocalConsensus {
-			fschain = newFSChain(server.morphClient, localWSClient)
+			fschain = newFSChain(server.fsChainClient, localWSClient)
 		} else {
 			// create new client for deployment procedure only. This is done because event
 			// subscriptions can be created only once, but we must cancel them to prevent
@@ -567,7 +567,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			clnt.Close()
 		}
 
-		err = server.morphClient.InitFSChainScope()
+		err = server.fsChainClient.InitFSChainScope()
 		if err != nil {
 			return nil, fmt.Errorf("init FS chain witness scope: %w", err)
 		}
@@ -575,8 +575,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		server.log.Info("autodeploy completed")
 	}
 
-	// create morph listener
-	server.morphListener, err = createListener(server.morphClient, fsChainParams)
+	// create fs chain listener
+	server.fsChainListener, err = createListener(server.fsChainClient, fsChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -587,8 +587,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		// This works as long as event Listener starts listening loop once,
 		// otherwise Server.Start will run two similar routines.
 		// This behavior most likely will not change.
-		server.mainnetListener = server.morphListener
-		server.mainnetClient = server.morphClient
+		server.mainnetListener = server.fsChainListener
+		server.mainnetClient = server.fsChainClient
 	} else {
 		mainnetChain := fsChainParams
 		mainnetChain.withAutoFSChainScope = false
@@ -625,7 +625,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	// get all script hashes of contracts
 	server.contracts, err = initContracts(ctx, log,
 		&cfg.Contracts,
-		server.morphClient,
+		server.fsChainClient,
 		server.withoutMainNet,
 		server.mainNotaryConfig.disabled,
 	)
@@ -634,21 +634,21 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	}
 
 	// enable notary support in the FS client
-	err = server.morphClient.EnableNotarySupport(
+	err = server.fsChainClient.EnableNotarySupport(
 		client.WithProxyContract(server.contracts.proxy),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not enable FS chain notary support: %w", err)
 	}
 
-	server.morphListener.EnableNotarySupport(server.contracts.proxy, server.key.PublicKey().GetScriptHash(),
-		server.morphClient.Committee, server.morphClient)
+	server.fsChainListener.EnableNotarySupport(server.contracts.proxy, server.key.PublicKey().GetScriptHash(),
+		server.fsChainClient.Committee, server.fsChainClient)
 
 	if !server.mainNotaryConfig.disabled {
 		// enable notary support in the main client
 		err = server.mainnetClient.EnableNotarySupport(
 			client.WithProxyContract(server.contracts.processing),
-			client.WithAlphabetSource(server.morphClient.Committee),
+			client.WithAlphabetSource(server.fsChainClient.Committee),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("could not enable main chain notary support: %w", err)
@@ -664,22 +664,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	// do not use TryNotary() in audit wrapper
 	// audit operations do not require multisignatures
-	server.auditClient, err = auditClient.NewFromMorph(server.morphClient, server.contracts.audit, 0)
+	server.auditClient, err = auditClient.NewFromMorph(server.fsChainClient, server.contracts.audit, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	cnrClient, err := cntClient.NewFromMorph(server.morphClient, server.contracts.container, 0, cntClient.AsAlphabet())
+	cnrClient, err := cntClient.NewFromMorph(server.fsChainClient, server.contracts.container, 0, cntClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.netmapClient, err = nmClient.NewFromMorph(server.morphClient, server.contracts.netmap, 0, nmClient.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.fsChainClient, server.contracts.netmap, 0, nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceClient.NewFromMorph(server.morphClient, server.contracts.balance, 0, balanceClient.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.fsChainClient, server.contracts.balance, 0, balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -689,7 +689,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
-	reputationClient, err := repClient.NewFromMorph(server.morphClient, server.contracts.reputation, 0, repClient.AsAlphabet())
+	reputationClient, err := repClient.NewFromMorph(server.fsChainClient, server.contracts.reputation, 0, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -705,13 +705,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	if server.withoutMainNet {
 		// if mainchain is disabled we should use NeoFSAlphabetList client method according to its docs
 		// (naming `...WithNotary` will not always be correct)
-		irf = NewIRFetcherWithNotary(server.morphClient)
+		irf = NewIRFetcherWithNotary(server.fsChainClient)
 	} else {
 		irf = NewIRFetcherWithoutNotary(server.netmapClient)
 	}
 
 	server.statusIndex = newInnerRingIndexer(
-		server.morphClient,
+		server.fsChainClient,
 		irf,
 		server.key.PublicKey(),
 		cfg.Indexer.CacheTimeout,
@@ -836,7 +836,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			EpochState:    server,
 			Voter:         server,
 			IRFetcher:     irf,
-			MorphClient:   server.morphClient,
+			FSChainClient: server.fsChainClient,
 			MainnetClient: server.mainnetClient,
 		})
 		if err != nil {
@@ -855,12 +855,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
 	netMapCandidateStateValidator.SetNetworkSettings(netSettings)
 
-	nnsContractAddr, err := server.morphClient.NNSHash()
+	nnsContractAddr, err := server.fsChainClient.NNSHash()
 	if err != nil {
 		return nil, fmt.Errorf("get NeoFS NNS contract address: %w", err)
 	}
 
-	nnsService := newNeoFSNNS(nnsContractAddr, invoker.New(server.morphClient, nil))
+	nnsService := newNeoFSNNS(nnsContractAddr, invoker.New(server.fsChainClient, nil))
 
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
@@ -896,7 +896,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindMorphProcessor(server.netmapProcessor, server)
+	err = bindFSChainProcessor(server.netmapProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -914,7 +914,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindMorphProcessor(containerProcessor, server)
+	err = bindFSChainProcessor(containerProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -934,7 +934,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindMorphProcessor(balanceProcessor, server)
+	err = bindFSChainProcessor(balanceProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -947,7 +947,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			NeoFSContract:       server.contracts.neofs,
 			BalanceClient:       server.balanceClient,
 			NetmapClient:        server.netmapClient,
-			MorphClient:         server.morphClient,
+			FSChainClient:       server.fsChainClient,
 			EpochState:          server,
 			AlphabetState:       server,
 			Converter:           precisionConverter,
@@ -972,7 +972,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		PoolSize:          cfg.Workers.Alphabet,
 		AlphabetContracts: server.contracts.alphabet,
 		NetmapClient:      server.netmapClient,
-		MorphClient:       server.morphClient,
+		FSChainClient:     server.fsChainClient,
 		IRList:            server,
 		StorageEmission:   cfg.Emit.Storage.Amount,
 	})
@@ -980,7 +980,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindMorphProcessor(alphabetProcessor, server)
+	err = bindFSChainProcessor(alphabetProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,7 +1002,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, err
 	}
 
-	err = bindMorphProcessor(reputationProcessor, server)
+	err = bindFSChainProcessor(reputationProcessor, server)
 	if err != nil {
 		return nil, err
 	}
@@ -1058,7 +1058,7 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 			var err error
 
 			if p.name == cfgFSChainName {
-				err = s.restartMorph()
+				err = s.restartFSChain()
 			} else {
 				err = s.restartMainChain()
 			}
@@ -1110,7 +1110,7 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't read last epoch block: %w", err)
 	}
 
-	blockHeight, err := s.morphClient.BlockCount()
+	blockHeight, err := s.fsChainClient.BlockCount()
 	if err != nil {
 		return fmt.Errorf("can't get FS chain height: %w", err)
 	}
@@ -1174,7 +1174,7 @@ func (s *Server) newEpochTickHandlers() []newEpochHandler {
 	return newEpochHandlers
 }
 
-func (s *Server) restartMorph() error {
+func (s *Server) restartFSChain() error {
 	s.log.Info("restarting internal services because of RPC connection loss...")
 
 	s.auditTaskManager.Reset()

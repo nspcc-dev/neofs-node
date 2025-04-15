@@ -40,14 +40,14 @@ func (s *Server) depositMainNotary() error {
 }
 
 func (s *Server) depositFSNotary() error {
-	depositAmount, err := client.CalculateNotaryDepositAmount(s.morphClient, gasMultiplier, gasDivisor)
+	depositAmount, err := client.CalculateNotaryDepositAmount(s.fsChainClient, gasMultiplier, gasDivisor)
 	if err != nil {
 		return fmt.Errorf("could not calculate FS notary deposit amount: %w", err)
 	}
 
 	s.log.Debug("making FS chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
 
-	return s.morphClient.DepositEndlessNotary(depositAmount)
+	return s.fsChainClient.DepositEndlessNotary(depositAmount)
 }
 
 func (s *Server) notaryHandler(_ event.Event) {

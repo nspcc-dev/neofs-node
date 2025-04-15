@@ -26,7 +26,7 @@ type (
 		pool              *ants.Pool
 		alphabetContracts []util.Uint160
 		netmapClient      *nmClient.Client
-		morphClient       *client.Client
+		fsChainClient     *client.Client
 		irList            Indexer
 		storageEmission   uint64
 	}
@@ -37,7 +37,7 @@ type (
 		PoolSize          int
 		AlphabetContracts []util.Uint160
 		NetmapClient      *nmClient.Client
-		MorphClient       *client.Client
+		FSChainClient     *client.Client
 		IRList            Indexer
 		StorageEmission   uint64
 	}
@@ -48,8 +48,8 @@ func New(p *Params) (*Processor, error) {
 	switch {
 	case p.Log == nil:
 		return nil, errors.New("ir/alphabet: logger is not set")
-	case p.MorphClient == nil:
-		return nil, errors.New("ir/alphabet: neo:morph client is not set")
+	case p.FSChainClient == nil:
+		return nil, errors.New("ir/alphabet: neo: fs chain client is not set")
 	case p.IRList == nil:
 		return nil, errors.New("ir/alphabet: global state is not set")
 	}
@@ -66,7 +66,7 @@ func New(p *Params) (*Processor, error) {
 		pool:              pool,
 		alphabetContracts: slices.Clone(p.AlphabetContracts),
 		netmapClient:      p.NetmapClient,
-		morphClient:       p.MorphClient,
+		fsChainClient:     p.FSChainClient,
 		irList:            p.IRList,
 		storageEmission:   p.StorageEmission,
 	}, nil
