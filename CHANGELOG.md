@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - Object signed not by its owner is no longer passed by SN (#3264)
 - Metabase indexes cleanup (#3290)
 - Missing container status returned by `ContainerService.GetExtendedACL` SN server (#3294)
+- Exit code of CLI commands for already removed object (#3300)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)

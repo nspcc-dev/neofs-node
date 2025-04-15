@@ -33,7 +33,6 @@ func WrapError(err error) error {
 
 	var code int
 	var accessErr = new(sdkstatus.ObjectAccessDenied)
-	var alreadyRemovedErr = new(sdkstatus.ObjectAlreadyRemoved)
 
 	switch {
 	case errors.Is(err, sdkstatus.ErrServerInternal):
@@ -43,7 +42,7 @@ func WrapError(err error) error {
 		err = fmt.Errorf("%w: %s", err, accessErr.Reason())
 	case errors.Is(err, ErrAwaitTimeout):
 		code = awaitTimeout
-	case errors.As(err, alreadyRemovedErr):
+	case errors.Is(err, sdkstatus.ErrObjectAlreadyRemoved):
 		code = alreadyRemoved
 	default:
 		code = internal
