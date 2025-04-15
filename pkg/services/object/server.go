@@ -1694,7 +1694,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	}
 
 	var pubKey neofscrypto.PublicKey
-	switch req.Signature.Scheme {
+	switch req.Signature.Scheme { //nolint:exhaustive
 	// other cases already checked above
 	case refs.SignatureScheme_ECDSA_SHA512:
 		pubKey = new(neofsecdsa.PublicKey)

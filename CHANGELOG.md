@@ -45,7 +45,7 @@ Changelog for NeoFS Node
 - Tree service related CLI commands (#3270)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
 - `github.com/nspcc-dev/neofs-contract` dependency to `v0.21.1-0.20250402160117-5558c10a5bc0` (#3282)
 - `github.com/nspcc-dev/neo-go` dependency to `v0.108.2-0.20250414115617-823a05fcc10b` (#3298)
 
