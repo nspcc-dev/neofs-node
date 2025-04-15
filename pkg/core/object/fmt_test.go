@@ -450,8 +450,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 			objWithAttr := func(k, v string) *object.Object {
 				obj := blankValidObject(usertest.User())
 				obj.SetAttributes(
-					*object.NewAttribute("valid key", "valid value"),
-					*object.NewAttribute(k, v),
+					object.NewAttribute("valid key", "valid value"),
+					object.NewAttribute(k, v),
 				)
 				return obj
 			}
@@ -577,8 +577,8 @@ func getUnsignedObject() object.Object {
 	obj.SetPayloadSize(payloadLen)
 	obj.SetType(typ)
 	obj.SetAttributes(
-		*object.NewAttribute("2958922649728181678", "13190161871171818625"),
-		*object.NewAttribute("15660925904602412174", "67216741819241411480"),
+		object.NewAttribute("2958922649728181678", "13190161871171818625"),
+		object.NewAttribute("15660925904602412174", "67216741819241411480"),
 	)
 
 	obj.SetPayload(payload)

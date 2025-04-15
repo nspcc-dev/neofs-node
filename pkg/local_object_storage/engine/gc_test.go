@@ -56,7 +56,7 @@ func TestChildrenExpiration(t *testing.T) {
 		_ = e.Close()
 	})
 
-	expAttr := *objectSDK.NewAttribute(objectSDK.AttributeExpirationEpoch, fmt.Sprint(currEpoch))
+	expAttr := objectSDK.NewAttribute(objectSDK.AttributeExpirationEpoch, fmt.Sprint(currEpoch))
 
 	t.Run("V1", func(t *testing.T) {
 		cnr := cidtest.ID()

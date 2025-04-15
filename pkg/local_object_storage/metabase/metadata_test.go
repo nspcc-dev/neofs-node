@@ -43,7 +43,7 @@ func searchResultForIDs(ids []oid.ID) []client.SearchResultItem {
 }
 
 func appendAttribute(obj *object.Object, k, v string) {
-	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
+	obj.SetAttributes(append(obj.Attributes(), object.NewAttribute(k, v))...)
 }
 
 func assertPrefixedAttrIDPresence[T string | []byte](t testing.TB, mb *bbolt.Bucket, id oid.ID, isInt bool, attr string, val T, exp bool) {
@@ -109,7 +109,7 @@ func TestPutMetadata(t *testing.T) {
 	pldHmmHash := checksum.NewTillichZemor(pldHmmHashBytes)
 	splitID := []byte{240, 204, 35, 185, 222, 70, 69, 124, 160, 224, 208, 185, 9, 114, 37, 109}
 	var attrs []object.Attribute
-	addAttr := func(k, v string) { attrs = append(attrs, *object.NewAttribute(k, v)) }
+	addAttr := func(k, v string) { attrs = append(attrs, object.NewAttribute(k, v)) }
 	addAttr("attr_1", "val_1")
 	addAttr("attr_2", "val_2")
 	addAttr("num_negative_overflow", "-115792089237316195423570985008687907853269984665640564039457584007913129639936")
@@ -142,8 +142,8 @@ func TestPutMetadata(t *testing.T) {
 			testWithAttr := func(t *testing.T, k, v, msg string) {
 				obj := obj
 				obj.SetAttributes(
-					*object.NewAttribute("valid key", "valid value"),
-					*object.NewAttribute(k, v),
+					object.NewAttribute("valid key", "valid value"),
+					object.NewAttribute(k, v),
 				)
 				require.EqualError(t, db.Put(&obj, nil, nil), msg)
 			}

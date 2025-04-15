@@ -95,8 +95,8 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			{243, 182, 238, 220, 63, 48, 185, 147, 9, 88, 42, 126, 12, 160, 157, 214, 169, 35, 76, 233, 91, 250, 87, 141, 223, 166, 239, 42, 15, 233, 197, 110, 143, 106, 134, 200, 44, 229, 101, 217, 33, 108, 2, 17, 12, 15, 228, 64, 121, 166, 130, 117, 36, 58, 210, 249, 190, 107, 247, 218, 205, 238, 217, 124},
 		}
 		groupAttrs := [nRoot]object.Attribute{
-			*object.NewAttribute("group_attr_1", "group_val_1"),
-			*object.NewAttribute("group_attr_2", "group_val_2"),
+			object.NewAttribute("group_attr_1", "group_val_1"),
+			object.NewAttribute("group_attr_2", "group_val_2"),
 		}
 		types := [nRoot]object.Type{object.TypeRegular, object.TypeStorageGroup}
 		splitIDs := [nRoot][]byte{
@@ -125,10 +125,10 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 			obj.SetPayloadHomomorphicHash(checksum.NewTillichZemor(hmmChecksums[nGlobal]))
 			si := strconv.Itoa(nGlobal)
 			obj.SetAttributes(
-				*object.NewAttribute("attr_common", "val_common"),
-				*object.NewAttribute("unique_attr_"+si, "unique_val_"+si),
+				object.NewAttribute("attr_common", "val_common"),
+				object.NewAttribute("unique_attr_"+si, "unique_val_"+si),
 				groupAttrs[nGroup],
-				*object.NewAttribute("global_non_integer", "not an integer"),
+				object.NewAttribute("global_non_integer", "not an integer"),
 			)
 		}
 
@@ -994,7 +994,7 @@ func sortObjectIDs(ids []oid.ID) []oid.ID {
 }
 
 func appendAttribute(obj *object.Object, k, v string) {
-	obj.SetAttributes(append(obj.Attributes(), *object.NewAttribute(k, v))...)
+	obj.SetAttributes(append(obj.Attributes(), object.NewAttribute(k, v))...)
 }
 
 func assertSearchResultIndexes(t *testing.T, db DB, cnr cid.ID, fs object.SearchFilters, attrs []string, all []client.SearchResultItem, inds []uint) {

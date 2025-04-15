@@ -393,7 +393,7 @@ func TestMigrate3to4(t *testing.T) {
 		objs[i].SetSplitID(&sid)
 		objs[i].SetParentID(oidtest.ID())
 		objs[i].SetFirstID(oidtest.ID())
-		objs[i].SetAttributes(*object.NewAttribute("Index", strconv.Itoa(i)))
+		objs[i].SetAttributes(object.NewAttribute("Index", strconv.Itoa(i)))
 	}
 
 	var par object.Object
@@ -413,7 +413,7 @@ func TestMigrate3to4(t *testing.T) {
 	par.SetSplitID(&sid)
 	par.SetParentID(oidtest.ID())
 	par.SetFirstID(oidtest.ID())
-	par.SetAttributes(*object.NewAttribute("Index", "9999"))
+	par.SetAttributes(object.NewAttribute("Index", "9999"))
 
 	objs[0].SetParent(&par)
 
@@ -590,8 +590,8 @@ func TestMigrate3to4(t *testing.T) {
 				obj.SetOwner(usertest.ID())
 				obj.SetPayloadChecksum(checksumtest.Checksum())
 				obj.SetAttributes(
-					*object.NewAttribute("valid key", "valid value"),
-					*object.NewAttribute(k, v),
+					object.NewAttribute("valid key", "valid value"),
+					object.NewAttribute(k, v),
 				)
 				// put object and force old version
 				require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -733,7 +733,7 @@ func TestMigrate3to4(t *testing.T) {
 		}
 		// corrupt one object
 		bigAttrVal := testutil.RandByteSlice(16 << 10)
-		objs[1].SetAttributes(*object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
+		objs[1].SetAttributes(object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
 		objBins[1] = objs[1].Marshal()
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
