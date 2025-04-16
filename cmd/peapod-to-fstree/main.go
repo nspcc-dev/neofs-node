@@ -46,7 +46,14 @@ func (s *onlyObjectsWithContainersStorage) Iterate(objHandler func(oid.Address, 
 		}
 
 		return objHandler(addr, data, id)
-	}, nil)
+	}, func(addr oid.Address, err error) error {
+		_, found := s.containers[addr.Container()]
+		if !found {
+			log.Printf("skipping corrupted object without container '%s': %v\n", addr, err)
+			return nil
+		}
+		return err
+	})
 }
 
 func main() {
