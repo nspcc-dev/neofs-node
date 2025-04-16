@@ -31,7 +31,7 @@ Changelog for NeoFS Node
 - neofs-adm uses alphabet0/1/2 names for wallet files by default now (#3268)
 - Distribute load in writecache during flushing (#3261)
 - Faster migration in peapod-to-fstree (#3280)
-- `peapod-to-fstree` migrates only objects with existing containers (#3283)
+- `peapod-to-fstree` migrates only objects with existing containers (#3283, #3306)
 - Storage Node now prohibits parents with their own parents (object split of already split object) (#2451) 
 
 ### Removed
