@@ -19,23 +19,9 @@ import (
 	neogoutil "github.com/nspcc-dev/neo-go/pkg/util"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	apiclientconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/apiclient"
-	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
-	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
-	fstreeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard/blobstor/fstree"
-	fschainconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/fschain"
-	loggerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/logger"
-	metaconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/meta"
-	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
-	objectconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/object"
-	policerconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/policer"
-	replicatorconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/replicator"
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/storage"
 	"github.com/nspcc-dev/neofs-node/misc"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/metrics"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -76,182 +62,6 @@ const (
 	profilerName = "pprof"
 )
 
-// applicationConfiguration reads and stores component-specific configuration
-// values. It should not store any application helpers structs (pointers to shared
-// structs).
-// It must not be used concurrently.
-//
-// REFACTOR IS NOT FINISHED, see:
-//   - https://github.com/nspcc-dev/neofs-node/issues/1770
-//   - https://github.com/nspcc-dev/neofs-node/pull/1815.
-type applicationConfiguration struct {
-	// _read indicated whether a config
-	// has already been read
-	_read bool
-
-	logger struct {
-		level     string
-		encoding  string
-		timestamp bool
-	}
-
-	metadata struct {
-		path string
-	}
-
-	engine struct {
-		errorThreshold         uint32
-		shardPoolSize          uint32
-		shards                 []storage.ShardCfg
-		isIgnoreUninitedShards bool
-		objectPutRetryDeadline time.Duration
-	}
-
-	policer struct {
-		maxCapacity         uint32
-		headTimeout         time.Duration
-		replicationCooldown time.Duration
-		objectBatchSize     uint32
-	}
-
-	fsChain struct {
-		endpoints                 []string
-		dialTimeout               time.Duration
-		cacheTTL                  time.Duration
-		reconnectionRetriesNumber int
-		reconnectionRetriesDelay  time.Duration
-	}
-}
-
-// readConfig fills applicationConfiguration with raw configuration values
-// not modifying them.
-func (a *applicationConfiguration) readConfig(c *config.Config) error {
-	if a._read {
-		err := c.Reload()
-		if err != nil {
-			return fmt.Errorf("could not reload configuration: %w", err)
-		}
-
-		err = validateConfig(c)
-		if err != nil {
-			return fmt.Errorf("configuration's validation: %w", err)
-		}
-
-		// clear if it is rereading
-		*a = applicationConfiguration{}
-	}
-
-	a._read = true
-
-	// Logger
-
-	a.logger.level = loggerconfig.Level(c)
-	a.logger.encoding = loggerconfig.Encoding(c)
-	a.logger.timestamp = loggerconfig.Timestamp(c)
-
-	// Policer
-
-	a.policer.maxCapacity = policerconfig.MaxWorkers(c)
-	a.policer.headTimeout = policerconfig.HeadTimeout(c)
-	a.policer.replicationCooldown = policerconfig.ReplicationCooldown(c)
-	a.policer.objectBatchSize = policerconfig.ObjectBatchSize(c)
-
-	// Meta data
-
-	a.metadata.path = metaconfig.Path(c)
-
-	// Storage Engine
-
-	a.engine.errorThreshold = engineconfig.ShardErrorThreshold(c)
-	a.engine.shardPoolSize = engineconfig.ShardPoolSize(c)
-	a.engine.isIgnoreUninitedShards = engineconfig.IgnoreUninitedShards(c)
-	a.engine.objectPutRetryDeadline = engineconfig.ObjectPutRetryDeadline(c)
-
-	// FS chain
-
-	a.fsChain.endpoints = fschainconfig.Endpoints(c)
-	a.fsChain.dialTimeout = fschainconfig.DialTimeout(c)
-	a.fsChain.cacheTTL = fschainconfig.CacheTTL(c)
-	a.fsChain.reconnectionRetriesNumber = fschainconfig.ReconnectionRetriesNumber(c)
-	a.fsChain.reconnectionRetriesDelay = fschainconfig.ReconnectionRetriesDelay(c)
-
-	return engineconfig.IterateShards(c, false, func(sc *shardconfig.Config) error {
-		var sh storage.ShardCfg
-
-		sh.ResyncMetabase = sc.ResyncMetabase()
-		sh.Mode = sc.Mode()
-		sh.Compress = sc.Compress()
-		sh.UncompressableContentType = sc.UncompressableContentTypes()
-		sh.SmallSizeObjectLimit = sc.SmallSizeLimit()
-
-		// blobstor with substorages
-
-		blobStorCfg := sc.BlobStor()
-		storagesCfg := blobStorCfg.Storages()
-		metabaseCfg := sc.Metabase()
-		gcCfg := sc.GC()
-
-		ss := make([]storage.SubStorageCfg, 0, len(storagesCfg))
-		for i := range storagesCfg {
-			var sCfg storage.SubStorageCfg
-
-			sCfg.Typ = storagesCfg[i].Type()
-			sCfg.Path = storagesCfg[i].Path()
-			sCfg.Perm = storagesCfg[i].Perm()
-			sCfg.FlushInterval = storagesCfg[i].FlushInterval()
-
-			switch storagesCfg[i].Type() {
-			case fstree.Type:
-				sub := fstreeconfig.From((*config.Config)(storagesCfg[i]))
-				sCfg.Depth = sub.Depth()
-				sCfg.NoSync = sub.NoSync()
-				sCfg.CombinedCountLimit = sub.CombinedCountLimit()
-				sCfg.CombinedSizeLimit = sub.CombinedSizeLimit()
-				sCfg.CombinedSizeThreshold = sub.CombinedSizeThreshold()
-			case peapod.Type:
-				// No specific configs, but it's a valid storage type.
-			default:
-				return fmt.Errorf("invalid storage type: %s", storagesCfg[i].Type())
-			}
-
-			ss = append(ss, sCfg)
-		}
-
-		sh.SubStorages = ss
-
-		// write-cache
-
-		writeCacheCfg := sc.WriteCache()
-		if writeCacheCfg.Enabled() {
-			wc := &sh.WritecacheCfg
-
-			wc.Enabled = true
-			wc.Path = writeCacheCfg.Path()
-			wc.MaxObjSize = writeCacheCfg.MaxObjectSize()
-			wc.SizeLimit = writeCacheCfg.SizeLimit()
-			wc.NoSync = writeCacheCfg.NoSync()
-		}
-
-		// meta
-
-		m := &sh.MetaCfg
-
-		m.Path = metabaseCfg.Path()
-		m.Perm = metabaseCfg.BoltDB().Perm()
-		m.MaxBatchDelay = metabaseCfg.BoltDB().MaxBatchDelay()
-		m.MaxBatchSize = metabaseCfg.BoltDB().MaxBatchSize()
-
-		// GC
-
-		sh.GcCfg.RemoverBatchSize = gcCfg.RemoverBatchSize()
-		sh.GcCfg.RemoverSleepInterval = gcCfg.RemoverSleepInterval()
-
-		a.engine.shards = append(a.engine.shards, sh)
-
-		return nil
-	})
-}
-
 // internals contains application-specific internals that are created
 // on application startup and are shared b/w the components during
 // the application life cycle.
@@ -261,8 +71,6 @@ type internals struct {
 	ctx         context.Context
 	ctxCancel   func()
 	internalErr chan error // channel for internal application errors at runtime
-
-	cfgReader *config.Config
 
 	logLevel zap.AtomicLevel
 	log      *zap.Logger
@@ -375,9 +183,10 @@ func (s *shared) resetCaches() {
 }
 
 type cfg struct {
-	applicationConfiguration
 	internals
 	shared
+
+	appCfg *config.Config
 
 	// configuration of the internal
 	// services
@@ -500,29 +309,26 @@ func initCfg(appCfg *config.Config) *cfg {
 	c := &cfg{}
 	ctx, ctxCancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
-	err := c.readConfig(appCfg)
-	if err != nil {
-		panic(fmt.Errorf("config reading: %w", err))
-	}
+	c.appCfg = appCfg
 
 	c.cfgNodeInfo.localInfoLock.Lock()
 	// filling system attributes; do not move it anywhere
 	// below applying the other attributes since a user
 	// should be able to overwrite it.
-	err = writeSystemAttributes(c)
+	err := writeSystemAttributes(c)
 	c.cfgNodeInfo.localInfoLock.Unlock()
 	fatalOnErr(err)
 
-	key := nodeconfig.Wallet(appCfg)
+	key := appCfg.Node.PrivateKey()
 
 	var netAddr network.AddressGroup
 
-	relayOnly := nodeconfig.Relay(appCfg)
+	relayOnly := appCfg.Node.Relay
 	if !relayOnly {
-		netAddr = nodeconfig.BootstrapAddresses(appCfg)
+		netAddr = appCfg.Node.BootstrapAddresses()
 	}
 
-	persistate, err := state.NewPersistentStorage(nodeconfig.PersistentState(appCfg).Path())
+	persistate, err := state.NewPersistentStorage(appCfg.Node.PersistentState.Path)
 	fatalOnErr(err)
 
 	containerWorkerPool, err := ants.NewPool(notificationHandlerPoolSize)
@@ -537,21 +343,21 @@ func initCfg(appCfg *config.Config) *cfg {
 	c.internals = internals{
 		ctx:         ctx,
 		ctxCancel:   ctxCancel,
-		cfgReader:   appCfg,
 		internalErr: make(chan error, 10), // We only need one error, but we can have multiple senders.
 		wg:          new(sync.WaitGroup),
 		apiVersion:  version.Current(),
 	}
 	c.internals.healthStatus.Store(int32(control.HealthStatus_HEALTH_STATUS_UNDEFINED))
 
-	c.internals.logLevel, err = zap.ParseAtomicLevel(c.logger.level)
+	c.internals.logLevel, err = zap.ParseAtomicLevel(c.appCfg.Logger.Level)
 	fatalOnErr(err)
 
 	logCfg := zap.NewProductionConfig()
 	logCfg.Level = c.internals.logLevel
-	logCfg.Encoding = c.logger.encoding
+	logCfg.Encoding = c.appCfg.Logger.Encoding
 	logCfg.Sampling = nil
-	if (term.IsTerminal(int(os.Stdout.Fd())) && c.cfgReader.Value("logger.timestamp") == nil) || c.logger.timestamp {
+
+	if (term.IsTerminal(int(os.Stdout.Fd())) && !c.appCfg.IsSet("logger.timestamp")) || c.appCfg.Logger.Timestamp {
 		logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {
 		logCfg.EncoderConfig.EncodeTime = func(_ time.Time, _ zapcore.PrimitiveArrayEncoder) {}
@@ -569,10 +375,10 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 
 	basicSharedConfig := initBasics(c, key, persistate)
-	streamTimeout := apiclientconfig.StreamTimeout(appCfg)
-	minConnTimeout := apiclientconfig.MinConnTime(appCfg)
-	pingInterval := apiclientconfig.PingInterval(appCfg)
-	pingTimeout := apiclientconfig.PingTimeout(appCfg)
+	streamTimeout := appCfg.APIClient.StreamTimeout
+	minConnTimeout := appCfg.APIClient.MinConnectionTime
+	pingInterval := appCfg.APIClient.PingInterval
+	pingTimeout := appCfg.APIClient.PingTimeout
 	newClientCache := func(scope string) *cache.Clients {
 		return cache.NewClients(c.log.With(zap.String("scope", scope)), &buffers, streamTimeout,
 			minConnTimeout, pingInterval, pingTimeout)
@@ -598,13 +404,13 @@ func initCfg(appCfg *config.Config) *cfg {
 	}
 	c.cfgObject = cfgObject{
 		pool:              initObjectPool(appCfg),
-		tombstoneLifetime: objectconfig.TombstoneLifetime(appCfg),
+		tombstoneLifetime: appCfg.Object.Delete.TombstoneLifetime,
 	}
 	c.cfgReputation = cfgReputation{
 		workerPool: reputationWorkerPool,
 	}
 
-	c.cfgNetmap.reBoostrapTurnedOff.Store(nodeconfig.Relay(appCfg))
+	c.cfgNetmap.reBoostrapTurnedOff.Store(relayOnly)
 
 	c.ownerIDFromKey = user.NewFromECDSAPublicKey(key.PrivateKey.PublicKey)
 
@@ -624,7 +430,7 @@ func initCfg(appCfg *config.Config) *cfg {
 func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStorage) basics {
 	b := basics{}
 
-	addresses := c.applicationConfiguration.fsChain.endpoints
+	addresses := c.appCfg.FSChain.Endpoints
 
 	fromDeprectedSidechanBlock, err := stateStorage.UInt32(persistateDeprecatedSidechainLastBlockKey)
 	if err != nil {
@@ -654,12 +460,12 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	cli, err := client.New(key,
 		client.WithContext(c.internals.ctx),
-		client.WithDialTimeout(c.applicationConfiguration.fsChain.dialTimeout),
+		client.WithDialTimeout(c.appCfg.FSChain.DialTimeout),
 		client.WithLogger(c.log),
 		client.WithAutoFSChainScope(),
 		client.WithEndpoints(addresses),
-		client.WithReconnectionRetries(c.applicationConfiguration.fsChain.reconnectionRetriesNumber),
-		client.WithReconnectionsDelay(c.applicationConfiguration.fsChain.reconnectionRetriesDelay),
+		client.WithReconnectionRetries(c.appCfg.FSChain.ReconnectionsNumber),
+		client.WithReconnectionsDelay(c.appCfg.FSChain.ReconnectionsDelay),
 		client.WithConnSwitchCallback(func() {
 			err = c.restartMorph()
 			if err != nil {
@@ -694,7 +500,7 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	fatalOnErr(err)
 	nState.updateEpochDuration(eDuration)
 
-	ttl := c.applicationConfiguration.fsChain.cacheTTL
+	ttl := c.appCfg.FSChain.CacheTTL
 	if ttl == 0 {
 		msPerBlock, err := cli.MsPerBlock()
 		fatalOnErr(err)
@@ -726,18 +532,14 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 }
 
 func (c *cfg) policerOpts() []policer.Option {
-	pCfg := c.applicationConfiguration.policer
+	pCfg := c.appCfg.Policer
 
 	return []policer.Option{
-		policer.WithMaxCapacity(pCfg.maxCapacity),
-		policer.WithHeadTimeout(pCfg.headTimeout),
-		policer.WithReplicationCooldown(pCfg.replicationCooldown),
-		policer.WithObjectBatchSize(pCfg.objectBatchSize),
+		policer.WithMaxCapacity(pCfg.MaxWorkers),
+		policer.WithHeadTimeout(pCfg.HeadTimeout),
+		policer.WithReplicationCooldown(pCfg.ReplicationCooldown),
+		policer.WithObjectBatchSize(pCfg.ObjectBatchSize),
 	}
-}
-
-func (c *cfg) LocalAddress() network.AddressGroup {
-	return c.localAddr
 }
 
 func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
@@ -745,7 +547,7 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 
 	optNonBlocking := ants.WithNonblocking(true)
 
-	pool.putRemoteCapacity = objectconfig.Put(cfg).PoolSizeRemote()
+	pool.putRemoteCapacity = cfg.Object.Put.PoolSizeRemote
 
 	pool.putRemote, err = ants.NewPool(pool.putRemoteCapacity, optNonBlocking)
 	fatalOnErr(err)
@@ -753,7 +555,7 @@ func initObjectPool(cfg *config.Config) (pool cfgObjectRoutines) {
 	pool.putLocal, err = ants.NewPool(-1) // -1 stands for an infinite capacity worker
 	fatalOnErr(err)
 
-	pool.replicatorPoolSize = replicatorconfig.PoolSize(cfg)
+	pool.replicatorPoolSize = cfg.Replicator.PoolSize
 	if pool.replicatorPoolSize <= 0 {
 		pool.replicatorPoolSize = pool.putRemoteCapacity
 	}
@@ -768,10 +570,10 @@ func (c *cfg) reloadObjectPoolSizes() {
 	c.cfgObject.poolLock.Lock()
 	defer c.cfgObject.poolLock.Unlock()
 
-	c.cfgObject.pool.putRemoteCapacity = objectconfig.Put(c.cfgReader).PoolSizeRemote()
+	c.cfgObject.pool.putRemoteCapacity = c.appCfg.Object.Put.PoolSizeRemote
 	c.cfgObject.pool.putRemote.Tune(c.cfgObject.pool.putRemoteCapacity)
 
-	c.cfgObject.pool.replicatorPoolSize = replicatorconfig.PoolSize(c.cfgReader)
+	c.cfgObject.pool.replicatorPoolSize = c.appCfg.Replicator.PoolSize
 	if c.cfgObject.pool.replicatorPoolSize <= 0 {
 		c.cfgObject.pool.replicatorPoolSize = c.cfgObject.pool.putRemoteCapacity
 	}
@@ -841,6 +643,7 @@ func (c *cfg) ObjectServiceLoad() float64 {
 }
 
 func (c *cfg) configWatcher(ctx context.Context) {
+	var err error
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGHUP)
 
@@ -849,10 +652,10 @@ func (c *cfg) configWatcher(ctx context.Context) {
 		case <-ch:
 			c.log.Info("SIGHUP has been received, rereading configuration...")
 
-			oldMetrics := writeMetricConfig(c.cfgReader)
-			oldProfiler := writeProfilerConfig(c.cfgReader)
+			oldMetrics := writeMetricConfig(c.appCfg)
+			oldProfiler := writeProfilerConfig(c.appCfg)
 
-			err := c.readConfig(c.cfgReader)
+			c.appCfg, err = config.New(config.WithConfigFile(c.appCfg.Path()))
 			if err != nil {
 				c.log.Error("configuration reading", zap.Error(err))
 				continue
@@ -869,7 +672,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Logger
 
-			err = c.internals.logLevel.UnmarshalText([]byte(c.logger.level))
+			err = c.internals.logLevel.UnmarshalText([]byte(c.appCfg.Logger.Level))
 			if err != nil {
 				c.log.Error("invalid logger level configuration", zap.Error(err))
 				continue
@@ -885,7 +688,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			for _, optsWithID := range c.shardOpts() {
 				rcfg.AddShard(optsWithID.configID, optsWithID.shOpts)
 			}
-			rcfg.SetShardPoolSize(c.engine.shardPoolSize)
+			rcfg.SetShardPoolSize(uint32(c.appCfg.Storage.ShardPoolSize))
 
 			err = c.cfgObject.cfgLocalStorage.localStorage.Reload(rcfg)
 			if err != nil {
@@ -895,7 +698,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 
 			// Morph
 
-			c.cli.Reload(client.WithEndpoints(c.fsChain.endpoints))
+			c.cli.Reload(client.WithEndpoints(c.appCfg.FSChain.Endpoints))
 
 			// Node
 
@@ -908,7 +711,7 @@ func (c *cfg) configWatcher(ctx context.Context) {
 			// Meta service
 
 			var p meta.Parameters
-			p.NeoEnpoints = c.fsChain.endpoints
+			p.NeoEnpoints = c.appCfg.FSChain.Endpoints
 			err = c.shared.metaService.Reload(p)
 			if err != nil {
 				c.log.Error("failed to reload meta service configuration", zap.Error(err))
@@ -933,8 +736,8 @@ func writeSystemAttributes(c *cfg) error {
 	// `Capacity` attribute
 
 	var paths []string
-	for _, sh := range c.applicationConfiguration.engine.shards {
-		for _, subStorage := range sh.SubStorages {
+	for _, sh := range c.appCfg.Storage.ShardList {
+		for _, subStorage := range sh.Blobstor {
 			path, err := getInitPath(subStorage.Path)
 			if err != nil {
 				return err
@@ -975,7 +778,7 @@ func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profile
 
 	// Metrics
 
-	if oldMetrics.isUpdated(c.cfgReader) {
+	if oldMetrics.isUpdated(c.appCfg) {
 		if closer, ok := c.veryLastClosers[metricName]; ok {
 			closer()
 		}
@@ -986,7 +789,7 @@ func (c *cfg) reloadMetricsAndPprof(oldMetrics metricConfig, oldProfiler profile
 
 	//Profiler
 
-	if oldProfiler.isUpdated(c.cfgReader) {
+	if oldProfiler.isUpdated(c.appCfg) {
 		if closer, ok := c.veryLastClosers[profilerName]; ok {
 			closer()
 		}

@@ -2,6 +2,7 @@ package configtest
 
 import (
 	"bufio"
+	"log"
 	"os"
 	"strings"
 
@@ -9,22 +10,23 @@ import (
 )
 
 func fromFile(path string) *config.Config {
-	var p config.Prm
-
 	os.Clearenv() // ENVs have priority over config files, so we do this in tests
 
-	return config.New(p,
-		config.WithConfigFile(path),
-		config.WithValidate(false),
-	)
+	cfg, err := config.New(config.WithConfigFile(path))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cfg
 }
 
 func fromEnvFile(path string) *config.Config {
-	var p config.Prm
-
 	loadEnv(path) // github.com/joho/godotenv can do that as well
 
-	return config.New(p)
+	cfg, err := config.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cfg
 }
 
 func forEachFile(paths []string, f func(*config.Config)) {
@@ -50,9 +52,13 @@ func ForEnvFileType(pref string, f func(*config.Config)) {
 
 // EmptyConfig returns config without any values and sections.
 func EmptyConfig() *config.Config {
-	var p config.Prm
+	os.Clearenv()
 
-	return config.New(p)
+	cfg, err := config.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cfg
 }
 
 // loadEnv reads .env file, parses `X=Y` records and sets OS ENVs.

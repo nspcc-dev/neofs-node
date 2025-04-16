@@ -37,11 +37,11 @@ func initMeta(c *cfg) {
 	p := meta.Parameters{
 		Logger:        c.log.With(zap.String("service", "meta data")),
 		Network:       c.cfgMeta.network,
-		Timeout:       c.applicationConfiguration.fsChain.dialTimeout,
-		NeoEnpoints:   c.applicationConfiguration.fsChain.endpoints,
+		Timeout:       c.appCfg.FSChain.DialTimeout,
+		NeoEnpoints:   c.appCfg.FSChain.Endpoints,
 		ContainerHash: c.basics.containerSH,
 		NetmapHash:    c.basics.netmapSH,
-		RootPath:      c.applicationConfiguration.metadata.path,
+		RootPath:      c.appCfg.Meta.Path,
 	}
 	if p.RootPath == "" {
 		p.RootPath = "metadata"

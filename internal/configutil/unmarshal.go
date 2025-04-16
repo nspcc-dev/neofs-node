@@ -3,10 +3,8 @@ package configutil
 import (
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -24,16 +22,19 @@ type config interface {
 // It decodes with custom support for keys.PublicKeys, uint32, and util.Uint160,
 // and applies keys.
 // Returns an error if decoding fails.
-func Unmarshal(v *viper.Viper, cfg config, envPrefix string) error {
+func Unmarshal(v *viper.Viper, cfg config, envPrefix string, decodeFuncs ...mapstructure.DecodeHookFunc) error {
 	bindEnvForStruct(v, cfg, envPrefix)
 
 	if err := v.UnmarshalExact(cfg, viper.DecodeHook(
 		mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToTimeDurationHookFunc(),
-			mapstructure.StringToSliceHookFunc(","),
-			publicKeyHook(),
-			uint32StrictHook(),
-			uint160Hook(),
+			append([]mapstructure.DecodeHookFunc{
+				mapstructure.StringToTimeDurationHookFunc(),
+				mapstructure.StringToSliceHookFunc(" "),
+				//mapstructure.StringToSliceHookFunc(","),
+				publicKeyHook(),
+				uint32StrictHook(),
+				uint160Hook(),
+			}, decodeFuncs...)...,
 		))); err != nil {
 		return err
 	}
@@ -42,63 +43,6 @@ func Unmarshal(v *viper.Viper, cfg config, envPrefix string) error {
 	}
 
 	return nil
-}
-
-// bindEnvForStruct goes through all fields of the structure,
-// searches for the corresponding env variables by tags, and calls viper.Set.
-func bindEnvForStruct(v *viper.Viper, s any, envPrefix string) {
-	bindFields(v, reflect.ValueOf(s), "", envPrefix)
-}
-
-func bindFields(v *viper.Viper, val reflect.Value, prefix string, envPrefix string) {
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return
-	}
-
-	typ := val.Type()
-	for i := range val.NumField() {
-		field := typ.Field(i)
-		fieldVal := val.Field(i)
-
-		tag := field.Tag.Get("mapstructure")
-		if tag == "" || tag == "-" {
-			continue
-		}
-
-		tagParts := strings.Split(tag, ",")
-		fieldKey := tagParts[0]
-		isSquash := false
-		for _, part := range tagParts[1:] {
-			if part == "squash" {
-				isSquash = true
-				break
-			}
-		}
-
-		var viperKey string
-		if !isSquash && prefix != "" {
-			viperKey = prefix + "." + fieldKey
-		} else if !isSquash {
-			viperKey = fieldKey
-		} else {
-			viperKey = prefix
-		}
-
-		if !isSquash && fieldVal.Kind() != reflect.Struct && (fieldVal.Kind() != reflect.Ptr || fieldVal.Elem().Kind() != reflect.Struct) {
-			envKey := strings.ToUpper(envPrefix + "_" + strings.ReplaceAll(viperKey, ".", "_"))
-			envValue := os.Getenv(envKey)
-			if envValue != "" {
-				v.Set(viperKey, envValue)
-			}
-		}
-
-		if fieldVal.Kind() == reflect.Struct || (fieldVal.Kind() == reflect.Ptr && fieldVal.Elem().Kind() == reflect.Struct) {
-			bindFields(v, fieldVal, viperKey, envPrefix)
-		}
-	}
 }
 
 // publicKeyHook returns a mapstructure decode hook func that converts a string to a keys.PublicKey.
@@ -125,7 +69,7 @@ func publicKeyHook() mapstructure.DecodeHookFuncType {
 // that converts int and int64 to uint32, ensuring they are within the valid range.
 func uint32StrictHook() mapstructure.DecodeHookFuncType {
 	return func(_ reflect.Type, t reflect.Type, data any) (any, error) {
-		if t.Kind() != reflect.Uint32 {
+		if t != reflect.TypeOf(uint32(0)) {
 			return data, nil
 		}
 

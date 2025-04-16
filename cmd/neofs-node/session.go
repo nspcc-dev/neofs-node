@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	nodeconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/node"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	sessionSvc "github.com/nspcc-dev/neofs-node/pkg/services/session"
@@ -24,7 +23,7 @@ type sessionStorage interface {
 }
 
 func initSessionService(c *cfg) {
-	if persistentSessionPath := nodeconfig.PersistentSessions(c.cfgReader).Path(); persistentSessionPath != "" {
+	if persistentSessionPath := c.appCfg.Node.PersistentSessions.Path; persistentSessionPath != "" {
 		persisessions, err := persistent.NewTokenStore(persistentSessionPath,
 			persistent.WithLogger(c.log),
 			persistent.WithTimeout(time.Second),

@@ -3,7 +3,6 @@ package main
 import (
 	"net"
 
-	controlconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/control"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	controlSvc "github.com/nspcc-dev/neofs-node/pkg/services/control/server"
 	"go.uber.org/zap"
@@ -11,12 +10,12 @@ import (
 )
 
 func initControlService(c *cfg) {
-	endpoint := controlconfig.GRPC(c.cfgReader).Endpoint()
-	if endpoint == controlconfig.GRPCEndpointDefault {
+	endpoint := c.appCfg.Control.GRPC.Endpoint
+	if endpoint == "" {
 		return
 	}
 
-	pubs := controlconfig.AuthorizedKeys(c.cfgReader)
+	pubs := c.appCfg.Control.AuthorizedKeys
 	rawPubs := make([][]byte, 0, len(pubs)+1) // +1 for node key
 
 	rawPubs = append(rawPubs, c.key.PublicKey().Bytes())
