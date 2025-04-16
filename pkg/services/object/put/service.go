@@ -76,6 +76,8 @@ type NeoFSNetwork interface {
 	// IsLocalNodePublicKey checks whether given binary-encoded public key is
 	// assigned in the network map to a local storage node providing [Service].
 	IsLocalNodePublicKey([]byte) bool
+	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
+	GetEpochBlock(epoch uint64) (uint32, error)
 }
 
 type cfg struct {
@@ -121,7 +123,7 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, opts ...Option) *Ser
 		opts[i](c)
 	}
 
-	c.fmtValidator = object.NewFormatValidator(c.fmtValidatorOpts...)
+	c.fmtValidator = object.NewFormatValidator(c.cnrClient.Morph(), neoFSNet, c.fmtValidatorOpts...)
 
 	return &Service{
 		cfg:       c,
