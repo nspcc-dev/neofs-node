@@ -16,6 +16,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -242,8 +243,12 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	case tok.AssertAuthKey((*neofsecdsa.PublicKey)(&key.PublicKey)):
 		return nil, errors.New("unrelated key in the session")
 	}
-	if err := icrypto.AuthenticateToken(tok); err != nil {
-		return nil, fmt.Errorf("verify session token signature: %w", err)
+	if err := icrypto.AuthenticateToken(tok, nil); err != nil {
+		var errScheme icrypto.ErrUnsupportedScheme
+		if !errors.As(err, &errScheme) || neofscrypto.Scheme(errScheme) != neofscrypto.N3 {
+			return nil, err
+		}
+		// CLI has no tool to verify N3 signature, so check is delegated to the server
 	}
 	return tok, nil
 }

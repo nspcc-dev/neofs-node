@@ -6,6 +6,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	containerSvc "github.com/nspcc-dev/neofs-node/pkg/services/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -54,6 +58,12 @@ func (testFSChain) Delete(cid.ID, []byte, []byte, *session.Container) error {
 	return errors.New("unimplemented")
 }
 
+func (x testFSChain) GetEpochBlock(uint64) (uint32, error) { panic("unimplemented") }
+
+func (x testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("unimplemented")
+}
+
 func makeDeleteRequestWithSession(t testing.TB, usr usertest.UserSigner, cnr cid.ID, st interface {
 	ProtoMessage() *protosession.SessionToken
 }) *protocontainer.DeleteRequest {
@@ -91,7 +101,7 @@ func TestServer_Delete(t *testing.T) {
 		cnr:   cnr,
 		epoch: anyEpoch,
 	}
-	svc := containerSvc.New(&usr.ECDSAPrivateKey, m, m)
+	svc := containerSvc.New(&usr.ECDSAPrivateKey, m, m, m, m)
 
 	t.Run("session", func(t *testing.T) {
 		t.Run("failure", func(t *testing.T) {

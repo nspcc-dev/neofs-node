@@ -36,7 +36,7 @@ func AuthenticateObject(obj object.Object) error {
 		if !sessionToken.AssertAuthKey((*neofsecdsa.PublicKey)(ecdsaPub)) { // same format for all ECDSA schemes
 			return errors.New("session token is not for object's signer")
 		}
-		if err := AuthenticateToken(sessionToken); err != nil {
+		if err := AuthenticateToken(sessionToken, nil); err != nil {
 			return fmt.Errorf("session token: %w", err)
 		}
 		if sessionToken.Issuer() != obj.Owner() {

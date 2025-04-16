@@ -1,7 +1,9 @@
 package netmap
 
 import (
+	"errors"
 	"fmt"
+	"math"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -53,4 +55,39 @@ func (c *Client) LastEpochBlock() (uint32, error) {
 			lastEpochBlockMethod, err)
 	}
 	return uint32(block), nil
+}
+
+// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked using
+// 'getEpochBlock' method.
+func (c *Client) GetEpochBlock(epoch uint64) (uint32, error) {
+	var prm client.TestInvokePrm
+	prm.SetMethod(epochBlockMethod)
+	prm.SetArgs(epoch)
+
+	items, err := c.client.TestInvoke(prm)
+	if err != nil {
+		return 0, fmt.Errorf("call %s method: %w", epochBlockMethod, err)
+	}
+
+	if len(items) == 0 {
+		return 0, fmt.Errorf("empty stack in %s method result", epochBlockMethod)
+	}
+
+	bn, err := items[0].TryInteger()
+	if err != nil {
+		return 0, fmt.Errorf("convert 1st stack item from %s method result to integer: %w", epochBlockMethod, err)
+	}
+
+	if bn.Sign() == 0 {
+		return 0, errors.New("missing epoch")
+	}
+	if !bn.IsUint64() {
+		return 0, fmt.Errorf("%s method result %v overflows uint32", epochBlockMethod, bn)
+	}
+	n64 := bn.Uint64()
+	if n64 > math.MaxUint32 {
+		return 0, fmt.Errorf("%s method result %v overflows uint32", epochBlockMethod, bn)
+	}
+
+	return uint32(bn.Uint64()), nil
 }
