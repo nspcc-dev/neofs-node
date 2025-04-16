@@ -57,3 +57,13 @@ func (m Mode) NoMetabase() bool {
 func (m Mode) ReadOnly() bool {
 	return m&ReadOnly != 0
 }
+
+// IsValid returns true iff m is a valid mode.
+func (m Mode) IsValid() bool {
+	switch m {
+	case ReadWrite, ReadOnly, Degraded, DegradedReadOnly, Disabled:
+		return true
+	default:
+		return false
+	}
+}
