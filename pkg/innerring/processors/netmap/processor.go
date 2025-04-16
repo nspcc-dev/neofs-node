@@ -3,6 +3,7 @@ package netmap
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
@@ -51,11 +52,10 @@ type (
 		epochTimer    EpochTimerReseter
 		epochState    EpochState
 		alphabetState AlphabetState
+		curMap        atomic.Value
 
 		netmapClient *nmClient.Client
 		containerWrp *container.Client
-
-		netmapSnapshot cleanupTable
 
 		handleNewAudit         event.Handler
 		handleAuditSettlements event.Handler
@@ -75,8 +75,6 @@ type (
 		EpochTimer       EpochTimerReseter
 		EpochState       EpochState
 		AlphabetState    AlphabetState
-		CleanupEnabled   bool
-		CleanupThreshold uint64 // in epochs
 		ContainerWrapper *container.Client
 
 		HandleAudit             event.Handler
@@ -121,14 +119,17 @@ func New(p *Params) (*Processor, error) {
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
 
+	curMap, err := p.NetmapClient.NetMap()
+	if err != nil {
+		return nil, fmt.Errorf("ir/netmap: can't fetch network map: %w", err)
+	}
+
 	pool, err := ants.NewPool(p.PoolSize, ants.WithNonblocking(true))
 	if err != nil {
 		return nil, fmt.Errorf("ir/netmap: can't create worker pool: %w", err)
 	}
 
-	p.CleanupEnabled = false
-
-	return &Processor{
+	var processor = &Processor{
 		log:            p.Log,
 		pool:           pool,
 		epochTimer:     p.EpochTimer,
@@ -136,7 +137,6 @@ func New(p *Params) (*Processor, error) {
 		alphabetState:  p.AlphabetState,
 		netmapClient:   p.NetmapClient,
 		containerWrp:   p.ContainerWrapper,
-		netmapSnapshot: newCleanupTable(p.CleanupEnabled, p.CleanupThreshold),
 		handleNewAudit: p.HandleAudit,
 
 		handleAuditSettlements: p.AuditSettlementsHandler,
@@ -148,7 +148,9 @@ func New(p *Params) (*Processor, error) {
 		nodeValidator: p.NodeValidator,
 
 		nodeStateSettings: p.NodeStateSettings,
-	}, nil
+	}
+	processor.curMap.Store(curMap)
+	return processor, nil
 }
 
 // ListenerNotificationParsers for the 'event.Listener' event producer.

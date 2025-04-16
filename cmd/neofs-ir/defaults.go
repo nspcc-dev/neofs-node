@@ -87,9 +87,6 @@ func defaultConfiguration(cfg *viper.Viper) {
 	cfg.SetDefault("workers.alphabet", "10")
 	cfg.SetDefault("workers.reputation", "10")
 
-	cfg.SetDefault("netmap_cleaner.enabled", true)
-	cfg.SetDefault("netmap_cleaner.threshold", 3)
-
 	cfg.SetDefault("emit.storage.amount", 0)
 	cfg.SetDefault("emit.mint.cache_size", 1000)
 	cfg.SetDefault("emit.mint.threshold", 1)

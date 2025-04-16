@@ -1,46 +1,10 @@
 package netmap
 
 import (
-	"encoding/hex"
-
-	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	netmapEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
-
-func (np *Processor) validateCandidate(tx *transaction.Transaction, nodeInfo netmap.NodeInfo, v2 bool) {
-	// validate node info
-	var err = np.nodeValidator.Verify(nodeInfo)
-	if err != nil {
-		np.log.Warn("could not verify and update information about network map candidate",
-			zap.String("public_key", hex.EncodeToString(nodeInfo.PublicKey())),
-			zap.Error(err),
-		)
-
-		return
-	}
-
-	// sort attributes to make it consistent
-	nodeInfo.SortAttributes()
-
-	// marshal updated node info structure
-	nodeInfoBinary := nodeInfo.Marshal()
-
-	keyString := netmap.StringifyPublicKey(nodeInfo)
-
-	updated := np.netmapSnapshot.touch(keyString, np.epochState.EpochCounter(), nodeInfoBinary)
-
-	if v2 || updated {
-		np.log.Info("approving network map candidate",
-			zap.String("key", keyString))
-
-		err = np.netmapClient.Morph().NotarySignAndInvokeTX(tx, false)
-		if err != nil {
-			np.log.Error("can't sign and send notary request calling netmap.AddPeer", zap.Error(err))
-		}
-	}
-}
 
 // Check the new node and allow/reject adding it to netmap.
 func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
@@ -68,7 +32,25 @@ func (np *Processor) processAddNode(ev netmapEvent.AddNode) {
 		np.log.Warn("can't parse network map candidate")
 		return
 	}
-	np.validateCandidate(tx, nodeInfo, true)
+	var keyString = netmap.StringifyPublicKey(nodeInfo)
+
+	// validate node info
+	err = np.nodeValidator.Verify(nodeInfo)
+	if err != nil {
+		np.log.Warn("could not verify and update information about network map candidate",
+			zap.String("key", keyString),
+			zap.Error(err),
+		)
+
+		return
+	}
+
+	np.log.Info("approving network map candidate", zap.String("key", keyString))
+
+	err = np.netmapClient.Morph().NotarySignAndInvokeTX(tx, false)
+	if err != nil {
+		np.log.Error("can't sign and send notary request calling netmap.AddPeer", zap.Error(err))
+	}
 }
 
 // Process update peer notification by sending approval tx to the smart contract.
@@ -77,10 +59,6 @@ func (np *Processor) processUpdatePeer(ev netmapEvent.UpdatePeer) {
 		np.log.Info("non alphabet mode, ignore update peer notification")
 		return
 	}
-
-	// flag node to remove from local view, so it can be re-bootstrapped
-	// again before new epoch will tick
-	np.netmapSnapshot.flag(ev.PublicKey().StringCompressed(), np.epochState.EpochCounter())
 
 	var err error
 

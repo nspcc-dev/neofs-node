@@ -870,8 +870,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		EpochTimer:       server,
 		EpochState:       server,
 		AlphabetState:    server,
-		CleanupEnabled:   cfg.NetmapCleaner.Enabled,
-		CleanupThreshold: cfg.NetmapCleaner.Threshold,
 		ContainerWrapper: cnrClient,
 		HandleAudit: server.onlyActiveEventHandler(
 			auditProcessor.StartAuditHandler(),

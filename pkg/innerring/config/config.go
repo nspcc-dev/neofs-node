@@ -44,8 +44,6 @@ type Config struct {
 
 	Indexer Indexer `mapstructure:"indexer"`
 
-	NetmapCleaner NetmapCleaner `mapstructure:"netmap_cleaner"`
-
 	Contracts Contracts `mapstructure:"contracts"`
 
 	Pprof BasicService `mapstructure:"pprof"`
@@ -101,12 +99,6 @@ type Workers struct {
 // Indexer configures duration between internal state update about current list of inner ring nodes.
 type Indexer struct {
 	CacheTimeout time.Duration `mapstructure:"cache_timeout"`
-}
-
-// NetmapCleaner configures settings to voting for removing stale storage nodes from network map.
-type NetmapCleaner struct {
-	Enabled   bool   `mapstructure:"enabled"`
-	Threshold uint64 `mapstructure:"threshold"`
 }
 
 // BasicService configures settings of basic external service like pprof or prometheus.
