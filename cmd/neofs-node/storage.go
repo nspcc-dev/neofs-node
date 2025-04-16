@@ -12,11 +12,12 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event/netmap"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/panjf2000/ants/v2"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -37,14 +38,26 @@ func initLocalStorage(c *cfg) {
 		ls.HandleNewEpoch(ev.(netmap.NewEpoch).EpochNumber())
 	})
 
-	subscribeToContainerRemoval(c, func(e event.Event) {
-		ev := e.(containerEvent.DeleteSuccess)
-
-		err := ls.InhumeContainer(ev.ID)
-		if err != nil {
-			c.log.Warn("inhuming container after a chain event",
-				zap.Stringer("cID", ev.ID), zap.Error(err))
+	subscribeToContainerRemoval(c, func(id cid.ID, owner user.ID) {
+		if owner.IsZero() {
+			err := ls.InhumeContainer(id)
+			if err != nil {
+				c.log.Warn("inhuming container after a chain event",
+					zap.Stringer("cID", id), zap.Error(err))
+			}
+			return
 		}
+		c.log.Info("caught container removal, marking its local objects for GC...",
+			zap.Stringer("container", id), zap.Stringer("owner", owner))
+
+		if err := ls.InhumeContainer(id); err != nil {
+			c.log.Warn("failed to mark local objects from the removed container for GC",
+				zap.Stringer("container", id), zap.Error(err))
+			return
+		}
+
+		c.log.Info("successfully marked local objects from the removed container for GC",
+			zap.Stringer("container", id))
 	})
 
 	// allocate memory for the service;

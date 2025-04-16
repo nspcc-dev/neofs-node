@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	fschaincontracts "github.com/nspcc-dev/neofs-node/pkg/morph/contracts"
 )
 
 // PutEACLPrm groups parameters of PutEACL operation.
@@ -46,7 +47,7 @@ func (c *Client) PutEACL(p PutEACLPrm) error {
 	}
 
 	prm := client.InvokePrm{}
-	prm.SetMethod(setEACLMethod)
+	prm.SetMethod(fschaincontracts.PutContainerEACLMethod)
 	prm.SetArgs(p.table, p.sig, p.key, p.token)
 	prm.InvokePrmOptional = p.InvokePrmOptional
 
@@ -57,7 +58,14 @@ func (c *Client) PutEACL(p PutEACLPrm) error {
 
 	err := c.client.Invoke(prm)
 	if err != nil {
-		return fmt.Errorf("could not invoke method (%s): %w", setEACLMethod, err)
+		if isMethodNotFoundError(err, fschaincontracts.PutContainerEACLMethod) {
+			prm.SetMethod(setEACLMethod)
+			if err = c.client.Invoke(prm); err != nil {
+				return fmt.Errorf("could not invoke method (%s): %w", setEACLMethod, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("could not invoke method (%s): %w", fschaincontracts.PutContainerEACLMethod, err)
 	}
 	return nil
 }

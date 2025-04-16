@@ -5,6 +5,9 @@ Changelog for NeoFS Node
 
 ### Added
 - Expose metrics about write-cache (#3293)
+- IR supports recently added Container contract's `create`, `remove` and `putEACL` methods now (#3282)
+- SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
+- SN listens and handles recently added Container contract's `Created` and `Removed` notifications (#3282)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
@@ -42,6 +45,7 @@ Changelog for NeoFS Node
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)
+- `github.com/nspcc-dev/neofs-contract` dependency to `v0.21.1-0.20250402160117-5558c10a5bc0` (#3282)
 
 ### Updating from v0.45.2
 `apiclient.allow_external` field must be dropped from any SN configuration.

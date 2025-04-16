@@ -47,12 +47,12 @@ func (x *fsChain) cancelSubs() {
 	}
 }
 
-// SubscribeToNewBlocks implements [deploy.Blockchain] interface.
-func (x *fsChain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
+// SubscribeToNewHeaders implements [deploy.Blockchain] interface.
+func (x *fsChain) SubscribeToNewHeaders() (<-chan *block.Header, error) {
 	if x.wsClient != nil {
-		ch := make(chan *block.Block)
+		ch := make(chan *block.Header)
 
-		sub, err := x.wsClient.ReceiveBlocks(nil, ch)
+		sub, err := x.wsClient.ReceiveHeadersOfAddedBlocks(nil, ch)
 		if err != nil {
 			return nil, fmt.Errorf("listen to new blocks over Neo RPC WebSocket: %w", err)
 		}
@@ -70,16 +70,8 @@ func (x *fsChain) SubscribeToNewBlocks() (<-chan *block.Block, error) {
 	}
 
 	_, headerCh, _ := x.client.Notifications()
-	ch := make(chan *block.Block)
-	go func() {
-		// Client closure will stop it
-		for h := range headerCh {
-			ch <- &block.Block{Header: *h} // Deploy doesn't care about transactions, so it's safe.
-		}
-		close(ch)
-	}()
 
-	return ch, nil
+	return headerCh, nil
 }
 
 // SubscribeToNotaryRequests implements [deploy.Blockchain] interface.

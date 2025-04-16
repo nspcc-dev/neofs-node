@@ -2,6 +2,7 @@ package meta
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -22,7 +23,9 @@ import (
 const (
 	objPutEvName  = "ObjectPut"
 	cnrDeleteName = "DeleteSuccess"
+	cnrRmName     = "Removed"
 	cnrPutName    = "PutSuccess"
+	cnrCrtName    = "Created"
 	newEpochName  = "NewEpoch"
 )
 
@@ -49,20 +52,31 @@ func (m *Meta) unsubscribeFromBlocks() {
 }
 
 // subscribeForNewContainers requires [Meta.cliM] to be taken.
-func (m *Meta) subscribeForNewContainers(ch chan<- *state.ContainedNotificationEvent) (string, error) {
+func (m *Meta) subscribeForNewContainers() error {
 	m.l.Debug("subscribing for containers")
 
 	cnrPutEv := cnrPutName
-	return m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &cnrPutEv}, ch)
+	var err1 error
+	m.cnrSubID, err1 = m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &cnrPutEv}, m.cnrPutEv)
+
+	cnrCrtEv := cnrCrtName
+	var err2 error
+	m.cnrCrtSubID, err2 = m.ws.ReceiveExecutionNotifications(&neorpc.NotificationFilter{Contract: &m.cnrH, Name: &cnrCrtEv}, m.cnrPutEv)
+
+	return errors.Join(err1, err2)
 }
 
 // unsubscribeFromNewContainers requires [Meta.cliM] to be taken.
 func (m *Meta) unsubscribeFromNewContainers() {
 	m.l.Debug("unsubscribing from containers")
 
+	if err := m.ws.Unsubscribe(m.cnrCrtSubID); err != nil {
+		m.l.Error("could not unsubscribe from containers, ignore", zap.String("event", cnrCrtName), zap.String("sub", m.cnrCrtSubID), zap.Error(err))
+	}
+
 	err := m.ws.Unsubscribe(m.cnrSubID)
 	if err != nil {
-		m.l.Error("could not unsubscribe from containers", zap.Error(err))
+		m.l.Error("could not unsubscribe from containers", zap.String("event", cnrPutName), zap.String("sub", m.cnrSubID), zap.Error(err))
 		return
 	}
 
@@ -190,7 +204,7 @@ func (m *Meta) reconnect(ctx context.Context) error {
 		}
 	} else {
 		m.cnrPutEv = make(chan *state.ContainedNotificationEvent, notificationBuffSize)
-		m.cnrSubID, err = m.subscribeForNewContainers(m.cnrPutEv)
+		err = m.subscribeForNewContainers()
 		if err != nil {
 			m.stM.RUnlock()
 			return fmt.Errorf("subscription for containers: %w", err)
@@ -433,7 +447,7 @@ func parseCnrNotification(ev state.ContainedNotificationEvent) (cnrEvent, error)
 		if len(arr) != expectedNotificationArgs {
 			return res, fmt.Errorf("unexpected number of items on stack: %d, expected: %d", len(arr), expectedNotificationArgs)
 		}
-	case cnrPutName:
+	case cnrPutName, cnrCrtName, cnrRmName:
 		const expectedNotificationArgs = 2
 		if len(arr) != expectedNotificationArgs {
 			return res, fmt.Errorf("unexpected number of items on stack: %d, expected: %d", len(arr), expectedNotificationArgs)
@@ -470,7 +484,7 @@ func (m *Meta) dropContainer(cID cid.ID) error {
 	if len(m.storages) == 0 {
 		m.cliM.Lock()
 		m.unsubscribeFromBlocks()
-		m.cnrSubID, err = m.subscribeForNewContainers(m.cnrPutEv)
+		err = m.subscribeForNewContainers()
 		m.cliM.Unlock()
 		if err != nil {
 			return fmt.Errorf("subscribing for new containers: %w", err)
@@ -584,7 +598,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 		}
 
 		if m.cnrSubID == "" {
-			m.cnrSubID, err = m.subscribeForNewContainers(m.cnrPutEv)
+			err = m.subscribeForNewContainers()
 			if err != nil {
 				m.cliM.Unlock()
 				return fmt.Errorf("containers subscription: %w", err)

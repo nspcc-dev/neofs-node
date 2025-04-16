@@ -80,6 +80,7 @@ type Meta struct {
 	ws          wsClient
 	blockSubID  string
 	cnrSubID    string
+	cnrCrtSubID string
 	bCh         chan *block.Header
 	cnrPutEv    chan *state.ContainedNotificationEvent
 	epochEv     chan *state.ContainedNotificationEvent
@@ -262,7 +263,7 @@ func (m *Meta) Run(ctx context.Context) error {
 			return fmt.Errorf("block subscription: %w", err)
 		}
 	} else {
-		m.cnrSubID, err = m.subscribeForNewContainers(m.cnrPutEv)
+		err = m.subscribeForNewContainers()
 		if err != nil {
 			return fmt.Errorf("new container subscription: %w", err)
 		}

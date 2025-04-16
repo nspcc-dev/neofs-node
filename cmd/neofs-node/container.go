@@ -51,47 +51,45 @@ func initContainerService(c *cfg) {
 	}
 
 	if c.containerCache != nil {
-		subscribeToContainerCreation(c, func(e event.Event) {
-			ev := e.(containerEvent.PutSuccess)
-
-			// read owner of the created container in order to update the reading cache.
-			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
-			//  but don't forget about the profit of reading the new container and caching it:
-			//  creation success are most commonly tracked by polling GET op.
-			cnr, err := c.containerCache.Get(ev.ID)
-			if err == nil {
-				c.containerListCache.update(cnr.Value.Owner(), ev.ID, true)
-			} else {
-				// unlike removal, we expect successful receive of the container
-				// after successful creation, so logging can be useful
-				c.log.Error("read newly created container after the notification",
-					zap.Stringer("id", ev.ID),
-					zap.Error(err),
-				)
+		subscribeToContainerCreation(c, func(id cid.ID, owner user.ID) {
+			if owner.IsZero() {
+				c.log.Debug("container removal event's receipt", zap.Stringer("id", id))
+				// read owner of the created container in order to update the reading cache.
+				cnr, err := c.containerCache.Get(id)
+				if err == nil {
+					c.containerListCache.update(cnr.Value.Owner(), id, true)
+				} else {
+					// unlike removal, we expect successful receive of the container
+					// after successful creation, so logging can be useful
+					c.log.Error("read newly created container after the notification", zap.Stringer("id", id), zap.Error(err))
+				}
+				return
 			}
-
-			c.log.Debug("container creation event's receipt",
-				zap.Stringer("id", ev.ID),
-			)
+			c.log.Info("caught container creation, updating cache...", zap.Stringer("id", id), zap.Stringer("owner", owner))
+			c.containerListCache.update(owner, id, true)
 		})
 
-		subscribeToContainerRemoval(c, func(e event.Event) {
-			ev := e.(containerEvent.DeleteSuccess)
-
-			// read owner of the removed container in order to update the listing cache.
-			// It's strange to read already removed container, but we can successfully hit
-			// the cache.
-			// TODO: use owner directly from the event after neofs-contract#256 will become resolved
-			cnr, err := c.containerCache.Get(ev.ID)
-			if err == nil {
-				c.containerListCache.update(cnr.Value.Owner(), ev.ID, false)
+		subscribeToContainerRemoval(c, func(id cid.ID, owner user.ID) {
+			if owner.IsZero() {
+				c.log.Debug("container removal event's receipt", zap.Stringer("id", id))
+				// read owner of the removed container in order to update the listing cache.
+				// It's strange to read already removed container, but we can successfully hit
+				// the cache.
+				cnr, err := c.containerCache.Get(id)
+				if err == nil {
+					c.containerListCache.update(cnr.Value.Owner(), id, false)
+				}
+				c.containerCache.handleRemoval(id)
+				return
 			}
+			c.log.Info("caught container removal, updating cache...", zap.Stringer("id", id),
+				zap.Stringer("owner", owner))
 
-			c.containerCache.handleRemoval(ev.ID)
+			c.containerListCache.update(owner, id, false)
+			c.containerCache.handleRemoval(id)
 
-			c.log.Debug("container removal event's receipt",
-				zap.Stringer("id", ev.ID),
-			)
+			c.log.Info("successfully updated cache of the removed container",
+				zap.Stringer("id", id))
 		})
 	}
 
@@ -216,18 +214,34 @@ func registerEventParserOnceContainer(c *cfg, name string, p event.NotificationP
 
 // subscribes to successful container creation. Provided handler is called asynchronously
 // on corresponding routine pool. MUST NOT be called concurrently with itself and other
-// similar functions.
-func subscribeToContainerCreation(c *cfg, h event.Handler) {
+// similar functions. Owner may be zero.
+func subscribeToContainerCreation(c *cfg, h func(id cid.ID, owner user.ID)) {
 	const eventNameContainerCreated = "PutSuccess"
 	registerEventParserOnceContainer(c, eventNameContainerCreated, containerEvent.ParsePutSuccess)
-	addContainerAsyncNotificationHandler(c, eventNameContainerCreated, h)
+	addContainerAsyncNotificationHandler(c, eventNameContainerCreated, func(e event.Event) {
+		h(e.(containerEvent.PutSuccess).ID, user.ID{})
+	})
+	const eventNameContainerCreatedV2 = "Created"
+	registerEventParserOnceContainer(c, eventNameContainerCreatedV2, containerEvent.RestoreCreated)
+	addContainerAsyncNotificationHandler(c, eventNameContainerCreatedV2, func(e event.Event) {
+		created := e.(containerEvent.Created)
+		h(created.ID, created.Owner)
+	})
 }
 
-// like subscribeToContainerCreation but for removal.
-func subscribeToContainerRemoval(c *cfg, h event.Handler) {
+// like subscribeToContainerCreation but for removal. Owner may be zero.
+func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
 	const eventNameContainerRemoved = "DeleteSuccess"
 	registerEventParserOnceContainer(c, eventNameContainerRemoved, containerEvent.ParseDeleteSuccess)
-	addContainerAsyncNotificationHandler(c, eventNameContainerRemoved, h)
+	addContainerAsyncNotificationHandler(c, eventNameContainerRemoved, func(e event.Event) {
+		h(e.(containerEvent.DeleteSuccess).ID, user.ID{})
+	})
+	const eventNameContainerRemovedV2 = "Removed"
+	registerEventParserOnceContainer(c, eventNameContainerRemovedV2, containerEvent.RestoreRemoved)
+	addContainerAsyncNotificationHandler(c, eventNameContainerRemovedV2, func(e event.Event) {
+		removed := e.(containerEvent.Removed)
+		h(removed.ID, removed.Owner)
+	})
 }
 
 func setContainerNotificationParser(c *cfg, sTyp string, p event.NotificationParser) {
@@ -636,10 +650,11 @@ func (x *containersInChain) Put(cnr containerSDK.Container, pub, sig []byte, st 
 	return cid.NewFromMarshalledContainer(data), nil
 }
 
-func (x *containersInChain) Delete(id cid.ID, _, sig []byte, st *session.Container) error {
+func (x *containersInChain) Delete(id cid.ID, pub, sig []byte, st *session.Container) error {
 	var prm cntClient.DeletePrm
 	prm.SetCID(id[:])
 	prm.SetSignature(sig)
+	prm.SetKey(pub)
 	prm.RequireAlphabetSignature()
 	if st != nil {
 		prm.SetToken(st.Marshal())

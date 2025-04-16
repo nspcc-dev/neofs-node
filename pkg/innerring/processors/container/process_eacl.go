@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (cp *Processor) processSetEACL(e container.SetEACL) {
+func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore set EACL")
 		return
 	}
 
-	err := cp.checkSetEACL(e)
+	err := cp.checkSetEACL(req)
 	if err != nil {
 		cp.log.Error("set EACL check failed",
 			zap.Error(err),
@@ -27,14 +27,12 @@ func (cp *Processor) processSetEACL(e container.SetEACL) {
 		return
 	}
 
-	cp.approveSetEACL(e)
+	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(e container.SetEACL) error {
-	binTable := e.Table()
-
+func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 	// unmarshal table
-	table, err := eacl.Unmarshal(binTable)
+	table, err := eacl.Unmarshal(req.EACL)
 	if err != nil {
 		return fmt.Errorf("invalid binary table: %w", err)
 	}
@@ -65,10 +63,10 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 		verb:            session.VerbContainerSetEACL,
 		idContainerSet:  true,
 		idContainer:     idCnr,
-		binTokenSession: e.SessionToken(),
-		binPublicKey:    e.PublicKey(),
-		signature:       e.Signature(),
-		signedData:      binTable,
+		binTokenSession: req.SessionToken,
+		binPublicKey:    req.VerificationScript,
+		signature:       req.InvocationScript,
+		signedData:      req.EACL,
 	})
 	if err != nil {
 		return fmt.Errorf("auth eACL table setting: %w", err)
@@ -77,18 +75,8 @@ func (cp *Processor) checkSetEACL(e container.SetEACL) error {
 	return nil
 }
 
-func (cp *Processor) approveSetEACL(e container.SetEACL) {
-	var err error
-
-	prm := cntClient.PutEACLPrm{}
-
-	prm.SetTable(e.Table())
-	prm.SetKey(e.PublicKey())
-	prm.SetSignature(e.Signature())
-	prm.SetToken(e.SessionToken())
-
-	nr := e.NotaryRequest()
-	err = cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
+func (cp *Processor) approveSetEACL(req container.PutContainerEACLRequest) {
+	err := cp.cnrClient.Morph().NotarySignAndInvokeTX(&req.MainTransaction, false)
 
 	if err != nil {
 		cp.log.Error("could not approve set EACL",

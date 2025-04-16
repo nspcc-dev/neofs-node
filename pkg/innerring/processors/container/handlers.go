@@ -11,16 +11,31 @@ import (
 )
 
 func (cp *Processor) handlePut(ev event.Event) {
-	put := ev.(putEvent)
+	req, ok := ev.(containerEvent.CreateContainerRequest)
+	if !ok {
+		e := ev.(putEvent)
+		req.MainTransaction = *e.NotaryRequest().MainTransaction
+		req.Container = e.Container()
+		req.InvocationScript = e.Signature()
+		req.VerificationScript = e.PublicKey()
+		req.SessionToken = e.SessionToken()
+		if n, ok := e.(interface {
+			Name() string
+			Zone() string
+		}); ok {
+			req.DomainName = n.Name()
+			req.DomainZone = n.Zone()
+		}
+	}
 
-	id := sha256.Sum256(put.Container())
+	id := sha256.Sum256(req.Container)
 	cp.log.Info("notification",
 		zap.String("type", "container put"),
 		zap.String("id", base58.Encode(id[:])))
 
 	// send an event to the worker pool
 
-	err := cp.pool.Submit(func() { cp.processContainerPut(put) })
+	err := cp.pool.Submit(func() { cp.processContainerPut(req) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
@@ -29,14 +44,24 @@ func (cp *Processor) handlePut(ev event.Event) {
 }
 
 func (cp *Processor) handleDelete(ev event.Event) {
-	del := ev.(containerEvent.Delete)
+	req, ok := ev.(containerEvent.RemoveContainerRequest)
+	if !ok {
+		e := ev.(containerEvent.Delete)
+		req.MainTransaction = *e.NotaryRequest().MainTransaction
+		req.ID = e.ContainerID()
+		req.InvocationScript = e.Signature()
+		req.VerificationScript = nil
+		req.SessionToken = e.SessionToken()
+	} else if req.VerificationScript == nil {
+		req.VerificationScript = []byte{} // to differ with 'delete' having no such parameter
+	}
 	cp.log.Info("notification",
 		zap.String("type", "container delete"),
-		zap.String("id", base58.Encode(del.ContainerID())))
+		zap.String("id", base58.Encode(req.ID)))
 
 	// send an event to the worker pool
 
-	err := cp.pool.Submit(func() { cp.processContainerDelete(&del) })
+	err := cp.pool.Submit(func() { cp.processContainerDelete(req) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
@@ -45,7 +70,15 @@ func (cp *Processor) handleDelete(ev event.Event) {
 }
 
 func (cp *Processor) handleSetEACL(ev event.Event) {
-	e := ev.(containerEvent.SetEACL)
+	req, ok := ev.(containerEvent.PutContainerEACLRequest)
+	if !ok {
+		e := ev.(containerEvent.SetEACL)
+		req.MainTransaction = *e.NotaryRequest().MainTransaction
+		req.EACL = e.Table()
+		req.InvocationScript = e.Signature()
+		req.VerificationScript = e.PublicKey()
+		req.SessionToken = e.SessionToken()
+	}
 
 	cp.log.Info("notification",
 		zap.String("type", "set EACL"),
@@ -54,7 +87,7 @@ func (cp *Processor) handleSetEACL(ev event.Event) {
 	// send an event to the worker pool
 
 	err := cp.pool.Submit(func() {
-		cp.processSetEACL(e)
+		cp.processPutEACLRequest(req)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage
