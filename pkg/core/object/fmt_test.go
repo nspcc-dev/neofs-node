@@ -76,7 +76,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 		m: make(map[oid.Address]bool),
 	}
 
-	v := NewFormatValidator(
+	v := NewFormatValidator(nil, nil,
 		WithNetState(testNetState{
 			epoch: curEpoch,
 		}),
@@ -493,7 +493,7 @@ func (t *testSplitVerifier) VerifySplit(ctx context.Context, cID cid.ID, firstID
 func TestLinkObjectSplitV2(t *testing.T) {
 	verifier := new(testSplitVerifier)
 
-	v := NewFormatValidator(
+	v := NewFormatValidator(nil, nil,
 		WithSplitVerifier(verifier),
 	)
 
