@@ -164,7 +164,7 @@ func initContainerService(c *cfg) {
 	})
 
 	server := &usedSpaceService{
-		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, (*containersInChain)(&c.basics)),
+		ContainerServiceServer: containerService.New(&c.key.PrivateKey, c.networkState, c.cli, (*containersInChain)(&c.basics), c.nCli),
 		loadWriterProvider:     loadRouter,
 		loadPlacementBuilder:   loadPlacementBuilder,
 		routeBuilder:           routeBuilder,

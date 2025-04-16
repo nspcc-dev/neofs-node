@@ -24,14 +24,14 @@ import (
 func TestAuthenticateToken_Bearer(t *testing.T) {
 	t.Run("without signature", func(t *testing.T) {
 		token := getUnsignedBearerToken()
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "missing signature")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "missing signature")
 	})
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := bearerECDSASHA512
 		sig, _ := token.Signature()
 		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -52,7 +52,7 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 				sig, _ := token.Signature()
 				sig.SetPublicKeyBytes(tc.changePub(sig.PublicKeyBytes()))
 				token.AttachSignature(sig)
-				err := icrypto.AuthenticateToken(&token)
+				err := icrypto.AuthenticateToken(&token, nil)
 				require.EqualError(t, err, "scheme ECDSA_SHA512: decode public key: "+tc.err)
 			})
 		}
@@ -74,7 +74,7 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 					cp[i]++
 					sig.SetValue(cp)
 					tc.token.AttachSignature(sig)
-					err := icrypto.AuthenticateToken(&tc.token)
+					err := icrypto.AuthenticateToken(&tc.token, nil)
 					require.EqualError(t, err, fmt.Sprintf("scheme %s: signature mismatch", tc.scheme))
 				}
 			})
@@ -90,7 +90,7 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: noIssuerBearerECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "missing issuer")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "missing issuer")
 			})
 		}
 	})
@@ -104,7 +104,7 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: wrongIssuerBearerECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "issuer mismatches signature")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "issuer mismatches signature")
 			})
 		}
 	})
@@ -116,21 +116,21 @@ func TestAuthenticateToken_Bearer(t *testing.T) {
 		{scheme: neofscrypto.ECDSA_DETERMINISTIC_SHA256, token: bearerECDSARFC6979},
 		{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: bearerECDSAWalletConnect},
 	} {
-		require.NoError(t, icrypto.AuthenticateToken(&tc.token))
+		require.NoError(t, icrypto.AuthenticateToken(&tc.token, nil))
 	}
 }
 
 func TestAuthenticateSessionToken_Object(t *testing.T) {
 	t.Run("without signature", func(t *testing.T) {
 		token := getUnsignedObjectSessionToken()
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "missing signature")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "missing signature")
 	})
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := objectSessionECDSASHA512
 		sig, _ := token.Signature()
 		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -151,7 +151,7 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 				sig, _ := token.Signature()
 				sig.SetPublicKeyBytes(tc.changePub(sig.PublicKeyBytes()))
 				token.AttachSignature(sig)
-				err := icrypto.AuthenticateToken(&token)
+				err := icrypto.AuthenticateToken(&token, nil)
 				require.EqualError(t, err, "scheme ECDSA_SHA512: decode public key: "+tc.err)
 			})
 		}
@@ -173,7 +173,7 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 					cp[i]++
 					sig.SetValue(cp)
 					tc.token.AttachSignature(sig)
-					err := icrypto.AuthenticateToken(&tc.token)
+					err := icrypto.AuthenticateToken(&tc.token, nil)
 					require.EqualError(t, err, fmt.Sprintf("scheme %s: signature mismatch", tc.scheme))
 				}
 			})
@@ -189,7 +189,7 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: noIssuerObjectSessionECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "missing issuer")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "missing issuer")
 			})
 		}
 	})
@@ -203,7 +203,7 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: wrongIssuerObjectSessionECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "issuer mismatches signature")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "issuer mismatches signature")
 			})
 		}
 	})
@@ -215,21 +215,21 @@ func TestAuthenticateSessionToken_Object(t *testing.T) {
 		{scheme: neofscrypto.ECDSA_DETERMINISTIC_SHA256, token: objectSessionECDSARFC6979},
 		{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: objectSessionECDSAWalletConnect},
 	} {
-		require.NoError(t, icrypto.AuthenticateToken(&tc.token))
+		require.NoError(t, icrypto.AuthenticateToken(&tc.token, nil))
 	}
 }
 
 func TestAuthenticateSessionToken_Container(t *testing.T) {
 	t.Run("without signature", func(t *testing.T) {
 		token := getUnsignedContainerSessionToken()
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "missing signature")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "missing signature")
 	})
 	t.Run("unsupported scheme", func(t *testing.T) {
 		token := containerSessionECDSASHA512
 		sig, _ := token.Signature()
 		sig.SetScheme(4)
 		token.AttachSignature(sig)
-		require.EqualError(t, icrypto.AuthenticateToken(&token), "unsupported scheme 4")
+		require.EqualError(t, icrypto.AuthenticateToken(&token, nil), "unsupported scheme 4")
 	})
 	t.Run("invalid public key", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -250,7 +250,7 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 				sig, _ := token.Signature()
 				sig.SetPublicKeyBytes(tc.changePub(sig.PublicKeyBytes()))
 				token.AttachSignature(sig)
-				err := icrypto.AuthenticateToken(&token)
+				err := icrypto.AuthenticateToken(&token, nil)
 				require.EqualError(t, err, "scheme ECDSA_SHA512: decode public key: "+tc.err)
 			})
 		}
@@ -272,7 +272,7 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 					cp[i]++
 					sig.SetValue(cp)
 					tc.token.AttachSignature(sig)
-					err := icrypto.AuthenticateToken(&tc.token)
+					err := icrypto.AuthenticateToken(&tc.token, nil)
 					require.EqualError(t, err, fmt.Sprintf("scheme %s: signature mismatch", tc.scheme))
 				}
 			})
@@ -288,7 +288,7 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: noIssuerContainerSessionECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "missing issuer")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "missing issuer")
 			})
 		}
 	})
@@ -302,7 +302,7 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 			{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: wrongIssuerContainerSessionECDSAWalletConnect},
 		} {
 			t.Run(tc.scheme.String(), func(t *testing.T) {
-				require.EqualError(t, icrypto.AuthenticateToken(&tc.token), "issuer mismatches signature")
+				require.EqualError(t, icrypto.AuthenticateToken(&tc.token, nil), "issuer mismatches signature")
 			})
 		}
 	})
@@ -314,7 +314,7 @@ func TestAuthenticateSessionToken_Container(t *testing.T) {
 		{scheme: neofscrypto.ECDSA_DETERMINISTIC_SHA256, token: containerSessionECDSARFC6979},
 		{scheme: neofscrypto.ECDSA_WALLETCONNECT, token: containerSessionECDSAWalletConnect},
 	} {
-		require.NoError(t, icrypto.AuthenticateToken(&tc.token))
+		require.NoError(t, icrypto.AuthenticateToken(&tc.token, nil))
 	}
 }
 

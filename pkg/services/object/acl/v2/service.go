@@ -4,6 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -28,6 +32,12 @@ type Service struct {
 // Option represents Service constructor option.
 type Option func(*cfg)
 
+// FSChain provides base non-contract functionality of the FS chain required for
+// [Service] to work.
+type FSChain interface {
+	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+}
+
 // Netmapper must provide network map information.
 type Netmapper interface {
 	netmap.Source
@@ -35,6 +45,8 @@ type Netmapper interface {
 	// Any unknown state must be returned as `(false, error.New("explanation"))`,
 	// not `(false, nil)`.
 	ServerInContainer(cid.ID) (bool, error)
+	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
+	GetEpochBlock(epoch uint64) (uint32, error)
 }
 
 type cfg struct {
@@ -54,7 +66,7 @@ func defaultCfg() *cfg {
 }
 
 // New is a constructor for object ACL checking service.
-func New(opts ...Option) Service {
+func New(fsChain FSChain, opts ...Option) Service {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -70,6 +82,7 @@ func New(opts ...Option) Service {
 	panicOnNil(cfg.nm, "netmap client")
 	panicOnNil(cfg.irFetcher, "inner Ring fetcher")
 	panicOnNil(cfg.containers, "container source")
+	panicOnNil(fsChain, "FS chain")
 
 	return Service{
 		cfg: cfg,
@@ -77,6 +90,7 @@ func New(opts ...Option) Service {
 			log:       cfg.log,
 			innerRing: cfg.irFetcher,
 			netmap:    cfg.nm,
+			fsChain:   fsChain,
 		},
 	}
 }

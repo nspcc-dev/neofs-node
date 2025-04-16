@@ -59,6 +59,9 @@ type NetworkState interface {
 
 	// NetMap must return actual network map.
 	NetMap() (*netmap.NetMap, error)
+
+	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
+	GetEpochBlock(epoch uint64) (uint32, error)
 }
 
 // New creates a container contract processor instance.

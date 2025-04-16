@@ -9,7 +9,7 @@ Changelog for NeoFS Node
 - SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
 - SN listens and handles recently added Container contract's `Created` and `Removed` notifications (#3282)
 - IR now supports N3 account authorization of Container contract's `create`, `remove` and `putEACL` ops (#3298)
-- SN now supports `ObjectService` requests signed using N3 account scheme (#3303)
+- SN now supports `ObjectService` requests and session/bearer tokens signed using N3 account scheme (#3303, #3305)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)

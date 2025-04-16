@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -32,6 +33,11 @@ type signatureVerificationData struct {
 	signedData []byte
 }
 
+type historicN3ScriptRunner struct {
+	*client.Client
+	NetworkState
+}
+
 // verifySignature is a common method of Container service authentication. Asserts that:
 //   - for trusted parties: session is valid (*) and issued by container owner
 //   - operation data is witnessed by container owner or trusted party
@@ -52,7 +58,10 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 			return fmt.Errorf("decode session token: %w", err)
 		}
 
-		if err = icrypto.AuthenticateToken(&tok); err != nil {
+		if err = icrypto.AuthenticateToken(&tok, historicN3ScriptRunner{
+			Client:       cp.cnrClient.Morph(),
+			NetworkState: cp.netState,
+		}); err != nil {
 			return fmt.Errorf("authenticate session token: %w", err)
 		}
 

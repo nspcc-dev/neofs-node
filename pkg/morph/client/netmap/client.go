@@ -30,6 +30,7 @@ const (
 	configMethod           = "config"
 	epochMethod            = "epoch"
 	lastEpochBlockMethod   = "lastEpochBlock"
+	epochBlockMethod       = "getEpochBlock"
 	listNodesMethod        = "listNodes"
 	innerRingListMethod    = "innerRingList"
 	netMapCandidatesMethod = "netmapCandidates"
