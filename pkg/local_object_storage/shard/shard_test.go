@@ -72,11 +72,15 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
+			meta.WithLogger(zaptest.NewLogger(t)),
 		),
 		shard.WithWriteCache(enableWriteCache),
 		shard.WithWriteCacheOptions(
 			append(
-				[]writecache.Option{writecache.WithPath(filepath.Join(rootPath, "wcache"))},
+				[]writecache.Option{
+					writecache.WithLogger(zaptest.NewLogger(t)),
+					writecache.WithPath(filepath.Join(rootPath, "wcache")),
+				},
 				wcOpts...)...,
 		),
 	}, options...)

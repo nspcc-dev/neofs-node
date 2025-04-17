@@ -24,6 +24,7 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
@@ -120,10 +121,11 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 }
 
 func TestGC_ContainerCleanup(t *testing.T) {
-	sh := newCustomShard(t, t.TempDir(), true,
+	sh := newCustomShard(t, t.TempDir(), false,
 		nil,
 		nil,
-		shard.WithGCRemoverSleepInterval(10*time.Millisecond))
+		shard.WithGCRemoverSleepInterval(10*time.Millisecond),
+		shard.WithLogger(zaptest.NewLogger(t)))
 	defer releaseShard(sh, t)
 
 	const numOfObjs = 10
