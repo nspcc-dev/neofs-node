@@ -5,24 +5,12 @@ import (
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/vm"
-	"github.com/nspcc-dev/neo-go/pkg/vm/opcode"
 	netmaprpc "github.com/nspcc-dev/neofs-contract/rpc/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 )
 
-func (s *AddPeer) setNode(v []byte) {
-	if v != nil {
-		s.node = v
-	}
-}
-
 const (
-	// AddPeerNotaryEvent is method name for netmap `addPeer` operation
-	// in `Netmap` contract. Is used as identificator for notary
-	// peer addition requests.
-	AddPeerNotaryEvent = "addPeer"
-
 	// AddNodeNotaryEvent is method name for netmap `addNode` operation
 	// in `Netmap` contract. Is used as identificator for notary
 	// node addition requests. It's the new method used instead of
@@ -68,37 +56,6 @@ func Candidate2Info(c *netmaprpc.NetmapCandidate) (netmap.NodeInfo, error) {
 		return netmap.NodeInfo{}, fmt.Errorf("unsupported node state %v", c.State)
 	}
 	return ni, nil
-}
-
-// ParseAddPeerNotary from NotaryEvent into netmap event structure.
-func ParseAddPeerNotary(ne event.NotaryEvent) (event.Event, error) {
-	const expectedItemNumAddPeer = 1
-	var (
-		ev        AddPeer
-		currentOp opcode.Opcode
-	)
-
-	fieldNum := 0
-
-	for _, op := range ne.Params() {
-		currentOp = op.Code()
-
-		switch {
-		case opcode.PUSHDATA1 <= currentOp && currentOp <= opcode.PUSHDATA4:
-			if fieldNum == expectedItemNumAddPeer {
-				return nil, event.UnexpectedArgNumErr(AddPeerNotaryEvent)
-			}
-
-			ev.setNode(op.Param())
-			fieldNum++
-		default:
-			return nil, event.UnexpectedOpcode(AddPeerNotaryEvent, currentOp)
-		}
-	}
-
-	ev.notaryRequest = ne.Raw()
-
-	return ev, nil
 }
 
 // ParseAddNodeNotary from NotaryEvent into netmap event structure.

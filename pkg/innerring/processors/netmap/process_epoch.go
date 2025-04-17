@@ -1,7 +1,9 @@
 package netmap
 
 import (
+	"bytes"
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/audit"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/governance"
@@ -43,11 +45,11 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 	// get new netmap snapshot
 	networkMap, err := np.netmapClient.NetMap()
 	if err != nil {
-		l.Warn("can't get netmap snapshot to perform cleanup",
-			zap.Error(err))
+		l.Warn("can't get netmap snapshot", zap.Error(err))
 
 		return
 	}
+	var oldMap = np.curMap.Swap(networkMap).(*netmap.NetMap)
 
 	estimationEpoch := epoch - 1
 
@@ -68,7 +70,11 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 		}
 	}
 
-	if np.netmapSnapshot.update(*networkMap, epoch) {
+	mapChanged := !slices.EqualFunc(oldMap.Nodes(), networkMap.Nodes(), func(i1 netmap.NodeInfo, i2 netmap.NodeInfo) bool {
+		return bytes.Equal(i1.PublicKey(), i2.PublicKey())
+	})
+
+	if mapChanged {
 		l.Debug("updating placements in Container contract...")
 		err = np.updatePlacementInContract(*networkMap, l)
 		if err != nil {
@@ -77,7 +83,6 @@ func (np *Processor) processNewEpoch(ev netmapEvent.NewEpoch) {
 			l.Debug("updated placements in Container contract")
 		}
 	}
-	np.handleCleanupTick(netmapCleanupTick{epoch: epoch, txHash: ev.TxHash()})
 	np.handleNewAudit(audit.NewAuditStartEvent(epoch))
 	np.handleAuditSettlements(settlement.NewAuditEvent(epoch))
 	np.handleAlphabetSync(governance.NewSyncEvent(ev.TxHash()))

@@ -13,16 +13,6 @@ import (
 // AddPeer registers peer in NeoFS network through
 // Netmap contract call.
 func (c *Client) AddPeer(ni netmap.NodeInfo, pkey *keys.PublicKey) error {
-	if !c.nodeV2 {
-		prm := client.InvokePrm{}
-		prm.SetMethod(addPeerMethod)
-		prm.SetArgs(ni.Marshal())
-
-		if err := c.client.Invoke(prm); err != nil {
-			return fmt.Errorf("could not invoke method (%s): %w", addPeerMethod, err)
-		}
-	}
-
 	var node = &netmaprpc.NetmapNode2{
 		Attributes: make(map[string]string),
 		Key:        pkey,

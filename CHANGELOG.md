@@ -43,6 +43,8 @@ Changelog for NeoFS Node
 - `tree` SN configuration section (#3270)
 - `pilorama` shard configuration section for SN (#3270)
 - Tree service related CLI commands (#3270)
+- Netmap v1 node support (#3304)
+- `netmap_cleaner` IR configuration (#3304)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)
@@ -71,6 +73,8 @@ In SN configuration section `contracts` is gone and no longer needed.
 
 Experimental tree service is completely removed in this release, please drop
 `tree` and `pilorama` configuration sections as well as pilorama DB files.
+
+`netmap_cleaner` section should be removed from IR configuration.
 
 ## [0.45.2] - 2025-03-25
 

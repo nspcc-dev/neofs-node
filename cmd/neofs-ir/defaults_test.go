@@ -80,8 +80,7 @@ func TestValidateDefaultConfig(t *testing.T) {
 			},
 			POR: config.POR{PoolSize: 10},
 		},
-		Indexer:       config.Indexer{CacheTimeout: 15 * time.Second},
-		NetmapCleaner: config.NetmapCleaner{Enabled: true, Threshold: 3},
+		Indexer: config.Indexer{CacheTimeout: 15 * time.Second},
 		Pprof: config.BasicService{
 			Enabled:         false,
 			Address:         "localhost:6060",

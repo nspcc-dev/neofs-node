@@ -322,10 +322,6 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		Indexer: config.Indexer{
 			CacheTimeout: 15 * time.Second,
 		},
-		NetmapCleaner: config.NetmapCleaner{
-			Enabled:   true,
-			Threshold: 3,
-		},
 		Contracts: config.Contracts{
 			NeoFS:      "ee3dee6d05dc79c24a5b8f6985e10d68b7cacc62",
 			Processing: "597f5894867113a41e192801709c02497f611de8",
