@@ -89,6 +89,7 @@ type MetricCollector interface {
 type FSChain interface {
 	container.Source
 	netmap.StateDetailed
+	icrypto.N3ScriptRunner
 
 	// ForEachContainerNodePublicKeyInLastTwoEpochs iterates over all nodes matching
 	// the referenced container's storage policy at the current and the previous
@@ -435,7 +436,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignatures(req); err != nil {
+		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 			err = s.sendStatusPutResponse(gStream, err) // assign for defer
 			return err
 		}
@@ -495,7 +496,7 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
 	}
 
@@ -574,7 +575,7 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
 
@@ -811,7 +812,7 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
 
@@ -1264,7 +1265,7 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
 
@@ -1484,7 +1485,7 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
 
@@ -1694,7 +1695,7 @@ func (s *server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	}
 
 	var pubKey neofscrypto.PublicKey
-	switch req.Signature.Scheme {
+	switch req.Signature.Scheme { //nolint:exhaustive
 	// other cases already checked above
 	case refs.SignatureScheme_ECDSA_SHA512:
 		pubKey = new(neofsecdsa.PublicKey)
@@ -1811,7 +1812,7 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
 

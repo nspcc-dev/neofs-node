@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
 - SN listens and handles recently added Container contract's `Created` and `Removed` notifications (#3282)
 - IR now supports N3 account authorization of Container contract's `create`, `remove` and `putEACL` ops (#3298)
+- SN now supports `ObjectService` requests signed using N3 account scheme (#3303)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)
@@ -47,7 +48,7 @@ Changelog for NeoFS Node
 - `netmap_cleaner` IR configuration (#3304)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250411080533-5b25f66796e2` (#3255)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
 - `github.com/nspcc-dev/neofs-contract` dependency to `v0.21.1-0.20250402160117-5558c10a5bc0` (#3282)
 - `github.com/nspcc-dev/neo-go` dependency to `v0.108.2-0.20250414115617-823a05fcc10b` (#3298)
 

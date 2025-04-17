@@ -13,6 +13,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -93,6 +98,9 @@ func (*noCallTestFSChain) CurrentEpoch() uint64                     { panic("mus
 func (*noCallTestFSChain) CurrentBlock() uint32                     { panic("must not be called") }
 func (*noCallTestFSChain) CurrentEpochDuration() uint64             { panic("must not be called") }
 func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool          { panic("must not be called") }
+func (c *noCallTestFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("must not be called")
+}
 
 type noCallTestStorage struct{}
 
@@ -209,6 +217,10 @@ func (x *testFSChain) Get(id cid.ID) (*container.Container, error) {
 func (x *testFSChain) List() ([]cid.ID, error) {
 	// TODO implement me
 	panic("implement me")
+}
+
+func (x *testFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	panic("unimplemented")
 }
 
 func newTestFSChain(tb testing.TB, serverPubKey, clientPubKey []byte, cID cid.ID) *testFSChain {
@@ -568,6 +580,13 @@ func TestServer_Replicate(t *testing.T) {
 }
 
 type nopFSChain struct{}
+
+func (x nopFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
+	return &result.Invoke{
+		State: "HALT",
+		Stack: []stackitem.Item{stackitem.NewBool(true)},
+	}, nil
+}
 
 func (x nopFSChain) Get(cid.ID) (*container.Container, error) {
 	return &container.Container{}, nil
