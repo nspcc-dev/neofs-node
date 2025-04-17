@@ -110,9 +110,13 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 4
+
+Introduced metadata bucket (255) for SearchV2 API and other purposes.
+
 ## Version 3
 
-Last version without metadata bucket introduced with `ObjectService.SearchV2` API.
+Changed graveyard to store expiration epoch along with tombstone address.
 
 ## Version 2
 
