@@ -17,7 +17,7 @@ func (s *Shard) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 	defer s.m.RUnlock()
 
 	if s.info.Mode.NoMetabase() {
-		return s.blobStor.Exists(addr, nil)
+		return s.blobStor.Exists(addr)
 	}
 	return s.metaBase.Exists(addr, ignoreExpiration)
 }

@@ -124,7 +124,7 @@ func TestPeapod_Iterate(t *testing.T) {
 
 	mDst := make(map[oid.Address][]byte)
 
-	f := func(addr oid.Address, data []byte, id []byte) error {
+	f := func(addr oid.Address, data []byte) error {
 		mDst[addr] = data
 		return nil
 	}

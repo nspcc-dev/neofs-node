@@ -9,16 +9,9 @@ import (
 //
 // Returns any error encountered that did not allow
 // to completely check object existence.
-func (b *BlobStor) Exists(addr oid.Address, storageID []byte) (bool, error) {
+func (b *BlobStor) Exists(addr oid.Address) (bool, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
-
-	if storageID != nil {
-		if len(storageID) == 0 {
-			return b.storage[len(b.storage)-1].Storage.Exists(addr)
-		}
-		return b.storage[0].Storage.Exists(addr)
-	}
 
 	// If there was an error during existence check below,
 	// it will be returned unless object was found in blobovnicza.

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/util/rand"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -55,7 +54,7 @@ func BenchmarkPut(b *testing.B) {
 		b.ReportAllocs()
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				if err := metaPut(db, objs[index.Add(1)], nil); err != nil {
+				if err := metaPut(db, objs[index.Add(1)]); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -71,51 +70,15 @@ func BenchmarkPut(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
 		for range b.N {
-			if err := metaPut(db, objs[index.Add(1)], nil); err != nil {
+			if err := metaPut(db, objs[index.Add(1)]); err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
 }
 
-func TestDB_PutBlobovnicaUpdate(t *testing.T) {
-	db := newDB(t)
-
-	raw1 := generateObject(t)
-	storageID := []byte{1, 2, 3, 4}
-
-	// put one object with storageID
-	err := metaPut(db, raw1, storageID)
-	require.NoError(t, err)
-
-	fetchedStorageID, err := metaStorageID(db, object.AddressOf(raw1))
-	require.NoError(t, err)
-	require.Equal(t, storageID, fetchedStorageID)
-
-	t.Run("update storageID", func(t *testing.T) {
-		newID := []byte{5, 6, 7, 8}
-
-		err := metaPut(db, raw1, newID)
-		require.NoError(t, err)
-
-		fetchedBlobovniczaID, err := metaStorageID(db, object.AddressOf(raw1))
-		require.NoError(t, err)
-		require.Equal(t, newID, fetchedBlobovniczaID)
-	})
-
-	t.Run("update storageID on bad object", func(t *testing.T) {
-		raw2 := generateObject(t)
-		err := putBig(db, raw2)
-		require.NoError(t, err)
-
-		fetchedBlobovniczaID, err := metaStorageID(db, object.AddressOf(raw2))
-		require.NoError(t, err)
-		require.Nil(t, fetchedBlobovniczaID)
-	})
-}
-
-func metaPut(db *meta.DB, obj *objectSDK.Object, id []byte) error {
-	return db.Put(obj, id, nil)
+func metaPut(db *meta.DB, obj *objectSDK.Object) error {
+	return db.Put(obj, nil)
 }
 
 func TestDB_PutBinary(t *testing.T) {
@@ -140,7 +103,7 @@ func TestDB_PutBinary(t *testing.T) {
 
 	db := newDB(t)
 
-	err := db.Put(hdr, nil, hdrBin)
+	err := db.Put(hdr, hdrBin)
 	require.NoError(t, err)
 
 	res, err := metaGet(db, addr, false)
@@ -150,7 +113,7 @@ func TestDB_PutBinary(t *testing.T) {
 	// now place some garbage
 	addr.SetObject(oidtest.ID())
 	hdr.SetID(addr.Object()) // to avoid 'already exists' outcome
-	err = db.Put(hdr, nil, []byte("definitely not an object"))
+	err = db.Put(hdr, []byte("definitely not an object"))
 	require.NoError(t, err)
 
 	_, err = metaGet(db, addr, false)

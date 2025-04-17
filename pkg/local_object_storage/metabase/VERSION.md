@@ -63,10 +63,6 @@ The lowest not used bucket index: 20.
   - Name: `18` + container ID
   - Key: object ID
   - Value: marshaled object
-- Bucket mapping objects to the storage ID they are stored in
-  - Name: `10` + container ID
-  - Key: object ID
-  - Value: storage ID
 - Bucket for mapping parent object to the split info
   - Name: `11` + container ID
   - Key: object ID
@@ -109,6 +105,10 @@ The lowest not used bucket index: 20.
     - `3` + object ID + attribute + `0x00` + value
 
 # History
+
+## Version 5
+
+Dropped "small prefix" (10) bucket.
 
 ## Version 4
 

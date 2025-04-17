@@ -30,7 +30,7 @@ type Storage interface {
 	Put(oid.Address, []byte) error
 	PutBatch(map[oid.Address][]byte) error
 	Delete(oid.Address) error
-	Iterate(func(oid.Address, []byte, []byte) error, func(oid.Address, error) error) error
+	Iterate(func(oid.Address, []byte) error, func(oid.Address, error) error) error
 	IterateAddresses(func(oid.Address) error, bool) error
 }
 
@@ -70,7 +70,7 @@ func CopyBatched(dst, src Storage, batchSize int) error {
 
 	var objBatch = make(map[oid.Address][]byte)
 
-	err = src.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
+	err = src.Iterate(func(addr oid.Address, data []byte) error {
 		exists, err := dst.Exists(addr)
 		if err != nil {
 			return fmt.Errorf("check presence of object %s in the destination sub-storage: %w", addr, err)

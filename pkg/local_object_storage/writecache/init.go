@@ -39,7 +39,6 @@ func (c *cache) flushStatus(addr oid.Address) bool {
 		return needRemove
 	}
 
-	sid, _ := c.metabase.StorageID(addr)
-	exists, err := c.blobstor.Exists(addr, sid)
+	exists, err := c.blobstor.Exists(addr)
 	return err == nil && exists
 }

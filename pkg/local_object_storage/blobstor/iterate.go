@@ -14,7 +14,7 @@ import (
 // did not allow to completely iterate over the storage.
 //
 // If handler returns an error, method wraps and returns it immediately.
-func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte) error, errorHandler func(addr oid.Address, err error) error) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
@@ -29,7 +29,7 @@ func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte, id []b
 
 // IterateBinaryObjects is a helper method which iterates over BlobStor and passes binary objects to f.
 // Errors related to object reading and unmarshaling are logged and skipped.
-func (b *BlobStor) IterateBinaryObjects(f func(addr oid.Address, data []byte, descriptor []byte) error) error {
+func (b *BlobStor) IterateBinaryObjects(f func(addr oid.Address, data []byte) error) error {
 	var errorHandler = func(addr oid.Address, err error) error {
 		b.log.Warn("error occurred during the iteration",
 			zap.Stringer("address", addr),
