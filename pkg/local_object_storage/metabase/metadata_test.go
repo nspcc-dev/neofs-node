@@ -26,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 func sortObjectIDs(ids []oid.ID) []oid.ID {
@@ -386,7 +387,7 @@ func TestDB_SearchObjects(t *testing.T) {
 			require.NoError(t, db.boltDB.Close())
 			_, _, err := db.Search(cidtest.ID(), nil, nil, nil, nil, 1)
 			require.ErrorContains(t, err, "view BoltDB")
-			require.ErrorIs(t, err, bbolt.ErrDatabaseNotOpen)
+			require.ErrorIs(t, err, bolterrors.ErrDatabaseNotOpen)
 		})
 
 		cnr := cidtest.ID()

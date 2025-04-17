@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 	"go.uber.org/zap"
 )
 
@@ -106,7 +107,7 @@ func (db *DB) init(reset bool) error {
 			name := []byte(k)
 			if reset {
 				err := tx.DeleteBucket(name)
-				if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+				if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 					return fmt.Errorf("could not delete static bucket %s: %w", k, err)
 				}
 			}

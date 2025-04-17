@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/config"
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -585,4 +586,16 @@ func (c *Client) GetRawNotaryTransactionVerbose(hash util.Uint256) (*transaction
 	}
 
 	return conn.client.GetRawNotaryTransactionVerbose(hash)
+}
+
+// InvokeContainedScript makes 'invokecontainedscript' RPC through the current
+// connection.
+func (c *Client) InvokeContainedScript(tx *transaction.Transaction, header *block.Header, t *trigger.Type, verbose *bool) (*result.Invoke, error) {
+	var conn = c.conn.Load()
+
+	if conn == nil {
+		return nil, ErrConnectionLost
+	}
+
+	return conn.client.InvokeContainedScript(tx, header, t, verbose)
 }

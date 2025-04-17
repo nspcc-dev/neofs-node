@@ -8,6 +8,7 @@ import (
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 func (db *DB) Containers() (list []cid.ID, err error) {
@@ -138,81 +139,81 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		// Locked objects
 		bktLocked := tx.Bucket(bucketNameLocked)
 		err = bktLocked.DeleteBucket(cIDRaw)
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("locked bucket cleanup: %w", err)
 		}
 
 		// Regular objects
 		err = tx.DeleteBucket(primaryBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("regular bucket cleanup: %w", err)
 		}
 
 		// Lock objects
 		err = tx.DeleteBucket(bucketNameLockers(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("lockers bucket cleanup: %w", err)
 		}
 
 		// SG objects
 		err = tx.DeleteBucket(storageGroupBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("storage group bucket cleanup: %w", err)
 		}
 
 		// TS objects
 		err = tx.DeleteBucket(tombstoneBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("tombstone bucket cleanup: %w", err)
 		}
 
 		// Small objects
 		err = tx.DeleteBucket(smallBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("small objects' bucket cleanup: %w", err)
 		}
 
 		// Root objects
 		err = tx.DeleteBucket(rootBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("root object's bucket cleanup: %w", err)
 		}
 
 		// Link objects
 		err = tx.DeleteBucket(linkObjectsBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("link objects' bucket cleanup: %w", err)
 		}
 
 		// Metadata
-		if err = tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err = tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
 		}
 
 		// indexes
 
 		err = tx.DeleteBucket(ownerBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("owner index cleanup: %w", err)
 		}
 
 		err = tx.DeleteBucket(payloadHashBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("hash index cleanup: %w", err)
 		}
 
 		err = tx.DeleteBucket(parentBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("parent index cleanup: %w", err)
 		}
 
 		err = tx.DeleteBucket(splitBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("split id index cleanup: %w", err)
 		}
 
 		err = tx.DeleteBucket(firstObjectIDBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("first object id index cleanup: %w", err)
 		}
 
@@ -226,7 +227,7 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 
 		for _, k := range keysToDelete {
 			err = tx.DeleteBucket(k)
-			if err != nil && !errors.Is(err, bbolt.ErrBucketNotFound) {
+			if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 				return fmt.Errorf("attributes index cleanup: %w", err)
 			}
 		}
