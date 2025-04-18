@@ -192,7 +192,7 @@ type server struct {
 }
 
 // New provides protoobject.ObjectServiceServer for the given parameters.
-func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) protoobject.ObjectServiceServer {
+func New(hs Handlers, magicNumber uint32, fsChain FSChain, st Storage, metaSvc *metasvc.Meta, signer ecdsa.PrivateKey, m MetricCollector, ac aclsvc.ACLChecker, rp ACLInfoExtractor, cs searchsvc.ClientConstructor) *server {
 	// TODO: configurable capacity
 	sp, err := ants.NewPool(100, ants.WithNonblocking(true))
 	if err != nil {
@@ -1866,10 +1866,6 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if body.ContainerId == nil {
 		return nil, errors.New("missing container ID")
 	}
-	var cID cid.ID
-	if err := cID.FromProtoMessage(body.ContainerId); err != nil {
-		return nil, fmt.Errorf("invalid container ID: %w", err)
-	}
 	if body.Version != 1 {
 		return nil, errors.New("unsupported query version")
 	}
@@ -1900,25 +1896,36 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if len(body.Attributes) > 0 && (len(body.Filters) == 0 || body.Filters[0].Key != body.Attributes[0]) {
 		return nil, errors.New("primary attribute must be filtered 1st")
 	}
-	ttl := req.MetaHeader.GetTtl()
-	if ttl == 0 {
-		return nil, errors.New("zero TTL")
-	}
-	var fs object.SearchFilters
-	if err := fs.FromProtoMessage(body.Filters); err != nil {
-		return nil, fmt.Errorf("invalid filters: %w", err)
-	}
-	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+
+	res, newCursor, err := s.ProcessSearch(ctx, req)
 	if err != nil {
-		if errors.Is(err, objectcore.ErrUnreachableQuery) {
-			return nil, nil
-		}
 		return nil, err
 	}
 
+	resBody := &protoobject.SearchV2Response_Body{
+		Result: make([]*protoobject.SearchV2Response_OIDWithMeta, len(res)),
+	}
+	for i := range res {
+		resBody.Result[i] = &protoobject.SearchV2Response_OIDWithMeta{
+			Id:         res[i].ID.ProtoMessage(),
+			Attributes: res[i].Attributes,
+		}
+	}
+	if newCursor != nil {
+		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor)
+	}
+	return resBody, nil
+}
+
+func (s *server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, []byte, error) {
+	body := req.GetBody()
+	var cID cid.ID
+	if err := cID.FromProtoMessage(body.ContainerId); err != nil {
+		return nil, nil, fmt.Errorf("invalid container ID: %w", err)
+	}
 	cnr, err := s.fsChain.Get(cID)
 	if err != nil {
-		return nil, fmt.Errorf("fetching container: %w", err)
+		return nil, nil, fmt.Errorf("fetching container: %w", err)
 	}
 	var handleWithMetaService bool
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
@@ -1928,18 +1935,34 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	default:
 	}
 
+	ttl := req.MetaHeader.GetTtl()
+	if ttl == 0 {
+		return nil, nil, errors.New("zero TTL")
+	}
+	var fs object.SearchFilters
+	if err = fs.FromProtoMessage(body.Filters); err != nil {
+		return nil, nil, fmt.Errorf("invalid filters: %w", err)
+	}
+	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+	if err != nil {
+		if errors.Is(err, objectcore.ErrUnreachableQuery) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+
 	var res []sdkclient.SearchResultItem
 	var newCursor []byte
 	count := uint16(body.Count) // legit according to the limit
 	switch {
 	case ttl == 1:
 		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	case handleWithMetaService:
 		res, newCursor, err = s.meta.Search(cID, ofs, body.Attributes, cursor, count)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	default:
 		var signed bool
@@ -1973,7 +1996,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			}
 			if !signed {
 				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
-				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(s.signer), req, nil); err != nil {
+				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
 					resErr = fmt.Errorf("sign request: %w", err)
 					return false
 				}
@@ -1995,41 +2018,29 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			err = resErr
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		var (
 			firstAttr   string
 			firstFilter *object.SearchFilter
 		)
 		if len(body.Attributes) > 0 {
-			firstAttr = body.Filters[0].Key
+			firstAttr = fs[0].Header()
 			firstFilter = &ofs[0].SearchFilter
 		}
 		cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
 		var more bool
 		if res, more, err = objectcore.MergeSearchResults(count, firstAttr, cmpInt, sets, mores); err != nil {
-			return nil, fmt.Errorf("merge results from container nodes: %w", err)
+			return nil, nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
 			if newCursor, err = objectcore.CalculateCursor(firstFilter, res[len(res)-1]); err != nil {
-				return nil, fmt.Errorf("recalculate cursor: %w", err)
+				return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
 		}
 	}
 
-	resBody := &protoobject.SearchV2Response_Body{
-		Result: make([]*protoobject.SearchV2Response_OIDWithMeta, len(res)),
-	}
-	for i := range res {
-		resBody.Result[i] = &protoobject.SearchV2Response_OIDWithMeta{
-			Id:         res[i].ID.ProtoMessage(),
-			Attributes: res[i].Attributes,
-		}
-	}
-	if newCursor != nil {
-		resBody.Cursor = base64.StdEncoding.EncodeToString(newCursor)
-	}
-	return resBody, nil
+	return res, newCursor, nil
 }
 
 func (s *server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo, req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
