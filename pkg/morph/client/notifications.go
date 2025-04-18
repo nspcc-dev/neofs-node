@@ -220,7 +220,7 @@ type subscriptions struct {
 
 func (c *Client) routeNotifications() {
 	var (
-		restoreCh = make(chan bool)
+		restoreCh chan struct{}
 		conn      = c.conn.Load()
 	)
 
@@ -232,6 +232,7 @@ routeloop:
 			if conn == nil {
 				break routeloop
 			}
+			restoreCh = make(chan struct{})
 			go c.restoreSubscriptions(conn, restoreCh)
 		}
 		var connLost bool
@@ -244,8 +245,8 @@ routeloop:
 			connLost = handleEv(c.subs.headerChan, ok, ev)
 		case ev, ok := <-conn.notaryChan:
 			connLost = handleEv(c.subs.notaryChan, ok, ev)
-		case ok := <-restoreCh:
-			connLost = !ok
+		case <-restoreCh:
+			connLost = true
 		}
 		if connLost {
 			conn = nil
@@ -258,7 +259,7 @@ routeloop:
 
 // restoreSubscriptions restores subscriptions according to
 // cached information about them.
-func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
+func (c *Client) restoreSubscriptions(conn *connection, resCh chan struct{}) {
 	var err error
 
 	c.subs.RLock()
@@ -270,7 +271,7 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 			c.logger.Error("could not restore block subscription",
 				zap.Error(err),
 			)
-			resCh <- false
+			close(resCh)
 			return
 		}
 	}
@@ -282,7 +283,7 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 			c.logger.Error("could not restore notification subscription after RPC switch",
 				zap.Error(err),
 			)
-			resCh <- false
+			close(resCh)
 			return
 		}
 	}
@@ -295,8 +296,8 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 		if err != nil {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err))
+			close(resCh)
 		}
-		resCh <- err == nil
 		return
 	}
 
@@ -309,11 +310,10 @@ func (c *Client) restoreSubscriptions(conn *connection, resCh chan<- bool) {
 			c.logger.Error("could not restore notary notification subscription after RPC switch",
 				zap.Error(err),
 			)
-			resCh <- false
+			close(resCh)
 			return
 		}
 	}
-	resCh <- true
 }
 
 func handleEv[T any](ch chan<- T, ok bool, ev T) bool {
