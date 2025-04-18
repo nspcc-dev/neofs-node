@@ -11,8 +11,8 @@ import (
 )
 
 func (cp *Processor) handlePut(ev event.Event) {
-	req, isN3 := ev.(containerEvent.CreateContainerRequest)
-	if !isN3 {
+	req, ok := ev.(containerEvent.CreateContainerRequest)
+	if !ok {
 		e := ev.(putEvent)
 		req.MainTransaction = *e.NotaryRequest().MainTransaction
 		req.Container = e.Container()
@@ -35,7 +35,7 @@ func (cp *Processor) handlePut(ev event.Event) {
 
 	// send an event to the worker pool
 
-	err := cp.pool.Submit(func() { cp.processContainerPut(req, !isN3) })
+	err := cp.pool.Submit(func() { cp.processContainerPut(req) })
 	if err != nil {
 		// there system can be moved into controlled degradation stage
 		cp.log.Warn("container processor worker pool drained",
@@ -70,8 +70,8 @@ func (cp *Processor) handleDelete(ev event.Event) {
 }
 
 func (cp *Processor) handleSetEACL(ev event.Event) {
-	req, isN3 := ev.(containerEvent.PutContainerEACLRequest)
-	if !isN3 {
+	req, ok := ev.(containerEvent.PutContainerEACLRequest)
+	if !ok {
 		e := ev.(containerEvent.SetEACL)
 		req.MainTransaction = *e.NotaryRequest().MainTransaction
 		req.EACL = e.Table()
@@ -87,7 +87,7 @@ func (cp *Processor) handleSetEACL(ev event.Event) {
 	// send an event to the worker pool
 
 	err := cp.pool.Submit(func() {
-		cp.processPutEACLRequest(req, !isN3)
+		cp.processPutEACLRequest(req)
 	})
 	if err != nil {
 		// there system can be moved into controlled degradation stage

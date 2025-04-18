@@ -28,7 +28,6 @@ type signatureVerificationData struct {
 
 	verifScript []byte
 	invocScript []byte
-	rfc6979     bool
 
 	signedData []byte
 }
@@ -89,10 +88,7 @@ func (cp *Processor) verifySignature(v signatureVerificationData) error {
 		return nil
 	}
 
-	if v.rfc6979 {
-		return icrypto.AuthenticateContainerRequestRFC6979(v.ownerContainer, v.verifScript, v.invocScript, v.signedData)
-	}
-	return icrypto.AuthenticateContainerRequestN3(v.ownerContainer, v.invocScript, v.verifScript, v.signedData, cp.cnrClient.Morph())
+	return icrypto.AuthenticateContainerRequest(v.ownerContainer, v.invocScript, v.verifScript, v.signedData, cp.cnrClient.Morph())
 }
 
 func (cp *Processor) checkTokenLifetime(token session.Container) error {
