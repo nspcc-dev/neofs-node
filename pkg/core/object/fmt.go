@@ -111,6 +111,11 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 		return errNilObject
 	}
 
+	var hdrLen = obj.HeaderLen()
+	if hdrLen > object.MaxHeaderLen {
+		return fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, object.MaxHeaderLen)
+	}
+
 	if !unprepared && obj.GetID().IsZero() {
 		return errNilID
 	}

@@ -9,7 +9,6 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	objectsdk "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -488,16 +487,6 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 		// such objects while deleting is prohibited
 		if replication {
 			reqInfo.operation = acl.OpObjectPut
-		}
-	}
-
-	if !replication {
-		// header length is unchecked for replication because introducing a restriction
-		// should not prevent the replication of objects created before.
-		// See also https://github.com/nspcc-dev/neofs-api/issues/293
-		var hdrLen = header.MarshaledSize()
-		if hdrLen > objectsdk.MaxHeaderLen {
-			return RequestInfo{}, user.ID{}, fmt.Errorf("object header length exceeds the limit: %d>%d", hdrLen, objectsdk.MaxHeaderLen)
 		}
 	}
 
