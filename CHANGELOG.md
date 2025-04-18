@@ -20,6 +20,7 @@ Changelog for NeoFS Node
 - Exit code of CLI commands for already removed object (#3300)
 - CLI timeout can expire before RPC (#3302)
 - `accounting balance` request without timeout (#3302)
+- Possible NEO chain client's infinite reconnection loop (#3292)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
