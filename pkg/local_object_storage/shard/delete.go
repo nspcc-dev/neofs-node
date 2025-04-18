@@ -24,27 +24,12 @@ func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
 		return ErrDegradedMode
 	}
 
-	smalls := make(map[oid.Address][]byte, len(addrs))
-
 	for _, addr := range addrs {
 		if s.hasWriteCache() {
 			err := s.writeCache.Delete(addr)
 			if err != nil && !IsErrNotFound(err) && !errors.Is(err, writecache.ErrReadOnly) {
 				s.log.Warn("can't delete object from write cache", zap.Error(err))
 			}
-		}
-
-		sid, err := s.metaBase.StorageID(addr)
-		if err != nil {
-			s.log.Debug("can't get storage ID from metabase",
-				zap.Stringer("object", addr),
-				zap.Error(err))
-
-			continue
-		}
-
-		if sid != nil {
-			smalls[addr] = sid
 		}
 	}
 
@@ -67,7 +52,7 @@ func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
 	s.addToPayloadCounter(-int64(totalRemovedPayload))
 
 	for _, addr := range addrs {
-		err = s.blobStor.Delete(addr, smalls[addr])
+		err = s.blobStor.Delete(addr)
 		if err != nil {
 			if IsErrNotFound(err) && skipNotFoundError {
 				continue

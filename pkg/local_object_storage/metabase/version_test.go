@@ -460,7 +460,7 @@ func TestMigrate3to4(t *testing.T) {
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		bkt := tx.Bucket([]byte{0x05})
 		require.NotNil(t, bkt)
-		require.Equal(t, []byte{0x04, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+		require.Equal(t, []byte{0x05, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 		return nil
 	})
 	require.NoError(t, err)
@@ -813,7 +813,7 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 				bkt := tx.Bucket([]byte{0x05})
 				require.NotNil(t, bkt)
-				require.Equal(t, []byte{0x04, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
+				require.Equal(t, []byte{0x05, 0, 0, 0, 0, 0, 0, 0}, bkt.Get([]byte("version")))
 				require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 				return nil
 			}))

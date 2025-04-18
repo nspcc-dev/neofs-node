@@ -54,7 +54,7 @@ func (x *getBytesOnlySubStorage) Delete(_ oid.Address) error {
 	panic("must not be called")
 }
 
-func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error) error {
+func (x *getBytesOnlySubStorage) Iterate(_ func(oid.Address, []byte) error, _ func(oid.Address, error) error) error {
 	panic("must not be called")
 }
 
@@ -90,25 +90,16 @@ func TestBlobStor_GetBytes(t *testing.T) {
 		m: map[oid.Address][]byte{addr: objBin},
 	})
 
-	b, err := bs.GetBytes(addr, nil)
-	require.NoError(t, err)
-	require.Equal(t, objBin, b)
-	b, err = bs.GetBytes(addr, []byte{})
+	b, err := bs.GetBytes(addr)
 	require.NoError(t, err)
 	require.Equal(t, objBin, b)
 
 	t.Run("not found", func(t *testing.T) {
 		bs := newBlobStorWithStorages(new(getBytesOnlySubStorage))
 
-		_, err := bs.GetBytes(oidtest.Address(), nil)
+		_, err := bs.GetBytes(oidtest.Address())
 		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
 		require.ErrorIs(t, err, logicerr.Error)
-		_, err = bs.GetBytes(oidtest.Address(), []byte{})
-		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-		require.NotErrorIs(t, err, logicerr.Error)
-		_, err = bs.GetBytes(oidtest.Address(), []byte("any"))
-		require.ErrorIs(t, err, apistatus.ErrObjectNotFound)
-		require.NotErrorIs(t, err, logicerr.Error)
 	})
 
 	t.Run("other storage failure", func(t *testing.T) {
@@ -117,11 +108,7 @@ func TestBlobStor_GetBytes(t *testing.T) {
 			e: errStorage,
 		})
 
-		_, err := bs.GetBytes(oidtest.Address(), nil)
-		require.ErrorIs(t, err, errStorage)
-		_, err = bs.GetBytes(oidtest.Address(), []byte{})
-		require.ErrorIs(t, err, errStorage)
-		_, err = bs.GetBytes(oidtest.Address(), []byte("any"))
+		_, err := bs.GetBytes(oidtest.Address())
 		require.ErrorIs(t, err, errStorage)
 	})
 }

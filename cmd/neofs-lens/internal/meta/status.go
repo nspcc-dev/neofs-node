@@ -42,14 +42,9 @@ func statusFunc(cmd *cobra.Command, _ []string) error {
 	}
 
 	const emptyValPlaceholder = "<empty>"
-	storageID := res.StorageID
-	if storageID == "" {
-		storageID = emptyValPlaceholder
-	}
 
 	cmd.Printf("Metabase version: %d\n", res.Version)
 	cmd.Printf("Object state: %s\n", res.State)
-	cmd.Printf("Storage's ID: %s\n", storageID)
 	cmd.Println("Indexes:")
 	for _, bucket := range res.Buckets {
 		valStr := emptyValPlaceholder

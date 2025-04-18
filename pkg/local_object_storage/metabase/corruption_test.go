@@ -21,7 +21,7 @@ func TestCorruptedObject(t *testing.T) {
 	oID := o.GetID()
 	addr := oid.NewAddress(cID, oID)
 
-	err := db.Put(&o, nil, nil)
+	err := db.Put(&o, nil)
 	require.NoError(t, err)
 
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
@@ -58,7 +58,6 @@ func TestCorruptedObject(t *testing.T) {
 			lockersPrefix,
 			linkObjectsPrefix,
 			parentPrefix,
-			smallPrefix,
 			rootPrefix,
 		}
 

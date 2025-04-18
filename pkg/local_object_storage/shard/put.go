@@ -33,10 +33,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 		//  reuse already encoded header.
 	}
 
-	var (
-		addr      = objectCore.AddressOf(obj)
-		storageID []byte
-	)
+	var addr = objectCore.AddressOf(obj)
 
 	// exist check are not performed there, these checks should be executed
 	// ahead of `Put` by storage engine
@@ -50,7 +47,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 				zap.String("err", err.Error()))
 		}
 
-		storageID, err = s.blobStor.Put(addr, obj, objBin)
+		err = s.blobStor.Put(addr, obj, objBin)
 		if err != nil {
 			return fmt.Errorf("could not put object to BLOB storage: %w", err)
 		}
@@ -61,7 +58,7 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 		if hdrLen != 0 {
 			binHeader = objBin[:hdrLen]
 		}
-		if err := s.metaBase.Put(obj, storageID, binHeader); err != nil {
+		if err := s.metaBase.Put(obj, binHeader); err != nil {
 			// may we need to handle this case in a special way
 			// since the object has been successfully written to BlobStor
 			return fmt.Errorf("could not put object to metabase: %w", err)

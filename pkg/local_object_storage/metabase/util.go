@@ -78,11 +78,8 @@ const (
 	//  Key: object ID
 	//  Value: marshaled object
 	tombstonePrefix
-	// smallPrefix is used for prefixing buckets mapping objects to the blobovniczas they are stored in.
-	// Not really used now, blobovniczas are gone, but kept for compatibility.
-	//  Key: object ID
-	//  Value: blobovnicza ID
-	smallPrefix
+	// unusedSmallPrefix was deleted in metabase version 5
+	unusedSmallPrefix
 	// rootPrefix is used for prefixing buckets mapping parent object to the split info.
 	//  Key: object ID
 	//  Value: split info
@@ -167,11 +164,6 @@ func tombstoneBucketName(cnr cid.ID, key []byte) []byte {
 // storageGroupBucketName returns <CID>_SG.
 func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, storageGroupPrefix, key)
-}
-
-// smallBucketName returns <CID>_small.
-func smallBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, smallPrefix, key)
 }
 
 // linkObjectsBucketName returns link objects bucket key (`18<CID>`).

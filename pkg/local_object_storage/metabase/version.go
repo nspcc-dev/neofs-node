@@ -19,7 +19,7 @@ import (
 )
 
 // currentMetaVersion contains current metabase version.
-const currentMetaVersion = 4
+const currentMetaVersion = 5
 
 var versionKey = []byte("version")
 
@@ -90,6 +90,7 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 var migrateFrom = map[uint64]func(*DB) error{
 	2: migrateFrom2Version,
 	3: migrateFrom3Version,
+	4: migrateFrom4Version,
 }
 
 func migrateFrom2Version(db *DB) error {
@@ -254,4 +255,26 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 		}
 	}
 	return true, nil
+}
+
+func migrateFrom4Version(db *DB) error {
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		var buckets [][]byte
+		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
+			if len(name) > 0 && name[0] == unusedSmallPrefix {
+				buckets = append(buckets, slices.Clone(name))
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("iterating buckets: %w", err)
+		}
+		for _, name := range buckets {
+			err := tx.DeleteBucket(name)
+			if err != nil {
+				return fmt.Errorf("deleting %v bucket: %w", name, err)
+			}
+		}
+		return updateVersion(tx, 5)
+	})
 }

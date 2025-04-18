@@ -408,8 +408,6 @@ func (x *Peapod) Exists(addr oid.Address) (bool, error) {
 	return res, nil
 }
 
-var storageID = []byte("peapod")
-
 // Put saves given data in the underlying database by specified object address.
 // The data can be anything, but in practice a binary NeoFS object is expected.
 // Operation is executed within provided context: if the context is done, Put
@@ -498,11 +496,11 @@ func (x *Peapod) batch(ctx context.Context, fBktRoot func(bktRoot *bbolt.Bucket)
 // specified. If error is returned from handlers iteration stops.
 //
 // Use IterateAddresses to iterate over keys only.
-func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+func (x *Peapod) Iterate(objHandler func(addr oid.Address, data []byte) error, errorHandler func(addr oid.Address, err error) error) error {
 	return x.iterate(objHandler, errorHandler, nil)
 }
 
-func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
+func (x *Peapod) iterate(objHandler func(oid.Address, []byte) error,
 	errorHandler func(oid.Address, error) error,
 	addrHandler func(oid.Address) error) error {
 	err := x.bolt.View(func(tx *bbolt.Tx) error {
@@ -535,7 +533,7 @@ func (x *Peapod) iterate(objHandler func(oid.Address, []byte, []byte) error,
 				return addrHandler(addr)
 			}
 
-			return objHandler(addr, v, storageID)
+			return objHandler(addr, v)
 		})
 	})
 	if err != nil {

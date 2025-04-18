@@ -34,7 +34,6 @@ func TestIterateObjects(t *testing.T) {
 	const objNum = 5
 
 	type addrData struct {
-		big  bool
 		addr oid.Address
 		data []byte
 	}
@@ -44,8 +43,7 @@ func TestIterateObjects(t *testing.T) {
 	for i := range uint64(objNum) {
 		sz := smalSz
 
-		big := i < objNum/2
-		if big {
+		if i < objNum/2 {
 			sz++
 		}
 
@@ -55,28 +53,21 @@ func TestIterateObjects(t *testing.T) {
 		addr := oidtest.Address()
 
 		mObjs[string(data)] = addrData{
-			big:  big,
 			addr: addr,
 			data: data,
 		}
 	}
 
 	for _, v := range mObjs {
-		_, err := blobStor.Put(v.addr, nil, v.data)
+		err := blobStor.Put(v.addr, nil, v.data)
 		require.NoError(t, err)
 	}
 
-	err := blobStor.IterateBinaryObjects(func(addr oid.Address, data []byte, descriptor []byte) error {
+	err := blobStor.IterateBinaryObjects(func(addr oid.Address, data []byte) error {
 		v, ok := mObjs[string(data)]
 		require.True(t, ok)
 
 		require.Equal(t, v.data, data)
-
-		if v.big {
-			require.True(t, descriptor != nil && len(descriptor) == 0)
-		} else {
-			require.NotEmpty(t, descriptor)
-		}
 
 		delete(mObjs, string(data))
 

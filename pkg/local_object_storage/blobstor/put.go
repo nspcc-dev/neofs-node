@@ -27,9 +27,7 @@ type PutBatchPrm struct {
 //
 // If object is "big", BlobStor saves the object in shallow dir.
 // Otherwise, BlobStor saves the object in peapod.
-//
-// Returns storage ID that saved the object given or an error if any.
-func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) ([]byte, error) {
+func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
@@ -53,21 +51,20 @@ func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) ([]b
 					continue
 				}
 
-				return nil, fmt.Errorf("put object to sub-storage %s: %w", typ, err)
+				return fmt.Errorf("put object to sub-storage %s: %w", typ, err)
 			}
 
-			sid := b.getStorageID(typ)
-			logOp(b.log, putOp, addr, typ, sid)
+			logOp(b.log, putOp, addr, typ)
 
-			return sid, nil
+			return nil
 		}
 	}
 
 	if overflow {
-		return nil, common.ErrNoSpace
+		return common.ErrNoSpace
 	}
 
-	return nil, ErrNoPlaceFound
+	return ErrNoPlaceFound
 }
 
 // NeedsCompression returns true if the object should be compressed.
@@ -80,8 +77,7 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 
 // PutBatch stores a batch of objects in a sub-storage,
 // falling back to individual puts if needed.
-// Returns a storage ID or an error.
-func (b *BlobStor) PutBatch(objs []PutBatchPrm) ([]byte, error) {
+func (b *BlobStor) PutBatch(objs []PutBatchPrm) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
@@ -111,20 +107,19 @@ func (b *BlobStor) PutBatch(objs []PutBatchPrm) ([]byte, error) {
 					zap.String("type", typ))
 				continue
 			}
-			return nil, fmt.Errorf("put object to sub-storage %s: %w", typ, err)
+			return fmt.Errorf("put object to sub-storage %s: %w", typ, err)
 		}
 
-		sid := b.getStorageID(typ)
 		for _, obj := range objs {
-			logOp(b.log, putOp, obj.Addr, typ, sid)
+			logOp(b.log, putOp, obj.Addr, typ)
 		}
-		return sid, nil
+		return nil
 	}
 
 	if overflow {
-		return nil, common.ErrNoSpace
+		return common.ErrNoSpace
 	}
-	return nil, ErrNoPlaceFound
+	return ErrNoPlaceFound
 }
 
 func (b *BlobStor) canStoreBatch(storageIdx int, objs []PutBatchPrm) bool {
@@ -137,11 +132,4 @@ func (b *BlobStor) canStoreBatch(storageIdx int, objs []PutBatchPrm) bool {
 		}
 	}
 	return true
-}
-
-func (b *BlobStor) getStorageID(typ string) []byte {
-	if typ == "peapod" {
-		return []byte(typ)
-	}
-	return []byte{} // Compatibility quirk, https://github.com/nspcc-dev/neofs-node/issues/2888
 }

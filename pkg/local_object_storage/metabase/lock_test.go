@@ -35,7 +35,7 @@ func TestDB_Lock(t *testing.T) {
 			obj.SetContainerID(cnr)
 
 			// save irregular object
-			err := metaPut(db, &obj, nil)
+			err := metaPut(db, &obj)
 			require.NoError(t, err, typ)
 
 			var e apistatus.LockNonRegularObject
@@ -173,7 +173,7 @@ func TestDB_IsLocked(t *testing.T) {
 
 	obj := objecttest.Object()
 
-	err = db.Put(&obj, nil, nil)
+	err = db.Put(&obj, nil)
 	require.NoError(t, err)
 
 	locked, err = db.IsLocked(objectcore.AddressOf(&obj))

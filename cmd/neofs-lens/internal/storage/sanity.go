@@ -195,40 +195,31 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 
 			addr := obj.Address
 
-			sid, err := sh.m.StorageID(addr)
-			if err != nil {
-				return objectsChecked, fmt.Errorf("reading %s storage ID in metabase: %w", addr, err)
-			}
-
 			header, err := sh.m.Get(addr, false)
 			if err != nil {
 				return objectsChecked, fmt.Errorf("reading %s object in metabase: %w", addr, err)
 			}
 
-			switch id := string(sid); id {
-			case "":
-				if sh.fsT != nil {
-					err = checkObject(*header, sh.fsT)
-				} else {
-					err = fmt.Errorf("incorrect metabase, no FSTree, but object found")
-				}
-			case peapod.Type:
-				if sh.p != nil {
-					err = checkObject(*header, sh.p)
-				} else {
-					err = fmt.Errorf("incorrect metabase, no Peapod, but object found")
-				}
-			default:
-				err = fmt.Errorf("uknown storage ID: %s", id)
+			var err1, err2 error
+
+			if sh.fsT != nil {
+				err1 = checkObject(*header, sh.fsT)
+			}
+			if sh.p != nil {
+				err2 = checkObject(*header, sh.p)
 			}
 
-			if err != nil {
-				if errors.Is(err, logicerr.Error) {
-					cmd.Printf("%s object failed check: %s\n", addr, err)
+			if err1 != nil && err2 != nil { // Treat one successful result as success.
+				if errors.Is(err1, logicerr.Error) {
+					cmd.Printf("%s object failed check: %s\n", addr, err1)
+					continue
+				}
+				if errors.Is(err2, logicerr.Error) {
+					cmd.Printf("%s object failed check: %s\n", addr, err2)
 					continue
 				}
 
-				return objectsChecked, fmt.Errorf("critical error at %s object check: %w", addr, err)
+				return objectsChecked, fmt.Errorf("critical error at %s object check: %w/%w", addr, err1, err2)
 			}
 
 			objectsChecked++

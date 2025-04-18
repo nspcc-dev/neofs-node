@@ -256,7 +256,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 func (c *cache) flushObject(obj *object.Object, data []byte) error {
 	addr := objectCore.AddressOf(obj)
 
-	sid, err := c.blobstor.Put(addr, obj, data)
+	err := c.blobstor.Put(addr, obj, data)
 	if err != nil {
 		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
 			!errors.Is(err, blobstor.ErrNoPlaceFound) {
@@ -264,23 +264,6 @@ func (c *cache) flushObject(obj *object.Object, data []byte) error {
 				addr.EncodeToString(), err)
 		}
 		return err
-	}
-
-	err = c.metabase.UpdateStorageID(addr, sid)
-	if err != nil {
-		if errors.Is(err, apistatus.ErrObjectNotFound) {
-			// we have the object and we just successfully put it so all the
-			// information for restoring the object is here; meta can be
-			// corrupted, resynced, etc, just trying our best
-			err = c.metabase.Put(obj, sid, nil)
-			if err != nil {
-				err = fmt.Errorf("trying to restore missing object in metabase: %w", err)
-			}
-
-			return err
-		}
-		c.reportFlushError("can't update object storage ID",
-			addr.EncodeToString(), err)
 	}
 
 	return err
@@ -318,7 +301,7 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 		})
 	}
 
-	sid, err := c.blobstor.PutBatch(objs)
+	err := c.blobstor.PutBatch(objs)
 	if err != nil {
 		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
 			!errors.Is(err, blobstor.ErrNoPlaceFound) {
@@ -331,21 +314,6 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 	}
 
 	for _, obj := range objs {
-		err = c.metabase.UpdateStorageID(obj.Addr, sid)
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectNotFound) {
-				// we have the object and we just successfully put it so all the
-				// information for restoring the object is here; meta can be
-				// corrupted, resynced, etc, just trying our best
-				err = c.metabase.Put(obj.Obj, sid, nil)
-				if err != nil {
-					c.log.Error("trying to restore missing object in metabase", zap.Error(err))
-				}
-			}
-			c.reportFlushError("can't update object storage ID",
-				obj.Addr.EncodeToString(), err)
-		}
-
 		err = c.delete(obj.Addr)
 		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))

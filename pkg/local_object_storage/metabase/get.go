@@ -217,15 +217,6 @@ func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, 
 		return nil
 	}
 
-	bktSmall := tx.Bucket(smallBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktSmall, unique, limit)
-	if err != nil {
-		return fmt.Errorf("small objects iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
 	bktRoot := tx.Bucket(rootBucketName(cID, buff))
 	err = expandObjectsFromBucket(bktRoot, unique, limit)
 	if err != nil {

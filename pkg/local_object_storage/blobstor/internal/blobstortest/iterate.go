@@ -27,7 +27,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 	t.Run("normal handler", func(t *testing.T) {
 		seen := make(map[string]objectDesc)
 
-		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+		var objHandler = func(addr oid.Address, data []byte) error {
 			seen[addr.String()] = objectDesc{
 				addr: addr,
 				raw:  data,
@@ -76,7 +76,7 @@ func TestIterate(t *testing.T, cons Constructor, minSize, maxSize uint64) {
 		var n int
 		var logicErr = errors.New("logic error")
 
-		var objHandler = func(addr oid.Address, data []byte, id []byte) error {
+		var objHandler = func(addr oid.Address, data []byte) error {
 			seen[addr.String()] = objectDesc{
 				addr: addr,
 				raw:  data,

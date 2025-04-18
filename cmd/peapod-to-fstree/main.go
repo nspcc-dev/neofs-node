@@ -33,8 +33,8 @@ type onlyObjectsWithContainersStorage struct {
 	read, skipped int
 }
 
-func (s *onlyObjectsWithContainersStorage) Iterate(objHandler func(oid.Address, []byte, []byte) error, _ func(oid.Address, error) error) error {
-	return s.Storage.Iterate(func(addr oid.Address, data []byte, id []byte) error {
+func (s *onlyObjectsWithContainersStorage) Iterate(objHandler func(oid.Address, []byte) error, _ func(oid.Address, error) error) error {
+	return s.Storage.Iterate(func(addr oid.Address, data []byte) error {
 		s.read++
 
 		_, found := s.containers[addr.Container()]
@@ -43,7 +43,7 @@ func (s *onlyObjectsWithContainersStorage) Iterate(objHandler func(oid.Address, 
 			return nil
 		}
 
-		return objHandler(addr, data, id)
+		return objHandler(addr, data)
 	}, func(addr oid.Address, err error) error {
 		_, found := s.containers[addr.Container()]
 		if !found {

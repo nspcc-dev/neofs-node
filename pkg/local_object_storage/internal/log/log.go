@@ -28,8 +28,3 @@ func OpField(op string) zap.Field {
 func StorageTypeField(typ string) zap.Field {
 	return zap.String("type", typ)
 }
-
-// StorageIDField returns logger's field for storage ID.
-func StorageIDField(id []byte) zap.Field {
-	return zap.String("storage_id", string(id))
-}

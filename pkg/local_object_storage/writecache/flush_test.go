@@ -61,10 +61,7 @@ func TestFlush(t *testing.T) {
 
 	check := func(t *testing.T, mb *meta.DB, bs *blobstor.BlobStor, objects []objectPair) {
 		for i := range objects {
-			id, err := mb.StorageID(objects[i].addr)
-			require.NoError(t, err)
-
-			res, err := bs.Get(objects[i].addr, id)
+			res, err := bs.Get(objects[i].addr)
 			require.NoError(t, err)
 			require.Equal(t, objects[i].obj, res)
 		}
@@ -176,7 +173,7 @@ func TestFlush(t *testing.T) {
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		for i := range objects {
-			err := mb.Put(objects[i].obj, nil, nil)
+			err := mb.Put(objects[i].obj, nil)
 			require.NoError(t, err)
 		}
 
@@ -247,10 +244,7 @@ func TestFlushPerformance(t *testing.T) {
 				duration := time.Since(start)
 
 				for i := range objects {
-					id, err := mb.StorageID(objects[i].addr)
-					require.NoError(t, err)
-
-					res, err := bs.Get(objects[i].addr, id)
+					res, err := bs.Get(objects[i].addr)
 					require.NoError(t, err)
 					require.Equal(t, objects[i].obj, res)
 				}
@@ -326,9 +320,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			duration := time.Since(start)
 
 			for i := range objects {
-				id, err := mb.StorageID(objects[i].addr)
-				require.NoError(t, err)
-				res, err := bs.Get(objects[i].addr, id)
+				res, err := bs.Get(objects[i].addr)
 				require.NoError(t, err)
 				require.Equal(t, objects[i].obj, res)
 			}
@@ -373,10 +365,7 @@ func TestFlushScheduler(t *testing.T) {
 	waitForFlush(t, wc, objects)
 
 	for i := range objects {
-		id, err := mb.StorageID(objects[i].addr)
-		require.NoError(t, err)
-
-		res, err := bs.Get(objects[i].addr, id)
+		res, err := bs.Get(objects[i].addr)
 		require.NoError(t, err)
 		require.Equal(t, objects[i].obj, res)
 	}

@@ -89,7 +89,6 @@ func PrintStorageObjectStatus(cmd *cobra.Command, status engine.ObjectStatus) {
 			}
 
 			cmd.Printf("\tMetabase\n")
-			cmd.Printf("\t\tMetabase storage ID:\t%s\n", shard.Shard.Metabase.StorageID)
 			cmd.Printf("\t\tMetabase path:\t%s\n", shard.Shard.Metabase.Path)
 			cmd.Printf("\t\tMetabase object status:\t%s\n", strings.Join(shard.Shard.Metabase.State, " "))
 			if shard.Shard.Metabase.Error != nil {

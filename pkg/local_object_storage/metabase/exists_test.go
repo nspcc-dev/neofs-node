@@ -142,7 +142,7 @@ func TestDB_Exists(t *testing.T) {
 		})
 
 		t.Run("reverse order", func(t *testing.T) {
-			err := metaPut(db, link, nil)
+			err := metaPut(db, link)
 			require.NoError(t, err)
 
 			err = putBig(db, child)

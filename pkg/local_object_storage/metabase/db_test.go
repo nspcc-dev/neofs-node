@@ -30,7 +30,7 @@ func (s epochState) CurrentEpoch() uint64 {
 
 // saves "big" object in DB.
 func putBig(db *meta.DB, obj *object.Object) error {
-	return metaPut(db, obj, nil)
+	return metaPut(db, obj)
 }
 
 func testSelect(t *testing.T, db *meta.DB, cnr cid.ID, fs object.SearchFilters, exp ...oid.Address) {
@@ -111,12 +111,12 @@ func checkExpiredObjects(t *testing.T, db *meta.DB, f func(exp, nonExp *object.O
 	expObj := generateObject(t)
 	setExpiration(expObj, currEpoch-1)
 
-	require.NoError(t, metaPut(db, expObj, nil))
+	require.NoError(t, metaPut(db, expObj))
 
 	nonExpObj := generateObject(t)
 	setExpiration(nonExpObj, currEpoch)
 
-	require.NoError(t, metaPut(db, nonExpObj, nil))
+	require.NoError(t, metaPut(db, nonExpObj))
 
 	f(expObj, nonExpObj)
 }

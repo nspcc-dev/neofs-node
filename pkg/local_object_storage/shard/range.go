@@ -30,8 +30,8 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 
 	var obj *object.Object
 
-	cb := func(stor *blobstor.BlobStor, id []byte) error {
-		r, err := stor.GetRange(addr, offset, length, id)
+	cb := func(stor *blobstor.BlobStor) error {
+		r, err := stor.GetRange(addr, offset, length)
 		if err != nil {
 			return err
 		}

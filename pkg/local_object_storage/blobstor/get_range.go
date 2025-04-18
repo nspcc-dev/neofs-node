@@ -14,22 +14,16 @@ import (
 //
 // Zero length is interpreted as requiring full object length independent of the
 // offset.
-func (b *BlobStor) GetRange(addr oid.Address, offset uint64, length uint64, storageID []byte) ([]byte, error) {
+func (b *BlobStor) GetRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	if storageID == nil {
-		for i := range b.storage {
-			res, err := b.storage[i].Storage.GetRange(addr, offset, length)
-			if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
-				return res, err
-			}
+	for i := range b.storage {
+		res, err := b.storage[i].Storage.GetRange(addr, offset, length)
+		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+			return res, err
 		}
+	}
 
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-	if len(storageID) == 0 {
-		return b.storage[len(b.storage)-1].Storage.GetRange(addr, offset, length)
-	}
-	return b.storage[0].Storage.GetRange(addr, offset, length)
+	return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 }

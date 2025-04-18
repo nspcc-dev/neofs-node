@@ -13,17 +13,15 @@ type Option func(*options)
 // Metabase is an interface to metabase sufficient for writecache to operate.
 type Metabase interface {
 	Exists(addr oid.Address, ignoreExpiration bool) (bool, error)
-	StorageID(addr oid.Address) ([]byte, error)
-	UpdateStorageID(addr oid.Address, newID []byte) error
-	Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) error
+	Put(obj *objectSDK.Object, binHeader []byte) error
 }
 
 // blob is an interface for the blobstor.
 type blob interface {
-	Put(oid.Address, *objectSDK.Object, []byte) ([]byte, error)
-	PutBatch([]blobstor.PutBatchPrm) ([]byte, error)
+	Put(oid.Address, *objectSDK.Object, []byte) error
+	PutBatch([]blobstor.PutBatchPrm) error
 	NeedsCompression(obj *objectSDK.Object) bool
-	Exists(oid.Address, []byte) (bool, error)
+	Exists(oid.Address) (bool, error)
 }
 
 type options struct {

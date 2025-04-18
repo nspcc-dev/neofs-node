@@ -63,16 +63,16 @@ func TestBlobStor_Put_Overflow(t *testing.T) {
 	obj.SetContainerID(addr.Container())
 	obj.SetID(addr.Object())
 
-	_, err := bs.Put(addr, &obj, nil)
+	err := bs.Put(addr, &obj, nil)
 	require.NoError(t, err)
-	_, err = bs.PutBatch([]blobstor.PutBatchPrm{{Addr: addr, Obj: &obj}})
+	err = bs.PutBatch([]blobstor.PutBatchPrm{{Addr: addr, Obj: &obj}})
 	require.NoError(t, err)
 
 	sub2.full = true
 
-	_, err = bs.Put(addr, &obj, nil)
+	err = bs.Put(addr, &obj, nil)
 	require.ErrorIs(t, err, common.ErrNoSpace)
-	_, err = bs.PutBatch([]blobstor.PutBatchPrm{{Addr: addr, Obj: &obj}})
+	err = bs.PutBatch([]blobstor.PutBatchPrm{{Addr: addr, Obj: &obj}})
 	require.ErrorIs(t, err, common.ErrNoSpace)
 }
 
@@ -94,11 +94,11 @@ func TestBlobStor_PutBatch(t *testing.T) {
 		objs[i] = blobstor.PutBatchPrm{Addr: addr, Obj: &obj}
 	}
 
-	sid, err := bs.PutBatch(objs)
+	err := bs.PutBatch(objs)
 	require.NoError(t, err)
 
 	for i := range objCount {
-		obj, err := bs.Get(objs[i].Addr, sid)
+		obj, err := bs.Get(objs[i].Addr)
 		require.NoError(t, err)
 		require.Equal(t, objs[i].Obj, obj)
 	}

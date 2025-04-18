@@ -54,25 +54,25 @@ func TestCompression(t *testing.T) {
 	}
 
 	testGet := func(t *testing.T, b *BlobStor, i int) {
-		res1, err := b.Get(object.AddressOf(smallObj[i]), nil)
+		res1, err := b.Get(object.AddressOf(smallObj[i]))
 		require.NoError(t, err)
 		require.Equal(t, smallObj[i], res1)
 
-		res2, err := b.Get(object.AddressOf(bigObj[i]), nil)
+		res2, err := b.Get(object.AddressOf(bigObj[i]))
 		require.NoError(t, err)
 		require.Equal(t, bigObj[i], res2)
 	}
 
 	testPut := func(t *testing.T, b *BlobStor, i int) {
-		_, err = b.Put(object.AddressOf(smallObj[i]), smallObj[i], nil)
+		err = b.Put(object.AddressOf(smallObj[i]), smallObj[i], nil)
 		require.NoError(t, err)
 
-		_, err = b.Put(object.AddressOf(bigObj[i]), bigObj[i], nil)
+		err = b.Put(object.AddressOf(bigObj[i]), bigObj[i], nil)
 		require.NoError(t, err)
 	}
 
 	testPutBatch := func(t *testing.T, b *BlobStor, i int) {
-		_, err = b.PutBatch([]PutBatchPrm{
+		err = b.PutBatch([]PutBatchPrm{
 			{Addr: object.AddressOf(smallObj[i]), Obj: smallObj[i]},
 			{Addr: object.AddressOf(bigObj[i]), Obj: bigObj[i]},
 		})

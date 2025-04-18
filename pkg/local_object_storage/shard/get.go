@@ -31,8 +31,8 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 
 	var res *objectSDK.Object
 
-	cb := func(stor *blobstor.BlobStor, id []byte) error {
-		obj, err := stor.Get(addr, id)
+	cb := func(stor *blobstor.BlobStor) error {
+		obj, err := stor.Get(addr)
 		if err != nil {
 			return err
 		}
@@ -58,15 +58,11 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 	return res, err
 }
 
-// emptyStorageID is an empty storageID that indicates that
-// an object is big (and is stored in an FSTree, not in a peapod).
-var emptyStorageID = make([]byte, 0)
-
 // fetchObjectData looks through writeCache and blobStor to find object. Returns
 // true iff skipMeta flag is unset && referenced object is found in the
 // underlying metaBase.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
-	blobFunc func(bs *blobstor.BlobStor, subStorageID []byte) error,
+	blobFunc func(bs *blobstor.BlobStor) error,
 	wc func(w writecache.Cache) error,
 ) (bool, error) {
 	var (
@@ -100,7 +96,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 	}
 
 	if skipMeta || mErr != nil {
-		err := blobFunc(s.blobStor, nil)
+		err := blobFunc(s.blobStor)
 		return false, err
 	}
 
@@ -108,19 +104,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	storageID, err := s.metaBase.StorageID(addr)
-	if err != nil {
-		return true, fmt.Errorf("can't fetch storage id from metabase: %w", err)
-	}
-
-	if storageID == nil {
-		// `nil` storageID returned without any error
-		// means that object is big, `cb` expects an
-		// empty (but non-nil) storageID in such cases
-		storageID = emptyStorageID
-	}
-
-	return true, blobFunc(s.blobStor, storageID)
+	return true, blobFunc(s.blobStor)
 }
 
 // GetBytes reads object from the Shard by address into memory buffer in a
@@ -142,9 +126,9 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 	defer s.m.RUnlock()
 
 	var b []byte
-	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(bs *blobstor.BlobStor, subStorageID []byte) error {
+	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(bs *blobstor.BlobStor) error {
 		var err error
-		b, err = bs.GetBytes(addr, subStorageID)
+		b, err = bs.GetBytes(addr)
 		return err
 	}, func(w writecache.Cache) error {
 		var err error

@@ -212,15 +212,10 @@ func TestDB_DeleteContainer(t *testing.T) {
 
 		o1 := generateObjectWithCID(t, cID)
 		o1.SetAttributes(attr)
-		storageID := []byte{1, 2, 3, 4}
 
-		// put one object with storageID and an  attribute
-		err := metaPut(db, o1, storageID)
+		// put one object with an attribute
+		err := metaPut(db, o1)
 		require.NoError(t, err)
-
-		fetchedStorageID, err := metaStorageID(db, object.AddressOf(o1))
-		require.NoError(t, err)
-		require.Equal(t, storageID, fetchedStorageID)
 
 		// put a big one
 		o2 := objecttest.Object()
