@@ -105,7 +105,7 @@ func (c *clientWrapper) searchObjects(ctx context.Context, exec *execCtx, info c
 		return nil, err
 	}
 
-	return res.IDList(), nil
+	return res, nil
 }
 
 func (e *storageEngineWrapper) search(exec *execCtx) ([]oid.ID, error) {
