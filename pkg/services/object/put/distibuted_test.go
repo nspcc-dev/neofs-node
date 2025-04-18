@@ -59,6 +59,7 @@ type testNetwork struct {
 func (x testNetwork) IsLocalNodePublicKey(pk []byte) bool { return bytes.Equal(x.localPubKey, pk) }
 
 func (x testNetwork) GetContainerNodes(cid.ID) (ContainerNodes, error) { panic("unimplemented") }
+func (x testNetwork) GetEpochBlock(uint64) (uint32, error)             { panic("unimplemented") }
 
 type testWorkerPool struct {
 	nCalls int

@@ -9,36 +9,20 @@ import (
 )
 
 func TestAuthenticateContainerRequest(t *testing.T) {
-	t.Run("invalid public key", func(t *testing.T) {
-		for _, tc := range []struct {
-			name, err string
-			changePub func([]byte) []byte
-		}{
-			{name: "nil", err: "decode public key: EOF", changePub: func([]byte) []byte { return nil }},
-			{name: "empty", err: "decode public key: EOF", changePub: func([]byte) []byte { return []byte{} }},
-			{name: "undersize", err: "decode public key: unexpected EOF", changePub: func(k []byte) []byte { return k[:len(k)-1] }},
-			{name: "oversize", err: "decode public key: extra data", changePub: func(k []byte) []byte { return append(k, 1) }},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, tc.changePub(mainAccECDSAPub), containerSig, containerPayload)
-				require.EqualError(t, err, tc.err)
-			})
-		}
-	})
 	t.Run("signature mismatch", func(t *testing.T) {
 		for i := range containerSig {
 			cp := slices.Clone(containerSig)
 			cp[i]++
-			err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, mainAccECDSAPub, cp, containerPayload)
+			err := icrypto.AuthenticateContainerRequest(mainAcc, cp, mainAccECDSAPub, containerPayload, nil)
 			require.EqualError(t, err, "signature mismatch")
 		}
 	})
 	t.Run("owner mismatch", func(t *testing.T) {
-		err := icrypto.AuthenticateContainerRequestRFC6979(otherAcc, mainAccECDSAPub, containerSig, containerPayload)
+		err := icrypto.AuthenticateContainerRequest(otherAcc, containerSig, mainAccECDSAPub, containerPayload, nil)
 		require.EqualError(t, err, "owner mismatches signature")
 	})
 
-	err := icrypto.AuthenticateContainerRequestRFC6979(mainAcc, mainAccECDSAPub, containerSig, containerPayload)
+	err := icrypto.AuthenticateContainerRequest(mainAcc, containerSig, mainAccECDSAPub, containerPayload, nil)
 	require.NoError(t, err)
 }
 

@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"fmt"
+
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
@@ -111,11 +113,15 @@ type MetaWithToken struct {
 
 // RequestOwner returns ownerID and its public key
 // according to internal meta information.
-func (r MetaWithToken) RequestOwner() (*user.ID, []byte, error) {
+func (r MetaWithToken) RequestOwner(fsChain icrypto.HistoricN3ScriptRunner) (*user.ID, []byte, error) {
 	// if session token is presented, use it as truth source
 	if r.token != nil {
 		// verify signature of session token
-		return ownerFromToken(r.token)
+		if err := icrypto.AuthenticateToken(r.token, fsChain); err != nil {
+			return nil, nil, fmt.Errorf("authenticate session token: %w", err)
+		}
+		tokenIssuer := r.token.Issuer()
+		return &tokenIssuer, r.token.IssuerPublicKeyBytes(), nil
 	}
 	idSender, key, err := icrypto.GetRequestAuthor(r.vheader)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -13,7 +12,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
 var errMissingContainerID = errors.New("missing container ID")
@@ -109,14 +107,6 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 	}
 
 	return &id, nil
-}
-
-func ownerFromToken(token *sessionSDK.Object) (*user.ID, []byte, error) {
-	if err := icrypto.AuthenticateToken(token); err != nil {
-		return nil, nil, fmt.Errorf("authenticate session token: %w", err)
-	}
-	tokenIssuer := token.Issuer()
-	return &tokenIssuer, token.IssuerPublicKeyBytes(), nil
 }
 
 // assertVerb checks that token verb corresponds to op.

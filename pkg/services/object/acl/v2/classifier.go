@@ -2,8 +2,9 @@ package v2
 
 import (
 	"bytes"
+	"fmt"
 
-	core "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -15,7 +16,8 @@ import (
 type senderClassifier struct {
 	log       *zap.Logger
 	innerRing InnerRingFetcher
-	netmap    core.Source
+	netmap    Netmapper
+	fsChain   FSChain
 }
 
 type classifyResult struct {
@@ -24,14 +26,35 @@ type classifyResult struct {
 	account *user.ID
 }
 
+type historicN3ScriptRunner struct {
+	FSChain
+	Netmapper
+}
+
 func (c senderClassifier) classify(
 	req MetaWithToken,
 	idCnr cid.ID,
 	cnr container.Container,
 	currentEpoch uint64) (res *classifyResult, err error) {
-	ownerID, ownerKey, err := req.RequestOwner()
-	if err != nil {
-		return nil, err
+	var ownerID *user.ID
+	var ownerKey []byte
+
+	if req.token != nil {
+		if err := icrypto.AuthenticateToken(req.token, historicN3ScriptRunner{
+			FSChain:   c.fsChain,
+			Netmapper: c.netmap,
+		}); err != nil {
+			return nil, fmt.Errorf("authenticate session token: %w", err)
+		}
+		tokenIssuer := req.token.Issuer()
+		ownerID = &tokenIssuer
+		ownerKey = req.token.IssuerPublicKeyBytes()
+	} else {
+		var idSender user.ID
+		if idSender, ownerKey, err = icrypto.GetRequestAuthor(req.vheader); err != nil {
+			return nil, err
+		}
+		ownerID = &idSender
 	}
 
 	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", ownerID))

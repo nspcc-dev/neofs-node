@@ -16,6 +16,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	morphClient "github.com/nspcc-dev/neofs-node/pkg/morph/client"
+	netmapClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objectService "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/acl"
@@ -286,10 +287,14 @@ func initObjectService(c *cfg) {
 	const cachedFirstObjectsNumber = 1000
 	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
 
-	aclSvc := v2.New(
+	aclSvc := v2.New(c.cli,
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
-		v2.WithNetmapper(netmapSourceWithNodes{Source: c.netMapSource, fsChain: fsChain}),
+		v2.WithNetmapper(netmapSourceWithNodes{
+			Source:         c.netMapSource,
+			fsChain:        fsChain,
+			netmapContract: c.nCli,
+		}),
 		v2.WithContainerSource(c.cnrSrc),
 	)
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
@@ -297,6 +302,8 @@ func initObjectService(c *cfg) {
 		SetEACLSource(c.eaclSrc).
 		SetValidator(eaclSDK.NewValidator()).
 		SetLocalStorage(ls).
+		SetFSChain(c.cli).
+		SetNetmapContract(c.nCli).
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
 
@@ -692,7 +699,8 @@ func (c *cfg) GetNodesForObject(addr oid.Address) ([][]netmapsdk.NodeInfo, []uin
 
 type netmapSourceWithNodes struct {
 	netmap.Source
-	fsChain *fsChainForObjects
+	fsChain        *fsChainForObjects
+	netmapContract *netmapClient.Client
 }
 
 func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
@@ -713,6 +721,14 @@ func (n netmapSourceWithNodes) ServerInContainer(cID cid.ID) (bool, error) {
 	}
 
 	return serverInContainer, nil
+}
+
+func (n netmapSourceWithNodes) GetEpochBlock(epoch uint64) (uint32, error) {
+	return n.netmapContract.GetEpochBlock(epoch)
+}
+
+func (c *cfg) GetEpochBlock(epoch uint64) (uint32, error) {
+	return c.nCli.GetEpochBlock(epoch)
 }
 
 // GetContainerNodes reads storage policy of the referenced container from the

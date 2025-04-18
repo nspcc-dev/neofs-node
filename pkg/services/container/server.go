@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
@@ -23,6 +27,12 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
+
+// FSChain provides base non-contract functionality of the FS chain required to
+// serve NeoFS API Container service.
+type FSChain interface {
+	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+}
 
 // Contract groups ops of the Container contract deployed in the FS chain
 // required to serve NeoFS API Container service.
@@ -49,11 +59,24 @@ type Contract interface {
 	Delete(_ cid.ID, pub, sig []byte, _ *session.Container) error
 }
 
+// NetmapContract represents Netmap contract deployed in the FS chain required
+// to serve NeoFS API Container service.
+type NetmapContract interface {
+	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
+	GetEpochBlock(epoch uint64) (uint32, error)
+}
+
+type historicN3ScriptRunner struct {
+	FSChain
+	NetmapContract
+}
+
 type server struct {
 	protocontainer.UnimplementedContainerServiceServer
 	signer   *ecdsa.PrivateKey
 	net      netmap.State
 	contract Contract
+	historicN3ScriptRunner
 }
 
 // New provides protocontainer.ContainerServiceServer based on specified
@@ -61,11 +84,15 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmap.State, c Contract) protocontainer.ContainerServiceServer {
+func New(s *ecdsa.PrivateKey, net netmap.State, fsChain FSChain, c Contract, nc NetmapContract) protocontainer.ContainerServiceServer {
 	return &server{
 		signer:   s,
 		net:      net,
 		contract: c,
+		historicN3ScriptRunner: historicN3ScriptRunner{
+			FSChain:        fsChain,
+			NetmapContract: nc,
+		},
 	}
 }
 
@@ -97,7 +124,7 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if err := icrypto.AuthenticateToken(&token); err != nil {
+	if err := icrypto.AuthenticateToken(&token, s.historicN3ScriptRunner); err != nil {
 		return nil, fmt.Errorf("authenticate: %w", err)
 	}
 
