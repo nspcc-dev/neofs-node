@@ -31,13 +31,14 @@ func (t *testObjectSource) Head(_ context.Context, addr oid.Address) (*object.Ob
 	return res.h, res.err
 }
 
-func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchFilters) ([]oid.ID, error) {
+func (t *testObjectSource) SearchOne(_ context.Context, _ cid.ID, ff object.SearchFilters) (oid.ID, error) {
+	var id oid.ID
 	f := ff[0]
 
 	switch f.Header() {
 	case object.FilterSplitID:
 		if t.searchV1 == nil {
-			return nil, nil
+			return id, nil
 		}
 
 		var splitID object.SplitID
@@ -46,10 +47,13 @@ func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchF
 			panic(err)
 		}
 
-		return t.searchV1[splitID], nil
+		if len(t.searchV1[splitID]) == 1 {
+			return t.searchV1[splitID][0], nil
+		}
+		return id, nil
 	case object.FilterFirstSplitObject:
 		if t.searchV2 == nil {
-			return nil, nil
+			return id, nil
 		}
 
 		var firstObject oid.ID
@@ -58,7 +62,10 @@ func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchF
 			panic(err)
 		}
 
-		return t.searchV2[firstObject], nil
+		if len(t.searchV2[firstObject]) == 1 {
+			return t.searchV2[firstObject][0], nil
+		}
+		return id, nil
 	default:
 		panic("unexpected search call")
 	}
