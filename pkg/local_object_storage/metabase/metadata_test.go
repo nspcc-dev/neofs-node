@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"maps"
 	"math"
 	"math/big"
 	"math/rand"
@@ -272,21 +271,18 @@ func TestIntBucketOrder(t *testing.T) {
 	}, collected)
 }
 
-func cloneIntFilterMap(src map[int]objectcore.ParsedIntFilter) map[int]objectcore.ParsedIntFilter {
+func cloneFilters(src []objectcore.SearchFilter) []objectcore.SearchFilter {
 	if src == nil {
 		return nil
 	}
-	dst := maps.Clone(src)
+	dst := slices.Clone(src)
 	for k, f := range src {
 		var n *big.Int
 		if f.Parsed != nil {
 			n = new(big.Int).Set(f.Parsed)
 		}
-		dst[k] = objectcore.ParsedIntFilter{
-			AutoMatch: f.AutoMatch,
-			Parsed:    n,
-			Raw:       slices.Clone(f.Raw),
-		}
+		dst[k].Parsed = n
+		dst[k].Raw = slices.Clone(f.Raw)
 	}
 	return dst
 }
@@ -302,7 +298,7 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 	var strCursor string
 	nAttr := len(attrs)
 	for {
-		cursor, fInt, err := objectcore.PreprocessSearchQuery(fs, attrs, strCursor)
+		ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, attrs, strCursor)
 		if err != nil {
 			if len(all) == 0 {
 				require.ErrorIs(t, err, objectcore.ErrUnreachableQuery)
@@ -313,11 +309,11 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 		}
 
 		cursorClone := cloneSearchCursor(cursor)
-		fIntClone := cloneIntFilterMap(fInt)
+		ofsClone := cloneFilters(ofs)
 
-		res, c, err := db.Search(cnr, fs, fInt, attrs, cursor, lim)
+		res, c, err := db.Search(cnr, ofsClone, attrs, cursor, lim)
 		require.Equal(t, cursorClone, cursor, "cursor mutation detected", "cursor: %q", strCursor)
-		require.Equal(t, fIntClone, fInt, "int filter map mutation detected", "cursor: %q", strCursor)
+		require.Equal(t, ofsClone, ofs, "filter slice mutation detected", "cursor: %q", strCursor)
 		require.NoError(t, err, "cursor: %q", strCursor)
 
 		n := min(len(all), int(lim))
@@ -336,7 +332,11 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 		}
 		require.NotNilf(t, c, "cursor: %q", strCursor)
 
-		cc, err := objectcore.CalculateCursor(fs, res[n-1])
+		var firstFilter *object.SearchFilter
+		if len(fs) > 0 {
+			firstFilter = &fs[0]
+		}
+		cc, err := objectcore.CalculateCursor(firstFilter, res[n-1])
 		require.NoError(t, err, "cursor: %q", strCursor)
 		require.Equal(t, c, cc, "cursor: %q", strCursor)
 
@@ -375,8 +375,8 @@ func (s *searchTestDB) Put(obj *object.Object) error {
 	return s.db.Put(obj, nil)
 }
 
-func (s *searchTestDB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return s.db.Search(cnr, fs, fInt, attrs, cursor, count)
+func (s *searchTestDB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	return s.db.Search(cnr, fs, attrs, cursor, count)
 }
 
 func TestDB_SearchObjects(t *testing.T) {
@@ -385,7 +385,7 @@ func TestDB_SearchObjects(t *testing.T) {
 		t.Run("BoltDB failure", func(t *testing.T) {
 			db := newDB(t)
 			require.NoError(t, db.boltDB.Close())
-			_, _, err := db.Search(cidtest.ID(), nil, nil, nil, nil, 1)
+			_, _, err := db.Search(cidtest.ID(), nil, nil, nil, 1)
 			require.ErrorContains(t, err, "view BoltDB")
 			require.ErrorIs(t, err, bolterrors.ErrDatabaseNotOpen)
 		})
@@ -431,10 +431,10 @@ func TestDB_SearchObjects(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			cursor, fInt, err := objectcore.PreprocessSearchQuery(nil, nil, "")
+			ofs, cursor, err := objectcore.PreprocessSearchQuery(nil, nil, "")
 			require.NoError(t, err)
 
-			_, _, err = db.Search(cnr, nil, fInt, nil, cursor, n)
+			_, _, err = db.Search(cnr, ofs, nil, cursor, n)
 			require.EqualError(t, err, "view BoltDB: invalid meta bucket key (prefix 0x0): unexpected object key len 32")
 		})
 	})

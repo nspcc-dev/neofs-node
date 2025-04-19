@@ -137,7 +137,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ object.SearchFilters, _ map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -1908,7 +1908,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
-	cursor, fInt, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
 	if err != nil {
 		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil
@@ -1933,11 +1933,11 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	count := uint16(body.Count) // legit according to the limit
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, fs, fInt, body.Attributes, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err != nil {
 			return nil, err
 		}
 	case handleWithMetaService:
-		res, newCursor, err = s.meta.Search(cID, fs, fInt, body.Attributes, cursor, count)
+		res, newCursor, err = s.meta.Search(cID, ofs, body.Attributes, cursor, count)
 		if err != nil {
 			return nil, err
 		}
@@ -1965,7 +1965,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if set, crsr, err := s.storage.SearchObjects(cID, fs, fInt, body.Attributes, cursor, count); err == nil {
+					if set, crsr, err := s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
 				}()
@@ -1997,9 +1997,13 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 		if err != nil {
 			return nil, err
 		}
-		var firstAttr string
+		var (
+			firstAttr   string
+			firstFilter *object.SearchFilter
+		)
 		if len(body.Attributes) > 0 {
 			firstAttr = body.Filters[0].Key
+			firstFilter = &ofs[0].SearchFilter
 		}
 		cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
 		var more bool
@@ -2007,7 +2011,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 			return nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
-			if newCursor, err = objectcore.CalculateCursor(fs, res[len(res)-1]); err != nil {
+			if newCursor, err = objectcore.CalculateCursor(firstFilter, res[len(res)-1]); err != nil {
 				return nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
 		}

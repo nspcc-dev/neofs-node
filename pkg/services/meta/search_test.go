@@ -39,8 +39,8 @@ func (s searchTestDB) Put(obj *object.Object) error {
 	return st.db.PutChangeSet(batch, nil)
 }
 
-func (s searchTestDB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return s.storages[cnr].search(fs, fInt, attrs, cursor, count)
+func (s searchTestDB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	return s.storages[cnr].search(fs, attrs, cursor, count)
 }
 
 func TestMeta_Search(t *testing.T) {

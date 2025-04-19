@@ -264,14 +264,14 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
 	var err error
 	if len(fs) == 0 {
 		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count)
 	} else {
-		res, newCursor, err = db.search(cnr, fs, fInt, attrs, cursor, count)
+		res, newCursor, err = db.search(cnr, fs, attrs, cursor, count)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -279,12 +279,12 @@ func (db *DB) Search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcor
 	return res, newCursor, nil
 }
 
-func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		var err error
-		res, newCursor, err = db.searchTx(tx, cnr, fs, fInt, attrs, cursor, count)
+		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
 		return err
 	})
 	if err != nil {
@@ -293,7 +293,7 @@ func (db *DB) search(cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcor
 	return res, newCursor, nil
 }
 
-func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
 		return nil, nil, nil
@@ -315,7 +315,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs object.SearchFilters, fInt m
 		return objectStatus(tx, oid.NewAddress(cnr, id), curEpoch) == 0
 	}
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
-	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, fInt, attrs, cursor, count)
+	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
 
 	for ; bytes.HasPrefix(primKey, cursor.PrimaryKeysPrefix); primKey, _ = primCursor.Next() {
 		if !handleKV(primKey, nil) {
