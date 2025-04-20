@@ -154,7 +154,7 @@ func (s *Shard) resyncMetabase() error {
 
 	if s.writeCache != nil {
 		// ensure there will not be any raсes in write-cache -> blobstor object
-		// backgroung flushing while iterating blobstor
+		// background flushing while iterating blobstor
 		err = s.writeCache.Flush(true)
 		if err != nil {
 			s.log.Warn("could not flush write-cache while resyncing metabase", zap.Error(err))
