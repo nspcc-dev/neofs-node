@@ -88,7 +88,7 @@ func (x *AnnounceIntermediatePrm) SetTrust(t reputation.PeerToPeerTrust) {
 type AnnounceIntermediateRes struct{}
 
 // AnnounceIntermediate sends the global trust value calculated at the specified iteration
-// and epoch to to the remote node.
+// and epoch to the remote node.
 //
 // Client, context and key must be set.
 //

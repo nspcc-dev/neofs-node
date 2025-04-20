@@ -327,7 +327,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	}
 
 	// There are 3 different types of errors to consider.
-	// To setup envirionment we use implementation details so this test must be updated
+	// To setup environment we use implementation details so this test must be updated
 	// if any of them are changed.
 	{
 		// 1. Invalid object in fs tree.
