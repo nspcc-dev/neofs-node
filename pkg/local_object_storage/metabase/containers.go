@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -186,44 +185,9 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 
 		// indexes
 
-		err = tx.DeleteBucket(ownerBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("owner index cleanup: %w", err)
-		}
-
-		err = tx.DeleteBucket(payloadHashBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("hash index cleanup: %w", err)
-		}
-
 		err = tx.DeleteBucket(parentBucketName(cID, buff))
 		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("parent index cleanup: %w", err)
-		}
-
-		err = tx.DeleteBucket(splitBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("split id index cleanup: %w", err)
-		}
-
-		err = tx.DeleteBucket(firstObjectIDBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("first object id index cleanup: %w", err)
-		}
-
-		// Attributes index
-		var keysToDelete [][]byte // see https://github.com/etcd-io/bbolt/issues/146
-		c := tx.Cursor()
-		bktPrefix := attributeBucketName(cID, "", buff)
-		for k, _ := c.Seek(bktPrefix); k != nil && bytes.HasPrefix(k, bktPrefix); k, _ = c.Next() {
-			keysToDelete = append(keysToDelete, k)
-		}
-
-		for _, k := range keysToDelete {
-			err = tx.DeleteBucket(k)
-			if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-				return fmt.Errorf("attributes index cleanup: %w", err)
-			}
 		}
 
 		cnrGCBkt := tx.Bucket(garbageContainersBucketName)

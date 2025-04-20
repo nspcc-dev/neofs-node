@@ -89,31 +89,23 @@ const (
 	// FKBT index buckets.
 	//====================
 
-	// ownerPrefix is used for prefixing FKBT index buckets mapping owner to object IDs.
-	// Key: owner ID
-	// Value: bucket containing object IDs as keys
-	ownerPrefix
-	// userAttributePrefix is used for prefixing FKBT index buckets containing objects.
-	// Key: attribute value
-	// Value: bucket containing object IDs as keys
-	userAttributePrefix
+	// unusedOwnerPrefix was deleted in metabase version 5
+	unusedOwnerPrefix
+	// unusedUserAttributePrefix was deleted in metabase version 5
+	unusedUserAttributePrefix
 
 	//====================
 	// List index buckets.
 	//====================
 
-	// payloadHashPrefix is used for prefixing List index buckets mapping payload hash to a list of object IDs.
-	//  Key: payload hash
-	//  Value: list of object IDs
-	payloadHashPrefix
+	// unusedPayloadHashPrefix was deleted in metabase version 5
+	unusedPayloadHashPrefix
 	// parentPrefix is used for prefixing List index buckets mapping parent ID to a list of children IDs.
 	//  Key: parent ID
 	//  Value: list of object IDs
 	parentPrefix
-	// splitPrefix is used for prefixing List index buckets mapping split ID to a list of object IDs.
-	//  Key: split ID
-	//  Value: list of object IDs
-	splitPrefix
+	// unusedSplitPrefix was deleted in metabase version 5
+	unusedSplitPrefix
 
 	// garbageContainersPrefix is used for the garbage containers bucket.
 	// 	Key: container ID
@@ -125,10 +117,8 @@ const (
 	//  Value: marshaled object
 	linkObjectsPrefix
 
-	// firstObjectIDPrefix is used for prefixing List index buckets mapping first object ID to a list of objects IDs.
-	//  Key: first object ID
-	//  Value: list of object IDs
-	firstObjectIDPrefix
+	// unusedFirstObjectIDPrefix was deleted in metabase version 5
+	unusedFirstObjectIDPrefix
 )
 
 // key prefix for per-container buckets storing objects' metadata required to
@@ -171,40 +161,14 @@ func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, linkObjectsPrefix, key)
 }
 
-// attributeBucketName returns <CID>_attr_<attributeKey>.
-func attributeBucketName(cnr cid.ID, attributeKey string, key []byte) []byte {
-	key[0] = userAttributePrefix
-	copy(key[1:], cnr[:])
-	return append(key[:bucketKeySize], attributeKey...)
-}
-
-// payloadHashBucketName returns <CID>_payloadhash.
-func payloadHashBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, payloadHashPrefix, key)
-}
-
 // rootBucketName returns <CID>_root.
 func rootBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, rootPrefix, key)
 }
 
-// ownerBucketName returns <CID>_ownerid.
-func ownerBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, ownerPrefix, key)
-}
-
 // parentBucketName returns <CID>_parent.
 func parentBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, parentPrefix, key)
-}
-
-// splitBucketName returns <CID>_splitid.
-func splitBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, splitPrefix, key)
-}
-
-func firstObjectIDBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, firstObjectIDPrefix, key)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.

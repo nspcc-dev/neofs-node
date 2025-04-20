@@ -13,7 +13,6 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -170,26 +169,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 					return 0, err
 				}
 			}
-		case object.FilterOwnerID:
-			if len(attrV) == user.IDSize {
-				owner := user.ID(attrV)
-				delFKBTIndexItem(tx, namedBucketItem{
-					name: ownerBucketName(cnr, bktKeyBuff),
-					key:  []byte(owner.EncodeToString()),
-					val:  id[:],
-				})
-			} else {
-				l.Warn("unexpected object's owner index",
-					zap.Stringer("addr", oid.NewAddress(cnr, id)),
-					zap.Int("len", len(attrV)),
-				)
-			}
-		case object.FilterPayloadChecksum:
-			delListIndexItem(tx, namedBucketItem{
-				name: payloadHashBucketName(cnr, bktKeyBuff),
-				key:  attrV,
-				val:  id[:],
-			})
 		case object.FilterParentID:
 			if len(attrV) == oid.Size {
 				parent = oid.ID(attrV)
@@ -203,29 +182,9 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 				key:  attrV,
 				val:  id[:],
 			})
-		case object.FilterSplitID:
-			delListIndexItem(tx, namedBucketItem{
-				name: splitBucketName(cnr, bktKeyBuff),
-				key:  attrV,
-				val:  id[:],
-			})
-		case object.FilterFirstSplitObject:
-			delListIndexItem(tx, namedBucketItem{
-				name: firstObjectIDBucketName(cnr, bktKeyBuff),
-				key:  attrV,
-				val:  id[:],
-			})
 		case object.FilterPayloadSize:
 			size, _ = strconv.ParseUint(string(attrV), 10, 64)
 		default:
-			const systemFieldPrefix = "$Object:"
-			if !bytes.HasPrefix(attrK, []byte(systemFieldPrefix)) {
-				delFKBTIndexItem(tx, namedBucketItem{
-					name: attributeBucketName(cnr, kStr, bktKeyBuff),
-					key:  attrV,
-					val:  id[:],
-				})
-			}
 		}
 		kAttrID := make([]byte, len(kIDAttr)+attributeDelimiterLen)
 		kAttrID[0] = metaPrefixAttrIDPlain

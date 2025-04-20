@@ -39,6 +39,7 @@ Changelog for NeoFS Node
 - `peapod-to-fstree` migrates only objects with existing containers (#3283, #3306)
 - Storage Node now prohibits parents with their own parents (object split of already split object) (#2451)
 - Storage Nodes do not accept REPLICATE with a header that exceeds the limit (#3297)
+- Search API is served from SearchV2 indexes now (#3316)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)

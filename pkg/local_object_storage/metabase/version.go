@@ -275,9 +275,14 @@ func migrateFrom4Version(db *DB) error {
 		return err
 	}
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		var buckets [][]byte
+		var (
+			buckets          [][]byte
+			obsoletePrefixes = []byte{unusedSmallPrefix, unusedOwnerPrefix,
+				unusedUserAttributePrefix, unusedPayloadHashPrefix,
+				unusedSplitPrefix, unusedFirstObjectIDPrefix}
+		)
 		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
-			if len(name) > 0 && name[0] == unusedSmallPrefix {
+			if slices.Contains(obsoletePrefixes, name[0]) {
 				buckets = append(buckets, slices.Clone(name))
 			}
 			return nil
@@ -338,10 +343,16 @@ func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.
 		}
 	}
 	for _, id := range queue {
-		_ = b.Delete(slices.Concat(attrIDPrefix, id[:]))
+		err := b.Delete(slices.Concat(attrIDPrefix, id[:]))
+		if err != nil {
+			l.Warn("failed to delete root attrID key", zap.Stringer("container", cnr), zap.Stringer("object", id))
+		}
 		idAttrKey := prepareMetaIDAttrKey(&keyBuffer{}, id, object.FilterRoot, len(binPropMarker))
 		copy(idAttrKey[len(idAttrKey)-len(binPropMarker):], binPropMarker)
-		_ = b.Delete(idAttrKey)
+		err = b.Delete(idAttrKey)
+		if err != nil {
+			l.Warn("failed to delete root IDattr key", zap.Stringer("container", cnr), zap.Stringer("object", id))
+		}
 	}
 	if len(queue) < int(limit) {
 		k = nil // End of iteration for this bucket.

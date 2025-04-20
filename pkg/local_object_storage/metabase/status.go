@@ -96,7 +96,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 		rootBucketName(cID, make([]byte, bucketKeySize)),
 		parentBucketName(cID, make([]byte, bucketKeySize)),
 		linkObjectsBucketName(cID, make([]byte, bucketKeySize)),
-		firstObjectIDBucketName(cID, make([]byte, bucketKeySize)),
 	}
 
 	for _, bucketKey := range objectBuckets {

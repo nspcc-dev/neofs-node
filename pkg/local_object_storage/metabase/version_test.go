@@ -658,13 +658,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		// corrupt one object
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
@@ -720,13 +713,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		// corrupt one object
 		bigAttrVal := testutil.RandByteSlice(16 << 10)
 		objs[1].SetAttributes(object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
@@ -785,13 +771,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		t.Run("failed to check", func(t *testing.T) {
 			anyErr := errors.New("any error")
 			cnrs.err = anyErr
