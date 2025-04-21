@@ -8,6 +8,7 @@ import (
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +22,16 @@ type TaskResult interface {
 // HandleTask executes replication task inside invoking goroutine.
 // Passes all the nodes that accepted the replication to the TaskResult.
 func (p *Replicator) HandleTask(ctx context.Context, task Task, res TaskResult) {
+	if task.obj != nil {
+		if l := task.obj.HeaderLen(); l > object.MaxHeaderLen {
+			p.log.Warn("replication task with too big header",
+				zap.Int("header len", l),
+				zap.Int("max allowed header len", object.MaxHeaderLen))
+
+			return
+		}
+	}
+
 	defer func() {
 		p.log.Debug("finish work",
 			zap.Uint32("amount of unfinished replicas", task.quantity),
