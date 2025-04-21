@@ -63,10 +63,6 @@ The lowest not used bucket index: 20.
   - Name: `18` + container ID
   - Key: object ID
   - Value: marshaled object
-- Bucket mapping objects to the storage ID they are stored in
-  - Name: `10` + container ID
-  - Key: object ID
-  - Value: storage ID
 - Bucket for mapping parent object to the split info
   - Name: `11` + container ID
   - Key: object ID
@@ -110,9 +106,17 @@ The lowest not used bucket index: 20.
 
 # History
 
+## Version 5
+
+Dropped "small prefix" (10) bucket.
+
+## Version 4
+
+Introduced metadata bucket (255) for SearchV2 API and other purposes.
+
 ## Version 3
 
-Last version without metadata bucket introduced with `ObjectService.SearchV2` API.
+Changed graveyard to store expiration epoch along with tombstone address.
 
 ## Version 2
 

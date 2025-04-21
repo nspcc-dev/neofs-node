@@ -52,7 +52,7 @@ func (s *Shard) Dump(w io.Writer, ignoreErrors bool) (int, error) {
 		}
 	}
 
-	var objHandler = func(addr oid.Address, data []byte, _ []byte) error {
+	var objHandler = func(addr oid.Address, data []byte) error {
 		var size [4]byte
 		binary.LittleEndian.PutUint32(size[:], uint32(len(data)))
 		if _, err := w.Write(size[:]); err != nil {

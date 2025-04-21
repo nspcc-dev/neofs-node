@@ -57,7 +57,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 
 	dstObjs := make(map[oid.Address][]byte, nObjects)
 
-	err = dst.Iterate(func(addr oid.Address, data []byte, _ []byte) error {
+	err = dst.Iterate(func(addr oid.Address, data []byte) error {
 		dstObjs[addr] = data
 		return nil
 	}, nil)

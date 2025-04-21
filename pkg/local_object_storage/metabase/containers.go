@@ -167,12 +167,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("tombstone bucket cleanup: %w", err)
 		}
 
-		// Small objects
-		err = tx.DeleteBucket(smallBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("small objects' bucket cleanup: %w", err)
-		}
-
 		// Root objects
 		err = tx.DeleteBucket(rootBucketName(cID, buff))
 		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {

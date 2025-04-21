@@ -37,7 +37,7 @@ var (
 //
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) error {
+func (db *DB) Put(obj *objectSDK.Object, binHeader []byte) error {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -50,7 +50,7 @@ func (db *DB) Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) err
 	currEpoch := db.epochState.CurrentEpoch()
 
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
-		return db.put(tx, obj, storageID, nil, currEpoch, binHeader)
+		return db.put(tx, obj, nil, currEpoch, binHeader)
 	})
 	if err == nil {
 		storagelog.Write(db.log,
@@ -62,7 +62,7 @@ func (db *DB) Put(obj *objectSDK.Object, storageID []byte, binHeader []byte) err
 }
 
 func (db *DB) put(
-	tx *bbolt.Tx, obj *objectSDK.Object, id []byte,
+	tx *bbolt.Tx, obj *objectSDK.Object,
 	si *objectSDK.SplitInfo, currEpoch uint64, hdrBin []byte) error {
 	if err := objectCore.VerifyHeaderForMetadata(*obj); err != nil {
 		return err
@@ -84,12 +84,6 @@ func (db *DB) put(
 	// most right child and split header overlap parent so we have to
 	// check if object exists to not overwrite it twice
 	if exists {
-		// When storage engine moves objects between different sub-storages,
-		// it calls metabase.Put method with new storage ID, thus triggering this code.
-		if !isParent && id != nil {
-			return updateStorageID(tx, objectCore.AddressOf(obj), id)
-		}
-
 		// when storage already has last object in split hierarchy and there is
 		// a linking object to put (or vice versa), we should update split info
 		// with object ids of these objects
@@ -108,14 +102,14 @@ func (db *DB) put(
 				return err
 			}
 
-			err = db.put(tx, par, id, parentSI, currEpoch, nil)
+			err = db.put(tx, par, parentSI, currEpoch, nil)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	err = putUniqueIndexes(tx, obj, si, id, hdrBin)
+	err = putUniqueIndexes(tx, obj, si, hdrBin)
 	if err != nil {
 		return fmt.Errorf("can't put unique indexes: %w", err)
 	}
@@ -163,7 +157,6 @@ func putUniqueIndexes(
 	tx *bbolt.Tx,
 	obj *objectSDK.Object,
 	si *objectSDK.SplitInfo,
-	id []byte,
 	hdrBin []byte,
 ) error {
 	isParent := si != nil
@@ -201,18 +194,6 @@ func putUniqueIndexes(
 		})
 		if err != nil {
 			return err
-		}
-
-		// index storageID if it is present
-		if id != nil {
-			err = putUniqueIndexItem(tx, namedBucketItem{
-				name: smallBucketName(cnr, bucketName),
-				key:  objKey,
-				val:  id,
-			})
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -446,18 +427,6 @@ func getVarUint(data []byte) (uint64, int, error) {
 	default:
 		return uint64(b), 1, nil
 	}
-}
-
-// updateStorageID for existing objects if they were moved from one
-// storage location to another.
-func updateStorageID(tx *bbolt.Tx, addr oid.Address, id []byte) error {
-	key := make([]byte, bucketKeySize)
-	bkt, err := tx.CreateBucketIfNotExists(smallBucketName(addr.Container(), key))
-	if err != nil {
-		return err
-	}
-
-	return bkt.Put(objectKey(addr.Object(), key), id)
 }
 
 // updateSplitInfo for existing objects if storage filled with extra information

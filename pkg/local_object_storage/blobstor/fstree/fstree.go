@@ -146,7 +146,7 @@ func addressFromString(s string) (*oid.Address, error) {
 }
 
 // Iterate iterates over all stored objects.
-func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte, id []byte) error, errorHandler func(addr oid.Address, err error) error) error {
+func (t *FSTree) Iterate(objHandler func(addr oid.Address, data []byte) error, errorHandler func(addr oid.Address, err error) error) error {
 	return t.iterate(0, []string{t.RootPath}, objHandler, errorHandler, nil, nil)
 }
 
@@ -177,7 +177,7 @@ func (t *FSTree) IterateSizes(f func(addr oid.Address, size uint64) error, ignor
 }
 
 func (t *FSTree) iterate(depth uint64, curPath []string,
-	objHandler func(oid.Address, []byte, []byte) error,
+	objHandler func(oid.Address, []byte) error,
 	errorHandler func(oid.Address, error) error,
 	addrHandler func(oid.Address) error,
 	sizeHandler func(oid.Address, uint64) error) error {
@@ -249,7 +249,7 @@ func (t *FSTree) iterate(depth uint64, curPath []string,
 					return fmt.Errorf("read file %q: %w", p, err)
 				}
 
-				err = objHandler(*addr, data, []byte{})
+				err = objHandler(*addr, data)
 			}
 		}
 

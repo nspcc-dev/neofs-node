@@ -242,7 +242,7 @@ func TestDB_GetContainer(t *testing.T) {
 
 	o4 := generateObjectWithCID(t, cID) // 4, lock object
 	o4.SetType(objectSDK.TypeLock)
-	err = metaPut(db, o4, []byte{1, 2, 3, 4})
+	err = metaPut(db, o4)
 	require.NoError(t, err)
 
 	o5 := oidtest.ID()
@@ -255,13 +255,13 @@ func TestDB_GetContainer(t *testing.T) {
 
 	o7 := generateObjectWithCID(t, cID) // 5
 	o7.SetType(objectSDK.TypeStorageGroup)
-	err = metaPut(db, o7, []byte{1, 2, 3, 4})
+	err = metaPut(db, o7)
 	require.NoError(t, err)
 
 	// TS
 	o8 := generateObjectWithCID(t, cID) // 6
 	o8.SetType(objectSDK.TypeTombstone)
-	err = metaPut(db, o8, []byte{1, 2, 3, 4})
+	err = metaPut(db, o8)
 	require.NoError(t, err)
 
 	err = metaInhume(db, object.AddressOf(o1), object.AddressOf(o8))

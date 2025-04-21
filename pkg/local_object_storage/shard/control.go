@@ -174,7 +174,7 @@ func (s *Shard) resyncMetabase() error {
 	return nil
 }
 
-func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []byte) error {
+func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte) error {
 	obj := objectSDK.New()
 
 	if err := obj.Unmarshal(data); err != nil {
@@ -227,7 +227,7 @@ func (s *Shard) resyncObjectHandler(addr oid.Address, data []byte, descriptor []
 		}
 	}
 
-	err := s.metaBase.Put(obj, descriptor, nil)
+	err := s.metaBase.Put(obj, nil)
 	if err != nil && !meta.IsErrRemoved(err) && !errors.Is(err, meta.ErrObjectIsExpired) {
 		return err
 	}

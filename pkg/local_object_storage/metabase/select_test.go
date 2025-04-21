@@ -778,7 +778,7 @@ func BenchmarkSelect(b *testing.B) {
 		attr.SetValue(strconv.Itoa(i))
 		obj := generateObjectWithCID(b, cid)
 		obj.SetAttributes(attr)
-		require.NoError(b, metaPut(db, obj, nil))
+		require.NoError(b, metaPut(db, obj))
 	}
 
 	b.Run("string equal", func(b *testing.B) {

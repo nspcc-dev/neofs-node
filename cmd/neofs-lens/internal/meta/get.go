@@ -37,17 +37,6 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	id, err := db.StorageID(addr)
-	if err != nil {
-		return fmt.Errorf("could not check if the obj is small: %w", err)
-	}
-
-	if id != nil {
-		cmd.Printf("Object storageID: %x (%q)\n\n", id, id)
-	} else {
-		cmd.Printf("Object does not contain storageID\n\n")
-	}
-
 	siErr := new(object.SplitInfoError)
 
 	obj, err := db.Get(addr, true)

@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"fmt"
 	"slices"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -31,11 +30,10 @@ type ObjectStatus struct {
 	HeaderIndex []HeaderField
 	State       []string
 	Path        string
-	StorageID   string
 	Error       error
 }
 
-// ObjectStatus returns the status of the object in the Metabase. It contains state, path, storageID
+// ObjectStatus returns the status of the object in the Metabase. It contains state, path
 // and indexed information about an object.
 func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	db.modeMtx.RLock()
@@ -45,17 +43,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		return res, nil
 	}
 
-	resStorageID, err := db.StorageID(address)
-	if err != nil {
-		res.Error = fmt.Errorf("reading storage ID: %w", err)
-		return res, res.Error
-	}
-
-	if resStorageID != nil {
-		res.StorageID = string(resStorageID)
-	}
-
-	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		res.Version, _ = getVersion(tx)
 
 		oID := address.Object()
@@ -85,7 +73,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		if removedStatus == 2 {
 			res.State = append(res.State, "IN GRAVEYARD")
 		}
-		return err
+		return nil
 	})
 	res.Path = db.boltDB.Path()
 	res.Error = err
@@ -105,7 +93,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 		bucketNameLockers(cID, make([]byte, bucketKeySize)),
 		storageGroupBucketName(cID, make([]byte, bucketKeySize)),
 		tombstoneBucketName(cID, make([]byte, bucketKeySize)),
-		smallBucketName(cID, make([]byte, bucketKeySize)),
 		rootBucketName(cID, make([]byte, bucketKeySize)),
 		parentBucketName(cID, make([]byte, bucketKeySize)),
 		linkObjectsBucketName(cID, make([]byte, bucketKeySize)),

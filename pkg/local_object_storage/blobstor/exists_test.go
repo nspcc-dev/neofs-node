@@ -30,17 +30,17 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		_, err = b.Put(objectCore.AddressOf(objects[i]), objects[i], nil)
+		err = b.Put(objectCore.AddressOf(objects[i]), objects[i], nil)
 		require.NoError(t, err)
 	}
 
 	for i := range objects {
-		res, err := b.Exists(objectCore.AddressOf(objects[i]), nil)
+		res, err := b.Exists(objectCore.AddressOf(objects[i]))
 		require.NoError(t, err)
 		require.True(t, res)
 	}
 
-	res, err := b.Exists(oidtest.Address(), nil)
+	res, err := b.Exists(oidtest.Address())
 	require.NoError(t, err)
 	require.False(t, res)
 
@@ -58,12 +58,12 @@ func TestExists(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
 		// Object exists, first error is logged.
-		res, err := b.Exists(objectCore.AddressOf(objects[0]), nil)
+		res, err := b.Exists(objectCore.AddressOf(objects[0]))
 		require.NoError(t, err)
 		require.True(t, res)
 
 		// Object doesn't exist, first error is returned.
-		_, err = b.Exists(objectCore.AddressOf(objects[1]), nil)
+		_, err = b.Exists(objectCore.AddressOf(objects[1]))
 		require.Error(t, err)
 	})
 }
