@@ -636,7 +636,7 @@ func TestCompatibility(t *testing.T) {
 	metabaseMap := make(map[string][]byte)
 
 	err = db.Update(func(tx *bbolt.Tx) error {
-		err = meta.PutMetadataForObject(tx, o, true, true)
+		err = meta.PutMetadataForObject(tx, o, true)
 		require.NoError(t, err)
 
 		cID := o.GetContainerID()

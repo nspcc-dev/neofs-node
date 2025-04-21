@@ -146,7 +146,7 @@ func (db *DB) put(
 		}
 	}
 
-	if err := PutMetadataForObject(tx, *obj, par != nil, !isParent); err != nil {
+	if err := PutMetadataForObject(tx, *obj, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 

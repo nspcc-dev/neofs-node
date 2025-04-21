@@ -128,6 +128,16 @@ func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
 }
 
 func migrateFrom3Version(db *DB) error {
+	var validPrefixes = []byte{primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix}
+
+	err := updateContainersInterruptable(db, validPrefixes, migrateContainerToMetaBucket)
+	if err != nil {
+		return err
+	}
+	return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, 4) })
+}
+
+func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc func(*zap.Logger, *bbolt.Tx, *bbolt.Bucket, cid.ID, []byte, uint) (uint, []byte, error)) error {
 	var fromBkt, afterObj []byte
 	for {
 		select {
@@ -137,7 +147,9 @@ func migrateFrom3Version(db *DB) error {
 		}
 		if err := db.boltDB.Update(func(tx *bbolt.Tx) error {
 			var err error
-			if fromBkt, afterObj, err = migrateContainersToMetaBucket(db.log, db.cfg.containers, tx, fromBkt, afterObj); err == nil {
+			fromBkt, afterObj, err = iterateContainerBuckets(db.log, db.cfg.containers, tx, fromBkt, afterObj,
+				validPrefixes, migrationFunc)
+			if err == nil {
 				fromBkt, afterObj = slices.Clone(fromBkt), slices.Clone(afterObj) // needed after the tx lifetime
 			}
 			return err
@@ -145,13 +157,13 @@ func migrateFrom3Version(db *DB) error {
 			return err
 		}
 		if fromBkt == nil {
-			break
+			return nil
 		}
 	}
-	return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, 4) })
 }
 
-func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt, afterObj []byte) ([]byte, []byte, error) {
+func iterateContainerBuckets(l *zap.Logger, cs Containers, tx *bbolt.Tx, fromBkt []byte, afterObj []byte, validPrefixes []byte,
+	migrationFunc func(*zap.Logger, *bbolt.Tx, *bbolt.Bucket, cid.ID, []byte, uint) (uint, []byte, error)) ([]byte, []byte, error) {
 	c := tx.Cursor()
 	var name []byte
 	if fromBkt != nil {
@@ -163,10 +175,8 @@ func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx, f
 	var done uint
 	var err error
 	for ; name != nil; name, _ = c.Next() {
-		switch name[0] {
-		default:
+		if !slices.Contains(validPrefixes, name[0]) {
 			continue
-		case primaryPrefix, tombstonePrefix, storageGroupPrefix, lockersPrefix, linkObjectsPrefix:
 		}
 		if len(name[1:]) != cid.Size {
 			return nil, nil, fmt.Errorf("invalid container bucket with prefix 0x%X: wrong CID len %d", name[0], len(name[1:]))
@@ -179,7 +189,7 @@ func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx, f
 			continue
 		}
 		b := tx.Bucket(name) // must not be nil, bbolt/Tx.ForEach follows the same assumption
-		if done, afterObj, err = migrateContainerToMetaBucket(l, tx, b.Cursor(), cnr, afterObj, rem); err != nil {
+		if done, afterObj, err = migrationFunc(l, tx, b, cnr, afterObj, rem); err != nil {
 			return nil, nil, fmt.Errorf("process container 0x%X%s bucket: %w", name[0], cnr, err)
 		}
 		if done == rem {
@@ -190,8 +200,11 @@ func migrateContainersToMetaBucket(l *zap.Logger, cs Containers, tx *bbolt.Tx, f
 	return name, afterObj, nil
 }
 
-func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, c *bbolt.Cursor, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
-	var k, v []byte
+func migrateContainerToMetaBucket(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
+	var (
+		k, v []byte
+		c    = b.Cursor()
+	)
 	if after != nil {
 		if k, v = c.Seek(after); bytes.Equal(k, after) {
 			k, v = c.Next()
@@ -239,18 +252,17 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 		}
 	}
 	par := hdr.Parent()
-	hasParent := par != nil
-	if err := PutMetadataForObject(tx, hdr, hasParent, true); err != nil {
+	if err := PutMetadataForObject(tx, hdr, true); err != nil {
 		return false, fmt.Errorf("put metadata for object %s: %w", oid.ID(id), err)
 	}
-	if hasParent && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
+	if par != nil && !par.GetID().IsZero() { // skip the first object without useful info similar to DB.put
 		if err := objectcore.VerifyHeaderForMetadata(hdr); err != nil {
 			l.Info("invalid parent header in the container bucket, ignoring", zap.Error(err),
 				zap.Stringer("container", cnr), zap.Stringer("child", oid.ID(id)),
 				zap.Stringer("parent", par.GetID()), zap.Binary("data", bin))
 			return false, nil
 		}
-		if err := PutMetadataForObject(tx, *par, false, false); err != nil {
+		if err := PutMetadataForObject(tx, *par, false); err != nil {
 			return false, fmt.Errorf("put metadata for parent of object %s: %w", oid.ID(id), err)
 		}
 	}
@@ -258,6 +270,10 @@ func migrateObjectToMetaBucket(l *zap.Logger, tx *bbolt.Tx, metaBkt *bbolt.Bucke
 }
 
 func migrateFrom4Version(db *DB) error {
+	err := updateContainersInterruptable(db, []byte{metadataPrefix}, fixMiddleObjectRoots)
+	if err != nil {
+		return err
+	}
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
 		var buckets [][]byte
 		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
@@ -277,4 +293,58 @@ func migrateFrom4Version(db *DB) error {
 		}
 		return updateVersion(tx, 5)
 	})
+}
+
+// fixMiddleObjectRoots removes root object marks for middle split objects, they
+// were erroneously treated as root ones before the fix.
+func fixMiddleObjectRoots(l *zap.Logger, tx *bbolt.Tx, b *bbolt.Bucket, cnr cid.ID, after []byte, limit uint) (uint, []byte, error) {
+	var (
+		c            = b.Cursor()
+		k            []byte
+		oidKey       = make([]byte, addressKeySize)
+		attrIDPrefix = []byte{metaPrefixAttrIDPlain}
+		queue        = make([]oid.ID, 0, limit)
+	)
+	attrIDPrefix = append(attrIDPrefix, object.FilterRoot...)
+	attrIDPrefix = append(attrIDPrefix, objectcore.MetaAttributeDelimiter...)
+	attrIDPrefix = append(attrIDPrefix, binPropMarker...)
+	attrIDPrefix = append(attrIDPrefix, objectcore.MetaAttributeDelimiter...)
+	if after == nil {
+		after = attrIDPrefix
+	}
+
+	k, _ = c.Seek(after)
+	if bytes.Equal(k, after) {
+		k, _ = c.Next()
+	}
+
+	for ; bytes.HasPrefix(k, attrIDPrefix); k, _ = c.Next() {
+		id, err := oid.DecodeBytes(k[len(attrIDPrefix):])
+		if err != nil {
+			return 0, nil, fmt.Errorf("wrong OID: %w", err)
+		}
+
+		var addr = oid.NewAddress(cnr, id)
+		hdr, err := get(tx, addr, oidKey, false, false, 0)
+		if err != nil {
+			return 0, nil, fmt.Errorf("header error for %s: %w", addr, err)
+		}
+
+		if hdr.HasParent() {
+			queue = append(queue, id)
+			if len(queue) == int(limit) {
+				break
+			}
+		}
+	}
+	for _, id := range queue {
+		_ = b.Delete(slices.Concat(attrIDPrefix, id[:]))
+		idAttrKey := prepareMetaIDAttrKey(&keyBuffer{}, id, object.FilterRoot, len(binPropMarker))
+		copy(idAttrKey[len(idAttrKey)-len(binPropMarker):], binPropMarker)
+		_ = b.Delete(idAttrKey)
+	}
+	if len(queue) < int(limit) {
+		k = nil // End of iteration for this bucket.
+	}
+	return uint(len(queue)), k, nil
 }
