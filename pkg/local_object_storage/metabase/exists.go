@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 
@@ -91,21 +92,32 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	// GC is expected to collect all the objects that have
 	// expired previously for less than the one epoch duration
 
-	var expired bool
-	oID := addr.Object()
-	cID := addr.Container()
+	var (
+		expired    bool
+		oID        = addr.Object()
+		cID        = addr.Container()
+		metaBucket = tx.Bucket(metaBucketKey(cID))
+	)
 
-	// bucket with objects that have expiration attr
-	attrKey := make([]byte, bucketKeySize+len(objectSDK.AttributeExpirationEpoch))
-	expirationBucket := tx.Bucket(attributeBucketName(cID, objectSDK.AttributeExpirationEpoch, attrKey))
-	if expirationBucket != nil {
-		// bucket that contains objects that expire in the current epoch
-		prevEpochBkt := expirationBucket.Bucket([]byte(strconv.FormatUint(currEpoch-1, 10)))
-		if prevEpochBkt != nil {
-			rawOID := objectKey(oID, make([]byte, objectKeySize))
-			if prevEpochBkt.Get(rawOID) != nil {
-				expired = true
-			}
+	if metaBucket != nil {
+		var (
+			cur       = metaBucket.Cursor()
+			expPrefix = make([]byte, attrIDFixedLen+len(objectSDK.AttributeExpirationEpoch))
+		)
+		expPrefix[0] = metaPrefixIDAttr
+		copy(expPrefix[1:], oID[:])
+		copy(expPrefix[1+len(oID):], objectSDK.AttributeExpirationEpoch)
+
+		expKey, _ := cur.Seek(expPrefix)
+		if bytes.HasPrefix(expKey, expPrefix) {
+			// expPrefix already includes attribute delimiter (see attrIDFixedLen length)
+			var val = expKey[len(expPrefix):]
+
+			objExpiration, err := strconv.ParseUint(string(val), 10, 64)
+			// Technically it should be currEpoch > objExpiration
+			// (which wasn't easy to provide with old indexes), but
+			// a number of GC tests fail this way. TODO: #3321.
+			expired = (err == nil) && (currEpoch == objExpiration+1)
 		}
 	}
 
