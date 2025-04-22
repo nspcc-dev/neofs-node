@@ -322,7 +322,7 @@ func _assertSearchResultWithLimit(t testing.TB, db *DB, cnr cid.ID, fs object.Se
 		n := min(len(all), int(lim))
 		require.Len(t, res, n)
 		for i := range n { // all[:n] == res assert can lead to huge output when failed
-			require.Equalf(t, all[i].ID, res[i].ID, "cursor: %q, i: %d", strCursor, i)
+			require.Equalf(t, all[i].ID.String(), res[i].ID.String(), "cursor: %q, i: %d", strCursor, i)
 			require.Len(t, res[i].Attributes, nAttr)
 			if nAttr > 0 {
 				require.Equal(t, all[i].Attributes[:nAttr], res[i].Attributes)
