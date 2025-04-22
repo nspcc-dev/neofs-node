@@ -35,6 +35,9 @@ func sortObjectIDs(ids []oid.ID) []oid.ID {
 }
 
 func searchResultForIDs(ids []oid.ID) []client.SearchResultItem {
+	slices.SortFunc(ids, func(a, b oid.ID) int {
+		return bytes.Compare(a[:], b[:])
+	})
 	res := make([]client.SearchResultItem, len(ids))
 	for i := range ids {
 		res[i].ID = ids[i]
