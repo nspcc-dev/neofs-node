@@ -137,7 +137,7 @@ func (s *Server) voteForFSChainValidator(validators keys.PublicKeys, trigger *ut
 	vubP = &vub
 
 	for ind, contract := range s.contracts.alphabet {
-		_, err := s.fsChainClient.NotaryInvoke(contract, 0, nonce, vubP, voteMethod, epoch, validators)
+		_, err := s.fsChainClient.NotaryInvoke(contract, false, 0, nonce, vubP, voteMethod, epoch, validators)
 		if err != nil {
 			s.log.Warn("can't invoke vote method in alphabet contract",
 				zap.Int("alphabet_index", ind),

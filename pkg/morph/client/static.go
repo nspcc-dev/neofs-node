@@ -155,12 +155,12 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			}
 
 			invokeFunc = func() error {
-				_, err := s.client.NotaryInvoke(s.scScriptHash, fee, nonce, vubP, prm.method, prm.args...)
+				_, err := s.client.NotaryInvoke(s.scScriptHash, prm.await, fee, nonce, vubP, prm.method, prm.args...)
 				return err
 			}
 		} else {
 			invokeFunc = func() error {
-				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, fee, prm.method, prm.args...)
+				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, prm.await, fee, prm.method, prm.args...)
 			}
 		}
 	} else {

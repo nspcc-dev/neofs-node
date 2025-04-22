@@ -53,7 +53,7 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 	case "newEpoch":
 		epoch := s.EpochCounter()
 
-		hash, err = s.netmapClient.Morph().NotaryInvoke(s.netmapClient.ContractAddress(), 0, 1, nil, method, epoch+1)
+		hash, err = s.netmapClient.Morph().NotaryInvoke(s.netmapClient.ContractAddress(), false, 0, 1, nil, method, epoch+1)
 		if err != nil {
 			s.log.Warn("external request: can't invoke newEpoch method in netmap",
 				zap.Uint64("epoch", epoch),
@@ -76,7 +76,7 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 			return util.Uint256{}, err
 		}
 
-		hash, err = s.netmapClient.Morph().NotaryInvoke(s.netmapClient.ContractAddress(), 0, 1, nil, method, nil, k, v)
+		hash, err = s.netmapClient.Morph().NotaryInvoke(s.netmapClient.ContractAddress(), false, 0, 1, nil, method, nil, k, v)
 		if err != nil {
 			s.log.Warn("external request: can't invoke setConfig method in netmap",
 				zap.String("key", k),
@@ -99,7 +99,7 @@ func (s *Server) RequestNotary(method string, args ...[]byte) (util.Uint256, err
 		}
 
 		hash, err = s.netmapClient.Morph().NotaryInvoke(
-			s.netmapClient.ContractAddress(), 0, 1, nil,
+			s.netmapClient.ContractAddress(), false, 0, 1, nil,
 			"updateStateIR", netmap.NodeStateOffline, nodePubKey.Bytes())
 		if err != nil {
 			s.log.Warn("external request: can't invoke updateSateIR method in netmap",

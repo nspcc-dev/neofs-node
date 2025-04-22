@@ -310,12 +310,12 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // it fallbacks to a simple `Invoke()`, but doesn't return the hash of tx.
 //
 // `nonce` and `vub` are used only if notary is enabled.
-func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
+func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	if c.notary == nil {
 		return util.Uint256{}, c.Invoke(contract, false, fee, method, args...)
 	}
 
-	return c.notaryInvoke(false, true, contract, nonce, vub, method, args...)
+	return c.notaryInvoke(false, true, contract, await, nonce, vub, method, args...)
 }
 
 // NotaryInvokeNotAlpha does the same as NotaryInvoke but does not use client's
@@ -323,12 +323,12 @@ func (c *Client) NotaryInvoke(contract util.Uint160, fee fixedn.Fixed8, nonce ui
 // not expected to be signed by the current node.
 //
 // Considered to be used by non-IR nodes.
-func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, fee fixedn.Fixed8, method string, args ...any) error {
+func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, false, fee, method, args...)
+		return c.Invoke(contract, await, fee, method, args...)
 	}
 
-	_, err := c.notaryInvoke(false, false, contract, rand.Uint32(), nil, method, args...)
+	_, err := c.notaryInvoke(false, false, contract, await, rand.Uint32(), nil, method, args...)
 	return err
 }
 
@@ -460,11 +460,11 @@ func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bo
 
 func (c *Client) notaryInvokeAsCommittee(method string, nonce, vub uint32, args ...any) error {
 	designate := c.GetDesignateHash()
-	_, err := c.notaryInvoke(true, true, designate, nonce, &vub, method, args...)
+	_, err := c.notaryInvoke(true, true, designate, false, nonce, &vub, method, args...)
 	return err
 }
 
-func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
+func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint160, await bool, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	var conn = c.conn.Load()
 
 	if conn == nil {
@@ -511,6 +511,9 @@ func (c *Client) notaryInvoke(committee, invokedByAlpha bool, contract util.Uint
 
 		return nil
 	}, args...))
+	if await {
+		_, err = nAct.WaitSuccess(mainH, fbH, untilActual, err)
+	}
 
 	if err != nil && !alreadyOnChainError(err) {
 		return util.Uint256{}, err
