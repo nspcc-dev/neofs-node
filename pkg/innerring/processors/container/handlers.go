@@ -118,3 +118,33 @@ func (cp *Processor) handleAnnounceLoad(ev event.Event) {
 			zap.Int("capacity", cp.pool.Cap()))
 	}
 }
+
+func (cp *Processor) handleObjectPut(ev event.Event) {
+	e := ev.(containerEvent.ObjectPut)
+
+	cp.log.Debug("notification",
+		zap.String("type", "object put"),
+		zap.Stringer("cID", e.ContainerID()),
+		zap.Stringer("oID", e.ObjectID()),
+	)
+
+	if !cp.alphabetState.IsAlphabet() {
+		cp.log.Debug("non alphabet mode, ignore object put")
+		return
+	}
+
+	err := cp.objectPool.Submit(func() {
+		nr := e.NotaryRequest()
+		err := cp.cnrClient.Morph().NotarySignAndInvokeTX(nr.MainTransaction, false)
+		if err != nil {
+			cp.log.Error("could not approve object put",
+				zap.Stringer("cID", e.ContainerID()),
+				zap.Stringer("oID", e.ObjectID()),
+				zap.Error(err),
+			)
+		}
+	})
+	if err != nil {
+		cp.log.Warn("object pool submission failed", zap.Error(err))
+	}
+}

@@ -23,6 +23,7 @@ type (
 	Processor struct {
 		log           *zap.Logger
 		pool          *ants.Pool
+		objectPool    *ants.Pool
 		alphabetState AlphabetState
 		cnrClient     *container.Client // notary must be enabled
 		netState      NetworkState
@@ -84,9 +85,13 @@ func New(p *Params) (*Processor, error) {
 		return nil, fmt.Errorf("ir/container: can't create worker pool: %w", err)
 	}
 
+	const objectPoolSize = 1024
+	objectPool, _ := ants.NewPool(objectPoolSize)
+
 	return &Processor{
 		log:           p.Log,
 		pool:          pool,
+		objectPool:    objectPool,
 		alphabetState: p.AlphabetState,
 		cnrClient:     p.ContainerClient,
 		netState:      p.NetworkState,
@@ -109,7 +114,7 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	var (
 		p event.NotaryParserInfo
 
-		pp = make([]event.NotaryParserInfo, 0, 4)
+		pp = make([]event.NotaryParserInfo, 0, 9)
 	)
 
 	p.SetScriptHash(cp.cnrClient.ContractAddress())
@@ -154,6 +159,11 @@ func (cp *Processor) ListenerNotaryParsers() []event.NotaryParserInfo {
 	p.SetParser(containerEvent.ParseAnnounceLoadNotary)
 	pp = append(pp, p)
 
+	// object put meta data
+	p.SetRequestType(containerEvent.ObjectPutNotaryEvent)
+	p.SetParser(containerEvent.ParseObjectPut)
+	pp = append(pp, p)
+
 	return pp
 }
 
@@ -162,7 +172,7 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	var (
 		h event.NotaryHandlerInfo
 
-		hh = make([]event.NotaryHandlerInfo, 0, 4)
+		hh = make([]event.NotaryHandlerInfo, 0, 9)
 	)
 
 	h.SetScriptHash(cp.cnrClient.ContractAddress())
@@ -204,6 +214,11 @@ func (cp *Processor) ListenerNotaryHandlers() []event.NotaryHandlerInfo {
 	// announce load
 	h.SetRequestType(containerEvent.AnnounceLoadNotaryEvent)
 	h.SetHandler(cp.handleAnnounceLoad)
+	hh = append(hh, h)
+
+	// object put meta data
+	h.SetRequestType(containerEvent.ObjectPutNotaryEvent)
+	h.SetHandler(cp.handleObjectPut)
 	hh = append(hh, h)
 
 	return hh

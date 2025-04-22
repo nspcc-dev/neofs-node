@@ -18,6 +18,7 @@ func (c *Client) SubmitObjectPut(awaitTX bool, meta []byte, sigs [][]byte) error
 	var prm client.InvokePrm
 	prm.SetMethod(submitObjectPutMethod)
 	prm.SetArgs(meta, sigs)
+	prm.RequireAlphabetSignature()
 	if awaitTX {
 		prm.Await()
 	}
