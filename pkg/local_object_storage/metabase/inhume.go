@@ -116,7 +116,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, addr, buf, false, true, currEpoch)
+			obj, err := get(tx, addr, buf, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {

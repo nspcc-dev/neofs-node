@@ -37,7 +37,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
 		key := make([]byte, addressKeySize)
-		hdr, err = db.get(tx, addr, key, true, raw, currEpoch)
+		hdr, err = get(tx, addr, key, true, raw, currEpoch)
 
 		return err
 	})
@@ -45,7 +45,7 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	return hdr, err
 }
 
-func (db *DB) get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
+func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	if checkStatus {
 		switch objectStatus(tx, addr, currEpoch) {
 		case 1:

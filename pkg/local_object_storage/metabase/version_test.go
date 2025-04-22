@@ -201,7 +201,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
+			obj, err := get(tx, prm.target[i], buf, false, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {

@@ -122,7 +122,7 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 			return err
 		}
 
-		if obj, err := db.get(tx, addr, buf, false, true, currEpoch); err == nil {
+		if obj, err := get(tx, addr, buf, false, true, currEpoch); err == nil {
 			// if object is stored, and it is regular object then update bucket
 			// with container size estimations
 			if obj.Type() == object.TypeRegular {
