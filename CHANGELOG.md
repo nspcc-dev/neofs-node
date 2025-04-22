@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - CLI timeout can expire before RPC (#3302)
 - `accounting balance` request without timeout (#3302)
 - Possible NEO chain client's infinite reconnection loop (#3292)
+- Multiple flush same big objects (#3317)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)

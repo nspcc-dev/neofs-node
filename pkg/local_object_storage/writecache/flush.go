@@ -129,7 +129,11 @@ func (c *cache) flushScheduler() {
 
 		addrs := c.objCounters.Map()
 		for addr, size := range addrs {
-			if _, exists := batchSet[addr.String()]; exists {
+			sAddr := addr.String()
+			if _, exists := batchSet[sAddr]; exists {
+				continue
+			}
+			if _, loaded := c.processingBigObjs.Load(sAddr); loaded {
 				continue
 			}
 			sortedAddrs = append(sortedAddrs, addrSize{addr, size})
@@ -161,6 +165,7 @@ func (c *cache) flushScheduler() {
 					}
 					break
 				case c.flushCh <- as.addr:
+					c.processingBigObjs.Store(as.addr.String(), struct{}{})
 					continue
 				case <-c.closeCh:
 					return
@@ -198,6 +203,7 @@ func (c *cache) flushWorker(id int) {
 			err := c.flushSingle(addr, true)
 			c.modeMtx.RUnlock()
 
+			c.processingBigObjs.Delete(addr.String())
 			if err != nil {
 				select {
 				case c.flushErrCh <- struct{}{}:
