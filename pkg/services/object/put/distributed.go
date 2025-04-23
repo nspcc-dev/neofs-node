@@ -3,6 +3,7 @@ package putsvc
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -172,8 +173,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 		defer t.metaMtx.RUnlock()
 
 		if len(t.collectedSignatures) == 0 {
-			t.placementIterator.log.Info("skip chain meta information subbmit, zero signatures were collected", zap.Stringer("oid", id))
-			return id, nil
+			return oid.ID{}, fmt.Errorf("skip metadata chain submit for %s object: no signatures were collected", id)
 		}
 
 		var await bool
@@ -189,8 +189,7 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 
 		err = t.cnrClient.SubmitObjectPut(await, t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
-			t.placementIterator.log.Info("failed to submit object meta information", zap.Stringer("oid", id), zap.Error(err))
-			return id, nil
+			return oid.ID{}, fmt.Errorf("failed to submit %s object meta information: %w", id, err)
 		}
 
 		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("oid", id))
@@ -225,8 +224,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 		if node.local {
 			sig, err := t.localNodeSigner.Sign(t.objSharedMeta)
 			if err != nil {
-				l.Info("failed to sign object metadata", zap.Error(err))
-				return nil
+				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}
 
 			t.metaMtx.Lock()
@@ -238,13 +236,12 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 
 		sigs, err := decodeSignatures(sigsRaw)
 		if err != nil {
-			l.Info("failed to decode signatures", zap.Error(err))
-			return nil
+			return fmt.Errorf("failed to decode signatures: %w", err)
 		}
 
 		for i, sig := range sigs {
 			if !bytes.Equal(sig.PublicKeyBytes(), node.info.PublicKey()) {
-				l.Info("public key differs in object meta signature", zap.Int("signature index", i))
+				l.Warn("public key differs in object meta signature", zap.Int("signature index", i))
 				continue
 			}
 
@@ -259,7 +256,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 			return nil
 		}
 
-		l.Info("metadata: verification failed: no valid signatures received")
+		return errors.New("signatures were not found in object's metadata")
 	}
 
 	return nil
