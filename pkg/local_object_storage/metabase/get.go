@@ -92,8 +92,11 @@ func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, curr
 		return obj, obj.Unmarshal(data)
 	}
 
-	// if not found then check if object is a virtual
-	return getVirtualObject(tx, cnr, key, raw)
+	// if not found then check if object is a virtual one, but this contradicts raw flag
+	if raw {
+		return nil, getSplitInfoError(tx, cnr, key)
+	}
+	return getVirtualObject(tx, addr)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -105,11 +108,7 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSDK.Object, error) {
-	if raw {
-		return nil, getSplitInfoError(tx, cnr, key)
-	}
-
+func getVirtualObject(tx *bbolt.Tx, addr oid.Address) (*objectSDK.Object, error) {
 	bucketName := make([]byte, bucketKeySize)
 	parentBucket := tx.Bucket(parentBucketName(cnr, bucketName))
 	if parentBucket == nil {
