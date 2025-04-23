@@ -1,10 +1,11 @@
 package meta
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
-	"github.com/mr-tron/base58"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -96,7 +97,7 @@ func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, curr
 	if raw {
 		return nil, getSplitInfoError(tx, cnr, key)
 	}
-	return getVirtualObject(tx, addr)
+	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -108,32 +109,48 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, addr oid.Address) (*objectSDK.Object, error) {
-	bucketName := make([]byte, bucketKeySize)
-	parentBucket := tx.Bucket(parentBucketName(cnr, bucketName))
-	if parentBucket == nil {
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+	bucketName[0] = metadataPrefix
+	copy(bucketName[1:], cnr[:])
+
+	var (
+		childOID   oid.ID
+		metaBucket = tx.Bucket(bucketName)
+	)
+	if metaBucket == nil {
+		return childOID
+	}
+
+	var (
+		parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
+		cur          = metaBucket.Cursor()
+	)
+	parentPrefix[0] = metaPrefixAttrIDPlain
+	off := 1 + copy(parentPrefix[1:], objectSDK.FilterParentID)
+	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
+	copy(parentPrefix[off:], parentID[:])
+
+	k, _ := cur.Seek(parentPrefix)
+
+	if bytes.HasPrefix(k, parentPrefix) {
+		// Error will lead to zero oid which is ~the same as missing child.
+		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
+	}
+	return childOID
+}
+
+func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.Object, error) {
+	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+
+	if childOID.IsZero() {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
-
-	relativeLst, err := decodeList(parentBucket.Get(key))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(relativeLst) == 0 { // this should never happen though
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	// pick last item, for now there is not difference which address to pick
-	// but later list might be sorted so first or last value can be more
-	// prioritized to choose
-	virtualOID := relativeLst[len(relativeLst)-1]
 
 	// we should have a link object
-	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), virtualOID)
+	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
 	if len(data) == 0 {
 		// no link object, so we may have the last object with parent header
-		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), virtualOID)
+		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
 	}
 
 	if len(data) == 0 {
@@ -142,9 +159,9 @@ func getVirtualObject(tx *bbolt.Tx, addr oid.Address) (*objectSDK.Object, error)
 
 	child := objectSDK.New()
 
-	err = child.Unmarshal(data)
+	err := child.Unmarshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", base58.Encode(virtualOID), base58.Encode(key), err)
+		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
 	}
 
 	par := child.Parent()

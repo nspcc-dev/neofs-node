@@ -100,10 +100,8 @@ const (
 
 	// unusedPayloadHashPrefix was deleted in metabase version 5
 	unusedPayloadHashPrefix
-	// parentPrefix is used for prefixing List index buckets mapping parent ID to a list of children IDs.
-	//  Key: parent ID
-	//  Value: list of object IDs
-	parentPrefix
+	// unusedParentPrefix was deleted in metabase version 5
+	unusedParentPrefix
 	// unusedSplitPrefix was deleted in metabase version 5
 	unusedSplitPrefix
 
@@ -164,11 +162,6 @@ func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
 // rootBucketName returns <CID>_root.
 func rootBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, rootPrefix, key)
-}
-
-// parentBucketName returns <CID>_parent.
-func parentBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, parentPrefix, key)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.

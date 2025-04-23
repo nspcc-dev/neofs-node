@@ -114,11 +114,6 @@ func (db *DB) put(
 		return fmt.Errorf("can't put unique indexes: %w", err)
 	}
 
-	err = updateListIndexes(tx, obj, putListIndexItem)
-	if err != nil {
-		return fmt.Errorf("can't put list indexes: %w", err)
-	}
-
 	// update container volume size estimation
 	if obj.Type() == objectSDK.TypeRegular && !isParent {
 		err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
@@ -216,31 +211,6 @@ func putUniqueIndexes(
 	return nil
 }
 
-type updateIndexItemFunc = func(tx *bbolt.Tx, item namedBucketItem) error
-
-func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
-	idObj := obj.GetID()
-	cnr := obj.GetContainerID()
-	objKey := objectKey(idObj, make([]byte, objectKeySize))
-	bucketName := make([]byte, bucketKeySize)
-
-	idParent := obj.GetParentID()
-
-	// index parent ids
-	if !idParent.IsZero() {
-		err := f(tx, namedBucketItem{
-			name: parentBucketName(cnr, bucketName),
-			key:  objectKey(idParent, make([]byte, objectKeySize)),
-			val:  objKey,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	bkt, err := tx.CreateBucketIfNotExists(item.name)
 	if err != nil {
@@ -248,27 +218,6 @@ func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	}
 
 	return bkt.Put(item.key, item.val)
-}
-
-func putListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	lst, err := decodeList(bkt.Get(item.key))
-	if err != nil {
-		return fmt.Errorf("can't decode leaf list %v: %w", item.key, err)
-	}
-
-	lst = append(lst, item.val)
-
-	encodedLst, err := encodeList(lst)
-	if err != nil {
-		return fmt.Errorf("can't encode leaf list %v: %w", item.key, err)
-	}
-
-	return bkt.Put(item.key, encodedLst)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.

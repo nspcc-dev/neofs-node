@@ -67,8 +67,9 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return true, nil
 	}
 
-	// if primary bucket is empty, then check if object exists in parent bucket
-	if inBucket(tx, parentBucketName(cnr, key), objKey) {
+	// if primary bucket is empty, then check if object is a virtual one
+	childID := getChildForParent(tx, cnr, addr.Object(), key)
+	if !childID.IsZero() {
 		splitInfo, err := getSplitInfo(tx, cnr, objKey)
 		if err != nil {
 			return false, err

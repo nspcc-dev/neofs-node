@@ -183,13 +183,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
 		}
 
-		// indexes
-
-		err = tx.DeleteBucket(parentBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("parent index cleanup: %w", err)
-		}
-
 		cnrGCBkt := tx.Bucket(garbageContainersBucketName)
 		if cnrGCBkt != nil {
 			err = cnrGCBkt.Delete(cIDRaw)
