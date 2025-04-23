@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nspcc-dev/neo-go/pkg/core/block"
+	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
+	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -17,6 +21,8 @@ import (
 // FormatValidator represents an object format validator.
 type FormatValidator struct {
 	*cfg
+	fsChain        FSChain
+	netmapContract NetmapContract
 }
 
 // FormatValidatorOption represents a FormatValidator constructor option.
@@ -73,6 +79,24 @@ type TombVerifier interface {
 	VerifyTomb(ctx context.Context, cnr cid.ID, t object.Tombstone) error
 }
 
+// FSChain provides base non-contract functionality of the FS chain required for
+// [FormatValidator] to work.
+type FSChain interface {
+	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+}
+
+// NetmapContract represents Netmap contract deployed in the FS chain required
+// for [FormatValidator] to work.
+type NetmapContract interface {
+	// GetEpochBlock returns FS chain height when given NeoFS epoch was ticked.
+	GetEpochBlock(epoch uint64) (uint32, error)
+}
+
+type historicN3ScriptRunner struct {
+	FSChain
+	NetmapContract
+}
+
 var errNilObject = errors.New("object is nil")
 
 var errNilID = errors.New("missing identifier")
@@ -88,7 +112,7 @@ func defaultCfg() *cfg {
 }
 
 // NewFormatValidator creates, initializes and returns FormatValidator instance.
-func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
+func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, opts ...FormatValidatorOption) *FormatValidator {
 	cfg := defaultCfg()
 
 	for i := range opts {
@@ -96,7 +120,9 @@ func NewFormatValidator(opts ...FormatValidatorOption) *FormatValidator {
 	}
 
 	return &FormatValidator{
-		cfg: cfg,
+		cfg:            cfg,
+		fsChain:        fsChain,
+		netmapContract: netmapContract,
 	}
 }
 
@@ -171,7 +197,10 @@ func (v *FormatValidator) Validate(obj *object.Object, unprepared bool) error {
 			return fmt.Errorf("could not validate header fields: invalid identifier: %w", err)
 		}
 
-		if err := icrypto.AuthenticateObject(*obj); err != nil {
+		if err := icrypto.AuthenticateObject(*obj, historicN3ScriptRunner{
+			FSChain:        v.fsChain,
+			NetmapContract: v.netmapContract,
+		}); err != nil {
 			return fmt.Errorf("authenticate: %w", err)
 		}
 

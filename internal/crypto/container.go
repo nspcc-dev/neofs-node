@@ -1,21 +1,16 @@
 package crypto
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
-	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
-// AuthenticateContainerRequestRFC6979 checks whether given payload of the
+// authenticateContainerRequestRFC6979 checks whether given payload of the
 // request of the container is signed correctly by its owner. Deterministic
 // ECDSA with SHA-256 hashing (RFC 6979) algorithm is used.
-func AuthenticateContainerRequestRFC6979(owner user.ID, pubBin, sig, payload []byte) error {
-	pub, err := decodeECDSAPublicKey(pubBin)
-	if err != nil {
-		return fmt.Errorf("decode public key: %w", err)
-	}
+func authenticateContainerRequestRFC6979(owner user.ID, pub *ecdsa.PublicKey, sig, payload []byte) error {
 	if !verifyECDSARFC6979Signature(*pub, sig, payload) {
 		return errSignatureMismatch
 	}
@@ -25,15 +20,17 @@ func AuthenticateContainerRequestRFC6979(owner user.ID, pubBin, sig, payload []b
 	return nil
 }
 
-// AuthenticateContainerRequestN3 checks N3 witness of the container owner sent
+// AuthenticateContainerRequest checks N3 witness of the container owner sent
 // along with specified request payload against the current FS chain state.
-func AuthenticateContainerRequestN3(owner user.ID, invocScript, verifScript, payload []byte, fsChain N3ScriptRunner) error {
-	verifScriptHash := hash.Hash160(verifScript)
-	if user.NewFromScriptHash(verifScriptHash) != owner {
-		return errOwnerMismatch
+//
+// If verifScript is a compressed ECDSA public key, AuthenticateContainerRequest
+// switches to deterministic ECDSA with SHA-256 hashing (RFC 6979) algorithm.
+func AuthenticateContainerRequest(owner user.ID, invocScript, verifScript, payload []byte, fsChain N3ScriptRunner) error {
+	if pub, err := decodeECDSAPublicKey(verifScript); err == nil {
+		return authenticateContainerRequestRFC6979(owner, pub, invocScript, payload)
 	}
 
-	return verifyN3ScriptsNow(fsChain, verifScriptHash, invocScript, verifScript, func() [sha256.Size]byte {
+	return verifyN3ScriptsNow(fsChain, owner.ScriptHash(), invocScript, verifScript, func() [sha256.Size]byte {
 		return sha256.Sum256(payload)
 	})
 }

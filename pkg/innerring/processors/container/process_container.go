@@ -24,8 +24,7 @@ type putEvent interface {
 }
 
 type putContainerContext struct {
-	e       containerEvent.CreateContainerRequest
-	rfc6979 bool
+	e containerEvent.CreateContainerRequest
 
 	// must be filled when verifying raw data from e
 	cID cid.ID
@@ -35,15 +34,14 @@ type putContainerContext struct {
 
 // Process a new container from the user by checking the container sanity
 // and sending approve tx back to the FS chain.
-func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest, rfc6979 bool) {
+func (cp *Processor) processContainerPut(req containerEvent.CreateContainerRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore container put")
 		return
 	}
 
 	ctx := &putContainerContext{
-		e:       req,
-		rfc6979: rfc6979,
+		e: req,
 	}
 
 	err := cp.checkPutContainer(ctx)
@@ -97,7 +95,6 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 		binTokenSession: ctx.e.SessionToken,
 		verifScript:     ctx.e.VerificationScript,
 		invocScript:     ctx.e.InvocationScript,
-		rfc6979:         ctx.rfc6979,
 		signedData:      binCnr,
 	})
 	if err != nil {
@@ -196,8 +193,7 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	rfc6979 := req.VerificationScript == nil
-	if rfc6979 { // 'delete' case
+	if req.VerificationScript == nil { // 'delete' case
 		req.VerificationScript = cnr.Signature.PublicKeyBytes()
 	}
 
@@ -209,7 +205,6 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 		verifScript:     req.VerificationScript,
 		binTokenSession: req.SessionToken,
 		invocScript:     req.InvocationScript,
-		rfc6979:         rfc6979,
 		signedData:      req.ID,
 	})
 	if err != nil {

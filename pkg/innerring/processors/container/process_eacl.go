@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest, rfc6979 bool) {
+func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest) {
 	if !cp.alphabetState.IsAlphabet() {
 		cp.log.Info("non alphabet mode, ignore set EACL")
 		return
 	}
 
-	err := cp.checkSetEACL(req, rfc6979)
+	err := cp.checkSetEACL(req)
 	if err != nil {
 		cp.log.Error("set EACL check failed",
 			zap.Error(err),
@@ -30,7 +30,7 @@ func (cp *Processor) processPutEACLRequest(req container.PutContainerEACLRequest
 	cp.approveSetEACL(req)
 }
 
-func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest, rfc6979 bool) error {
+func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 	// unmarshal table
 	table, err := eacl.Unmarshal(req.EACL)
 	if err != nil {
@@ -66,7 +66,6 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest, rfc6979
 		binTokenSession: req.SessionToken,
 		verifScript:     req.VerificationScript,
 		invocScript:     req.InvocationScript,
-		rfc6979:         rfc6979,
 		signedData:      req.EACL,
 	})
 	if err != nil {
