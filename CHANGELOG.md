@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Possible NEO chain client's infinite reconnection loop (#3292)
 - Multiple flush same big objects (#3317)
 - Split object middle children treated as root objects in SearchV2 (#3316)
+- Broken "owner" parameter of "accounting balance" CLI command (#3325)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
