@@ -95,6 +95,21 @@ func StringFromStackItem(param stackitem.Item) (string, error) {
 	return stackitem.ToString(param)
 }
 
+// MapFromStackItem returns a map parsed from contract parameter.
+func MapFromStackItem(param stackitem.Item) ([]stackitem.MapElement, error) {
+	switch typ := param.Type(); typ {
+	case stackitem.MapT:
+		mm, ok := param.Value().([]stackitem.MapElement)
+		if !ok {
+			return nil, fmt.Errorf("chain/client: can't convert %T to slice of map elements", param.Value())
+		}
+
+		return mm, nil
+	default:
+		return nil, fmt.Errorf("chain/client: %s is not a map type", typ)
+	}
+}
+
 func addFeeCheckerModifier(add int64) func(r *result.Invoke, t *transaction.Transaction) error {
 	return func(r *result.Invoke, t *transaction.Transaction) error {
 		if r.State != HaltState {

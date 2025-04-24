@@ -53,7 +53,7 @@ func initContainerService(c *cfg) {
 	if c.containerCache != nil {
 		subscribeToContainerCreation(c, func(id cid.ID, owner user.ID) {
 			if owner.IsZero() {
-				c.log.Debug("container removal event's receipt", zap.Stringer("id", id))
+				c.log.Debug("container creation event's receipt", zap.Stringer("id", id))
 				// read owner of the created container in order to update the reading cache.
 				cnr, err := c.containerCache.Get(id)
 				if err == nil {
