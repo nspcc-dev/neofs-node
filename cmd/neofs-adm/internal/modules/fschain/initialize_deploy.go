@@ -115,7 +115,7 @@ func (c *initializeContext) deployNNS(method string) error {
 	var tx *transaction.Transaction
 	if method == updateMethodName {
 		var nnsCnt = nns.New(act, nnsCs.Hash)
-		tx, err = nnsCnt.UpdateUnsigned(cs.RawNEF, string(cs.RawManifest), nil)
+		tx, err = nnsCnt.UpdateUnsigned(cs.RawNEF, cs.RawManifest, nil)
 	} else {
 		var mgmt = management.New(act)
 		tx, err = mgmt.DeployUnsigned(cs.NEF, cs.Manifest, []any{
