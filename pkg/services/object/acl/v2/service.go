@@ -534,15 +534,15 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, idCnr, cnr.Value, currentEpoch)
+	res, err := b.c.classify(req, idCnr, cnr, currentEpoch)
 	if err != nil {
 		return info, err
 	}
 
-	info.basicACL = cnr.Value.BasicACL()
+	info.basicACL = cnr.BasicACL()
 	info.requestRole = res.role
 	info.operation = op
-	info.cnrOwner = cnr.Value.Owner()
+	info.cnrOwner = cnr.Owner()
 	info.idCnr = idCnr
 
 	// it is assumed that at the moment the key will be valid,

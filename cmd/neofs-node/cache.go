@@ -11,7 +11,9 @@ import (
 	cntClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	netmapSDK "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
@@ -181,32 +183,27 @@ func (c *lruNetCache) reset() {
 // wrapper over TTL cache of values read from the network
 // that implements container storage.
 type ttlContainerStorage struct {
-	tc ttlNetCache[cid.ID, *container.Container]
+	tc ttlNetCache[cid.ID, sdkcontainer.Container]
 }
 
 func newCachedContainerStorage(v container.Source, ttl time.Duration) *ttlContainerStorage {
 	const containerCacheSize = 100
 
 	return &ttlContainerStorage{
-		tc: newNetworkTTLCache[cid.ID, *container.Container](containerCacheSize, ttl, func(key cid.ID) (*container.Container, error) {
+		tc: newNetworkTTLCache[cid.ID, sdkcontainer.Container](containerCacheSize, ttl, func(key cid.ID) (sdkcontainer.Container, error) {
 			return v.Get(key)
 		}),
 	}
 }
 
 func (s *ttlContainerStorage) handleRemoval(cnr cid.ID) {
-	s.tc.set(cnr, nil, apistatus.ContainerNotFound{})
+	s.tc.set(cnr, sdkcontainer.Container{}, apistatus.ContainerNotFound{})
 }
 
 // Get returns container value from the cache. If value is missing in the cache
 // or expired, then it returns value from FS chain and updates the cache.
-func (s *ttlContainerStorage) Get(cnr cid.ID) (*container.Container, error) {
-	val, err := s.tc.get(cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	return val, nil
+func (s *ttlContainerStorage) Get(cnr cid.ID) (sdkcontainer.Container, error) {
+	return s.tc.get(cnr)
 }
 
 func (s *ttlContainerStorage) reset() {
@@ -214,14 +211,14 @@ func (s *ttlContainerStorage) reset() {
 }
 
 type ttlEACLStorage struct {
-	tc ttlNetCache[cid.ID, *container.EACL]
+	tc ttlNetCache[cid.ID, eacl.Table]
 }
 
 func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLStorage {
 	const eaclCacheSize = 100
 
 	return &ttlEACLStorage{
-		newNetworkTTLCache[cid.ID, *container.EACL](eaclCacheSize, ttl, func(key cid.ID) (*container.EACL, error) {
+		newNetworkTTLCache[cid.ID, eacl.Table](eaclCacheSize, ttl, func(key cid.ID) (eacl.Table, error) {
 			return v.GetEACL(key)
 		}),
 	}
@@ -229,13 +226,8 @@ func newCachedEACLStorage(v container.EACLSource, ttl time.Duration) *ttlEACLSto
 
 // GetEACL returns eACL value from the cache. If value is missing in the cache
 // or expired, then it returns value from FS chain and updates cache.
-func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (*container.EACL, error) {
-	val, err := s.tc.get(cnr)
-	if err != nil {
-		return nil, err
-	}
-
-	return val, nil
+func (s *ttlEACLStorage) GetEACL(cnr cid.ID) (eacl.Table, error) {
+	return s.tc.get(cnr)
 }
 
 // InvalidateEACL removes cached eACL value.

@@ -750,8 +750,8 @@ func (c *cfg) GetContainerNodes(cnrID cid.ID) (putsvc.ContainerNodes, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read network map at the current epoch #%d: %w", curEpoch, err)
 	}
-	policy := cnr.Value.PlacementPolicy()
-	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), cnrID)
+	policy := cnr.PlacementPolicy()
+	nodeSets, err := networkMap.ContainerNodes(policy, cnrID)
 	if err != nil {
 		return nil, fmt.Errorf("apply container storage policy to the network map at current epoch #%d: %w", curEpoch, err)
 	}

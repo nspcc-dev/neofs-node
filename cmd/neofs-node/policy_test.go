@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -36,15 +35,12 @@ func (x testContainer) assertCalledNTimesWith(t testing.TB, n int, id cid.ID) {
 	}
 }
 
-func (x *testContainer) Get(id cid.ID) (*containercore.Container, error) {
+func (x *testContainer) Get(id cid.ID) (container.Container, error) {
 	x.calls = append(x.calls, id)
 	if id != x.id {
-		return nil, fmt.Errorf("unexpected container requested %s!=%s", id, x.id)
+		return x.val, fmt.Errorf("unexpected container requested %s!=%s", id, x.id)
 	}
-	if x.err != nil {
-		return nil, x.err
-	}
-	return &containercore.Container{Value: x.val}, nil
+	return x.val, x.err
 }
 
 type testNetwork struct {

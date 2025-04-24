@@ -8,12 +8,13 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 )
 
 type containerSource Client
 
-func (x *containerSource) Get(cnr cid.ID) (*containercore.Container, error) {
+func (x *containerSource) Get(cnr cid.ID) (container.Container, error) {
 	return Get((*Client)(x), cnr)
 }
 
@@ -24,7 +25,7 @@ func AsContainerSource(w *Client) containercore.Source {
 }
 
 // Get marshals container ID, and passes it to Wrapper's Get method.
-func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
+func Get(c *Client, cnr cid.ID) (container.Container, error) {
 	return c.Get(cnr[:])
 }
 
@@ -33,7 +34,8 @@ func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
 //
 // If an empty slice is returned for the requested identifier,
 // storage.ErrNotFound error is returned.
-func (c *Client) Get(cid []byte) (*containercore.Container, error) {
+func (c *Client) Get(cid []byte) (container.Container, error) {
+	var cnr container.Container
 	prm := client.TestInvokePrm{}
 	method := getDataMethod
 	prm.SetMethod(method)
@@ -50,35 +52,33 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
 			var errNotFound apistatus.ContainerNotFound
 
-			return nil, errNotFound
+			return cnr, errNotFound
 		}
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
+		return cnr, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
 	} else if ln := len(arr); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
+		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
 	if old {
 		arr, err = client.ArrayFromStackItem(arr[0])
 		if err != nil {
-			return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
+			return cnr, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
 		}
 
 		if len(arr) == 0 {
-			return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
+			return cnr, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
 		}
 	}
 
 	cnrBytes, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
+		return cnr, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
 	}
 
-	var cnr containercore.Container
-
-	if err := cnr.Value.Unmarshal(cnrBytes); err != nil {
+	if err := cnr.Unmarshal(cnrBytes); err != nil {
 		// use other major version if there any
-		return nil, fmt.Errorf("can't unmarshal container: %w", err)
+		return cnr, fmt.Errorf("can't unmarshal container: %w", err)
 	}
 
-	return &cnr, nil
+	return cnr, nil
 }

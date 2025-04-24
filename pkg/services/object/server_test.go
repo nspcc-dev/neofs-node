@@ -19,7 +19,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/vm/stackitem"
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	. "github.com/nspcc-dev/neofs-node/pkg/services/object"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
@@ -29,6 +28,7 @@ import (
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	containertest "github.com/nspcc-dev/neofs-sdk-go/container/test"
@@ -92,12 +92,12 @@ func (*noCallTestFSChain) ForEachContainerNodePublicKeyInLastTwoEpochs(cid.ID, f
 func (*noCallTestFSChain) ForEachContainerNode(cid.ID, func(netmap.NodeInfo) bool) error {
 	panic("must not be called")
 }
-func (*noCallTestFSChain) Get(cid.ID) (*container.Container, error) { panic("must not be called") }
-func (*noCallTestFSChain) IsOwnPublicKey([]byte) bool               { panic("must not be called") }
-func (*noCallTestFSChain) CurrentEpoch() uint64                     { panic("must not be called") }
-func (*noCallTestFSChain) CurrentBlock() uint32                     { panic("must not be called") }
-func (*noCallTestFSChain) CurrentEpochDuration() uint64             { panic("must not be called") }
-func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool          { panic("must not be called") }
+func (*noCallTestFSChain) Get(cid.ID) (container.Container, error) { panic("must not be called") }
+func (*noCallTestFSChain) IsOwnPublicKey([]byte) bool              { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpoch() uint64                    { panic("must not be called") }
+func (*noCallTestFSChain) CurrentBlock() uint32                    { panic("must not be called") }
+func (*noCallTestFSChain) CurrentEpochDuration() uint64            { panic("must not be called") }
+func (*noCallTestFSChain) LocalNodeUnderMaintenance() bool         { panic("must not be called") }
 func (c *noCallTestFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	panic("must not be called")
 }
@@ -210,8 +210,8 @@ type testFSChain struct {
 	serverOutsideCnr bool
 }
 
-func (x *testFSChain) Get(id cid.ID) (*container.Container, error) {
-	return &x.cnr, nil
+func (x *testFSChain) Get(id cid.ID) (container.Container, error) {
+	return x.cnr, nil
 }
 
 func (x *testFSChain) List() ([]cid.ID, error) {
@@ -229,7 +229,7 @@ func newTestFSChain(tb testing.TB, serverPubKey, clientPubKey []byte, cID cid.ID
 		serverPubKey: serverPubKey,
 		clientPubKey: clientPubKey,
 		cID:          cID,
-		cnr:          container.Container{Value: containertest.Container()},
+		cnr:          containertest.Container(),
 	}
 }
 
@@ -588,8 +588,8 @@ func (x nopFSChain) InvokeContainedScript(*transaction.Transaction, *block.Heade
 	}, nil
 }
 
-func (x nopFSChain) Get(cid.ID) (*container.Container, error) {
-	return &container.Container{}, nil
+func (x nopFSChain) Get(cid.ID) (container.Container, error) {
+	return container.Container{}, nil
 }
 
 func (nopFSChain) CurrentEpoch() uint64 {

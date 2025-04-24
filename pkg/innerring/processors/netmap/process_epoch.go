@@ -106,7 +106,7 @@ func (np *Processor) updatePlacementInContract(nm netmap.NetMap, l *zap.Logger) 
 			continue
 		}
 
-		policy := cnr.Value.PlacementPolicy()
+		policy := cnr.PlacementPolicy()
 
 		vectors, err := nm.ContainerNodes(policy, cID)
 		if err != nil {

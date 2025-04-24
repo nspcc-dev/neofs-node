@@ -59,7 +59,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 		}
 
 		// find all container nodes for current epoch
-		nodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), containers[i])
+		nodes, err := nm.ContainerNodes(cnr.PlacementPolicy(), containers[i])
 		if err != nil {
 			log.Info("can't build placement for container, ignore",
 				zap.Stringer("cid", containers[i]),
@@ -101,7 +101,7 @@ func (ap *Processor) processStartAudit(epoch uint64) {
 			WithAuditContext(auditCtx).
 			WithContainerID(containers[i]).
 			WithStorageGroupList(storageGroups).
-			WithContainerStructure(cnr.Value).
+			WithContainerStructure(cnr).
 			WithContainerNodes(nodes).
 			WithNetworkMap(nm)
 

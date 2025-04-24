@@ -193,12 +193,8 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 		return fmt.Errorf("could not receive the container: %w", err)
 	}
 
-	if req.VerificationScript == nil { // 'delete' case
-		req.VerificationScript = cnr.Signature.PublicKeyBytes()
-	}
-
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Value.Owner(),
+		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerDelete,
 		idContainerSet:  true,
 		idContainer:     idCnr,

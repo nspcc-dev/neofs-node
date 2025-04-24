@@ -157,12 +157,10 @@ func (p *Streamer) preparePrm(prm *PutInitPrm) error {
 	}
 
 	// get container to store the object
-	cnrInfo, err := p.cnrSrc.Get(idCnr)
+	prm.cnr, err = p.cnrSrc.Get(idCnr)
 	if err != nil {
 		return fmt.Errorf("(%T) could not get container by ID: %w", p, err)
 	}
-
-	prm.cnr = cnrInfo.Value
 
 	prm.containerNodes, err = p.neoFSNet.GetContainerNodes(idCnr)
 	if err != nil {

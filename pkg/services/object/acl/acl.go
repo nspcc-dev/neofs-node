@@ -195,15 +195,14 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 
 	bearerTok := reqInfo.Bearer()
 	if bearerTok == nil {
-		eaclInfo, err := c.eaclSrc.GetEACL(cnr)
+		var err error
+		table, err = c.eaclSrc.GetEACL(cnr)
 		if err != nil {
 			if errors.Is(err, apistatus.ErrEACLNotFound) {
 				return nil
 			}
 			return err
 		}
-
-		table = *eaclInfo.Value
 	} else {
 		table = bearerTok.EACLTable()
 	}

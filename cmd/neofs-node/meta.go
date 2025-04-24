@@ -108,13 +108,13 @@ func (c *neofsNetwork) isMineWithMeta(id cid.ID, networkMap *netmapsdk.NetMap) (
 	}
 
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
-	switch cnr.Value.Attribute(metaOnChainAttr) {
+	switch cnr.Attribute(metaOnChainAttr) {
 	case "optimistic", "strict":
 	default:
 		return false, nil
 	}
 
-	nodeSets, err := networkMap.ContainerNodes(cnr.Value.PlacementPolicy(), id)
+	nodeSets, err := networkMap.ContainerNodes(cnr.PlacementPolicy(), id)
 	if err != nil {
 		return false, fmt.Errorf("apply container storage policy to %s container: %w", id, err)
 	}

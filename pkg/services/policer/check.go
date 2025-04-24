@@ -99,7 +99,7 @@ func (p *Policer) processObject(ctx context.Context, addrWithType objectcore.Add
 		return
 	}
 
-	policy := cnr.Value.PlacementPolicy()
+	policy := cnr.PlacementPolicy()
 
 	nn, err := p.placementBuilder.BuildPlacement(idCnr, &idObj, policy)
 	if err != nil {

@@ -54,12 +54,12 @@ func (cp *Processor) checkSetEACL(req container.PutContainerEACLRequest) error {
 	}
 
 	// ACL extensions can be disabled by basic ACL, check it
-	if !cnr.Value.BasicACL().Extendable() {
+	if !cnr.BasicACL().Extendable() {
 		return errors.New("ACL extension disabled by container basic ACL")
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
-		ownerContainer:  cnr.Value.Owner(),
+		ownerContainer:  cnr.Owner(),
 		verb:            session.VerbContainerSetEACL,
 		idContainerSet:  true,
 		idContainer:     idCnr,
