@@ -230,9 +230,10 @@ type SearchCursor struct {
 	PrimaryKeysPrefix []byte
 }
 
-// ParsedIntFilter is returned by [PreprocessSearchQuery] to pass into the
-// [MetaDataKVHandler].
-type ParsedIntFilter struct {
+// SearchFilter wraps regular [object.SearchFilter] with additional metadata
+// for numeric matches.
+type SearchFilter struct {
+	object.SearchFilter
 	// AutoMatch means every existing value is acceptable for filters.
 	AutoMatch bool
 	// Parsed is parsed integer value from filter.
@@ -270,8 +271,8 @@ type SearchResult struct {
 // Returned handler must be called on a sorted list of key-value pairs without
 // any pair omission and/or duplication. Pairs must be common NeoFS indexes for
 // object header's fields. See [meta] (storage engine's package) for details.
-func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, additionalCheck AdditionalObjectChecker, fs object.SearchFilters, fInt map[int]ParsedIntFilter, attrs []string, cursor *SearchCursor, count uint16) func(k, v []byte) bool {
-	primMatcher, _ := convertFilterValue(fs[0])
+func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, additionalCheck AdditionalObjectChecker, fs []SearchFilter, attrs []string, cursor *SearchCursor, count uint16) func(k, v []byte) bool {
+	primMatcher, _ := convertFilterValue(fs[0].SearchFilter)
 	intPrimMatcher := IsIntegerSearchOp(primMatcher)
 	idIter := len(attrs) == 0 || primMatcher == object.MatchNotPresent
 	var lastMatchedPrimKey []byte
@@ -315,11 +316,10 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 				if i > 0 && attr != fs[0].Header() {
 					continue
 				}
-				mch, val := convertFilterValue(fs[i])
+				mch, val := convertFilterValue(fs[i].SearchFilter)
 				var matches bool
 				if IsIntegerSearchOp(mch) {
-					f := fInt[i]
-					matches = f.AutoMatch || intBytesMatch(primDBVal, mch, f.Raw)
+					matches = fs[i].AutoMatch || intBytesMatch(primDBVal, mch, fs[i].Raw)
 				} else {
 					checkedDBVal, fltVal, err := combineValues(attr, primDBVal, val) // TODO: deduplicate DB value preparation
 					if err != nil {
@@ -361,7 +361,7 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 				if j > 0 && fs[j].Header() != attr {
 					continue
 				}
-				m, val := convertFilterValue(fs[j])
+				m, val := convertFilterValue(fs[j].SearchFilter)
 				if dbVal == nil {
 					if m == object.MatchNotPresent {
 						continue
@@ -377,8 +377,7 @@ func MetaDataKVHandler(resHolder *SearchResult, attrGetter AttributeGetter, addi
 						_, dbValIsInt = dbValInt.SetString(string(dbVal), 10)
 					}
 					if dbValIsInt {
-						f := fInt[j]
-						matches = f.AutoMatch || intMatches(dbValInt, m, f.Parsed)
+						matches = fs[j].AutoMatch || intMatches(dbValInt, m, fs[j].Parsed)
 					}
 				} else {
 					checkedDBVal, fltVal, err := combineValues(attr, dbVal, val) // TODO: deduplicate DB value preparation
@@ -619,16 +618,16 @@ func intMatches(dbVal *big.Int, matcher object.SearchMatchType, fltVal *big.Int)
 // along and continuation cursor, verifies the cursor and returns additional
 // arguments to pass into [DB.Search]. If the query is valid but unreachable,
 // [ErrUnreachableQuery] is returned.
-func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor string) (*SearchCursor, map[int]ParsedIntFilter, error) {
+func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor string) ([]SearchFilter, *SearchCursor, error) {
 	if len(fs) == 0 {
 		if cursor != "" {
 			primSeekKey, err := decodeOIDFromCursor(cursor)
 			if err != nil {
 				return nil, nil, fmt.Errorf("%w: %w", errInvalidCursor, err)
 			}
-			return &SearchCursor{PrimaryKeysPrefix: metaOIDPrefix, PrimarySeekKey: primSeekKey}, nil, nil
+			return nil, &SearchCursor{PrimaryKeysPrefix: metaOIDPrefix, PrimarySeekKey: primSeekKey}, nil
 		}
-		return &SearchCursor{PrimaryKeysPrefix: metaOIDPrefix, PrimarySeekKey: metaOIDPrefix}, nil, nil
+		return nil, &SearchCursor{PrimaryKeysPrefix: metaOIDPrefix, PrimarySeekKey: metaOIDPrefix}, nil
 	}
 
 	primMatcher, primVal := convertFilterValue(fs[0])
@@ -710,7 +709,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 	if blindlyProcess(fs) {
 		return nil, nil, ErrUnreachableQuery
 	}
-	fInt, ok := parseIntFilters(fs)
+	ofs, ok := parseIntFilters(fs)
 	if !ok {
 		return nil, nil, ErrUnreachableQuery
 	}
@@ -729,7 +728,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			}
 		} else {
 			if IsIntegerSearchOp(primMatcher) {
-				f := fInt[0]
+				f := ofs[0]
 				if !f.AutoMatch && (primMatcher == object.MatchNumGE || primMatcher == object.MatchNumGT) {
 					primSeekKey = slices.Concat([]byte{metaPrefixAttrIDInt}, []byte(attrs[0]), MetaAttributeDelimiter, f.Raw)
 					primKeysPrefix = primSeekKey[:1+len(attrs[0])+attributeDelimiterLen]
@@ -744,7 +743,7 @@ func PreprocessSearchQuery(fs object.SearchFilters, attrs []string, cursor strin
 			}
 		}
 	}
-	return &SearchCursor{PrimaryKeysPrefix: primKeysPrefix, PrimarySeekKey: primSeekKey}, fInt, nil
+	return ofs, &SearchCursor{PrimaryKeysPrefix: primKeysPrefix, PrimarySeekKey: primSeekKey}, nil
 }
 
 func decodeOIDFromCursor(cursor string) ([]byte, error) {
@@ -774,9 +773,11 @@ func blindlyProcess(fs object.SearchFilters) bool {
 	return false
 }
 
-func parseIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, bool) {
-	fInt := make(map[int]ParsedIntFilter, len(fs)) // number of filters is limited by pretty small value, so we can afford it
+func parseIntFilters(fs object.SearchFilters) ([]SearchFilter, bool) {
+	ofs := make([]SearchFilter, len(fs))
 	for i := range fs {
+		ofs[i].SearchFilter = fs[i]
+
 		m, val := convertFilterValue(fs[i])
 		if !IsIntegerSearchOp(m) {
 			continue
@@ -785,28 +786,26 @@ func parseIntFilters(fs object.SearchFilters) (map[int]ParsedIntFilter, bool) {
 		if !ok {
 			return nil, false
 		}
-		var f ParsedIntFilter
 		if c := n.Cmp(maxUint256); c >= 0 {
 			if c > 0 || m == object.MatchNumGT {
 				return nil, false
 			}
-			f.AutoMatch = m == object.MatchNumLE
+			ofs[i].AutoMatch = m == object.MatchNumLE
 		} else if c = n.Cmp(maxUint256Neg); c <= 0 {
 			if c < 0 || m == object.MatchNumLT {
 				return nil, false
 			}
-			f.AutoMatch = m == object.MatchNumGE
+			ofs[i].AutoMatch = m == object.MatchNumGE
 		}
-		if !f.AutoMatch {
+		if !ofs[i].AutoMatch {
 			if i == 0 || IsIntegerSearchOp(fs[0].Operation()) && fs[i].Header() == fs[0].Header() {
-				f.Raw = BigIntBytes(n)
+				ofs[i].Raw = BigIntBytes(n)
 			}
-			f.Parsed = n
+			ofs[i].Parsed = n
 		}
 		// TODO: #1148 there are more auto-cases (like <=X AND >=X, <X AND >X), cover more here
-		fInt[i] = f
 	}
-	return fInt, true
+	return ofs, true
 }
 
 // BigIntBytes returns integer's raw representation. Int must belong to
@@ -837,11 +836,11 @@ func putInt(b []byte, n *big.Int) {
 }
 
 // CalculateCursor calculates cursor for the given last search result item.
-func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) ([]byte, error) {
-	if len(lastItem.Attributes) == 0 || len(fs) == 0 || fs[0].Operation() == object.MatchNotPresent {
+func CalculateCursor(filt *object.SearchFilter, lastItem client.SearchResultItem) ([]byte, error) {
+	if len(lastItem.Attributes) == 0 || filt == nil || filt.Operation() == object.MatchNotPresent {
 		return lastItem.ID[:], nil
 	}
-	attr := fs[0].Header()
+	attr := filt.Header()
 	var lastItemVal string
 	if len(lastItem.Attributes) == 0 {
 		if attr != object.FilterRoot && attr != object.FilterPhysical {
@@ -854,7 +853,7 @@ func CalculateCursor(fs object.SearchFilters, lastItem client.SearchResultItem) 
 	var val []byte
 	switch attr {
 	default:
-		if IsIntegerSearchOp(fs[0].Operation()) {
+		if IsIntegerSearchOp(filt.Operation()) {
 			n, ok := new(big.Int).SetString(lastItemVal, 10)
 			if !ok {
 				return nil, fmt.Errorf("non-int attribute value %q with int matcher", lastItemVal)

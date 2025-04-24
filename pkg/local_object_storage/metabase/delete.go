@@ -160,20 +160,6 @@ func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	}
 }
 
-func delFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
-	if bkt == nil {
-		return
-	}
-
-	fkbtRoot := bkt.Bucket(item.key)
-	if fkbtRoot == nil {
-		return
-	}
-
-	_ = fkbtRoot.Delete(item.val) // ignore error, best effort there
-}
-
 func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	bkt := tx.Bucket(item.name)
 	if bkt == nil {

@@ -9,14 +9,13 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (m *Meta) Search(cID cid.ID, fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (m *Meta) Search(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	m.stM.RLock()
 	s, ok := m.storages[cID]
 	m.stM.RUnlock()
@@ -26,10 +25,10 @@ func (m *Meta) Search(cID cid.ID, fs object.SearchFilters, fInt map[int]objectco
 		return nil, nil, nil
 	}
 
-	return s.search(fs, fInt, attrs, cursor, count)
+	return s.search(fs, attrs, cursor, count)
 }
 
-func (s *containerStorage) search(fs object.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (s *containerStorage) search(fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -38,7 +37,7 @@ func (s *containerStorage) search(fs object.SearchFilters, fInt map[int]objectco
 	}
 
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
-	handleKV := objectcore.MetaDataKVHandler(&resHolder, &attrGetter{db: s.db}, nil, fs, fInt, attrs, cursor, count)
+	handleKV := objectcore.MetaDataKVHandler(&resHolder, &attrGetter{db: s.db}, nil, fs, attrs, cursor, count)
 
 	var rng storage.SeekRange
 	if cursor != nil {

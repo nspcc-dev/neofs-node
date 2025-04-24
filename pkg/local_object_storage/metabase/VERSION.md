@@ -68,33 +68,11 @@ The lowest not used bucket index: 20.
   - Key: object ID
   - Value: split info
 
-### FKBT index buckets
-- Bucket mapping owner to object IDs
-  - Name: `12` + container ID
-  - Key: owner ID as base58 string
-  - Value: bucket containing object IDs as keys
-- Bucket containing objects attributes indexes
-  - Name: `13` + container ID + attribute key
-  - Key: attribute value
-  - Value: bucket containing object IDs as keys
-
 ### List index buckets
-- Bucket mapping payload hash to a list of object IDs
-  - Name: `14` + container ID
-  - Key: payload hash
-  - Value: list of object IDs
 - Bucket mapping parent ID to a list of children IDs
   - Name: `15` + container ID
   - Key: parent ID
   - Value: list of children object IDs
-- Bucket mapping split ID to a list of object IDs
-  - Name: `16` + container ID
-  - Key: split ID
-  - Value: list of object IDs
-- Bucket mapping first object ID to a list of objects IDs
-  - Name: `19` + container ID
-  - Key: first object ID
-  - Value: objects for corresponding split chain
 - Metadata bucket
   - Name: `255` + container ID
   - Keys without values
@@ -108,7 +86,13 @@ The lowest not used bucket index: 20.
 
 ## Version 5
 
-Dropped "small prefix" (10) bucket.
+Dropped the following buckets:
+ * small object (10)
+ * owner index (12)
+ * user attribute index (13)
+ * payload hashes (14)
+ * split ID index (16)
+ * first object ID index (19)
 
 ## Version 4
 

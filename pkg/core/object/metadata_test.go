@@ -428,20 +428,27 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 			var fs object.SearchFilters
 			fs.AddFilter("attr", n.String(), object.MatchNumGE)
 
-			c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+			ofs, c, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 			require.NoError(t, err)
+			require.Len(t, ofs, len(fs))
 			require.NotNil(t, c)
 
 			pref := slices.Concat([]byte{0x01}, []byte("attr"), []byte{0x00})
 			require.Equal(t, pref, c.PrimaryKeysPrefix)
 
-			require.Len(t, fInt, 1)
-			f, ok := fInt[0]
-			require.True(t, ok)
 			if n.Cmp(maxUint256Neg) == 0 {
-				require.Equal(t, ParsedIntFilter{AutoMatch: true}, f)
+				var of = SearchFilter{
+					SearchFilter: fs[0],
+					AutoMatch:    true,
+				}
+				require.Equal(t, of, ofs[0])
 			} else {
-				require.Equal(t, ParsedIntFilter{Parsed: n, Raw: ib}, f)
+				var of = SearchFilter{
+					SearchFilter: fs[0],
+					Parsed:       n,
+					Raw:          ib,
+				}
+				require.Equal(t, of, ofs[0])
 			}
 		}
 	})
@@ -474,9 +481,8 @@ func TestPreprocessSearchQuery_Cursors(t *testing.T) {
 		id := oidtest.ID()
 		pref := slices.Concat([]byte("attr"), []byte{0x00})
 		b := slices.Concat(pref, []byte("hello"), []byte{0x00}, id[:])
-		c, fInt, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
+		_, c, err := PreprocessSearchQuery(fs, []string{"attr"}, base64.StdEncoding.EncodeToString(b))
 		require.NoError(t, err)
-		require.Empty(t, fInt)
 		require.Equal(t, slices.Concat([]byte{0x02}, pref), c.PrimaryKeysPrefix)
 		require.Equal(t, slices.Concat([]byte{0x02}, b), c.PrimarySeekKey)
 	})
@@ -489,7 +495,7 @@ func assertInvalidCursorErr(t *testing.T, fs object.SearchFilters, attrs []strin
 }
 
 func assertCursor(t *testing.T, fs object.SearchFilters, attrs []string, cursor string, expPrefix, expKey []byte) {
-	c, _, err := PreprocessSearchQuery(fs, attrs, cursor)
+	_, c, err := PreprocessSearchQuery(fs, attrs, cursor)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	require.Equal(t, expPrefix, c.PrimaryKeysPrefix)

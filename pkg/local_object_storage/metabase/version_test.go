@@ -201,7 +201,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 				lockWasChecked = true
 			}
 
-			obj, err := db.get(tx, prm.target[i], buf, false, true, currEpoch)
+			obj, err := get(tx, prm.target[i], buf, false, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
 				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
@@ -558,13 +558,9 @@ func TestMigrate3to4(t *testing.T) {
 
 	for i := range objs {
 		var fs object.SearchFilters
-		fs.AddRootFilter()
-		if i == 0 {
-			exp = searchResultForIDs([]oid.ID{par.GetID()})
-		} else {
-			exp = nil
-		}
-		assertSearchResult(t, db, objs[i].GetContainerID(), fs, nil, exp)
+		fs.AddRootFilter() // There are no root objects in the set above.
+		assertSearchResult(t, db, objs[i].GetContainerID(), fs, nil, nil)
+
 		fs = fs[:0]
 		fs.AddPhyFilter()
 		if i == 0 {
@@ -662,13 +658,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		// corrupt one object
 		require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
 			b := tx.Bucket(slices.Concat([]byte{primaryPrefix}, cnr[:]))
@@ -724,13 +713,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		// corrupt one object
 		bigAttrVal := testutil.RandByteSlice(16 << 10)
 		objs[1].SetAttributes(object.NewAttribute("attr", base64.StdEncoding.EncodeToString(bigAttrVal))) // preserve valid chars
@@ -789,13 +771,6 @@ func TestMigrate3to4(t *testing.T) {
 			require.NoError(t, bkt.Put([]byte("version"), []byte{0x03, 0, 0, 0, 0, 0, 0, 0}))
 			return nil
 		}))
-		// assert all available
-		resSelect, err := db.Select(cnr, nil)
-		require.NoError(t, err)
-		require.Len(t, resSelect, len(ids))
-		for i := range ids {
-			require.True(t, slices.ContainsFunc(resSelect, func(addr oid.Address) bool { return addr.Object() == ids[i] }))
-		}
 		t.Run("failed to check", func(t *testing.T) {
 			anyErr := errors.New("any error")
 			cnrs.err = anyErr
@@ -941,4 +916,87 @@ func testMigrationV3To4(t *testing.T, mAll map[object.Type][]uint) {
 	for cnr, ids := range mCnrs {
 		assertSearchResult(t, db, cnr, nil, nil, searchResultForIDs(sortObjectIDs(ids)))
 	}
+}
+
+func TestMigrate4to5(t *testing.T) {
+	var (
+		db    = newDB(t)
+		cnr   = cidtest.ID()
+		owner = usertest.ID()
+		ver   version.Version
+	)
+
+	ver.SetMajor(2)
+	ver.SetMinor(1)
+
+	payload := make([]byte, 10)
+
+	csum, err := checksum.NewFromData(checksum.SHA256, payload)
+	require.NoError(t, err)
+	csumTZ, err := checksum.NewFromData(checksum.TillichZemor, payload)
+	require.NoError(t, err)
+
+	// Emulate split.
+
+	var leftParent = object.New()
+	leftParent.SetOwner(owner)
+	leftParent.SetType(object.TypeRegular)
+	leftParent.SetContainerID(cnr)
+	leftParent.SetVersion(&ver)
+
+	var parent = object.New()
+	parent.SetID(oidtest.ID())
+	parent.SetOwner(owner)
+	parent.SetType(object.TypeRegular)
+	parent.SetContainerID(cnr)
+	parent.SetVersion(&ver)
+	parent.SetPayloadChecksum(csum)
+
+	var (
+		leftObj   = object.New()
+		middleObj = object.New()
+		rightObj  = object.New()
+	)
+	for _, obj := range []*object.Object{leftObj, middleObj, rightObj} {
+		obj.SetID(oidtest.ID())
+		obj.SetOwner(owner)
+		obj.SetType(object.TypeRegular)
+		obj.SetContainerID(cnr)
+		obj.SetVersion(&ver)
+		obj.SetPayloadChecksum(csum)
+		obj.SetPayloadHomomorphicHash(csumTZ)
+		obj.SetPayload(payload)
+		obj.SetPayloadSize(uint64(len(payload)))
+	}
+
+	leftObj.SetParent(leftParent)
+
+	middleObj.SetFirstID(leftObj.GetID())
+	middleObj.SetPreviousID(leftObj.GetID())
+
+	rightObj.SetFirstID(leftObj.GetID())
+	rightObj.SetPreviousID(middleObj.GetID())
+	rightObj.SetParent(parent)
+
+	require.NoError(t, db.Put(leftObj, nil))
+	require.NoError(t, db.Put(middleObj, nil))
+	require.NoError(t, db.Put(rightObj, nil))
+
+	var fs object.SearchFilters
+	fs.AddRootFilter()
+
+	assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs([]oid.ID{parent.GetID()})) // v5 behavior.
+
+	require.NoError(t, db.boltDB.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(slices.Concat([]byte{metadataPrefix}, cnr[:]))
+		// v4 behavior.
+		err := putPlainAttribute(b, &keyBuffer{}, middleObj.GetID(), object.FilterRoot, binPropMarker)
+		require.NoError(t, err)
+		return updateVersion(tx, 4)
+	}))
+
+	assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs([]oid.ID{middleObj.GetID(), parent.GetID()}))
+
+	require.NoError(t, db.Init())
+	assertSearchResult(t, db, cnr, fs, nil, searchResultForIDs([]oid.ID{parent.GetID()}))
 }

@@ -621,8 +621,8 @@ type storageForObjectService struct {
 }
 
 // SearchObjects implements [objectService.Storage] interface.
-func (x storageForObjectService) SearchObjects(cID cid.ID, fs objectSDK.SearchFilters, fInt map[int]objectcore.ParsedIntFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
-	return x.local.Search(cID, fs, fInt, attrs, cursor, count)
+func (x storageForObjectService) SearchObjects(cID cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+	return x.local.Search(cID, fs, attrs, cursor, count)
 }
 
 func (x storageForObjectService) VerifyAndStoreObjectLocally(obj objectSDK.Object) error {

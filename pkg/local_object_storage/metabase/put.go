@@ -119,11 +119,6 @@ func (db *DB) put(
 		return fmt.Errorf("can't put list indexes: %w", err)
 	}
 
-	err = updateFKBTIndexes(tx, obj, putFKBTIndexItem)
-	if err != nil {
-		return fmt.Errorf("can't put fake bucket tree indexes: %w", err)
-	}
-
 	// update container volume size estimation
 	if obj.Type() == objectSDK.TypeRegular && !isParent {
 		err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
@@ -146,7 +141,7 @@ func (db *DB) put(
 		}
 	}
 
-	if err := PutMetadataForObject(tx, *obj, par != nil, !isParent); err != nil {
+	if err := PutMetadataForObject(tx, *obj, !isParent); err != nil {
 		return fmt.Errorf("put metadata: %w", err)
 	}
 
@@ -229,18 +224,6 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 	objKey := objectKey(idObj, make([]byte, objectKeySize))
 	bucketName := make([]byte, bucketKeySize)
 
-	cs, _ := obj.PayloadChecksum()
-
-	// index payload hashes
-	err := f(tx, namedBucketItem{
-		name: payloadHashBucketName(cnr, bucketName),
-		key:  cs.Value(),
-		val:  objKey,
-	})
-	if err != nil {
-		return err
-	}
-
 	idParent := obj.GetParentID()
 
 	// index parent ids
@@ -248,63 +231,6 @@ func updateListIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFun
 		err := f(tx, namedBucketItem{
 			name: parentBucketName(cnr, bucketName),
 			key:  objectKey(idParent, make([]byte, objectKeySize)),
-			val:  objKey,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// index split ids
-	if obj.SplitID() != nil {
-		err := f(tx, namedBucketItem{
-			name: splitBucketName(cnr, bucketName),
-			key:  obj.SplitID().ToV2(),
-			val:  objKey,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// index first object id
-	if firstID, set := obj.FirstID(); set {
-		err := f(tx, namedBucketItem{
-			name: firstObjectIDBucketName(cnr, bucketName),
-			key:  firstID[:],
-			val:  objKey,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func updateFKBTIndexes(tx *bbolt.Tx, obj *objectSDK.Object, f updateIndexItemFunc) error {
-	id := obj.GetID()
-	cnr := obj.GetContainerID()
-	objKey := objectKey(id, make([]byte, objectKeySize))
-
-	attrs := obj.Attributes()
-
-	key := make([]byte, bucketKeySize)
-	err := f(tx, namedBucketItem{
-		name: ownerBucketName(cnr, key),
-		key:  []byte(obj.Owner().EncodeToString()),
-		val:  objKey,
-	})
-	if err != nil {
-		return err
-	}
-
-	// user specified attributes
-	for i := range attrs {
-		key = attributeBucketName(cnr, attrs[i].Key(), key)
-		err := f(tx, namedBucketItem{
-			name: key,
-			key:  []byte(attrs[i].Value()),
 			val:  objKey,
 		})
 		if err != nil {
@@ -322,20 +248,6 @@ func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
 	}
 
 	return bkt.Put(item.key, item.val)
-}
-
-func putFKBTIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	fkbtRoot, err := bkt.CreateBucketIfNotExists(item.key)
-	if err != nil {
-		return fmt.Errorf("can't create fake bucket tree index %v: %w", item.key, err)
-	}
-
-	return fkbtRoot.Put(item.val, zeroValue)
 }
 
 func putListIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
