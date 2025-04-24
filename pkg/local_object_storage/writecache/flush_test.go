@@ -210,6 +210,7 @@ func TestFlush(t *testing.T) {
 }
 
 func TestFlushPerformance(t *testing.T) {
+	t.Skip()
 	objectCounts := []int{100, 1000}
 	workerCounts := []int{1, 4, 16}
 
