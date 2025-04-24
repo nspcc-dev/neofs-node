@@ -2,7 +2,6 @@ package meta
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -183,93 +182,19 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
 }
 
 func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, limit int) error {
-	buff := make([]byte, bucketKeySize)
-	var err error
-
-	// Regular objects
-	bktRegular := tx.Bucket(primaryBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktRegular, unique, limit)
-	if err != nil {
-		return fmt.Errorf("regular objects iteration: %w", err)
-	}
-
-	// Lock objects
-	bktLockers := tx.Bucket(bucketNameLockers(cID, buff))
-	err = expandObjectsFromBucket(bktLockers, unique, limit)
-	if err != nil {
-		return fmt.Errorf("lockers iteration: %w", err)
-	}
-	if len(unique) >= limit {
+	var metaBkt = tx.Bucket(metaBucketKey(cID))
+	if metaBkt == nil {
 		return nil
 	}
 
-	// SG objects
-	bktSG := tx.Bucket(storageGroupBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktSG, unique, limit)
-	if err != nil {
-		return fmt.Errorf("storage groups iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	// TS objects
-	bktTS := tx.Bucket(tombstoneBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktTS, unique, limit)
-	if err != nil {
-		return fmt.Errorf("tomb stones iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	// link objects
-	bktInit := tx.Bucket(linkObjectsBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktInit, unique, limit)
-	if err != nil {
-		return fmt.Errorf("link objects iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	bktRoot := tx.Bucket(rootBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktRoot, unique, limit)
-	if err != nil {
-		return fmt.Errorf("root objects iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	return nil
-}
-
-var errBreakIter = errors.New("stop it")
-
-func expandObjectsFromBucket(bkt *bbolt.Bucket, resMap map[oid.ID]struct{}, limit int) error {
-	if bkt == nil {
-		return nil
-	}
-
-	var oID oid.ID
-	var err error
-
-	err = bkt.ForEach(func(k, _ []byte) error {
-		err = oID.Decode(k)
+	var cur = metaBkt.Cursor()
+	k, _ := cur.Seek([]byte{metaPrefixID})
+	for ; len(k) > 0 && len(unique) < limit && k[0] == metaPrefixID; k, _ = cur.Next() {
+		obj, err := oid.DecodeBytes(k[1:])
 		if err != nil {
-			return fmt.Errorf("object ID parsing: %w", err)
+			return fmt.Errorf("garbage prefixID key of length %d for container %s: %w", len(k), cID, err)
 		}
-
-		resMap[oID] = struct{}{}
-		if len(resMap) == limit {
-			return errBreakIter
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, errBreakIter) {
-		return err
+		unique[obj] = struct{}{}
 	}
 
 	return nil
