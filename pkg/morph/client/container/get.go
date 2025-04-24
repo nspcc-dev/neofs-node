@@ -9,7 +9,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type containerSource Client
@@ -56,7 +55,7 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 		return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
 	}
 
-	if len(arr) != 4 {
+	if len(arr) == 0 {
 		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
 	}
 
@@ -65,44 +64,11 @@ func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 		return nil, fmt.Errorf("could not get byte array of container (%s): %w", getMethod, err)
 	}
 
-	sigBytes, err := client.BytesFromStackItem(arr[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", getMethod, err)
-	}
-
-	pub, err := client.BytesFromStackItem(arr[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", getMethod, err)
-	}
-
-	tokBytes, err := client.BytesFromStackItem(arr[3])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", getMethod, err)
-	}
-
 	var cnr containercore.Container
 
 	if err := cnr.Value.Unmarshal(cnrBytes); err != nil {
 		// use other major version if there any
 		return nil, fmt.Errorf("can't unmarshal container: %w", err)
-	}
-
-	if len(tokBytes) > 0 {
-		cnr.Session = new(session.Container)
-
-		err = cnr.Session.Unmarshal(tokBytes)
-		if err != nil {
-			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
-		}
-	}
-
-	if len(pub) == 0 {
-		return &cnr, nil
-	}
-
-	cnr.Signature, err = decodeSignature(pub, sigBytes)
-	if err != nil {
-		return nil, fmt.Errorf("decode signature: %w", err)
 	}
 
 	return &cnr, nil
