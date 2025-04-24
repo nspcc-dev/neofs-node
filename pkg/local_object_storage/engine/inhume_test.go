@@ -30,6 +30,7 @@ func TestStorageEngine_Inhume(t *testing.T) {
 	idParent := parent.GetID()
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
+	child.SetPayloadSize(1)
 
 	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)

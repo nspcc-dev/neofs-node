@@ -94,7 +94,7 @@ func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, curr
 
 	// if not found then check if object is a virtual one, but this contradicts raw flag
 	if raw {
-		return nil, getSplitInfoError(tx, cnr, key)
+		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
 	}
 	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
 }
@@ -108,27 +108,33 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+func getParentMetaOwnersPrefix(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*bbolt.Bucket, []byte) {
 	bucketName[0] = metadataPrefix
 	copy(bucketName[1:], cnr[:])
 
-	var (
-		childOID   oid.ID
-		metaBucket = tx.Bucket(bucketName)
-	)
+	var metaBucket = tx.Bucket(bucketName)
 	if metaBucket == nil {
-		return childOID
+		return nil, nil
 	}
 
-	var (
-		parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
-		cur          = metaBucket.Cursor()
-	)
+	var parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
 	parentPrefix[0] = metaPrefixAttrIDPlain
 	off := 1 + copy(parentPrefix[1:], objectSDK.FilterParentID)
 	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
 	copy(parentPrefix[off:], parentID[:])
 
+	return metaBucket, parentPrefix
+}
+
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+	var childOID oid.ID
+
+	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
+	if metaBucket == nil {
+		return childOID
+	}
+
+	var cur = metaBucket.Cursor()
 	k, _ := cur.Seek(parentPrefix)
 
 	if bytes.HasPrefix(k, parentPrefix) {
@@ -172,8 +178,8 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []by
 	return par, nil
 }
 
-func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
-	splitInfo, err := getSplitInfo(tx, cnr, key)
+func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
+	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
 	if err == nil {
 		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}

@@ -2,9 +2,12 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -68,17 +71,15 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	}
 
 	// if primary bucket is empty, then check if object is a virtual one
-	childID := getChildForParent(tx, cnr, addr.Object(), key)
-	if !childID.IsZero() {
-		splitInfo, err := getSplitInfo(tx, cnr, objKey)
-		if err != nil {
-			return false, err
-		}
-
+	splitInfo, err := getSplitInfo(tx, cnr, addr.Object(), key)
+	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
+	if !errors.Is(err, ErrLackSplitInfo) {
+		return false, err
+	}
 
-	// if parent bucket is empty, then check if object exists in typed buckets
+	// no split info, check if object exists in typed buckets
 	return firstIrregularObjectType(tx, cnr, objKey) != objectSDK.TypeRegular, nil
 }
 
@@ -191,19 +192,71 @@ func inBucket(tx *bbolt.Tx, name, key []byte) bool {
 
 // getSplitInfo returns SplitInfo structure from root index. Returns error
 // if there is no `key` record in root index.
-func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, key []byte) (*objectSDK.SplitInfo, error) {
-	bucketName := rootBucketName(cnr, make([]byte, bucketKeySize))
-	rawSplitInfo := getFromBucket(tx, bucketName, key)
-	if len(rawSplitInfo) == 0 {
+func getSplitInfo(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.SplitInfo, error) {
+	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
+	if metaBucket == nil {
 		return nil, ErrLackSplitInfo
 	}
 
-	splitInfo := objectSDK.NewSplitInfo()
+	var (
+		c         = metaBucket.Cursor()
+		splitInfo *objectSDK.SplitInfo
+	)
 
-	err := splitInfo.Unmarshal(rawSplitInfo)
-	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal split info from root index: %w", err)
+	for k, _ := c.Seek(parentPrefix); bytes.HasPrefix(k, parentPrefix); k, _ = c.Next() {
+		objID, err := oid.DecodeBytes(k[len(parentPrefix):])
+		if err != nil {
+			return nil, fmt.Errorf("invalid oid with %s parent in %s container: %w", parentID, cnr, err)
+		}
+		var (
+			objCur    = metaBucket.Cursor()
+			objPrefix = slices.Concat([]byte{metaPrefixIDAttr}, objID[:])
+			isLink    bool
+			isV1      bool
+			isEmpty   bool
+		)
+		if splitInfo == nil {
+			splitInfo = objectSDK.NewSplitInfo()
+		}
+		for ak, _ := objCur.Seek(objPrefix); bytes.HasPrefix(ak, objPrefix); ak, _ = objCur.Next() {
+			attrKey, attrVal, ok := bytes.Cut(ak[len(objPrefix):], objectcore.MetaAttributeDelimiter)
+			if !ok {
+				return nil, fmt.Errorf("invalid attribute in meta of %s/%s: missing delimiter", cnr, objID)
+			}
+
+			if string(attrKey) == objectSDK.FilterType && string(attrVal) == objectSDK.TypeLink.String() {
+				isLink = true
+			}
+			if string(attrKey) == objectSDK.FilterSplitID {
+				isV1 = true
+				splitInfo.SetSplitID(objectSDK.NewSplitIDFromV2(attrVal))
+			}
+			if string(attrKey) == objectSDK.FilterPayloadSize && string(attrVal) == "0" {
+				isEmpty = true
+			}
+			if string(attrKey) == objectSDK.FilterFirstSplitObject {
+				firstID, err := oid.DecodeBytes(attrVal)
+				if err != nil {
+					return nil, fmt.Errorf("invalid first ID attribute in %s/%s: %w", cnr, objID, err)
+				}
+				splitInfo.SetFirstPart(firstID)
+			}
+		}
+		// This is not perfect since the last part can have zero
+		// payload technically, but we don't have proper child info
+		// and it's practically good enough for v1 compatibility
+		// (v2 doesn't have this problem).
+		if isLink || (isV1 && isEmpty) {
+			splitInfo.SetLink(objID)
+		}
+		// We should have one or two IDs here, if one is link the
+		// other is not.
+		if (isV1 && !isEmpty) || (!isV1 && !isLink) {
+			splitInfo.SetLastPart(objID)
+		}
 	}
-
+	if splitInfo == nil {
+		return nil, ErrLackSplitInfo
+	}
 	return splitInfo, nil
 }

@@ -63,10 +63,6 @@ The lowest not used bucket index: 20.
   - Name: `18` + container ID
   - Key: object ID
   - Value: marshaled object
-- Bucket for mapping parent object to the split info
-  - Name: `11` + container ID
-  - Key: object ID
-  - Value: split info
 
 - Metadata bucket
   - Name: `255` + container ID
@@ -89,6 +85,7 @@ Dropped the following buckets:
  * split ID index (16)
  * first object ID index (19)
  * parent ID to children index (15)
+ * parent ID to split info (11)
 
 ## Version 4
 

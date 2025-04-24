@@ -9,10 +9,8 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/io"
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
 
@@ -73,25 +71,12 @@ func (db *DB) put(
 	exists, err := db.exists(tx, objectCore.AddressOf(obj), currEpoch)
 
 	switch {
-	case errors.As(err, &splitInfoError):
-		exists = true // object exists, however it is virtual
+	case exists || errors.As(err, &splitInfoError):
+		return nil
 	case errors.Is(err, ErrLackSplitInfo), errors.As(err, &apistatus.ObjectNotFound{}):
 		// OK, we're putting here.
 	case err != nil:
 		return err // return any other errors
-	}
-
-	// most right child and split header overlap parent so we have to
-	// check if object exists to not overwrite it twice
-	if exists {
-		// when storage already has last object in split hierarchy and there is
-		// a linking object to put (or vice versa), we should update split info
-		// with object ids of these objects
-		if isParent {
-			return updateSplitInfo(tx, objectCore.AddressOf(obj), si)
-		}
-
-		return nil
 	}
 
 	par := obj.Parent()
@@ -187,27 +172,6 @@ func putUniqueIndexes(
 		}
 	}
 
-	// index root object
-	if obj.Type() == objectSDK.TypeRegular && !obj.HasParent() {
-		var (
-			err       error
-			splitInfo []byte
-		)
-
-		if isParent {
-			splitInfo = si.Marshal()
-		}
-
-		err = putUniqueIndexItem(tx, namedBucketItem{
-			name: rootBucketName(cnr, bucketName),
-			key:  objKey,
-			val:  splitInfo,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -288,36 +252,6 @@ func getVarUint(data []byte) (uint64, int, error) {
 	default:
 		return uint64(b), 1, nil
 	}
-}
-
-// updateSplitInfo for existing objects if storage filled with extra information
-// about last object in split hierarchy or linking object.
-func updateSplitInfo(tx *bbolt.Tx, addr oid.Address, from *objectSDK.SplitInfo) error {
-	key := make([]byte, bucketKeySize)
-	bkt := tx.Bucket(rootBucketName(addr.Container(), key))
-	if bkt == nil {
-		// if object doesn't exists and we want to update split info on it
-		// then ignore, this should never happen
-		return ErrIncorrectSplitInfoUpdate
-	}
-
-	objectKey := objectKey(addr.Object(), key)
-
-	rawSplitInfo := bkt.Get(objectKey)
-	if len(rawSplitInfo) == 0 {
-		return ErrIncorrectSplitInfoUpdate
-	}
-
-	to := objectSDK.NewSplitInfo()
-
-	err := to.Unmarshal(rawSplitInfo)
-	if err != nil {
-		return fmt.Errorf("can't unmarshal split info from root index: %w", err)
-	}
-
-	result := util.MergeSplitInfo(from, to)
-
-	return bkt.Put(objectKey, result.Marshal())
 }
 
 // splitInfoFromObject returns split info based on last or linkin object.

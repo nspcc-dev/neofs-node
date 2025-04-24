@@ -29,6 +29,7 @@ func TestHeadRaw(t *testing.T) {
 	child.SetParent(parent)
 	child.SetParentID(idParent)
 	child.SetSplitID(splitID)
+	child.SetPayloadSize(42)
 
 	link := generateObjectWithCID(cnr)
 	link.SetParent(parent)

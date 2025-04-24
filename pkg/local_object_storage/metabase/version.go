@@ -280,7 +280,7 @@ func migrateFrom4Version(db *DB) error {
 			obsoletePrefixes = []byte{unusedSmallPrefix, unusedOwnerPrefix,
 				unusedUserAttributePrefix, unusedPayloadHashPrefix,
 				unusedSplitPrefix, unusedFirstObjectIDPrefix,
-				unusedParentPrefix}
+				unusedParentPrefix, unusedRootPrefix}
 		)
 		err := tx.ForEach(func(name []byte, _ *bbolt.Bucket) error {
 			if slices.Contains(obsoletePrefixes, name[0]) {

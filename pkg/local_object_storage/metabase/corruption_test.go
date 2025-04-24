@@ -57,7 +57,6 @@ func TestCorruptedObject(t *testing.T) {
 			storageGroupPrefix,
 			lockersPrefix,
 			linkObjectsPrefix,
-			rootPrefix,
 		}
 
 		for _, prefix := range bktsWithLists {

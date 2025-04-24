@@ -189,10 +189,6 @@ func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, 
 		})
 	}
 
-	delUniqueIndexItem(tx, namedBucketItem{ // remove from root index
-		name: rootBucketName(cnr, bucketName),
-		key:  objKey,
-	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index
 		name: toMoveItBucketName,
 		key:  addrKey,

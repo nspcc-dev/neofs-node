@@ -94,7 +94,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 		bucketNameLockers(cID, make([]byte, bucketKeySize)),
 		storageGroupBucketName(cID, make([]byte, bucketKeySize)),
 		tombstoneBucketName(cID, make([]byte, bucketKeySize)),
-		rootBucketName(cID, make([]byte, bucketKeySize)),
 		linkObjectsBucketName(cID, make([]byte, bucketKeySize)),
 	}
 
