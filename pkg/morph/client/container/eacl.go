@@ -18,31 +18,40 @@ import (
 // Returns apistatus.EACLNotFound if eACL table is missing in the contract.
 func (c *Client) GetEACL(cnr cid.ID) (*container.EACL, error) {
 	prm := client.TestInvokePrm{}
-	prm.SetMethod(eaclMethod)
+	method := eaclDataMethod
+	prm.SetMethod(method)
 	prm.SetArgs(cnr[:])
 
-	prms, err := c.client.TestInvoke(prm)
+	arr, err := c.client.TestInvoke(prm)
+	old := err != nil && isMethodNotFoundError(err, method)
+	if old {
+		method = eaclMethod
+		prm.SetMethod(method)
+		arr, err = c.client.TestInvoke(prm)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
 			return nil, apistatus.ErrContainerNotFound
 		}
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", eaclMethod, err)
-	} else if ln := len(prms); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", eaclMethod, ln)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
+	} else if ln := len(arr); ln != 1 {
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	arr, err := client.ArrayFromStackItem(prms[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get item array of eACL (%s): %w", eaclMethod, err)
-	}
+	if old {
+		arr, err = client.ArrayFromStackItem(arr[0])
+		if err != nil {
+			return nil, fmt.Errorf("could not get item array of eACL (%s): %w", eaclMethod, err)
+		}
 
-	if len(arr) == 0 {
-		return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", eaclMethod, len(arr))
+		if len(arr) == 0 {
+			return nil, fmt.Errorf("unexpected eacl stack item count (%s): %d", eaclMethod, len(arr))
+		}
 	}
 
 	rawEACL, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", eaclMethod, err)
+		return nil, fmt.Errorf("could not get byte array of eACL (%s): %w", method, err)
 	}
 
 	if len(rawEACL) == 0 {

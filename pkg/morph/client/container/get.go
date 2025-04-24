@@ -35,33 +35,42 @@ func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
 // storage.ErrNotFound error is returned.
 func (c *Client) Get(cid []byte) (*containercore.Container, error) {
 	prm := client.TestInvokePrm{}
-	prm.SetMethod(getMethod)
+	method := getDataMethod
+	prm.SetMethod(method)
 	prm.SetArgs(cid)
 
-	res, err := c.client.TestInvoke(prm)
+	arr, err := c.client.TestInvoke(prm)
+	old := err != nil && isMethodNotFoundError(err, method)
+	if old {
+		method = getMethod
+		prm.SetMethod(method)
+		arr, err = c.client.TestInvoke(prm)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
 			var errNotFound apistatus.ContainerNotFound
 
 			return nil, errNotFound
 		}
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
-	} else if ln := len(res); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getMethod, ln)
+		return nil, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
+	} else if ln := len(arr); ln != 1 {
+		return nil, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	arr, err := client.ArrayFromStackItem(res[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
-	}
+	if old {
+		arr, err = client.ArrayFromStackItem(arr[0])
+		if err != nil {
+			return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
+		}
 
-	if len(arr) == 0 {
-		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
+		if len(arr) == 0 {
+			return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
+		}
 	}
 
 	cnrBytes, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container (%s): %w", getMethod, err)
+		return nil, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
 	}
 
 	var cnr containercore.Container

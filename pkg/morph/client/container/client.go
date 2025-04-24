@@ -24,12 +24,14 @@ type Client struct {
 }
 
 const (
-	putMethod     = "put"
-	deleteMethod  = "delete"
-	getMethod     = "get"
-	listMethod    = "containersOf"
-	eaclMethod    = "eACL"
-	setEACLMethod = "setEACL"
+	putMethod      = "put"
+	deleteMethod   = "delete"
+	getMethod      = "get"
+	getDataMethod  = "getContainerData"
+	listMethod     = "containersOf"
+	eaclMethod     = "eACL"
+	eaclDataMethod = "getEACLData"
+	setEACLMethod  = "setEACL"
 
 	startEstimationMethod = "startContainerEstimation"
 	stopEstimationMethod  = "stopContainerEstimation"
