@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	"github.com/stretchr/testify/require"
@@ -21,8 +21,8 @@ import (
 
 type cnrSource struct{}
 
-func (c cnrSource) Get(cid.ID) (*container.Container, error) {
-	return nil, apistatus.ContainerNotFound{} // value not used, only err
+func (c cnrSource) Get(cid.ID) (container.Container, error) {
+	return container.Container{}, apistatus.ContainerNotFound{} // value not used, only err
 }
 
 func TestStorageEngine_ContainerCleanUp(t *testing.T) {

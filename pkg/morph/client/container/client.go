@@ -9,8 +9,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 )
 
 // Client is a wrapper over StaticClient
@@ -26,12 +24,14 @@ type Client struct {
 }
 
 const (
-	putMethod     = "put"
-	deleteMethod  = "delete"
-	getMethod     = "get"
-	listMethod    = "containersOf"
-	eaclMethod    = "eACL"
-	setEACLMethod = "setEACL"
+	putMethod      = "put"
+	deleteMethod   = "delete"
+	getMethod      = "get"
+	getDataMethod  = "getContainerData"
+	listMethod     = "containersOf"
+	eaclMethod     = "eACL"
+	eaclDataMethod = "getEACLData"
+	setEACLMethod  = "setEACL"
 
 	startEstimationMethod = "startContainerEstimation"
 	stopEstimationMethod  = "stopContainerEstimation"
@@ -116,17 +116,6 @@ func WithCustomFeeForNamedPut(fee fixedn.Fixed8) Option {
 		o.feePutNamed = fee
 		o.feePutNamedSet = true
 	}
-}
-
-func decodeSignature(bPubKey, sig []byte) (neofscrypto.Signature, error) {
-	var pubKey neofsecdsa.PublicKeyRFC6979
-
-	err := pubKey.Decode(bPubKey)
-	if err != nil {
-		return neofscrypto.Signature{}, fmt.Errorf("decode public key: %w", err)
-	}
-
-	return neofscrypto.NewSignature(neofscrypto.ECDSA_DETERMINISTIC_SHA256, &pubKey, sig), nil
 }
 
 func isMethodNotFoundError(err error, mtd string) bool {

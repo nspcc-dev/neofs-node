@@ -1922,7 +1922,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	}
 	var handleWithMetaService bool
 	const metaOnChainAttr = "__NEOFS__METAINFO_CONSISTENCY"
-	switch cnr.Value.Attribute(metaOnChainAttr) {
+	switch cnr.Attribute(metaOnChainAttr) {
 	case "optimistic", "strict":
 		handleWithMetaService = true
 	default:

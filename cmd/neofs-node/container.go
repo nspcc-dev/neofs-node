@@ -57,7 +57,7 @@ func initContainerService(c *cfg) {
 				// read owner of the created container in order to update the reading cache.
 				cnr, err := c.containerCache.Get(id)
 				if err == nil {
-					c.containerListCache.update(cnr.Value.Owner(), id, true)
+					c.containerListCache.update(cnr.Owner(), id, true)
 				} else {
 					// unlike removal, we expect successful receive of the container
 					// after successful creation, so logging can be useful
@@ -77,7 +77,7 @@ func initContainerService(c *cfg) {
 				// the cache.
 				cnr, err := c.containerCache.Get(id)
 				if err == nil {
-					c.containerListCache.update(cnr.Value.Owner(), id, false)
+					c.containerListCache.update(cnr.Owner(), id, false)
 				}
 				c.containerCache.handleRemoval(id)
 				return
@@ -400,7 +400,7 @@ func (l *loadPlacementBuilder) buildPlacement(epoch uint64, idCnr cid.ID) ([][]n
 		return nil, nil, fmt.Errorf("could not get network map: %w", err)
 	}
 
-	cnrNodes, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), idCnr)
+	cnrNodes, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not build container nodes: %w", err)
 	}
@@ -608,19 +608,11 @@ func (c *usedSpaceService) processLoadValue(_ context.Context, a containerSDK.Si
 type containersInChain basics
 
 func (x *containersInChain) Get(id cid.ID) (containerSDK.Container, error) {
-	c, err := x.cnrSrc.Get(id)
-	if err != nil {
-		return containerSDK.Container{}, err
-	}
-	return c.Value, nil
+	return x.cnrSrc.Get(id)
 }
 
 func (x *containersInChain) GetEACL(id cid.ID) (eacl.Table, error) {
-	c, err := x.eaclSrc.GetEACL(id)
-	if err != nil {
-		return eacl.Table{}, err
-	}
-	return *c.Value, nil
+	return x.eaclSrc.GetEACL(id)
 }
 
 func (x *containersInChain) List(id user.ID) ([]cid.ID, error) {

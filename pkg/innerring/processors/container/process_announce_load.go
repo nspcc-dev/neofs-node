@@ -53,7 +53,7 @@ func (cp *Processor) checkAnnounceLoad(e container.AnnounceLoad) error {
 		return fmt.Errorf("could not get netmap: %w", err)
 	}
 
-	ni, err := nm.ContainerNodes(cnr.Value.PlacementPolicy(), idCnr)
+	ni, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
 	if err != nil {
 		return fmt.Errorf("could not get container nodes: %w", err)
 	}

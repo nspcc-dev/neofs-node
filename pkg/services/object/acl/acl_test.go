@@ -3,7 +3,6 @@ package acl
 import (
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
@@ -21,8 +20,8 @@ import (
 
 type emptyEACLSource struct{}
 
-func (e emptyEACLSource) GetEACL(_ cid.ID) (*container.EACL, error) {
-	return nil, nil
+func (e emptyEACLSource) GetEACL(_ cid.ID) (eaclSDK.Table, error) {
+	return eaclSDK.Table{}, nil
 }
 
 type emptyNetmapState struct{}

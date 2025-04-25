@@ -8,13 +8,13 @@ import (
 	containercore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
 type containerSource Client
 
-func (x *containerSource) Get(cnr cid.ID) (*containercore.Container, error) {
+func (x *containerSource) Get(cnr cid.ID) (container.Container, error) {
 	return Get((*Client)(x), cnr)
 }
 
@@ -25,7 +25,7 @@ func AsContainerSource(w *Client) containercore.Source {
 }
 
 // Get marshals container ID, and passes it to Wrapper's Get method.
-func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
+func Get(c *Client, cnr cid.ID) (container.Container, error) {
 	return c.Get(cnr[:])
 }
 
@@ -34,76 +34,51 @@ func Get(c *Client, cnr cid.ID) (*containercore.Container, error) {
 //
 // If an empty slice is returned for the requested identifier,
 // storage.ErrNotFound error is returned.
-func (c *Client) Get(cid []byte) (*containercore.Container, error) {
+func (c *Client) Get(cid []byte) (container.Container, error) {
+	var cnr container.Container
 	prm := client.TestInvokePrm{}
-	prm.SetMethod(getMethod)
+	method := getDataMethod
+	prm.SetMethod(method)
 	prm.SetArgs(cid)
 
-	res, err := c.client.TestInvoke(prm)
+	arr, err := c.client.TestInvoke(prm)
+	old := err != nil && isMethodNotFoundError(err, method)
+	if old {
+		method = getMethod
+		prm.SetMethod(method)
+		arr, err = c.client.TestInvoke(prm)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), containerrpc.NotFoundError) {
 			var errNotFound apistatus.ContainerNotFound
 
-			return nil, errNotFound
+			return cnr, errNotFound
 		}
-		return nil, fmt.Errorf("could not perform test invocation (%s): %w", getMethod, err)
-	} else if ln := len(res); ln != 1 {
-		return nil, fmt.Errorf("unexpected stack item count (%s): %d", getMethod, ln)
+		return cnr, fmt.Errorf("could not perform test invocation (%s): %w", method, err)
+	} else if ln := len(arr); ln != 1 {
+		return cnr, fmt.Errorf("unexpected stack item count (%s): %d", method, ln)
 	}
 
-	arr, err := client.ArrayFromStackItem(res[0])
-	if err != nil {
-		return nil, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
-	}
+	if old {
+		arr, err = client.ArrayFromStackItem(arr[0])
+		if err != nil {
+			return cnr, fmt.Errorf("could not get item array of container (%s): %w", getMethod, err)
+		}
 
-	if len(arr) != 4 {
-		return nil, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
+		if len(arr) == 0 {
+			return cnr, fmt.Errorf("unexpected container stack item count (%s): %d", getMethod, len(arr))
+		}
 	}
 
 	cnrBytes, err := client.BytesFromStackItem(arr[0])
 	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container (%s): %w", getMethod, err)
+		return cnr, fmt.Errorf("could not get byte array of container (%s): %w", method, err)
 	}
 
-	sigBytes, err := client.BytesFromStackItem(arr[1])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of container signature (%s): %w", getMethod, err)
-	}
-
-	pub, err := client.BytesFromStackItem(arr[2])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of public key (%s): %w", getMethod, err)
-	}
-
-	tokBytes, err := client.BytesFromStackItem(arr[3])
-	if err != nil {
-		return nil, fmt.Errorf("could not get byte array of session token (%s): %w", getMethod, err)
-	}
-
-	var cnr containercore.Container
-
-	if err := cnr.Value.Unmarshal(cnrBytes); err != nil {
+	if err := cnr.Unmarshal(cnrBytes); err != nil {
 		// use other major version if there any
-		return nil, fmt.Errorf("can't unmarshal container: %w", err)
+		return cnr, fmt.Errorf("can't unmarshal container: %w", err)
 	}
 
-	if len(tokBytes) > 0 {
-		cnr.Session = new(session.Container)
-
-		err = cnr.Session.Unmarshal(tokBytes)
-		if err != nil {
-			return nil, fmt.Errorf("could not unmarshal session token: %w", err)
-		}
-	}
-
-	if len(pub) == 0 {
-		return &cnr, nil
-	}
-
-	cnr.Signature, err = decodeSignature(pub, sigBytes)
-	if err != nil {
-		return nil, fmt.Errorf("decode signature: %w", err)
-	}
-
-	return &cnr, nil
+	return cnr, nil
 }

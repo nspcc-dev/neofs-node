@@ -6,6 +6,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
+	sdkcontainer "github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	netmapsdk "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -204,7 +205,7 @@ type containerPolicyContext struct {
 	network      netmap.Source
 	getNodesFunc getContainerNodesFunc
 	// dynamic
-	cnr *container.Container
+	cnr *sdkcontainer.Container
 }
 
 // applyAtEpoch applies storage policy of container referenced by parameterized
@@ -227,18 +228,19 @@ func (x *containerPolicyContext) applyToNetmap(epoch uint64, cache *lru.Cache[co
 	var result storagePolicyRes
 	var err error
 	if x.cnr == nil {
-		x.cnr, err = x.containers.Get(x.id)
+		cnr, err := x.containers.Get(x.id)
 		if err != nil {
 			// non-persistent error => do not cache
 			return result, nil, fmt.Errorf("read container by ID: %w", err)
 		}
+		x.cnr = &cnr
 	}
 	networkMap, err := x.network.GetNetMapByEpoch(epoch)
 	if err != nil {
 		// non-persistent error => do not cache
 		return result, nil, fmt.Errorf("read network map by epoch: %w", err)
 	}
-	policy := x.cnr.Value.PlacementPolicy()
+	policy := x.cnr.PlacementPolicy()
 	result.nodeSets, result.err = x.getNodesFunc(*networkMap, policy, x.id)
 	if result.err == nil {
 		// ContainerNodes should control following, but still better to double-check

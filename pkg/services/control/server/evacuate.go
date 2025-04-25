@@ -66,7 +66,7 @@ func (s *Server) replicate(addr oid.Address, obj *objectSDK.Object) error {
 		return err
 	}
 
-	ns, err := nm.ContainerNodes(c.Value.PlacementPolicy(), cid)
+	ns, err := nm.ContainerNodes(c.PlacementPolicy(), cid)
 	if err != nil {
 		return fmt.Errorf("can't build a list of container nodes")
 	}
