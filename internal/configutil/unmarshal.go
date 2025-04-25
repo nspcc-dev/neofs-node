@@ -30,7 +30,6 @@ func Unmarshal(v *viper.Viper, cfg config, envPrefix string, decodeFuncs ...maps
 			append([]mapstructure.DecodeHookFunc{
 				mapstructure.StringToTimeDurationHookFunc(),
 				mapstructure.StringToSliceHookFunc(" "),
-				//mapstructure.StringToSliceHookFunc(","),
 				publicKeyHook(),
 				uint32StrictHook(),
 				uint160Hook(),
