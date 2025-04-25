@@ -129,6 +129,7 @@ func putObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
 	if err != nil {

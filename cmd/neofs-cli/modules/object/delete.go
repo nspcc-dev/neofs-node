@@ -96,6 +96,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	for _, addr := range objAddrs {
 		id := addr.Object()

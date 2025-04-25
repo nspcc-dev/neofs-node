@@ -85,6 +85,7 @@ func getObjectHash(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	tz := typ == hashTz
 	fullHash := len(ranges) == 0

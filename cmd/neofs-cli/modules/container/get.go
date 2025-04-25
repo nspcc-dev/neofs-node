@@ -170,6 +170,7 @@ func getContainer(ctx context.Context, cmd *cobra.Command) (container.Container,
 		if err != nil {
 			return container.Container{}, err
 		}
+		defer cli.Close()
 
 		var prm internalclient.GetContainerPrm
 		prm.SetClient(cli)

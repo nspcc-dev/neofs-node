@@ -31,6 +31,7 @@ var containerNodesCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var prm internalclient.NetMapSnapshotPrm
 		prm.SetClient(cli)

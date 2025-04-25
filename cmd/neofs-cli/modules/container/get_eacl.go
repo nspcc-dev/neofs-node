@@ -27,6 +27,7 @@ var getExtendedACLCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var eaclPrm internalclient.EACLPrm
 		eaclPrm.SetClient(cli)

@@ -51,6 +51,7 @@ var listContainersCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var prm internalclient.ListContainersPrm
 		prm.SetClient(cli)

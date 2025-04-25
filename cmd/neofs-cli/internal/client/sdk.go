@@ -78,6 +78,7 @@ func GetCurrentEpoch(ctx context.Context, endpoint string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer c.Close()
 
 	ni, err := c.NetworkInfo(ctx, client.PrmNetworkInfo{})
 	if err != nil {

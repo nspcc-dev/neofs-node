@@ -90,6 +90,7 @@ var objectLockCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, key, cnr)
 		if err != nil {

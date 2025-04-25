@@ -89,6 +89,7 @@ func getObjectRange(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var prm internalclient.PayloadRangePrm
 	prm.SetClient(cli)

@@ -43,6 +43,7 @@ var objectNodesCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var prmSnap internalclient.NetMapSnapshotPrm
 		prmSnap.SetClient(cli)

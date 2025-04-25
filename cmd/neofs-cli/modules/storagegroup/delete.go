@@ -56,6 +56,7 @@ func delSG(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	err = objectCli.OpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr, obj)
 	if err != nil {
