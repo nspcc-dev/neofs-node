@@ -77,28 +77,27 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 			meta.WithEpochState(epochState{}),
 		)
 
-		for _, subCfg := range sc.Blobstor {
-			switch subCfg.Type {
-			default:
-				return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type)
-			case peapod.Type:
-				sh.p = peapod.New(subCfg.Path, subCfg.Perm, subCfg.FlushInterval)
+		subCfg := sc.Blobstor
+		switch subCfg.Type {
+		default:
+			return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type)
+		case peapod.Type:
+			sh.p = peapod.New(subCfg.Path, subCfg.Perm, subCfg.FlushInterval)
 
-				var compressCfg compression.Config
-				err := compressCfg.Init()
-				if err != nil {
-					return fmt.Errorf("failed to init compression config: %w", err)
-				}
-
-				sh.p.SetCompressor(&compressCfg)
-			case fstree.Type:
-				sh.fsT = fstree.New(
-					fstree.WithPath(subCfg.Path),
-					fstree.WithPerm(subCfg.Perm),
-					fstree.WithDepth(subCfg.Depth),
-					fstree.WithNoSync(*subCfg.NoSync),
-				)
+			var compressCfg compression.Config
+			err := compressCfg.Init()
+			if err != nil {
+				return fmt.Errorf("failed to init compression config: %w", err)
 			}
+
+			sh.p.SetCompressor(&compressCfg)
+		case fstree.Type:
+			sh.fsT = fstree.New(
+				fstree.WithPath(subCfg.Path),
+				fstree.WithPerm(subCfg.Perm),
+				fstree.WithDepth(subCfg.Depth),
+				fstree.WithNoSync(*subCfg.NoSync),
+			)
 		}
 
 		if err := sh.m.Open(true); err != nil {

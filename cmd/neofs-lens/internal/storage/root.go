@@ -69,38 +69,37 @@ func openEngine() (*engine.StorageEngine, error) {
 			wcMaxBatchCount     int
 			wcMaxBatchThreshold uint64
 		)
-		var ss []blobstor.SubStorage
-		for _, sRead := range shCfg.Blobstor {
-			switch sRead.Type {
-			case fstree.Type:
-				wcMaxBatchSize = uint64(sRead.CombinedSizeLimit)
-				wcMaxBatchCount = sRead.CombinedCountLimit
-				wcMaxBatchThreshold = uint64(sRead.CombinedSizeThreshold)
-				ss = append(ss, blobstor.SubStorage{
-					Storage: fstree.New(
-						fstree.WithPath(sRead.Path),
-						fstree.WithPerm(sRead.Perm),
-						fstree.WithDepth(sRead.Depth),
-						fstree.WithNoSync(*sRead.NoSync),
-						fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
-						fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
-						fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
-						fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return true
-					},
-				})
-			case peapod.Type:
-				ss = append(ss, blobstor.SubStorage{
-					Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < uint64(shCfg.SmallObjectSize)
-					},
-				})
-			default:
-				// should never happen, that has already
-				// been handled: when the config was read
+		var ss blobstor.SubStorage
+		sRead := shCfg.Blobstor
+		switch sRead.Type {
+		case fstree.Type:
+			wcMaxBatchSize = uint64(sRead.CombinedSizeLimit)
+			wcMaxBatchCount = sRead.CombinedCountLimit
+			wcMaxBatchThreshold = uint64(sRead.CombinedSizeThreshold)
+			ss = blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(sRead.Path),
+					fstree.WithPerm(sRead.Perm),
+					fstree.WithDepth(sRead.Depth),
+					fstree.WithNoSync(*sRead.NoSync),
+					fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
+					fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
+					fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
+					fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
+				Policy: func(_ *objectSDK.Object, data []byte) bool {
+					return true
+				},
 			}
+		case peapod.Type:
+			ss = blobstor.SubStorage{
+				Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
+				Policy: func(_ *objectSDK.Object, data []byte) bool {
+					return uint64(len(data)) < uint64(shCfg.SmallObjectSize)
+				},
+			}
+		default:
+			// should never happen, that has already
+			// been handled: when the config was read
 		}
 
 		var writeCacheOpts []writecache.Option

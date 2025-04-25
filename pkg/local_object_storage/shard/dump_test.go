@@ -283,18 +283,10 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	bsOpts := func(sw uint64) []blobstor.Option {
 		return []blobstor.Option{
 			blobstor.WithCompressObjects(true),
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return len(data) < bsSmallObjectSize
-					},
-				},
-				{
-					Storage: fstree.New(
-						fstree.WithPath(bsPath),
-						fstree.WithDepth(1)),
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(bsPath),
+					fstree.WithDepth(1)),
 			}),
 		}
 	}

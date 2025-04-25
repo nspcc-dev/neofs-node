@@ -17,7 +17,7 @@ func TestIterateObjects(t *testing.T) {
 
 	// create BlobStor instance
 	blobStor := New(
-		WithStorages(defaultStorages(p, smalSz)),
+		WithStorages(defaultStorages(p)),
 		WithCompressObjects(true),
 	)
 

@@ -126,7 +126,7 @@ message ShardInfo {
     string metabase_path = 2 [json_name = "metabasePath"];
 
     // Shard's blobstor info.
-    repeated BlobstorInfo blobstor = 3 [json_name = "blobstor"];
+    BlobstorInfo blobstor = 3 [json_name = "blobstor"];
 
     // Path to shard's write-cache, empty if disabled.
     string writecache_path = 4 [json_name = "writecachePath"];

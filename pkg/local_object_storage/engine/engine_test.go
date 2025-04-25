@@ -6,11 +6,9 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -98,19 +96,11 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	return engine
 }
 
-func newStorages(root string, smallSize uint64) []blobstor.SubStorage {
-	return []blobstor.SubStorage{
-		{
-			Storage: peapod.New(filepath.Join(root, "peapod.db"), 0o600, 10*time.Millisecond),
-			Policy: func(_ *object.Object, data []byte) bool {
-				return uint64(len(data)) < smallSize
-			},
-		},
-		{
-			Storage: fstree.New(
-				fstree.WithPath(root),
-				fstree.WithDepth(1)),
-		},
+func newStorage(root string) blobstor.SubStorage {
+	return blobstor.SubStorage{
+		Storage: fstree.New(
+			fstree.WithPath(root),
+			fstree.WithDepth(1)),
 	}
 }
 
@@ -123,8 +113,7 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 		shard.WithLogger(zap.L()),
 		shard.WithBlobStorOptions(
 			blobstor.WithStorages(
-				newStorages(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id)),
-					1<<20))),
+				newStorage(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id))))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
@@ -151,8 +140,7 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 		_, err := engine.AddShard(append([]shard.Option{
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(
-					newStorages(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i)),
-						1<<20)),
+					newStorage(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i)))),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),

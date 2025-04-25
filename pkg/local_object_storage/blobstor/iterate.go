@@ -1,8 +1,6 @@
 package blobstor
 
 import (
-	"fmt"
-
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -18,13 +16,7 @@ func (b *BlobStor) Iterate(objHandler func(addr oid.Address, data []byte) error,
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	for i := range b.storage {
-		err := b.storage[i].Storage.Iterate(objHandler, errorHandler)
-		if err != nil {
-			return fmt.Errorf("blobstor iterator failure: %w", err)
-		}
-	}
-	return nil
+	return b.storage.Storage.Iterate(objHandler, errorHandler)
 }
 
 // IterateBinaryObjects is a helper method which iterates over BlobStor and passes binary objects to f.

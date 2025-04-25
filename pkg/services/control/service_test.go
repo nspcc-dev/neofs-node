@@ -101,15 +101,9 @@ func equalListShardResponseBodies(b1, b2 *control.ListShardsResponse_Body) bool 
 	return true
 }
 
-func compareBlobstorInfo(a, b []*control.BlobstorInfo) bool {
-	if len(a) != len(b) {
+func compareBlobstorInfo(a, b *control.BlobstorInfo) bool {
+	if a.Type != b.Type || a.Path != b.Path {
 		return false
-	}
-	for i := range a {
-		if a[i].Type != b[i].Type ||
-			a[i].Path != b[i].Path {
-			return false
-		}
 	}
 	return true
 }

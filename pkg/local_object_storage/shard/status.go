@@ -24,7 +24,7 @@ func (s *Shard) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 	var res ObjectStatus
 	var err error
 	res.Blob, err = s.blobStor.ObjectStatus(address)
-	if len(res.Blob.Substorages) != 0 {
+	if res.Blob.Type != "" {
 		res.Errors = append(res.Errors, err)
 		res.Metabase, err = s.metaBase.ObjectStatus(address)
 		res.Errors = append(res.Errors, err)

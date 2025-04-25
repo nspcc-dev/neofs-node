@@ -19,8 +19,7 @@ func TestExists(t *testing.T) {
 
 	const smallSizeLimit = 512
 
-	b := New(
-		WithStorages(defaultStorages(dir, smallSizeLimit)))
+	b := New(WithStorages(defaultStorages(dir)))
 	require.NoError(t, b.Open(false))
 	require.NoError(t, b.Init())
 
@@ -57,14 +56,13 @@ func TestExists(t *testing.T) {
 		require.NoError(t, os.Chmod(dir, 0))
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
-		// Object exists, first error is logged.
 		res, err := b.Exists(objectCore.AddressOf(objects[0]))
-		require.NoError(t, err)
-		require.True(t, res)
-
-		// Object doesn't exist, first error is returned.
-		_, err = b.Exists(objectCore.AddressOf(objects[1]))
 		require.Error(t, err)
+		require.False(t, res)
+
+		res, err = b.Exists(objectCore.AddressOf(objects[1]))
+		require.Error(t, err)
+		require.False(t, res)
 	})
 }
 

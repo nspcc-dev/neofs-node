@@ -11,14 +11,12 @@ func (b *BlobStor) Delete(addr oid.Address) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	for i := range b.storage {
-		err := b.storage[i].Storage.Delete(addr)
-		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
-			if err == nil {
-				logOp(b.log, deleteOp, addr, b.storage[i].Storage.Type())
-			}
-			return err
+	err := b.storage.Storage.Delete(addr)
+	if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+		if err == nil {
+			logOp(b.log, deleteOp, addr)
 		}
+		return err
 	}
 
 	return nil

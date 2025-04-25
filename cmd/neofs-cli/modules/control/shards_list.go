@@ -107,10 +107,8 @@ func prettyPrintShards(cmd *cobra.Command, ii []*control.ShardInfo) {
 
 		var sb strings.Builder
 		sb.WriteString("Blobstor:\n")
-		for j, info := range i.GetBlobstor() {
-			sb.WriteString(fmt.Sprintf("\tPath %d: %s\n\tType %d: %s\n",
-				j, info.GetPath(), j, info.GetType()))
-		}
+		sb.WriteString(fmt.Sprintf("\tPath: %s\n\tType: %s\n",
+			i.GetBlobstor().GetPath(), i.GetBlobstor().GetType()))
 
 		cmd.Printf("Shard %s:\nMode: %s\n"+
 			pathPrinter("Metabase", i.GetMetabasePath())+

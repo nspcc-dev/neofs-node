@@ -30,8 +30,7 @@ func TestChildrenExpiration(t *testing.T) {
 		_, err := e.AddShard(
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(
-					newStorages(filepath.Join(t.TempDir(), fmt.Sprintf("blobstor%d", i)),
-						1<<20)),
+					newStorage(filepath.Join(t.TempDir(), fmt.Sprintf("blobstor%d", i)))),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.TempDir(), fmt.Sprintf("metabase%d", i))),

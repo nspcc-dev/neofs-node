@@ -1,14 +1,11 @@
 package blobstor
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	"go.uber.org/zap"
 )
 
 // ErrNoPlaceFound is returned when object can't be saved to any sub-storage component
@@ -36,32 +33,15 @@ func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) erro
 		raw = obj.Marshal()
 	}
 
-	var overflow bool
-
-	for i := range b.storage {
-		if b.storage[i].Policy == nil || b.storage[i].Policy(obj, raw) {
-			var (
-				typ = b.storage[i].Storage.Type()
-				err = b.storage[i].Storage.Put(addr, raw)
-			)
-			if err != nil {
-				if overflow = errors.Is(err, common.ErrNoSpace); overflow {
-					b.log.Debug("blobstor sub-storage overflowed, will try another one",
-						zap.String("type", typ))
-					continue
-				}
-
-				return fmt.Errorf("put object to sub-storage %s: %w", typ, err)
-			}
-
-			logOp(b.log, putOp, addr, typ)
-
-			return nil
+	if b.storage.Policy == nil || b.storage.Policy(obj, raw) {
+		err := b.storage.Storage.Put(addr, raw)
+		if err != nil {
+			return fmt.Errorf("put object to storage: %w", err)
 		}
-	}
 
-	if overflow {
-		return common.ErrNoSpace
+		logOp(b.log, putOp, addr)
+
+		return nil
 	}
 
 	return ErrNoPlaceFound
@@ -81,53 +61,38 @@ func (b *BlobStor) PutBatch(objs []PutBatchPrm) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	var overflow bool
-
 	for i := range objs {
 		if objs[i].Raw == nil {
 			objs[i].Raw = objs[i].Obj.Marshal()
 		}
 	}
 
-	for i := range b.storage {
-		if !b.canStoreBatch(i, objs) {
-			continue
-		}
-
-		m := make(map[oid.Address][]byte, len(objs))
-		for _, obj := range objs {
-			m[obj.Addr] = obj.Raw
-		}
-
-		typ := b.storage[i].Storage.Type()
-		err := b.storage[i].Storage.PutBatch(m)
-		if err != nil {
-			if overflow = errors.Is(err, common.ErrNoSpace); overflow {
-				b.log.Debug("blobstor sub-storage overflowed, will try another one",
-					zap.String("type", typ))
-				continue
-			}
-			return fmt.Errorf("put object to sub-storage %s: %w", typ, err)
-		}
-
-		for _, obj := range objs {
-			logOp(b.log, putOp, obj.Addr, typ)
-		}
-		return nil
+	if !b.canStoreBatch(objs) {
+		return ErrNoPlaceFound
 	}
 
-	if overflow {
-		return common.ErrNoSpace
+	m := make(map[oid.Address][]byte, len(objs))
+	for _, obj := range objs {
+		m[obj.Addr] = obj.Raw
 	}
-	return ErrNoPlaceFound
+
+	err := b.storage.Storage.PutBatch(m)
+	if err != nil {
+		return fmt.Errorf("put object to storage: %w", err)
+	}
+
+	for _, obj := range objs {
+		logOp(b.log, putOp, obj.Addr)
+	}
+	return nil
 }
 
-func (b *BlobStor) canStoreBatch(storageIdx int, objs []PutBatchPrm) bool {
-	if b.storage[storageIdx].Policy == nil {
+func (b *BlobStor) canStoreBatch(objs []PutBatchPrm) bool {
+	if b.storage.Policy == nil {
 		return true
 	}
 	for _, obj := range objs {
-		if !b.storage[storageIdx].Policy(obj.Obj, obj.Raw) {
+		if !b.storage.Policy(obj.Obj, obj.Raw) {
 			return false
 		}
 	}

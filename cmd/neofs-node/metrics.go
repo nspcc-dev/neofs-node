@@ -51,17 +51,12 @@ func (m1 metricConfig) isUpdated(c *config.Config) bool {
 
 func (c *cfg) setShardsCapacity() error {
 	for _, sh := range c.cfgObject.cfgLocalStorage.localStorage.DumpInfo().Shards {
-		paths := make([]string, 0, len(sh.BlobStorInfo.SubStorages))
-		for _, subStorage := range sh.BlobStorInfo.SubStorages {
-			path, err := getInitPath(subStorage.Path)
-			if err != nil {
-				return err
-			}
-
-			paths = append(paths, path)
+		path, err := getInitPath(sh.BlobStorInfo.Path)
+		if err != nil {
+			return err
 		}
 
-		capacity, err := totalBytes(paths)
+		capacity, err := totalBytes([]string{path})
 		if err != nil {
 			return fmt.Errorf("calculating capacity on shard %s: %w", sh.ID.String(), err)
 		}

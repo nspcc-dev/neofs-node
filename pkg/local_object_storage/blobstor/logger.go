@@ -9,10 +9,9 @@ import (
 const deleteOp = "DELETE"
 const putOp = "PUT"
 
-func logOp(l *zap.Logger, op string, addr oid.Address, typ string) {
+func logOp(l *zap.Logger, op string, addr oid.Address) {
 	storagelog.Write(l,
 		storagelog.AddressField(addr),
 		storagelog.OpField(op),
-		storagelog.StorageTypeField(typ),
 	)
 }

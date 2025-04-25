@@ -25,7 +25,7 @@ type ShardDetails struct {
 
 	WriteCache writecacheconfig.WriteCache `mapstructure:"writecache"`
 	Metabase   metabaseconfig.Metabase     `mapstructure:"metabase"`
-	Blobstor   []blobstorconfig.Blobstor   `mapstructure:"blobstor"`
+	Blobstor   blobstorconfig.Blobstor     `mapstructure:"blobstor"`
 	GC         gcconfig.GC                 `mapstructure:"gc"`
 }
 
@@ -36,13 +36,7 @@ func (s *ShardDetails) Normalize(def ShardDetails) {
 	s.ResyncMetabase = internal.CheckPtrBool(s.ResyncMetabase, def.ResyncMetabase)
 	s.Compress = internal.CheckPtrBool(s.Compress, def.Compress)
 	s.SmallObjectSize.Check(def.SmallObjectSize, SmallSizeLimitDefault)
-	for i := range s.Blobstor {
-		defBlob := blobstorconfig.Blobstor{}
-		if len(def.Blobstor) > i {
-			defBlob = def.Blobstor[i]
-		}
-		s.Blobstor[i].Normalize(defBlob)
-	}
+	s.Blobstor.Normalize(def.Blobstor)
 	s.WriteCache.Normalize(def.WriteCache)
 	s.Metabase.Normalize(def.Metabase)
 	s.GC.Normalize(def.GC)
@@ -54,8 +48,6 @@ func (c *ShardDetails) ID() string {
 	// This calculation should be kept in sync with
 	// pkg/local_object_storage/engine/control.go file.
 	var sb strings.Builder
-	for i := range c.Blobstor {
-		sb.WriteString(filepath.Clean(c.Blobstor[i].Path))
-	}
+	sb.WriteString(filepath.Clean(c.Blobstor.Path))
 	return sb.String()
 }

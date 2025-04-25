@@ -39,7 +39,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 		ids[i], err = e.AddShard(
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobStorOptions(
-				blobstor.WithStorages(newStorages(filepath.Join(dir, strconv.Itoa(i)), errSmallSize))),
+				blobstor.WithStorages(newStorage(filepath.Join(dir, strconv.Itoa(i))))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
@@ -158,8 +158,8 @@ func TestBlobstorFailback(t *testing.T) {
 	checkShardState(t, e, id[0], 0, mode.ReadWrite)
 	require.NoError(t, e.Close())
 
-	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.SubStorages[1].Path
-	p2 := e.shards[id[1].String()].Shard.DumpInfo().BlobStorInfo.SubStorages[1].Path
+	p1 := e.shards[id[0].String()].Shard.DumpInfo().BlobStorInfo.Path
+	p2 := e.shards[id[1].String()].Shard.DumpInfo().BlobStorInfo.Path
 	tmp := filepath.Join(dir, "tmp")
 	require.NoError(t, os.Rename(p1, tmp))
 	require.NoError(t, os.Rename(p2, p1))

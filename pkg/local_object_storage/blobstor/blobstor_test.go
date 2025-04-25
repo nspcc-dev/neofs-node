@@ -2,28 +2,17 @@ package blobstor
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/stretchr/testify/require"
 )
 
-func defaultStorages(p string, smallSizeLimit uint64) []SubStorage {
-	return []SubStorage{
-		{
-			Storage: peapod.New(filepath.Join(p, "peapod.db"), 0o600, 10*time.Millisecond),
-			Policy: func(_ *objectSDK.Object, data []byte) bool {
-				return uint64(len(data)) <= smallSizeLimit
-			},
-		},
-		{
-			Storage: fstree.New(fstree.WithPath(p)),
-		},
+func defaultStorages(p string) SubStorage {
+	return SubStorage{
+		Storage: fstree.New(fstree.WithPath(p)),
 	}
 }
 
@@ -40,7 +29,7 @@ func TestCompression(t *testing.T) {
 	newBlobStor := func(t *testing.T, compress bool) *BlobStor {
 		bs := New(
 			WithCompressObjects(compress),
-			WithStorages(defaultStorages(dir, smallSizeLimit)))
+			WithStorages(defaultStorages(dir)))
 		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs
@@ -128,17 +117,7 @@ func TestBlobstor_needsCompression(t *testing.T) {
 		bs := New(
 			WithCompressObjects(compress),
 			WithUncompressableContentTypes(ct),
-			WithStorages([]SubStorage{
-				{
-					Storage: peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return uint64(len(data)) < smallSizeLimit
-					},
-				},
-				{
-					Storage: fstree.New(fstree.WithPath(dir)),
-				},
-			}))
+			WithStorages(defaultStorages(dir)))
 		require.NoError(t, bs.Open(false))
 		require.NoError(t, bs.Init())
 		return bs

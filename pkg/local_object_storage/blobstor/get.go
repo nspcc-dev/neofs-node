@@ -16,11 +16,9 @@ func (b *BlobStor) Get(addr oid.Address) (*objectSDK.Object, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	for i := range b.storage {
-		obj, err := b.storage[i].Storage.Get(addr)
-		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
-			return obj, err
-		}
+	obj, err := b.storage.Storage.Get(addr)
+	if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+		return obj, err
 	}
 
 	return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -33,13 +31,9 @@ func (b *BlobStor) GetBytes(addr oid.Address) ([]byte, error) {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	var bs []byte
-	for i := range b.storage {
-		var err error
-		bs, err = b.storage[i].Storage.GetBytes(addr)
-		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
-			return bs, err
-		}
+	bs, err := b.storage.Storage.GetBytes(addr)
+	if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+		return bs, err
 	}
 
 	return nil, logicerr.Wrap(apistatus.ObjectNotFound{})

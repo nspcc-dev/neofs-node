@@ -163,17 +163,15 @@ The following table describes configuration for each shard.
 
 ### `blobstor` subsection
 
-Contains a list of substorages each with it's own type.
+Contains storage type and its configuration.
 Currently only 2 types are supported: `fstree` and `peapod`.
 
 ```yaml
 blobstor:
-  - type: peapod
-    path: /path/to/peapod.db
-  - type: fstree
-    path: /path/to/blobstor
-    perm: 0644
-    depth: 1
+  type: fstree
+  path: /path/to/blobstor
+  perm: 0644
+  depth: 1
 ```
 
 #### Common options for sub-storages

@@ -42,6 +42,7 @@ Changelog for NeoFS Node
 - Storage Node now prohibits parents with their own parents (object split of already split object) (#2451)
 - Storage Nodes do not accept REPLICATE with a header that exceeds the limit (#3297)
 - Search API is served from SearchV2 indexes now (#3316)
+- Blobstor can be of exactly one type, with no substorages (#3330)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
@@ -83,6 +84,11 @@ Experimental tree service is completely removed in this release, please drop
 `tree` and `pilorama` configuration sections as well as pilorama DB files.
 
 `netmap_cleaner` section should be removed from IR configuration.
+
+Now the `blobstor` field in the shard configuration in the `storage` section
+is not a list of substorages, but a single storage setting. So there is
+only one type of storage now. Remove the list from the `blobstor` section in
+config and set up one storage.
 
 ## [0.45.2] - 2025-03-25
 
