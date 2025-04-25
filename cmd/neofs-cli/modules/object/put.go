@@ -124,7 +124,13 @@ func putObject(cmd *cobra.Command, _ []string) error {
 
 	var prm internalclient.PutObjectPrm
 	prm.SetPrivateKey(*pk)
-	err = ReadOrOpenSession(ctx, cmd, &prm, pk, cnr)
+
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
+
+	err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr)
 	if err != nil {
 		return err
 	}

@@ -253,19 +253,6 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	return tok, nil
 }
 
-// ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
-func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	cli, err := internal.GetSDKClientByFlag(ctx, commonflags.RPC)
-	if err != nil {
-		return err
-	}
-	err = ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // ReadOrOpenSessionViaClient tries to read session from the file specified in
 // commonflags.SessionToken flag, finalizes structures of the decoded token
 // and write the result into provided SessionPrm. If file is missing,

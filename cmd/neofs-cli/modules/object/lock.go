@@ -86,7 +86,12 @@ var objectLockCmd = &cobra.Command{
 		ctx, cancel := commonflags.GetCommandContext(cmd)
 		defer cancel()
 
-		err = ReadOrOpenSession(ctx, cmd, &prm, key, cnr)
+		cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+		if err != nil {
+			return err
+		}
+
+		err = ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, key, cnr)
 		if err != nil {
 			return err
 		}
