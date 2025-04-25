@@ -92,9 +92,14 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
+
 	for _, addr := range objAddrs {
 		id := addr.Object()
-		err := ReadOrOpenSession(ctx, cmd, &prm, pk, cnr, id)
+		err := ReadOrOpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr, id)
 		if err != nil {
 			return err
 		}
