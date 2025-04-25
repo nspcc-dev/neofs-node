@@ -291,19 +291,6 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 	return nil
 }
 
-// OpenSession opens client connection and calls OpenSessionViaClient with it.
-func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	cli, err := internal.GetSDKClientByFlag(ctx, commonflags.RPC)
-	if err != nil {
-		return err
-	}
-	err = OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // OpenSessionViaClient opens object session with the remote node, finalizes
 // structure of the session token and writes the result into the provided
 // SessionPrm. Also writes provided client connection to the SessionPrm.

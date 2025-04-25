@@ -52,7 +52,12 @@ func delSG(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := commonflags.GetCommandContext(cmd)
 	defer cancel()
 
-	err = objectCli.OpenSession(ctx, cmd, &prm, pk, cnr, obj)
+	cli, err := internalclient.GetSDKClientByFlag(ctx, commonflags.RPC)
+	if err != nil {
+		return err
+	}
+
+	err = objectCli.OpenSessionViaClient(ctx, cmd, &prm, cli, pk, cnr, obj)
 	if err != nil {
 		return err
 	}
