@@ -292,7 +292,6 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 
 	var addrBuff oid.Address
 	var cidBuff cid.ID
-	var uniqueObjectsMap map[oid.ID]struct{}
 	alreadyHandledContainers := make(map[cid.ID]struct{})
 	resObjects := make([]oid.Address, 0, initCap)
 	resContainers := make([]cid.ID, 0)
@@ -312,22 +311,9 @@ func (db *DB) GetGarbage(limit int) ([]oid.Address, []cid.ID, error) {
 				return fmt.Errorf("parsing raw CID: %w", err)
 			}
 
-			// another container, clean the map
-			if uniqueObjectsMap == nil {
-				uniqueObjectsMap = make(map[oid.ID]struct{}, initCap)
-			} else {
-				clear(uniqueObjectsMap)
-			}
-
-			err = listContainerObjects(tx, cidBuff, uniqueObjectsMap, limit-len(resObjects))
+			resObjects, err = listContainerObjects(tx, cidBuff, resObjects, limit)
 			if err != nil {
 				return fmt.Errorf("listing objects for %s container: %w", cidBuff, err)
-			}
-
-			addrBuff.SetContainer(cidBuff)
-			for obj := range uniqueObjectsMap {
-				addrBuff.SetObject(obj)
-				resObjects = append(resObjects, addrBuff)
 			}
 
 			alreadyHandledContainers[cidBuff] = struct{}{}

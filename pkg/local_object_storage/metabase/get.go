@@ -187,21 +187,21 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []b
 	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }
 
-func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, limit int) error {
+func listContainerObjects(tx *bbolt.Tx, cID cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
 	var metaBkt = tx.Bucket(metaBucketKey(cID))
 	if metaBkt == nil {
-		return nil
+		return objs, nil
 	}
 
 	var cur = metaBkt.Cursor()
 	k, _ := cur.Seek([]byte{metaPrefixID})
-	for ; len(k) > 0 && len(unique) < limit && k[0] == metaPrefixID; k, _ = cur.Next() {
+	for ; len(k) > 0 && len(objs) < limit && k[0] == metaPrefixID; k, _ = cur.Next() {
 		obj, err := oid.DecodeBytes(k[1:])
 		if err != nil {
-			return fmt.Errorf("garbage prefixID key of length %d for container %s: %w", len(k), cID, err)
+			return objs, fmt.Errorf("garbage prefixID key of length %d for container %s: %w", len(k), cID, err)
 		}
-		unique[obj] = struct{}{}
+		objs = append(objs, oid.NewAddress(cID, obj))
 	}
 
-	return nil
+	return objs, nil
 }
