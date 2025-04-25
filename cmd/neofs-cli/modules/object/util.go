@@ -246,7 +246,7 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	if err := icrypto.AuthenticateToken(tok, nil); err != nil {
 		var errScheme icrypto.ErrUnsupportedScheme
 		if !errors.As(err, &errScheme) || neofscrypto.Scheme(errScheme) != neofscrypto.N3 {
-			return nil, err
+			return nil, fmt.Errorf("verify session token signature: %w", err)
 		}
 		// CLI has no tool to verify N3 signature, so check is delegated to the server
 	}
