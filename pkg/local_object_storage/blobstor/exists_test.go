@@ -43,7 +43,7 @@ func TestExists(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, res)
 
-	t.Run("corrupt direcrory", func(t *testing.T) {
+	t.Run("corrupt directory", func(t *testing.T) {
 		var bigDir string
 		de, err := os.ReadDir(dir)
 		require.NoError(t, err)
