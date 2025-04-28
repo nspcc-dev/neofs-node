@@ -47,6 +47,7 @@ Changelog for NeoFS Node
 - Storage Nodes do not accept REPLICATE with a header that exceeds the limit (#3297)
 - Search API is served from SearchV2 indexes now (#3316)
 - Blobstor can be of exactly one type, with no substorages (#3330)
+- SN handles filtered attribute-less SearchV2 queries faster on big containers (#3329)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
