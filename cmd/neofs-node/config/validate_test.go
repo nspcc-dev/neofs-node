@@ -188,7 +188,6 @@ storage:
       max_batch_delay: 20ms
 
     compress: false
-    small_object_size: 100 kb
 
     blobstor:
       perm: 0644

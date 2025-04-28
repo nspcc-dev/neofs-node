@@ -132,7 +132,6 @@
         "compression_exclude_content_types": [
           "audio/*", "video/*"
         ],
-        "small_object_size": 102400,
         "blobstor": {
           "type": "fstree",
           "path": "tmp/0/blob",
@@ -160,7 +159,6 @@
           "max_batch_delay": "20ms"
         },
         "compress": false,
-        "small_object_size": 102400,
         "blobstor": {
           "type": "fstree",
           "path": "tmp/1/blob",

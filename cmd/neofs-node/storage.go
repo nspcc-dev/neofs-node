@@ -6,7 +6,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -127,13 +126,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 					fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
 				Policy: func(_ *objectSDK.Object, data []byte) bool {
 					return true
-				},
-			}
-		case peapod.Type:
-			ss = blobstor.SubStorage{
-				Storage: peapod.New(sRead.Path, sRead.Perm, sRead.FlushInterval),
-				Policy: func(_ *objectSDK.Object, data []byte) bool {
-					return uint64(len(data)) < uint64(shCfg.SmallObjectSize)
 				},
 			}
 		default:

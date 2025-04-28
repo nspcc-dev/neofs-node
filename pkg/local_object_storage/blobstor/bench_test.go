@@ -3,28 +3,17 @@ package blobstor_test
 import (
 	"crypto/rand"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
-
-func testPeapodPath(tb testing.TB) string {
-	return filepath.Join(tb.TempDir(), "peapod.db")
-}
-
-func newTestPeapod(tb testing.TB) common.Storage {
-	return peapod.New(testPeapodPath(tb), 0o600, 10*time.Millisecond)
-}
 
 func newTestFSTree(tb testing.TB) common.Storage {
 	return fstree.New(
@@ -75,7 +64,6 @@ func BenchmarkPut(b *testing.B) {
 	} {
 		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
 			for name, creat := range map[string]func(testing.TB) common.Storage{
-				"peapod": newTestPeapod,
 				"fstree": newTestFSTree,
 			} {
 				b.Run(name, func(b *testing.B) {
@@ -110,7 +98,6 @@ func BenchmarkGet(b *testing.B) {
 	} {
 		b.Run(fmt.Sprintf("size=%d,thread=%d", tc.objSize, tc.nThreads), func(b *testing.B) {
 			for name, creat := range map[string]func(testing.TB) common.Storage{
-				"peapod": newTestPeapod,
 				"fstree": newTestFSTree,
 			} {
 				b.Run(name, func(b *testing.B) {

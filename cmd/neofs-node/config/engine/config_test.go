@@ -74,7 +74,6 @@ func TestEngineSection(t *testing.T) {
 
 				require.True(t, *sc.Compress)
 				require.Equal(t, []string{"audio/*", "video/*"}, sc.CompressionExcludeContentTypes)
-				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
 				require.Equal(t, "tmp/0/blob", ss.Path)
 				require.EqualValues(t, 0644, ss.Perm)
@@ -101,7 +100,6 @@ func TestEngineSection(t *testing.T) {
 
 				require.False(t, *sc.Compress)
 				require.Equal(t, []string(nil), sc.CompressionExcludeContentTypes)
-				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
 				require.Equal(t, "tmp/1/blob", ss.Path)
 				require.EqualValues(t, 0644, ss.Perm)

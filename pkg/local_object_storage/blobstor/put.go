@@ -21,9 +21,6 @@ type PutBatchPrm struct {
 
 // Put saves the object in BLOB storage. raw can be nil, in which case obj is
 // serialized internally.
-//
-// If object is "big", BlobStor saves the object in shallow dir.
-// Otherwise, BlobStor saves the object in peapod.
 func (b *BlobStor) Put(addr oid.Address, obj *objectSDK.Object, raw []byte) error {
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
@@ -55,7 +52,7 @@ func (b *BlobStor) NeedsCompression(obj *objectSDK.Object) bool {
 	return b.cfg.compression.NeedsCompression(obj)
 }
 
-// PutBatch stores a batch of objects in a sub-storage,
+// PutBatch stores a batch of objects in a storage,
 // falling back to individual puts if needed.
 func (b *BlobStor) PutBatch(objs []PutBatchPrm) error {
 	b.modeMtx.RLock()

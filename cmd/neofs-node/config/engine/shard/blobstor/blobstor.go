@@ -20,8 +20,7 @@ const (
 	CombinedSizeThresholdDefault = 128 * 1024
 	// PermDefault are default permission bits for BlobStor data.
 	PermDefault = 0o640
-	// DefaultFlushInterval is the default time interval between Peapod's batch writes
-	// to disk.
+	// DefaultFlushInterval is the default time interval between batch writes to disk.
 	DefaultFlushInterval = 10 * time.Millisecond
 )
 

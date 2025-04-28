@@ -9,7 +9,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -79,7 +78,7 @@ func validateConfig(c *config.Config) error {
 
 		blobstor := sc.Blobstor
 		switch blobstor.Type {
-		case fstree.Type, peapod.Type:
+		case fstree.Type:
 		default:
 			return fmt.Errorf("unexpected storage type: %s (shard %d)",
 				blobstor.Type, shardNum)

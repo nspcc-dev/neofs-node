@@ -17,11 +17,10 @@ const SmallSizeLimitDefault = 1 << 20
 
 // ShardDetails contains configuration for a single shard of a storage node.
 type ShardDetails struct {
-	Mode                           mode.Mode     `mapstructure:"mode"`
-	ResyncMetabase                 *bool         `mapstructure:"resync_metabase"`
-	Compress                       *bool         `mapstructure:"compress"`
-	CompressionExcludeContentTypes []string      `mapstructure:"compression_exclude_content_types"`
-	SmallObjectSize                internal.Size `mapstructure:"small_object_size"`
+	Mode                           mode.Mode `mapstructure:"mode"`
+	ResyncMetabase                 *bool     `mapstructure:"resync_metabase"`
+	Compress                       *bool     `mapstructure:"compress"`
+	CompressionExcludeContentTypes []string  `mapstructure:"compression_exclude_content_types"`
 
 	WriteCache writecacheconfig.WriteCache `mapstructure:"writecache"`
 	Metabase   metabaseconfig.Metabase     `mapstructure:"metabase"`
@@ -35,7 +34,6 @@ type ShardDetails struct {
 func (s *ShardDetails) Normalize(def ShardDetails) {
 	s.ResyncMetabase = internal.CheckPtrBool(s.ResyncMetabase, def.ResyncMetabase)
 	s.Compress = internal.CheckPtrBool(s.Compress, def.Compress)
-	s.SmallObjectSize.Check(def.SmallObjectSize, SmallSizeLimitDefault)
 	s.Blobstor.Normalize(def.Blobstor)
 	s.WriteCache.Normalize(def.WriteCache)
 	s.Metabase.Normalize(def.Metabase)

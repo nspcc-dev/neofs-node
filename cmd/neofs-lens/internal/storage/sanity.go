@@ -14,9 +14,7 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	commonb "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -40,8 +38,6 @@ func init() {
 type storageShard struct {
 	m   *meta.DB
 	fsT *fstree.FSTree
-	// nolint:staticcheck
-	p *peapod.Peapod
 }
 
 func sanityCheck(cmd *cobra.Command, _ []string) error {
@@ -49,9 +45,6 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 	defer func() {
 		for _, sh := range shards {
 			_ = sh.m.Close()
-			if sh.p != nil {
-				_ = sh.p.Close()
-			}
 			if sh.fsT != nil {
 				_ = sh.fsT.Close()
 			}
@@ -81,16 +74,6 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 		switch subCfg.Type {
 		default:
 			return fmt.Errorf("unsupported sub-storage type '%s'", subCfg.Type)
-		case peapod.Type:
-			sh.p = peapod.New(subCfg.Path, subCfg.Perm, subCfg.FlushInterval)
-
-			var compressCfg compression.Config
-			err := compressCfg.Init()
-			if err != nil {
-				return fmt.Errorf("failed to init compression config: %w", err)
-			}
-
-			sh.p.SetCompressor(&compressCfg)
 		case fstree.Type:
 			sh.fsT = fstree.New(
 				fstree.WithPath(subCfg.Path),
@@ -102,11 +85,6 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 
 		if err := sh.m.Open(true); err != nil {
 			return fmt.Errorf("open metabase: %w", err)
-		}
-		if sh.p != nil {
-			if err := sh.p.Open(true); err != nil {
-				return fmt.Errorf("open peapod: %w", err)
-			}
 		}
 		if sh.fsT != nil {
 			if err := sh.fsT.Open(true); err != nil {
@@ -121,11 +99,6 @@ func sanityCheck(cmd *cobra.Command, _ []string) error {
 
 		if err := sh.m.Init(); err != nil {
 			return fmt.Errorf("init metabase: %w", err)
-		}
-		if sh.p != nil {
-			if err := sh.p.Init(); err != nil {
-				return fmt.Errorf("init peapod: %w", err)
-			}
 		}
 		if sh.fsT != nil {
 			if err := sh.fsT.Init(); err != nil {
@@ -199,26 +172,18 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 				return objectsChecked, fmt.Errorf("reading %s object in metabase: %w", addr, err)
 			}
 
-			var err1, err2 error
-
+			var checkErr error
 			if sh.fsT != nil {
-				err1 = checkObject(*header, sh.fsT)
-			}
-			if sh.p != nil {
-				err2 = checkObject(*header, sh.p)
+				checkErr = checkObject(*header, sh.fsT)
 			}
 
-			if err1 != nil && err2 != nil { // Treat one successful result as success.
-				if errors.Is(err1, logicerr.Error) {
-					cmd.Printf("%s object failed check: %s\n", addr, err1)
-					continue
-				}
-				if errors.Is(err2, logicerr.Error) {
-					cmd.Printf("%s object failed check: %s\n", addr, err2)
+			if checkErr != nil {
+				if errors.Is(checkErr, logicerr.Error) {
+					cmd.Printf("%s object failed check: %s\n", addr, checkErr)
 					continue
 				}
 
-				return objectsChecked, fmt.Errorf("critical error at %s object check: %w/%w", addr, err1, err2)
+				return objectsChecked, fmt.Errorf("critical error at %s object check: %w", addr, checkErr)
 			}
 
 			objectsChecked++
