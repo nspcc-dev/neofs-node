@@ -97,6 +97,7 @@ func putSG(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 	getCnrPrm.SetClient(cli)
 	getCnrPrm.SetContainer(cnr)
 

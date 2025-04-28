@@ -78,6 +78,7 @@ func getObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var prm internalclient.GetObjectPrm
 	prm.SetClient(cli)

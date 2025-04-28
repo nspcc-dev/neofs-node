@@ -54,6 +54,7 @@ Container ID in EACL table will be substituted with ID from the CLI.`,
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 		force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
 		if !force {
 			common.PrintVerbose(cmd, "Validating eACL table...")

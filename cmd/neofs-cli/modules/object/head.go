@@ -64,6 +64,7 @@ func getObjectHeader(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var prm internalclient.HeadObjectPrm
 	prm.SetClient(cli)

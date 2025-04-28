@@ -75,6 +75,7 @@ func createSession(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("can't create client: %w", err)
 	}
+	defer c.Close()
 
 	endpoint, _ := cmd.Flags().GetString(commonflags.RPC)
 	currEpoch, err := internalclient.GetCurrentEpoch(ctx, endpoint)

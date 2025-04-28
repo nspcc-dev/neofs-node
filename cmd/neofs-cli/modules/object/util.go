@@ -246,24 +246,11 @@ func getVerifiedSession(cmd *cobra.Command, cmdVerb session.ObjectVerb, key *ecd
 	if err := icrypto.AuthenticateToken(tok, nil); err != nil {
 		var errScheme icrypto.ErrUnsupportedScheme
 		if !errors.As(err, &errScheme) || neofscrypto.Scheme(errScheme) != neofscrypto.N3 {
-			return nil, err
+			return nil, fmt.Errorf("verify session token signature: %w", err)
 		}
 		// CLI has no tool to verify N3 signature, so check is delegated to the server
 	}
 	return tok, nil
-}
-
-// ReadOrOpenSession opens client connection and calls ReadOrOpenSessionViaClient with it.
-func ReadOrOpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	cli, err := internal.GetSDKClientByFlag(ctx, commonflags.RPC)
-	if err != nil {
-		return err
-	}
-	err = ReadOrOpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // ReadOrOpenSessionViaClient tries to read session from the file specified in
@@ -288,19 +275,6 @@ func ReadOrOpenSessionViaClient(ctx context.Context, cmd *cobra.Command, dst Ses
 		return err
 	}
 	dst.SetClient(cli)
-	return nil
-}
-
-// OpenSession opens client connection and calls OpenSessionViaClient with it.
-func OpenSession(ctx context.Context, cmd *cobra.Command, dst SessionPrm, key *ecdsa.PrivateKey, cnr cid.ID, objs ...oid.ID) error {
-	cli, err := internal.GetSDKClientByFlag(ctx, commonflags.RPC)
-	if err != nil {
-		return err
-	}
-	err = OpenSessionViaClient(ctx, cmd, dst, cli, key, cnr, objs...)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

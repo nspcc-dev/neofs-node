@@ -101,6 +101,7 @@ func searchObject(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var prm internalclient.SearchObjectsPrm
 	prm.SetClient(cli)
@@ -237,6 +238,7 @@ func searchV2(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var opts client.SearchObjectsOptions
 	opts.SetCount(uint32(searchCountFlag.v))

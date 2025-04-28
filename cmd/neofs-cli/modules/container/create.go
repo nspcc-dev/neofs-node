@@ -58,6 +58,7 @@ It will be stored in FS chain when inner ring will accepts it.`,
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		if !force {
 			var prm internalclient.NetMapSnapshotPrm

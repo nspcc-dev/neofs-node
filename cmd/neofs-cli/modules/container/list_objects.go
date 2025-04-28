@@ -56,6 +56,7 @@ var listContainerObjectsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var prmHead internalclient.HeadObjectPrm
 		if flagVarListObjectsPrintAttr {

@@ -54,6 +54,7 @@ func listSG(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	var opts client.SearchObjectsOptions
 	ttl := viper.GetUint32(commonflags.TTL)

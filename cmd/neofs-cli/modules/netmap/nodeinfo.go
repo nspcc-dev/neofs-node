@@ -26,6 +26,7 @@ var nodeInfoCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		var prm internalclient.NodeInfoPrm
 		prm.SetClient(cli)

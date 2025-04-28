@@ -44,6 +44,7 @@ Only owner of the container has a permission to remove container.`,
 		if err != nil {
 			return err
 		}
+		defer cli.Close()
 
 		if force, _ := cmd.Flags().GetBool(commonflags.ForceFlag); !force {
 			common.PrintVerbose(cmd, "Reading the container to check ownership...")
