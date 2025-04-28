@@ -54,6 +54,7 @@ Changelog for NeoFS Node
 - Tree service related CLI commands (#3270)
 - Netmap v1 node support (#3304)
 - `netmap_cleaner` IR configuration (#3304)
+- `peapod-to-fstree` migration tool (#3330)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
