@@ -38,6 +38,7 @@ func TestDeleteBigObject(t *testing.T) {
 		}
 		children[i].SetSplitID(splitID)
 		children[i].SetPayload([]byte{byte(i), byte(i + 1), byte(i + 2)})
+		children[i].SetPayloadSize(3)
 		childIDs[i] = children[i].GetID()
 	}
 

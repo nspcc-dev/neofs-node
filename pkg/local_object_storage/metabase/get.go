@@ -1,10 +1,10 @@
 package meta
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 
-	"github.com/mr-tron/base58"
+	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -92,8 +92,11 @@ func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, curr
 		return obj, obj.Unmarshal(data)
 	}
 
-	// if not found then check if object is a virtual
-	return getVirtualObject(tx, cnr, key, raw)
+	// if not found then check if object is a virtual one, but this contradicts raw flag
+	if raw {
+		return nil, getSplitInfoError(tx, cnr, addr.Object(), bucketName)
+	}
+	return getVirtualObject(tx, cnr, addr.Object(), bucketName)
 }
 
 func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
@@ -105,36 +108,54 @@ func getFromBucket(tx *bbolt.Tx, name, key []byte) []byte {
 	return bkt.Get(key)
 }
 
-func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSDK.Object, error) {
-	if raw {
-		return nil, getSplitInfoError(tx, cnr, key)
+func getParentMetaOwnersPrefix(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*bbolt.Bucket, []byte) {
+	bucketName[0] = metadataPrefix
+	copy(bucketName[1:], cnr[:])
+
+	var metaBucket = tx.Bucket(bucketName)
+	if metaBucket == nil {
+		return nil, nil
 	}
 
-	bucketName := make([]byte, bucketKeySize)
-	parentBucket := tx.Bucket(parentBucketName(cnr, bucketName))
-	if parentBucket == nil {
+	var parentPrefix = make([]byte, 1+len(objectSDK.FilterParentID)+attributeDelimiterLen+len(parentID)+attributeDelimiterLen)
+	parentPrefix[0] = metaPrefixAttrIDPlain
+	off := 1 + copy(parentPrefix[1:], objectSDK.FilterParentID)
+	off += copy(parentPrefix[off:], objectcore.MetaAttributeDelimiter)
+	copy(parentPrefix[off:], parentID[:])
+
+	return metaBucket, parentPrefix
+}
+
+func getChildForParent(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) oid.ID {
+	var childOID oid.ID
+
+	metaBucket, parentPrefix := getParentMetaOwnersPrefix(tx, cnr, parentID, bucketName)
+	if metaBucket == nil {
+		return childOID
+	}
+
+	var cur = metaBucket.Cursor()
+	k, _ := cur.Seek(parentPrefix)
+
+	if bytes.HasPrefix(k, parentPrefix) {
+		// Error will lead to zero oid which is ~the same as missing child.
+		childOID, _ = oid.DecodeBytes(k[len(parentPrefix):])
+	}
+	return childOID
+}
+
+func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) (*objectSDK.Object, error) {
+	var childOID = getChildForParent(tx, cnr, parentID, bucketName)
+
+	if childOID.IsZero() {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
-
-	relativeLst, err := decodeList(parentBucket.Get(key))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(relativeLst) == 0 { // this should never happen though
-		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-	}
-
-	// pick last item, for now there is not difference which address to pick
-	// but later list might be sorted so first or last value can be more
-	// prioritized to choose
-	virtualOID := relativeLst[len(relativeLst)-1]
 
 	// we should have a link object
-	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), virtualOID)
+	data := getFromBucket(tx, linkObjectsBucketName(cnr, bucketName), childOID[:])
 	if len(data) == 0 {
 		// no link object, so we may have the last object with parent header
-		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), virtualOID)
+		data = getFromBucket(tx, primaryBucketName(cnr, bucketName), childOID[:])
 	}
 
 	if len(data) == 0 {
@@ -143,9 +164,9 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 
 	child := objectSDK.New()
 
-	err = child.Unmarshal(data)
+	err := child.Unmarshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", base58.Encode(virtualOID), base58.Encode(key), err)
+		return nil, fmt.Errorf("can't unmarshal %s child with %s parent: %w", childOID, parentID, err)
 	}
 
 	par := child.Parent()
@@ -157,8 +178,8 @@ func getVirtualObject(tx *bbolt.Tx, cnr cid.ID, key []byte, raw bool) (*objectSD
 	return par, nil
 }
 
-func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
-	splitInfo, err := getSplitInfo(tx, cnr, key)
+func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, parentID oid.ID, bucketName []byte) error {
+	splitInfo, err := getSplitInfo(tx, cnr, parentID, bucketName)
 	if err == nil {
 		return logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -166,95 +187,21 @@ func getSplitInfoError(tx *bbolt.Tx, cnr cid.ID, key []byte) error {
 	return logicerr.Wrap(apistatus.ObjectNotFound{})
 }
 
-func listContainerObjects(tx *bbolt.Tx, cID cid.ID, unique map[oid.ID]struct{}, limit int) error {
-	buff := make([]byte, bucketKeySize)
-	var err error
-
-	// Regular objects
-	bktRegular := tx.Bucket(primaryBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktRegular, unique, limit)
-	if err != nil {
-		return fmt.Errorf("regular objects iteration: %w", err)
+func listContainerObjects(tx *bbolt.Tx, cID cid.ID, objs []oid.Address, limit int) ([]oid.Address, error) {
+	var metaBkt = tx.Bucket(metaBucketKey(cID))
+	if metaBkt == nil {
+		return objs, nil
 	}
 
-	// Lock objects
-	bktLockers := tx.Bucket(bucketNameLockers(cID, buff))
-	err = expandObjectsFromBucket(bktLockers, unique, limit)
-	if err != nil {
-		return fmt.Errorf("lockers iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	// SG objects
-	bktSG := tx.Bucket(storageGroupBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktSG, unique, limit)
-	if err != nil {
-		return fmt.Errorf("storage groups iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	// TS objects
-	bktTS := tx.Bucket(tombstoneBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktTS, unique, limit)
-	if err != nil {
-		return fmt.Errorf("tomb stones iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	// link objects
-	bktInit := tx.Bucket(linkObjectsBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktInit, unique, limit)
-	if err != nil {
-		return fmt.Errorf("link objects iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	bktRoot := tx.Bucket(rootBucketName(cID, buff))
-	err = expandObjectsFromBucket(bktRoot, unique, limit)
-	if err != nil {
-		return fmt.Errorf("root objects iteration: %w", err)
-	}
-	if len(unique) >= limit {
-		return nil
-	}
-
-	return nil
-}
-
-var errBreakIter = errors.New("stop it")
-
-func expandObjectsFromBucket(bkt *bbolt.Bucket, resMap map[oid.ID]struct{}, limit int) error {
-	if bkt == nil {
-		return nil
-	}
-
-	var oID oid.ID
-	var err error
-
-	err = bkt.ForEach(func(k, _ []byte) error {
-		err = oID.Decode(k)
+	var cur = metaBkt.Cursor()
+	k, _ := cur.Seek([]byte{metaPrefixID})
+	for ; len(k) > 0 && len(objs) < limit && k[0] == metaPrefixID; k, _ = cur.Next() {
+		obj, err := oid.DecodeBytes(k[1:])
 		if err != nil {
-			return fmt.Errorf("object ID parsing: %w", err)
+			return objs, fmt.Errorf("garbage prefixID key of length %d for container %s: %w", len(k), cID, err)
 		}
-
-		resMap[oID] = struct{}{}
-		if len(resMap) == limit {
-			return errBreakIter
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, errBreakIter) {
-		return err
+		objs = append(objs, oid.NewAddress(cID, obj))
 	}
 
-	return nil
+	return objs, nil
 }

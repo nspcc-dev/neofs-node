@@ -166,12 +166,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 			return fmt.Errorf("tombstone bucket cleanup: %w", err)
 		}
 
-		// Root objects
-		err = tx.DeleteBucket(rootBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("root object's bucket cleanup: %w", err)
-		}
-
 		// Link objects
 		err = tx.DeleteBucket(linkObjectsBucketName(cID, buff))
 		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
@@ -181,13 +175,6 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 		// Metadata
 		if err = tx.DeleteBucket(metaBucketKey(cID)); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("metadata bucket cleanup: %w", err)
-		}
-
-		// indexes
-
-		err = tx.DeleteBucket(parentBucketName(cID, buff))
-		if err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
-			return fmt.Errorf("parent index cleanup: %w", err)
 		}
 
 		cnrGCBkt := tx.Bucket(garbageContainersBucketName)

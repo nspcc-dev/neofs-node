@@ -80,6 +80,7 @@ func TestChildrenExpiration(t *testing.T) {
 		child3.SetPreviousID(child2ID)
 		child3.SetParent(parent)
 		child3.SetParentID(parentID)
+		child3.SetPayloadSize(100500)
 
 		link := generateObjectWithCID(cnr)
 		link.SetParent(parent)

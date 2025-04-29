@@ -64,7 +64,8 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 
-		if removedStatus != 0 && objectLocked(tx, cID, oID) || inBucket(tx, primaryBucketName(cID, key), objKey) || inBucket(tx, parentBucketName(cID, key), objKey) {
+		childForParent := getChildForParent(tx, cID, oID, key)
+		if (removedStatus != 0 && objectLocked(tx, cID, oID)) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
 			res.State = append(res.State, "AVAILABLE")
 		}
 		if removedStatus == 1 {
@@ -93,8 +94,6 @@ func readBuckets(tx *bbolt.Tx, cID cid.ID, objKey []byte) ([]BucketValue, []Head
 		bucketNameLockers(cID, make([]byte, bucketKeySize)),
 		storageGroupBucketName(cID, make([]byte, bucketKeySize)),
 		tombstoneBucketName(cID, make([]byte, bucketKeySize)),
-		rootBucketName(cID, make([]byte, bucketKeySize)),
-		parentBucketName(cID, make([]byte, bucketKeySize)),
 		linkObjectsBucketName(cID, make([]byte, bucketKeySize)),
 	}
 

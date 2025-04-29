@@ -80,10 +80,8 @@ const (
 	tombstonePrefix
 	// unusedSmallPrefix was deleted in metabase version 5
 	unusedSmallPrefix
-	// rootPrefix is used for prefixing buckets mapping parent object to the split info.
-	//  Key: object ID
-	//  Value: split info
-	rootPrefix
+	// unusedRootPrefix was deleted in metabase version 5
+	unusedRootPrefix
 
 	//====================
 	// FKBT index buckets.
@@ -100,10 +98,8 @@ const (
 
 	// unusedPayloadHashPrefix was deleted in metabase version 5
 	unusedPayloadHashPrefix
-	// parentPrefix is used for prefixing List index buckets mapping parent ID to a list of children IDs.
-	//  Key: parent ID
-	//  Value: list of object IDs
-	parentPrefix
+	// unusedParentPrefix was deleted in metabase version 5
+	unusedParentPrefix
 	// unusedSplitPrefix was deleted in metabase version 5
 	unusedSplitPrefix
 
@@ -159,16 +155,6 @@ func storageGroupBucketName(cnr cid.ID, key []byte) []byte {
 // linkObjectsBucketName returns link objects bucket key (`18<CID>`).
 func linkObjectsBucketName(cnr cid.ID, key []byte) []byte {
 	return bucketName(cnr, linkObjectsPrefix, key)
-}
-
-// rootBucketName returns <CID>_root.
-func rootBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, rootPrefix, key)
-}
-
-// parentBucketName returns <CID>_parent.
-func parentBucketName(cnr cid.ID, key []byte) []byte {
-	return bucketName(cnr, parentPrefix, key)
 }
 
 // addressKey returns key for K-V tables when key is a whole address.

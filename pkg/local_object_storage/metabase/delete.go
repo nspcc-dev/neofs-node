@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"bytes"
 	"fmt"
 
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"
@@ -160,42 +159,6 @@ func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
 	}
 }
 
-func delListIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
-	if bkt == nil {
-		return
-	}
-
-	lst, err := decodeList(bkt.Get(item.key))
-	if err != nil || len(lst) == 0 {
-		return
-	}
-
-	// remove element from the list
-	for i := range lst {
-		if bytes.Equal(item.val, lst[i]) {
-			copy(lst[i:], lst[i+1:])
-			lst = lst[:len(lst)-1]
-			break
-		}
-	}
-
-	// if list empty, remove the key from <list> bucket
-	if len(lst) == 0 {
-		_ = bkt.Delete(item.key) // ignore error, best effort there
-
-		return
-	}
-
-	// if list is not empty, then update it
-	encodedLst, err := encodeList(lst)
-	if err != nil {
-		return // ignore error, best effort there
-	}
-
-	_ = bkt.Put(item.key, encodedLst) // ignore error, best effort there
-}
-
 func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, isParent bool) error {
 	addr := oid.NewAddress(cnr, oID)
 
@@ -224,17 +187,8 @@ func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, 
 			name: bucketName,
 			key:  objKey,
 		})
-	} else {
-		delUniqueIndexItem(tx, namedBucketItem{
-			name: parentBucketName(cnr, bucketName),
-			key:  objKey,
-		})
 	}
 
-	delUniqueIndexItem(tx, namedBucketItem{ // remove from root index
-		name: rootBucketName(cnr, bucketName),
-		key:  objKey,
-	})
 	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index
 		name: toMoveItBucketName,
 		key:  addrKey,

@@ -146,7 +146,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 			return 0, nil
 		}
 	}
-	bktKeyBuff := make([]byte, bucketKeySize)
 	pref := slices.Concat([]byte{metaPrefixID}, id[:])
 	if err := metaBkt.Delete(pref); err != nil {
 		return 0, err
@@ -173,15 +172,6 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 			if len(attrV) == oid.Size {
 				parent = oid.ID(attrV)
 			}
-			delUniqueIndexItem(tx, namedBucketItem{
-				name: parentBucketName(cnr, bktKeyBuff),
-				key:  attrV,
-			})
-			delListIndexItem(tx, namedBucketItem{
-				name: parentBucketName(cnr, bktKeyBuff),
-				key:  attrV,
-				val:  id[:],
-			})
 		case object.FilterPayloadSize:
 			size, _ = strconv.ParseUint(string(attrV), 10, 64)
 		default:

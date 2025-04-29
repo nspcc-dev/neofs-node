@@ -117,6 +117,7 @@ func TestDB_Exists(t *testing.T) {
 		idChild := child.GetID()
 		link.SetChildren(idChild)
 		link.SetSplitID(splitID)
+		link.SetPayloadSize(0)
 
 		t.Run("direct order", func(t *testing.T) {
 			err := putBig(db, child)
@@ -134,11 +135,11 @@ func TestDB_Exists(t *testing.T) {
 
 			id1 := child.GetID()
 			id2 := si.SplitInfo().GetLastPart()
-			require.Equal(t, id1, id2)
+			require.Equal(t, id1.String(), id2.String())
 
 			id1 = link.GetID()
 			id2 = si.SplitInfo().GetLink()
-			require.Equal(t, id1, id2)
+			require.Equal(t, id1.String(), id2.String())
 		})
 
 		t.Run("reverse order", func(t *testing.T) {
@@ -157,11 +158,11 @@ func TestDB_Exists(t *testing.T) {
 
 			id1 := child.GetID()
 			id2 := si.SplitInfo().GetLastPart()
-			require.Equal(t, id1, id2)
+			require.Equal(t, id1.String(), id2.String())
 
 			id1 = link.GetID()
 			id2 = si.SplitInfo().GetLink()
-			require.Equal(t, id1, id2)
+			require.Equal(t, id1.String(), id2.String())
 		})
 	})
 
