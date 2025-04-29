@@ -65,7 +65,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 
 		childForParent := getChildForParent(tx, cID, oID, key)
-		if removedStatus != 0 && objectLocked(tx, cID, oID) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
+		if (removedStatus != 0 && objectLocked(tx, cID, oID)) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
 			res.State = append(res.State, "AVAILABLE")
 		}
 		if removedStatus == 1 {
