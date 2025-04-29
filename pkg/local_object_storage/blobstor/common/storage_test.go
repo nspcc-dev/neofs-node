@@ -4,11 +4,9 @@ import (
 	"crypto/rand"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -28,7 +26,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 	dir := t.TempDir()
 	const nObjects = 100
 
-	src := peapod.New(filepath.Join(dir, "peapod.db"), 0o600, 10*time.Millisecond)
+	src := fstree.New(fstree.WithPath(filepath.Join(dir, "src")))
 
 	require.NoError(t, src.Open(false))
 	require.NoError(t, src.Init())
@@ -47,7 +45,7 @@ func testCopy(t *testing.T, copier func(dst, src common.Storage) error) {
 
 	require.NoError(t, src.Close())
 
-	dst := fstree.New(fstree.WithPath(dir))
+	dst := fstree.New(fstree.WithPath(filepath.Join(dir, "dst")))
 
 	err := copier(dst, src)
 	require.NoError(t, err)

@@ -12,7 +12,6 @@ import (
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -38,21 +37,9 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
 		shard.WithBlobStorOptions(
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: peapod.New(
-						filepath.Join(rootPath, "blob", "peapod"),
-						0o600,
-						time.Second,
-					),
-					Policy: func(_ *object.Object, data []byte) bool {
-						return len(data) <= 1<<20
-					},
-				},
-				{
-					Storage: fstree.New(
-						fstree.WithPath(filepath.Join(rootPath, "blob"))),
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(rootPath, "blob"))),
 			}),
 		),
 		shard.WithMetaBaseOptions(
@@ -180,12 +167,10 @@ func TestExpiration(t *testing.T) {
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
 		shard.WithBlobStorOptions(
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: fstree.New(
-						fstree.WithPath(filepath.Join(rootPath, "blob"))),
-					Policy: func(_ *object.Object, _ []byte) bool { return true },
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(rootPath, "blob"))),
+				Policy: func(_ *object.Object, _ []byte) bool { return true },
 			}),
 		),
 		shard.WithMetaBaseOptions(

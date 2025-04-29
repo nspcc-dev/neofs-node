@@ -26,12 +26,10 @@ func TestShardReload(t *testing.T) {
 	l := zaptest.NewLogger(t)
 	blobOpts := []blobstor.Option{
 		blobstor.WithLogger(l),
-		blobstor.WithStorages([]blobstor.SubStorage{
-			{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(p, "blob")),
-					fstree.WithDepth(1)),
-			},
+		blobstor.WithStorages(blobstor.SubStorage{
+			Storage: fstree.New(
+				fstree.WithPath(filepath.Join(p, "blob")),
+				fstree.WithDepth(1)),
 		}),
 	}
 

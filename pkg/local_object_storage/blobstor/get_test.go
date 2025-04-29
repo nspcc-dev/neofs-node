@@ -74,19 +74,15 @@ func (x *getBytesOnlySubStorage) GetBytes(addr oid.Address) ([]byte, error) {
 }
 
 func TestBlobStor_GetBytes(t *testing.T) {
-	newBlobStorWithStorages := func(ss ...common.Storage) *BlobStor {
-		subs := make([]SubStorage, len(ss))
-		for i := range ss {
-			subs[i].Storage = ss[i]
-		}
-		return &BlobStor{cfg: cfg{log: zap.NewNop(), storage: subs}}
+	newBlobStorWithStorages := func(ss common.Storage) *BlobStor {
+		return &BlobStor{cfg: cfg{log: zap.NewNop(), storage: SubStorage{Storage: ss}}}
 	}
 
 	obj := objecttest.Object()
 	addr := object.AddressOf(&obj)
 	objBin := obj.Marshal()
 
-	bs := newBlobStorWithStorages(new(getBytesOnlySubStorage), &getBytesOnlySubStorage{
+	bs := newBlobStorWithStorages(&getBytesOnlySubStorage{
 		m: map[oid.Address][]byte{addr: objBin},
 	})
 

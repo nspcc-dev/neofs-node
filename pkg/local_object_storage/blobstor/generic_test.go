@@ -17,7 +17,7 @@ func TestGeneric(t *testing.T) {
 		n++
 		dir := filepath.Join(t.Name(), strconv.Itoa(n))
 		return New(
-			WithStorages(defaultStorages(dir, 128)))
+			WithStorages(defaultStorages(dir)))
 	}
 
 	storagetest.TestAll(t, newMetabase)

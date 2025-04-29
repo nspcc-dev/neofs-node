@@ -280,8 +280,6 @@ func calculateShardID(info shard.Info) string {
 	// This calculation should be kept in sync with node
 	// configuration parsing during SIGHUP.
 	var sb strings.Builder
-	for _, sub := range info.BlobStorInfo.SubStorages {
-		sb.WriteString(filepath.Clean(sub.Path))
-	}
+	sb.WriteString(filepath.Clean(info.BlobStorInfo.Path))
 	return sb.String()
 }

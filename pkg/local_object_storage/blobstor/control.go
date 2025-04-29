@@ -1,8 +1,6 @@
 package blobstor
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 )
 
@@ -10,13 +8,7 @@ import (
 func (b *BlobStor) Open(readOnly bool) error {
 	b.log.Debug("opening...")
 
-	for i := range b.storage {
-		err := b.storage[i].Storage.Open(readOnly)
-		if err != nil {
-			return fmt.Errorf("open substorage %s: %w", b.storage[i].Storage.Type(), err)
-		}
-	}
-	return nil
+	return b.storage.Storage.Open(readOnly)
 }
 
 // Init initializes internal data structures and system resources.
@@ -29,11 +21,9 @@ func (b *BlobStor) Init() error {
 		return err
 	}
 
-	for i := range b.storage {
-		err := b.storage[i].Storage.Init()
-		if err != nil {
-			return fmt.Errorf("init substorage %s: %w", b.storage[i].Storage.Type(), err)
-		}
+	err := b.storage.Storage.Init()
+	if err != nil {
+		return err
 	}
 	b.inited = true
 	return nil
@@ -44,18 +34,15 @@ func (b *BlobStor) Close() error {
 	b.log.Debug("closing...")
 
 	var firstErr error
-	for i := range b.storage {
-		err := b.storage[i].Storage.Close()
-		if err != nil {
-			b.log.Info("couldn't close storage", zap.Error(err))
-			if firstErr == nil {
-				firstErr = err
-			}
-			continue
+	err := b.storage.Storage.Close()
+	if err != nil {
+		b.log.Info("couldn't close storage", zap.Error(err))
+		if firstErr == nil {
+			firstErr = err
 		}
 	}
 
-	err := b.compression.Close()
+	err = b.compression.Close()
 	if firstErr == nil {
 		firstErr = err
 	}

@@ -77,15 +77,12 @@ func WriteObjectToFile(cmd *cobra.Command, path string, data []byte, payloadOnly
 // PrintStorageObjectStatus prints object status.
 func PrintStorageObjectStatus(cmd *cobra.Command, status engine.ObjectStatus) {
 	for _, shard := range status.Shards {
-		if len(shard.Shard.Blob.Substorages) != 0 {
+		if shard.Shard.Blob.Type != "" {
 			cmd.Printf("Shard ID:\t%s\n", shard.ID)
-			for i, subblobs := range shard.Shard.Blob.Substorages {
-				cmd.Printf("\tBlobstor substorage %d\n", i)
-				cmd.Printf("\t\tStorage type:\t%s\n", subblobs.Type)
-				cmd.Printf("\t\tStorage Path:\t%s\n", subblobs.Path)
-				if subblobs.Error != nil {
-					cmd.Printf("\t\tStorage Error:\t%s\n", subblobs.Error)
-				}
+			cmd.Printf("\t\tStorage type:\t%s\n", shard.Shard.Blob.Type)
+			cmd.Printf("\t\tStorage Path:\t%s\n", shard.Shard.Blob.Path)
+			if shard.Shard.Blob.Error != nil {
+				cmd.Printf("\t\tStorage Error:\t%s\n", shard.Shard.Blob.Error)
 			}
 
 			cmd.Printf("\tMetabase\n")

@@ -42,7 +42,7 @@ func TestInitializationFailure(t *testing.T) {
 			shard.WithLogger(zaptest.NewLogger(t)),
 			shard.WithBlobStorOptions(
 				blobstor.WithStorages(
-					newStorages(c.blobstor, 1<<20))),
+					newStorage(c.blobstor))),
 			shard.WithMetaBaseOptions(
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: time.Second,
@@ -218,6 +218,9 @@ func TestReload(t *testing.T) {
 		rcfg.AddShard(newMeta, []shard.Option{shard.WithMetaBaseOptions(
 			meta.WithPath(newMeta),
 			meta.WithEpochState(epochState{}),
+		), shard.WithBlobStorOptions(
+			blobstor.WithStorages(
+				newStorage(filepath.Join(addPath, "blobstor"))),
 		)})
 		require.NoError(t, e.Reload(rcfg))
 
@@ -256,7 +259,7 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 	for i := range num {
 		id, err := e.AddShard(
 			shard.WithBlobStorOptions(
-				blobstor.WithStorages(newStorages(filepath.Join(addPath, strconv.Itoa(i)), errSmallSize))),
+				blobstor.WithStorages(newStorage(filepath.Join(addPath, strconv.Itoa(i))))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),

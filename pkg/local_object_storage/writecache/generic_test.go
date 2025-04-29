@@ -43,7 +43,7 @@ func newCache(tb testing.TB, opts ...Option) (Cache, *blobstor.BlobStor, *meta.D
 		fstree.WithDepth(0),
 		fstree.WithDirNameLen(1))
 	bs := blobstor.New(
-		blobstor.WithStorages([]blobstor.SubStorage{{Storage: fsTree}}),
+		blobstor.WithStorages(blobstor.SubStorage{Storage: fsTree}),
 		blobstor.WithCompressObjects(true))
 	require.NoError(tb, bs.Open(false))
 	require.NoError(tb, bs.Init())

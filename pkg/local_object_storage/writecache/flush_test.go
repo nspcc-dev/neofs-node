@@ -279,7 +279,7 @@ func TestFlushErrorRetry(t *testing.T) {
 
 			sub1 := &mockWriter{full: true, Storage: fsTree}
 			bs := blobstor.New(
-				blobstor.WithStorages([]blobstor.SubStorage{{Storage: sub1}}),
+				blobstor.WithStorages(blobstor.SubStorage{Storage: sub1}),
 				blobstor.WithCompressObjects(true))
 			require.NoError(t, bs.Open(false))
 			require.NoError(t, bs.Init())

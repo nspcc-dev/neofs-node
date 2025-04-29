@@ -50,13 +50,10 @@ storage:
       blobstor:
         perm: 0644  # permissions for blobstor files(directories: +x for current user and group)
         depth: 2  # max depth of object tree storage in FS
-        small_object_size: 102400  # 100KiB, size threshold for "small" objects which are stored in key-value DB, not in FS, bytes
         compress: true  # turn on/off Zstandard compression (level 3) of stored objects
         compression_exclude_content_types:
           - audio/*
           - video/*
-
-        peapod:
 
       gc:
         remover_batch_size: 200  # number of objects to be removed by the garbage collector

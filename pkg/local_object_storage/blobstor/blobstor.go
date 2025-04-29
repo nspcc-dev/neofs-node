@@ -25,13 +25,8 @@ type BlobStor struct {
 	inited  bool
 }
 
-// Info contains information about blobstor.
+// Info contains information about blobstor storage component.
 type Info struct {
-	SubStorages []SubStorageInfo
-}
-
-// SubStorageInfo contains information about blobstor storage component.
-type SubStorageInfo struct {
 	Type string
 	Path string
 }
@@ -42,7 +37,7 @@ type Option func(*cfg)
 type cfg struct {
 	compression compression.Config
 	log         *zap.Logger
-	storage     []SubStorage
+	storage     SubStorage
 }
 
 func initConfig(c *cfg) {
@@ -58,9 +53,7 @@ func New(opts ...Option) *BlobStor {
 		opts[i](&bs.cfg)
 	}
 
-	for i := range bs.storage {
-		bs.storage[i].Storage.SetCompressor(&bs.compression)
-	}
+	bs.storage.Storage.SetCompressor(&bs.compression)
 
 	return bs
 }
@@ -68,13 +61,11 @@ func New(opts ...Option) *BlobStor {
 // SetLogger sets logger. It is used after the shard ID was generated to use it in logs.
 func (b *BlobStor) SetLogger(l *zap.Logger) {
 	b.log = l
-	for i := range b.storage {
-		b.storage[i].Storage.SetLogger(l)
-	}
+	b.storage.Storage.SetLogger(l)
 }
 
 // WithStorages provides sub-blobstors.
-func WithStorages(st []SubStorage) Option {
+func WithStorages(st SubStorage) Option {
 	return func(c *cfg) {
 		c.storage = st
 	}

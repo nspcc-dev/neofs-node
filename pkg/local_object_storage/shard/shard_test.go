@@ -5,11 +5,9 @@ import (
 	"crypto/sha256"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -50,17 +48,9 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 	if bsOpts == nil {
 		bsOpts = []blobstor.Option{
 			blobstor.WithLogger(zaptest.NewLogger(t)),
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *object.Object, data []byte) bool {
-						return len(data) <= 1<<20
-					},
-				},
-				{
-					Storage: fstree.New(
-						fstree.WithPath(filepath.Join(rootPath, "blob"))),
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(rootPath, "blob"))),
 			}),
 		}
 	}

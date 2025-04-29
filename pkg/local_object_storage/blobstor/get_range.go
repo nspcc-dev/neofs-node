@@ -18,11 +18,9 @@ func (b *BlobStor) GetRange(addr oid.Address, offset uint64, length uint64) ([]b
 	b.modeMtx.RLock()
 	defer b.modeMtx.RUnlock()
 
-	for i := range b.storage {
-		res, err := b.storage[i].Storage.GetRange(addr, offset, length)
-		if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
-			return res, err
-		}
+	res, err := b.storage.Storage.GetRange(addr, offset, length)
+	if err == nil || !errors.As(err, new(apistatus.ObjectNotFound)) {
+		return res, err
 	}
 
 	return nil, logicerr.Wrap(apistatus.ObjectNotFound{})

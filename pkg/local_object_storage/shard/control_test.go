@@ -42,13 +42,11 @@ func TestShardOpen(t *testing.T) {
 		return New(
 			WithLogger(zaptest.NewLogger(t)),
 			WithBlobStorOptions(
-				blobstor.WithStorages([]blobstor.SubStorage{
-					{
-						Storage: fstree.New(
-							fstree.WithDirNameLen(2),
-							fstree.WithPath(filepath.Join(dir, "blob")),
-							fstree.WithDepth(1)),
-					},
+				blobstor.WithStorages(blobstor.SubStorage{
+					Storage: fstree.New(
+						fstree.WithDirNameLen(2),
+						fstree.WithPath(filepath.Join(dir, "blob")),
+						fstree.WithDepth(1)),
 				})),
 			WithMetaBaseOptions(meta.WithPath(metaPath), meta.WithEpochState(epochState{})),
 			WithWriteCache(true),
@@ -89,11 +87,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 		fstree.WithPath(filepath.Join(dir, "blob")),
 		fstree.WithDepth(1))
 	blobOpts := []blobstor.Option{
-		blobstor.WithStorages([]blobstor.SubStorage{
-			{
-				Storage: fsTree,
-			},
-		}),
+		blobstor.WithStorages(blobstor.SubStorage{Storage: fsTree}),
 	}
 
 	sh := New(
@@ -138,12 +132,10 @@ func TestResyncMetabase(t *testing.T) {
 	writeCacheThreshold := len(testObj.Marshal())
 
 	blobOpts := []blobstor.Option{
-		blobstor.WithStorages([]blobstor.SubStorage{
-			{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(p, "blob")),
-					fstree.WithDepth(1)),
-			},
+		blobstor.WithStorages(blobstor.SubStorage{
+			Storage: fstree.New(
+				fstree.WithPath(filepath.Join(p, "blob")),
+				fstree.WithDepth(1)),
 		}),
 	}
 

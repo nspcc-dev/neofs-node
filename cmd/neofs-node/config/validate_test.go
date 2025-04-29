@@ -188,10 +188,9 @@ storage:
       max_batch_delay: 20ms
 
     compress: false
-    small_object_size: 100 kb
 
     blobstor:
-    - perm: 0644
+      perm: 0644
       depth: 5
 
     gc:
@@ -213,7 +212,7 @@ storage:
         max_batch_delay: 10ms
 
       blobstor:
-      - type: fstree
+        type: fstree
         path: tmp/0/blob
 `,
 			wantErr: false,

@@ -132,20 +132,12 @@
         "compression_exclude_content_types": [
           "audio/*", "video/*"
         ],
-        "small_object_size": 102400,
-        "blobstor": [
-          {
-            "type": "peapod",
-            "path": "tmp/0/blob/peapod.db",
-            "perm": "0644"
-          },
-          {
-            "type": "fstree",
-            "path": "tmp/0/blob",
-            "perm": "0644",
-            "depth": 5
-          }
-        ],
+        "blobstor": {
+          "type": "fstree",
+          "path": "tmp/0/blob",
+          "perm": "0644",
+          "depth": 5
+        },
         "gc": {
           "remover_batch_size": 150,
           "remover_sleep_interval": "2m"
@@ -167,26 +159,17 @@
           "max_batch_delay": "20ms"
         },
         "compress": false,
-        "small_object_size": 102400,
-        "blobstor": [
-          {
-            "type": "peapod",
-            "path": "tmp/1/blob/peapod.db",
-            "perm": "0644",
-            "flush_interval": "30ms"
-          },
-          {
-            "type": "fstree",
-            "path": "tmp/1/blob",
-            "no_sync": true,
-            "perm": "0644",
-            "depth": 5,
-            "flush_interval": "20ms",
-            "combined_count_limit": 64,
-            "combined_size_limit": "16M",
-            "combined_size_threshold": "512K"
-          }
-        ],
+        "blobstor": {
+          "type": "fstree",
+          "path": "tmp/1/blob",
+          "no_sync": true,
+          "perm": "0644",
+          "depth": 5,
+          "flush_interval": "20ms",
+          "combined_count_limit": 64,
+          "combined_size_limit": "16M",
+          "combined_size_threshold": "512K"
+        },
         "gc": {
           "remover_batch_size": 200,
           "remover_sleep_interval": "5m"

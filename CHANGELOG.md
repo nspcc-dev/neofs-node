@@ -46,6 +46,7 @@ Changelog for NeoFS Node
 - Storage Node now prohibits parents with their own parents (object split of already split object) (#2451)
 - Storage Nodes do not accept REPLICATE with a header that exceeds the limit (#3297)
 - Search API is served from SearchV2 indexes now (#3316)
+- Blobstor can be of exactly one type, with no substorages (#3330)
 
 ### Removed
 - SN `apiclient.allow_external` config (#3235)
@@ -57,6 +58,9 @@ Changelog for NeoFS Node
 - Tree service related CLI commands (#3270)
 - Netmap v1 node support (#3304)
 - `netmap_cleaner` IR configuration (#3304)
+- `peapod-to-fstree` migration tool (#3330)
+- Peapod type of storage (#3330)
+- `small_object_size` shard configuration section for SN (#3330)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
@@ -87,6 +91,17 @@ Experimental tree service is completely removed in this release, please drop
 `tree` and `pilorama` configuration sections as well as pilorama DB files.
 
 `netmap_cleaner` section should be removed from IR configuration.
+
+Now the `blobstor` field in the shard configuration in the `storage` section
+is not a list of substorages, but a single storage setting. So there is
+only one type of storage now. Remove the list from the `blobstor` section in
+config and set up one storage.
+
+`small_object_size` section should be removed from shard configuration section for SN.
+
+The deprecated `peapod` storage type and its associated migrator have been fully removed
+from the system. All data must be migrated to the new storage type, and support
+for peapod is no longer available. Please use `fstree` instead.
 
 ## [0.45.2] - 2025-03-25
 

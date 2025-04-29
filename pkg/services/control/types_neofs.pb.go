@@ -144,9 +144,7 @@ func (x *Netmap) StableMarshal(buf []byte) []byte {
 func (x *ShardInfo) StableSize() (size int) {
 	size += proto.BytesSize(1, x.Shard_ID)
 	size += proto.StringSize(2, x.MetabasePath)
-	for i := range x.Blobstor {
-		size += proto.NestedStructureSize(3, x.Blobstor[i])
-	}
+	size += proto.NestedStructureSize(3, x.Blobstor)
 	size += proto.StringSize(4, x.WritecachePath)
 	size += proto.EnumSize(5, int32(x.Mode))
 	size += proto.UInt32Size(6, x.ErrorCount)
@@ -172,9 +170,7 @@ func (x *ShardInfo) StableMarshal(buf []byte) []byte {
 	var offset int
 	offset += proto.BytesMarshal(1, buf[offset:], x.Shard_ID)
 	offset += proto.StringMarshal(2, buf[offset:], x.MetabasePath)
-	for i := range x.Blobstor {
-		offset += proto.NestedStructureMarshal(3, buf[offset:], x.Blobstor[i])
-	}
+	offset += proto.NestedStructureMarshal(3, buf[offset:], x.Blobstor)
 	offset += proto.StringMarshal(4, buf[offset:], x.WritecachePath)
 	offset += proto.EnumMarshal(5, buf[offset:], int32(x.Mode))
 	offset += proto.UInt32Marshal(6, buf[offset:], x.ErrorCount)

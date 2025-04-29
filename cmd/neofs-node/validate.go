@@ -9,7 +9,6 @@ import (
 	engineconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine"
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -67,40 +66,34 @@ func validateConfig(c *config.Config) error {
 			return fmt.Errorf("unknown shard mode: %s (shard %d)", sc.Mode, shardNum)
 		}
 		if *sc.WriteCache.Enabled {
-			err := addPath(paths, "writecache", shardNum, sc.WriteCache.Path)
+			err = addPath(paths, "writecache", shardNum, sc.WriteCache.Path)
 			if err != nil {
 				return err
 			}
 		}
 
-		if err := addPath(paths, "metabase", shardNum, sc.Metabase.Path); err != nil {
+		if err = addPath(paths, "metabase", shardNum, sc.Metabase.Path); err != nil {
 			return err
 		}
 
 		blobstor := sc.Blobstor
-		if len(blobstor) != 1 && len(blobstor) != 2 {
-			// TODO (@fyrcik): remove after #1522
-			return fmt.Errorf("blobstor section must have 1 or 2 components, got: %d", len(blobstor))
+		switch blobstor.Type {
+		case fstree.Type:
+		default:
+			return fmt.Errorf("unexpected storage type: %s (shard %d)",
+				blobstor.Type, shardNum)
 		}
-		for i := range blobstor {
-			switch blobstor[i].Type {
-			case fstree.Type, peapod.Type:
-			default:
-				return fmt.Errorf("unexpected storage type: %s (shard %d)",
-					blobstor[i].Type, shardNum)
-			}
-			if blobstor[i].Perm&0o600 != 0o600 {
-				return fmt.Errorf("invalid permissions for blobstor component: %s, "+
-					"expected at least rw- for the owner (shard %d)",
-					blobstor[i].Perm, shardNum)
-			}
-			if blobstor[i].Path == "" {
-				return fmt.Errorf("blobstor component path is empty (shard %d)", shardNum)
-			}
-			err := addPath(paths, fmt.Sprintf("blobstor[%d]", i), shardNum, blobstor[i].Path)
-			if err != nil {
-				return err
-			}
+		if blobstor.Perm&0o600 != 0o600 {
+			return fmt.Errorf("invalid permissions for blobstor component: %s, "+
+				"expected at least rw- for the owner (shard %d)",
+				blobstor.Perm, shardNum)
+		}
+		if blobstor.Path == "" {
+			return fmt.Errorf("blobstor component path is empty (shard %d)", shardNum)
+		}
+		err = addPath(paths, "blobstor", shardNum, blobstor.Path)
+		if err != nil {
+			return err
 		}
 
 		shardNum++

@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 )
 
@@ -137,9 +136,7 @@ func generateShardInfo(id int) *control.ShardInfo {
 	si.SetID(bin)
 	si.SetMode(control.ShardMode_READ_WRITE)
 	si.SetMetabasePath(filepath.Join(path, "meta"))
-	si.Blobstor = []*control.BlobstorInfo{
-		{Type: fstree.Type, Path: filepath.Join(path, "fstree")},
-		{Type: peapod.Type, Path: filepath.Join(path, "peapod.db")}}
+	si.Blobstor = &control.BlobstorInfo{Type: fstree.Type, Path: filepath.Join(path, "fstree")}
 	si.SetWriteCachePath(filepath.Join(path, "writecache"))
 
 	return si

@@ -5,12 +5,10 @@ import (
 	"math"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -65,17 +63,9 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,
 		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
-		[]blobstor.Option{blobstor.WithStorages([]blobstor.SubStorage{
-			{
-				Storage: peapod.New(filepath.Join(t.TempDir(), "peapod.db"), 0o600, 10*time.Millisecond),
-				Policy: func(_ *objectSDK.Object, data []byte) bool {
-					return len(data) <= smallObjectSize
-				},
-			},
-			{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(t.TempDir(), "blob"))),
-			},
+		[]blobstor.Option{blobstor.WithStorages(blobstor.SubStorage{
+			Storage: fstree.New(
+				fstree.WithPath(filepath.Join(t.TempDir(), "blob"))),
 		})})
 	defer releaseShard(sh, t)
 

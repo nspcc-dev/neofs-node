@@ -13,13 +13,11 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
-	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -39,7 +37,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 	const (
 		wcSmallObjectSize = 1024          // 1 KiB, goes to write-cache memory
 		wcBigObjectSize   = 4 * 1024      // 4 KiB, goes to write-cache FSTree
-		bsSmallObjectSize = 10 * 1024     // 10 KiB, goes to peapod DB
+		bsSmallObjectSize = 10 * 1024     // 10 KiB
 		bsBigObjectSize   = 1024*1024 + 1 // > 1 MiB, goes to FSTree
 	)
 
@@ -272,7 +270,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	const (
 		wcSmallObjectSize = 512                    // goes to write-cache memory
 		wcBigObjectSize   = wcSmallObjectSize << 1 // goes to write-cache FSTree
-		bsSmallObjectSize = wcSmallObjectSize << 2 // goes to peapod DB
+		bsSmallObjectSize = wcSmallObjectSize << 2
 
 		objCount   = 10
 		headerSize = 400
@@ -283,18 +281,10 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	bsOpts := func(sw uint64) []blobstor.Option {
 		return []blobstor.Option{
 			blobstor.WithCompressObjects(true),
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: peapod.New(filepath.Join(bsPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *objectSDK.Object, data []byte) bool {
-						return len(data) < bsSmallObjectSize
-					},
-				},
-				{
-					Storage: fstree.New(
-						fstree.WithPath(bsPath),
-						fstree.WithDepth(1)),
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(bsPath),
+					fstree.WithDepth(1)),
 			}),
 		}
 	}
@@ -353,17 +343,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	{
-		// 2. Invalid object in peapod.
-		b := peapod.New(filepath.Join(bsPath, "peapod2.db"), 0o600, 10*time.Millisecond)
-		require.NoError(t, b.Open(false))
-		require.NoError(t, b.Init())
-		err := b.Put(oid.Address{}, corruptedData)
-		require.NoError(t, err)
-		require.NoError(t, b.Close())
-	}
-
-	{
-		// 3. Invalid object in write-cache. Note that because shard is read-only
+		// 2. Invalid object in write-cache. Note that because shard is read-only
 		//    the object won't be flushed.
 		addr := cidtest.ID().EncodeToString() + "." + objecttest.ID().EncodeToString()
 		dir := filepath.Join(wcPath, addr[:1])

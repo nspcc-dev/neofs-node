@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
 	"google.golang.org/grpc/codes"
@@ -36,7 +35,10 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 
 		si.SetID(*sh.ID)
 		si.SetMetabasePath(sh.MetaBaseInfo.Path)
-		si.Blobstor = blobstorInfoToProto(sh.BlobStorInfo)
+		si.Blobstor = &control.BlobstorInfo{
+			Path: sh.BlobStorInfo.Path,
+			Type: sh.BlobStorInfo.Type,
+		}
 		si.SetWriteCachePath(sh.WriteCacheInfo.Path)
 
 		var m control.ShardMode
@@ -68,15 +70,4 @@ func (s *Server) ListShards(_ context.Context, req *control.ListShardsRequest) (
 	}
 
 	return resp, nil
-}
-
-func blobstorInfoToProto(info blobstor.Info) []*control.BlobstorInfo {
-	res := make([]*control.BlobstorInfo, len(info.SubStorages))
-	for i := range info.SubStorages {
-		res[i] = &control.BlobstorInfo{
-			Path: info.SubStorages[i].Path,
-			Type: info.SubStorages[i].Type,
-		}
-	}
-	return res
 }

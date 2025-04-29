@@ -158,22 +158,19 @@ The following table describes configuration for each shard.
 | `writecache`                        | [Writecache config](#writecache-subsection)  |               | Write-cache configuration.                                                                                                                                                                                        |
 | `metabase`                          | [Metabase config](#metabase-subsection)      |               | Metabase configuration.                                                                                                                                                                                           |
 | `blobstor`                          | [Blobstor config](#blobstor-subsection)      |               | Blobstor configuration.                                                                                                                                                                                           |
-| `small_object_size`                 | `size`                                       | `1M`          | Maximum size of an object stored in peapod.                                                                                                                                                                       |
 | `gc`                                | [GC config](#gc-subsection)                  |               | GC configuration.                                                                                                                                                                                                 |
 
 ### `blobstor` subsection
 
-Contains a list of substorages each with it's own type.
-Currently only 2 types are supported: `fstree` and `peapod`.
+Contains storage type and its configuration.
+Currently only `fstree` type is supported.
 
 ```yaml
 blobstor:
-  - type: peapod
-    path: /path/to/peapod.db
-  - type: fstree
-    path: /path/to/blobstor
-    perm: 0644
-    depth: 1
+  type: fstree
+  path: /path/to/blobstor
+  perm: 0644
+  depth: 1
 ```
 
 #### Common options for sub-storages
@@ -203,12 +200,6 @@ relevant for big volumes with very high number of stored objects.
 | `combined_count_limit`    | `int`     | `128`         | Maximum number of objects to write into a single file, 0 or 1 disables combined writing (which is recommended for SSDs).     |
 | `combined_size_limit`     | `size`    | `8M`          | Maximum size of a multi-object file.                                                                                         |
 | `combined_size_threshold` | `size`    | `128K`        | Minimum size of object that won't be combined with others when writing to disk.                                              |
-
-#### `peapod` type options
-| Parameter           | Type      | Default value | Description                                           |
-|---------------------|-----------|---------------|-------------------------------------------------------|
-| `path`              | `string`  |               | Path to the Peapod database file.                     |
-| `perm`              | file mode | `0640`        | Default permission for created files and directories. |
 
 ### `gc` subsection
 

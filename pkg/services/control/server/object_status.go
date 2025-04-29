@@ -55,14 +55,12 @@ func (s *Server) ObjectStatus(_ context.Context, request *control.ObjectStatusRe
 			Status: strings.Join(sh.Shard.Metabase.State, ","),
 		})
 
-		for _, subStorage := range sh.Shard.Blob.Substorages {
-			respSh.Storages = append(respSh.Storages,
-				&control.ObjectStatusResponse_Body_Shard_Status{
-					Type:   subStorage.Type,
-					Status: fmt.Sprintf("path: %q", subStorage.Path),
-				},
-			)
-		}
+		respSh.Storages = append(respSh.Storages,
+			&control.ObjectStatusResponse_Body_Shard_Status{
+				Type:   sh.Shard.Blob.Type,
+				Status: fmt.Sprintf("path: %q", sh.Shard.Blob.Path),
+			},
+		)
 
 		var wcStatus string
 		if sh.Shard.Writecache.PathFSTree != "" {

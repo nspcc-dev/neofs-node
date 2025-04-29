@@ -31,13 +31,10 @@ storage:
         path: /storage/metabase
         perm: 0777
       blobstor:
-        - path: /storage/path/peapod.db
-          type: peapod
-          perm: 0600
-        - path: /storage/path/fstree
-          type: fstree
-          perm: 0600
-          depth: 4
+        path: /storage/path/fstree
+        type: fstree
+        perm: 0600
+        depth: 4
       writecache:
         enabled: false
       gc:

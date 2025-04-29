@@ -3,12 +3,10 @@ package shard_test
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -27,17 +25,9 @@ func TestShard_Lock(t *testing.T) {
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
 		shard.WithBlobStorOptions(
-			blobstor.WithStorages([]blobstor.SubStorage{
-				{
-					Storage: peapod.New(filepath.Join(rootPath, "peapod.db"), 0o600, 10*time.Millisecond),
-					Policy: func(_ *object.Object, data []byte) bool {
-						return len(data) <= 1<<20
-					},
-				},
-				{
-					Storage: fstree.New(
-						fstree.WithPath(filepath.Join(rootPath, "blob"))),
-				},
+			blobstor.WithStorages(blobstor.SubStorage{
+				Storage: fstree.New(
+					fstree.WithPath(filepath.Join(rootPath, "blob"))),
 			}),
 		),
 		shard.WithMetaBaseOptions(

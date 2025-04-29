@@ -175,13 +175,11 @@ func TestCounters(t *testing.T) {
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 	blobOpts := []blobstor.Option{
-		blobstor.WithStorages([]blobstor.SubStorage{
-			{
-				Storage: fstree.New(
-					fstree.WithDirNameLen(2),
-					fstree.WithPath(filepath.Join(path, "blob")),
-					fstree.WithDepth(1)),
-			},
+		blobstor.WithStorages(blobstor.SubStorage{
+			Storage: fstree.New(
+				fstree.WithDirNameLen(2),
+				fstree.WithPath(filepath.Join(path, "blob")),
+				fstree.WithDepth(1)),
 		}),
 	}
 

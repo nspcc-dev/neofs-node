@@ -731,14 +731,12 @@ func writeSystemAttributes(c *cfg) error {
 
 	var paths []string
 	for _, sh := range c.appCfg.Storage.ShardList {
-		for _, subStorage := range sh.Blobstor {
-			path, err := getInitPath(subStorage.Path)
-			if err != nil {
-				return err
-			}
-
-			paths = append(paths, path)
+		path, err := getInitPath(sh.Blobstor.Path)
+		if err != nil {
+			return err
 		}
+
+		paths = append(paths, path)
 	}
 
 	total, err := totalBytes(paths)

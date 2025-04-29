@@ -10,7 +10,6 @@ import (
 	shardconfig "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/engine/shard"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/internal"
 	configtest "github.com/nspcc-dev/neofs-node/cmd/neofs-node/config/test"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/peapod"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/stretchr/testify/require"
 )
@@ -75,19 +74,11 @@ func TestEngineSection(t *testing.T) {
 
 				require.True(t, *sc.Compress)
 				require.Equal(t, []string{"audio/*", "video/*"}, sc.CompressionExcludeContentTypes)
-				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
-				require.Equal(t, 2, len(ss))
-				require.Equal(t, "tmp/0/blob/peapod.db", ss[0].Path)
-				require.EqualValues(t, 0644, ss[0].Perm)
-				require.EqualValues(t, peapod.Type, ss[0].Type)
-				require.EqualValues(t, 10*time.Millisecond, ss[0].FlushInterval)
-
-				require.Equal(t, "tmp/0/blob", ss[1].Path)
-				require.EqualValues(t, 0644, ss[1].Perm)
-
-				require.EqualValues(t, 5, ss[1].Depth)
-				require.False(t, *ss[1].NoSync)
+				require.Equal(t, "tmp/0/blob", ss.Path)
+				require.EqualValues(t, 0644, ss.Perm)
+				require.EqualValues(t, 5, ss.Depth)
+				require.False(t, *ss.NoSync)
 
 				require.EqualValues(t, 150, gc.RemoverBatchSize)
 				require.Equal(t, 2*time.Minute, gc.RemoverSleepInterval)
@@ -109,19 +100,12 @@ func TestEngineSection(t *testing.T) {
 
 				require.False(t, *sc.Compress)
 				require.Equal(t, []string(nil), sc.CompressionExcludeContentTypes)
-				require.EqualValues(t, 102400, sc.SmallObjectSize)
 
-				require.Equal(t, 2, len(ss))
-				require.Equal(t, "tmp/1/blob/peapod.db", ss[0].Path)
-				require.EqualValues(t, 0644, ss[0].Perm)
-				require.EqualValues(t, peapod.Type, ss[0].Type)
-				require.EqualValues(t, 30*time.Millisecond, ss[0].FlushInterval)
+				require.Equal(t, "tmp/1/blob", ss.Path)
+				require.EqualValues(t, 0644, ss.Perm)
 
-				require.Equal(t, "tmp/1/blob", ss[1].Path)
-				require.EqualValues(t, 0644, ss[1].Perm)
-
-				require.EqualValues(t, 5, ss[1].Depth)
-				require.True(t, *ss[1].NoSync)
+				require.EqualValues(t, 5, ss.Depth)
+				require.True(t, *ss.NoSync)
 
 				require.EqualValues(t, 200, gc.RemoverBatchSize)
 				require.Equal(t, 5*time.Minute, gc.RemoverSleepInterval)

@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
@@ -44,16 +43,10 @@ func (x *mockWriter) PutBatch(map[oid.Address][]byte) error {
 func (x *mockWriter) SetCompressor(*compression.Config) {}
 
 func TestBlobStor_Put_Overflow(t *testing.T) {
-	sub1 := &mockWriter{full: true}
-	sub2 := &mockWriter{full: false}
-	policyMismatch := blobstor.SubStorage{Storage: sub1, Policy: func(*object.Object, []byte) bool { return false }}
+	sub1 := &mockWriter{full: false}
 	bs := blobstor.New(blobstor.WithStorages(
-		[]blobstor.SubStorage{
-			policyMismatch,
-			{Storage: sub1},
-			policyMismatch,
-			{Storage: sub2},
-			policyMismatch,
+		blobstor.SubStorage{
+			Storage: sub1,
 		},
 	))
 
@@ -68,7 +61,7 @@ func TestBlobStor_Put_Overflow(t *testing.T) {
 	err = bs.PutBatch([]blobstor.PutBatchPrm{{Addr: addr, Obj: &obj}})
 	require.NoError(t, err)
 
-	sub2.full = true
+	sub1.full = true
 
 	err = bs.Put(addr, &obj, nil)
 	require.ErrorIs(t, err, common.ErrNoSpace)
@@ -79,7 +72,7 @@ func TestBlobStor_Put_Overflow(t *testing.T) {
 func TestBlobStor_PutBatch(t *testing.T) {
 	dir := t.TempDir()
 	fs := fstree.New(fstree.WithPath(filepath.Join(dir, "fstree")))
-	bs := blobstor.New(blobstor.WithStorages([]blobstor.SubStorage{{Storage: fs}}))
+	bs := blobstor.New(blobstor.WithStorages(blobstor.SubStorage{Storage: fs}))
 	require.NoError(t, bs.Open(false))
 	require.NoError(t, bs.Init())
 
