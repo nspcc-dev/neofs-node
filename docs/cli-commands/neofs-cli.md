@@ -35,6 +35,7 @@ neofs-cli [flags]
 * [neofs-cli gendoc](neofs-cli_gendoc.md)	 - Generate documentation for this command
 * [neofs-cli netmap](neofs-cli_netmap.md)	 - Operations with Network Map
 * [neofs-cli object](neofs-cli_object.md)	 - Operations with Objects
+* [neofs-cli request](neofs-cli_request.md)	 - Send request to NeoFS
 * [neofs-cli session](neofs-cli_session.md)	 - Operations with session token
 * [neofs-cli storagegroup](neofs-cli_storagegroup.md)	 - Operations with Storage Groups
 * [neofs-cli util](neofs-cli_util.md)	 - Utility operations
