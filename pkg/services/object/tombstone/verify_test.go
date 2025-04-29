@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -221,6 +222,42 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 		}
 
 		require.NoError(t, v.VerifyTomb(ctx, addr.Container(), tomb))
+	})
+
+	t.Run("members already removed", func(t *testing.T) {
+		cnr := cidtest.ID()
+		ids := oidtest.IDs(3)
+
+		var tomb object.Tombstone
+		tomb.SetMembers(ids)
+
+		os.head = make(map[oid.Address]headRes)
+		for i := range ids {
+			os.head[oid.NewAddress(cnr, ids[i])] = headRes{err: apistatus.ErrObjectAlreadyRemoved}
+		}
+
+		require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+
+		t.Run("V1", func(t *testing.T) {
+			rootV1ID := oidtest.ID()
+			splitID := objecttest.SplitID()
+			var rootV1Hdr object.Object
+			rootV1Hdr.SetSplitID(&splitID)
+
+			tomb.SetMembers([]oid.ID{rootV1ID})
+
+			os.head[oid.NewAddress(cnr, rootV1ID)] = headRes{h: &rootV1Hdr}
+
+			v1Children := oidtest.IDs(3)
+			for i := range v1Children {
+				os.head[oid.NewAddress(cnr, v1Children[i])] = headRes{err: apistatus.ErrObjectAlreadyRemoved}
+			}
+
+			os.searchV1 = make(map[object.SplitID][]oid.ID)
+			os.searchV1[splitID] = v1Children
+
+			require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
+		})
 	})
 }
 
