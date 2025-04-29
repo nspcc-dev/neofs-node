@@ -302,7 +302,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 		if cursor != nil && bytes.Equal(k, cursor.PrimarySeekKey) { // cursor is the last response element, so go next
 			k, _ = mbc.Next()
 		}
-		for ; k[0] == metaPrefixID; k, _ = mbc.Next() {
+		for ; len(k) > 0 && k[0] == metaPrefixID; k, _ = mbc.Next() {
 			if n == count { // there are still elements
 				newCursor = res[n-1].ID[:]
 				return nil

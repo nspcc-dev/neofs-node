@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - Broken "owner" parameter of "accounting balance" CLI command (#3325)
 - Unclosed network connections in CLI (#3326)
 - SN no longer fails tombstone verification on `ALREADY_REMOVED` member's status (#3327)
+- Panic in search (#3333)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
