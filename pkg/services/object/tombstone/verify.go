@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -19,6 +20,8 @@ type ObjectSource interface {
 	// Head returns object by its address and any error that does not
 	// allow processing operation. Must return *object.SplitInfoError
 	// if an object is split, NOT the original parent header.
+	// Returns [apistatus.ErrObjectAlreadyRemoved] if object exists but marked
+	// for removal.
 	Head(ctx context.Context, addr oid.Address) (*object.Object, error)
 
 	// Search returns objects that satisfy provided search filters and
@@ -76,6 +79,12 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 
 	header, err := v.objs.Head(ctx, addr)
 	if err != nil {
+		if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) {
+			// may occur if member's tombstone (same or another) has already landed on other
+			// nodes. The header is not available in this case, but the tombstone was
+			// accepted by another node, we trust it.
+			return nil
+		}
 		var siErr *object.SplitInfoError
 		if errors.As(err, &siErr) {
 			// inhuming parent object, that is ok
@@ -136,6 +145,9 @@ func (v *Verifier) verifyV1Child(ctx context.Context, cnr cid.ID, sID object.Spl
 
 		header, err := v.objs.Head(ctx, addr)
 		if err != nil {
+			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) { // see similar call
+				return nil
+			}
 			return fmt.Errorf("heading %s object that was searched: %w", addr, err)
 		}
 
