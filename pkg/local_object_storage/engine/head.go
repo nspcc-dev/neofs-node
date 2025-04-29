@@ -9,6 +9,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	"go.uber.org/zap"
 )
 
 // Head reads object header from local storage. If raw is true returns
@@ -62,7 +63,7 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 				// be returned
 				return nil, apistatus.ObjectNotFound{}
 			default:
-				e.reportShardError(sh, "could not head object from shard", err)
+				e.reportShardError(sh, "could not head object from shard", err, zap.Stringer("addr", addr))
 				continue
 			}
 		}
