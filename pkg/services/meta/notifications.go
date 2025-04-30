@@ -626,3 +626,8 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 
 	return nil
 }
+
+func (m *Meta) NotifyObjectSuccess(ch chan<- error, addr oid.Address, vub uint64) {
+	_ = vub
+	m.notifier.subscribe(addr, ch)
+}

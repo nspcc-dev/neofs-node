@@ -295,6 +295,9 @@ func (e *notHaltStateError) Error() string {
 
 // Invoke invokes contract method by sending transaction into blockchain.
 // Supported args types: int64, string, util.Uint160, []byte and bool.
+//
+// Note: true await flag always means additional subscription for [Client] which
+// is always limited on server side, use it carefully.
 func (c *Client) Invoke(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	var conn = c.conn.Load()
 

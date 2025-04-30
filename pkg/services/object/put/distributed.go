@@ -9,11 +9,13 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -40,6 +42,7 @@ type distributedTarget struct {
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
 
+	metaSvc             *meta.Meta
 	metaMtx             sync.RWMutex
 	objSharedMeta       []byte
 	collectedSignatures [][]byte
@@ -187,9 +190,26 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			return id, nil
 		}
 
-		err = t.cnrClient.SubmitObjectPut(await, t.objSharedMeta, t.collectedSignatures)
+		var objAccepted chan error
+		if await {
+			objAccepted = make(chan error, 1)
+			t.metaSvc.NotifyObjectSuccess(objAccepted, object.AddressOf(t.obj), 0)
+		}
+
+		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
 			return oid.ID{}, fmt.Errorf("failed to submit %s object meta information: %w", id, err)
+		}
+
+		if await {
+			select {
+			case <-time.After(5 * time.Second):
+				return oid.ID{}, fmt.Errorf("timed out waiting for %s object meta information", id)
+			case err := <-objAccepted:
+				if err != nil {
+					return oid.ID{}, fmt.Errorf("%s object chain confirmation error: %w", id, err)
+				}
+			}
 		}
 
 		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("oid", id))

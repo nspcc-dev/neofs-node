@@ -61,6 +61,52 @@ type wsClient interface {
 	Close()
 }
 
+func newNotifier() objectNotifier {
+	return objectNotifier{
+		reader: make(chan oid.Address, 1024),
+		subs:   make(map[oid.Address]chan<- error),
+	}
+}
+
+type objectNotifier struct {
+	reader chan oid.Address
+
+	m    sync.RWMutex
+	subs map[oid.Address]chan<- error
+}
+
+func (on *objectNotifier) notify(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case addr := <-on.reader:
+			on.notifyRecieved(addr)
+		}
+	}
+}
+
+func (on *objectNotifier) subscribe(oid oid.Address, ch chan<- error) {
+	on.m.Lock()
+	defer on.m.Unlock()
+
+	on.subs[oid] = ch
+}
+
+func (on *objectNotifier) notifyRecieved(oid oid.Address) {
+	on.m.Lock()
+	defer on.m.Unlock()
+
+	ch, ok := on.subs[oid]
+	if ok {
+		select {
+		case ch <- nil:
+		default:
+		}
+		delete(on.subs, oid)
+	}
+}
+
 // Meta handles object meta information received from FS chain and object
 // storages. Chain information is stored in Merkle-Patricia Tries. Full objects
 // index is built and stored as a simple KV storage.
@@ -84,6 +130,8 @@ type Meta struct {
 	bCh         chan *block.Header
 	cnrPutEv    chan *state.ContainedNotificationEvent
 	epochEv     chan *state.ContainedNotificationEvent
+
+	notifier objectNotifier
 
 	blockBuff chan *block.Header
 
@@ -210,7 +258,9 @@ func New(p Parameters) (*Meta, error) {
 		cnrPutEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		epochEv:   make(chan *state.ContainedNotificationEvent, notificationBuffSize),
 		blockBuff: make(chan *block.Header, blockBuffSize),
-		storages:  storages}, nil
+		storages:  storages,
+		notifier:  newNotifier(),
+	}, nil
 }
 
 // Reload updates service in runtime.

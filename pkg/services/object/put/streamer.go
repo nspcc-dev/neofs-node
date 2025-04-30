@@ -209,6 +209,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		currentBlock:         p.networkState.CurrentBlock(),
 		currentEpochDuration: p.networkState.CurrentEpochDuration(),
 		networkMagicNumber:   p.networkMagic,
+		metaSvc:              p.metaSvc,
 		placementIterator: placementIterator{
 			log:            p.log,
 			neoFSNet:       p.neoFSNet,

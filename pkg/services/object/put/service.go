@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -106,6 +107,8 @@ type cfg struct {
 	networkMagic uint32
 
 	cnrClient *chaincontainer.Client
+
+	metaSvc *meta.Meta
 }
 
 func defaultCfg() *cfg {
@@ -116,7 +119,7 @@ func defaultCfg() *cfg {
 	}
 }
 
-func NewService(transport Transport, neoFSNet NeoFSNetwork, opts ...Option) *Service {
+func NewService(transport Transport, neoFSNet NeoFSNetwork, m *meta.Meta, opts ...Option) *Service {
 	c := defaultCfg()
 
 	for i := range opts {
@@ -124,6 +127,7 @@ func NewService(transport Transport, neoFSNet NeoFSNetwork, opts ...Option) *Ser
 	}
 
 	c.fmtValidator = object.NewFormatValidator(c.cnrClient.Morph(), neoFSNet, c.fmtValidatorOpts...)
+	c.metaSvc = m
 
 	return &Service{
 		cfg:       c,

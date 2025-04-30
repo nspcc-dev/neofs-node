@@ -241,9 +241,10 @@ func (s *server) sendStatusPutResponse(stream protoobject.ObjectService_PutServe
 }
 
 type putStream struct {
-	ctx    context.Context
-	signer ecdsa.PrivateKey
-	base   *putsvc.Streamer
+	ctx     context.Context
+	signer  ecdsa.PrivateKey
+	base    *putsvc.Streamer
+	metaSvc *metasvc.Meta
 
 	cacheReqs bool
 	initReq   *protoobject.PutRequest
@@ -252,11 +253,12 @@ type putStream struct {
 	expBytes, recvBytes uint64 // payload
 }
 
-func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context) *putStream {
+func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context, metaService *metasvc.Meta) *putStream {
 	return &putStream{
-		ctx:    ctx,
-		signer: signer,
-		base:   base,
+		ctx:     ctx,
+		signer:  signer,
+		base:    base,
+		metaSvc: metaService,
 	}
 }
 
@@ -417,7 +419,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 
-	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
+	ps := newIntermediatePutStream(s.signer, stream, gStream.Context(), s.meta)
 	for {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
