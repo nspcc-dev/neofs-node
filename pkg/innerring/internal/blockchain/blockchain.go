@@ -152,11 +152,13 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseProto.StandbyCommittee = standByCommittee
 
 	cfgBaseProto.TimePerBlock = cfg.TimePerBlock
+	cfgBaseProto.Genesis.TimePerBlock = cfg.TimePerBlock
 	cfgBaseProto.SeedList = cfg.SeedNodes
 	cfgBaseProto.VerifyTransactions = true
 	cfgBaseProto.P2PSigExtensions = true
 	cfgBaseProto.P2PNotaryRequestPayloadPoolSize = int(cfg.P2PNotaryRequestPayloadPoolSize)
 	cfgBaseProto.MaxTraceableBlocks = cfg.MaxTraceableBlocks
+	cfgBaseProto.Genesis.MaxTraceableBlocks = cfg.MaxTraceableBlocks
 	cfgBaseProto.Hardforks = cfg.Hardforks.Name
 	if cfg.ValidatorsHistory.Height != nil {
 		cfgBaseProto.ValidatorsHistory = make(map[uint32]uint32, len(cfg.ValidatorsHistory.Height))
@@ -286,7 +288,6 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgConsensus.ProtocolConfiguration = bc.GetConfig().ProtocolConfiguration
 	cfgConsensus.RequestTx = netServer.RequestTx
 	cfgConsensus.StopTxFlow = netServer.StopTxFlow
-	cfgConsensus.TimePerBlock = cfg.TimePerBlock
 	cfgConsensus.Wallet = neowallet
 
 	consensusService, err := consensus.NewService(cfgConsensus)

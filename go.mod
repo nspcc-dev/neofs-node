@@ -17,7 +17,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/nspcc-dev/hrw/v2 v2.0.3
 	github.com/nspcc-dev/locode-db v0.6.0
-	github.com/nspcc-dev/neo-go v0.108.2-0.20250414115617-823a05fcc10b
+	github.com/nspcc-dev/neo-go v0.109.0
 	github.com/nspcc-dev/neofs-api-go/v2 v2.14.1-0.20240827150555-5ce597aa14ea
 	github.com/nspcc-dev/neofs-contract v0.22.0
 	github.com/nspcc-dev/neofs-sdk-go v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25
@@ -51,6 +51,7 @@ require (
 	github.com/consensys/gnark-crypto v0.17.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/decred/dcrd/crypto/ripemd160 v1.0.2 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -73,7 +74,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nspcc-dev/dbft v0.3.3-0.20250321140139-7462b47e4d2d // indirect
 	github.com/nspcc-dev/go-ordered-json v0.0.0-20250226190835-fb3f82b1f468 // indirect
-	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250410112417-d414d8a86b83 // indirect
+	github.com/nspcc-dev/neo-go/pkg/interop v0.0.0-20250423172732-0e55bd820115 // indirect
 	github.com/nspcc-dev/rfc6979 v0.2.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect

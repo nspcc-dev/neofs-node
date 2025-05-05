@@ -65,7 +65,7 @@ Changelog for NeoFS Node
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
 - `github.com/nspcc-dev/neofs-contract` dependency to `v0.22.0` (#3282, #3305, #3323)
-- `github.com/nspcc-dev/neo-go` dependency to `v0.108.2-0.20250414115617-823a05fcc10b` (#3298)
+- `github.com/nspcc-dev/neo-go` dependency to `v0.109.0` (#3298, #3335)
 
 ### Updating from v0.45.2
 `apiclient.allow_external` field must be dropped from any SN configuration.
