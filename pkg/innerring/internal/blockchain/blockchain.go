@@ -121,6 +121,9 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	if cfg.MaxTraceableBlocks == 0 {
 		cfg.MaxTraceableBlocks = 17280
 	}
+	if cfg.MaxValidUntilBlockIncrement == 0 {
+		cfg.MaxValidUntilBlockIncrement = 8640
+	}
 	if cfg.P2P.Ping.Interval == 0 {
 		cfg.P2P.Ping.Interval = 30 * time.Second
 	}
@@ -159,6 +162,8 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 	cfgBaseProto.P2PNotaryRequestPayloadPoolSize = int(cfg.P2PNotaryRequestPayloadPoolSize)
 	cfgBaseProto.MaxTraceableBlocks = cfg.MaxTraceableBlocks
 	cfgBaseProto.Genesis.MaxTraceableBlocks = cfg.MaxTraceableBlocks
+	cfgBaseProto.MaxValidUntilBlockIncrement = cfg.MaxValidUntilBlockIncrement
+	cfgBaseProto.Genesis.MaxValidUntilBlockIncrement = cfg.MaxValidUntilBlockIncrement
 	cfgBaseProto.Hardforks = cfg.Hardforks.Name
 	if cfg.ValidatorsHistory.Height != nil {
 		cfgBaseProto.ValidatorsHistory = make(map[uint32]uint32, len(cfg.ValidatorsHistory.Height))

@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - SN now supports `ObjectService` requests, objects and session/bearer tokens signed using N3 account scheme (#3303, #3305)
 - SN attempts to read containers/eACLs calling new Container contract's `getContainerData`/`getEACLData` methods (#3323)
 - `request create-container` command to NeoFS CLI (#3319)
+- `max_valid_until_block_increment` setting to IR consensus configuration (#3335)
 
 ### Fixed
 - Bearer token signed not by its issuer is no longer passed (#3216)

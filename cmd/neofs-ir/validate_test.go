@@ -198,9 +198,10 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 					Type: "boltdb",
 					Path: "./db/morph.bolt",
 				},
-				TimePerBlock:       time.Second,
-				MaxTraceableBlocks: 11520,
-				SeedNodes:          []string{"node2", "node3:20333"},
+				TimePerBlock:                time.Second,
+				MaxTraceableBlocks:          11520,
+				MaxValidUntilBlockIncrement: 3600,
+				SeedNodes:                   []string{"node2", "node3:20333"},
 				Hardforks: config.Hardforks{
 					Name: map[string]uint32{
 						"name": 1730000,
