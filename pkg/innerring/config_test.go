@@ -357,6 +357,8 @@ fschain:
 				{kvF("time_per_block", "not a duration")},
 				{kvF("max_traceable_blocks", -1)},
 				{kvF("max_traceable_blocks", math.MaxUint32+1)},
+				{kvF("max_valid_until_block_increment", -1)},
+				{kvF("max_valid_until_block_increment", math.MaxUint32+1)},
 				{kvF("hardforks", "not a dictionary")},
 				{kvF("hardforks", map[string]any{"name": "not a number"})},
 				{kvF("hardforks", map[string]any{"name": -1})},

@@ -43,6 +43,11 @@ type Consensus struct {
 	// Optional: defaults to 17280.
 	MaxTraceableBlocks uint32 `mapstructure:"max_traceable_blocks"`
 
+	// Transaction validity limit relative to the current height.
+	//
+	// Optional: defaults to 8640.
+	MaxValidUntilBlockIncrement uint32 `mapstructure:"max_valid_until_block_increment"`
+
 	// List of nodes' addresses to communicate with over Neo P2P protocol in
 	// 'host:port' format.
 	//

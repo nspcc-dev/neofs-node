@@ -41,6 +41,8 @@ fschain:
       # Must not be negative
     max_traceable_blocks: 11520 # Optional length of the chain accessible to smart contracts. Defaults to 17280.
       # Must not be greater than 4294967295
+    max_valid_until_block_increment: 3600 # Optional transaction validity period relative to the current height. Defaults to 8640.
+      # Must not be greater than 4294967295
     seed_nodes: # Optional list of existing nodes to communicate with over Neo P2P protocol. By default, node runs as standalone
       # Same format as 'p2p.listen'
       - node2
