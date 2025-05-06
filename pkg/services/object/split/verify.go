@@ -3,6 +3,7 @@ package split
 import (
 	"context"
 	"fmt"
+	"time"
 
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -39,7 +40,9 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 			bound := len(uncheckedChildren) - maxConcurrentObjects
 			group := uncheckedChildren[bound:]
 
+			st := time.Now()
 			leftChild, err := v.verifyChildGroup(ctx, cnr, firstID, false, group)
+			fmt.Println("verifyChildGroup (bound)", time.Since(st))
 			if err != nil {
 				return err
 			}
@@ -56,7 +59,9 @@ func (v *Verifier) VerifySplit(ctx context.Context, cnr cid.ID, firstID oid.ID, 
 				}
 			}
 		} else {
+			st := time.Now()
 			_, err := v.verifyChildGroup(ctx, cnr, firstID, true, childrenFromLink)
+			fmt.Println("verifyChildGroup", time.Since(st))
 			if err != nil {
 				return err
 			}
@@ -90,7 +95,9 @@ func (v *Verifier) verifyChildGroup(ctx context.Context, cnr cid.ID, firstID oid
 
 		wg.Go(func() error {
 			var err error
+			st := time.Now()
 			receivedObjects[iCopy], err = v.verifySinglePart(ctx, cnr, shouldHaveFirstObject, children[iCopy])
+			fmt.Println("verifySinglePart", children[iCopy].ObjectID(), time.Since(st))
 
 			return err
 		})
@@ -151,7 +158,9 @@ func (v *Verifier) verifySinglePart(ctx context.Context, cnr cid.ID, firstID *oi
 	prm.WithAddress(childAddr)
 	prm.WithRawFlag(true)
 
+	st := time.Now()
 	err := v.get.Head(ctx, prm)
+	fmt.Println("head", objToCheck.ObjectID(), time.Since(st))
 	if err != nil {
 		return nil, fmt.Errorf("reading %s header: %w", childAddr, err)
 	}
