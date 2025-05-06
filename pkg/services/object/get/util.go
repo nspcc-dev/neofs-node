@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	coreclient "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -199,7 +200,9 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	if exec.headOnly() {
+		st := time.Now()
 		r, err := e.engine.Head(exec.address(), exec.isRaw())
+		fmt.Println("engine.Head:", exec.address().Object(), time.Since(st))
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +211,9 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
+		st := time.Now()
 		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
+		fmt.Println("engine.GetRange:", exec.address().Object(), time.Since(st))
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +224,10 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		return o, nil
 	}
 
-	return e.engine.Get(exec.address())
+	st := time.Now()
+	res, err := e.engine.Get(exec.address())
+	fmt.Println("engine.Get:", exec.address().Object(), time.Since(st))
+	return res, err
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {
