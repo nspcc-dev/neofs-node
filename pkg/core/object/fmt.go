@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
@@ -248,6 +249,11 @@ func (v *FormatValidator) ValidateContent(o *object.Object) (ContentMeta, error)
 	meta := ContentMeta{
 		typ: o.Type(),
 	}
+
+	st := time.Now()
+	defer func() {
+		fmt.Println("validate content", o.GetID(), o.Type(), time.Since(st))
+	}()
 
 	switch o.Type() {
 	case object.TypeRegular:
