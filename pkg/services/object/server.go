@@ -418,7 +418,7 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 	var resp *protoobject.PutResponse
 
 	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
-	for {
+	for first := true; ; first = false {
 		if req, err = gStream.Recv(); err != nil {
 			if errors.Is(err, io.EOF) {
 				resp, err = ps.close()
@@ -434,6 +434,12 @@ func (s *server) Put(gStream protoobject.ObjectService_PutServer) error {
 
 		if c := req.GetBody().GetChunk(); c != nil {
 			s.metrics.AddPutPayload(len(c))
+		}
+
+		if first {
+			if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+				return s.sendStatusPutResponse(gStream, err)
+			}
 		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
@@ -495,6 +501,10 @@ func (s *server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.makeStatusDeleteResponse(err), nil
+	}
 
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusDeleteResponse(err), nil
@@ -574,6 +584,10 @@ func (s *server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.makeStatusHeadResponse(err), nil
+	}
 
 	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusHeadResponse(err), nil
@@ -684,9 +698,6 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.HeadPrm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -812,6 +823,11 @@ func (s *server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.makeStatusHashResponse(err), nil
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusHashResponse(err), nil
 	}
@@ -909,9 +925,6 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.RangeHashPrm{}, errors.New("missing meta header")
-	}
 	p.SetRangeHashRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) ([][]byte, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1025,6 +1038,11 @@ func (s *server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.sendStatusGetResponse(gStream, err)
+	}
+
 	if err = icrypto.VerifyRequestSignatures(req); err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -1095,9 +1113,6 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 	var onceHdr sync.Once
 	var respondedPayload int
 	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.Prm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1265,6 +1280,11 @@ func (s *server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.sendStatusRangeResponse(gStream, err)
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1347,9 +1367,6 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 	var onceResign sync.Once
 	var respondedPayload int
 	meta := req.GetMetaHeader()
-	if meta == nil {
-		return getsvc.RangePrm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(ctx context.Context, node client.NodeInfo, c client.MultiAddressClient) (*object.Object, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1485,6 +1502,11 @@ func (s *server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.sendStatusSearchResponse(gStream, err)
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
 	}
@@ -1560,9 +1582,6 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 
 	var onceResign sync.Once
 	meta := req.GetMetaHeader()
-	if meta == nil {
-		return searchsvc.Prm{}, errors.New("missing meta header")
-	}
 	p.SetRequestForwarder(func(node client.NodeInfo, c client.MultiAddressClient) ([]oid.ID, error) {
 		var err error
 		onceResign.Do(func() {
@@ -1812,6 +1831,11 @@ func (s *server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+
+	if err = verifyRequestMetaHeader(req.MetaHeader); err != nil {
+		return s.makeStatusSearchResponse(err), nil
+	}
+
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
@@ -2243,4 +2267,14 @@ func chunkToSend(global, local int, chunk []byte) []byte {
 		return nil
 	}
 	return chunk[global-local:]
+}
+
+func verifyRequestMetaHeader(m *protosession.RequestMetaHeader) error {
+	if m == nil {
+		return errors.New("missing meta header")
+	}
+	if m.Ttl == 0 {
+		return errors.New("invalid meta header: zero TTL")
+	}
+	return nil
 }
