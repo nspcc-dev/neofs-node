@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/nspcc-dev/neo-go/pkg/core/native/nativenames"
 	"github.com/nspcc-dev/neo-go/pkg/core/native/noderoles"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/hash"
@@ -127,8 +126,8 @@ func (c *Client) ProbeNotary() (res bool) {
 		return false
 	}
 
-	_, err := conn.client.GetContractStateByAddressOrName(nativenames.Notary)
-	return err == nil
+	keys, err := conn.roleList(noderoles.P2PNotary)
+	return err == nil && len(keys) > 0
 }
 
 // DepositNotary calls notary deposit method. Deposit is required to operate
