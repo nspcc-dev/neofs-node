@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -26,7 +28,7 @@ type ObjectSource interface {
 
 	// Search returns objects that satisfy provided search filters and
 	// any error that does not allow processing operation.
-	Search(ctx context.Context, cnr cid.ID, filter object.SearchFilters) ([]oid.ID, error)
+	Search(ctx context.Context, cnr cid.ID, filter object.SearchFilters, childV2 bool) ([]client.SearchResultItem, error)
 }
 
 // Verifier implements [object.TombVerifier] interface.
@@ -130,9 +132,10 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 
 func (v *Verifier) verifyV1Child(ctx context.Context, cnr cid.ID, sID object.SplitID) error {
 	filters := object.SearchFilters{}
+	filters.AddPayloadSizeFilter(object.MatchNumGT, 0)
 	filters.AddSplitIDFilter(object.MatchStringEqual, sID)
 
-	ids, err := v.objs.Search(ctx, cnr, filters)
+	res, err := v.objs.Search(ctx, cnr, filters, false)
 	if err != nil {
 		return fmt.Errorf("searching objects: %w", err)
 	}
@@ -140,18 +143,15 @@ func (v *Verifier) verifyV1Child(ctx context.Context, cnr cid.ID, sID object.Spl
 	var addr oid.Address
 	addr.SetContainer(cnr)
 
-	for _, child := range ids {
-		addr.SetObject(child)
+	for _, child := range res {
+		addr.SetObject(child.ID)
 
-		header, err := v.objs.Head(ctx, addr)
+		payload, err := strconv.Atoi(child.Attributes[0])
 		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) { // see similar call
-				return nil
-			}
-			return fmt.Errorf("heading %s object that was searched: %w", addr, err)
+			return fmt.Errorf("parsing payload size: %w", err)
 		}
 
-		if len(header.Children()) != 0 {
+		if payload != 0 {
 			return fmt.Errorf("found link object %s", addr)
 		}
 	}
@@ -164,7 +164,7 @@ func (v *Verifier) verifyV2Child(ctx context.Context, cnr cid.ID, firstObject oi
 	filters.AddFirstSplitObjectFilter(object.MatchStringEqual, firstObject)
 	filters.AddTypeFilter(object.MatchStringEqual, object.TypeLink)
 
-	ids, err := v.objs.Search(ctx, cnr, filters)
+	ids, err := v.objs.Search(ctx, cnr, filters, true)
 	if err != nil {
 		return fmt.Errorf("searching objects: %w", err)
 	}
@@ -174,7 +174,7 @@ func (v *Verifier) verifyV2Child(ctx context.Context, cnr cid.ID, firstObject oi
 		// no link object, child can be deleted
 		return nil
 	case 1:
-		return fmt.Errorf("found link object %s", ids[0])
+		return fmt.Errorf("found link object %s", ids[0].ID)
 	default:
 		// more than one link object somehow, sad but
 		// nothing can be done here

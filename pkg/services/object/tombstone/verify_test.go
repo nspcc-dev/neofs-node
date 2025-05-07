@@ -2,9 +2,10 @@ package tombstone
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -21,8 +22,8 @@ type headRes struct {
 }
 
 type testObjectSource struct {
-	searchV1 map[object.SplitID][]oid.ID
-	searchV2 map[oid.ID][]oid.ID
+	searchV1 map[object.SplitID][]client.SearchResultItem
+	searchV2 map[oid.ID][]client.SearchResultItem
 	head     map[oid.Address]headRes
 }
 
@@ -31,36 +32,31 @@ func (t *testObjectSource) Head(_ context.Context, addr oid.Address) (*object.Ob
 	return res.h, res.err
 }
 
-func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchFilters) ([]oid.ID, error) {
-	f := ff[0]
-
-	switch f.Header() {
-	case object.FilterSplitID:
-		if t.searchV1 == nil {
-			return nil, nil
-		}
-
-		var splitID object.SplitID
-		err := splitID.Parse(f.Value())
-		if err != nil {
-			panic(err)
-		}
-
-		return t.searchV1[splitID], nil
-	case object.FilterFirstSplitObject:
+func (t *testObjectSource) Search(_ context.Context, _ cid.ID, ff object.SearchFilters, childV2 bool) ([]client.SearchResultItem, error) {
+	if childV2 {
 		if t.searchV2 == nil {
 			return nil, nil
 		}
 
 		var firstObject oid.ID
-		err := firstObject.DecodeString(f.Value())
+		err := firstObject.DecodeString(ff[0].Value())
 		if err != nil {
 			panic(err)
 		}
 
 		return t.searchV2[firstObject], nil
-	default:
-		panic("unexpected search call")
+	} else {
+		if t.searchV1 == nil {
+			return nil, nil
+		}
+
+		var splitID object.SplitID
+		err := splitID.Parse(ff[1].Value())
+		if err != nil {
+			panic(err)
+		}
+
+		return t.searchV1[splitID], nil
 	}
 }
 
@@ -129,19 +125,16 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 				link.SetChildren(childID)
 				linkID := link.GetID()
 
-				objectcore.AddressOf(&link)
-
 				*os = testObjectSource{
 					head: map[oid.Address]headRes{
 						addr: {
 							h: &child,
 						},
-						objectcore.AddressOf(&link): {
-							h: &link,
-						},
 					},
-					searchV1: map[object.SplitID][]oid.ID{
-						*splitID: {linkID},
+					searchV1: map[object.SplitID][]client.SearchResultItem{
+						*splitID: {client.SearchResultItem{
+							ID:         linkID,
+							Attributes: []string{fmt.Sprint(len(link.Payload()))}}},
 					},
 				}
 
@@ -161,8 +154,8 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 							h: &child,
 						},
 					},
-					searchV2: map[oid.ID][]oid.ID{
-						childID: {oidtest.ID()}, // the first object is a chain ID in itself
+					searchV2: map[oid.ID][]client.SearchResultItem{
+						childID: {client.SearchResultItem{ID: oidtest.ID()}}, // the first object is a chain ID in itself
 					},
 				}
 
@@ -193,8 +186,8 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 							h: &child,
 						},
 					},
-					searchV2: map[oid.ID][]oid.ID{
-						firstObject: {oidtest.ID()},
+					searchV2: map[oid.ID][]client.SearchResultItem{
+						firstObject: {client.SearchResultItem{ID: oidtest.ID()}},
 					},
 				}
 
@@ -249,12 +242,15 @@ func TestVerifier_VerifyTomb(t *testing.T) {
 			os.head[oid.NewAddress(cnr, rootV1ID)] = headRes{h: &rootV1Hdr}
 
 			v1Children := oidtest.IDs(3)
+			v1ChildrenItems := make([]client.SearchResultItem, len(v1Children))
 			for i := range v1Children {
-				os.head[oid.NewAddress(cnr, v1Children[i])] = headRes{err: apistatus.ErrObjectAlreadyRemoved}
+				v1ChildrenItems[i] = client.SearchResultItem{
+					ID:         v1Children[i],
+					Attributes: []string{"0"}}
 			}
 
-			os.searchV1 = make(map[object.SplitID][]oid.ID)
-			os.searchV1[splitID] = v1Children
+			os.searchV1 = make(map[object.SplitID][]client.SearchResultItem)
+			os.searchV1[splitID] = v1ChildrenItems
 
 			require.NoError(t, v.VerifyTomb(ctx, cnr, tomb))
 		})
