@@ -1908,6 +1908,29 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, fmt.Errorf("invalid filters: %w", err)
 	}
+	local := ttl == 1
+	tempAttr := !local && len(body.Attributes) == 0 && len(body.Filters) > 0
+	if tempAttr {
+		inContainer := false
+		if err := s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
+			inContainer = s.fsChain.IsOwnPublicKey(node.PublicKey())
+			return !inContainer
+		}); err != nil {
+			return nil, err
+		}
+		if inContainer {
+			// 1st attribute is required for merge function to provide proper paging. This
+			// requires collecting attribute values from other nodes. Therefore, if the
+			// attribute is not requested, it is temporarily added to the query, and will
+			// end up in resulting cursor, but not in results items.
+			body.Attributes = []string{body.Filters[0].Key}
+		} else {
+			// new request is needed, but some SNs cannot generate new requests (in private
+			// containers for example). So, keep iterating over OIDs only which is slow but working.
+			// TODO: check access explicitly?
+			tempAttr = false
+		}
+	}
 	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
 	if err != nil {
 		if errors.Is(err, objectcore.ErrUnreachableQuery) {
@@ -1932,7 +1955,7 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	var newCursor []byte
 	count := uint16(body.Count) // legit according to the limit
 	switch {
-	case ttl == 1:
+	case local:
 		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err != nil {
 			return nil, err
 		}
@@ -1972,6 +1995,10 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 				return true
 			}
 			if !signed {
+				if tempAttr {
+					// reset headers because body was changed and new request is needed
+					req.MetaHeader, req.VerifyHeader = nil, nil
+				}
 				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
 				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(s.signer), req, nil); err != nil {
 					resErr = fmt.Errorf("sign request: %w", err)
@@ -2022,8 +2049,10 @@ func (s *server) processSearchRequest(ctx context.Context, req *protoobject.Sear
 	}
 	for i := range res {
 		resBody.Result[i] = &protoobject.SearchV2Response_OIDWithMeta{
-			Id:         res[i].ID.ProtoMessage(),
-			Attributes: res[i].Attributes,
+			Id: res[i].ID.ProtoMessage(),
+		}
+		if !tempAttr {
+			resBody.Result[i].Attributes = res[i].Attributes
 		}
 	}
 	if newCursor != nil {
