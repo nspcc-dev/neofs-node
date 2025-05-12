@@ -116,6 +116,9 @@ func addFeeCheckerModifier(add int64) func(r *result.Invoke, t *transaction.Tran
 			return &notHaltStateError{state: r.State, exception: r.FaultException}
 		}
 
+		if add == 0 {
+			add = t.SystemFee / 10
+		}
 		t.SystemFee += add
 
 		return nil
