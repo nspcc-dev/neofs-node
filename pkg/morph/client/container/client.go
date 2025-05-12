@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
@@ -39,9 +38,6 @@ const (
 	putSizeMethod   = "putContainerSize"
 	listSizesMethod = "iterateAllContainerSizes"
 
-	// putNamedMethod is method name for container put with an alias. It is exported to provide custom fee.
-	putNamedMethod = "putNamed"
-
 	addNextEpochNodes         = "addNextEpochNodes"
 	commitContainerListUpdate = "commitContainerListUpdate"
 	submitObjectPutMethod     = "submitObjectPut"
@@ -52,21 +48,14 @@ var (
 )
 
 // NewFromMorph returns the wrapper instance from the raw morph client.
-//
-// Specified fee is used for all operations by default. If WithCustomFeeForNamedPut is provided,
-// the customized fee is used for Put operations with named containers.
-func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*Client, error) {
+func NewFromMorph(cli *client.Client, contract util.Uint160, opts ...Option) (*Client, error) {
 	o := defaultOpts()
 
 	for i := range opts {
 		opts[i](o)
 	}
 
-	if o.feePutNamedSet {
-		o.staticOpts = append(o.staticOpts, client.WithCustomFee(putNamedMethod, o.feePutNamed))
-	}
-
-	sc, err := client.NewStatic(cli, contract, fee, o.staticOpts...)
+	sc, err := client.NewStatic(cli, contract, o.staticOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("can't create container static client: %w", err)
 	}
@@ -89,9 +78,6 @@ func (c Client) ContractAddress() util.Uint160 {
 type Option func(*opts)
 
 type opts struct {
-	feePutNamedSet bool
-	feePutNamed    fixedn.Fixed8
-
 	staticOpts []client.StaticClientOption
 }
 
@@ -107,14 +93,6 @@ func defaultOpts() *opts {
 func AsAlphabet() Option {
 	return func(o *opts) {
 		o.staticOpts = append(o.staticOpts, client.AsAlphabet())
-	}
-}
-
-// WithCustomFeeForNamedPut returns option to specify custom fee for each Put operation with named container.
-func WithCustomFeeForNamedPut(fee fixedn.Fixed8) Option {
-	return func(o *opts) {
-		o.feePutNamed = fee
-		o.feePutNamedSet = true
 	}
 }
 

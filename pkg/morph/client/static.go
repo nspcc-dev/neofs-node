@@ -29,10 +29,9 @@ type StaticClient struct {
 }
 
 type staticOpts struct {
+	feeInc    fixedn.Fixed8
 	tryNotary bool
 	alpha     bool // use client's key to sign notary request's main TX
-
-	fees fees
 }
 
 // IsAlpha returns Alphabet status of the client.
@@ -49,9 +48,7 @@ type StaticClientOption func(*staticOpts)
 // NewStatic creates, initializes and returns the StaticClient instance.
 //
 // If provided Client instance is nil, ErrNilClient is returned.
-//
-// Specified fee is used by default. Per-operation fees can be customized via WithCustomFee option.
-func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts ...StaticClientOption) (*StaticClient, error) {
+func NewStatic(client *Client, scriptHash util.Uint160, opts ...StaticClientOption) (*StaticClient, error) {
 	if client == nil {
 		return nil, ErrNilClient
 	}
@@ -60,8 +57,6 @@ func NewStatic(client *Client, scriptHash util.Uint160, fee fixedn.Fixed8, opts 
 		client:       client,
 		scScriptHash: scriptHash,
 	}
-
-	c.fees.defaultFee = fee
 
 	for i := range opts {
 		opts[i](&c.staticOpts)
@@ -126,12 +121,7 @@ func (i *InvokePrmOptional) RequireAlphabetSignature() {
 // If TryNotary is provided:
 //   - if AsAlphabet is provided, calls NotaryInvoke;
 //   - otherwise, calls NotaryInvokeNotAlpha.
-//
-// If fee for the operation executed using specified method is customized, then StaticClient uses it.
-// Otherwise, default fee is used.
 func (s StaticClient) Invoke(prm InvokePrm) error {
-	fee := s.fees.feeForMethod(prm.method)
-
 	var (
 		invokeFunc func() error
 		err        error
@@ -155,12 +145,12 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			}
 
 			invokeFunc = func() error {
-				_, err := s.client.NotaryInvoke(s.scScriptHash, prm.await, fee, nonce, vubP, prm.method, prm.args...)
+				_, err := s.client.NotaryInvoke(s.scScriptHash, prm.await, s.feeInc, nonce, vubP, prm.method, prm.args...)
 				return err
 			}
 		} else {
 			invokeFunc = func() error {
-				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, prm.await, fee, prm.method, prm.args...)
+				return s.client.NotaryInvokeNotAlpha(s.scScriptHash, prm.await, s.feeInc, prm.method, prm.args...)
 			}
 		}
 	} else {
@@ -168,7 +158,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			return s.client.Invoke(
 				s.scScriptHash,
 				prm.await,
-				fee,
+				s.feeInc,
 				prm.method,
 				prm.args...,
 			)
@@ -263,10 +253,13 @@ func AsAlphabet() StaticClientOption {
 	}
 }
 
-// WithCustomFee returns option to specify custom fee for the operation executed using
-// specified contract method.
-func WithCustomFee(method string, fee fixedn.Fixed8) StaticClientOption {
+// WithStaticFeeIncrement returns option to increment transaction system fee
+// by static value. Otherwise 10% are added automatically to handle potential
+// state mismatch between test and real executions.
+//
+// Shouldn't be used in notary-enabled scenarios.
+func WithStaticFeeIncrement(fee fixedn.Fixed8) StaticClientOption {
 	return func(o *staticOpts) {
-		o.fees.setFeeForMethod(method, fee)
+		o.feeInc = fee
 	}
 }

@@ -25,7 +25,6 @@ func (ap *Processor) processEmit() {
 		return
 	}
 
-	// there is no signature collecting, so we don't need extra fee
 	err := ap.fsChainClient.Invoke(ap.alphabetContracts[index], false, 0, emitMethod)
 	if err != nil {
 		ap.log.Warn("can't invoke alphabet emit method", zap.Error(err))

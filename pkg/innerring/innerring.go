@@ -656,22 +656,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	// do not use TryNotary() in audit wrapper
 	// audit operations do not require multisignatures
-	server.auditClient, err = auditClient.NewFromMorph(server.fsChainClient, server.contracts.audit, 0)
+	server.auditClient, err = auditClient.NewFromMorph(server.fsChainClient, server.contracts.audit)
 	if err != nil {
 		return nil, err
 	}
 
-	cnrClient, err := cntClient.NewFromMorph(server.fsChainClient, server.contracts.container, 0, cntClient.AsAlphabet())
+	cnrClient, err := cntClient.NewFromMorph(server.fsChainClient, server.contracts.container, cntClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.netmapClient, err = nmClient.NewFromMorph(server.fsChainClient, server.contracts.netmap, 0, nmClient.AsAlphabet())
+	server.netmapClient, err = nmClient.NewFromMorph(server.fsChainClient, server.contracts.netmap, nmClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
 
-	server.balanceClient, err = balanceClient.NewFromMorph(server.fsChainClient, server.contracts.balance, 0, balanceClient.AsAlphabet())
+	server.balanceClient, err = balanceClient.NewFromMorph(server.fsChainClient, server.contracts.balance, balanceClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +681,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		return nil, fmt.Errorf("can't read balance contract precision: %w", err)
 	}
 
-	reputationClient, err := repClient.NewFromMorph(server.fsChainClient, server.contracts.reputation, 0, repClient.AsAlphabet())
+	reputationClient, err := repClient.NewFromMorph(server.fsChainClient, server.contracts.reputation, repClient.AsAlphabet())
 	if err != nil {
 		return nil, err
 	}
