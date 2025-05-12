@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Split object with a missing link object can't be retrieved in some cases (#3337)
 
 ### Changed
 

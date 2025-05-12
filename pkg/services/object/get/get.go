@@ -2,6 +2,7 @@ package getsvc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -110,6 +111,10 @@ func (exec *execCtx) analyzeStatus(execCnr bool) {
 	case statusVIRTUAL:
 		exec.log.Debug("requested object is virtual")
 		exec.assemble()
+		if errors.Is(exec.err, errNoLinkNoLastPart) && execCnr {
+			exec.executeOnContainer()
+			exec.analyzeStatus(false)
+		}
 	case statusAPIResponse:
 		exec.log.Debug("received api response locally, return directly", zap.Error(exec.err))
 		return
