@@ -2,6 +2,7 @@ package balance
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -9,7 +10,7 @@ import (
 
 // TransferPrm groups parameters of TransferX method.
 type TransferPrm struct {
-	Amount int64
+	Amount *big.Int
 
 	From, To user.ID
 
