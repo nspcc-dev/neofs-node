@@ -306,6 +306,7 @@ func (s *Server) registerCloser(f func() error) {
 
 // New creates instance of inner ring server structure.
 func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<- error) (*Server, error) {
+	// Never shadow this var, we have defers relying on it.
 	var err error
 	server := &Server{log: log}
 
@@ -429,7 +430,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	// create FS chain client
 	if isLocalConsensus {
 		// go on a local blockchain
-		err := validateBlockchainConfig(cfg)
+		err = validateBlockchainConfig(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
 		}
@@ -458,6 +459,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 				return nil, fmt.Errorf("run internal blockchain: %w", err)
 			}
 
+			// It's critical for err to not be shadowed, otherwise
+			// blockchain won't be stopped gracefully on error.
 			defer func() {
 				if err != nil {
 					server.bc.Stop()
@@ -591,12 +594,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		mainnetChain.name = mainnetPrefix
 		mainnetChain.cfg = &cfg.Mainnet
 
-		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
+		mainnetChain.from, err = server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
-			fromMainChainBlock = 0
 			log.Warn("can't get last processed main chain block number", zap.Error(err))
 		}
-		mainnetChain.from = fromMainChainBlock
 
 		// create mainnet client
 		server.mainnetClient, err = server.createClient(ctx, mainnetChain, errChan)
@@ -823,8 +824,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			log.Debug("alphabet keys sync is disabled")
 		}
 	} else {
+		var governanceProcessor *governance.Processor
 		// create governance processor
-		governanceProcessor, err := governance.New(&governance.Params{
+		governanceProcessor, err = governance.New(&governance.Params{
 			Log:           log,
 			NeoFSClient:   neofsCli,
 			NetmapClient:  server.netmapClient,
@@ -934,8 +936,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	}
 
 	if !server.withoutMainNet {
+		var neofsProcessor *neofs.Processor
 		// create mainnnet neofs processor
-		neofsProcessor, err := neofs.New(&neofs.Params{
+		neofsProcessor, err = neofs.New(&neofs.Params{
 			Log:                 log,
 			PoolSize:            cfg.Workers.NeoFS,
 			NeoFSContract:       server.contracts.neofs,
