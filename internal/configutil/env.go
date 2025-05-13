@@ -79,6 +79,9 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 	for i := 0; ; i++ {
 		idxPrefix := fmt.Sprintf("%s_%d", makeEnvKey(baseKey), i)
 		item := map[string]any{}
+		if i < len(sl) {
+			item = sl[i].(map[string]any)
+		}
 		found := false
 
 		for j := range elemType.NumField() {
@@ -116,9 +119,7 @@ func processStructSlice(v *viper.Viper, elemType reflect.Type, baseKey, envPrefi
 		if !found && i >= len(sl) {
 			break
 		}
-		if !found {
-			item = sl[i].(map[string]any)
-		} else {
+		if found {
 			updated = true
 		}
 		result = append(result, item)
