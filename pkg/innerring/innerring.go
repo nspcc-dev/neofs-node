@@ -49,7 +49,6 @@ import (
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
-	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
@@ -373,10 +372,22 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	const singleAccLabel = "single"
 	const consensusAccLabel = "consensus"
 	var singleAcc *wallet.Account
+	var serverAcc *wallet.Account
 	var consensusAcc *wallet.Account
 
 	for i := range wlt.Accounts {
 		err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+		if wlt.Accounts[i].Address == cfg.Wallet.Address {
+			if err != nil {
+				return nil, fmt.Errorf("failed to decrypt configured account '%s' in wallet '%s': %w", cfg.Wallet.Address, walletPath, err)
+			}
+
+			serverAcc = wlt.Accounts[i]
+			if singleAcc == nil {
+				singleAcc = serverAcc
+			}
+		}
+
 		switch wlt.Accounts[i].Label {
 		case singleAccLabel:
 			if err != nil {
@@ -384,6 +395,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			}
 
 			singleAcc = wlt.Accounts[i]
+			if serverAcc == nil {
+				serverAcc = singleAcc
+			}
 		case consensusAccLabel:
 			if err != nil {
 				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
@@ -393,24 +407,14 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		}
 	}
 
+	if serverAcc == nil {
+		return nil, fmt.Errorf("missing server private key in wallet '%s'", walletPath)
+	}
+	server.key = serverAcc.PrivateKey()
+
 	isLocalConsensus, err := isLocalConsensusMode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid consensus configuration: %w", err)
-	}
-
-	if isLocalConsensus {
-		if singleAcc == nil {
-			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
-		}
-
-		server.key = singleAcc.PrivateKey()
-	} else {
-		acc, err := utilConfig.LoadAccount(walletPath, cfg.Wallet.Address, walletPass)
-		if err != nil {
-			return nil, fmt.Errorf("ir: %w", err)
-		}
-
-		server.key = acc.PrivateKey()
 	}
 
 	err = serveControl(server, log, cfg, errChan)
