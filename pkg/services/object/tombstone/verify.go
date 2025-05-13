@@ -24,9 +24,10 @@ type ObjectSource interface {
 	// for removal.
 	Head(ctx context.Context, addr oid.Address) (*object.Object, error)
 
-	// Search returns objects that satisfy provided search filters and
+	// SearchOne returns objects ID that satisfy provided search filters with limit 1 and
 	// any error that does not allow processing operation.
-	Search(ctx context.Context, cnr cid.ID, filter object.SearchFilters) ([]oid.ID, error)
+	// If an object is not found, it returns zero ID.
+	SearchOne(ctx context.Context, cnr cid.ID, filter object.SearchFilters) (oid.ID, error)
 }
 
 // Verifier implements [object.TombVerifier] interface.
@@ -131,29 +132,15 @@ func (v *Verifier) verifyMember(ctx context.Context, cnr cid.ID, member oid.ID) 
 func (v *Verifier) verifyV1Child(ctx context.Context, cnr cid.ID, sID object.SplitID) error {
 	filters := object.SearchFilters{}
 	filters.AddSplitIDFilter(object.MatchStringEqual, sID)
+	filters.AddPayloadSizeFilter(object.MatchStringEqual, 0)
 
-	ids, err := v.objs.Search(ctx, cnr, filters)
+	id, err := v.objs.SearchOne(ctx, cnr, filters)
 	if err != nil {
 		return fmt.Errorf("searching objects: %w", err)
 	}
 
-	var addr oid.Address
-	addr.SetContainer(cnr)
-
-	for _, child := range ids {
-		addr.SetObject(child)
-
-		header, err := v.objs.Head(ctx, addr)
-		if err != nil {
-			if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) { // see similar call
-				return nil
-			}
-			return fmt.Errorf("heading %s object that was searched: %w", addr, err)
-		}
-
-		if len(header.Children()) != 0 {
-			return fmt.Errorf("found link object %s", addr)
-		}
+	if !id.IsZero() {
+		return fmt.Errorf("found link object %s", id)
 	}
 
 	return nil
@@ -164,20 +151,13 @@ func (v *Verifier) verifyV2Child(ctx context.Context, cnr cid.ID, firstObject oi
 	filters.AddFirstSplitObjectFilter(object.MatchStringEqual, firstObject)
 	filters.AddTypeFilter(object.MatchStringEqual, object.TypeLink)
 
-	ids, err := v.objs.Search(ctx, cnr, filters)
+	id, err := v.objs.SearchOne(ctx, cnr, filters)
 	if err != nil {
 		return fmt.Errorf("searching objects: %w", err)
 	}
 
-	switch len(ids) {
-	case 0:
-		// no link object, child can be deleted
-		return nil
-	case 1:
-		return fmt.Errorf("found link object %s", ids[0])
-	default:
-		// more than one link object somehow, sad but
-		// nothing can be done here
-		return errors.New("link object was found")
+	if !id.IsZero() {
+		return fmt.Errorf("found link object %s", id)
 	}
+	return nil
 }

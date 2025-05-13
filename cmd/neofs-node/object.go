@@ -40,8 +40,10 @@ import (
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
 )
 
@@ -244,6 +246,7 @@ func initObjectService(c *cfg) {
 	mNumber, err := c.shared.basics.cli.MagicNumber()
 	fatalOnErr(err)
 
+	os := &objectSource{get: sGet}
 	sPut := putsvc.NewService(&transport{clients: putConstructor}, c,
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
@@ -257,7 +260,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithWorkerPools(c.cfgObject.pool.putRemote, c.cfgObject.pool.putLocal),
 		putsvc.WithLogger(c.log),
 		putsvc.WithSplitChainVerifier(split.NewVerifier(sGet)),
-		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(objectSource{sGet, sSearch})),
+		putsvc.WithTombstoneVerifier(tombstone.NewVerifier(os)),
 	)
 
 	sDelete := deletesvc.New(
@@ -314,6 +317,7 @@ func initObjectService(c *cfg) {
 		keys:    keyStorage,
 	}
 	server := objectService.New(objSvc, mNumber, fsChain, storage, c.metaService, c.shared.basics.key.PrivateKey, c.metricsCollector, aclChecker, aclSvc, coreConstructor)
+	os.server = server
 
 	for _, srv := range c.cfgGRPC.servers {
 		protoobject.RegisterObjectServiceServer(srv, server)
@@ -639,16 +643,9 @@ func (x storageForObjectService) GetSessionPrivateKey(usr user.ID, uid uuid.UUID
 
 type objectSource struct {
 	get    *getsvc.Service
-	search *searchsvc.Service
-}
-
-type searchWriter struct {
-	ids []oid.ID
-}
-
-func (w *searchWriter) WriteIDs(ids []oid.ID) error {
-	w.ids = append(w.ids, ids...)
-	return nil
+	server interface {
+		ProcessSearch(ctx context.Context, req *protoobject.SearchV2Request) ([]client.SearchResultItem, []byte, error)
+	}
 }
 
 func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Object, error) {
@@ -664,20 +661,30 @@ func (o objectSource) Head(ctx context.Context, addr oid.Address) (*objectSDK.Ob
 	return hw.h, err
 }
 
-func (o objectSource) Search(ctx context.Context, cnr cid.ID, filters objectSDK.SearchFilters) ([]oid.ID, error) {
-	var sw searchWriter
-
-	var sPrm searchsvc.Prm
-	sPrm.SetWriter(&sw)
-	sPrm.WithSearchFilters(filters)
-	sPrm.WithContainerID(cnr)
-
-	err := o.search.Search(ctx, sPrm)
+func (o objectSource) SearchOne(ctx context.Context, cnr cid.ID, filters objectSDK.SearchFilters) (oid.ID, error) {
+	var id oid.ID
+	res, _, err := o.server.ProcessSearch(ctx, &protoobject.SearchV2Request{
+		Body: &protoobject.SearchV2Request_Body{
+			ContainerId: cnr.ProtoMessage(),
+			Version:     1,
+			Filters:     filters.ProtoMessage(),
+			Cursor:      "",
+			Count:       1,
+			Attributes:  nil,
+		},
+		MetaHeader: &protosession.RequestMetaHeader{
+			Version: version.Current().ProtoMessage(),
+			Ttl:     2,
+		},
+	})
 	if err != nil {
-		return nil, err
+		return id, err
 	}
 
-	return sw.ids, nil
+	if len(res) == 1 {
+		return res[0].ID, nil
+	}
+	return id, nil
 }
 
 // IsLocalNodePublicKey checks whether given binary-encoded public key is
