@@ -2,9 +2,7 @@ package settlement
 
 import (
 	"fmt"
-	"sync"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/settlement/basic"
 	nodeutil "github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
@@ -27,9 +25,6 @@ type (
 		auditProc AuditProcessor
 
 		basicIncome BasicIncomeInitializer
-
-		contextMu      sync.Mutex
-		incomeContexts map[uint64]*basic.IncomeSettlementContext
 	}
 
 	// Prm groups the required parameters of Processor's constructor.
@@ -67,11 +62,10 @@ func New(prm Prm, opts ...Option) *Processor {
 	)
 
 	return &Processor{
-		log:            o.log,
-		state:          prm.State,
-		pool:           pool,
-		auditProc:      prm.AuditProcessor,
-		basicIncome:    prm.BasicIncome,
-		incomeContexts: make(map[uint64]*basic.IncomeSettlementContext),
+		log:         o.log,
+		state:       prm.State,
+		pool:        pool,
+		auditProc:   prm.AuditProcessor,
+		basicIncome: prm.BasicIncome,
 	}
 }

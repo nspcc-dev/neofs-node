@@ -33,8 +33,7 @@ type (
 		stopEstimationDMul uint32 // X: X/Y of epoch in blocks
 		stopEstimationDDiv uint32 // Y: X/Y of epoch in blocks
 
-		collectBasicIncome    subEpochEventHandler
-		distributeBasicIncome subEpochEventHandler
+		basicIncome subEpochEventHandler
 	}
 )
 
@@ -76,30 +75,16 @@ func newEpochTimer(args *epochTimerArgs) *timer.BlockTimer {
 		})
 
 	epochTimer.OnDelta(
-		args.collectBasicIncome.durationMul,
-		args.collectBasicIncome.durationDiv,
+		args.basicIncome.durationMul,
+		args.basicIncome.durationDiv,
 		func() {
 			epochN := args.epoch.EpochCounter()
 			if epochN == 0 { // estimates are invalid in genesis epoch
 				return
 			}
 
-			args.collectBasicIncome.handler(
-				settlement.NewBasicIncomeCollectEvent(epochN - 1),
-			)
-		})
-
-	epochTimer.OnDelta(
-		args.distributeBasicIncome.durationMul,
-		args.distributeBasicIncome.durationDiv,
-		func() {
-			epochN := args.epoch.EpochCounter()
-			if epochN == 0 { // estimates are invalid in genesis epoch
-				return
-			}
-
-			args.distributeBasicIncome.handler(
-				settlement.NewBasicIncomeDistributeEvent(epochN - 1),
+			args.basicIncome.handler(
+				settlement.NewBasicIncomeEvent(epochN - 1),
 			)
 		})
 
