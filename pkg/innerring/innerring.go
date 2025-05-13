@@ -378,11 +378,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	for i := range wlt.Accounts {
 		err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt account '%s' (%s) in wallet '%s': %w", wlt.Accounts[i].Label, cfg.Wallet.Address, walletPath, err)
+		}
 		if wlt.Accounts[i].Address == cfg.Wallet.Address {
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt configured account '%s' in wallet '%s': %w", cfg.Wallet.Address, walletPath, err)
-			}
-
 			serverAcc = wlt.Accounts[i]
 			if singleAcc == nil {
 				singleAcc = serverAcc
@@ -391,19 +390,11 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 		switch wlt.Accounts[i].Label {
 		case singleAccLabel:
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPath, err)
-			}
-
 			singleAcc = wlt.Accounts[i]
 			if serverAcc == nil {
 				serverAcc = singleAcc
 			}
 		case consensusAccLabel:
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPath, err)
-			}
-
 			consensusAcc = wlt.Accounts[i]
 		}
 	}
