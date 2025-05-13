@@ -391,7 +391,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		switch wlt.Accounts[i].Label {
 		case singleAccLabel:
 			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPass, err)
+				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPath, err)
 			}
 
 			singleAcc = wlt.Accounts[i]
@@ -400,7 +400,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			}
 		case consensusAccLabel:
 			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
+				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPath, err)
 			}
 
 			consensusAcc = wlt.Accounts[i]
@@ -435,7 +435,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		}
 
 		if consensusAcc == nil {
-			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", consensusAccLabel, walletPass)
+			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", consensusAccLabel, walletPath)
 		}
 
 		if len(server.predefinedValidators) == 0 {
