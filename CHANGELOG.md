@@ -60,7 +60,7 @@ Changelog for NeoFS Node
 - SN `apiclient.allow_external` config (#3235)
 - Support `morph` name for `fschain` config (#3262)
 - All fields from the `contracts` section in IR config, except `contracts.neofs` and `contracts.processing` (#3262)
-- Section `contracts` in SN config (#3262) 
+- Section `contracts` in SN config (#3262)
 - `tree` SN configuration section (#3270)
 - `pilorama` shard configuration section for SN (#3270)
 - Tree service related CLI commands (#3270)
@@ -85,12 +85,12 @@ there is a list `storage.shards` with configuration of each shard and
 `storage.shard.default` now is a `storage.shard_defaults` option with a configuration
 of a default values of shards. Please rewrite this fields in your configuration files.
 
-The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release. 
-Compatibility code has been removed in this release. 
+The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release.
+Compatibility code has been removed in this release.
 Please rename `morph` to `fschain` in your configuration files.
 
 Currently, in IR configuration only 2 fields are supported in the `contracts` section:
-`contracts.neofs` and `contracts.processing`. The rest of the contracts, 
+`contracts.neofs` and `contracts.processing`. The rest of the contracts,
 along with the alphabet, were removed from the config.
 
 In SN configuration section `contracts` is gone and no longer needed.
