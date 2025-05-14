@@ -70,7 +70,7 @@ Changelog for NeoFS Node
 - `small_object_size` shard configuration section for SN (#3330)
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250417140404-8d69cb0e9a25` (#3255)
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250514113748-9abf8c619246` (#3255, #3345)
 - `github.com/nspcc-dev/neofs-contract` dependency to `v0.22.0` (#3282, #3305, #3323)
 - `github.com/nspcc-dev/neo-go` dependency to `v0.109.0` (#3298, #3335)
 
