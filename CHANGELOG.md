@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Basic income collection/distribution in networks with rate set to zero (#3352)
 - Data corruption on replication in some cases (#3353)
 - No object address in local HEAD operation error (#3343)
+- Excessive number of WebSocket connections to NeoGO RPC nodes for `strict` meta-on-chain policies (#3343)
 
 ### Changed
 

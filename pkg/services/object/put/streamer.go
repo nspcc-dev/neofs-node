@@ -206,9 +206,11 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 	withBroadcast := !localOnly && (typ == object.TypeTombstone || typ == object.TypeLock)
 
 	return &distributedTarget{
+		opCtx:                p.ctx,
 		currentBlock:         p.networkState.CurrentBlock(),
 		currentEpochDuration: p.networkState.CurrentEpochDuration(),
 		networkMagicNumber:   p.networkMagic,
+		metaSvc:              p.metaSvc,
 		placementIterator: placementIterator{
 			log:            p.log,
 			neoFSNet:       p.neoFSNet,
