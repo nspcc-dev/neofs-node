@@ -2040,8 +2040,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			firstFilter *object.SearchFilter
 		)
 		if len(attrs) > 0 {
-			firstAttr = fs[0].Header()
 			firstFilter = &ofs[0].SearchFilter
+			// No reason to compare equal values.
+			if body.Filters[0].MatchType != protoobject.MatchType_STRING_EQUAL {
+				firstAttr = fs[0].Header()
+			}
 		}
 		cmpInt := firstAttr != "" && objectcore.IsIntegerSearchOp(fs[0].Operation())
 		var more bool
