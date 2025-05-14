@@ -215,20 +215,7 @@ func (s settlementDeps) Transfer(sender, recipient user.ID, amount *big.Int, det
 		zap.String("details", hex.EncodeToString(details)),
 	)
 
-	if !amount.IsInt64() {
-		s.log.Error("amount can not be represented as an int64")
-
-		return
-	}
-
-	params := balanceClient.TransferPrm{
-		Amount:  amount.Int64(),
-		From:    sender,
-		To:      recipient,
-		Details: details,
-	}
-
-	err := s.balanceClient.TransferX(params)
+	err := s.balanceClient.TransferX(sender, recipient, amount, details)
 	if err != nil {
 		log.Error(fmt.Sprintf("%s: could not send transfer", s.settlementCtx),
 			zap.Error(err),

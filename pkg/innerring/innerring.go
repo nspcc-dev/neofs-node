@@ -1005,13 +1005,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		epoch:              server,
 		stopEstimationDMul: cfg.Timers.StopEstimation.Mul,
 		stopEstimationDDiv: cfg.Timers.StopEstimation.Div,
-		collectBasicIncome: subEpochEventHandler{
-			handler:     settlementProcessor.HandleIncomeCollectionEvent,
-			durationMul: cfg.Timers.CollectBasicIncome.Mul,
-			durationDiv: cfg.Timers.CollectBasicIncome.Div,
-		},
-		distributeBasicIncome: subEpochEventHandler{
-			handler:     settlementProcessor.HandleIncomeDistributionEvent,
+		basicIncome: subEpochEventHandler{
+			handler:     settlementProcessor.HandleBasicIncomeEvent,
 			durationMul: cfg.Timers.CollectBasicIncome.Mul,
 			durationDiv: cfg.Timers.CollectBasicIncome.Div,
 		},

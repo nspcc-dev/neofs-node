@@ -41,25 +41,12 @@ func (p *Processor) HandleAuditEvent(e event.Event) {
 	log.Debug("AuditEvent handling successfully scheduled")
 }
 
-func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
-	ev := e.(BasicIncomeCollectEvent)
+func (p *Processor) HandleBasicIncomeEvent(e event.Event) {
+	ev := e.(BasicIncomeEvent)
 	epoch := ev.Epoch()
 
 	if !p.state.IsAlphabet() {
 		p.log.Info("non alphabet mode, ignore income collection event")
-
-		return
-	}
-
-	p.log.Info("start basic income collection",
-		zap.Uint64("epoch", epoch))
-
-	p.contextMu.Lock()
-	defer p.contextMu.Unlock()
-
-	if _, ok := p.incomeContexts[epoch]; ok {
-		p.log.Error("income context already exists",
-			zap.Uint64("epoch", epoch))
 
 		return
 	}
@@ -72,51 +59,16 @@ func (p *Processor) HandleIncomeCollectionEvent(e event.Event) {
 		return
 	}
 
-	p.incomeContexts[epoch] = incomeCtx
-
 	err = p.pool.Submit(func() {
-		incomeCtx.Collect()
-	})
-	if err != nil {
-		p.log.Warn("could not add handler of basic income collection to queue",
-			zap.Error(err),
-		)
-
-		return
-	}
-}
-
-func (p *Processor) HandleIncomeDistributionEvent(e event.Event) {
-	ev := e.(BasicIncomeDistributeEvent)
-	epoch := ev.Epoch()
-
-	if !p.state.IsAlphabet() {
-		p.log.Info("non alphabet mode, ignore income distribution event")
-
-		return
-	}
-
-	p.log.Info("start basic income distribution",
-		zap.Uint64("epoch", epoch))
-
-	p.contextMu.Lock()
-	defer p.contextMu.Unlock()
-
-	incomeCtx, ok := p.incomeContexts[epoch]
-	delete(p.incomeContexts, epoch)
-
-	if !ok {
-		p.log.Warn("income context distribution does not exists",
+		p.log.Info("start basic income collection",
 			zap.Uint64("epoch", epoch))
-
-		return
-	}
-
-	err := p.pool.Submit(func() {
+		incomeCtx.Collect()
+		p.log.Info("start basic income distribution",
+			zap.Uint64("epoch", epoch))
 		incomeCtx.Distribute()
 	})
 	if err != nil {
-		p.log.Warn("could not add handler of basic income distribution to queue",
+		p.log.Warn("could not add basic income handler to queue",
 			zap.Error(err),
 		)
 

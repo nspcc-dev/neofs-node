@@ -10,10 +10,7 @@ type AuditEvent struct {
 	epoch uint64
 }
 
-type (
-	BasicIncomeCollectEvent    = AuditEvent
-	BasicIncomeDistributeEvent = AuditEvent
-)
+type BasicIncomeEvent = AuditEvent
 
 // MorphEvent implements Neo: FS chain event.
 func (e AuditEvent) MorphEvent() {}
@@ -31,16 +28,9 @@ func (e AuditEvent) Epoch() uint64 {
 	return e.epoch
 }
 
-// NewBasicIncomeCollectEvent for epoch.
-func NewBasicIncomeCollectEvent(epoch uint64) event.Event {
-	return BasicIncomeCollectEvent{
-		epoch: epoch,
-	}
-}
-
-// NewBasicIncomeDistributeEvent for epoch.
-func NewBasicIncomeDistributeEvent(epoch uint64) event.Event {
-	return BasicIncomeDistributeEvent{
+// NewBasicIncomeEvent for epoch.
+func NewBasicIncomeEvent(epoch uint64) event.Event {
+	return BasicIncomeEvent{
 		epoch: epoch,
 	}
 }
