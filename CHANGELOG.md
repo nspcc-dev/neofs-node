@@ -32,6 +32,8 @@ Changelog for NeoFS Node
 - Panic in search (#3333)
 - Insufficient fee for some operations (#3339)
 - Race between basic income processing stages leading to distribution failures in some cases (#3338)
+- Wallet password logged by IR in some error cases (#3340)
+- Embedded CN not stopped properly in some error cases potentially leading to inconsistent blockchain DB state (#3340)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)

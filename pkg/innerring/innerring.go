@@ -49,7 +49,6 @@ import (
 	controlsrv "github.com/nspcc-dev/neofs-node/pkg/services/control/ir/server"
 	reputationcommon "github.com/nspcc-dev/neofs-node/pkg/services/reputation/common"
 	util2 "github.com/nspcc-dev/neofs-node/pkg/util"
-	utilConfig "github.com/nspcc-dev/neofs-node/pkg/util/config"
 	"github.com/nspcc-dev/neofs-node/pkg/util/precision"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	"github.com/panjf2000/ants/v2"
@@ -307,6 +306,7 @@ func (s *Server) registerCloser(f func() error) {
 
 // New creates instance of inner ring server structure.
 func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<- error) (*Server, error) {
+	// Never shadow this var, we have defers relying on it.
 	var err error
 	server := &Server{log: log}
 
@@ -373,44 +373,40 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	const singleAccLabel = "single"
 	const consensusAccLabel = "consensus"
 	var singleAcc *wallet.Account
+	var serverAcc *wallet.Account
 	var consensusAcc *wallet.Account
 
 	for i := range wlt.Accounts {
 		err = wlt.Accounts[i].Decrypt(walletPass, keys.NEP2ScryptParams())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt account '%s' (%s) in wallet '%s': %w", wlt.Accounts[i].Label, cfg.Wallet.Address, walletPath, err)
+		}
+		if wlt.Accounts[i].Address == cfg.Wallet.Address {
+			serverAcc = wlt.Accounts[i]
+			if singleAcc == nil {
+				singleAcc = serverAcc
+			}
+		}
+
 		switch wlt.Accounts[i].Label {
 		case singleAccLabel:
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", singleAccLabel, walletPass, err)
-			}
-
 			singleAcc = wlt.Accounts[i]
-		case consensusAccLabel:
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt account with label '%s' in wallet '%s': %w", consensusAccLabel, walletPass, err)
+			if serverAcc == nil {
+				serverAcc = singleAcc
 			}
-
+		case consensusAccLabel:
 			consensusAcc = wlt.Accounts[i]
 		}
 	}
 
+	if serverAcc == nil {
+		return nil, fmt.Errorf("missing server private key in wallet '%s'", walletPath)
+	}
+	server.key = serverAcc.PrivateKey()
+
 	isLocalConsensus, err := isLocalConsensusMode(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid consensus configuration: %w", err)
-	}
-
-	if isLocalConsensus {
-		if singleAcc == nil {
-			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", singleAccLabel, walletPass)
-		}
-
-		server.key = singleAcc.PrivateKey()
-	} else {
-		acc, err := utilConfig.LoadAccount(walletPath, cfg.Wallet.Address, walletPass)
-		if err != nil {
-			return nil, fmt.Errorf("ir: %w", err)
-		}
-
-		server.key = acc.PrivateKey()
 	}
 
 	err = serveControl(server, log, cfg, errChan)
@@ -425,13 +421,13 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	// create FS chain client
 	if isLocalConsensus {
 		// go on a local blockchain
-		err := validateBlockchainConfig(cfg)
+		err = validateBlockchainConfig(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid blockchain configuration: %w", err)
 		}
 
 		if consensusAcc == nil {
-			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", consensusAccLabel, walletPass)
+			return nil, fmt.Errorf("missing account with label '%s' in wallet '%s'", consensusAccLabel, walletPath)
 		}
 
 		if len(server.predefinedValidators) == 0 {
@@ -454,6 +450,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 				return nil, fmt.Errorf("run internal blockchain: %w", err)
 			}
 
+			// It's critical for err to not be shadowed, otherwise
+			// blockchain won't be stopped gracefully on error.
 			defer func() {
 				if err != nil {
 					server.bc.Stop()
@@ -587,12 +585,10 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		mainnetChain.name = mainnetPrefix
 		mainnetChain.cfg = &cfg.Mainnet
 
-		fromMainChainBlock, err := server.persistate.UInt32(persistateMainChainLastBlockKey)
+		mainnetChain.from, err = server.persistate.UInt32(persistateMainChainLastBlockKey)
 		if err != nil {
-			fromMainChainBlock = 0
 			log.Warn("can't get last processed main chain block number", zap.Error(err))
 		}
-		mainnetChain.from = fromMainChainBlock
 
 		// create mainnet client
 		server.mainnetClient, err = server.createClient(ctx, mainnetChain, errChan)
@@ -819,8 +815,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			log.Debug("alphabet keys sync is disabled")
 		}
 	} else {
+		var governanceProcessor *governance.Processor
 		// create governance processor
-		governanceProcessor, err := governance.New(&governance.Params{
+		governanceProcessor, err = governance.New(&governance.Params{
 			Log:           log,
 			NeoFSClient:   neofsCli,
 			NetmapClient:  server.netmapClient,
@@ -930,8 +927,9 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 	}
 
 	if !server.withoutMainNet {
+		var neofsProcessor *neofs.Processor
 		// create mainnnet neofs processor
-		neofsProcessor, err := neofs.New(&neofs.Params{
+		neofsProcessor, err = neofs.New(&neofs.Params{
 			Log:                 log,
 			PoolSize:            cfg.Workers.NeoFS,
 			NeoFSContract:       server.contracts.neofs,
