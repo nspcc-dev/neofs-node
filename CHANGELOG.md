@@ -4,6 +4,27 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.46.0
+
+## [0.46.0] - 2025-05-14 - Sorokdo
+
+The main new feature of this release is N3 account support. We have greatly
+simplified storage node configuration as well and completed write cache
+improvements. "Peapod" substorage is gone as well as many other obsolete
+things, please check migration notes for upgrade details. Many internal
+improvements and fixes were also done, metabase structure is more compact now
+and SearchV2 is used for all appropriate tasks.
+
+### Added
 - Expose metrics about write-cache (#3293)
 - IR supports recently added Container contract's `create`, `remove` and `putEACL` methods now (#3282)
 - SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
@@ -60,7 +81,7 @@ Changelog for NeoFS Node
 - SN `apiclient.allow_external` config (#3235)
 - Support `morph` name for `fschain` config (#3262)
 - All fields from the `contracts` section in IR config, except `contracts.neofs` and `contracts.processing` (#3262)
-- Section `contracts` in SN config (#3262) 
+- Section `contracts` in SN config (#3262)
 - `tree` SN configuration section (#3270)
 - `pilorama` shard configuration section for SN (#3270)
 - Tree service related CLI commands (#3270)
@@ -85,12 +106,12 @@ there is a list `storage.shards` with configuration of each shard and
 `storage.shard.default` now is a `storage.shard_defaults` option with a configuration
 of a default values of shards. Please rewrite this fields in your configuration files.
 
-The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release. 
-Compatibility code has been removed in this release. 
+The section `morph` in the config has been renamed to `fschain` in the 0.43.0 release.
+Compatibility code has been removed in this release.
 Please rename `morph` to `fschain` in your configuration files.
 
 Currently, in IR configuration only 2 fields are supported in the `contracts` section:
-`contracts.neofs` and `contracts.processing`. The rest of the contracts, 
+`contracts.neofs` and `contracts.processing`. The rest of the contracts,
 along with the alphabet, were removed from the config.
 
 In SN configuration section `contracts` is gone and no longer needed.
@@ -2432,7 +2453,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...master
+[0.46.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...v0.46.0
 [0.45.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...v0.45.2
 [0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
