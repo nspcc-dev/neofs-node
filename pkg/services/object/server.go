@@ -1932,7 +1932,17 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	if err := fs.FromProtoMessage(body.Filters); err != nil {
 		return nil, nil, fmt.Errorf("invalid filters: %w", err)
 	}
-	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, body.Attributes, body.Cursor)
+
+	filteredAttributeless := len(body.Attributes) == 0 && len(body.Filters) > 0
+	attrs := body.Attributes
+	if filteredAttributeless {
+		// 1st attribute is required for merge function to provide proper paging. This
+		// requires collecting attribute values from other nodes. Therefore, if the
+		// attribute is not requested, it is forcefully returned for local queries, and
+		// will end up in resulting cursor.
+		attrs = []string{body.Filters[0].Key}
+	}
+	ofs, cursor, err := objectcore.PreprocessSearchQuery(fs, attrs, body.Cursor)
 	if err != nil {
 		if errors.Is(err, objectcore.ErrUnreachableQuery) {
 			return nil, nil, nil
@@ -1961,11 +1971,11 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	count := uint16(body.Count) // legit according to the limit
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err != nil {
+		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
 			return nil, nil, err
 		}
 	case handleWithMetaService:
-		res, newCursor, err = s.meta.Search(cID, ofs, body.Attributes, cursor, count)
+		res, newCursor, err = s.meta.Search(cID, ofs, attrs, cursor, count)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1993,7 +2003,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if set, crsr, err := s.storage.SearchObjects(cID, ofs, body.Attributes, cursor, count); err == nil {
+					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
 				}()
@@ -2029,7 +2039,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			firstAttr   string
 			firstFilter *object.SearchFilter
 		)
-		if len(body.Attributes) > 0 {
+		if len(attrs) > 0 {
 			firstAttr = fs[0].Header()
 			firstFilter = &ofs[0].SearchFilter
 		}
@@ -2039,9 +2049,20 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return nil, nil, fmt.Errorf("merge results from container nodes: %w", err)
 		}
 		if more {
+			if filteredAttributeless && body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL {
+				// temporary add the only possible value just to calculate the cursor. Condition below reverts it.
+				res[len(res)-1].Attributes = []string{body.Filters[0].Value}
+			}
 			if newCursor, err = objectcore.CalculateCursor(firstFilter, res[len(res)-1]); err != nil {
 				return nil, nil, fmt.Errorf("recalculate cursor: %w", err)
 			}
+		}
+	}
+
+	if filteredAttributeless && (ttl != 1 || body.Filters[0].MatchType == protoobject.MatchType_STRING_EQUAL) {
+		// for K=V queries, V is unambiguous, so there is no need to transmit it in each item
+		for i := range res {
+			res[i].Attributes = nil
 		}
 	}
 
@@ -2116,13 +2137,14 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 	// TODO: we can theoretically do without type conversion, thus avoiding
 	//  additional allocation. At the same time, this will require generic code for merging.
 	res := make([]sdkclient.SearchResultItem, n)
+	filteredAttributeless := len(req.Body.Attributes) == 0 && len(req.Body.Filters) > 0
 	for i, r := range resp.Body.Result {
 		switch {
 		case r == nil:
 			return nil, false, fmt.Errorf("invalid response body: nil element #%d", i)
 		case r.Id == nil:
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: missing ID", i)
-		case len(r.Attributes) != len(req.Body.Attributes):
+		case !filteredAttributeless && len(r.Attributes) != len(req.Body.Attributes) || filteredAttributeless && len(r.Attributes) > 1:
 			return nil, false, fmt.Errorf("invalid response body: invalid element #%d: wrong attribute count %d", i, len(r.Attributes))
 		}
 		if err := res[i].ID.FromProtoMessage(r.Id); err != nil {
