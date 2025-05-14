@@ -14,9 +14,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/resolver"
 )
 
 func initGRPC(c *cfg) {
+	// although docs state that 'passthrough' is set by default, it should be set explicitly for activation
+	resolver.SetDefaultScheme("passthrough")
+
 	if c.cfgMorph.client == nil {
 		initMorphComponents(c)
 	}

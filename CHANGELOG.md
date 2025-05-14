@@ -34,6 +34,7 @@ Changelog for NeoFS Node
 - Race between basic income processing stages leading to distribution failures in some cases (#3338)
 - Wallet password logged by IR in some error cases (#3340)
 - Embedded CN not stopped properly in some error cases potentially leading to inconsistent blockchain DB state (#3340)
+- SN gRPC dialer switched from problematic `dns` address resolver to the `passthrough` one (#3334)
 
 ### Changed
 - IR calls `ObjectService.SearchV2` to select SG objects now (#3144)
