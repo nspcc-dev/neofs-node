@@ -490,10 +490,10 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	fatalOnErr(err)
 	nState.block.Store(currBlock)
 
-	b.cCli, err = cntClient.NewFromMorph(cli, b.containerSH, 0)
+	b.cCli, err = cntClient.NewFromMorph(cli, b.containerSH)
 	fatalOnErr(err)
 
-	b.nCli, err = nmClient.NewFromMorph(cli, b.netmapSH, 0)
+	b.nCli, err = nmClient.NewFromMorph(cli, b.netmapSH)
 	fatalOnErr(err)
 
 	eDuration, err := b.nCli.EpochDuration()

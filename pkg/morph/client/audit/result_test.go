@@ -29,7 +29,7 @@ func TestAuditResults(t *testing.T) {
 	morphClient, err := client.New(key, client.WithEndpoints([]string{endpoint}))
 	require.NoError(t, err)
 
-	auditClientWrapper, err := NewFromMorph(morphClient, auditHash, 0)
+	auditClientWrapper, err := NewFromMorph(morphClient, auditHash)
 	require.NoError(t, err)
 
 	id := cidtest.ID()

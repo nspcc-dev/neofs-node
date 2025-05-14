@@ -3,7 +3,6 @@ package reputation
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neo-go/pkg/encoding/fixedn"
 	"github.com/nspcc-dev/neo-go/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client"
 )
@@ -28,14 +27,14 @@ const (
 )
 
 // NewFromMorph returns the wrapper instance from the raw morph client.
-func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, opts ...Option) (*Client, error) {
+func NewFromMorph(cli *client.Client, contract util.Uint160, opts ...Option) (*Client, error) {
 	o := defaultOpts()
 
 	for i := range opts {
 		opts[i](o)
 	}
 
-	sc, err := client.NewStatic(cli, contract, fee, ([]client.StaticClientOption)(*o)...)
+	sc, err := client.NewStatic(cli, contract, ([]client.StaticClientOption)(*o)...)
 	if err != nil {
 		return nil, fmt.Errorf("could not create static client of reputation contract: %w", err)
 	}

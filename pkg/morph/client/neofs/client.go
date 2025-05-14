@@ -35,7 +35,7 @@ func NewFromMorph(cli *client.Client, contract util.Uint160, fee fixedn.Fixed8, 
 		opts[i](o)
 	}
 
-	sc, err := client.NewStatic(cli, contract, fee, ([]client.StaticClientOption)(*o)...)
+	sc, err := client.NewStatic(cli, contract, ([]client.StaticClientOption)(*o)...)
 	if err != nil {
 		return nil, fmt.Errorf("could not create client of NeoFS contract: %w", err)
 	}
