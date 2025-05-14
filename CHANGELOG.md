@@ -4,6 +4,27 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.46.0
+
+## [0.46.0] - 2025-05-14 - Sorokdo
+
+The main new feature of this release is N3 account support. We have greatly
+simplified storage node configuration as well and completed write cache
+improvements. "Peapod" substorage is gone as well as many other obsolete
+things, please check migration notes for upgrade details. Many internal
+improvements and fixes were also done, metabase structure is more compact now
+and SearchV2 is used for all appropriate tasks.
+
+### Added
 - Expose metrics about write-cache (#3293)
 - IR supports recently added Container contract's `create`, `remove` and `putEACL` methods now (#3282)
 - SN attempts to make notary requests calling Container contract's `create`, `remove` and `putEACL` methods (#3282)
@@ -2432,7 +2453,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...master
+[0.46.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...v0.46.0
 [0.45.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...v0.45.2
 [0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
 [0.45.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.44.2...v0.45.0
