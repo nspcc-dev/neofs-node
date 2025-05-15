@@ -88,9 +88,11 @@ func (db *DB) put(
 		}
 	}
 
-	err = putUniqueIndexes(tx, obj, si, hdrBin)
-	if err != nil {
-		return fmt.Errorf("can't put unique indexes: %w", err)
+	if !isParent {
+		err = putHeaderIndex(tx, obj, hdrBin)
+		if err != nil {
+			return fmt.Errorf("can't put header: %w", err)
+		}
 	}
 
 	// update container volume size estimation
@@ -122,47 +124,41 @@ func (db *DB) put(
 	return nil
 }
 
-func putUniqueIndexes(
+func putHeaderIndex(
 	tx *bbolt.Tx,
 	obj *objectSDK.Object,
-	si *objectSDK.SplitInfo,
 	hdrBin []byte,
 ) error {
-	isParent := si != nil
 	addr := objectCore.AddressOf(obj)
 	cnr := addr.Container()
 	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
 
 	bucketName := make([]byte, bucketKeySize)
 	// add value to primary unique bucket
-	if !isParent {
-		switch obj.Type() {
-		case objectSDK.TypeRegular:
-			bucketName = primaryBucketName(cnr, bucketName)
-		case objectSDK.TypeTombstone:
-			bucketName = tombstoneBucketName(cnr, bucketName)
-		case objectSDK.TypeStorageGroup:
-			bucketName = storageGroupBucketName(cnr, bucketName)
-		case objectSDK.TypeLock:
-			bucketName = bucketNameLockers(cnr, bucketName)
-		case objectSDK.TypeLink:
-			bucketName = linkObjectsBucketName(cnr, bucketName)
-		default:
-			return ErrUnknownObjectType
-		}
-
-		if hdrBin == nil {
-			hdrBin = obj.CutPayload().Marshal()
-		}
-
-		bkt, err := tx.CreateBucketIfNotExists(bucketName)
-		if err != nil {
-			return fmt.Errorf("can't create bucket %v: %w", bucketName, err)
-		}
-		return bkt.Put(objKey, hdrBin)
+	switch obj.Type() {
+	case objectSDK.TypeRegular:
+		bucketName = primaryBucketName(cnr, bucketName)
+	case objectSDK.TypeTombstone:
+		bucketName = tombstoneBucketName(cnr, bucketName)
+	case objectSDK.TypeStorageGroup:
+		bucketName = storageGroupBucketName(cnr, bucketName)
+	case objectSDK.TypeLock:
+		bucketName = bucketNameLockers(cnr, bucketName)
+	case objectSDK.TypeLink:
+		bucketName = linkObjectsBucketName(cnr, bucketName)
+	default:
+		return ErrUnknownObjectType
 	}
 
-	return nil
+	if hdrBin == nil {
+		hdrBin = obj.CutPayload().Marshal()
+	}
+
+	bkt, err := tx.CreateBucketIfNotExists(bucketName)
+	if err != nil {
+		return fmt.Errorf("can't create bucket %v: %w", bucketName, err)
+	}
+	return bkt.Put(objKey, hdrBin)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.
