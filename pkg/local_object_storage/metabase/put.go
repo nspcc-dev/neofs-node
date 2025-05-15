@@ -73,9 +73,10 @@ func (db *DB) put(
 		return err // return any other errors
 	}
 
-	par := obj.Parent()
-	if par != nil && !isParent { // limit depth by two
-		if parID := par.GetID(); !parID.IsZero() { // skip the first object without useful info
+	if !isParent {
+		var par = obj.Parent()
+
+		if par != nil && !par.GetID().IsZero() { // skip the first object without useful info
 			parentSI, err := splitInfoFromObject(obj)
 			if err != nil {
 				return err
@@ -86,24 +87,20 @@ func (db *DB) put(
 				return err
 			}
 		}
-	}
 
-	if !isParent {
 		err = putHeaderIndex(tx, obj, hdrBin)
 		if err != nil {
 			return fmt.Errorf("can't put header: %w", err)
 		}
-	}
 
-	// update container volume size estimation
-	if obj.Type() == objectSDK.TypeRegular && !isParent {
-		err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
-		if err != nil {
-			return err
+		// update container volume size estimation
+		if obj.Type() == objectSDK.TypeRegular {
+			err = changeContainerSize(tx, obj.GetContainerID(), obj.PayloadSize(), true)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	if !isParent {
 		err = db.updateCounter(tx, phy, 1, true)
 		if err != nil {
 			return fmt.Errorf("could not increase phy object counter: %w", err)
