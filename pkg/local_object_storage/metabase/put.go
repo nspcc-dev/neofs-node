@@ -14,12 +14,6 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-type (
-	namedBucketItem struct {
-		name, key, val []byte
-	}
-)
-
 var (
 	ErrUnknownObjectType        = errors.New("unknown object type")
 	ErrIncorrectSplitInfoUpdate = errors.New("updating split info on object without it")
@@ -157,31 +151,18 @@ func putUniqueIndexes(
 			return ErrUnknownObjectType
 		}
 
-		var err error
 		if hdrBin == nil {
 			hdrBin = obj.CutPayload().Marshal()
 		}
 
-		err = putUniqueIndexItem(tx, namedBucketItem{
-			name: bucketName,
-			key:  objKey,
-			val:  hdrBin,
-		})
+		bkt, err := tx.CreateBucketIfNotExists(bucketName)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't create bucket %v: %w", bucketName, err)
 		}
+		return bkt.Put(objKey, hdrBin)
 	}
 
 	return nil
-}
-
-func putUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) error {
-	bkt, err := tx.CreateBucketIfNotExists(item.name)
-	if err != nil {
-		return fmt.Errorf("can't create index %v: %w", item.name, err)
-	}
-
-	return bkt.Put(item.key, item.val)
 }
 
 // encodeList decodes list of bytes into a single blog for list bucket indexes.
