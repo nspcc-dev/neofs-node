@@ -26,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	availabilityvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/availability"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/external"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/privatedomains"
 	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
@@ -851,6 +852,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	nnsService := newNeoFSNNS(nnsContractAddr, invoker.New(server.fsChainClient, nil))
 
+	nodeValidators := []netmap.NodeValidator{
+		&netMapCandidateStateValidator,
+		addrvalidator.New(),
+		availabilityvalidator.New(),
+		privatedomains.New(nnsService),
+		locodeValidator,
+	}
+	if cfg.Validator.Enabled && cfg.Validator.Address != "" {
+		nodeValidators = append(nodeValidators, external.New(cfg.Validator.Address, &server.key.PrivateKey))
+	}
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -870,14 +882,8 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			settlementProcessor.HandleAuditEvent,
 		),
 		AlphabetSyncHandler: alphaSync,
-		NodeValidator: nodevalidator.New(
-			&netMapCandidateStateValidator,
-			addrvalidator.New(),
-			availabilityvalidator.New(),
-			privatedomains.New(nnsService),
-			locodeValidator,
-		),
-		NodeStateSettings: netSettings,
+		NodeValidator:       nodevalidator.New(nodeValidators...),
+		NodeStateSettings:   netSettings,
 	})
 	if err != nil {
 		return nil, err
