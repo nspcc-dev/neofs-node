@@ -6,6 +6,7 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
+- Basic income collection/distribution in networks with rate set to zero (#3352)
 
 ### Changed
 

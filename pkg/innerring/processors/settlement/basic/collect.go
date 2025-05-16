@@ -25,6 +25,11 @@ func (inc *IncomeSettlementContext) Collect() {
 		return
 	}
 
+	if cachedRate == 0 {
+		inc.log.Info("basic income rate is zero, skipping collection")
+		return
+	}
+
 	cnrEstimations, err := inc.estimations.Estimations(inc.epoch)
 	if err != nil {
 		inc.log.Error("can't fetch container size estimations",
