@@ -6,19 +6,25 @@ Changelog for NeoFS Node
 ### Added
 
 ### Fixed
-- Basic income collection/distribution in networks with rate set to zero (#3352)
-- Data corruption on replication in some cases (#3353)
-- No object address in local HEAD operation error (#3343)
-- Excessive number of WebSocket connections to NeoGO RPC nodes for `strict` meta-on-chain policies (#3343)
 
 ### Changed
 
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250516062127-1f3abc2c67ca` (#3353)
 
-### Updating from v0.46.0
+### Updating from v0.46.1
+
+## [0.46.1] - 2025-05-16
+
+### Fixed
+- Basic income collection/distribution in networks with rate set to zero (#3352)
+- Data corruption on replication in some cases (#3353)
+- No object address in local HEAD operation error (#3343)
+- Excessive number of WebSocket connections to NeoGo RPC nodes for `strict` meta-on-chain policies (#3343)
+
+### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250516062127-1f3abc2c67ca` (#3353)
 
 ## [0.46.0] - 2025-05-14 - Sorokdo
 
@@ -2458,7 +2464,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...master
+[0.46.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...v0.46.0
 [0.45.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...v0.45.2
 [0.45.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.0...v0.45.1
