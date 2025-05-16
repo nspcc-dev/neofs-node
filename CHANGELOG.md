@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- IR node can verify SN with an external validator (#3356)
 
 ### Fixed
 - Split object with a missing link object can't be retrieved in some cases (#3337)

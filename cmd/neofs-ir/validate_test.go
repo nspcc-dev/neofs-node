@@ -344,5 +344,9 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 		Experimental: config.Experimental{
 			ChainMetaData: false,
 		},
+		Validator: config.Validator{
+			Enabled: true,
+			Address: "localhost:8080",
+		},
 	})
 }

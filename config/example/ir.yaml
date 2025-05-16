@@ -203,3 +203,7 @@ settlement:
 
 experimental:
   chain_meta_data: false # Optional: allows creating containers with meta data handled via FS chain
+
+validator:
+  enabled: true
+  address: localhost:8080 # Endpoint for external validator of SN; disabled by default
