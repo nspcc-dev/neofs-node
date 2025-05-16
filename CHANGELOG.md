@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Basic income collection/distribution in networks with rate set to zero (#3352)
+- Data corruption on replication in some cases (#3353)
 
 ### Changed
 
