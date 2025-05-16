@@ -1052,23 +1052,6 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 	return client.New(p.key, options...)
 }
 
-// ParsePublicKeysFromStrings returns slice of neo public keys from slice
-// of hex encoded strings.
-func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
-	publicKeys := make(keys.PublicKeys, 0, len(pubKeys))
-
-	for i := range pubKeys {
-		key, err := keys.NewPublicKeyFromString(pubKeys[i])
-		if err != nil {
-			return nil, fmt.Errorf("can't decode public key: %w", err)
-		}
-
-		publicKeys = append(publicKeys, key)
-	}
-
-	return publicKeys, nil
-}
-
 func (s *Server) initConfigFromBlockchain() error {
 	// get current epoch
 	epoch, err := s.netmapClient.Epoch()
