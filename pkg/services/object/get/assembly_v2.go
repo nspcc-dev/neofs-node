@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var errNoLinkNoLastPart = errors.New("no link and no last part in split info")
+
 func (exec *execCtx) processV2Split(si *objectSDK.SplitInfo) {
 	if si.GetFirstPart().IsZero() {
 		exec.log.Debug("no first ID found in V2 split")
@@ -26,6 +28,7 @@ func (exec *execCtx) processV2Split(si *objectSDK.SplitInfo) {
 	prev := si.GetLastPart()
 	if prev.IsZero() {
 		exec.log.Debug("neither link, not last part is set in the v2 split information")
+		exec.err = errNoLinkNoLastPart
 		return
 	}
 
