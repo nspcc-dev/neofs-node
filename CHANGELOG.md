@@ -5,6 +5,7 @@ Changelog for NeoFS Node
 
 ### Added
 - Support for announced address specification in IR consensus P2P config (#3361)
+- IR node can verify SN with an external validator (#3356)
 
 ### Fixed
 - Split object with a missing link object can't be retrieved in some cases (#3337)
