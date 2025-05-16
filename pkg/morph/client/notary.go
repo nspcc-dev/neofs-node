@@ -309,6 +309,8 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // it fallbacks to a simple `Invoke()`, but doesn't return the hash of tx.
 //
 // `nonce` and `vub` are used only if notary is enabled.
+// Note: true await flag always means additional subscription for [Client] which
+// is always limited on server side, use it carefully.
 func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	if c.notary == nil {
 		return util.Uint256{}, c.Invoke(contract, false, fee, method, args...)
@@ -322,6 +324,8 @@ func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixe
 // not expected to be signed by the current node.
 //
 // Considered to be used by non-IR nodes.
+// Note: true await flag always means additional subscription for [Client] which
+// is always limited on server side, use it carefully.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
 		return c.Invoke(contract, await, fee, method, args...)
@@ -333,8 +337,11 @@ func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fix
 
 // NotarySignAndInvokeTX signs and sends notary request that was received from
 // Notary service.
-// NOTE: does not fallback to simple `Invoke()`. Expected to be used only for
-// TXs retrieved from the received notary requests.
+// NOTE:
+//   - does not fallback to simple `Invoke()`. Expected to be used only for
+//     TXs retrieved from the received notary requests.
+//   - true await flag always means additional subscription for [Client] which
+//     is always limited on server side, use it carefully.
 func (c *Client) NotarySignAndInvokeTX(mainTx *transaction.Transaction, await bool) error {
 	var conn = c.conn.Load()
 

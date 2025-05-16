@@ -2,6 +2,7 @@ package putsvc
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	chaincontainer "github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	svcutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -29,6 +31,8 @@ type preparedObjectTarget interface {
 }
 
 type distributedTarget struct {
+	opCtx context.Context
+
 	placementIterator placementIterator
 
 	obj                  *objectSDK.Object
@@ -40,6 +44,7 @@ type distributedTarget struct {
 	cnrClient               *chaincontainer.Client
 	metainfoConsistencyAttr string
 
+	metaSvc             *meta.Meta
 	metaMtx             sync.RWMutex
 	objSharedMeta       []byte
 	collectedSignatures [][]byte
@@ -187,12 +192,31 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			return id, nil
 		}
 
-		err = t.cnrClient.SubmitObjectPut(await, t.objSharedMeta, t.collectedSignatures)
-		if err != nil {
-			return oid.ID{}, fmt.Errorf("failed to submit %s object meta information: %w", id, err)
+		addr := object.AddressOf(t.obj)
+		var objAccepted chan struct{}
+		if await {
+			objAccepted = make(chan struct{}, 1)
+			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
 
-		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("oid", id))
+		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
+		if err != nil {
+			if await {
+				t.metaSvc.UnsubscribeFromObject(addr)
+			}
+			return oid.ID{}, fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
+		}
+
+		if await {
+			select {
+			case <-t.opCtx.Done():
+				t.metaSvc.UnsubscribeFromObject(addr)
+				return oid.ID{}, fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
+			case <-objAccepted:
+			}
+		}
+
+		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 	}
 
 	return id, nil

@@ -247,7 +247,7 @@ func initObjectService(c *cfg) {
 	fatalOnErr(err)
 
 	os := &objectSource{get: sGet}
-	sPut := putsvc.NewService(&transport{clients: putConstructor}, c,
+	sPut := putsvc.NewService(&transport{clients: putConstructor}, c, c.shared.metaService,
 		putsvc.WithNetworkMagic(mNumber),
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),

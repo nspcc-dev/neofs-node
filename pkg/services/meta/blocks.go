@@ -49,6 +49,8 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 				continue
 			}
 
+			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID))
+
 			m.stM.RLock()
 			st, ok := m.storages[ev.cID]
 			m.stM.RUnlock()
