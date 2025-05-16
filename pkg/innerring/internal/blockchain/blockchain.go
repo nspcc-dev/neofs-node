@@ -116,7 +116,7 @@ func New(cfg *config.Consensus, wallet *config.Wallet, errChan chan<- error, log
 		cfg.P2P.DialTimeout = time.Minute
 	}
 	if cfg.P2P.ProtoTickInterval == 0 {
-		cfg.P2P.ProtoTickInterval = 2 * time.Second
+		cfg.P2P.ProtoTickInterval = 500 * time.Millisecond
 	}
 	if cfg.MaxTraceableBlocks == 0 {
 		cfg.MaxTraceableBlocks = 17280
