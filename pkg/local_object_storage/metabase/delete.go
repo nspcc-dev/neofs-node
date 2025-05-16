@@ -152,10 +152,10 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 	return true, removeAvailableObject, payloadSize, nil
 }
 
-func delUniqueIndexItem(tx *bbolt.Tx, item namedBucketItem) {
-	bkt := tx.Bucket(item.name)
+func delBucketKey(tx *bbolt.Tx, bucket []byte, key []byte) {
+	bkt := tx.Bucket(bucket)
 	if bkt != nil {
-		_ = bkt.Delete(item.key) // ignore error, best effort there
+		_ = bkt.Delete(key) // ignore error, best effort there
 	}
 }
 
@@ -183,16 +183,10 @@ func delUniqueIndexes(tx *bbolt.Tx, cnr cid.ID, oID oid.ID, typ objectSDK.Type, 
 			return ErrUnknownObjectType
 		}
 
-		delUniqueIndexItem(tx, namedBucketItem{
-			name: bucketName,
-			key:  objKey,
-		})
+		delBucketKey(tx, bucketName, objKey)
 	}
 
-	delUniqueIndexItem(tx, namedBucketItem{ // remove from ToMoveIt index
-		name: toMoveItBucketName,
-		key:  addrKey,
-	})
+	delBucketKey(tx, toMoveItBucketName, addrKey)
 
 	return nil
 }
