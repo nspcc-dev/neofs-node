@@ -7,12 +7,14 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Basic income collection/distribution in networks with rate set to zero (#3352)
+- Data corruption on replication in some cases (#3353)
 
 ### Changed
 
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250516062127-1f3abc2c67ca` (#3353)
 
 ### Updating from v0.46.0
 

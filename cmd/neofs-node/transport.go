@@ -52,7 +52,7 @@ func (protoCodecBinaryRequestOnly) Name() string {
 func (protoCodecBinaryRequestOnly) Marshal(msg any) (mem.BufferSlice, error) {
 	bMsg, ok := msg.([]byte)
 	if ok {
-		return mem.BufferSlice{mem.NewBuffer(&bMsg, mem.DefaultBufferPool())}, nil
+		return mem.BufferSlice{mem.SliceBuffer(bMsg)}, nil
 	}
 
 	return nil, fmt.Errorf("message is not of type %T", bMsg)
