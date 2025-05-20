@@ -298,14 +298,19 @@ func (e *notHaltStateError) Error() string {
 //
 // Note: true await flag always means additional subscription for [Client] which
 // is always limited on server side, use it carefully.
-func (c *Client) Invoke(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
+func (c *Client) Invoke(contract util.Uint160, await, payByProxy bool, fee fixedn.Fixed8, method string, args ...any) error {
 	var conn = c.conn.Load()
 
 	if conn == nil {
 		return ErrConnectionLost
 	}
 
-	txHash, vub, err := conn.rpcActor.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
+	act := conn.rpcActor
+	if payByProxy {
+		act = conn.rpcProxyActor
+	}
+
+	txHash, vub, err := act.SendTunedCall(contract, method, nil, addFeeCheckerModifier(int64(fee)), args...)
 	if await {
 		_, err = conn.rpcActor.Wait(txHash, vub, err)
 	}
@@ -316,6 +321,7 @@ func (c *Client) Invoke(contract util.Uint160, await bool, fee fixedn.Fixed8, me
 	c.logger.Debug("neo client invoke",
 		zap.String("method", method),
 		zap.Uint32("vub", vub),
+		zap.Bool("pay by proxy", payByProxy),
 		zap.String("tx_hash", txHash.StringLE()))
 
 	return nil
