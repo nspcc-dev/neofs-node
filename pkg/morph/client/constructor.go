@@ -225,14 +225,23 @@ func (c *Client) newConnectionWS(cli *rpcclient.WSClient) (*connection, error) {
 		return nil, fmt.Errorf("RPC actor creation: %w", err)
 	}
 
+	var proxyAct *actor.Actor
+	if c.notary != nil {
+		proxyAct, err = newProxyActor(cli, c.notary.proxy, c.acc, c.cfg)
+		if err != nil {
+			return nil, fmt.Errorf("RPC proxy actor creation: %w", err)
+		}
+	}
+
 	var conn = &connection{
-		client:     cli,
-		rpcActor:   act,
-		gasToken:   gas.New(act),
-		rolemgmt:   rolemgmt.New(act),
-		notifyChan: make(chan *state.ContainedNotificationEvent, notifyChanCap),
-		headerChan: make(chan *block.Header, headerChanCap),
-		notaryChan: make(chan *result.NotaryRequestEvent, notaryChanCap),
+		client:        cli,
+		rpcActor:      act,
+		rpcProxyActor: proxyAct,
+		gasToken:      gas.New(act),
+		rolemgmt:      rolemgmt.New(act),
+		notifyChan:    make(chan *state.ContainedNotificationEvent, notifyChanCap),
+		headerChan:    make(chan *block.Header, headerChanCap),
+		notaryChan:    make(chan *result.NotaryRequestEvent, notaryChanCap),
 	}
 	return conn, nil
 }
@@ -248,6 +257,18 @@ func newActor(ws *rpcclient.WSClient, acc *wallet.Account, cfg cfg) (*actor.Acto
 		},
 		Account: acc,
 	}})
+}
+
+func newProxyActor(ws *rpcclient.WSClient, proxy util.Uint160, acc *wallet.Account, cfg cfg) (*actor.Actor, error) {
+	return actor.New(ws, []actor.SignerAccount{
+		{
+			Signer: transaction.Signer{
+				Account: proxy,
+				Scopes:  transaction.None,
+			},
+			Account: wallet.NewContractAccount(proxy),
+		},
+	})
 }
 
 func newClientCache() cache {

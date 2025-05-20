@@ -74,7 +74,8 @@ func (s StaticClient) Morph() *Client {
 type InvokePrm struct {
 	TestInvokePrm
 
-	await bool
+	await      bool
+	payByProxy bool
 
 	// optional parameters
 	InvokePrmOptional
@@ -84,6 +85,12 @@ type InvokePrm struct {
 // Valid Until Block is reached. Works _only_ for non-notary requests.
 func (i *InvokePrm) Await() {
 	i.await = true
+}
+
+// PayByProxy makes invocation be paid by Proxy contract.
+// Works _only_ for non-notary requests in FS chain.
+func (i *InvokePrm) PayByProxy() {
+	i.payByProxy = true
 }
 
 // InvokePrmOptional groups optional parameters of the Invoke operation.
@@ -158,6 +165,7 @@ func (s StaticClient) Invoke(prm InvokePrm) error {
 			return s.client.Invoke(
 				s.scScriptHash,
 				prm.await,
+				prm.payByProxy,
 				s.feeInc,
 				prm.method,
 				prm.args...,

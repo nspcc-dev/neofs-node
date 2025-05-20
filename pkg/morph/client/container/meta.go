@@ -17,7 +17,7 @@ func (c *Client) SubmitObjectPut(meta []byte, sigs [][]byte) error {
 	var prm client.InvokePrm
 	prm.SetMethod(submitObjectPutMethod)
 	prm.SetArgs(meta, sigs)
-	prm.RequireAlphabetSignature()
+	prm.PayByProxy()
 
 	err := c.client.Invoke(prm)
 	if err != nil {

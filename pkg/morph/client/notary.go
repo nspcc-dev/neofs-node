@@ -98,6 +98,12 @@ func (c *Client) EnableNotarySupport(opts ...NotaryOption) error {
 			return fmt.Errorf("get proxy contract addess from NNS: %w", err)
 		}
 	}
+	var err error
+	conn.rpcProxyActor, err = newProxyActor(conn.client, cfg.proxy, c.acc, c.cfg)
+	if err != nil {
+		return fmt.Errorf("RPC proxy actor creation: %w", err)
+	}
+	c.conn.Store(conn)
 
 	notaryCfg := &notaryInfo{
 		proxy:          cfg.proxy,
@@ -313,7 +319,7 @@ func (c *Client) UpdateNeoFSAlphabetList(alphas keys.PublicKeys, txHash util.Uin
 // is always limited on server side, use it carefully.
 func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixed8, nonce uint32, vub *uint32, method string, args ...any) (util.Uint256, error) {
 	if c.notary == nil {
-		return util.Uint256{}, c.Invoke(contract, false, fee, method, args...)
+		return util.Uint256{}, c.Invoke(contract, false, false, fee, method, args...)
 	}
 
 	return c.notaryInvoke(false, true, contract, await, nonce, vub, method, args...)
@@ -328,7 +334,7 @@ func (c *Client) NotaryInvoke(contract util.Uint160, await bool, fee fixedn.Fixe
 // is always limited on server side, use it carefully.
 func (c *Client) NotaryInvokeNotAlpha(contract util.Uint160, await bool, fee fixedn.Fixed8, method string, args ...any) error {
 	if c.notary == nil {
-		return c.Invoke(contract, await, fee, method, args...)
+		return c.Invoke(contract, await, false, fee, method, args...)
 	}
 
 	_, err := c.notaryInvoke(false, false, contract, await, rand.Uint32(), nil, method, args...)
