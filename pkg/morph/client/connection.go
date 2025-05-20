@@ -17,10 +17,11 @@ import (
 // connection is a WSClient with associated actors and wrappers, it's valid as
 // long as connection doesn't change.
 type connection struct {
-	client   *rpcclient.WSClient // neo-go websocket client
-	rpcActor *actor.Actor        // neo-go RPC actor
-	gasToken *nep17.Token        // neo-go GAS token wrapper
-	rolemgmt *rolemgmt.Contract  // neo-go Designation contract wrapper
+	client        *rpcclient.WSClient // neo-go websocket client
+	rpcActor      *actor.Actor        // neo-go RPC actor
+	rpcProxyActor *actor.Actor        // neo-go RPC actor with Proxy contract as a payer
+	gasToken      *nep17.Token        // neo-go GAS token wrapper
+	rolemgmt      *rolemgmt.Contract  // neo-go Designation contract wrapper
 
 	// notification receivers (Client reads notifications from these channels)
 	notifyChan chan *state.ContainedNotificationEvent
