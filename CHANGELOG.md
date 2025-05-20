@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Split object with a missing link object can't be retrieved in some cases (#3337)
 
 ### Changed
+- Make `MaintenanceModeAllowed` network setting always allowed (#3360)
 
 ### Removed
 

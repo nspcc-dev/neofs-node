@@ -411,7 +411,7 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	case control.NetmapStatus_OFFLINE:
 		return c.updateNetMapState(nil)
 	case control.NetmapStatus_MAINTENANCE:
-		return c.setMaintenanceStatus(false)
+		return c.setMaintenanceStatus()
 	case control.NetmapStatus_ONLINE:
 		c.stopMaintenance()
 		return c.updateNetMapState(netmaprpc.NodeStateOnline)
@@ -420,31 +420,15 @@ func (c *cfg) SetNetmapStatus(st control.NetmapStatus) error {
 	}
 }
 
-func (c *cfg) ForceMaintenance() error {
-	return c.setMaintenanceStatus(true)
-}
+func (c *cfg) setMaintenanceStatus() error {
+	c.startMaintenance()
 
-func (c *cfg) setMaintenanceStatus(force bool) error {
-	netSettings, err := c.nCli.ReadNetworkConfiguration()
+	err := c.updateNetMapState(netmaprpc.NodeStateMaintenance)
 	if err != nil {
-		err = fmt.Errorf("read network settings to check maintenance allowance: %w", err)
-	} else if !netSettings.MaintenanceModeAllowed {
-		err = errors.New("maintenance mode is not allowed by the network")
+		return fmt.Errorf("local maintenance is started, but state is not updated in the network: %w", err)
 	}
 
-	if err == nil || force {
-		c.startMaintenance()
-
-		if err == nil {
-			err = c.updateNetMapState(netmaprpc.NodeStateMaintenance)
-		}
-
-		if err != nil {
-			return fmt.Errorf("local maintenance is started, but state is not updated in the network: %w", err)
-		}
-	}
-
-	return err
+	return nil
 }
 
 // calls UpdatePeerState operation of Netmap contract's client for the local node.
@@ -486,10 +470,6 @@ func (c *cfg) GetNetworkInfo() (netmapSDK.NetworkInfo, error) {
 
 	if netInfoMorph.HomomorphicHashingDisabled {
 		ni.DisableHomomorphicHashing()
-	}
-
-	if netInfoMorph.MaintenanceModeAllowed {
-		ni.AllowMaintenanceMode()
 	}
 
 	for i := range netInfoMorph.Raw {

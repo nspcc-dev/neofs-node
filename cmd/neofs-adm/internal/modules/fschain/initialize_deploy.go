@@ -56,7 +56,6 @@ const (
 	netmapInnerRingCandidateFeeKey   = "InnerRingCandidateFee"
 	netmapWithdrawFeeKey             = "WithdrawFee"
 	netmapHomomorphicHashDisabledKey = "HomomorphicHashingDisabled"
-	netmapMaintenanceAllowedKey      = "MaintenanceModeAllowed"
 
 	defaultEigenTrustIterations = 4
 	defaultEigenTrustAlpha      = "0.1"
@@ -528,7 +527,6 @@ func (c *initializeContext) getContractDeployData(ctrHash util.Uint160, ctrName 
 			flag string
 		}{
 			{netmapHomomorphicHashDisabledKey, homomorphicHashDisabledInitFlag},
-			{netmapMaintenanceAllowedKey, maintenanceModeAllowedInitFlag},
 		} {
 			bval, err := unwrap.Bool(c.ReadOnlyInvoker.Call(ctrHash, "config", kf.key))
 			if err != nil {

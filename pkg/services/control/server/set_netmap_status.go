@@ -25,19 +25,8 @@ func (s *Server) SetNetmapStatus(_ context.Context, req *control.SetNetmapStatus
 
 	bodyReq := req.GetBody()
 	st := bodyReq.GetStatus()
-	force := bodyReq.GetForceMaintenance()
 
-	if force {
-		if st != control.NetmapStatus_MAINTENANCE {
-			return nil, status.Errorf(codes.InvalidArgument,
-				"force_maintenance MUST be set for %s status only", control.NetmapStatus_MAINTENANCE)
-		}
-
-		err = s.nodeState.ForceMaintenance()
-	} else {
-		err = s.nodeState.SetNetmapStatus(st)
-	}
-
+	err = s.nodeState.SetNetmapStatus(st)
 	if err != nil {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}

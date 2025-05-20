@@ -3,7 +3,6 @@ package control
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/common"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/commonflags"
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-cli/internal/key"
 	"github.com/nspcc-dev/neofs-node/pkg/services/control"
@@ -39,9 +38,6 @@ func initControlSetNetmapStatusCmd() {
 	)
 
 	_ = setNetmapStatusCmd.MarkFlagRequired(netmapStatusFlag)
-
-	flags.BoolP(commonflags.ForceFlag, commonflags.ForceFlagShorthand, false,
-		"Force turning to local maintenance")
 }
 
 func setNetmapStatus(cmd *cobra.Command, _ []string) error {
@@ -50,30 +46,16 @@ func setNetmapStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	body := new(control.SetNetmapStatusRequest_Body)
-	force, _ := cmd.Flags().GetBool(commonflags.ForceFlag)
-
-	printIgnoreForce := func(st control.NetmapStatus) {
-		if force {
-			common.PrintVerbose(cmd, "Ignore --%s flag for %s state.", commonflags.ForceFlag, st)
-		}
-	}
 
 	switch st, _ := cmd.Flags().GetString(netmapStatusFlag); st {
 	default:
 		return fmt.Errorf("unsupported status %s", st)
 	case netmapStatusOnline:
 		body.SetStatus(control.NetmapStatus_ONLINE)
-		printIgnoreForce(control.NetmapStatus_ONLINE)
 	case netmapStatusOffline:
 		body.SetStatus(control.NetmapStatus_OFFLINE)
-		printIgnoreForce(control.NetmapStatus_OFFLINE)
 	case netmapStatusMaintenance:
 		body.SetStatus(control.NetmapStatus_MAINTENANCE)
-
-		if force {
-			body.SetForceMaintenance()
-			common.PrintVerbose(cmd, "Local maintenance will be forced.")
-		}
 	}
 
 	req := new(control.SetNetmapStatusRequest)

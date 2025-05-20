@@ -8,31 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// implements state.NetworkSettings for testing.
-type testNetworkSettings struct {
-	disallowed bool
-}
-
-func (x testNetworkSettings) MaintenanceModeAllowed() error {
-	if x.disallowed {
-		return state.ErrMaintenanceModeDisallowed
-	}
-
-	return nil
-}
-
 func TestValidator_VerifyAndUpdate(t *testing.T) {
-	var vDefault state.NetMapCandidateValidator
-	var s testNetworkSettings
-
-	vDefault.SetNetworkSettings(s)
-
 	for _, testCase := range []struct {
 		name     string
 		preparer func(*netmap.NodeInfo) // modifies zero instance
 		valid    bool                   // is node valid after preparation
-
-		validatorPreparer func(*state.NetMapCandidateValidator) // optionally modifies default validator
 	}{
 		{
 			name:     "UNDEFINED",
@@ -57,13 +37,7 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 		{
 			name:     "MAINTENANCE/disallowed",
 			preparer: (*netmap.NodeInfo).SetMaintenance,
-			valid:    false,
-			validatorPreparer: func(v *state.NetMapCandidateValidator) {
-				var s testNetworkSettings
-				s.disallowed = true
-
-				v.SetNetworkSettings(s)
-			},
+			valid:    true,
 		},
 	} {
 		var node netmap.NodeInfo
@@ -75,11 +49,6 @@ func TestValidator_VerifyAndUpdate(t *testing.T) {
 		binNode := node.Marshal()
 
 		var v state.NetMapCandidateValidator
-		if testCase.validatorPreparer == nil {
-			v = vDefault
-		} else {
-			testCase.validatorPreparer(&v)
-		}
 
 		err := v.Verify(node)
 
