@@ -224,10 +224,13 @@ func checkIntMax(val uint32, key string) error {
 
 func parseConfigAddressesTCP(ss []string, key string, defaultPort string) ([]string, error) {
 	for i := range ss {
-		if !strings.Contains(ss[i], ":") {
-			ss[i] += ":" + defaultPort
+		_, _, err := net.SplitHostPort(ss[i])
+		if err == nil {
+			continue
 		}
-		_, err := net.ResolveTCPAddr("tcp", ss[i])
+		// No easy way to check for "missing port error".
+		ss[i] += ":" + defaultPort
+		_, _, err = net.SplitHostPort(ss[i])
 		if err != nil {
 			return ss, fmt.Errorf("invalid '%s' (TCP addresses): %w", key, err)
 		}
