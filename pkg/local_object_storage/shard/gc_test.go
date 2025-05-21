@@ -62,6 +62,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 			return pool
 		}),
+		shard.WithGCRemoverSleepInterval(200 * time.Millisecond),
 	}
 
 	sh = shard.New(opts...)
