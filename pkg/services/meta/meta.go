@@ -63,7 +63,7 @@ type wsClient interface {
 
 func newNotifier() objectNotifier {
 	return objectNotifier{
-		notifications: make(chan oid.Address, 1024),
+		notifications: make(chan oid.Address, 1024*1024),
 		subs:          make(map[oid.Address]chan<- struct{}),
 	}
 }
@@ -133,7 +133,7 @@ type Meta struct {
 	endpoints []string
 }
 
-const blockBuffSize = 1024
+const blockBuffSize = 1024 * 1024
 
 // Parameters groups arguments for [New] call.
 type Parameters struct {
