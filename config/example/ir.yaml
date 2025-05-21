@@ -44,7 +44,7 @@ fschain:
     max_valid_until_block_increment: 3600 # Optional transaction validity period relative to the current height. Defaults to 8640.
       # Must not be greater than 4294967295
     seed_nodes: # Optional list of existing nodes to communicate with over Neo P2P protocol. By default, node runs as standalone
-      # Same format as 'p2p.listen'
+      # Uses 20333 port by default.
       - node2
       - node3:20333
     hardforks: # Optional hard-forks
@@ -80,8 +80,10 @@ fschain:
       proto_tick_interval: 2s # Optional time period between protocol ticks with each connected peer. Defaults to 2s.
         # Must not be negative
       listen: # Optional list of network addresses to listen Neo P2P on. By default, protocol is not served
-        # TCP addresses in 'host:port' format, or just 'host', then it will use the default port ':20333'.
+        # TCP addresses in 'host[:port][:announcedPort]' format just like NeoGo P2P listener config. If port isn't
+	# specified the default 20333 is used.
         - localhost
+        - "[fe80::55aa]:20333:7111"
         - localhost:20334
       peers: # Optional peer settings
         min: 1 # Optional minimum number of peers a node needs for normal operation. Defaults to consensus minimum

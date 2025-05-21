@@ -70,6 +70,7 @@ const validBlockchainConfigOptions = `
       proto_tick_interval: 222s
       listen:
         - localhost:20100
+        - 127.0.0.1:20100:7111
         - "[feed::55aa]"
         - localhost
       peers:
@@ -225,6 +226,7 @@ func TestParseBlockchainConfig(t *testing.T) {
 						ProtoTickInterval: 222 * time.Second,
 						Listen: []string{
 							"localhost:20100",
+							"127.0.0.1:20100:7111",
 							"[feed::55aa]:20333",
 							"localhost:20333",
 						},
@@ -405,7 +407,7 @@ fschain:
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
-				{kvF("p2p.listen", []string{"c:1:2"})},
+				{kvF("p2p.listen", []string{"c:1:2:3"})},
 				{kvF("p2p.dial_timeout", -time.Second)},
 				{kvF("p2p.proto_tick_interval", -time.Second)},
 				{kvF("p2p.ping.interval", -time.Second)},
