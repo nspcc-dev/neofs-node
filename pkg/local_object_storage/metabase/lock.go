@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -10,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 var bucketNameLocked = []byte{lockedPrefix}
@@ -39,16 +41,37 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 		panic("empty locked list")
 	}
 
-	// check if all objects are regular
-	bucketKeysLocked := make([][]byte, len(locked))
+	var (
+		bucketKeysLocked = make([][]byte, len(locked))
+		typPrefix        = make([]byte, metaIDTypePrefixSize)
+		// microoptimization, reuse buffter above since they're never used simultaneously.
+		key = typPrefix[:cidSize]
+	)
+	fillIDTypePrefix(typPrefix)
 	for i := range locked {
 		bucketKeysLocked[i] = objectKey(locked[i], make([]byte, objectKeySize))
 	}
-	key := make([]byte, cidSize)
 
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
-		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
-			return logicerr.Wrap(apistatus.LockNonRegularObject{})
+		var metaBucket = tx.Bucket(metaBucketKey(cnr))
+
+		// check if all objects are regular
+		if metaBucket != nil {
+			for i := range locked {
+				typ, err := fetchTypeForID(metaBucket, typPrefix, locked[i])
+				if err != nil {
+					// It's OK if object is missing, but DB inconsistency is bad
+					// even though we can't do much about it.
+					if !errors.Is(err, errObjTypeNotFound) {
+						db.log.Warn("inconsistent DB upon lock attempt", zap.Error(err),
+							zap.Stringer("locked", locked[i]))
+					}
+					continue
+				}
+				if typ != object.TypeRegular {
+					return logicerr.Wrap(apistatus.LockNonRegularObject{})
+				}
+			}
 		}
 
 		bucketLocked := tx.Bucket(bucketNameLocked)

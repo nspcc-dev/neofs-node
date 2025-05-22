@@ -68,10 +68,13 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, ErrObjectIsExpired
 	}
 
-	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
-
-	cnr := addr.Container()
-	key := make([]byte, bucketKeySize)
+	var (
+		cnr       = addr.Container()
+		objKeyBuf = make([]byte, metaIDTypePrefixSize)
+		id        = addr.Object()
+		objKey    = objectKey(id, objKeyBuf[:objectKeySize])
+		key       = make([]byte, bucketKeySize)
+	)
 
 	// if graveyard is empty, then check if object exists in primary bucket
 	if inBucket(tx, primaryBucketName(cnr, key), objKey) {
@@ -79,7 +82,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	}
 
 	// if primary bucket is empty, then check if object is a virtual one
-	splitInfo, err := getSplitInfo(tx, cnr, addr.Object(), key)
+	splitInfo, err := getSplitInfo(tx, cnr, id, key)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -87,8 +90,13 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, err
 	}
 
-	// no split info, check if object exists in typed buckets
-	return firstIrregularObjectType(tx, cnr, objKey) != objectSDK.TypeRegular, nil
+	var metaBucket = tx.Bucket(metaBucketKey(cnr))
+	if metaBucket == nil {
+		return false, nil
+	}
+	fillIDTypePrefix(objKeyBuf)
+	typ, err := fetchTypeForID(metaBucket, objKeyBuf, id)
+	return (err == nil && typ != objectSDK.TypeRegular), nil
 }
 
 func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
