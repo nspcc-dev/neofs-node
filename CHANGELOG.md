@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- Support for announced address specification in IR consensus P2P config (#3361)
 
 ### Fixed
 - Split object with a missing link object can't be retrieved in some cases (#3337)

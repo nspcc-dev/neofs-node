@@ -229,7 +229,7 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 				P2P: config.P2P{
 					DialTimeout:       time.Minute,
 					ProtoTickInterval: 2 * time.Second,
-					Listen:            []string{"localhost", "localhost:20334"},
+					Listen:            []string{"localhost", "[fe80::55aa]:20333:7111", "localhost:20334"},
 					Peers: config.Peers{
 						Min:      1,
 						Max:      5,

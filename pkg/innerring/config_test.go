@@ -70,7 +70,8 @@ const validBlockchainConfigOptions = `
       proto_tick_interval: 222s
       listen:
         - localhost:20100
-        - localhost:20101
+        - 127.0.0.1:20100:7111
+        - "[feed::55aa]"
         - localhost
       peers:
         min: 1
@@ -225,7 +226,8 @@ func TestParseBlockchainConfig(t *testing.T) {
 						ProtoTickInterval: 222 * time.Second,
 						Listen: []string{
 							"localhost:20100",
-							"localhost:20101",
+							"127.0.0.1:20100:7111",
+							"[feed::55aa]:20333",
 							"localhost:20333",
 						},
 					},
@@ -396,16 +398,16 @@ fschain:
 				{kvF("committee", []string{})},
 				{kvF("storage.type", "random string")},
 				{kvF("time_per_block", -time.Second)},
-				{kvF("seed_nodes", []string{"not a TCP address"})},
+				{kvF("seed_nodes", []string{"a:1:2"})},
 				{kvF("hardforks", map[string]any{"": 1})},
 				{kvF("validators_history", map[string]any{"0": len(validCommittee) + 1})},
 				{kvF("validators_history", map[string]any{"0": 1, "3": 1})}, // height is not a multiple
-				{kvF("rpc.listen", []string{"not a TCP address"})},
+				{kvF("rpc.listen", []string{"b:1:2"})},
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "")},                                       // enabled but no cert file is provided
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", " \t")},                                    // enabled but no but blank cert is provided
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", "")},    // enabled but no key is provided
 				{kvF("rpc.tls.enabled", true), kvF("rpc.tls.cert_file", "/path/"), kvF("rpc.tls.key_file", " \t")}, // enabled but no but blank key is provided
-				{kvF("p2p.listen", []string{"not a TCP address"})},
+				{kvF("p2p.listen", []string{"c:1:2:3"})},
 				{kvF("p2p.dial_timeout", -time.Second)},
 				{kvF("p2p.proto_tick_interval", -time.Second)},
 				{kvF("p2p.ping.interval", -time.Second)},

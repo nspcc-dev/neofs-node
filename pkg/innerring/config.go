@@ -71,7 +71,7 @@ func validateBlockchainConfig(cfg *config.Config) error {
 	}
 
 	cfgFSChainLocalConsensus.SeedNodes, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.SeedNodes,
-		cfgPathFSChainLocalConsensus+".seed_nodes", p2pDefaultListenPort)
+		cfgPathFSChainLocalConsensus+".seed_nodes", p2pDefaultListenPort, false)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func validateBlockchainConfig(cfg *config.Config) error {
 	var rpcSection = cfgPathFSChainLocalConsensus + ".rpc"
 	if cfg.IsSet(rpcSection) {
 		cfgFSChainLocalConsensus.RPC.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.RPC.Listen,
-			rpcSection+".listen", rpcDefaultListenPort)
+			rpcSection+".listen", rpcDefaultListenPort, false)
 		if err != nil {
 			return err
 		}
@@ -125,7 +125,7 @@ func validateBlockchainConfig(cfg *config.Config) error {
 				return fmt.Errorf("missing tls listen section '%s'", rpcTLSListen)
 			}
 			cfgFSChainLocalConsensus.RPC.TLS.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.RPC.TLS.Listen,
-				rpcTLSListen, rpcDefaultListenPort)
+				rpcTLSListen, rpcDefaultListenPort, false)
 			if err != nil {
 				return err
 			}
@@ -151,7 +151,7 @@ func validateBlockchainConfig(cfg *config.Config) error {
 			return err
 		}
 		cfgFSChainLocalConsensus.P2P.Listen, err = parseConfigAddressesTCP(cfgFSChainLocalConsensus.P2P.Listen,
-			p2pSection+".listen", p2pDefaultListenPort)
+			p2pSection+".listen", p2pDefaultListenPort, true)
 		if err != nil {
 			return err
 		}
@@ -222,12 +222,26 @@ func checkIntMax(val uint32, key string) error {
 	return nil
 }
 
-func parseConfigAddressesTCP(ss []string, key string, defaultPort string) ([]string, error) {
+func parseConfigAddressesTCP(ss []string, key string, defaultPort string, allowAnnounces bool) ([]string, error) {
 	for i := range ss {
-		if !strings.Contains(ss[i], ":") {
-			ss[i] += ":" + defaultPort
+		_, _, err := net.SplitHostPort(ss[i])
+		if err == nil {
+			continue
 		}
-		_, err := net.ResolveTCPAddr("tcp", ss[i])
+		// No easy way to check for "missing port error".
+		var addr = ss[i] + ":" + defaultPort
+		_, _, err = net.SplitHostPort(addr)
+		if err == nil {
+			ss[i] = addr
+			continue
+		}
+		if allowAnnounces {
+			var lastColon = strings.LastIndexByte(ss[i], ':')
+			if lastColon != -1 {
+				addr = ss[i][:lastColon]
+				_, _, err = net.SplitHostPort(addr)
+			}
+		}
 		if err != nil {
 			return ss, fmt.Errorf("invalid '%s' (TCP addresses): %w", key, err)
 		}
