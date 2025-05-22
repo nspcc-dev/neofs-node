@@ -61,7 +61,7 @@ func (x awaitContainerCreationError) Unwrap() error { return common.ErrAwaitTime
 func createContainer(cmd *cobra.Command, args []string) error {
 	addr, isTLS, err := uriutil.Parse(args[1])
 	if err != nil {
-		return fmt.Errorf("invalid endpoint URI: %s", args[0])
+		return fmt.Errorf("invalid endpoint URI: %s", args[1])
 	}
 
 	bodyFile, err := os.Open(args[0])

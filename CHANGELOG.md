@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 
 ### Fixed
 - Split object with a missing link object can't be retrieved in some cases (#3337)
+- Invalid URI error text in `request create-container` CLI command (#3366)
 
 ### Changed
 
