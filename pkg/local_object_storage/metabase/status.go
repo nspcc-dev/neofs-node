@@ -53,7 +53,9 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 
 		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, objKey)
 
-		if objectLocked(tx, cID, oID) {
+		var objLocked = objectLocked(tx, cID, oID)
+
+		if objLocked {
 			res.State = append(res.State, "LOCKED")
 		}
 
@@ -65,7 +67,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 
 		childForParent := getChildForParent(tx, cID, oID, key)
-		if (removedStatus != statusAvailable && objectLocked(tx, cID, oID)) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
+		if (removedStatus != statusAvailable && objLocked) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
 			res.State = append(res.State, "AVAILABLE")
 		}
 		if removedStatus == statusGCMarked {
