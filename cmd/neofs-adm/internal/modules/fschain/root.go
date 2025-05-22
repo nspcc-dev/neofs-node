@@ -37,7 +37,6 @@ const (
 	candidateFeeInitFlag            = "network.fee.candidate"
 	candidateFeeCLIFlag             = "candidate-fee"
 	homomorphicHashDisabledInitFlag = "network.homomorphic_hash_disabled"
-	maintenanceModeAllowedInitFlag  = "network.maintenance_mode_allowed"
 	homomorphicHashDisabledCLIFlag  = "homomorphic-disabled"
 	withdrawFeeInitFlag             = "network.fee.withdraw"
 	withdrawFeeCLIFlag              = "withdraw-fee"

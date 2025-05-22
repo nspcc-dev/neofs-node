@@ -58,7 +58,6 @@ var netInfoCmd = &cobra.Command{
 		cmd.Printf(format, "Maximum object size", netInfo.MaxObjectSize())
 		cmd.Printf(format, "Withdrawal fee", netInfo.WithdrawalFee())
 		cmd.Printf(format, "Homomorphic hashing disabled", netInfo.HomomorphicHashingDisabled())
-		cmd.Printf(format, "Maintenance mode allowed", netInfo.MaintenanceModeAllowed())
 
 		cmd.Println("NeoFS network configuration (other)")
 		for name, value := range netInfo.RawNetworkParameters() {

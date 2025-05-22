@@ -839,11 +839,6 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		}
 	}
 
-	netSettings := (*networkSettings)(server.netmapClient)
-
-	var netMapCandidateStateValidator statevalidation.NetMapCandidateValidator
-	netMapCandidateStateValidator.SetNetworkSettings(netSettings)
-
 	nnsContractAddr, err := server.fsChainClient.NNSHash()
 	if err != nil {
 		return nil, fmt.Errorf("get NeoFS NNS contract address: %w", err)
@@ -871,13 +866,12 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		),
 		AlphabetSyncHandler: alphaSync,
 		NodeValidator: nodevalidator.New(
-			&netMapCandidateStateValidator,
+			statevalidation.New(),
 			addrvalidator.New(),
 			availabilityvalidator.New(),
 			privatedomains.New(nnsService),
 			locodeValidator,
 		),
-		NodeStateSettings: netSettings,
 	})
 	if err != nil {
 		return nil, err

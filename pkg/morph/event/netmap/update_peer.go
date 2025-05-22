@@ -28,12 +28,6 @@ func (s UpdatePeer) Online() bool {
 	return s.state == nodestate.Online
 }
 
-// Maintenance returns true if node's state is requested to be switched
-// to "maintenance".
-func (s UpdatePeer) Maintenance() bool {
-	return s.state == nodestate.Maintenance
-}
-
 func (s UpdatePeer) PublicKey() *keys.PublicKey {
 	return s.publicKey
 }

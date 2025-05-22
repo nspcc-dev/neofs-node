@@ -162,7 +162,6 @@ func (x *HealthCheckResponse) SetSignature(sig *Signature) {
 // Structures with the same field values have the same binary size.
 func (x *SetNetmapStatusRequest_Body) StableSize() (size int) {
 	size += proto.EnumSize(1, int32(x.Status))
-	size += proto.BoolSize(2, x.ForceMaintenance)
 	return size
 }
 
@@ -183,7 +182,6 @@ func (x *SetNetmapStatusRequest_Body) StableMarshal(buf []byte) []byte {
 	}
 	var offset int
 	offset += proto.EnumMarshal(1, buf[offset:], int32(x.Status))
-	offset += proto.BoolMarshal(2, buf[offset:], x.ForceMaintenance)
 	return buf
 }
 

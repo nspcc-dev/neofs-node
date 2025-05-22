@@ -12,6 +12,7 @@ Changelog for NeoFS Node
 - Invalid object ID error text in `object delete` CLI command (#3366)
 
 ### Changed
+- Make `MaintenanceModeAllowed` network setting always allowed (#3360)
 
 ### Removed
 

@@ -15,7 +15,6 @@ neofs-cli control set-status [flags]
 ```
       --address string     Address of wallet account
       --endpoint string    Remote node control address (as 'multiaddr' or '<host>:<port>')
-  -f, --force              Force turning to local maintenance
   -h, --help               help for set-status
       --status string      New netmap status keyword ('online', 'offline', 'maintenance')
   -t, --timeout duration   Timeout for the operation (default 15s)

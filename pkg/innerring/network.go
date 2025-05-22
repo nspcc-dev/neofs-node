@@ -176,7 +176,7 @@ func convertKnownConfigValues(k, v string) (any, error) {
 		}
 
 		val = v
-	case netmapcore.HomomorphicHashingDisabledKey, netmapcore.MaintenanceModeAllowedConfig:
+	case netmapcore.HomomorphicHashingDisabledKey:
 		val, err = strconv.ParseBool(v)
 		if err != nil {
 			err = fmt.Errorf("invalid value for %s key, expected bool, got '%s'", k, v)

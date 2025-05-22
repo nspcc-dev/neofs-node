@@ -35,11 +35,6 @@ func (x *SetNetmapStatusRequest_Body) SetStatus(v NetmapStatus) {
 	}
 }
 
-// SetForceMaintenance sets force_maintenance flag in the message.
-func (x *SetNetmapStatusRequest_Body) SetForceMaintenance() {
-	x.ForceMaintenance = true
-}
-
 // SetBody sets body of the set netmap status request .
 func (x *SetNetmapStatusRequest) SetBody(v *SetNetmapStatusRequest_Body) {
 	if x != nil {

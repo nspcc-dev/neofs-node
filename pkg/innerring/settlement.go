@@ -164,9 +164,11 @@ func (s settlementDeps) ContainerNodes(e uint64, cid cid.ID) ([]common.NodeInfo,
 
 	for i := range cn {
 		for j := range cn[i] {
-			res = append(res, nodeInfoWrapper{
-				ni: cn[i][j],
-			})
+			if cn[i][j].IsOnline() {
+				res = append(res, nodeInfoWrapper{
+					ni: cn[i][j],
+				})
+			}
 		}
 	}
 
