@@ -1,6 +1,7 @@
 package fschain
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -75,7 +76,7 @@ func depositNotary(cmd *cobra.Command, _ []string) error {
 	if tillStr != "" {
 		till, err = strconv.ParseInt(tillStr, 10, 64)
 		if err != nil || till <= 0 {
-			return fmt.Errorf("notary deposit lifetime must be a positive integer")
+			return errors.New("notary deposit lifetime must be a positive integer")
 		}
 	}
 

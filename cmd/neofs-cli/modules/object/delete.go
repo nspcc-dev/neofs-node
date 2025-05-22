@@ -69,7 +69,7 @@ func deleteObject(cmd *cobra.Command, _ []string) error {
 		for _, oIDraw := range oIDVals {
 			err := obj.DecodeString(oIDraw)
 			if err != nil {
-				return fmt.Errorf("decode object ID (\"+oIDraw+\") string: %w", err)
+				return fmt.Errorf("decode object ID %q string: %w", oIDraw, err)
 			}
 
 			objAddr.SetObject(obj)

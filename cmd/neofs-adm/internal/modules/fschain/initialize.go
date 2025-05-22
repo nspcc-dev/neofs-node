@@ -139,11 +139,11 @@ func newInitializeContext(cmd *cobra.Command, v *viper.Viper) (*initializeContex
 	var ctrPath string
 	if cmd.Name() == "init" {
 		if viper.GetInt64(epochDurationInitFlag) <= 0 {
-			return nil, fmt.Errorf("epoch duration must be positive")
+			return nil, errors.New("epoch duration must be positive")
 		}
 
 		if viper.GetInt64(maxObjectSizeInitFlag) <= 0 {
-			return nil, fmt.Errorf("max object size must be positive")
+			return nil, errors.New("max object size must be positive")
 		}
 	}
 
