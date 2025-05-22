@@ -3,7 +3,6 @@ package shard_test
 import (
 	"errors"
 	"fmt"
-	"math"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -62,6 +61,7 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 
 			return pool
 		}),
+		shard.WithGCRemoverSleepInterval(200 * time.Millisecond),
 	}
 
 	sh = shard.New(opts...)
@@ -175,7 +175,7 @@ func TestExpiration(t *testing.T) {
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
-			meta.WithEpochState(epochState{Value: math.MaxUint64 / 2}),
+			meta.WithEpochState(epochState{Value: 0}),
 		),
 		shard.WithExpiredObjectsCallback(
 			func(addresses []oid.Address) {
@@ -225,7 +225,7 @@ func TestExpiration(t *testing.T) {
 			require.Eventually(t, func() bool {
 				_, err = sh.Get(objectCore.AddressOf(obj), false)
 				return shard.IsErrNotFound(err)
-			}, 3*time.Second, 100*time.Millisecond, "lock expiration should free object removal")
+			}, 3*time.Second, 100*time.Millisecond, "expiration should lead to object removal")
 		})
 	}
 }
