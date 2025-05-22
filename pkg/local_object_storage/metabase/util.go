@@ -2,7 +2,7 @@ package meta
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"errors"
 	"math/big"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -169,7 +169,7 @@ func addressKey(addr oid.Address, key []byte) []byte {
 // parses object address formed by addressKey.
 func decodeAddressFromKey(dst *oid.Address, k []byte) error {
 	if len(k) != addressKeySize {
-		return fmt.Errorf("invalid length")
+		return errors.New("invalid length")
 	}
 
 	var cnr cid.ID

@@ -1,6 +1,7 @@
 package fschain
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ func setPolicyCmd(cmd *cobra.Command, args []string) error {
 	for i := range args {
 		kv := strings.SplitN(args[i], "=", 2)
 		if len(kv) != 2 {
-			return fmt.Errorf("invalid parameter format, must be Parameter=Value")
+			return errors.New("invalid parameter format, must be Parameter=Value")
 		}
 
 		switch kv[0] {

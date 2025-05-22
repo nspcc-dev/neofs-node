@@ -76,31 +76,31 @@ func createContainer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to decode request body JSON: %w", err)
 	}
 	if body.Container == nil {
-		return fmt.Errorf("invalid request body JSON: missing container")
+		return errors.New("invalid request body JSON: missing container")
 	}
 	if body.Container.Version == nil {
-		return fmt.Errorf("invalid request body JSON: invalid container: missing API version")
+		return errors.New("invalid request body JSON: invalid container: missing API version")
 	}
 	if body.Container.Nonce == nil {
-		return fmt.Errorf("invalid request body JSON: invalid container: missing nonce")
+		return errors.New("invalid request body JSON: invalid container: missing nonce")
 	}
 	if body.Container.Owner == nil {
-		return fmt.Errorf("invalid request body JSON: invalid container: missing owner")
+		return errors.New("invalid request body JSON: invalid container: missing owner")
 	}
 	if body.Container.BasicACL == nil {
-		return fmt.Errorf("invalid request body JSON: invalid container: missing basic ACL")
+		return errors.New("invalid request body JSON: invalid container: missing basic ACL")
 	}
 	if body.Container.StoragePolicy == nil {
-		return fmt.Errorf("invalid request body JSON: invalid container: missing storage policy")
+		return errors.New("invalid request body JSON: invalid container: missing storage policy")
 	}
 	if body.Witness == nil {
-		return fmt.Errorf("invalid request body JSON: missing witness")
+		return errors.New("invalid request body JSON: missing witness")
 	}
 	if len(body.Witness.InvocationScript) == 0 {
-		return fmt.Errorf("invalid request body JSON: invalid witness: missing invocation script")
+		return errors.New("invalid request body JSON: invalid witness: missing invocation script")
 	}
 	if len(body.Witness.VerificationScript) == 0 {
-		return fmt.Errorf("invalid request body JSON: invalid witness: missing verification script")
+		return errors.New("invalid request body JSON: invalid witness: missing verification script")
 	}
 
 	pk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

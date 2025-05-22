@@ -1,6 +1,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -84,7 +85,7 @@ func (cp *Processor) checkPutContainer(ctx *putContainerContext) error {
 			}
 
 			if k == sysAttrChainMeta && !cp.metaEnabled {
-				return fmt.Errorf("chain meta data attribute is not allowed")
+				return errors.New("chain meta data attribute is not allowed")
 			}
 		}
 	}

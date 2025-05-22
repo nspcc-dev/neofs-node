@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -34,7 +35,7 @@ type protoVersion refs.Version
 func (x *protoVersion) UnmarshalText(b []byte) error {
 	mjrB, mnrB, ok := bytes.Cut(b, []byte{'.'})
 	if !ok {
-		return fmt.Errorf("invalid proto version: missing dot")
+		return errors.New("invalid proto version: missing dot")
 	}
 
 	mjrB = bytes.TrimPrefix(mjrB, []byte{'v'})
