@@ -116,10 +116,7 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 			var val = expKey[len(expPrefix):]
 
 			objExpiration, err := strconv.ParseUint(string(val), 10, 64)
-			// Technically it should be currEpoch > objExpiration
-			// (which wasn't easy to provide with old indexes), but
-			// a number of GC tests fail this way. TODO: #3321.
-			expired = (err == nil) && (currEpoch == objExpiration+1)
+			expired = (err == nil) && (currEpoch > objExpiration)
 		}
 	}
 
