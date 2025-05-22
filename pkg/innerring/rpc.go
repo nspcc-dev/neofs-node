@@ -220,7 +220,7 @@ func (c *ClientCache) getWrappedClient(info clientcore.NodeInfo) (neofsapiclient
 
 	cli, err := c.Get(info)
 	if err != nil {
-		return cInternal, fmt.Errorf("could not get API client from cache")
+		return cInternal, fmt.Errorf("could not get API client from cache: %w", err)
 	}
 
 	cInternal.WrapBasicClient(cli)

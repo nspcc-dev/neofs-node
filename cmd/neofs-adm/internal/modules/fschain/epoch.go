@@ -1,7 +1,6 @@
 package fschain
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nspcc-dev/neo-go/pkg/io"
@@ -45,7 +44,7 @@ func forceNewEpochCmd(cmd *cobra.Command, _ []string) error {
 func emitNewEpochCall(bw *io.BufBinWriter, wCtx *initializeContext, nmHash util.Uint160) error {
 	curr, err := unwrap.Int64(wCtx.ReadOnlyInvoker.Call(nmHash, "epoch"))
 	if err != nil {
-		return errors.New("can't fetch current epoch from the netmap contract")
+		return fmt.Errorf("can't fetch current epoch from the netmap contract: %w", err)
 	}
 
 	newEpoch := curr + 1

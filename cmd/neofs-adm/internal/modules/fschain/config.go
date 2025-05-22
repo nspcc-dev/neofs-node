@@ -41,7 +41,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 	arr, err := unwrap.Array(inv.Call(nmHash, "listConfig"))
 	if err != nil {
-		return errors.New("can't fetch list of network config keys from the netmap contract")
+		return fmt.Errorf("can't fetch list of network config keys from the netmap contract: %w", err)
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -55,7 +55,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 
 		k, err := tuple[0].TryBytes()
 		if err != nil {
-			return errors.New("invalid config key from netmap contract")
+			return fmt.Errorf("invalid config key from netmap contract: %w", err)
 		}
 
 		v, err := tuple[1].TryBytes()

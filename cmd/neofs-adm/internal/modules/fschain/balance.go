@@ -80,7 +80,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 	if dumpStorage {
 		arr, err := unwrap.Array(inv.Call(nmHash, "netmap"))
 		if err != nil {
-			return errors.New("can't fetch the list of storage nodes")
+			return fmt.Errorf("can't fetch the list of storage nodes: %w", err)
 		}
 
 		snList := make([]accBalancePair, len(arr))
@@ -91,7 +91,7 @@ func dumpBalances(cmd *cobra.Command, _ []string) error {
 			}
 			bs, err := node[0].TryBytes()
 			if err != nil {
-				return errors.New("can't parse the list of storage nodes")
+				return fmt.Errorf("can't parse the list of storage nodes: %w", err)
 			}
 			var ni netmap.NodeInfo
 			if err := ni.Unmarshal(bs); err != nil {

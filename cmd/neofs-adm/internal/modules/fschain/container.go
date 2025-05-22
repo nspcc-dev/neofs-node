@@ -269,22 +269,22 @@ func (c *Container) FromStackItem(item stackitem.Item) error {
 
 	value, err := arr[0].TryBytes()
 	if err != nil {
-		return errors.New("invalid container value")
+		return fmt.Errorf("invalid container value: %w", err)
 	}
 
 	sig, err := arr[1].TryBytes()
 	if err != nil {
-		return errors.New("invalid container signature")
+		return fmt.Errorf("invalid container signature: %w", err)
 	}
 
 	pub, err := arr[2].TryBytes()
 	if err != nil {
-		return errors.New("invalid container public key")
+		return fmt.Errorf("invalid container public key: %w", err)
 	}
 
 	tok, err := arr[3].TryBytes()
 	if err != nil {
-		return errors.New("invalid container token")
+		return fmt.Errorf("invalid container token: %w", err)
 	}
 
 	c.Value = value
@@ -313,22 +313,22 @@ func (c *EACL) FromStackItem(item stackitem.Item) error {
 
 	value, err := arr[0].TryBytes()
 	if err != nil {
-		return errors.New("invalid eACL value")
+		return fmt.Errorf("invalid eACL value: %w", err)
 	}
 
 	sig, err := arr[1].TryBytes()
 	if err != nil {
-		return errors.New("invalid eACL signature")
+		return fmt.Errorf("invalid eACL signature: %w", err)
 	}
 
 	pub, err := arr[2].TryBytes()
 	if err != nil {
-		return errors.New("invalid eACL public key")
+		return fmt.Errorf("invalid eACL public key: %w", err)
 	}
 
 	tok, err := arr[3].TryBytes()
 	if err != nil {
-		return errors.New("invalid eACL token")
+		return fmt.Errorf("invalid eACL token: %w", err)
 	}
 
 	c.Value = value
