@@ -199,37 +199,6 @@ func containerKey(cID cid.ID, key []byte) []byte {
 	return key[:cidSize]
 }
 
-// if meets irregular object container in objs - returns its type, otherwise returns object.TypeRegular.
-//
-// firstIrregularObjectType(tx, cnr, obj) usage allows getting object type.
-func firstIrregularObjectType(tx *bbolt.Tx, idCnr cid.ID, objs ...[]byte) object.Type {
-	if len(objs) == 0 {
-		panic("empty object list in firstIrregularObjectType")
-	}
-
-	var keys [4][1 + cidSize]byte
-
-	irregularTypeBuckets := [...]struct {
-		typ  object.Type
-		name []byte
-	}{
-		{object.TypeTombstone, tombstoneBucketName(idCnr, keys[0][:])},
-		{object.TypeStorageGroup, storageGroupBucketName(idCnr, keys[1][:])},
-		{object.TypeLock, bucketNameLockers(idCnr, keys[2][:])},
-		{object.TypeLink, linkObjectsBucketName(idCnr, keys[3][:])},
-	}
-
-	for i := range objs {
-		for j := range irregularTypeBuckets {
-			if inBucket(tx, irregularTypeBuckets[j].name, objs[i]) {
-				return irregularTypeBuckets[j].typ
-			}
-		}
-	}
-
-	return object.TypeRegular
-}
-
 // return true if provided object is of LOCK type.
 func isLockObject(tx *bbolt.Tx, idCnr cid.ID, obj oid.ID) bool {
 	return inBucket(tx,
