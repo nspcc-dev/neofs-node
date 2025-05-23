@@ -16,7 +16,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-// objectStatus() and inGraveyardWithKey() return codes.
+// objectStatus(), inGraveyard() and inGraveyardWithKey() return codes.
 const (
 	statusAvailable = iota
 	statusGCMarked
@@ -142,17 +142,24 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 		return statusExpired
 	}
 
-	graveyardBkt := tx.Bucket(graveyardBucketName)
-	garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
-	garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
-	addrKey := addressKey(addr, make([]byte, addressKeySize))
-
-	graveyardStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
+	graveyardStatus := inGraveyard(tx, addr)
 	if graveyardStatus != statusAvailable && objectLocked(tx, cID, oID) {
 		return statusAvailable
 	}
 
 	return graveyardStatus
+}
+
+// inGraveyard is an easier to use version of inGraveyardWithKey for cases
+// where a single address needs to be checked.
+func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+	var (
+		addrKey              = addressKey(addr, make([]byte, addressKeySize))
+		garbageContainersBkt = tx.Bucket(garbageContainersBucketName)
+		garbageObjectsBkt    = tx.Bucket(garbageObjectsBucketName)
+		graveyardBkt         = tx.Bucket(graveyardBucketName)
+	)
+	return inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 }
 
 func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {

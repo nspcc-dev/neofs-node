@@ -59,12 +59,7 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 			res.State = append(res.State, "LOCKED")
 		}
 
-		graveyardBkt := tx.Bucket(graveyardBucketName)
-		garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
-		garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
-		addrKey := addressKey(address, make([]byte, addressKeySize))
-
-		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
+		removedStatus := inGraveyard(tx, address)
 
 		var (
 			existsRegular bool
