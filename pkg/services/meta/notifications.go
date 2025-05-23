@@ -98,7 +98,7 @@ func (m *Meta) subscribeEvents() error {
 func (m *Meta) listenNotifications(ctx context.Context) error {
 	for {
 		select {
-		case h, ok := <-m.bCh:
+		case b, ok := <-m.bCh:
 			if !ok {
 				err := m.reconnect(ctx)
 				if err != nil {
@@ -108,7 +108,15 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			m.blockBuff <- h
+			now := time.Now()
+			if ts := m.prevBlockTimestamp.Load(); ts != 0 {
+				m.l.Info("got block", zap.Uint64("time b/w blocks timestamps (ms)", b.Timestamp-ts), zap.Uint64("latency delta from timestamp (ms)", uint64(time.Now().UnixMilli())-b.Timestamp), zap.Int64("delay from prev block received (ms)", time.Since(*m.prevBlockGetTime.Load()).Milliseconds()))
+			}
+			m.prevBlockGetTime.Store(&now)
+			m.prevBlockTimestamp.Store(b.Timestamp)
+			m.currHeight.Store(b.Index)
+
+			m.blockBuff <- b
 		case aer, ok := <-m.cnrPutEv:
 			if !ok {
 				err := m.reconnect(ctx)
@@ -630,7 +638,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 // NotifyObjectSuccess subscribes channel for object notification chain inclusion.
 // Channel must be read before subscription is made and writing to it must be
 // non-blocking.
-func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, addr oid.Address) {
+func (m *Meta) NotifyObjectSuccess(ch chan<- uint32, addr oid.Address) {
 	m.notifier.subscribe(addr, ch)
 }
 

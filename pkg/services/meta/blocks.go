@@ -3,6 +3,7 @@ package meta
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -16,6 +17,8 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	ind := b.Index
 	l := m.l.With(zap.Stringer("block hash", h), zap.Uint32("index", ind))
 	l.Debug("handling block")
+
+	start := time.Now()
 
 	m.cliM.RLock()
 	res, err := m.ws.GetBlockNotifications(h, &neorpc.NotificationFilter{
@@ -31,6 +34,9 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 		l.Debug("no notifications for block")
 		return nil
 	}
+
+	getNotifications := time.Since(start)
+	start = time.Now()
 
 	evsByStorage := make(map[*containerStorage][]objEvent)
 	for _, n := range res.Application {
@@ -49,7 +55,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 				continue
 			}
 
-			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID))
+			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID), ind)
 
 			m.stM.RLock()
 			st, ok := m.storages[ev.cID]
@@ -114,6 +120,9 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 		}
 	}
 
+	parsingNotifications := time.Since(start)
+	start = time.Now()
+
 	if len(evsByStorage) == 0 {
 		return nil
 	}
@@ -132,6 +141,9 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	_ = wg.Wait()
 	l.Debug("handled block successfully", zap.Int("num of notifications", len(res.Application)))
 
+	storingObjs := time.Since(start)
+	m.l.Info("handling notifications", zap.Int64("getNotifications", getNotifications.Milliseconds()), zap.Int64("parsingNotifications", parsingNotifications.Milliseconds()), zap.Int64("storingObjs", storingObjs.Milliseconds()))
+
 	return nil
 }
 
@@ -141,11 +153,18 @@ func (m *Meta) blockFetcher(ctx context.Context, buff <-chan *block.Header) {
 		case <-ctx.Done():
 			return
 		case b := <-buff:
+			t := time.Now()
 			err := m.handleBlock(ctx, b)
+			took := time.Since(t)
+			m.l.Info("handling block time", zap.Int64("took", took.Milliseconds()))
 			if err != nil {
 				m.l.Error("block handling failed", zap.Error(err))
 				continue
 			}
 		}
 	}
+}
+
+func (m *Meta) CurrentBlockHeight() uint32 {
+	return m.currHeight.Load()
 }
