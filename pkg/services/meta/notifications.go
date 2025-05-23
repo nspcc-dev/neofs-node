@@ -630,7 +630,7 @@ func (m *Meta) handleEpochNotification(e uint64) error {
 // NotifyObjectSuccess subscribes channel for object notification chain inclusion.
 // Channel must be read before subscription is made and writing to it must be
 // non-blocking.
-func (m *Meta) NotifyObjectSuccess(ch chan<- struct{}, addr oid.Address) {
+func (m *Meta) NotifyObjectSuccess(ch chan<- uint32, addr oid.Address) {
 	m.notifier.subscribe(addr, ch)
 }
 

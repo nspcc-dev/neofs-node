@@ -3,6 +3,7 @@ package meta
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -16,6 +17,15 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	ind := b.Index
 	l := m.l.With(zap.Stringer("block hash", h), zap.Uint32("index", ind))
 	l.Debug("handling block")
+
+	if ts := m.prevBlockTimestamp.Load(); ts != 0 {
+		now := time.Now()
+
+		m.l.Info("got block", zap.Uint64("block took time", b.Timestamp-ts), zap.Uint64("latency delta", uint64(time.Now().UnixMilli())-b.Timestamp), zap.Duration("time from previous block", time.Since(*m.prevBlockGetTime.Load())))
+		m.prevBlockTimestamp.Store(b.Timestamp)
+		m.prevBlockGetTime.Store(&now)
+		m.currHeight.Store(b.Index)
+	}
 
 	m.cliM.RLock()
 	res, err := m.ws.GetBlockNotifications(h, &neorpc.NotificationFilter{
@@ -49,7 +59,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 				continue
 			}
 
-			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID))
+			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID), ind)
 
 			m.stM.RLock()
 			st, ok := m.storages[ev.cID]
@@ -148,4 +158,8 @@ func (m *Meta) blockFetcher(ctx context.Context, buff <-chan *block.Header) {
 			}
 		}
 	}
+}
+
+func (m *Meta) CurrentBlockHeight() uint32 {
+	return m.currHeight.Load()
 }
