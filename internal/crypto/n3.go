@@ -12,6 +12,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/rpcclient/unwrap"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	"github.com/nspcc-dev/neo-go/pkg/util"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 )
 
 // N3ScriptRunner allows to makes historic N3 script runs on the N3 chain.
@@ -33,7 +34,7 @@ func verifyN3ScriptsNow(nsr N3ScriptRunner, acc util.Uint160, invocScript, verif
 func verifyN3ScriptsAtEpoch(fsChain HistoricN3ScriptRunner, epoch uint64, acc util.Uint160, invocScript, verifScript []byte, hashData func() [sha256.Size]byte) error {
 	height, err := fsChain.GetEpochBlock(epoch)
 	if err != nil {
-		return fmt.Errorf("get FS chain height at epoch #%d tick: %w", epoch, err)
+		return ierrors.Temporary{Cause: fmt.Errorf("get FS chain height at epoch #%d tick: %w", epoch, err)}
 	}
 	return verifyN3Scripts(fsChain, height, acc, invocScript, verifScript, hashData())
 }
@@ -55,7 +56,7 @@ func verifyN3Scripts(nsr N3ScriptRunner, height uint32, acc util.Uint160, invocS
 
 	ok, err := unwrap.Bool(nsr.InvokeContainedScript(fakeTx, fakeBlockHdr, nil, nil))
 	if err != nil {
-		return fmt.Errorf("run verification script: %w", err)
+		return ierrors.Temporary{Cause: fmt.Errorf("run verification script: %w", err)}
 	}
 
 	if !ok {
