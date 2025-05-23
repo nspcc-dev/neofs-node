@@ -117,7 +117,6 @@ type historicN3ScriptRunner struct {
 // Various EACL check errors.
 var (
 	errEACLDeniedByRule         = errors.New("denied by rule")
-	errBearerExpired            = errors.New("bearer token has expired")
 	errBearerInvalidContainerID = errors.New("bearer token was created for another container")
 	errBearerNotSignedByOwner   = errors.New("bearer token is not signed by the container owner")
 	errBearerInvalidOwner       = errors.New("bearer token owner differs from the request sender")
@@ -312,10 +311,13 @@ func (c *Checker) checkBearerToken(token bearer.Token, reqCnr cid.ID, ownerCnr u
 	// 1. First check token lifetime. Simplest verification.
 	curEpoch := c.state.CurrentEpoch()
 	if token.Exp() < curEpoch {
-		return errBearerExpired
+		return fmt.Errorf("bearer token has expired (epoch #%d now)", curEpoch)
 	}
-	if token.Nbf() > curEpoch || token.Iat() > curEpoch {
-		return ierrors.Temporary{Cause: errBearerExpired}
+	if token.Nbf() > curEpoch {
+		return ierrors.Temporary{Cause: fmt.Errorf("bearer token is not valid yet (epoch #%d now)", curEpoch)}
+	}
+	if token.Iat() > curEpoch {
+		return ierrors.Temporary{Cause: fmt.Errorf("bearer token has not been issued at (epoch #%d now)", curEpoch)}
 	}
 
 	// 2. Then check if bearer token is signed correctly.
