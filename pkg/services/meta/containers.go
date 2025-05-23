@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/mpt"
 	"github.com/nspcc-dev/neo-go/pkg/core/storage"
@@ -70,7 +71,10 @@ func (s *containerStorage) putObjects(ctx context.Context, l *zap.Logger, bInd u
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		start := time.Now()
 		err := s.putRawIndexes(ctx, l, ee, net, objCh)
+		took := time.Since(start)
+		s.l.Info("put raw indexes took", zap.Int64("took", took.Milliseconds()))
 		if err != nil {
 			l.Error("failed to put raw indexes", zap.Error(err))
 		}
@@ -78,7 +82,10 @@ func (s *containerStorage) putObjects(ctx context.Context, l *zap.Logger, bInd u
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		start := time.Now()
 		err := s.putMPTIndexes(bInd, objCh)
+		took := time.Since(start)
+		s.l.Info("put MPT indexes took", zap.Int64("took", took.Milliseconds()))
 		if err != nil {
 			l.Error("failed to put mpt indexes", zap.Error(err))
 		}

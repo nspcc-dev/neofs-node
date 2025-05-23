@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
@@ -64,7 +65,7 @@ type wsClient interface {
 func newNotifier() objectNotifier {
 	return objectNotifier{
 		notifications: make(chan oid.Address, 1024*1024),
-		subs:          make(map[oid.Address]chan<- struct{}),
+		subs:          make(map[oid.Address]chan<- uint32),
 	}
 }
 
@@ -72,10 +73,10 @@ type objectNotifier struct {
 	notifications chan oid.Address
 
 	m    sync.Mutex
-	subs map[oid.Address]chan<- struct{}
+	subs map[oid.Address]chan<- uint32
 }
 
-func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- struct{}) {
+func (on *objectNotifier) subscribe(addr oid.Address, ch chan<- uint32) {
 	on.m.Lock()
 	defer on.m.Unlock()
 
@@ -89,13 +90,13 @@ func (on *objectNotifier) unsubscribe(addr oid.Address) {
 	delete(on.subs, addr)
 }
 
-func (on *objectNotifier) notifyReceived(addr oid.Address) {
+func (on *objectNotifier) notifyReceived(addr oid.Address, index uint32) {
 	on.m.Lock()
 	defer on.m.Unlock()
 
 	ch, ok := on.subs[addr]
 	if ok {
-		close(ch)
+		ch <- index
 		delete(on.subs, addr)
 	}
 }
@@ -131,6 +132,10 @@ type Meta struct {
 	// runtime reload fields
 	cfgM      sync.RWMutex
 	endpoints []string
+
+	currHeight         atomic.Uint32
+	prevBlockGetTime   atomic.Pointer[time.Time]
+	prevBlockTimestamp atomic.Uint64
 }
 
 const blockBuffSize = 1024 * 1024

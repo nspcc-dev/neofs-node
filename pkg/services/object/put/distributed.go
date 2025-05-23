@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
@@ -192,12 +193,16 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			return id, nil
 		}
 
+		currHeight := t.metaSvc.CurrentBlockHeight()
+
 		addr := object.AddressOf(t.obj)
-		var objAccepted chan struct{}
+		var objAccepted chan uint32
 		if await {
-			objAccepted = make(chan struct{}, 1)
+			objAccepted = make(chan uint32, 1)
 			t.metaSvc.NotifyObjectSuccess(objAccepted, addr)
 		}
+
+		start := time.Now()
 
 		err = t.cnrClient.SubmitObjectPut(t.objSharedMeta, t.collectedSignatures)
 		if err != nil {
@@ -207,14 +212,22 @@ func (t *distributedTarget) Close() (oid.ID, error) {
 			return oid.ID{}, fmt.Errorf("failed to submit %s object meta information: %w", addr, err)
 		}
 
+		submitTime := time.Since(start)
+		start = time.Now()
+
+		var tookBlocks uint32
 		if await {
 			select {
 			case <-t.opCtx.Done():
 				t.metaSvc.UnsubscribeFromObject(addr)
 				return oid.ID{}, fmt.Errorf("interrupted awaiting for %s object meta information: %w", addr, t.opCtx.Err())
-			case <-objAccepted:
+			case ind := <-objAccepted:
+				tookBlocks = ind - currHeight
 			}
 		}
+
+		answerFromChain := time.Since(start)
+		t.placementIterator.log.Info("submit obj put", zap.Int64("submit time", submitTime.Milliseconds()), zap.Int64("answer from chain", answerFromChain.Milliseconds()), zap.Uint32("blocks took", tookBlocks))
 
 		t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 	}
