@@ -12,6 +12,8 @@ Changelog for NeoFS Node
 - Invalid object ID error text in `object delete` CLI command (#3366)
 
 ### Changed
+- SN caches up to 1000 verification results of bearer tokens now (#3369)
+- SN responds with per-claim status messages on bearer token lifetime failure now (#3369)
 
 ### Removed
 
