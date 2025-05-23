@@ -151,7 +151,7 @@ func syncCounter(tx *bbolt.Tx, force bool) error {
 
 		// check if an object is available: not with GCMark
 		// and not covered with a tombstone
-		if inGraveyardWithKey(addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
+		if inGraveyardWithKey(addressKey(addr, key), graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 			logicCounter++
 		}
 

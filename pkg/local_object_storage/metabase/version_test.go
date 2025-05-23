@@ -204,7 +204,7 @@ func (db *DB) inhumeV2(prm inhumeV2Prm) (uint64, []oid.Address, error) {
 			obj, err := get(tx, prm.target[i], buf, false, true, currEpoch)
 			targetKey := addressKey(prm.target[i], buf)
 			if err == nil {
-				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
+				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++
