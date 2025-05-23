@@ -184,12 +184,12 @@ func WithWriteCache(use bool) Option {
 }
 
 // hasWriteCache returns bool if write cache exists on shards.
-func (s Shard) hasWriteCache() bool {
+func (s *Shard) hasWriteCache() bool {
 	return s.cfg.useWriteCache
 }
 
 // needResyncMetabase returns true if metabase is needed to be refilled.
-func (s Shard) needResyncMetabase() bool {
+func (s *Shard) needResyncMetabase() bool {
 	return s.cfg.resyncMetabase
 }
 
