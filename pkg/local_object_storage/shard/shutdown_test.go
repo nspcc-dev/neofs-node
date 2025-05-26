@@ -30,7 +30,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	wcOpts := []writecache.Option{
 		writecache.WithMaxObjectSize(maxObjectSize)}
 
-	sh := newCustomShard(t, dir, true, wcOpts, nil)
+	sh := newCustomShard(t, dir, true, wcOpts)
 
 	for i := range objects {
 		err := sh.Put(objects[i], nil, 0)
@@ -38,7 +38,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	}
 	require.NoError(t, sh.Close())
 
-	sh = newCustomShard(t, dir, true, wcOpts, nil)
+	sh = newCustomShard(t, dir, true, wcOpts)
 	defer releaseShard(sh, t)
 
 	for i := range objects {

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -41,14 +41,14 @@ func TestFlush(t *testing.T) {
 		bigSize  = defaultMaxBatchTreshold
 	)
 
-	newCache := func(t *testing.T, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
-		wc, bs, mb := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
+	newCache := func(t *testing.T, opts ...Option) (Cache, common.Storage, *meta.DB) {
+		wc, s, mb := newCache(t, append(opts, WithLogger(zaptest.NewLogger(t)))...)
 
 		// First set mode for metabase and blobstor to prevent background flushes.
 		require.NoError(t, mb.SetMode(mode.ReadOnly))
-		require.NoError(t, bs.SetMode(mode.ReadOnly))
+		require.NoError(t, storageSetMode(s, mode.ReadOnly))
 
-		return wc, bs, mb
+		return wc, s, mb
 	}
 
 	putObjects := func(t *testing.T, c Cache) []objectPair {
@@ -59,20 +59,20 @@ func TestFlush(t *testing.T) {
 		return objects
 	}
 
-	check := func(t *testing.T, mb *meta.DB, bs *blobstor.BlobStor, objects []objectPair) {
+	check := func(t *testing.T, mb *meta.DB, s common.Storage, objects []objectPair) {
 		for i := range objects {
-			res, err := bs.Get(objects[i].addr)
+			res, err := s.Get(objects[i].addr)
 			require.NoError(t, err)
 			require.Equal(t, objects[i].obj, res)
 		}
 	}
 
 	t.Run("no errors", func(t *testing.T) {
-		wc, bs, mb := newCache(t)
+		wc, ss, mb := newCache(t)
 		defer wc.Close()
 		objects := putObjects(t, wc)
 
-		require.NoError(t, bs.SetMode(mode.ReadWrite))
+		require.NoError(t, storageSetMode(ss, mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		for _, obj := range objects {
@@ -82,7 +82,7 @@ func TestFlush(t *testing.T) {
 
 		require.NoError(t, wc.Flush(false))
 
-		check(t, mb, bs, objects)
+		check(t, mb, ss, objects)
 		require.Equal(t, wc.(*cache).objCounters.Size(), uint64(0))
 		for _, obj := range objects {
 			_, err := wc.Get(obj.addr)
@@ -91,7 +91,7 @@ func TestFlush(t *testing.T) {
 	})
 
 	t.Run("flush on moving to degraded mode", func(t *testing.T) {
-		wc, bs, mb := newCache(t)
+		wc, s, mb := newCache(t)
 		defer wc.Close()
 		objects := putObjects(t, wc)
 
@@ -100,18 +100,18 @@ func TestFlush(t *testing.T) {
 
 		// First move to read-only mode to close background workers.
 		require.NoError(t, wc.SetMode(mode.ReadOnly))
-		require.NoError(t, bs.SetMode(mode.ReadWrite))
+		require.NoError(t, storageSetMode(s, mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		require.NoError(t, wc.SetMode(mode.Degraded))
 
-		check(t, mb, bs, objects)
+		check(t, mb, s, objects)
 	})
 
 	t.Run("ignore errors", func(t *testing.T) {
 		testIgnoreErrors := func(t *testing.T, f func(*cache)) {
 			var errCount atomic.Uint32
-			wc, bs, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
+			wc, s, mb := newCache(t, WithReportErrorFunc(func(message string, err error) {
 				errCount.Add(1)
 			}))
 			defer wc.Close()
@@ -119,7 +119,7 @@ func TestFlush(t *testing.T) {
 			f(wc.(*cache))
 
 			require.NoError(t, wc.SetMode(mode.ReadOnly))
-			require.NoError(t, bs.SetMode(mode.ReadWrite))
+			require.NoError(t, storageSetMode(s, mode.ReadWrite))
 			require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 			require.Equal(t, uint32(0), errCount.Load())
@@ -127,7 +127,7 @@ func TestFlush(t *testing.T) {
 			require.True(t, errCount.Load() > 0)
 			require.NoError(t, wc.Flush(true))
 
-			check(t, mb, bs, objects)
+			check(t, mb, s, objects)
 		}
 		t.Run("fs, read error", func(t *testing.T) {
 			testIgnoreErrors(t, func(c *cache) {
@@ -154,7 +154,7 @@ func TestFlush(t *testing.T) {
 	})
 
 	t.Run("on init", func(t *testing.T) {
-		wc, bs, mb := newCache(t)
+		wc, ss, mb := newCache(t)
 		defer wc.Close()
 		objects := []objectPair{
 			// removed
@@ -169,7 +169,7 @@ func TestFlush(t *testing.T) {
 		}
 
 		require.NoError(t, wc.Close())
-		require.NoError(t, bs.SetMode(mode.ReadWrite))
+		require.NoError(t, storageSetMode(ss, mode.ReadWrite))
 		require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 		for i := range objects {
@@ -183,7 +183,7 @@ func TestFlush(t *testing.T) {
 		_, err = mb.Delete([]oid.Address{objects[2].addr, objects[3].addr})
 		require.NoError(t, err)
 
-		require.NoError(t, bs.SetMode(mode.ReadOnly))
+		require.NoError(t, storageSetMode(ss, mode.ReadOnly))
 		require.NoError(t, mb.SetMode(mode.ReadOnly))
 
 		// Open in read-only: no error, nothing is removed.
@@ -218,11 +218,11 @@ func TestFlushPerformance(t *testing.T) {
 		for _, workerCount := range workerCounts {
 			t.Run(fmt.Sprintf("objects=%d_workers=%d", objCount, workerCount), func(t *testing.T) {
 				t.Parallel()
-				wc, bs, mb := newCache(t, WithFlushWorkersCount(workerCount))
+				wc, s, mb := newCache(t, WithFlushWorkersCount(workerCount))
 				defer wc.Close()
 
 				require.NoError(t, mb.SetMode(mode.ReadOnly))
-				require.NoError(t, bs.SetMode(mode.ReadOnly))
+				require.NoError(t, storageSetMode(s, mode.ReadOnly))
 
 				objects := make([]objectPair, objCount)
 				for i := range objects {
@@ -235,7 +235,7 @@ func TestFlushPerformance(t *testing.T) {
 				}
 				require.NoError(t, wc.Close())
 
-				require.NoError(t, bs.SetMode(mode.ReadWrite))
+				require.NoError(t, storageSetMode(s, mode.ReadWrite))
 				require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 				require.NoError(t, wc.Open(false))
@@ -245,7 +245,7 @@ func TestFlushPerformance(t *testing.T) {
 				duration := time.Since(start)
 
 				for i := range objects {
-					res, err := bs.Get(objects[i].addr)
+					res, err := s.Get(objects[i].addr)
 					require.NoError(t, err)
 					require.Equal(t, objects[i].obj, res)
 				}
@@ -274,16 +274,19 @@ func TestFlushErrorRetry(t *testing.T) {
 			require.NoError(t, mb.Init())
 
 			fsTree := fstree.New(
-				fstree.WithPath(filepath.Join(dir, "blob")),
+				fstree.WithPath(filepath.Join(dir, "fstree")),
 				fstree.WithDepth(0),
 				fstree.WithDirNameLen(1))
 
-			sub1 := &mockWriter{full: true, Storage: fsTree}
-			bs := blobstor.New(
-				blobstor.WithStorages(blobstor.SubStorage{Storage: sub1}),
-				blobstor.WithCompressObjects(true))
-			require.NoError(t, bs.Open(false))
-			require.NoError(t, bs.Init())
+			s := &mockWriter{full: true, Storage: NewModeAwareStorage(fsTree)}
+			comp := &compression.Config{
+				Enabled: true,
+			}
+			require.NoError(t, comp.Init())
+			s.SetCompressor(comp)
+
+			require.NoError(t, s.Open(false))
+			require.NoError(t, s.Init())
 
 			var logBuf safeBuffer
 			multiSyncer := zapcore.NewMultiWriteSyncer(
@@ -298,7 +301,7 @@ func TestFlushErrorRetry(t *testing.T) {
 			)
 			wc := New(WithPath(filepath.Join(dir, "writecache")),
 				WithMetabase(mb),
-				WithBlobstor(bs),
+				WithStorage(s),
 				WithFlushWorkersCount(workerCount),
 				WithLogger(logger))
 			require.NoError(t, wc.Open(false))
@@ -314,21 +317,21 @@ func TestFlushErrorRetry(t *testing.T) {
 			start := time.Now()
 			go func() {
 				time.Sleep(2 * time.Second)
-				sub1.SetFull(false) // Allow to put objects
+				s.SetFull(false) // Allow to put objects
 			}()
 
 			waitForFlush(t, wc, objects)
 			duration := time.Since(start)
 
 			for i := range objects {
-				res, err := bs.Get(objects[i].addr)
+				res, err := s.Get(objects[i].addr)
 				require.NoError(t, err)
 				require.Equal(t, objects[i].obj, res)
 			}
 
 			require.True(t, duration >= (defaultErrorDelay),
 				"Flush completed too quickly (%v), expected at least %v retry delay",
-				duration, (defaultErrorDelay))
+				duration, defaultErrorDelay)
 
 			logOutput := logBuf.String()
 			require.Contains(t, logOutput, "flush scheduler paused due to error")
@@ -341,10 +344,10 @@ func TestFlushErrorRetry(t *testing.T) {
 }
 
 func TestFlushScheduler(t *testing.T) {
-	wc, bs, mb := newCache(t)
+	wc, s, mb := newCache(t)
 	defer wc.Close()
 
-	require.NoError(t, bs.SetMode(mode.ReadWrite))
+	require.NoError(t, storageSetMode(s, mode.ReadWrite))
 	require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 	objects := make([]objectPair, 2)
@@ -357,7 +360,7 @@ func TestFlushScheduler(t *testing.T) {
 	}
 	require.NoError(t, wc.Close())
 
-	require.NoError(t, bs.SetMode(mode.ReadWrite))
+	require.NoError(t, storageSetMode(s, mode.ReadWrite))
 	require.NoError(t, mb.SetMode(mode.ReadWrite))
 
 	require.NoError(t, wc.Open(false))
@@ -366,7 +369,7 @@ func TestFlushScheduler(t *testing.T) {
 	waitForFlush(t, wc, objects)
 
 	for i := range objects {
-		res, err := bs.Get(objects[i].addr)
+		res, err := s.Get(objects[i].addr)
 		require.NoError(t, err)
 		require.Equal(t, objects[i].obj, res)
 	}
@@ -424,10 +427,51 @@ func newObject(t *testing.T, size int) (*object.Object, []byte) {
 	return obj, obj.Marshal()
 }
 
+func storageSetMode(s common.Storage, m mode.Mode) error {
+	if ms, ok := s.(*ModeAwareStorage); ok {
+		return ms.SetMode(m)
+	}
+
+	err := s.Close()
+	if err == nil {
+		if err = s.Open(m.ReadOnly()); err == nil {
+			err = s.Init()
+		}
+	}
+	return err
+}
+
 type dummyEpoch struct{}
 
 func (dummyEpoch) CurrentEpoch() uint64 {
 	return 0
+}
+
+type ModeAwareStorage struct {
+	common.Storage
+	currentMode mode.Mode
+}
+
+func NewModeAwareStorage(s common.Storage) *ModeAwareStorage {
+	return &ModeAwareStorage{
+		Storage: s,
+	}
+}
+
+func (m *ModeAwareStorage) SetMode(newMode mode.Mode) error {
+	if m.currentMode == newMode {
+		return nil
+	}
+
+	err := m.Close()
+	if err == nil {
+		if err = m.Open(newMode.ReadOnly()); err == nil {
+			err = m.Init()
+		}
+	}
+
+	m.currentMode = newMode
+	return err
 }
 
 type mockWriter struct {

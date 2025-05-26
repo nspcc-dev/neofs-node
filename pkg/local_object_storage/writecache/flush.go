@@ -7,7 +7,6 @@ import (
 	"time"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
@@ -262,10 +261,9 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 func (c *cache) flushObject(obj *object.Object, data []byte) error {
 	addr := objectCore.AddressOf(obj)
 
-	err := c.blobstor.Put(addr, obj, data)
+	err := c.storage.Put(addr, data)
 	if err != nil {
-		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
-			!errors.Is(err, blobstor.ErrNoPlaceFound) {
+		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
 			c.reportFlushError("can't flush an object to blobstor",
 				addr.EncodeToString(), err)
 		}
@@ -287,7 +285,7 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 		defer elapsed(c.metrics.AddWCFlushBatchDuration)()
 	}
 
-	objs := make([]blobstor.PutBatchPrm, 0, len(addrs))
+	objs := make(map[oid.Address][]byte, len(addrs))
 	for _, addr := range addrs {
 		obj, data, err := c.getObject(addr)
 		if err != nil {
@@ -300,27 +298,22 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 			continue
 		}
 
-		objs = append(objs, blobstor.PutBatchPrm{
-			Addr: addr,
-			Obj:  obj,
-			Raw:  data,
-		})
+		objs[addr] = data
 	}
 
-	err := c.blobstor.PutBatch(objs)
+	err := c.storage.PutBatch(objs)
 	if err != nil {
-		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) &&
-			!errors.Is(err, blobstor.ErrNoPlaceFound) {
-			for _, obj := range objs {
+		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
+			for addr := range objs {
 				c.reportFlushError("can't flush an object to blobstor",
-					obj.Addr.EncodeToString(), err)
+					addr.EncodeToString(), err)
 			}
 		}
 		return err
 	}
 
-	for _, obj := range objs {
-		err = c.delete(obj.Addr)
+	for addr := range objs {
+		err = c.delete(addr)
 		if err != nil && !errors.As(err, new(apistatus.ObjectNotFound)) {
 			c.log.Error("can't remove object from write-cache", zap.Error(err))
 		}

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -35,12 +34,10 @@ func newEngineEvacuate(t *testing.T, shardNum int, objPerShard int) (*StorageEng
 	for i := range ids {
 		ids[i], err = e.AddShard(
 			shard.WithLogger(zaptest.NewLogger(t)),
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(blobstor.SubStorage{
-					Storage: fstree.New(
-						fstree.WithPath(filepath.Join(dir, strconv.Itoa(i))),
-						fstree.WithDepth(1)),
-				})),
+			shard.WithBlobstor(fstree.New(
+				fstree.WithPath(filepath.Join(dir, strconv.Itoa(i))),
+				fstree.WithDepth(1)),
+			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),

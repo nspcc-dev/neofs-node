@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 ### Changed
 
 ### Removed
+- `blobstor` package (#3371)
 
 ### Updated
 

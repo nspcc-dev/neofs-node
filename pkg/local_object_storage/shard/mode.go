@@ -1,6 +1,8 @@
 package shard
 
 import (
+	"fmt"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"go.uber.org/zap"
@@ -29,12 +31,12 @@ func (s *Shard) setMode(m mode.Mode) error {
 		zap.Stringer("old_mode", s.info.Mode),
 		zap.Stringer("new_mode", m))
 
-	components := []interface{ SetMode(mode.Mode) error }{
-		s.metaBase, s.blobStor,
+	components := []func(mode.Mode) error{
+		s.metaBase.SetMode, s.setModeStorage,
 	}
 
 	if s.hasWriteCache() {
-		components = append(components, s.writeCache)
+		components = append(components, s.writeCache.SetMode)
 	}
 
 	// The usual flow of the requests:
@@ -52,7 +54,7 @@ func (s *Shard) setMode(m mode.Mode) error {
 	}
 
 	for i := range components {
-		if err := components[i].SetMode(m); err != nil {
+		if err := components[i](m); err != nil {
 			return err
 		}
 	}
@@ -73,4 +75,22 @@ func (s *Shard) GetMode() mode.Mode {
 	defer s.m.RUnlock()
 
 	return s.info.Mode
+}
+
+func (s *Shard) setModeStorage(m mode.Mode) error {
+	if s.info.Mode == m {
+		return nil
+	}
+
+	err := s.blobStor.Close()
+	if err == nil {
+		if err = s.blobStor.Open(m.ReadOnly()); err == nil && s.initedStorage {
+			err = s.blobStor.Init()
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("can't set storage mode (old=%s, new=%s): %w", s.info.Mode, m, err)
+	}
+
+	return nil
 }

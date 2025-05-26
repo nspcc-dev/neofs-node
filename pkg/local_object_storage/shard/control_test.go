@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -41,13 +40,11 @@ func TestShardOpen(t *testing.T) {
 	newShard := func() *Shard {
 		return New(
 			WithLogger(zaptest.NewLogger(t)),
-			WithBlobStorOptions(
-				blobstor.WithStorages(blobstor.SubStorage{
-					Storage: fstree.New(
-						fstree.WithDirNameLen(2),
-						fstree.WithPath(filepath.Join(dir, "blob")),
-						fstree.WithDepth(1)),
-				})),
+			WithBlobstor(fstree.New(
+				fstree.WithDirNameLen(2),
+				fstree.WithPath(filepath.Join(dir, "fstree")),
+				fstree.WithDepth(1)),
+			),
 			WithMetaBaseOptions(meta.WithPath(metaPath), meta.WithEpochState(epochState{})),
 			WithWriteCache(true),
 			WithWriteCacheOptions(
@@ -84,14 +81,11 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 
 	fsTree := fstree.New(
 		fstree.WithDirNameLen(2),
-		fstree.WithPath(filepath.Join(dir, "blob")),
+		fstree.WithPath(filepath.Join(dir, "fstree")),
 		fstree.WithDepth(1))
-	blobOpts := []blobstor.Option{
-		blobstor.WithStorages(blobstor.SubStorage{Storage: fsTree}),
-	}
 
 	sh := New(
-		WithBlobStorOptions(blobOpts...),
+		WithBlobstor(fsTree),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta")), meta.WithEpochState(epochState{})))
 	require.NoError(t, sh.Open())
 	require.NoError(t, sh.Init())
@@ -112,7 +106,7 @@ func TestResyncMetabaseCorrupted(t *testing.T) {
 	require.NoError(t, err)
 
 	sh = New(
-		WithBlobStorOptions(blobOpts...),
+		WithBlobstor(fsTree),
 		WithMetaBaseOptions(meta.WithPath(filepath.Join(dir, "meta_new")), meta.WithEpochState(epochState{})),
 		WithResyncMetabase(true))
 	require.NoError(t, sh.Open())
@@ -131,16 +125,11 @@ func TestResyncMetabase(t *testing.T) {
 	testObj := objecttest.Object()
 	writeCacheThreshold := len(testObj.Marshal())
 
-	blobOpts := []blobstor.Option{
-		blobstor.WithStorages(blobstor.SubStorage{
-			Storage: fstree.New(
-				fstree.WithPath(filepath.Join(p, "blob")),
-				fstree.WithDepth(1)),
-		}),
-	}
-
 	sh := New(
-		WithBlobStorOptions(blobOpts...),
+		WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(p, "fstree")),
+			fstree.WithDepth(1)),
+		),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
 			meta.WithEpochState(epochState{}),
@@ -299,7 +288,10 @@ func TestResyncMetabase(t *testing.T) {
 	require.NoError(t, err)
 
 	sh = New(
-		WithBlobStorOptions(blobOpts...),
+		WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(p, "fstree")),
+			fstree.WithDepth(1)),
+		),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 			meta.WithEpochState(epochState{}),

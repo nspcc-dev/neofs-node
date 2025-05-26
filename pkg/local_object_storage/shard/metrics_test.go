@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -174,15 +173,6 @@ func TestCounters(t *testing.T) {
 }
 
 func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
-	blobOpts := []blobstor.Option{
-		blobstor.WithStorages(blobstor.SubStorage{
-			Storage: fstree.New(
-				fstree.WithDirNameLen(2),
-				fstree.WithPath(filepath.Join(path, "blob")),
-				fstree.WithDepth(1)),
-		}),
-	}
-
 	mm := &metricsStore{
 		objectCounters: map[string]uint64{
 			"phy":   0,
@@ -192,7 +182,11 @@ func shardWithMetrics(t *testing.T, path string) (*shard.Shard, *metricsStore) {
 	}
 
 	sh := shard.New(
-		shard.WithBlobStorOptions(blobOpts...),
+		shard.WithBlobstor(fstree.New(
+			fstree.WithDirNameLen(2),
+			fstree.WithPath(filepath.Join(path, "fstree")),
+			fstree.WithDepth(1)),
+		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(path, "meta")),
 			meta.WithEpochState(epochState{})),

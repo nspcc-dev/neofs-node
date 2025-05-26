@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -38,8 +37,7 @@ func newEngine(t testing.TB, dir string, opts ...Option) (*StorageEngine, string
 	for i := range ids {
 		ids[i], err = e.AddShard(
 			shard.WithLogger(zaptest.NewLogger(t)),
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(newStorage(filepath.Join(dir, strconv.Itoa(i))))),
+			shard.WithBlobstor(newStorage(filepath.Join(dir, strconv.Itoa(i)))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(dir, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),
