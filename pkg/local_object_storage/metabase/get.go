@@ -37,10 +37,18 @@ func (db *DB) Get(ctx context.Context, addr oid.Address, raw bool) (*objectSDK.O
 		currEpoch = db.epochState.CurrentEpoch()
 	)
 
-	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (filtered)")
+	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (Head)")
+	stt := LogStartView(db.log, "Head")
+	defer func() {
+		LogFinView(db.log, "Head", stt)
+	}()
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
-		st := debugprint.LogRequestStageStart(ctx, "Bolt HEAD tx")
+		st := debugprint.LogRequestStageStart(ctx, "Bolt tx (Head)")
 		defer debugprint.LogRequestStageFinish(st)
+		stt := LogStartViewTx(db.log, "Head")
+		defer func() {
+			LogFinViewTx(db.log, "Head", stt)
+		}()
 		key := make([]byte, addressKeySize)
 		hdr, err = get(tx, addr, key, true, raw, currEpoch)
 

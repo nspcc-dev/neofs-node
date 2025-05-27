@@ -56,7 +56,15 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 		err             error
 		inhumed         uint64
 	)
+	st := LogStartUpdate(db.log, "inhume")
+	defer func() {
+		LogFinUpdate(db.log, "inhume", st)
+	}()
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "inhume")
+		defer func() {
+			LogFinUpdateTx(db.log, "inhume", st)
+		}()
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)
@@ -215,7 +223,15 @@ func (db *DB) InhumeContainer(cID cid.ID) (uint64, error) {
 	var removedAvailable uint64
 	rawCID := cID[:]
 
+	st := LogStartUpdate(db.log, "InhumeContainer")
+	defer func() {
+		LogFinUpdate(db.log, "InhumeContainer", st)
+	}()
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "InhumeContainer")
+		defer func() {
+			LogFinUpdateTx(db.log, "InhumeContainer", st)
+		}()
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		err := garbageContainersBKT.Put(rawCID, zeroValue)
 		if err != nil {

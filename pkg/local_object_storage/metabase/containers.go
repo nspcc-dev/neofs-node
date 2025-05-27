@@ -127,7 +127,15 @@ func (db *DB) DeleteContainer(cID cid.ID) error {
 	cIDRaw := cID[:]
 	buff := make([]byte, addressKeySize)
 
+	st := LogStartUpdate(db.log, "DeleteContainer")
+	defer func() {
+		LogFinUpdate(db.log, "DeleteContainer", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "DeleteContainer")
+		defer func() {
+			LogFinUpdateTx(db.log, "DeleteContainer", st)
+		}()
 		// Estimations
 		bktEstimations := tx.Bucket(containerVolumeBucketName)
 		err := bktEstimations.Delete(cIDRaw)

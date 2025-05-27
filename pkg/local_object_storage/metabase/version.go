@@ -41,7 +41,17 @@ func (db *DB) checkVersion() error {
 	switch {
 	case !knownVersion:
 		// new database, write version
-		return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, currentMetaVersion) })
+		st := LogStartUpdate(db.log, "updateVersion (current)")
+		defer func() {
+			LogFinUpdate(db.log, "updateVersion (current)", st)
+		}()
+		return db.boltDB.Update(func(tx *bbolt.Tx) error {
+			st := LogStartUpdateTx(db.log, "updateVersion")
+			defer func() {
+				LogFinUpdateTx(db.log, "updateVersion", st)
+			}()
+			return updateVersion(tx, currentMetaVersion)
+		})
 	case stored == currentMetaVersion:
 		return nil
 	case stored > currentMetaVersion:
@@ -94,7 +104,17 @@ var migrateFrom = map[uint64]func(*DB) error{
 }
 
 func migrateFrom2Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error { return migrateFrom2VersionTx(tx, db.epochState) })
+	st := LogStartUpdate(db.log, "migrateFrom2Version")
+	defer func() {
+		LogFinUpdate(db.log, "migrateFrom2Version", st)
+	}()
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "migrateFrom2Version")
+		defer func() {
+			LogFinUpdateTx(db.log, "migrateFrom2Version", st)
+		}()
+		return migrateFrom2VersionTx(tx, db.epochState)
+	})
 }
 
 func migrateFrom2VersionTx(tx *bbolt.Tx, epochState EpochState) error {
@@ -134,7 +154,17 @@ func migrateFrom3Version(db *DB) error {
 	if err != nil {
 		return err
 	}
-	return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, 4) })
+	st := LogStartUpdate(db.log, "updateVersion (4)")
+	defer func() {
+		LogFinUpdate(db.log, "updateVersion (4)", st)
+	}()
+	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "updateVersion (4)")
+		defer func() {
+			LogFinUpdateTx(db.log, "updateVersion (4)", st)
+		}()
+		return updateVersion(tx, 4)
+	})
 }
 
 func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc func(*zap.Logger, *bbolt.Tx, *bbolt.Bucket, cid.ID, []byte, uint) (uint, []byte, error)) error {
@@ -145,7 +175,15 @@ func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc f
 			return context.Cause(db.initCtx)
 		default:
 		}
+		st := LogStartUpdate(db.log, "updateContainersInterruptable")
+		defer func() {
+			LogFinUpdate(db.log, "updateContainersInterruptable", st)
+		}()
 		if err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+			st := LogStartUpdateTx(db.log, "updateContainersInterruptable")
+			defer func() {
+				LogFinUpdateTx(db.log, "updateContainersInterruptable", st)
+			}()
 			var err error
 			fromBkt, afterObj, err = iterateContainerBuckets(db.log, db.cfg.containers, tx, fromBkt, afterObj,
 				validPrefixes, migrationFunc)
@@ -274,7 +312,15 @@ func migrateFrom4Version(db *DB) error {
 	if err != nil {
 		return err
 	}
+	st := LogStartUpdate(db.log, "migrateFrom4Version")
+	defer func() {
+		LogFinUpdate(db.log, "migrateFrom4Version", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "migrateFrom4Version")
+		defer func() {
+			LogFinUpdateTx(db.log, "migrateFrom4Version", st)
+		}()
 		var (
 			buckets          [][]byte
 			obsoletePrefixes = []byte{unusedSmallPrefix, unusedOwnerPrefix,

@@ -46,7 +46,15 @@ func (db *DB) Lock(cnr cid.ID, locker oid.ID, locked []oid.ID) error {
 	}
 	key := make([]byte, cidSize)
 
+	st := LogStartUpdate(db.log, "Lock")
+	defer func() {
+		LogFinUpdate(db.log, "Lock", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "Lock")
+		defer func() {
+			LogFinUpdateTx(db.log, "Lock", st)
+		}()
 		if firstIrregularObjectType(tx, cnr, bucketKeysLocked...) != object.TypeRegular {
 			return logicerr.Wrap(apistatus.LockNonRegularObject{})
 		}
@@ -107,7 +115,15 @@ func (db *DB) FreeLockedBy(lockers []oid.Address) ([]oid.Address, error) {
 
 	var unlocked []oid.Address
 
+	st := LogStartUpdate(db.log, "FreeLockedBy")
+	defer func() {
+		LogFinUpdate(db.log, "FreeLockedBy", st)
+	}()
 	return unlocked, db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "Lock object")
+		defer func() {
+			LogFinUpdateTx(db.log, "Lock object", st)
+		}()
 		for i := range lockers {
 			uu, err := freePotentialLocks(tx, lockers[i].Container(), lockers[i].Object())
 			if err != nil {

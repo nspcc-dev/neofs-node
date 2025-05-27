@@ -22,7 +22,15 @@ func (db *DB) ToMoveIt(addr oid.Address) error {
 	key := make([]byte, addressKeySize)
 	key = addressKey(addr, key)
 
+	st := LogStartUpdate(db.log, "ToMoveIt")
+	defer func() {
+		LogFinUpdate(db.log, "ToMoveIt", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "ToMoveIt")
+		defer func() {
+			LogFinUpdateTx(db.log, "ToMoveIt", st)
+		}()
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Put(key, zeroValue)
 	})
@@ -42,7 +50,15 @@ func (db *DB) DoNotMove(addr oid.Address) error {
 	key := make([]byte, addressKeySize)
 	key = addressKey(addr, key)
 
+	st := LogStartUpdate(db.log, "DoNotMove")
+	defer func() {
+		LogFinUpdate(db.log, "DoNotMove", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "DoNotMove")
+		defer func() {
+			LogFinUpdateTx(db.log, "DoNotMove", st)
+		}()
 		toMoveIt := tx.Bucket(toMoveItBucketName)
 		return toMoveIt.Delete(key)
 	})

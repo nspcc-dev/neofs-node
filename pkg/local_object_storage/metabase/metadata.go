@@ -234,11 +234,20 @@ func (db *DB) search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilt
 	var res []client.SearchResultItem
 	var newCursor []byte
 	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (filtered)")
+	stt := LogStartView(db.log, "SearchV2 (filtered")
+	defer func() {
+		LogFinView(db.log, "SearchV2 (filtered", stt)
+	}()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		st := debugprint.LogRequestStageStart(ctx, "Bolt search tx (filtered)")
 		defer debugprint.LogRequestStageFinish(st)
+		var iters uint
+		stt := LogStartViewTx(db.log, "SearchV2 (filtered")
+		defer func() {
+			LogFinViewTx(db.log, "SearchV2 (filtered", stt, zap.Uint("iters", iters))
+		}()
 		var err error
-		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
+		res, newCursor, iters, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
 		return err
 	})
 	debugprint.LogRequestStageFinish(st)
@@ -248,10 +257,10 @@ func (db *DB) search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilt
 	return res, newCursor, nil
 }
 
-func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, uint, error) {
 	metaBkt := tx.Bucket(metaBucketKey(cnr))
 	if metaBkt == nil {
-		return nil, nil, nil
+		return nil, nil, 0, nil
 	}
 
 	primCursor := metaBkt.Cursor()
@@ -260,7 +269,7 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 		primKey, _ = primCursor.Next()
 	}
 	if primKey == nil {
-		return nil, nil, nil
+		return nil, nil, 0, nil
 	}
 
 	var keyBuf keyBuffer
@@ -271,14 +280,15 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 	}
 	resHolder := objectcore.SearchResult{Objects: make([]client.SearchResultItem, 0, count)}
 	handleKV := objectcore.MetaDataKVHandler(&resHolder, attrSkr, gcCheck, fs, attrs, cursor, count)
-
+	var iters uint
 	for ; bytes.HasPrefix(primKey, cursor.PrimaryKeysPrefix); primKey, _ = primCursor.Next() {
+		iters++
 		if !handleKV(primKey, nil) {
 			break
 		}
 	}
 
-	return resHolder.Objects, resHolder.UpdatedSearchCursor, resHolder.Err
+	return resHolder.Objects, resHolder.UpdatedSearchCursor, iters, resHolder.Err
 }
 
 // TODO: can be merged with filtered code?
@@ -288,9 +298,18 @@ func (db *DB) searchUnfiltered(ctx context.Context, cnr cid.ID, cursor *objectco
 	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
 	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (unfiltered)")
+	stt := LogStartView(db.log, "SearchV2 (unfiltered")
+	defer func() {
+		LogFinView(db.log, "SearchV2 (unfiltered", stt)
+	}()
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
 		st := debugprint.LogRequestStageStart(ctx, "Bolt search tx (unfiltered)")
 		defer debugprint.LogRequestStageFinish(st)
+		stt := LogStartViewTx(db.log, "SearchV2 (unfiltered")
+		var iters uint
+		defer func() {
+			LogFinViewTx(db.log, "SearchV2 (unfiltered", stt, zap.Uint("iters", iters))
+		}()
 		mb := tx.Bucket(metaBucketKey(cnr))
 		if mb == nil {
 			return nil
@@ -302,6 +321,7 @@ func (db *DB) searchUnfiltered(ctx context.Context, cnr cid.ID, cursor *objectco
 			k, _ = mbc.Next()
 		}
 		for ; len(k) > 0 && k[0] == metaPrefixID; k, _ = mbc.Next() {
+			iters++
 			if n == count { // there are still elements
 				newCursor = res[n-1].ID[:]
 				return nil

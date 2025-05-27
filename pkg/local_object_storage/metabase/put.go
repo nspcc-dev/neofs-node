@@ -41,7 +41,15 @@ func (db *DB) Put(obj *objectSDK.Object, binHeader []byte) error {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
+	st := LogStartBatch(db.log, "Put")
+	defer func() {
+		LogFinBatch(db.log, "Put", st)
+	}()
 	err := db.boltDB.Batch(func(tx *bbolt.Tx) error {
+		st := LogStartBatchTx(db.log, "Put")
+		defer func() {
+			LogFinBatchTx(db.log, "Put", st)
+		}()
 		return db.put(tx, obj, nil, currEpoch, binHeader)
 	})
 	if err == nil {

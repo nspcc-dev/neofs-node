@@ -43,7 +43,15 @@ func (db *DB) WriteShardID(id []byte) error {
 		return ErrReadOnlyMode
 	}
 
+	st := LogStartUpdate(db.log, "WriteShardID")
+	defer func() {
+		LogFinUpdate(db.log, "WriteShardID", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "WriteShardID")
+		defer func() {
+			LogFinUpdateTx(db.log, "WriteShardID", st)
+		}()
 		b, err := tx.CreateBucketIfNotExists(shardInfoBucket)
 		if err != nil {
 			return err

@@ -234,7 +234,15 @@ func (db *DB) DropExpiredTSMarks(epoch uint64) (int, error) {
 
 	var counter int
 
+	st := LogStartUpdate(db.log, "DropExpiredTSMarks")
+	defer func() {
+		LogFinUpdate(db.log, "DropExpiredTSMarks", st)
+	}()
 	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "DropExpiredTSMarks")
+		defer func() {
+			LogFinUpdateTx(db.log, "DropExpiredTSMarks", st)
+		}()
 		bkt := tx.Bucket(graveyardBucketName)
 		c := bkt.Cursor()
 		k, v := c.First()

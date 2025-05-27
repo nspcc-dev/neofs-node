@@ -74,7 +74,15 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, err error) {
 
 	currEpoch := db.epochState.CurrentEpoch()
 
+	st := LogStartUpdate(db.log, "ReviveObject")
+	defer func() {
+		LogFinUpdate(db.log, "ReviveObject", st)
+	}()
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "ReviveObject")
+		defer func() {
+			LogFinUpdateTx(db.log, "ReviveObject", st)
+		}()
 		garbageObjectsBKT := tx.Bucket(garbageObjectsBucketName)
 		garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 		graveyardBKT := tx.Bucket(graveyardBucketName)

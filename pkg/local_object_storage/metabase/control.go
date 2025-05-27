@@ -101,7 +101,12 @@ func (db *DB) init(reset bool) error {
 		}
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	st := LogStartUpdate(db.log, "init metabase")
+	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "init metabase")
+		defer func() {
+			LogFinUpdateTx(db.log, "init metabase", st)
+		}()
 		var err error
 		for k := range mStaticBuckets {
 			name := []byte(k)
@@ -149,6 +154,8 @@ func (db *DB) init(reset bool) error {
 
 		return nil
 	})
+	LogFinUpdate(db.log, "init metabase", st)
+	return err
 }
 
 // SyncCounters forces to synchronize the object counters.
@@ -162,7 +169,15 @@ func (db *DB) SyncCounters() error {
 		return ErrReadOnlyMode
 	}
 
+	st := LogStartUpdate(db.log, "syncCounter")
+	defer func() {
+		LogFinUpdate(db.log, "syncCounter", st)
+	}()
 	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "syncCounter")
+		defer func() {
+			LogFinUpdateTx(db.log, "syncCounter", st)
+		}()
 		return syncCounter(tx, true)
 	})
 }

@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math/big"
+	"time"
 
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
+	"go.uber.org/zap"
 )
 
 const attributeDelimiterLen = 1
@@ -246,4 +248,106 @@ func (x *keyBuffer) alloc(ln int) []byte {
 		*x = make([]byte, ln)
 	}
 	return (*x)[:ln]
+}
+
+func LogStartUpdate(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt update start",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinUpdate(l *zap.Logger, op string, start time.Time) time.Time {
+	l.Info("Bolt update finish",
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogStartUpdateTx(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt update start (tx)",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinUpdateTx(l *zap.Logger, op string, start time.Time) time.Time {
+	l.Info("Bolt update finish (tx)",
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogStartBatch(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt batch start",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinBatch(l *zap.Logger, op string, start time.Time) time.Time {
+	l.Info("Bolt batch finish",
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogStartBatchTx(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt batch start (tx)",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinBatchTx(l *zap.Logger, op string, start time.Time) time.Time {
+	l.Info("Bolt batch finish (tx)",
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogStartView(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt view start",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinView(l *zap.Logger, op string, start time.Time) time.Time {
+	l.Info("Bolt view finish",
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogStartViewTx(l *zap.Logger, op string) time.Time {
+	l.Info("Bolt view start (tx)",
+		zap.String("op", op),
+		zap.String("to-grep", "debugprint"),
+	)
+	return time.Now()
+}
+
+func LogFinViewTx(l *zap.Logger, op string, start time.Time, fs ...zap.Field) time.Time {
+	l.Info("Bolt view finish (tx)", append([]zap.Field{
+		zap.String("op", op),
+		zap.Stringer("elapsed", time.Since(start)),
+		zap.String("to-grep", "debugprint"),
+	}, fs...)...)
+	return time.Now()
 }

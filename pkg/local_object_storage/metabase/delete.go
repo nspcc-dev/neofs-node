@@ -44,7 +44,15 @@ func (db *DB) Delete(addrs []oid.Address) (DeleteRes, error) {
 	var err error
 	var sizes = make([]uint64, len(addrs))
 
+	st := LogStartUpdate(db.log, "Delete")
+	defer func() {
+		LogFinUpdate(db.log, "Delete", st)
+	}()
 	err = db.boltDB.Update(func(tx *bbolt.Tx) error {
+		st := LogStartUpdateTx(db.log, "Delete")
+		defer func() {
+			LogFinUpdateTx(db.log, "Delete", st)
+		}()
 		// We need to clear slice because tx can try to execute multiple times.
 		rawRemoved, availableRemoved, err = db.deleteGroup(tx, addrs, sizes)
 		return err
