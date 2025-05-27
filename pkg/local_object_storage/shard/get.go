@@ -1,6 +1,7 @@
 package shard
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -25,14 +27,16 @@ var ErrMetaWithNoObject = errors.New("got meta, but no object")
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in shard.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
+func (s *Shard) Get(ctx context.Context, addr oid.Address, skipMeta bool) (*objectSDK.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	var res *objectSDK.Object
 
 	cb := func(stor *blobstor.BlobStor) error {
+		st := debugprint.LogRequestStageStart(ctx, "blobstor GET")
 		obj, err := stor.Get(addr)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return err
 		}
@@ -41,7 +45,9 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 	}
 
 	wc := func(c writecache.Cache) error {
+		st := debugprint.LogRequestStageStart(ctx, "writecache GET")
 		o, err := c.Get(addr)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return err
 		}

@@ -1,12 +1,14 @@
 package shard
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -24,14 +26,16 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object has been marked as removed in shard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMeta bool) (*object.Object, error) {
+func (s *Shard) GetRange(ctx context.Context, addr oid.Address, offset uint64, length uint64, skipMeta bool) (*object.Object, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	var obj *object.Object
 
 	cb := func(stor *blobstor.BlobStor) error {
+		st := debugprint.LogRequestStageStart(ctx, "blobstor RANGE")
 		r, err := stor.GetRange(addr, offset, length)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return err
 		}
@@ -43,7 +47,9 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 	}
 
 	wc := func(c writecache.Cache) error {
+		st := debugprint.LogRequestStageStart(ctx, "writecache GET")
 		o, err := c.Get(addr)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return err
 		}

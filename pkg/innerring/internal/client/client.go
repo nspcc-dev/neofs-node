@@ -9,6 +9,7 @@ import (
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -52,14 +53,18 @@ func (x GetObjectRes) Object() *object.Object {
 func (x Client) GetObject(prm GetObjectPrm) (*GetObjectRes, error) {
 	var cliPrm client.PrmObjectGet
 
+	st := debugprint.LogRequestStageStart(prm.ctx, "remote SN object GET (init)")
 	obj, rdr, err := x.c.ObjectGetInit(prm.ctx, prm.objAddr.Container(), prm.objAddr.Object(), x.signer, cliPrm)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, fmt.Errorf("init object search: %w", err)
 	}
 
 	buf := make([]byte, obj.PayloadSize())
 
+	st = debugprint.LogRequestStageStart(prm.ctx, "remote SN object GET (payload)")
 	_, err = rdr.Read(buf)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}

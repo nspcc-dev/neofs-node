@@ -1,11 +1,13 @@
 package shard
 
 import (
+	"context"
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -33,13 +35,15 @@ func (s *Shard) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address,
 }
 
 // Search performs Search op on the underlying metabase if it is not disabled.
-func (s *Shard) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (s *Shard) Search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	if s.info.Mode.NoMetabase() {
 		return nil, nil, ErrDegradedMode
 	}
-	res, newCursor, err := s.metaBase.Search(cnr, fs, attrs, cursor, count)
+	st := debugprint.LogRequestStageStart(ctx, "metabase search")
+	res, newCursor, err := s.metaBase.Search(ctx, cnr, fs, attrs, cursor, count)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, nil, fmt.Errorf("call metabase: %w", err)
 	}

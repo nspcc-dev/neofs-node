@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"math"
@@ -49,7 +50,7 @@ func (db *DB) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.Address, e
 			return nil, fmt.Errorf("%w: %w", objectcore.ErrInvalidSearchQuery, err)
 		}
 
-		res, newCursor, err := db.Search(cnr, ofs, attrs, c, math.MaxUint16)
+		res, newCursor, err := db.Search(context.Background(), cnr, ofs, attrs, c, math.MaxUint16)
 		if err != nil {
 			return nil, fmt.Errorf("call metabase: %w", err)
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
@@ -318,7 +319,9 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 
 	prm.cliPrm.WithXHeaders(prm.xHeaders...)
 
+	st := debugprint.LogRequestStageStart(prm.ctx, "remote SN object RANGE (init)")
 	rdr, err := prm.cli.ObjectRangeInit(prm.ctx, prm.cnr, prm.obj, prm.offset, prm.ln, prm.signer, prm.cliPrm)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, fmt.Errorf("init payload reading: %w", err)
 	}
@@ -336,7 +339,9 @@ func PayloadRange(prm PayloadRangePrm) (*PayloadRangeRes, error) {
 	}
 
 	w := bytes.NewBuffer(make([]byte, ln))
+	st = debugprint.LogRequestStageStart(prm.ctx, "remote SN object RANGE (payload)")
 	_, err = io.CopyN(w, rdr, int64(prm.ln))
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, fmt.Errorf("read payload: %w", err)
 	}

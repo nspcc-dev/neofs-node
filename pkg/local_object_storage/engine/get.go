@@ -1,12 +1,14 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -21,7 +23,7 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the object has been marked as removed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
+func (e *StorageEngine) Get(ctx context.Context, addr oid.Address) (*objectSDK.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddGetDuration)()
 	}
@@ -39,7 +41,9 @@ func (e *StorageEngine) Get(addr oid.Address) (*objectSDK.Object, error) {
 	)
 
 	err = e.get(addr, func(s *shard.Shard, ignoreMetadata bool) error {
-		obj, err = s.Get(addr, ignoreMetadata)
+		st := debugprint.LogRequestStageStart(ctx, "shard GET")
+		obj, err = s.Get(ctx, addr, ignoreMetadata)
+		debugprint.LogRequestStageFinish(st)
 		return err
 	})
 	return obj, err

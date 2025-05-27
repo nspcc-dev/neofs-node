@@ -1,12 +1,14 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -22,7 +24,7 @@ import (
 // Returns an error of type apistatus.ObjectAlreadyRemoved if the requested object was inhumed.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func (e *StorageEngine) Head(ctx context.Context, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddHeadDuration)()
 	}
@@ -37,7 +39,9 @@ func (e *StorageEngine) Head(addr oid.Address, raw bool) (*objectSDK.Object, err
 	var splitInfo *objectSDK.SplitInfo
 
 	for _, sh := range e.sortedShards(addr) {
-		res, err := sh.Head(addr, raw)
+		st := debugprint.LogRequestStageStart(ctx, "shard HEAD")
+		res, err := sh.Head(ctx, addr, raw)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			var siErr *objectSDK.SplitInfoError
 

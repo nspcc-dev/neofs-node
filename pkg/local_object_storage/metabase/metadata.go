@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,6 +12,7 @@ import (
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -213,14 +215,14 @@ func deleteMetadata(tx *bbolt.Tx, l *zap.Logger, cnr cid.ID, id oid.ID, isParent
 
 // Search selects up to count container's objects from the given container
 // matching the specified filters.
-func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) Search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
 	var err error
 	if len(fs) == 0 {
-		res, newCursor, err = db.searchUnfiltered(cnr, cursor, count)
+		res, newCursor, err = db.searchUnfiltered(ctx, cnr, cursor, count)
 	} else {
-		res, newCursor, err = db.search(cnr, fs, attrs, cursor, count)
+		res, newCursor, err = db.search(ctx, cnr, fs, attrs, cursor, count)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -228,14 +230,18 @@ func (db *DB) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, c
 	return res, newCursor, nil
 }
 
-func (db *DB) search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	var res []client.SearchResultItem
 	var newCursor []byte
+	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (filtered)")
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		st := debugprint.LogRequestStageStart(ctx, "Bolt search tx (filtered)")
+		defer debugprint.LogRequestStageFinish(st)
 		var err error
 		res, newCursor, err = db.searchTx(tx, cnr, fs, attrs, cursor, count)
 		return err
 	})
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, nil, fmt.Errorf("view BoltDB: %w", err)
 	}
@@ -276,12 +282,15 @@ func (db *DB) searchTx(tx *bbolt.Tx, cnr cid.ID, fs []objectcore.SearchFilter, a
 }
 
 // TODO: can be merged with filtered code?
-func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (db *DB) searchUnfiltered(ctx context.Context, cnr cid.ID, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	res := make([]client.SearchResultItem, count)
 	var n uint16
 	var newCursor []byte
 	curEpoch := db.epochState.CurrentEpoch()
+	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (unfiltered)")
 	err := db.boltDB.View(func(tx *bbolt.Tx) error {
+		st := debugprint.LogRequestStageStart(ctx, "Bolt search tx (unfiltered)")
+		defer debugprint.LogRequestStageFinish(st)
 		mb := tx.Bucket(metaBucketKey(cnr))
 		if mb == nil {
 			return nil
@@ -308,6 +317,7 @@ func (db *DB) searchUnfiltered(cnr cid.ID, cursor *objectcore.SearchCursor, coun
 		}
 		return nil
 	})
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, nil, fmt.Errorf("view BoltDB: %w", err)
 	}

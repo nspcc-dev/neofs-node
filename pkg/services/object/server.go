@@ -10,10 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mr-tron/base58"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
@@ -34,6 +36,7 @@ import (
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	sdknetmap "github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -47,6 +50,7 @@ import (
 	"github.com/nspcc-dev/tzhash/tz"
 	"github.com/panjf2000/ants/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // Handlers represents storage node's internal handler Object service op
@@ -137,7 +141,7 @@ type Storage interface {
 
 	// SearchObjects selects up to count container's objects from the given
 	// container matching the specified filters.
-	SearchObjects(_ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
+	SearchObjects(_ context.Context, _ cid.ID, _ []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]sdkclient.SearchResultItem, []byte, error)
 }
 
 // ACLInfoExtractor is the interface that allows to fetch data required for ACL
@@ -573,6 +577,16 @@ func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 }
 
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
+	ctx = wrapContext(ctx, "ObjectService.Head", func() []any {
+		return []any{
+			"container", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"object", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"ttl", req.GetMetaHeader().GetTtl(),
+		}
+	})
+	debugprint.LogRequestRecv(ctx)
+	defer debugprint.LogRequestFin(ctx)
+
 	var (
 		err error
 		t   = time.Now()
@@ -587,15 +601,22 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
+	st := debugprint.LogRequestStageStart(ctx, "RequestToInfo")
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return s.makeStatusHeadResponse(err), nil
 	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
+	st = debugprint.LogRequestStageStart(ctx, "basic ACL")
+	basic := s.aclChecker.CheckBasicACL(reqInfo)
+	debugprint.LogRequestStageFinish(st)
+	if !basic {
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusHeadResponse(err), nil
 	}
+	st = debugprint.LogRequestStageStart(ctx, "extended ACL")
 	err = s.aclChecker.CheckEACL(req, reqInfo)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.makeStatusHeadResponse(err), nil
@@ -1024,6 +1045,15 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
+	ctx := wrapContext(gStream.Context(), "ObjectService.Get", func() []any {
+		return []any{
+			"container", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"object", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"ttl", req.GetMetaHeader().GetTtl(),
+		}
+	})
+	debugprint.LogRequestRecv(ctx)
+	defer debugprint.LogRequestFin(ctx)
 	var (
 		err error
 		t   = time.Now()
@@ -1037,15 +1067,22 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
+	st := debugprint.LogRequestStageStart(ctx, "RequestToInfo")
 	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
+	st = debugprint.LogRequestStageStart(ctx, "basic ACL")
+	basic := s.aclChecker.CheckBasicACL(reqInfo)
+	debugprint.LogRequestStageFinish(st)
+	if !basic {
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusGetResponse(gStream, err)
 	}
+	st = debugprint.LogRequestStageStart(ctx, "extended ACL")
 	err = s.aclChecker.CheckEACL(req, reqInfo)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusGetResponse(gStream, err)
@@ -1059,7 +1096,7 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
-	err = s.handlers.Get(gStream.Context(), p)
+	err = s.handlers.Get(ctx, p)
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
 	}
@@ -1264,6 +1301,16 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 }
 
 func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
+	ctx := wrapContext(gStream.Context(), "ObjectService.GetRange", func() []any {
+		return []any{
+			"container", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"object", base58.Encode(req.GetBody().GetAddress().GetContainerId().GetValue()),
+			"ttl", req.GetMetaHeader().GetTtl(),
+		}
+	})
+	debugprint.LogRequestRecv(ctx)
+	defer debugprint.LogRequestFin(ctx)
+
 	var (
 		err error
 		t   = time.Now()
@@ -1277,15 +1324,22 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
+	st := debugprint.LogRequestStageStart(ctx, "RequestToInfo")
 	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
+	st = debugprint.LogRequestStageStart(ctx, "basic ACL")
+	basic := s.aclChecker.CheckBasicACL(reqInfo)
+	debugprint.LogRequestStageFinish(st)
+	if !basic {
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err)
 	}
+	st = debugprint.LogRequestStageStart(ctx, "extended ACL")
 	err = s.aclChecker.CheckEACL(req, reqInfo)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
 		return s.sendStatusRangeResponse(gStream, err)
@@ -1299,7 +1353,7 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
-	err = s.handlers.GetRange(gStream.Context(), p)
+	err = s.handlers.GetRange(ctx, p)
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
 	}
@@ -1811,6 +1865,15 @@ func (s *Server) makeStatusSearchResponse(err error) *protoobject.SearchV2Respon
 }
 
 func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
+	ctx = wrapContext(ctx, "ObjectService.SearchV2", func() []any {
+		return []any{
+			"container", base58.Encode(req.GetBody().GetContainerId().GetValue()),
+			"ttl", req.GetMetaHeader().GetTtl(),
+		}
+	})
+	debugprint.LogRequestRecv(ctx)
+	defer debugprint.LogRequestFin(ctx)
+
 	var (
 		err error
 		t   = time.Now()
@@ -1824,15 +1887,22 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
+	st := debugprint.LogRequestStageStart(ctx, "RequestToInfo")
 	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return s.makeStatusSearchResponse(err), nil
 	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
+	st = debugprint.LogRequestStageStart(ctx, "basic ACL")
+	basic := s.aclChecker.CheckBasicACL(reqInfo)
+	debugprint.LogRequestStageFinish(st)
+	if !basic {
 		err = basicACLErr(reqInfo) // needed for defer
 		return s.makeStatusSearchResponse(err), nil
 	}
+	st = debugprint.LogRequestStageStart(ctx, "extended ACL")
 	err = s.aclChecker.CheckEACL(req, reqInfo)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		err = eACLErr(reqInfo, err)
 		return s.makeStatusSearchResponse(err), nil
@@ -1971,11 +2041,16 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 	count := uint16(body.Count) // legit according to the limit
 	switch {
 	case ttl == 1:
-		if res, newCursor, err = s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err != nil {
+		st := debugprint.LogRequestStageStart(ctx, "local search")
+		res, newCursor, err = s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count)
+		debugprint.LogRequestStageFinish(st)
+		if err != nil {
 			return nil, nil, err
 		}
 	case handleWithMetaService:
+		st := debugprint.LogRequestStageStart(ctx, "meta search")
 		res, newCursor, err = s.meta.Search(cID, ofs, attrs, cursor, count)
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1992,7 +2067,9 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			sets, mores = append(sets, set), append(mores, more)
 			mtx.Unlock()
 		}
+		st := debugprint.LogRequestStageStart(ctx, "traverse container nodes")
 		err = s.fsChain.ForEachContainerNode(cID, func(node sdknetmap.NodeInfo) bool {
+			defer debugprint.LogRequestStageFinish(st)
 			nodePub := node.PublicKey()
 			strKey := string(nodePub)
 			if _, ok := mProcessedNodes[strKey]; ok {
@@ -2003,7 +2080,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if set, crsr, err := s.storage.SearchObjects(cID, ofs, attrs, cursor, count); err == nil {
+					st := debugprint.LogRequestStageStart(ctx, "local search")
+					set, crsr, err := s.storage.SearchObjects(ctx, cID, ofs, attrs, cursor, count)
+					debugprint.LogRequestStageFinish(st)
+					if err == nil {
 						add(set, crsr != nil)
 					} // TODO: else log error
 				}()
@@ -2020,7 +2100,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			wg.Add(1)
 			if resErr = s.searchWorkers.Submit(func() {
 				defer wg.Done()
-				if set, more, err := s.searchOnRemoteNode(ctx, node, req); err == nil {
+				st := debugprint.LogRequestStageStart(ctx, "remote SN")
+				set, more, err := s.searchOnRemoteNode(ctx, node, req)
+				debugprint.LogRequestStageFinish(st)
+				if err == nil {
 					add(set, more)
 				} // TODO: else log error
 			}); resErr != nil {
@@ -2029,6 +2112,7 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			return resErr == nil
 		})
 		wg.Wait()
+		debugprint.LogRequestStageFinish(st)
 		if err == nil {
 			err = resErr
 		}
@@ -2085,7 +2169,9 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 	info.SetAddressGroup(endpoints)
 	nodePub := node.PublicKey()
 	info.SetPublicKey(nodePub)
+	st := debugprint.LogRequestStageStart(ctx, "get SN API client")
 	c, err := s.nodeClients.Get(info)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, false, fmt.Errorf("get node client: %w", err)
 	}
@@ -2101,7 +2187,9 @@ func (s *Server) searchOnRemoteNode(ctx context.Context, node sdknetmap.NodeInfo
 
 func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 	req *protoobject.SearchV2Request) ([]sdkclient.SearchResultItem, bool, error) {
+	st := debugprint.LogRequestStageStart(ctx, "forward SearchV2 request to remote SN")
 	resp, err := protoobject.NewObjectServiceClient(conn).SearchV2(ctx, req)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
@@ -2255,4 +2343,18 @@ func chunkToSend(global, local int, chunk []byte) []byte {
 		return nil
 	}
 	return chunk[global-local:]
+}
+
+func wrapContext(ctx context.Context, typ string, f func() []any) context.Context {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		vals := md.Get("x-amz-request-id")
+		if len(vals) > 0 { // S3 request
+			items := f()
+			for k, m := range md {
+				items = append(items, k, strings.Join(m, ","))
+			}
+			ctx = debugprint.NewIncomingRequestContext(ctx, typ, uuid.New().String(), items...)
+		}
+	}
+	return ctx
 }

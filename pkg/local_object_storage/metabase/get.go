@@ -2,12 +2,14 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
@@ -22,7 +24,7 @@ import (
 // Returns an error of type apistatus.ObjectNotFound if object is missing in DB.
 // Returns an error of type apistatus.ObjectAlreadyRemoved if object has been placed in graveyard.
 // Returns the object.ErrObjectIsExpired if the object is presented but already expired.
-func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
+func (db *DB) Get(ctx context.Context, addr oid.Address, raw bool) (*objectSDK.Object, error) {
 	db.modeMtx.RLock()
 	defer db.modeMtx.RUnlock()
 
@@ -35,12 +37,16 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 		currEpoch = db.epochState.CurrentEpoch()
 	)
 
+	st := debugprint.LogRequestStageStart(ctx, "Bolt view call (filtered)")
 	err = db.boltDB.View(func(tx *bbolt.Tx) error {
+		st := debugprint.LogRequestStageStart(ctx, "Bolt HEAD tx")
+		defer debugprint.LogRequestStageFinish(st)
 		key := make([]byte, addressKeySize)
 		hdr, err = get(tx, addr, key, true, raw, currEpoch)
 
 		return err
 	})
+	debugprint.LogRequestStageFinish(st)
 
 	return hdr, err
 }

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 
 	common "github.com/nspcc-dev/neofs-node/cmd/neofs-lens/internal"
@@ -37,7 +38,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 	}
 	defer storage.Close()
 
-	obj, err := storage.Get(addr)
+	obj, err := storage.Get(context.Background(), addr)
 	if err != nil {
 		return fmt.Errorf("could not fetch object: %w", err)
 	}

@@ -41,6 +41,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/util"
 	"github.com/nspcc-dev/neofs-node/pkg/util/state"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
@@ -367,6 +368,8 @@ func initCfg(appCfg *config.Config) *cfg {
 		zap.AddStacktrace(zap.NewAtomicLevelAt(zap.FatalLevel)),
 	)
 	fatalOnErr(err)
+
+	debugprint.SetLogger(c.internals.log)
 
 	var buffers sync.Pool
 	buffers.New = func() any {

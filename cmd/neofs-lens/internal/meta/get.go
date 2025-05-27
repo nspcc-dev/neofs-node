@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -39,7 +40,7 @@ func getFunc(cmd *cobra.Command, _ []string) error {
 
 	siErr := new(object.SplitInfoError)
 
-	obj, err := db.Get(addr, true)
+	obj, err := db.Get(context.Background(), addr, true)
 	if errors.As(err, &siErr) {
 		link := siErr.SplitInfo().GetLink()
 		last := siErr.SplitInfo().GetLastPart()

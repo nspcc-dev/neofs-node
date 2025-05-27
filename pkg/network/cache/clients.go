@@ -18,6 +18,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -341,7 +342,9 @@ func (x *connections) ObjectGetInit(ctx context.Context, cnr cid.ID, id oid.ID, 
 	var res2 *client.PayloadReader
 	return res1, res2, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
+		st := debugprint.LogRequestStageStart(ctx, "forward Get request to remote SN")
 		res1, res2, err = c.ObjectGetInit(ctx, cnr, id, signer, opts)
+		debugprint.LogRequestStageFinish(st)
 		return err
 	})
 }
@@ -350,7 +353,9 @@ func (x *connections) ObjectHead(ctx context.Context, cnr cid.ID, id oid.ID, sig
 	var res *object.Object
 	return res, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
+		st := debugprint.LogRequestStageStart(ctx, "forward Head request to remote SN")
 		res, err = c.ObjectHead(ctx, cnr, id, signer, opts)
+		debugprint.LogRequestStageFinish(st)
 		return err
 	})
 }
@@ -400,7 +405,9 @@ func (x *connections) SearchObjects(ctx context.Context, cnr cid.ID, fs object.S
 	var resCursor string
 	return resItems, resCursor, x.forEach(ctx, func(ctx context.Context, c *client.Client) error {
 		var err error
+		st := debugprint.LogRequestStageStart(ctx, "forward SearchV2 request to remote SN")
 		resItems, resCursor, err = c.SearchObjects(ctx, cnr, fs, attrs, cursor, signer, opts)
+		debugprint.LogRequestStageFinish(st)
 		return err
 	})
 }

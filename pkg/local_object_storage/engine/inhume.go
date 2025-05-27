@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -131,7 +132,7 @@ func (e *StorageEngine) inhumeAddr(addr oid.Address, force bool, tombstone *oid.
 			linkAddr.SetContainer(addr.Container())
 			linkAddr.SetObject(linkID)
 
-			linkObj, err := e.Get(linkAddr)
+			linkObj, err := e.Get(context.Background(), linkAddr)
 			if err != nil {
 				e.log.Error("inhuming root object but no link object is found", zap.Error(err))
 

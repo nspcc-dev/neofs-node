@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -102,7 +103,7 @@ mainLoop:
 				addr := lst[i].Address
 				addrHash := hrw.WrapBytes([]byte(addr.EncodeToString()))
 
-				obj, err := sh.Get(addr, false)
+				obj, err := sh.Get(context.Background(), addr, false)
 				if err != nil {
 					if ignoreErrors {
 						continue

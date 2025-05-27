@@ -167,7 +167,7 @@ func checkShard(cmd *cobra.Command, sh storageShard) (int, error) {
 
 			addr := obj.Address
 
-			header, err := sh.m.Get(addr, false)
+			header, err := sh.m.Get(context.Background(), addr, false)
 			if err != nil {
 				return objectsChecked, fmt.Errorf("reading %s object in metabase: %w", addr, err)
 			}

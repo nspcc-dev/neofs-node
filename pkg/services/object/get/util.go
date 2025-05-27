@@ -11,6 +11,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	internalclient "github.com/nspcc-dev/neofs-node/pkg/services/object/internal/client"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 )
 
@@ -199,7 +200,9 @@ func (c *clientWrapper) get(exec *execCtx, key *ecdsa.PrivateKey) (*object.Objec
 
 func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	if exec.headOnly() {
-		r, err := e.engine.Head(exec.address(), exec.isRaw())
+		st := debugprint.LogRequestStageStart(exec.context(), "engine HEAD")
+		r, err := e.engine.Head(exec.context(), exec.address(), exec.isRaw())
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +211,9 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 	}
 
 	if rng := exec.ctxRange(); rng != nil {
-		r, err := e.engine.GetRange(exec.address(), rng.GetOffset(), rng.GetLength())
+		st := debugprint.LogRequestStageStart(exec.context(), "engine RANGE")
+		r, err := e.engine.GetRange(exec.context(), exec.address(), rng.GetOffset(), rng.GetLength())
+		debugprint.LogRequestStageFinish(st)
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +224,10 @@ func (e *storageEngineWrapper) get(exec *execCtx) (*object.Object, error) {
 		return o, nil
 	}
 
-	return e.engine.Get(exec.address())
+	st := debugprint.LogRequestStageStart(exec.context(), "engine GET")
+	res, err := e.engine.Get(exec.context(), exec.address())
+	debugprint.LogRequestStageFinish(st)
+	return res, err
 }
 
 func (w *partWriter) WriteChunk(p []byte) error {

@@ -9,6 +9,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -235,7 +236,9 @@ func (exec *execCtx) headChild(id oid.ID) (*objectSDK.Object, bool) {
 }
 
 func (exec execCtx) remoteClient(info clientcore.NodeInfo) (getClient, bool) {
+	st := debugprint.LogRequestStageStart(exec.context(), "get SN API client")
 	c, err := exec.svc.clientCache.get(info)
+	debugprint.LogRequestStageFinish(st)
 
 	switch {
 	default:

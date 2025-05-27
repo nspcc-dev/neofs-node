@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
 
@@ -16,7 +19,7 @@ import (
 // Returns ErrRangeOutOfBounds if the requested object range is out of bounds.
 //
 // Returns an error if executions are blocked (see BlockExecution).
-func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64) ([]byte, error) {
+func (e *StorageEngine) GetRange(ctx context.Context, addr oid.Address, offset uint64, length uint64) ([]byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddRangeDuration)()
 	}
@@ -33,7 +36,9 @@ func (e *StorageEngine) GetRange(addr oid.Address, offset uint64, length uint64)
 	)
 
 	err = e.get(addr, func(sh *shard.Shard, ignoreMetadata bool) error {
-		res, err := sh.GetRange(addr, offset, length, ignoreMetadata)
+		st := debugprint.LogRequestStageStart(ctx, "shard RANGE")
+		res, err := sh.GetRange(ctx, addr, offset, length, ignoreMetadata)
+		debugprint.LogRequestStageFinish(st)
 		if err == nil {
 			data = res.Payload()
 		}

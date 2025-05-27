@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"io"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -17,5 +18,5 @@ func (s *localStorage) Head(addr oid.Address) (*objectSDK.Object, error) {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	return s.ls.Head(addr, false)
+	return s.ls.Head(context.Background(), addr, false)
 }

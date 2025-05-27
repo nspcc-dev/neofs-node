@@ -5,6 +5,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-node/pkg/network"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"go.uber.org/zap"
 )
@@ -17,7 +18,9 @@ func (exec *execCtx) executeOnContainer() {
 
 	exec.log.Debug("trying to execute in container...")
 
+	st := debugprint.LogRequestStageStart(exec.context(), "get nodes for object")
 	nodeLists, primaryCounts, err := exec.svc.neoFSNet.GetNodesForObject(exec.address())
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		exec.status = statusUndefined
 		exec.err = err

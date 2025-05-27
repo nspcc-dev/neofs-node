@@ -1,12 +1,14 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-sdk-go/client"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/debugprint"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 )
@@ -55,7 +57,7 @@ func (e *StorageEngine) Select(cnr cid.ID, filters object.SearchFilters) ([]oid.
 // Search performs Search op on all underlying shards and returns merged result.
 //
 // Fails instantly if executions are blocked (see [StorageEngine.BlockExecution]).
-func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
+func (e *StorageEngine) Search(ctx context.Context, cnr cid.ID, fs []objectcore.SearchFilter, attrs []string, cursor *objectcore.SearchCursor, count uint16) ([]client.SearchResultItem, []byte, error) {
 	if e.metrics != nil {
 		defer elapsed(e.metrics.AddSearchDuration)()
 	}
@@ -68,7 +70,9 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 	if len(shs) == 0 {
 		return nil, nil, nil
 	}
-	items, nextCursor, err := shs[0].Search(cnr, fs, attrs, cursor, count)
+	st := debugprint.LogRequestStageStart(ctx, "shard search")
+	items, nextCursor, err := shs[0].Search(ctx, cnr, fs, attrs, cursor, count)
+	debugprint.LogRequestStageFinish(st)
 	if err != nil {
 		e.reportShardError(shs[0], "could not select objects from shard", err)
 	}
@@ -79,7 +83,10 @@ func (e *StorageEngine) Search(cnr cid.ID, fs []objectcore.SearchFilter, attrs [
 	sets, mores := make([][]client.SearchResultItem, 1, len(shs)), make([]bool, 1, len(shs))
 	sets[0], mores[0] = items, nextCursor != nil
 	for i := range shs {
-		if items, nextCursor, err = shs[i].Search(cnr, fs, attrs, cursor, count); err != nil {
+		st := debugprint.LogRequestStageStart(ctx, "shard search")
+		items, nextCursor, err = shs[i].Search(ctx, cnr, fs, attrs, cursor, count)
+		debugprint.LogRequestStageFinish(st)
+		if err != nil {
 			e.reportShardError(shs[i], "could not select objects from shard", err)
 			continue
 		}
