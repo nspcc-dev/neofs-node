@@ -22,7 +22,6 @@ const (
 	InnerRingCandidateFeeConfig   = "InnerRingCandidateFee"
 	WithdrawFeeConfig             = "WithdrawFee"
 	HomomorphicHashingDisabledKey = "HomomorphicHashingDisabled"
-	MaintenanceModeAllowedConfig  = "MaintenanceModeAllowed"
 )
 
 // MaxObjectSize receives max object size configuration
@@ -142,15 +141,6 @@ func (c *Client) WithdrawFee() (uint64, error) {
 	return fee, nil
 }
 
-// MaintenanceModeAllowed reads admission of "maintenance" state from the
-// NeoFS network configuration stored in FS chain. The admission means
-// that storage nodes are allowed to switch their state to "maintenance".
-//
-// By default, maintenance state is disallowed.
-func (c *Client) MaintenanceModeAllowed() (bool, error) {
-	return c.readBoolConfig(MaintenanceModeAllowedConfig)
-}
-
 func (c *Client) readUInt64Config(key string) (uint64, error) {
 	v, err := c.config([]byte(key), IntegerAssert)
 	if err != nil {
@@ -256,8 +246,6 @@ type NetworkConfiguration struct {
 
 	HomomorphicHashingDisabled bool
 
-	MaintenanceModeAllowed bool
-
 	Raw []RawNetworkParameter
 }
 
@@ -324,8 +312,6 @@ func (c *Client) ReadNetworkConfiguration() (NetworkConfiguration, error) {
 			res.WithdrawalFee = bytesToUint64(value)
 		case HomomorphicHashingDisabledKey:
 			res.HomomorphicHashingDisabled = bytesToBool(value)
-		case MaintenanceModeAllowedConfig:
-			res.MaintenanceModeAllowed = bytesToBool(value)
 		}
 
 		return nil

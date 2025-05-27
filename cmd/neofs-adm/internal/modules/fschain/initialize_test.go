@@ -57,7 +57,7 @@ func testInitialize(t *testing.T, committeeSize int) {
 		require.NoError(t, forceNewEpochCmd(forceNewEpoch, nil))
 	})
 	t.Run("set-config", func(t *testing.T) {
-		require.NoError(t, setConfigCmd(setConfig, []string{"MaintenanceModeAllowed=true"}))
+		require.NoError(t, setConfigCmd(setConfig, []string{"HomomorphicHashingDisabled=true"}))
 	})
 	t.Run("set-policy", func(t *testing.T) {
 		require.NoError(t, setPolicyCmd(setPolicy, []string{"ExecFeeFactor=1"}))

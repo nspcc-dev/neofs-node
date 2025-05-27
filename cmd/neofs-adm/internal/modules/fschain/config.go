@@ -75,7 +75,7 @@ func dumpNetworkConfig(cmd *cobra.Command, _ []string) error {
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%d (int)\n", k, n)))
 		case netmapEigenTrustAlphaKey:
 			_, _ = tw.Write([]byte(fmt.Sprintf("%s:\t%s (str)\n", k, v)))
-		case netmapHomomorphicHashDisabledKey, netmapMaintenanceAllowedKey:
+		case netmapHomomorphicHashDisabledKey:
 			vBool, err := tuple[1].TryBool()
 			if err != nil {
 				return invalidConfigValueErr(k)
@@ -169,7 +169,7 @@ func parseConfigPair(kvStr string, force bool) (key string, val any, err error) 
 		}
 
 		val = valRaw
-	case netmapHomomorphicHashDisabledKey, netmapMaintenanceAllowedKey:
+	case netmapHomomorphicHashDisabledKey:
 		val, err = strconv.ParseBool(valRaw)
 		if err != nil {
 			err = fmt.Errorf("invalid value for %s key, expected bool, got '%s'", key, valRaw)

@@ -43,13 +43,8 @@ type HealthChecker interface {
 type NodeState interface {
 	// SetNetmapStatus switches the storage node to the given network status.
 	//
-	// If status is control.NetmapStatus_MAINTENANCE and maintenance is allowed
-	// in the network settings, the node additionally starts local maintenance.
+	// If status is control.NetmapStatus_MAINTENANCE, the node additionally starts local maintenance.
 	SetNetmapStatus(st control.NetmapStatus) error
-
-	// ForceMaintenance works like SetNetmapStatus(control.NetmapStatus_MAINTENANCE)
-	// but starts local maintenance regardless of the network settings.
-	ForceMaintenance() error
 }
 
 // Option of the Server's constructor.

@@ -81,16 +81,7 @@ message SetNetmapStatusRequest {
     // Set netmap status request body.
     message Body {
         // New storage node status in NeoFS network map.
-        // If status is MAINTENANCE, the node checks whether maintenance is
-        // allowed in the network settings. In case of prohibition, the request
-        // is denied. Otherwise, node switches to local maintenance state. To
-        // force local maintenance, use `force_maintenance` flag.
         NetmapStatus status = 1;
-
-        // MAINTENANCE status validation skip flag. If set, node starts local
-        // maintenance regardless of network settings. The flag MUST NOT be
-        // set for any other status.
-        bool force_maintenance = 2;
     }
 
     // Body of set netmap status request message.

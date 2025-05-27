@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/client/container"
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
@@ -63,8 +62,6 @@ type (
 		handleNotaryDeposit    event.Handler
 
 		nodeValidator NodeValidator
-
-		nodeStateSettings state.NetworkSettings
 	}
 
 	// Params of the processor constructor.
@@ -83,8 +80,6 @@ type (
 		NotaryDepositHandler    event.Handler
 
 		NodeValidator NodeValidator
-
-		NodeStateSettings state.NetworkSettings
 	}
 )
 
@@ -113,8 +108,6 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/netmap: container contract wrapper is not set")
 	case p.NodeValidator == nil:
 		return nil, errors.New("ir/netmap: node validator is not set")
-	case p.NodeStateSettings == nil:
-		return nil, errors.New("ir/netmap: node state settings is not set")
 	}
 
 	p.Log.Debug("netmap worker pool", zap.Int("size", p.PoolSize))
@@ -146,8 +139,6 @@ func New(p *Params) (*Processor, error) {
 		handleNotaryDeposit: p.NotaryDepositHandler,
 
 		nodeValidator: p.NodeValidator,
-
-		nodeStateSettings: p.NodeStateSettings,
 	}
 	processor.curMap.Store(curMap)
 	return processor, nil
