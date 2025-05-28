@@ -107,3 +107,5 @@ retract (
 	v1.22.1 // Contains retraction only.
 	v1.22.0 // Published accidentally.
 )
+
+replace go.etcd.io/bbolt => github.com/nspcc-dev/bbolt v0.0.0-20250528155851-637d701fc128
