@@ -13,6 +13,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
+- Use local BoltDB fork with improved performance (#3372)
 
 ### Removed
 
