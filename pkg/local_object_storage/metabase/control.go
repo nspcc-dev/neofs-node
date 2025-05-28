@@ -19,6 +19,18 @@ var ErrDegradedMode = logicerr.New("metabase is in a degraded mode")
 // ErrReadOnlyMode is returned when metabase is in a read-only mode.
 var ErrReadOnlyMode = logicerr.New("metabase is in a read-only mode")
 
+type boltLogger struct {
+	*zap.SugaredLogger
+}
+
+func (x boltLogger) Warning(v ...interface{}) {
+	x.SugaredLogger.Warn(v...)
+}
+
+func (x boltLogger) Warningf(format string, v ...interface{}) {
+	x.SugaredLogger.Warnf(format, v...)
+}
+
 // Open boltDB instance for metabase.
 func (db *DB) Open(readOnly bool) error {
 	err := util.MkdirAllX(filepath.Dir(db.info.Path), db.info.Permission)
@@ -44,7 +56,9 @@ func (db *DB) Open(readOnly bool) error {
 func (db *DB) openBolt() error {
 	var err error
 
-	db.boltDB, err = bbolt.Open(db.info.Path, db.info.Permission, db.boltOptions)
+	opts := *db.boltOptions
+	opts.Logger = boltLogger{db.log.Sugar()}
+	db.boltDB, err = bbolt.Open(db.info.Path, db.info.Permission, &opts)
 	if err != nil {
 		return fmt.Errorf("can't open boltDB database: %w", err)
 	}
