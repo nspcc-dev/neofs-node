@@ -126,7 +126,8 @@ type Meta struct {
 
 	notifier objectNotifier
 
-	blockBuff chan *block.Header
+	blockHeadersBuff chan *block.Header
+	blockEventsBuff  chan blockObjEvents
 
 	// runtime reload fields
 	cfgM      sync.RWMutex
@@ -240,19 +241,20 @@ func New(p Parameters) (*Meta, error) {
 	}
 
 	return &Meta{
-		l:         p.Logger,
-		rootPath:  p.RootPath,
-		netmapH:   p.NetmapHash,
-		cnrH:      p.ContainerHash,
-		net:       p.Network,
-		endpoints: p.NeoEnpoints,
-		timeout:   p.Timeout,
-		bCh:       make(chan *block.Header, notificationBuffSize),
-		cnrPutEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		epochEv:   make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		blockBuff: make(chan *block.Header, blockBuffSize),
-		storages:  storages,
-		notifier:  newNotifier(),
+		l:                p.Logger,
+		rootPath:         p.RootPath,
+		netmapH:          p.NetmapHash,
+		cnrH:             p.ContainerHash,
+		net:              p.Network,
+		endpoints:        p.NeoEnpoints,
+		timeout:          p.Timeout,
+		bCh:              make(chan *block.Header, notificationBuffSize),
+		cnrPutEv:         make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		epochEv:          make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		blockHeadersBuff: make(chan *block.Header, blockBuffSize),
+		blockEventsBuff:  make(chan blockObjEvents, blockBuffSize),
+		storages:         storages,
+		notifier:         newNotifier(),
 	}, nil
 }
 
@@ -318,7 +320,8 @@ func (m *Meta) Run(ctx context.Context) error {
 	}
 
 	go m.flusher(ctx)
-	go m.blockFetcher(ctx, m.blockBuff)
+	go m.blockHandler(ctx, m.blockHeadersBuff)
+	go m.blockStorer(ctx, m.blockEventsBuff)
 
 	return m.listenNotifications(ctx)
 }
