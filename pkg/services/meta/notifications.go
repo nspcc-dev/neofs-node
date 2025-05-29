@@ -116,7 +116,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 			m.prevBlockTimestamp.Store(b.Timestamp)
 			m.currHeight.Store(b.Index)
 
-			m.blockBuff <- b
+			m.blockHeadersBuff <- b
 		case aer, ok := <-m.cnrPutEv:
 			if !ok {
 				err := m.reconnect(ctx)
