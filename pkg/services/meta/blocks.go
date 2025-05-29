@@ -7,9 +7,9 @@ import (
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
+	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
@@ -38,7 +38,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	getNotifications := time.Since(start)
 	start = time.Now()
 
-	evsByStorage := make(map[*containerStorage][]objEvent)
+	evsByCID := make(map[cid.ID]blockObjEvents)
 	for _, n := range res.Application {
 		l := m.l.With(zap.Stringer("tx", n.Container))
 
@@ -58,7 +58,7 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 			m.notifier.notifyReceived(oid.NewAddress(ev.cID, ev.oID), ind)
 
 			m.stM.RLock()
-			st, ok := m.storages[ev.cID]
+			_, ok := m.storages[ev.cID]
 			m.stM.RUnlock()
 			if !ok {
 				l.Debug("skipping object notification", zap.Stringer("container", ev.cID))
@@ -67,7 +67,12 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 
 			m.l.Debug("received object notification", zap.Stringer("address", oid.NewAddress(ev.cID, ev.oID)))
 
-			evsByStorage[st] = append(evsByStorage[st], ev)
+			blockEvents, ok := evsByCID[ev.cID]
+			if !ok {
+				blockEvents = blockObjEvents{cID: ev.cID, bInd: ind}
+			}
+			blockEvents.evs = append(blockEvents.evs, ev)
+			evsByCID[ev.cID] = blockEvents
 		case cnrDeleteName, cnrRmName:
 			ev, err := parseCnrNotification(n)
 			if err != nil {
@@ -123,28 +128,50 @@ func (m *Meta) handleBlock(ctx context.Context, b *block.Header) error {
 	parsingNotifications := time.Since(start)
 	start = time.Now()
 
-	if len(evsByStorage) == 0 {
+	if len(evsByCID) == 0 {
 		return nil
 	}
 
-	var wg errgroup.Group
-	wg.SetLimit(1024)
-
-	for st, evs := range evsByStorage {
-		wg.Go(func() error {
-			st.putObjects(ctx, l.With(zap.String("storage", st.path)), ind, evs, m.net)
-			return nil
-		})
+	for _, ev := range evsByCID {
+		m.blockEventsBuff <- ev
 	}
 
-	// errors are logged, no errors are returned to WG
-	_ = wg.Wait()
 	l.Debug("handled block successfully", zap.Int("num of notifications", len(res.Application)))
 
 	storingObjs := time.Since(start)
 	m.l.Info("handling notifications", zap.Int64("getNotifications", getNotifications.Milliseconds()), zap.Int64("parsingNotifications", parsingNotifications.Milliseconds()), zap.Int64("storingObjs", storingObjs.Milliseconds()))
 
 	return nil
+}
+
+type blockObjEvents struct {
+	cID  cid.ID
+	bInd uint32
+	evs  []objEvent
+}
+
+func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case blockEvs := <-buff:
+			m.stM.RLock()
+			st, ok := m.storages[blockEvs.cID]
+			m.stM.RUnlock()
+			if !ok {
+				m.l.Debug("do not store inactual events", zap.Stringer("cID", blockEvs.cID), zap.Uint32("events from block", blockEvs.bInd))
+				continue
+			}
+
+			st.putObjects(ctx, m.l.With(zap.String("storage", st.path)), blockEvs.bInd, blockEvs.evs, m.net)
+
+			m.l.Debug("stored container's notification for block successfully",
+				zap.Int("num of notifications", len(blockEvs.evs)),
+				zap.Stringer("cID", blockEvs.cID),
+				zap.Uint32("events from block", blockEvs.bInd))
+		}
+	}
 }
 
 func (m *Meta) blockFetcher(ctx context.Context, buff <-chan *block.Header) {
