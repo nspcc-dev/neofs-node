@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -30,7 +31,7 @@ func TestGeneric(t *testing.T) {
 	storagetest.TestAll(t, newCache)
 }
 
-func newCache(tb testing.TB, opts ...Option) (Cache, *blobstor.BlobStor, *meta.DB) {
+func newCache(tb testing.TB, opts ...Option) (Cache, common.Storage, *meta.DB) {
 	dir := tb.TempDir()
 	mb := meta.New(
 		meta.WithPath(filepath.Join(dir, "meta")),
@@ -39,23 +40,29 @@ func newCache(tb testing.TB, opts ...Option) (Cache, *blobstor.BlobStor, *meta.D
 	require.NoError(tb, mb.Init())
 
 	fsTree := fstree.New(
-		fstree.WithPath(filepath.Join(dir, "blob")),
+		fstree.WithPath(filepath.Join(dir, "fstree")),
 		fstree.WithDepth(0),
 		fstree.WithDirNameLen(1))
-	bs := blobstor.New(
-		blobstor.WithStorages(blobstor.SubStorage{Storage: fsTree}),
-		blobstor.WithCompressObjects(true))
-	require.NoError(tb, bs.Open(false))
-	require.NoError(tb, bs.Init())
+
+	comp := &compression.Config{
+		Enabled: true,
+	}
+	require.NoError(tb, comp.Init())
+	fsTree.SetCompressor(comp)
+
+	require.NoError(tb, fsTree.Open(false))
+	require.NoError(tb, fsTree.Init())
+
+	modeAwareStorage := NewModeAwareStorage(fsTree)
 
 	wc := New(
 		append([]Option{
 			WithPath(filepath.Join(dir, "writecache")),
 			WithMetabase(mb),
-			WithBlobstor(bs),
+			WithStorage(modeAwareStorage),
 		}, opts...)...)
 	require.NoError(tb, wc.Open(false))
 	require.NoError(tb, wc.Init())
 
-	return wc, bs, mb
+	return wc, modeAwareStorage, mb
 }

@@ -1,4 +1,4 @@
-package blobstor
+package shard
 
 import (
 	storagelog "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/log"

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -35,11 +34,8 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 	rootPath := t.TempDir()
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
-		shard.WithBlobStorOptions(
-			blobstor.WithStorages(blobstor.SubStorage{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(rootPath, "blob"))),
-			}),
+		shard.WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
@@ -110,7 +106,6 @@ func TestGC_ExpiredObjectWithExpiredLock(t *testing.T) {
 func TestGC_ContainerCleanup(t *testing.T) {
 	sh := newCustomShard(t, t.TempDir(), false,
 		nil,
-		nil,
 		shard.WithGCRemoverSleepInterval(10*time.Millisecond),
 		shard.WithLogger(zaptest.NewLogger(t)))
 	defer releaseShard(sh, t)
@@ -166,12 +161,8 @@ func TestExpiration(t *testing.T) {
 
 	opts := []shard.Option{
 		shard.WithLogger(zap.NewNop()),
-		shard.WithBlobStorOptions(
-			blobstor.WithStorages(blobstor.SubStorage{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(rootPath, "blob"))),
-				Policy: func(_ *object.Object, _ []byte) bool { return true },
-			}),
+		shard.WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),

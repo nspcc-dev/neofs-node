@@ -15,7 +15,7 @@ import (
 )
 
 func TestMigrateFromBolt(t *testing.T) {
-	c, b, _ := newCache(t)
+	c, s, _ := newCache(t)
 
 	wc := c.(*cache)
 	path := filepath.Join(wc.path, dbName)
@@ -75,7 +75,7 @@ func TestMigrateFromBolt(t *testing.T) {
 		_, err := wc.Get(addr)
 		require.Error(t, err, apistatus.ObjectNotFound{})
 
-		bObject, err := b.Get(addr)
+		bObject, err := s.Get(addr)
 		require.NoError(t, err)
 		require.Equal(t, obj.GetID(), bObject.GetID())
 		require.Equal(t, obj.GetContainerID(), bObject.GetContainerID())

@@ -1,4 +1,4 @@
-package blobstor_test
+package shard_test
 
 import (
 	"crypto/rand"

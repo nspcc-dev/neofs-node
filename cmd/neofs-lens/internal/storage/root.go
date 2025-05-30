@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
@@ -13,7 +13,6 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
-	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/cobra"
 	"go.etcd.io/bbolt"
@@ -68,27 +67,22 @@ func openEngine() (*engine.StorageEngine, error) {
 			wcMaxBatchCount     int
 			wcMaxBatchThreshold uint64
 		)
-		var ss blobstor.SubStorage
+		var s common.Storage
 		sRead := shCfg.Blobstor
 		switch sRead.Type {
 		case fstree.Type:
 			wcMaxBatchSize = uint64(sRead.CombinedSizeLimit)
 			wcMaxBatchCount = sRead.CombinedCountLimit
 			wcMaxBatchThreshold = uint64(sRead.CombinedSizeThreshold)
-			ss = blobstor.SubStorage{
-				Storage: fstree.New(
-					fstree.WithPath(sRead.Path),
-					fstree.WithPerm(sRead.Perm),
-					fstree.WithDepth(sRead.Depth),
-					fstree.WithNoSync(*sRead.NoSync),
-					fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
-					fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
-					fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
-					fstree.WithCombinedWriteInterval(sRead.FlushInterval)),
-				Policy: func(_ *objectSDK.Object, data []byte) bool {
-					return true
-				},
-			}
+			s = fstree.New(
+				fstree.WithPath(sRead.Path),
+				fstree.WithPerm(sRead.Perm),
+				fstree.WithDepth(sRead.Depth),
+				fstree.WithNoSync(*sRead.NoSync),
+				fstree.WithCombinedCountLimit(sRead.CombinedCountLimit),
+				fstree.WithCombinedSizeLimit(int(sRead.CombinedSizeLimit)),
+				fstree.WithCombinedSizeThreshold(int(sRead.CombinedSizeThreshold)),
+				fstree.WithCombinedWriteInterval(sRead.FlushInterval))
 		default:
 			// should never happen, that has already
 			// been handled: when the config was read
@@ -112,11 +106,9 @@ func openEngine() (*engine.StorageEngine, error) {
 		sh.shOpts = []shard.Option{
 			shard.WithResyncMetabase(*shCfg.ResyncMetabase),
 			shard.WithMode(shCfg.Mode),
-			shard.WithBlobStorOptions(
-				blobstor.WithCompressObjects(*shCfg.Compress),
-				blobstor.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
-				blobstor.WithStorages(ss),
-			),
+			shard.WithCompressObjects(*shCfg.Compress),
+			shard.WithUncompressableContentTypes(shCfg.CompressionExcludeContentTypes),
+			shard.WithBlobstor(s),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(shCfg.Metabase.Path),
 				meta.WithPermissions(shCfg.Metabase.Perm),

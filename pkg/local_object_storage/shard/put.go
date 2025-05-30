@@ -47,10 +47,11 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 				zap.String("err", err.Error()))
 		}
 
-		err = s.blobStor.Put(addr, obj, objBin)
+		err = s.blobStor.Put(addr, objBin)
 		if err != nil {
 			return fmt.Errorf("could not put object to BLOB storage: %w", err)
 		}
+		logOp(s.log, putOp, addr)
 	}
 
 	if !m.NoMetabase() {
@@ -69,4 +70,12 @@ func (s *Shard) Put(obj *object.Object, objBin []byte, hdrLen int) error {
 	}
 
 	return nil
+}
+
+// NeedsCompression returns true if the object should be compressed.
+// For an object to be compressed 2 conditions must hold:
+// 1. Compression is enabled in settings.
+// 2. Object MIME Content-Type is allowed for compression.
+func (s *Shard) NeedsCompression(obj *object.Object) bool {
+	return s.compression.NeedsCompression(obj)
 }

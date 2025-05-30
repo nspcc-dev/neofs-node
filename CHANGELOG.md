@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - Use local BoltDB fork with improved performance (#3372)
 
 ### Removed
+- `blobstor` package (#3371)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250530123548-f8dbe53f3996` (#3373)

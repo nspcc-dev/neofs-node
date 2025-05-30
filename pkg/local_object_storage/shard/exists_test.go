@@ -1,4 +1,4 @@
-package blobstor
+package shard_test
 
 import (
 	"os"
@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -19,9 +20,9 @@ func TestExists(t *testing.T) {
 
 	const smallSizeLimit = 512
 
-	b := New(WithStorages(defaultStorages(dir)))
-	require.NoError(t, b.Open(false))
-	require.NoError(t, b.Init())
+	sh := newCustomShard(t, dir, false, nil,
+		shard.WithMode(mode.Degraded),
+	)
 
 	objects := []*objectSDK.Object{
 		testObject(smallSizeLimit / 2),
@@ -29,17 +30,17 @@ func TestExists(t *testing.T) {
 	}
 
 	for i := range objects {
-		err = b.Put(objectCore.AddressOf(objects[i]), objects[i], nil)
+		err = sh.Put(objects[i], nil, 0)
 		require.NoError(t, err)
 	}
 
 	for i := range objects {
-		res, err := b.Exists(objectCore.AddressOf(objects[i]))
+		res, err := sh.Exists(objectCore.AddressOf(objects[i]), true)
 		require.NoError(t, err)
 		require.True(t, res)
 	}
 
-	res, err := b.Exists(oidtest.Address())
+	res, err := sh.Exists(oidtest.Address(), true)
 	require.NoError(t, err)
 	require.False(t, res)
 
@@ -56,29 +57,12 @@ func TestExists(t *testing.T) {
 		require.NoError(t, os.Chmod(dir, 0))
 		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0777)) })
 
-		res, err := b.Exists(objectCore.AddressOf(objects[0]))
+		res, err := sh.Exists(objectCore.AddressOf(objects[0]), true)
 		require.Error(t, err)
 		require.False(t, res)
 
-		res, err = b.Exists(objectCore.AddressOf(objects[1]))
+		res, err = sh.Exists(objectCore.AddressOf(objects[1]), true)
 		require.Error(t, err)
 		require.False(t, res)
 	})
-}
-
-func testObject(sz uint64) *objectSDK.Object {
-	raw := objectSDK.New()
-
-	raw.SetID(oidtest.ID())
-	raw.SetContainerID(cidtest.ID())
-
-	raw.SetPayload(make([]byte, sz))
-
-	// fit the binary size to the required
-	data := raw.Marshal()
-	if ln := uint64(len(data)); ln > sz {
-		raw.SetPayload(raw.Payload()[:sz-(ln-sz)])
-	}
-
-	return raw
 }

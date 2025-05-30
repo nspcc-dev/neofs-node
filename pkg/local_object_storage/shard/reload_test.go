@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	checksumtest "github.com/nspcc-dev/neofs-sdk-go/checksum/test"
@@ -24,14 +23,6 @@ func TestShardReload(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	l := zaptest.NewLogger(t)
-	blobOpts := []blobstor.Option{
-		blobstor.WithLogger(l),
-		blobstor.WithStorages(blobstor.SubStorage{
-			Storage: fstree.New(
-				fstree.WithPath(filepath.Join(p, "blob")),
-				fstree.WithDepth(1)),
-		}),
-	}
 
 	metaOpts := []meta.Option{
 		meta.WithPath(filepath.Join(p, "meta")),
@@ -39,7 +30,10 @@ func TestShardReload(t *testing.T) {
 
 	opts := []Option{
 		WithLogger(l),
-		WithBlobStorOptions(blobOpts...),
+		WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(p, "fstree")),
+			fstree.WithDepth(1)),
+		),
 		WithMetaBaseOptions(metaOpts...),
 	}
 

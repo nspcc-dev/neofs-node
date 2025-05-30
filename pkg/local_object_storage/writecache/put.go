@@ -54,11 +54,6 @@ func (c *cache) put(addr oid.Address, obj objectInfo) error {
 		return err
 	}
 
-	if c.blobstor.NeedsCompression(obj.obj) {
-		c.mtx.Lock()
-		c.compressFlags[obj.addr] = struct{}{}
-		c.mtx.Unlock()
-	}
 	c.objCounters.Add(addr, objSz)
 	c.metrics.IncWCObjectCount()
 	c.metrics.AddWCSize(objSz)

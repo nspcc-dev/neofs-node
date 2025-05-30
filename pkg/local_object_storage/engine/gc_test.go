@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -28,9 +27,8 @@ func TestChildrenExpiration(t *testing.T) {
 	e := New()
 	for i := range numOfShards {
 		_, err := e.AddShard(
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(
-					newStorage(filepath.Join(t.TempDir(), fmt.Sprintf("blobstor%d", i)))),
+			shard.WithBlobstor(
+				newStorage(filepath.Join(t.TempDir(), fmt.Sprintf("fstree%d", i))),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.TempDir(), fmt.Sprintf("metabase%d", i))),

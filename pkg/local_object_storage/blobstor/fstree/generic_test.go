@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/blobstortest"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/internal/storagetest"
 )
 
 func TestGeneric(t *testing.T) {
@@ -26,11 +26,11 @@ func TestGeneric(t *testing.T) {
 		return helper(t, dir)
 	}
 
-	blobstortest.TestAll(t, newTree, 2048, 16*1024)
+	storagetest.TestAll(t, newTree, 2048, 16*1024)
 
 	t.Run("info", func(t *testing.T) {
 		dir := filepath.Join(t.Name(), "info")
-		blobstortest.TestInfo(t, func(t *testing.T) common.Storage {
+		storagetest.TestInfo(t, func(t *testing.T) common.Storage {
 			return helper(t, dir)
 		}, Type, dir)
 	})
@@ -48,5 +48,5 @@ func TestControl(t *testing.T) {
 			WithDirNameLen(2))
 	}
 
-	blobstortest.TestControl(t, newTree, 2048, 2048)
+	storagetest.TestControl(t, newTree, 2048, 2048)
 }

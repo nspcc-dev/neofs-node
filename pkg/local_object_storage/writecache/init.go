@@ -39,6 +39,6 @@ func (c *cache) flushStatus(addr oid.Address) bool {
 		return needRemove
 	}
 
-	exists, err := c.blobstor.Exists(addr)
+	exists, err := c.storage.Exists(addr)
 	return err == nil && exists
 }

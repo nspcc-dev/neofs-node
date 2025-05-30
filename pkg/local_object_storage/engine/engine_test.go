@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -96,12 +96,10 @@ func testNewEngineWithShards(shards ...*shard.Shard) *StorageEngine {
 	return engine
 }
 
-func newStorage(root string) blobstor.SubStorage {
-	return blobstor.SubStorage{
-		Storage: fstree.New(
-			fstree.WithPath(root),
-			fstree.WithDepth(1)),
-	}
+func newStorage(root string) common.Storage {
+	return fstree.New(
+		fstree.WithPath(root),
+		fstree.WithDepth(1))
 }
 
 func testNewShard(t testing.TB, id int) *shard.Shard {
@@ -111,9 +109,8 @@ func testNewShard(t testing.TB, id int) *shard.Shard {
 	s := shard.New(
 		shard.WithID(sid),
 		shard.WithLogger(zap.L()),
-		shard.WithBlobStorOptions(
-			blobstor.WithStorages(
-				newStorage(filepath.Join(t.Name(), fmt.Sprintf("%d.blobstor", id))))),
+		shard.WithBlobstor(
+			newStorage(filepath.Join(t.Name(), fmt.Sprintf("%d.fstree", id)))),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("%d.metabase", id))),
 			meta.WithPermissions(0700),
@@ -138,9 +135,8 @@ func testEngineFromShardOpts(t *testing.T, num int, extraOpts []shard.Option) *S
 	engine := New()
 	for i := range num {
 		_, err := engine.AddShard(append([]shard.Option{
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(
-					newStorage(filepath.Join(t.Name(), fmt.Sprintf("blobstor%d", i)))),
+			shard.WithBlobstor(
+				newStorage(filepath.Join(t.Name(), fmt.Sprintf("fstree%d", i))),
 			),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(t.Name(), fmt.Sprintf("metabase%d", i))),

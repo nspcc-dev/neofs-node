@@ -11,7 +11,6 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -49,8 +48,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 			[]writecache.Option{
 				writecache.WithMaxObjectSize(wcBigObjectSize),
 				writecache.WithLogger(zaptest.NewLogger(t)),
-			},
-			nil)
+			})
 	}
 	defer releaseShard(sh, t)
 
@@ -167,7 +165,7 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 				require.Equal(t, 0, failed)
 
 				t.Run("skip errors", func(t *testing.T) {
-					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false, nil, nil)
+					sh := newCustomShard(t, filepath.Join(t.TempDir(), "ignore"), false, nil)
 					t.Cleanup(func() { require.NoError(t, sh.Close()) })
 
 					count, failed, err := restoreFile(t, sh, out, true)
@@ -194,10 +192,10 @@ func testDump(t *testing.T, objCount int, hasWriteCache bool) {
 }
 
 func TestStream(t *testing.T) {
-	sh1 := newCustomShard(t, filepath.Join(t.TempDir(), "shard1"), false, nil, nil)
+	sh1 := newCustomShard(t, filepath.Join(t.TempDir(), "shard1"), false, nil)
 	defer releaseShard(sh1, t)
 
-	sh2 := newCustomShard(t, filepath.Join(t.TempDir(), "shard2"), false, nil, nil)
+	sh2 := newCustomShard(t, filepath.Join(t.TempDir(), "shard2"), false, nil)
 	defer releaseShard(sh2, t)
 
 	const objCount = 5
@@ -278,14 +276,13 @@ func TestDumpIgnoreErrors(t *testing.T) {
 
 	dir := t.TempDir()
 	bsPath := filepath.Join(dir, "blob")
-	bsOpts := func(sw uint64) []blobstor.Option {
-		return []blobstor.Option{
-			blobstor.WithCompressObjects(true),
-			blobstor.WithStorages(blobstor.SubStorage{
-				Storage: fstree.New(
-					fstree.WithPath(bsPath),
-					fstree.WithDepth(1)),
-			}),
+	sOpts := func(sw uint64) []shard.Option {
+		return []shard.Option{
+			shard.WithCompressObjects(true),
+			shard.WithBlobstor(fstree.New(
+				fstree.WithPath(bsPath),
+				fstree.WithDepth(1)),
+			),
 		}
 	}
 	wcPath := filepath.Join(dir, "writecache")
@@ -293,7 +290,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		writecache.WithPath(wcPath),
 		writecache.WithMaxObjectSize(wcBigObjectSize),
 	}
-	sh := newCustomShard(t, dir, true, wcOpts, bsOpts(2))
+	sh := newCustomShard(t, dir, true, wcOpts, sOpts(2)...)
 
 	objects := make([]*objectSDK.Object, objCount)
 	for i := range objCount {
@@ -339,7 +336,7 @@ func TestDumpIgnoreErrors(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(bsPath, "ZZ"), 0))
 	}
 
-	sh = newCustomShard(t, dir, true, wcOpts, bsOpts(3))
+	sh = newCustomShard(t, dir, true, wcOpts, sOpts(3)...)
 	require.NoError(t, sh.SetMode(mode.ReadOnly))
 
 	{
