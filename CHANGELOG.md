@@ -10,6 +10,7 @@ Changelog for NeoFS Node
 - Split object with a missing link object can't be retrieved in some cases (#3337)
 - Invalid URI error text in `request create-container` CLI command (#3366)
 - Invalid object ID error text in `object delete` CLI command (#3366)
+- Old objects without a session token lifetime are not valid (#3373)
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
@@ -18,6 +19,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
+- `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250530123548-f8dbe53f3996` (#3373)
 
 ### Updating from v0.46.1
 
