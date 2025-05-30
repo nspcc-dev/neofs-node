@@ -33,6 +33,7 @@ func (db *DB) Open(readOnly bool) error {
 		db.boltOptions = &opts
 	}
 	db.boltOptions.ReadOnly = readOnly
+	db.boltOptions.NoStatistics = true
 
 	if readOnly {
 		db.mode = mode.ReadOnly

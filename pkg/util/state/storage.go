@@ -19,7 +19,7 @@ var stateBucket = []byte("state")
 
 // NewPersistentStorage creates a new instance of a storage with 0o600 rights.
 func NewPersistentStorage(path string) (*PersistentStorage, error) {
-	db, err := bbolt.Open(path, 0o600, nil)
+	db, err := bbolt.Open(path, 0o600, &bbolt.Options{NoStatistics: true})
 	if err != nil {
 		return nil, fmt.Errorf("can't open bbolt at %s: %w", path, err)
 	}
