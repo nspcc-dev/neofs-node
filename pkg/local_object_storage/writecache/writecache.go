@@ -236,13 +236,7 @@ func (c *cache) migrate() error {
 				return nil
 			}
 
-			var obj object.Object
-			if err := obj.Unmarshal(v); err != nil {
-				c.reportFlushError("can't unmarshal an object from the DB", sa, err)
-				return nil
-			}
-
-			if err := c.flushObject(&obj, v); err != nil {
+			if err := c.flushObject(addr, v); err != nil {
 				return err
 			}
 

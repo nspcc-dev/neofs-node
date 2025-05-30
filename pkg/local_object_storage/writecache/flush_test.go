@@ -145,12 +145,6 @@ func TestFlush(t *testing.T) {
 				require.NoError(t, os.Chmod(p, 0))
 			})
 		})
-		t.Run("fs, invalid object", func(t *testing.T) {
-			testIgnoreErrors(t, func(c *cache) {
-				err := c.fsTree.Put(oidtest.Address(), []byte{1, 2, 3})
-				require.NoError(t, err)
-			})
-		})
 	})
 
 	t.Run("on init", func(t *testing.T) {

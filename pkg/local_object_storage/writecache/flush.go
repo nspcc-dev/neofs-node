@@ -6,10 +6,8 @@ import (
 	"sort"
 	"time"
 
-	objectCore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
-	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
 )
@@ -233,18 +231,15 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 	if c.metrics.mr != nil {
 		defer elapsed(c.metrics.AddWCFlushSingleDuration)()
 	}
-	obj, data, err := c.getObject(addr)
+	data, err := c.getObject(addr)
 	if err != nil {
 		if ignoreErrors {
 			return nil
 		}
 		return err
 	}
-	if obj == nil {
-		return nil
-	}
 
-	err = c.flushObject(obj, data)
+	err = c.flushObject(addr, data)
 	if err != nil {
 		return err
 	}
@@ -258,9 +253,7 @@ func (c *cache) flushSingle(addr oid.Address, ignoreErrors bool) error {
 }
 
 // flushObject is used to write object directly to the main storage.
-func (c *cache) flushObject(obj *object.Object, data []byte) error {
-	addr := objectCore.AddressOf(obj)
-
+func (c *cache) flushObject(addr oid.Address, data []byte) error {
 	err := c.storage.Put(addr, data)
 	if err != nil {
 		if !errors.Is(err, common.ErrNoSpace) && !errors.Is(err, common.ErrReadOnly) {
@@ -287,15 +280,12 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 
 	objs := make(map[oid.Address][]byte, len(addrs))
 	for _, addr := range addrs {
-		obj, data, err := c.getObject(addr)
+		data, err := c.getObject(addr)
 		if err != nil {
 			if ignoreErrors {
 				continue
 			}
 			return err
-		}
-		if obj == nil {
-			continue
 		}
 
 		objs[addr] = data
@@ -321,7 +311,7 @@ func (c *cache) flushBatch(addrs []oid.Address, ignoreErrors bool) error {
 	return err
 }
 
-func (c *cache) getObject(addr oid.Address) (*object.Object, []byte, error) {
+func (c *cache) getObject(addr oid.Address) ([]byte, error) {
 	sAddr := addr.EncodeToString()
 
 	data, err := c.fsTree.GetBytes(addr)
@@ -329,21 +319,14 @@ func (c *cache) getObject(addr oid.Address) (*object.Object, []byte, error) {
 		if errors.As(err, new(apistatus.ObjectNotFound)) {
 			// an object can be removed b/w iterating over it
 			// and reading its payload; not an error
-			return nil, nil, nil
+			return nil, nil
 		}
 
 		c.reportFlushError("can't read a file", sAddr, err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	var obj object.Object
-	err = obj.Unmarshal(data)
-	if err != nil {
-		c.reportFlushError("can't unmarshal an object", sAddr, err)
-		return nil, nil, err
-	}
-
-	return &obj, data, nil
+	return data, nil
 }
 
 // Flush flushes all objects from the write-cache to the main storage.
