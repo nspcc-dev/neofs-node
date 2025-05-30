@@ -44,6 +44,7 @@ type Response interface {
 }
 
 type headerSource struct {
+	cfg            cfg
 	requestHeaders []eaclSDK.Header
 	objectHeaders  []eaclSDK.Header
 
@@ -67,26 +68,30 @@ func NewMessageHeaderSource(opts ...Option) (eaclSDK.TypedHeaderSource, error) {
 		return nil, errors.New("message is not provided")
 	}
 
-	var res headerSource
-
-	err := cfg.readObjectHeaders(&res)
-	if err != nil {
-		return nil, err
+	var res = &headerSource{
+		cfg: *cfg,
 	}
-
-	res.requestHeaders = requestHeaders(cfg.msg)
 
 	return res, nil
 }
 
-func (h headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool) {
+func (h *headerSource) HeadersOfType(typ eaclSDK.FilterHeaderType) ([]eaclSDK.Header, bool, error) {
 	switch typ {
 	default:
-		return nil, true
+		return nil, true, nil
 	case eaclSDK.HeaderFromRequest:
-		return h.requestHeaders, true
+		if h.requestHeaders == nil {
+			h.requestHeaders = requestHeaders(h.cfg.msg)
+		}
+		return h.requestHeaders, true, nil
 	case eaclSDK.HeaderFromObject:
-		return h.objectHeaders, !h.incompleteObjectHeaders
+		if h.objectHeaders == nil {
+			err := h.cfg.readObjectHeaders(h)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		return h.objectHeaders, !h.incompleteObjectHeaders, nil
 	}
 }
 

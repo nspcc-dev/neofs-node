@@ -250,7 +250,11 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 		vu.WithAccount(*sa)
 	}
 
-	action, _ := c.validator.CalculateAction(vu)
+	action, _, err := c.validator.CalculateAction(vu)
+
+	if err != nil {
+		return err
+	}
 
 	if action != eaclSDK.ActionAllow {
 		return errEACLDeniedByRule
