@@ -161,7 +161,7 @@ func selectNFromBucket(bkt *bbolt.Bucket, // main bucket
 		}
 
 		offset = k
-		if inGraveyardWithKey(append(cidRaw, k...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) > 0 {
+		if inGraveyardWithKey(append(cidRaw, k...), graveyardBkt, garbageObjectsBkt, garbageContainersBkt) != statusAvailable {
 			continue
 		}
 

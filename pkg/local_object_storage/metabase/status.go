@@ -6,6 +6,7 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.etcd.io/bbolt"
 )
@@ -49,29 +50,36 @@ func (db *DB) ObjectStatus(address oid.Address) (ObjectStatus, error) {
 		oID := address.Object()
 		cID := address.Container()
 		objKey := objectKey(address.Object(), make([]byte, objectKeySize))
-		key := make([]byte, bucketKeySize)
 
 		res.Buckets, res.HeaderIndex = readBuckets(tx, cID, objKey)
 
-		if objectLocked(tx, cID, oID) {
+		var objLocked = objectLocked(tx, cID, oID)
+
+		if objLocked {
 			res.State = append(res.State, "LOCKED")
 		}
 
-		graveyardBkt := tx.Bucket(graveyardBucketName)
-		garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
-		garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
-		addrKey := addressKey(address, make([]byte, addressKeySize))
+		removedStatus := inGraveyard(tx, address)
 
-		removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
+		var (
+			existsRegular bool
+			metaBucket    = tx.Bucket(metaBucketKey(cID))
+		)
+		if metaBucket != nil {
+			var typPrefix = make([]byte, metaIDTypePrefixSize)
 
-		childForParent := getChildForParent(tx, cID, oID, key)
-		if (removedStatus != 0 && objectLocked(tx, cID, oID)) || inBucket(tx, primaryBucketName(cID, key), objKey) || !childForParent.IsZero() {
+			fillIDTypePrefix(typPrefix)
+			typ, err := fetchTypeForID(metaBucket, typPrefix, oID)
+			existsRegular = (err == nil && typ == objectSDK.TypeRegular)
+		}
+
+		if (removedStatus != statusAvailable && objLocked) || existsRegular {
 			res.State = append(res.State, "AVAILABLE")
 		}
-		if removedStatus == 1 {
+		if removedStatus == statusGCMarked {
 			res.State = append(res.State, "GC MARKED")
 		}
-		if removedStatus == 2 {
+		if removedStatus == statusTombstoned {
 			res.State = append(res.State, "IN GRAVEYARD")
 		}
 		return nil

@@ -134,7 +134,7 @@ func (db *DB) delete(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (bool, bo
 	garbageContainersBKT := tx.Bucket(garbageContainersBucketName)
 	graveyardBKT := tx.Bucket(graveyardBucketName)
 
-	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0
+	removeAvailableObject := inGraveyardWithKey(addrKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable
 
 	// remove record from the garbage bucket
 	if garbageObjectsBKT != nil {
