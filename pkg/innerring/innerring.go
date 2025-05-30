@@ -26,6 +26,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap"
 	nodevalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation"
 	availabilityvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/availability"
+	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/external"
 	"github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/privatedomains"
 	statevalidation "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/state"
 	addrvalidator "github.com/nspcc-dev/neofs-node/pkg/innerring/processors/netmap/nodevalidation/structure"
@@ -846,6 +847,17 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 
 	nnsService := newNeoFSNNS(nnsContractAddr, invoker.New(server.fsChainClient, nil))
 
+	nodeValidators := []netmap.NodeValidator{
+		statevalidation.New(),
+		addrvalidator.New(),
+		availabilityvalidator.New(),
+		privatedomains.New(nnsService),
+		locodeValidator,
+	}
+	if cfg.Validator.Enabled && cfg.Validator.URL != "" {
+		nodeValidators = append(nodeValidators, external.New(cfg.Validator.URL, server.key))
+	}
+
 	// create netmap processor
 	server.netmapProcessor, err = netmap.New(&netmap.Params{
 		Log:              log,
@@ -865,13 +877,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 			settlementProcessor.HandleAuditEvent,
 		),
 		AlphabetSyncHandler: alphaSync,
-		NodeValidator: nodevalidator.New(
-			statevalidation.New(),
-			addrvalidator.New(),
-			availabilityvalidator.New(),
-			privatedomains.New(nnsService),
-			locodeValidator,
-		),
+		NodeValidator:       nodevalidator.New(nodeValidators...),
 	})
 	if err != nil {
 		return nil, err
@@ -1050,23 +1056,6 @@ func (s *Server) createClient(ctx context.Context, p chainParams, errChan chan<-
 	}
 
 	return client.New(p.key, options...)
-}
-
-// ParsePublicKeysFromStrings returns slice of neo public keys from slice
-// of hex encoded strings.
-func ParsePublicKeysFromStrings(pubKeys []string) (keys.PublicKeys, error) {
-	publicKeys := make(keys.PublicKeys, 0, len(pubKeys))
-
-	for i := range pubKeys {
-		key, err := keys.NewPublicKeyFromString(pubKeys[i])
-		if err != nil {
-			return nil, fmt.Errorf("can't decode public key: %w", err)
-		}
-
-		publicKeys = append(publicKeys, key)
-	}
-
-	return publicKeys, nil
 }
 
 func (s *Server) initConfigFromBlockchain() error {
