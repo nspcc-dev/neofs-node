@@ -145,13 +145,15 @@ func TestHeadRequest(t *testing.T) {
 }
 
 func checkAction(t *testing.T, expected eaclSDK.Action, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
-	actual, fromRule := v.CalculateAction(u)
+	actual, fromRule, err := v.CalculateAction(u)
+	require.NoError(t, err)
 	require.True(t, fromRule)
 	require.Equal(t, expected, actual)
 }
 
 func checkDefaultAction(t *testing.T, v *eaclSDK.Validator, u *eaclSDK.ValidationUnit) {
-	actual, fromRule := v.CalculateAction(u)
+	actual, fromRule, err := v.CalculateAction(u)
+	require.NoError(t, err)
 	require.False(t, fromRule)
 	require.Equal(t, eaclSDK.ActionAllow, actual)
 }
