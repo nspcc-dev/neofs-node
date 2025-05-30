@@ -222,6 +222,7 @@ func (c *cache) migrate() error {
 	c.log.Info("migrating database", zap.String("path", path))
 	db, err := bbolt.Open(path, os.ModePerm, &bbolt.Options{
 		NoFreelistSync: true,
+		NoStatistics:   true,
 		ReadOnly:       true,
 		Timeout:        time.Second,
 	})

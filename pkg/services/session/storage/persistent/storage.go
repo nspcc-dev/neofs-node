@@ -40,7 +40,8 @@ func NewTokenStore(path string, opts ...Option) (*TokenStore, error) {
 
 	db, err := bbolt.Open(path, 0o600,
 		&bbolt.Options{
-			Timeout: cfg.timeout,
+			NoStatistics: true,
+			Timeout:      cfg.timeout,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("can't open bbolt at %s: %w", path, err)
