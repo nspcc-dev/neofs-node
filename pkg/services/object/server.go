@@ -24,7 +24,6 @@ import (
 	aclsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	deletesvc "github.com/nspcc-dev/neofs-node/pkg/services/object/delete"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
-	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	putsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/put"
 	searchsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/search"
 	objutil "github.com/nspcc-dev/neofs-node/pkg/services/object/util"
@@ -234,7 +233,7 @@ func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 }
 
 func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.SendAndClose(resp)
 }
 
@@ -293,12 +292,12 @@ func putToRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []byte,
 		return fmt.Errorf("closing the stream failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return err
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return fmt.Errorf("response verification failed: %w", err)
-	}
+	// if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+	// 	return err
+	// }
+	// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+	// 	return fmt.Errorf("response verification failed: %w", err)
+	// }
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return fmt.Errorf("remote node response: %w", err)
 	}
@@ -314,11 +313,11 @@ func (x *putStream) resignRequest(req *protoobject.PutRequest) (*protoobject.Put
 		Ttl:    meta.GetTtl() - 1,
 		Origin: meta,
 	}
-	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
-	if err != nil {
-		return nil, err
-	}
+	// var err error
+	// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(x.signer), req, nil)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return req, nil
 }
 
@@ -440,10 +439,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			s.metrics.AddPutPayload(len(c))
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-			err = s.sendStatusPutResponse(gStream, err) // assign for defer
-			return err
-		}
+		// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+		// 	err = s.sendStatusPutResponse(gStream, err) // assign for defer
+		// 	return err
+		// }
 
 		if s.fsChain.LocalNodeUnderMaintenance() {
 			return s.sendStatusPutResponse(gStream, apistatus.ErrNodeUnderMaintenance)
@@ -453,21 +452,21 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return errors.New("malformed request: empty body")
 		}
 
-		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
-			if !errors.Is(err, aclsvc.ErrSkipRequest) {
-				return s.sendStatusPutResponse(gStream, err)
-			}
-		} else {
-			if !s.aclChecker.CheckBasicACL(reqInfo) || !s.aclChecker.StickyBitCheck(reqInfo, objOwner) {
-				err = basicACLErr(reqInfo) // needed for defer
-				return s.sendStatusPutResponse(gStream, err)
-			}
-			err = s.aclChecker.CheckEACL(req, reqInfo)
-			if err != nil {
-				err = eACLErr(reqInfo, err) // needed for defer
-				return s.sendStatusPutResponse(gStream, err)
-			}
-		}
+		// if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
+		// 	if !errors.Is(err, aclsvc.ErrSkipRequest) {
+		// 		return s.sendStatusPutResponse(gStream, err)
+		// 	}
+		// } else {
+		// 	if !s.aclChecker.CheckBasicACL(reqInfo) || !s.aclChecker.StickyBitCheck(reqInfo, objOwner) {
+		// 		err = basicACLErr(reqInfo) // needed for defer
+		// 		return s.sendStatusPutResponse(gStream, err)
+		// 	}
+		// 	err = s.aclChecker.CheckEACL(req, reqInfo)
+		// 	if err != nil {
+		// 		err = eACLErr(reqInfo, err) // needed for defer
+		// 		return s.sendStatusPutResponse(gStream, err)
+		// 	}
+		// }
 
 		if err = ps.forwardRequest(req); err != nil {
 			err = s.sendStatusPutResponse(gStream, err) // assign for defer
@@ -477,7 +476,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 }
 
 func (s *Server) signDeleteResponse(resp *protoobject.DeleteResponse) *protoobject.DeleteResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
 }
 
@@ -500,27 +499,27 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusDeleteResponse(err), nil
-	}
+	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.makeStatusDeleteResponse(err), nil
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
-	if err != nil {
-		return s.makeStatusDeleteResponse(err), nil
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusDeleteResponse(err), nil
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusDeleteResponse(err), nil
-	}
+	// reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
+	// if err != nil {
+	// 	return s.makeStatusDeleteResponse(err), nil
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.makeStatusDeleteResponse(err), nil
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // needed for defer
+	// 	return s.makeStatusDeleteResponse(err), nil
+	// }
 
 	ma := req.GetBody().GetAddress()
 	if ma == nil {
@@ -552,7 +551,7 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 }
 
 func (s *Server) signHeadResponse(resp *protoobject.HeadResponse) *protoobject.HeadResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
 }
 
@@ -579,27 +578,27 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
-	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err), nil
-	}
+	// if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.makeStatusHeadResponse(err), nil
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
-	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
-	}
+	// reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
+	// if err != nil {
+	// 	return s.makeStatusHeadResponse(err), nil
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.makeStatusHeadResponse(err), nil
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // needed for defer
+	// 	return s.makeStatusHeadResponse(err), nil
+	// }
 
 	var resp protoobject.HeadResponse
 	p, err := convertHeadPrm(s.signer, req, &resp)
@@ -611,11 +610,11 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 		return s.makeStatusHeadResponse(err), nil
 	}
 
-	err = s.aclChecker.CheckEACL(&resp, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // defer
-		return s.makeStatusHeadResponse(err), nil
-	}
+	// err = s.aclChecker.CheckEACL(&resp, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // defer
+	// 	return s.makeStatusHeadResponse(err), nil
+	// }
 
 	return s.signHeadResponse(&resp), nil
 }
@@ -699,7 +698,7 @@ func convertHeadPrm(signer ecdsa.PrivateKey, req *protoobject.HeadRequest, resp 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -722,12 +721,12 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 		return nil, fmt.Errorf("sending the request failed: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
+	// if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+	// 	return nil, err
+	// }
+	// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+	// 	return nil, fmt.Errorf("response verification failed: %w", err)
+	// }
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -799,7 +798,7 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 }
 
 func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse) *protoobject.GetRangeHashResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
 }
 
@@ -816,27 +815,27 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHashResponse(err), nil
-	}
+	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.makeStatusHashResponse(err), nil
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
-	if err != nil {
-		return s.makeStatusHashResponse(err), nil
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHashResponse(err), nil
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHashResponse(err), nil
-	}
+	// reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
+	// if err != nil {
+	// 	return s.makeStatusHashResponse(err), nil
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.makeStatusHashResponse(err), nil
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // needed for defer
+	// 	return s.makeStatusHashResponse(err), nil
+	// }
 
 	p, err := convertHashPrm(s.signer, s.storage, req)
 	if err != nil {
@@ -925,7 +924,7 @@ func convertHashPrm(signer ecdsa.PrivateKey, ss sessions, req *protoobject.GetRa
 				Ttl:     meta.GetTtl() - 1,
 				Origin:  meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -949,12 +948,12 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 		return nil, fmt.Errorf("GetRangeHash rpc failure: %w", err)
 	}
 
-	if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-		return nil, err
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, fmt.Errorf("response verification failed: %w", err)
-	}
+	// if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+	// 	return nil, err
+	// }
+	// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+	// 	return nil, fmt.Errorf("response verification failed: %w", err)
+	// }
 	if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, err
 	}
@@ -963,7 +962,7 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 }
 
 func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.Send(resp)
 }
 
@@ -1000,9 +999,9 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 			}},
 		},
 	}
-	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
-		return eACLErr(s.reqInfo, err)
-	}
+	// if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
+	// 	return eACLErr(s.reqInfo, err)
+	// }
 	return s.srv.sendGetResponse(s.base, resp)
 }
 
@@ -1029,32 +1028,32 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
-	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err)
-	}
+	// if err = icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.sendStatusGetResponse(gStream, err)
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
-	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
-	}
+	// reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
+	// if err != nil {
+	// 	return s.sendStatusGetResponse(gStream, err)
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.sendStatusGetResponse(gStream, err)
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // needed for defer
+	// 	return s.sendStatusGetResponse(gStream, err)
+	// }
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base: gStream,
+		srv:  s,
+		// reqInfo: reqInfo,
 	})
 	if err != nil {
 		return s.sendStatusGetResponse(gStream, err)
@@ -1110,7 +1109,7 @@ func convertGetPrm(signer ecdsa.PrivateKey, req *protoobject.GetRequest, stream 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1149,12 +1148,12 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
+		// if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+		// 	return err
+		// }
+		// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+		// 	return fmt.Errorf("response verification failed: %w", err)
+		// }
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1216,7 +1215,7 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 }
 
 func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.Send(resp)
 }
 
@@ -1253,9 +1252,9 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 		}
 		// TODO: do not check response multiple times
 		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
-		}
+		// if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
+		// 	return eACLErr(s.reqInfo, err)
+		// }
 		if err := s.srv.sendRangeResponse(s.base, newResp); err != nil {
 			return err
 		}
@@ -1269,32 +1268,32 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
-	}
+	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.sendStatusRangeResponse(gStream, err)
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
-	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err)
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err)
-	}
+	// reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
+	// if err != nil {
+	// 	return s.sendStatusRangeResponse(gStream, err)
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.sendStatusRangeResponse(gStream, err)
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err) // needed for defer
+	// 	return s.sendStatusRangeResponse(gStream, err)
+	// }
 
 	p, err := convertRangePrm(s.signer, req, &rangeStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base: gStream,
+		srv:  s,
+		// reqInfo: reqInfo,
 	})
 	if err != nil {
 		return s.sendStatusRangeResponse(gStream, err)
@@ -1362,7 +1361,7 @@ func convertRangePrm(signer ecdsa.PrivateKey, req *protoobject.GetRangeRequest, 
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1397,12 +1396,12 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
+		// if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+		// 	return err
+		// }
+		// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+		// 	return fmt.Errorf("response verification failed: %w", err)
+		// }
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return err
 		}
@@ -1437,7 +1436,7 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 }
 
 func (s *Server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.Send(resp)
 }
 
@@ -1471,9 +1470,9 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 		}
 		// TODO: do not check response multiple times
 		// TODO: why check it at all?
-		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
-			return eACLErr(s.reqInfo, err)
-		}
+		// if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
+		// 	return eACLErr(s.reqInfo, err)
+		// }
 		if err := s.srv.sendSearchResponse(s.base, r); err != nil {
 			return err
 		}
@@ -1489,32 +1488,32 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 		t   = time.Now()
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
-	}
+	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.sendStatusSearchResponse(gStream, err)
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance)
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
-	if err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusSearchResponse(gStream, err)
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err)
-		return s.sendStatusSearchResponse(gStream, err)
-	}
+	// reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
+	// if err != nil {
+	// 	return s.sendStatusSearchResponse(gStream, err)
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.sendStatusSearchResponse(gStream, err)
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err)
+	// 	return s.sendStatusSearchResponse(gStream, err)
+	// }
 
 	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
-		base:    gStream,
-		srv:     s,
-		reqInfo: reqInfo,
+		base: gStream,
+		srv:  s,
+		// reqInfo: reqInfo,
 	})
 	if err != nil {
 		return s.sendStatusSearchResponse(gStream, err)
@@ -1575,7 +1574,7 @@ func convertSearchPrm(ctx context.Context, signer ecdsa.PrivateKey, req *protoob
 				Ttl:    meta.GetTtl() - 1,
 				Origin: meta,
 			}
-			req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
+			// req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(signer), req, nil)
 		})
 		if err != nil {
 			return nil, err
@@ -1608,12 +1607,12 @@ func searchOnRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub []by
 			return nil, fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return nil, err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return nil, fmt.Errorf("could not verify %T: %w", resp, err)
-		}
+		// if err := internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
+		// 	return nil, err
+		// }
+		// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+		// 	return nil, fmt.Errorf("could not verify %T: %w", resp, err)
+		// }
 		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
 			return nil, fmt.Errorf("remote node response: %w", err)
 		}
@@ -1698,43 +1697,43 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 		}}, nil
 	}
 
-	var pubKey neofscrypto.PublicKey
-	switch req.Signature.Scheme { //nolint:exhaustive
-	// other cases already checked above
-	case refs.SignatureScheme_ECDSA_SHA512:
-		pubKey = new(neofsecdsa.PublicKey)
-		err = pubKey.Decode(req.Signature.Key)
-		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
-		}
-	case refs.SignatureScheme_ECDSA_RFC6979_SHA256:
-		pubKey = new(neofsecdsa.PublicKeyRFC6979)
-		err = pubKey.Decode(req.Signature.Key)
-		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
-		}
-	case refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
-		pubKey = new(neofsecdsa.PublicKeyWalletConnect)
-		err = pubKey.Decode(req.Signature.Key)
-		if err != nil {
-			return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-				Code:    codeInternal,
-				Message: "invalid ECDSA public key in the object signature field",
-			}}, nil
-		}
-	}
-	if !pubKey.Verify(req.Object.ObjectId.Value, req.Signature.Sign) {
-		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
-			Code:    codeInternal,
-			Message: "signature mismatch in the object signature field",
-		}}, nil
-	}
+	// var pubKey neofscrypto.PublicKey
+	// switch req.Signature.Scheme { //nolint:exhaustive
+	// // other cases already checked above
+	// case refs.SignatureScheme_ECDSA_SHA512:
+	// 	pubKey = new(neofsecdsa.PublicKey)
+	// 	err = pubKey.Decode(req.Signature.Key)
+	// 	if err != nil {
+	// 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+	// 			Code:    codeInternal,
+	// 			Message: "invalid ECDSA public key in the object signature field",
+	// 		}}, nil
+	// 	}
+	// case refs.SignatureScheme_ECDSA_RFC6979_SHA256:
+	// 	pubKey = new(neofsecdsa.PublicKeyRFC6979)
+	// 	err = pubKey.Decode(req.Signature.Key)
+	// 	if err != nil {
+	// 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+	// 			Code:    codeInternal,
+	// 			Message: "invalid ECDSA public key in the object signature field",
+	// 		}}, nil
+	// 	}
+	// case refs.SignatureScheme_ECDSA_RFC6979_SHA256_WALLET_CONNECT:
+	// 	pubKey = new(neofsecdsa.PublicKeyWalletConnect)
+	// 	err = pubKey.Decode(req.Signature.Key)
+	// 	if err != nil {
+	// 		return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+	// 			Code:    codeInternal,
+	// 			Message: "invalid ECDSA public key in the object signature field",
+	// 		}}, nil
+	// 	}
+	// }
+	// if !pubKey.Verify(req.Object.ObjectId.Value, req.Signature.Sign) {
+	// 	return &protoobject.ReplicateResponse{Status: &protostatus.Status{
+	// 		Code:    codeInternal,
+	// 		Message: "signature mismatch in the object signature field",
+	// 	}}, nil
+	// }
 
 	var clientInCnr, serverInCnr bool
 	err = s.fsChain.ForEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(pubKey []byte) bool {
@@ -1800,7 +1799,7 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 }
 
 func (s *Server) signSearchResponse(resp *protoobject.SearchV2Response) *protoobject.SearchV2Response {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return resp
 }
 
@@ -1816,27 +1815,27 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 		t   = time.Now()
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
-	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusSearchResponse(err), nil
-	}
+	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
+	// 	return s.makeStatusSearchResponse(err), nil
+	// }
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
 		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
 	}
 
-	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
-	if err != nil {
-		return s.makeStatusSearchResponse(err), nil
-	}
-	if !s.aclChecker.CheckBasicACL(reqInfo) {
-		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusSearchResponse(err), nil
-	}
-	err = s.aclChecker.CheckEACL(req, reqInfo)
-	if err != nil {
-		err = eACLErr(reqInfo, err)
-		return s.makeStatusSearchResponse(err), nil
-	}
+	// reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
+	// if err != nil {
+	// 	return s.makeStatusSearchResponse(err), nil
+	// }
+	// if !s.aclChecker.CheckBasicACL(reqInfo) {
+	// 	err = basicACLErr(reqInfo) // needed for defer
+	// 	return s.makeStatusSearchResponse(err), nil
+	// }
+	// err = s.aclChecker.CheckEACL(req, reqInfo)
+	// if err != nil {
+	// 	err = eACLErr(reqInfo, err)
+	// 	return s.makeStatusSearchResponse(err), nil
+	// }
 
 	body, err := s.processSearchRequest(ctx, req)
 	if err != nil {
@@ -2011,10 +2010,10 @@ func (s *Server) ProcessSearch(ctx context.Context, req *protoobject.SearchV2Req
 			}
 			if !signed {
 				req.MetaHeader = &protosession.RequestMetaHeader{Ttl: 1, Origin: req.MetaHeader}
-				if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
-					resErr = fmt.Errorf("sign request: %w", err)
-					return false
-				}
+				// if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer[*protoobject.SearchV2Request_Body](neofsecdsa.Signer(s.signer), req, nil); err != nil {
+				// 	resErr = fmt.Errorf("sign request: %w", err)
+				// 	return false
+				// }
 				signed = true
 			}
 			wg.Add(1)
@@ -2106,12 +2105,12 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
 
-	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
-		return nil, false, client.ErrWrongPublicKey
-	}
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return nil, false, fmt.Errorf("response verification failed: %w", err)
-	}
+	// if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
+	// 	return nil, false, client.ErrWrongPublicKey
+	// }
+	// if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
+	// 	return nil, false, fmt.Errorf("response verification failed: %w", err)
+	// }
 	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
 		return nil, false, err
 	}

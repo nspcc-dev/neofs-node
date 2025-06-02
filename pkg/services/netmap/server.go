@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
@@ -62,7 +61,7 @@ func (s *server) makeNodeInfoResponse(body *protonetmap.LocalNodeInfoResponse_Bo
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -73,9 +72,9 @@ func (s *server) makeStatusNodeInfoResponse(err error) (*protonetmap.LocalNodeIn
 // LocalNodeInfo returns current state of the local node from the underlying
 // [NodeState].
 func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNodeInfoResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeStatusNodeInfoResponse(err)
+	// }
 
 	n, err := s.contract.LocalNodeInfo()
 	if err != nil {
@@ -94,7 +93,7 @@ func (s *server) makeNetInfoResponse(body *protonetmap.NetworkInfoResponse_Body,
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -105,9 +104,9 @@ func (s *server) makeStatusNetInfoResponse(err error) (*protonetmap.NetworkInfoR
 // NetworkInfo returns current network configuration from the underlying
 // [Contract].
 func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequest) (*protonetmap.NetworkInfoResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNetInfoResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeStatusNetInfoResponse(err)
+	// }
 
 	n, err := s.contract.GetNetworkInfo()
 	if err != nil {
@@ -125,7 +124,7 @@ func (s *server) makeNetmapResponse(body *protonetmap.NetmapSnapshotResponse_Bod
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -135,9 +134,9 @@ func (s *server) makeStatusNetmapResponse(err error) (*protonetmap.NetmapSnapsho
 
 // NetmapSnapshot returns current network map from the underlying [Contract].
 func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapshotRequest) (*protonetmap.NetmapSnapshotResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeStatusNetmapResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeStatusNetmapResponse(err)
+	// }
 
 	n, err := s.contract.GetNetworkMap()
 	if err != nil {

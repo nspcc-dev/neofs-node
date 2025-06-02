@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	containerrpc "github.com/nspcc-dev/neofs-contract/rpc/container"
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/client"
 	containerCore "github.com/nspcc-dev/neofs-node/pkg/core/container"
 	netmapCore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
@@ -501,7 +500,7 @@ func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceRe
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp)
+	// resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp)
 	return resp, nil
 }
 
@@ -510,9 +509,9 @@ func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.Announ
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return c.makeStatusResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return c.makeStatusResponse(err)
+	// }
 
 	var passedRoute []loadroute.ServerInfo
 

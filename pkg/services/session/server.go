@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
@@ -55,7 +54,7 @@ func (s *server) makeCreateResponse(body *protosession.CreateResponse_Body, st *
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -66,9 +65,9 @@ func (s *server) makeFailedCreateResponse(err error) (*protosession.CreateRespon
 // Create generates new private session key and saves it in the underlying
 // [KeyStorage].
 func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*protosession.CreateResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedCreateResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedCreateResponse(err)
+	// }
 
 	reqBody := req.GetBody()
 	mUsr := reqBody.GetOwnerId()

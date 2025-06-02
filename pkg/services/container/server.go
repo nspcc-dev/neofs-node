@@ -11,7 +11,6 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -124,9 +123,9 @@ func (s *server) getVerifiedSessionToken(req interface {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if err := icrypto.AuthenticateToken(&token, s.historicN3ScriptRunner); err != nil {
-		return nil, fmt.Errorf("authenticate: %w", err)
-	}
+	// if err := icrypto.AuthenticateToken(&token, s.historicN3ScriptRunner); err != nil {
+	// 	return nil, fmt.Errorf("authenticate: %w", err)
+	// }
 
 	var expVerb session.ContainerVerb
 	switch req.(type) {
@@ -178,7 +177,7 @@ func (s *server) makePutResponse(body *protocontainer.PutResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -238,9 +237,9 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // further processing. If session token is attached, it's verified. Returns ID
 // to check request status in the response.
 func (s *server) Put(_ context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedPutResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedPutResponse(err)
+	// }
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
@@ -284,16 +283,16 @@ func (s *server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
 // Delete forwards container removal request to the underlying [Contract] for
 // further processing. If session token is attached, it's verified.
 func (s *server) Delete(_ context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeDeleteResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeDeleteResponse(err)
+	// }
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
@@ -335,7 +334,7 @@ func (s *server) makeGetResponse(body *protocontainer.GetResponse_Body, st *prot
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -346,9 +345,9 @@ func (s *server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedGetResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedGetResponse(err)
+	// }
 
 	mID := req.GetBody().GetContainerId()
 	if mID == nil {
@@ -376,7 +375,7 @@ func (s *server) makeListResponse(body *protocontainer.ListResponse_Body, st *pr
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -387,9 +386,9 @@ func (s *server) makeFailedListResponse(err error) (*protocontainer.ListResponse
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
 func (s *server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedListResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedListResponse(err)
+	// }
 
 	mID := req.GetBody().GetOwnerId()
 	if mID == nil {
@@ -423,16 +422,16 @@ func (s *server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
 // SetExtendedACL forwards eACL setting request to the underlying [Contract]
 // for further processing. If session token is attached, it's verified.
 func (s *server) SetExtendedACL(_ context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeSetEACLResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeSetEACLResponse(err)
+	// }
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
@@ -475,7 +474,7 @@ func (s *server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	// resp.VerifyHeader = util.SignResponse(s.signer, resp)
 	return resp, nil
 }
 
@@ -486,9 +485,9 @@ func (s *server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtend
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
 func (s *server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedGetEACLResponse(err)
-	}
+	// if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	// 	return s.makeFailedGetEACLResponse(err)
+	// }
 
 	mID := req.GetBody().GetContainerId()
 	if mID == nil {
