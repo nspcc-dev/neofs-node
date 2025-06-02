@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
@@ -63,10 +63,9 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,
 		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
-		[]blobstor.Option{blobstor.WithStorages(blobstor.SubStorage{
-			Storage: fstree.New(
-				fstree.WithPath(filepath.Join(t.TempDir(), "blob"))),
-		})})
+		shard.WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(t.TempDir(), "fstree"))),
+		))
 	defer releaseShard(sh, t)
 
 	for _, tc := range testCases {

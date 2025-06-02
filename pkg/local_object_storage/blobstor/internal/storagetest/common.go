@@ -1,4 +1,4 @@
-package blobstortest
+package storagetest
 
 import (
 	crand "crypto/rand"
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Constructor constructs blobstor component.
+// Constructor constructs storage component.
 // Each call must create a component using different file-system path.
 type Constructor = func(t *testing.T) common.Storage
 

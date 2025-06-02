@@ -1,7 +1,7 @@
 package writecache
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -16,11 +16,10 @@ type Metabase interface {
 	Put(obj *objectSDK.Object, binHeader []byte) error
 }
 
-// blob is an interface for the blobstor.
-type blob interface {
-	Put(oid.Address, *objectSDK.Object, []byte) error
-	PutBatch([]blobstor.PutBatchPrm) error
-	NeedsCompression(obj *objectSDK.Object) bool
+// stor is an interface for the storage.
+type stor interface {
+	Put(oid.Address, []byte) error
+	PutBatch(map[oid.Address][]byte) error
 	Exists(oid.Address) (bool, error)
 }
 
@@ -28,8 +27,8 @@ type options struct {
 	log *zap.Logger
 	// path is a path to a directory for write-cache.
 	path string
-	// blobstor is the main persistent storage.
-	blobstor blob
+	// storage is the main persistent storage.
+	storage stor
 	// metabase is the metabase instance.
 	metabase Metabase
 	// maxObjectSize is the maximum size of the object stored in the write-cache.
@@ -69,10 +68,10 @@ func WithPath(path string) Option {
 	}
 }
 
-// WithBlobstor sets main object storage.
-func WithBlobstor(bs *blobstor.BlobStor) Option {
+// WithStorage sets main object storage.
+func WithStorage(s common.Storage) Option {
 	return func(o *options) {
-		o.blobstor = bs
+		o.storage = s
 	}
 }
 

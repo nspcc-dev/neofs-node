@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -18,14 +17,20 @@ type Info struct {
 	// Information about the metabase.
 	MetaBaseInfo meta.Info
 
-	// Information about the BLOB storage.
-	BlobStorInfo blobstor.Info
+	// Information about the storage.
+	BlobStorInfo StorageInfo
 
 	// Information about the Write Cache.
 	WriteCacheInfo writecache.Info
 
 	// ErrorCount contains amount of errors occurred in shard operations.
 	ErrorCount uint32
+}
+
+// StorageInfo contains information about storage component.
+type StorageInfo struct {
+	Type string
+	Path string
 }
 
 // DumpInfo returns information about the Shard.

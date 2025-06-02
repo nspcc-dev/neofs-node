@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/fstree"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
@@ -33,32 +32,19 @@ func (s epochState) CurrentEpoch() uint64 {
 }
 
 func newShard(t testing.TB, enableWriteCache bool) *shard.Shard {
-	return newCustomShard(t, t.TempDir(), enableWriteCache,
-		nil,
-		nil)
+	return newCustomShard(t, t.TempDir(), enableWriteCache, nil)
 }
 
-func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, bsOpts []blobstor.Option, options ...shard.Option) *shard.Shard {
+func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts []writecache.Option, options ...shard.Option) *shard.Shard {
 	if enableWriteCache {
 		rootPath = filepath.Join(rootPath, "wc")
 	} else {
 		rootPath = filepath.Join(rootPath, "nowc")
 	}
 
-	if bsOpts == nil {
-		bsOpts = []blobstor.Option{
-			blobstor.WithLogger(zaptest.NewLogger(t)),
-			blobstor.WithStorages(blobstor.SubStorage{
-				Storage: fstree.New(
-					fstree.WithPath(filepath.Join(rootPath, "blob"))),
-			}),
-		}
-	}
-
 	opts := append([]shard.Option{
 		shard.WithID(shard.NewIDFromBytes([]byte("testShard"))),
 		shard.WithLogger(zap.L()),
-		shard.WithBlobStorOptions(bsOpts...),
 		shard.WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(rootPath, "meta")),
 			meta.WithEpochState(epochState{}),
@@ -72,6 +58,9 @@ func newCustomShard(t testing.TB, rootPath string, enableWriteCache bool, wcOpts
 					writecache.WithPath(filepath.Join(rootPath, "wcache")),
 				},
 				wcOpts...)...,
+		),
+		shard.WithBlobstor(fstree.New(
+			fstree.WithPath(filepath.Join(rootPath, "fstree"))),
 		),
 	}, options...)
 

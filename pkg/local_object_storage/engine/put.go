@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/util"
@@ -134,8 +133,8 @@ func (e *StorageEngine) putToShard(sh shardWrapper, ind int, pool util.WorkerPoo
 
 		err = sh.Put(obj, objBin, hdrLen)
 		if err != nil {
-			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, blobstor.ErrNoPlaceFound) ||
-				errors.Is(err, common.ErrReadOnly) || errors.Is(err, common.ErrNoSpace) {
+			if errors.Is(err, shard.ErrReadOnlyMode) || errors.Is(err, common.ErrReadOnly) ||
+				errors.Is(err, common.ErrNoSpace) {
 				e.log.Warn("could not put object to shard",
 					zap.Stringer("shard_id", id),
 					zap.Error(err))

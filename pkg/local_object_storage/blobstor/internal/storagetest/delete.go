@@ -1,4 +1,4 @@
-package blobstortest
+package storagetest
 
 import (
 	"testing"

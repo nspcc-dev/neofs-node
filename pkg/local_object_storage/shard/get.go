@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -31,7 +31,7 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 
 	var res *objectSDK.Object
 
-	cb := func(stor *blobstor.BlobStor) error {
+	cb := func(stor common.Storage) error {
 		obj, err := stor.Get(addr)
 		if err != nil {
 			return err
@@ -62,7 +62,7 @@ func (s *Shard) Get(addr oid.Address, skipMeta bool) (*objectSDK.Object, error) 
 // true iff skipMeta flag is unset && referenced object is found in the
 // underlying metaBase.
 func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
-	blobFunc func(bs *blobstor.BlobStor) error,
+	storageFunc func(st common.Storage) error,
 	wc func(w writecache.Cache) error,
 ) (bool, error) {
 	var (
@@ -96,7 +96,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 	}
 
 	if skipMeta || mErr != nil {
-		err := blobFunc(s.blobStor)
+		err := storageFunc(s.blobStor)
 		return false, err
 	}
 
@@ -104,7 +104,7 @@ func (s *Shard) fetchObjectData(addr oid.Address, skipMeta bool,
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	return true, blobFunc(s.blobStor)
+	return true, storageFunc(s.blobStor)
 }
 
 // GetBytes reads object from the Shard by address into memory buffer in a
@@ -126,9 +126,9 @@ func (s *Shard) getBytesWithMetadataLookup(addr oid.Address, skipMeta bool) ([]b
 	defer s.m.RUnlock()
 
 	var b []byte
-	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(bs *blobstor.BlobStor) error {
+	hasMeta, err := s.fetchObjectData(addr, skipMeta, func(st common.Storage) error {
 		var err error
-		b, err = bs.GetBytes(addr)
+		b, err = st.GetBytes(addr)
 		return err
 	}, func(w writecache.Cache) error {
 		var err error

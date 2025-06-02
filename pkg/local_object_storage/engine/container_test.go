@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -35,8 +34,7 @@ func TestStorageEngine_ContainerCleanUp(t *testing.T) {
 
 	for i := range 5 {
 		_, err := e.AddShard(
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(newStorage(filepath.Join(path, strconv.Itoa(i))))),
+			shard.WithBlobstor(newStorage(filepath.Join(path, strconv.Itoa(i)))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(path, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),

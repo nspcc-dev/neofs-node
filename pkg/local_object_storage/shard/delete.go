@@ -53,7 +53,9 @@ func (s *Shard) deleteObjs(addrs []oid.Address, skipNotFoundError bool) error {
 
 	for _, addr := range addrs {
 		err = s.blobStor.Delete(addr)
-		if err != nil {
+		if err == nil {
+			logOp(s.log, deleteOp, addr)
+		} else {
 			if IsErrNotFound(err) && skipNotFoundError {
 				continue
 			}

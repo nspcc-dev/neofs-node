@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
@@ -25,7 +24,7 @@ import (
 // under any single component is absent. We emulate this with permission denied error.
 func TestInitializationFailure(t *testing.T) {
 	type paths struct {
-		blobstor   string
+		storage    string
 		metabase   string
 		writecache string
 	}
@@ -40,9 +39,8 @@ func TestInitializationFailure(t *testing.T) {
 		return []shard.Option{
 			shard.WithID(sid),
 			shard.WithLogger(zaptest.NewLogger(t)),
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(
-					newStorage(c.blobstor))),
+			shard.WithBlobstor(
+				newStorage(c.storage)),
 			shard.WithMetaBaseOptions(
 				meta.WithBoltDBOptions(&bbolt.Options{
 					Timeout: time.Second,
@@ -60,7 +58,7 @@ func TestInitializationFailure(t *testing.T) {
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
 		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
-			blobstor:   filepath.Join(badDir, "0"),
+			storage:    filepath.Join(badDir, "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
 		}))
@@ -70,7 +68,7 @@ func TestInitializationFailure(t *testing.T) {
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
 		testEngineFailInitAndReload(t, badDir, true, testShard(paths{
-			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
+			storage:    filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(badDir, "1"),
 			writecache: filepath.Join(existsDir, t.Name(), "2"),
 		}))
@@ -80,7 +78,7 @@ func TestInitializationFailure(t *testing.T) {
 		require.NoError(t, os.MkdirAll(badDir, os.ModePerm))
 		require.NoError(t, os.Chmod(badDir, 0))
 		testEngineFailInitAndReload(t, badDir, false, testShard(paths{
-			blobstor:   filepath.Join(existsDir, t.Name(), "0"),
+			storage:    filepath.Join(existsDir, t.Name(), "0"),
 			metabase:   filepath.Join(existsDir, t.Name(), "1"),
 			writecache: filepath.Join(badDir, "2"),
 		}))
@@ -218,9 +216,8 @@ func TestReload(t *testing.T) {
 		rcfg.AddShard(newMeta, []shard.Option{shard.WithMetaBaseOptions(
 			meta.WithPath(newMeta),
 			meta.WithEpochState(epochState{}),
-		), shard.WithBlobStorOptions(
-			blobstor.WithStorages(
-				newStorage(filepath.Join(addPath, "blobstor"))),
+		), shard.WithBlobstor(
+			newStorage(filepath.Join(addPath, "fstree")),
 		)})
 		require.NoError(t, e.Reload(rcfg))
 
@@ -258,8 +255,7 @@ func engineWithShards(t *testing.T, path string, num int) (*StorageEngine, []str
 	e := New()
 	for i := range num {
 		id, err := e.AddShard(
-			shard.WithBlobStorOptions(
-				blobstor.WithStorages(newStorage(filepath.Join(addPath, strconv.Itoa(i))))),
+			shard.WithBlobstor(newStorage(filepath.Join(addPath, strconv.Itoa(i)))),
 			shard.WithMetaBaseOptions(
 				meta.WithPath(filepath.Join(addPath, fmt.Sprintf("%d.metabase", i))),
 				meta.WithPermissions(0700),

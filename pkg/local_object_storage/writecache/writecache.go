@@ -54,18 +54,11 @@ type Cache interface {
 type cache struct {
 	options
 
-	// mtx protects statistics, counters and compressFlags.
-	mtx sync.RWMutex
-
 	mode    mode.Mode
 	modeMtx sync.RWMutex
 
 	// flushErrCh is a channel for error handling while flushing.
 	flushErrCh chan struct{}
-
-	// compressFlags maps address of a big object to boolean value indicating
-	// whether object should be compressed.
-	compressFlags map[string]struct{}
 
 	// flushCh is a channel with objects to flush.
 	flushCh chan oid.Address
@@ -104,7 +97,6 @@ func New(opts ...Option) Cache {
 		flushErrCh: make(chan struct{}, 1),
 		mode:       mode.ReadWrite,
 
-		compressFlags: make(map[string]struct{}),
 		options: options{
 			log:           zap.NewNop(),
 			metrics:       new(metricsWithID),
@@ -245,13 +237,7 @@ func (c *cache) migrate() error {
 				return nil
 			}
 
-			var obj object.Object
-			if err := obj.Unmarshal(v); err != nil {
-				c.reportFlushError("can't unmarshal an object from the DB", sa, err)
-				return nil
-			}
-
-			if err := c.flushObject(&obj, v); err != nil {
+			if err := c.flushObject(addr, v); err != nil {
 				return err
 			}
 

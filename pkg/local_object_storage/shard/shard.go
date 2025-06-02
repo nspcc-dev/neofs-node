@@ -4,7 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/compression"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
@@ -20,8 +21,6 @@ type Shard struct {
 	gc *gc
 
 	writeCache writecache.Cache
-
-	blobStor *blobstor.BlobStor
 
 	metaBase *meta.DB
 }
@@ -76,8 +75,6 @@ type cfg struct {
 
 	info Info
 
-	blobOpts []blobstor.Option
-
 	metaOpts []meta.Option
 
 	writeCacheOpts []writecache.Option
@@ -95,6 +92,10 @@ type cfg struct {
 	metricsWriter MetricsWriter
 
 	reportErrorFunc func(selfID string, message string, err error)
+
+	compression   compression.Config
+	blobStor      common.Storage
+	initedStorage bool
 }
 
 func defaultCfg() *cfg {
@@ -114,12 +115,11 @@ func New(opts ...Option) *Shard {
 		opts[i](c)
 	}
 
-	bs := blobstor.New(c.blobOpts...)
+	c.blobStor.SetCompressor(&c.compression)
 	mb := meta.New(c.metaOpts...)
 
 	s := &Shard{
 		cfg:      c,
-		blobStor: bs,
 		metaBase: mb,
 	}
 
@@ -131,7 +131,7 @@ func New(opts ...Option) *Shard {
 		s.writeCache = writecache.New(
 			append(c.writeCacheOpts,
 				writecache.WithReportErrorFunc(reportFunc),
-				writecache.WithBlobstor(bs),
+				writecache.WithStorage(s.blobStor),
 				writecache.WithMetabase(mb))...)
 	}
 
@@ -147,10 +147,32 @@ func WithID(id *ID) Option {
 	}
 }
 
-// WithBlobStorOptions returns option to set internal BlobStor options.
-func WithBlobStorOptions(opts ...blobstor.Option) Option {
+// WithBlobstor provides storage.
+func WithBlobstor(s common.Storage) Option {
 	return func(c *cfg) {
-		c.blobOpts = opts
+		c.blobStor = s
+	}
+}
+
+// WithCompressObjects returns option to toggle
+// compression of the stored objects.
+//
+// If true, Zstandard algorithm is used for data compression.
+//
+// If compressor (decompressor) creation failed,
+// the uncompressed option will be used, and the error
+// is recorded in the provided log.
+func WithCompressObjects(comp bool) Option {
+	return func(c *cfg) {
+		c.compression.Enabled = comp
+	}
+}
+
+// WithUncompressableContentTypes returns option to disable decompression
+// for specific content types as seen by object.AttributeContentType attribute.
+func WithUncompressableContentTypes(values []string) Option {
+	return func(c *cfg) {
+		c.compression.UncompressableContentTypes = values
 	}
 }
 
@@ -184,12 +206,12 @@ func WithWriteCache(use bool) Option {
 }
 
 // hasWriteCache returns bool if write cache exists on shards.
-func (s Shard) hasWriteCache() bool {
+func (s *Shard) hasWriteCache() bool {
 	return s.cfg.useWriteCache
 }
 
 // needResyncMetabase returns true if metabase is needed to be refilled.
-func (s Shard) needResyncMetabase() bool {
+func (s *Shard) needResyncMetabase() bool {
 	return s.cfg.resyncMetabase
 }
 
@@ -275,7 +297,10 @@ func WithReportErrorFunc(f func(selfID string, message string, err error)) Optio
 
 func (s *Shard) fillInfo() {
 	s.cfg.info.MetaBaseInfo = s.metaBase.DumpInfo()
-	s.cfg.info.BlobStorInfo = s.blobStor.DumpInfo()
+	s.cfg.info.BlobStorInfo = StorageInfo{
+		Type: s.blobStor.Type(),
+		Path: s.blobStor.Path(),
+	}
 	s.cfg.info.Mode = s.GetMode()
 
 	if s.cfg.useWriteCache {

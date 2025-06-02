@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/blobstor/common"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/writecache"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -30,7 +30,7 @@ func (s *Shard) GetRange(addr oid.Address, offset uint64, length uint64, skipMet
 
 	var obj *object.Object
 
-	cb := func(stor *blobstor.BlobStor) error {
+	cb := func(stor common.Storage) error {
 		r, err := stor.GetRange(addr, offset, length)
 		if err != nil {
 			return err

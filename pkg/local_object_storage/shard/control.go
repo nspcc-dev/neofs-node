@@ -82,7 +82,7 @@ func (s *Shard) Init() error {
 		Init() error
 	}
 
-	var components []initializer
+	var components = []initializer{&s.compression, s.blobStor}
 
 	if !s.GetMode().NoMetabase() {
 		var initMetabase initializer
@@ -93,11 +93,7 @@ func (s *Shard) Init() error {
 			initMetabase = s.metaBase
 		}
 
-		components = []initializer{
-			s.blobStor, initMetabase,
-		}
-	} else {
-		components = []initializer{s.blobStor}
+		components = append(components, initMetabase)
 	}
 
 	if s.hasWriteCache() {
@@ -120,6 +116,9 @@ func (s *Shard) Init() error {
 			}
 
 			return fmt.Errorf("could not initialize %T: %w", component, err)
+		}
+		if component == s.blobStor {
+			s.initedStorage = true
 		}
 	}
 
@@ -161,7 +160,14 @@ func (s *Shard) resyncMetabase() error {
 		}
 	}
 
-	err = s.blobStor.IterateBinaryObjects(s.resyncObjectHandler)
+	var errorHandler = func(addr oid.Address, err error) error {
+		s.log.Warn("error occurred during the iteration",
+			zap.Stringer("address", addr),
+			zap.String("err", err.Error()))
+		return nil
+	}
+
+	err = s.blobStor.Iterate(s.resyncObjectHandler, errorHandler)
 	if err != nil {
 		return fmt.Errorf("could not put objects to the meta from blobstor: %w", err)
 	}
@@ -243,7 +249,7 @@ func (s *Shard) Close() error {
 		components = append(components, s.writeCache)
 	}
 
-	components = append(components, s.blobStor, s.metaBase)
+	components = append(components, s.blobStor, &s.compression, s.metaBase)
 
 	var lastErr error
 	for _, component := range components {
