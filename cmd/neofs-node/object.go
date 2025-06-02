@@ -221,7 +221,7 @@ func initObjectService(c *cfg) {
 		policer.WithObjectBatchSize(c.appCfg.Policer.ObjectBatchSize),
 	)
 
-	c.workers = append(c.workers, c.shared.policer)
+	// c.workers = append(c.workers, c.shared.policer)
 
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
