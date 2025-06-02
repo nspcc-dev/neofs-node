@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -41,7 +40,6 @@ import (
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	apireputation "github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"go.uber.org/zap"
@@ -416,39 +414,39 @@ func (c *reputationClient) ObjectSearchInit(ctx context.Context, containerID cid
 }
 
 func (c *reputationClientConstructor) Get(info coreclient.NodeInfo) (coreclient.Client, error) {
-	cl, err := c.basicConstructor.Get(info)
-	if err != nil {
-		return nil, err
-	}
-
-	nm, err := c.nmSrc.NetMap()
-	if err == nil {
-		key := info.PublicKey()
-
-		nmNodes := nm.Nodes()
-		var peer apireputation.PeerID
-
-		for i := range nmNodes {
-			if bytes.Equal(nmNodes[i].PublicKey(), key) {
-				peer.SetPublicKey(nmNodes[i].PublicKey())
-
-				prm := truststorage.UpdatePrm{}
-				prm.SetPeer(peer)
-
-				return &reputationClient{
-					MultiAddressClient: cl,
-					prm:                prm,
-					cons:               c,
-				}, nil
-			}
-		}
-	} else {
-		c.log.Warn("could not get latest network map to overload the client",
-			zap.Error(err),
-		)
-	}
-
-	return cl, nil
+	return c.basicConstructor.Get(info)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// nm, err := c.nmSrc.NetMap()
+	// if err == nil {
+	// 	key := info.PublicKey()
+	//
+	// 	nmNodes := nm.Nodes()
+	// 	var peer apireputation.PeerID
+	//
+	// 	for i := range nmNodes {
+	// 		if bytes.Equal(nmNodes[i].PublicKey(), key) {
+	// 			peer.SetPublicKey(nmNodes[i].PublicKey())
+	//
+	// 			prm := truststorage.UpdatePrm{}
+	// 			prm.SetPeer(peer)
+	//
+	// 			return &reputationClient{
+	// 				MultiAddressClient: cl,
+	// 				prm:                prm,
+	// 				cons:               c,
+	// 			}, nil
+	// 		}
+	// 	}
+	// } else {
+	// 	c.log.Warn("could not get latest network map to overload the client",
+	// 		zap.Error(err),
+	// 	)
+	// }
+	//
+	// return cl, nil
 }
 
 type storageEngine struct {
