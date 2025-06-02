@@ -409,13 +409,13 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 }
 
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
-	t := time.Now()
+	// t := time.Now()
 	stream, err := s.handlers.Put(gStream.Context())
 
-	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
-	if err != nil {
-		return err
-	}
+	// defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
+	// if err != nil {
+	// 	return err
+	// }
 
 	var req *protoobject.PutRequest
 	var resp *protoobject.PutResponse
@@ -495,9 +495,9 @@ func (x *deleteResponseBody) SetAddress(addr oid.Address) {
 func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*protoobject.DeleteResponse, error) {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
 	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.makeStatusDeleteResponse(err), nil
@@ -574,9 +574,9 @@ func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
 	// if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.makeStatusHeadResponse(err), nil
@@ -812,9 +812,9 @@ func (s *Server) makeStatusHashResponse(err error) *protoobject.GetRangeHashResp
 func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHashRequest) (*protoobject.GetRangeHashResponse, error) {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
 	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.makeStatusHashResponse(err), nil
 	// }
@@ -1025,9 +1025,9 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectService_GetServer) error {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 	// if err = icrypto.VerifyRequestSignatures(req); err != nil {
 	// 	return s.sendStatusGetResponse(gStream, err)
 	// }
@@ -1265,9 +1265,9 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.ObjectService_GetRangeServer) error {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
 	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.sendStatusRangeResponse(gStream, err)
 	// }
@@ -1485,9 +1485,9 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.ObjectService_SearchServer) error {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
+	// defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
 	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.sendStatusSearchResponse(gStream, err)
 	// }
@@ -1812,9 +1812,9 @@ func (s *Server) makeStatusSearchResponse(err error) *protoobject.SearchV2Respon
 func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
 	var (
 		err error
-		t   = time.Now()
+		// t   = time.Now()
 	)
-	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
+	// defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	// if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
 	// 	return s.makeStatusSearchResponse(err), nil
 	// }
