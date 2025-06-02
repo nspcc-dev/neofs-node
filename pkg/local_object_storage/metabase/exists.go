@@ -16,6 +16,14 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// objectStatus(), inGraveyard() and inGraveyardWithKey() return codes.
+const (
+	statusAvailable = iota
+	statusGCMarked
+	statusTombstoned
+	statusExpired
+)
+
 var ErrLackSplitInfo = logicerr.New("no split info on parent object")
 
 // Exists returns ErrAlreadyRemoved if addr was marked as removed. Otherwise it
@@ -52,18 +60,21 @@ func (db *DB) Exists(addr oid.Address, ignoreExpiration bool) (bool, error) {
 func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists bool, err error) {
 	// check graveyard and object expiration first
 	switch objectStatus(tx, addr, currEpoch) {
-	case 1:
+	case statusGCMarked:
 		return false, logicerr.Wrap(apistatus.ObjectNotFound{})
-	case 2:
+	case statusTombstoned:
 		return false, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
-	case 3:
+	case statusExpired:
 		return false, ErrObjectIsExpired
 	}
 
-	objKey := objectKey(addr.Object(), make([]byte, objectKeySize))
-
-	cnr := addr.Container()
-	key := make([]byte, bucketKeySize)
+	var (
+		cnr       = addr.Container()
+		objKeyBuf = make([]byte, metaIDTypePrefixSize)
+		id        = addr.Object()
+		objKey    = objectKey(id, objKeyBuf[:objectKeySize])
+		key       = make([]byte, bucketKeySize)
+	)
 
 	// if graveyard is empty, then check if object exists in primary bucket
 	if inBucket(tx, primaryBucketName(cnr, key), objKey) {
@@ -71,7 +82,7 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 	}
 
 	// if primary bucket is empty, then check if object is a virtual one
-	splitInfo, err := getSplitInfo(tx, cnr, addr.Object(), key)
+	splitInfo, err := getSplitInfo(tx, cnr, id, key)
 	if err == nil {
 		return false, logicerr.Wrap(objectSDK.NewSplitInfoError(splitInfo))
 	}
@@ -79,15 +90,15 @@ func (db *DB) exists(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) (exists b
 		return false, err
 	}
 
-	// no split info, check if object exists in typed buckets
-	return firstIrregularObjectType(tx, cnr, objKey) != objectSDK.TypeRegular, nil
+	var metaBucket = tx.Bucket(metaBucketKey(cnr))
+	if metaBucket == nil {
+		return false, nil
+	}
+	fillIDTypePrefix(objKeyBuf)
+	typ, err := fetchTypeForID(metaBucket, objKeyBuf, id)
+	return (err == nil && typ != objectSDK.TypeRegular), nil
 }
 
-// objectStatus returns:
-//   - 0 if object is available;
-//   - 1 if object with GC mark;
-//   - 2 if object is covered with tombstone;
-//   - 3 if object is expired.
 func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 	// we check only if the object is expired in the current
 	// epoch since it is considered the only corner case: the
@@ -122,37 +133,44 @@ func objectStatus(tx *bbolt.Tx, addr oid.Address, currEpoch uint64) uint8 {
 
 	if expired {
 		if objectLocked(tx, cID, oID) {
-			return 0
+			return statusAvailable
 		}
 
-		return 3
+		return statusExpired
 	}
 
-	graveyardBkt := tx.Bucket(graveyardBucketName)
-	garbageObjectsBkt := tx.Bucket(garbageObjectsBucketName)
-	garbageContainersBkt := tx.Bucket(garbageContainersBucketName)
-	addrKey := addressKey(addr, make([]byte, addressKeySize))
-
-	removedStatus := inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
-	if removedStatus != 0 && objectLocked(tx, cID, oID) {
-		return 0
+	graveyardStatus := inGraveyard(tx, addr)
+	if graveyardStatus != statusAvailable && objectLocked(tx, cID, oID) {
+		return statusAvailable
 	}
 
-	return removedStatus
+	return graveyardStatus
+}
+
+// inGraveyard is an easier to use version of inGraveyardWithKey for cases
+// where a single address needs to be checked.
+func inGraveyard(tx *bbolt.Tx, addr oid.Address) uint8 {
+	var (
+		addrKey              = addressKey(addr, make([]byte, addressKeySize))
+		garbageContainersBkt = tx.Bucket(garbageContainersBucketName)
+		garbageObjectsBkt    = tx.Bucket(garbageObjectsBucketName)
+		graveyardBkt         = tx.Bucket(graveyardBucketName)
+	)
+	return inGraveyardWithKey(addrKey, graveyardBkt, garbageObjectsBkt, garbageContainersBkt)
 }
 
 func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageContainersBCK *bbolt.Bucket) uint8 {
 	if graveyard == nil {
 		// incorrect metabase state, does not make
 		// sense to check garbage bucket
-		return 0
+		return statusAvailable
 	}
 
 	val := graveyard.Get(addrKey)
 	if val == nil {
 		if garbageObjectsBCK == nil {
 			// incorrect node state
-			return 0
+			return statusAvailable
 		}
 
 		val = garbageContainersBCK.Get(addrKey[:cidSize])
@@ -162,16 +180,16 @@ func inGraveyardWithKey(addrKey []byte, graveyard, garbageObjectsBCK, garbageCon
 
 		if val != nil {
 			// object has been marked with GC
-			return 1
+			return statusGCMarked
 		}
 
 		// neither in the graveyard
 		// nor was marked with GC mark
-		return 0
+		return statusAvailable
 	}
 
 	// object in the graveyard
-	return 2
+	return statusTombstoned
 }
 
 // inBucket checks if key <key> is present in bucket <name>.

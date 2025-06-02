@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const metaIDTypePrefixSize = 1 + objectKeySize + len(object.FilterType) + 1
+
 // ExpiredObject is a descriptor of expired object from DB.
 type ExpiredObject struct {
 	typ object.Type
@@ -34,6 +36,8 @@ func (e *ExpiredObject) Address() oid.Address {
 
 // ExpiredObjectHandler is an ExpiredObject handling function.
 type ExpiredObjectHandler func(*ExpiredObject) error
+
+var errObjTypeNotFound = errors.New("object type not found")
 
 // ErrInterruptIterator is returned by iteration handlers
 // as a "break" keyword.
@@ -80,18 +84,43 @@ func keyToEpochOID(k []byte, expStart []byte) (uint64, oid.ID) {
 	return binary.BigEndian.Uint64(f256[32-8:]), id
 }
 
+// metaBucket is metadata bucket (0xff), typPrefix is the key for FilterType
+// object ID-Attribute key, id is the ID we're looking for.
+func fetchTypeForID(metaBucket *bbolt.Bucket, typPrefix []byte, id oid.ID) (object.Type, error) {
+	var (
+		typCur = metaBucket.Cursor()
+		typ    object.Type
+	)
+	copy(typPrefix[1:], id[:])
+	typKey, _ := typCur.Seek(typPrefix)
+	if bytes.HasPrefix(typKey, typPrefix) {
+		var success = typ.DecodeString(string(typKey[len(typPrefix):]))
+		if !success {
+			return typ, errors.New("can't parse object type")
+		}
+		return typ, nil
+	}
+	return typ, errObjTypeNotFound
+}
+
+// fillIDTypePrefix puts metaPrefixIDAttr and FilterType properly into typPrefix
+// for subsequent use in fetchTypeForID.
+func fillIDTypePrefix(typPrefix []byte) {
+	typPrefix[0] = metaPrefixIDAttr
+	copy(typPrefix[1+objectKeySize:], object.FilterType)
+}
+
 func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandler) error {
 	var (
 		expStart  = make([]byte, 1+len(object.AttributeExpirationEpoch)+1+1)
-		typPrefix = make([]byte, 1+objectKeySize+len(object.FilterType)+1)
+		typPrefix = make([]byte, metaIDTypePrefixSize)
 	)
 
 	expStart[0] = metaPrefixAttrIDInt
 	copy(expStart[1:], object.AttributeExpirationEpoch)
 	expStart[len(expStart)-1] = 1 // Positive integer.
 
-	typPrefix[0] = metaPrefixIDAttr
-	copy(typPrefix[1+objectKeySize:], object.FilterType)
+	fillIDTypePrefix(typPrefix)
 
 	err := tx.ForEach(func(name []byte, b *bbolt.Bucket) error {
 		if len(name) != bucketKeySize || name[0] != metadataPrefix {
@@ -119,30 +148,18 @@ func (db *DB) iterateExpired(tx *bbolt.Tx, curEpoch uint64, h ExpiredObjectHandl
 				continue
 			}
 
-			copy(typPrefix[1:], id[:])
-
-			var (
-				addr   oid.Address
-				typCur = b.Cursor()
-				typ    object.Type
-			)
+			var addr oid.Address
 
 			addr.SetContainer(cnrID)
 			addr.SetObject(id)
 
-			typKey, _ := typCur.Seek(typPrefix)
-			if bytes.HasPrefix(typKey, typPrefix) {
-				var success = typ.DecodeString(string(typKey[len(typPrefix):]))
-				if !success {
-					db.log.Warn("can't parse object type", zap.Stringer("object", addr))
-					// Keep going, treat as regular.
-				}
-			} else {
-				db.log.Warn("object type not found", zap.Stringer("object", addr))
-				// Keep going, treat as regular.
+			typ, err := fetchTypeForID(b, typPrefix, id)
+			if err != nil {
+				db.log.Warn("inconsistent DB in expired iterator",
+					zap.Stringer("object", addr), zap.Error(err))
 			}
 
-			var err = h(&ExpiredObject{
+			err = h(&ExpiredObject{
 				typ:  typ,
 				addr: addr,
 			})

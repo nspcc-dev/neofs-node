@@ -119,7 +119,7 @@ func (db *DB) inhume(tombstone *oid.Address, tombExpiration uint64, force bool, 
 			obj, err := get(tx, addr, buf, false, true, currEpoch)
 			targetKey := addressKey(addr, buf)
 			if err == nil {
-				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == 0 {
+				if inGraveyardWithKey(targetKey, graveyardBKT, garbageObjectsBKT, garbageContainersBKT) == statusAvailable {
 					// object is available, decrement the
 					// logical counter
 					inhumed++

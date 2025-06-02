@@ -48,11 +48,11 @@ func (db *DB) Get(addr oid.Address, raw bool) (*objectSDK.Object, error) {
 func get(tx *bbolt.Tx, addr oid.Address, key []byte, checkStatus, raw bool, currEpoch uint64) (*objectSDK.Object, error) {
 	if checkStatus {
 		switch objectStatus(tx, addr, currEpoch) {
-		case 1:
+		case statusGCMarked:
 			return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
-		case 2:
+		case statusTombstoned:
 			return nil, logicerr.Wrap(apistatus.ObjectAlreadyRemoved{})
-		case 3:
+		case statusExpired:
 			return nil, ErrObjectIsExpired
 		}
 	}
