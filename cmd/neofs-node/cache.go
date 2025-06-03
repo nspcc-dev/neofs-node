@@ -171,7 +171,10 @@ func (c *lruNetCache) get(key uint64) (*netmapSDK.NetMap, error) {
 		return nil, err
 	}
 
-	c.cache.Add(key, val)
+	if val != nil && len(val.Nodes()) != 0 {
+		// cache only non-empty netmap
+		c.cache.Add(key, val)
+	}
 
 	return val, nil
 }
