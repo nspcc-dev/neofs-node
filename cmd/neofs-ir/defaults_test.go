@@ -91,6 +91,10 @@ func TestValidateDefaultConfig(t *testing.T) {
 			Address:         "localhost:9090",
 			ShutdownTimeout: 30000000000,
 		},
+		Validator: config.Validator{
+			Enabled: false,
+			URL:     "",
+		},
 		Settlement: config.Settlement{
 			BasicIncomeRate: 0,
 			AuditFee:        0,

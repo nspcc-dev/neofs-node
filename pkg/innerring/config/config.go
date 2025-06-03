@@ -50,6 +50,8 @@ type Config struct {
 
 	Prometheus BasicService `mapstructure:"prometheus"`
 
+	Validator Validator `mapstructure:"sn_validator"`
+
 	Settlement Settlement `mapstructure:"settlement"`
 
 	Experimental Experimental `mapstructure:"experimental"`
@@ -106,6 +108,12 @@ type BasicService struct {
 	Enabled         bool          `mapstructure:"enabled"`
 	Address         string        `mapstructure:"address"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+}
+
+// Validator represents the configuration for an external validation service.
+type Validator struct {
+	Enabled bool   `mapstructure:"enabled"`
+	URL     string `mapstructure:"url"`
 }
 
 // Settlement overrides some settlements from network config.
