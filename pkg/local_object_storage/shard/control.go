@@ -141,7 +141,7 @@ func (s *Shard) Init() error {
 		},
 	}
 
-	s.gc.init()
+	// s.gc.init()
 
 	return nil
 }
