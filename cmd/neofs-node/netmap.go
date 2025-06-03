@@ -226,6 +226,10 @@ func initNetmapService(c *cfg) {
 		err = c.heartbeat()
 		if err != nil {
 			c.log.Warn("can't send heartbeat tx", zap.Error(err))
+			if errors.Is(err, errIncorrectStatus) {
+				err = c.bootstrapOnline()
+				c.log.Warn("can't send bootstrap tx", zap.Error(err))
+			}
 		}
 	})
 
