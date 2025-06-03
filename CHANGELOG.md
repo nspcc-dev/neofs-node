@@ -16,6 +16,7 @@ Changelog for NeoFS Node
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
 - Use local BoltDB fork with improved performance (#3372)
+- Cache only non-empty netmap (#3378)
 
 ### Removed
 - `blobstor` package (#3371)
