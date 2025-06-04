@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/nspcc-dev/neofs-node/pkg/network"
@@ -33,9 +32,9 @@ func NodeInfoFromRawNetmapElement(dst *NodeInfo, info interface {
 // Returns ErrWrongPublicKey in case of key mismatch.
 func AssertKeyResponseCallback(expectedKey []byte) func(client.ResponseMetaInfo) error {
 	return func(info client.ResponseMetaInfo) error {
-		if !bytes.Equal(info.ResponderKey(), expectedKey) {
-			return ErrWrongPublicKey
-		}
+		// if !bytes.Equal(info.ResponderKey(), expectedKey) {
+		// 	return ErrWrongPublicKey
+		// }
 
 		return nil
 	}

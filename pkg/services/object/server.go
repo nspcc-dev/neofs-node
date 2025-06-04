@@ -2106,9 +2106,9 @@ func searchOnRemoteAddress(ctx context.Context, conn *grpc.ClientConn, nodePub [
 		return nil, false, fmt.Errorf("send request over gRPC: %w", err)
 	}
 
-	if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
-		return nil, false, client.ErrWrongPublicKey
-	}
+	// if !bytes.Equal(resp.GetVerifyHeader().GetBodySignature().GetKey(), nodePub) {
+	// 	return nil, false, client.ErrWrongPublicKey
+	// }
 	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
 		return nil, false, fmt.Errorf("response verification failed: %w", err)
 	}

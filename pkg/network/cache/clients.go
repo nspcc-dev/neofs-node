@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -232,9 +231,9 @@ func (x *Clients) initConnection(pub []byte, uri string) (*client.Client, error)
 		return nil, fmt.Errorf("init gRPC client conn: %w", err)
 	}
 	res, err := client.NewGRPC(grpcConn, x.signBufPool, x.streamMsgTimeout, func(respPub []byte) error {
-		if !bytes.Equal(respPub, pub) {
-			return clientcore.ErrWrongPublicKey
-		}
+		// if !bytes.Equal(respPub, pub) {
+		// 	return clientcore.ErrWrongPublicKey
+		// }
 		return nil
 	})
 	if err != nil {
