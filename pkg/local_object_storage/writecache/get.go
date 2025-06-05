@@ -11,6 +11,9 @@ import (
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
 func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
 	obj, err := c.fsTree.Get(addr)
 	if err != nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
@@ -23,6 +26,9 @@ func (c *cache) Get(addr oid.Address) (*objectSDK.Object, error) {
 //
 // Returns an error of type apistatus.ObjectNotFound if the requested object is missing in write-cache.
 func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
 	obj, err := c.Get(addr)
 	if err != nil {
 		return nil, err
@@ -32,6 +38,9 @@ func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 }
 
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
+	if !c.objCounters.HasAddress(addr) {
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
+	}
 	b, err := c.fsTree.GetBytes(addr)
 	if err != nil {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})

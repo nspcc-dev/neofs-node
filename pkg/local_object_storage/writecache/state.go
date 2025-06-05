@@ -36,6 +36,13 @@ func (x *counters) Size() uint64 {
 	return x.size
 }
 
+func (x *counters) HasAddress(addr oid.Address) bool {
+	x.mu.RLock()
+	defer x.mu.RUnlock()
+	_, ok := x.objMap[addr]
+	return ok
+}
+
 func (x *counters) Map() map[oid.Address]uint64 {
 	x.mu.RLock()
 	defer x.mu.RUnlock()
