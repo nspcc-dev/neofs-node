@@ -14,6 +14,7 @@ Changelog for NeoFS Node
 - Old objects without a session token lifetime are not valid (#3373)
 - Node attributes are not updated in map after configuration/version change (#3363)
 - Node not trying to return to the map without restart once it's out for any reason (#3379)
+- Locked object could be deleted from write cache (#3381)
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
