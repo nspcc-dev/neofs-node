@@ -13,9 +13,8 @@ import (
 
 func TestWriteCacheObjectLoss(t *testing.T) {
 	const (
-		objectSize    = 1024
-		maxObjectSize = 2048
-		objCount      = 100
+		objectSize = 1024
+		objCount   = 100
 	)
 
 	objects := make([]*objectSDK.Object, objCount)
@@ -27,8 +26,7 @@ func TestWriteCacheObjectLoss(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	wcOpts := []writecache.Option{
-		writecache.WithMaxObjectSize(maxObjectSize)}
+	wcOpts := []writecache.Option{}
 
 	sh := newCustomShard(t, dir, true, wcOpts)
 

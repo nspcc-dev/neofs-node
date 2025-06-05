@@ -24,11 +24,13 @@ Changelog for NeoFS Node
 
 ### Removed
 - `blobstor` package (#3371)
+- `max_object_size` write cache configuration (#3381)
 
 ### Updated
 - `github.com/nspcc-dev/neofs-sdk-go` dependency to `v1.0.0-rc.13.0.20250530123548-f8dbe53f3996` (#3373)
 
 ### Updating from v0.46.1
+Remove `max_object_size` configuration from write caches, it's no longer needed.
 
 ## [0.46.1] - 2025-05-16
 

@@ -82,8 +82,7 @@ type objectInfo struct {
 }
 
 const (
-	defaultMaxObjectSize = 64 * 1024 * 1024 // 64 MiB
-	defaultMaxCacheSize  = 1 << 30          // 1 GiB
+	defaultMaxCacheSize = 1 << 30 // 1 GiB
 )
 
 var (
@@ -98,10 +97,9 @@ func New(opts ...Option) Cache {
 		mode:       mode.ReadWrite,
 
 		options: options{
-			log:           zap.NewNop(),
-			metrics:       new(metricsWithID),
-			maxObjectSize: defaultMaxObjectSize,
-			maxCacheSize:  defaultMaxCacheSize,
+			log:          zap.NewNop(),
+			metrics:      new(metricsWithID),
+			maxCacheSize: defaultMaxCacheSize,
 			objCounters: counters{
 				objMap: make(map[oid.Address]uint64),
 			},

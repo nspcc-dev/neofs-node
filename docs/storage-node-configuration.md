@@ -240,7 +240,6 @@ writecache:
   enabled: true
   path: /path/to/writecache
   capacity: 4294967296
-  max_object_size: 134217728
 ```
 
 | Parameter           | Type       | Default value | Description                                                                                                          |
@@ -249,7 +248,6 @@ writecache:
 | `path`              | `string`   |               | Path to the metabase file.                                                                                           |
 | `capacity`          | `size`     | unrestricted  | Approximate maximum size of the writecache. If the writecache is full, objects are written to the blobstor directly. |
 | `no_sync`           | `bool`     | `false`       | Disable write synchronization, makes writes faster, but can lead to data loss.                                       |
-| `max_object_size`   | `size`     | `64M`         | Maximum object size allowed to be stored in the writecache.                                                          |
 
 
 # `metadata` section

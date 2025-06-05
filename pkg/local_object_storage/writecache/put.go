@@ -9,8 +9,6 @@ import (
 )
 
 var (
-	// ErrBigObject is returned when object is too big to be placed in cache.
-	ErrBigObject = errors.New("too big object")
 	// ErrOutOfSpace is returned when there is no space left to put a new object.
 	ErrOutOfSpace = errors.New("no space left in the write cache")
 )
@@ -21,11 +19,6 @@ func (c *cache) Put(addr oid.Address, obj *objectSDK.Object, data []byte) error 
 	defer c.modeMtx.RUnlock()
 	if c.readOnly() {
 		return ErrReadOnly
-	}
-
-	sz := uint64(len(data))
-	if sz > c.maxObjectSize {
-		return ErrBigObject
 	}
 
 	if c.metrics.mr != nil {

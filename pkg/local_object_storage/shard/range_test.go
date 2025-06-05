@@ -33,11 +33,6 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 		rng         *objectSDK.Range
 	}
 
-	const (
-		writeCacheMaxSize = 1024
-		smallObjectSize   = 2048
-	)
-
 	newRange := func(off, ln uint64) *objectSDK.Range {
 		rng := objectSDK.NewRange()
 		rng.SetOffset(off)
@@ -62,7 +57,7 @@ func testShardGetRange(t *testing.T, hasWriteCache bool) {
 	}
 
 	sh := newCustomShard(t, t.TempDir(), hasWriteCache,
-		[]writecache.Option{writecache.WithMaxObjectSize(writeCacheMaxSize)},
+		[]writecache.Option{},
 		shard.WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(t.TempDir(), "fstree"))),
 		))

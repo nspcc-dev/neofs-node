@@ -31,8 +31,6 @@ type options struct {
 	storage stor
 	// metabase is the metabase instance.
 	metabase Metabase
-	// maxObjectSize is the maximum size of the object stored in the write-cache.
-	maxObjectSize uint64
 	// maxCacheSize is the maximum total size of all objects saved in cache.
 	// 1 GiB by default.
 	maxCacheSize uint64
@@ -79,15 +77,6 @@ func WithStorage(s common.Storage) Option {
 func WithMetabase(db Metabase) Option {
 	return func(o *options) {
 		o.metabase = db
-	}
-}
-
-// WithMaxObjectSize sets maximum object size to be stored in write-cache.
-func WithMaxObjectSize(sz uint64) Option {
-	return func(o *options) {
-		if sz > 0 {
-			o.maxObjectSize = sz
-		}
 	}
 }
 
