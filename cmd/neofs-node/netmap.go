@@ -226,6 +226,10 @@ func initNetmapService(c *cfg) {
 		err = c.heartbeat()
 		if err != nil {
 			c.log.Warn("can't send heartbeat tx", zap.Error(err))
+			if errors.Is(err, errIncorrectStatus) {
+				err = c.bootstrapOnline()
+				c.log.Warn("can't send bootstrap tx", zap.Error(err))
+			}
 		}
 	})
 
@@ -269,8 +273,18 @@ func initNetmapService(c *cfg) {
 // Must be called after initNetmapService.
 func bootstrapNode(c *cfg) {
 	if c.needBootstrap() {
-		if c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE {
-			c.log.Info("current state is offline")
+		var netInfo, inMap = c.cfgNetmap.state.getNodeInfo()
+
+		c.cfgNodeInfo.localInfoLock.RLock()
+		var localAttrs = c.cfgNodeInfo.localInfo.GetAttributes()
+		c.cfgNodeInfo.localInfoLock.RUnlock()
+
+		var (
+			sameAttrs = nodeAttrsEqual(localAttrs, netInfo.GetAttributes())
+			isOffline = c.cfgNetmap.state.controlNetmapStatus() == control.NetmapStatus_OFFLINE
+		)
+		if isOffline || !inMap || !sameAttrs {
+			c.log.Info("bootstrapping node", zap.Bool("offline", isOffline), zap.Bool("inMap", inMap), zap.Bool("sameAttributes", sameAttrs))
 			err := c.bootstrapOnline()
 			fatalOnErrDetails("bootstrap error", err)
 		} else {

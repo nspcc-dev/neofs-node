@@ -12,6 +12,8 @@ Changelog for NeoFS Node
 - Invalid URI error text in `request create-container` CLI command (#3366)
 - Invalid object ID error text in `object delete` CLI command (#3366)
 - Old objects without a session token lifetime are not valid (#3373)
+- Node attributes are not updated in map after configuration/version change (#3363)
+- Node not trying to return to the map without restart once it's out for any reason (#3379)
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)

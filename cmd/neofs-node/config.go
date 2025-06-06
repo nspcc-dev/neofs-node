@@ -62,6 +62,10 @@ const (
 	profilerName = "pprof"
 )
 
+// errIncorrectStatus is returned from heartbeat when it can't be performed
+// because of incorrect (likely offline) status.
+var errIncorrectStatus = errors.New("incorrect current network map status")
+
 // internals contains application-specific internals that are created
 // on application startup and are shared b/w the components during
 // the application life cycle.
@@ -619,7 +623,7 @@ func (c *cfg) heartbeat() error {
 	case control.NetmapStatus_ONLINE:
 		st = netmaprpc.NodeStateOnline
 	default:
-		return fmt.Errorf("incorrect current network map status %v, restart recommended", currentStatus)
+		return fmt.Errorf("%w: %v", errIncorrectStatus, currentStatus)
 	}
 	return c.updateNetMapState(st)
 }
