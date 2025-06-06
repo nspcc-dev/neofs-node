@@ -14,7 +14,7 @@ type requestXHeaderSource struct {
 }
 
 type responseXHeaderSource struct {
-	resp Response
+	resp any
 
 	req Request
 }

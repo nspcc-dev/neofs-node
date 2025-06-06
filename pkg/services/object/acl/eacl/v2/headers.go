@@ -218,13 +218,9 @@ func (h *cfg) readObjectHeaders(dst *headerSource) error {
 			dst.objectHeaders = objectHeaders
 			dst.incompleteObjectHeaders = !completed
 		case *protoobject.GetResponse:
-			if v, ok := resp.GetBody().GetObjectPart().(*protoobject.GetResponse_Body_Init_); ok {
-				if v == nil || v.Init == nil {
-					return errors.New("nil oneof field with heading part")
-				}
+			if resp.Header != nil {
 				mo := &protoobject.Object{
-					ObjectId: v.Init.ObjectId,
-					Header:   v.Init.Header,
+					Header: resp.Header,
 				}
 
 				var obj object.Object

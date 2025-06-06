@@ -963,7 +963,6 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 }
 
 func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
 	return stream.Send(resp)
 }
 
@@ -971,15 +970,11 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
-			Body: &protoobject.GetResponse_Body{
-				ObjectPart: &protoobject.GetResponse_Body_SplitInfo{
-					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
-				},
-			},
+			SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 		})
 	}
 	return s.sendGetResponse(stream, &protoobject.GetResponse{
-		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
+		Status: util.ToStatus(err),
 	})
 }
 
@@ -987,39 +982,68 @@ type getStream struct {
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+	fullLen uint64
+
+	curResp *protoobject.GetResponse
+	sentLen uint64
+}
+
+func (s *getStream) flushResponse() error {
+	s.sentLen += uint64(len(s.curResp.PayloadChunk))
+
+	s.srv.metrics.AddGetPayload(len(s.curResp.PayloadChunk))
+
+	resp := s.curResp
+	if s.sentLen < s.fullLen {
+		s.curResp = new(protoobject.GetResponse)
+	}
+
+	return s.srv.sendGetResponse(s.base, resp)
 }
 
 func (s *getStream) WriteHeader(hdr *object.Object) error {
 	mo := hdr.ProtoMessage()
 	resp := &protoobject.GetResponse{
-		Body: &protoobject.GetResponse_Body{
-			ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{
-				ObjectId:  mo.ObjectId,
-				Signature: mo.Signature,
-				Header:    mo.Header,
-			}},
-		},
+		Header:    mo.Header,
+		Signature: mo.Signature,
 	}
+
 	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
 		return eACLErr(s.reqInfo, err)
 	}
-	return s.srv.sendGetResponse(s.base, resp)
+
+	s.fullLen = mo.Header.PayloadLength
+	s.curResp = resp
+
+	return s.WriteChunk(mo.Payload)
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
-	for buf := bytes.NewBuffer(chunk); buf.Len() > 0; {
-		newResp := &protoobject.GetResponse{
-			Body: &protoobject.GetResponse_Body{
-				ObjectPart: &protoobject.GetResponse_Body_Chunk{
-					Chunk: buf.Next(maxRespDataChunkSize),
-				},
-			},
+	chunkLen := uint64(len(chunk))
+	cachedLen := uint64(len(s.curResp.PayloadChunk))
+	sumLen := cachedLen + chunkLen
+
+	if sumLen < maxRespDataChunkSize {
+		s.curResp.PayloadChunk = append(s.curResp.PayloadChunk, chunk...)
+
+		if s.sentLen+sumLen < s.fullLen {
+			return nil
 		}
-		if err := s.srv.sendGetResponse(s.base, newResp); err != nil {
-			return err
-		}
+
+		return s.flushResponse()
 	}
-	s.srv.metrics.AddGetPayload(len(chunk))
+
+	cut := maxRespDataChunkSize - cachedLen
+	s.curResp.PayloadChunk = append(s.curResp.PayloadChunk, chunk[:cut]...)
+
+	if err := s.flushResponse(); err != nil {
+		return err
+	}
+
+	if cut < chunkLen {
+		return s.WriteChunk(chunk[cut:])
+	}
+
 	return nil
 }
 
@@ -1137,7 +1161,7 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 
 	var headWas bool
 	var readPayload int
-	for {
+	for ; ; headWas = true {
 		resp, err := getStream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -1149,69 +1173,59 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 			return fmt.Errorf("reading the response failed: %w", err)
 		}
 
-		if err = internal.VerifyResponseKeyV2(nodePub, resp); err != nil {
-			return err
-		}
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("response verification failed: %w", err)
-		}
-		if err := checkStatus(resp.GetMetaHeader().GetStatus()); err != nil {
+		if err := checkStatus(resp.Status); err != nil {
 			return err
 		}
 
-		switch v := resp.GetBody().GetObjectPart().(type) {
-		default:
-			return fmt.Errorf("unexpected object part %T", v)
-		case *protoobject.GetResponse_Body_Init_:
-			if headWas {
-				return errors.New("incorrect message sequence")
+		if !headWas {
+			switch {
+			default:
+				return errors.New("neither header nor split info field is set")
+			case resp.SplitInfo != nil:
+				if resp.Header != nil || resp.Signature != nil || len(resp.PayloadChunk) > 0 {
+					return errors.New("mutually exclusive fields are set")
+				}
+				var si object.SplitInfo
+				if err := si.FromProtoMessage(resp.SplitInfo); err != nil {
+					return fmt.Errorf("invalid split info field: %w", err)
+				}
+				return object.NewSplitInfoError(&si)
+			case resp.Header != nil:
+				if resp.Signature == nil {
+					return errors.New("missing signature field")
+				}
+				mo := &protoobject.Object{
+					Signature: resp.Signature,
+					Header:    resp.Header,
+					Payload:   resp.PayloadChunk,
+				}
+				var obj object.Object
+				if err := obj.FromProtoMessage(mo); err != nil {
+					return err
+				}
+				onceHdr.Do(func() { err = stream.WriteHeader(&obj) })
+				if err != nil {
+					return fmt.Errorf("could not write object header in Get forwarder: %w", err)
+				}
 			}
-			headWas = true
-			if v == nil || v.Init == nil {
-				return errors.New("nil header oneof field")
-			}
-			mo := &protoobject.Object{
-				ObjectId:  v.Init.ObjectId,
-				Signature: v.Init.Signature,
-				Header:    v.Init.Header,
-			}
-			obj := object.New()
-			err := obj.FromProtoMessage(mo)
-			if err != nil {
-				return err
-			}
-			onceHdr.Do(func() {
-				err = stream.WriteHeader(obj)
-			})
-			if err != nil {
-				return fmt.Errorf("could not write object header in Get forwarder: %w", err)
-			}
-		case *protoobject.GetResponse_Body_Chunk:
-			if !headWas {
-				return errors.New("incorrect message sequence")
-			}
-			fullChunk := v.Chunk
-			respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
-			if len(respChunk) == 0 {
-				readPayload += len(fullChunk)
-				continue
-			}
-			if err := stream.WriteChunk(respChunk); err != nil {
-				return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
-			}
-			readPayload += len(fullChunk)
-			*respondedPayload += len(respChunk)
-		case *protoobject.GetResponse_Body_SplitInfo:
-			if v == nil || v.SplitInfo == nil {
-				return errors.New("nil split info oneof field")
-			}
-			si := object.NewSplitInfo()
-			err := si.FromProtoMessage(v.SplitInfo)
-			if err != nil {
-				return err
-			}
-			return object.NewSplitInfoError(si)
+			continue
 		}
+
+		if resp.Header != nil || resp.Signature != nil || resp.SplitInfo != nil {
+			return errors.New("non-chunk field is set in subsequent message")
+		}
+
+		fullChunk := resp.PayloadChunk
+		respChunk := chunkToSend(*respondedPayload, readPayload, fullChunk)
+		if len(respChunk) == 0 {
+			readPayload += len(fullChunk)
+			continue
+		}
+		if err := stream.WriteChunk(respChunk); err != nil {
+			return fmt.Errorf("could not write object chunk in Get forwarder: %w", err)
+		}
+		readPayload += len(fullChunk)
+		*respondedPayload += len(respChunk)
 	}
 }
 

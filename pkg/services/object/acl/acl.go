@@ -227,7 +227,7 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	} else {
 		hdrSrcOpts = append(hdrSrcOpts,
 			eaclV2.WithServiceResponse(
-				msg.(eaclV2.Response),
+				msg,
 				reqInfo.Request().(eaclV2.Request),
 			),
 		)
