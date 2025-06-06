@@ -2,14 +2,17 @@ package shard_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	objectSDK "github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,4 +80,83 @@ func testHead(t *testing.T, sh *shard.Shard, addr oid.Address, raw bool, hasWrit
 		}, time.Second, time.Millisecond*100)
 	}
 	return res, err
+}
+
+func TestHeadStorage(t *testing.T) {
+	sh := newCustomShard(t, t.TempDir(), false, nil, shard.WithMode(mode.Degraded))
+	defer releaseShard(sh, t)
+
+	t.Run("empty payload", func(t *testing.T) {
+		obj := generateObject()
+		obj.SetPayload([]byte{})
+
+		err := sh.Put(obj, nil, 0)
+		require.NoError(t, err)
+
+		res, err := sh.Head(object.AddressOf(obj), false)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload(), res)
+		require.Empty(t, res.Payload())
+	})
+
+	t.Run("large payload", func(t *testing.T) {
+		obj := generateObject()
+		addPayload(obj, 1024*1024)
+
+		err := sh.Put(obj, nil, 0)
+		require.NoError(t, err)
+
+		res, err := sh.Head(object.AddressOf(obj), false)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload(), res)
+		require.Empty(t, res.Payload())
+	})
+
+	t.Run("many attributes", func(t *testing.T) {
+		obj := generateObject()
+		numAttrs := 100
+		for i := range numAttrs {
+			addAttribute(obj, fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+		}
+
+		err := sh.Put(obj, nil, 0)
+		require.NoError(t, err)
+
+		res, err := sh.Head(object.AddressOf(obj), false)
+		require.NoError(t, err)
+		require.Equal(t, obj.CutPayload(), res)
+		require.Len(t, res.Attributes(), numAttrs)
+	})
+
+	t.Run("non-existent object", func(t *testing.T) {
+		fakeAddr := oid.Address{}
+		fakeAddr.SetContainer(cidtest.ID())
+		fakeAddr.SetObject(oidtest.ID())
+
+		_, err := sh.Head(fakeAddr, false)
+		require.Error(t, err)
+		require.True(t, shard.IsErrNotFound(err))
+	})
+
+	t.Run("different payload sizes", func(t *testing.T) {
+		payloadSizes := []int{0, 1, 100, 1024, 1024 * 1024}
+
+		for _, size := range payloadSizes {
+			t.Run(fmt.Sprintf("%dB", size), func(t *testing.T) {
+				obj := generateObject()
+				if size > 0 {
+					addPayload(obj, size)
+				} else {
+					obj.SetPayload([]byte{})
+				}
+
+				err := sh.Put(obj, nil, 0)
+				require.NoError(t, err)
+
+				res, err := sh.Head(object.AddressOf(obj), false)
+				require.NoError(t, err)
+				require.Equal(t, obj.CutPayload(), res)
+			})
+		}
+	})
 }
