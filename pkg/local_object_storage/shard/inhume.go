@@ -45,12 +45,6 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 		return ErrDegradedMode
 	}
 
-	if s.hasWriteCache() {
-		for i := range addrs {
-			_ = s.writeCache.Delete(addrs[i])
-		}
-	}
-
 	var (
 		deletedLockObjs []oid.Address
 		err             error
@@ -76,6 +70,12 @@ func (s *Shard) inhume(tombstone *oid.Address, tombExpiration uint64, force bool
 		s.m.RUnlock()
 
 		return fmt.Errorf("metabase inhume: %w", err)
+	}
+
+	if s.hasWriteCache() {
+		for i := range addrs {
+			_ = s.writeCache.Delete(addrs[i])
+		}
 	}
 
 	s.m.RUnlock()

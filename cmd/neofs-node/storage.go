@@ -131,7 +131,6 @@ func (c *cfg) shardOpts() []shardOptsWithID {
 		if wcRead := shCfg.WriteCache; *wcRead.Enabled {
 			writeCacheOpts = append(writeCacheOpts,
 				writecache.WithPath(wcRead.Path),
-				writecache.WithMaxObjectSize(uint64(wcRead.MaxObjectSize)),
 				writecache.WithMaxCacheSize(uint64(wcRead.Capacity)),
 				writecache.WithNoSync(*wcRead.NoSync),
 				writecache.WithLogger(c.log),

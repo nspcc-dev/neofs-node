@@ -119,7 +119,6 @@
           "enabled": false,
           "no_sync": true,
           "path": "tmp/0/cache",
-          "max_object_size": 134217728,
           "capacity": 3221225472
         },
         "metabase": {
@@ -149,7 +148,6 @@
         "writecache": {
           "enabled": true,
           "path": "tmp/1/cache",
-          "max_object_size": 134217728,
           "capacity": 4294967296
         },
         "metabase": {

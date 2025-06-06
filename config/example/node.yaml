@@ -106,7 +106,6 @@ storage:
 
     writecache:
       enabled: true
-      max_object_size: 134217728  # size threshold for "big" objects which bypass write-cache and go to the storage directly, bytes
 
     metabase:
       perm: 0644  # permissions for metabase files(directories: +x for current user and group)

@@ -180,7 +180,6 @@ storage:
 
     writecache:
       enabled: true
-      max_object_size: 134217728
 
     metabase:
       perm: 0644

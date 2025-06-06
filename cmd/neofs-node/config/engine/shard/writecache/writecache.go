@@ -13,11 +13,10 @@ const (
 
 // WriteCache contains configuration for write cache.
 type WriteCache struct {
-	Enabled       *bool         `mapstructure:"enabled"`
-	Path          string        `mapstructure:"path"`
-	Capacity      internal.Size `mapstructure:"capacity"`
-	NoSync        *bool         `mapstructure:"no_sync"`
-	MaxObjectSize internal.Size `mapstructure:"max_object_size"`
+	Enabled  *bool         `mapstructure:"enabled"`
+	Path     string        `mapstructure:"path"`
+	Capacity internal.Size `mapstructure:"capacity"`
+	NoSync   *bool         `mapstructure:"no_sync"`
 }
 
 // Normalize sets default values for write cache fields if they are not set.
@@ -25,5 +24,4 @@ func (wc *WriteCache) Normalize(def WriteCache) {
 	wc.Enabled = internal.CheckPtrBool(wc.Enabled, def.Enabled)
 	wc.NoSync = internal.CheckPtrBool(wc.NoSync, def.NoSync)
 	wc.Capacity.Check(def.Capacity, SizeLimitDefault)
-	wc.MaxObjectSize.Check(def.MaxObjectSize, MaxSizeDefault)
 }

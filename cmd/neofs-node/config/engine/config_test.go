@@ -64,7 +64,6 @@ func TestEngineSection(t *testing.T) {
 				require.True(t, *wc.NoSync)
 
 				require.Equal(t, "tmp/0/cache", wc.Path)
-				require.EqualValues(t, 134217728, wc.MaxObjectSize)
 				require.EqualValues(t, 3221225472, wc.Capacity)
 
 				require.Equal(t, "tmp/0/meta", meta.Path)
@@ -90,7 +89,6 @@ func TestEngineSection(t *testing.T) {
 				require.False(t, *wc.NoSync)
 
 				require.Equal(t, "tmp/1/cache", wc.Path)
-				require.EqualValues(t, 134217728, wc.MaxObjectSize)
 				require.EqualValues(t, 4294967296, wc.Capacity)
 
 				require.Equal(t, "tmp/1/meta", meta.Path)

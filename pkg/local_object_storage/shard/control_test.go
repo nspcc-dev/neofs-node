@@ -122,14 +122,14 @@ func TestResyncMetabase(t *testing.T) {
 
 	defer os.RemoveAll(p)
 
-	testObj := objecttest.Object()
-	writeCacheThreshold := len(testObj.Marshal())
-
+	shID := ID("test")
 	sh := New(
 		WithBlobstor(fstree.New(
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
+		WithID(&shID),
+		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta")),
 			meta.WithEpochState(epochState{}),
@@ -137,9 +137,11 @@ func TestResyncMetabase(t *testing.T) {
 		WithWriteCache(true),
 		WithWriteCacheOptions(
 			writecache.WithPath(filepath.Join(p, "wc")),
-			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
+			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
+
+	require.NoError(t, sh.UpdateID())
 
 	// open Blobstor
 	require.NoError(t, sh.Open())
@@ -158,8 +160,7 @@ func TestResyncMetabase(t *testing.T) {
 		obj.SetType(objectSDK.TypeRegular)
 
 		if i < objNum/2 {
-			// this object goes to blobstor directly for sure
-			payload := make([]byte, writeCacheThreshold)
+			payload := make([]byte, 1024)
 			_, err := rand.Read(payload)
 			require.NoError(t, err)
 
@@ -292,6 +293,8 @@ func TestResyncMetabase(t *testing.T) {
 			fstree.WithPath(filepath.Join(p, "fstree")),
 			fstree.WithDepth(1)),
 		),
+		WithID(&shID),
+		WithLogger(zaptest.NewLogger(t)),
 		WithMetaBaseOptions(
 			meta.WithPath(filepath.Join(p, "meta_restored")),
 			meta.WithEpochState(epochState{}),
@@ -299,9 +302,11 @@ func TestResyncMetabase(t *testing.T) {
 		WithWriteCache(true),
 		WithWriteCacheOptions(
 			writecache.WithPath(filepath.Join(p, "wc")),
-			writecache.WithMaxObjectSize(uint64(writeCacheThreshold)),
+			writecache.WithLogger(zaptest.NewLogger(t)),
 		),
 	)
+
+	require.NoError(t, sh.UpdateID())
 
 	// open Blobstor
 	require.NoError(t, sh.Open())
