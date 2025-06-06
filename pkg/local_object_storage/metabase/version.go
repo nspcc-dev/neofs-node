@@ -18,10 +18,44 @@ import (
 	"go.uber.org/zap"
 )
 
-// currentMetaVersion contains current metabase version.
+// currentMetaVersion contains current metabase version. It's incremented
+// each time we have some changes to perform in metabase on upgrade, usually
+// when there are some incompatibilities between old/new schemes of storing
+// things, but sometimes data needs to be corrected and it's also a valid
+// case for meta version update. Format changes and current scheme MUST be
+// documented in VERSION.md.
 const currentMetaVersion = 5
 
-var versionKey = []byte("version")
+var (
+	// migrateFrom stores migration callbacks for respective versions.
+	// They're executed sequentially as needed and each function is
+	// expected to upgrade exactly to the next version. If current version
+	// is 5 and some metabase is of version 3 it'd run 3->4 and 4->5
+	// migration functions. We don't always store all migration functions,
+	// once all networks are upgraded they're hardly useful, so we only
+	// need to maintain some "current" set of them, old ones need to be
+	// deleted eventually.
+	//
+	// Upgrades can take a lot of time and they're interrupting the
+	// service, so there are important things to consider wrt how these
+	// functions work. If some DB iterations and a lot of changes to
+	// specific key-value pairs are needed then the process should be
+	// performed in batches of ~1000 KV pairs and be interruptible by
+	// regular INT/TERM signals. There are already wrappers in code that
+	// do this and they shouldn't be removed even if current code is not
+	// using them. Special care should be taken for error handling. While
+	// it's very tempting to refuse updating a broken DB when we detect
+	// an inconsistency of some kind, for users this means a total SN DoS
+	// and it's hardly acceptable, so in general it's better to log and
+	// continue rather than return an error.
+	migrateFrom = map[uint64]func(*DB) error{
+		2: migrateFrom2Version,
+		3: migrateFrom3Version,
+		4: migrateFrom4Version,
+	}
+
+	versionKey = []byte("version")
+)
 
 // ErrOutdatedVersion is returned on initializing
 // an existing metabase that is not compatible with
@@ -85,12 +119,6 @@ func getVersion(tx *bbolt.Tx) (uint64, bool) {
 	}
 
 	return 0, false
-}
-
-var migrateFrom = map[uint64]func(*DB) error{
-	2: migrateFrom2Version,
-	3: migrateFrom3Version,
-	4: migrateFrom4Version,
 }
 
 func migrateFrom2Version(db *DB) error {
