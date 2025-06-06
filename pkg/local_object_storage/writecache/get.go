@@ -29,12 +29,12 @@ func (c *cache) Head(addr oid.Address) (*objectSDK.Object, error) {
 	if !c.objCounters.HasAddress(addr) {
 		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
-	obj, err := c.Get(addr)
+	obj, err := c.fsTree.Head(addr)
 	if err != nil {
-		return nil, err
+		return nil, logicerr.Wrap(apistatus.ObjectNotFound{})
 	}
 
-	return obj.CutPayload(), nil
+	return obj, nil
 }
 
 func (c *cache) GetBytes(addr oid.Address) ([]byte, error) {
