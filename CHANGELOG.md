@@ -4,6 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+- `Head` operation for FSTree (#3383)
 
 ### Fixed
 

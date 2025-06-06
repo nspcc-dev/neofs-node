@@ -437,7 +437,7 @@ func getRawObjectBytes(id oid.ID, p string) ([]byte, error) {
 
 // parseCombinedPrefix checks the given array for combined data prefix and
 // returns a subslice with OID and object length if so (nil and 0 otherwise).
-func parseCombinedPrefix(p [combinedDataOff]byte) ([]byte, uint32) {
+func parseCombinedPrefix(p []byte) ([]byte, uint32) {
 	if p[0] != combinedPrefix || p[1] != 0 { // Only version 0 is supported now.
 		return nil, 0
 	}
@@ -463,7 +463,7 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			}
 			return nil, err
 		}
-		thisOID, l := parseCombinedPrefix(comBuf)
+		thisOID, l := parseCombinedPrefix(comBuf[:])
 		if thisOID == nil {
 			if isCombined {
 				return nil, errors.New("malformed combined file")
@@ -498,6 +498,19 @@ func extractCombinedObject(id oid.ID, f *os.File) ([]byte, error) {
 			return nil, err
 		}
 	}
+}
+
+// readFullObject reads full data of object from the file and decompresses it if necessary.
+func (t *FSTree) readFullObject(f io.Reader, initial []byte, size int64) ([]byte, error) {
+	data := make([]byte, size)
+	copy(data, initial)
+	n, err := io.ReadFull(f, data[len(initial):])
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
+	data = data[:len(initial)+n]
+
+	return t.Decompress(data)
 }
 
 // GetRange implements common.Storage.
