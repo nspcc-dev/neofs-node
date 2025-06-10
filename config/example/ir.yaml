@@ -5,6 +5,8 @@ logger:
   encoding: console # Logger encoding: one of "console" (default) or "json"
   timestamp: false # turn on/off timestamps. By default, timestamps are disabled,
     # but if the parameter is not set, they will be enabled when you run with tty)
+  sampling: # sampling settings
+    enabled: true # on/off (default: off)
 
 wallet:
   path: /path/to/wallet.json                  # Path to NEP-6 NEO wallet file

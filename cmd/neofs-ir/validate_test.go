@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,7 +131,6 @@ morph:
 			require.NoError(t, err)
 
 			_, err = newConfig(configFilePath)
-			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckForUnknownFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -173,6 +171,9 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			Level:     "info",
 			Encoding:  "console",
 			Timestamp: false,
+			Sampling: config.Sampling{
+				Enabled: true,
+			},
 		},
 		Wallet: config.Wallet{
 			Path:     "/path/to/wallet.json",

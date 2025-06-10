@@ -1,7 +1,6 @@
 package writecache
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,14 +35,12 @@ func TestMigrateFromBolt(t *testing.T) {
 	t.Run("couldn't open database", func(t *testing.T) {
 		err := wc.migrate()
 		require.Error(t, err)
-		fmt.Println(err)
 	})
 
 	require.NoError(t, db.Close())
 	t.Run("no default bucket", func(t *testing.T) {
 		err := wc.migrate()
 		require.Error(t, err)
-		fmt.Println(err)
 	})
 
 	db, err = bbolt.Open(path, os.ModePerm, &bbolt.Options{

@@ -3,6 +3,8 @@ logger:
   encoding: json # logger encoding: one of "console" (default) or "json"
   timestamp: true # turn on/off timestamps (default: false, timestamps are disabled,
     # but if the parameter is not set, they will be enabled when you run with tty)
+  sampling: # sampling settings
+    enabled: true # on/off (default: off)
 
 pprof:
   enabled: true

@@ -923,7 +923,6 @@ func TestSearchObjects(t *testing.T, db DB, testSplitID bool) {
 		id := oidtest.ID()
 		ver := version.New(123, 456)
 		uid := uuid.UUID{143, 198, 73, 4, 7, 21, 74, 215, 163, 144, 59, 117, 62, 93, 110, 163}
-		fmt.Println(uid)
 		var splitID object.SplitID
 		splitID.SetUUID(uid)
 		const userAttr1, userAttrVal1 = "hello", "world"
