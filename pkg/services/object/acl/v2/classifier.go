@@ -8,7 +8,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 	"go.uber.org/zap"
 )
@@ -35,7 +34,7 @@ func (c senderClassifier) classify(
 	req MetaWithToken,
 	idCnr cid.ID,
 	cnr container.Container,
-	currentEpoch uint64) (res *classifyResult, err error) {
+) (res *classifyResult, err error) {
 	var ownerID *user.ID
 	var ownerKey []byte
 
@@ -83,7 +82,7 @@ func (c senderClassifier) classify(
 		}, nil
 	}
 
-	isContainerNode, err := c.isContainerKey(ownerKey, idCnr, cnr, currentEpoch)
+	isContainerNode, err := c.fsChain.InContainerInLastTwoEpochs(idCnr, ownerKey)
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
@@ -116,52 +115,6 @@ func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {
 	for i := range innerRingKeys {
 		if bytes.Equal(innerRingKeys[i], owner) {
 			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (c senderClassifier) isContainerKey(
-	owner []byte, idCnr cid.ID,
-	cnr container.Container,
-	currentEpoch uint64) (bool, error) {
-	nm, err := c.netmap.GetNetMapByEpoch(currentEpoch) // first check current netmap
-	if err != nil {
-		return false, err
-	}
-
-	in, err := lookupKeyInContainer(nm, owner, idCnr, cnr)
-	if err != nil || currentEpoch == 0 {
-		return false, err
-	} else if in {
-		return true, nil
-	}
-
-	// then check previous netmap, this can happen in-between epoch change
-	// when node migrates data from last epoch container
-	nm, err = c.netmap.GetNetMapByEpoch(currentEpoch - 1)
-	if err != nil {
-		return false, err
-	}
-
-	return lookupKeyInContainer(nm, owner, idCnr, cnr)
-}
-
-func lookupKeyInContainer(
-	nm *netmap.NetMap,
-	owner []byte, idCnr cid.ID,
-	cnr container.Container) (bool, error) {
-	cnrVectors, err := nm.ContainerNodes(cnr.PlacementPolicy(), idCnr)
-	if err != nil {
-		return false, err
-	}
-
-	for i := range cnrVectors {
-		for j := range cnrVectors[i] {
-			if bytes.Equal(cnrVectors[i][j].PublicKey(), owner) {
-				return true, nil
-			}
 		}
 	}
 

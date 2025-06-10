@@ -23,6 +23,7 @@ Changelog for NeoFS Node
 - Use local BoltDB fork with improved performance (#3372)
 - Cache only non-empty netmap (#3378)
 - Improved read performance for writecache-enabled configurations (#3380)
+- SN now uses cached container SN lists to detect in-container requests for access control (#3385)
 
 ### Removed
 - `blobstor` package (#3371)

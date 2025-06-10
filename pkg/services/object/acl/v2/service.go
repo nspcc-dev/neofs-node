@@ -35,6 +35,11 @@ type Option func(*cfg)
 // [Service] to work.
 type FSChain interface {
 	InvokeContainedScript(tx *transaction.Transaction, header *block.Header, _ *trigger.Type, _ *bool) (*result.Invoke, error)
+
+	// InContainerInLastTwoEpochs checks whether given public key belongs to any SN
+	// from the referenced container either in the current or the previous NeoFS
+	// epoch.
+	InContainerInLastTwoEpochs(_ cid.ID, pub []byte) (bool, error)
 }
 
 // Netmapper must provide network map information.
@@ -534,7 +539,7 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	}
 
 	// find request role and key
-	res, err := b.c.classify(req, idCnr, cnr, currentEpoch)
+	res, err := b.c.classify(req, idCnr, cnr)
 	if err != nil {
 		return info, err
 	}
