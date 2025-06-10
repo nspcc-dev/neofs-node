@@ -205,6 +205,7 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 		cnrPutEv:         make(chan *state.ContainedNotificationEvent),
 		epochEv:          make(chan *state.ContainedNotificationEvent),
 		blockHeadersBuff: make(chan *block.Header, blockBuffSize),
+		blockEventsBuff:  make(chan blockObjEvents, blockBuffSize),
 		ws:               ws,
 
 		// no-op, to be filled by test cases if needed
@@ -218,8 +219,12 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 
 	exitCh := make(chan struct{})
 
-	go m.flusher(ctx)
-	go m.blockHandler(ctx, m.blockHeadersBuff)
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go m.flusher(ctx, &wg)
+	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
+	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
 	go func() {
 		_ = m.listenNotifications(ctx)
 		exitCh <- struct{}{}

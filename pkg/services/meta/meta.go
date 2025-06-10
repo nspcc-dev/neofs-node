@@ -319,14 +319,21 @@ func (m *Meta) Run(ctx context.Context) error {
 		return fmt.Errorf("subscribe for meta notifications: %w", err)
 	}
 
-	go m.flusher(ctx)
-	go m.blockHandler(ctx, m.blockHeadersBuff)
-	go m.blockStorer(ctx, m.blockEventsBuff)
+	var wg sync.WaitGroup
+	wg.Add(3)
 
-	return m.listenNotifications(ctx)
+	go m.flusher(ctx, &wg)
+	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
+	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
+
+	err = m.listenNotifications(ctx)
+	wg.Wait()
+
+	return err
 }
 
-func (m *Meta) flusher(ctx context.Context) {
+func (m *Meta) flusher(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	const (
 		flushInterval = time.Second
 		collapseDepth = 10
