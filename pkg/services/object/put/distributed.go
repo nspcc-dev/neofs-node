@@ -46,6 +46,7 @@ type distributedTarget struct {
 
 	metaSvc             *meta.Meta
 	metaMtx             sync.RWMutex
+	metaSigner          neofscrypto.Signer
 	objSharedMeta       []byte
 	collectedSignatures [][]byte
 
@@ -246,7 +247,7 @@ func (t *distributedTarget) sendObject(node nodeDesc) error {
 			zap.String("node", network.StringifyGroup(node.info.AddressGroup())))
 
 		if node.local {
-			sig, err := t.localNodeSigner.Sign(t.objSharedMeta)
+			sig, err := t.metaSigner.Sign(t.objSharedMeta)
 			if err != nil {
 				return fmt.Errorf("failed to sign object metadata: %w", err)
 			}

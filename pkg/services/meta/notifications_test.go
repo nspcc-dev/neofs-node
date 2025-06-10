@@ -227,6 +227,7 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
 	go func() {
 		_ = m.listenNotifications(ctx)
+		wg.Wait()
 		exitCh <- struct{}{}
 	}()
 
