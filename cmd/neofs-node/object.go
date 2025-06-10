@@ -290,7 +290,7 @@ func initObjectService(c *cfg) {
 	const cachedFirstObjectsNumber = 1000
 	fsChain := newFSChainForObjects(cnrNodes, c.IsLocalKey, c.networkState, c.cnrSrc, &c.isMaintenance, c.cli)
 
-	aclSvc := v2.New(c.cli,
+	aclSvc := v2.New(fsChain,
 		v2.WithLogger(c.log),
 		v2.WithIRFetcher(newCachedIRFetcher(irFetcher)),
 		v2.WithNetmapper(netmapSourceWithNodes{
@@ -589,6 +589,20 @@ func newFSChainForObjects(cnrNodes *containerNodes, isLocalPubKey func([]byte) b
 		isMaintenance:  isMaintenance,
 		Client:         fsChainCli,
 	}
+}
+
+// InContainerInLastTwoEpochs checks whether given public key belongs to any SN
+// from the referenced container either in the current or the previous NeoFS
+// epoch.
+//
+// Implements [v2.FSChain] interface.
+func (x *fsChainForObjects) InContainerInLastTwoEpochs(cnr cid.ID, pub []byte) (bool, error) {
+	var inContainer bool
+	err := x.containerNodes.forEachContainerNodePublicKeyInLastTwoEpochs(cnr, func(nodePub []byte) bool {
+		inContainer = bytes.Equal(nodePub, pub)
+		return !inContainer
+	})
+	return inContainer, err
 }
 
 // ForEachContainerNodePublicKeyInLastTwoEpochs passes binary-encoded public key
