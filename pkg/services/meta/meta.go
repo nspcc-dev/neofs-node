@@ -126,7 +126,8 @@ type Meta struct {
 
 	notifier objectNotifier
 
-	blockBuff chan *block.Header
+	blockHeadersBuff chan *block.Header
+	blockEventsBuff  chan blockObjEvents
 
 	// runtime reload fields
 	cfgM      sync.RWMutex
@@ -240,19 +241,20 @@ func New(p Parameters) (*Meta, error) {
 	}
 
 	return &Meta{
-		l:         p.Logger,
-		rootPath:  p.RootPath,
-		netmapH:   p.NetmapHash,
-		cnrH:      p.ContainerHash,
-		net:       p.Network,
-		endpoints: p.NeoEnpoints,
-		timeout:   p.Timeout,
-		bCh:       make(chan *block.Header, notificationBuffSize),
-		cnrPutEv:  make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		epochEv:   make(chan *state.ContainedNotificationEvent, notificationBuffSize),
-		blockBuff: make(chan *block.Header, blockBuffSize),
-		storages:  storages,
-		notifier:  newNotifier(),
+		l:                p.Logger,
+		rootPath:         p.RootPath,
+		netmapH:          p.NetmapHash,
+		cnrH:             p.ContainerHash,
+		net:              p.Network,
+		endpoints:        p.NeoEnpoints,
+		timeout:          p.Timeout,
+		bCh:              make(chan *block.Header, notificationBuffSize),
+		cnrPutEv:         make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		epochEv:          make(chan *state.ContainedNotificationEvent, notificationBuffSize),
+		blockHeadersBuff: make(chan *block.Header, blockBuffSize),
+		blockEventsBuff:  make(chan blockObjEvents, blockBuffSize),
+		storages:         storages,
+		notifier:         newNotifier(),
 	}, nil
 }
 
@@ -317,13 +319,21 @@ func (m *Meta) Run(ctx context.Context) error {
 		return fmt.Errorf("subscribe for meta notifications: %w", err)
 	}
 
-	go m.flusher(ctx)
-	go m.blockFetcher(ctx, m.blockBuff)
+	var wg sync.WaitGroup
+	wg.Add(3)
 
-	return m.listenNotifications(ctx)
+	go m.flusher(ctx, &wg)
+	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
+	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
+
+	err = m.listenNotifications(ctx)
+	wg.Wait()
+
+	return err
 }
 
-func (m *Meta) flusher(ctx context.Context) {
+func (m *Meta) flusher(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	const (
 		flushInterval = time.Second
 		collapseDepth = 10

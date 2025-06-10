@@ -108,7 +108,7 @@ func (m *Meta) listenNotifications(ctx context.Context) error {
 				continue
 			}
 
-			m.blockBuff <- h
+			m.blockHeadersBuff <- h
 		case aer, ok := <-m.cnrPutEv:
 			if !ok {
 				err := m.reconnect(ctx)

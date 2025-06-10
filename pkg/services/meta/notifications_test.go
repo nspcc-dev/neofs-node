@@ -198,14 +198,15 @@ func (t *testWS) Close() {
 func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Meta, func(), chan struct{}) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &Meta{
-		l:           zaptest.NewLogger(t),
-		rootPath:    t.TempDir(),
-		magicNumber: 102938475,
-		bCh:         make(chan *block.Header),
-		cnrPutEv:    make(chan *state.ContainedNotificationEvent),
-		epochEv:     make(chan *state.ContainedNotificationEvent),
-		blockBuff:   make(chan *block.Header, blockBuffSize),
-		ws:          ws,
+		l:                zaptest.NewLogger(t),
+		rootPath:         t.TempDir(),
+		magicNumber:      102938475,
+		bCh:              make(chan *block.Header),
+		cnrPutEv:         make(chan *state.ContainedNotificationEvent),
+		epochEv:          make(chan *state.ContainedNotificationEvent),
+		blockHeadersBuff: make(chan *block.Header, blockBuffSize),
+		blockEventsBuff:  make(chan blockObjEvents, blockBuffSize),
+		ws:               ws,
 
 		// no-op, to be filled by test cases if needed
 		storages:  make(map[cid.ID]*containerStorage),
@@ -218,10 +219,15 @@ func createAndRunTestMeta(t *testing.T, ws wsClient, network NeoFSNetwork) (*Met
 
 	exitCh := make(chan struct{})
 
-	go m.flusher(ctx)
-	go m.blockFetcher(ctx, m.blockBuff)
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go m.flusher(ctx, &wg)
+	go m.blockHandler(ctx, m.blockHeadersBuff, &wg)
+	go m.blockStorer(ctx, m.blockEventsBuff, &wg)
 	go func() {
 		_ = m.listenNotifications(ctx)
+		wg.Wait()
 		exitCh <- struct{}{}
 	}()
 

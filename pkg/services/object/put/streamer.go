@@ -182,6 +182,7 @@ nextSet:
 	}
 
 	prm.localNodeSigner = (*neofsecdsa.Signer)(localNodeKey)
+	prm.localSignerRFC6979 = (*neofsecdsa.SignerRFC6979)(localNodeKey)
 
 	return nil
 }
@@ -246,6 +247,7 @@ func (p *Streamer) newCommonTarget(prm *PutInitPrm) internal.Target {
 		localNodeSigner:         prm.localNodeSigner,
 		cnrClient:               p.cfg.cnrClient,
 		metainfoConsistencyAttr: metaAttribute(prm.cnr),
+		metaSigner:              prm.localSignerRFC6979,
 	}
 }
 
