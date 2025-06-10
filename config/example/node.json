@@ -2,7 +2,10 @@
   "logger": {
     "level": "debug",
     "encoding": "json",
-    "timestamp": "true"
+    "timestamp": "true",
+    "sampling": {
+      "enabled": true
+    }
   },
   "pprof": {
     "enabled": true,

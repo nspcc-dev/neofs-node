@@ -359,7 +359,9 @@ func initCfg(appCfg *config.Config) *cfg {
 	logCfg := zap.NewProductionConfig()
 	logCfg.Level = c.internals.logLevel
 	logCfg.Encoding = c.appCfg.Logger.Encoding
-	logCfg.Sampling = nil
+	if !c.appCfg.Logger.Sampling.Enabled {
+		logCfg.Sampling = nil
+	}
 
 	if (term.IsTerminal(int(os.Stdout.Fd())) && !c.appCfg.IsSet("logger.timestamp")) || c.appCfg.Logger.Timestamp {
 		logCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
