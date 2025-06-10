@@ -173,6 +173,9 @@ func TestCheckForUnknownFieldsExample(t *testing.T) {
 			Level:     "info",
 			Encoding:  "console",
 			Timestamp: false,
+			Sampling: config.Sampling{
+				Enabled: true,
+			},
 		},
 		Wallet: config.Wallet{
 			Path:     "/path/to/wallet.json",

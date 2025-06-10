@@ -59,11 +59,17 @@ type Config struct {
 	isSet map[string]struct{}
 }
 
+// Sampling configures log sampling.
+type Sampling struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 // Logger configures logger settings.
 type Logger struct {
-	Level     string `mapstructure:"level"`
-	Encoding  string `mapstructure:"encoding"`
-	Timestamp bool   `mapstructure:"timestamp"`
+	Level     string   `mapstructure:"level"`
+	Encoding  string   `mapstructure:"encoding"`
+	Timestamp bool     `mapstructure:"timestamp"`
+	Sampling  Sampling `mapstructure:"sampling"`
 }
 
 // Wallet configures NEO wallet settings.
