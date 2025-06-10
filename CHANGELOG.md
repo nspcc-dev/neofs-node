@@ -24,6 +24,7 @@ Changelog for NeoFS Node
 - Cache only non-empty netmap (#3378)
 - Improved read performance for writecache-enabled configurations (#3380)
 - SN now uses cached container SN lists to detect in-container requests for access control (#3385)
+- Improved EACL processing performance by avoiding header requests in many cases (#3386)
 
 ### Removed
 - `blobstor` package (#3371)
