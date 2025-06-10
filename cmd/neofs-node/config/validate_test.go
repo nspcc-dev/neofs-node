@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -267,7 +266,6 @@ apiclient:
 			require.NoError(t, err)
 
 			_, err = New(WithConfigFile(configFilePath))
-			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckForUnknownFields() error = %v, wantErr %v", err, tt.wantErr)
 			}

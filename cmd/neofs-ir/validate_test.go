@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,7 +131,6 @@ morph:
 			require.NoError(t, err)
 
 			_, err = newConfig(configFilePath)
-			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckForUnknownFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
