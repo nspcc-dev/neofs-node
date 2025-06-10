@@ -507,12 +507,6 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 	nState.updateEpochDuration(eDuration)
 
 	ttl := c.appCfg.FSChain.CacheTTL
-	if ttl == 0 {
-		msPerBlock, err := cli.MsPerBlock()
-		fatalOnErr(err)
-		ttl = time.Duration(msPerBlock) * time.Millisecond
-		c.log.Debug("fschain.cache_ttl fetched from network", zap.Duration("value", ttl))
-	}
 
 	b.netMapSource = b.nCli
 	b.cnrSrc = cntClient.AsContainerSource(b.cCli)
