@@ -3,6 +3,7 @@ package meta
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc"
@@ -138,7 +139,8 @@ type blockObjEvents struct {
 	evs  []objEvent
 }
 
-func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents) {
+func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
@@ -162,7 +164,8 @@ func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents) {
 	}
 }
 
-func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header) {
+func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
