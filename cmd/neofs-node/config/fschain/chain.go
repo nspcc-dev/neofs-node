@@ -8,8 +8,7 @@ const (
 	// DialTimeoutDefault is the default dial timeout of FS chain client connection.
 	DialTimeoutDefault = time.Minute
 	// CacheTTLDefault is the default value for cached values TTL.
-	// It is 0, because actual default depends on block time.
-	CacheTTLDefault = time.Duration(0)
+	CacheTTLDefault = 15 * time.Second
 	// ReconnectionRetriesNumberDefault is the default value for reconnection retries.
 	ReconnectionRetriesNumberDefault = 5
 	// ReconnectionRetriesDelayDefault is the default delay b/w reconnections.
