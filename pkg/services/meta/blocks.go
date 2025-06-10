@@ -142,6 +142,10 @@ type blockObjEvents struct {
 func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
+		if len(buff) == blockBuffSize {
+			m.l.Warn("block notifications buffer has been completely filled")
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -167,6 +171,10 @@ func (m *Meta) blockStorer(ctx context.Context, buff <-chan blockObjEvents, wg *
 func (m *Meta) blockHandler(ctx context.Context, buff <-chan *block.Header, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
+		if len(buff) == blockBuffSize {
+			m.l.Warn("block header buffer has been completely filled")
+		}
+
 		select {
 		case <-ctx.Done():
 			return
