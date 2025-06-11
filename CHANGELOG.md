@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Node not trying to return to the map without restart once it's out for any reason (#3379)
 - Locked object could be deleted from write cache (#3381)
 - Update roles event has more parameters after Echidna hard fork (#3393)
+- Stagnation of invalid SN eACL cache when a change definitely happened on the FS chain (#3388)
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
