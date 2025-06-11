@@ -29,8 +29,9 @@ func ParseDesignate(e *state.ContainedNotificationEvent) (event.Event, error) {
 		return nil, fmt.Errorf("could not parse stack items from notify event: %w", err)
 	}
 
-	if len(params) != 2 {
-		return nil, event.WrongNumberOfParameters(2, len(params))
+	const expectedArgNumber = 4
+	if len(params) != expectedArgNumber {
+		return nil, event.WrongNumberOfParameters(expectedArgNumber, len(params))
 	}
 
 	bi, err := params[0].TryInteger()

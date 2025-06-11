@@ -20,7 +20,7 @@ func TestParseRoleUpdate(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("good", func(t *testing.T) {
-		args := []stackitem.Item{stackitem.Make(int(noderoles.NeoFSAlphabet)), stackitem.Make(123)}
+		args := []stackitem.Item{stackitem.Make(int(noderoles.NeoFSAlphabet)), stackitem.Make(123), stackitem.Make([]any{[]byte("old")}), stackitem.Make([]any{[]byte("new")})}
 		e, err := ParseDesignate(createNotifyEventFromItems(args))
 		require.NoError(t, err)
 		require.Equal(t, noderoles.NeoFSAlphabet, e.(Designate).Role)
