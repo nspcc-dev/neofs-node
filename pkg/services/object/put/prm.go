@@ -17,7 +17,7 @@ type PutInitPrm struct {
 
 	copiesNumber uint32
 
-	relay func(client.NodeInfo, client.MultiAddressClient) error
+	relay func(client.MultiAddressClient) error
 
 	containerNodes       ContainerNodes
 	localNodeInContainer bool
@@ -46,7 +46,7 @@ func (p *PutInitPrm) WithObject(v *object.Object) *PutInitPrm {
 	return p
 }
 
-func (p *PutInitPrm) WithRelay(f func(client.NodeInfo, client.MultiAddressClient) error) *PutInitPrm {
+func (p *PutInitPrm) WithRelay(f func(client.MultiAddressClient) error) *PutInitPrm {
 	if p != nil {
 		p.relay = f
 	}

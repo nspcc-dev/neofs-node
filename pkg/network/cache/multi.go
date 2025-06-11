@@ -75,10 +75,6 @@ func (x *multiClient) createForAddress(addr network.Address) (*client.Client, er
 		prmDial.SetStreamTimeout(x.opts.StreamTimeout)
 	}
 
-	if x.opts.ResponseCallback != nil {
-		prmInit.SetResponseInfoCallback(x.opts.ResponseCallback)
-	}
-
 	c, err := client.New(prmInit)
 	if err != nil {
 		return nil, fmt.Errorf("can't create SDK client: %w", err)

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
-	"github.com/nspcc-dev/neofs-sdk-go/client"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +24,6 @@ type (
 		DialTimeout      time.Duration
 		StreamTimeout    time.Duration
 		ReconnectTimeout time.Duration
-		ResponseCallback func(client.ResponseMetaInfo) error
 		Buffers          *sync.Pool
 		Logger           *zap.Logger
 	}
@@ -65,7 +63,6 @@ func (c *ClientCache) Get(info clientcore.NodeInfo) (clientcore.Client, error) {
 	}
 
 	newClientOpts := c.opts
-	newClientOpts.ResponseCallback = clientcore.AssertKeyResponseCallback(info.PublicKey())
 	cli := newMultiClient(netAddr, newClientOpts)
 
 	c.clients[cacheKey] = cli

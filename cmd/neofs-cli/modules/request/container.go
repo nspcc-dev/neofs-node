@@ -161,13 +161,7 @@ func createContainer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("transport failure: %w", err)
 	}
 
-	cmd.Println("Response received. Checking signatures...")
-
-	if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-		return fmt.Errorf("failed to verify response signatures: %w", err)
-	}
-
-	cmd.Println("Signatures are valid. Checking status...")
+	cmd.Println("Response received. Checking status...")
 
 	if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err != nil {
 		return fmt.Errorf("status failure: %w", err)
@@ -210,13 +204,7 @@ func createContainer(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("transport failure: %w", err)
 		}
 
-		cmd.Println("Response received. Checking signatures...")
-
-		if err := neofscrypto.VerifyResponseWithBuffer(resp, nil); err != nil {
-			return fmt.Errorf("failed to verify response signatures: %w", err)
-		}
-
-		cmd.Println("Signatures are valid. Checking status...")
+		cmd.Println("Response received. Checking status...")
 
 		if err := apistatus.ToError(resp.GetMetaHeader().GetStatus()); err == nil {
 			cmd.Println("Status OK. Operation succeeded.")
