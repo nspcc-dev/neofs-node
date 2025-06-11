@@ -11,6 +11,7 @@ Changelog for NeoFS Node
 - `owner mismatches signature` for stored objects (#3836)
 
 ### Changed
+- SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 
 ### Removed
 

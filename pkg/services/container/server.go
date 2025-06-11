@@ -376,17 +376,17 @@ func (s *Server) verifySessionTokenV2AgainstRequest(token sessionv2.Token, reqVe
 	return nil
 }
 
-func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err error) (*protocontainer.PutResponse, error) {
+func (s *Server) makePutResponse(body *protocontainer.PutResponse_Body, err error, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
 	resp := &protocontainer.PutResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *Server) makeFailedPutResponse(err error) (*protocontainer.PutResponse, error) {
-	return s.makePutResponse(nil, err)
+func (s *Server) makeFailedPutResponse(err error, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
+	return s.makePutResponse(nil, err, req)
 }
 
 const (
@@ -442,40 +442,40 @@ func verifyStoragePolicy(policy *protonetmap.PlacementPolicy) error {
 // to check request status in the response.
 func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*protocontainer.PutResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedPutResponse(err)
+		return s.makeFailedPutResponse(err, req)
 	}
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
 	if mSig == nil {
-		return s.makeFailedPutResponse(errors.New("missing container signature"))
+		return s.makeFailedPutResponse(errors.New("missing container signature"), req)
 	}
 	mCnr := reqBody.GetContainer()
 	if mCnr == nil {
-		return s.makeFailedPutResponse(errors.New("missing container"))
+		return s.makeFailedPutResponse(errors.New("missing container"), req)
 	}
 
 	if mCnr.PlacementPolicy == nil {
-		return s.makeFailedPutResponse(errors.New("missing storage policy"))
+		return s.makeFailedPutResponse(errors.New("missing storage policy"), req)
 	}
 	if err := verifyStoragePolicy(mCnr.PlacementPolicy); err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("invalid storage policy: %w", err))
+		return s.makeFailedPutResponse(fmt.Errorf("invalid storage policy: %w", err), req)
 	}
 
 	var cnr container.Container
 	if err := cnr.FromProtoMessage(mCnr); err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err))
+		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err), req)
 	}
 
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerPut, cid.ID{})
 	if err != nil {
-		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err))
+		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
 		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerPut, cid.ID{})
 		if err != nil {
-			return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err))
+			return s.makeFailedPutResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
 		if st != nil {
 			tokenBytes = b
@@ -487,20 +487,20 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 
 	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes)
 	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
-		return s.makeFailedPutResponse(err)
+		return s.makeFailedPutResponse(err, req)
 	}
 
 	respBody := &protocontainer.PutResponse_Body{
 		ContainerId: id.ProtoMessage(),
 	}
-	return s.makePutResponse(respBody, err)
+	return s.makePutResponse(respBody, err, req)
 }
 
-func (s *Server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, error) {
+func (s *Server) makeDeleteResponse(err error, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
 	resp := &protocontainer.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -508,33 +508,33 @@ func (s *Server) makeDeleteResponse(err error) (*protocontainer.DeleteResponse, 
 // further processing. If session token is attached, it's verified.
 func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) (*protocontainer.DeleteResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeDeleteResponse(err)
+		return s.makeDeleteResponse(err, req)
 	}
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
 	if mSig == nil {
-		return s.makeDeleteResponse(errors.New("missing ID signature"))
+		return s.makeDeleteResponse(errors.New("missing ID signature"), req)
 	}
 	mID := reqBody.GetContainerId()
 	if mID == nil {
-		return s.makeDeleteResponse(errors.New("missing ID"))
+		return s.makeDeleteResponse(errors.New("missing ID"), req)
 	}
 
 	var id cid.ID
 	if err := id.FromProtoMessage(mID); err != nil {
-		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err))
+		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err), req)
 	}
 
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerDelete, id)
 	if err != nil {
-		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err))
+		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
 		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerDelete, id)
 		if err != nil {
-			return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err))
+			return s.makeDeleteResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
 		if st != nil {
 			tokenBytes = b
@@ -546,89 +546,89 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 
 	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, tokenBytes)
 
-	return s.makeDeleteResponse(err)
+	return s.makeDeleteResponse(err, req)
 }
 
-func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status) (*protocontainer.GetResponse, error) {
+func (s *Server) makeGetResponse(body *protocontainer.GetResponse_Body, st *protostatus.Status, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
 	resp := &protocontainer.GetResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *Server) makeFailedGetResponse(err error) (*protocontainer.GetResponse, error) {
-	return s.makeGetResponse(nil, util.ToStatus(err))
+func (s *Server) makeFailedGetResponse(err error, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
+	return s.makeGetResponse(nil, util.ToStatus(err), req)
 }
 
 // Get requests container from the underlying [Contract] and returns it in the
 // response.
 func (s *Server) Get(_ context.Context, req *protocontainer.GetRequest) (*protocontainer.GetResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedGetResponse(err)
+		return s.makeFailedGetResponse(err, req)
 	}
 
 	mID := req.GetBody().GetContainerId()
 	if mID == nil {
-		return s.makeFailedGetResponse(errors.New("missing ID"))
+		return s.makeFailedGetResponse(errors.New("missing ID"), req)
 	}
 
 	var id cid.ID
 	if err := id.FromProtoMessage(mID); err != nil {
-		return s.makeFailedGetResponse(fmt.Errorf("invalid ID: %w", err))
+		return s.makeFailedGetResponse(fmt.Errorf("invalid ID: %w", err), req)
 	}
 
 	cnr, err := s.contract.Get(id)
 	if err != nil {
-		return s.makeFailedGetResponse(err)
+		return s.makeFailedGetResponse(err, req)
 	}
 
 	body := &protocontainer.GetResponse_Body{
 		Container: cnr.ProtoMessage(),
 	}
-	return s.makeGetResponse(body, nil)
+	return s.makeGetResponse(body, nil, req)
 }
 
-func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *protostatus.Status) (*protocontainer.ListResponse, error) {
+func (s *Server) makeListResponse(body *protocontainer.ListResponse_Body, st *protostatus.Status, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	resp := &protocontainer.ListResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *Server) makeFailedListResponse(err error) (*protocontainer.ListResponse, error) {
-	return s.makeListResponse(nil, util.ToStatus(err))
+func (s *Server) makeFailedListResponse(err error, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
+	return s.makeListResponse(nil, util.ToStatus(err), req)
 }
 
 // List lists user containers from the underlying [Contract] and returns their
 // IDs in the response.
 func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*protocontainer.ListResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedListResponse(err)
+		return s.makeFailedListResponse(err, req)
 	}
 
 	mID := req.GetBody().GetOwnerId()
 	if mID == nil {
-		return s.makeFailedListResponse(errors.New("missing user"))
+		return s.makeFailedListResponse(errors.New("missing user"), req)
 	}
 
 	var id user.ID
 	if len(mID.Value) != user.IDSize || !islices.AllZeros(mID.Value) {
 		if err := id.FromProtoMessage(mID); err != nil {
-			return s.makeFailedListResponse(fmt.Errorf("invalid user: %w", err))
+			return s.makeFailedListResponse(fmt.Errorf("invalid user: %w", err), req)
 		}
 	}
 
 	cs, err := s.contract.List(id)
 	if err != nil {
-		return s.makeFailedListResponse(err)
+		return s.makeFailedListResponse(err, req)
 	}
 
 	if len(cs) == 0 {
-		return s.makeListResponse(nil, util.StatusOK)
+		return s.makeListResponse(nil, util.StatusOK, req)
 	}
 
 	body := &protocontainer.ListResponse_Body{
@@ -637,14 +637,14 @@ func (s *Server) List(_ context.Context, req *protocontainer.ListRequest) (*prot
 	for i := range cs {
 		body.ContainerIds[i] = cs[i].ProtoMessage()
 	}
-	return s.makeListResponse(body, util.StatusOK)
+	return s.makeListResponse(body, util.StatusOK, req)
 }
 
-func (s *Server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLResponse, error) {
+func (s *Server) makeSetEACLResponse(err error, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	resp := &protocontainer.SetExtendedACLResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
@@ -652,38 +652,38 @@ func (s *Server) makeSetEACLResponse(err error) (*protocontainer.SetExtendedACLR
 // for further processing. If session token is attached, it's verified.
 func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExtendedACLRequest) (*protocontainer.SetExtendedACLResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeSetEACLResponse(err)
+		return s.makeSetEACLResponse(err, req)
 	}
 
 	reqBody := req.GetBody()
 	mSig := reqBody.GetSignature()
 	if mSig == nil {
-		return s.makeSetEACLResponse(errors.New("missing eACL signature"))
+		return s.makeSetEACLResponse(errors.New("missing eACL signature"), req)
 	}
 	mEACL := reqBody.GetEacl()
 	if mEACL == nil {
-		return s.makeSetEACLResponse(errors.New("missing eACL"))
+		return s.makeSetEACLResponse(errors.New("missing eACL"), req)
 	}
 
 	var eACL eacl.Table
 	if err := eACL.FromProtoMessage(mEACL); err != nil {
-		return s.makeSetEACLResponse(fmt.Errorf("invalid eACL: %w", err))
+		return s.makeSetEACLResponse(fmt.Errorf("invalid eACL: %w", err), req)
 	}
 
 	cnrID := eACL.GetCID()
 	if cnrID.IsZero() {
-		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"))
+		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
 	}
 
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(req.GetMetaHeader(), sessionv2.VerbContainerSetEACL, cnrID)
 	if err != nil {
-		return s.makeSetEACLResponse(fmt.Errorf("verify session token v2: %w", err))
+		return s.makeSetEACLResponse(fmt.Errorf("verify session token v2: %w", err), req)
 	}
 
 	if stV2 == nil {
 		st, b, err := s.getVerifiedSessionTokenFromMetaHeader(req.GetMetaHeader(), session.VerbContainerSetEACL, cnrID)
 		if err != nil {
-			return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err))
+			return s.makeSetEACLResponse(fmt.Errorf("verify session token: %w", err), req)
 		}
 		if st != nil {
 			tokenBytes = b
@@ -695,48 +695,48 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 
 	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes)
 
-	return s.makeSetEACLResponse(err)
+	return s.makeSetEACLResponse(err, req)
 }
 
-func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status) (*protocontainer.GetExtendedACLResponse, error) {
+func (s *Server) makeGetEACLResponse(body *protocontainer.GetExtendedACLResponse_Body, st *protostatus.Status, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	resp := &protocontainer.GetExtendedACLResponse{
 		Body:       body,
 		MetaHeader: s.makeResponseMetaHeader(st),
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *Server) makeFailedGetEACLResponse(err error) (*protocontainer.GetExtendedACLResponse, error) {
-	return s.makeGetEACLResponse(nil, util.ToStatus(err))
+func (s *Server) makeFailedGetEACLResponse(err error, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
+	return s.makeGetEACLResponse(nil, util.ToStatus(err), req)
 }
 
 // GetExtendedACL read eACL of the requested container from the underlying
 // [Contract] and returns the result in the response.
 func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtendedACLRequest) (*protocontainer.GetExtendedACLResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedGetEACLResponse(err)
+		return s.makeFailedGetEACLResponse(err, req)
 	}
 
 	mID := req.GetBody().GetContainerId()
 	if mID == nil {
-		return s.makeFailedGetEACLResponse(errors.New("missing ID"))
+		return s.makeFailedGetEACLResponse(errors.New("missing ID"), req)
 	}
 
 	var id cid.ID
 	if err := id.FromProtoMessage(mID); err != nil {
-		return s.makeFailedGetEACLResponse(fmt.Errorf("invalid ID: %w", err))
+		return s.makeFailedGetEACLResponse(fmt.Errorf("invalid ID: %w", err), req)
 	}
 
 	eACL, err := s.contract.GetEACL(id)
 	if err != nil {
-		return s.makeFailedGetEACLResponse(err)
+		return s.makeFailedGetEACLResponse(err, req)
 	}
 
 	body := &protocontainer.GetExtendedACLResponse_Body{
 		Eacl: eACL.ProtoMessage(),
 	}
-	return s.makeGetEACLResponse(body, util.StatusOK)
+	return s.makeGetEACLResponse(body, util.StatusOK, req)
 }
 
 func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttributeResponse, error) {
