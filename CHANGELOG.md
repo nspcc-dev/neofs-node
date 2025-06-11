@@ -18,6 +18,7 @@ Changelog for NeoFS Node
 - Node not trying to return to the map without restart once it's out for any reason (#3379)
 - Locked object could be deleted from write cache (#3381)
 - Update roles event has more parameters after Echidna hard fork (#3393)
+- Stagnation of invalid SN eACL cache when a change definitely happened on the FS chain (#3388)
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
@@ -27,6 +28,7 @@ Changelog for NeoFS Node
 - SN now uses cached container SN lists to detect in-container requests for access control (#3385)
 - Improved EACL processing performance by avoiding header requests in many cases (#3386)
 - SN `fschain.cache_ttl` config defaults to 15s now (#3390)
+- SN eACL cache is no longer invalidated by failed queries (#3388)
 
 ### Removed
 - `blobstor` package (#3371)

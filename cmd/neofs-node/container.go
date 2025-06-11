@@ -92,6 +92,15 @@ func initContainerService(c *cfg) {
 				zap.Stringer("id", id))
 		})
 	}
+	if c.eaclCache != nil {
+		subscribeToContainerEACLChange(c, func(cnr cid.ID) {
+			c.log.Info("caught container eACL change, updating cache...", zap.Stringer("id", cnr))
+
+			c.eaclCache.InvalidateEACL(cnr)
+
+			c.log.Info("successfully updated cache of the container eACL", zap.Stringer("id", cnr))
+		})
+	}
 
 	estimationsLogger := c.log.With(zap.String("component", "container_estimations"))
 
@@ -241,6 +250,16 @@ func subscribeToContainerRemoval(c *cfg, h func(id cid.ID, owner user.ID)) {
 	addContainerAsyncNotificationHandler(c, eventNameContainerRemovedV2, func(e event.Event) {
 		removed := e.(containerEvent.Removed)
 		h(removed.ID, removed.Owner)
+	})
+}
+
+// like subscribeToContainerCreation but for eACL setting.
+func subscribeToContainerEACLChange(c *cfg, h func(cnr cid.ID)) {
+	const eventNameEACLChanged = "EACLChanged"
+	registerEventParserOnceContainer(c, eventNameEACLChanged, containerEvent.RestoreEACLChanged)
+	addContainerAsyncNotificationHandler(c, eventNameEACLChanged, func(e event.Event) {
+		eACLChanged := e.(containerEvent.EACLChanged)
+		h(eACLChanged.Container)
 	})
 }
 
@@ -665,10 +684,6 @@ func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *sessio
 	}
 	if err := x.cCli.PutEACL(prm); err != nil {
 		return err
-	}
-
-	if x.eaclCache != nil {
-		x.eaclCache.InvalidateEACL(eACL.GetCID())
 	}
 
 	return nil

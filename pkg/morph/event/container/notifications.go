@@ -99,3 +99,30 @@ func RestoreRemoved(notifEvent *state.ContainedNotificationEvent) (event.Event, 
 
 	return res, nil
 }
+
+// EACLChanged is a container eACL change event thrown by Container contract.
+type EACLChanged struct {
+	event.Event
+	Container cid.ID
+}
+
+// RestoreEACLChanged restores [EACLChanged] event from the notification one.
+func RestoreEACLChanged(notifEvent *state.ContainedNotificationEvent) (event.Event, error) {
+	items, err := getItemsFromNotification(notifEvent, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := restoreItemValue(items, 0, "ID", stackitem.ByteArrayT, client.BytesFromStackItem)
+	if err != nil {
+		return nil, err
+	}
+
+	var res EACLChanged
+
+	if err = res.Container.Decode(id); err != nil {
+		return nil, fmt.Errorf("decode container ID item: %w", err)
+	}
+
+	return res, nil
+}
