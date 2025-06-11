@@ -46,7 +46,7 @@ func New(s *ecdsa.PrivateKey, net netmap.State, c BalanceContract) protoaccounti
 	}
 }
 
-func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body, st *protostatus.Status) (*protoaccounting.BalanceResponse, error) {
+func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body, st *protostatus.Status, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
 	resp := &protoaccounting.BalanceResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
@@ -55,41 +55,41 @@ func (s *server) makeBalanceResponse(body *protoaccounting.BalanceResponse_Body,
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponse(s.signer, resp)
+	resp.VerifyHeader = util.SignResponseIfNeeded(s.signer, resp, req)
 	return resp, nil
 }
 
-func (s *server) makeFailedBalanceResponse(err error) (*protoaccounting.BalanceResponse, error) {
-	return s.makeBalanceResponse(nil, util.ToStatus(err))
+func (s *server) makeFailedBalanceResponse(err error, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
+	return s.makeBalanceResponse(nil, util.ToStatus(err), req)
 }
 
 // Balance gets current balance of the requested user using underlying
 // [BalanceContract] and returns result in the response.
 func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest) (*protoaccounting.BalanceResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeFailedBalanceResponse(err)
+		return s.makeFailedBalanceResponse(err, nil)
 	}
 
 	mUsr := req.GetBody().GetOwnerId()
 	if mUsr == nil {
-		return s.makeFailedBalanceResponse(errors.New("missing account"))
+		return s.makeFailedBalanceResponse(errors.New("missing account"), req)
 	}
 	var id user.ID
 	if err := id.FromProtoMessage(mUsr); err != nil {
-		return s.makeFailedBalanceResponse(fmt.Errorf("invalid account: %w", err))
+		return s.makeFailedBalanceResponse(fmt.Errorf("invalid account: %w", err), req)
 	}
 
 	bal, err := s.contract.BalanceOf(id)
 	if err != nil {
-		return s.makeFailedBalanceResponse(err)
+		return s.makeFailedBalanceResponse(err, req)
 	}
 	ds, err := s.contract.Decimals()
 	if err != nil {
-		return s.makeFailedBalanceResponse(err)
+		return s.makeFailedBalanceResponse(err, req)
 	}
 
 	body := &protoaccounting.BalanceResponse_Body{
 		Balance: &protoaccounting.Decimal{Value: bal.Int64(), Precision: ds},
 	}
-	return s.makeBalanceResponse(body, util.StatusOK)
+	return s.makeBalanceResponse(body, util.StatusOK, req)
 }

@@ -15,6 +15,7 @@ Changelog for NeoFS Node
 ### Changed
 - SN retries notary requests if `insufficient amount of gas` error appears (#3739)
 - Speed up metabase resync by using batch operations (#3804)
+- SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 
 ### Removed
 
