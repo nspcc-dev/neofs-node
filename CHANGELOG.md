@@ -28,6 +28,7 @@ Changelog for NeoFS Node
 - SN now uses cached container SN lists to detect in-container requests for access control (#3385)
 - Improved EACL processing performance by avoiding header requests in many cases (#3386)
 - SN `fschain.cache_ttl` config defaults to 15s now (#3390)
+- SN eACL cache is no longer invalidated by failed queries (#3388)
 
 ### Removed
 - `blobstor` package (#3371)

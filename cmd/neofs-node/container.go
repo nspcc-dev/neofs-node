@@ -686,10 +686,6 @@ func (x *containersInChain) PutEACL(eACL eacl.Table, pub, sig []byte, st *sessio
 		return err
 	}
 
-	if x.eaclCache != nil {
-		x.eaclCache.InvalidateEACL(eACL.GetCID())
-	}
-
 	return nil
 }
 
