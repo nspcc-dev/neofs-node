@@ -23,7 +23,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
-	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
@@ -593,29 +592,9 @@ func (s *Server) GetExtendedACL(_ context.Context, req *protocontainer.GetExtend
 }
 
 func (s *Server) makeSetAttributeResponse(err error) (*protocontainer.SetAttributeResponse, error) {
-	resp := &protocontainer.SetAttributeResponse{
-		Body: &protocontainer.SetAttributeResponse_Body{
-			Status: apistatus.FromError(err),
-		},
-	}
-
-	b := make([]byte, resp.Body.MarshaledSize())
-	resp.Body.MarshalStable(b)
-
-	signer := (*neofsecdsa.Signer)(s.signer)
-
-	sig, err := signer.Sign(b)
-	if err != nil { // same as util.SignResponse
-		panic(err)
-	}
-
-	resp.BodySignature = &refs.Signature{
-		Key:    neofscrypto.PublicKeyBytes(signer.Public()),
-		Sign:   sig,
-		Scheme: refs.SignatureScheme_ECDSA_SHA512,
-	}
-
-	return resp, nil
+	return &protocontainer.SetAttributeResponse{
+		Status: apistatus.FromError(err),
+	}, nil
 }
 
 func verifySetAttributeRequestBody(body *protocontainer.SetAttributeRequest_Body) error {
@@ -689,27 +668,9 @@ func (s *Server) SetAttribute(ctx context.Context, req *protocontainer.SetAttrib
 }
 
 func (s *Server) makeRemoveAttributeResponse(err error) (*protocontainer.RemoveAttributeResponse, error) {
-	resp := &protocontainer.RemoveAttributeResponse{
-		Body: &protocontainer.RemoveAttributeResponse_Body{
-			Status: util.ToStatus(err),
-		},
-	}
-
-	b := make([]byte, resp.Body.MarshaledSize())
-	resp.Body.MarshalStable(b)
-
-	sig, err := (*neofsecdsa.Signer)(s.signer).Sign(b)
-	if err != nil { // same as util.SignResponse
-		panic(err)
-	}
-
-	resp.BodySignature = &refs.Signature{
-		Key:    neofscrypto.PublicKeyBytes((*neofsecdsa.Signer)(s.signer).Public()),
-		Sign:   sig,
-		Scheme: refs.SignatureScheme_ECDSA_SHA512,
-	}
-
-	return resp, nil
+	return &protocontainer.RemoveAttributeResponse{
+		Status: util.ToStatus(err),
+	}, nil
 }
 
 func verifyRemoveAttributeRequestBody(body *protocontainer.RemoveAttributeRequest_Body) error {
