@@ -4,6 +4,20 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
+
+### Fixed
+
+### Changed
+
+### Removed
+
+### Updated
+
+### Updating from v0.47.0
+
+## [0.47.0] - 2025-06-11 - Sinsudo
+
+### Added
 - Support for announced address specification in IR consensus P2P config (#3361)
 - IR node can verify SN with an external validator (#3356)
 - SN `logger.sampling.enabled` config option (#3384)
@@ -2491,7 +2505,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...master
+[0.47.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...v0.46.0
 [0.45.2]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.1...v0.45.2
