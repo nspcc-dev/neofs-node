@@ -3,15 +3,18 @@ package acl
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	ierrors "github.com/nspcc-dev/neofs-node/internal/errors"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
@@ -85,6 +88,13 @@ func (c *CheckerPrm) SetNetmapContract(nc NetmapContract) *CheckerPrm {
 	return c
 }
 
+type bearerTokenCheckResultKey struct {
+	tokenChecksum [sha256.Size]byte
+	// request properties for which bearer token validation is static
+	requestAuthor      user.ID
+	requestedContainer cid.ID
+}
+
 // Checker implements v2.ACLChecker interfaces and provides
 // ACL/eACL validation functionality.
 type Checker struct {
@@ -95,6 +105,8 @@ type Checker struct {
 	headerSource   eaclV2.HeaderSource
 	fsChain        FSChain
 	netmapContract NetmapContract
+
+	bearerTokenCheckCache *lru.Cache[bearerTokenCheckResultKey, error]
 }
 
 type historicN3ScriptRunner struct {
@@ -105,7 +117,6 @@ type historicN3ScriptRunner struct {
 // Various EACL check errors.
 var (
 	errEACLDeniedByRule         = errors.New("denied by rule")
-	errBearerExpired            = errors.New("bearer token has expired")
 	errBearerInvalidContainerID = errors.New("bearer token was created for another container")
 	errBearerNotSignedByOwner   = errors.New("bearer token is not signed by the container owner")
 	errBearerInvalidOwner       = errors.New("bearer token owner differs from the request sender")
@@ -126,14 +137,20 @@ func NewChecker(prm *CheckerPrm) *Checker {
 	panicOnNil("NetmapState", prm.state)
 	panicOnNil("HeaderSource", prm.headerSource)
 
+	bearerTokenCheckCache, err := lru.New[bearerTokenCheckResultKey, error](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
 	return &Checker{
-		eaclSrc:        prm.eaclSrc,
-		validator:      prm.validator,
-		localStorage:   prm.localStorage,
-		state:          prm.state,
-		headerSource:   prm.headerSource,
-		fsChain:        prm.fsChain,
-		netmapContract: prm.netmapContract,
+		eaclSrc:               prm.eaclSrc,
+		validator:             prm.validator,
+		localStorage:          prm.localStorage,
+		state:                 prm.state,
+		headerSource:          prm.headerSource,
+		fsChain:               prm.fsChain,
+		netmapContract:        prm.netmapContract,
+		bearerTokenCheckCache: bearerTokenCheckCache,
 	}
 }
 
@@ -266,9 +283,41 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 // entity. This method might be defined on whole ACL service because it will
 // require fetching current epoch to check lifetime.
 func (c *Checker) isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) error {
+	// TODO: Signed data is encoded for cache and signature check. Coding can be deduplicated.
+
+	// note that although container owner is involved to the check, it is omitted since containers are immutable
+	cacheKey := bearerTokenCheckResultKey{
+		tokenChecksum:      sha256.Sum256(token.Marshal()),
+		requestAuthor:      usrSender,
+		requestedContainer: reqCnr,
+	}
+	if err, ok := c.bearerTokenCheckCache.Get(cacheKey); ok {
+		return err
+	}
+
+	err := c.checkBearerToken(token, reqCnr, ownerCnr, usrSender)
+
+	var tmp ierrors.Temporary
+	if errors.As(err, &tmp) {
+		return tmp.Cause
+	}
+
+	c.bearerTokenCheckCache.Add(cacheKey, err)
+
+	return err
+}
+
+func (c *Checker) checkBearerToken(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) error {
 	// 1. First check token lifetime. Simplest verification.
-	if !token.ValidAt(c.state.CurrentEpoch()) {
-		return errBearerExpired
+	curEpoch := c.state.CurrentEpoch()
+	if token.Exp() < curEpoch {
+		return fmt.Errorf("bearer token has expired (epoch #%d now)", curEpoch)
+	}
+	if token.Nbf() > curEpoch {
+		return ierrors.Temporary{Cause: fmt.Errorf("bearer token is not valid yet (epoch #%d now)", curEpoch)}
+	}
+	if token.Iat() > curEpoch {
+		return ierrors.Temporary{Cause: fmt.Errorf("bearer token has not been issued at (epoch #%d now)", curEpoch)}
 	}
 
 	// 2. Then check if bearer token is signed correctly.

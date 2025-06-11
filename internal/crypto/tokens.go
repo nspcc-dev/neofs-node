@@ -15,6 +15,8 @@ import (
 //
 // If signature scheme is unsupported, [ErrUnsupportedScheme] returns. It also
 // returns when [neofscrypto.N3] scheme is used but fsChain is not provided.
+//
+// Returns [ierrors.Temporary] if fsChain is temporary inaccessible now.
 func AuthenticateToken[T interface {
 	SignedData() []byte
 	Signature() (neofscrypto.Signature, bool)
