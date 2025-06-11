@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - CLI `set-attribute` and `remove-attribute commands to `container` section (#3733, #3784)
 - Size-split object is now available even when LINK is unavailable in EC container (#3754)
 - `neofs-adm balance container-status` command (#3693)
+- SN returns unsigned responses to requests with API >= `v2.22` (#3785)
 
 ### Fixed
 - IR panics at graceful shutdown (#3706)
