@@ -21,7 +21,7 @@ func (exec *execCtx) processNode(info client.NodeInfo) bool {
 		return true
 	}
 
-	obj, err := remoteClient.getObject(exec, info)
+	obj, err := remoteClient.getObject(exec)
 
 	var errSplitInfo *objectSDK.SplitInfoError
 
