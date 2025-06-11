@@ -233,15 +233,15 @@ func (s *Server) makeResponseMetaHeader(st *protostatus.Status) *protosession.Re
 	}
 }
 
-func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendPutResponse(stream protoobject.ObjectService_PutServer, resp *protoobject.PutResponse, req *protoobject.PutRequest) error {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return stream.SendAndClose(resp)
 }
 
-func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServer, err error) error {
+func (s *Server) sendStatusPutResponse(stream protoobject.ObjectService_PutServer, err error, req *protoobject.PutRequest) error {
 	return s.sendPutResponse(stream, &protoobject.PutResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 type putStream struct {
@@ -418,7 +418,7 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		return err
 	}
 
-	var req *protoobject.PutRequest
+	var req, reqFirst *protoobject.PutRequest
 	var resp *protoobject.PutResponse
 
 	ps := newIntermediatePutStream(s.signer, stream, gStream.Context())
@@ -427,13 +427,17 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			if errors.Is(err, io.EOF) {
 				resp, err = ps.close()
 				if err != nil {
-					return s.sendStatusPutResponse(gStream, err)
+					return s.sendStatusPutResponse(gStream, err, reqFirst)
 				}
 
-				err = s.sendPutResponse(gStream, resp)
+				err = s.sendPutResponse(gStream, resp, reqFirst)
 				return err
 			}
 			return err
+		}
+
+		if reqFirst == nil {
+			reqFirst = req
 		}
 
 		if c := req.GetBody().GetChunk(); c != nil {
@@ -441,12 +445,12 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		}
 
 		if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-			err = s.sendStatusPutResponse(gStream, err) // assign for defer
+			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
 
 		if s.fsChain.LocalNodeUnderMaintenance() {
-			return s.sendStatusPutResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+			return s.sendStatusPutResponse(gStream, apistatus.ErrNodeUnderMaintenance, reqFirst)
 		}
 
 		if req.Body == nil {
@@ -455,36 +459,36 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 
 		if reqInfo, objOwner, err := s.reqInfoProc.PutRequestToInfo(req); err != nil {
 			if !errors.Is(err, aclsvc.ErrSkipRequest) {
-				return s.sendStatusPutResponse(gStream, err)
+				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
 		} else {
 			if !s.aclChecker.CheckBasicACL(reqInfo) || !s.aclChecker.StickyBitCheck(reqInfo, objOwner) {
 				err = basicACLErr(reqInfo) // needed for defer
-				return s.sendStatusPutResponse(gStream, err)
+				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
 			err = s.aclChecker.CheckEACL(req, reqInfo)
 			if err != nil {
 				err = eACLErr(reqInfo, err) // needed for defer
-				return s.sendStatusPutResponse(gStream, err)
+				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
 		}
 
 		if err = ps.forwardRequest(req); err != nil {
-			err = s.sendStatusPutResponse(gStream, err) // assign for defer
+			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
 	}
 }
 
-func (s *Server) signDeleteResponse(resp *protoobject.DeleteResponse) *protoobject.DeleteResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signDeleteResponse(resp *protoobject.DeleteResponse, req *protoobject.DeleteRequest) *protoobject.DeleteResponse {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return resp
 }
 
-func (s *Server) makeStatusDeleteResponse(err error) *protoobject.DeleteResponse {
+func (s *Server) makeStatusDeleteResponse(err error, req *protoobject.DeleteRequest) *protoobject.DeleteResponse {
 	return s.signDeleteResponse(&protoobject.DeleteResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 type deleteResponseBody protoobject.DeleteResponse_Body
@@ -501,40 +505,40 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	defer func() { s.pushOpExecResult(stat.MethodObjectDelete, err, t) }()
 
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusDeleteResponse(apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.DeleteRequestToInfo(req)
 	if err != nil {
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
 	ma := req.GetBody().GetAddress()
 	if ma == nil {
-		return s.makeStatusDeleteResponse(errors.New("missing object address")), nil
+		return s.makeStatusDeleteResponse(errors.New("missing object address"), req), nil
 	}
 	var addr oid.Address
 	err = addr.FromProtoMessage(ma)
 	if err != nil {
-		return s.makeStatusDeleteResponse(fmt.Errorf("invalid object address: %w", err)), nil
+		return s.makeStatusDeleteResponse(fmt.Errorf("invalid object address: %w", err), req), nil
 	}
 
 	cp, err := objutil.CommonPrmFromRequest(req)
 	if err != nil {
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
 	var rb protoobject.DeleteResponse_Body
@@ -545,18 +549,18 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 	p.WithTombstoneAddressTarget((*deleteResponseBody)(&rb))
 	err = s.handlers.Delete(ctx, p)
 	if err != nil {
-		return s.makeStatusDeleteResponse(err), nil
+		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}), nil
+	return s.signDeleteResponse(&protoobject.DeleteResponse{Body: &rb}, req), nil
 }
 
-func (s *Server) signHeadResponse(resp *protoobject.HeadResponse) *protoobject.HeadResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signHeadResponse(resp *protoobject.HeadResponse, req *protoobject.HeadRequest) *protoobject.HeadResponse {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return resp
 }
 
-func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
+func (s *Server) makeStatusHeadResponse(err error, req *protoobject.HeadRequest) *protoobject.HeadResponse {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.signHeadResponse(&protoobject.HeadResponse{
@@ -565,11 +569,11 @@ func (s *Server) makeStatusHeadResponse(err error) *protoobject.HeadResponse {
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, req)
 	}
 	return s.signHeadResponse(&protoobject.HeadResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*protoobject.HeadResponse, error) {
@@ -580,44 +584,44 @@ func (s *Server) Head(ctx context.Context, req *protoobject.HeadRequest) (*proto
 	defer func() { s.pushOpExecResult(stat.MethodObjectHead, err, t) }()
 
 	if err := icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusHeadResponse(apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.HeadRequestToInfo(req)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 
 	var resp protoobject.HeadResponse
 	p, err := convertHeadPrm(s.signer, req, &resp)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 	err = s.handlers.Head(ctx, p)
 	if err != nil {
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 
 	err = s.aclChecker.CheckEACL(&resp, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // defer
-		return s.makeStatusHeadResponse(err), nil
+		return s.makeStatusHeadResponse(err, req), nil
 	}
 
-	return s.signHeadResponse(&resp), nil
+	return s.signHeadResponse(&resp, req), nil
 }
 
 type headResponse struct {
@@ -798,15 +802,15 @@ func getHeaderFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 	return obj, nil
 }
 
-func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse) *protoobject.GetRangeHashResponse {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signHashResponse(resp *protoobject.GetRangeHashResponse, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return resp
 }
 
-func (s *Server) makeStatusHashResponse(err error) *protoobject.GetRangeHashResponse {
+func (s *Server) makeStatusHashResponse(err error, req *protoobject.GetRangeHashRequest) *protoobject.GetRangeHashResponse {
 	return s.signHashResponse(&protoobject.GetRangeHashResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 // GetRangeHash converts gRPC GetRangeHashRequest message and passes it to internal Object service.
@@ -817,41 +821,41 @@ func (s *Server) GetRangeHash(ctx context.Context, req *protoobject.GetRangeHash
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectHash, err, t) }()
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusHashResponse(apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.HashRequestToInfo(req)
 	if err != nil {
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 
 	p, err := convertHashPrm(s.signer, s.storage, req)
 	if err != nil {
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 	res, err := s.handlers.GetRangeHash(ctx, p)
 	if err != nil {
-		return s.makeStatusHashResponse(err), nil
+		return s.makeStatusHashResponse(err, req), nil
 	}
 
 	return s.signHashResponse(&protoobject.GetRangeHashResponse{
 		Body: &protoobject.GetRangeHashResponse_Body{
 			Type:     req.Body.Type,
 			HashList: res.Hashes(),
-		}}), nil
+		}}, req), nil
 }
 
 // converts original request into parameters accepted by the internal handler.
@@ -962,12 +966,12 @@ func getHashesFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodePub
 	return resp.GetBody().GetHashList(), nil
 }
 
-func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendGetResponse(stream protoobject.ObjectService_GetServer, resp *protoobject.GetResponse, req *protoobject.GetRequest) error {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return stream.Send(resp)
 }
 
-func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error) error {
+func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServer, err error, req *protoobject.GetRequest) error {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.sendGetResponse(stream, &protoobject.GetResponse{
@@ -976,17 +980,18 @@ func (s *Server) sendStatusGetResponse(stream protoobject.ObjectService_GetServe
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, req)
 	}
 	return s.sendGetResponse(stream, &protoobject.GetResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 type getStream struct {
 	base    protoobject.ObjectService_GetServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+	req     *protoobject.GetRequest
 }
 
 func (s *getStream) WriteHeader(hdr *object.Object) error {
@@ -1003,7 +1008,7 @@ func (s *getStream) WriteHeader(hdr *object.Object) error {
 	if err := s.srv.aclChecker.CheckEACL(resp, s.reqInfo); err != nil {
 		return eACLErr(s.reqInfo, err)
 	}
-	return s.srv.sendGetResponse(s.base, resp)
+	return s.srv.sendGetResponse(s.base, resp, s.req)
 }
 
 func (s *getStream) WriteChunk(chunk []byte) error {
@@ -1015,7 +1020,7 @@ func (s *getStream) WriteChunk(chunk []byte) error {
 				},
 			},
 		}
-		if err := s.srv.sendGetResponse(s.base, newResp); err != nil {
+		if err := s.srv.sendGetResponse(s.base, newResp, s.req); err != nil {
 			return err
 		}
 	}
@@ -1030,38 +1035,39 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectGet, err, t) }()
 	if err = icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		return s.sendStatusGetResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
 	reqInfo, err := s.reqInfoProc.GetRequestToInfo(req)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 
 	p, err := convertGetPrm(s.signer, req, &getStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
+		req:     req,
 	})
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 	err = s.handlers.Get(gStream.Context(), p)
 	if err != nil {
-		return s.sendStatusGetResponse(gStream, err)
+		return s.sendStatusGetResponse(gStream, err, req)
 	}
 	return nil
 }
@@ -1215,12 +1221,12 @@ func continueGetFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nodeP
 	}
 }
 
-func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendRangeResponse(stream protoobject.ObjectService_GetRangeServer, resp *protoobject.GetRangeResponse, req *protoobject.GetRangeRequest) error {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return stream.Send(resp)
 }
 
-func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRangeServer, err error) error {
+func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRangeServer, err error, req *protoobject.GetRangeRequest) error {
 	var splitErr *object.SplitInfoError
 	if errors.As(err, &splitErr) {
 		return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
@@ -1229,17 +1235,18 @@ func (s *Server) sendStatusRangeResponse(stream protoobject.ObjectService_GetRan
 					SplitInfo: splitErr.SplitInfo().ProtoMessage(),
 				},
 			},
-		})
+		}, req)
 	}
 	return s.sendRangeResponse(stream, &protoobject.GetRangeResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 type rangeStream struct {
 	base    protoobject.ObjectService_GetRangeServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+	req     *protoobject.GetRangeRequest
 }
 
 func (s *rangeStream) WriteChunk(chunk []byte) error {
@@ -1256,7 +1263,7 @@ func (s *rangeStream) WriteChunk(chunk []byte) error {
 		if err := s.srv.aclChecker.CheckEACL(newResp, s.reqInfo); err != nil {
 			return eACLErr(s.reqInfo, err)
 		}
-		if err := s.srv.sendRangeResponse(s.base, newResp); err != nil {
+		if err := s.srv.sendRangeResponse(s.base, newResp, s.req); err != nil {
 			return err
 		}
 	}
@@ -1270,38 +1277,39 @@ func (s *Server) GetRange(req *protoobject.GetRangeRequest, gStream protoobject.
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectRange, err, t) }()
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		return s.sendStatusRangeResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
 	reqInfo, err := s.reqInfoProc.RangeRequestToInfo(req)
 	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err) // needed for defer
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 
 	p, err := convertRangePrm(s.signer, req, &rangeStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
+		req:     req,
 	})
 	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 	err = s.handlers.GetRange(gStream.Context(), p)
 	if err != nil {
-		return s.sendStatusRangeResponse(gStream, err)
+		return s.sendStatusRangeResponse(gStream, err, req)
 	}
 	return nil
 }
@@ -1436,21 +1444,22 @@ func continueRangeFromRemoteNode(ctx context.Context, conn *grpc.ClientConn, nod
 	}
 }
 
-func (s *Server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse) error {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) sendSearchResponse(stream protoobject.ObjectService_SearchServer, resp *protoobject.SearchResponse, req *protoobject.SearchRequest) error {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return stream.Send(resp)
 }
 
-func (s *Server) sendStatusSearchResponse(stream protoobject.ObjectService_SearchServer, err error) error {
+func (s *Server) sendStatusSearchResponse(stream protoobject.ObjectService_SearchServer, err error, req *protoobject.SearchRequest) error {
 	return s.sendSearchResponse(stream, &protoobject.SearchResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
-	})
+	}, req)
 }
 
 type searchStream struct {
 	base    protoobject.ObjectService_SearchServer
 	srv     *Server
 	reqInfo aclsvc.RequestInfo
+	req     *protoobject.SearchRequest
 }
 
 func (s *searchStream) WriteIDs(ids []oid.ID) error {
@@ -1474,7 +1483,7 @@ func (s *searchStream) WriteIDs(ids []oid.ID) error {
 		if err := s.srv.aclChecker.CheckEACL(r, s.reqInfo); err != nil {
 			return eACLErr(s.reqInfo, err)
 		}
-		if err := s.srv.sendSearchResponse(s.base, r); err != nil {
+		if err := s.srv.sendSearchResponse(s.base, r, s.req); err != nil {
 			return err
 		}
 
@@ -1490,38 +1499,39 @@ func (s *Server) Search(req *protoobject.SearchRequest, gStream protoobject.Obje
 	)
 	defer func() { s.pushOpExecResult(stat.MethodObjectSearch, err, t) }()
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance)
+		return s.sendStatusSearchResponse(gStream, apistatus.ErrNodeUnderMaintenance, req)
 	}
 
 	reqInfo, err := s.reqInfoProc.SearchRequestToInfo(req)
 	if err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err)
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 
 	p, err := convertSearchPrm(gStream.Context(), s.signer, req, &searchStream{
 		base:    gStream,
 		srv:     s,
 		reqInfo: reqInfo,
+		req:     req,
 	})
 	if err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 	err = s.handlers.Search(gStream.Context(), p)
 	if err != nil {
-		return s.sendStatusSearchResponse(gStream, err)
+		return s.sendStatusSearchResponse(gStream, err, req)
 	}
 	return nil
 }
@@ -1799,15 +1809,15 @@ func (s *Server) Replicate(_ context.Context, req *protoobject.ReplicateRequest)
 	return resp, nil
 }
 
-func (s *Server) signSearchResponse(resp *protoobject.SearchV2Response) *protoobject.SearchV2Response {
-	resp.VerifyHeader = util.SignResponse(&s.signer, resp)
+func (s *Server) signSearchResponse(resp *protoobject.SearchV2Response, req *protoobject.SearchV2Request) *protoobject.SearchV2Response {
+	resp.VerifyHeader = util.SignResponse(&s.signer, resp, req)
 	return resp
 }
 
-func (s *Server) makeStatusSearchResponse(err error) *protoobject.SearchV2Response {
+func (s *Server) makeStatusSearchResponse(err error, req *protoobject.SearchV2Request) *protoobject.SearchV2Response {
 	return s.signSearchResponse(&protoobject.SearchV2Response{
 		MetaHeader: s.makeResponseMetaHeader(apistatus.FromError(err)),
-	})
+	}, req)
 }
 
 func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request) (*protoobject.SearchV2Response, error) {
@@ -1817,32 +1827,32 @@ func (s *Server) SearchV2(ctx context.Context, req *protoobject.SearchV2Request)
 	)
 	defer s.pushOpExecResult(stat.MethodObjectSearchV2, err, t)
 	if err = icrypto.VerifyRequestSignaturesN3(req, s.fsChain); err != nil {
-		return s.makeStatusSearchResponse(err), nil
+		return s.makeStatusSearchResponse(err, req), nil
 	}
 
 	if s.fsChain.LocalNodeUnderMaintenance() {
-		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance), nil
+		return s.makeStatusSearchResponse(apistatus.ErrNodeUnderMaintenance, req), nil
 	}
 
 	reqInfo, err := s.reqInfoProc.SearchV2RequestToInfo(req)
 	if err != nil {
-		return s.makeStatusSearchResponse(err), nil
+		return s.makeStatusSearchResponse(err, req), nil
 	}
 	if !s.aclChecker.CheckBasicACL(reqInfo) {
 		err = basicACLErr(reqInfo) // needed for defer
-		return s.makeStatusSearchResponse(err), nil
+		return s.makeStatusSearchResponse(err, req), nil
 	}
 	err = s.aclChecker.CheckEACL(req, reqInfo)
 	if err != nil {
 		err = eACLErr(reqInfo, err)
-		return s.makeStatusSearchResponse(err), nil
+		return s.makeStatusSearchResponse(err, req), nil
 	}
 
 	body, err := s.processSearchRequest(ctx, req)
 	if err != nil {
-		return s.makeStatusSearchResponse(err), nil
+		return s.makeStatusSearchResponse(err, req), nil
 	}
-	return s.signSearchResponse(&protoobject.SearchV2Response{Body: body}), nil
+	return s.signSearchResponse(&protoobject.SearchV2Response{Body: body}, req), nil
 }
 
 func verifySearchFilter(f *protoobject.SearchFilter) error {

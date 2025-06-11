@@ -263,17 +263,17 @@ func (s *reputationServer) makeResponseMetaHeader(st *protostatus.Status) *proto
 	}
 }
 
-func (s *reputationServer) makeLocalResponse(err error) (*protoreputation.AnnounceLocalTrustResponse, error) {
+func (s *reputationServer) makeLocalResponse(err error, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
 	resp := &protoreputation.AnnounceLocalTrustResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp)
+	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
 func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protoreputation.AnnounceLocalTrustRequest) (*protoreputation.AnnounceLocalTrustResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeLocalResponse(err)
+		return s.makeLocalResponse(err, req)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
@@ -288,30 +288,30 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 
 	w, err := s.localRouter.InitWriter(reputationrouter.NewRouteContext(eCtx, passedRoute))
 	if err != nil {
-		return s.makeLocalResponse(fmt.Errorf("could not initialize local trust writer: %w", err))
+		return s.makeLocalResponse(fmt.Errorf("could not initialize local trust writer: %w", err), req)
 	}
 
 	for _, trust := range body.GetTrusts() {
 		err = s.processLocalTrust(body.GetEpoch(), apiToLocalTrust(trust, passedRoute[0].PublicKey()), passedRoute, w)
 		if err != nil {
-			return s.makeLocalResponse(fmt.Errorf("could not write one of local trusts: %w", err))
+			return s.makeLocalResponse(fmt.Errorf("could not write one of local trusts: %w", err), req)
 		}
 	}
 
-	return s.makeLocalResponse(util.StatusOKErr)
+	return s.makeLocalResponse(util.StatusOKErr, req)
 }
 
-func (s *reputationServer) makeIntermediateResponse(err error) (*protoreputation.AnnounceIntermediateResultResponse, error) {
+func (s *reputationServer) makeIntermediateResponse(err error, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
 	resp := &protoreputation.AnnounceIntermediateResultResponse{
 		MetaHeader: s.makeResponseMetaHeader(util.ToStatus(err)),
 	}
-	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp)
+	resp.VerifyHeader = util.SignResponse(&s.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
 func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *protoreputation.AnnounceIntermediateResultRequest) (*protoreputation.AnnounceIntermediateResultResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return s.makeIntermediateResponse(err)
+		return s.makeIntermediateResponse(err, req)
 	}
 
 	passedRoute := reverseRoute(req.GetVerifyHeader())
@@ -323,7 +323,7 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	w, err := s.intermediateRouter.InitWriter(reputationrouter.NewRouteContext(eiCtx, passedRoute))
 	if err != nil {
-		return s.makeIntermediateResponse(fmt.Errorf("could not initialize trust writer: %w", err))
+		return s.makeIntermediateResponse(fmt.Errorf("could not initialize trust writer: %w", err), req)
 	}
 
 	v2Trust := body.GetTrust()
@@ -332,10 +332,10 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 
 	err = w.Write(trust)
 	if err != nil {
-		return s.makeIntermediateResponse(fmt.Errorf("could not write trust: %w", err))
+		return s.makeIntermediateResponse(fmt.Errorf("could not write trust: %w", err), req)
 	}
 
-	return s.makeIntermediateResponse(util.StatusOKErr)
+	return s.makeIntermediateResponse(util.StatusOKErr, req)
 }
 
 func (s *reputationServer) processLocalTrust(epoch uint64, t reputation.Trust,
