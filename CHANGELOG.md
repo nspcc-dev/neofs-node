@@ -21,7 +21,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Make `MaintenanceModeAllowed` network setting always allowed (#3360)
-- Use local BoltDB fork with improved performance (#3372)
+- Use local BoltDB fork with improved performance (#3372, #3387, #3389)
 - Cache only non-empty netmap (#3378)
 - Improved read performance for writecache-enabled configurations (#3380)
 - SN now uses cached container SN lists to detect in-container requests for access control (#3385)
