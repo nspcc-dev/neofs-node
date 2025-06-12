@@ -2,7 +2,7 @@ module github.com/nspcc-dev/neofs-node
 
 go 1.23
 
-replace go.etcd.io/bbolt v1.4.0 => github.com/nspcc-dev/bbolt v0.0.0-20250611091059-53975e370e68
+replace go.etcd.io/bbolt v1.4.0 => github.com/nspcc-dev/bbolt v0.0.0-20250612101626-5df2544a4a22
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1

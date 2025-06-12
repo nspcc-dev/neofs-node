@@ -13,7 +13,12 @@ Changelog for NeoFS Node
 
 ### Updated
 
-### Updating from v0.47.0
+### Updating from v0.47.1
+
+## [0.47.1] - 2025-06-12
+
+### Fixed
+- BoltDB panic (#3399)
 
 ## [0.47.0] - 2025-06-11 - Sinsudo
 
@@ -2505,7 +2510,8 @@ NeoFS-API v2.0 support and updated brand-new storage node application.
 
 First public review release.
 
-[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...master
+[Unreleased]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.1...master
+[0.47.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.47.0...v0.47.1
 [0.47.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/nspcc-dev/neofs-node/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/nspcc-dev/neofs-node/compare/v0.45.2...v0.46.0
