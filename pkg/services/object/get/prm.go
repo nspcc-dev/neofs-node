@@ -37,8 +37,8 @@ type RangeHashPrm struct {
 	forwardedRangeHashResponse [][]byte
 }
 
-type RequestForwarder func(context.Context, coreclient.NodeInfo, coreclient.MultiAddressClient) (*object.Object, error)
-type RangeRequestForwarder func(context.Context, coreclient.NodeInfo, coreclient.MultiAddressClient) ([][]byte, error)
+type RequestForwarder func(context.Context, coreclient.MultiAddressClient) (*object.Object, error)
+type RangeRequestForwarder func(context.Context, coreclient.MultiAddressClient) ([][]byte, error)
 
 // HeadPrm groups parameters of Head service call.
 type HeadPrm struct {

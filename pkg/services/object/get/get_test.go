@@ -113,7 +113,7 @@ func newTestClient() *testClient {
 	}
 }
 
-func (c *testClient) getObject(exec *execCtx, _ client.NodeInfo) (*objectSDK.Object, error) {
+func (c *testClient) getObject(exec *execCtx) (*objectSDK.Object, error) {
 	v, ok := c.results[exec.address().EncodeToString()]
 	if !ok {
 		var errNotFound apistatus.ObjectNotFound

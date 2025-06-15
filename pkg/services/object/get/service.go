@@ -41,7 +41,7 @@ type Service struct {
 type Option func(*cfg)
 
 type getClient interface {
-	getObject(*execCtx, client.NodeInfo) (*object.Object, error)
+	getObject(*execCtx) (*object.Object, error)
 }
 
 type cfg struct {
