@@ -301,6 +301,10 @@ func initObjectService(c *cfg) {
 		}),
 		v2.WithContainerSource(c.cnrSrc),
 	)
+	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
+		aclSvc.ResetSessionTokenCheckCache()
+	})
+
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
 		SetNetmapState(c.cfgNetmap.state).
 		SetEACLSource(c.eaclSrc).

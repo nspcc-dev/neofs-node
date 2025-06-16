@@ -1,9 +1,11 @@
 package v2
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
@@ -22,11 +24,18 @@ import (
 	"go.uber.org/zap"
 )
 
+type sessionTokenCommonCheckResult struct {
+	token sessionSDK.Object
+	err   error
+}
+
 // Service checks basic ACL rules.
 type Service struct {
 	*cfg
 
 	c senderClassifier
+
+	sessionTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, sessionTokenCommonCheckResult]
 }
 
 // Option represents Service constructor option.
@@ -89,6 +98,11 @@ func New(fsChain FSChain, opts ...Option) Service {
 	panicOnNil(cfg.containers, "container source")
 	panicOnNil(fsChain, "FS chain")
 
+	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
 	return Service{
 		cfg: cfg,
 		c: senderClassifier{
@@ -96,7 +110,13 @@ func New(fsChain FSChain, opts ...Option) Service {
 			innerRing: cfg.irFetcher,
 			fsChain:   fsChain,
 		},
+		sessionTokenCommonCheckCache: sessionTokenCheckCache,
 	}
+}
+
+// ResetSessionTokenCheckCache resets cache of session token check results.
+func (b Service) ResetSessionTokenCheckCache() {
+	b.sessionTokenCommonCheckCache.Purge()
 }
 
 func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
@@ -108,42 +128,64 @@ func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, req
 		return nil, nil
 	}
 
-	return b.decodeAndVerifySessionToken(m, reqVerb, reqCnr, reqObj)
-}
+	mb := make([]byte, m.MarshaledSize())
+	m.MarshalStable(mb)
 
-func (b Service) decodeAndVerifySessionToken(m *protosession.SessionToken, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
-	var token sessionSDK.Object
-	if err := token.FromProtoMessage(m); err != nil {
-		return nil, fmt.Errorf("invalid session token: %w", err)
+	cacheKey := sha256.Sum256(mb)
+	res, ok := b.sessionTokenCommonCheckCache.Get(cacheKey)
+	if !ok {
+		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
+		res.token, res.err = b.decodeAndVerifySessionTokenCommon(m)
+		b.sessionTokenCommonCheckCache.Add(cacheKey, res)
+	}
+	if res.err != nil {
+		return nil, res.err
 	}
 
-	if err := assertSessionRelation(token, reqCnr, reqObj); err != nil {
+	if err := b.verifySessionTokenAgainstRequest(res.token, reqVerb, reqCnr, reqObj); err != nil {
 		return nil, err
+	}
+
+	return &res.token, nil
+}
+
+func (b Service) decodeAndVerifySessionTokenCommon(m *protosession.SessionToken) (sessionSDK.Object, error) {
+	var token sessionSDK.Object
+	if err := token.FromProtoMessage(m); err != nil {
+		return token, fmt.Errorf("invalid session token: %w", err)
 	}
 
 	currentEpoch, err := b.nm.Epoch()
 	if err != nil {
-		return nil, errors.New("can't fetch current epoch")
+		return token, errors.New("can't fetch current epoch")
 	}
 	if token.ExpiredAt(currentEpoch) {
-		return nil, apistatus.ErrSessionTokenExpired
+		return token, apistatus.ErrSessionTokenExpired
 	}
 	if !token.ValidAt(currentEpoch) {
-		return nil, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
-	}
-
-	if !assertVerb(token, reqVerb) {
-		return nil, errInvalidVerb
+		return token, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
 	}
 
 	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
 		FSChain:   b.c.fsChain,
 		Netmapper: b.nm,
 	}); err != nil {
-		return nil, fmt.Errorf("authenticate session token: %w", err)
+		return token, fmt.Errorf("authenticate session token: %w", err)
 	}
 
-	return &token, nil
+	return token, nil
+}
+
+func (b Service) verifySessionTokenAgainstRequest(token sessionSDK.Object, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) error {
+	if err := assertSessionRelation(token, reqCnr, reqObj); err != nil {
+		return err
+	}
+
+	if !assertVerb(token, reqVerb) {
+		return errInvalidVerb
+	}
+
+	return nil
 }
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
