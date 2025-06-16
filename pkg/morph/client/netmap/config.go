@@ -57,7 +57,7 @@ func (c *Client) AuditFee() (uint64, error) {
 	return fee, nil
 }
 
-// EpochDuration returns number of FS chain blocks per one NeoFS epoch.
+// EpochDuration returns number of seconds per one NeoFS epoch.
 func (c *Client) EpochDuration() (uint64, error) {
 	epochDuration, err := c.readUInt64Config(EpochDurationConfig)
 	if err != nil {

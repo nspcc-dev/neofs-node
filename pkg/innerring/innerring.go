@@ -43,7 +43,6 @@ import (
 	nmClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/netmap"
 	repClient "github.com/nspcc-dev/neofs-node/pkg/morph/client/reputation"
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
-	"github.com/nspcc-dev/neofs-node/pkg/morph/timer"
 	"github.com/nspcc-dev/neofs-node/pkg/network/cache"
 	audittask "github.com/nspcc-dev/neofs-node/pkg/services/audit/taskmanager"
 	control "github.com/nspcc-dev/neofs-node/pkg/services/control/ir"
@@ -68,8 +67,7 @@ type (
 		// event producers
 		fsChainListener event.Listener
 		mainnetListener event.Listener
-		epochTimer      *timer.BlockTimer
-		initEpochTimer  atomic.Pointer[timer.BlockTimer]
+		epochTimer      *epochTimer
 
 		fsChainClient *client.Client
 		mainnetClient *client.Client
@@ -94,12 +92,11 @@ type (
 		mainNotaryConfig *notaryConfig
 
 		// internal variables
-		key                   *keys.PrivateKey
-		pubKey                []byte
-		contracts             *contracts
-		predefinedValidators  keys.PublicKeys
-		initialEpochTickDelta atomic.Uint32
-		withoutMainNet        bool
+		key                  *keys.PrivateKey
+		pubKey               []byte
+		contracts            *contracts
+		predefinedValidators keys.PublicKeys
+		withoutMainNet       bool
 
 		// runtime processors
 		netmapProcessor *netmap.Processor
@@ -193,16 +190,6 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			zap.Error(err))
 	}
 
-	// tick initial epoch
-	initialEpochTicker := timer.NewOneTickTimer(
-		func() (uint32, error) {
-			return s.initialEpochTickDelta.Load(), nil
-		},
-		func() {
-			s.netmapProcessor.HandleNewEpochTick(timerEvent.NewEpochTick{})
-		})
-	s.initEpochTimer.Store(initialEpochTicker)
-
 	fsChainErr := make(chan error)
 	mainnnetErr := make(chan error)
 
@@ -223,16 +210,13 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			zap.Uint32("index", b.Index),
 		)
 
+		s.epochTimer.updateTime(b.Timestamp)
+
 		err = s.persistate.SetUInt32(persistateFSChainLastBlockKey, b.Index)
 		if err != nil {
 			s.log.Warn("can't update persistent state",
 				zap.String("chain", "FS"),
 				zap.Uint32("block_index", b.Index))
-		}
-
-		s.epochTimer.Tick(b.Index)
-		if initEpochTimer := s.initEpochTimer.Load(); initEpochTimer != nil {
-			initEpochTimer.Tick(b.Index)
 		}
 	})
 
@@ -256,16 +240,44 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 	go s.fsChainListener.ListenWithError(ctx, fsChainErr)  // listen for neo:fs events
 	go s.mainnetListener.ListenWithError(ctx, mainnnetErr) // listen for neo:mainnet events
 
-	if err = s.epochTimer.Reset(); err != nil {
-		return fmt.Errorf("could not start new epoch block timer: %w", err)
-	}
-	if err = initialEpochTicker.Reset(); err != nil {
-		return fmt.Errorf("could not start initial new epoch block timer: %w", err)
-	}
-
 	s.startWorkers(ctx)
 
 	return nil
+}
+
+// must be called with a zero value if last tick block is unknown. Returns
+// next tick's timestamp accurate to milliseconds.
+func (s *Server) resetEpochTimer(lastTickHeight uint32) (uint64, error) {
+	epochDuration, err := s.netmapClient.EpochDuration()
+	if err != nil {
+		return 0, fmt.Errorf("can't read epoch duration: %w", err)
+	}
+
+	lastTick := lastTickHeight
+	if lastTick == 0 {
+		lastTick, err = s.netmapClient.LastEpochBlock()
+		if err != nil {
+			return 0, fmt.Errorf("can't read last epoch's block: %w", err)
+		}
+	}
+	lastTickH, err := s.fsChainClient.GetBlockHeader(lastTick)
+	if err != nil {
+		return 0, fmt.Errorf("can't read last tick's block header (#%d): %w", lastTick, err)
+	}
+
+	height, err := s.fsChainClient.GetBlockCount()
+	if err != nil {
+		return 0, fmt.Errorf("can't read current chain height: %w", err)
+	}
+	currH, err := s.fsChainClient.GetBlockHeader(height - 1)
+	if err != nil {
+		return 0, fmt.Errorf("can't read current block (#%d): %w", height-1, err)
+	}
+
+	const msInS = 1000
+	s.epochTimer.reset(lastTickH.Timestamp, currH.Timestamp, epochDuration*msInS)
+
+	return lastTickH.Timestamp + epochDuration*msInS, nil
 }
 
 func (s *Server) startWorkers(ctx context.Context) {
@@ -1081,12 +1093,13 @@ func (s *Server) initConfigFromBlockchain() error {
 		return fmt.Errorf("can't get FS chain height: %w", err)
 	}
 
-	// get next epoch delta tick
-	delta := nextEpochBlockDelta(uint32(epochDuration), blockHeight, lastTick)
+	nextTickAt, err := s.resetEpochTimer(0)
+	if err != nil {
+		return fmt.Errorf("could not reset epoch timer: %w", err)
+	}
 
 	s.epochCounter.Store(epoch)
 	s.epochDuration.Store(epochDuration)
-	s.initialEpochTickDelta.Store(delta)
 
 	s.log.Info("read config from blockchain",
 		zap.Bool("active", s.IsActive()),
@@ -1095,19 +1108,10 @@ func (s *Server) initConfigFromBlockchain() error {
 		zap.Uint32("precision", s.precision),
 		zap.Uint32("last epoch tick block", lastTick),
 		zap.Uint32("current chain height", blockHeight),
-		zap.Uint32("next epoch tick after (blocks)", delta),
+		zap.Uint64("next epoch tick at (timestamp, ms)", nextTickAt),
 	)
 
 	return nil
-}
-
-func nextEpochBlockDelta(duration, currentHeight, lastTick uint32) uint32 {
-	delta := duration + lastTick
-	if delta < currentHeight {
-		return 0
-	}
-
-	return delta - currentHeight
 }
 
 // onlyActiveEventHandler wrapper around event handler that executes it
@@ -1149,10 +1153,6 @@ func (s *Server) restartFSChain() error {
 	err := s.initConfigFromBlockchain()
 	if err != nil {
 		return fmt.Errorf("FS chain config reinitialization: %w", err)
-	}
-
-	if err = s.epochTimer.Reset(); err != nil {
-		return fmt.Errorf("could not reset new epoch block timer: %w", err)
 	}
 
 	s.log.Info("internal services have been restarted after RPC connection loss...")
