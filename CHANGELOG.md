@@ -7,11 +7,13 @@ Changelog for NeoFS Node
 
 ### Fixed
 - IR exponentially retries updating SN lists in the Container contract in error cases (#3344) 
+- Epoch stale after NEO RPC connection loss by IR (#3397)
 
 ### Changed
 - SN caches up to 1000 bearer token verification results until the next epoch (#3369)
 - SN caches up to 1000 session token verification results until the next epoch (#3369)
 - SN no longer wastes memory for logger in ACL and GET/HEAD/RANGE handlers (#3408, #3412)
+- Inner ring ticks epoch based on real time, not blocks count (#3402)
 
 ### Removed
 
