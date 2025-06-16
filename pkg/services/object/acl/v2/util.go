@@ -2,10 +2,8 @@ package v2
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/nspcc-dev/neofs-sdk-go/bearer"
-	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -71,27 +69,6 @@ func originalBearerToken(header *protosession.RequestMetaHeader) (*bearer.Token,
 	return &tok, tok.FromProtoMessage(mt)
 }
 
-// originalSessionToken goes down to original request meta header and fetches
-// session token from there.
-func originalSessionToken(header *protosession.RequestMetaHeader) (*sessionSDK.Object, error) {
-	for header.GetOrigin() != nil {
-		header = header.GetOrigin()
-	}
-
-	mt := header.GetSessionToken()
-	if mt == nil {
-		return nil, nil
-	}
-
-	var tok sessionSDK.Object
-	err := tok.FromProtoMessage(mt)
-	if err != nil {
-		return nil, fmt.Errorf("invalid session token: %w", err)
-	}
-
-	return &tok, nil
-}
-
 // getObjectIDFromRequestBody decodes oid.ID from the common interface of the
 // object reference's holders. Returns an error if object ID is missing in the request.
 func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*oid.ID, error) {
@@ -109,32 +86,23 @@ func getObjectIDFromRequestBody(body interface{ GetAddress() *refs.Address }) (*
 	return &id, nil
 }
 
-// assertVerb checks that token verb corresponds to op.
-func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
-	//nolint:exhaustive
-	switch op {
-	case acl.OpObjectPut:
-		return tok.AssertVerb(sessionSDK.VerbObjectPut)
-	case acl.OpObjectDelete:
-		return tok.AssertVerb(sessionSDK.VerbObjectDelete)
-	case acl.OpObjectGet:
-		return tok.AssertVerb(sessionSDK.VerbObjectGet)
-	case acl.OpObjectHead:
+// assertVerb checks that token is applicable to the particular request.
+func assertVerb(tok sessionSDK.Object, reqVerb sessionSDK.ObjectVerb) bool {
+	switch reqVerb {
+	default:
+		return tok.AssertVerb(reqVerb)
+	case sessionSDK.VerbObjectHead:
 		return tok.AssertVerb(
 			sessionSDK.VerbObjectHead,
 			sessionSDK.VerbObjectGet,
 			sessionSDK.VerbObjectDelete,
 			sessionSDK.VerbObjectRange,
 			sessionSDK.VerbObjectRangeHash)
-	case acl.OpObjectSearch:
+	case sessionSDK.VerbObjectSearch:
 		return tok.AssertVerb(sessionSDK.VerbObjectSearch, sessionSDK.VerbObjectDelete)
-	case acl.OpObjectRange:
+	case sessionSDK.VerbObjectRange:
 		return tok.AssertVerb(sessionSDK.VerbObjectRange, sessionSDK.VerbObjectRangeHash)
-	case acl.OpObjectHash:
-		return tok.AssertVerb(sessionSDK.VerbObjectRangeHash)
 	}
-
-	return false
 }
 
 // assertSessionRelation checks if given token describing the NeoFS session
@@ -146,12 +114,15 @@ func assertVerb(tok sessionSDK.Object, op acl.Op) bool {
 //	object is not specified or session is bound to this object
 //
 // Session MUST be bound to the particular container, otherwise behavior is undefined.
-func assertSessionRelation(tok sessionSDK.Object, cnr cid.ID, obj *oid.ID) error {
+func assertSessionRelation(tok sessionSDK.Object, cnr cid.ID, obj oid.ID) error {
 	if !tok.AssertContainer(cnr) {
 		return errors.New("requested container is not related to the session")
 	}
 
-	if obj != nil && !tok.AssertObject(*obj) {
+	// if session relates to object's removal, we don't check
+	// relation of the tombstone to the session here since user
+	// can't predict tomb's ID.
+	if !tok.AssertVerb(sessionSDK.VerbObjectDelete) && !obj.IsZero() && !tok.AssertObject(obj) {
 		return errors.New("requested object is not related to the session")
 	}
 

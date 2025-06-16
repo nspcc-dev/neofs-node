@@ -2,7 +2,6 @@ package v2
 
 import (
 	"bytes"
-	"fmt"
 
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
@@ -15,7 +14,6 @@ import (
 type senderClassifier struct {
 	log       *zap.Logger
 	innerRing InnerRingFetcher
-	netmap    Netmapper
 	fsChain   FSChain
 }
 
@@ -39,12 +37,6 @@ func (c senderClassifier) classify(
 	var ownerKey []byte
 
 	if req.token != nil {
-		if err := icrypto.AuthenticateToken(req.token, historicN3ScriptRunner{
-			FSChain:   c.fsChain,
-			Netmapper: c.netmap,
-		}); err != nil {
-			return nil, fmt.Errorf("authenticate session token: %w", err)
-		}
 		tokenIssuer := req.token.Issuer()
 		ownerID = &tokenIssuer
 		ownerKey = req.token.IssuerPublicKeyBytes()

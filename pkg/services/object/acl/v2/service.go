@@ -8,6 +8,7 @@ import (
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/neorpc/result"
 	"github.com/nspcc-dev/neo-go/pkg/smartcontract/trigger"
+	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
 	"github.com/nspcc-dev/neofs-node/pkg/core/container"
 	"github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -93,10 +94,56 @@ func New(fsChain FSChain, opts ...Option) Service {
 		c: senderClassifier{
 			log:       cfg.log,
 			innerRing: cfg.irFetcher,
-			netmap:    cfg.nm,
 			fsChain:   fsChain,
 		},
 	}
+}
+
+func (b Service) getVerifiedSessionToken(mh *protosession.RequestMetaHeader, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+	for omh := mh.GetOrigin(); omh != nil; omh = mh.GetOrigin() {
+		mh = omh
+	}
+	m := mh.GetSessionToken()
+	if m == nil {
+		return nil, nil
+	}
+
+	return b.decodeAndVerifySessionToken(m, reqVerb, reqCnr, reqObj)
+}
+
+func (b Service) decodeAndVerifySessionToken(m *protosession.SessionToken, reqVerb sessionSDK.ObjectVerb, reqCnr cid.ID, reqObj oid.ID) (*sessionSDK.Object, error) {
+	var token sessionSDK.Object
+	if err := token.FromProtoMessage(m); err != nil {
+		return nil, fmt.Errorf("invalid session token: %w", err)
+	}
+
+	if err := assertSessionRelation(token, reqCnr, reqObj); err != nil {
+		return nil, err
+	}
+
+	currentEpoch, err := b.nm.Epoch()
+	if err != nil {
+		return nil, errors.New("can't fetch current epoch")
+	}
+	if token.ExpiredAt(currentEpoch) {
+		return nil, apistatus.ErrSessionTokenExpired
+	}
+	if !token.ValidAt(currentEpoch) {
+		return nil, fmt.Errorf("%s: token is invalid at %d epoch)", invalidRequestMessage, currentEpoch)
+	}
+
+	if !assertVerb(token, reqVerb) {
+		return nil, errInvalidVerb
+	}
+
+	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
+		FSChain:   b.c.fsChain,
+		Netmapper: b.nm,
+	}); err != nil {
+		return nil, fmt.Errorf("authenticate session token: %w", err)
+	}
+
+	return &token, nil
 }
 
 // GetRequestToInfo resolves RequestInfo from the request to check it using
@@ -112,16 +159,9 @@ func (b Service) GetRequestToInfo(request *protoobject.GetRequest) (RequestInfo,
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectGet, cnr, *obj)
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -159,16 +199,9 @@ func (b Service) HeadRequestToInfo(request *protoobject.HeadRequest) (RequestInf
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectHead, cnr, *obj)
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -215,16 +248,9 @@ func (b Service) searchRequestToInfo(request interface {
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectSearch, id, oid.ID{})
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, id, nil)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -260,16 +286,9 @@ func (b Service) DeleteRequestToInfo(request *protoobject.DeleteRequest) (Reques
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectDelete, cnr, *obj)
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -307,16 +326,9 @@ func (b Service) RangeRequestToInfo(request *protoobject.GetRangeRequest) (Reque
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectRange, cnr, *obj)
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -354,16 +366,9 @@ func (b Service) HashRequestToInfo(request *protoobject.GetRangeHashRequest) (Re
 		return RequestInfo{}, err
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectRangeHash, cnr, *obj)
 	if err != nil {
 		return RequestInfo{}, err
-	}
-
-	if sTok != nil {
-		err = assertSessionRelation(*sTok, cnr, obj)
-		if err != nil {
-			return RequestInfo{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -445,33 +450,19 @@ func (b Service) PutRequestToInfo(request *protoobject.PutRequest) (RequestInfo,
 	}
 
 	var obj *oid.ID
-
+	var objV oid.ID
 	if part.Init.ObjectId != nil {
 		obj = new(oid.ID)
 		err = obj.FromProtoMessage(part.Init.ObjectId)
 		if err != nil {
 			return RequestInfo{}, user.ID{}, err
 		}
+		objV = *obj
 	}
 
-	sTok, err := originalSessionToken(request.GetMetaHeader())
+	sTok, err := b.getVerifiedSessionToken(request.GetMetaHeader(), sessionSDK.VerbObjectPut, cnr, objV)
 	if err != nil {
 		return RequestInfo{}, user.ID{}, err
-	}
-
-	if sTok != nil {
-		if sTok.AssertVerb(sessionSDK.VerbObjectDelete) {
-			// if session relates to object's removal, we don't check
-			// relation of the tombstone to the session here since user
-			// can't predict tomb's ID.
-			err = assertSessionRelation(*sTok, cnr, nil)
-		} else {
-			err = assertSessionRelation(*sTok, cnr, obj)
-		}
-
-		if err != nil {
-			return RequestInfo{}, user.ID{}, err
-		}
 	}
 
 	bTok, err := originalBearerToken(request.GetMetaHeader())
@@ -518,24 +509,6 @@ func (b Service) findRequestInfo(req MetaWithToken, idCnr cid.ID, op acl.Op) (in
 	cnr, err := b.containers.Get(idCnr) // fetch actual container
 	if err != nil {
 		return info, err
-	}
-
-	currentEpoch, err := b.nm.Epoch()
-	if err != nil {
-		return info, errors.New("can't fetch current epoch")
-	}
-	if req.token != nil {
-		if req.token.ExpiredAt(currentEpoch) {
-			return info, apistatus.SessionTokenExpired{}
-		}
-		if !req.token.ValidAt(currentEpoch) {
-			return info, fmt.Errorf("%s: token is invalid at %d epoch)",
-				invalidRequestMessage, currentEpoch)
-		}
-
-		if !assertVerb(*req.token, op) {
-			return info, errInvalidVerb
-		}
 	}
 
 	// find request role and key
