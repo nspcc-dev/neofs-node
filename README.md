@@ -10,6 +10,7 @@
 </p>
 
 ---
+[![codecov](https://codecov.io/gh/nspcc-dev/neofs-node/branch/master/graph/badge.svg)](https://codecov.io/gh/nspcc-dev/neofs-node)
 [![Report](https://goreportcard.com/badge/github.com/nspcc-dev/neofs-node)](https://goreportcard.com/report/github.com/nspcc-dev/neofs-node)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/nspcc-dev/neofs-node?sort=semver)
 ![License](https://img.shields.io/github/license/nspcc-dev/neofs-node.svg?style=popout)
