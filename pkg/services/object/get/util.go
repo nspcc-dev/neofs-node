@@ -82,9 +82,9 @@ func (c *clientCacheWrapper) get(info coreclient.NodeInfo) (getClient, error) {
 	}, nil
 }
 
-func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*object.Object, error) {
+func (c *clientWrapper) getObject(exec *execCtx) (*object.Object, error) {
 	if exec.isForwardingEnabled() {
-		return exec.prm.forwarder(exec.ctx, info, c.client)
+		return exec.prm.forwarder(exec.ctx, c.client)
 	}
 
 	key, err := exec.key()
@@ -117,7 +117,7 @@ func (c *clientWrapper) getObject(exec *execCtx, info coreclient.NodeInfo) (*obj
 	}
 
 	if rngH := exec.prmRangeHash; rngH != nil && exec.isRangeHashForwardingEnabled() {
-		exec.prmRangeHash.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, info, c.client)
+		exec.prmRangeHash.forwardedRangeHashResponse, err = exec.prm.rangeForwarder(exec.ctx, c.client)
 		return nil, err
 	}
 

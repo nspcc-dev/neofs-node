@@ -25,7 +25,7 @@ type Option func(*cfg)
 type searchClient interface {
 	// searchObjects searches objects on the specified node.
 	// MUST NOT modify execCtx as it can be accessed concurrently.
-	searchObjects(context.Context, *execCtx, client.NodeInfo) ([]oid.ID, error)
+	searchObjects(context.Context, *execCtx) ([]oid.ID, error)
 }
 
 // Containers provides information about NeoFS containers necessary for the

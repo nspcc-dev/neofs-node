@@ -511,7 +511,7 @@ func (c *usedSpaceService) NumberOfAddresses() int {
 	return c.cfg.addressNum()
 }
 
-func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status) (*protocontainer.AnnounceUsedSpaceResponse, error) {
+func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceResponse_Body, st *protostatus.Status, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
 	resp := &protocontainer.AnnounceUsedSpaceResponse{
 		Body: body,
 		MetaHeader: &protosession.ResponseMetaHeader{
@@ -520,17 +520,17 @@ func (c *usedSpaceService) makeResponse(body *protocontainer.AnnounceUsedSpaceRe
 			Status:  st,
 		},
 	}
-	resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp)
+	resp.VerifyHeader = util.SignResponse(&c.cfg.key.PrivateKey, resp, req)
 	return resp, nil
 }
 
-func (c *usedSpaceService) makeStatusResponse(err error) (*protocontainer.AnnounceUsedSpaceResponse, error) {
-	return c.makeResponse(nil, util.ToStatus(err))
+func (c *usedSpaceService) makeStatusResponse(err error, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
+	return c.makeResponse(nil, util.ToStatus(err), req)
 }
 
 func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocontainer.AnnounceUsedSpaceRequest) (*protocontainer.AnnounceUsedSpaceResponse, error) {
 	if err := icrypto.VerifyRequestSignatures(req); err != nil {
-		return c.makeStatusResponse(err)
+		return c.makeStatusResponse(err, req)
 	}
 
 	var passedRoute []loadroute.ServerInfo
@@ -549,7 +549,7 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocont
 
 	w, err := c.loadWriterProvider.InitWriter(loadroute.NewRouteContext(ctx, passedRoute))
 	if err != nil {
-		return c.makeStatusResponse(fmt.Errorf("could not initialize container's used space writer: %w", err))
+		return c.makeStatusResponse(fmt.Errorf("could not initialize container's used space writer: %w", err), req)
 	}
 
 	var est containerSDK.SizeEstimation
@@ -557,15 +557,15 @@ func (c *usedSpaceService) AnnounceUsedSpace(ctx context.Context, req *protocont
 	for _, a := range req.GetBody().GetAnnouncements() {
 		err = est.FromProtoMessage(a)
 		if err != nil {
-			return c.makeStatusResponse(fmt.Errorf("invalid size announcement: %w", err))
+			return c.makeStatusResponse(fmt.Errorf("invalid size announcement: %w", err), req)
 		}
 
 		if err := c.processLoadValue(ctx, est, passedRoute, w); err != nil {
-			return c.makeStatusResponse(err)
+			return c.makeStatusResponse(err, req)
 		}
 	}
 
-	return c.makeResponse(nil, util.StatusOK)
+	return c.makeResponse(nil, util.StatusOK, req)
 }
 
 var errNodeOutsideContainer = errors.New("node outside the container")
