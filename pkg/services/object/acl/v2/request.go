@@ -5,8 +5,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
-	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
 )
 
@@ -15,8 +13,7 @@ import (
 type RequestInfo struct {
 	basicACL    acl.Basic
 	requestRole acl.Role
-	operation   acl.Op  // put, get, head, etc.
-	cnrOwner    user.ID // container owner
+	operation   acl.Op // put, get, head, etc.
 
 	idCnr cid.ID
 
@@ -47,11 +44,6 @@ func (r *RequestInfo) SetSenderKey(senderKey []byte) {
 // Request returns raw API request.
 func (r RequestInfo) Request() any {
 	return r.srcRequest
-}
-
-// ContainerOwner returns owner if the container.
-func (r RequestInfo) ContainerOwner() user.ID {
-	return r.cnrOwner
 }
 
 // ObjectID return object ID.
@@ -97,13 +89,4 @@ func (r RequestInfo) Operation() acl.Op {
 // RequestRole returns request sender's role.
 func (r RequestInfo) RequestRole() acl.Role {
 	return r.requestRole
-}
-
-// MetaWithToken groups session and bearer tokens,
-// verification header and raw API request.
-type MetaWithToken struct {
-	vheader *protosession.RequestVerificationHeader
-	token   *sessionSDK.Object
-	bearer  *bearer.Token
-	src     any
 }

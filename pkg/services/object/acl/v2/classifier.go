@@ -3,8 +3,6 @@ package v2
 import (
 	"bytes"
 
-	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
-	"github.com/nspcc-dev/neofs-sdk-go/container"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
@@ -17,62 +15,29 @@ type senderClassifier struct {
 	fsChain   FSChain
 }
 
-type classifyResult struct {
-	role    acl.Role
-	key     []byte
-	account *user.ID
-}
-
 type historicN3ScriptRunner struct {
 	FSChain
 	Netmapper
 }
 
-func (c senderClassifier) classify(
-	req MetaWithToken,
-	idCnr cid.ID,
-	cnr container.Container,
-) (res *classifyResult, err error) {
-	var ownerID *user.ID
-	var ownerKey []byte
-
-	if req.token != nil {
-		tokenIssuer := req.token.Issuer()
-		ownerID = &tokenIssuer
-		ownerKey = req.token.IssuerPublicKeyBytes()
-	} else {
-		var idSender user.ID
-		if idSender, ownerKey, err = icrypto.GetRequestAuthor(req.vheader); err != nil {
-			return nil, err
-		}
-		ownerID = &idSender
-	}
-
-	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", ownerID))
+func (c senderClassifier) classify(idCnr cid.ID, cnrOwner, reqAuthor user.ID, reqAuthorPub []byte) (acl.Role, error) {
+	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", reqAuthor))
 
 	// if request owner is the same as container owner, return RoleUser
-	if *ownerID == cnr.Owner() {
-		return &classifyResult{
-			role:    acl.RoleOwner,
-			key:     ownerKey,
-			account: ownerID,
-		}, nil
+	if reqAuthor == cnrOwner {
+		return acl.RoleOwner, nil
 	}
 
-	isInnerRingNode, err := c.isInnerRingKey(ownerKey)
+	isInnerRingNode, err := c.isInnerRingKey(reqAuthorPub)
 	if err != nil {
 		// do not throw error, try best case matching
 		l.Debug("can't check if request from inner ring",
 			zap.Error(err))
 	} else if isInnerRingNode {
-		return &classifyResult{
-			role:    acl.RoleInnerRing,
-			key:     ownerKey,
-			account: ownerID,
-		}, nil
+		return acl.RoleInnerRing, nil
 	}
 
-	isContainerNode, err := c.fsChain.InContainerInLastTwoEpochs(idCnr, ownerKey)
+	isContainerNode, err := c.fsChain.InContainerInLastTwoEpochs(idCnr, reqAuthorPub)
 	if err != nil {
 		// error might happen if request has `RoleOther` key and placement
 		// is not possible for previous epoch, so
@@ -80,19 +45,11 @@ func (c senderClassifier) classify(
 		l.Debug("can't check if request from container node",
 			zap.Error(err))
 	} else if isContainerNode {
-		return &classifyResult{
-			role:    acl.RoleContainer,
-			key:     ownerKey,
-			account: ownerID,
-		}, nil
+		return acl.RoleContainer, nil
 	}
 
 	// if none of above, return RoleOthers
-	return &classifyResult{
-		role:    acl.RoleOthers,
-		key:     ownerKey,
-		account: ownerID,
-	}, nil
+	return acl.RoleOthers, nil
 }
 
 func (c senderClassifier) isInnerRingKey(owner []byte) (bool, error) {

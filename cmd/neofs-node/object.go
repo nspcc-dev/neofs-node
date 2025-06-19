@@ -302,21 +302,15 @@ func initObjectService(c *cfg) {
 		v2.WithContainerSource(c.cnrSrc),
 	)
 	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
-		aclSvc.ResetSessionTokenCheckCache()
+		aclSvc.ResetTokenCheckCache()
 	})
 
 	aclChecker := acl.NewChecker(new(acl.CheckerPrm).
-		SetNetmapState(c.cfgNetmap.state).
 		SetEACLSource(c.eaclSrc).
 		SetValidator(eaclSDK.NewValidator()).
 		SetLocalStorage(ls).
-		SetFSChain(c.cli).
-		SetNetmapContract(c.nCli).
 		SetHeaderSource(cachedHeaderSource(sGet, cachedFirstObjectsNumber, c.log)),
 	)
-	addNewEpochAsyncNotificationHandler(c, func(event.Event) {
-		aclChecker.ResetBearerTokenCheckCache()
-	})
 
 	storage := storageForObjectService{
 		local:   ls,

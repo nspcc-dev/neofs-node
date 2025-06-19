@@ -3,12 +3,10 @@ package v2
 import (
 	"errors"
 
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
-	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	sessionSDK "github.com/nspcc-dev/neofs-sdk-go/session"
 )
 
@@ -51,22 +49,6 @@ func getContainerIDFromRequest(req any) (cid.ID, error) {
 	}
 
 	return id, id.FromProtoMessage(mID)
-}
-
-// originalBearerToken goes down to original request meta header and fetches
-// bearer token from there.
-func originalBearerToken(header *protosession.RequestMetaHeader) (*bearer.Token, error) {
-	for header.GetOrigin() != nil {
-		header = header.GetOrigin()
-	}
-
-	mt := header.GetBearerToken()
-	if mt == nil {
-		return nil, nil
-	}
-
-	var tok bearer.Token
-	return &tok, tok.FromProtoMessage(mt)
 }
 
 // getObjectIDFromRequestBody decodes oid.ID from the common interface of the

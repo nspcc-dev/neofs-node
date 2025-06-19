@@ -5,11 +5,8 @@ import (
 
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	v2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
-	"github.com/nspcc-dev/neofs-sdk-go/bearer"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
-	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
-	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	eaclSDK "github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
@@ -24,26 +21,17 @@ func (e emptyEACLSource) GetEACL(_ cid.ID) (eaclSDK.Table, error) {
 	return eaclSDK.Table{}, nil
 }
 
-type emptyNetmapState struct{}
-
 type emptyHeaderSource struct{}
 
 func (e emptyHeaderSource) Head(address oid.Address) (*object.Object, error) {
 	return nil, nil
 }
 
-func (e emptyNetmapState) CurrentEpoch() uint64 {
-	return 0
-}
-
 func TestStickyCheck(t *testing.T) {
 	checker := NewChecker(new(CheckerPrm).
 		SetLocalStorage(&engine.StorageEngine{}).
 		SetValidator(eaclSDK.NewValidator()).
-		SetEACLSource(emptyEACLSource{}).
-		SetNetmapState(emptyNetmapState{}).
-		SetHeaderSource(emptyHeaderSource{}),
-	)
+		SetEACLSource(emptyEACLSource{}).SetHeaderSource(emptyHeaderSource{}))
 
 	t.Run("system role", func(t *testing.T) {
 		var info v2.RequestInfo
@@ -97,29 +85,5 @@ func TestStickyCheck(t *testing.T) {
 		assertFn(false, true, false, true)
 		assertFn(false, false, true, true)
 		assertFn(false, true, true, true)
-	})
-}
-
-func TestIsValidBearer(t *testing.T) {
-	t.Run("signed not by issuer", func(t *testing.T) {
-		const curEpoch = 100
-		brr := usertest.User()
-		cnrOwner := usertest.User()
-		var bt bearer.Token
-		bt.SetExp(curEpoch)
-		bt.SetIssuer(usertest.OtherID(cnrOwner.ID))
-
-		sig, err := cnrOwner.Sign(bt.SignedData())
-		require.NoError(t, err)
-		bt.AttachSignature(neofscrypto.NewSignatureFromRawKey(cnrOwner.Signer.Scheme(), cnrOwner.PublicKeyBytes, sig))
-
-		c := NewChecker(&CheckerPrm{
-			eaclSrc:      emptyEACLSource{},
-			state:        emptyNetmapState{},
-			headerSource: emptyHeaderSource{},
-		})
-
-		err = c.isValidBearer(bt, cidtest.ID(), cnrOwner.ID, brr.ID)
-		require.EqualError(t, err, "authenticate bearer token: issuer mismatches signature")
 	})
 }
