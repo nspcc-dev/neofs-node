@@ -58,8 +58,6 @@ func (c senderClassifier) classify(
 
 	l := c.log.With(zap.Stringer("cid", idCnr), zap.Stringer("requester", ownerID))
 
-	// TODO: #767 get owner from neofs.id if present
-
 	// if request owner is the same as container owner, return RoleUser
 	if *ownerID == cnr.Owner() {
 		return &classifyResult{

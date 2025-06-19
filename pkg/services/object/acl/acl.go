@@ -287,13 +287,11 @@ func (c *Checker) isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user
 
 	// 4. Then check if container owner signed this token.
 	if token.ResolveIssuer() != ownerCnr {
-		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerNotSignedByOwner
 	}
 
 	// 5. Then check if request sender has rights to use this token.
 	if !token.AssertUser(usrSender) {
-		// TODO: #767 in this case we can issue all owner keys from neofs.id and check once again
 		return errBearerInvalidOwner
 	}
 
