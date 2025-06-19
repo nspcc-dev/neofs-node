@@ -113,9 +113,11 @@ func TestIsValidBearer(t *testing.T) {
 		require.NoError(t, err)
 		bt.AttachSignature(neofscrypto.NewSignatureFromRawKey(cnrOwner.Signer.Scheme(), cnrOwner.PublicKeyBytes, sig))
 
-		c := &Checker{
-			state: emptyNetmapState{},
-		}
+		c := NewChecker(&CheckerPrm{
+			eaclSrc:      emptyEACLSource{},
+			state:        emptyNetmapState{},
+			headerSource: emptyHeaderSource{},
+		})
 
 		err = c.isValidBearer(bt, cidtest.ID(), cnrOwner.ID, brr.ID)
 		require.EqualError(t, err, "authenticate bearer token: issuer mismatches signature")

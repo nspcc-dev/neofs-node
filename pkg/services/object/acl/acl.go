@@ -3,9 +3,11 @@ package acl
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	"github.com/nspcc-dev/neo-go/pkg/crypto/keys"
@@ -95,6 +97,8 @@ type Checker struct {
 	headerSource   eaclV2.HeaderSource
 	fsChain        FSChain
 	netmapContract NetmapContract
+
+	bearerTokenCommonCheckCache *lru.Cache[[sha256.Size]byte, error]
 }
 
 type historicN3ScriptRunner struct {
@@ -126,14 +130,20 @@ func NewChecker(prm *CheckerPrm) *Checker {
 	panicOnNil("NetmapState", prm.state)
 	panicOnNil("HeaderSource", prm.headerSource)
 
+	bearerTokenCheckCache, err := lru.New[[sha256.Size]byte, error](1000)
+	if err != nil {
+		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
+	}
+
 	return &Checker{
-		eaclSrc:        prm.eaclSrc,
-		validator:      prm.validator,
-		localStorage:   prm.localStorage,
-		state:          prm.state,
-		headerSource:   prm.headerSource,
-		fsChain:        prm.fsChain,
-		netmapContract: prm.netmapContract,
+		eaclSrc:                     prm.eaclSrc,
+		validator:                   prm.validator,
+		localStorage:                prm.localStorage,
+		state:                       prm.state,
+		headerSource:                prm.headerSource,
+		fsChain:                     prm.fsChain,
+		netmapContract:              prm.netmapContract,
+		bearerTokenCommonCheckCache: bearerTokenCheckCache,
 	}
 }
 
@@ -262,16 +272,34 @@ func (c *Checker) CheckEACL(msg any, reqInfo v2.RequestInfo) error {
 	return nil
 }
 
+// ResetBearerTokenCheckCache resets cache of bearer token check results.
+func (c *Checker) ResetBearerTokenCheckCache() {
+	c.bearerTokenCommonCheckCache.Purge()
+}
+
 // isValidBearer checks whether bearer token was correctly signed by authorized
 // entity. This method might be defined on whole ACL service because it will
 // require fetching current epoch to check lifetime.
 func (c *Checker) isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user.ID, usrSender user.ID) error {
-	// 1. First check token lifetime. Simplest verification.
+	cacheKey := sha256.Sum256(token.Marshal())
+	err, ok := c.bearerTokenCommonCheckCache.Get(cacheKey)
+	if !ok {
+		// TODO: Signed data is used twice - for cache key and to check the signature. Coding can be deduplicated.
+		err = c.verifyBearerTokenCommon(token, ownerCnr)
+		c.bearerTokenCommonCheckCache.Add(cacheKey, err)
+	}
+	if err != nil {
+		return err
+	}
+
+	return c.verifyBearerTokenAgainstRequest(token, reqCnr, usrSender)
+}
+
+func (c *Checker) verifyBearerTokenCommon(token bearer.Token, ownerCnr user.ID) error {
 	if !token.ValidAt(c.state.CurrentEpoch()) {
 		return errBearerExpired
 	}
 
-	// 2. Then check if bearer token is signed correctly.
 	if err := icrypto.AuthenticateToken(&token, historicN3ScriptRunner{
 		FSChain:        c.fsChain,
 		NetmapContract: c.netmapContract,
@@ -279,19 +307,20 @@ func (c *Checker) isValidBearer(token bearer.Token, reqCnr cid.ID, ownerCnr user
 		return fmt.Errorf("authenticate bearer token: %w", err)
 	}
 
-	// 3. Then check if container is either empty or equal to the container in the request.
+	if token.ResolveIssuer() != ownerCnr {
+		return errBearerNotSignedByOwner
+	}
+
+	return nil
+}
+
+func (c *Checker) verifyBearerTokenAgainstRequest(token bearer.Token, reqCnr cid.ID, reqSender user.ID) error {
 	cnr := token.EACLTable().GetCID()
 	if !cnr.IsZero() && cnr != reqCnr {
 		return errBearerInvalidContainerID
 	}
 
-	// 4. Then check if container owner signed this token.
-	if token.ResolveIssuer() != ownerCnr {
-		return errBearerNotSignedByOwner
-	}
-
-	// 5. Then check if request sender has rights to use this token.
-	if !token.AssertUser(usrSender) {
+	if !token.AssertUser(reqSender) {
 		return errBearerInvalidOwner
 	}
 
